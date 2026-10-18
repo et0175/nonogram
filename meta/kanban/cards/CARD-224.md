@@ -604,3 +604,93 @@ also over-called this at first as two dangling names; the property test
 `PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent` **does** survive, as
 `test_PropertyTest_…`, so EC-022 keeps its control. Registry amendment owed at the merge, not
 now — removing the row while main still defines the class would make main the inconsistent one.
+
+### [Fix 2/3] F2-001 closed by arithmetic, and the fix refused the cheaper variant for a stated reason
+
+Commit `5fad602` — 5 files, +438/−70. The degraded branch now returns
+`max(band_bottom, Fraction(area_bottom + 1) - drawing_height), "footer"`.
+
+**The guarantee rests on `_puzzle_area_px`'s footer row — the row both consumers already use.**
+`qr_slot` refuses on `usable_bottom - drawing_bottom < _mm_to_px(INTERIOR_FOOTER_MM)` and
+`_draw_page_frame` on `content_bottom <= footer_rule.y`; both reduce to
+`drawing_bottom > area_bottom` against **the same row**. Since `_round_px` is monotone, a top
+edge at or below `area_bottom + 1 - drawing_height` gives `drawing_bottom >= area_bottom + 1`
+**by arithmetic, with no dependence on `band_mm`, `INTERIOR_HEADER_RULE_LIFT`, `thick_rule` or
+`GRID_SPARE_ABOVE`.** So the invariant that now always holds is the second half of the
+disjunction: **a refused page never has a footer group** — which is what this regime's prose has
+claimed since CARD-222 and could not previously support.
+
+**Verified by the orchestrator, independently of the agent's scripts:**
+
+- **My own defect case is fixed.** The `band_mm = 9.0`, 23×9-at-depth-5 case I reproduced now
+  gives `drawing_bottom = 1397` against a footer rule at 1396 with the **group omitted**, so
+  there is no drawn rule to cross.
+- **Zero defects across every band I swept** — 0.0, 2.0, 4.0, 6.0, 8.0, 8.5, 9.0, 9.5, 10.0 and
+  12.0 mm, 288 placements each. **Including the pre-existing class below ~8.13 mm, which this
+  fix also closed** — the agent's own table shows 32 defects at band 0 and 25 at band 2 before,
+  0 after.
+- **`book_pdf_generator.py` and `book_proof.py` are still AST-identical to `cc4430b` modulo
+  docstrings** (my own AST comparison, as every cycle). Five commits in, the five-regression
+  `_draw_solved_slot` trap has never been touched.
+- **No fixture is in the commit**, so neither baseline was re-recorded for the third cycle
+  running.
+
+**The fix refused the cheaper variant, and the reason is the sharpest piece of self-consistency
+on this card.** It first built the minimal form — keep the band's foot while the clearance fits,
+clamp otherwise — and measured it: it works and clamps slightly fewer pages (83 vs 88 at a 4 mm
+band, identical elsewhere). It dropped it anyway, because that form's "keep the footer group"
+branch is **provably unreachable above a 5.6 mm band** (degraded needs
+`spare < 2.381·clearance`, a drawn footer needs `spare >= lift + clearance`, compatible only
+while `lift < 1.381·clearance`). **That is exactly the unreachable-defensive-disjunct shape
+cycle 2 had just flagged as F2-006** — so buying 5 pages would have meant minting the very
+defect class the same cycle was closing. It also declined to touch the renderer's condition,
+which would have broken AST-identity and put a second notion of "clear" in the renderer.
+
+**The honest cost, stated rather than smoothed:** the clamp is all-or-nothing, so at a 4 mm band
+88 of 5,913 degraded placements lose a footer group whose hairline their ink would in fact have
+cleared. Bounded by arithmetic at `band_mm < 10.354 mm`, and **0 stored pages move** — measured
+0 of 6,244 degraded placements at band 12.0, and 0 at 10.0 and deeper.
+
+**The flip point does not move again.** The condition is untouched, so the ratio/footer threshold
+is unchanged and the verdict distribution is byte-for-byte identical before and after at every
+band measured. Only the degraded *row* moves, and only inside the window the band's lift no
+longer covers.
+
+**It also corrected cycle 2 on why M5 was unpinnable**, and the correction matters for method:
+`gap_above == clearance` needs `spare == 50 × clearance / 21` of a pixel **exactly**, which is
+not reachable by walking a trim height at all — so the review's own suggested remedy (a finer
+step resolution) **would not have isolated it**. It was pinned on `_placed_drawing_top` directly
+instead. A suggested fix that cannot reach the case it targets is the third such on this board
+this wave.
+
+**F2-002..F2-008 all closed**, including the three-way-wrong case count (now **1,210**, stated
+once, with the guard derived as `==` rather than `>=`), `_clears`'s blind spot declared and both
+contradicting sentences struck, and the retired fixed-top-edge rationale retargeted in production
+prose. The "126 pairs" figure is now named in the tree as **three irreconcilable counts
+(4 / 8 / 126)** with only the direction quoted and a reproducible scan stated — which the agent
+ran: 2,898 ratio placements at `cell_cap = 18.0`, **0** header-ink violations, worst margin 3 px.
+
+### ⚑ A wider, older class found and deliberately not fixed — filed to the backlog
+
+The same band's-foot fallback also fails against the **header** rule, and unlike the footer rule
+**there is no omission branch to fall back on**. Measured: a degraded drawing's ink touches the
+header rule at a **3.0 mm** band and clears at 3.4 mm, with **379 of 379** degraded placements
+affected across 2.0–3.0 mm. **Pre-existing since CARD-222's frame** — a property of holding
+anything at the band's foot, not of this card's threshold — and invisible because the AC-3
+sweep's unconditional `ink_top > area_top` is green only on sheets with a 9–12 mm band.
+
+Not fixed here, and that is the right call: closing it means moving the drawing *down* off the
+band's foot with nothing to omit, which is a design decision rather than a bug fix. **The
+asymmetry is what a future card has to decide** — the footer rule degrades safely because
+`qr_slot` can refuse; the header rule has no safe degenerate case. Filed `@tech-debt` and
+recorded in `_placed_drawing_top`'s docstring so it cannot be silently inherited.
+
+### No cycle-3 review — the reasoning, not an assumption
+
+Cycle 2 already scored **8.5 PASS (+1.0)**. This cycle's production change is **one executable
+line**, and I verified its effect myself across the whole band range rather than taking the
+sweep on report. Four new mutants die including "drop the clamp", AST-identity is intact, and no
+fixture moved. Against that, a third review would spend the **last** of three cycles on one
+arithmetic expression whose consequence I have already measured — and the pattern on this card
+has been that each review's *suggested remedy* carried a flaw the next pass found, twice. The
+merge gate closes it. **Cycles used: 2 of 3.**
