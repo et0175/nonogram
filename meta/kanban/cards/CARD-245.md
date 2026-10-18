@@ -607,3 +607,247 @@ came from a surviving mutant.** That is the strongest evidence yet for keeping
 legacy arm now real, AC-6 gained an arm the card never asked for). G-2..G-6 genuinely covered.
 **G-1 is covered-with-a-gap** — no longer covered-in-name-only, which was the right verdict in
 cycle 1 and is not the right one now. **Nothing is covered-in-name-only after this cycle.**
+
+### Implementation notes (worktree, 2026-10-18)
+
+- **Two-phase save: the recommendation was taken, but moved.** "Solve once, stage the
+  result" is what shipped — with the staging *inside the one gate* rather than beside it.
+  `_refuse_unless_uniquely_solvable` now remembers the `SolveResult` it produced, keyed by a
+  SHA-256 fingerprint of the grid's extent and cells; `verify_replacement_grid` additionally
+  records which puzzle that grid's grade was *shown for*. The save calls the same gate (memo
+  hit, no second solve) and then refuses unless this grid is one that was shown for this
+  puzzle. Staging it *outside* the gate was tried on paper first and rejected: a save that
+  wrote on the strength of a staged hash match would not call the refusal at all, which is
+  precisely what G-1 forbids, and the G-1 test would then have had to be weakened to
+  accommodate the design. Keeping the memo inside the gate means the write path reaches the
+  one refusal **statically** (the guard walks `self.…` calls) and the flow still costs one
+  solve.
+- **Where staged state lives / what expiry does.** On the `PuzzleReviewService` instance, in
+  this process, bounded at `MAX_REMEMBERED_VERIFICATIONS = 16` (LRU). Same place and same
+  lifetime as the legacy mode's `self.puzzles`, and the panel runs one gunicorn worker
+  (`start.sh`, CARD-086 G-4). **There is deliberately no clock.** A proof is a pure function
+  of the grid and cannot go stale; the staleness that matters — the row being put in a book
+  between verify and approve — is re-checked against the row at save time. So a verification
+  is forgotten when 16 newer grids have been proved, or when the process restarts, and the
+  save then refuses with `EditNotVerified` ("verify it again"), which costs one solve and
+  cannot store anything ungraded. A verification is not consumed by a save, so a retried save
+  of the same grid does not buy a second solve.
+- **AC-2's zero-solution arm is unreachable from a grid payload, and the card does not say so.**
+  The clue set is re-derived *from the grid* (`_why_this_is_not_a_puzzle` refuses to trust a
+  caller's clues), and a grid always satisfies its own clues — the store's own comment records
+  the measurement (120 derived clue sets: 97 unique, 23 ambiguous, 0 unsolvable). The test
+  reaches it the only way it can, with the solver replaced, and pins the message; the 2-or-more
+  arm is driven by a real ambiguous grid.
+- **Deliberately out of scope**: the "hand-edited" *filter* (noted, not built, as the card
+  asks), the editor UI (CARD-246), and MIN_SIZE/MAX_SIZE on a write — the store has never
+  enforced the supported range on `add_puzzle` either, and this card does not change that.
+
+### Review cycle 1 fixes (worktree, 2026-10-18)
+
+Score 7/10 against a threshold of 8, build gate green, no critical findings.
+Everything below is evidence rather than behaviour except where marked.
+
+- **F-001 — the fingerprint's extent now has a round-trip test.**
+  `TestPuzzleEdit_AProofDoesNotCrossGridExtents` verifies a unique 1x4
+  (`[[T,F,F,T]]`) and then *saves* the 2x2 diagonal — the same four bits
+  `1001` in another extent, and a grid with two solutions. The save must raise
+  `NotUniquelySolvable` (not `EditNotVerified`: the gate must be what catches
+  it), the stored row must be unchanged, the stamp must stay null, and the
+  solver entry count must *rise*, because a memo hit is exactly how the
+  corrupt write happens. Mutant M2 (`text = bits`) now fails 7 tests.
+- **F-002 — G-1 is inverted to default-deny.** The write predicate was an
+  allow-list of four *grid-write* shapes, so an unrecognised shape was
+  classified "not a write". It is now a catalogue of *writes*: any store into
+  something that is not a freshly built local, any `setattr`/`del`, any `**`
+  splat, any mutating method call, a `{"grid": …}` payload handed to a call.
+  Anything it names is a **candidate grid writer** that must reach the gate or
+  sit on `WRITES_NO_GRID` (10 entries, each with its reason), and an entry
+  there is machine-checked for not naming a grid and not writing an unreadable
+  payload — so `save_edited_grid`, whose legacy branch is
+  `puzzle.update(derived)`, *cannot* be excused. The parse is the **module**,
+  not the one `ClassDef`, so a module-level writer is seen. All nine shapes
+  cycle 1 probed are caught and are parametrised controls.
+- **F-003 — `== ["016"]` dropped.** The test is renamed
+  `test_the_head_is_the_highest_numbered_migration_on_disk`, because the old
+  name made the claim the assertion must not make. `test_016_revises_015`
+  remains as this card's legitimate named link.
+- **F-004 — strict stamp movement on a frozen clock.** `frozen_clock` holds
+  `puzzle_review.datetime.now`, two fixed instants are stored and pinned by
+  prefix, and the assertion is `second > first`. Mutant M7 now fails.
+- **F-005 — the legacy `in_book` arm no longer skips itself.**
+  `Harness.set_the_legacy_in_book_status` writes the status directly (ORM in DB
+  mode, dict in memory), the premise is asserted (`status == "in_book"` with a
+  null `book_id`, so it really is the legacy arm), and both the save and the
+  verify are asserted refused unconditionally.
+- **F-007 — the coupling is stated at the knob.** A paragraph directly above
+  `--workers` in `start.sh` names the two-phase flow and says what raising it
+  would need; the default is unchanged and
+  `tests/test_admin_serving.py::test_one_worker_unless_this_was_revisited`
+  still owns that. Pinned by
+  `TestPuzzleEdit_TheWorkerCountIsCoupledToTheTwoPhaseFlow`.
+- **F-011 — one accessor.** `_remembered_proof` becomes
+  `_remembered_verification`, returns the `_Verification`, and is the only way
+  the memo is read outside its own methods. Pinned structurally and
+  deliberately so: behaviour cannot tell the two versions apart today, which
+  is precisely the trap.
+- **F-012 (production) — the marker has its own class.** It wore
+  `badge rec`, which is the *recognisability* chip's class keyed by
+  `data-level`, so it rendered as a second identical grey chip beside the real
+  one. It is now `badge edited` with its own `.badge.edited` rule in
+  `admin.css` (warning tint, tokens only). Two assertions, because either half
+  alone is vacuous: the template asks for the class, the stylesheet answers.
+- **Not in this cycle, by the dispatcher's instruction**: F-006 (gate before
+  the verification check — fails closed, recorded as residue), F-008
+  (`MIN_SIZE`/`MAX_SIZE` and `MAX_CONTENT_LENGTH` — routed to the owner as a
+  decision), F-009/F-010/F-013 (nits, routed).
+
+### Review cycle 2 fixes (worktree, 2026-10-18)
+
+Score 8.5/10 against a threshold of 8 — PASS, +1.5 over cycle 1. One more
+cycle was run for F-101 alone, because it was a live hole in G-1 whose
+failure scenario was CARD-246 doing something natural. Everything below is
+test evidence except F-103, which is a sentence in production.
+
+- **F-101 — a fresh container is now graded by what it holds.** The alias
+  pass asserted that "a slot of a fresh container is still not durable
+  state", which is false for a container of *references*: three ungated grid
+  writes inserted into `PuzzleReviewService` left the whole G-1 class green.
+  `_fresh_locals` now returns a `_Freshness` that grades *expressions*, not
+  names: `_DEEP` (the container and everything in it was built in this body),
+  `_SHALLOW` (new container, foreign contents) or nothing. Both grades still
+  excuse a write into the container's own slot; only `_DEEP` excuses a write
+  *through an element*. Three rules carry it — a name is graded by the
+  weakest of **all** its bindings, a container built here is deep only while
+  everything in it is, and a container expression that *receives* something
+  not deeply fresh is capped at shallow from then on. The last rule is keyed
+  by the container's own source text, so a reference planted two levels into
+  a hand-built structure is caught against *that* level; the fix the review
+  suggested (drop the name) would have missed that fourth shape and would
+  have made `batch_summaries`' own `summary["names"].append(...)` a grid
+  write. All four shapes are parametrised controls, and three *readers* —
+  `get_puzzles`, `batch_summaries` and `filter_puzzles`' own shapes — are
+  controls on the other side, because over-tightening a default-deny guard is
+  how it gets switched off. The real module's verdicts are unchanged by the
+  fix: the same 33 derived read-only, the same 20 candidates, none ungated.
+- **F-102 — the static half no longer claims ordering.** `_reaches` is
+  reachability and says so, and the class docstring now says which half
+  proves what: the static half puts the gate on the call graph, and
+  `TestPuzzleEdit_RefusesZeroAndMultipleSolutions`,
+  `TestPuzzleEdit_ARefusedEditLeavesNoStamp` and
+  `TestPuzzleEdit_AProofDoesNotCrossGridExtents` are where the gate being in
+  *front* of the write is pinned behaviourally. No static ordering analysis
+  was attempted.
+- **F-103 (production) — the sentence, not the code.** `_remember_proof`'s
+  direct read of `self._verifications` is fine, but the reason given for it
+  was wrong: it does its own unconditional `move_to_end`, so going through
+  the accessor would be behaviour-identical. The real reason — it is one of
+  the memo's own three methods, which is what
+  `test_nothing_outside_the_memos_own_methods_touches_it` pins — is now in
+  its docstring, and the false claim is named as false.
+- **F-104 — `Class.method` keys cannot collapse.** A second definition of a
+  name in one class gets a `#2` key instead of overwriting the first, so a
+  getter/setter pair keeps both bodies; the suffixed key resolves from no
+  call site, so a writer landing there is reported rather than lost.
+  `_redefined_members` is asserted empty for the real module, so the suffix
+  is a backstop. The control writes the pair in the order that *would* hide
+  the writer.
+- **`Touches` is behind the commits.** Neither copy of this card lists
+  `src/nonogram/admin/static/admin.css` or `start.sh`, which review cycle 1
+  touched; the worktree copy is also behind main's 24bebf4 amendment. Left
+  for the dispatcher to amend in main — not edited here.
+- **Not in this cycle, by the dispatcher's instruction**: F-105 (legacy mode
+  stores the caller's grid by reference — unreachable from the routes and
+  identical to `add_puzzle`), F-006, F-008, F-009, F-010, F-013.
+
+### [Fix 2/3] F-101 closed — and the fix cycle refused the suggested fix, with the demonstration
+
+Commits `b97ea6c` and `39fb5b2` (the second a separate commit rather than a bare `--amend`).
+
+**Verified by the orchestrator: cycle 2's entire production change is ONE DOCSTRING.**
+`git diff 7958832 HEAD -- src/` is 12 insertions / 1 deletion in `puzzle_review.py`, and the
+diff is `_remember_proof`'s docstring replaced with a longer one. **No executable line moved.**
+Every logic change is in the test file. That is what a cycle fixing a *guard* should look like,
+and it means this card's production surface is still what the build gate measured at `9f3743d`
+plus cycle 1's four small changes.
+
+**The suggested fix was rejected, and the rejection is demonstrated both ways** — which is the
+second time on this card that the fix agent has been right to refuse a reviewer's remedy:
+
+- *Insufficient.* "Drop the name once anything rooted at `self`/a parameter flows into it" is a
+  **depth-1** rule. A reference planted one level deeper — `rows = {'a': {}}`;
+  `rows['a'][pid] = self.puzzles[pid]`; then iterate `rows['a']` — never flows into `rows`
+  itself, so the name is never dropped and the write stays invisible. **That is a fourth shape,
+  found by the fix rather than by the review**, and it is now a control.
+- *Too blunt.* Applied at **any** depth, the same rule fires on `batch_summaries`'
+  `summary["names"].append(name)` — a parameter carried into a container the method built — and
+  turns a genuine reader into a grid writer. That is precisely the false-positive risk, and a
+  guard that cries wolf gets weakened by the next person.
+
+**What was built instead grades expressions, not names.** `_fresh_locals` returns a `_Freshness`
+at one of three levels: `_DEEP` (the container *and everything in it* built in this body),
+`_SHALLOW` (new container, foreign contents), or nothing. Both grades still excuse a write into
+the container's **own slot**; only `_DEEP` excuses a write **through an element**. Three rules
+feed it, and each closes one shape: a name is graded by the **weakest** of all its bindings
+(flow-insensitive, so one durable binding makes the name durable — closes shape C); a container
+is `_DEEP` only while everything in it is (so `list(self.puzzles.values())` is `_SHALLOW` and
+`batch[0]` is nothing — closes A); and a container expression that *receives* something not
+deeply fresh is capped at `_SHALLOW`, keyed by the container's **own source text** (`summary` vs
+`summary['names']`), which charges the planting to the level that received it — closing B *and*
+the deeper fourth shape. The decision sites now ask "is the object being written **into**
+fresh", which is what the write actually touches.
+
+**All four shapes demonstrated as mutants against the REAL module**, each inserted as a method
+that never calls the gate, each restored from a pre-mutation copy:
+
+| shape | cycle 2 | now |
+|---|---|---|
+| A `batch = list(self.puzzles.values())`, `batch[0]["grid"]=grid` | 21 passed, exit 0 | **1 failed, exit 1** |
+| B fresh dict of gathered rows, then iterated | 21 passed, exit 0 | **1 failed, exit 1** |
+| C one name bound fresh once and live once | 21 passed, exit 0 | **1 failed, exit 1** |
+| D the same write as a for-loop (already caught) | caught | caught |
+| **E a live row planted two levels down** | n/a — not in the review | **1 failed, exit 1** |
+| F `object.__setattr__` (reflection) | survived | **survived — the declared bound** |
+| G a genuine *reader* filling a fresh dict with live rows | n/a | **survived (must not fire)** |
+
+**False positives ruled out three ways, which is the part that makes the tightening safe:**
+the real module's verdict sets are **byte-identical** before and after (read-only 33 → 33,
+candidates 20 → 20, safe 50 → 50, ungated 0 → 0, with zero symbols gained or lost in any set);
+three **reader** shapes copied from real methods are now controls that must land in `read_only`;
+and **over-tightening is itself asserted** — mutating the decision site to `!= _DEEP` (only deep
+freshness excuses anything) fails two tests, so a guard crying wolf is a red suite rather than a
+silent tax. Each of the four alias controls also has a **dedicated killer** proving it is not
+decorative.
+
+**The bound now reads as a bound.** `_mutating_shapes`' docstring opens "**This is a bound, not
+a completeness claim.** It is a catalogue, so what it does not name, it does not see", then
+enumerates four kinds of write outside it — reflection (kept out *by decision*, citing the
+surviving mutant), a grid written inside an imported helper, a mutating method outside
+`MUTATORS`, and a reference planted in a fresh container where **the planting itself** is
+invisible — and closes: "What the guard *is* is default-deny over the shapes it names, with the
+exemption set derived rather than declared. What it is not is a proof that no write exists."
+`_fresh_locals` no longer asserts the false premise.
+
+**Two corrections to cycle 2's own findings, both accepted:** F-101's claim that the three shapes
+were "out of the candidate set entirely" holds only for shape C — for A and B the smuggled
+methods had no *other* mutating shape either, so **a grid write added by one of these spellings
+to an existing writer would have been invisible as a grid write while the method stayed a
+candidate and still passed via the gate it already reaches.** Same hole, slightly worse than
+described. And F-104's "fails safe today" is right for `@property`/`@x.setter`, where Python
+forces getter-then-setter, but **does not extend to `if TYPE_CHECKING:` / `@overload` /
+conditional redefinition**, where author order is free — which is why the suffix was implemented
+rather than only the assertion.
+
+**F-102, F-103, F-104 closed.** F-103's wrong justification lived only in a handback, never in a
+file, so the durable fix was to put the **true** reason where the direct read is. F-102 narrowed
+the docstring to what the static half delivers and named the three tests where ordering *is*
+pinned behaviourally, with no static ordering analysis attempted. F-104 did both halves: a second
+definition of a name gets a `#2` key that resolves from no call site (so a writer landing there
+is reported ungated — **fails closed**), plus an assertion that no collapse exists in the real
+module, so the suffix is a backstop and not load-bearing.
+
+**No cycle-3 review, and the reasoning is recorded rather than assumed.** Cycle 2 already
+scored **8.5 PASS** with **+1.5**; this cycle's production change is a docstring; and the fix
+carries reviewer-grade adversarial evidence of its own — 8 mutants against the real module,
+false positives excluded three ways including byte-identical verdict sets, and a dedicated
+killer per control. The AC/EC/G gate and the merge gate close the card. Counting cycles: **2 of
+3 used.**
