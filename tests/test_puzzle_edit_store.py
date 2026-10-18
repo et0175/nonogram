@@ -1044,11 +1044,27 @@ REMOVING_MUTATORS = frozenset(
 )
 MUTATORS = VALUE_WRITING_MUTATORS | REMOVING_MUTATORS
 
-#: Expressions that build a brand-new container, so a name bound to one cannot
-#: be the store's own state and writing into it cannot persist anything. Where
-#: such a local *goes* is a separate write and is seen on its own.
-_FRESH_NODES = (ast.Dict, ast.List, ast.Set, ast.DictComp, ast.ListComp, ast.SetComp)
+#: Calls that build a brand-new container out of their arguments. A name bound
+#: to one is not the store's own state, so a write into *its own slots* cannot
+#: persist anything — but what it *holds* may well be durable, which is what
+#: :func:`_fresh_locals` grades.
 _FRESH_CALLS = frozenset({"dict", "list", "set", "sorted", "defaultdict", "Counter", "OrderedDict"})
+
+#: How far a fresh local's freshness reaches. ``_DEEP``: the container *and
+#: everything in it* was built in this body, so a write anywhere through it
+#: lands on this body's own scratch state. ``_SHALLOW``: the container is new
+#: but holds values from elsewhere — ``list(self.puzzles.values())``, a dict
+#: of rows gathered off the store — so a write into one of its own slots is
+#: harmless while a write *through an element* is a write to whatever that
+#: element is. ``None``: not known to be fresh, so no write through it is
+#: excused.
+_DEEP, _SHALLOW = "deep", "shallow"
+_FRESHNESS_RANK = {None: 0, _SHALLOW: 1, _DEEP: 2}
+
+
+def _weaker(left: Optional[str], right: Optional[str]) -> Optional[str]:
+    """The lesser of two grades: freshness is only as good as its worst case."""
+    return left if _FRESHNESS_RANK[left] <= _FRESHNESS_RANK[right] else right
 
 
 def _store_module_ast() -> ast.Module:
@@ -1067,60 +1083,285 @@ def _symbols(module: ast.Module) -> dict:
 
     Qualified because two classes in this module both define ``to_dict``, and
     a shared key would let one answer for the other.
+
+    A name defined *twice* in one class — a property's getter and setter, an
+    ``@overload``, a conditional redefinition — gets a ``#2``/``#3`` key
+    rather than overwriting the first (review cycle 2, F-104). A collapse
+    would drop one of the two bodies out of the analysis entirely, and if the
+    one dropped were the writer the guard would go quiet about it. The
+    suffixed key resolves from no call site, so a writer that lands on one
+    cannot reach the gate and is reported — the direction this has to fail
+    in. :func:`_redefined_members` is asserted empty for the real module, so
+    the suffix is a backstop rather than something load-bearing today.
     """
     found = {}
+
+    def put(key: str, node) -> None:
+        if key in found:
+            key = f"{key}#{sum(1 for seen in found if seen.split('#')[0] == key) + 1}"
+        found[key] = node
+
     for node in module.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            found[node.name] = node
+            put(node.name, node)
         elif isinstance(node, ast.ClassDef):
             for member in node.body:
                 if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    found[f"{node.name}.{member.name}"] = member
+                    put(f"{node.name}.{member.name}", member)
     return found
+
+
+def _redefined_members(module: ast.Module) -> dict:
+    """``{qualified name: how many times it is defined}``, for names defined twice."""
+    counted: dict = {}
+    for node in module.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            counted[node.name] = counted.get(node.name, 0) + 1
+        elif isinstance(node, ast.ClassDef):
+            for member in node.body:
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    key = f"{node.name}.{member.name}"
+                    counted[key] = counted.get(key, 0) + 1
+    return {name: times for name, times in counted.items() if times > 1}
 
 
 def _owner(qualified: str) -> str:
     return qualified.rsplit(".", 1)[0] if "." in qualified else ""
 
 
-def _fresh_locals(method: ast.AST) -> set:
-    """Names in this body that are bound to a freshly built container.
+def _fresh_locals(method: ast.AST) -> "_Freshness":
+    """How fresh everything this body builds for itself is.
 
-    Includes names reached *from* one — ``summary = summaries.get(k)`` off a
-    local ``summaries = {}`` — because a slot of a fresh container is still
-    not durable state. Re-run to a fixpoint so the chain is followed.
+    Review cycle 2, F-101. The version this replaces had **one** grade and
+    this premise: "a slot of a fresh container is still not durable state".
+    That is false for a container of *references*, and three real grid writes
+    rode in on it — ``batch = list(self.puzzles.values())`` then
+    ``batch[0]["grid"] = grid``; a fresh dict filled with rows taken off the
+    store and then iterated; and a name bound to ``{}`` in one place and to a
+    live row in another. Each is a control below.
+
+    So freshness is graded, and the grade is the *weakest* of everything that
+    could make it true:
+
+    * a name is graded by all of its bindings in the body, because this is a
+      flow-insensitive read of the source and a write could happen while the
+      name holds any of them — one durable binding makes the name durable;
+    * a container built here is ``_DEEP`` only while everything in it was
+      also built here; holding a reference from elsewhere makes it
+      ``_SHALLOW``;
+    * a container expression that *receives* something not deeply fresh is
+      capped at ``_SHALLOW`` from then on, which is what sees the reference
+      arriving after the container was built.
+
+    Both grades still excuse a write into the container's own slot. Only
+    ``_DEEP`` excuses a write *through* one of its elements, because only
+    then is the element something this body made.
+
+    Returns a :class:`_Freshness`, which grades an expression rather than a
+    name: ``batch`` is a fresh list, and the thing ``batch[0]["grid"] = grid``
+    writes into is ``batch[0]``, which is not.
     """
-    names: set = set()
+    bindings = _bindings_in(method)
+    received = _values_put_into_containers(method)
+    grades: dict = {}
+    #: Start maximally suspicious — every container that receives anything is
+    #: assumed to receive a reference — and let the grades below relax it.
+    contaminated = set(received)
+    for _ in range(len(bindings) + len(received) + 4):
+        changed = False
+        for name, bound in bindings.items():
+            grade = _DEEP
+            for kind, value in bound:
+                if kind == "element":
+                    grade = _weaker(grade, _element_grade(value, grades, contaminated))
+                else:
+                    grade = _weaker(grade, _grade(value, grades, contaminated))
+            if _FRESHNESS_RANK[grade] > _FRESHNESS_RANK[grades.get(name)]:
+                grades[name] = grade
+                changed = True
+        still = {
+            text
+            for text, values in received.items()
+            if any(_grade(value, grades, contaminated) != _DEEP for value in values)
+        }
+        if still != contaminated:
+            contaminated = still
+            changed = True
+        if not changed:
+            break
+    return _Freshness(grades, contaminated)
 
-    def _is_fresh(value) -> bool:
-        if isinstance(value, _FRESH_NODES):
-            return True
-        if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
-            return value.func.id in _FRESH_CALLS
-        if isinstance(value, ast.Subscript):
-            return _root_name(value) in names
-        if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute):
-            return _root_name(value.func) in names
-        return False
 
-    for _ in range(4):
-        for node in ast.walk(method):
-            targets = []
-            if isinstance(node, ast.Assign):
-                targets = node.targets
-            elif isinstance(node, ast.AnnAssign):
-                targets = [node.target]
-            if len(targets) == 1 and isinstance(targets[0], ast.Name) and _is_fresh(node.value):
-                names.add(targets[0].id)
-            if (
-                isinstance(node, ast.For)
-                and isinstance(node.target, ast.Name)
-                and isinstance(node.iter, ast.Call)
-                and isinstance(node.iter.func, ast.Attribute)
-                and _root_name(node.iter.func) in names
-            ):
-                names.add(node.target.id)
-    return names
+class _Freshness:
+    """One body's freshness grades: by name, and by container expression."""
+
+    def __init__(self, grades: dict, contaminated: set):
+        self.grades = grades
+        self.contaminated = contaminated
+
+    def grade(self, expression) -> Optional[str]:
+        """``_DEEP``, ``_SHALLOW`` or ``None`` for the object this evaluates to."""
+        return _grade(expression, self.grades, self.contaminated)
+
+    def __contains__(self, name: object) -> bool:
+        return name in self.grades
+
+
+def _bindings_in(method: ast.AST) -> dict:
+    """Every name this body binds, as ``{name: [(kind, value), ...]}``.
+
+    ``kind`` is ``"value"`` (bound to what ``value`` evaluates to) or
+    ``"element"`` (bound to one element of what ``value`` iterates). A
+    binding this cannot grade is recorded as ``("value", None)``, which
+    grades ``None`` and so takes the whole name out — parameters included,
+    and that is the point: a parameter is the caller's object, never ours.
+    """
+    bindings: dict = {}
+
+    def bind(name: str, kind: str, value) -> None:
+        bindings.setdefault(name, []).append((kind, value))
+
+    def bind_target(target, kind: str, value) -> None:
+        if isinstance(target, ast.Name):
+            bind(target.id, kind, value)
+            return
+        for part in ast.walk(target):  # a tuple unpack: nothing gradable
+            if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Store):
+                bind(part.id, "value", None)
+
+    for node in ast.walk(method):
+        if isinstance(node, ast.Assign):
+            if len(node.targets) == 1:
+                bind_target(node.targets[0], "value", node.value)
+            else:
+                for target in node.targets:
+                    bind_target(target, "value", None)
+        elif isinstance(node, ast.AnnAssign):
+            if node.value is not None:
+                bind_target(node.target, "value", node.value)
+        elif isinstance(node, ast.AugAssign):
+            bind_target(node.target, "value", None)
+        elif isinstance(node, ast.NamedExpr):
+            bind_target(node.target, "value", node.value)
+        elif isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
+            bind_target(node.target, "element", node.iter)
+        elif isinstance(node, ast.withitem):
+            if node.optional_vars is not None:
+                bind_target(node.optional_vars, "value", None)
+        elif isinstance(node, ast.ExceptHandler):
+            if node.name:
+                bind(node.name, "value", None)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                bind((alias.asname or alias.name).split(".")[0], "value", None)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node is not method:
+                bind(node.name, "value", None)
+        elif isinstance(node, ast.arg):
+            bind(node.arg, "value", None)
+    return bindings
+
+
+def _values_put_into_containers(method: ast.AST) -> dict:
+    """``{container expression: [values put into one of its own slots]}``.
+
+    ``x[k] = v``, ``x.attr = v`` and ``x.append(v)``/``.update(v)``/… , keyed
+    by the source text of the container itself — ``summary`` for
+    ``summary["total"] = 1`` and ``summary["names"]`` for
+    ``summary["names"].append(n)``, so a reference put two levels into a
+    structure this body built is seen against *that* level rather than
+    mistaken for either the whole structure or nothing at all.
+    """
+    received: dict = {}
+
+    def note(container, value) -> None:
+        received.setdefault(ast.unparse(container), []).append(value)
+
+    for node in ast.walk(method):
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, (ast.Subscript, ast.Attribute)):
+                    note(target.value, node.value)
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in VALUE_WRITING_MUTATORS
+        ):
+            for value in list(node.args) + [keyword.value for keyword in node.keywords]:
+                note(node.func.value, value)
+    return received
+
+
+def _grade(value, grades: dict, contaminated=frozenset()) -> Optional[str]:
+    """How fresh the object this expression evaluates to is, per the source.
+
+    Conservative by construction: anything this does not recognise grades
+    ``None``, which excuses no write at all.
+    """
+    if value is None:
+        return None
+    grade: Optional[str] = None
+    if isinstance(value, (ast.Constant, ast.JoinedStr, ast.Compare, ast.UnaryOp, ast.Lambda)):
+        grade = _DEEP  # a scalar or a new function: no slot of it is durable
+    elif isinstance(value, ast.BoolOp):
+        grade = _DEEP
+        for alternative in value.values:
+            grade = _weaker(grade, _grade(alternative, grades, contaminated))
+    elif isinstance(value, ast.IfExp):
+        grade = _weaker(
+            _grade(value.body, grades, contaminated),
+            _grade(value.orelse, grades, contaminated),
+        )
+    elif isinstance(value, ast.BinOp):  # `a + b` of two lists is a third list
+        both = _weaker(
+            _grade(value.left, grades, contaminated),
+            _grade(value.right, grades, contaminated),
+        )
+        grade = _DEEP if both == _DEEP else _SHALLOW
+    elif isinstance(value, ast.Dict):
+        grade = _built_here(value.values, grades, contaminated)
+    elif isinstance(value, (ast.List, ast.Set, ast.Tuple)):
+        grade = _built_here(value.elts, grades, contaminated)
+    elif isinstance(value, ast.DictComp):
+        grade = _built_here([value.value], grades, contaminated)
+    elif isinstance(value, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+        grade = _built_here([value.elt], grades, contaminated)
+    elif isinstance(value, ast.Starred):
+        grade = _grade(value.value, grades, contaminated)
+    elif isinstance(value, ast.Name):
+        grade = grades.get(value.id)
+    elif isinstance(value, ast.Subscript):
+        base = _grade(value.value, grades, contaminated)
+        if base == _DEEP:
+            grade = _DEEP
+        elif base == _SHALLOW and isinstance(value.slice, ast.Slice):
+            grade = _SHALLOW  # a slice of a list built here is another new list
+        # else: an *element* of a shallow container is somebody else's object
+    elif isinstance(value, ast.Attribute):
+        grade = _DEEP if _grade(value.value, grades, contaminated) == _DEEP else None
+    elif isinstance(value, ast.Call):
+        if isinstance(value.func, ast.Name) and value.func.id in _FRESH_CALLS:
+            arguments = list(value.args) + [keyword.value for keyword in value.keywords]
+            grade = _built_here(arguments, grades, contaminated)
+        elif isinstance(value.func, ast.Attribute):
+            grade = _DEEP if _grade(value.func.value, grades, contaminated) == _DEEP else None
+    if grade == _DEEP and ast.unparse(value) in contaminated:
+        grade = _SHALLOW  # something from elsewhere was put into this one
+    return grade
+
+
+def _built_here(parts, grades: dict, contaminated) -> str:
+    """A container built right here: ``_DEEP`` only if everything in it is."""
+    for part in parts:
+        if part is None or _grade(part, grades, contaminated) != _DEEP:
+            return _SHALLOW
+    return _DEEP
+
+
+def _element_grade(iterated, grades: dict, contaminated) -> Optional[str]:
+    """One element of this iterable: deeply fresh only if the whole thing is."""
+    return _DEEP if _grade(iterated, grades, contaminated) == _DEEP else None
 
 
 def _root_name(node) -> Optional[str]:
@@ -1142,12 +1383,30 @@ def _mutating_shapes(method: ast.AST) -> list:
     predicate this replaced, which was a list of four *grid-write* shapes and
     therefore classified every shape it did not recognise as "not a write".
 
-    Known bound, stated rather than papered over: a grid written through an
-    *imported* helper, or through a mutating method whose name is outside
-    :data:`MUTATORS`, is not seen here. What is seen is every shape in which
-    the grid value itself is placed, spliced or named.
+    **This is a bound, not a completeness claim.** It is a catalogue, so
+    what it does not name, it does not see. Four kinds of write are outside
+    it, and the first three are outside it *by decision*:
+
+    1. reflection — ``object.__setattr__``, ``operator.setitem``, a computed
+       ``getattr``, ``functools.partial``, ``exec``. A ``.py``-AST guard
+       cannot see these at all, and reaching for one is evasion rather than
+       the accident this guards against (review cycle 2, F-101/N9);
+    2. a grid written inside an *imported* helper, whose source is not parsed
+       here;
+    3. a mutating method whose name is outside :data:`MUTATORS`;
+    4. a reference to durable state planted in a container this body built,
+       where that planting is itself invisible — the reference arriving
+       through reflection, or through a call this cannot read. The *visible*
+       plantings are seen: review cycle 2's F-101 was this case left
+       unstated, and :func:`_fresh_locals` now grades a fresh container by
+       what it holds, with four controls in
+       :class:`TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal`.
+
+    What the guard *is* is default-deny over the shapes it names, with the
+    exemption set derived rather than declared. What it is not is a proof
+    that no write exists.
     """
-    fresh = _fresh_locals(method)
+    freshness = _fresh_locals(method)
     shapes = []
     for node in ast.walk(method):
         if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
@@ -1157,12 +1416,14 @@ def _mutating_shapes(method: ast.AST) -> list:
                     if isinstance(part, (ast.Attribute, ast.Subscript)) and isinstance(
                         getattr(part, "ctx", None), ast.Store
                     ):
-                        if _root_name(part) not in fresh:
-                            shapes.append(f"store into {_root_name(part)}")
+                        if freshness.grade(part.value) is None:
+                            shapes.append(f"store into {ast.unparse(part.value)}")
         if isinstance(node, ast.Delete):
             for target in node.targets:
-                if isinstance(target, (ast.Attribute, ast.Subscript)) and _root_name(target) not in fresh:
-                    shapes.append(f"del from {_root_name(target)}")
+                if isinstance(target, (ast.Attribute, ast.Subscript)) and (
+                    freshness.grade(target.value) is None
+                ):
+                    shapes.append(f"del from {ast.unparse(target.value)}")
         if isinstance(node, ast.Call):
             function = node.func
             if any(keyword.arg is None for keyword in node.keywords):
@@ -1174,8 +1435,8 @@ def _mutating_shapes(method: ast.AST) -> list:
                 # it is the *argument* that carries a payload.
                 argument_free = not node.args and not node.keywords
                 reads_only = function.attr in ("values", "update") and argument_free
-                if not reads_only and _root_name(function) not in fresh:
-                    shapes.append(f".{function.attr}() on {_root_name(function)}")
+                if not reads_only and freshness.grade(function.value) is None:
+                    shapes.append(f".{function.attr}() on {ast.unparse(function.value)}")
             for argument in list(node.args) + [keyword.value for keyword in node.keywords]:
                 if _dict_literal_with_a_grid_key(argument):
                     shapes.append("a {'grid': ...} payload handed to a call")
@@ -1355,7 +1616,18 @@ def _accounted_for(symbols: dict, mutations: dict, callees: dict, read_only: set
 
 
 def _reaches(start: str, symbols: dict, callees: dict, target: str) -> bool:
-    """Can ``start`` reach ``target`` through module-local calls?"""
+    """Is ``target`` on ``start``'s call graph, through module-local calls?
+
+    Reachability, deliberately, and **not** ordering: this answers "can this
+    method get to the gate", not "does it get there before it writes". A body
+    that stores first and proves afterwards, or that proves only on a branch
+    that writes nothing, satisfies this (review cycle 2, F-102). What pins
+    the ordering on the real write path is behaviour, not this —
+    :class:`TestPuzzleEdit_RefusesZeroAndMultipleSolutions` (a refused grid
+    leaves the row as it was), :class:`TestPuzzleEdit_ARefusedEditLeavesNoStamp`
+    and :class:`TestPuzzleEdit_AProofDoesNotCrossGridExtents`, each of which
+    asserts the stored row *after* a refusal.
+    """
     if start == target:
         return True
     seen, pending = set(), [start]
@@ -1426,6 +1698,16 @@ class TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal:
 
     The scope is the module, not the class, so a module-level helper that
     writes a grid is seen too — the other half of F-002.
+
+    **What the static half proves, and what it does not.** It proves the gate
+    is on the call graph of everything that writes: *reachability*, not
+    ordering (review cycle 2, F-102 — see :func:`_reaches`). That the gate is
+    in *front* of the write is pinned behaviourally instead, by the classes
+    that assert the stored row and the stamp after a refusal —
+    :class:`TestPuzzleEdit_RefusesZeroAndMultipleSolutions`,
+    :class:`TestPuzzleEdit_ARefusedEditLeavesNoStamp` and
+    :class:`TestPuzzleEdit_AProofDoesNotCrossGridExtents`. Both halves are
+    needed and neither stands in for the other.
     """
 
     def test_every_candidate_writer_reaches_the_refusal_or_is_excused(self, analysis):
@@ -1542,6 +1824,136 @@ class TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal:
             "the inversion classified a grid write as read-only"
         )
         assert "PuzzleReviewService.smuggle_a_grid" in analysis["ungated"], analysis["mutations"]
+
+    #: Review cycle 2, F-101: four writes the first inversion could not see,
+    #: because it treated a container the body *built* as not-durable state
+    #: without asking what that container was holding. The first three are
+    #: the shapes the review demonstrated against the real module; the fourth
+    #: plants the reference one level deeper, which the fix the review
+    #: suggested would still have missed. Each is a control (ADR-0039/R1),
+    #: and each is a shape the guard was **not** written from.
+    ALIAS_SHAPES = [
+        pytest.param(
+            "        batch = list(self.puzzles.values())\n"
+            "        batch[0]['grid'] = grid",
+            id="indexed-fresh-list-of-live-rows",
+        ),
+        pytest.param(
+            "        rows = {}\n"
+            "        for one in pids:\n"
+            "            rows[one] = self.puzzles[one]\n"
+            "        for row in rows.values():\n"
+            "            row['grid'] = grid",
+            id="fresh-dict-filled-with-live-rows",
+        ),
+        pytest.param(
+            "        row = {}\n"
+            "        row = self.puzzles[pid]\n"
+            "        row['grid'] = grid",
+            id="one-name-bound-fresh-once-and-live-once",
+        ),
+        pytest.param(
+            "        rows = {'a': {}}\n"
+            "        rows['a'][pid] = self.puzzles[pid]\n"
+            "        for row in rows['a'].values():\n"
+            "            row['grid'] = grid",
+            id="a-live-row-planted-two-levels-down",
+        ),
+    ]
+
+    @pytest.mark.parametrize("body", ALIAS_SHAPES)
+    def test_a_write_through_a_container_this_body_built_is_seen(self, body):
+        """F-101: a fresh container of *references* is not fresh enough.
+
+        In legacy mode ``self.puzzles.values()`` hands back the live row
+        dicts — ``Harness.row`` deep-copies for exactly that reason — so
+        every body here durably corrupts the store while calling no gate.
+        """
+        analysis = _analyse_source(self._as_a_method(body))
+
+        assert "PuzzleReviewService.smuggle_a_grid" in analysis["candidates"], (
+            "a grid write through a container built in the body was classified "
+            "read-only"
+        )
+        assert "PuzzleReviewService.smuggle_a_grid" in analysis["ungated"], analysis["mutations"]
+
+    #: The other side of F-101, and why the fix grades freshness instead of
+    #: just tightening it: these three are *readers*. Each is the shape of a
+    #: real method of the store — ``get_puzzles`` filling a dict with live
+    #: rows, ``batch_summaries`` writing through a structure it built itself,
+    #: ``filter_puzzles`` appending rows to a list — and a guard that called
+    #: any of them a grid writer is one the next person switches off.
+    FRESH_SCRATCH_READERS = [
+        pytest.param(
+            "        found = {}\n"
+            "        for one in pids:\n"
+            "            found[one] = self.puzzles.get(one)\n"
+            "        return found",
+            id="filling-a-fresh-dict-with-live-rows",
+        ),
+        pytest.param(
+            "        summaries = {one: {'names': [], 'total': 0} for one in pids}\n"
+            "        summary = summaries.get(pid)\n"
+            "        summary['total'] += 1\n"
+            "        summary['names'].append(pid)\n"
+            "        return summaries",
+            id="writing-through-a-structure-built-here",
+        ),
+        pytest.param(
+            "        batch = list(self.puzzles.values())\n"
+            "        batch.append(None)\n"
+            "        return [one['grid'] for one in batch]",
+            id="appending-to-a-fresh-list-of-live-rows",
+        ),
+    ]
+
+    @pytest.mark.parametrize("body", FRESH_SCRATCH_READERS)
+    def test_filling_a_container_this_body_built_is_not_a_write(self, body):
+        """The false positive F-101's fix had to avoid, asserted shut."""
+        analysis = _analyse_source(self._as_a_method(body))
+
+        assert "PuzzleReviewService.smuggle_a_grid" in analysis["read_only"], (
+            "a reader that fills its own scratch container was called a grid "
+            f"writer: {analysis['mutations']['PuzzleReviewService.smuggle_a_grid']}"
+        )
+
+    @staticmethod
+    def _as_a_method(body: str) -> str:
+        return (
+            "class PuzzleReviewService:\n"
+            "    def smuggle_a_grid(self, pid, pids, grid):\n"
+            f"{body}\n"
+            "    def _refuse_unless_uniquely_solvable(self, grid):\n"
+            "        return None\n"
+        )
+
+    def test_a_method_name_defined_twice_keeps_the_writer(self):
+        """F-104: a getter/setter pair must not collapse onto one key.
+
+        Python forces the getter first, so today the *setter* is what a
+        last-write-wins dict keeps and the loss fails safe. Written the other
+        way round — the writer first — a collapse would keep the reader and
+        the guard would report nothing. Here the writer is first.
+        """
+        source = (
+            "class PuzzleReviewService:\n"
+            "    @property\n"
+            "    def grid(self):\n"
+            "        self.puzzles[self.pid]['grid'] = None\n"
+            "    @grid.setter\n"
+            "    def grid(self, value):\n"
+            "        return None\n"
+            "    def _refuse_unless_uniquely_solvable(self, grid):\n"
+            "        return None\n"
+        )
+        analysis = _analyse_source(source)
+
+        assert "PuzzleReviewService.grid#2" in analysis["symbols"], sorted(analysis["symbols"])
+        assert "PuzzleReviewService.grid" in analysis["ungated"], analysis
+
+    def test_no_method_name_in_the_real_module_is_defined_twice(self):
+        """So the ``#2`` key above is a backstop and not something in use."""
+        assert not _redefined_members(_store_module_ast())
 
     def test_a_module_level_writer_is_reported_in_its_own_right(self):
         """The scope half of F-002: the class-only parse could not see this."""

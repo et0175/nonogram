@@ -600,7 +600,18 @@ class PuzzleReviewService:
         return verification
 
     def _remember_proof(self, fingerprint: str, proof) -> "_Verification":
-        """Remember ``proof`` for ``fingerprint``, evicting the oldest if full."""
+        """Remember ``proof`` for ``fingerprint``, evicting the oldest if full.
+
+        Reads ``self._verifications`` directly rather than through
+        :meth:`_remembered_verification`, and the reason is simply that this
+        is one of the memo's own three methods — the F-011 rule is that
+        nothing *outside* them touches the structure, and
+        ``test_nothing_outside_the_memos_own_methods_touches_it`` is where
+        that is pinned. It is **not** that the accessor's recency refresh has
+        to be avoided here (review cycle 2, F-103): the ``move_to_end`` below
+        runs on both branches, so going through the accessor would behave
+        identically, with one redundant refresh on the hit.
+        """
         verification = self._verifications.get(fingerprint)
         if verification is None:
             verification = _Verification(proof=proof)
