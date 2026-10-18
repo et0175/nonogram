@@ -1,0 +1,559 @@
+card: CARD-224
+cycle: 1
+of_max: 3
+reviewed:
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-224
+  branch: card/224-grid-centred-again
+  base: cc4430b
+  commits: [199b2f5, 6460766, e1cbb35]
+registry_basis: >
+  Judged against the amended registry on main (AC-252 retired, AC-378/AC-379 added,
+  EC-022's scope corrected), not the worktree's pre-settlement meta/architecture/**.
+build_gate: not re-run (reported green on e1cbb35: EXIT=0, 8088 passed, 1 skipped, 0 xfailed)
+
+score: 7.5
+verdict: FAIL
+
+findings:
+
+  - id: F-001
+    severity: important
+    file: src/nonogram/export/layout.py
+    line: 2525
+    claim: >
+      "_placed_drawing_top"'s docstring: "A spare that cannot pay that clearance twice
+      over is treated as no spare at all, which is what makes 'no drawing or clue ink
+      crosses either rule' (EC-022) a property of the arithmetic rather than of the
+      trims that happen to be stored today." The card's AC-3 rests on this being
+      "arithmetic and not luck".
+    evidence: >
+      (a) The arithmetic does not deliver the stated clearance. The guard is
+      `if spare < 2 * clearance`, but only GRID_SPARE_ABOVE of the spare lands above
+      the drawing, so the guard yields gap_above >= 0.42 * 2 * clearance = 0.84 *
+      clearance -- LESS than the one clearance it is supposed to buy. The invariant
+      survives only because clearance = ceil(thick/2) + ceil(furniture/2) + 1 is one
+      pixel more generous than the need (thick/2 + furniture/2), and 0.84*(need+1) >=
+      need holds only while need <= 5.25.
+      (b) Measured margin over every admissible extent (rows/cols 5..40, every clue
+      depth 1..(n+1)//2) on four sheets: the drawing's topmost ink clears the header
+      rule's ink by 0.555 px (h200), 0.659 px (Book 1: 39x35, depths 18/20, spare
+      12.283 px), 0.757 px (100x100 trim), 1.025 px (6x9 trim). Sub-pixel, not
+      arithmetic.
+      (c) It fails outright once the heavy rule reaches 14 px (need 8.5 > 0.42*2*10 =
+      8.4). PageSpec(cell_cap=...) is a public COMP-007 field with no upper bound:
+      with cell_cap=18.0 mm, 126 (trim, extent) combinations place ratio-branch ink on
+      the header rule -- e.g. height 212 mm, 5x5, column depth 3, spare 20.213 px >=
+      2*clearance=20, ink top row 290 against header rule row 289. Not reachable
+      through book_page_spec today (the sole PrintProfile is BOOK1 at 7.5 mm and
+      comfort_cap_mm maxes at 9.0 mm), so this is a false claim plus an uncovered
+      line, not a live print defect.
+      (d) Nothing tests the threshold. Mutant `spare < 2 * clearance` ->
+      `spare < clearance` SURVIVED all four targeted selections, including both
+      property files (tests/test_book_puzzle_frame.py CARD-224 classes,
+      tests/test_layout_two_up.py, tests/test_layout_page_spec.py,
+      tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py,
+      tests/property/test_book_two_up.py). The only oracle that models the threshold,
+      Sheet.drawing_top_mm at tests/property/test_book_pdf_geometry.py:166, accepts
+      BOTH candidate rows inside CLEARANCE_WINDOW_MM = 2.0 mm (23.6 px), which is
+      wider than the implementation's own 12 px threshold on every stored trim -- so no
+      test in that file can pin it either. tests/test_book_puzzle_frame.py's own
+      oracle `_expected_top_mm` uses `spare <= 0`, which also cannot see it; its
+      docstring nevertheless names those two property modules as where "the boundary
+      itself" is pinned.
+    suggested_fix: >
+      Condition on what is actually needed: `GRID_SPARE_ABOVE * spare >= clearance and
+      (1 - GRID_SPARE_ABOVE) * spare >= clearance`. Then add one test that fails when
+      the threshold is halved -- e.g. assert, for a spec whose spare is engineered just
+      above and just below the threshold, both the vertical_bound verdict and the
+      measured ink clearance, with the clearance term derived in the test from
+      thick_rule and the two furniture rule widths rather than from the window.
+
+  - id: F-002
+    severity: important
+    file: tests/test_book_pdf.py
+    line: 664
+    claim: >
+      TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1 (AC-287) still
+      verifies that parity counts from interior page 1; its re-aimed docstring states
+      "The page's parity is therefore asserted where it is still visible: the usable
+      area's own edges, which the drawing is centred in. The identity is asserted
+      explicitly rather than left to look like evidence."
+    evidence: >
+      On CON-018 as amended, gutter == outside == 12.700 mm, so
+      `_expected_left_mm(..., right_hand=True)` and `_expected_left_mm(..., right_hand=False)`
+      return the identical number (the function is now `left_margin + spare / 2`).
+      All three of this class's parity tests therefore became identities in this diff:
+      * test_the_first_puzzle_page_is_right_hand asserts the drawing is at the
+        right-hand position -- a number equal to the left-hand position;
+      * test_it_is_not_the_left_hand_page_a_miscount_would_give_it was INVERTED, from
+        `assert abs(left_mm - left_hand) > EDGE_TOLERANCE_MM` to
+        `assert abs(left_mm - left_hand) < EDGE_TOLERANCE_MM` -- it now asserts the
+        drawing IS at the left-hand position, the exact opposite of its name;
+      * test_the_parities_alternate_from_there now asserts a difference of
+        `GUTTER_MM - OUTSIDE_MM`, which is 0.
+      No assertion anywhere in the class reads the usable area's own edges, so the
+      replacement the docstring names does not exist. Failure scenario: revert the
+      interior-page-1 offset so the first puzzle page is treated as EVEN (the miscount
+      the class is named for) -- every test in the class still passes, because the
+      drawing lands on the same pixel column either way.
+      Two other re-aimed tests in this same card handled exactly this situation
+      correctly by moving to an unequal-margin book
+      (TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage,
+      TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity); this class was left
+      as identities instead.
+    suggested_fix: >
+      Give this class its own unequal-margin book, the way the two siblings above
+      already do (`_book(gutter_mm=20.0, outside_mm=10.0)`), and restore the
+      inequality in test_it_is_not_the_left_hand_page_a_miscount_would_give_it on that
+      book. If the equal-margin profile is to be kept, read the parity off something
+      that still mirrors (the footer's QR block, as
+      tests/test_book_pdf_memory.py::test_parity_still_counts_from_interior_page_1 now
+      does) and say so in the docstring.
+
+  - id: F-003
+    severity: minor
+    file: tests/test_book_puzzle_frame.py
+    line: 2438
+    claim: >
+      AC-4's test_it_is_not_pushed_further_down_than_the_old_placement guards itself
+      with `assert ink_bottom / PX_PER_MM > area_bottom, "this page's drawing really
+      is deeper than its puzzle area"`.
+    evidence: >
+      `_area_ink_box` crops the page to `round(area_bottom * PX_PER_MM)`, so
+      `ink_bottom` saturates at that row. Measured on this fixture (SHORT = 160 mm
+      trim, 30x30 behind 15-deep gutters): area_bottom = 1395.764 px, crop row = 1396,
+      ink_bottom = 1396 -- the assertion passes on round()'s own 0.236 px, while the
+      drawing's real bottom edge is 1749 px (30 mm below the footer rule). The guard
+      would pass identically for a drawing that stopped exactly on the footer rule, so
+      it does not show what it says. The claim itself is genuinely covered by the
+      sibling test_such_a_page_prints_no_footer_group_to_cross, which reads
+      layout.page.drawing_bottom.
+    suggested_fix: >
+      Assert the depth off the layout (`layout.page.drawing_bottom / PX_PER_MM >
+      area_bottom`) or off an uncropped page read, and keep `_area_ink_box` for the
+      ink_top half it is actually able to measure.
+
+  - id: F-004
+    severity: minor
+    file: tests/property/test_book_pdf_geometry.py
+    line: 674
+    claim: >
+      Commit e1cbb35 exists to retarget "the three docstrings AC-252's retirement left
+      dangling"; this is one of the three sentences it edited.
+    evidence: >
+      The sentence still reads "The registry's AC-252 **still asserts** the two are
+      equal; it is falsified by CARD-224 and is reported as **owed at the architect
+      station** (see tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow,
+      **whose strict xfail carries it**)." All three clauses are stale: the amended
+      registry retires AC-252 and adds AC-378/AC-379 (nothing is owed), and commit
+      6460766 replaced that class's strict xfail with three positive tests. The commit
+      fixed the class name on that very line and left the three claims around it.
+      tests/test_book_puzzle_frame.py:1429 ("AC-252 itself is owed at the architect
+      station") and tests/test_layout_two_up.py:197 (same wording) are stale the same
+      way.
+    suggested_fix: >
+      Restate all three as "AC-252 is retired (2026-10-17/18); AC-378 states the two
+      rows differ and AC-379 is owed to CARD-226", and drop the xfail reference.
+
+  - id: F-005
+    severity: minor
+    file: tests/test_layout_two_up.py
+    line: 9
+    claim: >
+      The same commit's stated purpose: no cross-reference should name a class that no
+      longer exists.
+    evidence: >
+      The module's own AC index still reads
+      "AC-252 (layout half)  TestPairLayout_UpperSlotSharesSinglePageTopRow", a class
+      this card renamed to TestPairLayout_UpperSlotSitsAtItsOwnBandFoot in the very
+      same file (line 183). A reader using the index to find AC-252's layout half
+      finds nothing.
+    suggested_fix: Update the index row to the new class name and to AC-378.
+
+  - id: F-006
+    severity: minor
+    file: tests/test_book_pdf.py
+    line: 627
+    claim: >
+      TestBookPdf_ParityNeverMovesTopEdge (AC-276) -- "parity moves the drawing
+      sideways only" -- keeps "this assertion ... as the vertical claim it is named
+      for", with the horizontal difference "asserted through the furniture that does
+      mirror (tests/test_book_qr_slot.py)".
+    evidence: >
+      The guard `assert right_hand.left != left_hand.left, "they do sit on different
+      parities"` was replaced by its own negation, `assert right_hand.left ==
+      left_hand.left`. Nothing inside the test now establishes that pages[4] and
+      pages[5] are opposite parities, so `right_hand.top == left_hand.top` would pass
+      on a build that stopped mirroring the page entirely. The named survivor is in
+      another file and is not reachable from this assertion.
+    suggested_fix: >
+      Keep a positive parity guard in the test itself -- e.g. assert the footer's QR
+      block sits at opposite ends on the two pages, as
+      tests/test_book_pdf_memory.py now does -- before asserting the shared top row.
+
+  - id: F-007
+    severity: minor
+    file: tests/test_layout_two_up.py
+    line: 214
+    claim: >
+      This test is named in TestPairLayout_UpperSlotSitsAtItsOwnBandFoot's docstring as
+      the named survivor (CARD-220/G-5) of AC-252's retired half, and its own docstring
+      says "The gap is this page's own 0.42 x spare, so it is not a tolerance: it is
+      112 px on Book 1's amended profile and would be zero if either row went back to
+      the other's rule."
+    evidence: >
+      The body asserts only `twenty.page.drawing_top > pair.upper.page.drawing_top`
+      and `twenty.page.drawing_top > twenty.page.band_bottom` -- a bare inequality. The
+      112 px is promised and not measured, so this survivor would stay green on any
+      float at all, including one at 1% of the spare. (The equivalent PDF-level test,
+      tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow,
+      does assert the figure -- 94 px -- so the claim is covered, just not here.)
+    suggested_fix: Assert the 112 px (or the derived 0.42 x spare) in this test too.
+
+  - id: F-008
+    severity: minor
+    file: src/nonogram/export/layout.py
+    line: 2527
+    claim: >
+      vertical_bound == "footer" means "the drawing is as deep as the area or deeper
+      ... or this sheet has no puzzle area at all", and (book_pdf_generator
+      _draw_page_frame) "they agree by construction, which is what makes 'no drawing
+      ink crosses a rule that is drawn' true of every page".
+    evidence: >
+      A third case is reachable and undocumented: 0 < spare < 2 * clearance. Measured
+      on every sheet tried -- Book 1 at 19x17 with depths 9/10 gives spare = 7.385 px;
+      6x9 at 15x12 depths 6/8 gives 0.333 px; the 100 mm trim and a 160/200 mm trim
+      each give hundreds of such combinations. There the area DOES hold the drawing,
+      yet the page reports "footer" (AC-4's "the page says which rule bound it" names
+      the wrong rule). The footer group is still correctly omitted, but only because
+      drawing_bottom = area_bottom + 0.125*band_px - spare and 2 * clearance (12 px)
+      happens to be smaller than 0.125 * band_px (17.7 px at the 12 mm band). band_mm
+      is a PrintProfile field: at a band under 8.1 mm the inequality flips, and then
+      TestBookPuzzleFrame_GridClearsBothRules's footer-branch assertions
+      (`ink_bottom > area_bottom`, `qr_slot(layout) is None`) both fail and
+      _draw_page_frame's "agree by construction" stops being true.
+    suggested_fix: >
+      Either name the third case in the docstring and state the band_mm coupling, or
+      return a third verdict for it ("clearance") so the page says what actually bound
+      it; add the coupling to the AC-3 sweep as a sheet with a shallow band.
+
+  - id: F-009
+    severity: minor
+    file: tests/fixtures/proof_baseline_card224.json
+    line: 1
+    claim: >
+      G-5: "Baselines re-recorded with provenance", with the unmoved pages as the
+      recording's own control.
+    evidence: >
+      book_baseline_card224.json does this well (13 pages recorded, 6 named as changed
+      with per-page reasons, 7 unmoved as the control, interior_bytes 3354646 ->
+      3369797 recorded as observed). proof_baseline_card224.json records 9 of 9 trims
+      as moved, so it carries no unmoved digest as an internal control -- every digest
+      in it is a new number. The file says so and argues it is the expected shape, but
+      a recording with no control in it cannot distinguish "the placement changed" from
+      "the recorder changed".
+    suggested_fix: >
+      Carry one spot-check in the proof recording that must NOT move -- e.g. a
+      non-placed page or a digest of the sheet furniture alone -- so the recording has
+      something that could have failed.
+
+  - id: F-010
+    severity: nit
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 2124
+    claim: Prose correctness of the inserted paragraph.
+    evidence: >
+      The new paragraph was spliced onto the existing sentence, leaving
+      "... true of every page. Where ``content_bottom`` reaches below the footer rule the
+      / rule, the label and the centred folio are therefore all omitted" -- a dangling
+      "the" and a line that no longer wraps.
+    suggested_fix: Reflow; delete the stray "the".
+
+  - id: F-011
+    severity: nit
+    file: tests/test_book_puzzle_frame.py
+    line: 48
+    claim: Module docstring describes what the file measures.
+    evidence: >
+      "the drawing is centred across the usable width and hangs one band below the top
+      margin" -- the second half is now true only of two-up slots and packed tiles;
+      _expected_box was updated, the docstring that introduces it was not.
+    suggested_fix: Restate as the 42% float with the band's foot as the degraded case.
+
+  - id: F-012
+    severity: nit
+    file: tests/property/test_book_pdf_geometry.py
+    line: 674
+    claim: Traceability to the amended registry.
+    evidence: >
+      AC-378 and AC-379 are named in exactly one test file
+      (tests/test_book_pdf_two_up.py). The three other modules that discuss the
+      retirement (test_book_puzzle_frame.py, test_layout_two_up.py,
+      test_book_pdf_geometry.py) cite only the retired AC-252, so a reader coming from
+      the amended registry cannot find the tests from the AC ids.
+    suggested_fix: Add AC-378/AC-379 to those modules' AC indexes.
+
+  - id: F-013
+    severity: nit
+    file: meta/kanban/cards/CARD-224.md
+    line: 207
+    claim: >
+      The card's "### Implementation notes" describe the delivered work.
+    evidence: >
+      The notes are uncommitted in the worktree (51 insertions outside the three
+      commits) and say AC-252's test "is marked `xfail(strict=True)` with that reason"
+      and that AC-252 is "Owed at the architect station" -- both untrue after commit
+      6460766 and the 2026-10-17 registry amendment. The notes also do not mention the
+      clearance term at all, although it is the new safety mechanism AC-3 rests on.
+    suggested_fix: >
+      Update the notes to the delivered state (positive AC-378 tests, AC-252 retired,
+      AC-379 owed to CARD-226) and record the clearance term and its threshold.
+
+verified_claims:
+  - claim: "_draw_solved_slot's return value is unchanged, so both consumers are unchanged."
+    status: verified
+    how: >
+      AST comparison of src/nonogram/admin/book_pdf_generator.py and book_proof.py
+      against cc4430b with every docstring normalised: identical. Both files' entire
+      +111/-xx is docstrings and comments. solved_puzzle_page and _packed_answer_page
+      are therefore byte-identical code, and the caption box (caption_bottom,
+      caption_right) contract did not move.
+  - claim: "What moved underneath the two consumers is safe for both."
+    status: verified
+    how: >
+      _packed_answer_page draws through _packed_tile_layout, whose vertical position
+      is unchanged (vertical_bound="slot", band_bottom == drawing_top).
+      solved_puzzle_page draws through compute_layout, so its drawing and the caption
+      hanging a fixed gap below it both move down by 0.42 x spare; the caption's own
+      guard is `slack = usable_bottom - drawing_bottom >= gap_px + line_height`, and
+      slack under the float is 353 + 0.58 x spare px against a 73 px requirement, so
+      no caption is newly omitted. Answer pages are drawn with _draw_folio and never
+      _draw_page_frame, so they carry no footer rule for the lowered caption to cross.
+      The move is recorded and attributed over three fixtures by the new
+      test_the_floated_answer_page_moved_under_this_card_and_nothing_before_it.
+  - claim: "Two new required fields on all three constructors, no defaults."
+    status: verified
+    how: >
+      PagePlacement gains band_bottom: int and vertical_bound: VerticalBound, both
+      without defaults; compute_layout, _slot_layout and _packed_tile_layout all pass
+      both. A fourth constructor cannot compile without them.
+  - claim: "header_band reads band_bottom; without it the band grows by tens of mm and its type drifts under the header rule."
+    status: verified
+    how: >
+      height = page.band_bottom - page.usable_top is 142 px (12.0 mm) on Book 1; read
+      off drawing_top it would be 362 px (30.7 mm) for a 15x15 and 623 px (52.8 mm)
+      for a 10x10, whose center_y (311) lands below the header rule row (289) and
+      inside the puzzle area. Mutant `band_bottom=ys[0]` KILLED.
+  - claim: "For two-up slots and packed tiles band_bottom == drawing_top, so those are byte-identical."
+    status: verified
+    how: >
+      Both pass band_bottom=_round_px(top) while drawing_top = ys[0] =
+      _boundaries(top, pitch, n)[0] = _round_px(top). Identical by construction, and
+      asserted in TestPairLayout_UpperSlotSitsAtItsOwnBandFoot.
+  - claim: "qr_slot(...) is None on a degraded page, so no footer group is crossed."
+    status: verified
+    how: >
+      Asserted in both AC-3's sweep (held >= 200 cases) and AC-4's
+      test_such_a_page_prints_no_footer_group_to_cross, and the control
+      test_the_control_a_trim_that_can_hold_it_floats_instead asserts qr_slot is NOT
+      None on a trim that can hold the same 45-cell drawing.
+  - claim: "The degraded placement is byte-identical to the pre-card position."
+    status: verified
+    how: >
+      _placed_drawing_top returns band_bottom unchanged, which is exactly the retired
+      `top = _exact_px(top_mm) + _exact_px(band_mm)`. Mutant
+      `return ratio, "footer"` KILLED.
+  - claim: "AC-1's mirroring half is genuinely under test; a 141 px shift between parities."
+    status: verified
+    how: >
+      CARD-223's _unequal_spec (gutter 19 mm / outside 7 mm) is imported from
+      tests/test_book_qr_slot.py, not reimplemented;
+      test_on_unequal_margins_the_area_moves_and_the_alignment_does_not asserts the
+      shift equals (19 - 7) mm = 141.7 px with an explicit
+      `assert abs(expected_shift) > 100, "this sheet must really move the area"`, and
+      asserts the drawing stays centred in the moved area.
+  - claim: "G-1: pairing verdicts and the committed cell are bit-for-bit CARD-204's."
+    status: verified
+    how: >
+      compute_pair_layout's only code change is the removal of the
+      `outer_reserve_px=folio_reserve_px` kwarg on the lower slot's call; the
+      folio_reserve_px fit/re-fit block (layout.py:3386-3411) and the accept/refuse
+      path are untouched, and _slot_layout receives cell_mm rather than computing it.
+      The verdict is therefore taken before any changed line runs.
+  - claim: "Removing _slot_layout's outer_reserve_px moved nothing."
+    status: verified
+    how: >
+      It only ever shifted the anchor the card replaces; under the centred anchor
+      `left = usable_left_px + max(spare, 0)/2` it has no expressible effect. Its
+      removal is accompanied by a renamed property test
+      (test_PropertyTest_BookTwoUp_SlotsAreCentredAcrossTheUsableWidth), and mutant
+      `_slot_layout left -> usable_left_px` was KILLED.
+  - claim: "G-3: the clamp is still genuinely tested and the three regimes are what they claim."
+    status: verified
+    how: >
+      _OVER_SPARE_TITLE (measured 2190 px) is added, and
+      test_the_three_titles_really_are_in_the_three_regimes bounds each regime off the
+      page's own measurements: drawing_width < over_grid < room, room < over_spare <
+      usable_width, over_page > usable_width. The clamp assertions are parametrised
+      over both parities and all three titles.
+  - claim: "The 42% constant is declared once, named, with the owner's sentence, read in one place."
+    status: verified
+    how: >
+      GRID_SPARE_ABOVE = Fraction(42, 100) at layout.py:1699, docstring carries
+      "which looks centred once the header sits above it", exported in __all__, and
+      read at exactly one site (layout.py:2529). Tests write 0.42 out independently
+      (SPARE_ABOVE in two files) rather than importing it, so mutant
+      `Fraction(50, 100)` was KILLED.
+  - claim: "G-5: no earlier fixture regenerated or deleted."
+    status: verified
+    how: >
+      git diff cc4430b HEAD -- tests/fixtures/ shows two additions and zero
+      modifications; --diff-filter=D over the whole diff is empty; all 23 earlier
+      book/proof baselines are still present.
+  - claim: "AC-6's ink measurement uses one convention on both sides and the inset is insensitive."
+    status: verified
+    how: >
+      _ink_bands (tests/test_book_pdf_two_up.py:1115) returns
+      (ink_top - AREA_TOP, AREA_BOTTOM - ink_bottom) -- each band measured from its own
+      rule to the drawing's outermost ink, the same convention at both ends; the 6 px
+      inset only excludes the two furniture rules (3 px and 2 px, stroked from their
+      boundary rows) and the drawings on both measured pages clear each rule by far
+      more. _area_ink_box uses the same outermost-ink convention and documents why
+      drawing_of's asymmetric edges are not used. The split 0.58/0.42 = 1.38095 is
+      asserted against the 1.4x bound with 1.5% of headroom, and the ratio itself is
+      asserted to 0.005.
+  - claim: "AC-378's test asserts the measured difference, says why each row is where it is, and goes red in both directions."
+    status: verified
+    how: >
+      test_the_two_top_rows_differ_by_the_single_pages_own_float asserts both the
+      derived figure (_predicted_gap_mm, built from the file's own CON-018 millimetres
+      and the cell read back off the drawn grid -- no layout function on either side)
+      and the pinned literal ROW_GAP_PX = 94, with distinct messages for "pinned back
+      to the band's foot" (gap -> 0) and "upper slot floated without splitting the
+      page" (gap shrinks). Siblings state the upper slot's own row and that the two
+      pages print different cells, and a control applies the retired placement.
+
+mutation:
+  policy: 8 mutants on invariant/AC-critical lines, cost-laddered (fast selections first)
+  selections:
+    - tests/test_book_puzzle_frame.py -k "<the five CARD-224 classes>"
+    - tests/test_layout_two_up.py tests/test_layout_page_spec.py tests/property/test_book_layout.py
+    - tests/property/test_book_pdf_geometry.py
+    - tests/property/test_book_two_up.py
+  results:
+    - id: M1
+      mutant: GRID_SPARE_ABOVE = Fraction(42, 100) -> Fraction(50, 100)
+      result: killed
+      by: tests/test_book_puzzle_frame.py (1 failed, 0.25s)
+    - id: M2
+      mutant: compute_layout `left = usable_left_px + max(spare, 0)/2` -> `+ max(spare, 0)` (flush)
+      result: killed
+      by: tests/test_book_puzzle_frame.py (1 failed, 0.17s)
+    - id: M3
+      mutant: _slot_layout `left = usable_left_px + max(spare, 0)/2` -> `usable_left_px`
+      result: killed
+      by: tests/test_layout_two_up.py (frame classes pass; layout test fails)
+    - id: M4
+      mutant: compute_layout `band_bottom=_round_px(band_bottom)` -> `band_bottom=ys[0]`
+      result: killed
+      by: tests/test_book_puzzle_frame.py
+    - id: M5
+      mutant: _placed_drawing_top `if spare < 2 * clearance` -> `if spare < clearance`
+      result: SURVIVED
+      detail: >
+        Survived all four selections (24, 153, 4 and 8 passed; EXIT=0 each).
+        See F-001: the only oracle that models the threshold accepts both rows inside
+        a 2.0 mm window, which is wider than the threshold itself.
+    - id: M6
+      mutant: degraded branch `return band_bottom, "footer"` -> `return area_top + GRID_SPARE_ABOVE*spare, "footer"`
+      result: killed
+      by: tests/test_book_puzzle_frame.py
+    - id: M7
+      mutant: _slot_layout `vertical_bound="slot"` -> `"ratio"`
+      result: killed
+      by: tests/test_layout_two_up.py
+    - id: M8
+      mutant: _puzzle_area_px `bottom - _mm_to_px(INTERIOR_FOOTER_MM)` -> `bottom`
+      result: killed
+      by: tests/test_book_puzzle_frame.py
+  score: 7 killed / 8
+
+re_aimed_tests:
+  - name: TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity::test_every_pages_parity_still_equals_its_own_position
+    verdict: still testing its name's claim -- STRENGTHENED
+    why: >
+      Moved to a book storing gutter 20 mm / outside 10 mm, where parity really moves
+      the drawing. The previous version skipped up to six width-bound pages and only
+      asserted the sign of the offset; the new one asserts every page carrying a
+      drawing (12 of 17, with an asserted minimum) and asserts the magnitude equals
+      half the margin difference, which the old one could not.
+  - name: TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage::test_the_second_survivor_did_not_inherit_the_dropped_page_parity
+    verdict: still testing its name's claim -- STRENGTHENED
+    why: >
+      Moved to gutter 20 mm / outside 10 mm. The old body asserted
+      `abs(second - first) > EDGE_TOLERANCE_MM` plus a spare-dependent formula; the
+      new one pins each survivor to its own expected left edge, asserts the two
+      expectations are 10 mm (118 px) apart -- "not a tolerance" -- and re-states
+      EC-032's formula on the profile where it is not an identity.
+  - name: TestBookPdfMemory_InteriorAndCoverStillSeparate::test_parity_still_counts_from_interior_page_1
+    verdict: still testing its name's claim -- held, by a different and valid signal
+    why: >
+      The drawing genuinely cannot carry the signal any more (equal margins + centring
+      => same pixel column at both parities), so the test reads parity off the footer's
+      2 cm QR block and asserts `outer > 4 * inner` on both checked pages -- a real
+      asymmetry with teeth, not an identity. It additionally asserts the drawing's two
+      side gaps are equal, which documents why the old signal is gone. Net: the claim
+      is as well covered as before.
+  - name: TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1 (three tests)
+    verdict: WEAKENED -- see F-002
+    why: >
+      Not on the card's list of three, and the one place the re-aim went wrong: all
+      three parity assertions became identities on the equal-margin profile, one of
+      them by being inverted, and the docstring names a replacement assertion that was
+      never written.
+
+coverage_judgement:
+  genuinely_covered:
+    - AC-1 (both halves: centring on Book 1, mirroring on CARD-223's imported unequal spec)
+    - AC-2 (ratio read off the ink on two cases x two parities, plus AC-366's and AC-367's own figures, with the retired fixed top edge as a failing control)
+    - AC-4 (vertical_bound verdict, the band's-foot position, no footer group, and a control trim that floats instead)
+    - AC-5 / G-3 (three measured caption regimes, both parities, premise assertions bounding each regime)
+    - AC-6 (ratio + the 1.4x bound on the three named page kinds, control at 13x-19x)
+    - AC-378 (measured 94 px / 7.959 mm, independently derived, red in both "fix" directions)
+    - G-1 (verdict and cell provably taken before any changed line)
+    - G-2 (folio tests untouched and green)
+    - G-5 (two added fixtures, zero modified, zero deleted, real provenance)
+    - ADR-0036/R1, R3, R4, ADR-0037/R1, CON-020, ADR-0006/R1 (no code path touched; golden and guard tests green)
+  partially_covered:
+    - AC-3: the no-ink-on-a-rule conclusion is swept 484 times and read off real ink,
+      but the clearance term that is supposed to make it arithmetic is untested (F-001)
+      and its stated bound is wrong (F-001); the third vertical_bound case is
+      undocumented (F-008).
+  covered_in_name_only:
+    - AC-287 (TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1) -- F-002.
+    - AC-276's horizontal half in TestBookPdf_ParityNeverMovesTopEdge -- F-006, though
+      the vertical claim the class is named for is intact.
+  vacuous_controls_found:
+    - F-003: AC-4's "the drawing really is deeper than its puzzle area" guard, saturated by the crop.
+    - F-002: the inverted miscount assertion, which is now the identity it was written to exclude.
+  controls_spot_checked_and_sound:
+    - TestBookPuzzleFrame_GridIsCentredOnBothParities::test_the_control_card_204s_anchor_fails_both_claims
+      (fails for the right reason: the flush anchor's two side gaps differ AND the two
+      parities differ, both asserted on Book 1's own equal margins where the positive
+      tests are weakest)
+    - TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare::test_the_control_the_retired_fixed_top_edge_fails_this_ratio
+      (0.07 vs 0.42 of the spare; same arithmetic applied to the retired geometry)
+    - TestBookPuzzleFrame_GridClearsBothRules::test_the_control_a_drawing_on_either_rule_fails_this_check
+      (exercises _clears, the predicate the sweep itself uses, not a paraphrase)
+    - TestBookPuzzleFrame_NoEmptyLowerThird::test_the_control_the_retired_placement_leaves_the_whole_spare_below
+      (pins the upper band to the band's own 1.5 mm lift, so it fails for the geometric reason)
+    - TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow::test_the_control_the_retired_fixed_top_edge_would_share_the_row
+      (asserts AC-252's placement really is the upper slot's row before asserting it
+      would fail the gap check)
+
+process_notes:
+  - No full-suite run; targeted selections only. No absolute timing claimed.
+  - DATABASE_URL set to this worktree's own database on every run; nonogram_poc untouched.
+  - layout.py restored byte-for-byte after each mutant (git status clean under src/).
+  - Nothing committed; the only working-tree change outside this report is the card's
+    pre-existing uncommitted "### Implementation notes".

@@ -307,3 +307,105 @@ three verified as genuine):
 card's agent and CARD-245's both discovered that `pyproject.toml:89` sets `addopts = "-q"`, so
 adding `-q` yields `-qq` and pytest prints **no summary line at all**. Two independent
 discoveries in one wave is why this is filed as a board-level `@ops` item rather than a note.
+
+### [Review 1/3] Score: 7.5 — FAIL (threshold 8)
+
+Report: `meta/review/20261018T082931Z-CARD-224-cycle1.yml` (copied to main before the worktree
+goes). **No criticals.** Two importants, both verified by the orchestrator before the fix was
+briefed. The reviewer's own summary is worth keeping: *"This is a careful card."*
+
+**What the review tried hardest to break and could not** — recorded because this is the card
+that reverses CARD-204, and the named trap has five regressions behind it:
+
+- **The `_draw_solved_slot` trap is PROVABLY clean, not argued clean.** `book_pdf_generator.py`
+  and `book_proof.py` are **AST-identical to `cc4430b` with docstrings normalised**, so the slot's
+  return value and *both* its consumers (`solved_puzzle_page`, `_packed_answer_page`) are
+  untouched. What moved underneath them was checked too: packed tiles do not move at all, and
+  the full answer page's caption guard has 353 + 0.58·spare px of slack against a 73 px
+  requirement, so no caption is newly dropped — and answer pages never call `_draw_page_frame`,
+  so there is no footer rule for a lowered caption to cross.
+- **G-1 is provable from the diff**: `compute_pair_layout`'s fit/re-fit block and accept/refuse
+  path are untouched, and the verdict is taken **before** any changed line runs. Pairing cannot
+  have moved.
+- **`header_band`'s claim is real, with numbers**: read off `drawing_top` the band would be
+  30.7 mm for a 15×15 and **52.8 mm** for a 10×10, whose centred type lands at row 311 against a
+  header rule at row 289 — i.e. type inside the puzzle area. `band_bottom == drawing_top` for
+  slots and tiles holds by construction.
+- **Three of the four re-aimed tests were judged STRENGTHENED, not weakened** — the dimension I
+  briefed as the highest-risk area in the diff. Two moved to unequal-margin books and now assert
+  *every* drawing-carrying page and the *magnitude* of the offset, which the old versions could
+  not. The third genuinely cannot carry the signal in the drawing any more and reads parity off
+  the footer's 2 cm QR block instead, with an explicit assertion that the drawing's side gaps are
+  now equal — documenting why the old signal is gone rather than quietly dropping it.
+- **7 of 8 mutants died**, including `GRID_SPARE_ABOVE` → 50/100, centring → flush on both the
+  page and the slot, `band_bottom` → `ys[0]`, the degraded branch, `vertical_bound` → `"ratio"`,
+  and `_puzzle_area_px` dropping the footer strip.
+
+#### ⚑ F-001 (important) — the clearance term's guarantee is not the guarantee it buys
+
+`src/nonogram/export/layout.py:2527`. **Arithmetic confirmed by the orchestrator.** The guard is
+`spare < 2 * clearance`, but only `GRID_SPARE_ABOVE` (**0.42**) of the spare lands *above* the
+drawing. So passing the guard yields `gap_above >= 0.84 * clearance` — **less than the single
+clearance it exists to buy.** It survives today only because `clearance` is a pixel more generous
+than the real need, and `0.84 * (need + 1) >= need` holds only while `need <= 5.25`.
+
+- **Measured margin is sub-pixel**: 0.555 px at a 200 mm trim, **0.659 px** on Book 1 at 39×35
+  with maximal clue depths. AC-3's claim is that the clearance makes this "arithmetic and not
+  luck"; at 0.555 px it is luck.
+- **It breaks outright at a 14 px heavy rule.** `PageSpec(cell_cap=…)` is a public COMP-007 field
+  with **no upper bound**; at `cell_cap=18.0 mm` there are **126 (trim, extent) pairs** that put
+  ratio-branch ink *on* the header rule. **Not a live print defect** — no `PrintProfile` reaches
+  it (BOOK1 is 7.5 mm, `comfort_cap_mm` maxes at 9.0) — so it is a false *claim* plus an uncovered
+  line, and it is briefed that way rather than as an emergency.
+- **The threshold has no test, and the two oracles the docstring NAMES cannot see it.** The
+  mutant `spare < 2 * clearance` → `spare < clearance` **survived all four selections**.
+  `test_book_pdf_geometry.py:166`'s `Sheet.drawing_top_mm` deliberately accepts **both** candidate
+  rows inside `CLEARANCE_WINDOW_MM = 2.0 mm` (**23.6 px**) — *wider* than the implementation's own
+  12 px threshold — and `test_book_puzzle_frame.py`'s `_expected_top_mm` uses `spare <= 0`. So the
+  docstring cites as its boundary proof two oracles that are structurally incapable of it. That is
+  the ADR-0039/R1 failure in its most expensive form: not a missing control, but a **named** one
+  that cannot fail.
+
+#### ⚑ F-002 (important) — AC-287's class became three identities, and names a survivor nobody wrote
+
+`tests/test_book_pdf.py:664-760`. On the amended profile `gutter == outside`, so
+`_expected_left_mm(right_hand=True)` and `(right_hand=False)` return the **identical** number, and
+all three parity tests became identities. One is **inverted relative to its own name**:
+`test_it_is_not_the_left_hand_page_a_miscount_would_give_it` went from
+`abs(left_mm - left_hand) > EDGE_TOLERANCE_MM` to `< EDGE_TOLERANCE_MM` — it now asserts the
+drawing **is** where the miscount would put it. Revert the interior-page-1 offset so the first
+puzzle page counts as EVEN — *the exact miscount the class is named for* — and every test still
+passes.
+
+**The honest half is recorded too, because it changes what the fix is.** This was not done
+silently: the docstring explains the identity and the code asserts it explicitly
+(`assert abs(GUTTER_MM - OUTSIDE_MM) < 1e-9`). The defect is that the docstring then says *"The
+page's parity is therefore asserted where it is still visible: the usable area's own edges"* —
+**and that replacement is not written anywhere in the class.** A stated survivor that does not
+exist is worse than an admitted gap, because it stops the next reader looking. And the card got
+this right **twice** in the same diff, by moving the sibling tests to unequal-margin books.
+
+#### F-004 and F-005 are the orchestrator's, not the card's
+
+`test_book_pdf_geometry.py:674` still claims AC-252 "still asserts", is "owed at the architect
+station", and that a "strict xfail carries it" — all three stale. `test_layout_two_up.py:9` and
+`:197` still name a class renamed at `:183`. **`e1cbb35` retargeted the class NAME on that very
+line and left the claims around it standing** — an incomplete pass of exactly the kind it existed
+to clear. The fix brief says to sweep for the retired name and the xfail rather than fix only the
+lines listed, because a list of instances is how the first pass missed these.
+
+**Minors routed into the fix cycle:** F-003 (AC-4's depth guard is **vacuous** — `_area_ink_box`
+crops at `round(area_bottom * PX_PER_MM)` so `ink_bottom` saturates at 1396 while the real drawing
+bottom is 1749 px), F-006 (`ParityNeverMovesTopEdge`'s parity *premise* was replaced by its own
+negation), F-007 (AC-252's **named survivor** promises "112 px … not a tolerance" and asserts only
+`>`), F-008 (an undocumented third `vertical_bound` case where the area *does* hold the drawing yet
+the page reports `"footer"`, whose footer-group agreement holds only because `2*clearance` is
+smaller than the band's lift — **a `band_mm` coupling nothing records**), F-009 (the proof baseline
+has no unmoved digest as its own control, unlike the book baseline), F-010..F-012 (spliced and
+stale docstrings), F-013 (the card's own notes still claim the xfail exists and AC-252 is owed, and
+**never mention the clearance term at all** — the one mechanism AC-3's whole claim rests on).
+
+**Declared out of scope for the fix:** AC-3's text says "every grid size the book admits and every
+trim" while the sweep covers 10..30 on four sheets, and the reviewer's worst-margin geometry is
+outside that range. The **claim** is to be narrowed to what is swept, with the gap noted — not the
+corpus grown. Growing a corpus to meet a sentence is how a cheap card becomes an expensive one.
