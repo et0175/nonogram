@@ -3,15 +3,20 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active:
-  - id: CARD-248
-    phase: implementation
-    branch: card/248-two-up-shared-footer
-    worktree: ../PythonProject4-card-248
-    started: 2026-10-18T00:29:15Z
-    note: "Owner's chosen design for the two-up lower slot, dispatched immediately after CARD-223 merged so the interim window is as short as possible. Branched from main WITH CARD-223 (8be1f8c), since it builds on that card's footer and QR group. Briefed with the measurements rather than left to rediscover them, and told explicitly that the ~2% tall-pair cell cost is the orchestrator's arithmetic and must be re-measured."
+active: []
 escalated: []
 merged_wave_45:
+  - id: CARD-248
+    merge_commit: 1256982
+    at: 2026-10-18T02:55:46Z
+    review_score: 8.5
+    cycles: "1/3 (✓ threshold reached)"
+    actual: 0.3d
+    estimate: 1d
+    accuracy: 0.31x
+    gate: "8054 passed, 1 skipped, 0 failed in 784.07s, DATABASE_URL SET; code tree byte-identical to the gated commit ff50725"
+    closes: "The KDP window. main no longer prints a two-up page with one link for two puzzles, so the standing 'no book is to be generated for KDP' caveat is LIFTED."
+    note: "Its BUILD gate was RED on the first run and GREEN on the second -- same commit 5c5d0aa, same database, same 8040 tests -- a non-deterministic uuid.UUID(hex=inf) read in a [db] test the card does not touch. Diagnosed to the app's module-global engine surviving conftest's DROP SCHEMA and filed as a backlog @ops item; it is the COST of this board's gate-condition change, unreachable while DATABASE_URL was unset. Both runs are recorded on the card and in suite-timing.log, because a gate green only on its second attempt is not the evidence a gate green on its first is. Review 8.5 found one important hole -- AC-6's horizontal refusal had no boundary and both its off-by-one mutants lived; a 7x10 book would have silently stopped pairing under one of them -- fixed in cycle 1, both mutants verified dead. The card's own '~2% tall-pair cost' was the orchestrator's arithmetic and was WRONG: the real figures are -4.95% for the worst surviving pair and outright refusal for 29..32-cell pairs. A second, horizontal refusal nobody had costed removes two-up pages entirely below ~6.913 in of trim, so 6x9 loses them. FR-040 amended at the architect station in the same window rather than deferred."
   - id: CARD-223
     merge_commit: 26a6601
     at: 2026-10-18T00:29:15Z
@@ -92,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-17T22:41:59Z
+last_updated: 2026-10-18T02:55:46Z
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -104,7 +109,7 @@ wave_45:
       reason: "DISJOINT ON FILES (CARD-244: tests/conftest.py, the DB fixture's own tests, scripts/*.sh; CARD-223: export/layout.py, book_pdf_generator.py, the book test files) -- so no serialization on Touches. BUT a RUNTIME edge exists until CARD-244 lands: both trees still share nonogram_test, which is the very defect CARD-244 removes. Mitigated rather than ignored: CARD-244 isolates itself onto its own derived database from its first command, CARD-223 is told not to run DB selections, and full-suite gates are serialized by the orchestrator as always. This is the first conflict edge on this board that is about shared RUNTIME STATE rather than shared files -- the predictor models only the latter, which is why wave 44's CARD-222/CARD-243 collision was unpredicted too."
   note: "Does NOT unlock parallelism for CARD-224..CARD-233 -- those collide on export/layout.py and book_pdf_generator.py and serialise regardless. What it buys is gate integrity: wave 44 proved a concurrent sibling can manufacture both failures and skip counts, which cost one fix-agent attempt and produced a false finding that reached the owner."
 
-queued_next:
+queued_next_resolved:
   - id: CARD-248
     reason: "Owner decision 2026-10-18 and approved merge plan: CARD-223 merges on a green re-gate, CARD-248 dispatches immediately after into the slot CARD-244 freed. It depends on CARD-223, so its worktree branches from main WITH CARD-223 merged, not from the current main."
     interim_risk: "While main carries CARD-223 without CARD-248, a two-up page prints ONE link instead of two. No book is to be generated for KDP in that window. Stated on the card as well as here, because the owner's instruction was that the link definitely should not be lost."

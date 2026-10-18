@@ -1,0 +1,662 @@
+version: 1
+generated_at: "2026-10-18T02:16:14Z"
+target: "CARD-248, cycle 1 of 3 — branch card/248-two-up-shared-footer @ 5c5d0aa, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-248"
+overall_score: 8.5
+threshold: 8
+verdict: PASS
+risk_level: low
+review_lane: full
+reviewer: forge:review (REVIEW station, independent — implementer self-assessment deliberately withheld)
+mode: first_cycle
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-248.md — in full (What to implement, AC-1..AC-8, G-1..G-7, System contract + carried notes, Worktree notes incl. the hand-back findings)"
+    - "git show 5c5d0aa --stat and the full per-file diffs of all 15 files"
+    - "src/nonogram/export/layout.py — qr_slot (full body), qr_caption (full body), qr_group_insets (new, full), InteriorFrame.footer_depth, PairLayout docstring, compute_pair_layout (full reserve path + the return), _slot_layout docstring"
+    - "src/nonogram/admin/book_pdf_generator.py — qr_group_caption (new), _qr_group_line_px (new), _draw_qr_caption, _two_up_page, _draw_two_up_qr_groups (new, full), puzzle_pages pairing gate, module docstring delta"
+    - "tests/test_book_qr_slot.py — the whole CARD-248 block (lines 1081-2180) plus the module's shared helpers _spec/_unequal_spec/_min_trim_spec/_gutter_half/_disjoint/_qr_ink and the three retired/retargeted CARD-223 claims"
+    - "tests/test_book_pdf_two_up.py, tests/test_book_page_frame.py, tests/test_book_page_numbers.py, tests/property/test_book_pairing.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_export_interior.py, tests/test_book_finalise_gutter.py, tests/test_book_arrange_page_breaks.py, tests/test_book_pdf_memory.py, tests/helpers/book_corpus.py — full diffs"
+    - "tests/fixtures/book_baseline_card248.json — every metadata field; and an independent digest diff against book_baseline_card223.json"
+    - "src/nonogram/admin/book_page_spec.py — PrintProfile margin properties and BOOK1_PROFILE top_in/bottom_in (to bound the reachable margin set)"
+  not_reached:
+    - "tests/test_book_puzzle_frame.py — diff skimmed only (41 lines, fixture-depth churn of the same shape as test_book_finalise_gutter.py); its body not read"
+    - "the full body of tests/test_book_pdf_memory.py (4000+ lines) — only the CARD-248 delta, the baseline fixtures and TestBookPdfMemory_PagesAreUnchanged were read; that class was executed"
+    - "meta/architecture/requirements.yml FR-040 AC-242..AC-246 themselves — not re-read on disk; F-2 below rests on the diff's own docstrings plus the card's hand-back table, both of which agree"
+    - "DB-mode behaviour — no DB-touching selection was run (nothing in the diff reaches the DB layer); DATABASE_URL was never exported and nonogram_poc was never contacted"
+    - "rendered-grid eyeball — not done (no render produced); the owner's visual check is a separate gate"
+  confidence: high
+
+metrics:
+  diff: { files: 15, added: 2390, removed: 261 }
+  src_files: 2
+  test_files: 12
+  fixture_files: 1
+  tests_cover_change: true
+  new_public_api:
+    - "nonogram.export.layout.qr_group_insets(layout, widest_line_px, count) -> tuple[int, ...] | None"
+    - "nonogram.export.layout.qr_slot(layout, *, inset_px=0) / qr_caption(layout, *, inset_px=0)"
+    - "nonogram.export.layout.InteriorFrame.footer_depth"
+    - "nonogram.export.layout.compute_pair_layout(..., footer_reserve_px=0)"
+    - "nonogram.admin.book_pdf_generator.qr_group_caption(puzzle_number)"
+  unmeasured:
+    build_gate: >-
+      not_applicable — full suite deliberately NOT re-run (orchestrator instruction).
+      Authoritative runs are the merge gate's: run 1 EXIT=1 (8039 passed / 1 failed /
+      1 skipped, the known non-deterministic uuid.UUID(hex=inf) failure in
+      test_book_arrange_size_filter.py, attributed elsewhere) and run 2 EXIT=0
+      (8040 passed / 1 skipped / 0 failed, 796.91s). Not re-derived here.
+    timing: "not measured — prohibited by the orchestrator (sibling card active). Only layout/geometry measurements were taken."
+  executed_runs:
+    - "SEL-1: tests/test_book_qr_slot.py -> 92 passed, 0 failed (the card's own AC file)"
+    - "SEL-2: tests/test_book_page_frame.py -> 29 passed, 0 failed (G-5 TestBookPageFrame_EachFigureIsDeclaredOnce + the retargeted TwoUpCarriesTheWholeFrame)"
+    - "SEL-3: tests/test_book_pdf_two_up.py + tests/property/test_book_pairing.py -> 46 passed, 0 failed (FR-040 fixtures + EC-027 pairing property)"
+    - "SEL-4: tests/test_book_pdf_memory.py::TestBookPdfMemory_PagesAreUnchanged -> 5 passed, 0 failed (G-3/G-6 baseline pixel-identity lock)"
+    - "SEL-5: tests/test_cli.py -k 'import or layer or structur' -> 17 passed, 0 failed (the ast lateral-import guard)"
+    - "SEL-6: tests/test_book_difficulty_dots.py + tests/test_book_page_numbers.py -> 167 passed, 0 failed (ADR-0036/R3 round-mark guard + folio parity)"
+    - "PROBE-1..4: four read-only measurement scripts in the scratchpad, each with sys.path.insert(0,'src') and an assert that 'card-248' is in the imported module's __file__ (the card's own import trap). No file in the worktree was modified."
+  independent_measurements:
+    - "PROBE-2: swept trim heights 8..12 in x widths 7..8.5 in at the production margins — footer_depth is 353 px everywhere and the lower slot's drawing_bottom equals footer_rule.y on every reachable trim."
+    - "PROBE-3: measured the two-up footer's own geometry on Book 1 ODD — folio at x 1275 / baseline 2885, icon row [2923,3159], caption baselines 3041/3121, _qr_group_line_px(300) = 594, group insets (0, 861) at 2 digits and (0, 906) at 4."
+    - "PROBE-4: independently re-derived AC-6's refused set over 55,566 pairs (columns 10..30, row-clue depth 1..3, both slot heights 10..30, column-clue depth 1..2) at Book 1 with the production reserves. changed == {29,30,31,32} exactly, kept∩changed == {}, max(kept) == 28. The implementation's NEWLY_REFUSED_PAIR_CELLS is confirmed by a sweep 31x wider than the test's own, over 21 widths and 3 clue depths rather than 4 widths and 1."
+    - "Fixture control: diffed book_baseline_card223.json against book_baseline_card248.json page digest by page digest — exactly one page differs (page 5), so pages 7 and 9 (the single puzzle pages) really are byte-identical. G-3's control verified, not taken on report."
+
+mutation_check:
+  status: run
+  method: >-
+    Capped and targeted, and run WITHOUT patching the tree (the orchestrator
+    forbade code changes). For each mutant the predicate's inputs were
+    enumerated at every call site the suite reaches — the (usable_width, pitch,
+    count) triples for the refusal line, the exact slack for the footer-room
+    line, the insets for the parity line — and the mutant's verdict evaluated
+    against each asserted expectation. Where the kill is a pinned figure the
+    pinning assertion is named. This is weaker evidence than a patched run for
+    the KILLED entries (a kill could in principle be masked by an earlier
+    failure) but it is exact for the SURVIVED ones, which is what matters.
+  mutants: 12
+  killed: 10
+  survived: 2
+  entries:
+    - id: M1
+      target: "src/nonogram/export/layout.py:1410 qr_group_insets — drop the `- gap` term: `count * pitch > usable`"
+      intent: "edge mutant: a reserve applied once instead of twice (the row's trailing gap)"
+      result: >-
+        SURVIVED. Every reachable call site keeps its verdict: Book 1 count=2
+        1812 <= 2250 (fits), count=3 2718 > 2250 (None), the 12 cm narrow trim
+        count=1 906 <= 1229 (fits) and count=2 1812 > 1229 (None), the unequal
+        profile count=2 1812 <= 2243 (fits), single page count=1 861 <= 2250.
+        No assertion flips. Production DOES flip for usable widths in
+        (1774, 1812] px -- see F-1.
+    - id: M2
+      target: "same line, `>` -> `>=`"
+      intent: "edge mutant: a `<` for a `<=` on the refusal boundary"
+      result: "SURVIVED vacuously — no test or corpus case puts `count * pitch - gap` exactly on the usable width, so the boundary itself is never evaluated at equality."
+    - id: M3
+      target: "qr_group_insets — `pitch = QR_SLOT + gap + widest` (one footer gap instead of two)"
+      intent: "edge mutant: the inter-group white applied once"
+      result: "KILLED — TestTwoUpFooter_CarriesBothPuzzlesLinks::test_the_strip_carries_two_whole_groups_inside_the_footer_row asserts `insets[1] == GROUP_PITCH_PX`, which the test module computes independently as QR_SLOT_PX + 2*FOOTER_GAP_PX + GROUP_LINE_PX."
+    - id: M4
+      target: "qr_group_insets — `count` off by one in the fit test"
+      intent: "edge mutant: the group count"
+      result: "KILLED — TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages::test_book_ones_own_trim_is_the_control_for_that_refusal pins 2 groups fit AND 3 do not on Book 1."
+    - id: M5
+      target: "src/nonogram/export/layout.py:1250 qr_slot — `<` -> `<=` on `usable_bottom - drawing_bottom < _mm_to_px(INTERIOR_FOOTER_MM)`"
+      intent: "edge mutant: the footer-room boundary, which a two-up page sits exactly on"
+      result: >-
+        KILLED hard. Measured: the slack is exactly 353 == _mm_to_px(INTERIOR_FOOTER_MM)
+        on every reachable trim (PROBE-2), so `<=` returns None for every two-up
+        page. AC-1 (`assert icon is not None`), AC-7 (no folio on the footer
+        line), AC-8 (the slack identity) and the 4-links export all red.
+    - id: M6
+      target: "qr_slot — inset sign on ODD: `usable_right - inset_px` -> `+`"
+      intent: "edge mutant: a parity/direction flip"
+      result: "KILLED — AC-1 asserts `placement.usable_left <= icon.left < icon.right <= placement.usable_right` for every inset."
+    - id: M7
+      target: "compute_pair_layout — reserve in `fit_spec` only, leaving `lower_band_top = page_bottom - ...` (the pre-fix form the commit message describes)"
+      intent: "invariant-critical: the fit/placement identity on `reserved_bottom_mm`"
+      result: "KILLED — the lower slot's slack falls to 0, qr_slot answers None, AC-1/AC-7/AC-8 red and the pairing gate refuses every pair (the 4-links export reads 2)."
+    - id: M8
+      target: "compute_pair_layout — `2 * footer_reserve_mm` (the reserve taken twice)"
+      intent: "edge mutant: a reserve applied twice instead of once"
+      result: "KILLED — AC-5's test_the_committed_cell_is_the_independently_written_fit compares every surviving pair against _expected_pair_cell_mm, a second implementation written from the sheet's millimetres; and AC-6's exact set would shift to {25..32}."
+    - id: M9
+      target: "InteriorFrame.footer_depth +/- 1 px"
+      intent: "edge mutant: one definition of the strip's depth"
+      result: "KILLED both ways — AC-8 asserts `frame.footer_depth == FOOTER_STRIP_PX == round(INTERIOR_FOOTER_MM * PX_PER_MM)` (kills +1), and -1 makes the slack 352 < 353 so qr_slot answers None everywhere (kills -1)."
+    - id: M10
+      target: "_draw_two_up_qr_groups — remove the ODD reversal, or flip the parity it tests"
+      intent: "edge mutant: a parity flipped on AC-3's convention"
+      result: "KILLED — AC-3's test_the_upper_puzzles_group_is_the_leftmost_at_both_parities is parametrized over both parities and reads the drawn link's real left edge off the ink-position spy; AC-2's test_each_group_is_set_at_its_own_inset_with_its_own_number pins each link to its own anchor x."
+    - id: M11
+      target: "puzzle_pages — remove the qr_group_insets gate, or ask it for 1 group instead of len(numbers)"
+      intent: "AC-6's horizontal refusal"
+      result: "KILLED — test_a_trim_too_narrow_for_two_groups_does_not_pair_either asserts the walk returns [(1,), (2,)] on the 12 x 48 cm book; without the gate the page is composed and _draw_two_up_qr_groups raises."
+    - id: M12
+      target: "puzzle_pages — `footer_reserve_px=interior_frame(page_spec).footer_depth` -> 0"
+      intent: "the whole card, deleted at the one call site"
+      result: "KILLED — AC-1's baseline-book export asserts 4 links for 4 puzzles (it read 3 before this card), and AC-7's folio tests red."
+  note: >-
+    The cost-deferral rule in the pipeline parameters (defer when a critical or
+    important finding means the certified tests are about to change) was
+    considered and NOT applied: the two important findings below do not require
+    the AC tests to be rewritten (F-1 asks for one added boundary case, F-2 is a
+    registry edit outside this repo path), and the mutation ladder cost nothing
+    extra because it was evaluated analytically. Re-run M1/M2 as patched mutants
+    after F-1 is fixed.
+
+system_contract:
+  rules_checked: 11
+  holds: 10
+  partial: 1
+  violated: 0
+  verdicts:
+    - "ADR-0036/R1 ✓ holds — compute_pair_layout's new parameter defaults to 0, and qr_slot/qr_caption's inset_px defaults to 0; the unparitied default path is asserted unchanged by test_an_unplaced_sheet_has_neither and by TestTwoUpFooter_UsesTheSameFooterGeometryAsASinglePage::test_a_single_page_still_asks_for_one_group_and_gets_the_same_answer on both profiles and parities. No CLI/web geometry is touched."
+    - "ADR-0036/R2 ✓ holds — and this was the rule the card's own notes flagged as most at risk. The vertical reservation lives in compute_pair_layout and the group placement in qr_group_insets/qr_slot/qr_caption, all in export/layout.py. book_pdf_generator.py computes exactly two things: the renderer's own font measurement (widest line, which is COMP-009's to know, the same split caption_slot already uses) and which numbers go with which inset. TestBookPageFrame_EachFigureIsDeclaredOnce green (SEL-2), and test_there_is_one_footer_depth_constant_and_one_group_placer scans src/nonogram/**/*.py with ast and pins the placer set to {qr_slot, qr_caption, qr_group_insets} in layout.py."
+    - "ADR-0036/R3 ✓ holds — the card drew two placeholder glyphs per page for the first time, which is the exposure the carried note names. The glyph is still the checkerboard (TestBookQrSlot_IsStillThePlaceholderGlyph unchanged and green) and test_the_books_own_pages_carry_no_undeclared_round_mark is green (SEL-6). No disc was introduced."
+    - "ADR-0037/R1 ✓ holds — no picture title is printed; the two new strings are 'Puzzle N · Solve it online' and the typed link, neither of which carries a name."
+    - "ADR-0037/R2 ✓ holds — the amended rule binds the puzzle grid, not furniture, and the card's carried note's trap was avoided: no test in the diff compares footer-group ink to grid ink. AC-4's masks are furniture-vs-furniture (the page differenced against itself with the two group drawers suppressed)."
+    - "ADR-0039/R1 ◐ partial — the discipline is honoured on every AC that makes a catch-claim: AC-4's control draws the retired gutter-side icon through the real _draw_qr_placeholder into the real page and asserts the same check catches it; AC-6's control asserts 28 accepted / 29 refused from hand arithmetic; AC-7's control contrasts _draw_page_frame's own True/False verdict with and without the reserve; the no-reserve control in TestBookQrSlot_YieldsRatherThanCollide shows the strip is what buys the footer. The partial is F-1: the horizontal half of AC-6's exemption has no control that can fail at its boundary, and F-2 (the FR-040 registry ACs no longer assert what their tests assert) is an R1 claim/coverage divergence the card itself declares."
+    - "ADR-0039/R2 ✓ holds — NEWLY_REFUSED_PAIR_CELLS is not a hand-written guard set consulted at runtime; it is a test-side expectation derived by sweeping the production function against an independently written fit, and it defaults to deny in the production path (a pair whose strip or row cannot be had is refused, never half-linked)."
+    - "ADR-0039/R3 ✓ holds — the exemption this card grants (pairs that stop pairing) is stated as an exact set on the quantity the verdict depends on, with its boundary pinned, and the residue of the NARROWED AC-4 claim is recorded as a measured bound: test_the_gutter_half_cannot_be_kept_for_two_groups_and_here_is_why asserts the row's ink (1684 px) exceeds the outer half (1125 px) so the old claim is arithmetically impossible, then pins the clearance at exactly 240 px and innermost == 626 for the widest line the face can ever set. The residual exemption on the two-up frame (size_label=None) gets its own new control."
+    - "CON-019 ✓ holds — no CLI/web export path is reached; the baseline fixture's own control is that only one interior page moved."
+    - "CON-020 ✓ holds — both new lines are set at INTERIOR_FOOTER_LINE_PT (10 pt), the floor; FLOOR_PX == 42 is asserted in the test module and the new named invitation uses the same face. font_dependent_pages stays empty."
+    - "CON-021 ✓ holds — qr_group_caption interpolates QR_CAPTION_TEXT and the link still comes only from qr_link/QR_LINK_TEMPLATE; test_both_links_still_come_from_the_one_constant asserts 'nonogram.example' does not appear in _draw_two_up_qr_groups' source, and CARD-223's package-wide ast scan (test_the_link_comes_from_exactly_one_constant) is green."
+
+acceptance_criteria:
+  - id: AC-1
+    verdict: covered
+    test: "TestTwoUpFooter_CarriesBothPuzzlesLinks (3 tests)"
+    reason: >-
+      Would fail on regression: test_the_baseline_book_prints_four_links_for_four_puzzles
+      spies every draw.text call of a real interior export and asserts the link
+      set equals {qr_link(1..4)} AND len(links) == len(puzzles) == 4. This read 3
+      at 5c5d0aa^, so the control has demonstrably failed. The geometry half
+      asserts two insets, two icons, two caption anchors, all inside the usable
+      area and inside the footer row, and the two icon boxes disjoint.
+  - id: AC-2
+    verdict: covered
+    test: "TestTwoUpFooter_EachGroupCarriesItsOwnSlotsLink (3 tests)"
+    reason: >-
+      The defect named (both groups showing one link) is caught by two
+      independent shapes: a dict of drawn link text -> drawn x compared against
+      the x each inset implies, at both parities, plus `len(set(xs)) == 2`; and a
+      narrow sorted-equality on (41, 42) that a page setting one link twice fails.
+  - id: AC-3
+    verdict: covered
+    test: "TestTwoUpFooter_EachGroupNamesItsPuzzleNumber (4 tests)"
+    reason: >-
+      The convention is stated in the test class, the renderer and the card's
+      notes, and asserted as drawn ink: test_the_upper_puzzles_group_is_the_leftmost_at_both_parities
+      recovers each link's real left edge from the spy's xy and anchor and
+      asserts upper < lower at ODD and EVEN; the invitation text per puzzle is
+      asserted against qr_group_caption; and the cost claim is pinned at the
+      font (300 / 549 / 567 px, usable 2250, > 20 mm spare).
+  - id: AC-4
+    verdict: covered
+    test: "TestTwoUpFooter_NeverPlacesInkOnTheGutterSide (8 tests incl. parametrizations)"
+    reason: >-
+      Measured ink, not reported boxes: _footer_group_ink differences the real
+      page against the same page drawn with _draw_qr_placeholder and
+      _draw_qr_caption suppressed, so the mask is exactly the pixels the groups
+      put down. The control is real — it draws one icon at CARD-204's gutter-side
+      placement THROUGH the production drawer and asserts the identical check
+      catches it — and `mask.any()` guards against a vacuous pass. The forbidden
+      region flips with parity, so a parity inversion is caught on the Book 1
+      profile too. Gaps: the ink proof runs only on the gutter==outside profile,
+      and the mirroring (which margin is read) is proved on _unequal_spec as
+      geometry rather than ink — see F-3. The narrowing of the region is
+      asserted as arithmetically forced, with the residue pinned at 240 px.
+  - id: AC-5
+    verdict: covered
+    test: "TestTwoUpFooter_TheCellCostIsMeasuredAndBounded (4 tests)"
+    reason: >-
+      Independent second implementation (_expected_pair_cell_mm, written from
+      Book 1's own millimetres including CARD-204's folio-reserve re-fit rule)
+      compared against the committed cell over 45+ pairs with `checked >= 45`
+      asserted. The card's wrong ~2% figure is corrected rather than inherited:
+      the worst surviving cost is found by search (not asserted at a chosen
+      fixture) and pinned at 13 rows, 7.5000 -> 7.1287 mm, 4.95%. The
+      "free wherever the gap already holds it" claim asserts both the equality
+      of cells and that the gap shrank by exactly the strip.
+  - id: AC-6
+    verdict: weak
+    test: "TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages (6 tests)"
+    reason: >-
+      The VERTICAL half is genuinely an exact set, not a corpus sample dressed
+      up as one, and I reproduced it independently over 55,566 cases (PROBE-4,
+      21 widths x 3 row depths x 2 column depths vs the test's 4 widths x 1
+      depth): changed == {29,30,31,32}, kept∩changed == {}, max(kept) == 28. The
+      test also asserts its own case count exactly (4 * 441), sweeps unequal
+      heights so the odd members 29/31 are reachable at all, and pins the
+      boundary from hand arithmetic (28 in, 29 out). The HORIZONTAL half of the
+      same exemption — a trim too narrow for two groups — is two samples 1000 px
+      apart with no boundary case and no exact set, and its refusal line carries
+      two surviving mutants (M1, M2). That is why this is `weak` rather than
+      `covered`: AC-6 asks for an exact set and gets one on one axis of a
+      two-axis verdict.
+  - id: AC-7
+    verdict: covered
+    test: "TestTwoUpFooter_TwoUpPagesNowCarryTheirFolio (4 tests) + TestBookPageFrame_TwoUpCarriesTheWholeFrame (2 tests)"
+    reason: >-
+      Three independent shapes: the drawn folio's xy/anchor pinned to
+      (frame.folio_x, frame.baseline)/'mb' at both parities; _draw_page_frame's
+      own boolean verdict contrasted True (reserved) vs False (unreserved),
+      which is the strongest form because it is the frame's decision and not an
+      inference from ink; and "not also in the corner" (exactly one folio, not at
+      page_bottom). On the rendered baseline book the page-frame test asserts the
+      footer hairline is now present where it asserted `== []` before.
+  - id: AC-8
+    verdict: covered
+    test: "TestTwoUpFooter_UsesTheSameFooterGeometryAsASinglePage (4 tests)"
+    reason: >-
+      footer_depth is compared against an independently stated 353 and against
+      round(INTERIOR_FOOTER_MM * PX_PER_MM) — two derivations, not one; the
+      lower slot's slack is asserted to equal it and its drawing_bottom to equal
+      footer_rule.y; the outer group's icon box and caption anchor are asserted
+      EQUAL to a single page's on the same sheet (to the pixel, both parities);
+      and an ast scan pins one footer-depth constant and one group placer.
+
+guardrails:
+  - id: G-1
+    verdict: pass
+    evidence: >-
+      One footer geometry and one link template. interior_frame's footer is
+      reused via the new footer_depth property (no second depth: `source.count("INTERIOR_FOOTER_MM = ") == 1`
+      asserted); the group placement stays in qr_slot/qr_caption with inset_px
+      rather than a second placer (ast scan pins the placer set); qr_group_insets
+      says only how many fit and how far apart; qr_group_caption interpolates
+      QR_CAPTION_TEXT and BAND_SEPARATOR and is asserted not to retype the words;
+      _draw_two_up_qr_groups' source is asserted free of the host literal and to
+      call qr_link; CARD-223's package-wide ast host scan is green. Caveat F-8
+      (the "Puzzle {n}" prefix is re-spelled rather than taken from
+      band_identity) is cosmetic and matches four pre-existing spellings.
+  - id: G-2
+    verdict: pass
+    evidence: >-
+      folio_reserve_px keeps its horizontal meaning exactly: it is still passed
+      only to _slot_layout(outer_reserve_px=...) for the lower slot and nothing
+      in the diff reads it on the vertical axis. The new footer_reserve_px is a
+      separate keyword that acts only through reserved_bottom_mm (the fit's
+      bottom_mm and the placement's content_bottom), with its own docstring
+      stating the axis split and the card's own measurement (slack stays 0 at
+      every folio-reserve level). The orthogonality is testable and tested in
+      both directions: test_a_pair_laid_out_with_no_footer_reserve_draws_neither
+      shows that at the production folio reserve and zero footer reserve the
+      slack is 0 and qr_slot/qr_caption are both None at both parities, and
+      AC-5's independent fit restates the folio rule separately from the strip.
+      One parameter, one job — no overloading.
+  - id: G-3
+    verdict: pass
+    evidence: >-
+      Verified independently rather than taken on report: diffing
+      book_baseline_card223.json against book_baseline_card248.json page by page,
+      exactly one of 13 digests differs (page 5, the two-up page). Pages 7 and 9
+      — the single puzzle pages, the only other pages that carry a QR group — are
+      byte-identical, which is the real control. Forward-locked by
+      TestBookPdfMemory_PagesAreUnchanged::test_every_page_is_pixel_identical_to_the_recorded_one
+      (ran green, SEL-4). Geometrically, qr_slot(layout) == qr_slot(layout, inset_px=0)
+      and the same for qr_caption, asserted on both parities and both profiles,
+      and _draw_qr_caption's name_the_puzzle defaults to False.
+  - id: G-4
+    verdict: pass
+    evidence: >-
+      The reserve is taken from the page's bottom margin, never from one slot, so
+      both slots are fitted at one cell by construction. Asserted by
+      test_both_slots_keep_one_shared_cell_with_the_strip_reserved (upper.cell ==
+      lower.cell == pair.cell over 4 shapes, `checked >= 3`) and, far more
+      broadly, by test_PropertyTest_BookPairing which asserts
+      `slot.page.cell_mm == entry.pair.cell_mm` for both slots of every paired
+      page in a 3600-book corpus (paired >= 100). CARD-226 inherits what it was
+      promised.
+  - id: G-5
+    verdict: pass
+    evidence: >-
+      TestBookPageFrame_EachFigureIsDeclaredOnce is live and green (SEL-2). The
+      new code declares no new float: qr_group_insets reads QR_SLOT_MM,
+      INTERIOR_FOOTER_GAP_PT and MM_PER_POINT; footer_depth is page_bottom minus
+      footer_rule.y with no literal; the reserve conversion uses _MM_PER_INCH and
+      DPI; _qr_group_line_px uses FOLIO_RESERVE_DIGITS and INTERIOR_FOOTER_LINE_PT.
+      The only new integer literals are structural (1, 2, 10 in `10**digits - 1`).
+  - id: G-6
+    verdict: pass
+    evidence: >-
+      book_baseline_card248.json carries card, supersedes, recorded_from_commit
+      (naming the branch point and that it was recorded before any assertion was
+      written against it), recorded_on, book, read_back_through, a
+      why_a_new_baseline paragraph that names all three reader-visible changes,
+      and the standing never-regenerate warning. changed_pages is [5] and the
+      note explains that page AND states its own control (7 and 9 byte-identical
+      because inset_px defaults to 0) AND accounts for every page kind that does
+      not change AND explains why the page count stays 13. interior_bytes
+      3337825 -> 3354646 recorded as measured, not predicted.
+      book_baseline_card223.json and every earlier fixture are still on disk; the
+      chain note was updated 18 -> 19 with the reason.
+  - id: G-7
+    verdict: pass
+    evidence: >-
+      Three retirements, each with its survivor named in place and each survivor
+      asserting at least as much. (1) TestBookPageFrame_TwoUpKeepsItsOuterFolio ->
+      TestBookPageFrame_TwoUpCarriesTheWholeFrame: the exemption's control becomes
+      the removal's control, and the one exemption that is LEFT (size_label=None,
+      because two slots carry two sizes) gets a new control of its own rather than
+      being dropped. (2) test_every_two_up_slot_keeps_its_icon_out_of_the_gutter_half
+      -> AC-4, on a narrowed region whose narrowing is itself asserted as forced,
+      with the residue pinned. (3) test_a_two_up_pages_lower_slot_draws_neither ->
+      AC-1/AC-7, with its still-true half kept in place as
+      test_a_pair_laid_out_with_no_footer_reserve_draws_neither. The four renamed
+      methods in test_book_pdf_two_up.py are renames at new figures, not
+      retirements — but see F-2 for what the renaming cost.
+
+findings:
+  - id: F-1
+    severity: important
+    category: test-quality
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 1410
+    title: "AC-6's horizontal refusal has no boundary case, and its line's off-by-one mutants both survive"
+    description: |
+      `if count * pitch - gap > page.usable_right - page.usable_left: return None`
+      is one half of the pairing verdict (the other half, the vertical strip, is
+      pinned to the pixel by test_the_boundary_is_where_the_hand_arithmetic_puts_it).
+      Every test that reaches it does so far from the boundary: Book 1 needs 1774 px
+      against 2250 (fits), the 12 x 48 cm book needs 1774 against 1229 (refuses),
+      three groups need 2680 against 2250 (refuses). The window where the verdict
+      actually turns — usable widths 1700..1850 px — is never visited, so:
+
+        * M1, dropping the `- gap` term, SURVIVES the whole suite;
+        * M2, `>` for `>=`, SURVIVES vacuously.
+
+      The card's own worktree notes state the derived threshold ("about 176.2 mm /
+      6.94 in of width before a two-up page is possible at all") and no test pins
+      it. The exemption AC-6 is required to state exactly is therefore exact on
+      one axis of a two-axis verdict.
+    failure_scenario: |
+      A 7 x 10 in trim (the first trim in the card's own table that KEEPS two-up
+      pages) has 151.8 mm = 1793 px of usable width. Under M1 the predicate becomes
+      2 * 906 = 1812 > 1793, so qr_group_insets answers None, puzzle_pages sets
+      pair = None, and every pair in every 7 x 10 in book silently prints as two
+      single pages — a longer interior and a higher per-copy print cost on a real
+      KDP trim — with the whole suite green. The same input under the shipped code
+      pairs correctly. Nothing in the suite distinguishes the two.
+    remediation: >-
+      Add one boundary pair to TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages:
+      a spec whose usable width is exactly `2 * pitch - gap` (asserted to fit) and the
+      same spec one pixel narrower (asserted to refuse), with the pitch stated from
+      the test module's own QR_SLOT_PX / FOOTER_GAP_PX / _qr_group_line_px as the
+      vertical boundary test already states its figures by hand. That single pair
+      kills both M1 and M2 and turns the 6.94 in threshold into a pinned figure.
+    confidence: high
+    source: "mutation analysis (M1, M2) + enumeration of every qr_group_insets call site in the suite + PROBE-3's measured pitch"
+
+  - id: F-2
+    severity: important
+    category: traceability
+    type: claim-coverage-divergence
+    file: tests/test_book_pdf_two_up.py
+    line: 426
+    title: "FR-040's AC-242..AC-246 no longer state what the tests named after them assert, and two of them now hold the wrong verdict"
+    description: |
+      Every fixture in the AC-named classes was re-chosen so the classes keep
+      passing under the new pair height: _SMALL_PAIR depth 4 -> 3 (AC-242),
+      TestBookPdf_TwelvePairSharesPageBelowStandardCell's PAIR depth 4 -> 2
+      (AC-243), _FIFTEEN column_depth 5 -> 1 and _FIFTEEN_DEEPER 6 -> 2
+      (AC-244/245), and AC-246's pair is 32 cells where the registry says 36.
+      Four test methods were renamed to carry the new figures
+      (test_that_cell_is_the_229_492_mm_over_32_cells_the_ac_names ->
+      test_that_cell_is_the_199_605_mm_over_28_cells, and three siblings).
+
+      The registry's own pairs were not re-measured, and for two ACs the change is
+      a VERDICT and not a number: the 12 x 12 4-deep pair AC-243 names (32 cells)
+      now needs 6.24 mm and does not share a page at all, and AC-242's named pair
+      drops 7.5000 -> 7.1287 mm. So the tests that cite these ACs certify
+      behaviour the ACs do not describe. This is the ADR-0039/R1 shape the card's
+      own system contract calls out, and the card declares it as a landing
+      obligation routed to the architect station rather than editing the registry
+      — which is the right split of work, so this is filed as the obligation's
+      ticket rather than as a defect in the diff.
+    failure_scenario: |
+      A reader (or a later card) takes FR-040 AC-243 at face value — "two easy
+      12 x 12s with 4-deep gutters share a page at 7.39 mm" — and builds on it,
+      e.g. sizing a 12 x 12 level for two-up pages. In fact that pair prints on two
+      pages, doubling the page budget for that level. The suite stays green because
+      the test named after AC-243 now exercises a 2-deep pair instead.
+    remediation: >-
+      Carry the card's hand-back table into meta/architecture/requirements.yml at
+      the architect station before this wave closes: AC-242 7.5 -> 7.1287 mm,
+      AC-243 verdict flips to "two separate pages", AC-244's pre-existing
+      impossibility (CARD-222's deferral) separated from the new cost, AC-246's
+      pair restated. The card's table already separates what CARD-222 owes from
+      what CARD-248 owes, so no re-derivation is needed.
+    confidence: high
+    source: "diff of tests/test_book_pdf_two_up.py + the card's own hand-back table (which I did not re-derive; requirements.yml was not re-read)"
+
+  - id: F-3
+    severity: minor
+    category: test-quality
+    type: gap
+    file: tests/test_book_qr_slot.py
+    line: 1541
+    title: "AC-4's measured-ink proof runs only on the profile where gutter == outside; the margin-reading claim is geometry, not ink"
+    description: |
+      test_no_footer_group_pixel_lands_in_the_retired_gutter_strip and its control
+      both use _spec(parity=...), i.e. Book 1, where GUTTER_MM == OUTSIDE_MM ==
+      12.7 mm. On that profile the usable box does not move with parity. The ink
+      test still discriminates WHICH SIDE of the sheet the groups are on (the
+      forbidden region flips with parity regardless of margin equality), so a
+      parity inversion is caught. What it cannot discriminate is which margin the
+      row is anchored to. That claim is made separately, on _unequal_spec
+      (19.0/7.0 mm), by test_unequal_margins_put_the_outer_group_one_outside_margin_in
+      — but as geometry (qr_slot return values), never as drawn ink.
+      The card's instruction ("do not prove mirroring on the Book 1 profile")
+      is honoured in letter; the two halves of the claim just never meet in one test.
+    failure_scenario: |
+      A future change anchors the group row to `usable_left + gutter` style
+      arithmetic that happens to agree with qr_slot's reported box but disagrees
+      with where _draw_qr_placeholder actually paints (say, a translation applied
+      in the drawer). On Book 1 the ink test cannot see the margin mix-up and the
+      unequal-profile test never looks at ink, so a book printed on an asymmetric
+      profile puts its outer group one gutter (19 mm) in from the wrong edge — the
+      owner's original complaint, on the profile where it matters most.
+    remediation: "Parametrize _footer_group_ink's two-up render over (_spec, _unequal_spec) as test_a_single_page_still_asks_for_one_group_and_gets_the_same_answer already does for geometry."
+    confidence: medium
+    source: "read of _spec/_unequal_spec + GUTTER_MM/OUTSIDE_MM in tests/helpers/book_corpus.py:108-109"
+
+  - id: F-4
+    severity: minor
+    category: correctness
+    type: fragility
+    file: src/nonogram/export/layout.py
+    line: 3195
+    title: "AC-8's \"the drawing stops on the rule the frame strokes, by construction\" is true for the production margin, not by construction"
+    description: |
+      The reserve round-trips px -> mm (as a float) -> exact Fraction -> rounded px,
+      so the slack the fit leaves is 353 + O(1e-14) and the two boundaries are
+      rounded independently. I swept bottom margins (PROBE-1): at bottom_mm =
+      9.525 the lower slot's drawing_bottom comes out 2834 against a footer_rule.y
+      of 2835 — one pixel apart, so the AC-8 identity is false there. It holds at
+      every value I tried in the 10..15 mm band and on every trim height
+      8..12 in at the production margin (PROBE-2).
+
+      Not reachable today: BOOK1_PROFILE fixes bottom_in = Decimal("0.47") for every
+      book, so the margin is a single constant. Recorded because the identity is
+      asserted in a docstring and a test as structural when it is in fact
+      margin-dependent, and because the failure direction on the other side is
+      worse: a rounding that produced 352 would make qr_slot answer None, which
+      the pairing gate reads as "do not pair", so every pair in the book would
+      silently split rather than loudly fail.
+    failure_scenario: |
+      A later card makes the bottom margin a per-profile figure (a trim-dependent
+      bottom margin is ordinary KDP practice). At a value like 0.375 in the slack
+      rounds one pixel short of the strip; qr_group_insets answers None for every
+      pair; every two-up page in every book on that profile becomes two single
+      pages, with no error and with the whole suite green (the suite only exercises
+      0.47 in).
+    remediation: "Reserve in exact Fractions end to end (skip the float() in footer_reserve_mm), or assert `slack >= footer_depth` as a post-condition inside compute_pair_layout so a rounding shortfall raises instead of silently unpairing."
+    confidence: high
+    source: "PROBE-1 (measured, read-only) + src/nonogram/admin/book_page_spec.py:237-238"
+
+  - id: F-5
+    severity: minor
+    category: robustness
+    type: bound
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 5050
+    title: "_draw_two_up_qr_groups raises instead of degrading once a puzzle number exceeds four digits"
+    description: |
+      The pairing gate uses _qr_group_line_px(dpi), the widest line the face can
+      set for a number of at most FOLIO_RESERVE_DIGITS (4) digits — measured at
+      594 px (PROBE-3). The drawer uses the real measure for THIS page's numbers.
+      For numbers up to 9999 the drawer's measure is never wider, which is the
+      argument the docstring makes ("Unreachable from puzzle_pages"). At 10000 and
+      above the real line is wider than the ceiling, qr_group_insets can answer
+      None in the drawer, and the method raises ValueError — i.e. the export
+      crashes rather than degrading.
+      This is the same bound _folio_reserve_px already carries, so it is a
+      pre-existing project-wide assumption rather than something this card
+      introduced; the docstring's "unreachable" is what is new and is true only
+      below 10000.
+    failure_scenario: "A 10,000-puzzle compendium (or a book numbered from a global sequence past 9999) reaches _two_up_page for a pair numbered 10000/10001; qr_group_insets returns None and export_interior raises `this page's footer cannot carry 2 QR groups N px wide` instead of producing a book."
+    remediation: "Either state the 9999 bound in the docstring as a precondition (one sentence, matching _folio_reserve_px's own), or raise at plan time in puzzle_pages where the number is known and the pair can still be split."
+    confidence: high
+    source: "PROBE-3 (measured ceiling 594 px) + read of _qr_group_line_px and _draw_two_up_qr_groups"
+
+  - id: F-6
+    severity: observation
+    category: test-quality
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 4985
+    title: "Nothing asserts that a two-up page's centred folio does not collide with the inner group's words"
+    description: |
+      Measured on Book 1 ODD (PROBE-3): the folio sits at x 1275 on baseline 2885;
+      the inner group's words are right-aligned at x 1265 and set on baselines 3041
+      and 3121; the icon row begins at y 2923. So the folio clears the group by
+      38 px VERTICALLY (one footer gap, structural: the strip is rule + gap + line
+      + gap + icon) while its HORIZONTAL clearance is 10 px at two digits and
+      1 px at four (folio 1221..1329 against words ending at 1220). The page is
+      correct, and the vertical separation is a consequence of the strip's own
+      construction rather than luck — but the single-page analogue of this claim is
+      tested (test_the_grid_size_label_and_the_qr_group_do_not_collide) and the
+      two-up analogue is not, on a page whose horizontal clearance is one pixel.
+    failure_scenario: "A later card gives the two-up page its grid-size labels (CARD-226) or moves the folio's baseline down within the strip; at a four-digit page number the folio's glyphs then overlap the end of the inner group's typed link, and no test reds."
+    remediation: "One assertion in TestTwoUpFooter_TwoUpPagesNowCarryTheirFolio: the folio's drawn box and both groups' drawn boxes are pairwise disjoint (the module already has _disjoint), at a four-digit page number."
+    confidence: high
+    source: "PROBE-3 (measured)"
+
+  - id: F-7
+    severity: observation
+    category: test-quality
+    type: stale-bound
+    file: tests/property/test_book_pairing.py
+    line: 554
+    title: "The pairing corpus grew 900 -> 3600 books but `books >= 850` / `pages >= 3000` were not scaled with it"
+    description: |
+      No minimum was LOWERED, which is the house rule that matters, and the growth
+      is justified in place (the card's refusals cut paired verdicts to 25 at 900
+      books, below the standing `paired >= 100`). But two of the file's own
+      minima now bound a corpus a quarter of the size of the one it builds, so
+      they no longer guard what they claim to. The corpus still cannot silently
+      shrink, because `paired >= 100` and the new `refused_on_footer >= 500` both
+      fail at 900 books — the guard just lives somewhere other than where it reads.
+    failure_scenario: "A later card trims range(3600) back to range(1200) for runtime; `books >= 850` and `pages >= 3000` stay green and only the paired/footer minima catch it — and if that card also happens to widen pairing, nothing catches it."
+    remediation: "Scale books/pages to the new corpus (books >= 3400, pages >= 12000) when this file is next touched."
+    confidence: high
+    source: "diff of tests/property/test_book_pairing.py"
+
+  - id: F-8
+    severity: observation
+    category: maintainability
+    type: duplication
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1767
+    title: "qr_group_caption re-spells \"Puzzle {n}\" rather than using band_identity's formatter, though its docstring says it uses that form"
+    description: |
+      `return f"Puzzle {puzzle_number}{BAND_SEPARATOR}{QR_CAPTION_TEXT}"` is the
+      fifth `f"Puzzle {n}"` in the package (band_identity, the TOC's two,
+      book_answer_key's two). The two strings G-1 actually pins — QR_CAPTION_TEXT
+      and the link template — are reused correctly, and BAND_SEPARATOR is read from
+      its constant, so G-1 holds; the docstring just claims a reuse that is a
+      restatement.
+    failure_scenario: "A card that relabels the band ('Nonogram 12' / a localised word) changes band_identity and the answer key and misses the footer group, so a two-up page's links name the puzzle with a word the rest of the book stopped using."
+    remediation: "Either call band_identity's own number-prefix helper, or soften the docstring to 'the same form as', which is what it is."
+    confidence: high
+    source: "grep of f\"Puzzle across src/nonogram/"
+
+ac_vs_body_check:
+  verdict: "one AC was already satisfied in behaviour at 5c5d0aa^; no AC contradicts another"
+  detail: |
+    Checked each AC against the parent commit.
+      * AC-1 was FALSE (the baseline book printed 3 links for 4 puzzles — the
+        retired assertion said so in words, and the fixture chain confirms page 5
+        changed).
+      * AC-2, AC-3 were vacuous (there were no two groups).
+      * AC-5, AC-6 were FALSE/absent (there was no reserve, so no cost and no
+        refused band).
+      * AC-7 was FALSE (a two-up page carried CARD-200's corner folio; the
+        retired TestBookPageFrame_TwoUpKeepsItsOuterFolio asserted `footer_rule
+        == []`).
+      * AC-8 was FALSE (a two-up page had no footer at all).
+      * AC-4 is the exception: "no QR pixel and no caption pixel lands on the
+        gutter side" was ALREADY TRUE at 5c5d0aa^, and asserted more strongly —
+        CARD-223's retired test_every_two_up_slot_keeps_its_icon_out_of_the_gutter_half
+        held the two-up page to the gutter HALF of the sheet, where AC-4's
+        survivor holds it only to the gutter margin plus one icon width. So the
+        AC guards new ink (two groups where there was one midline icon) but its
+        proof is strictly weaker than the claim it replaces. That weakening is
+        unavoidable (the row of two groups is 1684 px of ink against 1125 px of
+        outer half), is declared in three places, is asserted rather than
+        asserted-around, and leaves a pinned 240 px residue — which is exactly
+        ADR-0039/R3's required shape. Recorded, not faulted.
+    No AC contradicts another. The card BODY does contradict AC-6 — its
+    spare-height table predicts the tall 15-row pairs lose ~2% of their cell when
+    in fact they stop pairing — but the orchestrator already corrected that in the
+    hand-back notes and the tests correct it rather than inheriting it
+    (test_the_worst_surviving_cost_is_the_thirteen_row_band_at_4_95_percent names
+    the card's figure as wrong). AC-5's "recorded against the figures above" is
+    therefore satisfied in spirit by refuting them.
+
+house_conventions:
+  hypothesis: "clean — no hypothesis anywhere in the diff; the two new corpora (AC-5's 45+ pairs, AC-6's 4 * 441 sweep) are deterministic nested loops with their case counts asserted (>= 45, >= 3, == 1764), and the seeded random.Random corpus in test_book_pairing.py grew rather than shrank."
+  asserted_minimums: "present on every new corpus. No minimum lowered anywhere in the diff (verified by grepping the diff for changed `>=` bounds). F-7 notes two minima that were left behind rather than lowered."
+  independent_second_implementation: >-
+    Honoured where it counts: _expected_pair_cell_mm (AC-5) writes FR-040's fit
+    out from Book 1's millimetres including CARD-204's re-fit rule rather than
+    calling compute_pair_layout; FOOTER_STRIP_PX is stated from CON-020's three
+    rows and then compared against INTERIOR_FOOTER_MM; the 28/29 boundary is
+    derived by hand; test_book_pairing.py and test_book_arrange_page_breaks.py
+    each reimplement the footer reserve and the two-group gate in their own
+    arithmetic, importing only the font measurement (_qr_group_line_px), which is
+    the same split _folio_reserve_px already uses and is justified in place. No
+    test checks a function against itself. The one place a production helper is
+    reused in a test expectation (_drawn_group_lines mirrors the renderer's
+    `max(getlength(...))`) is a font measurement, not the geometry under test.
+  lateral_imports: "clean — SEL-5 green; the new admin -> export.layout imports (PageParity, qr_group_insets) are inward, which the guard allows, and layout.py imports nothing new."
+  dependency_baseline: "clean — no new runtime dependency; the diff adds only stdlib math/ast usage in tests."
+  baseline_fixtures: "clean — see G-6. No earlier fixture regenerated or deleted; the new one explains every page it lists and states its own control."
+
+strengths:
+  - "The card's own arithmetic was re-derived and REFUTED rather than inherited: the ~2% tall-pair cost is shown to be a refusal, and the test class says so in its docstring. That is the behaviour the card asked for ('measure it and state what you get') and it is rare."
+  - "Every catch-claim has a control that demonstrably fails: AC-4's draws the retired placement through the production drawer; AC-6's pins 28-in/29-out from hand arithmetic; AC-7's reads _draw_page_frame's own boolean both ways; the no-reserve control shows the strip is what buys the footer."
+  - "The AC-4 narrowing is handled exactly as ADR-0039/R3 wants: the old claim is shown arithmetically impossible, the new region is stated, the residue is pinned at 240 px, and two tempting-but-false stronger claims (the gutter quarter; both icons in the outer half) are explicitly declined because they break at four digits."
+  - "The vertical refusal set is a real exact set. I reproduced it over 55,566 cases at 21 widths and 3 clue depths against the implementation's own 1764-case sweep and it matched exactly, including the odd members that an equal-pair sweep would have missed."
+  - "G-2 is met structurally, not by assertion: two parameters on two axes, and the vertical one's effect is proved by its own absence."
+  - "The fit/placement identity on reserved_bottom_mm is the subtle correctness point of the whole card and the commit message explains the 13x13 / y=1485.5 near-miss that forced it. Mutating it back is killed."
+
+risks_to_downstream:
+  - "CARD-226 inherits a two-up page whose lower drawing bottom sits exactly ON footer_rule.y, i.e. at the `<=` boundary of interior_frame's footer condition. Its divider rule and aligned bottoms must not consume any of the 353 px strip."
+  - "6 x 9 in — a common nonogram-book trim — loses two-up pages entirely under this card (both axes refuse). Declared in the card's notes, not in the option set the owner chose from. It is a scope consequence the owner should be told about rather than discovering in a book."
+  - "Book 1's own cost is real: 30 of the 90 depth-1 equal pairs stop pairing, and the worst surviving pair loses 4.95% of its cell. That is a longer interior and a higher per-copy print cost."
+
+score_rationale: >-
+  8.5. Nothing critical and nothing that makes a wrong page: the card's hard
+  parts (the fit/placement identity, the two-axis refusal, the measured-ink proof
+  with a working control, the exact set, the baseline provenance) are all done
+  properly, every guardrail holds with evidence, every retirement names a
+  survivor, and the implementation corrects its own card's arithmetic instead of
+  inheriting it. Ten of twelve targeted mutants die. Held back from 9+ by two
+  important findings: one axis of AC-6's "exact set" is a two-point sample whose
+  boundary mutants both survive and which would silently unpair a 7 x 10 in book
+  (F-1, one test away from fixed), and FR-040's registry ACs now certify figures
+  and verdicts their own tests no longer assert (F-2, declared and routed, but
+  still open). Above the 8 threshold.

@@ -1943,7 +1943,7 @@ links:
   status: partial
 
 - req: FR-040
-  description: "Two same-tier neighbours in the book order share a two-up page when both fit at one shared cell >= 7.0 mm (capped 7.5 mm); pairing walks the order and never reorders"
+  description: "Two same-tier neighbours in the book order share a two-up page when both fit at one shared cell >= 7.0 mm (capped 7.5 mm) WITH the page's one footer strip reserved, and the page's usable width holds both their QR groups; pairing walks the order and never reorders"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-007, COMP-009]
@@ -1960,6 +1960,7 @@ links:
   - TestBookPdf_OddPuzzleOutPrintsAlone
   - TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand
   - TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge
+  - TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages
   - PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly
   - PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea
   - TestFinaliseCounts_PlanTripwireIsNotAnEstimate
@@ -1972,6 +1973,15 @@ links:
     which neighbours to offer it (ADR-0036/R2). Each slot carries its own
     'Puzzle N · Tier' band (ADR-0037). Gutter/page-count circularity broken by
     the stored gutter + finalise check (ADR-0036).
+    AMENDED 2026-10-18 (CARD-248, 1256982): the pair now also reserves the
+    page's one footer strip (INTERIOR_FOOTER_MM = 29.878 mm) out of its own
+    height, which drops the two-up height budget 229.492 -> 199.614 mm and the
+    largest pairing combined height 32 -> 28 cells; and clause (c) refuses a
+    pair whose page could not carry BOTH links, which makes a two-up page
+    impossible below about 175.60 mm / 6.913 in of trim at Book 1's margins.
+    Both refusals print two single pages, each with its own footer and link —
+    never a two-up page with a link missing. AC-376 (the exact refused set
+    {29,30,31,32}) and AC-377 (the width gate) are new.
   status: partial
 
 - req: FR-041
