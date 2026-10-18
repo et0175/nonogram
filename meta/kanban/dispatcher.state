@@ -11,6 +11,15 @@ active:
     started: 2026-10-17T22:41:59Z
     note: "P1, head of what remains of the interior chain: CARD-224 waits on it and CARD-226 waits on 224+225. Disjoint from CARD-244 on files. Briefed NOT to run DB selections while CARD-244 is active, because until CARD-244 lands both trees still share nonogram_test."
 escalated: []
+merged_wave_45:
+  - id: CARD-244
+    merge_commit: 007180d
+    at: 2026-10-17T23:47:23Z
+    actual: 0.1d
+    estimate: 1d
+    accuracy: 0.14x
+    gate: "7947 passed, 12 skipped, 0 failed in 789.45s -- DATABASE_URL UNSET, the then-current gate condition"
+    note: "Removes the shared-database hazard that cost wave 44 a fix attempt. Its own three db_required tests are among those 12 skips, which is the evidence hole it exposed; the gate_condition_change below is what closes it."
 wave_44_complete:
   at: 2026-10-17T19:20:43Z
   cards: [CARD-243, CARD-222, CARD-236]
