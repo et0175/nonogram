@@ -1,6 +1,6 @@
 # CARD-246: A generated puzzle can be edited by hand, from its card or the list, and approved on its new difficulty
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/246-manual-puzzle-editor
-**Worktree:** ../PythonProject4-card-246
+**Worktree:** — (removed at merge)
 **Source:** owner's doc "Admin panel", 2026-10-18 — "start from a puzzle card or the list of puzzles, add a button - edit… Then show a message with difficulty and cancel/approve buttons"
 **Idea:** —
 **Wave:** 46
 **Depends on:** CARD-245 (the verify-and-grade path this UI calls; without it there is nothing to approve)
 **Touches:** src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/puzzles.html, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/puzzle_edit.js, src/nonogram/admin/templates/_puzzle_table.html, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py, tests/test_admin_serving.py
-**Review score:** —
+**Review score:** 8.5 (cycle 2/3; 7.0 → 8.5, +1.5)
 **Started:** 2026-10-18T08:31:25Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-18T18:40:00Z
+**Actual:** 1.3d
+**Merge commit:** c7ac7a0
 **Blocked by:** —
 
 ## What to implement
@@ -920,3 +920,33 @@ than pinned by a shipped test. One test, in the shape of the stroke test that al
 cannot reach it** — `const grid = verified` is the captured grid, which is what cycle 2's own M12
 pins. So the drag preview can only leak into a **Save**. The finding's substance stands; one half
 of its sentence was not a path.
+
+### [Merge gate] PASSED, merged c7ac7a0 (2026-10-18)
+
+`EXIT=0` · **8322 passed, 1 skipped, 0 failed** in 849.88s · commit `dbe9119` ·
+`DATABASE_URL` **SET** · first-attempt green. Collected reconciles exactly: 8251 at the branch
+point + **71** this card's tests = 8322.
+
+**AC/EC/G gate passed**, every criterion's named test collecting: AC-1 (6), AC-2 (6), AC-3 (3),
+AC-4 (2), AC-5 (2), AC-6 (7), AC-7 (5), G-1 (5), G-2/G-5 (11), G-3 (4), G-4 (5), plus the
+invariant's own class at **15**. The invariant class being the largest is the right shape: it is
+where both review cycles found everything.
+
+**Byte-identity verified per file, after catching that my own check was vacuous.** My usual
+command built a file list and passed it as `-- $FILES`; **zsh does not word-split an unquoted
+variable**, so that was one multi-line pathspec matching nothing, and it reported "empty" no
+matter what. Replaced with a per-file blob comparison — all 8 files identical to `dbe9119` —
+**and given a control that proves it can fail** (the same comparison against the branch point
+reports a difference). **CARD-224's check was re-run the same way and its conclusion held**: 20
+files, 0 differing.
+
+That is the third instance this wave of the same defect class I have been finding in others all
+along — **a check that cannot fail**. It is worth stating plainly that the orchestrator produced
+one too, and that the fix was the same one demanded of every card: pair the claim with a control.
+
+### ⚑ The final tree still needs its own run, for the same reason as CARD-224's
+
+CARD-246 branched from `6184545` — main **with** CARD-245 but **without** CARD-224 — so its gate
+tested a tree that is not what main now holds. The wave's closing smoke test runs on
+`c7ac7a0` with all three cards present. Expected collection: 8292 + 71 = **8363**; anything else
+means the merge brought in more or less than the union of the three cards.

@@ -3,7 +3,7 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: [CARD-246]
+active: []
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-18T18:05:00Z
+last_updated: 2026-10-18T18:54:00Z
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -257,6 +257,42 @@ merged_wave_46:
       use. And the "126 pairs" figure is deliberately NOT carried forward: three scans produced
       126, 8 and 4 over three unpublished search spaces, so the direction is the fact.
 
+  - id: CARD-246
+    merge_commit: c7ac7a0
+    at: 2026-10-18T18:40:00Z
+    review_score: 8.5
+    cycles: "2/3 (7.0 -> 8.5, +1.5)"
+    actual: 1.3d
+    estimate: 1d
+    accuracy: 1.27x
+    gate: "8322 passed, 1 skipped, 0 failed in 849.88s, DATABASE_URL SET, first attempt; all 8 files the card touched byte-identical to the gated commit dbe9119, verified per file with a control"
+    note: >-
+      The UI half of manual editing, and the card that most often chose the harder correct thing
+      over the cheaper one. It OVERRULED the orchestrator's lean on AC-6 with a code-based
+      reason: a repeat click blanks a cell for BOTH remaining brushes, so hiding the Maybe and
+      Undecided brushes could never have been the guarantee -- and its mutant proves the point,
+      because restoring all four brushes kills only the narrowing test while all six refusal
+      tests pass. It RE-ROUTED ITS OWN DESIGN rather than weaken a sibling's guard: serving the
+      editor as a GET of CARD-245's save path broke a test pinning that GET as 405 -- a canary
+      saying a write must never be reachable by a GET -- so the page took its own URL instead.
+      And it refused three of review cycle 1's four suggested mechanisms, each time correctly,
+      including that "disable Save" drops keyboard focus mid-flow against G-4.
+    the_invariant: >-
+      Cycle 1 (7.0) found five importants, all at the two-phase flow's edges, three of which
+      SHOWED THE OWNER A FALSE STATEMENT about what happened -- a refusal standing beside a live
+      Approve after two racing Saves; a stroke made during the confirmation silently dropped
+      while the message read "Saved, this grid is the stored puzzle now"; and a dropped
+      connection leaving the page silent with an uncaught rejection. They were briefed as ONE
+      invariant rather than five patches, and fixed as one: the page may never offer Approve for
+      a grid other than the one whose grade is on screen, and may never state a store state it
+      has not been told. The message function became the single writer of both the sentence and
+      the offer -- verified by the orchestrator -- so "a refusal beside a live Approve" is not a
+      REPRESENTABLE state rather than one avoided by remembering a second call. Cycle 2 (8.5)
+      then found the same invariant broken one branch over: "nothing was stored" was the default
+      for every unreadable answer, so a 502 after the app had committed denied a write that
+      happened. Closed as an allow-list of the refusals that provably never write, with an
+      INVERSE control so the fix could not be "hedge everywhere" instead.
+
 refilled_wave_46:
   - at: 2026-10-18T08:31:25Z
     freed_by: "CARD-245 merged 6184545 (0.4d against 1d)"
@@ -319,3 +355,57 @@ wave_46_smoke_test:
     Switched to `-rfs`. This is the SECOND instance this wave of the gate's own reporting flags
     being load-bearing evidence, after the `-q` / `-qq` discovery -- the flags deserve the same
     scrutiny as the tests.
+
+wave_46_complete:
+  at: 2026-10-18T18:54:00Z
+  cards: [CARD-245, CARD-224, CARD-246]
+  merged: 3
+  escalations: 0
+  smoke_test: "RUN SEPARATELY and PASS -- 8363 passed, 1 skipped, 0 failed on main at c7ac7a0. The count was predicted before the run (8292 + 71) and hit exactly, so main holds the union of the three cards and nothing else."
+  why_the_smoke_test_was_not_satisfied_by_a_merge_gate: >-
+    Waves 43-45 could satisfy the smoke test with the last card's merge gate, because each card
+    merged into a main that had not moved since it branched, so the gated tree WAS post-merge
+    main. Wave 46 broke that for the first time: three cards branched from cc4430b and merged
+    sequentially, so CARD-224's gate tested a tree without CARD-245 and CARD-246's a tree
+    without CARD-224. Neither gate ever saw what main holds. Disjoint-on-files is an argument,
+    not a measurement. TWO separate runs on main were needed and both are recorded.
+  estimates: "0.4d, 1.6d, 1.3d against 1d each -- 3.3d actual against 3d estimated, 1.1x. The first wave in four to run OVER, and the overrun is entirely fix cycles."
+  note: >-
+    THE WAVE'S THROUGH-LINE: three cards, and on every single one the thing that actually failed
+    was A GUARD CLAIMING COMPLETENESS IT DID NOT HAVE. CARD-245's write predicate was derived
+    from the class as its card demanded and was default-ALLOW underneath, so 8 of 9 real write
+    shapes were exempt; its replacement then treated a fresh container of references to live
+    rows as not-durable-state. CARD-224's docstring NAMED two property oracles as pinning the
+    boundary it cared about and both were structurally incapable of it -- one accepts a 2.0 mm
+    window against a 12 px threshold. CARD-246's second-renderer guard was literal, so a
+    renderer with different class names walked past it. AND THE ORCHESTRATOR PRODUCED ONE TOO:
+    the byte-identical merge check passed an unquoted multi-line variable as a pathspec, which
+    zsh does not word-split, so it matched nothing and reported success regardless of the tree.
+    Re-run per file with a control; both cards' conclusions held, but the method had been
+    worthless. The fix was the same one demanded of every card: pair the claim with a control
+    that can fail.
+  second_pattern: >-
+    FIVE suggested fixes in one wave could not do what their own finding asked. CARD-224: a
+    finer sweep resolution for a boundary needing an exact fraction unreachable by walking a
+    trim height; and a minimal clamp whose safe branch was provably unreachable above a 5.6 mm
+    band. CARD-246: an assertion about a POST that no longer happens once the withdrawal exists;
+    "disable Save", which drops keyboard focus mid-flow; and keying "was anything stored" on
+    status codes, which still claims on a 422 carrying an unrecognised reason. In four of the
+    five the fix agent caught it and said so with a demonstration. A review's FINDING and its
+    REMEDY deserve separate scrutiny -- the findings were right every time.
+  third_pattern: >-
+    Every important finding on CARD-245, across both of its review cycles, came from a SURVIVING
+    MUTANT rather than from reading the code. mutation_check: true earns its cost on this board.
+  gate_evidence_findings: >-
+    Two findings about the gate's own instruments, neither of which ever made a verdict wrong
+    (EXIT was the authority throughout) but both of which made evidence harder to read.
+    pyproject.toml already sets addopts = "-q", so a gate adding its own runs at -qq where
+    pytest prints NO summary count line at all -- very probably the real mechanism behind the
+    CARD-223 incident recorded as "a grep pattern that missed pytest's shape"; there was nothing
+    to match. And `-rs` reports skips but NOT failures in the summary block, so a red run printed
+    its count and traceback with no FAILED line; switched to `-rfs`. The gate's reporting flags
+    are load-bearing evidence and deserve the same scrutiny as the tests.
+  owner_decisions_pending:
+    - "CARD-245's routes are the first HTTP-reachable grid write in the system and enforce no MIN_SIZE/MAX_SIZE and no request-size cap; the only brake is the solver deadline, which runs AFTER clue derivation. Routed as a decision, not fixed -- a bound changes behaviour no AC asks for and could refuse a grid CARD-246's editor presents."
+    - "CARD-246 removed the difficulty badge from the editor page entirely (a badge is a fact about a stored grid, on the page where that grid is being rewritten). Judged an improvement by review, with one named loss: the PRE-EDIT difficulty is now nowhere on the page, so a before/after comparison is gone. Worth an eyeball when the renders land."
+    - "CARD-224 leaves the band's-foot fallback failing against the HEADER rule, which unlike the footer has no omission branch. Pre-existing since CARD-222, unreachable through any stored profile, filed @tech-debt. The asymmetry is a design decision for a future card."
