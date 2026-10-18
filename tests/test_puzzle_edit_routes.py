@@ -19,6 +19,7 @@ Two kinds of test here, deliberately:
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 import pytest
 
@@ -256,6 +257,42 @@ class TestPuzzleEditSurfaces_TheQualityFigureSaysWhenItPredatesAnEdit:
         # does not replace it.
         assert ">71<" in body
 
+    #: The marker's own class. ``badge rec`` is the *recognisability* chip's
+    #: class, keyed by ``data-level``, and the marker borrowed it: it rendered
+    #: as a second, identically grey chip in the same row, which is the one
+    #: thing it must not look like, and the stylesheet had no rule that could
+    #: tell them apart (review cycle 1, F-012). It has its own class now, and
+    #: the two assertions below are both needed — one that the template asks
+    #: for the class, one that the stylesheet answers.
+    MARKER_CLASS = "badge edited"
+
+    def test_the_marker_wears_its_own_class_and_not_recognisabilitys(self, admin_app):
+        puzzle_id = seed(admin_app)
+        post(admin_app, VERIFY.format(puzzle_id), solid_minus_corner())
+        post(admin_app, SAVE.format(puzzle_id), solid_minus_corner())
+
+        body = admin_app.test_client().get("/puzzles").get_data(as_text=True)
+        marker = body[body.index(self.MARKER) - 400 : body.index(self.MARKER)]
+
+        assert f'class="{self.MARKER_CLASS}"' in marker, marker
+        assert 'class="badge rec"' not in marker, marker
+        # The recognisability chip is still on the row, still keyed its own way.
+        assert 'class="badge rec" data-level=' in body
+
+    def test_the_stylesheet_styles_that_class(self):
+        """Without this rule the marker is a bare grey chip the owner cannot
+        tell from the recognisability one beside it — and the panel is checked
+        by eye, so an unstyled marker is a defect no route assertion sees."""
+        css = (
+            Path(__file__).resolve().parents[1]
+            / "src" / "nonogram" / "admin" / "static" / "admin.css"
+        ).read_text(encoding="utf-8")
+
+        rules = [line for line in css.splitlines() if line.startswith(".badge.edited")]
+
+        assert rules, ".badge.edited has no rule in admin.css"
+        assert "var(--color-warning)" in rules[0], rules[0]
+
     def test_the_puzzle_card_reads_the_stamp_too(self, admin_app):
         """The detail panel is rendered client-side from ``/details``.
 
@@ -272,6 +309,43 @@ class TestPuzzleEditSurfaces_TheQualityFigureSaysWhenItPredatesAnEdit:
 
         assert details["puzzle"]["manually_edited_at"] is not None
         assert "puzzle.manually_edited_at" in page
+
+
+# --------------------------------------------------------------------------
+# the flow's one deployment coupling, said where the knob is
+# --------------------------------------------------------------------------
+
+
+class TestPuzzleEdit_TheWorkerCountIsCoupledToTheTwoPhaseFlow:
+    """Review cycle 1, F-007: the coupling has to be findable from the knob.
+
+    The verify's proof lives on the ``PuzzleReviewService`` instance in the
+    serving process, so a verify on worker A and an approve on worker B gives
+    ``EditNotVerified``. It fails closed — nothing ungraded is stored — but an
+    operator raising ``WEB_CONCURRENCY`` has no way to connect the two unless
+    the script says so next to the flag. The default is **not** changed here;
+    ``tests/test_admin_serving.py`` still owns that assertion.
+    """
+
+    @staticmethod
+    def _start_script() -> str:
+        return (Path(__file__).resolve().parents[1] / "start.sh").read_text(encoding="utf-8")
+
+    def test_the_workers_flag_is_preceded_by_the_two_phase_note(self):
+        script = self._start_script()
+        workers_at = script.index("--workers")
+        preamble = script[:workers_at]
+
+        assert "WEB_CONCURRENCY" in preamble
+        assert "/puzzle/<id>/edit/verify" in preamble, (
+            "start.sh does not name the flow the worker count is coupled to"
+        )
+        # Close enough to the flag to be read with it, not 60 lines up.
+        assert preamble.rindex("WEB_CONCURRENCY") > workers_at - 900
+
+    def test_the_default_is_still_one_worker(self):
+        """Unchanged by this card; asserted so the note cannot arrive with a bump."""
+        assert '--workers "${WEB_CONCURRENCY:-1}"' in self._start_script()
 
 
 # --------------------------------------------------------------------------

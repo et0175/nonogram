@@ -552,9 +552,9 @@ class PuzzleReviewService:
         self._refuse_unless_shaped_like_a_grid(grid)
 
         fingerprint = self._grid_fingerprint(grid)
-        remembered = self._remembered_proof(fingerprint)
+        remembered = self._remembered_verification(fingerprint)
         if remembered is not None:
-            return remembered
+            return remembered.proof
 
         # ADR-0011's bound, not a caller's choice — which is why this takes no
         # budget argument. The audit's does, because raising the budget is how
@@ -582,17 +582,22 @@ class PuzzleReviewService:
         text = f"{len(grid)}x{len(grid[0])}:{bits}"
         return hashlib.sha256(text.encode("ascii")).hexdigest()
 
-    def _remembered_proof(self, fingerprint: str):
-        """The proof remembered for ``fingerprint``, or ``None``.
+    def _remembered_verification(self, fingerprint: str) -> Optional["_Verification"]:
+        """The verification remembered for ``fingerprint``, or ``None``.
 
-        Reading one marks it as the most recently used, so the grid a flow is
-        working on is not the one evicted out from under it.
+        The **one** way the memo is read. Reading through it marks the entry
+        as the most recently used, so the grid a flow is working on is not the
+        one evicted out from under it — and that refresh is why there is one
+        accessor rather than two call sites each doing their own ``get``
+        (review cycle 1, F-011: the save used to read ``self._verifications``
+        directly and so did not refresh recency, which was harmless only
+        because the gate immediately before it did).
         """
         verification = self._verifications.get(fingerprint)
         if verification is None:
             return None
         self._verifications.move_to_end(fingerprint)
-        return verification.proof
+        return verification
 
     def _remember_proof(self, fingerprint: str, proof) -> "_Verification":
         """Remember ``proof`` for ``fingerprint``, evicting the oldest if full."""
@@ -901,7 +906,7 @@ class PuzzleReviewService:
                 verification has been forgotten
                 (:data:`MAX_REMEMBERED_VERIFICATIONS`).
         """
-        verification = self._verifications.get(self._grid_fingerprint(grid))
+        verification = self._remembered_verification(self._grid_fingerprint(grid))
         if verification is None or str(puzzle_id) not in verification.shown_for:
             raise EditNotVerified(
                 "refusing to store an edit that was not verified: this grid's "
@@ -1036,10 +1041,15 @@ class PuzzleReviewService:
             row = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
             if row is None:  # pragma: no cover - re-read of a row just read
                 return None
-            # Column by column rather than through a loop over `derived`: a
-            # `setattr(row, column, value)` writes the grid in a way no
-            # reader — and no static guard — can see it happen, and this is
-            # the write G-1 exists to keep visible.
+            # Column by column rather than through a loop over `derived`, so
+            # a reader can see which five columns an edit moves without
+            # holding `derived`'s keys in their head. It is no longer what
+            # keeps the write *visible to G-1*: the guard used to recognise
+            # grid writes by shape, which made this spelling load-bearing and
+            # the legacy branch's `puzzle.update(derived)` invisible (review
+            # cycle 1, F-002). The guard is now default-deny — any write at
+            # all makes a method a candidate that must reach the gate — so
+            # either spelling is seen, and this one is kept for the reader.
             row.grid = derived["grid"]
             row.clues_rows = derived["clues_rows"]
             row.clues_cols = derived["clues_cols"]

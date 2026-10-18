@@ -29,6 +29,18 @@
 # with `ValueError: tuple.index(x): x not in tuple` on any book whose plan is stored.
 # A plan-less book renders fine, which is what made it look like bad data in production.
 # CARD-139 removes the underlying mixed-import trap; this line is the deployed fix.
+#
+# Before raising WEB_CONCURRENCY below, read this (CARD-245 review F-007; the
+# G-4 note above is the other half). The manual grid edit is a TWO-PHASE flow
+# held in the serving process: POST /puzzle/<id>/edit/verify grades a
+# replacement grid and remembers the proof on the PuzzleReviewService
+# instance, and POST /puzzle/<id>/edit stores the grid that proof is for.
+# With two workers the verify and the approve can land on different processes,
+# and the second one has no proof — so the save refuses with "verify it again"
+# rather than storing anything ungraded. It fails closed, but it fails closed
+# INTERMITTENTLY, which reads as a broken editor. Raising this needs the proof
+# moved out of process first (a shared cache, or a staging row), not just a
+# bigger number.
 exec gunicorn \
   --bind "0.0.0.0:$PORT" \
   --workers "${WEB_CONCURRENCY:-1}" \

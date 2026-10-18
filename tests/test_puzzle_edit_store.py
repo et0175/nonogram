@@ -13,11 +13,16 @@ AC-3  ``TestPuzzleEdit_GradesFromTheProvingSolve``
 AC-4  ``TestPuzzleEdit_RefusesAPuzzleThatIsInABook``
 AC-5  ``TestPuzzleEdit_VerifyReturnsTheGradeWithoutStoring``
 AC-6  ``TestPuzzleEdit_RefusesAnApproveWhoseGridMoved``
+      ``TestPuzzleEdit_TheMemoIsReadThroughOneAccessor``     (cycle 1, F-011)
+      ``TestPuzzleEdit_AProofDoesNotCrossGridExtents``       (cycle 1, F-001)
 AC-7  ``TestPuzzleEdit_RefusesAMalformedGridBeforeSolving``
 AC-8  ``TestPuzzleEdit_StampsTheEditAndKeepsTheQualityScore``
 AC-9  ``TestPuzzleEdit_ARefusedEditLeavesNoStamp``
 AC-10 ``TestPuzzleEdit_AnEditedPuzzleStillPassesTheQualityFilter``
 G-1   ``TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal``
+      — default-deny since review cycle 1 (F-002): every function in the
+      module is a candidate grid writer unless it is *provably* read-only,
+      and a candidate must reach the gate or be on a justified short list.
 G-2   ``TestPuzzleEdit_AuditStillOnlyReports``
 plus  ``TestManuallyEditedAt_Migration016`` and ``TestStoredScore_MatchesRegrades``
 
@@ -45,7 +50,9 @@ import copy
 import inspect
 import random
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -92,6 +99,42 @@ def two_cell_diagonal(height: int = 10, width: int = 10) -> list[list[bool]]:
     grid[0][0] = True
     grid[1][1] = True
     return grid
+
+
+#: One row of four, filled at both ends. Rows read ``(1, 1)``, which three
+#: placements satisfy, and the columns ``(1,), (0,), (0,), (1,)`` pin exactly
+#: one of them — so this *is* a puzzle.
+ONE_BY_FOUR = [[True, False, False, True]]
+
+#: The 2x2 diagonal: rows ``(1,), (1,)`` and columns ``(1,), (1,)``, which the
+#: *other* diagonal satisfies too, so it has two solutions and is not a
+#: puzzle. Its cells read ``1001`` in row-major order — the same four bits as
+#: :data:`ONE_BY_FOUR`. That collision is what the extent in
+#: ``_grid_fingerprint`` exists to break (review cycle 1, F-001).
+TWO_BY_TWO_DIAGONAL = [[True, False], [False, True]]
+
+
+def row_major_bits(grid) -> str:
+    """The digest's cell half, written independently of the store's own code."""
+    return "".join("1" if cell else "0" for row in grid for cell in row)
+
+
+@contextmanager
+def frozen_clock(monkeypatch, instant: datetime):
+    """Hold ``puzzle_review``'s ``datetime.now`` at ``instant``.
+
+    So "the stamp moved" can be asserted strictly rather than with ``>=``,
+    which a stamp that never moved also satisfies (review cycle 1, F-004).
+    """
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return instant if tz is None else instant.astimezone(tz)
+
+    with monkeypatch.context() as patched:
+        patched.setattr(puzzle_review_module, "datetime", _Frozen)
+        yield
 
 
 #: Row and column clues of :func:`solid_minus_corner` at 10x10, by hand.
@@ -178,6 +221,31 @@ class Harness:
         book_id = self.new_book_id()
         assert self.store.assign_to_book([puzzle_id], book_id) == 1
         return book_id
+
+    def set_the_legacy_in_book_status(self, puzzle_id: str) -> None:
+        """Record membership the pre-CARD-100 way: the status, no ``book_id``.
+
+        Written straight into storage rather than through ``mark_in_book``, so
+        the legacy arm of AC-4 is reached unconditionally — the version of
+        this that went through ``mark_in_book`` skipped itself when the mode
+        did not record membership, which turned a mode that stopped recording
+        it green rather than red (review cycle 1, F-005).
+        """
+        if self.session_factory is None:
+            self.store.puzzles[puzzle_id]["status"] = "in_book"
+            return
+        import uuid as uuid_module
+
+        from nonogram.db.models import Puzzle
+
+        with self.session_factory() as db:
+            row = (
+                db.query(Puzzle)
+                .filter(Puzzle.id == uuid_module.UUID(puzzle_id))
+                .first()
+            )
+            assert row is not None, f"no puzzles row for {puzzle_id}"
+            row.status = "in_book"
 
 
 @pytest.fixture(params=["memory", "sqlite"])
@@ -466,14 +534,21 @@ class TestPuzzleEdit_RefusesAPuzzleThatIsInABook:
         ) is None
 
     def test_a_legacy_in_book_status_refuses_it_as_well(self, harness):
-        """Rows written before CARD-100 carry the status rather than a book id."""
+        """Rows written before CARD-100 carry the status rather than a book id.
+
+        No skip and no tautology: the status is written directly, the premise
+        is asserted (``in_book``, and ``book_id`` still null, so this really
+        is the legacy arm and not the one the test above covers), and the
+        refusal is asserted unconditionally.
+        """
         puzzle_id = harness.seed()
-        assert harness.store.mark_in_book(puzzle_id, harness.new_book_id()) in (True, False)
+        harness.set_the_legacy_in_book_status(puzzle_id)
         before = harness.row(puzzle_id)
-        if not harness.store.in_a_book(puzzle_id):
-            pytest.skip("mark_in_book did not record membership in this mode")
+        assert before["status"] == "in_book"
+        assert before.get("book_id") is None, "this arm is the status alone"
 
         assert harness.store.save_edited_grid(puzzle_id, solid_minus_corner()) is None
+        assert harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner()) is None
         assert harness.row(puzzle_id) == before
 
     def test_an_unknown_puzzle_is_not_an_edit_either(self, harness):
@@ -592,6 +667,162 @@ class TestPuzzleEdit_RefusesAnApproveWhoseGridMoved:
 
 
 # --------------------------------------------------------------------------
+# AC-6 (review cycle 1, F-011) — the memo has one reader
+# --------------------------------------------------------------------------
+
+
+class TestPuzzleEdit_TheMemoIsReadThroughOneAccessor:
+    """F-011: ``_refuse_unless_verified`` went through the raw dict.
+
+    It read ``self._verifications`` directly, so a save did not refresh the
+    entry's LRU recency. Nothing was wrong *today* — the gate called
+    immediately before it does the ``move_to_end`` — which is the whole
+    problem: the correctness was a property of the call order, and F-006's
+    suggested reordering would have turned it into a bug silently. The save
+    now reads through ``_remembered_verification`` like the gate does.
+
+    This is pinned structurally and deliberately so. A behavioural test
+    cannot separate the two versions, because the recency *is* refreshed
+    either way by the call in front; asserting behaviour here would be
+    asserting the trap rather than the fix.
+    """
+
+    #: The memo's own three methods. Everything else asks one of them.
+    MEMO_OWNERS = frozenset({"__init__", "_remember_proof", "_remembered_verification"})
+
+    def test_nothing_outside_the_memos_own_methods_touches_it(self):
+        class_node = next(
+            node for node in ast.walk(_store_module_ast())
+            if isinstance(node, ast.ClassDef) and node.name == "PuzzleReviewService"
+        )
+        reached_from = set()
+        for member in class_node.body:
+            if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(member):
+                if (
+                    isinstance(node, ast.Attribute)
+                    and node.attr == "_verifications"
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id == "self"
+                ):
+                    reached_from.add(member.name)
+
+        assert reached_from, "nothing touches the memo at all, so this proves nothing"
+        assert reached_from <= self.MEMO_OWNERS, (
+            f"{sorted(reached_from - self.MEMO_OWNERS)} read the memo directly "
+            "instead of through _remembered_verification"
+        )
+
+    def test_the_accessor_hands_back_the_verification_and_refreshes_it(self, harness):
+        """So the accessor the others go through is the one that does the work."""
+        store = harness.store
+        first = solid_minus_corner()
+        second = solid(11, 11)
+        store.verify_replacement_grid(harness.seed(), first)
+        store.verify_replacement_grid(harness.seed(), second)
+
+        oldest = store._grid_fingerprint(first)
+        assert next(iter(store._verifications)) == oldest
+        remembered = store._remembered_verification(oldest)
+
+        assert remembered is not None and remembered.proof is not None
+        assert next(iter(store._verifications)) != oldest, "recency was not refreshed"
+
+
+# --------------------------------------------------------------------------
+# AC-6 (review cycle 1, F-001) — a proof is a proof of one *shape* of grid
+# --------------------------------------------------------------------------
+
+
+class TestPuzzleEdit_AProofDoesNotCrossGridExtents:
+    """The extent in ``_grid_fingerprint``, which nothing asserted.
+
+    The memo keys a proof by a digest of the grid, and the digest covers the
+    *extent* as well as the cells. Drop the extent and two grids whose cells
+    read the same in row-major order share a name — so a proof bought for one
+    answers for the other, the save never enters the solver, the verification
+    pairing matches on both halves, and a grid with two solutions is stored.
+    Mutant M2 (``text = bits``) survived the card's whole 161-test selection;
+    this is the round trip that kills it. The digest-inequality test below is
+    the locator, not the guard: it would not have caught the flow.
+    """
+
+    def test_the_premise_two_extents_really_do_share_their_bits(self):
+        """Asserted, so a later edit to either grid cannot make this vacuous."""
+        assert row_major_bits(ONE_BY_FOUR) == row_major_bits(TWO_BY_TWO_DIAGONAL) == "1001"
+        assert (len(ONE_BY_FOUR), len(ONE_BY_FOUR[0])) == (1, 4)
+        assert (len(TWO_BY_TWO_DIAGONAL), len(TWO_BY_TWO_DIAGONAL[0])) == (2, 2)
+
+    def test_the_narrow_grid_is_a_puzzle_and_the_square_one_is_not(self, harness):
+        """The two verdicts the collision would confuse, measured separately."""
+        puzzle_id = harness.seed()
+
+        assert harness.store.verify_replacement_grid(puzzle_id, ONE_BY_FOUR) is not None
+        with pytest.raises(NotUniquelySolvable, match="2 or more"):
+            harness.store.verify_replacement_grid(puzzle_id, TWO_BY_TWO_DIAGONAL)
+
+    def test_a_reshaped_grid_with_the_same_bits_is_refused_and_stores_nothing(
+        self, harness
+    ):
+        """The corruption, end to end: verify one extent, save the other.
+
+        The refusal must be ``NotUniquelySolvable`` — the save re-entered the
+        solver and the gate answered — and not ``EditNotVerified``, which
+        would mean the pairing caught it by accident rather than the gate
+        catching it on purpose.
+        """
+        puzzle_id = harness.seed()
+        assert harness.store.verify_replacement_grid(puzzle_id, ONE_BY_FOUR) is not None
+        before = harness.row(puzzle_id)
+
+        with pytest.raises(NotUniquelySolvable, match="2 or more"):
+            harness.store.save_edited_grid(puzzle_id, TWO_BY_TWO_DIAGONAL)
+
+        assert harness.row(puzzle_id) == before
+        assert harness.row(puzzle_id)["manually_edited_at"] is None
+
+    def test_the_reshaped_save_is_not_answered_from_the_other_grids_proof(
+        self, harness, solver_entries
+    ):
+        """Counted, not inferred: the save buys its own solve.
+
+        A memo hit is exactly how the corrupt write happens, so the measure
+        that matters is that the search was entered again.
+        """
+        puzzle_id = harness.seed()
+        harness.store.verify_replacement_grid(puzzle_id, ONE_BY_FOUR)
+        after_the_verify = solver_entries.entries
+        assert after_the_verify >= 1, "the verify did not reach the solver at all"
+
+        with pytest.raises(NotUniquelySolvable):
+            harness.store.save_edited_grid(puzzle_id, TWO_BY_TWO_DIAGONAL)
+
+        assert solver_entries.entries > after_the_verify, (
+            "the save was answered from a proof of a differently shaped grid"
+        )
+
+    def test_the_control_the_same_extent_is_answered_from_the_proof(
+        self, harness, solver_entries
+    ):
+        """So the entry above is the reshape, not every save solving again."""
+        puzzle_id = harness.seed()
+        harness.store.verify_replacement_grid(puzzle_id, ONE_BY_FOUR)
+        after_the_verify = solver_entries.entries
+
+        assert harness.store.save_edited_grid(puzzle_id, ONE_BY_FOUR) is not None
+
+        assert solver_entries.entries == after_the_verify
+
+    def test_the_digest_names_the_extent(self):
+        """The locator for the line above, kept as the cheap direct statement."""
+        digest = PuzzleReviewService._grid_fingerprint
+
+        assert digest(ONE_BY_FOUR) != digest(TWO_BY_TWO_DIAGONAL)
+        assert digest(ONE_BY_FOUR) == digest([[True, False, False, True]])
+
+
+# --------------------------------------------------------------------------
 # AC-7 — a malformed grid is refused before any solve
 # --------------------------------------------------------------------------
 
@@ -688,15 +919,34 @@ class TestPuzzleEdit_StampsTheEditAndKeepsTheQualityScore:
         parsed = datetime.fromisoformat(stamp)
         assert parsed.year >= 2026, stamp
 
-    def test_a_second_edit_moves_the_stamp_forward(self, harness):
+    def test_a_second_edit_moves_the_stamp_forward(self, harness, monkeypatch):
+        """Strictly forward, on a clock the test holds.
+
+        Review cycle 1, F-004: this asserted ``second >= first``, which a
+        stamp that never moved also satisfies — and mutant M7 (write the
+        stamp only when it is currently NULL) survived the whole selection
+        because of it. Two fixed, distinct instants make the movement
+        provable without leaning on wall-clock resolution, and the stored
+        value is pinned to the instant so the clock is demonstrably what
+        drove it. The mode decides the suffix (memory stores an aware
+        ``isoformat``, the DB column is naive UTC), so the prefix is what is
+        matched.
+        """
         puzzle_id = harness.seed()
-        edit(harness, puzzle_id, solid_minus_corner())
+        nine = datetime(2026, 10, 18, 9, 0, 0, tzinfo=timezone.utc)
+        half_past = datetime(2026, 10, 18, 9, 31, 42, tzinfo=timezone.utc)
+
+        with frozen_clock(monkeypatch, nine):
+            edit(harness, puzzle_id, solid_minus_corner())
         first = harness.row(puzzle_id)["manually_edited_at"]
 
-        edit(harness, puzzle_id, solid(11, 11))
+        with frozen_clock(monkeypatch, half_past):
+            edit(harness, puzzle_id, solid(11, 11))
         second = harness.row(puzzle_id)["manually_edited_at"]
 
-        assert second >= first
+        assert first.startswith("2026-10-18T09:00:00"), first
+        assert second.startswith("2026-10-18T09:31:42"), second
+        assert second > first
 
 
 class TestPuzzleEdit_ARefusedEditLeavesNoStamp:
@@ -774,67 +1024,162 @@ class TestPuzzleEdit_AnEditedPuzzleStillPassesTheQualityFilter:
 # --------------------------------------------------------------------------
 
 
-def _service_class_ast() -> ast.ClassDef:
-    """``PuzzleReviewService``'s own class body, parsed off disk."""
-    source = Path(inspect.getsourcefile(PuzzleReviewService)).read_text(encoding="utf-8")
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.ClassDef) and node.name == "PuzzleReviewService":
-            return node
-    raise AssertionError("PuzzleReviewService is not in its own module's source")
+#: The one gate. G-1: there is exactly one, and it is this.
+THE_GATE = "PuzzleReviewService._refuse_unless_uniquely_solvable"
 
-
-def _methods_of(class_node: ast.ClassDef) -> dict:
-    return {
-        node.name: node
-        for node in class_node.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+#: Calls through which a value can reach durable state: a mutator that *writes*
+#: something (so a whole-row payload, and therefore a grid, can enter through
+#: it) and one that only *removes* or *reorders*. Both count as mutations — the
+#: split is only used when checking what an exempt method is allowed to do.
+VALUE_WRITING_MUTATORS = frozenset(
+    {
+        "update", "add", "add_all", "merge", "setdefault", "insert", "execute",
+        "values", "bulk_save_objects", "bulk_update_mappings",
+        "bulk_insert_mappings", "append", "extend",
     }
+)
+REMOVING_MUTATORS = frozenset(
+    {"pop", "popitem", "clear", "delete", "discard", "remove", "move_to_end",
+     "flush", "commit"}
+)
+MUTATORS = VALUE_WRITING_MUTATORS | REMOVING_MUTATORS
+
+#: Expressions that build a brand-new container, so a name bound to one cannot
+#: be the store's own state and writing into it cannot persist anything. Where
+#: such a local *goes* is a separate write and is seen on its own.
+_FRESH_NODES = (ast.Dict, ast.List, ast.Set, ast.DictComp, ast.ListComp, ast.SetComp)
+_FRESH_CALLS = frozenset({"dict", "list", "set", "sorted", "defaultdict", "Counter", "OrderedDict"})
 
 
-def _binds_a_grid(method: ast.AST) -> bool:
-    """Does this method bind a value under the name ``grid``?
+def _store_module_ast() -> ast.Module:
+    """The whole ``puzzle_review`` module, parsed off disk.
 
-    Three shapes, and the context is what keeps readers out of the set:
-
-    * ``row.grid = …`` / ``d["grid"] = …`` — the name in a *store* context.
-      ``row.grid`` and ``puzzle["grid"]`` as *loads* are reads and do not count.
-    * a call with a ``grid=`` keyword — ``Puzzle(grid=…)``, and any future
-      helper that takes the grid by name.
-    * a dict literal carrying a ``"grid"`` key that is assigned into this
-      object's own state (``self.puzzles[pid] = {"grid": …}``) — the in-memory
-      store's shape. A dict literal that is *returned* is a reader's output
-      (``_row_to_dict``, ``_all_rows_for_audit``) and does not count.
-    * ``setattr(row, "grid", …)``, which the three above would not see.
+    The *module*, not just ``PuzzleReviewService``'s ``ClassDef``: a
+    module-level helper that writes a grid, called from a method, is a real
+    bypass and a class-only parse cannot see it (review cycle 1, F-002).
     """
-    for node in ast.walk(method):
-        if isinstance(node, ast.Attribute) and node.attr == "grid":
-            if isinstance(node.ctx, ast.Store):
-                return True
-        if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Store):
-            index = node.slice
-            if isinstance(index, ast.Constant) and index.value == "grid":
-                return True
-        if isinstance(node, ast.Call):
-            if any(keyword.arg == "grid" for keyword in node.keywords):
-                return True
+    source = Path(inspect.getsourcefile(PuzzleReviewService)).read_text(encoding="utf-8")
+    return ast.parse(source)
+
+
+def _symbols(module: ast.Module) -> dict:
+    """Every function in the module, keyed ``Class.method`` or ``function``.
+
+    Qualified because two classes in this module both define ``to_dict``, and
+    a shared key would let one answer for the other.
+    """
+    found = {}
+    for node in module.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            found[node.name] = node
+        elif isinstance(node, ast.ClassDef):
+            for member in node.body:
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    found[f"{node.name}.{member.name}"] = member
+    return found
+
+
+def _owner(qualified: str) -> str:
+    return qualified.rsplit(".", 1)[0] if "." in qualified else ""
+
+
+def _fresh_locals(method: ast.AST) -> set:
+    """Names in this body that are bound to a freshly built container.
+
+    Includes names reached *from* one — ``summary = summaries.get(k)`` off a
+    local ``summaries = {}`` — because a slot of a fresh container is still
+    not durable state. Re-run to a fixpoint so the chain is followed.
+    """
+    names: set = set()
+
+    def _is_fresh(value) -> bool:
+        if isinstance(value, _FRESH_NODES):
+            return True
+        if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
+            return value.func.id in _FRESH_CALLS
+        if isinstance(value, ast.Subscript):
+            return _root_name(value) in names
+        if isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute):
+            return _root_name(value.func) in names
+        return False
+
+    for _ in range(4):
+        for node in ast.walk(method):
+            targets = []
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            if len(targets) == 1 and isinstance(targets[0], ast.Name) and _is_fresh(node.value):
+                names.add(targets[0].id)
             if (
-                isinstance(node.func, ast.Name)
-                and node.func.id == "setattr"
-                and len(node.args) >= 2
-                and isinstance(node.args[1], ast.Constant)
-                and node.args[1].value == "grid"
+                isinstance(node, ast.For)
+                and isinstance(node.target, ast.Name)
+                and isinstance(node.iter, ast.Call)
+                and isinstance(node.iter.func, ast.Attribute)
+                and _root_name(node.iter.func) in names
             ):
-                return True
-        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                names.add(node.target.id)
+    return names
+
+
+def _root_name(node) -> Optional[str]:
+    """The bare name an attribute/subscript chain hangs off, if any."""
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _mutating_shapes(method: ast.AST) -> list:
+    """Every place in this body where a value could reach durable state.
+
+    Default-deny (ADR-0039/R2): this is a catalogue of *writes*, and anything
+    it names makes the method a **candidate grid writer** that then has to
+    reach the gate or be excused. It is deliberately broad — a store into
+    anything that is not a fresh local, any ``setattr``/``del``, any ``**``
+    splat (whose payload is unreadable), any call to a mutating method, and a
+    dict literal carrying a ``"grid"`` key handed to a call. Compare the
+    predicate this replaced, which was a list of four *grid-write* shapes and
+    therefore classified every shape it did not recognise as "not a write".
+
+    Known bound, stated rather than papered over: a grid written through an
+    *imported* helper, or through a mutating method whose name is outside
+    :data:`MUTATORS`, is not seen here. What is seen is every shape in which
+    the grid value itself is placed, spliced or named.
+    """
+    fresh = _fresh_locals(method)
+    shapes = []
+    for node in ast.walk(method):
+        if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            into_self = any(
-                isinstance(target, (ast.Subscript, ast.Attribute))
-                and "self" in ast.dump(target)
-                for target in targets
-            )
-            if into_self and _dict_literal_with_a_grid_key(node.value):
-                return True
-    return False
+            for target in targets:
+                for part in ast.walk(target):
+                    if isinstance(part, (ast.Attribute, ast.Subscript)) and isinstance(
+                        getattr(part, "ctx", None), ast.Store
+                    ):
+                        if _root_name(part) not in fresh:
+                            shapes.append(f"store into {_root_name(part)}")
+        if isinstance(node, ast.Delete):
+            for target in node.targets:
+                if isinstance(target, (ast.Attribute, ast.Subscript)) and _root_name(target) not in fresh:
+                    shapes.append(f"del from {_root_name(target)}")
+        if isinstance(node, ast.Call):
+            function = node.func
+            if any(keyword.arg is None for keyword in node.keywords):
+                shapes.append("** splat into a call")
+            if isinstance(function, ast.Name) and function.id in ("setattr", "delattr"):
+                shapes.append(f"{function.id}()")
+            if isinstance(function, ast.Attribute) and function.attr in MUTATORS:
+                # `d.values()` and `q.update()` with no argument read or build;
+                # it is the *argument* that carries a payload.
+                argument_free = not node.args and not node.keywords
+                reads_only = function.attr in ("values", "update") and argument_free
+                if not reads_only and _root_name(function) not in fresh:
+                    shapes.append(f".{function.attr}() on {_root_name(function)}")
+            for argument in list(node.args) + [keyword.value for keyword in node.keywords]:
+                if _dict_literal_with_a_grid_key(argument):
+                    shapes.append("a {'grid': ...} payload handed to a call")
+    return shapes
 
 
 def _dict_literal_with_a_grid_key(value) -> bool:
@@ -848,110 +1193,370 @@ def _dict_literal_with_a_grid_key(value) -> bool:
     return False
 
 
-def _calls_on_self(method: ast.AST) -> set:
-    names = set()
+def _writes_the_name_grid(method: ast.AST) -> bool:
+    """Does this body name ``grid`` on the writing side of something?
+
+    No longer the guard's gatekeeper — :func:`_mutating_shapes` is — but still
+    how an entry on :data:`WRITES_NO_GRID` is checked for having quietly grown
+    a grid write.
+    """
     for node in ast.walk(method):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-            value = node.func.value
-            if isinstance(value, ast.Name) and value.id == "self":
-                names.add(node.func.attr)
-    return names
-
-
-def _reaches(start: str, methods: dict, target: str) -> bool:
-    """Can ``start`` reach ``target`` through ``self.…`` calls inside the class?"""
-    seen, pending = set(), [start]
-    while pending:
-        name = pending.pop()
-        if name in seen or name not in methods:
-            continue
-        seen.add(name)
-        called = _calls_on_self(methods[name])
-        if target in called:
+        if isinstance(node, ast.Attribute) and node.attr == "grid" and isinstance(node.ctx, ast.Store):
             return True
-        pending.extend(called)
+        if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Store):
+            index = node.slice
+            if isinstance(index, ast.Constant) and index.value == "grid":
+                return True
+        if isinstance(node, ast.Call):
+            if any(keyword.arg == "grid" for keyword in node.keywords):
+                return True
+            if (
+                isinstance(node.func, ast.Name)
+                and node.func.id in ("setattr", "delattr")
+                and len(node.args) >= 2
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value == "grid"
+            ):
+                return True
+            for argument in list(node.args) + [keyword.value for keyword in node.keywords]:
+                if _dict_literal_with_a_grid_key(argument):
+                    return True
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            into_something = any(
+                isinstance(target, (ast.Subscript, ast.Attribute)) for target in targets
+            )
+            if into_something and _dict_literal_with_a_grid_key(node.value):
+                return True
     return False
 
 
-#: The one gate. G-1: there is exactly one, and it is this.
-THE_GATE = "_refuse_unless_uniquely_solvable"
+def _unreadable_payload_writes(method: ast.AST) -> list:
+    """Writes whose *contents* cannot be read off the source.
+
+    A ``**`` splat and a ``.update(x)``/``.values(x)`` with a non-literal
+    argument are the two shapes through which a whole-row payload — and so a
+    grid — enters without the name ``grid`` appearing anywhere. A method that
+    contains one of these can never be excused as "writes no grid", because
+    nothing in the source says what it writes. This is the production
+    ``save_edited_grid``'s legacy branch (``puzzle.update(derived)``), which is
+    exactly why the old predicate could not see it.
+    """
+    found = []
+    for node in ast.walk(method):
+        if isinstance(node, ast.Call):
+            if any(keyword.arg is None for keyword in node.keywords):
+                found.append("** splat")
+            if isinstance(node.func, ast.Attribute) and node.func.attr in ("update", "values"):
+                if not node.args and not node.keywords:
+                    continue  # `d.values()` — a read
+                if node.args and isinstance(node.args[0], ast.Dict):
+                    if any(not isinstance(key, ast.Constant) for key in node.args[0].keys):
+                        found.append(f".{node.func.attr}(<dict with a computed key>)")
+                elif not node.keywords:
+                    found.append(f".{node.func.attr}(<opaque>)")
+            if isinstance(node.func, ast.Name) and node.func.id == "setattr":
+                if len(node.args) >= 2 and not isinstance(node.args[1], ast.Constant):
+                    found.append("setattr(<computed name>)")
+    return found
+
+
+def _local_callees(qualified: str, method: ast.AST, symbols: dict) -> set:
+    """Symbols in this module that ``qualified`` calls.
+
+    ``self.x()``/``cls.x()`` resolves inside the owning class only;
+    a bare ``x()`` resolves to a module-level function. Both, because a
+    module-level writer is reachable and was invisible before (F-002).
+    """
+    owner = _owner(qualified)
+    names = set()
+    for node in ast.walk(method):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        if (
+            isinstance(function, ast.Attribute)
+            and isinstance(function.value, ast.Name)
+            and function.value.id in ("self", "cls")
+        ):
+            candidate = f"{owner}.{function.attr}" if owner else function.attr
+            if candidate in symbols:
+                names.add(candidate)
+        elif isinstance(function, ast.Name) and function.id in symbols:
+            names.add(function.id)
+    return names
+
+
+def _provably_read_only(symbols: dict, mutations: dict, callees: dict) -> set:
+    """Symbols that write nothing, directly or through another symbol here.
+
+    The *only* way out of the candidate set that is derived rather than
+    declared: no mutating shape of its own, and every module-local symbol it
+    calls is itself read-only. A new reader lands here by itself; a new
+    *writer* cannot.
+    """
+    read_only = {name for name in symbols if not mutations[name]}
+    changed = True
+    while changed:
+        changed = False
+        for name in sorted(read_only):
+            if any(callee not in read_only for callee in callees[name]):
+                read_only.discard(name)
+                changed = True
+                break
+    return read_only
+
+
+#: The read-only list G-1 is default-deny *against*: a method of
+#: ``PuzzleReviewService`` is presumed a grid writer and must reach
+#: :data:`THE_GATE` unless it is here, with a reason. Every entry is itself
+#: checked — it may not name ``grid`` on the writing side
+#: (:func:`_writes_the_name_grid`) and may not write an unreadable payload
+#: (:func:`_unreadable_payload_writes`) — so an entry cannot quietly grow into
+#: a grid write, and a method that writes a blob cannot be put here at all.
+#:
+#: Short by construction, not by taste: everything that writes nothing is
+#: derived out by :func:`_provably_read_only`, and everything whose only
+#: writes are *other* methods on this list is derived out transitively. What is
+#: left is the methods that write a puzzle column with their own hands.
+WRITES_NO_GRID = {
+    "PuzzleReviewService.__init__": "binds the empty instance state; no row exists yet",
+    "PuzzleReviewService._set_status": "writes `status`, named, and nothing else",
+    "PuzzleReviewService.set_batch_status": "writes `status` on a batch's rows, named",
+    "PuzzleReviewService._write_book_id": "writes `book_id` (and `status`), both named",
+    "PuzzleReviewService.mark_in_book": "the legacy pair, `status` and `book_id`, named",
+    "PuzzleReviewService.rename_puzzle": "writes `puzzle_name`, named",
+    "PuzzleReviewService.delete_puzzle": "removes a row; a delete cannot carry a grid",
+    "PuzzleReviewService.delete_rejected_in_batch": "removes rows; same reason",
+    "PuzzleReviewService._remember_proof": "writes the proof memo, not a puzzle row",
+    "PuzzleReviewService._remembered_verification": "LRU recency on the memo only",
+}
+
+
+def _accounted_for(symbols: dict, mutations: dict, callees: dict, read_only: set) -> set:
+    """Everything that is allowed not to reach the gate.
+
+    ``read_only`` plus :data:`WRITES_NO_GRID` plus, to a fixpoint, any symbol
+    that writes nothing itself and only calls symbols already in here — which
+    is how ``approve_puzzle`` (all of whose writing is ``_set_status``'s) stays
+    out of the hand-written list.
+    """
+    safe = set(read_only) | set(WRITES_NO_GRID) | {THE_GATE}
+    changed = True
+    while changed:
+        changed = False
+        for name in symbols:
+            if name in safe or mutations[name]:
+                continue
+            if callees[name] <= safe:
+                safe.add(name)
+                changed = True
+    return safe
+
+
+def _reaches(start: str, symbols: dict, callees: dict, target: str) -> bool:
+    """Can ``start`` reach ``target`` through module-local calls?"""
+    if start == target:
+        return True
+    seen, pending = set(), [start]
+    while pending:
+        name = pending.pop()
+        if name in seen or name not in symbols:
+            continue
+        seen.add(name)
+        if target in callees[name]:
+            return True
+        pending.extend(callees[name])
+    return False
+
+
+def _analyse(module: ast.Module) -> dict:
+    """One pass: symbols, their mutating shapes, their callees, the verdicts."""
+    symbols = _symbols(module)
+    mutations = {name: _mutating_shapes(node) for name, node in symbols.items()}
+    callees = {name: _local_callees(name, node, symbols) for name, node in symbols.items()}
+    read_only = _provably_read_only(symbols, mutations, callees)
+    safe = _accounted_for(symbols, mutations, callees, read_only)
+    candidates = set(symbols) - read_only
+    ungated = sorted(
+        name
+        for name in candidates
+        if name not in safe and not _reaches(name, symbols, callees, THE_GATE)
+    )
+    return {
+        "symbols": symbols,
+        "mutations": mutations,
+        "callees": callees,
+        "read_only": read_only,
+        "safe": safe,
+        "candidates": candidates,
+        "ungated": ungated,
+    }
+
+
+def _analyse_source(source: str) -> dict:
+    return _analyse(ast.parse(source))
+
+
+@pytest.fixture(scope="module")
+def analysis() -> dict:
+    """One analysis of the real store module, shared by the G-1 assertions."""
+    return _analyse(_store_module_ast())
 
 
 class TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal:
-    """G-1: derived from the class, defaulting to deny (ADR-0039/R2).
+    """G-1: presumed a grid writer unless proved otherwise (ADR-0039/R2).
 
-    The set of grid-writing methods is **computed** from
-    ``PuzzleReviewService``'s own source, not listed here: a method added
-    tomorrow that binds a grid is in the set the moment it exists, and it has
-    to reach the gate or this fails. A hand-written list would be a snapshot
-    of today's methods, which is exactly what a new bypass walks past.
+    Review cycle 1, F-002: the first version of this guard derived the method
+    *set* from the class but decided "is this a grid write?" with a list of
+    four syntactic shapes, so a write in any fifth shape was classified "not a
+    write" and exempted — default-allow. Eight of nine plausible writer bodies
+    were invisible to it, including the one production itself uses in legacy
+    mode (``puzzle.update(derived)``), and a behaviour-identical ``setattr``
+    loop in the DB branch dropped ``save_edited_grid`` out of the writer set
+    while the assertion still passed.
+
+    This version inverts it. Every function in the module is a **candidate
+    grid writer** unless it is *provably* read-only — no mutating shape of its
+    own and no call to anything here that has one. A candidate must then reach
+    :data:`THE_GATE`, or appear on :data:`WRITES_NO_GRID` with a reason, and
+    an entry there is itself checked for not naming a grid and not writing an
+    unreadable payload. A method added tomorrow that writes *anything* is in
+    the candidate set the moment it exists and fails this by default.
+
+    The scope is the module, not the class, so a module-level helper that
+    writes a grid is seen too — the other half of F-002.
     """
 
-    def test_every_grid_writing_method_reaches_the_refusal(self):
-        methods = _methods_of(_service_class_ast())
-        writers = {name for name, node in methods.items() if _binds_a_grid(node)}
-
-        assert writers, "the detector found no grid writer at all, so it proves nothing"
-        ungated = sorted(
-            name for name in writers if not _reaches(name, methods, THE_GATE)
-        )
-        assert not ungated, (
-            f"these methods bind a grid without reaching {THE_GATE}: {ungated} — "
-            "every write of a grid goes through the one refusal (G-1)"
+    def test_every_candidate_writer_reaches_the_refusal_or_is_excused(self, analysis):
+        assert analysis["candidates"], "nothing was classified a writer, so this proves nothing"
+        assert not analysis["ungated"], (
+            f"these write without reaching {THE_GATE} and are not on "
+            f"WRITES_NO_GRID: {analysis['ungated']} — every write of a grid goes "
+            "through the one refusal (G-1)"
         )
 
-    def test_the_two_known_writers_are_in_the_derived_set(self):
-        """Not the definition of the set — a floor under the detector."""
-        methods = _methods_of(_service_class_ast())
-        writers = {name for name, node in methods.items() if _binds_a_grid(node)}
+    def test_the_two_grid_writers_are_candidates_and_reach_the_gate(self, analysis):
+        """A floor under the inversion, not the definition of the set."""
+        for name in ("PuzzleReviewService.add_puzzle", "PuzzleReviewService.save_edited_grid"):
+            assert name in analysis["candidates"], f"{name} was classified read-only"
+            assert name not in WRITES_NO_GRID, f"{name} must not be excused"
+            assert _reaches(name, analysis["symbols"], analysis["callees"], THE_GATE)
 
-        assert {"add_puzzle", "save_edited_grid"} <= writers, sorted(writers)
+    def test_save_edited_grid_could_not_be_excused_even_if_someone_listed_it(self, analysis):
+        """F-002's sharpest edge, asserted shut.
 
-    def test_the_readers_are_not_in_the_set(self):
-        """``audit_uniqueness`` and ``_row_to_dict`` read grids; G-2 forbids writing."""
-        methods = _methods_of(_service_class_ast())
-        writers = {name for name, node in methods.items() if _binds_a_grid(node)}
-
-        assert "_row_to_dict" not in writers
-        assert "_all_rows_for_audit" not in writers
-        assert "audit_uniqueness" not in writers
-
-    @pytest.mark.parametrize(
-        "bypass",
-        [
-            pytest.param("row.grid = grid", id="attribute"),
-            pytest.param('self.puzzles[pid]["grid"] = grid', id="subscript"),
-            pytest.param('setattr(row, "grid", grid)', id="setattr"),
-            pytest.param('Puzzle(grid=grid)', id="keyword"),
-            pytest.param('self.puzzles[pid] = {"grid": grid}', id="dict-literal"),
-        ],
-    )
-    def test_the_detector_catches_a_bypass_it_has_never_seen(self, bypass):
-        """The control (ADR-0039/R1): the guard above can fail.
-
-        Five syntactic ways to write a grid, each in a method that does *not*
-        call the gate. Each must be detected and each must be reported as
-        ungated — otherwise the real assertion is passing because it sees
-        nothing, not because nothing is wrong.
+        Its legacy branch is ``puzzle.update(derived)`` — the shape the old
+        predicate could not see. The exemption check refuses any method that
+        writes a payload the source cannot read, so this one cannot be moved
+        onto ``WRITES_NO_GRID`` to silence a failure.
         """
+        node = analysis["symbols"]["PuzzleReviewService.save_edited_grid"]
+
+        assert _unreadable_payload_writes(node), (
+            "save_edited_grid no longer writes an opaque payload; if the legacy "
+            "branch was rewritten, re-check that this control still bites"
+        )
+
+    def test_every_excused_method_is_still_not_a_grid_write(self, analysis):
+        """The hand-written list cannot grow a grid write under it."""
+        offences = {}
+        for name in sorted(WRITES_NO_GRID):
+            assert name in analysis["symbols"], f"{name} is on WRITES_NO_GRID but does not exist"
+            node = analysis["symbols"][name]
+            reasons = []
+            if _writes_the_name_grid(node):
+                reasons.append("names `grid` on the writing side")
+            reasons.extend(_unreadable_payload_writes(node))
+            if reasons:
+                offences[name] = reasons
+
+        assert not offences, (
+            f"excused methods that are not excusable: {offences} — remove the "
+            "entry and send the method through the gate"
+        )
+
+    def test_every_excused_method_carries_a_reason(self):
+        for name, reason in WRITES_NO_GRID.items():
+            assert reason and len(reason) > 15, f"{name} is excused without a reason"
+
+    def test_the_readers_are_derived_out_not_listed(self, analysis):
+        """``audit_uniqueness`` and the row readers come out read-only by proof."""
+        for name in (
+            "PuzzleReviewService._row_to_dict",
+            "PuzzleReviewService._all_rows_for_audit",
+            "PuzzleReviewService.audit_uniqueness",
+            "PuzzleReviewService.filter_puzzles",
+            "PuzzleReviewService.get_puzzle",
+        ):
+            assert name in analysis["read_only"], (
+                f"{name} is not provably read-only: {analysis['mutations'][name]}"
+            )
+            assert name not in WRITES_NO_GRID, f"{name} should not need an entry"
+
+    def test_the_read_only_list_is_short(self, analysis):
+        """A long list would be the snapshot of today's methods G-1 forbids."""
+        assert len(WRITES_NO_GRID) <= 12, sorted(WRITES_NO_GRID)
+        assert len(analysis["read_only"]) > len(WRITES_NO_GRID), (
+            "most of the class should be derived out, not listed out"
+        )
+
+    #: The nine writer bodies review cycle 1 probed the old predicate with —
+    #: eight of which it could not see. Each is placed in a method that does
+    #: **not** call the gate, so each must be reported ungated. These are the
+    #: control (ADR-0039/R1): if the inversion stops seeing one of them, the
+    #: assertion above starts passing for the wrong reason.
+    NINE_SHAPES = [
+        pytest.param("        db.query(Puzzle).filter(x).update({'grid': grid})", id="query-update"),
+        pytest.param("        db.add(Puzzle(**derived))", id="kwargs-splat"),
+        pytest.param(
+            "        for column, value in derived.items():\n"
+            "            setattr(row, column, value)",
+            id="setattr-loop",
+        ),
+        pytest.param("        self.puzzles[pid].update(derived)", id="dict-update"),
+        pytest.param("        column = 'grid'\n        setattr(row, column, grid)", id="computed-setattr"),
+        pytest.param("        _apply(row, grid)", id="module-level-helper"),
+        pytest.param(
+            "        payload = {'grid': grid}\n        self.puzzles[pid] = payload",
+            id="payload-then-assign",
+        ),
+        pytest.param("        row.grid[0][0] = True", id="in-place-cell"),
+        pytest.param("        target = row\n        target.grid = grid", id="aliased-attribute"),
+    ]
+
+    @pytest.mark.parametrize("body", NINE_SHAPES)
+    def test_the_nine_shapes_cycle_one_probed_are_all_seen(self, body):
         source = (
+            "def _apply(row, grid):\n"
+            "    row.grid = grid\n"
             "class PuzzleReviewService:\n"
-            "    def smuggle_a_grid(self, pid, row, grid):\n"
-            f"        {bypass}\n"
+            "    def smuggle_a_grid(self, pid, db, row, derived, grid, x):\n"
+            f"{body}\n"
             "    def _refuse_unless_uniquely_solvable(self, grid):\n"
             "        return None\n"
         )
-        class_node = next(
-            node for node in ast.walk(ast.parse(source))
-            if isinstance(node, ast.ClassDef)
+        analysis = _analyse_source(source)
+
+        assert "PuzzleReviewService.smuggle_a_grid" in analysis["candidates"], (
+            "the inversion classified a grid write as read-only"
         )
-        methods = _methods_of(class_node)
+        assert "PuzzleReviewService.smuggle_a_grid" in analysis["ungated"], analysis["mutations"]
 
-        assert _binds_a_grid(methods["smuggle_a_grid"]), "the detector missed a write"
-        assert not _reaches("smuggle_a_grid", methods, THE_GATE)
+    def test_a_module_level_writer_is_reported_in_its_own_right(self):
+        """The scope half of F-002: the class-only parse could not see this."""
+        source = (
+            "def _apply(row, grid):\n"
+            "    row.grid = grid\n"
+            "class PuzzleReviewService:\n"
+            "    def _refuse_unless_uniquely_solvable(self, grid):\n"
+            "        return None\n"
+        )
+        analysis = _analyse_source(source)
 
-    def test_the_detector_sees_a_write_hidden_behind_a_helper(self):
-        """A writer that reaches the gate through another method still passes."""
+        assert "_apply" in analysis["ungated"], analysis
+
+    def test_a_writer_that_reaches_the_gate_through_a_helper_passes(self):
         source = (
             "class PuzzleReviewService:\n"
             "    def store_it(self, row, grid):\n"
@@ -962,18 +1567,32 @@ class TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal:
             "    def _refuse_unless_uniquely_solvable(self, grid):\n"
             "        return None\n"
         )
-        class_node = next(
-            node for node in ast.walk(ast.parse(source))
-            if isinstance(node, ast.ClassDef)
+        analysis = _analyse_source(source)
+
+        assert "PuzzleReviewService.store_it" in analysis["candidates"]
+        assert not analysis["ungated"], analysis["ungated"]
+
+    def test_a_pure_reader_is_not_a_candidate(self):
+        """The other side of the control: the inversion is not red-by-default."""
+        source = (
+            "class PuzzleReviewService:\n"
+            "    def read_it(self, row):\n"
+            "        return {'grid': row.grid, 'id': str(row.id)}\n"
+            "    def _refuse_unless_uniquely_solvable(self, grid):\n"
+            "        return None\n"
         )
-        methods = _methods_of(class_node)
+        analysis = _analyse_source(source)
 
-        assert _binds_a_grid(methods["store_it"])
-        assert _reaches("store_it", methods, THE_GATE)
+        assert "PuzzleReviewService.read_it" in analysis["read_only"]
+        assert not analysis["ungated"]
 
-    def test_the_parsed_class_is_the_class_the_store_runs(self):
+    def test_the_parsed_symbols_are_the_methods_the_store_runs(self, analysis):
         """The AST set and the runtime set agree, so nothing is parsed past."""
-        parsed = set(_methods_of(_service_class_ast()))
+        parsed = {
+            name.split(".", 1)[1]
+            for name in analysis["symbols"]
+            if name.startswith("PuzzleReviewService.")
+        }
         runtime = {
             name for name, value in vars(PuzzleReviewService).items()
             if callable(value) or isinstance(value, staticmethod)
@@ -983,11 +1602,8 @@ class TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal:
 
     def test_there_is_exactly_one_solver_call_site_in_the_store(self):
         """One gate to audit: nothing else in the module enters the search."""
-        source = Path(inspect.getsourcefile(PuzzleReviewService)).read_text(
-            encoding="utf-8"
-        )
         callers = [
-            node for node in ast.walk(ast.parse(source))
+            node for node in ast.walk(_store_module_ast())
             if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
             and node.func.id == "solve"
@@ -1186,13 +1802,24 @@ class TestManuallyEditedAt_Migration016:
         script = ScriptDirectory.from_config(self._config("sqlite://"))
         assert script.get_revision("016").down_revision == "015"
 
-    def test_016_is_the_head(self):
+    def test_the_head_is_the_highest_numbered_migration_on_disk(self):
         """Derived, not named: the highest numbered version file on disk.
 
         ``tests/test_batch_requested_tier.py`` asserts the chain *property*
         (one head, every link, nothing orphaned) and that assertion is why 016
-        needed no edit to it. This one says which revision that head is today,
-        and the next migration moves it by itself.
+        needed no edit to it. This one says the head is whatever the newest
+        file is, so the next migration moves it by itself.
+
+        It used to end ``== ["016"]``, which pinned today's head by *name* and
+        would have turned red on whichever unrelated card wrote 017 — the
+        brittleness ``tests/test_batch_requested_tier.py:300-302`` records
+        having already been paid for once at 014 → 015 (review cycle 1,
+        F-003). ``test_016_revises_015`` is this card's own link in the chain
+        and is the assertion that names a number legitimately.
+
+        Named ``test_016_is_the_head`` until that fix; renamed because the
+        name made the claim the assertion must not make (G-6: the survivor is
+        this test, nothing was retired).
         """
         from alembic.script import ScriptDirectory
 
@@ -1202,4 +1829,4 @@ class TestManuallyEditedAt_Migration016:
             for path in (REPO_ROOT / "migrations" / "versions").glob("[0-9]*_*.py")
         }
 
-        assert script.get_heads() == [max(on_disk, key=int)] == ["016"]
+        assert script.get_heads() == [max(on_disk, key=int)]

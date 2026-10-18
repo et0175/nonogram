@@ -140,6 +140,7 @@ th a.sort:hover, th a.sort[aria-current] { color: var(--color-text); text-decora
 .badge.tier { --c: var(--tier, var(--color-tier-none)); color: color-mix(in srgb, var(--c) 50%, var(--color-text)); background: color-mix(in srgb, var(--c) 14%, var(--color-surface)); border-color: color-mix(in srgb, var(--c) 45%, var(--color-surface)); text-transform: none; }
 .badge.rec { background: var(--color-surface-hover); border-color: transparent; }
 .badge.rec[data-level="high"] { color: var(--color-success); }
+.badge.edited { color: var(--color-warning); border-color: var(--color-warning); background: var(--color-warning-tint); text-transform: none; }
 .badge.count { font-family: var(--font-num); background: var(--color-surface-sunken); border-color: transparent; text-transform: none; }
 .badge-lg { font-size: var(--text-sm); padding: 0.45em 0.7em; }
 
