@@ -1364,13 +1364,6 @@ def _element_grade(iterated, grades: dict, contaminated) -> Optional[str]:
     return _DEEP if _grade(iterated, grades, contaminated) == _DEEP else None
 
 
-def _root_name(node) -> Optional[str]:
-    """The bare name an attribute/subscript chain hangs off, if any."""
-    while isinstance(node, (ast.Attribute, ast.Subscript)):
-        node = node.value
-    return node.id if isinstance(node, ast.Name) else None
-
-
 def _mutating_shapes(method: ast.AST) -> list:
     """Every place in this body where a value could reach durable state.
 
