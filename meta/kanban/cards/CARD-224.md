@@ -1,6 +1,6 @@
 # CARD-224: The grid goes back to centred, sitting at 42% of the puzzle area's spare height
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Complexity:** architectural
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/224-grid-centred-again
-**Worktree:** ../PythonProject4-card-224
+**Worktree:** — (removed at merge)
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — issue 2 ("Grids are pushed to one edge and pinned to the top. On most pages the lower third of the page is empty (pp. 28, 75, 125), so the page looks unbalanced") and "Puzzle area" + the artifact's own note on reversing CARD-204
 **Idea:** —
 **Wave:** 46
 **Depends on:** CARD-222 (the area), CARD-223 (the QR must be out of the gutter strip before the strip stops existing)
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card224.json, tests/helpers/two_up_ink.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
-**Review score:** —
+**Review score:** 8.5 (cycle 2/3; 7.5 → 8.5, +1.0)
 **Started:** 2026-10-18T05:09:31Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-18T17:43:22Z
+**Actual:** 1.6d
+**Merge commit:** c65bb3b
 **Blocked by:** —
 
 ## What to implement
@@ -694,3 +694,47 @@ fixture moved. Against that, a third review would spend the **last** of three cy
 arithmetic expression whose consequence I have already measured — and the pattern on this card
 has been that each review's *suggested remedy* carried a flaw the next pass found, twice. The
 merge gate closes it. **Cycles used: 2 of 3.**
+
+### [Merge gate] PASSED, merged c65bb3b (2026-10-18)
+
+`EXIT=0` · **8095 passed, 1 skipped, 0 failed** in 880.94s · commit `5fad602` ·
+`DATABASE_URL` **SET** · **first-attempt green**, as every gate on this card was.
+
+**AC/EC/G gate passed** — every criterion's named test collects: AC-1 (4), AC-2 (7), AC-3 (4),
+AC-4 (8), AC-5 (35 caption-slot tests), AC-6 (6), AC-378 (5), AC-287 (6), AC-276 (2), G-2 (2),
+**EC-022 (3)** and ADR-0036/R1's golden (125). EC-022's three confirm what I corrected earlier:
+its property test survives under the `test_PropertyTest_…` spelling, so the constraint kept its
+control and my first alarm about it was wrong.
+
+**A verification subtlety this card exposed, and it will recur.** My usual byte-identical check —
+`git diff <gated> HEAD -- src/ tests/ …` — produced a **large non-empty diff**, and that was my
+command being wrong, not the merge. CARD-224 branched from `cc4430b`, *before* CARD-245 merged,
+so the gated tree legitimately lacks CARD-245's files. Re-scoped to the 20 files CARD-224 itself
+touched, the diff is **empty** — every one byte-identical to `5fad602`. **The rule for next
+time: when the base has moved under a card, the byte-identical check must be scoped to the
+card's own file set, or it compares two different questions.**
+
+**And the consequence that is NOT cosmetic: the merged tree has never been tested.** CARD-224's
+gate ran on a tree without CARD-245; CARD-245's gate ran on a tree without CARD-224. The two are
+disjoint on files, but "disjoint on files" is an argument, not a measurement — and this board has
+already been bitten once by trusting a prediction about interaction. A post-merge full suite on
+`main` is owed and is being run; it doubles as the wave's smoke test for both merged cards.
+
+### Registry amendments owed at the merge, now applied (validator 0 errors)
+
+- **`trace.yml`'s FR-032 row no longer names a deleted class.** The row named
+  `TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage`, which this card deletes; it is replaced by
+  the four CARD-224 classes that actually carry the requirement. Recorded in the row's own
+  comment: the name survives in `tests/test_book_pdf.py` **only as two prose references**, so **a
+  trace lens that greps for the name would have falsely passed on it** — the check that exists to
+  catch a dangling pointer could not have caught this one.
+- **AC-190's retirement comment is corrected.** It said the criterion was kept *"with its test"*.
+  It was not — CARD-224 **deleted** the test, which is the right outcome (it asserted the retired
+  rule) but not what the retirement said would happen. The named survivors are now written down.
+  This is the second retirement on this board whose follow-through did not match its own note,
+  after AC-252.
+- **The rename `trace.yml` asked this card for was not done**, and the card has closed, so it is
+  filed `@tech-debt` rather than left pointing at a done card:
+  `PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent`'s **name** still encodes the
+  retired rule in two property modules, `trace.yml` and EC-022's `test:` field. The test is
+  sound; only its name lies, and the four references must move together or the registry dangles.

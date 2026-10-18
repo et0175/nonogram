@@ -1710,7 +1710,15 @@ links:
   adrs: [ADR-0036]
   tests:
   - TestBookPdf_WideGridPrintsOnPortraitPage
-  - TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage
+  # AC-190's test is GONE as a class, deleted by CARD-224 (merged c65bb3b) along with the
+  # fixed top edge it asserted. The row is removed rather than kept: the name survives in
+  # tests/test_book_pdf.py ONLY as two prose references recording what replaced what, so a
+  # trace lens that greps for the name would have FALSELY PASSED on it. AC-190 is retired
+  # and needs no test row; its replacements are the four classes below.
+  - TestBookPuzzleFrame_GridIsCentredOnBothParities
+  - TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare
+  - TestBookPuzzleFrame_GridClearsBothRules
+  - TestBookPuzzleFrame_TallestGridYieldsToTheFooter
   - TestBookPdf_WideGridPrintsUprightNeverRotated
   - TestBookSelect_WideGridAboveFloorCarriesNoFlag
   - PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
@@ -1726,7 +1734,11 @@ links:
     reverses CARD-204's flush-by-parity placement. AC-274/AC-275 re-measured on
     CON-018's amended margins (both 25.45 mm). The test name
     PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent still encodes
-    the retired rule and is CARD-224's to rename.
+    the retired rule. CARD-224 did NOT rename it (merged c65bb3b): it deleted
+    AC-190's own class instead and left this name alone, so the rename is still
+    owed and is recorded in meta/kanban/backlog.md rather than against a card
+    that has closed. The test itself is sound and keeps EC-022's control (3 cases
+    collected at the AC gate) -- only its name lies.
     Amended 2026-09-22 (d): parity counted from interior page 1 (FR-043);
     AC-274/AC-275 reworded to "interior page", test names unchanged.
     Amended 2026-09-22 (c): the drawing is centred across the usable width of

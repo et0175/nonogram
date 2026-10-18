@@ -2377,6 +2377,12 @@ functional:
       # drawing floats at 42% of the puzzle area's spare height, which differs
       # with the drawing's own height). Kept as the record, with its test,
       # which CARD-224 replaces; AC-366 and AC-367 state the new truth.
+      # CORRECTED 2026-10-18 (CARD-224 merged c65bb3b): "with its test" was wrong.
+      # CARD-224 DELETED TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage, which is
+      # the right outcome -- it asserted the retired rule -- but not what this
+      # retirement said would happen. Named survivors: AC-366/AC-367's own class and
+      # the three further CARD-224 classes now on FR-032's trace row. The name lives
+      # on only as prose in tests/test_book_pdf.py, recording the replacement.
       - id: AC-190
         given: a Book 1 profile book holding a 15x15 puzzle and a 30x30 puzzle
         when: the book PDF is generated
