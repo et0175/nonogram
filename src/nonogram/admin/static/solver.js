@@ -31,7 +31,9 @@
 // of one picture drift). The editor's page serves exactly the payload above
 // with "mode": "edit" added, and this file reads that one flag. Anything else
 // in `mode`, the key being absent included, is the player, unchanged.
-// What the flag changes, and nothing else:
+// What the flag changes — FIVE reads of `editing`, and nothing else
+// (CARD-246 review cycle 1, F-009: the list said three and the code read it
+// four times, which is how a contract stops being one):
 //   * the board STARTS on payload.solution (solver_state.js boardOfGrid:
 //     FILLED/EMPTY, never UNKNOWN) rather than blank — the owner opens the
 //     stored picture and paints on it;
@@ -45,7 +47,29 @@
 //     a board measured AGAINST payload.solution, and in edit mode the
 //     solution is the thing being changed: the board starts equal to it, so
 //     the lock would fire before the first stroke and the error count would
-//     count departures from the grid the owner is editing.
+//     count departures from the grid the owner is editing;
+//   * nextHint answers null. A hint reveals payload.solution, and in edit
+//     mode that is the grid being rewritten, so a "hint" would paint the
+//     owner's edit back to the stored picture. The editor's page ships no
+//     Hint button, so this guard is not reached today (`actions.hint?.`
+//     short-circuits its own argument) — it stays because the rule belongs
+//     to the MODE and not to which elements a template happens to carry: a
+//     Hint button added to an edit page must not be able to undo an edit;
+//   * the recorded board announces itself. In edit mode, and only there,
+//     commit() dispatches BOARD_CHANGE on `document` — see BOARD CHANGE
+//     below.
+//
+// BOARD CHANGE (CARD-246 review cycle 1, F-002/F-004). The editor's save bar
+// offers Approve for ONE grid: the grid whose grade is on screen, captured
+// when Save was pressed. The moment the board stops being that grid the
+// offer is wrong, and static/puzzle_edit.js withdraws it — so it has to hear
+// about a change rather than go looking for one. This event is that seam,
+// and it is dispatched from commit(), the single place a change is RECORDED:
+// a click, a drag, undo, redo, a confirmed Clear and setBoard all pass
+// through it, so the editor needs no list of controls to watch (a list is
+// what goes stale when the next control is added). An uncommitted mid-drag
+// preview (`show`) is deliberately not announced: nothing is recorded yet
+// and the drag's own commit follows.
 // The editor's page leaves out the elements that go with them (the counters,
 // the banner and Hint); everything else — the brush menu, Region, undo, redo,
 // reset, zoom, the announce line — is the player's own markup and its own
@@ -321,6 +345,11 @@ const MAJOR_EVERY = 5;
 
 // The one value of payload.mode that is not the player (CARD-246).
 const EDIT_MODE = "edit";
+
+// "The recorded board changed" — dispatched on `document` in edit mode only
+// (see BOARD CHANGE above). Exported, and imported by static/puzzle_edit.js,
+// so the two halves of the seam cannot drift to two spellings of one string.
+export const BOARD_CHANGE = "puzzle-board-change";
 
 // The save of a page that keeps nothing: edit mode's `save` (see EDIT MODE).
 // A read of null is what start()'s restore branch already treats as "no
@@ -736,6 +765,12 @@ function start() {
       showHint(hint ? { row: hint.row, col: hint.col } : null);
       showProgress(hint);
       save.write(serializeState(history, payload));
+      // CARD-246 (see BOARD CHANGE above): the one announcement of a
+      // recorded change, for the one consumer that needs it. Off in the
+      // player, which has nobody listening and must stay byte-identical.
+      if (editing) {
+        document.dispatchEvent(new CustomEvent(BOARD_CHANGE, { bubbles: true }));
+      }
     },
     forget: () => save.forget(),
   });

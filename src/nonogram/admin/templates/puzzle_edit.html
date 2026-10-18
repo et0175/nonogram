@@ -37,27 +37,36 @@
   Save, then the owner's two-phase confirmation. #puzzle-editor-message is a
   role="status" line that is ALWAYS present and never hidden (a live region
   that only appears is not reliably read), and the Approve/Cancel pair
-  (#puzzle-editor-decide) is what appears and disappears — hidden until a
-  grid has been verified, and hidden again on a refusal, so a grid that may
-  not be stored is never shown an Approve button (AC-5). The bar starts
-  hidden for the same reason the toolbar does.
+  (#puzzle-editor-decide) is what appears and disappears. Which of the two
+  states this bar is in is written in ONE place (puzzle_edit.js tell(): the
+  message and the offer are written together or not at all), so a grid that
+  may not be stored is never shown an Approve button and a stroke made while
+  a grade is on screen takes the offer away — see THE INVARIANT in that
+  file. The bar starts hidden for the same reason the toolbar does.
 #}
 {% extends "base.html" %}
-{% import '_tier.html' as tier %}
 
 {% block title %}Edit puzzle {{ extent[0] }}×{{ extent[1] }} - Nonogram admin{% endblock %}
 {% block section %}Puzzles{% endblock %}
 
 {% block content %}
+{#- NO TIER BADGE here, unlike the player's header (review cycle 1, F-008).
+    A badge is a fact about a stored grid; on this page the stored grid is
+    the thing being rewritten, so it went stale on the first stroke and was
+    still showing the pre-edit tier after Approve had stored another. The
+    difficulty is shown where it is true instead: in the save bar's message,
+    from the solve that graded the grid and then from the row that was
+    stored. -#}
 <div class="page-head player-head">
     <h1>Edit puzzle {{ extent[0] }}×{{ extent[1] }}</h1>
-    {% if tier_label %}<span class="player-tier">{{ tier.badge(tier_label) }}</span>{% endif %}
 </div>
 
 <p class="editor-note">
     Paint the answer: every cell is black or white. Press Save to have the
     panel check the grid and recompute its difficulty — nothing is stored
-    until you press Approve.
+    until you press Approve. <strong>The clue numbers beside the board are
+    still the stored puzzle's</strong> and do not follow what you paint; Save
+    recomputes them from the grid it stores.
 </p>
 
 <div class="player-toolbar" id="puzzle-player-controls" hidden>
@@ -111,7 +120,7 @@
     </div>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black). A blank cell is undecided, and Save will name it rather than guess: give every cell black or white. Open the brush menu to choose Black or White. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. The clues beside the board are the stored puzzle's — Save recomputes them from what you painted.</p>
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black). A blank cell is undecided, and Save will name it rather than guess: give every cell black or white. Open the brush menu to choose Black or White. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. The clues beside the board are the stored puzzle's — as the note above the board says, Save recomputes them from what you painted.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}

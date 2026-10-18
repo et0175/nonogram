@@ -81,12 +81,17 @@
                         it edits ("Edit" alone, repeated down a column of
                         rows, names nothing).
 
-                        A puzzle a book holds offers none: the condition is
-                        the store's own (`_holds_a_book` — a book_id, or the
-                        legacy in_book status), and GET /puzzle/<id>/editor
-                        refuses the URL as well, because a missing control is
-                        not a guard (AC-7). -#}
-                    {% set editable = not puzzle.book_id and puzzle.status != 'in_book' %}
+                        A puzzle a book holds offers none, and the
+                        condition is asked ONCE for all three surfaces
+                        (review cycle 1, F-010): `puzzle_is_editable` in
+                        app.py, over the store's own `_holds_a_book`. This row
+                        used to spell it as truthiness, the modal's script a
+                        third time, so a falsy-but-present book_id showed an
+                        Edit control that GET /puzzle/<id>/editor then refused
+                        with a 409 — and that route refuses the URL whatever
+                        a page showed, because a missing control is not a
+                        guard (AC-7). -#}
+                    {% set editable = puzzle_is_editable(puzzle) %}
                     <div class="actions justify-content-end">
                     {% if editable %}
                     <a href="/puzzle/{{ puzzle.id }}/editor" class="btn btn-sm btn-outline-secondary" aria-label="Edit the grid of {{ label }}">Edit</a>
@@ -255,10 +260,12 @@ async function openPuzzleDetail(puzzleId) {
         const name = escapeHtml(puzzle.puzzle_name || puzzle.source_image || puzzle.id.slice(0, 8));
         title.innerHTML = name;
 
-        // CARD-246: the same Edit control on the puzzle's own card, under
-        // the same condition as the list row's, and the same link rather
-        // than a script action — the editor is a page.
-        const editable = !puzzle.book_id && puzzle.status !== 'in_book';
+        // CARD-246: the same Edit control on the puzzle's own card, and the
+        // same link rather than a script action — the editor is a page. The
+        // condition is not worked out here: `editable` is the answer the
+        // server's one `puzzle_is_editable` gave for this row (F-010), the
+        // same answer the list row and the editor's route read.
+        const editable = data.editable === true;
 
         const assign = !puzzle.book_id ? (books.length ? `
             <div class="dropdown d-inline-block">
