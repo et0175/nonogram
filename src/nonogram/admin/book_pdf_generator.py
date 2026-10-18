@@ -2119,16 +2119,33 @@ def _draw_page_frame(
     whose area cannot hold it at all — the pages
     :attr:`~nonogram.export.layout.PagePlacement.vertical_bound` reports as
     ``"footer"``, where that card's own rule degrades to "as low as it fits"
-    and holds the drawing at the band's foot. The two are not wired together
-    (this function is handed a pixel, not a verdict, and keeps deciding from
-    the pixel), but they agree by construction, which is what makes "no
-    drawing ink crosses a rule that is drawn" true of every page. That
-    agreement rests on one coupling worth naming: the degraded placement leaves
-    the drawing's bottom edge ``band_mm / 8 - spare`` below the footer rule, so
-    it holds while the band's own lift outruns the placement's clearance
-    threshold — 17.72 px against 14.29 px on Book 1's 12 mm band, pinned by
+    and holds the drawing at the band's foot or lower. The two are not wired
+    together (this function is handed a pixel, not a verdict, and keeps
+    deciding from the pixel), and **they do not agree by construction** — the
+    placement reaches its verdict from a clearance in pixels and this function
+    reaches its own from ``content_bottom``, so what makes "no drawing ink
+    crosses a rule that is drawn" true of every page is an inequality the
+    placement maintains, not the shape of the code.
+
+    The inequality, since CARD-224's review cycle 2 (F2-001): a degraded
+    placement takes the band's foot only while the gap it leaves below pays
+    the drawing's own clearance, and otherwise goes to
+    ``area_bottom + 1 - drawing_height`` — one pixel of drawing past the
+    footer rule, which makes the test below false and omits the group. So
+    either the drawing clears the hairline or the hairline is not stroked, at
+    **every** band depth and rule weight. Until that cycle the degraded
+    placement relied on the band's own lift (``band_mm / 8``) outrunning the
+    clearance threshold, which is true of Book 1's 12 mm band (17.72 px
+    against 14.29 px) and false below about 10.4 mm, where a shallower title
+    band put ink three rows past a stroked hairline. Pinned by
     ``tests/test_book_puzzle_frame.py``'s
-    ``test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer``.
+    ``test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer``
+    and ``test_a_shallow_band_cannot_leave_ink_on_a_drawn_footer_rule``, and
+    swept on a 9 mm band by that module's ``"shallow band"`` sheet.
+    The one row both sides read is
+    :func:`~nonogram.export.layout._puzzle_area_px`'s footer row: it is
+    ``frame.footer_rule.y`` here and the placement's own ``area_bottom``, so
+    there is one definition and not two that can drift.
 
     Where ``content_bottom`` reaches below the footer rule, the rule, the label
     and the centred folio are therefore **all** omitted and the page keeps

@@ -50,6 +50,17 @@ from nonogram.export.layout import (
 
 #: CON-018's Book 1 profile (the same literal as tests/test_layout_page_spec.py;
 #: ``export`` tests never import the admin-side builder).
+#:
+#: **This is CON-018 as it stood BEFORE the 2026-10-17 amendment** — top,
+#: bottom and outside at 0.375 in, where the amended profile stores 13.97 /
+#: 11.938 / 12.7 mm. Pre-existing (the same literal is at ``cc4430b`` here and
+#: in nine other export-side modules) and deliberately left alone, but worth
+#: stating because every figure this module pins is measured on it: the 113 px
+#: of ``TestPairLayout_UpperSlotSitsAtItsOwnBandFoot``
+#: ``::test_the_single_page_now_sits_lower_than_the_upper_slot`` is this
+#: profile's gap, and the 94 px its PDF-level sibling pins
+#: (``tests/test_book_pdf_two_up.py``'s ``ROW_GAP_PX``) is the amended
+#: profile's. One construction on two sheets, not a contradiction.
 BOOK1_ODD = PageSpec(
     width_mm=215.9,
     height_mm=279.4,
@@ -237,6 +248,15 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
         the function that placed the drawing. A bare inequality would stay
         green on a float of 1% of the spare, which is what this test was until
         that review.
+
+        **Which profile the 113 is on** (review cycle 2, F2-008):
+        :data:`BOOK1_ODD`, which is CON-018 *before* the 2026-10-17 amendment
+        — see that constant. The same construction on the amended profile
+        gives 94 px, which is the figure ``tests/test_book_pdf_two_up.py``
+        pins, so the two numbers are two sheets and not a disagreement. (The
+        retired docstring's "112 px on Book 1's amended profile" was wrong
+        twice: it was the float, ``0.42 x spare``, rather than this gap, and
+        it was computed on the amended profile this module does not use.)
         """
         ten = _puzzle(10, 10, row_depth=4, column_depth=4)
         twenty = compute_layout(*_puzzle(20, 20, row_depth=8, column_depth=8), spec)

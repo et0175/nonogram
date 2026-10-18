@@ -1566,11 +1566,14 @@ MM_PER_POINT = 25.4 / 72
 #: own depth measured up from its foot (CARD-222).
 #:
 #: **Not on the band's foot, and the reason is measured.** The band's foot is
-#: exactly where a puzzle page's drawing begins (FR-032 pins the top edge at
-#: top margin + band), so a rule drawn there is drawn on the drawing's own top
-#: edge: on a page whose drawing fills the text width it fuses with the grid's
-#: heavy top border into one 6 px line, and on a framed page (CARD-144) it
-#: fuses with the frame's top side. One eighth of the band lifts it clear —
+#: where a puzzle page's drawing begins whenever the puzzle area cannot hold it
+#: clear of both rules (:func:`_placed_drawing_top`'s degraded regime), and is
+#: where *every* placed drawing began until FR-032's fixed-top-edge clause was
+#: retired on 2026-10-17 (CARD-224; AC-190 pinned it). A rule drawn there is
+#: therefore drawn on the drawing's own top edge on any such page: where the
+#: drawing fills the text width it fuses with the grid's heavy top border into
+#: one 6 px line, and on a framed page (CARD-144) it fuses with the frame's top
+#: side. One eighth of the band lifts it clear —
 #: 1.5 mm on the 12 mm band — and the white either side of it is real:
 #: measured on rendered Book 1 puzzle pages, the deepest band caption's lowest
 #: ink (a two-up page's, whose own descender reaches furthest) is 3.3 mm above
@@ -2484,20 +2487,15 @@ def _placed_drawing_top(
       does hold the drawing and the ratio is abandoned anyway, so the verdict
       names the footer rule while what bound the placement is the *header*
       rule's clearance. Case (iii) is reachable on every sheet (47 of the
-      extents Book 1 admits reach it at some clue depth) and is why the
-      footer group's omission is not merely a restatement of "the drawing is
-      too deep": the degraded placement leaves the drawing's bottom edge
-      ``INTERIOR_HEADER_RULE_LIFT x band - spare`` below the footer rule, so
-      the omission holds while the band's own lift outruns the threshold
-      (17.72 px against 14.29 px on Book 1's 12 mm band) — a ``band_mm``
-      coupling pinned by ``tests/test_book_puzzle_frame.py``'s
-      ``test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer``.
+      ``(extent, clue-depth)`` placements Book 1 admits reach it, spread over
+      29 distinct extents, at each parity) and is why the footer group's
+      omission is not merely a restatement of "the drawing is too deep".
 
       In all three cases the ratio is refused and the drawing is held at the
-      band's foot — exactly where every placed drawing sat before this card —
-      and the page's footer group is omitted by the renderer that draws it, on
-      the all-or-nothing condition it has applied since CARD-222
-      (``book_pdf_generator._draw_page_frame``). **What the two refusals are
+      band's foot, and the page's footer group is omitted by the renderer that
+      draws it, on the all-or-nothing condition it has applied since CARD-222
+      (``book_pdf_generator._draw_page_frame``: the group is drawn only while
+      ``drawing_bottom <= area_bottom``). **What the two refusals are
       for differs, and only one of them is about the footer rule.** In (i) and
       (ii) the ratio would put ink further past the footer rule than the
       band's foot does, so holding the drawing costs nothing and saves ink; in
@@ -2506,13 +2504,57 @@ def _placed_drawing_top(
       rule — the one rule that is drawn on such a page whatever happens.
       Trading a clean header rule for a footer rule that will not be stroked
       is the whole of the degraded regime's logic.
-      This is the only regime in which any drawing ink crosses the footer
-      rule's *row*, and in it that row is not stroked. The header rule stays
-      clear of the band's foot by :data:`INTERIOR_HEADER_RULE_LIFT` of the
-      band's own depth — which is precisely what that constant exists for —
-      so the degraded placement is byte-identical to the pre-CARD-224 one on
-      every sheet, and the smallest trim KDP admits (10.00 cm, whose footer
-      strip leaves 33.7 mm of puzzle area) prints exactly the pages it did.
+
+      **The invariant the refusal owes, and the one quantity it rests on.**
+      *Either the drawing clears the footer rule, or the footer group is not
+      drawn* — never a stroked hairline with the grid's heavy border across
+      it. Holding at the band's foot does not deliver that on its own: it
+      leaves the drawing's bottom edge
+      ``INTERIOR_HEADER_RULE_LIFT x band - spare`` below the footer rule, so
+      on a band shallow enough that the lift does not outrun the clearance
+      threshold (below about 10.4 mm at Book 1's heavy rule — the whole range
+      a shallower title band would put a book in) the degraded drawing landed
+      *on or just above* the rule's row and the renderer stroked it anyway.
+      That is review cycle 2's F2-001, and it is closed by taking the lower of
+      the two rows: the band's foot, or ``area_bottom + 1 - drawing_height``,
+      one pixel of drawing past the footer rule. ``_round_px`` is monotone, so
+      ``drawing_bottom >= area_bottom + 1`` follows from that top edge by
+      arithmetic, and :func:`_puzzle_area_px`'s footer row *is* the row the
+      renderer and :func:`qr_slot` measure their strip from — one shared
+      definition, so the two cannot disagree. **The side of the invariant that
+      now always holds is therefore the second one: a refused page never has a
+      footer group**, which is what this regime's prose has claimed since
+      CARD-222 and what the ``max`` makes true. The guarantee rests on that
+      one shared row and **not** on the value of a
+      :class:`~nonogram.admin.book_page_spec.PrintProfile` field.
+      It is deliberately all-or-nothing rather than minimal: a handful of
+      pages on a very shallow band (88 of 5,913 placements at a 4 mm band,
+      none at 10 mm or deeper) stop at a row whose ink would in fact have
+      cleared the hairline, and lose the footer group anyway. Computing the
+      exact ink threshold there would put a second, weaker notion of "clear"
+      beside the clearance, for pages no stored profile prints.
+      On every stored profile the clamp is inert: at a 12 mm band the lift is
+      17.72 px against a 14.29 px threshold, so the band's foot is already the
+      lower row and the degraded placement is byte-identical to the
+      pre-CARD-224 one, down to the smallest trim KDP admits (10.00 cm, whose
+      footer strip leaves 33.7 mm of puzzle area). Pinned by
+      ``tests/test_book_puzzle_frame.py``'s
+      ``test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer``
+      and ``test_a_shallow_band_cannot_leave_ink_on_a_drawn_footer_rule``, and
+      swept on a 9 mm band by
+      ``TestBookPuzzleFrame_GridClearsBothRules``'s ``"shallow band"`` sheet.
+
+      **One limit, pre-existing and not closed here.** The *header* rule is
+      unconditional, so the band's foot has to clear it by the drawing's own
+      overhang plus half the rule — which ``INTERIOR_HEADER_RULE_LIFT`` of the
+      band delivers only while the band is deeper than about 3 mm (measured:
+      a degraded drawing's ink touches the header rule at a 3.0 mm band and
+      clears it at 3.4 mm, on Book 1's width at three trim heights).
+      That is as old as CARD-222's frame (it is a property of holding anything
+      at the band's foot), it is unreachable through any stored profile, and
+      closing it means moving the drawing *down* with no omission branch to
+      fall back on — a different decision from this one, recorded rather than
+      taken.
     * ``"slot"`` is never returned here: it belongs to a two-up slot or a
       packed answer tile, whose vertical position is its slot's and not its
       page's (CARD-226 splits the area between two slots).
@@ -2535,8 +2577,14 @@ def _placed_drawing_top(
     generous than the ink actually needs (``thick_rule / 2 + furniture / 2``),
     and ``0.84 x (need + 1) >= need`` fails once ``need`` passes 5.25 — a
     heavy rule of 14 px, which :class:`PageSpec`'s own ``cell_cap`` can reach
-    (``cell_cap=18.0 mm`` put ratio-branch ink *on* the header rule on 126
-    (trim, extent) pairs) even though no stored :class:`PrintProfile` does.
+    even though no stored :class:`PrintProfile` does. The defect is real and
+    its *size* is not a fact about the code: three scans of three different
+    search spaces (this card's, and its review's two) put the count of
+    offending ``(trim, extent)`` pairs at 4, 8 and 126, so only the direction
+    is quoted here. Reproducibly, at ``cell_cap=18.0 mm`` over Book 1's width,
+    trim heights 100..300 mm, extents 5..15 and every clue depth, the retired
+    ``spare < 2 * clearance`` put ratio-branch ink on the header rule's ink and
+    this condition puts none, with 3 px to spare at a 14 px heavy rule.
     Conditioning on ``gap_above`` and ``gap_below`` themselves makes the
     promise hold for **every** heavy rule and every furniture weight, not for
     the ones in the profiles stored today. The binding term is now the gap
@@ -2545,6 +2593,19 @@ def _placed_drawing_top(
     :mod:`tests.test_book_puzzle_frame`'s
     ``test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare``
     walks a sheet across it in both directions.
+
+    **``gap_below`` is the defensive half of the disjunction and cannot fire
+    while :data:`GRID_SPARE_ABOVE` stays under one half** (review cycle 2,
+    F2-006): the gap above binds at 2.381 clearances of spare and the gap
+    below only at 1.724, so the first test always refuses first and dropping
+    the second changes no answer. It is written out anyway because the *share*
+    is a tunable the owner chooses optically, and the day it passes 0.5 the
+    second disjunct becomes the binding one. Which side of the boundary floats
+    is ``<``, not ``<=``: a gap of **exactly** one clearance floats. No sweep
+    of trim heights can reach that case — ``spare`` would have to be exactly
+    ``50 x clearance / 21`` of a pixel and a scan steps over it, which is why
+    cycle 2 found ``<=`` surviving — so it is pinned on this function directly
+    by ``test_a_gap_of_exactly_one_clearance_floats``.
 
     Args:
         page_spec: The sheet — a placed one (it carries a parity).
@@ -2573,7 +2634,18 @@ def _placed_drawing_top(
     gap_above = GRID_SPARE_ABOVE * spare
     gap_below = spare - gap_above
     if gap_above < clearance or gap_below < clearance:
-        return band_bottom, "footer"
+        # The band's foot, or one pixel of drawing past the footer rule if the
+        # band's foot is higher than that — whichever is LOWER on the page.
+        # The `max` is what makes the refused page's footer group omitted by
+        # arithmetic rather than by the band's depth (CARD-224 review cycle 2,
+        # F2-001): the renderer and `qr_slot` draw the group only while
+        # `drawing_bottom <= area_bottom`, `_round_px` is monotone, and
+        # `_puzzle_area_px`'s footer row is the row they both measure from, so
+        # a top edge at or below `area_bottom + 1 - drawing_height` refuses the
+        # group for every band depth and every rule weight. On every stored
+        # profile the band's foot is already the lower row and this is the
+        # pre-CARD-224 placement to the pixel.
+        return max(band_bottom, Fraction(area_bottom + 1) - drawing_height), "footer"
     return Fraction(area_top) + gap_above, "ratio"
 
 

@@ -454,8 +454,21 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent() -> None:
                 else:
                     # Deeper than the area (or a sheet with no area at all):
                     # held at the band's foot, which is where every placed
-                    # drawing sat before this amendment.
+                    # drawing sat before this amendment. The placement also
+                    # bounds that row from below — one pixel of drawing past
+                    # the footer rule, so the renderer omits the footer group
+                    # (CARD-224 review cycle 2, F2-001) — but that bound only
+                    # bites on bands shallower than about 10.4 mm and the
+                    # shallowest band this corpus generates is 10.617 mm, so
+                    # the band's foot is the answer here. The bound's own
+                    # oracle is tests/test_book_puzzle_frame.py's
+                    # test_a_shallow_band_cannot_leave_ink_on_a_drawn_footer_rule.
                     assert page.vertical_bound == "footer"
+                    assert spec.band_mm > 10.4, (
+                        "a shallower band would need the degraded row's lower "
+                        "bound modelled here",
+                        spec.band_mm,
+                    )
                     expected_top_mm = band_foot_mm
                     held += 1
                 # Three independently rounded quantities (the area's two
