@@ -1,0 +1,132 @@
+{
+  "card": "CARD-224",
+  "supersedes": "tests/fixtures/book_baseline_card248.json",
+  "recorded_from_commit": "card/224-grid-centred-again, branched from main at cc4430b (CARD-248 already merged at 1256982). Recorded against this card's own implementation on its worktree, after the drawing went back to centred and began floating at 42% of the puzzle area's spare height, and before this file was written. A commit cannot carry its own hash, so the tree these thirteen digests were taken from is the implementation commit this file is added beside.",
+  "recorded_on": "2026-10-18 (CARD-224)",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1, as amended 2026-10-17)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages -- the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-224 reverses CARD-204's central decision and amends FR-032's other clause. (a) The drawing is CENTRED across the usable width again \u2014 FR-032's own wording, which CARD-204 had made false by pinning it flush to the outer margin to free the gutter-side strip for the QR icon; CARD-223 moved that icon into the footer, so nothing reads the strip and the owner's artifact of 2026-10-14 asks for the calmer alignment back. (b) Vertically the drawing FLOATS at 42% of CARD-222's puzzle area's spare height (gap above = 0.42 x spare, gap below = 0.58) instead of sitting at the fixed top edge FR-032 asked for until the amendment of 2026-10-17 (AC-190 retired with its test; AC-366 and AC-367 state the new truth). 42% is the owner's optical figure, 'which looks centred once the header sits above it', and the defect it closes is the artifact's issue 2: 'on most pages the lower third of the page is empty (pp. 28, 75, 125), so the page looks unbalanced'.",
+  "warning": "This is evidence of what the book PDF looks like with the puzzle drawing centred horizontally and floating at 42% of the puzzle area's spare height. It must NEVER be regenerated to make a test pass: a page that stops matching this file is either a deliberate change \u2014 which earns its own successor fixture, with its own note \u2014 or a regression.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_dependent_pages": [],
+  "font_dependent_pages_note": "EMPTY, as CARD-221 left it and CARD-222/CARD-223 kept it: every reader-facing interior face is the packaged DejaVu Sans. CARD-248's two groups letter their invitation and their link in that same packaged face, at the same 10 pt the footer's grid-size label and folio already use (CON-020's floor).",
+  "interior_bytes": 3369797,
+  "page_count": 13,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "71c92ef408a58123153de5fc617828fed3994ddc487d7953885b135e4eb54536"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "041538287f0853ee36968c99885508e82c95bc4709914943cd9eac840f44593b"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "04c31f2e7502fc9bf0233cbdc4f7ab43044f70bb99cbddf0ee251c4d2fb2538c"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b7ca8115410f0d58cfe4117c88d0ca1840889eaf4e4914aa48b0d8408bbd4790"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "12fdeec99f85f350e5ab038feba4c733eda3b67bdc2aedcf7dbf5e8076878237"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "48161617dbed6977bcf80742ce9840c75eb44bf7f14dcedb040a20444706bf88"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e3f16f0f6207216611e5b536e05a32fb5a1809a888186225917fc041efc016c9"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "79f47b458d5a714ef2d8e54f142d2bbaa3676506aeb26c152e5c1168249eece5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "6e43dec2afab52b5c8858a5bfa0762bac3878e2622a0cdadb5795e75179d4c01"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e5a347a9324da73af9f77dcc4a68749025e2ca29edf7a421b212cbb14db90fda"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "dfd7604f926d61a47ec2c037d484f88b24ca5d2d218dc324f9516e8f266f23e3"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "0070ab2217ac8bb5b4fb240e5d0c3cd1890d59820c37c50f03bb5ba24aa205a6"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "5b1a5863e9554d23ef296d4df3c0d5200bc78402341ac67995e9b34bd11ce264"
+    }
+  ],
+  "changed_pages": [
+    1,
+    2,
+    5,
+    7,
+    9,
+    13
+  ],
+  "interior_bytes_note": "The black-and-white interior of this book: 3369797 bytes, where CARD-248's recording held 3354646 (+15151). Recorded because it is what the file does, not because it was predicted: the direction is the JPEG encoder's and not a measure of how much ink the pages hold.",
+  "changed_pages_note": "6 of 13 pages, measured page by page against CARD-248's recording before this file was written. 5 is the two-up page (both slots centred again), 7 and 9 the two single puzzle pages (centred, and floated), 13 Snowflake's own full answer page (drawn through the same compute_layout, so it floats too \u2014 and its caption with it; CARD-204 left this page unmoved only because its horizontal spare is exactly zero, and its vertical spare is not). 1 and 2 are the guide pages, and they are the one exception this chain has carried since CARD-204: their worked-example diagrams borrow the book's own cell pitch through compute_layout on the placed sheet and are then cropped tight and pasted at a fixed margin, so where they land on the page does not depend on this card at all \u2014 but _boundaries rounds each grid boundary from the absolute anchor's own fractional part, which this card moves, so the diagrams' rules scatter by at most one pixel. That scatter is bounded by a test rather than by this note (TestBookPdfMemory_NonDrawingPagesAreByteIdentical's own guide-page bound). The pages that did NOT move are this recording's control: 3 (the TOC), 4, 6, 8 and 10 (the dividers and SOLUTIONS) and 11 and 12 (the packed answer pages, whose tiles are centred in their own tile boxes by _packed_tile_layout, a formula FR-032's page-wide clause was never about) are byte-identical to CARD-248's digests."
+}

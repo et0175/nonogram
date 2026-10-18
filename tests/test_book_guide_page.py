@@ -52,6 +52,7 @@ check fails.
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 from importlib import resources
 from io import BytesIO
@@ -1584,64 +1585,78 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
         )
         assert pdf_page_count(export) == interior_page_count(6, 6, 6, 3)
 
-    def test_every_pages_parity_still_equals_its_own_position(self, pages):
+    #: An **unequal**-margin book, for the one test below whose subject is the
+    #: mirroring itself. On CON-018 as amended 2026-10-17 the gutter and the
+    #: outside margin are both 0.5 in, so a drawing centred in the usable area
+    #: (CARD-224) is centred on the *trim* as well, on both parities, and a
+    #: page's side of the spread leaves no trace in its drawing's own x at all
+    #: — the identity the registry's note on EC-032 warns a reviewer not to
+    #: read as evidence. A 20 mm gutter against a 10 mm outside margin puts an
+    #: odd page's drawing 5 mm (59 px) right of the trim's middle and an even
+    #: page's the same distance left of it.
+    MIRROR_GUTTER_MM = 20.0
+    MIRROR_OUTSIDE_MM = 10.0
+
+    @pytest.fixture(scope="class")
+    def mirrored_pages(self, corpus) -> List[Image.Image]:
+        book = dataclasses.replace(
+            corpus_book("card-201-ac5-mirrored"),
+            gutter_margin_cm=f"{self.MIRROR_GUTTER_MM / 10:.2f}",
+            outside_margin_cm=f"{self.MIRROR_OUTSIDE_MM / 10:.2f}",
+        )
+        return pdf_pages(export_of(BookPDFGenerator(book), corpus))
+
+    def test_every_pages_parity_still_equals_its_own_position(self, mirrored_pages):
         """A right-hand (odd) page's drawing sits right of the trim's middle,
         a left-hand (even) one left of it — read off puzzle AND answer pages
         alike, since CARD-198 both carry the same 20x20-style drawing shape
         this corpus's puzzles give.
 
-        **What the sign is, since CON-018's margins were amended** (CARD-222).
-        It used to be half the gutter/outside difference: the drawing was
-        centred across the usable area, so an odd page's own centre sat that
-        far right of the trim's. Two things have happened since. CARD-204
-        made the drawing flush with the *outer* margin, so the offset became
-        half the drawing's own horizontal spare, signed by parity; and the
-        2026-10-17 amendment made the gutter and the outside margin equal, so
-        the margin difference — the term this test was originally written
-        about — is now zero and contributes nothing. The spare does, on every
-        page that has one, which is what this test now says.
+        **What the sign is, and which book it is measured on.** Originally
+        half the gutter/outside difference: the drawing was centred across the
+        usable area, so an odd page's own centre sat that far right of the
+        trim's. CARD-204 made the drawing flush with the *outer* margin and
+        the offset became half the drawing's own spare, signed by parity;
+        CARD-224 reverses that, so the original formula — half the margin
+        difference, independent of the puzzle — is the rule again. But the
+        2026-10-17 amendment made Book 1's two side margins **equal**, which
+        makes that difference zero: on ``corpus_book``'s own profile a centred
+        drawing is centred on the trim too, at either parity, and this test
+        would have nothing to measure (measured: all 17 pages read an offset
+        of 0 px). It is therefore stated on a book storing unequal margins
+        (:attr:`MIRROR_GUTTER_MM`), which is the only configuration in which
+        mirroring is observable at all — the owner's decision of 2026-10-17
+        was to record that, not to restore the asymmetry by changing a margin.
 
-        **A page whose drawing fills the text width has no spare and no side
-        to be off**, and after the amendment some do: the usable width is
-        3.175 mm narrower, so a drawing that had a few pixels of slack can now
-        be width-bound to within a rounding pixel. Such a page is skipped
-        rather than asserted either way — and the skipped set is bounded, so
-        the test cannot quietly become vacuous.
+        **A page whose drawing fills the text width has no spare**, and is
+        still asserted here: under centring the offset is the margin
+        difference's half whatever the drawing's own width, so a width-bound
+        page mirrors exactly like any other. Only a page carrying no
+        measurable drawing at all (a divider, the TOC) is skipped.
         """
+        px_per_mm = BOOK_DPI / 25.4
+        expected_offset = (
+            (self.MIRROR_GUTTER_MM - self.MIRROR_OUTSIDE_MM) / 2 * px_per_mm
+        )
         checked = 0
-        flush = []
-        for number, page in enumerate(pages, start=1):
+        for number, page in enumerate(mirrored_pages, start=1):
             try:
                 drawing = drawing_of(page)
             except ValueError:
                 continue
             offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
-            if abs(offset) <= 2:
-                # Width-bound: the drawing's spare is zero to within the one
-                # rounding pixel each of its edges can move by.
-                flush.append((number, offset))
-                continue
             assert (offset > 0) == (number % 2 == 1), (
                 f"interior page {number} is centred {offset:.1f} px off the "
                 f"middle, the wrong side for {'an odd' if number % 2 else 'an even'} page"
             )
+            # Centring makes the magnitude the margin difference's own half,
+            # the same on every page whatever its puzzle (EC-032).
+            assert abs(abs(offset) - expected_offset) <= 2, (number, offset)
             checked += 1
-        assert checked >= 6, f"only {checked} pages carried a measurable drawing"
-        # Measured: six of this corpus's pages are width-bound on the
-        # amended margins (9, 10, 12, 17, 18, 19 — the 20x20-style drawings,
-        # each 1 px off the middle, which is the rounding and not a side).
-        # The bound is that measurement, so a seventh fails here.
-        assert len(flush) <= 6, (
-            f"these pages' drawings fill the text width and so carry no "
-            f"parity evidence at all: {flush}. Six is the amended margins' "
-            "own cost, measured; more than that and this test is measuring "
-            "almost nothing"
-        )
-        assert checked >= len(flush), (
-            f"only {checked} pages carried parity evidence against "
-            f"{len(flush)} that carried none — the corpus has stopped being "
-            "mostly measurable"
-        )
+        # Every page carrying a drawing is now asserted, none skipped for
+        # being width-bound (centring makes the offset independent of the
+        # drawing's own width). Measured on this corpus: 12 of its 17 pages.
+        assert checked >= 12, f"only {checked} pages carried a measurable drawing"
 
 
 # --------------------------------------------------------------------------

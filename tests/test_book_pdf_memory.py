@@ -2194,15 +2194,23 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     #:   exactly two call sites for that clause, ``compute_layout`` and
     #:   ``_slot_layout`` — neither is this one): 0 pixels moved.
     #: * **Page 13** (Snowflake's own full, unpacked answer page) *does*
-    #:   reuse ``compute_layout``, but this puzzle's own extent happens to
-    #:   be exactly page-fit-bound on both axes (AC-175's own case: the
-    #:   cell is fitted, not capped) — ``spare`` is exactly 0, where
-    #:   centring's ``left = usable_left + spare / 2`` and right-alignment's
-    #:   flush formula both collapse to the same ``usable_left``: 0 pixels
-    #:   moved too, but as a coincidence of *this puzzle's own geometry*,
-    #:   not a structural exemption the way the packed pages' is — a
-    #:   Snowflake-sized puzzle with any spare at all would move like
-    #:   pages 5/7/9 do.
+    #:   reuse ``compute_layout``. CARD-204 left it unmoved by a coincidence
+    #:   of this puzzle's own geometry — its extent is exactly page-fit-bound
+    #:   on both axes (AC-175's own case: the cell is fitted, not capped), so
+    #:   its horizontal ``spare`` is exactly 0 and centring's
+    #:   ``usable_left + spare / 2`` and right-alignment's flush formula
+    #:   collapsed to the same pixel — and that card's own note said a
+    #:   Snowflake-sized puzzle with any spare at all would move like pages
+    #:   5/7/9 do.
+    #:
+    #:   **CARD-224 moves it, through the other axis.** That card floats
+    #:   every placed drawing at 42% of its puzzle area's spare *height*,
+    #:   and this page's vertical spare is not zero (the page-fit bound is
+    #:   the width's; the puzzle area is one footer strip shallower than the
+    #:   height the cell was fitted against), so the drawing — and with it
+    #:   the caption CARD-203 hangs a fixed gap below it — sits lower on the
+    #:   page. It is therefore no longer in the group below: see
+    #:   :attr:`CARD224_FLOATED_PAGE`.
     #:
     #: **CARD-204 Fix 7 (merge gate): pages 11-13 are still unmoved BY THIS
     #: CARD, and are no longer compared against CARD-200.** Both statements
@@ -2246,12 +2254,22 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     #: ``test_the_three_answer_pages_moved_under_card203_not_this_card``
     #: below keeps the attribution honest by asserting they *do* differ from
     #: CARD-200.
-    CARD203_CAPTION_PAGES = (11, 12, 13)
+    CARD203_CAPTION_PAGES = (11, 12)
+
+    #: Interior page 13, Snowflake's own full answer page. CARD-204 left it
+    #: byte-identical by the zero-spare coincidence recorded above; CARD-224's
+    #: 42% float moves it, because its *vertical* spare is not zero. It is
+    #: kept in this class's own accounting — with its own fixture comparison
+    #: and its own attribution test — rather than dropped from the page kinds
+    #: this class produces evidence for, for the reason the paragraphs above
+    #: give: a page nobody compares is a page with no evidence.
+    CARD224_FLOATED_PAGE = (13,)
     GUIDE_PAGES = (1, 2)
     NON_DRAWING_PAGES = (
         STRICTLY_UNCHANGED_PAGES
         + CARD205_TOC_PAGE
         + CARD203_CAPTION_PAGES
+        + CARD224_FLOATED_PAGE
         + GUIDE_PAGES
     )
     DRAWING_PAGES = (5, 7, 9)
@@ -2365,6 +2383,21 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         """
         fixtures_dir = Path(__file__).resolve().parent / "fixtures"
         with (fixtures_dir / "book_baseline_card222.json").open(encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def card248_baseline(cls) -> Dict[str, Any]:
+        """CARD-248's own recording — the last one taken before CARD-224, and
+        the evidence for the one page **this** card moves inside this class's
+        own accounting (interior 13, Snowflake's full answer page).
+
+        Loaded directly by name, like every other fixture here, so that the
+        claim "nothing between CARD-222 and CARD-248 moved page 13, and
+        CARD-224 did" is a fact about three files rather than a sentence.
+        """
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+        with (fixtures_dir / "book_baseline_card248.json").open(encoding="utf-8") as handle:
             return json.load(handle)
 
     @pytest.fixture(scope="class")
@@ -2590,6 +2623,44 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "this class's own split is mis-attributed"
             )
             assert now[number - 1] != card200_page
+
+    def test_the_floated_answer_page_moved_under_this_card_and_nothing_before_it(
+        self, card222_baseline, card248_baseline, exported
+    ) -> None:
+        """CARD-224's own attribution for interior 13, measured over three
+        fixtures (the discipline this class applies to every other page it
+        names).
+
+        Snowflake's full answer page is drawn through ``compute_layout`` on
+        the book's own sheet, so the 42% float reaches it: its drawing — and
+        the caption CARD-203 hangs a fixed gap below that drawing — sit lower
+        on the page than they did. Three claims, in the order that makes the
+        attribution a measurement:
+
+        1. CARD-222's and CARD-248's recordings of this page **agree** —
+           nothing between those two cards moved it, so the move is not
+           something this card inherited;
+        2. the page as exported **differs** from CARD-248's recording — the
+           move really happened here;
+        3. the other two answer pages (11, 12) are *not* in this group and
+           are still asserted byte-identical above, which is what makes the
+           difference a property of the full-page drawing rather than of
+           answer pages in general.
+        """
+        now = page_digests(exported)
+        for number in self.CARD224_FLOATED_PAGE:
+            assert card222_baseline["pages"][number - 1] == (
+                card248_baseline["pages"][number - 1]
+            ), (
+                f"interior page {number} already differed between CARD-222 "
+                "and CARD-248, so CARD-224 is not what moved it and this "
+                "class's own split is mis-attributed"
+            )
+            assert now[number - 1] != card248_baseline["pages"][number - 1], (
+                f"interior page {number} is still CARD-248's own page: the "
+                "42% float never reached the full answer page, and this "
+                "card's own accounting of which pages move is wrong"
+            )
 
     def test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one(
         self, baseline, exported
@@ -3468,13 +3539,21 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         parities apart (CON-018's own note on this); which side each mark
         sits on still does, and that is what the gaps below read.
 
-        **CARD-204 (SCOPE+): the "centred, +-18.75 px off the middle" measure
-        is gone with centring itself.** Under right-alignment a right-hand
-        page's drawing is flush with the outer (right) margin — its grid's
-        right edge sits 150 px (0.5 in, the amended outside margin; 112.5 px
-        before 2026-10-17) in from the trim's own right edge, whatever the
-        puzzle's own width — so parity is read off *that* fixed gap instead of
-        a now-meaningless "near the middle" window.
+        **CARD-224 (SCOPE+): the drawing cannot carry this signal at all any
+        more, and the footer can.** CARD-204 read parity off the drawing's own
+        flush edge (a right-hand page's grid ended exactly 150 px in from the
+        trim's right edge, whatever the puzzle's width). This card centres the
+        drawing again, and on CON-018 as amended the two side margins are
+        equal — so a centred drawing lands on the *same* pixel column at
+        either parity and its edges say nothing about which hand the page is.
+        What still mirrors is the page furniture: CARD-223 puts the 2 cm QR
+        placeholder in the footer's **outer** bottom corner (right on a
+        right-hand page, left on a left-hand one) and CARD-222 puts the
+        grid-size label on the **inner** side. The icon is a near-solid 2 cm
+        block, by far the heaviest ink in the footer strip, so the parity is
+        read as "which end of the footer strip holds that block" — ink, as
+        before, and a quantity that is still a function of the page's own
+        hand.
 
         **CARD-201 note (SCOPE+): this moved.** The baseline book's two
         single-puzzle pages are interior 6 and interior 8 now (up from 5 and
@@ -3500,15 +3579,30 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         """
         interior = pdf_pages(export.interior.getvalue())
 
+        #: The 2 cm QR placeholder's own box (CARD-223) and the usable area's
+        #: two edges, in this page's own pixels, written out rather than
+        #: imported: 0.5 in margins and a 20 mm icon at 300 DPI.
+        icon_px = round(20.0 / 25.4 * 300)
+        usable_left, usable_right = 150, 2550 - 150
         for number in (7, 9):
             page = interior[number - 1]
-            drawing = drawing_of(page)
-            right_gap = page.width - drawing.grid_right
-            assert abs(right_gap - 150) < 3, (
-                f"interior page {number}'s drawing is not flush with the "
-                f"150 px outside margin (CARD-204, right-hand page, on "
-                f"CON-018's amended 0.5 in); gap was {right_gap:.1f} px"
+            ink = np.asarray(page.convert("L")) < 128
+            strip = ink[-icon_px:]
+            inner = strip[:, usable_left : usable_left + icon_px].sum()
+            outer = strip[:, usable_right - icon_px : usable_right].sum()
+            # A right-hand (odd) page's icon is at the right-hand end.
+            assert outer > 4 * inner, (
+                f"interior page {number} is a right-hand page, so the "
+                f"footer's 2 cm icon belongs at its right-hand end; the "
+                f"strip holds {outer} dark pixels there against {inner} at "
+                "the left"
             )
+            # And the drawing itself is centred, which is why it can no
+            # longer be asked: both of its side gaps are the same.
+            drawing = drawing_of(page)
+            left_gap = drawing.left - usable_left
+            right_gap = usable_right - drawing.grid_right
+            assert abs(left_gap - right_gap) <= 4, (number, left_gap, right_gap)
 
         # And page 1 itself: the guide page's text starts at the gutter
         # margin, 150 px in, not at the 112.5 px outside margin a left-hand

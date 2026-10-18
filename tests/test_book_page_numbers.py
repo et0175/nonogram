@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import pytest
-from PIL import ImageDraw
+from PIL import Image, ImageDraw
 
 from nonogram import clues
 from nonogram.admin.book_answer_key import Answer, PackedAnswerPage
@@ -51,12 +51,14 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     PuzzlePagePlan,
     _band_font,
+    _draw_folio,
     _folio_reserve_px,
     page_is_right_hand,
     type_px,
 )
 from nonogram.difficulty import Tier
 from nonogram.export.layout import compute_pair_layout
+from nonogram.export.png import BACKGROUND
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
 
 #: The anchors ``_draw_folio`` uses: ``"mb"`` for the footer line's centred
@@ -772,20 +774,31 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
                 folio_reserve_px=reserve_px,
             )
             assert pair is not None, page_number
-            # The lower slot's vertical slack is still always zero (CARD-200's
-            # folio sits in the one row this corner ever competes for), but
-            # its *horizontal* slack at the outer corner is now exactly the
-            # fixed reserve, not zero — the mechanism this test pins.
+            # The lower slot's vertical slack is still always zero on a pair
+            # laid out without CARD-248's footer strip (CARD-200's folio sits
+            # in the one row this corner ever competes for). Its *horizontal*
+            # slack at the outer corner is at least the fixed reserve —
+            # **CARD-224**: since that card centres every slot, the gap is
+            # half the slot's own spare rather than exactly the reserve, so
+            # the reserve's purpose is subsumed by the alignment and the
+            # assertion is ">=", with both figures reported. The reserve is
+            # still taken out of the *fit* (G-1: FR-040's pairing verdict is
+            # unchanged), which is why it is still passed in here.
             assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == 0, (
                 page_number
             )
             right_hand = page_is_right_hand(page_number)
+            lower = pair.lower.page
             gap = (
-                pair.lower.page.usable_right - pair.lower.page.drawing_right
+                lower.usable_right - lower.drawing_right
                 if right_hand
-                else pair.lower.page.drawing_left - pair.lower.page.usable_left
+                else lower.drawing_left - lower.usable_left
             )
-            assert gap == reserve_px, (page_number, gap, reserve_px)
+            spare = (lower.usable_right - lower.usable_left) - (
+                lower.drawing_right - lower.drawing_left
+            )
+            assert gap >= reserve_px, (page_number, gap, reserve_px)
+            assert abs(gap - spare / 2) <= 1, (page_number, gap, spare)
 
             plan = PuzzlePagePlan(page_number, (1, 2), pair)
             calls = _folio_calls(
@@ -849,7 +862,11 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
                 else lower.drawing_left - lower.usable_left
             )
 
-        assert gap(early_target) == gap(late_target) == _folio_reserve_px(small_book.dpi)
+        # CARD-224: the gap is half the slot's own spare (centred), which is
+        # still identical across the two books — the property this test is
+        # about — and still at least the reserve the fit keeps.
+        assert gap(early_target) == gap(late_target)
+        assert gap(early_target) >= _folio_reserve_px(small_book.dpi)
 
     def test_a_four_digit_folio_fits_the_reserve_exactly_and_a_fifth_digit_degrades(
         self, monkeypatch
@@ -858,29 +875,37 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         sits exactly on ``_draw_folio``'s own ``<=`` clearance boundary, with
         **zero** slack — the reserve is the width of the widest four-digit
         string this face draws, an exact equality rather than a margin — and
-        until this test nothing exercised it: the suite's other two-up folio
+        until that review nothing exercised it: the suite's other two-up folio
         tests all run on one- to three-digit page numbers, and
         ``test_the_fixed_reserve_is_identical_across_book_scales`` only
         asserts ``>= 3`` digits. Any change to the packed face's digit
-        advance or its kerning would therefore have moved the four-digit case
+        advance or its kerning would therefore move the four-digit case
         silently from "draws" to "omitted" with no failing test (the baseline
-        fixture guards rendered pages, not this boundary — and its own
-        ``font_fingerprint`` gate, which this sentence named until CARD-221,
-        is gone with the host lookup it covered).
+        fixture guards rendered pages, not this boundary).
 
-        Both sides of the cliff are pinned, on the same two puzzles and
-        within one parity at a time so that *only* the digit count differs:
-        four digits draws (the ceiling the reserve is sized for) and five
-        digits is omitted — the pre-existing "omit rather than collide"
-        path, i.e. a graceful loss of the folio on a book no trim CON-018
-        stocks could be bound at anyway, never ink over the grid. Both
-        parities are checked because the clearance test reads
+        Both sides of the cliff are pinned: at exactly the reserve's own
+        clearance a four-digit folio draws (the ceiling the reserve is sized
+        for) and a five-digit one is omitted — the pre-existing "omit rather
+        than collide" path, i.e. a graceful loss of the folio on a book no
+        trim CON-018 stocks could be bound at anyway, never ink over the grid.
+        Both parities are checked because the clearance test reads
         ``content_left`` on a left-hand page and ``content_right`` on a
         right-hand one.
+
+        **CARD-224 moved the vehicle, not the claim.** This test used to put
+        the two page numbers on a real two-up page, whose lower slot sat
+        exactly ``reserve_px`` from its outer corner by construction (the
+        flush-outer anchor plus CARD-204 Fix 4's shift). Centring that slot
+        leaves it *half its own spare* from that corner instead — 549 px on
+        this pair, five times the reserve — so a two-up page no longer stands
+        on the boundary this test is about, and demonstrating the cliff
+        through one would have meant hunting a pair whose spare happened to
+        be twice the reserve. The clearance figure is therefore handed to
+        :func:`_draw_folio` directly, which is where the ``<=`` lives; the
+        equality on the face's own measurements, which is the other half of
+        F-10's claim, is unchanged and still asserted first.
         """
         generator = BookPDFGenerator(corpus_book("f10-folio-digit-ceiling"))
-        duck = generator._payload(puzzle("f10-digits-duck", 10, 10, 3, "easy", "Duck"))
-        owl = generator._payload(puzzle("f10-digits-owl", 10, 10, 3, "easy", "Owl"))
         reserve_px = _folio_reserve_px(generator.dpi)
 
         # The equality the whole ceiling rests on, asserted rather than
@@ -892,26 +917,38 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         assert font.getlength(widest * FOLIO_RESERVE_DIGITS) == reserve_px
         assert font.getlength(widest * (FOLIO_RESERVE_DIGITS + 1)) > reserve_px
 
+        # One page's box, and content that reaches the folio's own row with
+        # exactly the reserve left at the corner — the geometry a two-up page
+        # had until CARD-224, handed straight to the function that judges it.
+        left, top, right, bottom = 150, 113, 2400, 3159
         # (9999, 10001) are both ODD/right-hand, (9998, 10000) both
         # EVEN/left-hand: within each pair the parity, the geometry and the
         # reserve are identical and the digit count is the only variable.
         for four_digit, five_digit in ((9999, 10001), (9998, 10000)):
             assert page_is_right_hand(four_digit) == page_is_right_hand(five_digit)
+            right_hand = page_is_right_hand(four_digit)
             for page_number, should_draw in ((four_digit, True), (five_digit, False)):
-                spec = generator.page_spec(page_number)
-                pair = compute_pair_layout(
-                    (duck.row_clues, duck.column_clues),
-                    (owl.row_clues, owl.column_clues),
-                    spec,
-                    folio_reserve_px=reserve_px,
-                )
-                assert pair is not None, page_number
-                plan = PuzzlePagePlan(page_number, (1, 2), pair)
+                page = Image.new("RGB", (2550, 3300), BACKGROUND)
+                draw = ImageDraw.Draw(page)
                 calls = _folio_calls(
                     monkeypatch,
                     page_number,
-                    lambda plan=plan: generator._two_up_page(plan, [duck, owl]),
+                    lambda draw=draw, page_number=page_number: _draw_folio(
+                        draw,
+                        left,
+                        top,
+                        right,
+                        bottom,
+                        page_number,
+                        generator.dpi,
+                        # No vertical room at all: the content stands on the
+                        # folio's own row, so the horizontal figure decides.
+                        content_bottom=bottom,
+                        content_right=right - reserve_px,
+                        content_left=left + reserve_px,
+                    ),
                 )
+                assert right_hand == page_is_right_hand(page_number)
                 folios = _folios(calls)
                 if should_draw:
                     assert folios == {page_number: str(page_number)}, (

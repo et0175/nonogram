@@ -488,21 +488,28 @@ def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
     each rule's coordinate; on its margin side it runs to the usable area's
     edge, as the foot note does.
 
-    * **Side strip**: between the drawing and a side margin, wherever the
-      drawing's own alignment actually leaves slack — **CARD-204**: the
-      drawing is right-aligned, flush with the *outer* margin on both
-      parities, so the slack this spot reads is now on the *gutter* side,
-      not literally "the outer side" despite this function's own name
-      (kept, not renamed, the same way ``export/layout.py``'s pre-CARD-204
-      comments were updated in place rather than torn out): left of the
-      drawing on an odd (right-hand) page (gutter on the left), right of it
-      on an even one (gutter on the right). From the drawing's top, which is
-      below the band, down to the bottom margin.
+    * **Side strip**: between the drawing and a side margin, on the
+      **gutter** side — left of the drawing on an odd (right-hand) page,
+      right of it on an even one. CARD-204 made that the only side with any
+      slack (it pinned the drawing flush with the outer margin), which is why
+      this spot reads the gutter side despite this function's own name (kept,
+      not renamed, the same way ``export/layout.py``'s own pre-CARD-204
+      comments were updated in place rather than torn out). **CARD-224
+      centres the drawing again**, so both sides now carry half the page's
+      spare and the gutter side is a *choice* rather than the only option:
+      the choice is kept, because which side a proof page's note sits on is a
+      visible change to the owner's own sheet and this card moves no note.
+      The strip is correspondingly half as wide as it was, so the corner
+      fallback wins on more trims than before; which spot each trim takes is
+      pinned by this module's own tests and re-recorded in
+      ``tests/fixtures/proof_baseline_card224.json``. From the drawing's top,
+      which is below the band, down to the bottom margin.
     * **Blank clue corner**: the empty box at the drawing's top-left where the
       row and column clue gutters meet, bounded by the frame's left and top
       sides and the grid's left and top borders. No clue digit and no grid rule
-      enters it. Unaffected by CARD-204: this corner is inside the drawing's
-      own clue gutters, not a margin, so it does not move with the anchor.
+      enters it. Unaffected by CARD-204 and by CARD-224: this corner is inside
+      the drawing's own clue gutters, not a margin, so it moves *with* the
+      drawing and never changes size.
     """
     placement = layout.page
     assert placement is not None  # annotation_lines has already refused None
@@ -521,7 +528,9 @@ def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
     if icon is not None and icon.top == placement.drawing_top:
         side_top = icon.bottom + clear
     if placement.parity is PageParity.ODD:
-        # CARD-204: flush right, so the slack is on the left (gutter) side.
+        # The gutter is on the left of an odd page, so this is the left
+        # strip (CARD-204 made it the only slack there was; since
+        # CARD-224 it is half the spare — see this function's docstring).
         side = _Spot(
             "outer side strip",
             frame.left,
@@ -530,7 +539,8 @@ def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
             frame.bottom,
         )
     else:
-        # CARD-204: flush left, so the slack is on the right (gutter) side.
+        # The gutter is on the right of an even page, so this is the
+        # right strip (see the ODD branch above).
         side = _Spot(
             "outer side strip",
             placement.drawing_right + clear,
