@@ -296,20 +296,42 @@ class TestPageSpec_ParityMovesTheUsableAreaNeverItsSize:
         assert _px_to_mm(even.usable_right) == pytest.approx(203.2)
 
     def test_fifteen_by_fifteen_left_edges_on_facing_pages(self) -> None:
-        """CARD-204 (reading (b)): 41.375 mm (odd, flush right) and 9.525 mm
-        (even, flush left), the same top row."""
+        """CARD-224 (FR-032's centring, restored): half this page's spare in
+        from each parity's own left margin, and the same top row.
+
+        **This spec's margins are unequal** (gutter 12.7 mm, outside 9.525 mm
+        — CON-018 as it stood before the 2026-10-17 amendment, which this
+        module writes out by hand and deliberately keeps), so the two left
+        edges sit 3.175 mm apart and this assertion *sees* the mirroring. On
+        the amended Book 1 profile, where gutter == outside, the same two
+        figures coincide and a left-edge comparison is an identity rather than
+        evidence (the carried note on CARD-224's system contract).
+
+        What CARD-204 asserted here — 41.375 mm flush right on the odd page
+        and 9.525 mm flush left on the even one — is exactly the claim this
+        card reverses; the odd figure moves by half the spare (~16 mm), so no
+        restatement of it could pass by accident."""
         clues = _clues_of_depth(15, 7)
         odd = compute_layout(clues, clues, BOOK1_ODD).page
         even = compute_layout(clues, clues, BOOK1_EVEN).page
         assert odd is not None and even is not None
         drawing_mm = 22 * 7.5
         spare_mm = BOOK1_USABLE_WIDTH_MM - drawing_mm
-        expected_odd = 12.7 + spare_mm
-        expected_even = 9.525
+        expected_odd = 12.7 + spare_mm / 2
+        expected_even = 9.525 + spare_mm / 2
+        assert expected_odd - expected_even == pytest.approx(12.7 - 9.525), (
+            "this spec's margins are unequal, so parity really does move the area"
+        )
         half_pixel_mm = _px_to_mm(0.5)
         assert abs(_px_to_mm(odd.drawing_left) - expected_odd) <= half_pixel_mm
         assert abs(_px_to_mm(even.drawing_left) - expected_even) <= half_pixel_mm
         assert odd.drawing_top == even.drawing_top
+        # Centred: the two side margins inside the usable area agree to the
+        # one pixel the two independent roundings can cost, on both parities.
+        for page in (odd, even):
+            left_gap = page.drawing_left - page.usable_left
+            right_gap = page.usable_right - page.drawing_right
+            assert abs(left_gap - right_gap) <= 1, (left_gap, right_gap)
 
 
 def _checkerboard(columns: int, rows: int) -> list[list[bool]]:
@@ -535,15 +557,14 @@ class TestCaptionSlot_NoWidthEverLeavesTheUsableArea:
         pinned = 0
         for layout in self._overflow_layouts():
             page = layout.page
-            if page.parity is PageParity.EVEN:
-                # Flush left with the outer margin; the overflow spills right,
-                # past usable_right — the only geometry the min can bind on.
-                assert page.drawing_right > page.usable_right, (page,)
-            else:
-                # Flush right with the outer margin: the overflow spills
-                # left instead, so the min is a no-op on this parity and
-                # drawing_right is already the usable edge.
-                assert page.drawing_right == page.usable_right, (page,)
+            # CARD-224: centred again, with the spare clamped at zero, so the
+            # drawing starts on the usable area's left edge and the whole
+            # excess spills off its right one — on **both** parities, where
+            # CARD-204's flush-outer anchor spilled toward the gutter and so
+            # left the min a no-op on the ODD page. The min therefore binds
+            # on every layout this generator yields.
+            assert page.drawing_left == page.usable_left, (page,)
+            assert page.drawing_right > page.usable_right, (page,)
             for width in self.WIDTHS:
                 box = caption_slot(layout, width)
                 assert box.right == page.usable_right, (page, width, box)

@@ -377,17 +377,19 @@ def _reference_band(
     none, ADR-0037/R1) and the band line, written out by the caller. Its band
     is the 12 mm below the top margin, where a single page's always is.
 
-    ``shift_px`` (CARD-204 Fix 1, reverted by Fix 3, restored as a fixed
-    amount by Fix 4 — owner decision, 2026-10-12, "fixed universal
-    reserve"): a two-up page's lower slot alone is pulled
-    :data:`RESERVE_PX` toward the gutter from the flush edge, and the band
-    is centred *on the drawing* (``header_band``'s own ``center_x =
-    (drawing_left + drawing_right) // 2``), so the lower band's own title
-    moves with it — a single page's band (what this reference renders,
-    unshifted) no longer sits in the same column as the two-up lower slot's.
-    The caller passes the signed pixel offset (negative on an ODD/right-hand
-    page, where the reserve pulls left; positive on an EVEN one) for the one
-    comparison this affects; the upper slot never needs it.
+    ``shift_px`` is **unused since CARD-224** and kept as the parameter it
+    is, with its history: CARD-204 Fix 1 added it, Fix 3 reverted it, Fix 4
+    restored it as a fixed amount (owner decision 2026-10-12, "fixed
+    universal reserve") because a two-up page's lower slot alone was pulled
+    :data:`RESERVE_PX` toward the gutter from its flush edge, and the band is
+    centred *on the drawing* (``header_band``'s own ``center_x =
+    (drawing_left + drawing_right) // 2``), so the lower band's title moved
+    with it. CARD-224 centres every slot across the page's one usable width,
+    so both slots' drawings — and therefore both bands — sit on the same
+    column as a single page's, and every caller now passes no shift. The
+    parameter stays because the next card to move a slot sideways will need
+    exactly it, and the tests below assert the zero rather than dropping the
+    comparison.
     """
     payload = ExportPayload(
         grid=puzzle["grid"],
@@ -929,12 +931,15 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         assert upper is not None, "the upper band is blank"
         assert lower is not None, "the lower band is blank"
         assert _same_ink(upper, _reference_band(puzzle, 5, "Puzzle 1 · Easy"))
-        # CARD-204 Fix 4: the lower slot's fixed reserve pulls it RESERVE_PX
-        # toward the gutter (left, on this ODD/right-hand page), shifting its
-        # band by the same amount.
-        assert _same_ink(
-            lower, _reference_band(puzzle, 5, "Puzzle 2 · Easy", shift_px=-RESERVE_PX)
-        )
+        # CARD-224: both slots are centred across the page's one usable
+        # width, so the lower band sits in the same column as a single page's
+        # — no shift. (Until this card the lower slot was pulled RESERVE_PX
+        # toward the gutter by CARD-204 Fix 4's folio reserve, and this
+        # comparison carried that offset; the reserve now narrows the fit
+        # only. RESERVE_PX is asserted non-trivial below so "no shift" is a
+        # measurement rather than a tautology.)
+        assert RESERVE_PX > 1, RESERVE_PX
+        assert _same_ink(lower, _reference_band(puzzle, 5, "Puzzle 2 · Easy"))
 
     def test_the_two_bands_are_not_the_same_line(self):
         """The measurement has teeth: one band is not the other's ink."""
@@ -994,12 +999,12 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
             _band_ink(page, self.UPPER_BAND_TOP_MM),
             _reference_band(puzzle, 6, "Puzzle 2 · Easy"),
         )
-        # CARD-204 Fix 4: the lower slot's fixed reserve pulls it RESERVE_PX
-        # toward the gutter (right, on this EVEN/left-hand page — the mirror
-        # of page 5's ODD case above).
+        # CARD-224: centred, so no shift on this EVEN/left-hand page either
+        # — the mirror of page 5's ODD case above (see that comment for what
+        # the shift used to carry).
         assert _same_ink(
             _band_ink(page, self.LOWER_BAND_TOP_MM),
-            _reference_band(puzzle, 6, "Puzzle 3 · Easy", shift_px=RESERVE_PX),
+            _reference_band(puzzle, 6, "Puzzle 3 · Easy"),
         )
 
 
@@ -1011,9 +1016,25 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
 class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
     """AC-252 — the upper puzzle's drawing starts on the 20x20's pixel row.
 
-    EC-022's fixed offset — top margin plus band — is what every puzzle page of
-    a book puts its drawing's top edge on, and a two-up page's upper slot is
-    not an exception to it.
+    **AC-252 is falsified by CARD-224 and is owed an architect-station
+    decision.** Until that card, EC-022's fixed offset — top margin plus band
+    — was where every puzzle page of a book put its drawing's top edge, and a
+    two-up page's upper slot was not an exception. FR-032's amendment of
+    2026-10-17 made a *single* page's drawing float at 42% of its puzzle
+    area's spare height while a two-up slot's stayed at its own band foot
+    (splitting the area between two slots is CARD-226's, explicitly out of
+    CARD-224's scope — its G-4), so the two rows this AC compares are no
+    longer equal. The propagation pass that retired AC-190 and restated
+    EC-022 did not reach AC-252; CARD-224 reports it rather than editing the
+    registry from a worktree.
+
+    The first test below is therefore marked ``xfail(strict=True)``: it still
+    states AC-252 exactly, it fails, and it will fail *again* — loudly — if
+    someone "fixes" it by pinning a single page's drawing back to the band's
+    foot. Its two siblings are unaffected and still state the surviving truth:
+    the upper slot's own row is the top margin plus the band, and the two
+    pages print different cells. The gap between the two rows is measured in
+    ``tests/test_layout_two_up.py::TestPairLayout_UpperSlotSitsAtItsOwnBandFoot``.
     """
 
     BIG = dict(columns=20, rows=20, depth=8, column_depth=8)
@@ -1038,6 +1059,15 @@ class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
         assert _page_shapes(pages, 5, 2) == [[(10, 10), (10, 10)], [(20, 20)]]
         return pages
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "AC-252 is falsified by CARD-224: a single page's drawing floats "
+            "at 42% of the puzzle area's spare (FR-032 as amended "
+            "2026-10-17) while a two-up slot stays at its band foot. Owed "
+            "at the architect station - see this class's docstring."
+        ),
+    )
     def test_the_upper_slot_and_the_single_page_share_a_top_pixel_row(self):
         pages = self._pages()
 

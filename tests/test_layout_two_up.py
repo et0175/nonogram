@@ -181,23 +181,69 @@ class TestPairLayout_WidthFailureAtTwoUpMinimumIsNone:
         assert pair.cell_mm == pytest.approx(BOOK1_USABLE_WIDTH_MM / 26, abs=1e-9)
 
 
-class TestPairLayout_UpperSlotSharesSinglePageTopRow:
-    """AC-252's layout half: the upper slot is a single page's drawing, on its fixed row."""
+class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
+    """AC-252's layout half, **as CARD-224 leaves it**: the upper slot's drawing
+    starts one band below the top margin — the row every placed drawing started
+    on until this card, and the row a two-up slot still starts on.
+
+    The retired half of the claim, with its named survivor (CARD-220's rule):
+    "the upper slot is a *single page's* drawing, on its fixed row" is false
+    from CARD-224, because a single page's drawing now floats at 42% of the
+    page's puzzle-area spare (FR-032 as amended 2026-10-17) while a slot's
+    stays at its slot's band foot — splitting the area between two slots is
+    CARD-226's. The survivor of the retired assertion is
+    :meth:`test_the_single_page_now_sits_lower_than_the_upper_slot` below,
+    which states the new relation between the two rows and would fail if
+    either one stopped moving as it does; the registry's own AC-252 is
+    falsified by this card and is reported as owed at the architect station.
+    """
 
     @pytest.mark.parametrize("spec", [BOOK1_ODD, BOOK1_EVEN], ids=["odd", "even"])
-    def test_upper_drawing_top_is_the_single_page_top(self, spec: PageSpec) -> None:
+    def test_upper_drawing_top_is_one_band_below_the_top_margin(self, spec: PageSpec) -> None:
+        ten = _puzzle(10, 10, row_depth=4, column_depth=4)
+
+        pair = _pair(ten, ten, spec)
+
+        assert pair.upper.page is not None
+        assert abs(_mm(pair.upper.page.drawing_top) - (9.525 + 12.0)) <= HALF_PIXEL_MM + 1e-9
+        assert pair.upper.page.vertical_bound == "slot"
+        assert pair.upper.page.band_bottom == pair.upper.page.drawing_top
+
+    @pytest.mark.parametrize("spec", [BOOK1_ODD, BOOK1_EVEN], ids=["odd", "even"])
+    def test_the_single_page_now_sits_lower_than_the_upper_slot(self, spec: PageSpec) -> None:
+        """CARD-224: the same two rows AC-252 asserted equal, now measured apart.
+
+        The 20x20 alone floats in the page's puzzle area; the upper slot of a
+        two-up page does not. The gap is this page's own 0.42 x spare, so it
+        is not a tolerance: it is 112 px on Book 1's amended profile and would
+        be zero if either row went back to the other's rule."""
         ten = _puzzle(10, 10, row_depth=4, column_depth=4)
         twenty = compute_layout(*_puzzle(20, 20, row_depth=8, column_depth=8), spec)
 
         pair = _pair(ten, ten, spec)
 
         assert pair.upper.page is not None and twenty.page is not None
-        assert pair.upper.page.drawing_top == twenty.page.drawing_top
-        assert abs(_mm(pair.upper.page.drawing_top) - (9.525 + 12.0)) <= HALF_PIXEL_MM + 1e-9
+        assert twenty.page.vertical_bound == "ratio"
+        assert twenty.page.drawing_top > pair.upper.page.drawing_top
+        assert twenty.page.drawing_top > twenty.page.band_bottom
 
     @pytest.mark.parametrize("spec", [BOOK1_ODD, BOOK1_EVEN], ids=["odd", "even"])
-    def test_at_the_same_cell_the_upper_slot_is_the_single_page(self, spec: PageSpec) -> None:
-        """A 10x10 alone also prints 7.5 mm: every line and clue is where the pair puts it."""
+    def test_at_the_same_cell_the_upper_slot_is_the_single_page_moved_down(
+        self, spec: PageSpec
+    ) -> None:
+        """A 10x10 alone also prints 7.5 mm: every line and clue is where the
+        pair puts it, **shifted down by the single page's own float** and by
+        nothing else.
+
+        Until CARD-224 the two were equal outright. The shift is measured once,
+        from the two drawings' top edges, and every other number is then
+        required to agree within the single pixel two independently rounded
+        boundaries can differ by — the float starts the drawing on a
+        fractional pixel, and :func:`_boundaries` rounds each line from there,
+        so a translated drawing is the same drawing to within that pixel and
+        no closer. The x axis is still exact, as is the cell: a slot that
+        drifted sideways, printed another cell or placed a clue in the wrong
+        box fails here."""
         ten = _puzzle(10, 10, row_depth=4, column_depth=4)
         single = compute_layout(*ten, spec)
 
@@ -205,8 +251,23 @@ class TestPairLayout_UpperSlotSharesSinglePageTopRow:
 
         upper = pair.upper
         assert single.page is not None and upper.page is not None
-        assert upper.grid_lines == single.grid_lines
-        assert upper.clue_entries == single.clue_entries
+        shift = single.page.drawing_top - upper.page.drawing_top
+        assert shift > 0, "the single page floats below the slot's band foot"
+        assert [l.index for l in upper.vertical_lines] == [
+            l.index for l in single.vertical_lines
+        ]
+        assert [l.position for l in upper.vertical_lines] == [
+            l.position for l in single.vertical_lines
+        ]
+        for mine, theirs in zip(upper.horizontal_lines, single.horizontal_lines, strict=True):
+            assert mine.index == theirs.index and mine.width == theirs.width
+            assert abs(mine.position + shift - theirs.position) <= 1
+        for mine, theirs in zip(upper.vertical_lines, single.vertical_lines, strict=True):
+            assert abs(mine.start + shift - theirs.start) <= 1
+            assert abs(mine.end + shift - theirs.end) <= 1
+        for mine, theirs in zip(upper.clue_entries, single.clue_entries, strict=True):
+            assert (mine.value, mine.center_x) == (theirs.value, theirs.center_x)
+            assert abs(mine.center_y + shift - theirs.center_y) <= 1
         assert (upper.thin_rule, upper.thick_rule) == (single.thin_rule, single.thick_rule)
         assert (upper.width, upper.height, upper.margin) == (single.width, single.height, single.margin)
         assert upper.page.drawing_left == single.page.drawing_left
@@ -248,9 +309,14 @@ class TestPairLayout_SlotGeometry:
         assert _mm(lower.usable_top - upper.drawing_bottom) == pytest.approx(26.35, abs=2 * HALF_PIXEL_MM)
 
     def test_each_slot_is_centred_across_the_usable_width_on_either_parity(self) -> None:
-        """CARD-204: each slot is right-aligned (flush with the outer margin),
-        mirrored by parity, the same rule a single puzzle page uses — not
-        centred, despite this test's own (now stale, kept for history) name."""
+        """CARD-224: each slot is centred across the page's one shared usable
+        width, on both parities — the same rule a single puzzle page uses, and
+        the rule this test's own name has always stated.
+
+        It said the opposite between CARD-204 and this card ("right-aligned,
+        flush with the outer margin, ... not centred, despite this test's own
+        now stale name"). The expected left edge moves by the whole spare on
+        an ODD page, so neither statement can pass for the other."""
         fifteen = _puzzle(15, 15, row_depth=3, column_depth=5)
         ten = _puzzle(10, 10, row_depth=3, column_depth=3)
         cell = BOOK1_TWO_UP_HEIGHT_MM / 33
@@ -259,9 +325,7 @@ class TestPairLayout_SlotGeometry:
             for slot, across in ((pair.upper, 18), (pair.lower, 13)):
                 assert slot.page is not None
                 spare = BOOK1_USABLE_WIDTH_MM - across * cell
-                expected_left = (
-                    left_margin if spec.parity is PageParity.EVEN else left_margin + spare
-                )
+                expected_left = left_margin + spare / 2
                 assert abs(_mm(slot.page.drawing_left) - expected_left) <= HALF_PIXEL_MM + 1e-9
 
     def test_both_slots_use_the_book_strokes(self) -> None:

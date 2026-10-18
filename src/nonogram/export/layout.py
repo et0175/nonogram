@@ -53,21 +53,28 @@ A spec lays a puzzle out in one of two ways, and its ``parity`` decides which:
 * **a parity (``ODD``/``EVEN``): a placed page.** The image is the whole trim.
   The usable area is the trim minus its margins, with the gutter margin on the
   binding side: left on an odd (right-hand) page, right on an even one. The
-  title band sits at the top of the usable area, and the drawing's top edge
-  sits directly under it, at a fixed offset of top margin + band (FR-032). The
-  drawing is right-aligned, mirrored by parity (FR-032 amended 2026-10-10,
-  CARD-204, owner reading (b)): flush with the usable area's *outer* margin
-  on both parities — the right edge on an odd (right-hand) page, the left
-  edge on an even one — so parity still moves it sideways by gutter − outside
-  and still never changes its size, only which edge it hugs. The slack that
-  alignment frees on the gutter side is **no longer** where the 2x2cm
-  placeholder QR icon goes: since CARD-223 :func:`qr_slot` puts it in the
-  footer's *outer* bottom corner, because a code printed towards the spine
-  does not scan. Nothing reads that freed strip any more, which is what lets
-  CARD-224 stop producing it. And because the flush edge leaves an ``EVEN``
-  page's drawing no spare at all on its left, it is why a solved page's
-  right-aligned caption needs :func:`caption_slot`'s clamp to stay inside the
-  margin. The sheet is never
+  title band sits at the top of the usable area, and the drawing is **centred
+  horizontally** in it (FR-032's own clause, restored by CARD-224 after
+  CARD-204's flush-by-parity anchor: that anchor existed to free the
+  gutter-side strip for the 2x2cm placeholder QR icon, and since CARD-223 put
+  the icon in the footer's *outer* bottom corner -- a code printed toward the
+  spine does not scan -- nothing reads that strip). So **parity no longer
+  moves the drawing sideways at all**: it moves the usable area, and the
+  drawing sits in the middle of whatever that is. It is still
+  :func:`caption_slot`'s clamp that keeps a solved page's right-aligned
+  caption inside the margin, and the clamp still binds: centring gives an
+  ``EVEN`` page's drawing half the page's spare on its left, which a caption
+  long enough still crosses.
+  Vertically the drawing **floats at 42% of the puzzle area's spare height**
+  (:data:`GRID_SPARE_ABOVE`, FR-032 as amended 2026-10-17, AC-366/AC-367): the
+  gap from CARD-222's header rule down to the drawing is 0.42 of that area's
+  spare and the gap on to the footer rule the other 0.58, so two
+  differently-sized drawings no longer share a top edge and no page leaves its
+  whole spare in one empty band below the grid. Where the drawing is too deep
+  for the puzzle area the ratio is abandoned and the drawing held at the band's
+  foot -- where every placed drawing sat before the amendment
+  (:func:`_placed_drawing_top`; :attr:`PagePlacement.vertical_bound` says which
+  of the two happened). The sheet is never
   turned (``PORTRAIT_ONLY``). The cell is
   ``min(cap, page fit)`` computed in millimetres and drawn at a fractional
   pitch, so the cell a book tile reports (FR-031) is the cell the page prints.
@@ -227,6 +234,7 @@ __all__ = [
     "DIFFICULTY_DOT_RATIO",
     "DIFFICULTY_DOT_STROKE_RATIO",
     "DPI",
+    "GRID_SPARE_ABOVE",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
     "INTERIOR_FOOTER_GAP_PT",
@@ -270,6 +278,7 @@ __all__ = [
     "PuzzleFrame",
     "QrCaption",
     "QrSlot",
+    "VerticalBound",
     "caption_slot",
     "comfort_cap_mm",
     "compute_answer_page_layout",
@@ -388,6 +397,14 @@ type ClueSet = tuple[LineClue, ...]
 #: the sheet is the only freedom the layout has with it. A spec whose policy is
 #: :attr:`OrientationPolicy.PORTRAIT_ONLY` is always ``"portrait"``.
 type Orientation = Literal["portrait", "landscape"]
+
+#: What decided a placed drawing's top edge (FR-032's 42% float, CARD-224).
+#: Carried on :attr:`PagePlacement.vertical_bound` so a page *says* which rule
+#: bound it instead of a caller re-deriving the verdict from the coordinates
+#: (AC-4). Three values and no fourth: the ratio placed it, the footer rule
+#: refused it the room, or the drawing's position is its slot's rather than
+#: its page's.
+type VerticalBound = Literal["ratio", "footer", "slot"]
 
 
 class OrientationPolicy(StrEnum):
@@ -664,11 +681,29 @@ class PagePlacement:
             band starts here.
         usable_right: The usable area's right edge.
         usable_bottom: The usable area's bottom edge.
+        band_bottom: The title band's foot — ``usable_top`` + band, on every
+            page and parity. **Not** the drawing's top edge: since CARD-224 a
+            single page's drawing floats below it (:data:`GRID_SPARE_ABOVE`),
+            so the band is this strip and not "everything above the drawing".
+            :func:`header_band` reads it for exactly that reason; a two-up
+            slot's and a packed tile's is its own slot's band foot, which is
+            still its drawing's top edge.
         drawing_left: The drawing's left edge (the row-clue gutter's outer edge).
         drawing_top: The drawing's top edge (the column-clue gutter's outer
-            edge), always ``usable_top`` + band, on every page and parity.
+            edge). On a single placed page it is
+            ``puzzle area top + 0.42 x the area's spare height``
+            (:data:`GRID_SPARE_ABOVE`, FR-032 as amended 2026-10-17), so two
+            differently-sized drawings no longer share a top edge; on a two-up
+            slot or a packed tile it is that slot's own ``band_bottom``.
         drawing_right: The grid's right edge.
         drawing_bottom: The grid's bottom edge.
+        vertical_bound: What decided ``drawing_top`` — ``"ratio"`` for the
+            42% split, ``"footer"`` for a drawing too deep for its page's
+            puzzle area (the split would have pushed ink further past the
+            footer rule than holding the drawing at the band's foot does, so
+            it is held there instead), and ``"slot"`` for a drawing whose
+            vertical position is its slot's rather than the page's — a two-up
+            slot or a packed answer tile. See :func:`_placed_drawing_top`.
     """
 
     parity: PageParity
@@ -677,19 +712,25 @@ class PagePlacement:
     usable_top: int
     usable_right: int
     usable_bottom: int
+    band_bottom: int
     drawing_left: int
     drawing_top: int
     drawing_right: int
     drawing_bottom: int
+    vertical_bound: VerticalBound
 
     @property
     def fits(self) -> bool:
         """Whether the drawing lies inside the usable area below the band.
 
         ``False`` only when page fit fell under :data:`MIN_CELL_MM` and the
-        floor won. The drawing then overflows downwards, and horizontally
-        toward the gutter margin (CARD-204: it stays flush with the outer
-        margin on both parities, so the floor's excess spills the other way).
+        floor won. The drawing then overflows downwards and to the right:
+        CARD-224 centres it again, and a centred anchor clamps its spare at
+        zero (``max(spare, 0) / 2``), so a drawing wider than the usable area
+        starts on the left edge and spills off the right one, whatever the
+        parity. (CARD-204's flush-outer anchor spilled toward the gutter
+        instead, and that direction was re-derived rather than inherited both
+        times — see :func:`compute_layout`'s placed-page branch.)
         """
         return (
             self.usable_left <= self.drawing_left
@@ -1104,10 +1145,23 @@ def header_band(layout: Layout, page_spec: PageSpec | None = None) -> HeaderBand
     set a 30x30 puzzle's header in the same 3 mm type as its clues.
 
     On a placed page (``layout.page`` set) the band is not laid *above* the
-    image. It is the strip of the trim between the top margin and the
-    drawing, ``[page.usable_top, page.drawing_top)``, so ``center_y`` is
+    image. It is the strip of the trim between the top margin and the band's
+    own foot, ``[page.usable_top, page.band_bottom)``, so ``center_y`` is
     measured from the trim's top edge, and the renderer draws into the page it
     already has. A trim cannot grow.
+
+    **``band_bottom``, not ``drawing_top`` (CARD-224).** Those were the same
+    pixel until FR-032's fixed top edge became the 42% float: a single page's
+    drawing now sits lower than the band's foot by 0.42 of the puzzle area's
+    spare height, so a band measured to the drawing would be a 12 mm strip
+    plus however much spare the page has — tens of millimetres on a small
+    puzzle — and its centred type would drift down the page, under the frame's
+    own header rule and into the puzzle area. The band is the band's depth on
+    every page, which is also what makes "the header rule is on the same
+    baseline on every puzzle page" (CARD-222) true of the type as well as of
+    the rule. Only ``center_x`` is still read off the drawing: the title is
+    centred over what it titles, and since the drawing is centred again that
+    is the usable area's own centre.
 
     Args:
         layout: The geometry of the page the band belongs to — read for its
@@ -1131,7 +1185,7 @@ def header_band(layout: Layout, page_spec: PageSpec | None = None) -> HeaderBand
             center_y=height // 2,
             font_size=max(1, min(font_size, height)),
         )
-    height = page.drawing_top - page.usable_top
+    height = page.band_bottom - page.usable_top
     return HeaderBand(
         height=height,
         center_x=(page.drawing_left + page.drawing_right) // 2,
@@ -1164,6 +1218,18 @@ def qr_slot(layout: Layout, *, inset_px: int = 0) -> QrSlot | None:
     gutter-side placement left: at either parity the icon's box lies wholly
     in the outer half of the trim, which is what
     ``tests/test_book_qr_slot.py`` pins by parity.
+
+    **And since CARD-224 there is no gutter-side strip at all.** That card
+    returns the drawing to FR-032's own centring, so the spare the flush
+    anchor had collected on the gutter side is split evenly across both sides
+    of the drawing and the strip this icon used to live in no longer exists as
+    a region. Nothing here changes: the icon's corner, its row and its one
+    room check are all measured from the sheet and the drawing's *bottom*
+    edge, none of which that card's horizontal change touches. What it does
+    move is the drawing's bottom edge itself (the 42% float), so the room
+    check below now answers "does the puzzle area hold this drawing" — which
+    is the same question :attr:`PagePlacement.vertical_bound` reports and the
+    same one the frame's own footer condition asks.
 
     **The row it lands in is the one the frame already reserves.**
     :data:`INTERIOR_FOOTER_MM` is built bottom-up from
@@ -1430,19 +1496,26 @@ def caption_slot(layout: Layout, text_width: int) -> CaptionSlot | None:
     **Why the clamp (CARD-204 Fix 7).** A caption is as wide as the picture's
     name, which nothing bounds, while a grid is as wide as the puzzle. A name
     long enough makes the caption wider than its own grid, and a caption
-    right-aligned at ``drawing_right`` then overhangs ``drawing_left``. While
-    the drawing was centred, that overhang spent the page's own horizontal
-    spare and stayed inside the usable area; since this card placed the
-    drawing flush with the outer margin, an ``EVEN`` page has
-    ``drawing_left == usable_left``, so the overhang lands in the trim margin
-    — ink a printer trims through. Measured on Book 1's own trim before the
-    fix: a 65-character picture name (a 1705 px caption against a 1328 px
+    right-aligned at ``drawing_right`` then overhangs ``drawing_left``. CARD-204
+    placed the drawing flush with the outer margin, which on an ``EVEN`` page
+    made ``drawing_left == usable_left``, so the overhang landed in the trim
+    margin — ink a printer trims through. Measured on Book 1's own trim before
+    that fix: a 65-character picture name (a 1705 px caption against a 1328 px
     drawing) put the caption's leftmost ink at the page's own edge, 113 px
     (9.6 mm) outside the margin, with the rest of the name clipped off the
     sheet by Pillow. So the caption's right edge is pushed
     right by exactly the overhang, and no more: right-alignment where it
     fits, and the usable area's own left edge as the hard stop where it does
     not.
+
+    **The clamp survives CARD-224's centring, and still binds** (that card's
+    AC-5, G-3). Centring gives the drawing half the page's horizontal spare on
+    its left instead of none — on Book 1 that is 461 px for the 1328 px
+    drawing above — which the same 1705 px caption still overruns by 84 px, so
+    the clamp is what keeps it in the margin rather than a fact about the old
+    anchor. It is not widened and not removed: a caption is as wide as a
+    picture's name, which nothing bounds, so no alignment makes this stop
+    unnecessary.
 
     **The one case geometry cannot answer.** A caption wider than the whole
     usable area has no x at all that keeps it inside — :attr:`CaptionSlot.left`
@@ -1603,6 +1676,28 @@ INTERIOR_FOOTER_MM = (
     QR_SLOT_MM + INTERIOR_FOOTER_LINE_MM + 2 * INTERIOR_FOOTER_GAP_PT * MM_PER_POINT
 )
 
+#: How much of the puzzle area's spare height goes **above** the drawing; the
+#: rest (0.58) goes below it. FR-032 as amended 2026-10-17 (CARD-224,
+#: AC-366/AC-367), from the owner's artifact "Puzzle page layout" of
+#: 2026-10-14:
+#:
+#:     "which looks centred once the header sits above it."
+#:
+#: That sentence is the whole derivation. **42% is an optical figure, not an
+#: arithmetic one**: the title band and its rule sit above the drawing and
+#: nothing sits below it, so a drawing with equal bands above and below reads
+#: as sitting low on the page. Do not "improve" it to 0.5 — a later owner
+#: decision may move it, but no arithmetic argument can.
+#:
+#: Declared once, here, and read in exactly one place
+#: (:func:`_placed_drawing_top`); every test and every renderer that wants the
+#: split measures it off the drawn ink or imports this name.
+#:
+#: An exact :class:`~fractions.Fraction`, like every other number the placed
+#: path computes with, so the gap above is exact until the one rounding step
+#: :func:`_boundaries` makes (``float(GRID_SPARE_ABOVE) == 0.42``).
+GRID_SPARE_ABOVE = Fraction(42, 100)
+
 
 @dataclass(frozen=True, slots=True)
 class PageRule:
@@ -1739,6 +1834,42 @@ def _pt_to_px_at_least(points: float) -> int:
     return _mm_to_px_at_least(points * MM_PER_POINT)
 
 
+def _puzzle_area_px(page_spec: PageSpec) -> tuple[int, int]:
+    """The puzzle area's two edges, in device pixels: the rows the frame's two
+    rules are stroked on (CARD-222).
+
+    **The one definition of where the puzzle area is.**
+    :func:`interior_frame` builds its two :class:`PageRule`\\ s from it and
+    :func:`_placed_drawing_top` places the drawing inside it, so the region a
+    page *draws* and the region a drawing is *placed in* cannot drift apart —
+    the asymmetry that has produced five regressions in this family (CARD-224's
+    card, "One trap"). Nothing here is measured from a drawing: the area is a
+    property of the sheet (:class:`InteriorFrame`).
+
+    Returns:
+        ``(header rule row, footer rule row)``. The pair can be inverted
+        (``footer <= header``) on a sheet whose band and footer strip together
+        leave no room: :class:`InteriorFrame` refuses such a sheet outright,
+        while :func:`compute_layout` — which must stay total for every spec
+        :class:`PageSpec` admits — reads the inversion as "this sheet has no
+        puzzle area" and keeps the drawing at the band's foot.
+
+    Raises:
+        ValueError: ``page_spec`` carries no parity, so it lays out a
+            drawing-sized image and has no page furniture at all.
+    """
+    if page_spec.parity is None:
+        raise ValueError(
+            "a puzzle area needs a PageSpec with a parity: build it with book_page_spec"
+        )
+    _, _, _, bottom = _usable_box_px(page_spec)
+    header_y = _round_px(
+        _exact_px(page_spec.top_mm)
+        + _exact_px(page_spec.band_mm) * (1 - INTERIOR_HEADER_RULE_LIFT)
+    )
+    return header_y, bottom - _mm_to_px(INTERIOR_FOOTER_MM)
+
+
 def interior_frame(page_spec: PageSpec) -> InteriorFrame:
     """The frame of one interior page laid out on ``page_spec`` (CARD-222).
 
@@ -1767,12 +1898,8 @@ def interior_frame(page_spec: PageSpec) -> InteriorFrame:
         raise ValueError(
             "an interior frame needs a PageSpec with a parity: build it with book_page_spec"
         )
-    left, top, right, bottom = _usable_box_px(page_spec)
-    header_y = _round_px(
-        _exact_px(page_spec.top_mm)
-        + _exact_px(page_spec.band_mm) * (1 - INTERIOR_HEADER_RULE_LIFT)
-    )
-    footer_y = bottom - _mm_to_px(INTERIOR_FOOTER_MM)
+    left, _, right, bottom = _usable_box_px(page_spec)
+    header_y, footer_y = _puzzle_area_px(page_spec)
     # The footer line sits one gap above the QR icon's own row at the band's
     # foot, not on the bottom margin (:data:`INTERIOR_FOOTER_MM`).
     baseline = bottom - _mm_to_px(QR_SLOT_MM + INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
@@ -2319,6 +2446,89 @@ def _placed_cell_mm(
     return max(_exact_mm(MIN_CELL_MM), min(cap, fit))
 
 
+def _placed_drawing_top(
+    page_spec: PageSpec,
+    *,
+    band_bottom: Fraction,
+    drawing_height: Fraction,
+    thick_rule: int,
+) -> tuple[Fraction, VerticalBound]:
+    """Where a placed page's drawing's top edge goes, and what decided it.
+
+    FR-032 as amended 2026-10-17 (CARD-224, AC-366/AC-367): the drawing
+    **floats** in CARD-222's puzzle area — the strip between the header rule
+    and the footer rule (:func:`_puzzle_area_px`) — with
+    :data:`GRID_SPARE_ABOVE` of that area's spare height above it and the rest
+    below. It no longer sits at the one fixed offset (top margin + band) that
+    FR-032 asked for until this amendment and AC-190 pinned.
+
+    The spare is measured against the **puzzle area**, not the usable area, so
+    the drawing cannot land on either rule: 0.42 of a positive spare is
+    positive, and so is 0.58 of it. Where the spare is too small for the
+    drawing's own ink to clear both rules the ratio is abandoned rather than
+    bent — see the two degenerate cases below.
+
+    Three outcomes, reported as :attr:`PagePlacement.vertical_bound` so the
+    page says which rule bound it (AC-4) instead of a caller re-deriving the
+    verdict:
+
+    * ``"ratio"`` — the ordinary case: the area holds the drawing with room
+      for its own stroke at both ends, and the gap above is
+      ``GRID_SPARE_ABOVE x spare``.
+    * ``"footer"`` — the drawing is as deep as the area or deeper (the cell is
+      fitted against the usable height *less the band*, which is up to one
+      footer strip deeper than the puzzle area, so a height-bound drawing is
+      always in this regime), or this sheet has no puzzle area at all. The
+      ratio would put ink further past the footer rule than the alternative
+      does, so the drawing is held at the band's foot — exactly where every
+      placed drawing sat before this card — and the page's footer group is
+      omitted by the renderer that draws it, on the all-or-nothing condition
+      it has applied since CARD-222 (``book_pdf_generator._draw_page_frame``).
+      This is the only regime in which any drawing ink crosses the footer
+      rule's *row*, and in it that row is not stroked. The header rule stays
+      clear of the band's foot by :data:`INTERIOR_HEADER_RULE_LIFT` of the
+      band's own depth — which is precisely what that constant exists for —
+      so the degraded placement is byte-identical to the pre-CARD-224 one on
+      every sheet, and the smallest trim KDP admits (10.00 cm, whose footer
+      strip leaves 33.7 mm of puzzle area) prints exactly the pages it did.
+    * ``"slot"`` is never returned here: it belongs to a two-up slot or a
+      packed answer tile, whose vertical position is its slot's and not its
+      page's (CARD-226 splits the area between two slots).
+
+    ``thick_rule`` is the clearance term. Every rule in the drawing is stroked
+    *centred* on its boundary (:class:`PuzzleFrame`), so the drawing's topmost
+    ink is half a heavy rule above ``drawing_top`` and its lowest half a heavy
+    rule below ``drawing_bottom``, and the two furniture rules spread about
+    their own rows the same way. A spare that cannot pay that clearance twice
+    over is treated as no spare at all, which is what makes "no drawing or
+    clue ink crosses either rule" (EC-022) a property of the arithmetic rather
+    than of the trims that happen to be stored today.
+
+    Args:
+        page_spec: The sheet — a placed one (it carries a parity).
+        band_bottom: The title band's foot, in exact pixels: the top margin
+            plus the band, and the drawing's own top edge before this card.
+        drawing_height: The drawing's height in exact pixels — its rows
+            (grid plus column-clue gutter) at the committed pitch.
+        thick_rule: The drawing's heavy rule, in whole pixels.
+
+    Returns:
+        ``(top, vertical_bound)`` — the top edge in exact pixels, rounded
+        once by :func:`_boundaries` like every other boundary here.
+    """
+    area_top, area_bottom = _puzzle_area_px(page_spec)
+    spare = Fraction(area_bottom - area_top) - drawing_height
+    # Half a heavy rule of the drawing's own ink, plus half of the heavier of
+    # the two furniture rules, plus the pixel that makes "clear" strict.
+    furniture = max(
+        _pt_to_px_at_least(INTERIOR_HEADER_RULE_PT), _pt_to_px_at_least(INTERIOR_FOOTER_RULE_PT)
+    )
+    clearance = -(-thick_rule // 2) + -(-furniture // 2) + 1
+    if spare < 2 * clearance:
+        return band_bottom, "footer"
+    return Fraction(area_top) + GRID_SPARE_ABOVE * spare, "ratio"
+
+
 def _orientation_for(
     total_columns: int,
     total_rows: int,
@@ -2671,30 +2881,46 @@ def compute_layout(
         usable_width_px = (
             _exact_px(spec.width_mm) - _exact_px(spec.gutter_mm) - _exact_px(spec.outside_mm)
         )
-        # Right-aligned, mirrored by parity (FR-032 as CARD-204 reverses it,
-        # owner reading (b)): flush with the usable area's *outer* margin —
-        # the far side from the gutter — on both parities, i.e. the right
-        # edge on an ODD (right-hand) page, the left edge on an EVEN
-        # (left-hand) one. ``spec.left_margin_mm`` is the gutter on an ODD
-        # page and the outer margin on an EVEN one (see that property), so
-        # "flush outer" is "flush left" exactly when this is an EVEN page.
+        # Centred across the usable width, on both parities — FR-032's own
+        # "horizontally the drawing is centred across the usable width", which
+        # CARD-224 restores. CARD-204's flush-by-parity anchor existed to free
+        # the gutter-side strip for the placeholder QR icon; since CARD-223
+        # put that icon in the footer's *outer* corner (a code printed toward
+        # the spine does not scan) nothing reads that strip, so the owner's
+        # calmer alignment comes back (artifact "Puzzle page layout",
+        # 2026-10-14). Parity no longer moves the drawing sideways at all: it
+        # moves the usable area, and the drawing sits in the middle of it.
         #
-        # Re-derived (not inherited) floor-overflow direction: unlike the
-        # centred formula this replaces, there is no ``max(spare, 0)``
-        # clamp here, and none is needed. Pinning flush to the outer edge is
-        # unconditional — on an EVEN page ``left`` is always
-        # ``usable_left_px``; on an ODD page it is always
-        # ``usable_left_px + spare``, spare's sign included. When the
+        # Re-derived (not inherited) floor-overflow direction: the ``max``
+        # clamp is what makes the degenerate case well-defined. When the
         # MIN_CELL_MM floor makes the drawing wider than the usable area
-        # (``spare < 0``), the excess therefore spills toward the *gutter*
-        # margin on both parities, never past the outer trim edge — ink
-        # beyond the outer edge is cut away at the guillotine, while ink in
-        # the gutter margin merely encroaches on the binding allowance, so
-        # this is the deliberately safer of the two overflow directions.
+        # (``spare < 0``), half of a negative spare would start the drawing
+        # *left* of the usable area and overflow it at both edges; clamped at
+        # zero, the drawing starts on the usable area's left edge and the
+        # whole excess spills off its right one, on both parities — one
+        # overflowing edge instead of two, and the direction CARD-204 found
+        # this path had before it. (CARD-204's own anchor spilled toward the
+        # gutter margin and needed no clamp to do it; that was its
+        # re-derivation, and it is not inherited here.)
         spare = usable_width_px - drawing_columns * pitch
-        left = usable_left_px if spec.parity is PageParity.EVEN else usable_left_px + spare
-        # The top edge is fixed: top margin + band, on every page (FR-032).
-        top = _exact_px(spec.top_mm) + _exact_px(spec.band_mm)
+        left = usable_left_px + max(spare, Fraction(0)) / 2
+        # The band's foot — top margin + band — is where the drawing's top
+        # edge was pinned until this card (FR-032's "fixed top edge" clause
+        # and AC-190, both retired 2026-10-17). It is still exactly the band's
+        # own depth, which is why :func:`header_band` reads it and not the
+        # drawing's top edge.
+        band_bottom = _exact_px(spec.top_mm) + _exact_px(spec.band_mm)
+        # Vertically the drawing now floats at 42% of the puzzle area's spare
+        # height (:data:`GRID_SPARE_ABOVE`, FR-032 as amended 2026-10-17).
+        # ``_rule_widths`` is pure and is called again below for the
+        # drawing's own strokes; the heavy rule is needed here because the
+        # clearance the float keeps from each rule is half of it.
+        top, vertical_bound = _placed_drawing_top(
+            spec,
+            band_bottom=band_bottom,
+            drawing_height=drawing_rows * pitch,
+            thick_rule=_rule_widths(pitch, spec)[1],
+        )
         page_width = _round_px(_exact_px(spec.width_mm))
         page_height = _round_px(_exact_px(spec.height_mm))
         usable_left, usable_top, usable_right, usable_bottom = _usable_box_px(spec)
@@ -2719,10 +2945,12 @@ def compute_layout(
             usable_top=usable_top,
             usable_right=usable_right,
             usable_bottom=usable_bottom,
+            band_bottom=_round_px(band_bottom),
             drawing_left=xs[0],
             drawing_top=ys[0],
             drawing_right=grid_right,
             drawing_bottom=grid_bottom,
+            vertical_bound=vertical_bound,
         )
         width, height = page_width, page_height
 
@@ -3055,6 +3283,13 @@ def compute_pair_layout(
             page/book-independent value — never computed from ``first``,
             ``second``, a page number or any book-scale quantity — so every
             call this codebase makes passes the identical number.
+            **It narrows the fit only.** Since CARD-224 centred every slot
+            again, the lower slot's drawing is no longer flat against that
+            corner (:func:`_slot_layout`), so this reserve no longer shifts
+            either slot's placement — but it is still taken out of the width
+            the shared cell is fitted against, deliberately, so that which
+            pairs pair and at what cell is bit-for-bit what CARD-204 left
+            (CARD-224 G-1).
         footer_reserve_px: How many pixels of the page's own height to keep
             free **below** the lower slot's drawing for the page's footer
             strip, or ``0`` (the default) for the pre-CARD-248 packing that
@@ -3213,7 +3448,6 @@ def compute_pair_layout(
             pitch=pitch,
             band_top=lower_band_top,
             slot_bottom=page_bottom,
-            outer_reserve_px=folio_reserve_px,
         ),
         cell_mm=cell_mm,
     )
@@ -3242,58 +3476,53 @@ def _slot_layout(
     pitch: Fraction,
     band_top: Fraction,
     slot_bottom: Fraction,
-    outer_reserve_px: int = 0,
 ) -> Layout:
     """One slot of a two-up page: a placed-page :class:`Layout` at a given cell.
 
     :func:`compute_layout`'s placed page with the cell and the band's row
-    handed in instead of fitted: right-aligned (mirrored by parity, see that
-    function's placed-page branch) across the usable width, the drawing's
-    top edge one band below ``band_top``, every boundary rounded once
-    (:func:`_boundaries`). ``band_top`` and ``slot_bottom`` are exact pixels,
-    and become the slot's :attr:`PagePlacement.usable_top` and
-    :attr:`PagePlacement.usable_bottom` (see :class:`PairLayout`).
+    handed in instead of fitted: **centred across the usable width** (see that
+    function's placed-page branch, which CARD-224 returns to FR-032's own
+    centring), the drawing's top edge one band below ``band_top``, every
+    boundary rounded once (:func:`_boundaries`). ``band_top`` and
+    ``slot_bottom`` are exact pixels, and become the slot's
+    :attr:`PagePlacement.usable_top` and :attr:`PagePlacement.usable_bottom`
+    (see :class:`PairLayout`).
 
-    **The baseline anchor, with no reserve, is a true flush identity, not
-    merely "the common case."** ``spare = usable_width_px - drawing_columns *
-    pitch`` is whatever numeric slack this *specific* slot's own drawing
-    leaves against the page's shared usable width at the committed cell — it
-    can be a large positive number (this slot narrower than the pair's own
-    width-binding ("across") member, or the cell itself capped well below
-    what the geometry would allow) or exactly ``0`` (this slot *is* the
-    binding member at a geometry-bound cell). With ``outer_reserve_px == 0``,
-    the anchor is ``usable_left_px`` on an EVEN page, ``usable_left_px +
-    spare`` on an ODD one — and because ``spare`` is by definition exactly
-    "whatever is left after the drawing," adding it back always lands
-    ``drawing_right``/``drawing_left`` **exactly** on ``usable_right``/
-    ``usable_left``, for *every* slot, regardless of how large ``spare`` is
-    (an algebraic identity, confirmed directly against this function's own
-    numbers, not an approximation that merely happens to look flush in the
-    common case). A previous revision of this docstring claimed the
-    non-binding slot "sits short of the outer edge on its own" — that was
-    wrong, is corrected here, and is exactly the mistake cycle-3's review
-    (F-7) traced CARD-204 Fix 3's own docstrings into: the gap this card's
-    "Reserve folio room" owner decision needs is **zero** on every two-up
-    page under this anchor with no reserve, not just on a rare tight one.
+    **The slot's own vertical position is not this card's 42% float.** A
+    single page's drawing floats in the page's puzzle area
+    (:data:`GRID_SPARE_ABOVE`); a two-up slot's sits at its *slot's* own band
+    foot, exactly as it did before CARD-224, so a slot reports
+    ``vertical_bound="slot"`` and not ``"ratio"``. How two slots share the one
+    puzzle area is CARD-226's, and EC-022's own clause about "the upper
+    puzzle's on a two-up page" is therefore still unimplemented — declared
+    here rather than papered over.
 
-    **``outer_reserve_px``: the fixed universal reserve (owner decision,
-    2026-10-12, "fixed universal reserve" — CARD-204 Fix 4).** Pass only to
-    the *lower* slot's call (the one whose outer-bottom corner CARD-200's
-    folio shares). Shifts the anchor so that ``usable_right - drawing_right``
-    (ODD) or ``drawing_left - usable_left`` (EVEN) becomes
-    ``min(outer_reserve_px, max(spare, 0))`` instead of exactly ``0`` —
-    clamped so it can only ever *reduce* how far the drawing reaches toward
-    the outer margin, never push it past ``usable_left``/``usable_right``
-    (the pre-existing MIN_CELL_MM floor-overflow corner, AC-3/G-6, cannot be
-    made worse by this: :func:`compute_pair_layout`'s own 7.0 mm gate already
-    keeps a two-up slot's ``spare`` at the committed cell non-negative, so
-    this clamp is kept only for defensive symmetry, as it was before Fix 3).
-    :func:`compute_pair_layout` is the only caller that ever passes a nonzero
-    value, and it always widens the fit first (its own docstring) so that
-    ``spare`` here is, by construction, already at least
-    ``outer_reserve_px`` — so the clamp binds in neither parity under normal
-    operation; it exists for the case nothing in this module's own tests
-    has ever exercised, not a case production relies on.
+    **What centring replaces, and what became of CARD-204's reserve.** Until
+    this card each slot was pinned flush with the usable area's *outer* margin
+    (reading (b)), which is an algebraic identity rather than a near miss:
+    ``spare = usable_width_px - drawing_columns * pitch`` is by definition
+    "whatever is left after the drawing", so adding all of it back landed
+    ``drawing_right``/``drawing_left`` exactly on ``usable_right``/
+    ``usable_left`` for *every* slot, however large the spare. That left the
+    lower slot's drawing flat against the corner CARD-200's folio needs, which
+    is why :func:`compute_pair_layout` grew a fixed universal
+    ``folio_reserve_px`` (owner decision 2026-10-12, CARD-204 Fix 4) and why
+    this function used to take an ``outer_reserve_px`` that shifted the anchor
+    inward by it.
+
+    **That anchor shift is gone with the anchor.** Centring leaves
+    ``max(spare, 0) / 2`` on *both* sides of every slot, so the corner is no
+    longer flat against the drawing; and since CARD-248 a two-up page reserves
+    a whole footer strip, so its folio is set centred on the footer line
+    rather than squeezed into the lower slot's bottom-outer corner. The
+    parameter would now be dead, so it is removed rather than left to be read
+    as live. **The reserve itself stays in the fit** — a deliberate
+    non-change: :func:`compute_pair_layout` still narrows the width it fits
+    the shared cell against by ``folio_reserve_px``, so which pairs pair and
+    at what cell is bit-for-bit what CARD-204 left (CARD-224 G-1: FR-040's
+    pairing behaviour is unchanged). Removing it from the fit as well would
+    move accept/refuse verdicts, a page count and a print cost, which is a
+    decision for the card that wants to make it.
     """
     rows, columns = len(row_clues), len(column_clues)
     row_gutter_cells = _gutter_depth(row_clues)
@@ -3307,19 +3536,13 @@ def _slot_layout(
         - _exact_px(page_spec.gutter_mm)
         - _exact_px(page_spec.outside_mm)
     )
-    # Same anchor, and the same re-derived floor-overflow direction, as
-    # compute_layout's placed-page branch (see its comment in full) — except
-    # that `reserved` pixels of the slot's own natural spare are kept out of
-    # the shift, on purpose, leaving exactly that much of a gap at the outer
-    # corner instead of consuming 100% of spare as the no-reserve formula
-    # always does (see this function's own docstring).
+    # The same anchor, and the same re-derived floor-overflow direction, as
+    # compute_layout's placed-page branch (see its comment in full): centred
+    # across the page's one shared usable width, with the spare clamped at
+    # zero. Both slots are placed against the same width, so two slots of one
+    # page are centred on the same axis however differently wide they are.
     spare = usable_width_px - drawing_columns * pitch
-    reserved = min(outer_reserve_px, max(spare, 0))
-    left = (
-        usable_left_px + reserved
-        if page_spec.parity is PageParity.EVEN
-        else usable_left_px + spare - reserved
-    )
+    left = usable_left_px + max(spare, Fraction(0)) / 2
     top = band_top + _exact_px(page_spec.band_mm)
 
     xs = _boundaries(left, pitch, drawing_columns)
@@ -3358,10 +3581,14 @@ def _slot_layout(
             usable_top=_round_px(band_top),
             usable_right=_round_px(usable_left_px + usable_width_px),
             usable_bottom=_round_px(slot_bottom),
+            band_bottom=_round_px(top),
             drawing_left=xs[0],
             drawing_top=ys[0],
             drawing_right=grid_right,
             drawing_bottom=grid_bottom,
+            # This slot's vertical position is its slot's, not its page's
+            # (CARD-226 splits the puzzle area between the two).
+            vertical_bound="slot",
         ),
         frame=_puzzle_frame(
             xs,
@@ -4414,7 +4641,9 @@ def _packed_tile_layout(
     because two (or four) slots share one page side by side. That is also why
     this is not :func:`_slot_layout` itself with different arguments: the
     width this centres against is a parameter here and a spec-wide constant
-    there.
+    there. (That sentence was written for CARD-133, was false between
+    CARD-204's flush-by-parity anchor and CARD-224's return to centring, and
+    is true again — this tile has been centred in its own box throughout.)
 
     ``tile_left``/``tile_width``/``band_top``/``tile_bottom`` become the
     slot's own :class:`PagePlacement` ``usable_left``/``usable_right``/
@@ -4469,10 +4698,14 @@ def _packed_tile_layout(
             usable_top=_round_px(band_top),
             usable_right=_round_px(tile_left + tile_width),
             usable_bottom=_round_px(tile_bottom),
+            band_bottom=_round_px(top),
             drawing_left=xs[0],
             drawing_top=ys[0],
             drawing_right=grid_right,
             drawing_bottom=grid_bottom,
+            # A packed tile's vertical position is its tile's, not its page's:
+            # the page's puzzle area holds several of them (FR-042).
+            vertical_bound="slot",
         ),
         frame=_puzzle_frame(
             xs,

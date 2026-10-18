@@ -5,7 +5,9 @@
     AC-177  TestBookPdf_PageSizeEqualsStoredTrim
     AC-178  TestBookPdf_EmptyMarginsFallBackToBook1Profile
     AC-189  TestBookPdf_WideGridPrintsOnPortraitPage
-    AC-190  TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage
+    AC-366/AC-367  TestBookPdf_PuzzleTopEdgeFloatsWithTheSpare
+                   (replaces AC-190's TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage,
+                    retired with AC-190 on 2026-10-17 — CARD-224)
     AC-240  TestBookPdf_WideGridPrintsUprightNeverRotated
     AC-274  TestBookPdf_DrawingCentredOnRightHandPage
     AC-275  TestBookPdf_DrawingCentredOnLeftHandPage
@@ -229,18 +231,17 @@ def _expected_left_mm(
     gutter_mm: float = GUTTER_MM,
     outside_mm: float = OUTSIDE_MM,
 ) -> float:
-    """CARD-204 (FR-032 reading (b)): the drawing right-aligned, mirrored by
-    parity — flush with the *outer* margin, away from the gutter margin on
-    the binding side (gutter is left on a right-hand/odd page, right on a
-    left-hand/even one). A right-hand page's drawing is therefore flush
-    *right* (its left edge is the gutter margin plus the *whole* spare, not
-    half of it); a left-hand page's is flush *left* (its left edge is
-    exactly the outside margin, no spare added)."""
+    """CARD-224 (FR-032's own centring, restored): the drawing centred across
+    the usable width, which parity moves and the alignment does not. A
+    right-hand (odd) page has the gutter margin on its left, a left-hand
+    (even) page the outside margin, and in each case the drawing sits half
+    this page's spare in from it. Between CARD-204 and CARD-224 this returned
+    the flush-outer anchor instead (gutter + the *whole* spare on a
+    right-hand page, the outside margin exactly on a left-hand one)."""
     usable_width = width_mm - gutter_mm - outside_mm
     spare = usable_width - (depth + columns) * cell_mm
-    if right_hand:
-        return gutter_mm + spare
-    return outside_mm
+    left_margin = gutter_mm if right_hand else outside_mm
+    return left_margin + spare / 2
 
 
 def _mm(pixels: float) -> float:
@@ -470,22 +471,41 @@ class TestBookPdf_WideGridPrintsUprightNeverRotated:
         assert (drawing.columns, drawing.rows) == (15, 30)
 
 
-class TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage:
-    """AC-190 — a 15x15 and a 30x30 start on the same pixel row."""
+class TestBookPdf_PuzzleTopEdgeFloatsWithTheSpare:
+    """AC-366/AC-367 — a 15x15 and a 30x30 no longer start on the same pixel
+    row: each floats at 42% of its page's own puzzle-area spare.
 
-    def test_both_puzzle_pages_start_at_the_same_top_edge(self):
+    **This class replaces AC-190's** (``TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage``,
+    "a 15x15 and a 30x30 start on the same pixel row"), which the registry
+    retired with its test on 2026-10-17 when FR-032's fixed top edge became
+    the 42% float. It is that test's named survivor at the PDF level (CARD-220's
+    rule): the same two pages of the same book, measured off the same ink, with
+    the claim the amendment put in its place. AC-366/AC-367's own designated
+    test is ``TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare``, which
+    states the ratio itself; what is here is the pair of pages AC-190 used, so
+    that the page kind it watched keeps a test of its own.
+
+    AC-367's arithmetic, restated: the 15x15's drawing is 22 cells at the
+    7.5 mm cap (165.0 mm) and the 30x30's is 39 cells at page fit (190.5 mm),
+    so the shallower drawing has 25.5 mm more spare and floats 0.42 of that —
+    10.71 mm — lower than the deeper one.
+    """
+
+    def test_the_two_puzzle_pages_no_longer_start_at_the_same_top_edge(self):
         pages = _interior(_book(), [_puzzle(15, 15, 7), _puzzle(30, 30, 9)])
 
         small, large = drawing_of(pages[4]), drawing_of(pages[5])
 
-        assert small.top == large.top
+        assert small.top != large.top
         assert small.cell != large.cell, "the two do print different cells"
 
-    def test_that_edge_is_the_top_margin_plus_the_band(self):
+    def test_the_shallower_drawing_sits_10_71_mm_lower(self):
         pages = _interior(_book(), [_puzzle(15, 15, 7), _puzzle(30, 30, 9)])
 
-        for page in pages[4:6]:
-            assert abs(_mm(drawing_of(page).top) - (TOP_MM + BAND_MM)) <= _mm(0.5) + 1e-9
+        small, large = drawing_of(pages[4]), drawing_of(pages[5])
+
+        # 0.42 x (190.5 - 165.0) mm, off the drawn ink of both pages.
+        assert _mm(small.top - large.top) == pytest.approx(10.71, abs=0.1)
 
 
 # --------------------------------------------------------------------------
@@ -508,26 +528,22 @@ def _mirrored_pages():
 
 
 class TestBookPdf_DrawingCentredOnRightHandPage:
-    """AC-274 — on interior page 5 the drawing's left edge is 38.2 mm in.
+    """AC-274 — on interior page 5 the drawing's left edge is 25.45 mm in.
 
-    **CARD-204 (reading (b)) changed the actual number; this class's own
-    name and AC-274's text still say "centred" because retiring/rewording
-    AC-274 is explicitly architect-station work this card does not do (see
-    its own Worktree notes) — the test below asserts what FR-032 actually
-    requires today (flush right, mirrored by parity), not what AC-274's
-    stale prose still says.** 15x15, depth 7: drawing width 22 x 7.5 mm =
-    165 mm; usable width 190.5 mm (CON-018 as amended 2026-10-17); spare
-    25.5 mm, now entirely on the gutter (left) side rather than split in half
-    — gutter margin 12.7 mm plus the whole spare = 38.2 mm, not 12.7 + half
-    of it.
+    **The number AC-274 states, and this class's own name, are correct again
+    (CARD-224).** 15x15, depth 7: drawing width 22 x 7.5 mm = 165 mm; usable
+    width 190.5 mm (CON-018 as amended 2026-10-17); spare 25.5 mm, split in
+    half — gutter margin 12.7 mm plus 12.75 mm = 25.45 mm. Between CARD-204
+    and this card the drawing was flush with the outer (right) edge instead
+    and this test read 38.2 mm, the gutter plus the *whole* spare.
     """
 
-    def test_the_drawing_sits_38_2_mm_from_the_left_trim_edge(self):
+    def test_the_drawing_sits_25_45_mm_from_the_left_trim_edge(self):
         page = _mirrored_pages()[4]  # interior page 5, right-hand
 
         left_mm = _mm(drawing_of(page).left)
 
-        assert abs(left_mm - 38.2) < EDGE_TOLERANCE_MM, left_mm
+        assert abs(left_mm - 25.45) < EDGE_TOLERANCE_MM, left_mm
 
     def test_that_is_the_usable_width_centred_with_the_gutter_on_the_left(self):
         page = _mirrored_pages()[4]
@@ -536,9 +552,8 @@ class TestBookPdf_DrawingCentredOnRightHandPage:
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
 
         assert abs(left_mm - expected) < EDGE_TOLERANCE_MM, (left_mm, expected)
-        # 25.5 mm of slack, all of it on the gutter side (CARD-204): the
-        # drawing is flush with the outer (right) edge of the usable area.
-        assert abs((left_mm - GUTTER_MM) - 25.5) < EDGE_TOLERANCE_MM
+        # 25.5 mm of slack, half of it on each side of the drawing.
+        assert abs((left_mm - GUTTER_MM) - 25.5 / 2) < EDGE_TOLERANCE_MM
 
 
 class TestBookPdf_DrawingCentredOnLeftHandPage:
@@ -547,21 +562,24 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
     CARD-200 (SCOPE+): the TOC's own one page moved this card's illustrative
     page from 4 to 6 (and its parity's own illustration from the second
     puzzle to the third, since the second puzzle is now the right-hand one —
-    see `_MIRRORED_PUZZLE`'s own note) — the AC's claim (a left-hand puzzle
-    page's drawing sits at a fixed offset) is unchanged in *kind*, only which
-    page demonstrates it and (CARD-204, reading (b)) what that offset is: now
-    exactly the outside margin (12.7 mm since the 2026-10-17 amendment,
-    9.525 mm before it), not 23.875 mm — see this class's
-    own docstring note on ``TestBookPdf_DrawingCentredOnRightHandPage``,
-    which applies here too.
+    see `_MIRRORED_PUZZLE`'s own note).
+
+    **CARD-224:** the offset is the outside margin plus half the spare —
+    12.7 + 12.75 = 25.45 mm on the amended profile, the same figure as the
+    right-hand page's because that profile's two side margins are equal (the
+    registry's own note on EC-032: on Book 1 this equality makes a parity
+    comparison an identity, and the mirroring is observable only on a book
+    storing unequal margins, which is what ``tests/test_layout_page_spec.py``
+    and ``tests/property/test_book_layout.py`` sweep). Between CARD-204 and
+    this card it was exactly the outside margin, 12.7 mm.
     """
 
-    def test_the_drawing_sits_12_7_mm_from_the_left_trim_edge(self):
+    def test_the_drawing_sits_25_45_mm_from_the_left_trim_edge(self):
         page = _mirrored_pages()[5]  # interior page 6, left-hand
 
         left_mm = _mm(drawing_of(page).left)
 
-        assert abs(left_mm - 12.7) < EDGE_TOLERANCE_MM, left_mm
+        assert abs(left_mm - 25.45) < EDGE_TOLERANCE_MM, left_mm
 
     def test_that_is_the_usable_width_centred_with_the_gutter_on_the_right(self):
         page = _mirrored_pages()[5]
@@ -570,31 +588,31 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
 
         assert abs(left_mm - expected) < EDGE_TOLERANCE_MM, (left_mm, expected)
-        # Flush with the outer (left) edge: no spare added at all (CARD-204).
-        assert abs(left_mm - OUTSIDE_MM) < EDGE_TOLERANCE_MM
+        # Half the spare in from the outside margin (CARD-224).
+        assert abs((left_mm - OUTSIDE_MM) - 25.5 / 2) < EDGE_TOLERANCE_MM
 
     def test_the_two_pages_differ_by_the_gutter_less_the_outside_margin(self):
-        """CARD-204: under right-alignment the two pages' drawings no longer
-        differ by a cell-independent ``gutter - outside`` — that was
-        centring's own invariant, where the spare split evenly cancelled out
-        of the subtraction. Flush-right and flush-left anchor at *different*
-        edges, so the difference is ``(gutter - outside) + spare`` instead;
-        pinned here at this puzzle's own known spare (25.5 mm on CON-018's
-        amended margins, 28.675 mm before them) rather than silently dropped.
+        """CARD-224: centring restores EC-032's own invariant — the two pages'
+        drawings differ by exactly ``gutter - outside``, the spare's two equal
+        halves cancelling out of the subtraction. Between CARD-204 and this
+        card the difference was ``(gutter - outside) + spare`` instead,
+        because flush-right and flush-left anchor at different edges.
 
         **Since the 2026-10-17 amendment ``gutter - outside`` is zero** — both
-        side margins are 0.5 in — so the difference below is the spare alone.
-        The term is kept in the expression rather than dropped: the formula is
-        the rule (EC-032) and it still bites on a book storing unequal
-        margins, which is where ``tests/test_book_page_frame.py`` proves it.
+        side margins are 0.5 in — so on this profile the assertion below says
+        the two drawings sit at the *same* x, and that is an identity rather
+        than evidence that mirroring works (the registry's own note on
+        EC-032). The formula is kept rather than collapsed to ``== 0``,
+        because the formula is the rule, and the books that make it bite are
+        swept with unequal margins in
+        ``tests/property/test_book_layout.py::test_PropertyTest_BookLayout_ParityMirroringHoldsUnderCentring``.
         """
         pages = _mirrored_pages()
 
         right_hand = drawing_of(pages[4]).left
         left_hand = drawing_of(pages[5]).left
-        spare_mm = 25.5
 
-        assert abs(_mm(right_hand - left_hand) - ((GUTTER_MM - OUTSIDE_MM) + spare_mm)) < EDGE_TOLERANCE_MM
+        assert abs(_mm(right_hand - left_hand) - (GUTTER_MM - OUTSIDE_MM)) < EDGE_TOLERANCE_MM
 
 
 class TestBookPdf_ParityNeverMovesTopEdge:
@@ -607,7 +625,15 @@ class TestBookPdf_ParityNeverMovesTopEdge:
         left_hand = drawing_of(pages[5])
 
         assert right_hand.top == left_hand.top
-        assert right_hand.left != left_hand.left, "they do sit on different parities"
+        # CARD-224: on the amended profile the two side margins are equal, so
+        # the centred drawing lands on the same x at both parities and
+        # "sideways only" has nothing left to move here. The two pages are
+        # still different pages — asserted through the furniture that does
+        # mirror (the footer's grid-size label and the QR group sit on the
+        # gutter/outer side, ``tests/test_book_qr_slot.py``) — so this
+        # assertion is kept as the vertical claim it is named for, and the
+        # horizontal difference is no longer asserted where it cannot exist.
+        assert right_hand.left == left_hand.left
 
     def test_they_are_the_same_drawing_at_the_same_cell(self):
         pages = _mirrored_pages()
@@ -638,10 +664,10 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
     defect in the parity rule — the same shape of ripple CARD-201's own note
     here already described for its own one-page addition.
 
-    The usable area's left edge is asserted through the drawing's (CARD-204,
-    reading (b)): the drawing is right-aligned, flush with the outer margin,
-    mirrored by parity — on this right-hand page its left edge is the gutter
-    margin plus the *whole* spare (not half of it, as centring used to add).
+    The usable area's left edge is asserted through the drawing's (CARD-224):
+    the drawing is centred in the usable area, so on this right-hand page its
+    left edge is the gutter margin plus *half* the spare. Between CARD-204 and
+    this card it was the gutter plus the whole spare.
     """
 
     def test_the_first_puzzle_page_is_right_hand(self):
@@ -655,10 +681,9 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
     def test_its_usable_area_starts_at_the_gutter_margin(self):
         """12.7 mm from the left trim edge: 0.5 in, the gutter margin (CON-018).
 
-        CARD-204: the drawing's own left edge is no longer the usable area's
-        left edge (that is the gutter margin itself, asserted directly) —
-        under flush-right alignment the drawing's left edge is the gutter
-        margin plus the *whole* spare, not half of it.
+        CARD-224: the drawing's own left edge is the usable area's left edge
+        plus *half* this page's spare (centred). Under CARD-204's flush-right
+        anchor it was that edge plus the whole spare.
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
@@ -666,25 +691,30 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         spare = (BOOK1_WIDTH_MM - GUTTER_MM - OUTSIDE_MM) - (7 + 15) * STANDARD_CELL_MM
 
         assert abs(GUTTER_MM - 12.7) < 1e-9, "the profile's gutter margin is 0.5 in"
-        assert abs((left_mm - spare) - GUTTER_MM) < EDGE_TOLERANCE_MM, left_mm
+        assert abs((left_mm - spare / 2) - GUTTER_MM) < EDGE_TOLERANCE_MM, left_mm
 
     def test_it_is_not_the_left_hand_page_a_miscount_would_give_it(self):
         """Counting the cover as page 1 would make this page 4, outside margin left.
 
-        CARD-204: the gap between the right-hand and left-hand positions is
-        no longer a cell-independent ``gutter - outside`` (that was
-        centring's own invariant) — flush-right and flush-left anchor at
-        different edges, so the gap is ``(gutter - outside) + spare``
-        instead.
+        CARD-224: the gap between the right-hand and left-hand positions is
+        ``gutter - outside`` again (centring's own invariant, EC-032), which
+        on CON-018 as amended is **zero** — the two side margins are equal,
+        so a miscounted parity moves this drawing nowhere and the drawing's
+        own x cannot tell the two apart on this profile. The page's parity is
+        therefore asserted where it is still visible: the usable area's own
+        edges, which the drawing is centred in. The identity is asserted
+        explicitly rather than left to look like evidence.
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
         left_mm = _mm(drawing_of(pages[4]).left)
         left_hand = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
-        spare = (BOOK1_WIDTH_MM - GUTTER_MM - OUTSIDE_MM) - (7 + 15) * STANDARD_CELL_MM
 
-        assert abs(left_mm - left_hand) > EDGE_TOLERANCE_MM
-        assert abs(left_mm - left_hand - ((GUTTER_MM - OUTSIDE_MM) + spare)) < EDGE_TOLERANCE_MM
+        assert abs(GUTTER_MM - OUTSIDE_MM) < 1e-9, (
+            "on an unequal-margin book this is where the miscount shows; on "
+            "the amended Book 1 profile it cannot, and that is recorded here"
+        )
+        assert abs(left_mm - left_hand) < EDGE_TOLERANCE_MM
 
     def test_the_divider_did_not_take_the_puzzle_pages_place(self):
         """Interior page 4 is the level divider, and carries no drawing at all.
@@ -702,17 +732,17 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
     def test_the_parities_alternate_from_there(self):
         """Pages 5, 6, 7 are right, left, right — each page's own position.
 
-        CARD-204: pages 5 and 6 (both this puzzle, opposite parity) differ by
-        ``(gutter - outside) + spare``, not a bare ``gutter - outside`` — see
-        ``TestBookPdf_DrawingCentredOnLeftHandPage``'s own equivalent test.
+        CARD-224: pages 5 and 6 (both this puzzle, opposite parity) differ by
+        ``gutter - outside``, which is zero on the amended profile — see
+        ``TestBookPdf_DrawingCentredOnLeftHandPage``'s own equivalent test for
+        why that is an identity here and where the claim is swept with teeth.
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE, name=f"P{n}") for n in range(3)])
 
         lefts = [_mm(drawing_of(page).left) for page in pages[4:7]]
-        spare_mm = 25.5
 
         assert abs(lefts[0] - lefts[2]) < EDGE_TOLERANCE_MM
-        assert abs(lefts[0] - lefts[1] - ((GUTTER_MM - OUTSIDE_MM) + spare_mm)) < EDGE_TOLERANCE_MM
+        assert abs(lefts[0] - lefts[1] - (GUTTER_MM - OUTSIDE_MM)) < EDGE_TOLERANCE_MM
 
 
 # --------------------------------------------------------------------------
@@ -810,15 +840,33 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
             15, 7, STANDARD_CELL_MM, right_hand=False
         )) < EDGE_TOLERANCE_MM, second_mm
 
+    #: An **unequal**-margin book, for the one test below that needs the
+    #: mirroring to be visible in the drawing's own x. On CON-018 as amended
+    #: 2026-10-17 the gutter and the outside margin are both 0.5 in, so a
+    #: centred drawing (CARD-224) lands on the same pixel column at both
+    #: parities and a left-edge comparison cannot tell a right-hand page from
+    #: a left-hand one at all — the identity the registry's note on EC-032
+    #: warns a reviewer not to read as evidence. A 20 mm gutter against a
+    #: 10 mm outside margin moves the drawing by 10 mm between the two.
+    WIDE_GUTTER_MM = 20.0
+    NARROW_OUTSIDE_MM = 10.0
+
     def test_the_second_survivor_did_not_inherit_the_dropped_page_parity(self):
         """The failure this pins: the survivor left on page 7's margins.
 
         Had the drop happened after page 6 was handed to the broken puzzle,
         the second survivor would be interior page 7 — right-hand, the same
         left edge as the first survivor — instead of page 6.
+
+        **CARD-224**: measured on an unequal-margin book (see
+        :attr:`WIDE_GUTTER_MM`), because a centred drawing on the equal-margin
+        Book 1 profile sits at the same x on either parity, so this failure
+        would be invisible there. The two expected figures are 10 mm apart,
+        which is 118 px — not a tolerance.
         """
+        book = _book(gutter_mm=self.WIDE_GUTTER_MM, outside_mm=self.NARROW_OUTSIDE_MM)
         pages = _interior(
-            _book(),
+            book,
             [
                 _puzzle(*_MIRRORED_PUZZLE, name="First"),
                 _unbuildable_puzzle(),
@@ -828,14 +876,25 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
 
         first_mm = _mm(drawing_of(pages[4]).left)
         second_mm = _mm(drawing_of(pages[5]).left)
-        # CARD-204: flush-right vs flush-left no longer differ by a
-        # cell-independent gutter - outside (see the docstring note on
-        # TestBookPdf_DrawingCentredOnLeftHandPage's own equivalent test) —
-        # this puzzle's known spare (25.5 mm) is added too.
-        spare_mm = 25.5
+        expected = {
+            hand: _expected_left_mm(
+                15,
+                7,
+                STANDARD_CELL_MM,
+                right_hand=hand,
+                gutter_mm=self.WIDE_GUTTER_MM,
+                outside_mm=self.NARROW_OUTSIDE_MM,
+            )
+            for hand in (True, False)
+        }
 
-        assert abs(second_mm - first_mm) > EDGE_TOLERANCE_MM
-        assert abs(first_mm - second_mm - ((GUTTER_MM - OUTSIDE_MM) + spare_mm)) < EDGE_TOLERANCE_MM
+        assert abs(expected[True] - expected[False]) == pytest.approx(10.0)
+        assert abs(first_mm - expected[True]) < EDGE_TOLERANCE_MM, first_mm
+        assert abs(second_mm - expected[False]) < EDGE_TOLERANCE_MM, second_mm
+        # EC-032's own formula, on the profile where it is not an identity.
+        assert abs(
+            first_mm - second_mm - (self.WIDE_GUTTER_MM - self.NARROW_OUTSIDE_MM)
+        ) < EDGE_TOLERANCE_MM
 
     def test_the_drop_leaves_a_trace_in_the_log(self, caplog):
         """It is the only trace: nothing else says the book lost a member.

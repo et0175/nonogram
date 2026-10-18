@@ -103,6 +103,11 @@ from nonogram.export.layout import (
 from nonogram.export.png import BACKGROUND, render_image
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.two_up_ink import drawings_of
+from tests.test_book_qr_slot import (
+    UNEQUAL_GUTTER_MM,
+    UNEQUAL_OUTSIDE_MM,
+    _unequal_spec,
+)
 
 # --------------------------------------------------------------------------
 # CON-018's Book 1 profile, in inches, written out rather than imported
@@ -131,6 +136,16 @@ MIN_THIN_RULE_MM = 0.25
 
 #: Device pixels per millimetre at the 300 DPI every book page is drawn at.
 PX_PER_MM = DPI / 25.4
+
+#: CARD-222's puzzle area and CARD-224's split, written out as this file
+#: writes every other figure out. The header rule sits an eighth of the band's
+#: depth above its foot; the footer rule one footer strip
+#: (:data:`FOOTER_STRIP_MM`, declared below with the two-up figures) above the
+#: bottom margin; and the drawing floats with 42% of the area's spare height
+#: above it (FR-032 as amended 2026-10-17, AC-366/AC-367 — the owner's own
+#: optical figure, "which looks centred once the header sits above it").
+HEADER_RULE_LIFT_SHARE = 1 / 8
+SPARE_ABOVE = 0.42
 
 #: CARD-204 Fix 4's fixed, universal folio reserve, in millimetres —
 #: ``_folio_reserve_px`` is a font-measurement helper (not FR-040's own
@@ -239,12 +254,18 @@ def _expected_box(
 ) -> tuple[float, float, float, float]:
     """``(left, top, right, bottom)`` of the drawing, in device pixels.
 
-    Worked out from the sheet in millimetres: the drawing is right-aligned,
-    mirrored by parity (CARD-204, FR-032 reading (b)) — flush with the
-    *outer* margin on both parities — and its top edge is the top margin
-    plus the band, on every page and parity. That rectangle **is** the
-    frame: its left and top are the outer edges of the two clue gutters, its
-    right and bottom the grid's own outer border.
+    Worked out from the sheet in millimetres (CARD-224, FR-032): the drawing is
+    **centred** across the usable width — on both parities, so parity moves the
+    usable area and not the alignment — and its top edge **floats** at
+    :data:`SPARE_ABOVE` of CARD-222's puzzle-area spare height, or sits at the
+    band's foot where the drawing is too deep for that area to hold it (the
+    regime a page-fit-bound drawing is always in, since the cell is fitted
+    against the usable height less the band, which is up to one footer strip
+    deeper than the area). Between CARD-204 and CARD-224 the drawing was flush
+    with the outer margin and its top edge was the band's foot on every page.
+
+    That rectangle **is** the frame: its left and top are the outer edges of
+    the two clue gutters, its right and bottom the grid's own outer border.
     """
     drawing_columns = row_depth + columns
     drawing_rows = column_depth + rows
@@ -252,14 +273,43 @@ def _expected_box(
     usable_width = spec.width_mm - spec.gutter_mm - spec.outside_mm
     left_margin = spec.outside_mm if spec.parity is PageParity.EVEN else spec.gutter_mm
     spare = usable_width - drawing_columns * cell
-    left = left_margin if spec.parity is PageParity.EVEN else left_margin + spare
-    top = spec.top_mm + spec.band_mm
+    left = left_margin + max(spare, 0.0) / 2
+    top = _expected_top_mm(spec, drawing_rows * cell)
     return (
         left * PX_PER_MM,
         top * PX_PER_MM,
         (left + drawing_columns * cell) * PX_PER_MM,
         (top + drawing_rows * cell) * PX_PER_MM,
     )
+
+
+def _puzzle_area_mm(spec: PageSpec) -> tuple[float, float]:
+    """CARD-222's puzzle area on ``spec``: ``(header rule, footer rule)``, in mm."""
+    return (
+        spec.top_mm + spec.band_mm * (1 - HEADER_RULE_LIFT_SHARE),
+        spec.height_mm - spec.bottom_mm - FOOTER_STRIP_MM,
+    )
+
+
+def _expected_top_mm(spec: PageSpec, drawing_height_mm: float) -> float:
+    """Where a drawing that deep starts on ``spec``, in millimetres (CARD-224).
+
+    The 42% float, or the band's foot when the puzzle area cannot hold the
+    drawing clear of both of its rules. The implementation abandons the ratio a
+    little before the spare reaches zero — a spare too small to pay the
+    drawing's own half-heavy-rule clearance twice over would put grid ink on a
+    rule — and that threshold is a few device pixels of the heavy rule at this
+    cell. Every box this file checks is on a trim with tens of millimetres of
+    spare, so the two rules never disagree here; the boundary itself is
+    :mod:`tests.property.test_book_layout`'s (which sweeps the degraded
+    regime) and :mod:`tests.property.test_book_pdf_geometry`'s (which declares
+    the window explicitly).
+    """
+    area_top, area_bottom = _puzzle_area_mm(spec)
+    spare = (area_bottom - area_top) - drawing_height_mm
+    if spare <= 0:
+        return spec.top_mm + spec.band_mm
+    return area_top + SPARE_ABOVE * spare
 
 
 # --------------------------------------------------------------------------
@@ -669,7 +719,12 @@ class TestPuzzleFrame_PairIsFramedPerPuzzle:
         assert pair is not None
 
         assert pair.upper.frame.left == single.frame.left, "both are centred alike"
-        assert pair.upper.frame.top == single.frame.top, "the fixed top row (FR-032)"
+        # CARD-224: the single page's drawing floats at 42% of its puzzle
+        # area's spare while the slot's sits at its slot's band foot, so the
+        # two tops are a known distance apart instead of equal — the slot's
+        # is the band's foot, and the single page's is lower.
+        assert pair.upper.frame.top == pair.upper.page.band_bottom
+        assert single.frame.top > pair.upper.frame.top
         assert pair.upper.frame.width == single.frame.width
 
 
@@ -847,10 +902,11 @@ def _expected_pair_boxes(
     a boundary rounded to a whole pixel first is a boundary that has already
     moved up to half a pixel in the direction the answer is about.
 
-    Each drawing is right-aligned, mirrored by parity (CARD-204, FR-032
-    reading (b)) — flush with the outer margin — across the usable width on
-    the **shared** cell; the upper one's top edge is the fixed row every
-    single puzzle page uses (top margin plus band, FR-032/EC-022) and the
+    Each drawing is **centred** across the usable width (CARD-224, FR-032) on
+    the **shared** cell; the upper one's top edge is its own slot's band foot
+    (top margin plus band — the row every placed drawing used before CARD-224,
+    and the row a two-up slot still uses: the 42% float is the single page's,
+    and splitting a page's puzzle area between two slots is CARD-226's) and the
     lower one's bottom edge is the **footer rule** — one
     :data:`FOOTER_STRIP_MM` above the bottom margin since CARD-248, where it
     was the margin itself before — with its own band in the 12 mm above it,
@@ -865,11 +921,15 @@ def _expected_pair_boxes(
     reserve").** Fix 1/Fix 2 pulled the lower box alone back toward the
     gutter by a page/book-specific folio reserve (INV-010, cycle-1 F-1,
     cycle-2 F-5). Fix 3 removed the reserve mechanism entirely. Fix 4
-    restores it as a *fixed* amount (:data:`RESERVE_MM`, never derived from
-    ``page_number`` or any book content) — this helper still does not take
-    or need a ``page_number`` (the reserve does not vary with one), kept
-    only so every call site below (which still names a page number for its
-    own documentation value) does not need editing.
+    restored it as a *fixed* amount (:data:`RESERVE_MM`, never derived from
+    ``page_number`` or any book content). **CARD-224 drops the shift with the
+    anchor**: centring leaves each slot half its own spare on *both* sides, so
+    the lower box is placed exactly like the upper one and
+    :data:`RESERVE_MM` no longer enters this helper. The reserve is still
+    taken out of the shared cell's own fit, which is why the cell below is
+    unchanged (G-1). This helper still does not take or need a
+    ``page_number``, kept only so every call site below (which names one for
+    its own documentation value) does not need editing.
     """
     cell = _shared_cell_mm(upper, lower)
     left_margin = OUTSIDE_MM if parity is PageParity.EVEN else GUTTER_MM
@@ -878,12 +938,7 @@ def _expected_pair_boxes(
         puzzle: dict, top_mm: float, *, is_lower: bool = False
     ) -> tuple[float, float, float, float]:
         spare_mm = USABLE_WIDTH_MM - _across(puzzle) * cell
-        reserved_mm = min(RESERVE_MM, max(spare_mm, 0)) if is_lower else 0.0
-        left_mm = (
-            left_margin + reserved_mm
-            if parity is PageParity.EVEN
-            else left_margin + spare_mm - reserved_mm
-        )
+        left_mm = left_margin + max(spare_mm, 0.0) / 2
         return (
             left_mm * PX_PER_MM,
             top_mm * PX_PER_MM,
@@ -1363,13 +1418,23 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
         for drawing in drawings_of(pages[TWO_UP_PAGE - 1]):
             assert drawing.cell / PX_PER_MM == pytest.approx(expected, abs=0.05)
 
-    def test_the_upper_slot_still_starts_on_the_fixed_top_row(self, pages) -> None:
-        """CARD-118's EC-022: top margin plus band, on a pair as on a single page."""
+    def test_the_upper_slot_still_starts_on_the_bands_own_foot(self, pages) -> None:
+        """CARD-118's EC-022, as CARD-224 leaves it: top margin plus band on a
+        pair, where a single page's drawing now floats below that row.
+
+        The equality this test asserted until CARD-224 (``upper.top ==
+        alone.top``, AC-252's own claim) is false by that card's design: the
+        single page floats at 42% of its puzzle area's spare, the slot does
+        not. Both rows are still measured, and their *inequality* is asserted
+        — so a build that moved either one onto the other fails here. AC-252
+        itself is owed at the architect station; see
+        ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge``.
+        """
         upper, lower = drawings_of(pages[TWO_UP_PAGE - 1])
         alone = drawing_of(pages[SINGLE_PAGE - 1])
 
-        assert upper.top == alone.top, "the framed pair moved its upper drawing"
         assert abs(upper.top / PX_PER_MM - (TOP_MM + BAND_MM)) <= 0.5
+        assert alone.top > upper.top, "the single page's drawing floats below it"
         assert lower.top > upper.top, "the lower slot is a second drawing below it"
 
     def test_both_slots_sit_where_con_018s_millimetres_put_them(self, pages) -> None:
@@ -1844,3 +1909,635 @@ def test_the_placed_page_walk_reads_a_parity_where_there_is_one() -> None:
     assert _is_page_spec_call(placed)
     assert _is_page_spec_call(ast.parse("layout.PageSpec(parity=p)").body[0].value)
     assert not _is_page_spec_call(ast.parse("Layout(parity=p)").body[0].value)
+
+
+# ==========================================================================
+# CARD-224 — the grid goes back to centred, at 42% of the puzzle area's spare
+# ==========================================================================
+#
+#     AC-1  TestBookPuzzleFrame_GridIsCentredOnBothParities
+#     AC-2  TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare  (AC-366/AC-367)
+#     AC-3  TestBookPuzzleFrame_GridClearsBothRules                  (EC-022)
+#     AC-4  TestBookPuzzleFrame_TallestGridYieldsToTheFooter
+#     AC-6  TestBookPuzzleFrame_NoEmptyLowerThird
+#
+# AC-5 is the existing caption-slot classes in ``tests/test_book_solved_page.py``
+# and ``tests/test_layout_page_spec.py``, which this card leaves in force (G-3)
+# and which it had to re-aim: centring restores the horizontal spare CARD-204's
+# flush anchor had spent, so the caption width at which the clamp fires moved,
+# and those files now carry a title in each of the three regimes rather than
+# one that has quietly stopped reaching the margin.
+#
+# **Where the numbers come from.** The puzzle area is restated here in
+# millimetres from CARD-222's own two figures (:data:`HEADER_RULE_LIFT_SHARE`,
+# :data:`FOOTER_STRIP_MM`) and the split from :data:`SPARE_ABOVE` — never read
+# back from ``interior_frame``, so a drawing in the right place is two
+# independent answers agreeing. What the page *did* is read off its ink.
+#
+# **The controls.** Every claim below is paired with the same check applied to
+# the **pre-CARD-224 geometry** — the flush-by-parity anchor and the fixed top
+# edge, each computed here in millimetres — which must fail it (ADR-0039/R1: a
+# coverage claim needs a control that can fail). That is the strongest control
+# available: it is exactly the placement this card replaces, so a test that
+# passed under both would be measuring nothing.
+
+
+def _area_ink_box(page: Image.Image, spec: PageSpec) -> tuple[int, int, int, int]:
+    """``(left, top, right, bottom)`` of every dark pixel **inside the puzzle
+    area**, in device pixels.
+
+    The drawing is the only thing a :func:`render_image` page puts there (the
+    payload names no picture and no tier, so the band is blank; the frame's two
+    rules are the *generator's* ink and are not on this page at all), so these
+    four numbers are the drawing's own outermost ink — stroke overhang
+    included, on all four sides alike, which is what "measured off the drawn
+    ink" has to mean and is one step closer to the paper than any boundary the
+    layout reports.
+
+    **Why the area and not the page.** A placed page carries more ink than its
+    drawing: since CARD-223 the footer's outer corner holds a 2 cm QR
+    placeholder whose box reaches the usable area's own edges — precisely the
+    fragility ``page_ink``'s own docstring records. It sits *below* the footer
+    rule, so cropping to the puzzle area removes it without needing to know
+    where it is.
+
+    **Why not** :func:`~tests.helpers.page_ink.drawing_of`: its ``left``/
+    ``top`` are a rule's first ink row and its ``grid_right``/``grid_bottom``
+    the *same* edge of the far rule, which is deliberate there (it makes the
+    printed cell a rule-to-rule pitch) and asymmetric here — it would
+    understate the ink by half a heavy rule at two of the four sides, which on
+    a 22 mm spare is 2% of the ratio AC-2 and AC-6 state to 0.5%.
+    """
+    area_top, area_bottom = _puzzle_area_mm(spec)
+    top_px, bottom_px = round(area_top * PX_PER_MM), round(area_bottom * PX_PER_MM)
+    dark = _dark(page)[top_px : bottom_px + 1]
+    rows = np.flatnonzero(dark.any(axis=1))
+    columns = np.flatnonzero(dark.any(axis=0))
+    assert rows.size and columns.size, "the puzzle area carries no ink at all"
+    return (
+        int(columns.min()),
+        top_px + int(rows.min()),
+        int(columns.max()),
+        top_px + int(rows.max()),
+    )
+
+
+def _flush_left_mm(spec: PageSpec, drawing_columns: int, cell_mm: float) -> float:
+    """CARD-204's anchor, in millimetres: the control AC-1 needs.
+
+    Flush with the usable area's *outer* margin, mirrored by parity — the
+    placement this card reverses. Written out here, not read from any
+    surviving code, because none survives.
+    """
+    left_margin = spec.outside_mm if spec.parity is PageParity.EVEN else spec.gutter_mm
+    spare = (spec.width_mm - spec.gutter_mm - spec.outside_mm) - drawing_columns * cell_mm
+    return left_margin if spec.parity is PageParity.EVEN else left_margin + spare
+
+
+def _fixed_top_mm(spec: PageSpec) -> float:
+    """FR-032's retired fixed top edge (AC-190), in millimetres: the control
+    AC-2, AC-4 and AC-6 need. The band's foot, on every page and parity."""
+    return spec.top_mm + spec.band_mm
+
+
+class TestBookPuzzleFrame_GridIsCentredOnBothParities:
+    """AC-1 — the same puzzle on a left-hand and a right-hand page: equal side
+    margins within the puzzle area, and parity no longer moves the drawing.
+
+    **Stated on two books on purpose.** On Book 1 as amended 2026-10-17 the
+    gutter and the outside margin are both 12.700 mm, so the two pages place
+    the drawing at the *same absolute x* and "parity no longer moves it" is
+    literally measurable there. But that equality also makes any parity claim
+    on that profile an identity (the carried note on this card's system
+    contract, and the registry's own note on EC-032), so the second half of
+    the claim — that what parity still moves is the *usable area*, and the
+    drawing simply sits in the middle of whatever that is — is stated on
+    CARD-223's ``_unequal_spec``, whose two margins differ by 12 mm. That
+    helper is imported rather than reimplemented: it exists for exactly this.
+    """
+
+    CASE = dict(columns=20, rows=20, row_depth=4, column_depth=5)
+
+    def _pages(self, spec_of) -> dict:
+        return {
+            parity: render_image(_payload(**self.CASE), page_spec=spec_of(parity))
+            for parity in (PageParity.ODD, PageParity.EVEN)
+        }
+
+    def test_the_two_side_margins_are_equal_on_both_parities(self) -> None:
+        """Measured off the ink, inside the puzzle area's own usable width."""
+        for name, spec_of in (
+            ("book 1", lambda parity: _spec(parity=parity)),
+            ("unequal margins", _unequal_spec),
+        ):
+            for parity, page in self._pages(spec_of).items():
+                spec = spec_of(parity)
+                left, _, right, _ = _area_ink_box(page, spec)
+                usable_left = (
+                    spec.outside_mm if parity is PageParity.EVEN else spec.gutter_mm
+                ) * PX_PER_MM
+                usable_right = (
+                    spec.width_mm
+                    - (spec.gutter_mm if parity is PageParity.EVEN else spec.outside_mm)
+                ) * PX_PER_MM
+                gaps = (left - usable_left, usable_right - right)
+                assert abs(gaps[0] - gaps[1]) <= 2 * EDGE_TOLERANCE_PX, (
+                    name, parity, gaps
+                )
+
+    def test_book_1_places_it_on_the_same_pixel_at_both_parities(self) -> None:
+        """Parity no longer moves it: on equal margins, the same x and the
+        same y, to the pixel."""
+        pages = self._pages(lambda parity: _spec(parity=parity))
+        odd, even = (
+            _area_ink_box(pages[parity], _spec(parity=parity))
+            for parity in (PageParity.ODD, PageParity.EVEN)
+        )
+
+        assert odd == even, (odd, even)
+
+    def test_on_unequal_margins_the_area_moves_and_the_alignment_does_not(self) -> None:
+        """What parity still does: it moves the usable area by gutter − outside,
+        and the drawing goes with it while staying centred in it (EC-032)."""
+        pages = self._pages(_unequal_spec)
+        odd, even = (
+            _area_ink_box(pages[parity], _unequal_spec(parity))
+            for parity in (PageParity.ODD, PageParity.EVEN)
+        )
+        expected_shift = (UNEQUAL_GUTTER_MM - UNEQUAL_OUTSIDE_MM) * PX_PER_MM
+
+        assert abs(expected_shift) > 100, "this sheet must really move the area"
+        assert abs((odd[0] - even[0]) - expected_shift) <= 2 * EDGE_TOLERANCE_PX
+        assert odd[1] == even[1], "parity never moves it vertically (AC-276)"
+
+    def test_the_control_card_204s_anchor_fails_both_claims(self) -> None:
+        """The control that can fail (ADR-0039/R1): the placement this card
+        reverses, computed in millimetres, is not centred and *is* moved by
+        parity — on Book 1's own equal margins, where the two assertions above
+        would otherwise be the weakest."""
+        drawing_columns = self.CASE["row_depth"] + self.CASE["columns"]
+        drawing_rows = self.CASE["column_depth"] + self.CASE["rows"]
+        flush = {}
+        for parity in (PageParity.ODD, PageParity.EVEN):
+            spec = _spec(parity=parity)
+            cell = _expected_cell_mm(spec, drawing_columns, drawing_rows)
+            flush[parity] = _flush_left_mm(spec, drawing_columns, cell)
+            usable_left = spec.outside_mm if parity is PageParity.EVEN else spec.gutter_mm
+            usable_right = spec.width_mm - (
+                spec.gutter_mm if parity is PageParity.EVEN else spec.outside_mm
+            )
+            gaps = (
+                flush[parity] - usable_left,
+                usable_right - (flush[parity] + drawing_columns * cell),
+            )
+            # The very assertion the first test makes, on the old anchor.
+            assert abs(gaps[0] - gaps[1]) > 2 * EDGE_TOLERANCE_PX / PX_PER_MM, (
+                parity, gaps, "CARD-204's anchor would pass a centring check"
+            )
+        assert flush[PageParity.ODD] != flush[PageParity.EVEN], (
+            "CARD-204's anchor moved the drawing by parity even on equal margins"
+        )
+
+
+class TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare:
+    """AC-2, and the registry's AC-366/AC-367 — the gap above the drawing is
+    0.42 of the puzzle area's spare height and the gap below it 0.58, measured
+    off the drawn ink.
+
+    42% is the owner's optical figure, not an arithmetic one ("which looks
+    centred once the header sits above it", artifact of 2026-10-14), and it is
+    declared once in the code as
+    :data:`~nonogram.export.layout.GRID_SPARE_ABOVE` with that sentence as its
+    docstring. This class reads the ratio back off two real pages rather than
+    importing it, so a build that "improved" it to 0.5 fails here.
+    """
+
+    #: AC-367's own two puzzles: a 15x15 whose 22-cell drawing prints at the
+    #: 7.5 mm cap (165.0 mm deep) and a 30x30 whose 39-cell drawing is page-fit
+    #: bound (190.5 mm deep, 4.885 mm a cell).
+    SHALLOW = dict(columns=15, rows=15, row_depth=7, column_depth=7)
+    DEEP = dict(columns=30, rows=30, row_depth=9, column_depth=9)
+
+    @staticmethod
+    def _bands(case: dict, spec: PageSpec) -> tuple[float, float]:
+        """``(above, below)`` in millimetres, off the ink of a rendered page."""
+        page = render_image(_payload(**case), page_spec=spec)
+        _, top, _, bottom = _area_ink_box(page, spec)
+        area_top, area_bottom = _puzzle_area_mm(spec)
+        return (top / PX_PER_MM - area_top, area_bottom - bottom / PX_PER_MM)
+
+    @pytest.mark.parametrize("parity", [PageParity.ODD, PageParity.EVEN])
+    @pytest.mark.parametrize("case", ["SHALLOW", "DEEP"])
+    def test_the_spare_is_split_42_to_58(self, case: str, parity: PageParity) -> None:
+        spec = _spec(parity=parity)
+        above, below = self._bands(getattr(self, case), spec)
+        spare = above + below
+
+        assert spare > 20.0, (case, spare, "this page must have real spare")
+        assert above / spare == pytest.approx(SPARE_ABOVE, abs=0.005), (case, above, below)
+        assert below / spare == pytest.approx(1 - SPARE_ABOVE, abs=0.005)
+
+    def test_ac_367s_own_figure_the_shallow_drawing_sits_10_71_mm_lower(self) -> None:
+        """The two pages' top edges, 0.42 x 25.5 mm apart (AC-367)."""
+        spec = _spec()
+        shallow_above, _ = self._bands(self.SHALLOW, spec)
+        deep_above, _ = self._bands(self.DEEP, spec)
+
+        assert shallow_above - deep_above == pytest.approx(10.71, abs=0.1)
+
+    def test_ac_366s_own_figure_a_60_mm_spare_splits_25_2_to_34_8(self) -> None:
+        """AC-366 states the split on a 60 mm spare. No stored trim gives a
+        60.0 mm spare exactly, so the trim is *made* to: the page is lengthened
+        until the 15x15's spare is 60 mm, which is a sheet CON-018 would admit
+        (a taller trim at Book 1's own margins) and keeps the figure the
+        registry states rather than quoting a different one.
+        """
+        drawing_rows = self.SHALLOW["column_depth"] + self.SHALLOW["rows"]
+        depth_mm = drawing_rows * STANDARD_CELL_MM
+        # area height = spare + drawing, and area height is
+        # trim − top − bottom − 7/8 band − footer strip.
+        height_mm = (
+            60.0
+            + depth_mm
+            + TOP_MM
+            + BOTTOM_MM
+            + BAND_MM * (1 - HEADER_RULE_LIFT_SHARE)
+            + FOOTER_STRIP_MM
+        )
+        spec = _spec(height_mm=height_mm)
+
+        above, below = self._bands(self.SHALLOW, spec)
+
+        # 0.3 mm, not 0.2: the ink is read at the stroke's own outermost
+        # pixel, so each band is a heavy rule's half (0.25 mm) shorter than
+        # the boundary-to-boundary figure the registry states.
+        assert above + below == pytest.approx(60.0, abs=0.6)
+        assert above == pytest.approx(25.2, abs=0.3)
+        assert below == pytest.approx(34.8, abs=0.3)
+
+    def test_the_control_the_retired_fixed_top_edge_fails_this_ratio(self) -> None:
+        """The control that can fail (ADR-0039/R1): AC-190's own placement —
+        the band's foot, where every drawing sat until this card — puts about
+        0.07 of the spare above the drawing on the deep page and 0.93 below it,
+        not 0.42/0.58. The same arithmetic this class applies to the ink,
+        applied to the geometry this card replaced."""
+        spec = _spec()
+        for case in (self.SHALLOW, self.DEEP):
+            drawing_rows = case["column_depth"] + case["rows"]
+            drawing_columns = case["row_depth"] + case["columns"]
+            cell = _expected_cell_mm(spec, drawing_columns, drawing_rows)
+            area_top, area_bottom = _puzzle_area_mm(spec)
+            above = _fixed_top_mm(spec) - area_top
+            below = area_bottom - (_fixed_top_mm(spec) + drawing_rows * cell)
+            spare = above + below
+            assert spare > 20.0, (case, spare)
+            assert abs(above / spare - SPARE_ABOVE) > 0.1, (
+                case, above, below, "the retired fixed top edge would pass AC-2"
+            )
+
+
+class TestBookPuzzleFrame_GridClearsBothRules:
+    """AC-3 (and EC-022's own last clause) — no grid or clue ink touches the
+    header rule or the footer rule, for every grid size the book admits and
+    every trim.
+
+    **Two layers, because one of them cannot be afforded 441 times.** The
+    sweep below is on the layout and on the rules' own rows computed here in
+    millimetres: every extent from 10 to 30 on both axes, at two clue-depth
+    patterns, on four sheets — the amended Book 1 at both parities, the 6 x 9
+    in trim the owner also prints, and KDP's smallest storable trim (10.00 cm),
+    whose puzzle area is 33.7 mm deep and therefore cannot hold any drawing at
+    all (AC-4's regime). The drawing's ink, not its boundary, is what clears:
+    every rule in it is stroked centred on its boundary, so the box grows by
+    half a heavy rule at each end, and the furniture rules spread about their
+    own rows the same way.
+
+    Then one real book's rendered pages are measured off their **ink**, with
+    the frame's two rules really drawn on them, so the sweep's own model of
+    where those rules are cannot be the only evidence.
+
+    **One declared exception, measured rather than excluded.** A two-up page's
+    *lower* slot has its drawing's bottom edge exactly on the footer rule:
+    CARD-248 reserves one footer strip out of the pair's height, so that
+    boundary and the hairline are the same row, and the slot's heavy border is
+    stroked on it. That is the pairing geometry's own doing, and repacking two
+    slots is CARD-226's (this card's G-4). The ink test below asserts the
+    coincidence instead of skipping the page, so it fails if it ever becomes a
+    gap or an overlap.
+    """
+
+    SHEETS = {
+        "book1 odd": _spec(parity=PageParity.ODD),
+        "book1 even": _spec(parity=PageParity.EVEN),
+        "six by nine": _spec(width_mm=SIX_BY_NINE_MM[0], height_mm=SIX_BY_NINE_MM[1]),
+        "smallest trim": _spec(width_mm=100.0, height_mm=100.0),
+    }
+
+    @staticmethod
+    def _depths(extent: int) -> tuple[int, ...]:
+        """Two clue-depth patterns per extent: the shallowest a line can have
+        and the deepest (alternating cells), so the gutter's own share of the
+        drawing is swept and not fixed."""
+        return (1, (extent + 1) // 2)
+
+    @staticmethod
+    def _clears(ink_top_mm: float, ink_bottom_mm: float, area: tuple[float, float]) -> bool:
+        """Whether a drawing whose ink runs ``ink_top_mm..ink_bottom_mm``
+        touches neither rule of the puzzle area ``area``.
+
+        The one predicate the sweep and its control both use, so the control
+        is a control *of this check* and not of a paraphrase of it.
+        """
+        area_top, area_bottom = area
+        return area_top < ink_top_mm and ink_bottom_mm < area_bottom
+
+    def test_every_extent_on_every_trim_clears_both_rules(self) -> None:
+        checked = floated = held = 0
+        for name, spec in self.SHEETS.items():
+            area_top, area_bottom = _puzzle_area_mm(spec)
+            for columns in range(10, 31, 2):
+                for rows in range(10, 31, 2):
+                    for depth in self._depths(min(columns, rows)):
+                        layout = compute_layout(
+                            *_clue_sets(columns, rows, depth, depth), spec
+                        )
+                        placement = layout.page
+                        overhang = -(-layout.thick_rule // 2)
+                        ink_top = (placement.drawing_top - overhang) / PX_PER_MM
+                        ink_bottom = (placement.drawing_bottom + overhang) / PX_PER_MM
+                        # The header rule is cleared in both regimes.
+                        assert ink_top > area_top, (name, columns, rows, depth, ink_top)
+                        if placement.vertical_bound == "ratio":
+                            assert self._clears(
+                                ink_top, ink_bottom, (area_top, area_bottom)
+                            ), (name, columns, rows, depth, ink_top, ink_bottom)
+                            floated += 1
+                        else:
+                            # AC-4's regime: the area cannot hold this drawing,
+                            # the 42% rule yields, and the page's footer group
+                            # is omitted by the renderer rather than crossed —
+                            # which is what makes "no ink touches the footer
+                            # rule" true: there is no footer rule on it.
+                            assert placement.vertical_bound == "footer"
+                            assert ink_bottom > area_bottom
+                            assert qr_slot(layout) is None, (
+                                "the footer group's own all-or-nothing "
+                                "condition must refuse this page"
+                            )
+                            held += 1
+                        checked += 1
+        assert checked >= 4 * 11 * 11 * 2, checked
+        # Neither regime may silently empty out of this sweep.
+        assert floated >= 300, floated
+        assert held >= 200, held
+
+    def test_a_real_books_pages_keep_their_ink_off_both_drawn_rules(self) -> None:
+        """The ink-level half: a real interior, with the frame's rules drawn.
+
+        The rules' rows are measured off the page too — each is the one run of
+        dark pixels that spans the whole text width, which no drawing narrower
+        than the text block reaches — so neither side of this comparison is
+        ``interior_frame``'s own answer.
+        """
+        pages = _book_pages()
+        spec = _spec()
+        text_width = round((spec.width_mm - spec.gutter_mm - spec.outside_mm) * PX_PER_MM)
+        area_top_mm, area_bottom_mm = _puzzle_area_mm(spec)
+        header_row = round(area_top_mm * PX_PER_MM)
+        footer_row = round(area_bottom_mm * PX_PER_MM)
+        measured = 0
+        for index in (TWO_UP_PAGE - 1, SINGLE_PAGE - 1):
+            page = pages[index]
+            dark = _dark(page)
+            # Each rule really is drawn on the row this module's own
+            # millimetres put it on — a run of ink across the whole text
+            # width, which the rule is the only mark on a page to make. Both
+            # sides of the clearance check below are therefore the page's own
+            # ink against this file's own arithmetic, with
+            # ``interior_frame`` on neither side.
+            for name, row in (("header", header_row), ("footer", footer_row)):
+                near = [
+                    candidate
+                    for candidate in range(row - 3, row + 4)
+                    if dark[candidate].sum() >= text_width - 4
+                ]
+                assert near, (
+                    f"interior page {index + 1} draws no {name} rule within "
+                    f"3 px of row {row}"
+                )
+            drawings = (
+                drawings_of(page) if index == TWO_UP_PAGE - 1 else [drawing_of(page)]
+            )
+            for position, drawing in enumerate(drawings):
+                assert drawing.top > header_row + 3, (index, drawing.top, header_row)
+                if len(drawings) == 2 and position == 1:
+                    # **A measured, declared exception: a two-up page's lower
+                    # slot sits ON the footer rule, and that is CARD-248's
+                    # geometry, not this card's.** That card reserves exactly
+                    # one footer strip out of the pair's height, so the lower
+                    # drawing's bottom edge *is* the footer rule's own row —
+                    # its heavy border and the hairline are stroked on the
+                    # same pixel. CARD-224 moves a drawing inside its slot and
+                    # does not repack the two slots (its G-4: the slot split
+                    # is CARD-226's), so the exception is recorded here rather
+                    # than silently excluded: this assertion fails if the
+                    # coincidence ever becomes a gap or an overlap, which is
+                    # what a reader of AC-3 needs to know.
+                    assert abs(drawing.grid_bottom - footer_row) <= 3, (
+                        index, drawing.grid_bottom, footer_row
+                    )
+                else:
+                    assert drawing.grid_bottom < footer_row - 3, (
+                        index, drawing.grid_bottom, footer_row
+                    )
+                measured += 1
+        assert measured >= 3, measured
+
+    def test_the_control_a_drawing_on_either_rule_fails_this_check(self) -> None:
+        """The control that can fail (ADR-0039/R1): :meth:`_clears` — the very
+        predicate the sweep above applies 484 times — rejects a drawing whose
+        ink reaches either rule.
+
+        The two placements fed to it are the two the 42% float exists to
+        avoid: one whose top ink lands on the header rule (the ratio applied
+        to a spare it cannot pay the clearance out of) and one whose bottom
+        ink lands on the footer rule (the ratio run the other way, 0.42 of the
+        spare *below* instead of above). Both are real page geometries —
+        Book 1's own area and a real drawing's depth — with only the placement
+        changed, so what is shown is that the sweep's green is this card's
+        placement and not the check's indifference.
+        """
+        spec = self.SHEETS["book1 odd"]
+        area = _puzzle_area_mm(spec)
+        layout = compute_layout(*_clue_sets(20, 20, 5, 5), spec)
+        depth_mm = (
+            layout.page.drawing_bottom - layout.page.drawing_top
+        ) / PX_PER_MM
+        spare = (area[1] - area[0]) - depth_mm
+        assert spare > 20.0, spare
+
+        # This card's own placement clears both rules.
+        floated_top = area[0] + SPARE_ABOVE * spare
+        assert self._clears(floated_top, floated_top + depth_mm, area)
+        # On the header rule, and on the footer rule: both rejected.
+        assert not self._clears(area[0], area[0] + depth_mm, area)
+        assert not self._clears(area[1] - depth_mm, area[1], area)
+        # And a hair past either of them, which is the regime AC-4 degrades.
+        assert not self._clears(area[0] - 0.1, area[0] - 0.1 + depth_mm, area)
+        assert not self._clears(area[1] - depth_mm + 0.1, area[1] + 0.1, area)
+
+
+class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
+    """AC-4 — the tallest grid that fits at all: the 42% rule degrades to "as
+    low as it fits" rather than pushing ink further past the footer rule, and
+    the page says which rule bound it.
+
+    The deepest drawing the book admits is a 30-row grid behind a 15-deep
+    column gutter: 45 cells down. The cell is fitted against the usable height
+    **less the band** (FR-030), which is up to one whole footer strip deeper
+    than the puzzle area, so a height-bound drawing is deeper than the area it
+    is placed in by construction — the degenerate case this AC is about, and
+    one every trim reaches by being short rather than by being unusual.
+
+    "The page says which rule bound it" is
+    :attr:`~nonogram.export.layout.PagePlacement.vertical_bound`: ``"ratio"``
+    when the split placed the drawing, ``"footer"`` when the area could not
+    hold it and the drawing was held at the band's foot instead. The renderer
+    reads the same verdict through its own all-or-nothing footer condition and
+    prints no footer group on such a page, which is the only reason "no ink on
+    the footer rule" can still be true of it.
+    """
+
+    #: Book 1's own width on a **short** trim (16.0 cm, well inside KDP's
+    #: 10 cm minimum): the deepest admissible drawing cannot fit its 93.7 mm
+    #: puzzle area, while still fitting the usable *width* — so the page's ink
+    #: is measurable by the drawing's own rules, which it would not be on a
+    #: trim so small that the drawing runs off the sheet sideways too.
+    SHORT = _spec(height_mm=160.0)
+    #: The deepest drawing the book admits: 30 rows behind a 15-deep column
+    #: gutter, 45 cells down.
+    TALLEST = dict(columns=30, rows=30, row_depth=15, column_depth=15)
+
+    def test_the_tallest_grid_is_held_at_the_bands_foot_and_says_so(self) -> None:
+        layout = compute_layout(*_clue_sets(**self.TALLEST), self.SHORT)
+        placement = layout.page
+
+        assert placement.vertical_bound == "footer", "the page must name the rule"
+        assert abs(placement.drawing_top / PX_PER_MM - _fixed_top_mm(self.SHORT)) <= 0.5
+        assert placement.drawing_top == placement.band_bottom
+
+    def test_it_is_not_pushed_further_down_than_the_old_placement(self) -> None:
+        """"Rather than pushing ink past the footer rule": the degraded page's
+        ink stops exactly where it stopped before this card — the 42% rule does
+        not spend a spare it has not got."""
+        layout = compute_layout(*_clue_sets(**self.TALLEST), self.SHORT)
+        page = render_image(_payload(**self.TALLEST), page_spec=self.SHORT)
+        _, ink_top, _, ink_bottom = _area_ink_box(page, self.SHORT)
+        _, area_bottom = _puzzle_area_mm(self.SHORT)
+        overhang = -(-layout.thick_rule // 2)
+
+        assert layout.page.drawing_top - overhang <= ink_top <= layout.page.drawing_top
+        assert ink_bottom / PX_PER_MM > area_bottom, (
+            "this page's drawing really is deeper than its puzzle area"
+        )
+        # The ratio, had it been applied to a negative spare, would have
+        # lifted the drawing *above* the header rule; "as low as it fits"
+        # means it is not moved at all.
+        assert ink_top / PX_PER_MM > _puzzle_area_mm(self.SHORT)[0]
+
+    def test_such_a_page_prints_no_footer_group_to_cross(self) -> None:
+        """The renderer's half, on a real page: a book on this trim gets
+        CARD-200's corner folio and no footer rule, so there is no rule on the
+        page for the drawing to touch."""
+        layout = compute_layout(*_clue_sets(**self.TALLEST), self.SHORT)
+
+        assert qr_slot(layout) is None
+        assert layout.page.drawing_bottom / PX_PER_MM > _puzzle_area_mm(self.SHORT)[1]
+
+    def test_the_control_a_trim_that_can_hold_it_floats_instead(self) -> None:
+        """The control that can fail (ADR-0039/R1): the same 45-cell drawing on
+        Book 1's own trim, which *can* hold it, reports ``"ratio"`` and floats
+        — so ``"footer"`` above is a verdict about the sheet and not a constant
+        this card returns everywhere."""
+        layout = compute_layout(*_clue_sets(**self.TALLEST), _spec())
+        placement = layout.page
+
+        assert placement.vertical_bound == "ratio"
+        assert placement.drawing_top > placement.band_bottom
+        assert qr_slot(layout) is not None
+
+
+class TestBookPuzzleFrame_NoEmptyLowerThird:
+    """AC-6 — the owner's "the lower third of the page is empty" (pp. 28, 75,
+    125 of the corpus), measured.
+
+    **Corrected 2026-10-17, and this class states the corrected form.** The
+    criterion first read "the empty band below the grid is no larger than the
+    band above it", which contradicts AC-2: the split is deliberately 42/58,
+    so the band below *is* the larger one. The corrected criterion is the
+    ratio itself plus a bound — the band below is at most **1.4x** the band
+    above — and the defect it replaces is that today the lower band is the
+    *whole* spare, which is what the three named pages show.
+
+    The three pages are reached as the owner reaches them: the three deepest
+    page kinds a corpus book prints at Book 1's own trim, at the three clue
+    depths that give a 15x15, a 20x20 and a 30x30 their real gutters. What is
+    asserted is the ratio and the 1.4x bound, and the control is the retired
+    placement, whose lower band is 13 to 19 times its upper one.
+    """
+
+    #: The three pages, at the three clue depths that give them their real
+    #: gutters. Each has at least 20 mm of spare, so a ratio read back off the
+    #: ink (0.085 mm a pixel) is a measurement and not a rounding: the
+    #: 20x20's own depth is 5 and not 8 for that reason — at depth 8 its
+    #: drawing is 210 mm of a 213.1 mm area and the whole claim would rest on
+    #: three millimetres.
+    CASES = (
+        dict(columns=15, rows=15, row_depth=7, column_depth=7),
+        dict(columns=20, rows=20, row_depth=5, column_depth=5),
+        dict(columns=30, rows=30, row_depth=9, column_depth=9),
+    )
+
+    @staticmethod
+    def _bands_mm(case: dict, spec: PageSpec) -> tuple[float, float]:
+        page = render_image(_payload(**case), page_spec=spec)
+        _, top, _, bottom = _area_ink_box(page, spec)
+        area_top, area_bottom = _puzzle_area_mm(spec)
+        return (top / PX_PER_MM - area_top, area_bottom - bottom / PX_PER_MM)
+
+    @pytest.mark.parametrize("index", range(3))
+    def test_the_spare_is_split_and_the_lower_band_is_at_most_1_4x_the_upper(
+        self, index: int
+    ) -> None:
+        spec = _spec()
+        above, below = self._bands_mm(self.CASES[index], spec)
+        spare = above + below
+
+        assert above > 0 and below > 0, (above, below)
+        assert spare > 20.0, (spare, "this page must have real spare to split")
+        assert above / spare == pytest.approx(SPARE_ABOVE, abs=0.005)
+        assert below / spare == pytest.approx(1 - SPARE_ABOVE, abs=0.005)
+        assert below <= 1.4 * above + 1e-9, (above, below)
+
+    @pytest.mark.parametrize("index", range(3))
+    def test_the_control_the_retired_placement_leaves_the_whole_spare_below(
+        self, index: int
+    ) -> None:
+        """The control that can fail (ADR-0039/R1), and the defect's own
+        measurement: under the fixed top edge the band above is the band's own
+        lift (1.5 mm) and the band below is everything else, 13x to 19x it —
+        which is the owner's "the lower third of the page is empty", and fails
+        both assertions above."""
+        spec = _spec()
+        case = self.CASES[index]
+        drawing_columns = case["row_depth"] + case["columns"]
+        drawing_rows = case["column_depth"] + case["rows"]
+        cell = _expected_cell_mm(spec, drawing_columns, drawing_rows)
+        area_top, area_bottom = _puzzle_area_mm(spec)
+        above = _fixed_top_mm(spec) - area_top
+        below = area_bottom - (_fixed_top_mm(spec) + drawing_rows * cell)
+        spare = above + below
+
+        assert above == pytest.approx(BAND_MM * HEADER_RULE_LIFT_SHARE, abs=0.01)
+        assert below > 1.4 * above, (above, below)
+        assert abs(above / spare - SPARE_ABOVE) > 0.1

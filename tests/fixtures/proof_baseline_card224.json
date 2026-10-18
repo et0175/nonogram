@@ -1,0 +1,60 @@
+{
+  "card": "CARD-224",
+  "supersedes": "tests/fixtures/proof_baseline_card223.json",
+  "source_commit": "card/224-grid-centred-again (implementation), branched from main at cc4430b with CARD-248 already merged at 1256982. Recorded against this card's own implementation on its worktree, after the grid went back to centred and began floating at 42% of the puzzle area's spare height, and before this file was written. A commit cannot carry its own hash, so the tree these digests were taken from is the implementation commit this file is added beside.",
+  "produced_by": "proof_pages(book) on this card's own src/, for each CORPUS_TRIMS_CM trim stored as-is with the Book 1 margins stored as gutter_margin_cm='1.27', outside_margin_cm='1.27' \u2014 CON-018's amended outside margin (0.5 in), where CARD-204's recording stored the retired '0.95' (0.375 in).",
+  "why_a_new_baseline": "CARD-224 reverses CARD-204's central decision: the puzzle drawing is CENTRED across the usable width again (FR-032's own clause, which CARD-204 had made false; the owner's artifact of 2026-10-14 restores it because CARD-223 moved the QR icon to the footer, so nothing reads the gutter-side strip the flush anchor freed), and vertically it FLOATS at 42% of CARD-222's puzzle-area spare height instead of sitting at the fixed top edge FR-032 asked for until the 2026-10-17 amendment (AC-190 retired, AC-366/AC-367 added). A proof page is the book's own sheet drawn through the same render_pages() call a real interior page uses, so both moves land on it: every drawing moves sideways by half its own spare and down by 0.42 of its page's spare. All nine portrait corpus trims therefore move, which 'moved_from_card223' records as measured rather than argued.",
+  "warning": "Never regenerated to make a test pass. A proof page that stops matching this file is either a deliberate change \u2014 which earns its own successor, with its own note \u2014 or a regression.",
+  "gutter_margin_cm": "1.27",
+  "outside_margin_cm": "1.27",
+  "moved_from_card223": [
+    "12.70x20.32",
+    "13.34x20.32",
+    "13.97x21.59",
+    "15.24x22.86",
+    "15.60x23.39",
+    "17.78x25.40",
+    "19.05x23.50",
+    "20.32x25.40",
+    "21.59x27.94"
+  ],
+  "moved_from_card223_note": "All nine, measured trim by trim against CARD-223's recording before this file was written, not asserted from the change's intent. Nine of nine is the expected shape here: the placement change applies to every drawing on every sheet, so a trim that did NOT move would be the surprise \u2014 the opposite of CARD-223's own recording, where three pages moving and ten staying byte-identical was the evidence.",
+  "digests": {
+    "12.70x20.32": [
+      "25aa7daa80647e6c25c4b2bc90c9e95a138e60d8259d554b26e94f423e4042be",
+      "867560a242363aabe4a068b06fbfa118f59378fa63c2434c5e3ceb412c6f09a3"
+    ],
+    "13.34x20.32": [
+      "93c5430ca711b77610abfe5399f723d3dc1c690cfd818c6bdba42c9785edf1a7",
+      "37b534b7fce2a55a4e1f8cc3b7ae08b9f540bf41461605b989351d2a6f7be49a"
+    ],
+    "13.97x21.59": [
+      "32a6b2a272e7e3f3e6609157093c1da805e40a00820b3f3e406320e9cf69e271",
+      "b7ac42f48c1eb6794b2b4f5d2e4a3ebcd89b59602b2cd8849c6f18628e9f89ab"
+    ],
+    "15.24x22.86": [
+      "3d97f3bc487c13fc0f6e460b0f0d9f9aa018a306445a01c92e503918e65fc97f",
+      "9f758909729b41ee14931a53a9b9a3eb805c553a6183b609266d117690a0940b"
+    ],
+    "15.60x23.39": [
+      "c2eacc329b5f31146a97c2a3226f561b7047896e3fc6fb9d59f6a4331fe31b5d",
+      "e6f8364406d740f07f80bc3563b79d9ff14d1fa58493b0a2c21a6adf96243569"
+    ],
+    "17.78x25.40": [
+      "c8ca7ad2a97a0c654599a014a1c348272871569be5497cf36429b30f4d6e103c",
+      "6e3b2d2d1fe0895075b325c15df376d8ff180f89048e9dfa2b4e00a8a7760b47"
+    ],
+    "19.05x23.50": [
+      "257cf61d63864fd6632e5b5b7bb23739467f624c14cff0eb384ff4377778a165",
+      "8fcc8e5d0aa9b24bbd88e9f27265921369d5d1f907e1f8c9f39c3e3e5671fe2e"
+    ],
+    "20.32x25.40": [
+      "a14bdc85b2de94baa38e3283748b56f712193f7f04566aedd1ce2334fb9ad37d",
+      "0864f1d60e08dd7c223aceb725133251afc902518a4fae864bc865d3b4e60e27"
+    ],
+    "21.59x27.94": [
+      "9e93ce0b0aed20495bd36132aeab782586df7632479a2cb2e4db8e0d4a24df6d",
+      "0b812ff1eeaa5cc9dc01a006ba119ea712fea05dea5e8a963eaf20adb3b35fad"
+    ]
+  }
+}

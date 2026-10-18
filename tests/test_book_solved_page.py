@@ -835,15 +835,26 @@ class TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin:
     extends left past ``placement.drawing_left``. A caption is as wide as the
     picture's name, which nothing bounds (``books.puzzle_titles`` is free
     text from the Arrangement step), while a grid is as wide as the puzzle —
-    so the two are not ordered. While the drawing was centred, that overhang
-    spent the page's own horizontal spare and stayed inside the usable area;
-    under CARD-204 an EVEN page's drawing is flush with the outer margin
-    (``drawing_left == usable_left``), so the overhang crosses it. Measured
-    before the fix on this shape: the caption's leftmost ink at column **0**
-    against ``usable_left`` 113 — 9.6 mm of a reader-facing name printed into
-    the trim margin and running off the page, on both the left-hand page
-    (``_OVER_GRID_TITLE``) and, for a caption wider than the whole usable
-    area, the right-hand one too (``_OVER_PAGE_TITLE``).
+    so the two are not ordered. Under CARD-204 an EVEN page's drawing was
+    flush with the outer margin (``drawing_left == usable_left``), so any
+    overhang at all crossed it. Measured before the fix on this shape: the
+    caption's leftmost ink at column **0** against ``usable_left`` 113 —
+    9.6 mm of a reader-facing name printed into the trim margin and running
+    off the page.
+
+    **CARD-224 (AC-5, G-3): the clamp is kept, it still fires, and the width
+    at which it fires has moved.** Centring the drawing again gives it half
+    the page's spare on its left — 461 px on this shape — so a caption has to
+    overhang its own grid by more than that before it reaches the margin.
+    ``_OVER_GRID_TITLE`` (1705 px against a 1328 px drawing) no longer does:
+    it is now the *control* that shows the restored spare absorbing an
+    overhang, exactly as this module's docstring says it did before CARD-204.
+    ``_OVER_SPARE_TITLE`` (2190 px) is the caption that spends the whole
+    spare and lands on ``usable_left``, so the clamp-only regime stays
+    exercised rather than quietly becoming vacuous; ``_OVER_PAGE_TITLE``
+    (3032 px) still exercises the clip. All three widths are asserted below
+    against the page's own measurements, so none of them can drift into
+    another regime unnoticed.
 
     **The fix** is :func:`~nonogram.export.layout.caption_slot`: the
     caption's right edge is pushed right by exactly the overhang and no more,
@@ -865,6 +876,16 @@ class TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin:
     #: Book 1's own usable width (2287 px) — the regime the clamp alone
     #: answers, with the caption's text untouched.
     _OVER_GRID_TITLE = "A Snowflake Over The Frozen Pine Woods At Midnight In Deep Winter"
+
+    #: A name whose caption (measured: 2190 px) is wider than the drawing's
+    #: right edge is from the usable area's left one (1789 px on this shape)
+    #: but still narrower than the usable width (2250 px): the caption that
+    #: reaches the margin under CARD-224's centring, and so the one the clamp
+    #: alone has to answer.
+    _OVER_SPARE_TITLE = (
+        "A Snowflake Over The Frozen Pine Woods At Midnight In Deep Winter "
+        "While The Owls Watch"
+    )
 
     #: A name whose caption is wider than the whole usable area (measured:
     #: 3032 px against 2287/2288 px) — the regime no x can answer, where the
@@ -914,23 +935,36 @@ class TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin:
         return font.getlength(answer_caption(cls._PUZZLE_NUMBER, title))
 
     @pytest.mark.parametrize("page_number", [2, _RIGHT_HAND_PAGE_NUMBER])
-    def test_the_two_titles_really_are_too_wide_for_this_shape(self, page_number):
-        """The premise, on both parities: one caption wider than its own
-        grid, the other wider than the whole usable area."""
+    def test_the_three_titles_really_are_in_the_three_regimes(self, page_number):
+        """The premise, on both parities, in the three widths CARD-224 leaves:
+        one caption wider than its own grid but still inside the spare, one
+        that spends the spare and reaches the margin, one wider than the whole
+        usable area."""
         _, layout, generator = self._render(page_number, self._OVER_GRID_TITLE)
         placement = layout.page
         drawing_width = placement.drawing_right - placement.drawing_left
         usable_width = placement.usable_right - placement.usable_left
+        #: How wide a right-aligned caption can be before its left edge
+        #: crosses ``usable_left``: the drawing's right edge measured from
+        #: that margin.
+        room = placement.drawing_right - placement.usable_left
 
         over_grid = self._caption_width(generator, self._OVER_GRID_TITLE)
+        over_spare = self._caption_width(generator, self._OVER_SPARE_TITLE)
         over_page = self._caption_width(generator, self._OVER_PAGE_TITLE)
-        assert drawing_width < over_grid < usable_width, (
-            "_OVER_GRID_TITLE must exercise the clamp and not the clip"
+        assert drawing_width < over_grid < room, (
+            "_OVER_GRID_TITLE must overhang its grid and still clear the "
+            "margin: it is the control for the spare centring restores"
+        )
+        assert room < over_spare < usable_width, (
+            "_OVER_SPARE_TITLE must exercise the clamp and not the clip"
         )
         assert over_page > usable_width, "_OVER_PAGE_TITLE must exercise the clip"
 
     @pytest.mark.parametrize("page_number", [2, _RIGHT_HAND_PAGE_NUMBER])
-    @pytest.mark.parametrize("title_name", ["_OVER_GRID_TITLE", "_OVER_PAGE_TITLE"])
+    @pytest.mark.parametrize(
+        "title_name", ["_OVER_GRID_TITLE", "_OVER_SPARE_TITLE", "_OVER_PAGE_TITLE"]
+    )
     def test_no_caption_ink_leaves_the_usable_area(self, page_number, title_name):
         title = getattr(self, title_name)
         arr, layout, generator = self._render(page_number, title)
@@ -947,13 +981,14 @@ class TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin:
     @pytest.mark.parametrize(
         "page_number, title_name",
         [
-            # An EVEN page's drawing is flush with the LEFT (outer) margin,
-            # so a caption merely wider than its grid already reaches it.
-            (2, "_OVER_GRID_TITLE"),
+            # CARD-224: the drawing is centred on both parities, and on
+            # CON-018 as amended the two side margins are equal, so the two
+            # parities are the same geometry and the clamp fires at the same
+            # caption width on each. Both are swept rather than one, so a
+            # future card that makes them differ again shows up here.
+            (2, "_OVER_SPARE_TITLE"),
             (2, "_OVER_PAGE_TITLE"),
-            # An ODD page's drawing is flush RIGHT and has the whole gutter
-            # side to overhang into, so only a caption as wide as the usable
-            # area itself reaches that page's left margin.
+            (_RIGHT_HAND_PAGE_NUMBER, "_OVER_SPARE_TITLE"),
             (_RIGHT_HAND_PAGE_NUMBER, "_OVER_PAGE_TITLE"),
         ],
     )
@@ -979,23 +1014,39 @@ class TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin:
         bearing = 48
         assert placement.usable_left <= columns.min() <= placement.usable_left + bearing
 
-    def test_a_right_hand_page_absorbs_the_same_overhang_without_a_clamp(self):
-        """The parity asymmetry, stated rather than left implicit: the same
-        caption that has to be clamped on a left-hand page needs no clamp on
-        a right-hand one, because *that* page's drawing is flush with the
-        right margin and the whole gutter-side strip is spare. So the clamp
-        is not a blanket "captions are left-aligned now" — it fires exactly
-        where the flush edge takes the overhang's room away."""
-        arr, layout, generator = self._render(
-            _RIGHT_HAND_PAGE_NUMBER, self._OVER_GRID_TITLE
-        )
+    @pytest.mark.parametrize("page_number", [2, _RIGHT_HAND_PAGE_NUMBER])
+    def test_a_page_absorbs_an_overhang_inside_its_own_spare_without_a_clamp(
+        self, page_number
+    ):
+        """The clamp is not a blanket "captions are left-aligned now": a
+        caption that overhangs its own grid but stays inside the page's spare
+        keeps CARD-203's right-alignment exactly, on either parity.
+
+        **CARD-224 restated this from a parity asymmetry.** Until this card
+        the same ``_OVER_GRID_TITLE`` had to be clamped on a left-hand page
+        and not on a right-hand one, because CARD-204's flush anchor gave an
+        EVEN page's drawing no left-hand spare and an ODD page's all of it.
+        Centring splits the spare evenly, and on CON-018 as amended the two
+        side margins are equal, so the two parities are now the same geometry
+        — the identity the registry's note on EC-032 warns a reviewer not to
+        read as evidence of mirroring. Both are therefore asserted to behave
+        the same way, which is a claim about the alignment rather than about
+        the parity."""
+        arr, layout, generator = self._render(page_number, self._OVER_GRID_TITLE)
         placement = layout.page
         columns = self._caption_ink_columns(arr, placement, generator)
         assert columns.max() <= placement.drawing_right + 4
         assert columns.max() >= placement.drawing_right - 6
-        assert columns.min() > placement.usable_left + 100, (
+        # Right-aligned at the drawing's own edge, so the left edge is that
+        # edge less the caption's measured width — inside the margin, with
+        # the spare it did not spend (84 px here) to go. A clamped caption
+        # would start at ``usable_left`` instead, 84 px further left.
+        width = self._caption_width(generator, self._OVER_GRID_TITLE)
+        unclamped_left = placement.drawing_right - width
+        assert unclamped_left > placement.usable_left, (
             "this page's own spare should absorb the overhang entirely"
         )
+        assert abs(columns.min() - unclamped_left) <= 48, (columns.min(), unclamped_left)
 
     @pytest.mark.parametrize("page_number", [2, _RIGHT_HAND_PAGE_NUMBER])
     def test_a_caption_too_wide_for_the_page_is_clipped_and_still_names_the_puzzle(

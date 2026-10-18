@@ -185,26 +185,27 @@ def _puzzle_page_plan(puzzles):
 
 def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, *, is_lower=False):
     """Where interior page ``page_number`` puts this puzzle's left edge
-    (FR-032, CARD-204 reading (b)).
+    (FR-032, as CARD-224 restores it).
 
     The drawing is ``clue depth + grid`` cells across at ``min(standard cell,
-    page fit)``, right-aligned across the usable width — flush with the
-    *outer* margin, mirrored by parity: flush right (gutter on the left) on
-    a right-hand (odd) page, flush left (gutter on the right) on a left-hand
-    one. ``cell_mm`` overrides the cell with the pair's shared one when the
-    puzzle is a slot of a two-up page (FR-040); its drawing is right-aligned
-    across the same usable width either way.
+    page fit)``, **centred** across the usable width — half this page's spare
+    in from whichever margin parity puts on its left, so parity moves the
+    usable area and never the alignment. ``cell_mm`` overrides the cell with
+    the pair's shared one when the puzzle is a slot of a two-up page (FR-040);
+    a slot is centred across that same usable width either way.
 
-    **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a fixed
-    constant by Fix 4 — owner decision, 2026-10-12, "fixed universal
-    reserve").** ``is_lower`` (``True`` only for the lower slot of a two-up
-    page — this helper's one caller never sets it for a single page or the
-    upper slot) shifts the drawing :data:`RESERVE_MM` toward the gutter,
-    re-deriving :func:`~nonogram.export.layout._slot_layout`'s own
-    ``outer_reserve_px`` shift independently, in millimetres. Fix 3 had
-    removed this entirely (a two-up page's lower slot sat at the plain
-    flush position with no reserve); Fix 4 restores it as a *fixed* amount,
-    never a page/book-specific one.
+    **History.** Between CARD-204 and CARD-224 the drawing was flush with the
+    *outer* margin, mirrored by parity, and the lower slot of a two-up page
+    was then shifted :data:`RESERVE_MM` back toward the gutter to leave
+    CARD-200's folio its corner (Fix 1/Fix 2 derived that amount from a page
+    or a book, Fix 3 removed it, Fix 4 made it a fixed constant — owner
+    decision 2026-10-12). Centring leaves **both** of a slot's sides half its
+    own spare, so the corner is no longer flat against the drawing and that
+    shift is gone with the anchor: ``is_lower`` therefore changes nothing
+    here, and is kept as a parameter so this helper's one caller still names
+    which slot it is asking about. The reserve itself is still taken out of
+    the shared cell's own fit, which is why ``cell_mm`` is unchanged
+    (CARD-224 G-1: FR-040's pairing verdict does not move).
     """
     across = _across(puzzle)
     cell = (
@@ -213,11 +214,8 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, *, is_lower=Fal
         else cell_mm
     )
     spare = USABLE_WIDTH_MM - across * cell
-    reserved = min(RESERVE_MM, max(spare, 0)) if is_lower else 0.0
     left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
-    if page_number % 2:
-        return left_margin + spare - reserved
-    return left_margin + reserved
+    return left_margin + max(spare, 0.0) / 2
 
 
 def _packed_cell_mm(group):

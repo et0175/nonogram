@@ -18,8 +18,9 @@
     Each slot is compute_layout's placed page at the shared cell (no second assembly)
         -> test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell
 
-    CARD-204 (reading (b), right-alignment replacing FR-032's centring):
-    AC-2  PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge
+    CARD-224 (FR-032's centring restored; the named survivor of CARD-204's
+    own AC-2 sweep, PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge):
+    AC-1  PropertyTest_BookTwoUp_SlotsAreCentredAcrossTheUsableWidth
         -> test_PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge
 
 How the expectations are independent
@@ -210,6 +211,26 @@ def _mm(pixels: float) -> float:
     return pixels / PX_PER_MM
 
 
+#: CARD-222's puzzle area and CARD-224's split, in millimetres, written out
+#: rather than imported from ``export.layout`` (the independence every number
+#: in this module keeps): the header rule sits an eighth of the band's depth
+#: above its foot, the footer rule one footer strip above the bottom margin,
+#: and the strip is the QR icon's 2 cm plus its 10 pt line plus a 9 pt gap
+#: above and below.
+HEADER_RULE_LIFT_SHARE = 1 / 8
+POINT_MM = 25.4 / 72
+FOOTER_STRIP_MM = 20.0 + (10.0 + 2 * 9.0) * POINT_MM
+SPARE_ABOVE = 0.42
+
+
+def _puzzle_area_mm(spec: PageSpec) -> tuple[float, float]:
+    """``(header rule, footer rule)`` of ``spec``'s own page, in millimetres."""
+    return (
+        spec.top_mm + spec.band_mm * (1 - HEADER_RULE_LIFT_SHARE),
+        spec.height_mm - spec.bottom_mm - FOOTER_STRIP_MM,
+    )
+
+
 def _every_x(layout: Layout) -> list[int]:
     return (
         [line.position for line in layout.vertical_lines]
@@ -288,7 +309,12 @@ def test_PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea() -> N
         for slot in (pair.upper, pair.lower):
             band = header_band(slot)
             assert slot.page is not None
-            assert band.height == slot.page.drawing_top - slot.page.usable_top
+            assert band.height == slot.page.band_bottom - slot.page.usable_top
+            # A two-up slot's band foot *is* its drawing's top edge: the 42%
+            # float is the single page's (CARD-224; splitting a page's
+            # puzzle area between two slots is CARD-226's).
+            assert slot.page.band_bottom == slot.page.drawing_top
+            assert slot.page.vertical_bound == "slot"
             assert abs(_mm(band.height) - spec.band_mm) <= 2 * HALF_PIXEL_MM + 1e-9
         assert upper.usable_bottom == lower.usable_top
         assert upper.drawing_bottom <= lower.usable_top < lower.drawing_top
@@ -299,26 +325,32 @@ def test_PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea() -> N
             xs, ys = _every_x(slot), _every_y(slot)
             assert slot.page.usable_left <= min(xs) and max(xs) <= slot.page.usable_right
             assert slot.page.drawing_top <= min(ys) and max(ys) <= slot.page.usable_bottom
-            # Right-aligned, mirrored by parity (CARD-204): flush with the
-            # outer margin, within a pixel — the spare collects entirely on
-            # the gutter side.
+            # Centred across the page's one shared usable width (CARD-224):
+            # the spare is split between the two sides, within the pixel two
+            # independent roundings can cost.
             spare_left = slot.page.drawing_left - slot.page.usable_left
             spare_right = slot.page.usable_right - slot.page.drawing_right
-            outer_spare = spare_right if spec.parity is PageParity.ODD else spare_left
-            assert outer_spare <= 2, (spec, spare_left, spare_right)
+            assert abs(spare_left - spare_right) <= 1, (spec, spare_left, spare_right)
     assert paired >= 500, paired
     assert declined >= 500, declined
     assert at_cap >= 100, at_cap
     assert near_threshold <= 5, near_threshold
 
 
-def test_PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge() -> None:
-    """AC-2: each slot of a two-up page anchors the same way AC-1 pins for a
-    single page — flush with the usable area's outer margin, mirrored by
-    parity — and the pair's shared band/rule geometry (INV-010: same tier,
-    adjacent, both fit at a shared cell) is otherwise unaffected: the two
-    slots still share one cell, one set of rule weights, and the midline
-    between them still splits the usable height exactly as before.
+def test_PropertyTest_BookTwoUp_SlotsAreCentredAcrossTheUsableWidth() -> None:
+    """CARD-224: each slot of a two-up page is placed the same way a single
+    page's drawing is — **centred** across the usable width — and the pair's
+    shared band/rule geometry (INV-010: same tier, adjacent, both fit at a
+    shared cell) is otherwise unaffected: the two slots still share one cell,
+    one set of rule weights, and the midline between them still splits the
+    usable height exactly as before.
+
+    **Named survivor of** ``PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge``
+    (CARD-204 AC-2, "flush with the usable area's outer margin, mirrored by
+    parity"), whose claim this card reverses: same corpus, same two parities,
+    the opposite verdict. The two cannot both hold — a flush slot's two side
+    gaps differ by its whole spare, which on this corpus is hundreds of
+    pixels on most pairs.
     """
     rng = random.Random(2204002)
     paired = 0
@@ -333,10 +365,10 @@ def test_PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge() -> None:
         for slot in (pair.upper, pair.lower):
             page = slot.page
             assert page is not None
-            if page.parity is PageParity.ODD:
-                assert abs(page.drawing_right - page.usable_right) <= 1, (spec, page)
-            else:
-                assert abs(page.drawing_left - page.usable_left) <= 1, (spec, page)
+            left_gap = page.drawing_left - page.usable_left
+            right_gap = page.usable_right - page.drawing_right
+            assert abs(left_gap - right_gap) <= 1, (spec, left_gap, right_gap)
+            assert left_gap >= 0 and right_gap >= 0, (spec, left_gap, right_gap)
 
         # INV-010's own geometry (shared cell, shared rule weights, the
         # midline between the slots) is untouched by this card: it was
@@ -377,12 +409,22 @@ def test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve() -> None:
     CARD-200's folio was lost everywhere rather than occasionally. Here the
     whole corpus is checked, at two different fixed reserves:
 
-    * the lower slot's own gap at the outer corner is **exactly** the
-      reserve — not "at least zero", not "usually" — which is what makes
-      ``_draw_folio``'s horizontal clearance check pass on every two-up
-      page;
-    * the upper slot is still perfectly flush (the reserve is the lower
-      slot's alone, G-1/G-6: nothing else about the page moves);
+    * the lower slot's whole **spare** is at least the reserve on every pair
+      — the fit's own guarantee, which is what the reserve buys and what this
+      card leaves untouched (CARD-224 G-1) — and centring puts **half** of it
+      at the outer corner. Until CARD-224 the corner gap *was* the reserve
+      exactly, because the slot was pinned flush and then shifted back by it;
+      the gap is now half the spare, which can be as little as half the
+      reserve. That is enough for the one- to three-digit folio any real book
+      prints and, more to the point, is no longer the path a two-up page's
+      folio takes at all: since CARD-248 every two-up page reserves a footer
+      strip and sets its folio centred on the footer line, and the corner is
+      only reached by a pair laid out without that strip — which nothing in
+      production does. A pair *and* a four-digit page number *and* no footer
+      strip would lose the folio to the omission guard; it is recorded here
+      rather than left to be discovered;
+    * both slots are centred, so the upper slot's corner holds the same room
+      as the lower slot's;
     * the same pair gets the same verdict and the same cell on ODD and EVEN
       pages alike, and the cell is the independently re-derived
       ``_expected_shared_cell_mm`` of either the plain spec (when the lower
@@ -441,25 +483,33 @@ def test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve() -> None:
                 expected,
             )
 
-            # (b) Every page really keeps its folio room — the lower slot's
-            # outer corner, in whichever direction this parity's outer
-            # margin lies, and the upper slot still dead flush.
+            # (b) Every page still keeps at least its folio room at the
+            # lower slot's outer corner — **CARD-224**: by centring rather
+            # than by the anchor shift that used to make the gap exactly the
+            # reserve, so the claim is ">= the reserve, and equal to half the
+            # slot's own spare". Both slots are centred, so the upper slot's
+            # own corner now holds the same room as the lower one's, which is
+            # strictly more than the reserve ever bought.
             for parity, pair in pairs.items():
                 upper, lower = pair.upper.page, pair.lower.page
-                if parity is PageParity.ODD:
-                    assert upper.drawing_right == upper.usable_right, (spec, reserve)
-                    assert lower.usable_right - lower.drawing_right == reserve, (
-                        spec,
-                        reserve,
-                        lower.usable_right - lower.drawing_right,
-                    )
-                else:
-                    assert upper.drawing_left == upper.usable_left, (spec, reserve)
-                    assert lower.drawing_left - lower.usable_left == reserve, (
-                        spec,
-                        reserve,
-                        lower.drawing_left - lower.usable_left,
-                    )
+                for slot in (upper, lower):
+                    left_gap = slot.drawing_left - slot.usable_left
+                    right_gap = slot.usable_right - slot.drawing_right
+                    assert abs(left_gap - right_gap) <= 1, (spec, reserve)
+                outer_gap = (
+                    lower.usable_right - lower.drawing_right
+                    if parity is PageParity.ODD
+                    else lower.drawing_left - lower.usable_left
+                )
+                lower_spare = (lower.usable_right - lower.usable_left) - (
+                    lower.drawing_right - lower.drawing_left
+                )
+                # The fit's own guarantee, which is what the reserve now
+                # buys and is unchanged (G-1): the lower slot's whole spare
+                # is at least the reserve.
+                assert lower_spare >= reserve - 1, (spec, reserve, lower_spare)
+                # And centring puts half of it at the outer corner.
+                assert abs(outer_gap - lower_spare / 2) <= 1, (spec, reserve, outer_gap)
     for reserve, count in checked.items():
         assert count >= 200, (reserve, count)
     # The re-fit branch is not dead code in this corpus: some pairs really do
@@ -660,9 +710,19 @@ def test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell() -> Non
     layout of the same puzzle on the same trim with the cap lowered to the
     shared cell — every ruled line (its index, major/minor role, width, and its
     position and extent), every clue entry, both stroke widths, the clue font
-    size, the drawing's left and top edges, and the cell itself. Any drift
+    size, the drawing's left edge, and the cell itself. Any drift
     between ``_slot_layout`` and ``compute_layout``'s placed-page assembly
     shows up here rather than in one example.
+
+    **CARD-224: vertically the two are now one translation apart.** A single
+    page's drawing floats at 42% of its puzzle area's spare height while a
+    slot's sits at its slot's band foot, so every ``y`` below is compared
+    after subtracting the one offset between the two drawings' top edges
+    (measured once, from those two edges) — a shift, not a loosened
+    tolerance: the x axis, the widths, the majors, the indices, the clue
+    values and the font size are still compared as they were, and the offset
+    itself is asserted to be the float's own figure rather than taken on
+    trust.
 
     The one licensed difference is a pixel. ``compute_layout`` is re-fitted from
     the cap handed to it, a ``float``; the pair's own pitch is the exact
@@ -701,6 +761,24 @@ def test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell() -> Non
         exact += at_cap
         fitted += not at_cap
 
+        # CARD-224's one licensed difference: the single page's own float.
+        # Measured off the two drawings' top edges, and checked to be the
+        # 42% figure (within the pixel each side rounds by) rather than
+        # whatever difference happened to be there.
+        shift = single.page.drawing_top - pair.upper.page.drawing_top
+        area_top, area_bottom = _puzzle_area_mm(spec)
+        down = _depth(first[1]) + len(first[0])
+        spare_mm = (area_bottom - area_top) - down * single.page.cell_mm
+        if single.page.vertical_bound == "ratio":
+            expected_shift_mm = (
+                area_top + SPARE_ABOVE * spare_mm - (spec.top_mm + spec.band_mm)
+            )
+        else:
+            expected_shift_mm = 0.0
+        assert abs(_mm(shift) - expected_shift_mm) <= 3 * HALF_PIXEL_MM + 1e-9, (
+            spec, shift, expected_shift_mm
+        )
+
         slot_lines, single_lines = pair.upper.grid_lines, single.grid_lines
         assert len(slot_lines) == len(single_lines)
         for mine, theirs in zip(slot_lines, single_lines, strict=True):
@@ -709,15 +787,21 @@ def test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell() -> Non
                 theirs.major,
                 theirs.width,
             )
-            assert abs(mine.position - theirs.position) <= tolerance
-            assert abs(mine.start - theirs.start) <= tolerance
-            assert abs(mine.end - theirs.end) <= tolerance
+            # A vertical line's position is an x and does not move; a
+            # horizontal one's is a y and moves by the shift, as do both
+            # ends of a vertical line.
+            vertical = mine in pair.upper.vertical_lines
+            position_shift = 0 if vertical else shift
+            end_shift = shift if vertical else 0
+            assert abs(mine.position + position_shift - theirs.position) <= tolerance + 1
+            assert abs(mine.start + end_shift - theirs.start) <= tolerance + 1
+            assert abs(mine.end + end_shift - theirs.end) <= tolerance + 1
         slot_clues, single_clues = pair.upper.clue_entries, single.clue_entries
         assert len(slot_clues) == len(single_clues)
         for mine_clue, theirs_clue in zip(slot_clues, single_clues, strict=True):
             assert mine_clue.value == theirs_clue.value
             assert abs(mine_clue.center_x - theirs_clue.center_x) <= tolerance
-            assert abs(mine_clue.center_y - theirs_clue.center_y) <= tolerance
+            assert abs(mine_clue.center_y + shift - theirs_clue.center_y) <= tolerance + 1
         assert (pair.upper.thin_rule, pair.upper.thick_rule) == (
             single.thin_rule,
             single.thick_rule,
@@ -726,7 +810,6 @@ def test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell() -> Non
         # function of the pitch alone, so it matches exactly in both regimes.
         assert pair.upper.clue_font_size == single.clue_font_size
         assert abs(pair.upper.page.drawing_left - single.page.drawing_left) <= tolerance
-        assert abs(pair.upper.page.drawing_top - single.page.drawing_top) <= tolerance
         checked += 1
     assert checked >= 400, checked
     assert exact >= 100, exact

@@ -348,16 +348,19 @@ class TestBookProof_TwoTrimSizedPagesAtExpectedCells:
 
         So the owner sees both mirrorings on the two sheets in hand. Page 1's
         30x30 fills the usable width, so its drawing starts at the gutter
-        margin regardless of alignment; page 2's 15x15 is narrower and
-        (CARD-204, reading (b)) is flush with the *outside* margin on this
-        even page — exactly at it, 12.7 mm from the trim edge since CON-018's
-        margins were amended (9.525 mm before), not centred in the usable area
-        the way Increment 13's checkpoint (23.875 mm) measured under the old
-        rule.
+        margin whatever the alignment; page 2's 15x15 is narrower and
+        (CARD-224, FR-032's own centring restored) sits **half its spare** in
+        from the outside margin on this even page — 25.48 mm from the trim
+        edge on CON-018's amended margins, where CARD-204's flush-left anchor
+        put it exactly on the margin (12.7 mm) and Increment 13's checkpoint,
+        under the original centring and the original margins, measured
+        23.875 mm.
         """
         odd, even = (drawing_of(page) for page in pdf_pages(book1_pdf))
         assert odd.left / PX_PER_MM == pytest.approx(GUTTER_MM, abs=0.1)
-        assert even.left / PX_PER_MM == pytest.approx(OUTSIDE_MM, abs=0.05)
+        # 15x15 with 7-deep clues: 22 cells at the 7.5 mm cap is 165 mm of a
+        # 190.5 mm usable width, so half the 25.5 mm spare is 12.75 mm.
+        assert even.left / PX_PER_MM == pytest.approx(OUTSIDE_MM + 12.75, abs=0.05)
 
 
 # --------------------------------------------------------------------------
@@ -1358,7 +1361,21 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     The digests were recorded from main (b05c443) before CARD-172 changed
     ``book_proof.py``; the fixture says how.
 
-    **CARD-223:** the fixture this class reads against is now
+    **CARD-224:** the fixture this class reads against is now
+    ``proof_baseline_card224.json``. That card reverses CARD-204's central
+    decision — the drawing is centred across the usable width again — and
+    floats it at 42% of CARD-222's puzzle-area spare height instead of pinning
+    it to the band's foot (FR-032 as amended 2026-10-17, AC-366/AC-367, with
+    AC-190 retired). A proof page is drawn through the same ``render_pages``
+    call a real interior page uses, so both moves reach it: **all nine**
+    portrait trims move, which is the one shape this chain expects of a
+    placement change (where CARD-223's own recording expected, and got, three
+    moved pages and ten byte-identical ones). ``book_proof.py`` itself is
+    untouched by this card — what changed under the page is COMP-007's answer,
+    which is exactly what this comparison exists to make visible. All
+    superseded fixtures stay.
+
+    **CARD-223:** the fixture before that was
     ``proof_baseline_card223.json``. That card moves the placeholder QR icon
     from the gutter-side strip to the footer's **outer** bottom corner, and
     tightens its room check from two centimetres of slack below the drawing
@@ -1392,6 +1409,12 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     """
 
     BASELINE = json.loads(
+        (Path(__file__).parent / "fixtures" / "proof_baseline_card224.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    CARD223_BASELINE = json.loads(
         (Path(__file__).parent / "fixtures" / "proof_baseline_card223.json").read_text(
             encoding="utf-8"
         )
@@ -1409,15 +1432,21 @@ class TestBookProof_PortraitProofsAreByteIdentical:
         )
     )
 
-    def test_every_trim_moved_off_the_card222_recording(self) -> None:
-        """The attribution, measured rather than written down (CARD-223).
+    def test_every_trim_moved_off_the_card223_recording(self) -> None:
+        """The attribution, measured rather than written down (CARD-224).
 
-        Moving the QR icon to the outer corner must have moved every one of
-        these trims — if one of them still matched CARD-222's recording, the
-        move never reached that trim and this class's new reference would be
-        pinning the wrong thing.
+        Centring the drawing and floating it at 42% of the puzzle area's spare
+        must have moved every one of these trims — if one of them still
+        matched CARD-223's recording, the move never reached that trim and
+        this class's new reference would be pinning the wrong thing.
         """
-        assert set(self.BASELINE["moved_from_card222"]) == set(self.BASELINE["digests"])
+        assert set(self.BASELINE["moved_from_card223"]) == set(self.BASELINE["digests"])
+        for key, digests in self.BASELINE["digests"].items():
+            assert digests != self.CARD223_BASELINE["digests"][key], key
+
+    def test_every_trim_also_differs_from_the_card222_recording(self) -> None:
+        """The older link in the chain, kept: CARD-223's own move took every
+        trim off CARD-222's recording and nothing since has moved one back."""
         for key, digests in self.BASELINE["digests"].items():
             assert digests != self.CARD222_BASELINE["digests"][key], key
 

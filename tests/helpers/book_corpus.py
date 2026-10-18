@@ -518,11 +518,40 @@ OUTSIDE_MM = 0.5 * 25.4
 #:   is the cost this card measures and the reason the suite's own two-up
 #:   fixtures were re-chosen.
 #:
-#: All nineteen files carry the reasoning; this constant names the current one
-#: (nineteen since CARD-248's own recording joined the eighteen CARD-223 had
+#: * ``book_baseline_card224.json`` — CARD-224 reverses CARD-204's central
+#:   decision and amends FR-032's other clause: the drawing is **centred**
+#:   across the usable width again (CARD-204 had pinned it flush to the outer
+#:   margin to free the gutter-side strip for the QR icon, and CARD-223 moved
+#:   that icon into the footer, so nothing reads the strip), and vertically it
+#:   **floats at 42% of CARD-222's puzzle-area spare height** instead of
+#:   sitting at the fixed top edge FR-032 asked for until the amendment of
+#:   2026-10-17 (AC-190 retired with its test; AC-366/AC-367 state the new
+#:   truth). 42% is the owner's optical figure — "which looks centred once the
+#:   header sits above it" — and the defect it closes is the artifact's issue
+#:   2: "on most pages the lower third of the page is empty (pp. 28, 75,
+#:   125), so the page looks unbalanced".
+#:
+#:   ``changed_pages`` is **1, 2, 5, 7, 9 and 13**. 5 is the two-up page (both
+#:   slots centred again), 7 and 9 the two single puzzle pages, and 13
+#:   Snowflake's own full answer page — which CARD-204 left unmoved only
+#:   because its horizontal spare is exactly zero, while its *vertical* spare
+#:   is not, so the float reaches it and takes CARD-203's caption with it. 1
+#:   and 2 are the guide pages: the exception this chain has carried since
+#:   CARD-204, where the worked-example diagrams borrow the book's own cell
+#:   pitch through ``compute_layout`` on the placed sheet, are cropped tight
+#:   and pasted at a fixed margin, and so scatter by at most one pixel when
+#:   the absolute anchor's fractional part moves. The pages that did **not**
+#:   move are this recording's own control: the TOC (3), the dividers and
+#:   SOLUTIONS (4, 6, 8, 10) and the two **packed** answer pages (11, 12),
+#:   whose tiles are centred in their own tile boxes by
+#:   ``_packed_tile_layout`` — a formula FR-032's page-wide clause was never
+#:   about. ``interior_bytes`` 3354646 -> 3369797.
+#:
+#: All twenty files carry the reasoning; this constant names the current one
+#: (twenty since CARD-224's own recording joined the nineteen CARD-248 had
 #: brought the chain to; the stale counts this line used to carry,
 #: "thirteen" and "twelve", were both left behind by earlier cards).
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card248.json"
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card224.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until

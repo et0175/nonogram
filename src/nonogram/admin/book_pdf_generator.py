@@ -1994,6 +1994,23 @@ def _draw_folio(
     reserved room really arrived — not a gamble on leftover slack, and not a
     check that only tight pairs can fail.
 
+    **CARD-224 corrects the paragraph above twice over, and the mechanism
+    survives both corrections.** (a) Slots *are* centred again — that card
+    restores FR-032's own clause, so each slot leaves ``max(spare, 0) / 2``
+    on **both** of its sides and the reserve no longer shifts either slot's
+    placement; it is still taken out of the shared cell's own fit, so the
+    room at the corner is now half the lower slot's spare, which is at least
+    half the reserve and usually several times it. (b) Since CARD-248 a
+    two-up page reserves a whole footer strip, so its folio is set **centred
+    on the footer line** and never reaches this corner at all: the corner
+    path is the documented fallback for a pair laid out without that strip,
+    which nothing in production builds. So this check is still the one that
+    decides, it still cannot fire on a page with room, and the one geometry
+    it could now refuse — a four-digit page number on a cornered two-up page
+    whose lower slot has little spare — is recorded in
+    ``tests/property/test_book_two_up.py`` rather than left to be
+    discovered.
+
     ``content_right``/
     ``content_left`` (the content's own rightmost/leftmost pixel — e.g.
     ``placement.drawing_right``/``drawing_left``) are read **only** when
@@ -2091,10 +2108,21 @@ def _draw_page_frame(
 
     **The header rule is unconditional. The footer group is all-or-nothing.**
     A drawing fitted flush to the bottom margin — which a two-up page's lower
-    slot is by construction (:class:`~nonogram.export.layout.PairLayout`: "its
-    drawing's bottom edge is the bottom margin"), and which a page-fit-bound
+    slot was by construction until CARD-248 reserved it a footer strip
+    (:class:`~nonogram.export.layout.PairLayout`), and which a page-fit-bound
     single puzzle can be — would be crossed by the hairline and overprinted by
-    a centred folio. Where ``content_bottom`` reaches below the footer rule the
+    a centred folio.
+
+    **Since CARD-224 this condition and the layout's own verdict are the same
+    question.** A single page's drawing floats at 42% of the puzzle area's
+    spare height, so it reaches below the footer rule on exactly the pages
+    whose area cannot hold it at all — the pages
+    :attr:`~nonogram.export.layout.PagePlacement.vertical_bound` reports as
+    ``"footer"``, where that card's own rule degrades to "as low as it fits"
+    and holds the drawing at the band's foot. The two are not wired together
+    (this function is handed a pixel, not a verdict, and keeps deciding from
+    the pixel), but they agree by construction, which is what makes "no
+    drawing ink crosses a rule that is drawn" true of every page. Where ``content_bottom`` reaches below the footer rule the
     rule, the label and the centred folio are therefore **all** omitted and the
     page keeps CARD-200's bottom-outer-corner folio instead, which is the
     corner :func:`_folio_reserve_px` already reserves room in. One condition,
@@ -4893,10 +4921,12 @@ class BookPDFGenerator:
         "whatever height the pair leaves spare falls between the two slots",
         never below the lower one). ``usable_left``/``usable_right`` do not
         differ between the two slots either way (both are placed against
-        the page's one shared usable width — flush with its outer margin by
-        parity since CARD-204, each slot's own ``usable_*`` fields identical;
-        it is the *drawing* inside the lower slot that the folio reserve pulls
-        in, never the slot's usable box), so reading all four off ``lower.page``
+        the page's one shared usable width — **centred** across it since
+        CARD-224, which restores FR-032's own clause and ends the flush-outer
+        anchor CARD-204 had introduced; each slot's own ``usable_*`` fields
+        are identical either way, and since centring the folio reserve no
+        longer pulls the lower slot's drawing in at all), so reading all four
+        off ``lower.page``
         alone is both correct and sufficient — one call, not a slot-by-slot
         one as the loop above intentionally avoids already.
 
@@ -4921,9 +4951,20 @@ class BookPDFGenerator:
         slot's always-zero vertical slack alone: see that function's own
         docstring for the exact rule.
 
+        **CARD-224: both halves of that corner story are now historical.**
+        Centring every slot again leaves the lower slot half its own spare on
+        each side, so its drawing is not flat against either margin; and
+        CARD-248's footer strip means this page's folio is centred on the
+        footer line rather than placed in a corner. ``content_right``/
+        ``content_left`` are still passed — the fallback is still reachable
+        for a pair built without the strip, and a caller that stopped passing
+        them would silently widen the omission rule — but on every page this
+        panel actually prints they decide nothing.
+
         **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a
         fixed constant by Fix 4 — owner decision, 2026-10-12, "fixed
-        universal reserve").** Under reading (b)'s flush alignment with no
+        universal reserve"; and CARD-224, which ends the alignment the whole
+        mechanism answered).** Under reading (b)'s flush alignment with no
         reserve, ``lower.page.drawing_right``/``drawing_left`` lands
         *exactly* on ``usable_right``/``usable_left`` on **every** two-up
         page, not just when the lower slot happens to be the pair's
@@ -5155,8 +5196,10 @@ class BookPDFGenerator:
         from it, both deliberately and both toward the margin the ink would
         otherwise cross: a caption wider than its grid is held off the
         usable area's left edge instead of printing into the trim margin
-        (which it did on an ``EVEN`` page from the moment this card placed
-        the drawing flush with that edge); and on a page too small for its
+        (which it did on an ``EVEN`` page from the moment CARD-204 placed the
+        drawing flush with that edge, and still does for a long enough name
+        now that CARD-224 has centred it again — half a page's spare is a
+        wider allowance, not an unbounded one); and on a page too small for its
         puzzle, where the ``MIN_CELL_MM`` floor puts ``drawing_right``
         *past* ``usable_right`` (``fits`` False — AC-3's own regime), the
         caption stops at ``usable_right`` rather than following the drawing
@@ -5247,9 +5290,13 @@ class BookPDFGenerator:
             caption = answer_caption(puzzle_number, title)
             # CARD-204 Fix 7: where the caption's right edge goes is COMP-007's
             # to say, not this renderer's (ADR-0036/R2) — a caption wider than
-            # its own grid would otherwise overhang `drawing_left`, which is
-            # this page's own outer margin since this card placed the drawing
-            # flush with it. What stays here is what only this module knows:
+            # its own grid would otherwise overhang `drawing_left`. CARD-204
+            # made that overhang land in the trim margin by placing the
+            # drawing flush with it; CARD-224 centres the drawing again, so
+            # half the page's spare is back on that side and the clamp binds
+            # later — but it still binds, because a picture's name is
+            # unbounded and a grid is not (that card's AC-5/G-3).
+            # What stays here is what only this module knows:
             # the face, and therefore the text's own width. A caption too wide
             # for the usable area at all is clipped to the measure COMP-007
             # reports, the same way `create_toc_page` clips a long label
