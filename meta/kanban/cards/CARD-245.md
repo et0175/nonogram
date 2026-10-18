@@ -851,3 +851,37 @@ carries reviewer-grade adversarial evidence of its own — 8 mutants against the
 false positives excluded three ways including byte-identical verdict sets, and a dedicated
 killer per control. The AC/EC/G gate and the merge gate close the card. Counting cycles: **2 of
 3 used.**
+
+### [AC/EC/G gate] PASSED — every criterion's named test collects, none vacuous (2026-10-18)
+
+Run by the orchestrator, not an agent, because the failure mode this gate exists to catch is a
+criterion whose named test **collects zero tests** — which passes a suite silently. Collected
+counts, `DATABASE_URL` set:
+
+| criterion | test class | collected |
+|---|---|---|
+| AC-1 | `TestPuzzleEdit_StoresAndRederivesEverythingDerived` | 12 |
+| AC-2 | `TestPuzzleEdit_RefusesZeroAndMultipleSolutions` | 8 |
+| AC-3 | `TestPuzzleEdit_GradesFromTheProvingSolve` | 6 |
+| AC-4 | `TestPuzzleEdit_RefusesAPuzzleThatIsInABook` | 10 |
+| AC-5 | `TestPuzzleEdit_VerifyReturnsTheGradeWithoutStoring` | 4 |
+| AC-6 | `TestPuzzleEdit_RefusesAnApproveWhoseGridMoved` | 10 |
+| AC-7 | `TestPuzzleEdit_RefusesAMalformedGridBeforeSolving` | 38 |
+| AC-8 | `TestPuzzleEdit_StampsTheEditAndKeepsTheQualityScore` | 6 |
+| AC-9 | `TestPuzzleEdit_ARefusedEditLeavesNoStamp` | 6 |
+| AC-10 | `TestPuzzleEdit_AnEditedPuzzleStillPassesTheQualityFilter` | 6 |
+| G-1 | `TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal` | **30** |
+| G-2 | `TestPuzzleEdit_AuditStillOnlyReports` | 6 |
+| F-001 | `TestPuzzleEdit_AProofDoesNotCrossGridExtents` | 10 |
+
+All thirteen > 0. Every class runs twice (`[memory]`, `[sqlite]`), and the route tests add the
+Postgres arm, which is why the gate was worth running with `DATABASE_URL` **set**: a `db_required`
+test skipping green is this gate's other vacuous shape and CARD-244 is what removed it.
+G-1 grew **21 → 30** across the two fix cycles — the guardrail the card calls "the one that
+matters" is now the most heavily evidenced criterion on the card, which is the right end state
+given it is also where both review cycles found their importants.
+
+G-3..G-6 are not in this table because their evidence is structural rather than a named class
+(`G-4` no new dependency — `pyproject.toml` untouched, verified; `G-5` the `ast` import guard in
+`tests/test_cli.py`, green; `G-6` no test retired, verified across both fix cycles; `G-3`
+`audit_uniqueness` still report-only, covered by G-2's class above).
