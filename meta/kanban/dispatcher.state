@@ -3,7 +3,7 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: [CARD-224, CARD-246]
+active: [CARD-246]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-18T08:31:25Z
+last_updated: 2026-10-18T18:05:00Z
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -203,6 +203,60 @@ merged_wave_46:
   # CARD-224 still in flight: build gate green first attempt on e1cbb35 (8088 passed,
   # 1 skipped, 0 failed, 0 XFAILED), review cycle 1 running.
 
+  - id: CARD-224
+    merge_commit: c65bb3b
+    at: 2026-10-18T17:43:22Z
+    review_score: 8.5
+    cycles: "2/3 (7.5 -> 8.5, +1.0)"
+    actual: 1.6d
+    estimate: 1d
+    accuracy: 1.57x
+    gate: "8095 passed, 1 skipped, 0 failed in 880.94s, DATABASE_URL SET, first attempt; the 20 files the card touched are byte-identical to the gated commit 5fad602"
+    reverses: "CARD-204's flush-by-parity placement, which merged after 12.2d and 8 fix cycles. Everything else CARD-204 delivered stays: caption_slot, the two-up folio reserve, the QR slot."
+    note: >-
+      The only card in three waves to go OVER estimate, and the overrun is almost entirely its
+      two fix cycles -- the first of which created the defect the second had to close. Cycle 1
+      (7.5) found that the clearance term AC-3's whole claim rests on tested the WHOLE spare
+      while only 0.42 of it lands above the drawing, so passing the guard bought 0.84 of one
+      clearance; worst measured margin on Book 1 was 0.659 px, i.e. luck rather than arithmetic.
+      Worse, the docstring NAMED two property oracles as pinning that boundary and both were
+      structurally incapable of it -- one accepts a 2.0 mm window against a 12 px threshold.
+      That is ADR-0039/R1's failure in its most expensive form: not a missing control but a
+      named one that cannot fail. Cycle 2 (8.5) then found the fix for it had moved the flip
+      point OUTWARD from 8.128 to 9.676 mm into a POPULATED strip -- 17 defective pages at a
+      9 mm band against zero before -- so a shallow title band could print a footer hairline
+      with the grid's heavy border stroked three rows past it, while "they agree by
+      construction" sat in the docstring. Fix 2 closed it by arithmetic over the row both
+      consumers already share, and the orchestrator reproduced both the defect and its closure
+      independently (zero defects across ten band values, including the pre-existing class
+      below 8.13 mm that the fix also closed).
+    things_verified_by_the_orchestrator_rather_than_on_report: >-
+      book_pdf_generator.py and book_proof.py are AST-identical to cc4430b modulo docstrings at
+      EVERY cycle, checked with my own AST comparison -- so the _draw_solved_slot trap with five
+      regressions behind it was never touched across five commits. No fixture re-recorded in
+      either fix cycle. The band 9.0 defect and its closure, measured myself. EC-022's property
+      test survives under the test_PropertyTest_ spelling, so the constraint kept its control
+      and my own first alarm about it was WRONG.
+    card_defects_found: >-
+      AC-252 was falsified by the card and nothing was owed for it: the same retired claim as
+      AC-190 seen from the two-up page, missed by the 2026-10-17 propagation pass because it
+      lives under FR-040 rather than FR-032. Retired, with AC-378 added and AC-379 owed to
+      CARD-226. EC-022's scope was the ORCHESTRATOR's error -- the restatement claimed the
+      two-up half one card early, and the tell was in the registry unread: none of EC-022's
+      four instances was a two-up criterion, so the clause stood with nothing instantiating it.
+      AC-190's retirement comment said its test was kept "with its test"; the card deleted it,
+      which is right but is not what the retirement said -- the SECOND retirement on this board
+      whose follow-through did not match its own note. The rename trace.yml asked this card for
+      was never done and is now @tech-debt rather than pointing at a closed card.
+    process_findings: >-
+      FOUR suggested fixes this wave could not reach their own case, two of them on this card:
+      a finer sweep resolution for a boundary needing an exact fraction unreachable by walking a
+      trim height, and (on CARD-246) an assertion about a POST that no longer happens. A review
+      that INHERITS A FIGURE from the docstring it is auditing is auditing nothing -- cycle 1's
+      "112 px" was the float, not the inter-row gap, computed on a profile that module does not
+      use. And the "126 pairs" figure is deliberately NOT carried forward: three scans produced
+      126, 8 and 4 over three unpublished search spaces, so the direction is the fact.
+
 refilled_wave_46:
   - at: 2026-10-18T08:31:25Z
     freed_by: "CARD-245 merged 6184545 (0.4d against 1d)"
@@ -235,3 +289,33 @@ refilled_wave_46:
       card/246-manual-puzzle-editor. The BRANCH was renamed to match the card rather than the
       card edited to match the mistake -- the card is the source of truth, and a card whose
       Branch field is wrong is how a later /kanban done looks in the wrong place.
+
+wave_46_smoke_test:
+  at: 2026-10-18T18:05:00Z
+  run_on: "main at 924c270 (CARD-245 + CARD-224 merged)"
+  result: "PASS -- 8292 passed, 1 skipped, 0 failed in 898.89s, DATABASE_URL SET"
+  why_a_separate_run_was_needed: >-
+    NEITHER card's merge gate tested the merged tree. CARD-245 branched from cc4430b and merged
+    into a main that had not moved, so its gate tree WAS post-merge main. CARD-224 branched from
+    cc4430b too but merged into main-with-CARD-245, so its gated tree lacked CARD-245 entirely.
+    The two cards are disjoint on files -- but disjoint-on-files is an argument, not a
+    measurement, and wave 44 was already bitten once by trusting a prediction about interaction.
+  reconciles: "8095 (CARD-224's gate) + 197 (CARD-245's tests) = 8292, so main holds the union of both cards' tests and nothing else."
+  run_1_was_red_and_is_recorded: >-
+    EXIT=1, 5 failed, 8287 passed, every failure `FATAL: database
+    "nonogram_pythonproject4_543f9f3f05e1_test" does not exist`. NOT the merged tree: it was the
+    first full suite ever run from main's OWN derived database, and 5 tests that connect through
+    the app's engine ran BEFORE conftest's CREATE DATABASE fixture (conftest.py:399). The
+    database existed by the time run 1 ended, which is why run 2 is green with no change to the
+    tree at all. Filed @ops because it bites a fresh checkout, a new machine and CI -- a
+    first-run red that is green on every retry is the most expensive failure shape for trust in
+    a gate, since it teaches people to re-run instead of read. Recorded per this board's rule
+    that a suite green only on its second attempt is not the evidence a suite green on its first
+    is.
+  second_finding_from_the_same_run: >-
+    The gate's own `-rs` reports SKIPS but not FAILURES in pytest's summary block, so a red run
+    printed its count line and its traceback with no FAILED line to grep. EXIT was the authority
+    both times so no verdict was ever wrong, but diagnosis was slower than it should have been.
+    Switched to `-rfs`. This is the SECOND instance this wave of the gate's own reporting flags
+    being load-bearing evidence, after the `-q` / `-qq` discovery -- the flags deserve the same
+    scrutiny as the tests.
