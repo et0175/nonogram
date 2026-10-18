@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 46
 **Depends on:** —
-**Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, tests/test_puzzle_edit_store.py, tests/test_puzzle_edit_routes.py, tests/test_admin_review.py
+**Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/db/models.py, migrations/versions/016_puzzle_manually_edited_at.py, src/nonogram/admin/templates/_puzzle_table.html, tests/test_puzzle_edit_store.py, tests/test_puzzle_edit_routes.py  <!-- amended 2026-10-18: the three middle entries are the owner's SETTLED section (the column, migration 016, surfacing the stamp) and were missing from the field; tests/test_admin_review.py was listed and not needed. See [Touches drift] below. -->
 **Review score:** —
 **Started:** 2026-10-18T05:09:31Z
 **Closed:** —
@@ -185,3 +185,123 @@ not ask for. Note it in the notes rather than building it.
 - **[Do not take timing measurements on a loaded host]** Sibling cards are active. If you want to
   record the cost of a solve on an edited grid, state the host condition with the figure and
   prefer ratios to absolute seconds.
+
+### Implementation notes (worktree, 2026-10-18)
+
+- **Two-phase save: the recommendation was taken, but moved.** "Solve once, stage the
+  result" is what shipped — with the staging *inside the one gate* rather than beside it.
+  `_refuse_unless_uniquely_solvable` now remembers the `SolveResult` it produced, keyed by a
+  SHA-256 fingerprint of the grid's extent and cells; `verify_replacement_grid` additionally
+  records which puzzle that grid's grade was *shown for*. The save calls the same gate (memo
+  hit, no second solve) and then refuses unless this grid is one that was shown for this
+  puzzle. Staging it *outside* the gate was tried on paper first and rejected: a save that
+  wrote on the strength of a staged hash match would not call the refusal at all, which is
+  precisely what G-1 forbids, and the G-1 test would then have had to be weakened to
+  accommodate the design. Keeping the memo inside the gate means the write path reaches the
+  one refusal **statically** (the guard walks `self.…` calls) and the flow still costs one
+  solve.
+- **Where staged state lives / what expiry does.** On the `PuzzleReviewService` instance, in
+  this process, bounded at `MAX_REMEMBERED_VERIFICATIONS = 16` (LRU). Same place and same
+  lifetime as the legacy mode's `self.puzzles`, and the panel runs one gunicorn worker
+  (`start.sh`, CARD-086 G-4). **There is deliberately no clock.** A proof is a pure function
+  of the grid and cannot go stale; the staleness that matters — the row being put in a book
+  between verify and approve — is re-checked against the row at save time. So a verification
+  is forgotten when 16 newer grids have been proved, or when the process restarts, and the
+  save then refuses with `EditNotVerified` ("verify it again"), which costs one solve and
+  cannot store anything ungraded. A verification is not consumed by a save, so a retried save
+  of the same grid does not buy a second solve.
+- **AC-2's zero-solution arm is unreachable from a grid payload, and the card does not say so.**
+  The clue set is re-derived *from the grid* (`_why_this_is_not_a_puzzle` refuses to trust a
+  caller's clues), and a grid always satisfies its own clues — the store's own comment records
+  the measurement (120 derived clue sets: 97 unique, 23 ambiguous, 0 unsolvable). The test
+  reaches it the only way it can, with the solver replaced, and pins the message; the 2-or-more
+  arm is driven by a real ambiguous grid.
+- **Deliberately out of scope**: the "hand-edited" *filter* (noted, not built, as the card
+  asks), the editor UI (CARD-246), and MIN_SIZE/MAX_SIZE on a write — the store has never
+  enforced the supported range on `add_puzzle` either, and this card does not change that.
+
+### Orchestrator verification and the scope gate (2026-10-18)
+
+Agent reports are not evidence on this board; these are the claims checked directly.
+
+- **The commit is what it says it is.** `9f3743d`, seven files, 2083 insertions / 3
+  deletions, `Co-Authored-By` trailer present. `git status --short` in the worktree shows
+  only ` M meta/kanban/cards/CARD-245.md` — the card file was written and **not staged**, as
+  required. The owner's `angel1-easy.pdf` and `snowflake2-easy.pdf` were never touched.
+- **G-1's guard really is derived from the class, not hand-listed.** Verified by reading the
+  test: `_service_class_ast()` parses `puzzle_review.py` off disk, `_methods_of()` takes every
+  `FunctionDef`/`AsyncFunctionDef` in `PuzzleReviewService`'s body, and `_binds_a_grid()`
+  keys on `ast.Store` context (which is what keeps readers like `row.grid` out), a `grid=`
+  keyword, `setattr(x, "grid", …)`, or a dict literal with a `"grid"` key assigned into
+  `self.…`. `{add_puzzle, save_edited_grid} <= writers` is asserted as a **floor**, not as the
+  set. Five synthetic bypasses are controls that must each be detected AND reported ungated,
+  and `_row_to_dict` / `_all_rows_for_audit` / `audit_uniqueness` are asserted absent. This
+  satisfies ADR-0039/R2 (set derived from an enumerable authority, default-deny) rather than
+  claiming it.
+
+**[Touches drift]** The implementation touched three files the `Touches:` field did not name
+and left one it did:
+
+| file | in Touches? | verdict |
+|---|---|---|
+| `src/nonogram/db/models.py` | no | **mandated by the card** — the `manually_edited_at` column |
+| `migrations/versions/016_puzzle_manually_edited_at.py` | no | **mandated by the card** — "It needs migration 016" |
+| `src/nonogram/admin/templates/_puzzle_table.html` | no | **mandated by the card** — "Surface it where the score is shown — the puzzle card and the list" |
+| `tests/test_admin_review.py` | yes | not touched; the behaviour landed in the two new test files instead |
+
+So this is a **stale field, not scope growth**: the `Touches:` list was written before the
+owner's 2026-10-18 settlement and the settlement added all three. The field is amended above
+rather than left to look like drift at the next card that reads it. Two consequences checked
+rather than assumed: the additions bring in two new hotspots (`migrations/**` and
+`src/nonogram/db/**`), and **neither collides with CARD-224**, whose hotspots are
+`export/layout.py` and `book_pdf_generator.py`; and `_puzzle_table.html` is **not** in
+CARD-246's `Touches` (that card names `puzzles.html`, `puzzle_edit.html`,
+`puzzle_solve.html`), so no ready sibling's slice was poached.
+
+### ⚑ A process finding that outlives this card: `-q` makes pytest print no count at all
+
+The agent found, and `pyproject.toml:89` confirms, that the project already sets
+`addopts = "-q"`. **A gate command that adds its own `-q` therefore runs at `-qq`, and at
+`-qq` pytest prints no summary count line whatsoever.**
+
+This is very probably the mechanism behind the board's CARD-223 incident, where the
+orchestrator's own gate summary printed `FAILED count: 0` on a run that `EXIT=1` proved red,
+and it was recorded then as "a grep pattern that missed pytest's shape". That diagnosis was
+half right: there was nothing for the pattern to match. The discipline adopted after it —
+**EXIT is the authority** — was the correct response and would have held either way, which is
+why the gate stayed trustworthy while the explanation was wrong. Filed in `backlog.md` so a
+future gate script cannot re-acquire the habit.
+
+### [Build gate] PASSED (full, 2026-10-18)
+
+`EXIT=0` · **8215 passed, 1 skipped, 0 failed** · pytest's own figure **1196.14s** · commit
+`9f3743d` · `DATABASE_URL` **SET** (`nonogram_pythonproject4_card_245_2d9f5b42e149_test`, this
+worktree's own derived database) · run under `meta/kanban/.full-suite.lock`, released after.
+
+The single skip is the platform one — `test_book_pdf_memory.py:1288`, `setrlimit(RLIMIT_AS)`
+refused by this kernel — unrelated to this card and the same skip every gate since CARD-223
+has reported. So **no `db_required` test skipped**, which is what makes this gate evidence for
+AC-1..AC-10 rather than a vacuous green.
+
+Collected 8055 → 8216 (**+161**), which reconciles exactly with the implementation's 161 new
+tests. First-attempt green, unlike CARD-248's.
+
+**Two figures here are NOT trendable, and the reason is recorded rather than smoothed over:**
+
+1. The suite's own wall clock is **1196s against main's 788s (+52 %)**, and ms/test rises
+   98 → 146. **CARD-224's implementation agent was running on this machine throughout.** A
+   concurrent card can no longer corrupt a gate's *verdict* (CARD-244 gave each worktree its
+   own database), but it still competes for CPU, so this line must not be read against the
+   wave-45 lines as a cost trend. The verdict is unaffected; the duration is not comparable.
+2. The wrapper's own `ELAPSED` was **4126s** against pytest's **1196.14s** — a ~2930 s gap
+   outside pytest's session timer that the wrapper does nothing to explain (it runs one
+   `git log` and two `date` calls around the invocation). **Unexplained, and left that way
+   rather than attributed.** It does not touch the verdict (`EXIT` and pytest's own summary
+   agree), but it means the wrapper's elapsed figure is not a measurement of anything on this
+   host while a sibling agent is active, and no line in `suite-timing.log` should be written
+   from it. Worth a look if it recurs; a single unexplained gap is not yet a defect.
+
+Not written to `suite-timing.log`: every line there is a **merge** gate, and mixing a build
+gate — especially one measured under concurrent sibling load — into that series would make the
+ms/test trend read as a regression that is really a busy host. The merge gate's line will be
+written when it runs, with its own condition stated.
