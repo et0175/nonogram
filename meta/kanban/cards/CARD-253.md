@@ -225,3 +225,22 @@ template header, the `ADDED_SINCE_BEFORE` registry).
 - **[Gate]** Queued third in wave 48's serialized gate chain, behind CARD-225's solo re-measure
   and CARD-252's first build gate. Reason in CARD-225's notes: gates are solo, and this card's
   own 288-test browser run is what made that rule's gap visible.
+- **[Build gate 1 — FAILED, and not this card's]** `2ba64a5`, solo: 5 failed, 8503 passed, 14:49.
+  All five in `tests/test_admin_binding.py::TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine`,
+  all `psycopg2.errors.UndefinedTable: relation "puzzles" does not exist` — raised inside the
+  request the test asserts is served, i.e. in the server thread's query, not in the test's body.
+  This card changed two template strings, four test files' locators and three comments. The file
+  passes solo (33 passed, 5.4s).
+- **[Build gate 2 — PASSED, same commit]** `2ba64a5`, solo: **8508 passed**, 1 skipped, 15:58,
+  EXIT=0. 8503 + 5 = 8508, so gate 1's five failures are gate 2's five passes. Collection order is
+  deterministic in this suite (no `pytest-randomly`), so a second run of the same commit that
+  reproduces nothing rules out both "real" and "order-dependent" and leaves a **nondeterministic**
+  cause. That is the signature `reset_engine()`'s docstring names (CARD-252): "failures that
+  reproduced on no second run".
+- **[What this costs the re-gate]** The owner's sequence is merge CARD-252, then re-gate this card.
+  Worth saying plainly: a green re-gate on top of CARD-252 is **not** evidence the fix works,
+  because this commit is already green on its second run without it. An intermittent failure that
+  stops appearing is the one thing a single green run cannot distinguish from luck. The re-gate is
+  owed as this card's own gate — it must pass on the tree it will merge into — and the question of
+  whether CARD-252 actually stops the hazard needs the next several waves' gates, which is where
+  wave 45 already left it.
