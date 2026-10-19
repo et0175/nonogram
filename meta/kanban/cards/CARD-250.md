@@ -15,7 +15,7 @@
 **Wave:** 47
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/puzzle_edit.js, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/_puzzle_table.html, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py, tests/test_admin_design_tokens.py
-**Review score:** 7.5 (cycle 1/3 — below the 8 threshold; two Important)
+**Review score:** 8.0 (cycle 2/3 — meets the number, one Important still open, so the severity gate fails)
 **Started:** 2026-10-19T07:15:19Z
 **Closed:** —
 **Actual:** —
@@ -484,3 +484,103 @@ answers; mechanism 2 made it decide whether an answer may *speak*; the fix makes
 page may *leave*. `onSave` and `onBackToEdit` also advance it, so the question put to review is whether
 any of those is reachable between Approve and its answer — an overloaded token that two uses can
 disagree about is how this file's earlier defects were shaped.
+
+### [Build gate] FAILED (full, 1109s) — orchestrator, 2026-10-19 · attribution OPEN
+
+The gate on the fixed tree (`130823f`) came back **RED: EXIT=1, 12 failed, 8379 passed, 1 skipped**.
+Recorded here before it is explained, because a gate red on one run and green on another is not the
+evidence a gate green on its first run is — the same rule wave 45 applied to CARD-248.
+
+**All 12 failures are in `tests/test_puzzle_editor_ui.py` and all have one shape: the editor does not
+leave for `/puzzles` after a successful Approve.** Eleven are
+`page.wait_for_url("**/puzzles", timeout=20_000)` timing out. The twelfth is **semantic, and it is the
+one that matters**: `test_a_second_approve_pressed_in_flight_is_not_sent_either` failed
+`assert "Showing the puzzle list" in said` against a message carrying the **staying** tail —
+*"You changed the board while… the editor stays open: those strokes are still on the board and are not
+stored."* That is the F-001 branch firing on a path that must leave, which means `turn` advanced
+between Approve and its answer.
+
+**What is already known, and what is not.**
+
+- **The same file is green SOLO: 97 passed, EXIT=0, 26.73s**, run immediately after the red gate.
+- **This gate ran CONCURRENTLY with review cycle 2's targeted browser runs — the orchestrator's own
+  choice, recorded as such.** The cost shows: 132 ms/test against 105 on the same tree two hours
+  earlier, and the suite ran 1109s against 884s.
+- **So the red run is not yet attributable**, and will not be read as a verdict either way. Wave 44
+  recorded that a concurrent sibling can manufacture failures *and* skip counts, that reading a
+  contended run as a verdict cost a fix-agent attempt, and that it put a false finding in front of the
+  owner. A **solo** re-gate is chained behind a host-quiet check.
+- **The semantic failure is the reason this is not being written off as slowness.** A 20s navigation
+  timeout is credible under load; a message carrying the wrong one of two tails is not. For the
+  staying branch to fire, `BOARD_CHANGE` must arrive between Approve and its answer — and solver.js
+  dispatches it **synchronously** from `commit()` (`solver.js:782`), so there is no late-delivery
+  story to lean on. Either something calls `commit()` during the approve, or the predicate is reachable
+  another way. If the solo gate is red too, that is fix cycle 2's finding and it is precisely the
+  overloaded-`turn` hazard review cycle 2 was asked to judge.
+
+### [Review 2/3] Score: 8.0 — 0 critical, 1 important, 4 minor · [Severity gate] FAILS · [Review sync] 2 reports → meta/review/
+
+Report: `meta/review/20261019T085620Z-CARD-250-cycle2.yml`. **8.0 meets `min_score` and the card still
+does not pass**: a gating finding is open, and a severity gate is not a number. Cycle 3 is the last one
+available.
+
+**Step 8f RAN this cycle — 7 mutants, 7 killed, 0 survived**, so cycle 1's `deferred(cost)` is
+substantially discharged. Not finally: six of the seven targets lie outside the fix F-001 now calls
+for, so they stand; the seventh does not, because F-001's fix adds a line to `onApprove` and an
+assertion to the new test. **Cycle 3 must run the mutant that pins that added line** (delete the
+`save.focus()` → the staying-branch test must fail). Nothing else is owed.
+
+**All ten ACs hold, including the amended AC-5, scored as written.** G-1..G-9 clean **except G-3**,
+which is what the Important finding is.
+
+**[Review] F-001 (important) — the fix cycle introduced a G-3 violation, and it is a regression against
+`main`.** `main` ended `onApprove` with **one unconditional `save.focus()`** covering every outcome.
+This card moved it into the refusal branch, licensed by the claim that a stored edit leaves the editor
+so there is *"no save bar left to stand on"* — and then fix cycle 1 added a successful-approve branch
+that **keeps the bar** and revisited neither the call nor the claim. `tell("Storing this grid...")`
+hides `#puzzle-editor-decide`, the focused Approve's ancestor, so Chromium drops focus to `<body>`; the
+staying branch then speaks and returns with no `focus()` anywhere. **Measured, not inferred:** a
+temporary probe inside the new test read `activeElement='' tag='BODY'`. So the page tells the owner to
+press Save while nothing is focused — against G-3's stated purpose (*"keyboard focus is never dropped
+mid-flow"*, CARD-211) — and the claim in the test file that licensed dropping the call is now false of
+a page-staying path. The other two page-keeping paths both restore focus and both are pinned.
+
+**The four Minors are three claim-vs-mechanism defects and one false novelty claim**, all one-line or
+prose-only: `onBackToEdit`'s unguarded `turn += 1` is the one way the exit predicate can mean something
+other than "the board moved" (unreachable without forcing — filed because **the file's own comment on
+that very line refuses the reachability argument**); `_STORED_OR_LEFT`'s docstring claims three outcomes
+while the predicate resolves two, so a *refused* approve times out at 20 s, the exact failure mode the
+docstring says it avoids; the two sentence tails' negative guards are one-sided, so a sentence
+conflating both tails would pass both tests; and the card's own note calls the new page-isolation clause
+"the one new way a test leaves a page behind" when a pre-card test already does exactly that. (Written
+by the fix agent at the worktree card's `:422`, not by the orchestrator — corrected here because the
+first draft of this note claimed it as mine, and a mis-assigned defect is as wrong in this record as an
+unrecorded one. It still reaches the artifact read at merge, since worktree notes sync into this card.)
+
+⚑ **Three consecutive cycles in this one file have now produced a finding of the same family** — a claim
+stated wider than its mechanism. That is the signal the family-regression check exists for; it is not
+an escalation yet (the findings are not attributed to the previous fix in the way that check requires),
+but it is the reason the four Minors go into the same fix cycle rather than being waved through.
+
+### [Build gate] the RED run is EXPLAINED and attributed — orchestrator, 2026-10-19
+
+**Measured, not argued: the gate's 12 failures and the `if (true)` mutant's 12 kills are the SAME 12
+tests**, with no difference in either direction (`comm -23` and `comm -13` both empty). Review cycle 2's
+Step 8f mutation pass edits `puzzle_edit.js` **in place**; the orchestrator's full suite was reading
+`src/` while the always-stay mutant was installed. The red run is therefore **neither contention nor a
+code defect**, and the semantic failure that made it look real — a message carrying the staying tail —
+is exactly what that mutant produces.
+
+**The orchestration defect is the orchestrator's, and it is a new one for this board.** A full-suite
+gate must never run concurrently with a review cycle that has `mutation_check: true`. The
+`.full-suite.lock` protects against two full suites; **it does not protect against a mutator**, and the
+procedure's "machine-load" reasoning is about CPU, not about a tree being edited underneath a reader.
+The first diagnosis offered — CPU contention, citing wave 44 — was *wrong in a way that would have been
+comfortable*: it would have been retried, come back green, and been filed as noise, leaving the real
+hazard unrecorded for the next card.
+
+Consequences taken rather than noted: the queued solo re-gate was **cancelled** (it would have fired
+into fix cycle 2's edits and repeated the mistake), and **no gate runs on `130823f` at all** — it is
+superseded by fix cycle 2. The tree that gets gated is the tree intended for merge, gated **solo**,
+after the fix lands. The 1109s / 132 ms-per-test line in `suite-timing.log` must not be read as a cost
+trend: it is a mutated tree's run.

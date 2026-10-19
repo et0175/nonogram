@@ -1,0 +1,378 @@
+version: 1
+generated_at: "2026-10-19T08:56:20Z"
+target: "card/250-editor-exits @ 130823f (base main @ f02bd23; fix delta 318bf1d..130823f) — CARD-250 review cycle 2 of 3, confirmation mode"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/puzzle_edit.js
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/templates/puzzle_edit.html
+    - src/nonogram/admin/templates/_puzzle_table.html
+    - src/nonogram/admin/templates/_tier.html
+    - meta/design/tokens.css
+    - tests/test_puzzle_editor_ui.py
+    - tests/test_admin_design_tokens.py
+    - meta/kanban/cards/CARD-250.md (incl. the amended AC-5 and both agent sections)
+    - meta/review/20261019T081619Z-CARD-250-cycle1.yml
+    - src/nonogram/admin/puzzle_review.py (manually_edited_at emit sites, grep only)
+  not_reached:
+    - src/nonogram/admin/app.py (untouched by the card diff; verified absent from --stat, body not read)
+    - src/nonogram/admin/static/solver.js (BOARD_CHANGE dispatch assumed from cycle 1's read; not re-read)
+    - "rendered browser behaviour beyond the suite: no screenshots, no runtime.log, no a11y.log (review.visual off)"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 1456, removed: 96 }
+  fix_delta: { files: 2, added: 187, removed: 18 }
+  max_fan_in:
+    symbol: "storedAndStayingText (new export)"
+    callers: 1
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/puzzle_edit.js — 5 commits total, 3 of them review-fix cycles (a8b5442, dbe9119, 130823f): the highest defect density of the touched set"
+  cochange_missing: []
+  unmeasured:
+    churn_window: "tooling_failure — `git log --since=12.months` returns 0 for every touched path (repository commit dates 2026-10 fall outside the window the host clock resolves); churn and defect density were recomputed over full history instead and are reported in hotspots"
+    cochange_missing: "no_eligible_fact — the same clock defect makes the 12-month co-change window empty; cycle 1 derived the peer set over full history and explained all three absences (solver.js, app.py, puzzle_review.py), and the fix delta touches neither of the two files the card's peer set still names, so no new peer candidate arises"
+    visual_rendered: "provider_unavailable — review.visual is off (no make run target); no screenshots, runtime.log or a11y.log were produced. The one a11y claim in this report was instead derived by a direct activeElement probe inside the existing browser test (recorded under findings F-001)"
+    timing: "not_applicable — the orchestrator's instruction: the host is running the full suite under a flock, so no duration was read as a cost signal and no timing measurement was taken"
+
+system_contract:
+  rules_checked: 8
+  holds: 6
+  unchecked: 2
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no manifest in the diff: `git diff main...HEAD --stat` lists 6 files and `git diff 318bf1d..130823f --stat` lists 2 (puzzle_edit.js, test_puzzle_editor_ui.py), neither a pyproject/lockfile; TestPuzzleEditor_Guardrails::test_the_editor_adds_no_dependency_and_no_vendored_script green in the 107-test run on this head"
+    - "ADR-0038/R1 ✓ holds — the fix delta adds two `export function` string builders plus one module-private helper to the same hand-written ES module; no package.json, lockfile, bundler artefact or vendored library appears in `git diff main...HEAD --stat`; same guard test green"
+    - "ADR-0038/R2 ✓ holds — re-derived rather than carried (puzzle_edit.js is in the delta): the delta adds no network call at all — no `fetch(` and no `location.assign` is introduced by 318bf1d..130823f — and the marking path is untouched; TestSolverMarking_NoRequestPerMark is outside the diff"
+    - "ADR-0038/R4 ✓ holds — storedHead and storedAndStayingText are pure string builders with no DOM identifier in their bodies; every DOM write the delta touches stays inside start() (tell's replaceChildren), the same seam as before"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is absent from `git diff main...HEAD --stat`; pytest-playwright stays in the dev-only extra it was in"
+    - "ADR-0038/R8 ✓ holds — the new test is a method of TestPuzzleEditor_ApproveCommitsThenReturnsToTheList, which carries @pytest.mark.browser at tests/test_puzzle_editor_ui.py:2667; the run reports `107 passed` with no skips, so Chromium was present and nothing passed silently"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: the delta derives no tier. storedHead relays stored.difficulty_tier and stored.difficulty_score straight out of the save response; no second solve and no arithmetic enters this file. Manual read of this delta found no violation"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: the host door lives in app.py, which the whole card diff does not touch (--stat confirms 6 files, none of them app.py); no route was added or changed"
+
+mutation_check:
+  status: run
+  note: |
+    Run on this head although one Important finding is present, per the orchestrator's explicit
+    instruction that the check must run this cycle. Six of the seven targets lie outside the fix
+    F-001 calls for, so their certification stands for cycle 3. NOT fully discharged: F-001's fix
+    adds one line to onApprove's staying branch and one assertion to
+    test_a_stroke_made_while_the_store_was_writing_keeps_the_page, so cycle 3 must still run the
+    mutant that pins that line (delete the added save.focus() — that test must fail).
+  mutants: 7
+  killed: 7
+  survived: 0
+  detail:
+    - "MU1 `mine !== turn` -> `mine === turn` (both branches swapped): KILLED — 13 failed, incl. test_a_stroke_made_while_the_store_was_writing_keeps_the_page and the three list-waiting AC-5/AC-6 tests"
+    - "MU2 `if (true)` (always stay): KILLED — 12 failed"
+    - "MU3 storedAndStayingText's tail names a departed button (\"Press Save\" -> \"Press Dismiss\"): KILLED by TheWordsNameTheButtonsThatExist::test_no_message_names_a_button_the_bar_does_not_carry — proof that _MESSAGE_CORPUS really carries the new tail and AC-4's guard is not blind to the sentence this cycle added"
+    - "MU4 save.focus() deleted from onApprove's refusal branch: KILLED by ..._asks_to_verify_again (independently confirms cycle 1 F-002's fix)"
+    - "MU5 the thumbnail's `?v=manually_edited_at` removed: KILLED — 5 failed (all four of TheListShowsTheEditedPicture plus ..._the_row_it_lands_on_draws_the_grid_that_was_stored)"
+    - "MU6 the LEAVING branch says the staying sentence (storedText -> storedAndStayingText): KILLED by ..._a_second_approve_pressed_in_flight_is_not_sent_either (independently confirms the M16b assertion the fix agent added)"
+    - "MU7 the offer stands beside the stored sentence (`tell(storedText(...), grid)`): KILLED by ..._a_second_approve_pressed_in_flight_is_not_sent_either (independently confirms cycle 1 F-003's moved assertion can fail — tell's single-writer property survives the split)"
+  restore_verified: "after every mutant `git diff -- src tests` was empty; final whole-diff check clean and the 107-test baseline re-run green on the restored tree"
+
+root_causes:
+  - id: RC-1
+    title: "the fix added a third outcome to onApprove — a successful store that KEEPS the page — without re-deriving the focus discipline or the claim that licensed dropping it"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "prose around the new branch states more than its mechanism does (the two-valued wait, the one-sided tail guard, the card's 'one new way' note)"
+    finding_ids: [F-003, F-004, F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 545
+    title: "The new staying branch leaves keyboard focus on <body> and tells the owner to press a button nothing focuses"
+    description: |
+      On `main`, onApprove ended with ONE unconditional `save.focus()` covering every outcome
+      (git show main:src/nonogram/admin/static/puzzle_edit.js — the last line of the function).
+      CARD-250 moved that call into the refusal branch only, and justified the removal in two
+      places:
+
+        - tests/test_puzzle_editor_ui.py:1540-1546 — "a stored edit leaves the editor (CARD-250
+          AC-5), so there is no save bar left to stand on. The focus discipline of the flow is
+          still pinned where the page stays";
+        - the card's AC-5 blast-radius note — "Neither pins the successful branch, which no
+          longer has one."
+
+      Fix cycle 1 then added a SUCCESSFUL-approve branch that keeps the bar
+      (puzzle_edit.js:545-548), and revisited neither the code nor the claim. On that branch:
+
+        1. `tell("Storing this grid...")` set `decide.hidden = true` (:420), which hides the
+           ancestor of the focused Approve button, so Chromium moves focus to `document.body`;
+        2. the staying branch calls `tell(storedAndStayingText(...))` and returns — no focus()
+           anywhere on the path;
+        3. the sentence it writes ends "Press Save to check the board as it is now", and Save
+           is re-enabled (`inFlightIs(null)` ran in the `finally`), but a keyboard owner has to
+           tab to it from the top of the document.
+
+      Measured, not inferred: a one-line activeElement probe temporarily added to
+      test_a_stroke_made_while_the_store_was_writing_keeps_the_page and then removed reports
+      `activeElement='' tag='BODY'`. By contrast the two surviving page-keeping paths both
+      restore focus and both are pinned (onBackToEdit :566, assertion at :1522; onApprove's
+      refusal :531, assertion at :1452 — MU4 confirms that one dies when the line is deleted).
+
+      Two defects, one cause:
+
+        (a) behaviour — G-3's stated purpose is "aria-disabled rather than `disabled` for every
+            refusal, so keyboard focus is never dropped mid-flow (CARD-211)". Focus IS dropped
+            mid-flow here and never restored, on the one path this cycle added, and `main` did
+            not have the gap.
+        (b) claim — tests:1544 "The focus discipline of the flow is still pinned where the page
+            stays" is now false: there is a page-staying path whose focus hop is neither
+            implemented nor pinned. The fix cycle's step-6b list claims every statement of the
+            new lifecycle was re-derived from the code; this is the statement that licensed
+            dropping the hop, and it was not.
+
+      History weight: puzzle_edit.js is the highest-defect-density file of the touched set (3 of
+      its 5 commits are review-fix cycles), and this is the third consecutive cycle in which the
+      focus-discipline claim on this bar has produced a finding (CARD-246 cycle 1, CARD-250
+      cycle 1 F-002, now this).
+    suggestion: |
+      Two lines, one in each layer.
+
+      Code — puzzle_edit.js:545, inside the staying branch, before the `return`:
+
+          if (mine !== turn) {
+            tell(storedAndStayingText(body.puzzle));
+            save.focus();
+            return;
+          }
+
+      Test — at the end of
+      test_a_stroke_made_while_the_store_was_writing_keeps_the_page (:2778):
+
+          assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-save"
+
+      Prose — correct tests:1540-1546 and the card's AC-5 note to enumerate THREE focus hops
+      (Back to edit, onApprove's refusal, onApprove's staying branch), with the leaving branch
+      the only outcome that has none, for the reason it already gives.
+
+      Why this closes the hole rather than restating it: the assertion fails on the code as it
+      stands — the probe above returns `''`, so the comparison is `'' == 'puzzle-editor-save'` —
+      and passes once the line is added, which makes it the same shape of pin that MU4 proved
+      works for the refusal branch. `save` is the right target and not a guess: it is enabled at
+      that point and it is the button the sentence itself instructs the owner to press, which is
+      the same choice onBackToEdit and the refusal branch already make. The only judgement call
+      is Save versus leaving focus where it is, and "where it is" is `<body>`, so any
+      restoration is strictly better than the present state.
+    confidence: high
+    source: static
+    violates: G-3
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 564
+    title: "onBackToEdit's unguarded turn += 1 is the one way the new exit predicate can mean something other than 'the board moved'"
+    description: |
+      `turn` now carries a third job: it is the staleness token for a verify answer, the
+      request counter, and — since the fix — the predicate for whether a successful Approve
+      LEAVES. Of the four sites that advance it, three cannot disagree with that reading:
+      onSave (:477) and onApprove (:509) are both behind `if (inFlight !== null) return`, and
+      onBoardChange (:597) is the intended advancer. onBackToEdit (:564) is not guarded at all.
+
+      If Back to edit is pressed while an approve is in flight, `mine !== turn` becomes true for
+      a reason unrelated to the board, and the page then states
+      "You changed the board while it was being stored, so the editor stays open: those strokes
+      are still on the board and are not stored" — a claim about the board that is false, on a
+      page whose whole discipline is to never state what it has not been told.
+
+      Not reachable by an owner: `#puzzle-editor-decide` is `hidden` (display:none) for the
+      whole of the write, so `back` is neither clickable nor focusable. Filed anyway because
+      that is precisely the argument this file refuses on this very line — its own comment reads
+      "safety that rests on another element's visibility is not safety" — and because
+      `_SAVE_THEN_BACK` already forces exactly such a press for the verify case, so the suite
+      treats the forced press as a state worth testing.
+    suggestion: |
+      Either is sufficient; the first is cheaper to reason about:
+
+        1. Guard the handler the way the others are guarded —
+           `if (inFlight === "approve") return;` at the top of onBackToEdit. It changes nothing
+           reachable (the button is hidden for exactly that window) and it makes `mine !== turn`
+           mean "the board moved" and nothing else, which is what onApprove's comment claims it
+           means. It must NOT be a blanket `if (inFlight !== null) return`: that would drop the
+           verify-case turn spend the file deliberately added (review cycle 2, G-008) and would
+           break test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer.
+        2. Or leave the code and narrow the comment: say the predicate reads "the turn moved",
+           and name the one unreachable way it can move for another reason. That makes the claim
+           true but leaves the false sentence reachable under forcing.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_editor_ui.py
+    line: 928
+    title: "_STORED_OR_LEFT's docstring claims three outcomes; the predicate resolves two"
+    description: |
+      The helper's docstring says "The store's write has been acted on, whichever way it went:
+      either the bar says so, or the bar is GONE because the page left for the list... so a test
+      that expects one of them reports which one happened instead of timing out on the other."
+
+      The predicate is `message === null || message.textContent.includes('Saved')`. A REFUSED
+      approve is a third way the write can go, and no refusal sentence in refusalText contains
+      "Saved" (they open "Nothing was stored", "This edit cannot be stored", "The panel answered
+      the save with ..."). So that outcome resolves neither disjunct and the wait runs out its
+      full 20 s — the exact failure mode the docstring says it avoids.
+
+      Two things it is NOT, checked: it cannot resolve for the wrong reason (the element is in
+      the template, not script-built, so `message === null` means only "not on the editor page",
+      and the test's own next assertions — `_asked_for_the_list(asked) == []` and
+      `url.endswith("/editor")` — discriminate the two branches); and no BOARD_MOVED sentence can
+      reach the bar on this path, because onBoardChange returns early while `inFlight ===
+      "approve"`.
+    suggestion: |
+      Either closes it; the second is cheaper and loses nothing the test needs.
+
+        1. Widen the predicate to the three outcomes:
+           `message === null || /Saved|Nothing was stored|not known/.test(message.textContent)`.
+           A refusal then fails on the assertions rather than on the clock.
+        2. Narrow the docstring to what the predicate does: "either the store's SUCCESS is on
+           the bar, or the bar is gone because the page left". The two branches this wait exists
+           to distinguish are both covered, and a refusal remains a timeout — loud, just slow.
+
+      Prefer (1) if the suite's wall-clock matters more than the line count; prefer (2) if not.
+      Both are honest; leaving the present pair is the only option that is not.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_editor_ui.py
+    line: 1843
+    title: "The two tails' negative guards are one-sided, so a conflation of both tails survives"
+    description: |
+      Each tail is pinned on its own branch and a SWAP in either direction dies — verified
+      independently this cycle, not taken on the card's word: MU1 (`mine === turn`, both
+      branches swapped) killed 13 tests, and MU6 (the leaving branch returning
+      storedAndStayingText) was killed by ..._a_second_approve_pressed_in_flight_is_not_sent_either.
+      The gap is narrower than a swap.
+
+      The staying test carries a negative guard — `assert "Showing the puzzle list" not in said`
+      (:2777). The leaving test carries only the positive one — `assert "Showing the puzzle
+      list" in said` (:1843) — and no assertion that the STAYING tail is absent. A sentence that
+      is the head plus BOTH tails therefore satisfies both tests: the page would claim to stay
+      and to show the list in one breath, and then navigate.
+    suggestion: |
+      One line, beside :1843 in test_a_second_approve_pressed_in_flight_is_not_sent_either:
+
+          assert "the editor stays open" not in said, said
+
+      Why it closes the hole: it is the mirror of the assertion the staying test already carries,
+      so after it each tail is pinned present on its own branch AND absent from the other, which
+      is the full 2x2 and the only shape under which a conflation cannot pass. Verified
+      directionally by MU1/MU6 above; a conflation mutant was not run, so the surviving state is
+      argued from the assertions rather than observed — the honest standing of this finding.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-250.md
+    line: 421
+    title: "The card calls the new page-isolation clause 'the one new way a test leaves a page behind'; it is not new"
+    description: |
+      The fix section's step-6b paragraph says "PAGE_ISOLATION_DECLARATION gained the one new
+      way a test leaves a page behind — an editor holding an unstored stroke."
+
+      That way is not new. test_a_stroke_while_the_grid_is_being_checked_is_not_graded (:1864
+      region) leaves the editor holding an unstored stroke and predates this card;
+      test_a_changed_board_is_asked_about_and_declining_keeps_the_edit (:2395) does the same and
+      asserts the edit is intact. The DECLARATION string itself is accurate — it merely adds the
+      case to the list and claims no novelty — so the inaccuracy is in the card note only.
+
+      Separately, and not a regression: the guard
+      test_this_files_page_isolation_is_declared_and_true (:459) reads the category, a >=8-word
+      count and four mechanism greps (`\.route\(`, `\.on\(`, `localStorage`, `MutationObserver`).
+      It does not read the added clause, so the clause's accuracy is checked by nothing. That is
+      the pre-existing shape of that guard rather than something this cycle changed, and the
+      declaration is correct as written, so no behaviour is at risk — only the card's claim.
+    suggestion: |
+      Drop "the one new way" from the card note — e.g. "PAGE_ISOLATION_DECLARATION now also names
+      an editor left holding an unstored stroke (already true of
+      test_a_stroke_while_the_grid_is_being_checked_is_not_graded; now true on a successful
+      approve too)". That closes it because the defect is purely the novelty claim: the
+      declaration needs no edit, and the fixtures it rests on are function-scoped (asserted at
+      :480-481), so nothing leaks between tests either way.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 210
+    title: "storedHead's difficulty clause is asserted by no test, on either branch"
+    description: |
+      `storedHead` builds " Difficulty: <tier>, score <n> of 100." from the save response. No
+      test reads it: the only "N of 100" assertion in the file (:1393) is on gradeText's
+      sentence, the leaving test asserts "the grid you verified" and "Showing the puzzle list",
+      and the staying test asserts "the grid you verified is the stored puzzle now", "the editor
+      stays open" and "are not stored". A mutant dropping `graded` from the head would survive.
+
+      Pre-existing, not this cycle's regression: storedText carried the same clause unasserted
+      before the split, so it is out of scope for CARD-250 and recorded only because the split
+      that created storedHead is the cheapest moment to pin it.
+    suggestion: |
+      If it is wanted inside this card: one assertion in the staying test, which already has the
+      store's own row to compare against — `assert f"score {MINUS_CORNER_SCORE} of 100" in said`.
+      Otherwise a backlog line. Out-of-scope either way; it should not gate.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
