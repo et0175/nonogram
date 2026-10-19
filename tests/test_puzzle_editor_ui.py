@@ -787,6 +787,43 @@ class TestPuzzleEditor_Guardrails:
         assert "FIVE reads of `editing`" in solver
         assert reads == 5, reads
 
+    def test_one_word_does_not_name_a_brush_on_one_page_and_a_wipe_on_the_other(
+        self, admin_app
+    ) -> None:
+        """Owner decision, 2026-10-19: keep "Clear" for the player's fourth
+        brush and rename the editor's board-wipe.
+
+        CARD-247 renamed the player's fourth brush from "Undecided" to
+        "Clear". The editor's reset button was already called "Clear", and the
+        two pages share one renderer — so the same word named a brush that
+        paints ONE cell undecided and a button that wipes the WHOLE board. The
+        owner settled it by renaming this button rather than the brush.
+
+        The button is pinned here because nothing pinned it before: at the time
+        of the rename no test in the suite drove the editor's reset control by
+        its label, so the old name could have come back and the suite would
+        have stayed green. A naming decision with no mechanism is a decision
+        that lasts until the next edit.
+
+        The confirmation moves with the button, which is CARD-250's rule: a
+        page that renames a control and leaves the sentence naming the old one
+        lies about its own controls.
+        """
+        puzzle_id = seed(admin_app)
+        html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
+
+        labels = [re.sub(r"<[^>]+>", "", m).strip()
+                  for m in re.findall(r"<button\b[^>]*>(.*?)</button>", html, re.S)]
+
+        assert "Reset" in labels, labels
+        # The owner's decision, as a guard rather than as a sentence: no
+        # control on THIS page carries the word the brush now owns.
+        assert not [l for l in labels if "Clear" in l], labels
+        # And the question the button opens names the button (CARD-250).
+        title = re.search(
+            r'id="puzzle-player-confirm-title"[^>]*>([^<]*)<', html).group(1)
+        assert "Reset" in title and "Clear" not in title, title
+
     def test_the_editor_page_claims_no_difficulty_of_its_own(self, admin_app) -> None:
         """F-008. The player's header badge is a fact about a stored grid; on
         the editor's page the stored grid is what is being rewritten, so the
