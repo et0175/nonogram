@@ -2752,6 +2752,17 @@ class TestPuzzleEditor_ApproveCommitsThenReturnsToTheList:
         cache of the replaced picture cannot answer it — and the picture it
         asks for really loads. That the two pictures DIFFER, and that the url
         moved with them, is ``TestPuzzleEditor_TheListShowsTheEditedPicture``.
+
+        **Both pictures of this puzzle, not just the row's** (review cycle 3,
+        F-003). Item 2 versioned two urls: the list row and the detail
+        modal's large thumbnail. The modal's was read by nothing — every
+        other AC-6 test goes through ``_thumbnail_of``, which matches the
+        first row ``<img>`` on the page — so deleting its ``?v=`` failed no
+        test while leaving the modal as the one place the replaced grid could
+        survive in a cache. It is only reachable here: the modal is built by
+        a template literal in ``_puzzle_table.html``'s own script from
+        ``/api/puzzle/<id>/details``, so no Flask-client test can read the
+        url it produces.
         """
         puzzle_id = _seed_live(live, name="Owl")
         _open_editor(browser_page, live, puzzle_id)
@@ -2769,6 +2780,16 @@ class TestPuzzleEditor_ApproveCommitsThenReturnsToTheList:
         # And it is a picture, not a broken image: the versioned url is one
         # the panel really serves.
         assert thumbnail.evaluate("(img) => img.complete && img.naturalWidth > 0")
+
+        # The detail modal's own copy of that picture, in the same shape: the
+        # stamp has to move with the edit there too, or the card that opens
+        # over this row is where the grid the owner replaced is still shown.
+        browser_page.evaluate("([id]) => openPuzzleDetail(id)", arg=[puzzle_id])
+        card_picture = browser_page.locator("#puzzleDetailContent .thumb-lg img")
+        card_picture.wait_for()
+        assert quote(str(stamp), safe="") in card_picture.get_attribute("src"), (
+            card_picture.get_attribute("src"))
+        assert card_picture.evaluate("(img) => img.complete && img.naturalWidth > 0")
 
     def test_a_stroke_made_while_the_store_was_writing_keeps_the_page(
         self, browser_page, live
@@ -2879,12 +2900,29 @@ class TestPuzzleEditor_NoExitWhileTheStoreIsDeciding:
     CARD-211), exactly as a second Save is refused.
 
     **The asymmetry, and why it is not a gap.** Back to edit is not an exit
-    from the page; it has nothing to outrun and is refused by nothing. What
-    AC-7 asks of it — that the page does not navigate, and that it says what
-    it did — is asserted below, and its mid-flight behaviour is CARD-246's
-    unchanged, pinned by
-    ``test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer``
-    (CARD-250 G-1: that behaviour was renamed, not changed).
+    from the page, so it has nothing to outrun — but it is not refused by
+    nothing either. AC-7 (amended per button, review cycle 3) asks a
+    different thing of it in each in-flight window, and the two are pinned
+    separately:
+
+    * During a **verify** it spends the turn and says the edit is still
+      there — CARD-246's behaviour, unchanged, and this is now the only
+      window in which that behaviour exists. Pinned by
+      ``test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer``
+      (CARD-250 G-1: renamed, not changed) and by
+      ``test_back_to_edit_pressed_mid_flight_does_not_navigate_either``
+      below.
+    * During an **approve** it is **ignored in silence**, so the exit
+      predicate keeps one meaning. Pinned by
+      ``test_a_back_to_edit_forced_while_the_store_writes_does_not_stop_the_exit``
+      (review cycle 2, F-002). Silence rather than a sentence because the
+      button carries no ``aria-disabled`` and sits in a ``display: none``
+      container for the whole write — an attribute there reaches nobody —
+      and because a press that cannot stop the store does not get to speak
+      over the store's answer.
+
+    Neither window is owner-reachable: the pair is ``hidden``, so only a
+    script presses the button there.
 
     Each press below is made in the SAME TASK as the request it races, and
     the bar is read there: a fetch cannot resolve inside the task that
@@ -2913,6 +2951,12 @@ class TestPuzzleEditor_NoExitWhileTheStoreIsDeciding:
         assert state["busy"] == "true"
         assert state["confirming"] is False
         assert "Still storing" in state["said"], state["said"]
+        # And only that one: the pair is one ternary, so a function that
+        # answered with both sentences at once would pass the line above
+        # while telling the owner two store states in one breath
+        # (review cycle 3, F-002 — the mirror cycle 2's F-004 added for
+        # the stored pair, measured there as MU-J).
+        assert "Still checking" not in state["said"], state["said"]
         assert _asked_for_the_list(asked) == [], asked
         # The refusal cost the owner nothing: the store's word is still heard,
         # and the exit happens on its own once it has been.
@@ -2935,6 +2979,8 @@ class TestPuzzleEditor_NoExitWhileTheStoreIsDeciding:
         assert state["path"].endswith("/editor")
         assert state["busy"] == "true"
         assert "Still checking" in state["said"], state["said"]
+        # The other half of the same mirror (review cycle 3, F-002).
+        assert "Still storing" not in state["said"], state["said"]
         assert _asked_for_the_list(asked) == [], asked
         # And the flow is not stuck: the grade lands and the page is usable.
         _wait_for_message(browser_page, "Difficulty")
@@ -2965,6 +3011,8 @@ class TestPuzzleEditor_NoExitWhileTheStoreIsDeciding:
         assert state["path"].endswith("/editor")
         assert state["confirming"] is False  # the question is answered, not left open
         assert "Still checking" in state["said"], state["said"]
+        # The mirror again, on the branch reached with the question open.
+        assert "Still storing" not in state["said"], state["said"]
         assert _asked_for_the_list(asked) == [], asked
         _assert_stored(live, puzzle_id, STORED)
         assert errors == [], errors

@@ -42,15 +42,35 @@
 //                does.
 //
 // NEITHER EXIT CAN OUTRUN THE STORE (CARD-250 AC-7). Cancel is refused while
-// a request is in flight, in words and with aria-disabled, exactly as a
-// second Save is: landing on the list while the store is still deciding
-// would leave the save's answer — the only report of what the store did —
-// with nobody left to hear it. Back to edit is not an exit from the page, so
-// it has nothing to outrun and nothing to refuse; pressed mid-flight (which
-// only a script can do, the pair being hidden) it does what it always did,
-// spending the turn and saying the edit is still there. That is asserted
-// unchanged by test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer,
-// so this file does not get to quietly change it either.
+// a request is in flight, for the same reason a second Save is: landing on
+// the list while the store is still deciding would leave the save's answer —
+// the only report of what the store did — with nobody left to hear it. It is
+// refused in words AND with aria-disabled, which is MORE than a second Save
+// gets (that one returns silently and says so through aria-disabled alone),
+// because an exit is the press whose refusal is most likely to read as a dead
+// button.
+//
+// Back to edit is not an exit from the page, so it has nothing to OUTRUN —
+// but since review cycle 2's F-002 it is not "refused by nothing" either, and
+// what it does mid-flight (which only a script can do, the pair being hidden)
+// depends on WHICH request is in flight. Two windows, two behaviours:
+//   during a verify   it does what it always did, spending the turn and
+//                     saying the edit is still there — CARD-246's behaviour,
+//                     and the verify window is now the only window in which
+//                     that behaviour exists. Asserted unchanged by
+//                     test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer,
+//                     so this file does not get to quietly change it either.
+//   during an approve it is IGNORED IN SILENCE: the guard at the top of
+//                     onBackToEdit returns before the turn is spent, so the
+//                     exit predicate keeps one meaning ("the board moved")
+//                     and the page states no fact it was not told. Pinned by
+//                     test_a_back_to_edit_forced_while_the_store_writes_does_not_stop_the_exit.
+// The silence is the mechanism, not an omission. `back` deliberately carries
+// no aria-disabled (see inFlightIs) and for the whole write it sits inside a
+// display:none container, so an attribute there would speak to nobody; and a
+// sentence about a press that did nothing would speak OVER the store's
+// answer, the one sentence the owner must read. AC-7 is written per button on
+// the card for exactly this reason (amended, review cycle 3).
 //
 // THE TIER WORD WEARS ITS TIER'S COLOUR (CARD-250 item 4), and the colour
 // rules are NOT here. meta/design/tokens.css declares --color-tier-*, and
@@ -431,8 +451,13 @@ function start() {
   // the guard at the top of each handler; this is how the state is said.
   //
   // Cancel joins Save and Approve here, because it is refused for the same
-  // reason they are (AC-7). Back to edit does NOT: it is refused by nothing,
-  // so saying it is busy would be the page stating something that is not so.
+  // reason they are (AC-7). Back to edit does NOT: it is never told it is
+  // busy. It is refused in exactly ONE window — the approve window, by
+  // onBackToEdit's guard — and that refusal is silent on purpose: for the
+  // whole write the button sits inside a display:none container, so an
+  // attribute set here would say "busy" to nobody while making this file
+  // claim a mechanism it has not got. In the verify window it is not refused
+  // at all, so "busy" would be plainly false there (review cycle 3, F-001).
   function inFlightIs(what) {
     inFlight = what;
     const busy = String(what !== null);
