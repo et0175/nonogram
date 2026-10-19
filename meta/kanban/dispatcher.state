@@ -1,9 +1,9 @@
-wave: 47
+wave: 48
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: []
+active: [CARD-225, CARD-247]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -583,3 +583,37 @@ wave_47_complete:
     - "CARD-250 render: the row's caption still says duck.png after the picture became a cat. Raised as a question, no answer, so it stays a question."
     - "CARD-251: a split pair the book's suffix ABSORBS is silent, because `changes` is a page-COUNT key. Faithful to the decision as worded; the owner may want the warning to fire on moved folios too."
     - "CARD-218 / CARD-219 are sized against a render-share figure that now includes a file whose two render mentions do not draw."
+
+wave_48:
+  dispatched: 2026-10-19T15:41:43Z
+  concurrency: 2
+  owner_instruction: "start the next wave (2026-10-19)"
+  cards: [CARD-225, CARD-247]
+  conflict_edges:
+    - pair: [CARD-225, CARD-247]
+      reason: >-
+        NONE -- verified disjoint on every file, which is why these two genuinely run in parallel
+        rather than sharing a wave and a clock. CARD-225 is export/layout.py, book_pdf_generator.py,
+        book_plan.py, book_page_spec.py, book_manager.py, app.py and the book tests; CARD-247 is
+        puzzle_solve.html, solver.js, admin.css and the solver tests. No shared path, no shared
+        hotspot.
+  why_these_two: >-
+    CARD-225 is the board's only ready P1 and the one card that unblocks two others (CARD-226 and
+    CARD-232, with CARD-233 behind CARD-232) -- it has been named the first refill candidate since
+    wave 44. Every other print card collides with it on export/layout.py or book_pdf_generator.py,
+    CARD-220 is tests/** (overlap 1.00, the wave-44 precedent), and CARD-249 and CARD-216 share the
+    app.py hotspot. CARD-247 is the only eligible card disjoint from it.
+  first_wave_under_the_new_curation: >-
+    Both cards' System contracts were RE-DERIVED under meta/kanban/curation.md rather than inherited:
+    CARD-225 keeps 17 of 60, CARD-247 keeps 16 of 57, and both now carry ADR-0039/R1-R3, which the
+    old judgement had dropped on both wave-47 cards. CARD-247's previous contract was 8 rules chosen
+    by hand and contained no ADR-0039.
+  known_residue: >-
+    The re-derivation also made the model's coarse scoping visible: a player-toolbar card now carries
+    four book-geometry rules, because the ADRs' scopes resolve to all of CTX-001. Kept anyway -- the
+    rule is mechanical and silent dropping is the thing the convention exists to stop. The fix is
+    tightening the scope globs at the architect station, filed rather than improvised here.
+  gate_discipline: >-
+    Gates run SOLO under a guard that refuses a contended start and was verified both ways before use
+    (1 with a live run, 0 idle). No gate runs while a review's mutation pass is live -- the CARD-250
+    defect. Two cards in parallel means two build gates: they serialise on the full-suite lock.

@@ -1,6 +1,6 @@
 # CARD-225: One cell size per grid size across the whole book, capped at 7.5 mm
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Complexity:** architectural
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/225-one-cell-size-per-grid-size
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-225
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — issue 4 ("Cell size jumps around. A 20x20 grid prints larger or smaller depending on its clue widths, so grids of the same size don't match across pages") and "The rules behind it": Cell size
 **Idea:** —
-**Wave:** —
+**Wave:** 48
 **Depends on:** CARD-222 (the usable area the sizes are fitted against changes with the margins)
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_plan.py, tests/test_book_cell_size.py, tests/property/test_book_pdf_geometry.py, tests/test_book_interior_type_floor.py, tests/fixtures/book_baseline_card225.json, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_select_puzzles.html, src/nonogram/admin/templates/book_finalize.html, meta/profiling/rank_durations.py, tests/helpers/two_up_ink.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-19T15:41:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -91,37 +91,92 @@
 
 ## System contract
 
-_Assembled 2026-10-17 by `system_rules.py --card CARD-225 --root meta/architecture` (60 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+_Assembled 2026-10-19 by `system_rules.py --card CARD-225 --root meta/architecture` (60 rules returned, `card_scope: touches`). A projection — fix the source artifact, never this list._
 
-**Carried notes on these rules** (recorded context, not derivable from the registry):
+**Curated to 17 by rule; 43 dropped.** First card curated under [`meta/kanban/curation.md`](../curation.md) rather than by judgement: **keep every in-scope rule whose enforcement does not reach this card's new code, drop the rest.** The dropped 43 all carry a `kind: test` check the suite executes on every gate, so listing them here would add lines a reviewer must read and change nothing about whether they hold. The kept ones are the rules **nothing executes** — plus `ADR-0039`, whose checks are tests but whose own comments declare they do not reach code written later.
 
-- **NFR-008 — the amendment this card flagged LANDED** on 2026-10-17 (commit `91609aa`), both
-  halves of it: the band is now **4.75..7.5 mm**, and the figure is chosen **per grid size per
-  book, fitted to the deepest-clued member of that grid size** — this card's own rule, now the
-  registry's. The hand-marking rationale for 4.8 mm was **retired, not carried** (it argues for
-  4.8 and cannot justify 4.75); the recorded reason is the owner's: the CON-018 margin change
-  must not make the book worse than today, and 4.75 mm restores exactly today's breach point.
-  **Nothing is owed at the architect station.** Build against AC-238 (4.885 mm at depth 9),
-  AC-239 (4.536 mm, below the floor), **AC-369** (two 30x30s, 5-deep and 9-deep, both print at
-  4.885 mm — the cell the 9-deep member fits; this is this card's AC-2 as a registry criterion),
-  **AC-370** (depth 10 → 4.762 mm, at or above the amended floor where the retired 4.8 mm floor
-  would have refused it) and **AC-371** (depth 13 → 4.430 mm, admitted only by FR-031's stored
-  override).
-- **AC-370 owes this card a test that is named nowhere else.**
-  `TestBookCell_ThirtyByThirtyDepthTenHoldsTheAmendedFloor` appears on no card; NFR-008's
-  amendment note says whoever picks this card up must write it rather than assume it exists.
-  AC-369's and AC-371's names are this card's own planned ones.
+⚑ **Known residue, stated rather than left to be noticed:** the model's scopes resolve to all of CTX-001, so some rules below are in scope without being in this card's subject area. They are kept because the rule is mechanical and silent dropping is what this convention exists to stop — the fix is tightening the ADRs' scope globs at the architect station, not re-introducing judgement here.
 
-- ADR-0033/R1 — Book assembly references puzzles by id and never changes a puzzle's grid, clues, difficulty tier or strategies; the only puzzle field it may write is the book-membe… (check: review-lens)
-- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
-- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
-- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
-- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
-- ADR-0037/R1 — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only. (check: review-lens)
-- ADR-0037/R2 — Under the book PageSpec every thin grid rule is at least 0.25 mm and every heavy rule is twice the thin rule, in pure black; the default PageSpec's strokes are unch… (check: review-lens)
-- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
-
-_52 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
+- **ADR-0022/R1** — _nothing executes this_
+  Grid extent crosses module boundaries as a (width, height) pair. No public function signature,
+  request field, or export field reduces a grid's extent to a single scalar \"size\", and no
+  source mode constructs a grid from one integer.
+- **ADR-0023/R1** — _nothing executes this_
+  Export metadata records a grid's extent as separate width and height fields. No export format
+  writes a scalar \"size\" field, and no decoder reconstructs a grid's dimensions from one.
+- **ADR-0024/R4** — _nothing executes this_
+  The repair's pair choice is a deterministic function of the grid and the solver's witnesses —
+  the region's filled and empty cells ranked by (row, column) — and draws nothing from the
+  injected Random or from host state, so a seed replays the same repair lineage everywhere.
+- **ADR-0024/R5** — _nothing executes this_
+  The repair policy (POL-006) fires only for random mode. Library mode recovers by POL-001
+  redraw and image mode by POL-002 pixel nudge; neither ever repairs.
+- **ADR-0033/R1** — _nothing executes this_
+  Book assembly references puzzles by id and never changes a puzzle's grid, clues, difficulty
+  tier or strategies; the only puzzle field it may write is the book-membership mirror
+  (puzzles.book_id).
+- **ADR-0036/R2** — _nothing executes this_
+  Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the
+  pair-aware call for two-up pages) with the book's PageSpec; the admin panel does not fit cells
+  or place grid lines itself.
+- **ADR-0037/R1** — _nothing executes this_
+  A book puzzle page never prints the picture's title; its band shows the puzzle number and the
+  solver's tier only.
+- **ADR-0037/R2** — _nothing executes this_
+  Under the book PageSpec the puzzle grid has exactly three rule weights -- 0.48 pt ordinary
+  cell lines in grey, 1.28 pt every fifth line on both axes, 2.08 pt outer border -- each of
+  them at least 2 device pixels at the render resolution, with the cell lines lighter in ink
+  than the fifth lines and the border; the default PageSpec's strokes are unchanged.
+- **ADR-0038/R1** — _nothing executes this_
+  The puzzle player's client is hand-written JavaScript and CSS served as static files by the
+  admin panel. There is no front-end framework, no build step, no npm toolchain and no vendored
+  third-party JavaScript library. Adding any of these reopens this ADR (and ADR-0006/R1 for
+  vendored code).
+- **ADR-0038/R4** — _nothing executes this_
+  The player's state logic (board, strokes, undo/redo history, error count, solved predicate)
+  lives in a pure module with no DOM access, separate from rendering.
+- **ADR-0038/R6** — _nothing executes this_
+  Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution
+  grid to the browser. A public or reader-facing player must not send the solution before the
+  puzzle is solved, and any public phase reopens this ADR (CON-021).
+- **ADR-0038/R7** — _nothing executes this_
+  Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in
+  pyproject.toml. It is never added to project.dependencies or to the admin extra.
+- **ADR-0038/R8** — _nothing executes this_
+  Browser tests run locally, against Chromium installed by `playwright install chromium`. When
+  Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible
+  in the run summary. They never pass silently. Once a CI pipeline exists, it installs Chromium
+  (playwright install chromium) before running them; until then there is no CI, and that is a
+  known gap, not a met clause.
+- **ADR-0039/R1** — _declares its checks do not reach new code_
+  A set a guard consults needs a completeness test written before the set, and any claim the
+  guard makes about what it catches needs a control that can fail: caught WITH the set member
+  present, missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and
+  must be narrowed to what is measured or deleted.
+  (check: `test_the_control_for_each_spelling_depends_on_the_set`)
+- **ADR-0039/R2** — _declares its checks do not reach new code_
+  A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where
+  no such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE,
+  never a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3.
+  (check: `test_the_guard_sets_are_derived_and_not_hand_written`)
+- **ADR-0039/R3** — _declares its checks do not reach new code_
+  An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT
+  absorb — caught with the exemption removed, missed with it in place — is held to an equality
+  against the sites that exist today, and records whatever it still cannot see as a measured
+  bound with its own failing control.
+  (check: `test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw`)
+- **CON-021** — _nothing executes this_
+  Interactive play exists only as the admin panel's puzzle player (TERM-037, FR-044), served
+  behind the door that guards every other admin page (CON-015, CON-016). No other surface — the
+  CLI, the web UI, or any public or hosted page — offers an interactive or playable puzzle. Play
+  state is never persisted on the server: no progress, marks, error count, score or solve time
+  is written to a database, file or server, no network request is made per mark, and no user
+  account exists for playing (CON-017). The one place play state may be kept is the browser's
+  own localStorage, per puzzle, so that a puzzle reopened in that browser resumes where it was;
+  it never leaves that browser. The admin player ships the puzzle's solution grid to the browser
+  to compute the error count and the solved state; this is permitted for the admin panel only,
+  and a public or reader-facing player must not send a puzzle's solution to the browser before
+  the puzzle is solved.
 
 ## Architecture context
 
