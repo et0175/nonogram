@@ -375,3 +375,15 @@ skips without depending on collection order. What is asserted: this module keeps
 tests, and — probed by a bare `psycopg2.connect` rather than conftest's cached verdict, an independent
 second implementation — the `db_required` gate yields **zero** skip reasons for this worktree's
 database. The suite-level skip profile stays a **gate** observation, and is stated as such.
+
+- **[Build gate 1 — PASSED]** `fc5508e`, **solo** (second in wave 48's serialized chain): 8504
+  passed, 1 skipped, 14:38, EXIT=0. First full suite this card has ever had.
+- **[The hazard showed up next door, on a tree without this fix]** CARD-253's gate ran third in the
+  same chain, equally solo, and failed 5 tests in `tests/test_admin_binding.py` with
+  `psycopg2.errors.UndefinedTable: relation "puzzles" does not exist` — this function's docstring's
+  own signature ("connections opened *before* the `DROP SCHEMA` are handed back out *after* it …
+  failures that reproduced on no second run"). CARD-253 is based on `b2b2491` and therefore does
+  **not** carry `reset_engine()`. That is a coincidence of timing, not evidence: it is one
+  observation, this card's gate is one observation, and neither is a controlled comparison. It is
+  recorded because it is the reason this card merges **before** CARD-253 re-gates, and because the
+  reviewer should know the hazard is live on this board right now rather than historical.

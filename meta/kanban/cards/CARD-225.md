@@ -843,3 +843,8 @@ filtering or caching added, the figure and the identified narrowing recorded in 
   and can only come back green if the cause was concurrent. Gate 3 runs solo, first in wave 48's
   serialized chain, and is the measurement. Until it returns, this card's verdict is **unknown**,
   not green.
+- **[Build gate 3 — PASSED]** `0cba979`, **solo**: 8560 passed, 1 skipped, 14:39, EXIT=0. The two
+  tests gate 2 failed on are in that count and green. Order is deterministic in this suite, so this
+  run is the evidence gate 2's failures were **concurrent-window artefacts** and not this card's —
+  the attribution is now measured, not argued. Fix cycle 1's ten findings stand closed on a green
+  full suite; next station is the certification review (cycle 2).
