@@ -387,3 +387,41 @@ database. The suite-level skip profile stays a **gate** observation, and is stat
   observation, this card's gate is one observation, and neither is a controlled comparison. It is
   recorded because it is the reason this card merges **before** CARD-253 re-gates, and because the
   reviewer should know the hazard is live on this board right now rather than historical.
+
+### [Review 1/3] Score 7.0 — FAILED on the severity gate (2 open Important)
+
+Report: `meta/review/20261019T202638Z-CARD-252-cycle1.yml` (copied to main; `yaml.safe_load` ok).
+Every one of the six findings is a **claim-versus-mechanism correction, not a defect** — the fix
+itself was judged correct, AC-1 is a genuine failing-first control, and AC-3's withdrawal was found
+better pinned than most ACs on this board.
+
+- **F-001 (important, `session.py:219`)** — the docstring's "Without it …" paragraph attributes four
+  waves of irreproducible gate failures to the mechanism AC-3 was withdrawn for. The card's own
+  measurement went further than *undemonstrated*: 24/24 post-DROP queries correct,
+  `pg_prepared_statements` 0, `type_code=2950` every time — the recorded signature measured
+  **unreachable on psycopg2**. The narrowed wording already exists in the test module and in
+  `conftest.py`; `session.py` is the one artifact of the three that still reads as established, and
+  it is the file a maintainer of the production module opens.
+- **F-002 (important, `test_db_engine_lifecycle.py:157`)** — AC-5's private-globals guard
+  over-claims, with **three surviving mutants**: a tenth hand-set site inside an already-exempt
+  (file, name) **pair** (the exemption is an equality over pairs, so nine sites collapse to six —
+  the comment claiming a tenth site fails the guard is false), monkeypatch's **string-target**
+  spelling, and `import … as X` + `X.engine = None`, which the completeness test's own docstring
+  promises to deny and does not, because it enumerates only `ast.ImportFrom`.
+- **F-003/F-004/F-005 (minor)** — the `db_required` count measures the *run's selection* rather than
+  the module (so selecting the test alone reds with "expected 2": a red that means nothing, on the
+  card whose subject is that a red must mean the code); both ordering docstrings give the
+  unreachable hazard as the *reason* for the ordering, which is right as behaviour and wrong as
+  rationale; AC-1's three-part claim has two independent pins, because the only realistic
+  backend-alive mutant dies on the preceding pool assertion.
+- **What the reviewer certified, so a later cycle does not churn it**: the *other* derived set
+  (`_global_names_assigned_by`) is sound — it raises on a missing function, biases unanalysable
+  shapes to red, and a fourth global added to `_init_engine` killed the test with the promised
+  message. That is the edge control the claim was missing. `_engine_url = None` is defensible as the
+  documented cache key. G-1, G-2, G-3 (as behaviour), G-4 (verified by diff), G-5, G-6 all hold.
+- **Not checkable and recorded as such**: AC-4's suite-wide half (needs the full suite, which a
+  review may not run), the backend third of AC-1, and whether the four waves' failures are this
+  mechanism at all. The reviewer also recorded, and declined to use as evidence, that CARD-253's
+  intermittent red carries the same signature — and named the alternative that fits the same
+  evidence shape: two runs sharing one test database, which is the hazard CARD-244 fixed and whose
+  comment this diff removes.
