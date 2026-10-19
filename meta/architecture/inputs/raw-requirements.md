@@ -455,3 +455,67 @@ nothing today. Owner decision, 2026-10-17.
   Source: owner's doc, 2026-10-18, Player items 1 and 2.
   **The owner's Player list has a third item, "3.", with nothing after it.** Nothing has been invented
   to fill it. If a third change was meant, it needs a line and will be its own card.
+
+# NOT YET PROCESSED — intake 2026-10-19, owner's doc "Nonograms - Print layout", section "Puzzle editor" (Google Doc 1pJKF2qX...). Five items, cut as CARD-250 (items 1–4) and CARD-251 (item 5). Only item 5 carries registry work, and it is owed BEFORE that card runs.
+
+Verbatim, the owner's five items:
+
+> 1. Add button "Cancel" next to "save"
+> 2. After pressing "cancel" or "approve" - return to list from the editor and reload pictures
+> 3. Add button "Back to edit" next to "approve"
+> 4. In the recalculated difficulty message mark the resulting difficulty with the color
+> 5. Add a possibility to edit puzzles that are already in the book with additional "are you sure question"
+
+- **Items 1 and 3 are one change read together, and the reading matters.** The editor today has ONE bar
+  with two phases: Save, and after a save Approve + Cancel, where Cancel means "put the message away and
+  go on editing — nothing was stored" (CARD-246 AC-4). The owner asks for a Cancel beside **Save** and a
+  "Back to edit" beside **Approve**. Read as one request, the existing Cancel is being **renamed** to
+  what it actually does ("Back to edit"), and the name "Cancel" is freed for the exit that does not
+  exist yet: leave the editor. That is the only reading in which both items are non-redundant, and it is
+  the one CARD-250 implements. The alternative — two buttons both called Cancel meaning different things
+  on one bar — is not a design anyone asked for. Source: owner's doc, 2026-10-19, items 1 and 3.
+- **Item 2 is two requests in one line, and the second is the technical one.** "Return to list" is
+  navigation. "Reload pictures" is a cache question: the list's thumbnail is `/api/puzzle/<id>/grid`
+  (`app.py:5593`), a **stable URL** whose response carries `Content-Type` and **no cache validator and
+  no `Cache-Control`** — so after an approved edit the browser may legitimately redraw the row from a
+  cached SVG of the grid the owner just replaced. The row already carries `manually_edited_at`
+  (CARD-245, migration 016), which is exactly the version key such a URL needs. No registry impact.
+- **Item 4 touches the one place colour rules are consolidated, which is why it needs saying here.** The
+  tier hues live in `meta/design/tokens.css` as `--color-tier-easy/medium/hard/none`, and
+  `templates/_tier.html` is their SINGLE documented exception to the no-colour-literals rule
+  (`tests/test_admin_design_tokens.py`, which exists because five copies of that expression had drifted
+  into two defects at once — CARD-076). The save bar's message is written in **JavaScript** from the
+  server's JSON, so the naive implementation is a sixth copy of the tier→hue mapping, in a language the
+  macro cannot reach. The shape that is not a regression: the server's tier string reaches the DOM as a
+  data attribute, and the colour comes from a CSS rule reading the existing tokens. No registry impact.
+- **Item 5 REVERSES a rule this file recorded on 2026-10-18, and that is the owner's call to make — but
+  the harm the rule was protecting is not the one that was written down.** The 2026-10-18 entry said
+  editing a booked puzzle "would re-paginate that book underneath its owner". Checked against the code:
+  * **The extent is not what re-paginates it.** The editor's board is built from the stored grid and
+    cannot change its size — but `verify_replacement_grid` (`puzzle_review.py:927`) reads the submitted
+    grid's own `width`/`height` and **never compares them with the stored row's**, so the ROUTE accepts
+    a differently-shaped grid even though the page cannot send one. Harmless today because booked
+    puzzles are refused outright; open that door and the extent check stops being optional. Related to
+    the owner decision already pending from wave 46 (CARD-245's routes enforce no `MIN_SIZE`/`MAX_SIZE`
+    and no request-size cap).
+  * **The tier is what re-paginates it.** `save_edited_grid` re-derives `difficulty_tier` from the one
+    solve, and **INV-009** requires a book's order to run easy → medium → hard with a divider page before
+    each non-empty level and puzzle numbers 1..n across the book. INV-009 also says in as many words that
+    an *arrangement* move "that would carry a puzzle across a level boundary is **refused**". An approved
+    edit that regrades a booked puzzle from easy to medium does exactly what arrangement is forbidden to
+    do — by a path INV-009 does not mention, because when it was written no path existed. **This is the
+    registry question item 5 owes**, and it is a real one: either INV-009 gains a clause for a regrade
+    inside a book (re-place the puzzle in its new level and renumber), or the edit is refused when the
+    new tier differs from the stored one, or the book is marked stale for the owner to re-arrange.
+  * **The confirmation already has a precedent, and item 5 should use it rather than invent one.**
+    INV-008 / CARD-131: a **published** book's membership changes only behind an explicit `confirmed`
+    flag (`book_manager.py:1286`, `:1465`), and an unconfirmed call "measures nothing and writes
+    nothing". Note that `in_a_book()` (`puzzle_review.py:1653`) is `book_id is not None` and does **not**
+    distinguish a draft book from a published one, so "are you sure" asked once for every book is a
+    coarser instrument than the panel already has. Recommended reading, to be confirmed by the owner: a
+    draft book's puzzle is editable behind the confirmation; a **published** book's puzzle is editable
+    only behind the INV-008 confirmation it already requires, and the confirmation names the book.
+  * Four route sites enforce the current refusal and must move together: `app.py:2552` (the verify POST's
+    `in_a_book` reason), `:2644` (the editor page's 409) and the two CARD-245 save paths through
+    `_row_an_edit_may_touch` (`puzzle_review.py:906`), plus `EDIT_REFUSAL_REASONS` at `:1184`, which the
+    client's allow-list of answers-that-never-write is keyed on (CARD-246 review cycle 2, G-001).
