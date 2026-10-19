@@ -163,7 +163,7 @@ findings:
     violates: null
     root_cause: null
     status: fixed
-    fixed_in: null  # meta/ is never committed from a worktree; the edit is in the worktree, uncommitted, for the caller to land
+    fixed_in: 5b501e9  # a meta/ edit, so landed on main by the orchestrator rather than committed from the worktree (cycle-2 review caught this field saying "uncommitted")
     dismissed_reason: null
     learned_pattern:
       pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."

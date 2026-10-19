@@ -396,3 +396,38 @@ source line changed in this cycle.
   weighted that Minor down because nothing pins the register to the templates and CARD-247 set the
   same precedent. It is fixed anyway: it was simply false, and a register nobody updates stops being
   one. The entry now carries the old strings and why they changed.
+
+### [Review 2/3] Score 9.5 — **CERTIFIED**, zero findings at every severity
+
+Report: `meta/review/20261019T230941Z-CARD-253-cycle2.yml` (copied to main). Zero Critical, zero
+Important, zero Minor; the 0.5 below 10 is two recorded residuals, not a finding.
+
+- **The cheap bound first**: `git diff --stat 9a3cc21 35298ca -- src/` is **empty**, so every
+  src-side guardrail is delta-clean by construction and the whole mutation budget went on the
+  evidence layer. The fix cycle's full delta is three test files, +78/−32.
+- **F-001's closure is certified in both directions, measured.** **MA** (the confirmation's body line
+  reworded) reds that one `brush_menu` test **and nothing else** across 75 — and the static half
+  agrees: exactly one assertion of that line exists in `tests/`. **MB** (title reverted) leaves both
+  `brush_menu` tests **green** and reds `marking.py`'s AC-1, AC-2 and the pre-existing progress site.
+  That is the division of labour the new docstrings claim, and it is now a measurement.
+- **The certifier measured the half nobody had.** The class docstring claims the title **or the
+  accept button**; both cycles had only ever measured the title. Its own **ME** (accept button
+  reverted to "Clear board") leaves both `brush_menu` tests green and reds AC-1 and AC-2 — so both
+  halves of that sentence are true, and the sentence is no longer wider than its evidence.
+- **The registry refusal re-derived a second time, independently.** All three refusals reproduce
+  verbatim: the id is not in CARD-217's record, the id *is* in `ADDED_SINCE_BEFORE`, and a test-
+  function rename is not a move. The certifier's judgement on keeping the name is worth keeping:
+  *the register is machine-consulted and carries its own failing controls, so a false entry degrades
+  the guard whose job is making a browser test's disappearance visible — buying a nicer identifier
+  with a false record is the wrong direction of trade.* The name is narrower-than-it-reads, not false.
+- **Sixth-site sweep: the set is closed.** `requirements.yml` has zero hits, `solver.js` is clean
+  apart from the four-brushes list and `BRUSH_LABEL` itself, `components.md` is fixed on main, and
+  CARD-247's attribution in the registry is intact (the fix is in the reason prose only). The
+  remaining old-literal hits are per-card historical records and an unrelated game-spec checklist.
+- **ADR-0039/R1 — the rule cycle 1 found violated — now holds and is measured.** No family
+  attribution to make: cycle 2 raises no claim-family finding anywhere, so there is no third
+  generation.
+- **One bookkeeping catch, applied**: cycle 1's F-002 `fixed_in` said the edit was "in the worktree,
+  uncommitted" when it was already landed on main in `5b501e9`. Corrected on main's copy of the
+  cycle-1 report — a report that misstates where a fix lives is a report the retrospective reads
+  wrong.
