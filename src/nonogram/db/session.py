@@ -246,7 +246,12 @@ def reset_engine() -> None:
     correct values, ``pg_prepared_statements`` held 0 rows after 40
     executions, and ``puzzles.id`` came back as OID 2950 every time — so the
     recorded signature is unreachable on psycopg2, and the gate failures
-    remain **unexplained**. Read
+    remain **unexplained**. Of those three numbers only the
+    ``pg_prepared_statements`` zero is a standing assertion
+    (``test_no_server_side_prepared_statement_is_ever_created``); the 24/24
+    and the OID 2950 are recorded on CARD-252's ``## Worktree notes``, not
+    asserted anywhere, so do not go looking for them in the class named
+    below. Read
     ``tests/test_db_engine_lifecycle.py``'s module docstring before concluding
     this function fixed them; ``TestEngineLifecycle_WhyTheHazardCannotBeForced``
     there measures why the hazard could not be forced, and goes red the day a

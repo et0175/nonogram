@@ -104,7 +104,7 @@ def _live_backend_pids(engine, pids) -> set:
 
 
 def _test_functions_in(source: str):
-    """``(every test function in source, those carrying db_required)``.
+    """``(every test function, those carrying db_required, the Test* classes seen)``.
 
     Read from the module's own AST, not from ``request.session.items``
     (cycle-1 review F-003). The collection answers "how many db_required tests
@@ -114,9 +114,30 @@ def _test_functions_in(source: str):
     ``0 test(s) here carry db_required, expected 2``. On the card whose whole
     subject is that a red must mean the code, the run is the wrong source.
 
-    Keys are ``Class::test`` (or the bare name for a module-level test), and a
-    class-level ``@pytest.mark.db_required`` marks every test it contains, the
-    way pytest applies it.
+    Keys are ``Class::test`` (or the bare name for a module-level test). A
+    class-level ``@pytest.mark.db_required`` marks every test the class
+    contains.
+
+    This walk is deliberately **not** a model of pytest's marker resolution,
+    and does not claim to be (cycle-2 review C2-F-002). What it sees is:
+    AST-visible ``@pytest.mark.db_required`` decorators on ``Test``-prefixed
+    classes and their direct ``test*`` methods, and on module-level ``test*``
+    functions. Nothing else. Everything it misses biases the count to **red**,
+    which is the safe direction here and costs nothing — measured, by feeding
+    source text to this function and comparing against pytest's own
+    collection: a module-level ``pytestmark``, a class-level ``pytestmark``, a
+    marker inherited from a base class, the parenthesised
+    ``@pytest.mark.db_required()`` form and a nested test class all come back
+    as 0 where pytest collects 1 or 2.
+
+    The one direction that could fail **open** is a class renamed off pytest's
+    ``Test*`` prefix: pytest then collects nothing from it while a walk that
+    took ``test*`` methods out of any ``ClassDef`` still counted them, so the
+    coverage AC-4 exists to protect would go to zero with the count still
+    green. Hence the ``Test`` prefix is a filter here, and the third return
+    value is the set of classes that passed it, so the caller can assert the
+    filter did not silently empty the walk. Control:
+    ``test_a_class_renamed_off_pytests_prefix_is_not_counted``.
     """
     def marked(node) -> bool:
         return any(
@@ -131,10 +152,13 @@ def _test_functions_in(source: str):
             and child.name.startswith("test")
         ]
 
-    every, db_required = set(), set()
+    every, db_required, test_classes = set(), set(), set()
     tree = ast.parse(source)
     for node in tree.body:
         if isinstance(node, ast.ClassDef):
+            if not node.name.startswith("Test"):
+                continue
+            test_classes.add(node.name)
             for child in tests_in(node.body):
                 name = f"{node.name}::{child.name}"
                 every.add(name)
@@ -144,7 +168,7 @@ def _test_functions_in(source: str):
             every.add(node.name)
             if marked(node):
                 db_required.add(node.name)
-    return every, db_required
+    return every, db_required, test_classes
 
 
 def _global_names_assigned_by(function_name: str) -> frozenset:
@@ -282,6 +306,64 @@ def _names_the_session_module(dotted, aliases):
     return False
 
 
+def _is_setattr_call(node) -> bool:
+    """Any ``setattr``-shaped call: ``anything.setattr(...)`` or the builtin.
+
+    Both spellings, because the deny default below is only total if nothing
+    gets to decide that it is out of scope. Requiring ``node.func`` to be an
+    ``ast.Attribute`` is what let cycle-2 review mutant X2
+    (``setattr(app_session, "engine", None)``) through the previous version
+    while this class's docstring named ``setattr(module, "name", …)`` as a
+    spelling it saw. The builtin is also the more dangerous of the two —
+    ``monkeypatch`` reverses itself at teardown and ``setattr`` does not — and
+    this tree uses it on modules and classes at a dozen sites.
+    """
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    return (
+        (isinstance(func, ast.Attribute) and func.attr == "setattr")
+        or (isinstance(func, ast.Name) and func.id == "setattr")
+    )
+
+
+def _string_target_tail(node) -> str | None:
+    """The attribute name a ``setattr`` string target ends in, or ``None``.
+
+    ``"nonogram.db.session.engine"`` → ``"engine"``. Also ``f"{MOD}.engine"``
+    and ``MOD + ".engine"`` → ``"engine"``: the trailing literal segment of a
+    computed target is statically readable even when the module part is not,
+    which is what keeps the total default from reding on the tree's real
+    computed targets (``monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])``
+    names ``_WEB_SOURCES``, so it is nothing to this guard). ``None`` means
+    the guard cannot read the name at all, and its caller fails on that.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value.rpartition(".")[2]
+    if isinstance(node, ast.JoinedStr) and node.values:
+        tail = node.values[-1]
+    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        tail = node.right
+    else:
+        return None
+    if isinstance(tail, ast.Constant) and isinstance(tail.value, str) and "." in tail.value:
+        return tail.value.rpartition(".")[2]
+    return None
+
+
+def _string_target_module(node) -> str | None:
+    """The module part of a ``setattr`` string target, or ``None`` if unreadable.
+
+    Only a whole string literal is readable. A computed target
+    (``f"{MOD}.engine"``) returns ``None``, and the caller turns that into a
+    FAILURE rather than a pass, because it cannot rule out that the computed
+    part is the session module — cycle-2 review mutant X3.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value.rpartition(".")[0]
+    return None
+
+
 def _private_global_sites_in(source: str, filename: str, names):
     """``(Counter of (filename, name) per SITE, unanalysable spellings)``.
 
@@ -289,18 +371,49 @@ def _private_global_sites_in(source: str, filename: str, names):
     equality in ``test_no_test_file_outside_the_exemption_sets_those_globals``
     is the decision :data:`_EXEMPT_PRIVATE_GLOBAL_SITES` says it is.
 
-    Three spellings are recognised, each with its own control below:
+    The deny default is **total**, and that is the whole design. Cycles 1
+    and 2 of this card's review each widened this function by enumerating
+    spellings and then described a reach one shape wider than the new
+    enumeration; a fourth shape exists for any finite list. So the rule here
+    is not a list of shapes:
 
-    * ``db_session.engine = …`` — and any dotted chain, so
-      ``nonogram.db.session.engine = …`` counts too (mutant M3's shape);
-    * ``monkeypatch.setattr(db_session, "engine", …)`` (the nine exempt sites);
-    * ``monkeypatch.setattr("nonogram.db.session.engine", …)`` — pytest's
-      string-target spelling, which cycle-1 review mutant R2 showed the guard
-      could not see at all.
+    * every ``setattr``-shaped call is analysed — ``anything.setattr(...)``
+      **and** the bare builtin (:func:`_is_setattr_call`);
+    * a readable attribute name that is not in ``names`` ends the analysis:
+      the call demonstrably does not touch one of ``session.py``'s engine
+      globals;
+    * a target the guard resolves to some **other** module or object ends it
+      too. That discrimination is the reason the default can be total without
+      drowning in false reds — measured over this tree, it is what keeps 13
+      sites (a non-literal attribute name on a target that is plainly not the
+      session module) and 315 more (a readable attribute name that simply is
+      not one of the engine globals) out of the failure list. It has its own
+      control (``test_a_setattr_on_another_module_is_not_this_guards_business``);
+    * everything that is left is a FAILURE, appended to the second list: a
+      target the guard cannot rule out, and an attribute name it cannot read
+      while the target is — or might be — the session module (ADR-0039/R2).
 
-    Everything else that touches one of ``names`` on something this cannot
-    resolve to the session module is returned in the second list, which the
-    guard fails on.
+    The two argument shapes are told apart by **arity**, which is what
+    distinguishes them in Python rather than a guess: three or more positional
+    arguments is ``setattr(obj, "name", value)``; two is ``monkeypatch``'s
+    ``setattr("dotted.path.name", value)``, and the builtin cannot take two.
+    Alongside them, the dotted assignment ``db_session.engine = …`` (any
+    chain, so ``nonogram.db.session.engine = …`` counts too — mutant M3's
+    shape), whose attribute name is always readable and whose receiver is a
+    failure whenever the guard cannot rule it out.
+
+    The one residual, stated because it is **not** covered: this guard
+    follows *names*, not values. A call whose target is a computed value (a
+    subscript, a call result) *and* whose attribute name is also non-literal
+    gives it nothing on either axis, so it is skipped rather than failed.
+    Measured over this tree, exactly two such sites exist —
+    ``tests/property/test_book_membership_floor.py:190`` and
+    ``tests/test_book_finalise_gutter.py:1511``, both
+    ``setattr(<a book row>, column, value)`` — and failing on them would be a red the guard cannot
+    discriminate without guessing. When the attribute name *is* readable the
+    target's provenance stops mattering:
+    ``setattr(sys.modules["nonogram.db.session"], "engine", …)`` fails.
+    Control: ``test_a_computed_target_with_an_unreadable_name_is_the_declared_bound``.
     """
     tree = ast.parse(source)
     aliases = set(_SESSION_ALIASES) | _session_aliases_in(tree)
@@ -322,26 +435,51 @@ def _private_global_sites_in(source: str, filename: str, names):
                         _dotted(target.value), target.attr, node,
                         f"<{ast.unparse(target.value)}>.{target.attr} = ...",
                     )
-        elif (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "setattr"
-            and len(node.args) >= 2
-        ):
-            first = node.args[0]
-            if isinstance(first, ast.Constant) and isinstance(first.value, str):
-                prefix, _, name = first.value.rpartition(".")
-                if prefix and name in names:
-                    record(prefix, name, node, f'setattr("{first.value}", ...)')
-            elif (
-                isinstance(node.args[1], ast.Constant)
-                and isinstance(node.args[1].value, str)
-                and node.args[1].value in names
-            ):
+        elif _is_setattr_call(node) and len(node.args) >= 3:
+            # ``setattr(obj, name, value)`` — the attribute name is args[1].
+            target, name_node = node.args[0], node.args[1]
+            readable = (
+                name_node.value
+                if isinstance(name_node, ast.Constant) and isinstance(name_node.value, str)
+                else None
+            )
+            if readable is not None and readable not in names:
+                continue  # a readable name outside `names` is nothing to this guard
+            chain = _dotted(target)
+            if _names_the_session_module(chain, aliases) is False:
+                continue  # some other module or object — none of this guard's business
+            if readable is not None:
                 record(
-                    _dotted(first), node.args[1].value, node,
-                    f'setattr({ast.unparse(first)}, "{node.args[1].value}", ...)',
+                    chain, readable, node,
+                    f'setattr({ast.unparse(target)}, "{readable}", ...)',
                 )
+            elif chain is None:
+                continue  # the declared bound: a computed target AND an unreadable name
+            else:
+                unanalysable.append(
+                    f"{filename}:{node.lineno}: "
+                    f"setattr({ast.unparse(target)}, {ast.unparse(name_node)}, ...) "
+                    "— the attribute name is not a literal this guard can read, and "
+                    "the target is not ruled out"
+                )
+        elif _is_setattr_call(node) and len(node.args) == 2:
+            # ``setattr("dotted.path.name", value)`` — monkeypatch's string target.
+            target = node.args[0]
+            tail = _string_target_tail(target)
+            if tail is None:
+                unanalysable.append(
+                    f"{filename}:{node.lineno}: setattr({ast.unparse(target)}, ...) "
+                    "— the target string is not one this guard can read"
+                )
+            elif tail in names:
+                module = _string_target_module(target)
+                if module is None:
+                    unanalysable.append(
+                        f"{filename}:{node.lineno}: setattr({ast.unparse(target)}, ...) "
+                        f"— names {tail!r} on a module this guard cannot read"
+                    )
+                else:
+                    record(module, tail, node, f'setattr("{target.value}", ...)')
     return sites, unanalysable
 
 
@@ -579,7 +717,15 @@ class TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish:
         self,
     ) -> None:
         here = Path(__file__).resolve()
-        every, db_required = _test_functions_in(here.read_text(encoding="utf-8"))
+        every, db_required, test_classes = _test_functions_in(
+            here.read_text(encoding="utf-8")
+        )
+        assert test_classes, (
+            "no ``Test``-prefixed class survived the class-name filter in "
+            "_test_functions_in, so the count below is vacuous — the filter "
+            "must not be able to silently empty the walk (cycle-2 review "
+            "C2-F-002)"
+        )
         assert every, (
             "no test functions found in this module's own source, so the count "
             "below is vacuous"
@@ -589,6 +735,48 @@ class TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish:
             f"expected {EXPECTED_DB_REQUIRED_TESTS}: {sorted(db_required)}. "
             "CARD-252's AC-4 — a fix that removes the symptom by removing the "
             "coverage is not a fix."
+        )
+
+    def test_a_class_renamed_off_pytests_prefix_is_not_counted(self) -> None:
+        """C2-F-002: the one direction the AST count could fail *open*.
+
+        Rename a class off pytest's ``Test*`` prefix and pytest collects
+        nothing from it — the coverage AC-4 exists to protect goes to zero.
+        The cycle-1 collection-based count caught that shape; the AST count
+        that replaced it did not, because it took ``test*`` methods out of any
+        ``ClassDef`` regardless of the class's own name, so the count stayed
+        at 2 while pytest collected 0. The ``Test`` prefix is a filter now,
+        and this is its control: the renamed class contributes neither a test
+        nor a ``db_required`` marker, so the equality above goes red instead
+        of hiding the loss.
+
+        Every other divergence from pytest's marker resolution biases the
+        count to red and is declared in :func:`_test_functions_in` rather than
+        fixed here — this is the only one that biased it to green.
+        """
+        source = (
+            "import pytest\n\n"
+            "@pytest.mark.db_required\n"
+            "class TestKeptByTheFilter:\n"
+            "    def test_one(self):\n"
+            "        pass\n\n"
+            "@pytest.mark.db_required\n"
+            "class RenamedOffThePytestPrefix:\n"
+            "    def test_two(self):\n"
+            "        pass\n"
+        )
+        every, db_required, test_classes = _test_functions_in(source)
+        assert test_classes == {"TestKeptByTheFilter"}, (
+            "the class-name filter does not match pytest's default "
+            f"``python_classes``, so the count is not about what runs: {sorted(test_classes)}"
+        )
+        assert every == {"TestKeptByTheFilter::test_one"}, (
+            "a class pytest does not collect still contributes tests to the "
+            f"count, which is the fail-open direction of C2-F-002: {sorted(every)}"
+        )
+        assert db_required == {"TestKeptByTheFilter::test_one"}, (
+            "a class pytest does not collect still contributes db_required "
+            f"tests, so renaming it would hide the lost coverage: {sorted(db_required)}"
         )
 
     def test_a_reachable_postgres_yields_no_db_mode_skip_reasons(self) -> None:
@@ -645,20 +833,48 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
     rather than one they inherit (ADR-0039/R3).
 
     What the guard reaches, stated as what has a control (ADR-0039/R1). It
-    sees three spellings — a dotted assignment, ``setattr(module, "name", …)``
-    and ``setattr("dotted.path.name", …)`` — recognises the module by the
+    recognises three spellings — a dotted assignment,
+    ``setattr(obj, "name", …)`` in **both** the ``monkeypatch.setattr`` and
+    the bare-builtin form, and ``setattr("dotted.path.name", …)`` — by the
     aliases the scanned file itself binds (both import spellings) on top of
-    :data:`_SESSION_ALIASES`, and **fails** rather than passes on a spelling
-    it cannot resolve to the session module. Each of those four claims has a
-    control in this class, and all four are verbatim mutants from CARD-252's
-    cycle-1 review that SURVIVED the first version of the guard (R1, R2, R3,
-    plus the deny-on-unanalysable shape R3 exposed).
+    :data:`_SESSION_ALIASES`; **and it fails on anything ``setattr``-shaped
+    whose target or whose attribute name it cannot read.** That second
+    sentence is the whole claim, and it is deliberately one with no outside:
+    there is no residual "plus some other spellings it happens to see", because
+    :func:`_private_global_sites_in`'s default is deny on every axis it can
+    observe. Cycle 1 of this card's review widened a list of three spellings
+    and claimed three; cycle 2 found the next three out. A claim about a
+    finite shape list always has a fourth shape; this is the exit from that.
 
-    The bound that remains: the recognition is syntactic. A test file that
-    reached the globals through something no AST walk can follow — a name
-    bound by a fixture, ``importlib.import_module`` into a local, a
-    ``globals()`` write — is outside the guard, and the failure path above
-    only catches the spellings whose last component is still ``session``.
+    Each clause has a control in this class, and six of them are verbatim
+    mutants from the two review cycles that SURVIVED the guard version they
+    were aimed at — R1, R2, R3 (cycle 1) and X1, X2, X3 (cycle 2) — plus the
+    deny-on-unanalysable default R3 exposed. The *discrimination* that makes a
+    total default affordable has its own control as well
+    (``test_a_setattr_on_another_module_is_not_this_guards_business``):
+    without it the guard would red on idioms this tree already uses: measured,
+    13 sites set a non-literal attribute name on a target that is plainly not
+    the session module, and 315 more set a readable attribute name that simply
+    is not one of the engine globals.
+
+    Measured on this head, over every file under ``tests/``: the total guard
+    finds **nine sites** (six ``(file, name)`` pairs) and **zero**
+    unanalysable spellings. So :data:`_EXEMPT_PRIVATE_GLOBAL_SITES` is an
+    equality over the entire set the guard sees, not over a subset of it —
+    there is nothing the guard reports that the exemption does not account
+    for, and nothing it declines to report that it could have read.
+
+    The bound that remains, and it is one bound said twice: the guard follows
+    **names, not values**. A test file that reached the globals through
+    something no AST walk can follow — a name bound by a fixture,
+    ``importlib.import_module`` into a local, a ``globals()`` or ``vars()``
+    write — is outside it. So is the single ``setattr`` corner where the
+    target is a computed value *and* the attribute name is non-literal, which
+    gives the guard nothing on either axis; that corner is measured at two
+    book-row sites in this tree (measured, not estimated) and is skipped
+    rather than failed for exactly that reason (:func:`_private_global_sites_in`, and
+    ``test_a_computed_target_with_an_unreadable_name_is_the_declared_bound``
+    pins both it and its edge).
     """
 
     def test_reset_engine_is_public_and_says_who_calls_it(self) -> None:
@@ -816,6 +1032,178 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         assert dict(sites) == {("test_not_exempt.py", "engine"): 1}, (
             "a module aliased by `import nonogram.db.session as X` is invisible "
             f"to the guard: {dict(sites)}"
+        )
+
+    # --- the three shapes cycle 2 found one layer out -------------------
+    # X1/X2/X3 are the cycle-2 review's verbatim mutants. All three SURVIVED
+    # the cycle-1 guard (9 passed, unanalysable empty), two of them while the
+    # class docstring above named their spelling. They are controls for the
+    # *total* deny default rather than for three more branches: X2 pins the
+    # call-shape axis, X1 the attribute-name axis, X3 the string-target axis.
+
+    def test_the_bare_builtin_setattr_spelling_is_a_site(self) -> None:
+        """X2: ``setattr(app_session, "engine", None)``, no monkeypatch receiver.
+
+        The guard required ``node.func`` to be an ``ast.Attribute``, so the
+        builtin was invisible — while the claim above literally named
+        ``setattr(module, "name", …)``. It is the more dangerous of the two
+        spellings as well: ``monkeypatch`` undoes itself at teardown and this
+        does not.
+        """
+        names = _global_names_assigned_by("_init_engine")
+        sites, unanalysable = _private_global_sites_in(
+            "from nonogram.db import session as app_session\n\n"
+            "def test_x2_control():\n"
+            '    setattr(app_session, "engine", None)\n',
+            "test_not_exempt.py",
+            names,
+        )
+        assert not unanalysable
+        assert dict(sites) == {("test_not_exempt.py", "engine"): 1}, (
+            "the bare builtin setattr is invisible to the guard, so a spelling "
+            f"the AC-5 claim names is outside its mechanism: {dict(sites)}"
+        )
+
+    def test_a_non_literal_attribute_name_is_a_failure(self) -> None:
+        """X1: ``monkeypatch.setattr(app_session, name, None)`` — the tree's own idiom.
+
+        The target resolves to the session module and the attribute name
+        cannot be read, so the guard cannot say *which* global is set and
+        therefore cannot say the site is exempt. ADR-0039/R2 makes that a
+        failure, not nothing to see. This spelling is at six sites in this
+        tree today, on other objects.
+        """
+        names = _global_names_assigned_by("_init_engine")
+        sites, unanalysable = _private_global_sites_in(
+            "from nonogram.db import session as app_session\n\n"
+            '@pytest.mark.parametrize("name", ["engine", "SessionLocal"])\n'
+            "def test_x1_control(monkeypatch, name):\n"
+            "    monkeypatch.setattr(app_session, name, None)\n",
+            "test_not_exempt.py",
+            names,
+        )
+        assert dict(sites) == {}, (
+            f"a non-literal name cannot be counted as a site: {dict(sites)}"
+        )
+        assert len(unanalysable) == 1, (
+            "a setattr on the session module whose attribute name the guard "
+            "cannot read must come back as a failure, not as nothing to see: "
+            f"{unanalysable}"
+        )
+
+    def test_a_computed_string_target_is_a_failure(self) -> None:
+        """X3: ``monkeypatch.setattr(f"{MOD}.engine", None)`` and ``MOD + ".engine"``.
+
+        The trailing literal segment names ``engine``, so the guard knows the
+        call sets one of ``session.py``'s globals; the module part is computed,
+        so it cannot rule out that it is the session module. Both halves of
+        that are needed — reading the tail is what keeps
+        ``monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])`` (which this
+        tree really does contain) out of the failure list. The third spelling
+        here is a target the guard cannot read at all (a bare name holding the
+        path), which is a failure for the same reason.
+        """
+        names = _global_names_assigned_by("_init_engine")
+        sites, unanalysable = _private_global_sites_in(
+            '_X3_MODULE = "nonogram.db.session"\n'
+            '_X3_TARGET = "nonogram.db.session.engine"\n\n'
+            "def test_x3_control(monkeypatch):\n"
+            '    monkeypatch.setattr(f"{_X3_MODULE}.engine", None)\n'
+            '    monkeypatch.setattr(_X3_MODULE + ".SessionLocal", None)\n'
+            "    monkeypatch.setattr(_X3_TARGET, None)\n",
+            "test_not_exempt.py",
+            names,
+        )
+        assert dict(sites) == {}, (
+            f"a computed module part cannot be resolved to a site: {dict(sites)}"
+        )
+        assert len(unanalysable) == 3, (
+            "a string target the guard cannot read must be a failure for every "
+            "spelling of it — a computed module part, a concatenation, and a "
+            f"target it cannot read at all: {unanalysable}"
+        )
+
+    def test_a_setattr_on_another_module_is_not_this_guards_business(self) -> None:
+        """The discrimination that makes the total deny default affordable.
+
+        Two things end the analysis without a failure: a target the guard
+        resolves to something that is **not** the session module, and an
+        attribute name it *can* read that is not one of the engine globals.
+        Without them a total default would red on idioms this tree already
+        uses — ``monkeypatch.setattr(SomeClass, name, …)``, the bare builtin on
+        a class, and a computed string target naming some other module's
+        attribute. Measured: 13 sites in the first arm, 315 in the second.
+
+        This is the control for both arms, and the measurement that says they
+        are enough is ``test_no_test_file_outside_the_exemption_sets_those_globals``
+        itself: zero unanalysable spellings over the whole of ``tests/``.
+        """
+        names = _global_names_assigned_by("_init_engine")
+        sites, unanalysable = _private_global_sites_in(
+            "from nonogram.book.pdf import BookPDFGenerator\n"
+            "from nonogram.db import session as app_session\n\n"
+            "def test_other_targets(monkeypatch, name):\n"
+            "    monkeypatch.setattr(BookPDFGenerator, name, None)\n"
+            "    setattr(BookPDFGenerator, name, None)\n"
+            '    monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])\n'
+            '    monkeypatch.setattr("nonogram.web.pages._CACHE", None)\n'
+            '    monkeypatch.setattr(app_session, "get_session", None)\n',
+            "test_not_exempt.py",
+            names,
+        )
+        assert dict(sites) == {}, (
+            "none of these touches one of session.py's engine globals, so none "
+            f"is a site: {dict(sites)}"
+        )
+        assert unanalysable == [], (
+            "the guard reds on setattr calls that are plainly none of its "
+            "business, which is how a total deny default becomes unusable: "
+            f"{unanalysable}"
+        )
+
+    def test_a_computed_target_with_an_unreadable_name_is_the_declared_bound(
+        self,
+    ) -> None:
+        """The residual, pinned so that it stays *stated* rather than drifting.
+
+        The guard follows names, not values. When the target is a computed
+        value **and** the attribute name is non-literal it has nothing on
+        either axis, and it skips: there are exactly two such sites in this
+        tree (``tests/property/test_book_membership_floor.py:190``,
+        ``tests/test_book_finalise_gutter.py:1511``), both setting a book
+        row's column, and failing on them would be a red that cannot be
+        discriminated without guessing.
+
+        The edge of that bound is the second half here: as soon as the
+        attribute name *is* readable, how the target was computed stops
+        mattering and the call fails. So the bound is exactly one corner wide,
+        not "computed targets are outside the guard".
+        """
+        names = _global_names_assigned_by("_init_engine")
+        skipped, quiet = _private_global_sites_in(
+            "def test_sets_a_row_column(panel, book_id, column):\n"
+            "    setattr(panel.books.get_book(book_id), column, 1)\n",
+            "test_not_exempt.py",
+            names,
+        )
+        assert dict(skipped) == {} and quiet == [], (
+            "the declared bound has moved: a computed target with a "
+            "non-literal name is reported, which reds the two book-row sites "
+            f"this tree already has: {dict(skipped)} / {quiet}"
+        )
+        sites, unanalysable = _private_global_sites_in(
+            "import sys\n\n"
+            "def test_via_sys_modules():\n"
+            '    setattr(sys.modules["nonogram.db.session"], "engine", None)\n',
+            "test_not_exempt.py",
+            names,
+        )
+        assert dict(sites) == {}, (
+            f"sys.modules[...] is not a name the guard resolves: {dict(sites)}"
+        )
+        assert len(unanalysable) == 1, (
+            "a readable attribute name in `names` must fail however the target "
+            f"was computed — that is the edge of the declared bound: {unanalysable}"
         )
 
     def test_a_spelling_the_guard_cannot_resolve_is_a_failure(self) -> None:
