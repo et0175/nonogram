@@ -1,6 +1,6 @@
 # CARD-251: A puzzle already in a book can be edited, behind a confirmation that names the book
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** architectural
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/251-edit-a-booked-puzzle
-**Worktree:** ../PythonProject4-card-251
+**Worktree:** — (removed at merge)
 **Source:** owner's doc "Nonograms - Print layout" → "Puzzle editor", 2026-10-19 — item 5: "Add a possibility to edit puzzles that are already in the book with additional 'are you sure question'" (intake in `meta/architecture/inputs/raw-requirements.md`)
 **Idea:** —
 **Wave:** 47
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/admin/static/puzzle_edit.js, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/_puzzle_table.html, tests/test_puzzle_edit_routes.py, tests/test_puzzle_edit_store.py, tests/test_puzzle_editor_ui.py
-**Review score:** 8.0 (cycle 1/3 — meets the number, two Important open, so the severity gate fails)
+**Review score:** 9.0 (cycle 2/3 — 8.0 → 9.0; certification complete, 0 critical, 0 important)
 **Started:** 2026-10-19T10:39:26Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-19T13:43:20Z
+**Actual:** 0.4d
+**Merge commit:** 49c5e82
 **Blocked by:** —
 
 ## The decision that shapes this card — SETTLED 2026-10-19 (owner)

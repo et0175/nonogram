@@ -106,9 +106,11 @@ findings:
     source: static
     violates: "AC-9"
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      state the delta, drop the absolutes (orchestrator decision 2026-10-19). `_page_count_effect` answers `added` (signed) and no `before`/`after`; the sentence is built from it. The puzzle-page -> book-page transfer is MEASURED, not argued: test_the_puzzle_page_delta_is_the_whole_interiors_delta walks the real interior before and after an approved save (7 -> 8 while the puzzle pages go 1 -> 2) and holds the two deltas equal, so "one page longer" is honest. Docstring rewritten to the narrower question it answers.
     learned_pattern: null
 
   - id: F-002
@@ -146,9 +148,11 @@ findings:
     source: static
     violates: "F-4"
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      namedBook() in puzzle_edit.js is now the one place a book is named for the question (needsConfirmationText), the grade's clause (bookNote) and the editor page (puzzle_edit.html's paragraph): a title when there is one, otherwise "a book whose title could not be read (id <uuid>)". Failure matrix F-4 is now true as declared, in the owner's favour.
     learned_pattern: null
 
   - id: F-003
@@ -186,9 +190,11 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      comment narrowed to what the code realises: no reason is emitted from inside those helpers today, the widening is forward cover over the whole POST surface, and the equality in the other direction still bites. Stated as the convention for the next card.
     learned_pattern: null
 
   - id: F-004
@@ -220,9 +226,11 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      absorbed into F-001: pageCountChange(added) derives the words from the number, including the SIGN -- a shallower replacement that lets a pair fit makes the book one page SHORTER, which is reachable and is now measured (test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter, added == -1).
     learned_pattern: null
 
   - id: F-005
@@ -255,9 +263,11 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      the predicate is named instead of the title: "a membership with NO BOOK IDENTITY" / bool(book_id) in _an_edit_may_touch, _row_an_edit_may_touch, puzzle_is_editable, EditNeedsConfirmation.book_id, verify_replacement_grid's Returns, EDIT_REFUSAL_REASONS' note and the editor route, each saying that a book_id resolving to no readable book is an identity and takes the other branch. No code change; the seam stays.
     learned_pattern: null
 
   - id: F-006
@@ -284,9 +294,11 @@ findings:
     source: model
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      closed by the orchestrator's AC-6 amendment, which is in the worktree card: the save requires the INV-008-SHAPED flag, not a call into book_manager's membership machinery, and the question names the book and says it is published.
     learned_pattern: null
 
   - id: F-007
@@ -333,9 +345,11 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      the cost is now stated in _page_count_effect's own docstring -- one row read per member (one SELECT per member in DB mode) plus two pairing walks over the whole book, on every verify of a booked puzzle -- together with the two narrowings recorded as available and deliberately not taken (get_puzzles' single WHERE id IN (...), and starting the second walk at the edited puzzle's page).
     learned_pattern: null
 
   - id: F-008
@@ -366,9 +380,11 @@ findings:
     source: static
     violates: "F-5"
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      the catch is narrowed to (ValueError, RuntimeError), exactly what F-5 and puzzle_page_plan's Raises: declare. Two tests added: F-5's untested RuntimeError arm (injected, because no stored row reachable through the panel produces it -- clue sets too long, too few and absent were each tried and all measured fine), and the control that makes the narrowing a decision (a TypeError leaves the route instead of becoming a soft "unknown").
     learned_pattern: null
 
   - id: F-009
@@ -394,9 +410,11 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      _puzzle_table.html's comment now says what is true: a puzzle in a book the panel CAN name offers the control again, and what offers none is a membership with no book identity. The file stays in Touches and is now touched.
     learned_pattern: null
 
   - id: F-010
@@ -421,7 +439,9 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "46e5bfb,332f580"
     dismissed_reason: null
+    fix_note: |
+      a `books` fixture that clears the singleton on both sides, matching tests/test_puzzle_edit_routes.py's; _book() takes it instead of the app.
     learned_pattern: null

@@ -3,7 +3,7 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: [CARD-251]
+active: []
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -534,3 +534,52 @@ wave_47:
     Both settled 2026-10-19 and recorded on the card: a regrade inside a published book is REFUSED
     (INV-009), a split two-up pair is ANNOUNCED and Approve stays available. G-3 forbids collapsing
     one into the other.
+
+wave_47_complete:
+  at: 2026-10-19T13:43:42Z
+  cards: [CARD-250, CARD-251]
+  merged: 2
+  escalations: 1
+  escalation: "CARD-250 cycle 3 escalated on a prose-only Important and the orchestrator OVERRIDE it, with the reversal path recorded on the card. Counted as an escalation rather than hidden, because the pipeline's answer was to involve the owner and the orchestrator decided otherwise."
+  smoke_test: "SATISFIED by CARD-251's merge gate without a separate run: 8494 passed, 1 skipped, 0 failed, SOLO, and `git diff 73bbacd HEAD -- src tests migrations pyproject.toml meta/profiling` is empty, so main's code tree is byte-identical to the gated tree. CARD-251 branched from a main that already carried CARD-250, so that gate tested the union -- the same reasoning waves 43, 44 and 45 used."
+  results:
+    - id: CARD-250
+      merge_commit: 71b5ec9
+      review: "7.5 -> 8.0 -> 8.0 (3 cycles, 3 fix cycles)"
+      actual: 0.4d
+      estimate: 1d
+    - id: CARD-251
+      merge_commit: 49c5e82
+      review: "8.0 -> 9.0 (2 cycles, 1 fix cycle), certification complete"
+      actual: 0.4d
+      estimate: 1d
+  through_line: >-
+    ONE defect family, found TEN times across two cards: a claim stated wider than its mechanism, or a
+    control that cannot fail. Only FOUR came from review. The others came from the fix agents (three,
+    one of them INSIDE the site it was sent to correct), from the AC/EC/G gate, from the merge gate, and
+    from the orchestrator twice -- including twice in the orchestrator's OWN TOOLING (a gate guard that
+    counted its own shell, then one that could only ever pass).
+  criteria_amended: "FOUR: CARD-250's AC-5 and AC-7, CARD-251's AC-6 and AC-9. Criteria are being written narrower than the decisions they serve, and it is the MEASUREMENT rather than the review that keeps catching it. This belongs in the retrospective as a decompose-station finding, not as four separate card notes."
+  orchestrator_defects: >-
+    Recorded rather than smoothed over. (1) A full-suite gate run concurrently with a review carrying
+    mutation_check: true, which read a mutated tree and produced 12 failures that were exactly that
+    mutant's 12 kills. (2) A first diagnosis of that run -- CPU contention -- that was WRONG in a
+    comfortable way; a retry would have come back green and buried the real hazard. (3) A gate guard
+    that counted its own shell, reported 2 and 3 with nothing running, and led to a confident
+    attribution that had to be withdrawn after it was committed. (4) Its replacement, which anchored on
+    lowercase `python` and matched nothing on a machine whose interpreter is `Python` -- a guard that
+    could only ever pass. (5) Four suite-timing timestamps written from `stat -t` local time and
+    labelled Z. (6) A claim written into an amended AC that measurement refuted.
+  what_the_full_suite_saw_that_reviews_could_not: >-
+    CARD-251's merge gate went red on a frozen render-set registry the card's own test file
+    invalidated. Two review cycles, a 16-mutant certification and an AC/EC/G-grade sweep all passed
+    over it, because every one of them was told -- correctly -- not to run the full suite. The gates
+    are not a formality after the reviews.
+  owner_decisions_this_wave:
+    - "the four buttons are fine, leave them (2026-10-19, after the CARD-250 render)"
+    - "refuse the regrade inside a book (2026-10-19)"
+    - "telling is fine, keep it as a warning (2026-10-19)"
+  open_for_the_owner:
+    - "CARD-250 render: the row's caption still says duck.png after the picture became a cat. Raised as a question, no answer, so it stays a question."
+    - "CARD-251: a split pair the book's suffix ABSORBS is silent, because `changes` is a page-COUNT key. Faithful to the decision as worded; the owner may want the warning to fire on moved folios too."
+    - "CARD-218 / CARD-219 are sized against a render-share figure that now includes a file whose two render mentions do not draw."
