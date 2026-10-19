@@ -1,6 +1,6 @@
 # CARD-252: The test session's schema rebuild disposes the app's engine, so a gate's red means the code
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** ops
 **Complexity:** standard
@@ -15,11 +15,11 @@
 **Wave:** 48 (started mid-wave on owner instruction)
 **Depends on:** —
 **Touches:** tests/conftest.py, tests/test_db_engine_lifecycle.py, src/nonogram/db/session.py
-**Review score:** —
+**Review score:** 8.0 (cycle 3/3; merged on the final reviewer's verdict, claim cut back)
 **Started:** 2026-10-19T17:32:53Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-19T22:09:42Z
+**Actual:** 0.6d (4.6h wall clock: 3 review cycles, 2 fix cycles, 1 build gate + 1 merge gate)
+**Merge commit:** 8cf7a54
 **Blocked by:** —
 
 ## Why this is P1 when it changes no product behaviour
@@ -917,3 +917,28 @@ written, long-standing residual, and no AST walk can follow it without executing
   The branch forked at `58ec463`, before CARD-247 landed, so the suite has to run on the tree that
   will exist after the merge. The merge itself was clean: this card's three files touch nothing
   CARD-247 touched.
+
+### Merged — `8cf7a54`, 2026-10-19T22:09Z
+
+- **[Merge gate — PASSED]** `4fa1687` (branch merged with `main`), solo: **8525 passed, 1 skipped**,
+  15:40, EXIT=0. That single skip is also the only measurement of **AC-4's suite-wide half** anyone
+  got: no review cycle was allowed to run the full suite, so "exactly 1 skip on this machine" was
+  carried as unchecked through all three. It is checked now.
+- **[Actual] 0.6d against a 0.5d estimate** — 4.6h wall clock. The estimate was right about the
+  *change* and wrong about the *claims*: 40 lines of production code, judged correct in cycle 1 and
+  never disputed again, surrounded by three review cycles in which every gating finding was about
+  what the card said about itself. For the retrospective, that is the signal — not an estimating miss
+  on a 0.5d card, but a claim-surface cost that scales with how much a card asserts, which no effort
+  scale currently prices.
+- **[What merged, stated as narrowly as the card now states it]** `reset_engine()` is published,
+  documented and called once, from `conftest._rebuild_public_schema`, after `alembic upgrade head`
+  and before the fixture yields. AC-1 pins the precondition and fails three ways. **AC-3 is
+  withdrawn**: the hazard could not be forced, psycopg2 has no `prepare_threshold`, and
+  `pg_prepared_statements` is 0 after 40 parameterised executions on one pooled connection — so the
+  four waves of irreproducible gate failures that motivated the card **remain unexplained**, and the
+  docstring a maintainer reads says exactly that. AC-5's guard claims only the shapes it binds.
+- **[Still open, deliberately]** Whether this change actually stops the intermittent
+  `relation "puzzles" does not exist` class is **not** settled by merging it. CARD-253 reproduced that
+  class on a tree without the fix and then went green on the same commit, so a single green gate
+  cannot distinguish the fix working from the failure not appearing. The answer is the next several
+  waves' gates, which is where wave 45 left it and where it stays.
