@@ -42,6 +42,15 @@ there by a test that fails when that mechanism alone is taken out, including
 the two the reviewer's surviving mutants went through (Approve re-reading the
 board, and the offer surviving the start of a new check).
 
+One exception, measured rather than reasoned (review cycle 3, MU-I3): of the
+two sites mechanism 3 occupies, only ``onSave``'s is sole protection.
+Removing ``onApprove``'s one-request guard alone leaves 98 tests passing,
+because ``tell`` has already withdrawn the offer by then, so there is nothing
+for a second Approve to send. It is a DECLARED REDUNDANCY and
+``test_a_second_approve_pressed_in_flight_is_not_sent_either``'s own docstring
+says so; this paragraph used to claim the stronger thing for all four, which
+the mutant falsified.
+
 **Page isolation** is declared in :data:`PAGE_ISOLATION_DECLARATION` below and
 checked by this file's own test, because CARD-235's registry globs
 ``tests/test_puzzle_solver_*.py`` and cannot see a file outside that name
