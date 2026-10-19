@@ -459,3 +459,24 @@ proved could fail, and then one that could only fail.
 
 **Until the solo re-gate returns, this card has no gate verdict.** The red run above is evidence about
 my instrumentation, not about `119fc58`.
+
+### [Build gate] PASSED (full, 879s, SOLO) — orchestrator, 2026-10-19 · `119fc58`
+
+**EXIT=0, first attempt of the solo run: 8488 passed / 1 skipped / 0 failed.**
+
+**The count reconciles exactly.** `main` is **8394** collected; the branch is **8489**, so **+95** — and
+the card's own three test files go **296 → 391**, also **+95**. Every test this card added is in its own
+files and nothing else moved.
+
+**Same commit, same database, red then green, no change to the tree.** That is the wave-45 CARD-248
+pattern and it is recorded the same way: **a gate green only on its second attempt is not the evidence a
+gate green on its first is.** Gate 1's five failures were therefore not about `119fc58`. Their
+signature — `relation "puzzles" does not exist` raised inside a test that makes no database assertion —
+belongs to the `@ops` family already on this board (wave 46: the app's module-global engine surviving
+conftest's `DROP SCHEMA`; the wave-46 smoke test's first run dying on `FATAL: database … does not
+exist`). The contention story I first reached for is withdrawn and the backlog item stands unchanged:
+this is the third wave in which that hazard has cost a gate run.
+
+**What the episode actually produced is a working guard**, after three tries, two of which were the
+defect this board names in cards: a control that counted its own shell, then one that could only ever
+pass. The third was verified in both directions before use and refuses a contended start outright.
