@@ -1249,14 +1249,27 @@ class TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle:
         assert "Other" not in message, message
 
     def test_an_unreadable_print_specification_is_the_books_own_failure(self) -> None:
-        """F-006: a book-level fault stays a bare ``ValueError``, naming no member.
+        """F-006/F-001: a book-level fault stays a bare ``ValueError``, naming no member.
 
-        ``cell_sizes`` reads the book's sheet, so an unreadable stored trim
-        used to arrive at the per-puzzle handler above and come back out as
+        ``cell_sizes`` reads the book's sheet, so a book whose stored trim is
+        unreadable could in principle arrive at the per-puzzle handler above
+        and come back out as
         ``RuntimeError("puzzle <every member> could not be laid out: ...")`` —
-        120 numbers for a failure that belongs to none of them. Both entries
-        read the sheet before the handler now, so the distinction
-        ``_unmeasurable_members`` always drew is kept by the caller too.
+        120 numbers for a failure that belongs to none of them. It cannot,
+        and what stops it is **`BookPDFGenerator.__init__`**: its
+        ``page_frame(self.page_spec(1))`` lays the sheet out when the
+        generator is built, before either entry has a payload to measure, so
+        an unreadable specification is refused with the bare ``ValueError``
+        the failure matrix's row F-3b declares (CARD-225 review cycle 2,
+        F-001).
+
+        **What this test discriminates, measured.** The constructor's read:
+        make that line fall back to a default sheet instead of raising and
+        the ``puzzle_page_plan`` call below reaches the cell map and raises
+        the per-puzzle ``RuntimeError`` this test forbids. It does **not**
+        discriminate the two sheet pre-reads fix cycle 1 added to the entries
+        themselves — deleting either one failed nothing, which is F-001; the
+        dead one is deleted and the other claims nothing about its position.
         """
         book = _book()
         book.trim_width_cm = "abc"
@@ -1272,7 +1285,12 @@ class TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle:
             with pytest.raises(ValueError) as raised:
                 call()
             message = str(raised.value)
-            assert not isinstance(raised.value, RuntimeError), message
+            # Exactly ``ValueError``, not a subclass of it: the per-puzzle
+            # abort this must not be is a ``RuntimeError``, which
+            # ``pytest.raises(ValueError)`` would already have let through,
+            # so asserting `not isinstance(..., RuntimeError)` inside this
+            # block asserted nothing at all (review cycle 2, F-005).
+            assert type(raised.value) is ValueError, message
             assert "trim_width_cm" in message, message
             assert "could not be laid out" not in message, message
             assert "First" not in message and "Second" not in message, message

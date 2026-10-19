@@ -34,9 +34,10 @@ is the only shape in which the rule can bite. Both are fixed here:
 :func:`_expected_pages` reads the whole book's cells before it walks it,
 ``puzzle_pages`` is called through the map production settles, the rendered
 corpus identifies a page's puzzles by their **drawing** extents rather than
-their grid extents so duplicates are still told apart, and two hand-built
-books (:func:`_book_cell_books`) put each of F-8 and F-9 in the corpus at
-least once, asserted by counters at the foot of each test. Measured: with the
+their grid extents so duplicates are still told apart, and eighteen
+hand-built books (:func:`_book_cell_books` — nine of each shape since review
+cycle 2's F-004) put both F-8 and F-9 in the corpus, asserted by counters at
+the foot of each test. Measured: with the
 book-wide term deleted from the production side (``_pair_cell_mm`` returning
 ``None``) both tests fail; before this fix both passed.
 
@@ -473,51 +474,109 @@ def _member(
     return puzzle
 
 
+#: The Book 1 grid sizes a :func:`_book_cell_books` family is built over, and
+#: the clue depths its paired members take (CARD-225, review cycle 2, F-004).
+#:
+#: A grid size can only show this card's pairing verdict when it holds both a
+#: pair that fits two-up and a member deep enough to decide the size's own
+#: cell. On Book 1's 190.5 mm of usable width that is a three-column window:
+#: a pair survives CARD-204's folio reserve at about 25 drawing cells across
+#: or fewer, and a member only takes the size's cell below FR-040's 7.0 mm at
+#: 28 or more (190.5 / 28 = 6.80 mm). The paired members are 1 deep across, so
+#: each is 23..25 cells wide and fits; the third member's row gutter is set to
+#: land the whole size's cell on the figure each family wants.
+BOOK_CELL_COLUMNS = (22, 23, 24)
+BOOK_CELL_PAIR_DEPTHS = (
+    ((1, 1), (1, 2)),
+    ((1, 2), (1, 3)),
+    ((1, 3), (1, 1)),
+)
+
+#: How wide the deciding member's drawing is, in cells, in each family:
+#: 28 puts the grid size's cell at 190.5 / 28 = 6.80 mm, **below** 7.0 mm, so
+#: the pair is refused for a cell a third puzzle decided (F-8); 27 puts it at
+#: 190.5 / 27 = 7.06 mm, **above** 7.0 mm but below the pair's own 7.25/7.5 mm
+#: fit, so the pair still pairs and prints smaller than it would alone (F-9).
+REFUSING_ACROSS = 28
+LOWERING_ACROSS = 27
+
+
+def _book_cell_family(third_across: int) -> list[tuple[Sheet, list[Puzzle]]]:
+    """Nine Book 1 books, each three members of one grid size, built to order.
+
+    One book per :data:`BOOK_CELL_COLUMNS` x :data:`BOOK_CELL_PAIR_DEPTHS`
+    combination: two shallow members of the size, which pair, and a third
+    whose drawing is ``third_across`` cells wide, which decides the size's
+    book cell for all three (:meth:`Sheet.book_cell_mm` takes the minimum
+    within a grid size).
+
+    Args:
+        third_across: The deciding member's drawing width in cells —
+            :data:`REFUSING_ACROSS` or :data:`LOWERING_ACROSS`. Its row gutter
+            is whatever gets it there on this width, and its column gutter is
+            2, which keeps its drawing distinct from both paired members'.
+    """
+    sheet = Sheet(*BOOK1)
+    return [
+        (
+            sheet,
+            [
+                _member(columns, 10, *first),
+                _member(columns, 10, *second),
+                _member(columns, 10, third_across - columns, 2),
+            ],
+        )
+        for columns in BOOK_CELL_COLUMNS
+        for first, second in BOOK_CELL_PAIR_DEPTHS
+    ]
+
+
+def _refusal_books() -> list[tuple[Sheet, list[Puzzle]]]:
+    """The F-8 family: the grid size's cell is 6.80 mm, so no pair in the book
+    is paired although each pair's own two-up fit clears 7.0 mm."""
+    return _book_cell_family(REFUSING_ACROSS)
+
+
+def _lowered_cell_books() -> list[tuple[Sheet, list[Puzzle]]]:
+    """The F-9 family: the grid size's cell is 7.06 mm, so each book's pair is
+    paired, at that cell rather than at the 7.25/7.5 mm its own fit allows."""
+    return _book_cell_family(LOWERING_ACROSS)
+
+
 def _book_cell_books() -> list[tuple[Sheet, list[Puzzle]]]:
-    """The two books that exercise CARD-225's own pairing verdict (F-003).
+    """The 18 books that exercise CARD-225's own pairing verdict (F-003).
+
+    Nine of each shape, :func:`_refusal_books` then :func:`_lowered_cell_books`
+    — parametrised over three grid widths and three pair depths each in review
+    cycle 2 (F-004), where the regression surface inside this property was one
+    hand-built book per shape and each of the three counters below was
+    satisfied by exactly one occurrence.
 
     **Why they are built rather than sampled.** F-8 needs one grid size to
     hold both a pair that fits two-up *and* a third, deeper member that takes
-    that size's book cell under FR-040's 7.0 mm. On Book 1 that is a narrow
-    window: a pair only survives CARD-204's fixed folio reserve at about 25
-    drawing cells across or fewer, and a member of the same grid size only
-    falls under 7.0 mm at 28 or more (190.5 / 28 = 6.80 mm) — so the grid size
-    must be 22..24 columns wide, shallow enough down the page for two to stack
-    inside :attr:`Sheet.pair_height_mm`, and must appear **twice** in one book
-    of at most eight puzzles. :func:`_puzzle` draws a side in that width
-    window about once in twenty-three, and two members of the same such size
-    in one book essentially never: measured over the 3600-book sweep below,
-    the shape occurs zero times. The sweep is what makes the oracle's new term
-    *safe* everywhere; these two books are what make it *bite*.
+    that size's book cell under FR-040's 7.0 mm — so the size must be 22..24
+    columns wide, shallow enough down the page for two to stack inside
+    :attr:`Sheet.pair_height_mm`, and must appear **twice** in one book of at
+    most eight puzzles. :func:`_puzzle` draws a side in that width window
+    about once in twenty-three, and two members of the same such size in one
+    book essentially never: measured over the 3600-book sweep below, the shape
+    occurs zero times, for F-9 as well as F-8.
 
-    Both are Book 1, all members the same tier, all three of each book's
-    members one grid size:
+    **Rare, not unreachable** (review cycle 2, F-004). Measured off-corpus
+    over 80,000 books from the same :func:`_puzzle` generator, F-8 occurred
+    twice and F-9 not at all — about one book in 40,000, so reaching either by
+    sweeping would need O(10^5) books, some thirty times this corpus and far
+    outside engineering-standards section 6's case budget. The sweep is what
+    makes the oracle's new term *safe* everywhere; these books are what make
+    it *bite*, and the counters at the foot of each test are what stop the
+    family shrinking back to one case of each.
 
-    * **the refusal** — 22 x 10, a pair at 24 and 25 drawing cells across
-      (each 7.5 mm alone, pairing at 7.254 mm once the folio reserve is taken)
-      and a 28-cell member that makes the size's book cell 6.80 mm. Under
-      7.0 mm, so the pair is refused and all three print alone (F-8).
-    * **the smaller cell** — 24 x 10, a pair at 25 cells across beside a
-      27-cell member whose 7.056 mm book cell is *above* 7.0 mm. The pair
-      still pairs, at 7.056 mm rather than at the 7.254 mm its own fit would
-      have given it: the cap is a ceiling, not a verdict (F-9).
-
-    Those figures are this module's own arithmetic (:meth:`Sheet.cell_mm`,
-    :meth:`Sheet.shared_cell_mm`) and are stated here only to say what each
-    book is *for*; nothing below reads them as an expectation.
+    Each book's figures are this module's own arithmetic
+    (:meth:`Sheet.cell_mm`, :meth:`Sheet.shared_cell_mm`) and are stated in
+    :data:`REFUSING_ACROSS` / :data:`LOWERING_ACROSS` only to say what each
+    family is *for*; nothing below reads them as an expectation.
     """
-    sheet = Sheet(*BOOK1)
-    refusal = [
-        _member(22, 10, 2, 2),
-        _member(22, 10, 3, 1),
-        _member(22, 10, 6, 5),
-    ]
-    smaller_cell = [
-        _member(24, 10, 1, 1),
-        _member(24, 10, 1, 2),
-        _member(24, 10, 3, 3),
-    ]
-    return [(sheet, refusal), (sheet, smaller_cell)]
+    return _refusal_books() + _lowered_cell_books()
 
 
 def _pages_for_a_qualifying_run(length: int) -> int:
@@ -730,7 +789,7 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
     # card's measured cost and is asserted as such by
     # ``tests/test_book_qr_slot.py``'s ``TestTwoUpFooter_...`` classes.
     def corpus():
-        """The sweep, then the two hand-built books of :func:`_book_cell_books`.
+        """The sweep, then the eighteen hand-built books of :func:`_book_cell_books`.
 
         A generator, so the sweep's draws happen in exactly the order they did
         before this fix (every minimum below is measured on this seed) and no
@@ -869,13 +928,21 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
     # The float/fraction skip is a corner, not a sieve.
     assert near_threshold <= 5, near_threshold
     # CARD-225 (review cycle 1, F-003): both ways the book's per-grid-size cell
-    # changes this walk's answer are in the corpus. Without these two the
-    # oracle's new term would be satisfied by every book that has no second
-    # member of any grid size — which is what the whole 3600-book sweep was
-    # before the two hand-built books of `_book_cell_books` were added, and so
-    # a production side with the term removed would stay green.
-    assert refused_on_book_cell >= 1, refused_on_book_cell
-    assert book_cell_lowered >= 1, book_cell_lowered
+    # changes this walk's answer are in the corpus. Without them the oracle's
+    # new term would be satisfied by every book that has no second member of
+    # any grid size — which is what the whole 3600-book sweep is on its own
+    # (measured: with `_book_cell_books` removed from the corpus above, both
+    # counters are **zero** over 3600 books), and so a production side with
+    # the term removed would stay green.
+    #
+    # **Measured: 9 and 9** — one occurrence per book of each nine-book
+    # family, none from the sweep. The floors are set below that, with
+    # headroom for a geometry change that moves one width out of the window;
+    # they read `>= 1` while each shape was a single hand-built book, which
+    # could not say whether the family was nine books or one (review cycle 2,
+    # F-004).
+    assert refused_on_book_cell >= 6, refused_on_book_cell
+    assert book_cell_lowered >= 6, book_cell_lowered
 
 
 def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_pages() -> None:
@@ -913,16 +980,25 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
     shared_binds = 0
 
     def corpus():
-        """The small random sweep, then :func:`_book_cell_books`' refusal book.
+        """The small random sweep, then one book of each hand-built shape.
 
-        That book's three members are one grid size, so its pair is refused
-        for a cell a *third* puzzle decided and the interior really does hold
-        three single pages where the pair-only reading expects two.
+        Both books' three members are one grid size. In the first
+        (:func:`_refusal_books`) the pair is refused for a cell a *third*
+        puzzle decided, so the interior really does hold three single pages
+        where the pair-only reading expects two (F-8). In the second
+        (:func:`_lowered_cell_books`) the pair is paired, at the grid size's
+        cell rather than at its own larger fit (F-9) — so this half now
+        renders that shape too, rather than leaving F-9's ink to
+        ``tests/test_book_cell_size.py``'s
+        ``TestBookCellSize_SharedPageTakesTheSmaller`` alone (review cycle 2,
+        F-004). One book of each: every page here is a real 300 DPI raster,
+        and the nine-book families are the walk half's business.
         """
         for case in range(24):
             sheet = Sheet(*(SIX_BY_NINE if case % 4 == 0 else BOOK1))
             yield sheet, [_puzzle(rng, small=True) for _ in range(rng.randint(2, 5))]
-        yield _book_cell_books()[0]
+        yield _refusal_books()[0]
+        yield _lowered_cell_books()[0]
 
     for sheet, order in corpus():
         # Distinct *drawings*, so the sequence read off the pages identifies
@@ -1001,10 +1077,13 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
     assert pages >= 40, pages
     assert paired >= 8, paired
     assert single >= 25, single
-    # CARD-225: at least one drawing here really is printed at its grid size's
-    # cell rather than at its own fit, so the oracle's book-wide term is doing
-    # work on the rendered interior and not only on the plan.
-    assert shared_binds >= 1, shared_binds
+    # CARD-225: drawings here really are printed at their grid size's cell
+    # rather than at their own fit, so the oracle's book-wide term is doing
+    # work on the rendered interior and not only on the plan. **Measured: 4**,
+    # two from each of the two hand-built books; the random sweep contributes
+    # none (review cycle 2, F-004 — with both books out of the corpus this
+    # counter is zero). The floor reds if either book leaves.
+    assert shared_binds >= 3, shared_binds
 
 
 # ---------------------------------------------------------------------------

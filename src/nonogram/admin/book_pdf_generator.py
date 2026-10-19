@@ -1418,9 +1418,10 @@ def puzzle_page_plan(book: Any, puzzles: List[Any]) -> List["PuzzlePagePlan"]:
     Raises:
         ValueError: the book's stored print specification cannot be laid out.
             The failure is the **book's** and names no member: the sheet is
-            read before any member is measured, exactly as it was before
+            laid out by :meth:`BookPDFGenerator.__init__` when the generator
+            is built, before any member is measured, exactly as it was before
             CARD-225 put a cell map in front of the walk (review cycle 1,
-            F-006).
+            F-006; review cycle 2, F-001 for where the refusal really sits).
         RuntimeError: a **member** could not be measured — one whose clue sets
             disagree about its grid. The message names it (:func:`_named_puzzles`
             on the rows' own ids), and the original failure is its
@@ -1436,12 +1437,16 @@ def puzzle_page_plan(book: Any, puzzles: List[Any]) -> List["PuzzlePagePlan"]:
     generator = BookPDFGenerator(book)
     payloads = [generator._payload(puzzle) for puzzle in puzzles]
     ids = [puzzle.get("id") if hasattr(puzzle, "get") else None for puzzle in puzzles]
-    # The book's own sheet, read **outside** the try below: an unreadable
-    # stored print specification is the book's failure and belongs to no
-    # member, so it stays the bare ValueError it has always been rather than
-    # becoming a per-puzzle abort naming all 120 of them (review cycle 1,
-    # F-006). `cell_sizes` would read it again inside the try otherwise.
-    generator.page_spec(1)
+    # No sheet read of its own here, and none is needed. An unreadable stored
+    # print specification is the book's failure and belongs to no member, and
+    # what keeps it the bare ValueError it has always been is
+    # `BookPDFGenerator.__init__`'s own `page_frame(self.page_spec(1))`: the
+    # `BookPDFGenerator(book)` line above lays this book's sheet out before
+    # this function has a payload to measure, so a book-level fault cannot
+    # reach the cell map's handler below. This entry held a second
+    # `generator.page_spec(1)` for one cycle, introduced as that mechanism; it
+    # was dead — deleting it failed no test — and it is gone (review cycle 2,
+    # F-001). The mechanism's own mutant lives in `__init__`.
     # CARD-225: the same whole-book cell map `section_plan` settles, so the
     # editor's "would this edit split a page" answer is asked of the pages the
     # book really prints — a pairing verdict now depends on the grid sizes'
@@ -1462,11 +1467,14 @@ def puzzle_page_plan(book: Any, puzzles: List[Any]) -> List["PuzzlePagePlan"]:
             f"puzzle {generator._unmeasurable_members(payloads, ids)} could not "
             f"be laid out: {unmeasurable}"
         ) from unmeasurable
-    # `ids` to the walk as well, so the *other* abort this entry can raise —
-    # a pair COMP-007 refused to measure — names the same rows rather than
-    # bare positions. Before this it named "#1, #2" where the handler above
-    # names the id, which would have made the `Raises:` block true of one
-    # branch and not the other.
+    # `ids` to the walk as well, for parity with `section_plan`'s own call:
+    # should the walk's *other* abort ever be reached — a pair COMP-007
+    # refused to measure — it would name these rows rather than the bare
+    # "#1, #2" the walk falls back to. **Nothing holds this, and nothing can
+    # today**: a payload `cell_sizes` measures but `compute_pair_layout`
+    # refuses is not constructible through this entry, so dropping `ids`
+    # here fails no test (review cycle 2, F-002). Stated as parity, not as a
+    # mechanism with a control.
     return generator.puzzle_pages(payloads, ids=ids, cell_sizes=cell_sizes)
 
 
@@ -3955,6 +3963,19 @@ class BookPDFGenerator:
         self.ink_mode = book_ink_mode(self.book)
         # The trim, as the layout reports it for this book's sheet. Parity
         # never changes a page's size, so page 1's frame gives it for all.
+        #
+        # **This line is also what makes an unreadable stored print
+        # specification the book's own bare ValueError** rather than a
+        # per-puzzle abort naming every member of it: it lays the sheet out
+        # before the generator has a payload, so no caller of `section_plan`
+        # or `puzzle_page_plan` can reach their cell-map handlers with a sheet
+        # that will not lay out (CARD-225 review cycle 2, F-001 — the two
+        # statements those entries carried for that purpose were dead, and
+        # this one had been doing the work since before the card). Pinned by
+        # `tests/test_book_pdf.py`'s
+        # `test_an_unreadable_print_specification_is_the_books_own_failure`,
+        # which reds when this read is made to fall back to a default sheet
+        # instead of raising.
         frame = page_frame(self.page_spec(1))
         self.page_width_px = frame.width
         self.page_height_px = frame.height
@@ -4048,23 +4069,28 @@ class BookPDFGenerator:
         A second pass is affordable precisely because it runs only when the
         export is already aborting, and it cannot disagree with the first:
         ``book_cell_mm`` is pure, so a member that refused there refuses here.
-        Should none refuse — a book whose sheet itself is unreadable, which
-        ``book_page_spec`` raises for before any member is measured — every
-        member is named, because the failure is then the book's and belongs to
-        all of them.
+
+        **The book's own sheet is not re-judged here.** This helper carried a
+        ``spec_is_readable`` pre-check for a book whose stored print
+        specification is itself unreadable; that branch was unreachable from
+        both production entries, because
+        :meth:`BookPDFGenerator.__init__` lays the sheet out when the
+        generator is built and raises there, so nothing holding an unreadable
+        sheet ever gets as far as a payload (review cycle 2, F-001). It is
+        deleted rather than documented as live.
+
+        Should none of the payloads refuse alone, every member is still
+        named — a fail-safe for a ``cell_sizes`` that refuses a set no single
+        member of it refuses, which ``book_cell_mm``'s per-member purity says
+        cannot happen. **No test pins that branch and none is claimed for
+        it.**
         """
-        spec_is_readable = True
-        try:
-            self.page_spec(1)
-        except ValueError:
-            spec_is_readable = False
         refused: List[int] = []
-        if spec_is_readable:
-            for index, payload in enumerate(payloads):
-                try:
-                    self.cell_sizes([payload])
-                except ValueError:
-                    refused.append(index + 1)
+        for index, payload in enumerate(payloads):
+            try:
+                self.cell_sizes([payload])
+            except ValueError:
+                refused.append(index + 1)
         numbers = tuple(refused) if refused else tuple(range(1, len(payloads) + 1))
         return _named_puzzles(ids, numbers)
 
@@ -6324,14 +6350,16 @@ class BookPDFGenerator:
             len([run for run in _level_runs(payloads) if run[0] is not None]),
             len(payloads),
         )
-        # Read once, and **before** the cell map's handler below: a book whose
-        # stored print specification cannot be laid out fails here, as the
-        # book's own bare ValueError, naming no member (review cycle 1,
-        # F-006). `cell_sizes` reads the same sheet, so without this ordering
-        # a book-level fault would come back out of that handler as a
-        # per-puzzle RuntimeError listing all 120 members for a failure that
-        # belongs to none of them. Stated by this one call rather than left to
-        # the TOC measurement's position in this method.
+        # Read once here and fed to the TOC measurement below, which saves
+        # `page_frame(self.page_spec(1))` a second call on the same sheet.
+        #
+        # **Its position makes no claim.** A book whose stored print
+        # specification cannot be laid out never reaches this method at all:
+        # `__init__` laid the same sheet out when the generator was built and
+        # raised there, which is what keeps a book-level fault out of the cell
+        # map's handler below (review cycle 2, F-001). Moving this read under
+        # that try fails no test, so nothing here is stated as a mechanism —
+        # the mechanism, and its mutant, are in `__init__`.
         spec = self.page_spec(1)
         toc_page_count = measured_toc_page_count(
             toc_entry_count, page_frame(spec), self.dpi
