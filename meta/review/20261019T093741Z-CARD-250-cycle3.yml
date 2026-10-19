@@ -1,0 +1,328 @@
+version: 1
+generated_at: "2026-10-19T09:37:41Z"
+target: "CARD-250, branch card/250-editor-exits @ b8fbec4 (base main @ f02bd23); worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-250"
+overall_score: 8.0
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+cycle: 3
+max_cycles: 3
+mode: confirmation
+
+coverage:
+  read:
+    - "src/nonogram/admin/static/puzzle_edit.js (whole file, 666 lines)"
+    - "src/nonogram/admin/templates/puzzle_edit.html (diff + bar markup)"
+    - "src/nonogram/admin/templates/_puzzle_table.html (diff: row + detail modal)"
+    - "src/nonogram/admin/static/admin.css (diff)"
+    - "src/nonogram/admin/templates/_tier.html (whole macro, for the tier-map parity check)"
+    - "meta/design/tokens.css (--color-tier-* block)"
+    - "tests/test_puzzle_editor_ui.py (helpers, AC-4/AC-5/AC-6/AC-7/AC-8 classes, focus pins, module docstring)"
+    - "tests/test_admin_design_tokens.py (whole diff)"
+    - "src/nonogram/admin/app.py (api_puzzle_details only, to check the modal's version key exists)"
+    - "meta/kanban/cards/CARD-250.md (whole card incl. both fix-cycle sections)"
+  not_reached:
+    - "src/nonogram/admin/static/solver.js (co-change peer, 3/6; consumed as a seam, not changed)"
+    - "src/nonogram/admin/static/solver_state.js (co-change peer, 1/6; not in diff)"
+    - "tests/test_admin_tier_surfaces.py (named survivor for the tier hues; not re-run here)"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 1573, removed: 96 }
+  fix2_delta: { files: 2, added: 133, removed: 16, non_comment_code_lines: 2 }
+  max_fan_in:
+    symbol: "static/puzzle_edit.js (module)"
+    callers: 1
+    note: "exactly one runtime loader (puzzle_edit.html:161 <script type=module>); its exported sentence functions have one consumer outside the module, tests/test_puzzle_editor_ui.py's _MESSAGE_CORPUS dynamic import"
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/admin.css (48 commits — the churn hotspot of the touched set; this card's edit is additive plus one selector-list widening that preserves .badge.tier's declarations)"
+  churn:
+    "src/nonogram/admin/static/puzzle_edit.js": 6
+    "src/nonogram/admin/templates/_puzzle_table.html": 7
+    "src/nonogram/admin/templates/puzzle_edit.html": 3
+    "src/nonogram/admin/static/admin.css": 48
+  cochange_missing:
+    - "src/nonogram/admin/static/solver.js (3/6 — checked: the card consumes its BOARD_CHANGE seam and adds no event or board API, so its absence is correct, not a missing change)"
+    - "src/nonogram/admin/app.py (2/6 — absent by the card's declared choice of option 1; checked safe: api_puzzle_details serializes the whole row, so the modal's manually_edited_at key exists with no route change)"
+  unmeasured:
+    defect_density: "no_eligible_fact — the repo's first commit is 2026-09-06 and none of the four touched files carries a fix/bug/hotfix commit; the zero is true but says nothing about risk"
+    bus_factor: "tooling_failure — `git shortlog -sn -- <file>` returned empty output in this worktree rather than an author list; a name count was not derivable"
+
+system_contract:
+  rules_checked: 8
+  holds: 7
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is not in `git diff main...HEAD` (6 files, none of them a manifest); no package, vendored asset or import of a third party enters the diff. Named check TestDependencyBaseline_IsExactlyPillowAndNumpy exists and is referenced by tests/test_puzzle_editor_ui.py as its named survivor."
+    - "ADR-0038/R1 ✓ holds — the two new exits are hand-written JS in static/puzzle_edit.js; its only imports are ./solver_state.js and ./solver.js (own static files). No npm manifest, no build step, no vendored library in the diff."
+    - "ADR-0038/R2 ✓ holds — no request is issued per mark: onBoardChange only advances `turn`, sets `boardChanged` and may call tell(); the two POSTs are on Save and Approve alone. Re-derivable from the tests' own `asked` recorder (_watch), which asserts the exact request list (e.g. `_posted(asked, '/edit') == [EDITED]`)."
+    - "ADR-0038/R4 ✓ holds — the rule names the *player's* state logic; solver_state.js (the pure state module) and solver.js are not in the changed-file set, and puzzle_edit.js remains DOM glue that gained no board-state logic, only a focus call and a guard."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml untouched, so pytest-playwright stays in the dev-only extra; the new tests use the existing browser fixtures."
+    - "ADR-0038/R8 ✓ holds — the new tests carry @pytest.mark.browser and reuse the player's fixtures; the module docstring (tests/test_puzzle_editor_ui.py:20-23) states that without Chromium these FAIL loudly rather than skipping. 108 tests ran green here with Chromium installed."
+    - "ADR-0029/R2 ✓ holds — no difficulty arithmetic, uniqueness check or clue re-derivation enters puzzle_edit.js; tier and score are read out of the response body (gradeText/storedHead) and the tier reaches the DOM as the server's own string. Pinned by TestPuzzleEditor_TheGradeWearsItsTierColour (which stubs the grade and asserts the page shows the fabrication) and test_the_page_still_shows_no_difficulty_of_its_own."
+    - "CON-016 ⚠ unchecked — no_eligible_fact: the diff adds no route and touches no host/door logic (src/nonogram/admin/app.py is untouched for the whole card); nothing in it bears on request admission."
+
+root_causes:
+  - id: RC-1
+    title: "Fix cycle 2's F-002 guard was landed without re-deriving the AC-7 asymmetry claim; its own step-6b recorded the declarations as 'confirmed, unchanged'"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 49
+    title: "The AC-7 asymmetry claim is falsified at four sites, including the card's own reason for not treating AC-7 as a guardrail conflict"
+    description: |
+      Fix cycle 2's F-002 guard (`if (inFlight === "approve") return;`,
+      puzzle_edit.js:580) makes Back to edit a refusal in the approve window:
+      a silent early return that neither spends the turn nor says anything.
+      The guard itself is right and well pinned (MU-D kills, MU-H kills on the
+      other side). What was not re-derived is every standing statement of the
+      asymmetry it changed. Four sites, all grep-citable, all now false:
+
+        1. src/nonogram/admin/static/puzzle_edit.js:48-53 (the header's
+           "NEITHER EXIT CAN OUTRUN THE STORE" paragraph, the file's
+           authoritative statement of AC-7): "Back to edit is not an exit from
+           the page, so it has nothing to outrun and *nothing to refuse*;
+           pressed mid-flight (which only a script can do, the pair being
+           hidden) *it does what it always did, spending the turn and saying
+           the edit is still there*." In the approve window it now does
+           neither.
+        2. src/nonogram/admin/static/puzzle_edit.js:434 (inFlightIs's
+           comment): "Back to edit does NOT: *it is refused by nothing*."
+        3. tests/test_puzzle_editor_ui.py:2882 (the AC-7 test class
+           docstring, under the heading "The asymmetry, and why it is not a
+           gap"): "it has nothing to outrun and *is refused by nothing*. ...
+           its mid-flight behaviour is CARD-246's unchanged". It is CARD-246's
+           unchanged only in the verify window now; the named pin
+           (test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer)
+           covers only that window, correctly.
+        4. meta/kanban/cards/CARD-250.md:312-317 — the section the implementer
+           headed "The one place AC-7 is read narrowly, flagged for the
+           reviewer": "Back to edit is **not** refused ... **Not treated as a
+           guardrail conflict**, because both halves of AC-7's *then* clause
+           hold for both buttons."
+
+      Site 4 is the load-bearing one: AC-7's then-clause is "the page does not
+      navigate **and says so**". For Back to edit in the approve window half
+      one holds and half two no longer does, so the premise that dismisses the
+      guardrail question is no longer true. This is the same defect class as
+      review cycle 1's F-001 on this same card — a criterion reading wider
+      than the behaviour — which the orchestrator resolved by amending AC-5's
+      text so the criterion read true. AC-7's record has not had that
+      treatment.
+
+      No behavioural defect is claimed: the path is owner-unreachable
+      (#puzzle-editor-decide is `hidden`/display:none in both in-flight
+      windows, so only a script reaches either button there), silence is the
+      right choice (a press that cannot stop the store must not speak over the
+      store's answer), and G-1's named test is green and untouched. The
+      finding is that the written record of what AC-7 means is false at every
+      place it is written, and fix cycle 2's own step-6b asserted the opposite
+      ("DECLARATIONS F-002 — confirmed. The guard does not change what any
+      declaration says"), which is why no site was updated.
+    suggestion: |
+      Documentation only — do not change the guard. Four edits plus one
+      decision:
+        * puzzle_edit.js:48-53 — say that Back to edit is refused in the
+          approve window and only there, silently and by design, and why
+          (it cannot stop the store, and the store's answer is the sentence
+          the owner must read); keep "it is not an exit, so it has nothing to
+          outrun".
+        * puzzle_edit.js:434 — narrow "it is refused by nothing" to "it is
+          never told it is busy: the one window in which it is refused is
+          silent on purpose (see onBackToEdit)".
+        * tests/test_puzzle_editor_ui.py:2882 — same narrowing, and say that
+          the named pin covers the verify window, which is the only window in
+          which CARD-246's behaviour still exists.
+        * CARD-250.md:312-317 — replace "both halves of AC-7's then clause
+          hold for both buttons" with what is true: for Back to edit the
+          "says so" half holds in the verify window and is deliberately
+          silent in the approve window, on a path no owner can reach.
+        * Then the orchestrator's call, as with AC-5 in cycle 1: either amend
+          AC-7's text so the criterion reads true, or record the deviation as
+          a decision on the card. Either closes it; leaving the claim as it
+          stands does not.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_editor_ui.py
+    line: 2915
+    title: "inFlightText's pair carries the same one-sided mirror hole cycle 2's F-004 closed for the stored pair — measured, MU-J survived all 108 tests"
+    description: |
+      inFlightText (puzzle_edit.js:252-258) is the file's other designed
+      sentence pair: one ternary, two sentences, chosen by which request is in
+      flight. Both branches are asserted positively and neither has a mirror —
+      `assert "Still storing" in state["said"]`
+      (tests/test_puzzle_editor_ui.py:2915) and `assert "Still checking" in
+      state["said"]` (:2937 and :2967). A superset therefore passes.
+
+      Measured rather than argued, which is the lesson of cycle 2's F-004:
+      MU-J (the function returns the storing sentence AND the checking
+      sentence concatenated, for every caller) SURVIVED the whole run —
+      108 passed. The flip mutant is killed (each test asserts its own
+      string, so the other would appear instead), so this is one-sided in
+      exactly the MU-A direction.
+
+      Consequence is milder than MU-A's: the page would state two store states
+      in one breath on a transient refusal notice, with no behavioural
+      divergence behind it — where MU-A's survivor claimed to stay and then
+      navigated. Hence low, matching the severity cycle 2 gave F-004.
+    suggestion: |
+      One assertion in each of the two tests, the same shape F-004 added:
+      `assert "Still checking" not in state["said"], state["said"]` beside
+      :2915, and `assert "Still storing" not in state["said"], state["said"]`
+      beside :2937 (and :2967 if the pair is wanted complete there too). That
+      completes the 2x2 for this pair as F-004 did for the stored pair, and
+      kills MU-J.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/_puzzle_table.html
+    line: 294
+    title: "The detail modal's versioned thumbnail is the one card change no test reads"
+    description: |
+      Item 2 named two template lines and both were changed: the list row
+      (:45) and the detail modal (:294). AC-6's four tests
+      (TestPuzzleEditor_TheListShowsTheEditedPicture) all read the row,
+      through _thumbnail_of, which matches the first `<img
+      src="/api/puzzle/<id>/grid...">` on the page. Nothing reads the modal's
+      picture: `grep -rn "thumb-lg\|openPuzzleDetail\|Grid of " tests/`
+      returns nothing. Delete the `?v=` from :294 and all 108 tests pass.
+
+      Correctness itself is not in doubt — verified statically rather than
+      assumed: api_puzzle_details (src/nonogram/admin/app.py:5715-5734)
+      returns `"puzzle": puzzle`, the whole row dict from
+      puzzle_review.get_puzzle(), and that dict carries manually_edited_at
+      (read as `row["manually_edited_at"]` at
+      tests/test_puzzle_editor_ui.py:763, :876, :1122). So the key the modal
+      reaches for really is in the JSON, and `puzzle` is in scope in that
+      template literal (the adjacent escapeAttr(puzzle.id) already uses it).
+      The gap is coverage, not behaviour.
+
+      Noted, not pressed: the modal is JS-built, so the pin costs a browser
+      test, and AC-6's own then-clause speaks of the list rather than the
+      modal.
+    suggestion: |
+      Either add one browser assertion — open the modal after an approved
+      edit and assert the stamp is in the `.thumb-lg img` src, the way
+      test_the_row_it_lands_on_draws_the_grid_that_was_stored does for the row
+      — or say on the card that the modal half is carried by the row's tests
+      plus the static argument above. A line in the AC-6 class docstring
+      naming the modal as uncovered would also be an honest close.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_puzzle_editor_ui.py
+    line: 1845
+    title: "Mechanism 3's onApprove guard survives alone — measured, and the declaration that says so is accurate"
+    description: |
+      Recorded because AC-10 asks that "each of the four mechanisms still dies
+      under its own mutant" and the module docstring (:40-41) says each is
+      "pinned there by a test that fails when that mechanism alone is taken
+      out". Measured both ways:
+
+        * MU-I3 — onApprove's `inFlight !== null` guard removed alone:
+          SURVIVED, 98 passed. Expected: tell("Storing this grid...") has
+          already set verified = null, so the second press returns on the
+          other half of the redundancy.
+        * MU-I3b — onSave's single-flight guard removed alone: KILLED by
+          test_a_second_save_pressed_in_flight_is_not_sent.
+
+      So the mechanism does die under its own mutant where it is the only
+      protection, and at onApprove it is a declared redundancy whose halves
+      are individually unpinned. test_a_second_approve_pressed_in_flight_is_
+      not_sent_either's docstring states exactly this, including "that is the
+      honest state for a redundancy kept so a reader of onApprove need not
+      reason about tell's side effect" — the claim is narrower than the
+      mechanism, which is the right direction. No finding; raised only so the
+      measurement is on the record rather than inferred from the module
+      docstring's wider wording.
+    suggestion: |
+      Nothing to fix. If the module docstring's "each ... fails when that
+      mechanism alone is taken out" is ever tightened, mechanism 3 is the
+      clause to qualify.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Not a finding by its own text (severity info, type question); the measurement is on the record and the named test docstring already states mechanism 3 narrower than the module docstring does. The module docstring's wider wording is raised to the orchestrator in fix cycle 3's report rather than edited unilaterally, per the cycle brief."
+    learned_pattern: null
+
+mutation_check:
+  ran: true
+  deferred: false
+  mutants: 12
+  killed: 10
+  survived: 2
+  discipline: |
+    Every mutant installed from, and restored to, a byte-identical backup at
+    /private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/e6396d39-0b74-4498-9018-df045632a00c/scratchpad/puzzle_edit.js.BACKUP
+    (sha256 2491eda42838c47fd0e2068e8178cf36e8547b4a1d74144f8fdac01cfb9209cf).
+    `diff` against that copy was clean after every restore; git checkout was
+    never used; the tree was never left mutated across a pause. Final state
+    verified three ways: byte-identical diff, the same sha256, and `git
+    status --porcelain` matching the session start exactly (only the card .md
+    modified, two prior review reports untracked). The restored tree runs 108
+    passed in the default random order.
+  results:
+    - "MU-C — save.focus() deleted from onApprove's stored-and-stayed branch: KILLED, by test_a_stroke_made_while_the_store_was_writing_keeps_the_page and nothing else (1 failed, 97 passed). Re-run here rather than inherited from fix cycle 2's word."
+    - "MU-D — the F-002 guard `if (inFlight === \"approve\") return;` removed from onBackToEdit: KILLED, by test_a_back_to_edit_forced_while_the_store_writes_does_not_stop_the_exit alone (1 failed, 97 passed)."
+    - "MU-E — save.focus() deleted from onApprove's refusal branch: KILLED, by test_an_approval_of_a_grid_the_store_no_longer_remembers_asks_to_verify_again alone."
+    - "MU-F — save.focus() deleted from onBackToEdit: KILLED, by test_the_whole_flow_runs_from_the_keyboard alone."
+    - "MU-G — leave.focus() deleted from closeTheConfirm (the fourth card-added page-keeping focus hop): KILLED, by test_escape_answers_it_the_way_keep_editing_does alone."
+    - "MU-H — the F-002 guard widened to `inFlight !== null`: KILLED, by both verify-case pins (test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer and test_back_to_edit_pressed_mid_flight_does_not_navigate_either). The guard's 'narrow on purpose' is therefore demonstrated on both sides, not asserted."
+    - "MU-I1 — THE INVARIANT mechanism 1, the offer decoupled from the sentence (`decide.hidden = false`): KILLED, 18 failures."
+    - "MU-I2 — mechanism 2, a stale verify answer no longer dropped (`if (mine !== turn) return;` removed from onSave): KILLED, 2 failures."
+    - "MU-I3 — mechanism 3 at onApprove, single-flight guard removed alone: SURVIVED (98 passed). Declared and accurate; see finding F-004."
+    - "MU-I3b — mechanism 3 at onSave, single-flight guard removed: KILLED by test_a_second_save_pressed_in_flight_is_not_sent."
+    - "MU-I4 — mechanism 4, a stroke no longer withdraws the offer in words (`tell(BOARD_MOVED)` removed): KILLED, 3 failures."
+    - "MU-J — inFlightText returns BOTH sentences (the MU-A shape on the file's other designed pair): SURVIVED all 108 tests. See finding F-002."
+  certification: |
+    COMPLETE for this card's merge condition. The mutant cycle 2 left owed
+    (MU-C) was re-run here and kills. The guard's mutant (MU-D) kills, and its
+    narrowness is pinned on the other side too (MU-H). All four focus hops —
+    three in the handlers plus closeTheConfirm's — die under their own mutant,
+    each killed by exactly one test, and the leaving branch is the only
+    page-outcome with no hop, correctly. THE INVARIANT's four mechanisms:
+    1, 2 and 4 die under their own mutant; 3 dies where it is the sole
+    protection and is a declared redundancy at onApprove (F-004). Two
+    survivors, both filed, neither gating.

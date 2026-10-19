@@ -172,7 +172,7 @@ findings:
     source: static
     violates: G-3
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -220,7 +220,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -265,7 +265,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -303,7 +303,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -342,7 +342,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -372,7 +372,16 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: dismissed
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: |
+      Pre-existing, not a CARD-250 regression: storedText carried the same unasserted
+      difficulty clause before fix cycle 1 split it into storedHead + two tails, so the
+      gap predates the card and the reviewer records it as out of scope. Dismissed on the
+      orchestrator's instruction for fix cycle 2 ("F-006 (info) — do not fix"). The fix
+      agent's view, offered rather than acted on: the one assertion the suggestion names
+      (`assert f"score {MINUS_CORNER_SCORE} of 100" in said` in the staying test) IS cheap
+      and would cost one line, because that test already holds the store's own row to
+      compare against; it is left to the orchestrator because adding it unilaterally would
+      put an unrequested assertion into the last tree before the final gate.
     learned_pattern: null

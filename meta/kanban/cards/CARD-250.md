@@ -15,7 +15,7 @@
 **Wave:** 47
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/puzzle_edit.js, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/_puzzle_table.html, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py, tests/test_admin_design_tokens.py
-**Review score:** 8.0 (cycle 2/3 — meets the number, one Important still open, so the severity gate fails)
+**Review score:** 8.0 (cycle 3/3 — 7.5 → 8.0 → 8.0; cycle 3 escalated on a prose-only Important, overridden by the orchestrator, see [Gate override])
 **Started:** 2026-10-19T07:15:19Z
 **Closed:** —
 **Actual:** —
@@ -150,10 +150,30 @@ Every item above pushes on it:
   edited and approved, *when* the list is shown, *then* the thumbnail is the **new** grid. The test
   must be shown failing against the pre-card tree with the two SVGs differing.
   (test: `TestPuzzleEditor_TheListShowsTheEditedPicture`)
-- **AC-7** (guard, the exits cannot outrun the store): *Given* a save in flight, *when* Cancel or Back
-  to edit is pressed, *then* the page does not navigate and says so, exactly as a second Save is
-  refused today.
-  (test: `TestPuzzleEditor_NoExitWhileTheStoreIsDeciding`)
+- **AC-7** (guard, the exits cannot outrun the store): *Given* a request in flight, *when* **Cancel** is
+  pressed, *then* the page does not navigate **and says so** — in words and with `aria-disabled`, which
+  is more than a second Save gets. *Given* the same and **Back to edit** is pressed, *then* the page does
+  not navigate and nothing is stored; during a **verify** it spends the turn and says the edit is still
+  there, and during an **approve** it is ignored in silence.
+  (test: `TestPuzzleEditor_NoExitWhileTheStoreIsDeciding`; the approve window's silence is
+  `…::test_a_back_to_edit_forced_while_the_store_writes_does_not_stop_the_exit`, the verify window's
+  speech `…_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer`)
+  **AMENDED 2026-10-19 (orchestrator, review cycle 3).** The original read *"Cancel or Back to edit …
+  does not navigate and says so, exactly as a second Save is refused today"* — one clause for two
+  buttons, and **two review cycles read it two different ways**: cycle 1 held that "says so" cannot mean
+  a sentence, because the named comparator (`onSave`'s guard) refuses *silently* and says so only via
+  `aria-disabled`; cycle 3 read it literally and found it false. Both readings were defensible, which
+  means the criterion, not the code, was the defect. It is split here so each button's obligation is
+  stated and testable.
+  **Why silence is right for Back to edit in the approve window, rather than something to fix.** Fix
+  cycle 2's guard makes it ignored there so the exit predicate has one meaning. It cannot be made to
+  "say so" the way Save does: `inFlightIs` deliberately leaves `back` without `aria-disabled`, and for
+  the whole write the button lives inside a `display:none` container — an attribute on an invisible
+  control communicates to nobody, so adding it would be a claim with no mechanism, which is the exact
+  family that produced a finding on all three of this card's review cycles. The path is reachable only
+  by script. **The alternative — making the page speak about a press that did nothing while a store is
+  in flight — was rejected** because it brushes THE INVARIANT: the page would state something about a
+  board decision it has not been told.
 - **AC-8** (happy, the colour): *Given* a verified grid graded easy, medium and hard in turn, *then*
   the tier word in the message carries that tier's colour, and it is the **same** computed colour the
   list's badge uses for that tier, read from both pages in one test.
@@ -584,3 +604,165 @@ into fix cycle 2's edits and repeated the mistake), and **no gate runs on `13082
 superseded by fix cycle 2. The tree that gets gated is the tree intended for merge, gated **solo**,
 after the fix lands. The 1109s / 132 ms-per-test line in `suite-timing.log` must not be read as a cost
 trend: it is a mutated tree's run.
+
+### [Fix 2] declarations — orchestrator, 2026-10-19 · commits `57c1fc1`, `b8fbec4`
+
+F-001 fixed in all three layers, F-002..F-005 fixed, F-006 dismissed as pre-existing. **108 passed** in
+the card's two test files. `app.py` still untouched.
+
+**Verified independently, because the fix agent disclosed a restore mishap.** Its first mutant restore
+used `git checkout --` and discarded two uncommitted edits; it caught that, re-applied them, and used a
+byte-identical backup copy thereafter. The claim to check was therefore not "the fix works" but "no
+mutant residue reached the commits": **the entire code delta since `130823f` is exactly two
+non-comment lines** — `save.focus();` and `if (inFlight === "approve") return;` — and the tracked tree
+is clean. The disclosure is the reason the check was possible; an undisclosed mishap of that shape is
+invisible.
+
+**The most informative result of the cycle is that the reviewer's argument was right and incomplete.**
+Cycle 2 filed the one-sided-guard finding (F-004) *argued from the assertions*, saying plainly it had
+not run a conflation mutant. Run: **MU-A — the LEAVING sentence emitting head + both tails — SURVIVED
+all 108 tests.** The hole was real, and wider than the pair the finding described. MU-B, the direction
+the brief actually described, was already dead. So the remedy was right for a reason neither the
+reviewer nor the brief had established, and **the mutant is what established it** — which is this
+board's standing rule earning its cost for the third time this wave.
+
+**A fourth instance of the family was found by the fix agent itself, not by review.** It grepped the
+claim family rather than only the cited lines and found `tests/test_puzzle_editor_ui.py:1468` — the
+refusal test's parallel *"the successful branch has no bar left to stand on"* — equally falsified by fix
+cycle 1. Commit `b8fbec4`. Three cycles, four instances, one family: a claim true when written and
+false after a later change.
+
+**F-006 decided rather than left open.** The fix agent offered, without acting, that one assertion for
+`storedHead`'s unasserted difficulty clause would be cheap. **Not added**: it is pre-existing, carries
+no AC, and putting an unrequested assertion into the last tree before the final gate buys nothing. It
+is routed as a free pickup for **CARD-251**, which passes through this same file.
+
+**For cycle 3 to weigh: F-002's judgement call.** The guard was chosen over narrowing `onApprove`'s
+comment. It buys an exit predicate with one meaning; it costs a behaviour change on an owner-unreachable
+path (a forced Back to edit during a store is now ignored rather than spending the turn), and
+`onBackToEdit` now has a silent early return where it used to always say something.
+
+### [Review 3/3] Score: 8.0 — 0 critical, 1 important, 2 minor · [Severity gate] ESCALATES · certification COMPLETE
+
+Report: `meta/review/20261019T093741Z-CARD-250-cycle3.yml`. Scores across the card: **7.5 → 8.0 → 8.0**.
+`max_cycles` is exhausted, so the open Important formally escalates.
+
+**Step 8f: CERTIFICATION COMPLETE — 12 mutants, 10 killed, 2 survived, both filed, neither gating.**
+This is the condition cycle 1's `deferred(cost)` left owed, and it is discharged. Three results are
+worth keeping:
+- **MU-C re-run rather than inherited.** The mutant pinning fix 2's `save.focus()` was reported killed
+  by the agent that wrote the line; the reviewer ran it again itself, on the principle that *a
+  certification carried on the fixed-by agent's own word is not a certification*. Killed, by its
+  intended pin alone.
+- **The focus discipline is FOUR hops, not three.** The brief asked for a sweep and it found a fourth
+  page-keeping path this card added — `closeTheConfirm`'s `leave.focus()`. All four die under their own
+  mutant, each killed by exactly one test, and the leaving branch is correctly the only page outcome
+  with no hop.
+- **MU-H**, the guard widened to `inFlight !== null`, is killed by *both* verify-case pins — so fix 2's
+  "narrow on purpose" is demonstrated on both sides rather than asserted.
+
+**[Review] F-001 (important) — the AC-7 asymmetry claim is false at four sites, and the root cause is a
+step-6b that said nothing changed.** Fix cycle 2's guard is right and well pinned; what was not
+re-derived is every standing statement of the asymmetry it changed — the script header's AC-7
+paragraph, `inFlightIs`'s comment, the AC-7 test class docstring, and **the card's own sentence
+dismissing the guardrail question** (*"Not treated as a guardrail conflict, because both halves of
+AC-7's then clause hold for both buttons"*). Fix 2's own declarations step recorded *"the guard does
+not change what any declaration says"*, which is exactly the miss. **No behavioural defect claimed;
+the reviewer said the code should not change.**
+
+**The two Minors are both this card's own work and both measured or derived, which is why they were
+fixed rather than deferred like F-006.** `inFlightText`'s pair carries the same one-sided mirror hole
+F-004 closed for the stored pair — **MU-J survived all 108 tests**; and the detail modal's versioned
+thumbnail is the one card change **no test reads** (delete its `?v=` and 108 still pass), a coverage
+gap the reviewer verified statically to be otherwise correct.
+
+**The reviewer declined to inflate and declined to suppress, and said so.** It filed the two
+cosmetic-consequence items as Minor, refused to re-raise cycle 2's dismissed F-006, and recorded the
+mechanism-3 redundancy as an observation rather than a finding — while refusing to let the Important
+pass, on this card's own precedent: in cycle 1 the identical defect class was rated Important and
+closed by amending an AC's text so the criterion read true.
+
+### [Gate override] cycle 3's escalation handled by the orchestrator, not sent to the owner — 2026-10-19
+
+`max_cycles: 3` is exhausted and an Important was open, so the pipeline's answer is **escalate to the
+owner**. It was not sent, and the reasons are recorded here so the owner can reverse the call rather
+than discover it.
+
+**What the finding is and is not.** It is **zero code** — the reviewer's own verdict is that the code
+is right and should not change, and that the implementation is in the best shape it has been in across
+three cycles. What is wrong is four written claims plus an AC whose text two reviewers read two
+different ways.
+
+**Why this did not need the owner.** The test is whether their answer would change what happens next.
+The options were (1) narrow the four claims and amend AC-7 so it reads true, (2) leave false claims in
+the tree, (3) make Back to edit "say so" in the approve window to match AC-7's literal wording.
+(2) is not a choice anyone makes. **(3) is refutable on mechanism and was refuted, not merely
+preferred**: `inFlightIs` leaves `back` without `aria-disabled` on purpose, and for the whole write the
+button sits inside a `display:none` container, so the attribute would communicate to nobody — a claim
+with no mechanism, which is the family that produced a finding on all three of this card's cycles. Its
+other form, making the page speak about a press that did nothing while a store is in flight, brushes
+THE INVARIANT. That leaves (1), which is the orchestrator's own writing surface and the **precedent
+this card already set**: AC-5 was amended for the identical defect class in cycle 1, recorded the same
+way.
+
+**What was done instead of escalating.** AC-7 amended (split per button, each half with its own named
+pin, and the reason silence is correct written down); a prose-only fix cycle for the four claim sites;
+and the two measured Minors closed, because a *surviving mutant that has been measured* must not be in
+the tree at merge.
+
+**What the owner may want to reverse.** The AC-7 amendment is a spec edit made by the orchestrator. If
+the owner reads AC-7's "says so" as binding on Back to edit too, the honest closes are a code change
+(and a fourth cycle this pipeline does not have) or a recorded deviation — not the amendment. The
+alternative is stated above so it can be taken.
+
+**No behaviour reaches the owner differently because of this.** The only behaviour change in the last
+two cycles is one `save.focus()` and one guard on a script-only path.
+
+### [Fix 3] declarations — 2026-10-19 · commits `1be1b19`, `2821642`
+
+F-001, F-002, F-003 fixed; F-004 (the mechanism-3 observation) dismissed as not a finding by its own
+text. **Zero behaviour change, audited mechanically rather than asserted:** `git diff -U0 b8fbec4..HEAD
+-- src/` contains no added or removed line that is not a `//` comment. The test delta is additive
+assertions plus the rewritten AC-7 docstring; the only removed test lines are six prose lines.
+108 tests before and after.
+
+**Both measured gaps are now closed and each was shown dying:** MU-J (`inFlightText` returning both
+sentences concatenated), which **survived all 108 tests** before, now kills **three** tests, one per
+branch asserted; and deleting the detail modal's `?v=`, which failed nothing before, now kills
+`test_the_row_it_lands_on_draws_the_grid_that_was_stored` alone. The modal pin had to be a browser
+assertion — the modal is built by a template literal from `/api/puzzle/<id>/details`, so no Flask-client
+test can see the URL it produces, which is why that half of item 2 had no coverage in the first place.
+
+**The fix agent found a fifth instance of the family inside the site it was sent to correct.** The same
+header paragraph claimed Cancel is refused *"in words and with aria-disabled, exactly as a second Save
+is"* — and `onSave` returns **silently**. That comparator was false in exactly the way cycle 1 first
+flagged, and it is the same false comparator that made AC-7 readable two ways. Narrowed to say Cancel's
+refusal is *more* than a second Save gets.
+
+**[Orchestrator] A sixth instance, one level up, narrowed rather than left standing.** The module
+docstring claimed each of THE INVARIANT's four mechanisms "is pinned there by a test that fails when
+that mechanism alone is taken out". Cycle 3's **MU-I3 measured that false** for mechanism 3 at
+`onApprove`: removing its one-request guard alone leaves **98 tests passing**, because `tell` has
+already withdrawn the offer, so a second Approve has nothing to send. `onSave`'s site is where the
+mechanism is sole protection. The reviewer declined to file it and the fix agent was told not to touch
+it unilaterally — both correct — so the call was the orchestrator's: narrow it, name the declared
+redundancy, and record that a mutant falsified it (`2821642`). Six instances of one family across three
+review cycles, and **the last two were found by the fix agent and the orchestrator, not by review.**
+
+### [Build gate] PASSED (full, 902s, SOLO) — orchestrator, 2026-10-19 · `2821642`
+
+**EXIT=0, first attempt, 8392 passed / 1 skipped / 0 failed.** The skip is the platform `setrlimit` one.
+
+**The count reconciles exactly, which is the evidence this board asks for.** `main` is **8364** collected
+(8363 passed + 1 skipped — wave 46's final smoke test); the branch is **8393**, so **+29**. The card's
+own two test files went **79 → 108** node ids, also **+29**. Every test this card added is in its own
+files and nothing outside it moved.
+
+**Comparable with the 884s build-gate line and with nothing else**: both solo, same DATABASE_URL
+condition, so 902s is **+2%**, which is this card's 29 new tests, 25 of them browser tests. The
+1109s / 132 ms-per-test FAIL line is **not** a cost point — that run was this suite reading a mutated
+tree, and the attribution is recorded above.
+
+**The gate prints its own count again.** The `-q` → `-qq` defect that suppressed it on the first gate —
+and forced the count to be reconstructed from `--collect-only` — is fixed, so this line was read rather
+than derived.
