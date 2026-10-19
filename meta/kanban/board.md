@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-18 UTC_  ·  <!-- forge:run wave=46 mode=interactive concurrency=2 -->
+_Updated: 2026-10-19 UTC_  ·  <!-- forge:run wave=46 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -62,13 +62,19 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-_22 cards ready, 0 in progress (wave 45 closed 3/3: CARD-244, CARD-223, CARD-248), 1 blocked. **Eligible right now**
-(every dependency merged): CARD-206, CARD-207, CARD-208, CARD-209, CARD-215, CARD-216, CARD-220,
-CARD-224, CARD-225, CARD-227, CARD-229..CARD-233 — CARD-222 merged `40a93dd` and unblocked the
-chain — plus the three new owner-doc cards CARD-245, CARD-247 (CARD-246 waits on CARD-245)._
+_19 cards ready, 0 in progress (wave 46 closed 3/3: CARD-245, CARD-224, CARD-246), 1 blocked.
+**Eligible right now** (every dependency merged): CARD-206, CARD-207, CARD-208, CARD-209,
+CARD-215, CARD-216, CARD-220, CARD-225, CARD-227, CARD-231, CARD-247, CARD-249 — twelve of the
+nineteen. The other seven wait on a sibling in this list, not on anything unbuilt: CARD-226 and
+CARD-232 on **CARD-225**'s book-wide cell size, CARD-233 on CARD-232, CARD-229 on CARD-206,
+CARD-230 on CARD-229, and CARD-218/CARD-219 on the CARD-206..CARD-209 print cards. **CARD-225 is
+the one card that unblocks two others**, which is what makes it the first refill candidate._
 
 **Carried out of the owner's two-up decision** _(CARD-248 **merged** `1256982` — see Done)_
 - ~~**CARD-248**~~ → **Done** (wave 45), merged `1256982`. Its measured outcome contradicted the estimates in this entry — see Done for what moved.
+
+**Found by eye on the wave-46 render (2026-10-19)**
+- **CARD-249** The editor page says which puzzle it is editing · P2 · 0.5d · standard · ⛑ the editor's heading is hard-coded to the extent (`puzzle_edit.html:61`), so a page reached from a list row reading **"Duck · easy"** says only `Edit puzzle 10×10` — with a dozen 10×10 drafts the only identification is the grid you are about to rewrite · ⛑ the route already holds the row; the sibling `puzzle_solve` builds the exact fallback chain to reuse (`app.py:5824`) · ⚑ **three traps**: the player hides the name **on purpose** (AC-322/AC-323 — the name is the answer), so a fix made in a shared template breaks it, while the editor is immune because it opens with the grid already painted; the name must **not** join the board payload (CARD-246 G-1 pins it at six keys); and a name can be **120 characters** (`MAX_PUZZLE_NAME_LENGTH`) with nothing to shorten it — wrap it, never clip it · ⚑ **not** a route back to the tier badge: CARD-246 removed it for a reason that still holds, and the owner's pre-edit-difficulty question stays open as its own card
 
 **New 2026-10-18 from the owner's doc "Admin panel" / "Player"** (intake recorded in
 `meta/architecture/inputs/raw-requirements.md`, NOT yet processed at the architect station)

@@ -409,3 +409,37 @@ wave_46_complete:
     - "CARD-245's routes are the first HTTP-reachable grid write in the system and enforce no MIN_SIZE/MAX_SIZE and no request-size cap; the only brake is the solver deadline, which runs AFTER clue derivation. Routed as a decision, not fixed -- a bound changes behaviour no AC asks for and could refuse a grid CARD-246's editor presents."
     - "CARD-246 removed the difficulty badge from the editor page entirely (a badge is a fact about a stored grid, on the page where that grid is being rewritten). Judged an improvement by review, with one named loss: the PRE-EDIT difficulty is now nowhere on the page, so a before/after comparison is gone. Worth an eyeball when the renders land."
     - "CARD-224 leaves the band's-foot fallback failing against the HEADER rule, which unlike the footer has no omission branch. Pre-existing since CARD-222, unreachable through any stored profile, filed @tech-debt. The asymmetry is a design decision for a future card."
+
+# --------------------------------------------------------------------------
+# Owner render, 2026-10-19 (post-wave-46, board idle)
+# --------------------------------------------------------------------------
+owner_render_2026_10_19:
+  asked: "generate a render so I can check the pages"
+  commit: c05da3a
+  book_pages: "~/Documents/nonogram-reviews/CARD-224/ -- two sets. (1) The SAME corpus CARD-248 was rendered from, so pages 5/7/9 and their top-strip crops diff page-for-page against ../CARD-248/. (2) real-pictures/: five real picture puzzles generated through the image pipeline (duck, duckling, cat, wolf, zebra), 15 pages, all of them saved. WHAT-TO-LOOK-AT.md states the numbers."
+  geometry_verified: >-
+    CARD-224's 42% was measured off the shipped layout rather than restated: every single page
+    lands at 0.4194..0.4202 of the puzzle area's spare height, across cells from 5.773 mm
+    (25x21) to the 7.5 mm cap, and all five report vertical_bound="ratio" -- none fell back to
+    the footer branch. The puzzle area is header rule 289 px (24.47 mm) to footer rule 2806 px
+    (237.57 mm) on the Book 1 profile. NOTE for anyone re-deriving this: _placed_drawing_top
+    measures the spare from the HEADER RULE, not from the band's foot; measuring from
+    band_bottom gives 0.3775 on a 30x30 and looks like a defect that is not there.
+  two_up_is_the_thing_to_judge: >-
+    The two-up page does NOT float: each slot still sits flush at its own slot band's foot
+    (vertical_bound="slot"; upper drawing_top 307 px / 25.99 mm, lower 2096 px / 177.46 mm). So
+    a two-up page facing a single page now uses two different vertical rules. That is AC-379,
+    owed to CARD-226 -- the render is the owner's chance to say whether the mixture reads as
+    wrong BEFORE that card runs.
+  editor_shots: "~/Documents/nonogram-reviews/CARD-246/ -- four screenshots through the panel's own `live` sqlite fixture (nothing touched nonogram_poc): the list row, the editor as opened, after an edit, and after Save with the verdict and the Approve/Cancel offer."
+  owner_decision_2_resolved_in_part: >-
+    The badge removal itself reads correctly on the page: the save bar says "This grid is a
+    puzzle. Difficulty: easy, score 33 of 100. Approve to store it, or Cancel to go on editing",
+    which is true at the moment it is shown. But the shots found something NOT in the decision
+    as recorded and worse than it: the page is headed "Edit puzzle 10x10" and the puzzle's NAME
+    is not on it either -- puzzle_edit.html:61 hard-codes the heading to the extent. The list
+    row three clicks earlier says "Duck - easy". Filed on owner instruction as CARD-249.
+    The pre-edit-difficulty question itself STAYS OPEN: CARD-249 explicitly does not re-open it,
+    because any stored-difficulty display has to solve the staleness problem F-008 found and a
+    name does not.
+  found_by: "looking at the shipped page, not by a test and not by review -- there was no claim to break, the editor page being new in CARD-246."
