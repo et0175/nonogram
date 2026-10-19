@@ -89,7 +89,12 @@ _TOKEN = re.compile(r"var\(--[a-z0-9-]+\)")
 #: is token-only when striking every ``var(--…)`` out of it leaves nothing but
 #: this — so ``rgb()``/``hsl()``, a hex literal and a bare named colour all
 #: leave letters behind and are reported.
-_VALUE_STRUCTURE = re.compile(r"(?:calc|color-mix|in|srgb)\b|[-+*/0-9.,%() ]")
+_VALUE_STRUCTURE = re.compile(r"\b(?:calc|color-mix|in|srgb)\b|[-+*/0-9.,%() ]")
+#: The LEFT boundary is load-bearing and was missing (review cycle 2). `in` is a
+#: `color-mix()` keyword AND a CSS length unit, so `in\b` alone also matched the
+#: suffix of a bare inch length: `calc(1in + var(--x))` struck clean through and
+#: passed, while three docstrings said no literal could. One obscure unit, and the
+#: claim was universal — the same shape as the finding this file exists to close.
 
 #: Values that are neither a length nor a colour: the layout keywords these
 #: rules declare. An explicit set and NOT "any bare keyword" — ``red`` is a
@@ -288,6 +293,12 @@ def test_the_region_toggles_pressed_look_comes_from_tokens() -> None:
         "a bare length inside the calc": ".player-brush-run .player-swatch + "
                                          ".player-swatch { margin-left: "
                                          "calc(1px + var(--border-width)); }",
+        # The remedy carries its own failing case (review cycle 2): an INCH
+        # length, whose unit is also color-mix()'s keyword. It passed before the
+        # left word boundary was added.
+        "an inch length, whose unit is also a keyword":
+            ".player-brush-run .player-swatch + .player-swatch "
+            "{ margin-left: calc(1in + var(--border-width)); }",
     }
     for label, rule in broken.items():
         assert _untokenised(_declared_values(rule)) != [], (

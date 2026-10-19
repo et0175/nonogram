@@ -814,11 +814,19 @@ class TestPuzzleEditor_Guardrails:
 
         labels = [re.sub(r"<[^>]+>", "", m).strip()
                   for m in re.findall(r"<button\b[^>]*>(.*?)</button>", html, re.S)]
+        # A control is named by its text OR by an attribute, and the first
+        # draft of this guard swept only the text (review cycle 2) — so an
+        # aria-label, a title or an input value could have carried the word
+        # while the assertion stayed green. Not reachable today, and that is
+        # exactly when a guard is cheapest to widen. Deliberately NOT a
+        # whole-page sweep: the page embeds the puzzle's own name, so a
+        # puzzle called "Clear…" would red a guard that is about controls.
+        named = labels + re.findall(r'(?:aria-label|title|value)="([^"]*)"', html)
 
         assert "Reset" in labels, labels
         # The owner's decision, as a guard rather than as a sentence: no
         # control on THIS page carries the word the brush now owns.
-        assert not [l for l in labels if "Clear" in l], labels
+        assert not [n for n in named if "Clear" in n], named
         # And the question the button opens names the button (CARD-250).
         title = re.search(
             r'id="puzzle-player-confirm-title"[^>]*>([^<]*)<', html).group(1)
