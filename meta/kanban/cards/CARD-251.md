@@ -22,33 +22,46 @@
 **Merge commit:** —
 **Blocked by:** —
 
-## ⚠ BLOCKING OBLIGATION — an INV-009 reading is owed before this card is dispatched
+## The decision that shapes this card — SETTLED 2026-10-19 (owner)
 
-**Do not start this card until the registry question below is answered at the architect station.**
-It is not a detail of the implementation; it decides what the card builds.
+**An edit is refused when the new tier differs from the stored one, for a puzzle in a book.**
+INV-009 is **not** amended: the invariant stands exactly as written, and this refusal is what keeps it
+true. The owner chose this over giving INV-009 a regrade clause (re-place and renumber) and over a
+book-staleness concept the model does not have.
 
-`save_edited_grid` re-derives `difficulty_tier` from the one solve that proved the grid unique. **INV-009**
-requires a book's order to run easy → medium → hard, with a divider page before each non-empty level and
-puzzle numbers running 1..n across the book — and it says in as many words that an *arrangement* move
-"that would carry a puzzle across a level boundary is **refused** and the order is unchanged".
+The refusal is knowable at the **verify** phase, because that phase already computes the new tier. So
+the owner learns it with the grade and before Approve — never as a surprise after storing.
 
-An approved edit that regrades a booked puzzle from easy to medium **does exactly what arrangement is
-forbidden to do**, by a path INV-009 does not mention because no such path existed when it was written.
-Three defensible answers, and the owner picks one:
+### What that protects, checked rather than assumed
 
-1. **INV-009 gains a clause for a regrade inside a book** — the puzzle is re-placed in its new level and
-   the book renumbered. Most faithful to item 5; the most work; changes pages the owner has arranged.
-2. **The edit is refused when the new tier differs from the stored one** — "you may repaint it, you may
-   not re-grade it while it is in a book." Cheapest, and it keeps INV-009 untouched. The refusal is
-   knowable *before* anything is stored, because the verify phase already computes the new tier, so the
-   owner learns it with the grade and not after Approve.
-3. **The book is marked stale** and the owner re-arranges it. Needs a staleness concept the model does
-   not have.
+With the tier pinned (this decision) and the extent pinned (AC-5), the book's **structure** cannot move:
+`print_order`'s grouping, INV-009's level runs and divider pages, the puzzle numbers 1..n, the band's
+identity line and the difficulty dots all read the **stored tier** (`_draw_difficulty_dots` takes
+`stored_tier`), and pairing requires equal tiers (`_pairable_tier`, INV-010).
 
-**Recommendation: (2) for this card, with (1) as a follow-up if the owner wants it.** It delivers the
-owner's request — booked puzzles become editable — without silently re-paginating a book from a page
-that shows no book. It is also the only one of the three whose failure mode is a refusal rather than a
-surprise.
+### What it does NOT protect — measured, not inferred
+
+**A repaint that keeps the tier and the extent can still split a two-up page and renumber the book
+from there.** `compute_pair_layout` is computed **from the clues**, so a denser picture means deeper
+clue gutters, a taller drawing, and at some depth the pair stops fitting. Measured on the Book 1
+profile with two 10×10 easies, clue depth equal on both:
+
+| gutter depth | result |
+|---|---|
+| 1, 2, 3 | pairs, cell 7.500 mm |
+| 4 | pairs, cell **7.129 mm** (the shared cell has already shrunk) |
+| **5** | **no pair — the page splits into two** |
+
+A repaint from a sparse picture to a dense one crosses that in one edit, and every folio after it
+moves. This is a **second mechanism** the owner's decision does not reach, because the question asked
+was about the tier.
+
+**What this card does about it, and the alternative if the owner prefers it.** Telling, not refusing:
+refusing would block any repaint that deepens a paired puzzle's clues, which is most real edits, and
+the owner's own principle for the tier was "learn it at verify, with the grade". So the verify answer
+says when an edit would change the book's page count, and the confirmation repeats it. If the owner
+would rather refuse that case too, it is a one-line change to this card's AC-9 and the machinery is
+identical.
 
 ## What to implement
 
@@ -114,10 +127,11 @@ the allow-list is a claim that that answer never writes** — make it true at th
 - **AC-3** (happy, confirmed): *Given* the same, *when* the save carries the confirmation, *then* the
   new grid is stored with its re-derived clues, grade and stamp, and the puzzle's `book_id` is
   unchanged. (test: `TestBookedEdit_AConfirmedSaveStores`)
-- **AC-4** (boundary, the tier): *Given* a booked puzzle whose edit grades into a **different tier**,
-  *then* the behaviour the architect station chose (see the blocking obligation) — and whichever it is,
-  the owner learns it at the **verify** phase, with the grade, not after Approve.
-  (test: `TestBookedEdit_ARegradeInsideABook`)
+- **AC-4** (boundary, the tier — **the settled rule**): *Given* a booked puzzle whose replacement
+  grid grades into a **different tier**, *then* the **verify** answer refuses it, names both tiers and
+  the book, offers no Approve, and nothing is stored; *given* a replacement that grades into the
+  **same** tier, *then* it verifies normally. INV-009 is untouched by this card.
+  (test: `TestBookedEdit_ARegradeInsideABookIsRefusedAtVerify`)
 - **AC-5** (guard, the extent): *Given* a replacement grid whose extent differs from the stored row's,
   *then* the store refuses and writes nothing, for a booked puzzle and an unbooked one alike.
   (test: `TestEdit_AReplacementKeepsTheStoredExtent`)
@@ -132,22 +146,32 @@ the allow-list is a claim that that answer never writes** — make it true at th
   page may say "nothing was stored" for it **because** the route stores nothing — asserted by driving
   the real route and reading the row, not by listing the string.
   (test: `TestBookedEdit_TheFifthReasonIsTrueNotListed`)
+- **AC-9** (boundary, the page count — the mechanism the tier rule does not reach): *Given* a booked
+  puzzle that shares a two-up page, *when* a replacement grid is verified whose clue gutters are deep
+  enough that the pair no longer fits, *then* the verify answer **says the book's page count would
+  change** and names the puzzle it shares the page with; Approve remains available (this is a warning,
+  not a refusal — see the decision section). The test drives the measured boundary: same tier, same
+  extent, gutter depth 4 → paired, depth 5 → split.
+  (test: `TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove`)
 
 ## Guardrails
 
 - G-1: The confirmation is **server-side**. An unconfirmed request must write nothing; a client-side
   dialog that then posts an identical request is not an implementation of this card.
-- G-2: Editing is the only action opened. Approve, reject, restore and delete still refuse a booked
+- G-2: The tier refusal is enforced at the **store**, not only at the verify route — a save whose
+  grid grades into another tier writes nothing even if it is posted directly (the same discipline G-1
+  applies to the confirmation).
+- G-3: Editing is the only action opened. Approve, reject, restore and delete still refuse a booked
   puzzle (AC-7).
-- G-3: A replacement grid never changes the stored extent (Trap 2).
-- G-4: `EDIT_REFUSAL_REASONS` and the client's allow-list stay in step, and the new entry is **proved**
+- G-4: A replacement grid never changes the stored extent (Trap 2).
+- G-5: `EDIT_REFUSAL_REASONS` and the client's allow-list stay in step, and the new entry is **proved**
   not to write (Trap 3, CARD-246 G-001).
-- G-5: `tell(text, offer)` stays the single writer of the message and the Approve offer; the
+- G-6: `tell(text, offer)` stays the single writer of the message and the Approve offer; the
   confirmation does not become a second writer (CARD-246 F-001..F-005).
-- G-6: Nothing here re-derives a difficulty, re-encodes clues or re-checks uniqueness outside the one
+- G-7: Nothing here re-derives a difficulty, re-encodes clues or re-checks uniqueness outside the one
   solve the store already runs (ADR-0029/R2, CARD-246 G-3).
-- G-7: No new runtime dependency (ADR-0006/R1); no framework or build step (ADR-0038/R1).
-- G-8: No test retired without a named survivor (CARD-220's rule).
+- G-8: No new runtime dependency (ADR-0006/R1); no framework or build step (ADR-0038/R1).
+- G-9: No test retired without a named survivor (CARD-220's rule).
 
 ## System contract
 
@@ -211,7 +235,9 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-251 --root meta/architectu
   the owner's call and the card implements it — but **the recorded reason was wrong about the
   mechanism**, and the correct one is what the blocking obligation above is for: a repaint does not
   re-paginate anything (the extent cannot change through the page), while a **regrade** does, through
-  INV-009's tier grouping. Fixing the diagnosis is most of this card's value.
+  INV-009's tier grouping. Fixing the diagnosis is most of this card's value — and it did not stop at one correction: the tier
+  rule the owner chose closes the mechanism they were asked about, while a **second** one (clue depth
+  splitting a two-up page) was found by measuring rather than by reasoning, and is handled by AC-9.
 - **[TDD: true]** The guard being relaxed is pinned by shipped ACs in three test files. Write the new
   expectation first, watch the old assertion fail, and the retired claims are explicit rather than
   discovered at the AC gate.

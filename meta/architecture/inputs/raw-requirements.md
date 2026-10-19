@@ -498,6 +498,20 @@ Verbatim, the owner's five items:
     puzzles are refused outright; open that door and the extent check stops being optional. Related to
     the owner decision already pending from wave 46 (CARD-245's routes enforce no `MIN_SIZE`/`MAX_SIZE`
     and no request-size cap).
+  * **SETTLED 2026-10-19 (owner): refuse the regrade inside a book.** An edit whose replacement grid
+    grades into a different tier than the stored one is refused for a booked puzzle, at the verify
+    phase, so the owner learns it with the grade. **INV-009 is NOT amended** — the invariant stands and
+    the refusal is what keeps it true. What the registry still owes is the editor's own FR (already
+    recorded as owed in the 2026-10-18 intake above, "a new capability with NO requirement behind it"):
+    this refusal is one of its acceptance criteria, not a separate amendment.
+    **A second mechanism was found by measuring and the decision does not reach it.** `compute_pair_layout`
+    is computed from the CLUES, so a repaint that keeps the tier and the extent can still deepen the
+    clue gutters until a two-up pair no longer fits — which splits one page into two and moves every
+    folio after it. Measured on the Book 1 profile, two 10x10 easies at equal clue depth: depth 1-3
+    pairs at a 7.500 mm cell, depth 4 pairs at **7.129 mm**, depth **5 does not pair at all**. CARD-251
+    handles it by TELLING at verify rather than refusing (refusing would block most real repaints of a
+    paired puzzle, and the owner's own principle for the tier was "learn it with the grade"); the
+    alternative is recorded on the card as a one-line change if the owner prefers a refusal.
   * **The tier is what re-paginates it.** `save_edited_grid` re-derives `difficulty_tier` from the one
     solve, and **INV-009** requires a book's order to run easy → medium → hard with a divider page before
     each non-empty level and puzzle numbers 1..n across the book. INV-009 also says in as many words that
