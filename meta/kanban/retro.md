@@ -920,3 +920,24 @@ are recorded rather than silently replaced — the section is about claims outru
 Each draft was more specific than its evidence, which is the family itself, committed inside the
 retrospective about the family. Worth more than the finding it corrects.
 
+### Follow-up: "fix the severities" — measured and declined (2026-10-19)
+
+The owner's next instruction after the curation finding was to fix the severities. **Measured first,
+and re-grading would make the model worse; not done.**
+
+- `forge:review` gives `advisory` a consequence: a mandatory rule violation gates, **an advisory one is
+  `Minor`**. Downgrading is therefore a statement that violating the rule is a minor matter.
+- **All 13 rules that nothing executes are binding.** `ADR-0038/R6` (only the door-guarded player may
+  ship a solution grid) and `CON-021` (play exists only behind that door) are security; `ADR-0033/R1`
+  (book assembly never changes a puzzle's grid) is data integrity; the rest are hard print and API
+  contracts. Calling any of them `Minor` would be false.
+- The one `severity: hard` in the tree is **inside a comment** in `decisions/open.yml`, quoting a
+  business constraint's vocabulary. It is not a rule declaration and needs no change.
+
+**Severity is not miscalibrated — it was being asked the wrong question.** It answers *"does a
+violation gate?"*, and for all 60 rules the answer is genuinely yes. Curation was using it to answer
+*"must this rule be in the card's contract?"*, which it cannot.
+
+The discriminator that does exist is `check.kind` plus declared reach — filed to the backlog under
+the architecture-model section with the proposed rule. **No model files were edited.**
+

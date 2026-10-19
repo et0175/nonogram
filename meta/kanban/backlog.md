@@ -42,6 +42,23 @@ _"I think we'll aim only for solver for book1, we'll add generator later" + "We'
 - [ ] **Persist user-generated puzzles** (owner: "yes, if they downloaded pdfs or solved them online") — needs the public phase, a user/ownership notion and a retention rule; the `givens` column CARD-216 adds is a prerequisite, not this   @enabler
 
 ## Architecture model (→ /forge:architect, one session)
+- [ ] **Curation needs a discriminator that is not `severity` (waves 44–47 retro, 2026-10-19).** The
+  curated System contract convention drops ~48 of ~57 projected rules per card, by orchestrator
+  judgement. On CARD-250 and CARD-251 it dropped **ADR-0039** — the rule about claims outrunning their
+  mechanisms — on the two cards that then produced ten instances of that family. **Severity cannot help
+  and must not be re-graded to make it help:** 60 of 61 rules are `mandatory`, `forge:review` defines a
+  mandatory violation as gating and an advisory one as `Minor`, and every one of the 13 rules nothing
+  executes is genuinely binding (`ADR-0038/R6` and `CON-021` are security, `ADR-0033/R1` is data
+  integrity). Downgrading any of them would say "violating this is a Minor finding", which is false.
+  **The discriminator already in the data is `check.kind` plus declared reach:** 44 rules carry a
+  `kind: test` check the gate executes every run, and 13 carry only `kind: review-lens`, which nothing
+  executes — so the review-lens rules are exactly the ones a reviewer must be *told*, and the
+  test-checked ones are already enforced without being in the contract. The exception that proves it is
+  ADR-0039, whose checks are `kind: test` but whose own comments declare they "do not reach a guard
+  written tomorrow" — a test-checked rule that behaves like a review-lens one for new code, which is
+  why dropping it was wrong twice. Proposed rule: **curate in every in-scope rule whose enforcement
+  does not reach the card's new code** (all `review-lens`, plus `test` rules declaring a reach limit);
+  drop the rest, because the suite already fails on them. @tech-debt
 - [ ] **Amendments owed from the owner's "Puzzle page layout" artifact (2026-10-14), carded as CARD-222..CARD-233.** Each is a registry statement the new interior design contradicts. They are listed together because the artifact is one coherent frame and amending it piecemeal would leave the registry describing a page that no longer exists.
   - **[AMENDED 2026-10-17]** **CON-018** (CARD-222): **outer, top and bottom only** — 0.375 in each becomes outer 0.5, top 0.55, bottom 0.47. **The gutter clause is NOT amended:** the artifact draws 0.75 in, and the owner decided on 2026-10-14 to keep KDP's required 0.5 in, which also keeps CON-018's own KDP reasoning intact (0.375 in up to 150 pages, 0.5 in for 151-300, Book 1 straddling 150). Measured consequence to record with the amendment: every cell not already at the 7.5 mm cap loses 1.6%, and a deeply-clued 30-wide grid lands at 4.76 mm, still under NFR-008's 4.8 mm floor.
   - **[AMENDED 2026-10-17 — the CARD-204 amendment CANCELLED, the fixed-top-edge clause amended]** **FR-032** (CARD-224): **two clauses, pulling opposite ways.** Its original "centred" statement becomes *correct again*, so the amendment CARD-204 logged against it is **cancelled, not applied**. Its "fixed top edge" clause is what actually breaks — the grid now floats at 42% of the spare height.
