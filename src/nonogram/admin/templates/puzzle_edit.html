@@ -34,15 +34,33 @@
   undecided cells and sends nothing — and the usage hint below says so.
 
   THE SAVE BAR is this page's own (#puzzle-editor, static/puzzle_edit.js):
-  Save, then the owner's two-phase confirmation. #puzzle-editor-message is a
-  role="status" line that is ALWAYS present and never hidden (a live region
-  that only appears is not reliably read), and the Approve/Cancel pair
-  (#puzzle-editor-decide) is what appears and disappears. Which of the two
-  states this bar is in is written in ONE place (puzzle_edit.js tell(): the
-  message and the offer are written together or not at all), so a grid that
-  may not be stored is never shown an Approve button and a stroke made while
-  a grade is on screen takes the offer away — see THE INVARIANT in that
-  file. The bar starts hidden for the same reason the toolbar does.
+  Save and Cancel, then the owner's two-phase confirmation.
+  #puzzle-editor-message is a role="status" line that is ALWAYS present and
+  never hidden (a live region that only appears is not reliably read), and the
+  Approve / Back to edit pair (#puzzle-editor-decide) is what appears and
+  disappears. Which of the two states this bar is in is written in ONE place
+  (puzzle_edit.js tell(): the message and the offer are written together or
+  not at all), so a grid that may not be stored is never shown an Approve
+  button and a stroke made while a grade is on screen takes the offer away —
+  see THE INVARIANT in that file. The bar starts hidden for the same reason
+  the toolbar does.
+
+  CARD-250 named the two bars for what they do. Beside Save, CANCEL LEAVES
+  the editor for /puzzles and stores nothing; it asks first in the page
+  (#puzzle-editor-leave-confirm, role="alertdialog" — never window.confirm,
+  the rule Clear's confirmation already follows) and only when the board has
+  changed since it was opened. Beside Approve, BACK TO EDIT is CARD-246's
+  Cancel under the name of what it always did: put the message and the offer
+  away and go on editing, nothing stored.
+
+  #puzzle-editor-grade is the ONE element the message line ever holds: the
+  tier word of the grade's sentence, which wears that tier's colour. It is
+  here rather than built in script, so static/puzzle_edit.js creates no node
+  at all (CARD-246 G-2); puzzle_edit.js's tell() fills its text and its
+  data-tier, and static/admin.css takes the hue from --color-tier-* by that
+  attribute — no colour literal here and no tier-to-colour map in JavaScript
+  (CARD-250 G-4, and CARD-076's reason for _tier.html being the one
+  exception).
 #}
 {% extends "base.html" %}
 
@@ -112,11 +130,22 @@
 </div>
 
 <div class="editor-save" id="puzzle-editor" data-editor-puzzle="{{ puzzle_id }}" hidden>
-    <button type="button" class="btn btn-primary" id="puzzle-editor-save">Save</button>
-    <p class="editor-message" id="puzzle-editor-message" role="status" aria-atomic="true"></p>
+    <div class="editor-actions">
+        <button type="button" class="btn btn-primary" id="puzzle-editor-save">Save</button>
+        <button type="button" class="btn btn-outline-secondary" id="puzzle-editor-leave" aria-haspopup="dialog" aria-expanded="false" aria-controls="puzzle-editor-leave-confirm">Cancel</button>
+        <div class="player-confirm" id="puzzle-editor-leave-confirm" role="alertdialog" aria-labelledby="puzzle-editor-leave-title" aria-describedby="puzzle-editor-leave-text" hidden>
+            <p class="player-confirm-title" id="puzzle-editor-leave-title">Leave the editor?</p>
+            <p class="player-confirm-text" id="puzzle-editor-leave-text">What you painted is not stored, and leaving the editor loses it. Save and then Approve puts it in the puzzle.</p>
+            <div class="player-confirm-actions">
+                <button type="button" class="btn btn-danger" id="puzzle-editor-leave-accept">Leave editor</button>
+                <button type="button" class="btn btn-outline-secondary" id="puzzle-editor-leave-keep">Keep editing</button>
+            </div>
+        </div>
+    </div>
+    <p class="editor-message" id="puzzle-editor-message" role="status" aria-atomic="true"><span class="editor-grade" id="puzzle-editor-grade"></span></p>
     <div class="editor-decide" id="puzzle-editor-decide" hidden>
         <button type="button" class="btn btn-success" id="puzzle-editor-approve">Approve</button>
-        <button type="button" class="btn btn-outline-secondary" id="puzzle-editor-cancel">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" id="puzzle-editor-back">Back to edit</button>
     </div>
 </div>
 

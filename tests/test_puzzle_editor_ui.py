@@ -2,7 +2,7 @@
 
 The *editor* is the page at ``GET /puzzle/<id>/editor``: the owner paints a
 stored puzzle's grid by hand, presses Save, reads the recomputed difficulty,
-and Approves or Cancels. The two routes it posts to are CARD-245's and are
+and Approves or goes back to editing. The two routes it posts to are CARD-245's and are
 tested in ``tests/test_puzzle_edit_routes.py`` /
 ``tests/test_puzzle_edit_store.py``; what is new here is the page, the Edit
 controls that reach it, and the save flow in ``static/puzzle_edit.js``.
@@ -15,7 +15,7 @@ Two tiers, as ADR-0038 decides and the player's own files already do:
   Fast, and they cannot skip.
 * **Browser tests** (``@pytest.mark.browser``, pytest-playwright + Chromium,
   ADR-0038/R7/R8): everything only a browser can see — the board drawn from
-  the stored grid, real clicks, the message, Approve, Cancel, what the store
+  the stored grid, real clicks, the message, Approve, the two exits, what the store
   holds at each step, and the editor's own card-level entry point, which the
   detail modal builds in JavaScript. Without Chromium these FAIL loudly
   rather than skipping (the fixtures are the player's own, which already
@@ -57,6 +57,7 @@ import json
 import random
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 
@@ -138,9 +139,12 @@ VERIFY = "/puzzle/{}/edit/verify"
 PAGE_ISOLATION_DECLARATION = (
     "own-page",
     "installs page.route interceptors (an aborted verify, an aborted save, a "
-    "stubbed grade), request and pageerror listeners and a MutationObserver "
-    "on the save bar, seeds and reads localStorage, and suppresses a document "
-    "event listener — none of which navigating undoes",
+    "stubbed grade, a 204 that holds the exit's navigation back), request and "
+    "pageerror listeners and a MutationObserver on the save bar, seeds and "
+    "reads localStorage, and suppresses a document event listener — none of "
+    "which navigating undoes; and since CARD-250 its tests navigate AWAY from "
+    "the editor on purpose, so a page left on the puzzle list is a page the "
+    "next test would have to put back",
 )
 
 
@@ -630,6 +634,135 @@ class TestPuzzleEditor_Guardrails:
         assert "https://" not in editor_html
         assert "<style" not in editor_html
 
+    def test_the_bars_refusals_never_reach_for_disabled(self) -> None:
+        """CARD-250 G-3, CARD-211's pattern. ``disabled`` drops the focus to
+        the document mid-flow, so this panel says "busy" with
+        ``aria-disabled`` and leaves the button focusable. A one-word slip
+        here is invisible to the flow tests — both spellings refuse the press
+        — so it is read off the editor's own two files.
+
+        **What this does not cover:** a third file doing it, and an
+        ``aria-disabled`` left stale. The flow tests read the bar's
+        ``aria-disabled`` at each step, which is what covers the second.
+        """
+        editor_html = (_TEMPLATES / "puzzle_edit.html").read_text()
+        editor_js = (_STATIC / "puzzle_edit.js").read_text()
+
+        assert "aria-disabled" in editor_js
+        assert not re.search(r'(?<!aria-)disabled\s*=\s*"', editor_html), editor_html
+        assert not re.search(r"(?<!aria-)disabled\s*=", editor_js)
+        assert not re.search(r'setAttribute\(\s*"disabled"', editor_js)
+
+
+# --------------------------------------------------------------------------
+# AC-6 — the list the exits land on shows the picture that is stored now
+# --------------------------------------------------------------------------
+
+
+def _thumbnail_of(html: str, puzzle_id: str) -> str:
+    """The ``src`` the list row draws this puzzle's grid from."""
+    match = re.search(
+        rf'<img src="(/api/puzzle/{re.escape(puzzle_id)}/grid[^"]*)"', html)
+    assert match is not None, f"no thumbnail for {puzzle_id} on this page"
+    return match.group(1)
+
+
+def _approve_an_edit(app, puzzle_id: str, grid) -> None:
+    """The two POSTs the editor makes, through the panel's own routes."""
+    client = app.test_client()
+    verified = client.post(VERIFY.format(puzzle_id), json={"grid": grid})
+    assert verified.status_code == 200, verified.get_data(as_text=True)
+    saved = client.post(SAVE.format(puzzle_id), json={"grid": grid})
+    assert saved.status_code == 200, saved.get_data(as_text=True)
+
+
+class TestPuzzleEditor_TheListShowsTheEditedPicture:
+    """CARD-250 AC-6, **the card's failing-first one.**
+
+    The list's thumbnail is ``/api/puzzle/<id>/grid`` — a STABLE url whose
+    response carries a ``Content-Type`` and nothing else: no ``Cache-Control``
+    and no validator. A browser that already holds that url's SVG is
+    therefore entitled to redraw the row from it, and the owner who has just
+    replaced the grid is shown the grid they replaced.
+
+    The fix versions the url by ``manually_edited_at`` — CARD-245's own stamp
+    (migration 016), which moves when and only when the grid moves. So an
+    unedited puzzle's thumbnail still caches normally (the reason this was
+    chosen over ``Cache-Control: no-cache`` on the route, which would make
+    every thumbnail on every page re-fetch forever to fix a case that arises
+    once per edit), and an edited one cannot be answered out of the cache of
+    the picture it replaced.
+
+    **What these tests assert, and what they do not.** They assert the two
+    SVGs really differ and that the url the list hands the browser differs
+    with them — which is what makes a cache hit impossible. They do not drive
+    a real browser cache: that would be an assertion about Chromium's
+    heuristic freshness, which is not this panel's to guarantee and not
+    stable enough to test. The first test below fails on the pre-card tree,
+    where the two urls were one string over two different pictures.
+    """
+
+    def test_the_rows_picture_is_not_the_url_of_the_picture_it_replaced(
+        self, admin_app
+    ) -> None:
+        puzzle_id = seed(admin_app, grid=solid())
+        client = admin_app.test_client()
+        before = _thumbnail_of(client.get("/puzzles").get_data(as_text=True), puzzle_id)
+        drawn_before = client.get(f"/api/puzzle/{puzzle_id}/grid").get_data(as_text=True)
+
+        _approve_an_edit(admin_app, puzzle_id, solid_minus_corner())
+
+        drawn_after = client.get(f"/api/puzzle/{puzzle_id}/grid").get_data(as_text=True)
+        after = _thumbnail_of(client.get("/puzzles").get_data(as_text=True), puzzle_id)
+
+        # Two different pictures — which is the whole reason one url for both
+        # of them is the defect and not a cosmetic point.
+        assert drawn_before != drawn_after
+        assert after != before, after
+
+    def test_a_second_edit_moves_it_again(self, admin_app) -> None:
+        """A version key that moved once and then stopped would fix only the
+        first edit. The stamp is rewritten by every save, so the url is."""
+        puzzle_id = seed(admin_app, grid=solid())
+        client = admin_app.test_client()
+
+        _approve_an_edit(admin_app, puzzle_id, solid_minus_corner())
+        once = _thumbnail_of(client.get("/puzzles").get_data(as_text=True), puzzle_id)
+        _approve_an_edit(admin_app, puzzle_id, solid())
+        twice = _thumbnail_of(client.get("/puzzles").get_data(as_text=True), puzzle_id)
+
+        assert once != twice, (once, twice)
+
+    def test_an_unedited_puzzles_thumbnail_is_left_cacheable(self, admin_app) -> None:
+        """Why the url is versioned rather than the route told not to cache:
+        a puzzle nobody has edited keeps the plain, cacheable url, so the fix
+        costs the other thumbnails nothing."""
+        untouched = seed(admin_app, grid=solid())
+        edited = seed(admin_app, grid=solid())
+        _approve_an_edit(admin_app, edited, solid_minus_corner())
+
+        html = admin_app.test_client().get("/puzzles").get_data(as_text=True)
+
+        assert _thumbnail_of(html, untouched) == f"/api/puzzle/{untouched}/grid"
+        assert "?" in _thumbnail_of(html, edited)
+
+    def test_the_stamp_is_the_only_thing_the_version_carries(self, admin_app) -> None:
+        """The version key is the row's own ``manually_edited_at`` and not a
+        clock read at render time: a url that changed on every page load
+        would re-fetch every thumbnail forever, which is the cost this option
+        was chosen to avoid. Two renderings with no edit between them give
+        the same url."""
+        puzzle_id = seed(admin_app, grid=solid())
+        _approve_an_edit(admin_app, puzzle_id, solid_minus_corner())
+        client = admin_app.test_client()
+
+        first = _thumbnail_of(client.get("/puzzles").get_data(as_text=True), puzzle_id)
+        second = _thumbnail_of(client.get("/puzzles").get_data(as_text=True), puzzle_id)
+
+        stamp = admin_app.puzzle_review_service.get_puzzle(puzzle_id)["manually_edited_at"]
+        assert first == second
+        assert quote(str(stamp), safe="") in first, (first, stamp)
+
 
 # --------------------------------------------------------------------------
 # The browser tier
@@ -691,6 +824,32 @@ def _approve_offered(page) -> bool:
     return page.locator("#puzzle-editor-decide").is_visible()
 
 
+def _wait_for_the_list(page) -> None:
+    """CARD-250 AC-5: a stored edit LEAVES the editor for ``/puzzles``.
+
+    So "the store said yes" is observed here as the list page, not as a
+    sentence on a bar the browser has navigated away from. The sentence is
+    still written before the exit — ``storedText`` is told whatever happens,
+    because it is the only report of what the store did — and the one test
+    that reads it keeps the page by aborting the navigation
+    (``..._a_second_approve_pressed_in_flight...``).
+    """
+    page.wait_for_url("**/puzzles", timeout=20_000)
+
+
+def _stay_on_the_editor(page) -> None:
+    """Answer the exit's navigation with 204, so the editor's document stays.
+
+    A test that reads the bar's LAST sentence needs the page that sentence is
+    on, and that sentence's next act is to leave. ``route.abort()`` is no use
+    — Chromium commits an error document for an aborted main-frame navigation
+    — but a 204 has no content to commit, so the browser keeps the document it
+    already has. It is a ``page.route`` interceptor, which is part of this
+    file's declared page isolation.
+    """
+    page.route("**/puzzles", lambda route: route.fulfill(status=204, body=""))
+
+
 def _stored_grid(live, puzzle_id):
     return live.app.puzzle_review_service.get_puzzle(puzzle_id)["grid"]
 
@@ -743,13 +902,15 @@ _SAVE_THEN_PAINT = """([grid]) => {
   window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells }));
 }"""
 
-#: Press Save and then Cancel, in ONE task: the cancel therefore lands while
-#: the verify is still unanswered — the state an owner cannot reach, because
-#: the Approve/Cancel pair is ``hidden``, and the state a script reaches at
-#: once (review cycle 2, G-008).
-_SAVE_THEN_CANCEL = """() => {
+#: Press Save and then Back to edit, in ONE task: the press therefore lands
+#: while the verify is still unanswered — the state an owner cannot reach,
+#: because the Approve / Back to edit pair is ``hidden``, and the state a
+#: script reaches at once (review cycle 2, G-008). CARD-250 renamed the button
+#: (it was Cancel) and left its behaviour alone, which is why this reads the
+#: same as it did.
+_SAVE_THEN_BACK = """() => {
   document.getElementById('puzzle-editor-save').click();
-  document.getElementById('puzzle-editor-cancel').click();
+  document.getElementById('puzzle-editor-back').click();
 }"""
 
 #: Take the board's change announcement away from the editor, leaving the
@@ -865,8 +1026,9 @@ class TestPuzzleEditor_OpensOnTheStoredGridInTheBrowser:
 
 @pytest.mark.browser
 class TestPuzzleEditor_SaveShowsDifficultyThenApproveCommits:
-    """AC-3: Save shows the recomputed difficulty with Cancel and Approve,
-    and nothing is stored until Approve."""
+    """AC-3: Save shows the recomputed difficulty with Approve and Back to
+    edit, and nothing is stored until Approve. (CARD-250 renamed that second
+    button from Cancel, and gave Approve its exit to the list.)"""
 
     def test_save_shows_the_recomputed_difficulty_and_stores_nothing(
         self, browser_page, live
@@ -884,7 +1046,7 @@ class TestPuzzleEditor_SaveShowsDifficultyThenApproveCommits:
         assert str(MINUS_CORNER_SCORE) in said
         assert _approve_offered(browser_page)
         assert _button(browser_page, "Approve").is_visible()
-        assert _button(browser_page, "Cancel").is_visible()
+        assert _button(browser_page, "Back to edit").is_visible()
         _assert_stored(live, puzzle_id, STORED)
 
     def test_approve_commits_the_grid_that_was_graded(self, browser_page, live) -> None:
@@ -896,7 +1058,7 @@ class TestPuzzleEditor_SaveShowsDifficultyThenApproveCommits:
         _wait_for_message(browser_page, "Difficulty")
 
         _button(browser_page, "Approve").click()
-        _wait_for_message(browser_page, "Saved")
+        _wait_for_the_list(browser_page)
 
         row = live.app.puzzle_review_service.get_puzzle(puzzle_id)
         assert row["grid"] == EDITED
@@ -919,17 +1081,24 @@ class TestPuzzleEditor_SaveShowsDifficultyThenApproveCommits:
         _assert_stored(live, puzzle_id, STORED)  # still true
 
         _button(browser_page, "Approve").click()
-        _wait_for_message(browser_page, "Saved")
+        _wait_for_the_list(browser_page)
 
         with pytest.raises(AssertionError):
             _assert_stored(live, puzzle_id, STORED)
 
 
 @pytest.mark.browser
-class TestPuzzleEditor_CancelKeepsTheEditAndStoresNothing:
-    """AC-4: Cancel stores nothing and does not discard the work either."""
+class TestPuzzleEditor_BackToEditKeepsTheEditAndStoresNothing:
+    """CARD-246 AC-4 under CARD-250's name for it (AC-3).
 
-    def test_cancel_leaves_the_store_and_the_board_as_they_were(
+    This button was labelled Cancel; CARD-250 renamed it to what it does and
+    freed the name for the exit beside Save. **The behaviour is unchanged**,
+    which is why this class needed a rename and nothing else — if it had
+    needed more, something the owner did not ask to change had changed
+    (CARD-250 G-1).
+    """
+
+    def test_back_to_edit_leaves_the_store_and_the_board_as_they_were(
         self, browser_page, live
     ) -> None:
         puzzle_id = _seed_live(live)
@@ -939,7 +1108,7 @@ class TestPuzzleEditor_CancelKeepsTheEditAndStoresNothing:
         _button(browser_page, "Save").click()
         _wait_for_message(browser_page, "Difficulty")
 
-        _button(browser_page, "Cancel").click()
+        _button(browser_page, "Back to edit").click()
         said = _wait_for_message(browser_page, "Not saved")
 
         _assert_stored(live, puzzle_id, STORED)
@@ -947,7 +1116,7 @@ class TestPuzzleEditor_CancelKeepsTheEditAndStoresNothing:
         assert not _approve_offered(browser_page)
         assert "still there" in said
 
-    def test_the_edit_can_be_carried_on_and_saved_after_a_cancel(
+    def test_the_edit_can_be_carried_on_and_saved_after_going_back(
         self, browser_page, live
     ) -> None:
         """The edit being "intact" means usable, not merely visible."""
@@ -957,13 +1126,13 @@ class TestPuzzleEditor_CancelKeepsTheEditAndStoresNothing:
         _cell(browser_page, 0, 0).click()
         _button(browser_page, "Save").click()
         _wait_for_message(browser_page, "Difficulty")
-        _button(browser_page, "Cancel").click()
+        _button(browser_page, "Back to edit").click()
         _wait_for_message(browser_page, "Not saved")
 
         _button(browser_page, "Save").click()
         _wait_for_message(browser_page, "Difficulty")
         _button(browser_page, "Approve").click()
-        _wait_for_message(browser_page, "Saved")
+        _wait_for_the_list(browser_page)
 
         assert _stored_grid(live, puzzle_id) == EDITED
 
@@ -1004,7 +1173,7 @@ class TestPuzzleEditor_NonUniqueEditCannotBeApproved:
         _button(browser_page, "Save").click()
         _wait_for_message(browser_page, "Difficulty")
         _button(browser_page, "Approve").click()
-        _wait_for_message(browser_page, "Saved")
+        _wait_for_the_list(browser_page)
 
         assert _stored_grid(live, puzzle_id) == EDITED
 
@@ -1250,7 +1419,7 @@ class TestPuzzleEditor_WhatTheServerSays:
         _button(browser_page, "Save").click()
         _wait_for_message(browser_page, "Difficulty")
         _button(browser_page, "Approve").click()
-        _wait_for_message(browser_page, "Saved")
+        _wait_for_the_list(browser_page)
 
         assert _stored_grid(live, puzzle_id) == EDITED
 
@@ -1283,7 +1452,7 @@ class TestPuzzleEditor_Accessibility:
         ) != "none"
         assert message.text_content().strip() == ""
         # The buttons are OUTSIDE the region, so what is announced is the
-        # message and not "Approve Cancel" after it.
+        # message and not "Approve Back to edit" after it.
         assert browser_page.locator("#puzzle-editor-message #puzzle-editor-approve").count() == 0
 
         browser_page.evaluate(_SET_GRID, [EDITED])
@@ -1303,7 +1472,7 @@ class TestPuzzleEditor_Accessibility:
         # Focus follows the flow: the next thing to decide is Approve.
         assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-approve"
         browser_page.keyboard.press("Tab")
-        assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-cancel"
+        assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-back"
 
         browser_page.keyboard.press("Enter")
         _wait_for_message(browser_page, "Not saved")
@@ -1319,10 +1488,16 @@ class TestPuzzleEditor_Accessibility:
         browser_page.keyboard.press("Enter")
         _wait_for_message(browser_page, "Difficulty")
         browser_page.keyboard.press("Enter")
-        _wait_for_message(browser_page, "Saved")
+        _wait_for_the_list(browser_page)
 
         assert _stored_grid(live, puzzle_id) == EDITED
-        assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-save"
+        # Where focus went after a SUCCESSFUL approve is no longer a question
+        # this page answers: a stored edit leaves the editor (CARD-250 AC-5),
+        # so there is no save bar left to stand on. The focus discipline of
+        # the flow is still pinned where the page stays — on a refusal
+        # (``..._asks_to_verify_again`` keeps the bar) and on Back to edit
+        # (``test_the_whole_flow_runs_from_the_keyboard``, above).
+        assert browser_page.url.endswith("/puzzles")
 
     def test_the_edit_link_on_the_list_is_in_the_tab_order(self, browser_page, live) -> None:
         puzzle_id = _seed_live(live, name="Owl")
@@ -1605,6 +1780,12 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         _wait_for_message(browser_page, "Difficulty")
         errors, asked = _watch(browser_page)
         browser_page.evaluate(_WATCH_BAR)
+        # The sentence this test reads is the last thing the editor says
+        # before it leaves for the list (CARD-250 AC-5), so the navigation is
+        # aborted and the document stays. What is asserted below is unchanged:
+        # the store's answer is told, with no Approve beside it, and one POST
+        # was sent.
+        _stay_on_the_editor(browser_page)
 
         browser_page.evaluate(_PRESS_TWICE, ["puzzle-editor-approve"])
         said = _wait_for_message(browser_page, "Saved")
@@ -1694,7 +1875,7 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         _button(browser_page, "Save").click()
         _wait_for_message(browser_page, "Difficulty")
         _button(browser_page, "Approve").click()
-        _wait_for_message(browser_page, "Saved")
+        _wait_for_the_list(browser_page)
 
         assert _stored_grid(live, puzzle_id) == EDITED
 
@@ -1730,7 +1911,7 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         assert _approve_offered(browser_page), "the suppression did not take"
 
         _button(browser_page, "Approve").click()
-        _wait_for_message(browser_page, "Saved")
+        _wait_for_the_list(browser_page)
 
         assert _posted(asked, "/edit") == [EDITED], asked
         assert _stored_grid(live, puzzle_id) == EDITED
@@ -1915,23 +2096,30 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         assert not _approve_offered(browser_page)
         assert errors == [], errors
 
-    def test_a_cancel_taken_mid_flight_is_not_undone_by_the_answer(
+    def test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer(
         self, browser_page, live
     ) -> None:
-        """G-008. ``onCancel`` is a writer-caller like the others and spends
-        the turn.
+        """G-008. ``onBackToEdit`` is a writer-caller like the others and
+        spends the turn.
 
-        An owner cannot reach Cancel while a request is in flight — the pair
-        it sits in is ``hidden``, and this panel's CSS makes that
+        An owner cannot reach Back to edit while a request is in flight — the
+        pair it sits in is ``hidden``, and this panel's CSS makes that
         ``display: none`` — so the guarantee rested on another element's
         visibility, which is not a guarantee. Forced with a scripted click
-        during the verify, the cancel used to be silently undone by the grade
+        during the verify, the press used to be silently undone by the grade
         that landed after it: the message went back to a difficulty and the
         Approve came back up, for a flow the owner had just abandoned.
 
         A SAVE's answer is still never dropped, whatever turn it lands in,
         because it is the only report of what the store did — so this spends
-        the turn without giving Cancel the power to silence the store.
+        the turn without giving the press the power to silence the store.
+
+        **CARD-250 changed nothing here, on purpose** (G-1), and this is the
+        test that says so: the button was renamed from Cancel and its
+        mid-flight behaviour is the one asserted above. The exit that CARD-250
+        *did* add — Cancel, beside Save — is refused mid-flight instead, which
+        is ``TestPuzzleEditor_NoExitWhileTheStoreIsDeciding``; the asymmetry is
+        that Back to edit never leaves the page, so it has nothing to outrun.
         """
         puzzle_id = _seed_live(live)
         _open_editor(browser_page, live, puzzle_id)
@@ -1942,7 +2130,7 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         with browser_page.expect_response(
             lambda response: response.url.endswith("/edit/verify")
         ) as answer:
-            browser_page.evaluate(_SAVE_THEN_CANCEL)
+            browser_page.evaluate(_SAVE_THEN_BACK)
         # It really was a grade that got dropped, not a refusal.
         assert answer.value.status == 200
         _settle(browser_page)
@@ -1953,7 +2141,7 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         assert not _approve_offered(browser_page)
         assert errors == [], errors
         _assert_stored(live, puzzle_id, STORED)
-        # And the flow is still usable: Cancel abandoned a check, not the page.
+        # And the flow is still usable: it abandoned a check, not the page.
         _button(browser_page, "Save").click()
         _wait_for_message(browser_page, "Difficulty")
 
@@ -1989,3 +2177,680 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         assert "Error" not in said and "Traceback" not in said
         assert errors == [], errors
         _assert_stored(live, puzzle_id, STORED)
+
+
+# --------------------------------------------------------------------------
+# CARD-250 — the two bars say what they do, and both exits land on the list
+# (AC-1, AC-2, AC-3's rename proved by use, AC-4, AC-5, AC-7, AC-8)
+# --------------------------------------------------------------------------
+
+
+#: Every button the save bar carries, by the label it shows — read off the
+#: rendered page, which is what AC-4 asks for: the words a message uses are
+#: held against the bar the owner is actually looking at, never against a
+#: list written down in a test. Hidden buttons count: the Approve pair and
+#: the leave confirmation are on the bar, they are just not on screen yet.
+_BAR_LABELS = """() => [...document.querySelectorAll('#puzzle-editor button')]
+  .map((button) => button.textContent.trim())"""
+
+#: The labels of the pair the grade's sentence offers.
+_DECIDE_LABELS = """() => [...document.querySelectorAll('#puzzle-editor-decide button')]
+  .map((button) => button.textContent.trim())"""
+
+#: The tier word in the message, and the colour it actually wears.
+_TIER_WORD = """() => {
+  const span = document.getElementById('puzzle-editor-grade');
+  const message = document.getElementById('puzzle-editor-message');
+  return {
+    text: span.textContent,
+    tier: span.dataset.tier,
+    colour: getComputedStyle(span).color,
+    prose: getComputedStyle(message).color,
+  };
+}"""
+
+#: The same reading from the list's tier chip, row by row, so "the same
+#: colour" is measured on both surfaces inside one test.
+_BADGE_COLOURS = """([ids]) => Object.fromEntries(Object.entries(ids).map(([tier, id]) => {
+  const link = document.querySelector(`a[onclick*="${id}"]`);
+  const badge = link.closest('tr').querySelector('.badge.tier');
+  return [tier, { text: badge.textContent.trim(), colour: getComputedStyle(badge).color }];
+}))"""
+
+#: What the bar says and does in the SAME TASK as a press made while a
+#: request is unanswered. Read there rather than after, because the honest
+#: question is what the press did at the moment it was made: a fetch cannot
+#: resolve inside the task that started it, so nothing has answered yet.
+_STATE_AFTER = """{
+    path: window.location.pathname,
+    said: document.getElementById('puzzle-editor-message').textContent,
+    busy: document.getElementById('puzzle-editor-leave').getAttribute('aria-disabled'),
+    confirming: !document.getElementById('puzzle-editor-leave-confirm').hidden,
+  }"""
+
+_APPROVE_THEN_LEAVE = """() => {
+  document.getElementById('puzzle-editor-approve').click();
+  document.getElementById('puzzle-editor-leave').click();
+  return %s;
+}""" % _STATE_AFTER
+
+_SAVE_THEN_LEAVE = """() => {
+  document.getElementById('puzzle-editor-save').click();
+  document.getElementById('puzzle-editor-leave').click();
+  return %s;
+}""" % _STATE_AFTER
+
+_SAVE_THEN_LEAVE_ANYWAY = """() => {
+  document.getElementById('puzzle-editor-save').click();
+  document.getElementById('puzzle-editor-leave-accept').click();
+  return %s;
+}""" % _STATE_AFTER
+
+_SAVE_THEN_BACK_WITH_STATE = """() => {
+  document.getElementById('puzzle-editor-save').click();
+  document.getElementById('puzzle-editor-back').click();
+  return %s;
+}""" % _STATE_AFTER
+
+
+def _confirm_open(page) -> bool:
+    return page.locator("#puzzle-editor-leave-confirm").is_visible()
+
+
+def _asked_for_the_list(asked) -> list[str]:
+    return [url for url, _data in asked if url.endswith("/puzzles")]
+
+
+def _paint_a_cell(page) -> None:
+    """One recorded stroke — the board change this page hears about."""
+    _tool(page, "White")
+    _cell(page, 0, 0).click()
+
+
+@pytest.mark.browser
+class TestPuzzleEditor_CancelLeavesTheEditor:
+    """CARD-250 AC-1. The exit that did not exist: beside Save, Cancel leaves
+    the editor and stores nothing.
+
+    The name was freed by renaming the old Cancel to Back to edit — the two
+    items have to be read together, because two buttons both called Cancel
+    meaning different things on one bar is not a design anyone asked for.
+    """
+
+    def test_cancel_goes_to_the_list_and_stores_nothing(self, browser_page, live) -> None:
+        puzzle_id = _seed_live(live, name="Owl")
+        _open_editor(browser_page, live, puzzle_id)
+        errors, asked = _watch(browser_page)
+
+        _button(browser_page, "Cancel").click()
+        _wait_for_the_list(browser_page)
+
+        assert browser_page.url.endswith("/puzzles")
+        # The list it lands on is the one this puzzle is on.
+        assert browser_page.locator(f'a[onclick*="{puzzle_id}"]').count() >= 1
+        _assert_stored(live, puzzle_id, STORED)
+        # Nothing was even asked of the store: this exit is not a save.
+        assert _posted(asked, "/edit") == [], asked
+        assert _posted(asked, "/edit/verify") == [], asked
+        assert errors == [], errors
+
+    def test_it_leaves_from_the_keyboard_too(self, browser_page, live) -> None:
+        """CARD-211's standard on the new control: reachable, and it does the
+        same thing from Enter as from a click."""
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+
+        _button(browser_page, "Save").focus()
+        browser_page.keyboard.press("Tab")
+        assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-leave"
+
+        browser_page.keyboard.press("Enter")
+        _wait_for_the_list(browser_page)
+
+        assert browser_page.url.endswith("/puzzles")
+        _assert_stored(live, puzzle_id, STORED)
+
+
+@pytest.mark.browser
+class TestPuzzleEditor_CancelAsksOnlyWhenThereIsSomethingToLose:
+    """CARD-250 AC-2. A confirm on every exit trains the owner to dismiss it;
+    no confirm at all loses work to a mis-click. So it asks exactly when the
+    board has changed since it was opened — the fact this page is already
+    told, by the one place a change is recorded (``BOARD_CHANGE``).
+
+    It asks in the page (``role="alertdialog"``), which is the rule Clear's
+    confirmation already follows, and never ``window.confirm``.
+    """
+
+    def test_an_unchanged_board_is_not_asked_about(self, browser_page, live) -> None:
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        assert not _confirm_open(browser_page)
+
+        _button(browser_page, "Cancel").click()
+        _wait_for_the_list(browser_page)
+
+        assert browser_page.url.endswith("/puzzles")
+
+    def test_a_changed_board_is_asked_about_and_declining_keeps_the_edit(
+        self, browser_page, live
+    ) -> None:
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        errors, asked = _watch(browser_page)
+
+        _button(browser_page, "Cancel").click()
+
+        assert _confirm_open(browser_page)
+        assert browser_page.url.endswith("/editor")
+        assert _asked_for_the_list(asked) == [], asked
+        # Asked in the page, and the keyboard is put on the safe answer.
+        dialog = browser_page.locator("#puzzle-editor-leave-confirm")
+        assert dialog.get_attribute("role") == "alertdialog"
+        assert browser_page.evaluate(
+            "() => document.activeElement.id") == "puzzle-editor-leave-keep"
+        assert "not stored" in dialog.text_content()
+        assert _button(browser_page, "Cancel").get_attribute("aria-expanded") == "true"
+
+        _button(browser_page, "Keep editing").click()
+
+        assert not _confirm_open(browser_page)
+        assert browser_page.url.endswith("/editor")
+        assert _asked_for_the_list(asked) == [], asked
+        # The edit is intact and USABLE, not merely still drawn.
+        assert browser_page.evaluate(_BOARD_STATES) == _states_of(EDITED)
+        _assert_stored(live, puzzle_id, STORED)
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        assert errors == [], errors
+
+    def test_confirming_leaves_and_still_stores_nothing(self, browser_page, live) -> None:
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+
+        _button(browser_page, "Cancel").click()
+        _button(browser_page, "Leave editor").click()
+        _wait_for_the_list(browser_page)
+
+        assert browser_page.url.endswith("/puzzles")
+        _assert_stored(live, puzzle_id, STORED)
+
+    def test_escape_answers_it_the_way_keep_editing_does(self, browser_page, live) -> None:
+        """Clear's confirmation closes on Escape; a second dialog on the same
+        page that did not would be two behaviours for one gesture."""
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        _button(browser_page, "Cancel").click()
+        assert _confirm_open(browser_page)
+
+        browser_page.keyboard.press("Escape")
+
+        assert not _confirm_open(browser_page)
+        assert browser_page.url.endswith("/editor")
+        assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-leave"
+
+    def test_it_asks_about_a_board_that_was_painted_and_then_undone(
+        self, browser_page, live
+    ) -> None:
+        """The fact this page holds is "the board has CHANGED since it was
+        opened", which is what it is told. It is deliberately not "the board
+        differs from the stored grid now", which would need a comparison this
+        file does not make — a second notion of a changed board beside the one
+        invariant 4 already rests on, and the kind of duplicate that drifts.
+
+        Undo is itself a recorded change, so a painted-then-undone board still
+        asks. That is the conservative direction: it costs one extra question
+        and it never loses a stroke.
+        """
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        _button(browser_page, "Undo").click()
+        assert browser_page.evaluate(_BOARD_STATES) == _states_of(STORED)
+
+        _button(browser_page, "Cancel").click()
+
+        assert _confirm_open(browser_page)
+        assert browser_page.url.endswith("/editor")
+
+    def test_the_question_is_asked_in_the_page_and_never_by_the_browser(self) -> None:
+        """``window.confirm`` blocks the page, cannot be styled and cannot be
+        read by the live region; ``solver.js``'s PROGRESS contract says
+        "never window.confirm" for Clear, and this is the same rule for the
+        second dialog on the same page."""
+        editor_js = (_STATIC / "puzzle_edit.js").read_text()
+        code = "\n".join(
+            line for line in editor_js.splitlines() if not line.strip().startswith("//"))
+
+        assert "window.confirm" not in code
+        assert "confirm(" not in code
+        assert 'role="alertdialog"' in (_TEMPLATES / "puzzle_edit.html").read_text()
+
+
+@pytest.mark.browser
+class TestPuzzleEditor_TheWordsNameTheButtonsThatExist:
+    """CARD-250 AC-4. No message this page can show tells the owner to press
+    something that is not on the bar.
+
+    The bar's labels are read off the rendered page; the messages are got by
+    importing the module and calling every one of them, over a seeded corpus
+    for the refusals (no ``hypothesis``: not in the dependency baseline).
+
+    **What this checks:** every place a message says "press X" or "or X" with
+    a capitalised X, X is a label the bar carries. That is the defect the
+    rename could have left behind — ``gradeText`` ended "or Cancel to go on
+    editing" while the bar's Cancel became an exit from the page.
+
+    **What it does not check,** stated rather than implied: a message could
+    refer to a control without naming it ("the green button") and this would
+    not see it; and a label that IS on the bar but means something else is a
+    question about meaning, which no text predicate can answer. Both
+    "Cancel" and "Back to edit" are labels now, so naming the wrong one of
+    the two would pass here. What catches THAT is
+    ``test_the_button_the_grade_names_is_the_one_that_goes_back`` below,
+    which reads the name out of the message and presses it.
+    """
+
+    #: Where this file's prose names a control: "press X", "Press X", "or X".
+    _NAMES_A_CONTROL = re.compile(r"\b(?:[Pp]ress|or)\s+(?=[A-Z])")
+
+    def _every_message(self, page) -> list[str]:
+        rng = random.Random(250)
+        reasons = [None, "not_unique", "not_verified", "in_a_book", "not_found", "too_large"]
+        codes = [0, 200, 404, 409, 422, 500, 502, 504]
+        # The server's own prose, relayed: lower-case sentences, as CARD-245's
+        # messages are. What the server says is the server's claim, not this
+        # page's claim about its own controls.
+        said_by_the_server = [
+            "the clue set has 2 or more solutions",
+            "this grid is not the one you verified",
+            "a puzzle in a book keeps its grid",
+            "no such puzzle",
+            "",
+        ]
+        refusals = [
+            [
+                rng.choice(codes),
+                rng.choice(said_by_the_server),
+                rng.choice(reasons),
+                rng.choice([True, False]),
+            ]
+            for _ in range(120)
+        ]
+        grades = [
+            {"difficulty_tier": tier, "difficulty_score": rng.randrange(0, 101)}
+            for tier in ("easy", "medium", "hard", "guess", "fiendish")
+        ]
+        cells = [
+            [[rng.randrange(0, 10), rng.randrange(0, 10)] for _ in range(count)]
+            for count in (1, 2, 6, 7, 40)
+        ]
+        said = page.evaluate(_MESSAGE_CORPUS, [refusals, grades, cells])
+        # The two sentences written inline by the handlers rather than
+        # exported, read off the source so the corpus is the whole vocabulary
+        # and not only the exported half.
+        said += re.findall(r'tell\("([^"]+)"\)', (_STATIC / "puzzle_edit.js").read_text())
+        return said
+
+    def test_no_message_names_a_button_the_bar_does_not_carry(
+        self, browser_page, live
+    ) -> None:
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        labels = browser_page.evaluate(_BAR_LABELS)
+        said = self._every_message(browser_page)
+
+        assert len(labels) >= 4, labels
+        assert len(said) >= 130, len(said)
+        offences = [
+            (message[match.end():match.end() + 24], message)
+            for message in said
+            for match in self._NAMES_A_CONTROL.finditer(message)
+            if not any(message.startswith(label, match.end()) for label in labels)
+        ]
+
+        assert offences == [], offences
+
+    def test_the_guard_fails_on_a_message_that_names_a_departed_button(
+        self, browser_page, live
+    ) -> None:
+        """The control for the test above, which is worth nothing if it
+        cannot fail: the same predicate over the sentence the rename would
+        have left behind."""
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        labels = browser_page.evaluate(_BAR_LABELS)
+        stale = "This grid is a puzzle. Approve to store it, or Dismiss to go on editing."
+
+        found = [
+            match for match in self._NAMES_A_CONTROL.finditer(stale)
+            if not any(stale.startswith(label, match.end()) for label in labels)
+        ]
+
+        assert len(found) == 1, found
+        assert stale[found[0].end():].startswith("Dismiss")
+
+    def test_the_grade_names_both_buttons_it_offers(self, browser_page, live) -> None:
+        """The positive half: the sentence that comes with the Approve pair
+        names that pair, by the labels the pair is wearing. Rename either
+        button and leave the sentence, and this fails — which is the half a
+        "no dangling name" guard cannot do on its own.
+        """
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+
+        _button(browser_page, "Save").click()
+        said = _wait_for_message(browser_page, "Difficulty")
+
+        offered = browser_page.evaluate(_DECIDE_LABELS)
+        assert len(offered) == 2, offered
+        for label in offered:
+            assert label in said, (label, said)
+
+    def test_the_button_the_grade_names_is_the_one_that_goes_back(
+        self, browser_page, live
+    ) -> None:
+        """AC-3's rename, proved by USE rather than by reading a label.
+
+        The name is taken out of the message and pressed. A ``gradeText``
+        still ending "or Cancel to go on editing" would press the EXIT: the
+        board would be gone and the browser would be on the list, which is
+        what the two assertions after the press rule out.
+        """
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        _button(browser_page, "Save").click()
+        said = _wait_for_message(browser_page, "Difficulty")
+
+        labels = browser_page.evaluate(_BAR_LABELS)
+        named = [label for label in labels if f"or {label} to go on editing" in said]
+        assert len(named) == 1, (named, said, labels)
+        _button(browser_page, named[0]).click()
+        _wait_for_message(browser_page, "Not saved")
+
+        assert browser_page.url.endswith("/editor")
+        assert browser_page.evaluate(_BOARD_STATES) == _states_of(EDITED)
+        assert not _approve_offered(browser_page)
+        _assert_stored(live, puzzle_id, STORED)
+
+
+#: Every message ``static/puzzle_edit.js`` can produce, from the module
+#: itself. The parts of a sentence (CARD-250's coloured tier word) are
+#: flattened the way ``tell`` flattens them into the line, so what is checked
+#: is the sentence the owner reads.
+_MESSAGE_CORPUS = """async ([refusals, grades, cells]) => {
+  const module = await import('/static/puzzle_edit.js');
+  const flat = (text) => (Array.isArray(text) ? text : [text])
+    .map((part) => (typeof part === 'string' ? part : String(part.tier))).join('');
+  const said = [module.BACK_TO_EDIT, module.BOARD_MOVED,
+                flat(module.inFlightText('verify')), flat(module.inFlightText('approve')),
+                flat(module.storedText(null))];
+  for (const grade of grades) {
+    said.push(flat(module.gradeText(grade)));
+    said.push(flat(module.storedText(grade)));
+  }
+  for (const undecided of cells) said.push(flat(module.undecidedText(undecided)));
+  for (const [code, message, reason, storing] of refusals) {
+    said.push(flat(module.refusalText(code, message, reason, { storing })));
+  }
+  return said;
+}"""
+
+
+@pytest.mark.browser
+class TestPuzzleEditor_ApproveCommitsThenReturnsToTheList:
+    """CARD-250 AC-5. An approved edit is stored AND the owner is put back on
+    the list, where the row's picture is the grid that was just stored.
+
+    The store's answer is still told before the exit — it is the only report
+    of what the store did, and the page never trades it for the navigation
+    (``test_a_second_approve_pressed_in_flight_is_not_sent_either`` reads that
+    sentence, holding the page with a 204).
+    """
+
+    def test_the_store_holds_the_new_grid_and_the_browser_is_on_the_list(
+        self, browser_page, live
+    ) -> None:
+        puzzle_id = _seed_live(live, name="Owl")
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        errors, _asked = _watch(browser_page)
+
+        _button(browser_page, "Approve").click()
+        _wait_for_the_list(browser_page)
+
+        assert browser_page.url.endswith("/puzzles")
+        assert _stored_grid(live, puzzle_id) == EDITED
+        assert errors == [], errors
+
+    def test_the_row_it_lands_on_draws_the_grid_that_was_stored(
+        self, browser_page, live
+    ) -> None:
+        """AC-6 in the browser, as far as a browser test honestly reaches:
+        the url the row hands the browser carries this edit's stamp — so the
+        cache of the replaced picture cannot answer it — and the picture it
+        asks for really loads. That the two pictures DIFFER, and that the url
+        moved with them, is ``TestPuzzleEditor_TheListShowsTheEditedPicture``.
+        """
+        puzzle_id = _seed_live(live, name="Owl")
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+
+        _button(browser_page, "Approve").click()
+        _wait_for_the_list(browser_page)
+
+        thumbnail = browser_page.locator(f'a.thumb[onclick*="{puzzle_id}"] img').first
+        stamp = live.app.puzzle_review_service.get_puzzle(puzzle_id)["manually_edited_at"]
+        assert stamp is not None
+        assert quote(str(stamp), safe="") in thumbnail.get_attribute("src")
+        # And it is a picture, not a broken image: the versioned url is one
+        # the panel really serves.
+        assert thumbnail.evaluate("(img) => img.complete && img.naturalWidth > 0")
+
+
+@pytest.mark.browser
+class TestPuzzleEditor_NoExitWhileTheStoreIsDeciding:
+    """CARD-250 AC-7. An exit may not outrun the store.
+
+    Leaving the page is a new way for a request to be in flight with nobody
+    left to hear its answer, and a save's answer is the only report of what
+    the store actually did — so Cancel is refused while a request is
+    unanswered, in words and with ``aria-disabled`` (never ``disabled``:
+    CARD-211), exactly as a second Save is refused.
+
+    **The asymmetry, and why it is not a gap.** Back to edit is not an exit
+    from the page; it has nothing to outrun and is refused by nothing. What
+    AC-7 asks of it — that the page does not navigate, and that it says what
+    it did — is asserted below, and its mid-flight behaviour is CARD-246's
+    unchanged, pinned by
+    ``test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer``
+    (CARD-250 G-1: that behaviour was renamed, not changed).
+
+    Each press below is made in the SAME TASK as the request it races, and
+    the bar is read there: a fetch cannot resolve inside the task that
+    started it, so what these read is the state the press itself produced.
+    """
+
+    def _graded(self, page, live):
+        puzzle_id = _seed_live(live)
+        _open_editor(page, live, puzzle_id)
+        _paint_a_cell(page)
+        _button(page, "Save").click()
+        _wait_for_message(page, "Difficulty")
+        return puzzle_id
+
+    def test_cancel_pressed_while_the_store_is_deciding_does_not_leave(
+        self, browser_page, live
+    ) -> None:
+        puzzle_id = self._graded(browser_page, live)
+        errors, asked = _watch(browser_page)
+
+        with browser_page.expect_response(lambda r: r.url.endswith("/edit")) as answer:
+            state = browser_page.evaluate(_APPROVE_THEN_LEAVE)
+
+        assert answer.value.status == 200
+        assert state["path"].endswith("/editor")
+        assert state["busy"] == "true"
+        assert state["confirming"] is False
+        assert "Still storing" in state["said"], state["said"]
+        assert _asked_for_the_list(asked) == [], asked
+        # The refusal cost the owner nothing: the store's word is still heard,
+        # and the exit happens on its own once it has been.
+        _wait_for_the_list(browser_page)
+        assert _stored_grid(live, puzzle_id) == EDITED
+        assert errors == [], errors
+
+    def test_cancel_pressed_while_the_grid_is_being_checked_does_not_leave_either(
+        self, browser_page, live
+    ) -> None:
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        errors, asked = _watch(browser_page)
+
+        with browser_page.expect_response(lambda r: r.url.endswith("/edit/verify")) as answer:
+            state = browser_page.evaluate(_SAVE_THEN_LEAVE)
+
+        assert answer.value.status == 200
+        assert state["path"].endswith("/editor")
+        assert state["busy"] == "true"
+        assert "Still checking" in state["said"], state["said"]
+        assert _asked_for_the_list(asked) == [], asked
+        # And the flow is not stuck: the grade lands and the page is usable.
+        _wait_for_message(browser_page, "Difficulty")
+        assert _approve_offered(browser_page)
+        assert _button(browser_page, "Cancel").get_attribute("aria-disabled") == "false"
+        _assert_stored(live, puzzle_id, STORED)
+        assert errors == [], errors
+
+    def test_leave_editor_pressed_after_the_question_was_asked_is_refused_too(
+        self, browser_page, live
+    ) -> None:
+        """The confirmation may be open when a request starts, so the refusal
+        is re-read at the moment of LEAVING and not only at the moment of
+        asking — safety that rested on when the dialog was opened would be
+        safety resting on a race.
+        """
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        _button(browser_page, "Cancel").click()
+        assert _confirm_open(browser_page)
+        errors, asked = _watch(browser_page)
+
+        with browser_page.expect_response(lambda r: r.url.endswith("/edit/verify")) as answer:
+            state = browser_page.evaluate(_SAVE_THEN_LEAVE_ANYWAY)
+
+        assert answer.value.status == 200
+        assert state["path"].endswith("/editor")
+        assert state["confirming"] is False  # the question is answered, not left open
+        assert "Still checking" in state["said"], state["said"]
+        assert _asked_for_the_list(asked) == [], asked
+        _assert_stored(live, puzzle_id, STORED)
+        assert errors == [], errors
+
+    def test_back_to_edit_pressed_mid_flight_does_not_navigate_either(
+        self, browser_page, live
+    ) -> None:
+        """AC-7's other half. Back to edit cannot leave the page at all, so
+        the page does not navigate; and it says what it did, which is that
+        nothing was saved and the edit is still there."""
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        errors, asked = _watch(browser_page)
+
+        with browser_page.expect_response(lambda r: r.url.endswith("/edit/verify")) as answer:
+            state = browser_page.evaluate(_SAVE_THEN_BACK_WITH_STATE)
+
+        assert answer.value.status == 200
+        assert state["path"].endswith("/editor")
+        assert "your edit is still there" in state["said"], state["said"]
+        assert _asked_for_the_list(asked) == [], asked
+        _settle(browser_page)
+        assert browser_page.url.endswith("/editor")
+        assert browser_page.evaluate(_BOARD_STATES) == _states_of(EDITED)
+        _assert_stored(live, puzzle_id, STORED)
+        assert errors == [], errors
+
+
+@pytest.mark.browser
+class TestPuzzleEditor_TheGradeWearsItsTierColour:
+    """CARD-250 AC-8. The recomputed tier's word carries that tier's colour,
+    and it is the SAME computed colour the list's chip uses for that tier —
+    read off both pages inside one test, which is the only form in which
+    "the same colour" is a claim and not a hope.
+
+    The tier reaches the DOM as the server's own string on a data attribute;
+    the hue is ``admin.css``'s, from ``--color-tier-*``. There is no
+    tier-to-colour map in JavaScript and no literal anywhere but
+    ``tokens.css``/``_tier.html`` — the other half of that is AC-9, in
+    ``tests/test_admin_design_tokens.py``.
+    """
+
+    def test_each_tiers_word_is_that_tiers_colour_and_the_lists_too(
+        self, browser_page, live
+    ) -> None:
+        tiers = ("easy", "medium", "hard")
+        edited = _seed_live(live)
+        rows = {tier: _seed_live(live, tier=tier, name=f"{tier} row") for tier in tiers}
+        _open_editor(browser_page, live, edited)
+        # The grade is the SERVER'S, so it is stubbed to walk the three tiers
+        # — the page shows what it is told and decides nothing (G-3).
+        grade = {"tier": tiers[0], "score": 11}
+        browser_page.route(
+            "**/edit/verify",
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps({"ok": True, "grade": {
+                    "difficulty_tier": grade["tier"],
+                    "difficulty_score": grade["score"],
+                }}),
+            ),
+        )
+        browser_page.evaluate(_SET_GRID, [EDITED])
+
+        word = {}
+        for tier in tiers:
+            grade["tier"] = tier
+            _button(browser_page, "Save").click()
+            _wait_for_message(browser_page, f"Difficulty: {tier}")
+            word[tier] = browser_page.evaluate(_TIER_WORD)
+
+        browser_page.goto(f"{live.url}/puzzles")
+        badge = browser_page.evaluate(_BADGE_COLOURS, [rows])
+
+        for tier in tiers:
+            assert word[tier]["text"] == tier, word[tier]
+            assert word[tier]["tier"] == tier, word[tier]
+            # It really wears a colour, rather than inheriting the prose's.
+            assert word[tier]["colour"] != word[tier]["prose"], word[tier]
+            # And it is the list's colour for the same tier.
+            assert badge[tier]["text"].lower() == tier, badge[tier]
+            assert word[tier]["colour"] == badge[tier]["colour"], (tier, word[tier], badge[tier])
+        # Three tiers, three colours: "the same colour" is not satisfied by
+        # everything being one colour.
+        assert len({word[tier]["colour"] for tier in tiers}) == 3, word
+
+    def test_the_page_still_shows_no_difficulty_of_its_own(self, browser_page, live) -> None:
+        """G-6. The coloured word is in the save bar's message and nowhere
+        else: no tier badge came back to the header, and the span the colour
+        lives on is empty until a grade has been told."""
+        puzzle_id = _seed_live(live, tier="hard")
+        _open_editor(browser_page, live, puzzle_id)
+
+        served = browser_page.content()
+        assert browser_page.locator("#puzzle-editor-grade").text_content() == ""
+        assert browser_page.locator(".player-head .badge").count() == 0
+        assert browser_page.locator("#puzzle-editor .badge").count() == 0
+        assert "player-tier" not in served

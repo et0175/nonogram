@@ -1,5 +1,6 @@
-// The manual puzzle editor — Save, the difficulty message, Cancel, Approve
-// (CARD-246; the server half it talks to is CARD-245).
+// The manual puzzle editor — Save, Cancel, the difficulty message, Approve,
+// Back to edit (CARD-246; the server half it talks to is CARD-245; the two
+// exits, the rename and the coloured tier are CARD-250).
 //
 // NOT a renderer. There is exactly one grid renderer in this panel,
 // static/solver.js, and this file never draws a cell: it reads the board
@@ -10,17 +11,57 @@
 //
 // THE OWNER'S FLOW, which is two phases because they asked to SEE the
 // difficulty before committing:
-//   Save      answerOfBoard(the board) -> POST /puzzle/<id>/edit/verify
-//             with {"grid": ...}. Nothing is stored by that route; what comes
-//             back is one solve's grade, and it goes on screen with Approve
-//             and Cancel beside it.
-//   Approve   POST /puzzle/<id>/edit with THE SAME GRID. The store commits
-//             only the grid whose grade was shown for this puzzle, and the
-//             grade it shows is the one that proof carries, so an approval
-//             can never store a difficulty nobody saw.
-//   Cancel    puts the message and the two buttons away and changes nothing
-//             — not on the server, and not on the board: the edit is still
-//             there to go on with (AC-4).
+//   Save         answerOfBoard(the board) -> POST /puzzle/<id>/edit/verify
+//                with {"grid": ...}. Nothing is stored by that route; what
+//                comes back is one solve's grade, and it goes on screen with
+//                Approve and Back to edit beside it.
+//   Approve      POST /puzzle/<id>/edit with THE SAME GRID. The store commits
+//                only the grid whose grade was shown for this puzzle, and the
+//                grade it shows is the one that proof carries, so an approval
+//                can never store a difficulty nobody saw. The store's answer
+//                is told — it is never dropped — and then the editor is LEFT
+//                for the puzzle list, where the row's picture is the grid
+//                just stored (CARD-250 AC-5/AC-6).
+//   Back to edit puts the message and the two buttons away and changes
+//                nothing — not on the server, and not on the board: the edit
+//                is still there to go on with (CARD-246 AC-4). This button was
+//                labelled Cancel until CARD-250 renamed it to what it does;
+//                the behaviour is unchanged, which is why CARD-246's test for
+//                it needed only a rename.
+//   Cancel       leaves the editor for the puzzle list and stores nothing. It
+//                asks first ONLY when there is something to lose — a board
+//                that has changed since it was opened, which this file hears
+//                from solver.js's BOARD_CHANGE and from nowhere else. A
+//                confirm on every exit trains the owner to dismiss it; no
+//                confirm at all loses work to a mis-click. It asks in the
+//                page (role="alertdialog", never window.confirm), as Clear
+//                does.
+//
+// NEITHER EXIT CAN OUTRUN THE STORE (CARD-250 AC-7). Cancel is refused while
+// a request is in flight, in words and with aria-disabled, exactly as a
+// second Save is: landing on the list while the store is still deciding
+// would leave the save's answer — the only report of what the store did —
+// with nobody left to hear it. Back to edit is not an exit from the page, so
+// it has nothing to outrun and nothing to refuse; pressed mid-flight (which
+// only a script can do, the pair being hidden) it does what it always did,
+// spending the turn and saying the edit is still there. That is asserted
+// unchanged by test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer,
+// so this file does not get to quietly change it either.
+//
+// THE TIER WORD WEARS ITS TIER'S COLOUR (CARD-250 item 4), and the colour
+// rules are NOT here. meta/design/tokens.css declares --color-tier-*, and
+// templates/_tier.html is their single documented exception to the
+// no-colour-literals rule — an exception that exists because five copies of
+// one badge expression drifted into two defects at once (CARD-076). A
+// tier->hue map in this file would be a sixth copy, in a language that macro
+// cannot reach. So the server's own tier string reaches the DOM as a data
+// attribute and static/admin.css colours it from those tokens: this file
+// names no colour and maps no tier to one. The span that carries it is the
+// TEMPLATE'S (#puzzle-editor-grade) — tell() fills it and puts it in the
+// line — so nothing here creates an element, which is what keeps CARD-246
+// G-2's "the editor ships no second grid renderer" the flat assertion it is
+// (tests/test_puzzle_editor_ui.py's _BUILDS_A_GRID reads this file for any
+// node-building at all).
 //
 // THE INVARIANT, and what it rests on (review cycle 1, F-001..F-005). This
 // page must never offer Approve for a grid other than the one whose grade is
@@ -32,7 +73,10 @@
 //      describes it, so "a refusal standing beside a live Approve" is not a
 //      state this file can be in — there is no path that writes one without
 //      the other. (It used to take two paired calls, and the refusal branch
-//      made only one of them.)
+//      made only one of them.) CARD-250 made its `text` either a string or
+//      the PARTS of a sentence, one of which may be the tier word that wears
+//      a colour; the parts are still written in that one call, so the
+//      coloured word is not a second writer of the line.
 //   2. `turn`. Every request is asked in a turn, and the turn advances on
 //      each new request AND on every recorded board change. An answer from a
 //      spent turn is DROPPED rather than told, so a grade can never appear
@@ -129,10 +173,20 @@ export function undecidedText(cells) {
     + "one or the other and press Save again.";
 }
 
+// The grade's sentence, as the PARTS tell() writes in one go. The tier word
+// is a part of its own, marked `{ tier }`, because it is the one word that
+// wears a colour (item 4) — and it is marked rather than coloured here: what
+// the colour IS lives in admin.css, from the tier tokens. Everything else is
+// prose. The sentence names "Back to edit", which is the label the bar
+// carries since CARD-250's rename; a message that named a button the bar does
+// not have is what TestPuzzleEditor_TheWordsNameTheButtonsThatExist refuses.
 export function gradeText(grade) {
-  return `This grid is a puzzle. Difficulty: ${grade.difficulty_tier}, `
-    + `score ${grade.difficulty_score} of 100. `
-    + "Approve to store it, or Cancel to go on editing.";
+  return [
+    "This grid is a puzzle. Difficulty: ",
+    { tier: grade.difficulty_tier },
+    `, score ${grade.difficulty_score} of 100. `
+      + "Approve to store it, or Back to edit to go on editing.",
+  ];
 }
 
 // What the store says it stored, in the store's own numbers (the row it
@@ -144,8 +198,8 @@ export function storedText(stored) {
     ? ` Difficulty: ${stored.difficulty_tier}, score ${stored.difficulty_score} of 100.`
     : "";
   return `Saved: the grid you verified is the stored puzzle now.${graded} `
-    + "Your board is untouched — go on editing and press Save again to "
-    + "change it further.";
+    + "Showing the puzzle list, where this puzzle's picture is the grid that "
+    + "was just stored.";
 }
 
 // The board stopped being the grid whose grade is on screen (or the grid
@@ -156,9 +210,24 @@ export const BOARD_MOVED =
   "The board has changed, so there is nothing checked to approve and "
   + "nothing was stored. Press Save to check the grid that is on the board now.";
 
-export const CANCELLED =
+// What Back to edit says. Called CANCELLED until CARD-250, when the button
+// it belongs to stopped being called Cancel: the words are unchanged (they
+// never named the button), the name is, so that the constant and the control
+// go on meaning the same thing.
+export const BACK_TO_EDIT =
   "Not saved, and nothing on the board was lost: your edit is still there. "
   + "Press Save when you want it checked again.";
+
+// Why an exit was refused (AC-7). Said rather than left to the aria-disabled
+// alone, because a press that does nothing and says nothing reads as a dead
+// button. Neither sentence names a control.
+export function inFlightText(what) {
+  return what === "approve"
+    ? "Still storing this grid, so the editor stays open: the store's answer "
+      + "is the only report of what it did, and it is about to be shown here."
+    : "Still checking this grid, so the editor stays open. The answer is "
+      + "about to be shown here.";
+}
 
 // THE REFUSALS THAT NEVER WRITE — the allow-list THE INVARIANT's last
 // paragraph rests on. Each of these is a decision CARD-245's two routes take
@@ -271,8 +340,15 @@ function start() {
   const save = document.getElementById("puzzle-editor-save");
   const decide = document.getElementById("puzzle-editor-decide");
   const approve = document.getElementById("puzzle-editor-approve");
-  const cancel = document.getElementById("puzzle-editor-cancel");
+  const back = document.getElementById("puzzle-editor-back");
+  const leave = document.getElementById("puzzle-editor-leave");
   const message = document.getElementById("puzzle-editor-message");
+  // The one element the message line ever holds, carried by the template so
+  // that nothing here builds a node (see THE TIER WORD above).
+  const gradeWord = document.getElementById("puzzle-editor-grade");
+  const confirmLeave = document.getElementById("puzzle-editor-leave-confirm");
+  const leaveAnyway = document.getElementById("puzzle-editor-leave-accept");
+  const keepEditing = document.getElementById("puzzle-editor-leave-keep");
 
   // The grid whose grade is on screen, or null when there is nothing to
   // approve. Approve sends THIS value and never re-reads the board: the grid
@@ -286,26 +362,68 @@ function start() {
   let turn = 0;
   // "verify", "approve", or null — what is in flight (invariant 3).
   let inFlight = null;
+  // Has the board changed since this page opened it? The board announces its
+  // own changes from the ONE place a change is recorded (solver.js
+  // BOARD_CHANGE), so this is a fact and not a guess — and it is the whole of
+  // what decides whether Cancel asks first.
+  let boardChanged = false;
 
   // THE ONE WRITER of the message line and of the Approve offer (invariant
   // 1). `offer` is the grid Approve would send, or null for "nothing to
   // approve": every sentence this page shows states its own offer, so no
   // sentence can leave the previous one's Approve standing beside it.
+  //
+  // `text` is a string, or the parts of one sentence — strings, and at most
+  // one `{ tier }` marker for the word that wears its tier's colour. The
+  // marker is filled into the template's own span and placed in the line
+  // here, in this one call: the colour is never a second write. The server's
+  // tier reaches the DOM through textContent and a data attribute, never
+  // innerHTML (G-5), and what colour that attribute means is admin.css's.
   function tell(text, offer = null) {
     verified = offer;
     decide.hidden = offer === null;
-    message.textContent = text;
+    const line = [];
+    for (const part of Array.isArray(text) ? text : [text]) {
+      if (typeof part === "string") {
+        line.push(document.createTextNode(part));
+        continue;
+      }
+      gradeWord.textContent = part.tier;
+      gradeWord.dataset.tier = String(part.tier).toLowerCase();
+      line.push(gradeWord);
+    }
+    // One call, so the line is never half-written; message.textContent still
+    // reads as the whole sentence, span and all.
+    message.replaceChildren(...line);
   }
 
   // aria-disabled, not `disabled`: the owner may be standing on the button
   // from the keyboard, and `disabled` drops the focus to the document
   // mid-flow (G-4, CARD-211's pattern). What PREVENTS a second request is
   // the guard at the top of each handler; this is how the state is said.
+  //
+  // Cancel joins Save and Approve here, because it is refused for the same
+  // reason they are (AC-7). Back to edit does NOT: it is refused by nothing,
+  // so saying it is busy would be the page stating something that is not so.
   function inFlightIs(what) {
     inFlight = what;
     const busy = String(what !== null);
     save.setAttribute("aria-disabled", busy);
     approve.setAttribute("aria-disabled", busy);
+    leave.setAttribute("aria-disabled", busy);
+  }
+
+  // Both exits land here: the list the editor was reached from, redrawn by
+  // the server, with this puzzle's row carrying the picture of the grid that
+  // is stored now (CARD-250 item 2 — _puzzle_table.html versions the
+  // thumbnail's URL by manually_edited_at, so a cache cannot answer with the
+  // grid that was replaced).
+  const THE_LIST = "/puzzles";
+
+  function closeTheConfirm() {
+    confirmLeave.hidden = true;
+    leave.setAttribute("aria-expanded", "false");
+    leave.focus();
   }
 
   async function onSave() {
@@ -374,24 +492,54 @@ function start() {
     const { code, body } = answered;
     if (code !== 200 || !body || body.ok !== true) {
       tell(refusalText(code, body && body.message, body && body.reason, { storing: true }));
-    } else {
-      tell(storedText(body.puzzle));
+      save.focus();
+      return;
     }
-    save.focus();
+    // The store said yes. Its answer is told first — it is told whatever
+    // happens, and the exit comes after it, so the one report of what the
+    // store did is never traded for the navigation.
+    tell(storedText(body.puzzle));
+    window.location.assign(THE_LIST);
   }
 
-  function onCancel() {
-    // Cancel is a turn of its own (review cycle 2, G-008). An owner cannot
-    // reach this mid-flight — the pair is `hidden`, which is `display: none`
-    // — but safety that rests on another element's visibility is not safety:
-    // without this line a Cancel forced during a verify was silently undone
+  // Back to edit (CARD-246's Cancel, renamed; the behaviour below is that
+  // card's, unchanged).
+  function onBackToEdit() {
+    // It is a turn of its own (review cycle 2, G-008). An owner cannot reach
+    // this mid-flight — the pair is `hidden`, which is `display: none` — but
+    // safety that rests on another element's visibility is not safety:
+    // without this line a press forced during a verify was silently undone
     // by the grade that landed after it, offer and all. Spending the turn
     // drops that grade. A SAVE's answer is still never dropped, because it
     // is the only report of what the store did, so the store keeps the last
-    // word over a Cancel that cannot stop it.
+    // word over a press that cannot stop it.
     turn += 1;
-    tell(CANCELLED);
+    tell(BACK_TO_EDIT);
     save.focus();
+  }
+
+  // Cancel: leave the editor, store nothing (AC-1/AC-2).
+  function onLeave() {
+    // An exit may not outrun the store (AC-7): refused while a request is in
+    // flight, for the same reason a second Save is, and said rather than
+    // merely not done.
+    if (inFlight !== null) {
+      tell(inFlightText(inFlight));
+      return;
+    }
+    // Ask only when there is something to lose. An unedited board has
+    // nothing unstored on it, so an exit from it is not a question.
+    if (!boardChanged) {
+      window.location.assign(THE_LIST);
+      return;
+    }
+    // Unlike Clear's confirmation, this one is NOT closed by a stroke that
+    // lands while it is open: Clear asks about one particular board, which a
+    // stroke makes a different board, whereas "leave the editor?" is as true
+    // of the board after the stroke as of the board before it — and truer.
+    confirmLeave.hidden = false;
+    leave.setAttribute("aria-expanded", "true");
+    keepEditing.focus();
   }
 
   // The board stopped being the grid this page has been talking about
@@ -399,6 +547,11 @@ function start() {
   function onBoardChange() {
     // Whatever is in flight is now about an old grid.
     turn += 1;
+    // There is now unstored work on this board, so Cancel has something to
+    // ask about. Recorded here because this is the one place a change is
+    // announced — the same fact invariant 4 rests on, not a second notion of
+    // "changed".
+    boardChanged = true;
     // An approval is already on its way with the grid it captured, and its
     // answer is what the owner must read — a stroke does not get to speak
     // over the store.
@@ -411,7 +564,26 @@ function start() {
 
   save.addEventListener("click", onSave);
   approve.addEventListener("click", onApprove);
-  cancel.addEventListener("click", onCancel);
+  back.addEventListener("click", onBackToEdit);
+  leave.addEventListener("click", onLeave);
+  // The confirmation's own two answers. "Leave editor" re-reads inFlight:
+  // the dialog may have been open when a request started, and AC-7's refusal
+  // is about the moment of leaving, not the moment of asking.
+  leaveAnyway.addEventListener("click", () => {
+    if (inFlight !== null) {
+      closeTheConfirm();
+      tell(inFlightText(inFlight));
+      return;
+    }
+    window.location.assign(THE_LIST);
+  });
+  keepEditing.addEventListener("click", closeTheConfirm);
+  // Escape answers it the way "Keep editing" does, as Clear's does.
+  confirmLeave.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    closeTheConfirm();
+  });
   document.addEventListener(BOARD_CHANGE, onBoardChange);
   box.hidden = false;
 }

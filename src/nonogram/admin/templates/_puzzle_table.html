@@ -42,7 +42,15 @@
             <tr data-status="{{ puzzle.status }}">
                 <td>
                     <a href="#" class="thumb" onclick="openPuzzleDetail('{{ puzzle.id }}'); return false;" aria-label="Open {{ label }}">
-                        <img src="/api/puzzle/{{ puzzle.id }}/grid" alt=""
+                        {#- CARD-250: the grid route is a STABLE url that answers with a
+                            Content-Type and no Cache-Control and no validator, so a browser
+                            holding the SVG of a grid the owner has just replaced is entitled
+                            to redraw the row from it. `manually_edited_at` is the version key
+                            that url needs — CARD-245's own stamp, which moves when and only
+                            when the grid does — so an unedited puzzle still caches normally
+                            and an edited one cannot be answered out of the old picture's
+                            cache. -#}
+                        <img src="/api/puzzle/{{ puzzle.id }}/grid{% if puzzle.manually_edited_at %}?v={{ puzzle.manually_edited_at|urlencode }}{% endif %}" alt=""
                              onerror="this.parentElement.innerHTML='<span class=fallback>No preview</span>'">
                     </a>
                 </td>
@@ -286,7 +294,10 @@ async function openPuzzleDetail(puzzleId) {
         content.innerHTML = `
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <div class="thumb thumb-lg"><img src="/api/puzzle/${escapeAttr(puzzle.id)}/grid" alt="Grid of ${escapeAttr(name)}"></div>
+                    {#- The row's thumbnail is versioned for the reason given beside it
+                        above (CARD-250); the card's own picture is the same url and needs
+                        the same key, or the modal is where the replaced grid survives. -#}
+                    <div class="thumb thumb-lg"><img src="/api/puzzle/${escapeAttr(puzzle.id)}/grid${puzzle.manually_edited_at ? `?v=${encodeURIComponent(puzzle.manually_edited_at)}` : ''}" alt="Grid of ${escapeAttr(name)}"></div>
                 </div>
                 <div class="col-md-6">
                     <dl class="kv">
