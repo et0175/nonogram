@@ -1,6 +1,6 @@
 # CARD-253: The player's reset confirmation names the button that opens it
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -15,11 +15,11 @@
 **Wave:** 48 (started on owner instruction)
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_maybe.py, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_percent.py, tests/test_puzzle_solver_progress.py, tests/test_puzzle_solver_resume.py
-**Review score:** —
+**Review score:** 9.5 (cycle 2/3 — certified, zero findings at every severity)
 **Started:** 2026-10-19T18:45:33Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-19T23:36:28Z
+**Actual:** 0.61d (4.8h wall clock: 1 review + 1 fix + 1 certification, 3 build gates, 1 merge gate)
+**Merge commit:** 12e2c01
 **Blocked by:** —
 
 ## What to implement
@@ -431,3 +431,21 @@ Important, zero Minor; the 0.5 below 10 is two recorded residuals, not a finding
   uncommitted" when it was already landed on main in `5b501e9`. Corrected on main's copy of the
   cycle-1 report — a report that misstates where a fix lives is a report the retrospective reads
   wrong.
+
+### Merged — `12e2c01`
+
+- **[Merge gate — PASSED]** `3570982` (branch merged with `main`), solo: **8529 passed**, 1 skipped,
+  14:18, EXIT=0.
+- **[Actual against estimate]** 0.25d estimated. The two strings and the 19 locators were the 0.25d;
+  everything past that was evidence — one review, one fix, one certification, and the fourth site of
+  a claim this card falsified in three other files. Worth the retrospective's attention beside
+  CARD-252's identical shape: **both cards were sized by their code change and spent their time on
+  claims.**
+- **[What the next person needs to know]** The player's fourth brush is still called **Clear**, and
+  that is deliberate (owner, 2026-10-19). The editor's guard shape — *no control on this page carries
+  the word Clear* — is **false on the player** and must never be copied there; the relation guard in
+  `tests/test_puzzle_solver_marking.py` is the player's equivalent. `brush_menu.py` pins the
+  confirmation's **body line** only; its title and accept button are pinned in `marking.py`. And the
+  test name at `brush_menu.py:248` reads wider than what it asserts, on purpose: the registry refuses
+  the rename, and a false register entry is a worse trade than a narrow name with the correction
+  three lines above it.
