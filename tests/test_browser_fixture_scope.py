@@ -811,7 +811,8 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "CARD-247",
         "AC-1: the renamed fourth brush reads Clear in the menu item, the "
         "trigger text, its Brush: name, both hint sentences and the reset "
-        "confirmation",
+        "confirmation's body line (CARD-253 moved its title and accept "
+        "button to Reset, so the label is read in three places now)",
     ),
     "tests/test_puzzle_solver_brush_menu.py::"
     "TestSolverBrushMenu_FourthBrushIsCalledClear::"
@@ -875,10 +876,11 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     ),
     "tests/test_puzzle_solver_marking.py::"
     "TestSolverReset_TheBrushKeepsItsName::"
-    "test_the_fourth_brush_still_reads_clear_in_all_three_places": (
+    "test_the_fourth_brush_read_structurally_still_reads_clear": (
         "CARD-253",
-        "AC-3 / G-1: the owner's decision that the brush keeps 'Clear' — the "
-        "menu item, the trigger's text and the trigger's Brush: name",
+        "AC-3 / G-1: the owner's decision that the brush keeps 'Clear', read "
+        "through the structural locator AC-2's relation uses; the menu item, "
+        "trigger text and Brush: name are CARD-247's test (cycle 1, F-003)",
     ),
 }
 

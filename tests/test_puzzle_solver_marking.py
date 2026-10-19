@@ -1214,7 +1214,15 @@ class TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt:
         expect(page.locator("#puzzle-player-confirm")).to_be_visible()
 
     def test_the_confirmation_reads_reset_and_not_clear(self, browser_page, live) -> None:
-        """AC-1 — the two strings this card changes, pinned as literals."""
+        """AC-1 — the two strings this card changes, pinned as literals.
+
+        Two assertions and no third: a ``"Clear" not in title`` line after
+        these equalities can never be the line that reds, which is the
+        CARD-250 family of dead assertion ``_control_label`` exists to stop
+        one layer down (review cycle 1, F-004). The brush's word is kept out
+        of the confirmation by the test below, where it is a relation read off
+        the page and a mutant can fail it.
+        """
         self._open_the_confirmation(browser_page, live)
 
         title = _control_label(browser_page.locator("#puzzle-player-confirm-title"), "title")
@@ -1222,7 +1230,6 @@ class TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt:
 
         assert title == "Reset the board?", title
         assert accept == "Reset board", accept
-        assert "Clear" not in title and "Clear" not in accept, (title, accept)
 
     def test_the_word_is_the_reset_buttons_and_is_not_the_brushs(self, browser_page, live) -> None:
         """AC-2 — the relation, read off the page: the reset button is named by
@@ -1261,11 +1268,14 @@ class TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt:
         labels on the dialog. Adding a stale ``aria-label="Clear the board?"``
         beside the ``aria-labelledby`` does NOT red this test (mutant M6,
         survived and recorded) — the accname algorithm prefers
-        ``aria-labelledby``, so the announced name is still the title. What
-        does red it is the dialog losing ``aria-labelledby`` (mutant M7): a
-        dialog takes no name from its contents, so nothing would name it. The
-        wording mutants M1/M2 leave it green by design — it asserts an
-        equality between two things on the page, not a literal.
+        ``aria-labelledby``, so the announced name is still the title. Two
+        mutants DO red it, both of them on that target: the dialog losing
+        ``aria-labelledby`` (M7 — a dialog takes no name from its contents, so
+        nothing would name it) and the title element's ``id`` renamed so the
+        reference dangles (M10, which also reds the two tests above through
+        ``_control_label``'s ``count() == 1``). The wording mutants M1/M2
+        leave it green by design — it asserts an equality between two things
+        on the page, not a literal.
         """
         from playwright.sync_api import expect
 
@@ -1279,23 +1289,31 @@ class TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt:
 class TestSolverReset_TheBrushKeepsItsName:
     """CARD-253 (AC-3) — this card renames a confirmation, not a brush. The
     owner's decision of 2026-10-19 is that the player's fourth brush keeps the
-    name Clear; the three places a human reads that name on this page are the
-    menu item, the trigger's text and the trigger's accessible name.
+    name Clear.
+
+    The survivor, named because this test used to say all of it (review cycle
+    1, F-003): the three places a human reads that name — the menu item's
+    text, the trigger's text and the trigger's ``Brush: …`` accessible name —
+    are asserted by ``test_puzzle_solver_brush_menu.py``'s
+    ``TestSolverBrushMenu_FourthBrushIsCalledClear`` (CARD-247 AC-1), which
+    reds on the same mutant this class exists for (the fourth brush renamed
+    "Reset" in the template). Repeating those three assertions here killed no
+    mutant that test does not already kill, and a browser-tier test is the
+    suite's most expensive kind, so what is left here is the one thing that
+    test does not do: read the brush's label through the STRUCTURAL locator
+    this card's relation tests use, so that AC-2's "the brush's word" is
+    anchored to a control picked by ``data-player-tool`` and not by the string
+    under test. Measured: the template mutant reds it, while a
+    ``BRUSH_LABEL`` mutant in solver.js (the trigger's text and name, nothing
+    in the DOM's menu) leaves it green and reds the survivor instead.
     """
 
-    def test_the_fourth_brush_still_reads_clear_in_all_three_places(
+    def test_the_fourth_brush_read_structurally_still_reads_clear(
         self, browser_page, live
     ) -> None:
         _open(browser_page, live, live.store(GRID))
 
         assert _control_label(browser_page.locator(_FOURTH_BRUSH), "fourth brush") == "Clear"
-
-        _trigger(browser_page).click()  # the menu's items are hidden until it opens
-        assert _menu_item(browser_page, "Clear").count() == 1
-        _menu_item(browser_page, "Clear").click()
-
-        assert _trigger_text(browser_page) == "Clear"
-        assert _trigger(browser_page).get_attribute("aria-label") == "Brush: Clear"
 
 
 @pytest.mark.browser

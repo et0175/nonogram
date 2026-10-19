@@ -51,8 +51,8 @@ its control, its mechanics and its announcements.
 
 CARD-247 changes what the toolbar SAYS and SHOWS, and nothing it does
 (owner's doc, 2026-10-18). The fourth brush reads **"Clear"** everywhere a
-human reads it — the menu item, the trigger, the usage hint and the reset
-confirmation — while the model keeps its own name for the state: ``UNKNOWN``,
+human reads it — the menu item, the trigger and the usage hint — while the
+model keeps its own name for the state: ``UNKNOWN``,
 ``data-player-tool="unknown"`` and ``data-state="unknown"`` are all untouched,
 which is why every selector and save in this family still works. And the
 Region toggle shows three ``.player-swatch`` cells in the chosen brush's mark
@@ -65,6 +65,19 @@ than from text that no longer exists. Both are pinned below
 layout assertion in ``TestSolverBrushMenu_RegionIsItsOwnToggle`` is
 **re-measured** there, never loosened. Paragraphs above this one describe
 CARD-194 and CARD-211 as they shipped and keep the label those cards used.
+
+CARD-253 took the reset confirmation OFF that list (owner, 2026-10-19). It
+used to ask "Clear the board?" with a "Clear board" button, so one word named
+both a brush that paints one cell undecided and a button that wipes the whole
+board; it now asks "Reset the board?" with "Reset board", naming the control
+that opens it. The brush keeps "Clear", so the places a human reads the
+label are the three above. What this file still pins on the confirmation is
+its BODY line, "Every mark is cleared. Undo brings them back." — the verb,
+not the brush's name. The confirmation's title and its accept button are
+pinned in ``test_puzzle_solver_marking.py``'s
+``TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt`` (AC-1 for the
+two literals, AC-2 for the relation to the Reset button's own word); nothing
+here asserts them.
 
 Fixtures (real Chromium refusing loudly when absent, ADR-0038/R8; a loopback
 Flask panel over a temp SQLite store) are CARD-160's, imported below, same as
@@ -224,12 +237,21 @@ class TestSolverBrushMenu_FourthBrushIsCalledClear:
     """CARD-247 AC-1 — the fourth brush reads "Clear", and the player says
     "Undecided" nowhere a human can read it.
 
-    The label used to appear in four places and all four made the same claim:
-    the menu item's own text, the trigger's text and "Brush: <label>" name,
+    The label appears in three places and all three make the same claim: the
+    menu item's own text, the trigger's text and "Brush: <label>" name, and
     the usage hint (twice — the brush's click sequence and the "choose …"
-    list) and the reset confirmation. The second test below is the
-    whole-page form of the claim, because asserting the four literals one by
-    one is exactly how a fifth place gets left behind.
+    list). A fourth place used to carry it, the reset confirmation, and
+    CARD-253 took the label out of it: the confirmation now reads "Reset the
+    board?" / "Reset board" (pinned, with the relation it is about, in
+    ``test_puzzle_solver_marking.py``'s
+    ``TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt``), and what
+    the first test below still asserts about it is its BODY line, "Every mark
+    is cleared. Undo brings them back." — the verb, not the brush's name. The
+    test's NAME still says "the confirmation" for that reason and because
+    renaming a registered browser test is not free (CARD-253's notes record
+    the measurement). The second test below is the whole-page form of the
+    claim, because asserting the literals one by one is exactly how a further
+    place gets left behind.
 
     Mutants, all run and all killed — the claims below are what was
     observed, not what was expected. Restoring ``[UNKNOWN]: "Undecided"`` in
@@ -239,9 +261,12 @@ class TestSolverBrushMenu_FourthBrushIsCalledClear:
     the fourth label is never rendered and that mutant survived the sweep).
     Restoring the template's ``…>Undecided</button>`` menu text fails both
     tests and ``…RenameDidNotTouchTheStateName``'s label/value pairs as well.
-    Putting the reset confirmation back to "Every mark goes back to
-    undecided." fails both tests too — the first asserts that sentence
-    directly — so the sweep's own reason for existing is narrower than
+    Putting the reset confirmation's BODY line back to "Every mark goes back
+    to undecided." fails both tests too — the first asserts that sentence
+    directly — while changing the confirmation's TITLE or accept button back
+    to "Clear …" leaves both of them green, because since CARD-253 neither is
+    this file's claim (measured). So the sweep's own reason for existing is
+    narrower than
     "catching what the literals miss": it is that a FIFTH place nobody listed
     cannot hide, which no mutant on the four known places can demonstrate."""
 
@@ -282,7 +307,8 @@ class TestSolverBrushMenu_FourthBrushIsCalledClear:
         accessible name (that one is written by solver.js from
         ``BRUSH_LABEL`` and exists nowhere in the DOM until the brush is
         chosen — with Black chosen, a ``BRUSH_LABEL`` mutant survives this
-        sweep), the hint and the hidden reset confirmation.
+        sweep), the hint, and the hidden reset confirmation's body line (its
+        title and accept button no longer carry the label — CARD-253).
 
         The "Clear" line below is this control's control: ``content()``
         returning something that is not the player's markup (a blank page, an
