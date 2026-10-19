@@ -414,10 +414,14 @@ is exactly what the card's own measurement section warns against. No card is run
 so the hotspot carries no conflict risk today — the cost is that a reviewer must check it, which is
 what this note is for.
 
-**One thing in it for the reviewer:** it calls `generator._payload(puzzle)`, a private method of
-`BookPDFGenerator`, from module level. That may be right — it is the same class — but a private call is
-a coupling the card did not ask for, and it is worth a second opinion on whether the payload shape
-should be reached some other way.
+**One thing in it for the reviewer, with the agent's own reason attached.** It calls
+`generator._payload(puzzle)`, a private method of `BookPDFGenerator`, from module level. The agent's
+stated reason is that the walk's inputs *need* `_payload`, so the two-line wrapper lives **where the
+walk lives** rather than having `app.py` reach across a module boundary for a private. That is a real
+argument — it trades a private call inside one module for a cross-module one — and it is why the
+function sits in `book_pdf_generator.py` at all rather than in the card's own files. The review should
+take it rather than inherit it: a private reached from module level in the same file is a different
+thing from `app.py` reaching in, and only one of those was avoided.
 
 **Flagged by the agent and carried here because it is a real cost, not a nit:** every verify of a
 **booked** puzzle now runs the pairing walk **twice over the whole book** — on a full book that is
