@@ -1,0 +1,526 @@
+version: 1
+generated_at: "2026-10-19T17:38:17Z"
+target: "card/225-one-cell-size-per-grid-size @ c0d35c0 (git diff main...HEAD, 9 files, +1728/-39); base main 7bc93c1"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_page_spec.py"
+    - "src/nonogram/admin/book_pdf_generator.py"
+    - "src/nonogram/admin/book_manager.py"
+    - "src/nonogram/admin/app.py (_book_cells, the finalise route, the two puzzle_page_plan callers)"
+    - "src/nonogram/admin/templates/book_select_puzzles.html"
+    - "src/nonogram/export/layout.py (compute_layout's clue validation, PageSpec, interior_frame use only -- unedited by this card)"
+    - "tests/test_book_cell_size.py (all 1084 lines)"
+    - "tests/property/test_book_pdf_geometry.py"
+    - "tests/test_book_select_floor_tiles.py (the two changed guards)"
+    - "tests/property/test_book_pairing.py (oracle + both property tests)"
+    - "tests/property/test_book_membership_floor.py (corpus shape, executed)"
+    - "tests/test_book_pdf.py::TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle"
+    - "meta/kanban/cards/CARD-225.md (in full)"
+    - "meta/architecture/requirements.yml (FR-031, EC-021, NFR-008 context)"
+    - "meta/profiling/rank_durations.py"
+  not_reached:
+    - "tests/test_book_floor.py (executed green, not read line by line)"
+    - "tests/test_book_page_spec.py (executed green, not read)"
+    - "tests/property/test_book_export_interior.py, tests/test_book_pdf_two_up.py (co-change peers; corpora not inspected for the same extent-distinctness blindness as RC-1)"
+    - "the admin export route and the Arrangement screen end to end (no rendered-UI pass; the owner's render at ~/Documents/nonogram-reviews/CARD-225 was taken as given per the brief)"
+  confidence: high
+metrics:
+  diff: { files: 9, added: 1728, removed: 39 }
+  max_fan_in:
+    symbol: "BookPDFGenerator.puzzle_pages"
+    callers: 5
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (75 commits all-time, the board's busiest file)"
+    - "src/nonogram/admin/book_manager.py (33 co-commits with it)"
+  cochange_missing:
+    - "tests/helpers/book_corpus.py (21 co-changes; deliberately not touched -- the card's G-5 note explains why no baseline was re-recorded)"
+    - "tests/property/test_book_pairing.py (8 co-changes; absent from the diff and the subject of F-003)"
+    - "tests/test_book_page_numbers.py (16 co-changes; drives puzzle_pages with no cell_sizes map, i.e. the F-14 fallback)"
+    - "tests/test_book_pdf_two_up.py (8 co-changes)"
+  unmeasured:
+    churn_12_months: "tooling_failure -- the repository's commit dates (2026-10-19) are ahead of the host clock, so `git log --since=12.months` returns an empty set by construction. All-time counts were used instead and are reported under hotspots."
+    defect_density: "tooling_failure -- same window defect; no fix/bug/hotfix share could be derived."
+    bus_factor: "tooling_failure -- `git shortlog -sn` over the touched files returned empty under the same window defect."
+    timings: "not_applicable -- the brief forbids timing measurements this cycle (a sibling card, CARD-247, is under review concurrently); no latency claim in this report rests on a number."
+    full_suite: "not_applicable -- the brief states the suite is green on this commit (8537 passed / 1 skipped / 0 failed, solo, first attempt) and forbids re-running it."
+
+system_contract:
+  rules_checked: 8
+  holds: 8
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0033/R1 (review-lens) holds -- no puzzle field is written anywhere in the diff: `git diff main...HEAD -- src | grep -E \"\\[(grid|clues_rows|clues_cols|difficulty_tier|strategies)\\] *=\"` returns nothing, and book_cell_sizes' only parameter is a (row_clues, column_clues) pair. tests/test_book_floor.py::test_the_puzzle_is_untouched_by_being_measured and tests/test_book_cell_size.py::...::test_each_page_still_draws_its_own_grid_unrotated green."
+    - "ADR-0036/R1 (check: test TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden) holds -- that test plus tests/test_export_a4_golden.py and tests/property/test_cli_exports_byte_identity.py green on this head (run here: 279 passed). src/nonogram/export/layout.py is absent from `git diff --name-only main...HEAD`. CAVEAT recorded as F-001: the book_cell_spec COMFORT_CURVE refusal that the card cites as the structural half of this verdict is itself untested (mutant removing it survives), so this holds rests on the golden tests, not on that guard."
+    - "ADR-0036/R2 (review-lens) holds -- no sheet arithmetic is added in src/: `git diff main...HEAD -- src | grep -E '^\\+' | grep -iE 'gutter_mm|outside_mm|trim_|usable_width|usable_height'` is empty. book_cell_sizes is a min over compute_layout's own page.cell_mm; book_cell_spec is `replace(spec, cell_cap=min(...))`. Every coordinate still comes out of compute_layout/compute_pair_layout."
+    - "ADR-0036/R3 (check: test test_the_books_own_pages_carry_no_undeclared_round_mark) holds -- green on this head (part of the 131-test selection run here); the diff draws no mark."
+    - "ADR-0036/R4 (check: test test_no_module_types_a_round_mark_as_a_character) holds -- green on this head; the new docstrings use ASCII '*' bullets and em dashes, none of which lies in U+25A0..U+25FF, U+2022 or U+2219."
+    - "ADR-0037/R1 (review-lens) holds -- no band text changed: the diff adds no call to _set_band/band_identity and changes no header-band string."
+    - "ADR-0037/R2 (review-lens) holds -- min_thin_rule_mm is untouched on the book profile (absent from the diff) and is exactly what absorbs the smaller cells this card produces; tests/property/test_book_layout.py green on this head (part of the 279-test run here)."
+    - "CON-020 (check: test TestInteriorType_EveryFaceHoldsTheFloor) holds -- green on this head, with tests/test_book_interior_type_floor.py. Clue digits follow the cell under CON-020's own 2026-10-06 exemption (INV-006); no face, caption, band or folio size is changed by the diff."
+
+root_causes:
+  - id: RC-1
+    title: "The two standing properties this card changes the meaning of -- EC-021 and EC-027 -- are both verified over corpora that cannot hold two members of one grid size, so both stay green without seeing the change"
+    finding_ids: [F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_page_spec.py
+    line: 566
+    title: "book_cell_spec's two refusal paths are unverified -- the mutant removing both survives"
+    description: |
+      `book_cell_spec` is a new public export (added to `__all__`) with three behaviours: lower
+      the flat cap, refuse a `CellCapPolicy.COMFORT_CURVE` spec, and refuse a `cell_mm` that is
+      not a finite positive number. `grep -rn "book_cell_spec" tests/` returns ZERO hits: no
+      test file in the repository mentions the function, and its only caller
+      (`BookPDFGenerator._puzzle_page_spec`) never passes it a bad value, so nothing can reach
+      either refusal through a caller either.
+
+      Measured, not inferred. Mutant: both `raise ValueError` blocks deleted, the COMFORT_CURVE
+      branch replaced by `return replace(spec, cell_cap=float(cell_mm))`. Result: **287 passed,
+      0 failed** over tests/test_book_cell_size.py, tests/test_book_page_spec.py,
+      tests/test_export_a4_golden.py, tests/property/test_cli_exports_byte_identity.py and
+      tests/test_layout_page_spec.py -- the five files that could plausibly cover it. The file
+      was restored from a byte-identical backup and `diff -q` confirmed identical.
+
+      Why this matters beyond coverage arithmetic: the COMFORT_CURVE refusal is the mechanism
+      the card's own ADR-0036/R1 verdict cites ("book_cell_spec *refuses* a spec with
+      CellCapPolicy.COMFORT_CURVE rather than giving a CLI sheet a book cell"). As shipped,
+      that sentence is true of the code and invisible to the suite: a future edit that gives a
+      CLI/A4 sheet a book cell would be caught only if it also broke the A4 golden, which it
+      need not. The same applies to failure-matrix rows F-5 (`cell_mm` above the cap is a
+      no-op) and F-6 (ValueError naming the argument): both are declared, both are real on
+      reading, neither is cited to a test.
+    suggestion: |
+      Three direct unit tests in tests/test_book_page_spec.py (or beside the new file):
+        1. `book_cell_spec(BOOK1_ODD_or_equivalent, 9.0)` returns a spec whose cap is still the
+           profile's 7.5 mm -- F-5, and the structural half of G-1 stated as a test rather than
+           as an argument;
+        2. `book_cell_spec(a_spec_with_cell_cap=CellCapPolicy.COMFORT_CURVE, 6.0)` raises
+           ValueError -- the ADR-0036/R1 guard;
+        3. `book_cell_spec(spec, x)` raises ValueError for x in (0, -1, float("nan"),
+           float("inf"), True) -- F-6, including the `isinstance(cell_mm, bool)` clause, which
+           is the one branch no plausible production value reaches.
+      These close the hole because the refusals are pure input validation on a function with a
+      single internal caller: a direct call is the only thing that can reach them, so a direct
+      test is both necessary and sufficient. Re-run the mutant above afterwards; it must red.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1430
+    title: "puzzle_page_plan's documented failure contract is now false, and its abort surface widened silently"
+    description: |
+      The new `cell_sizes(payloads)` call runs BEFORE `puzzle_pages`, so an unmeasurable member
+      now aborts the editor's page-count walk through `book_cell_sizes` rather than through the
+      pairing walk's named RuntimeError. Measured on both trees with the repository's own
+      `tests/test_book_pdf.py::_unmeasurable_puzzle` fixture (15 row clues, no column clues):
+
+        | case                     | main (7bc93c1 .. ac7d0d7)                                  | this branch |
+        | same-tier neighbour      | RuntimeError "puzzle #1, #2 could not be laid out: ..." with __cause__ | ValueError "clue sets disagree about the grid: ...", __cause__ None, no position |
+        | alone in its tier        | planned fine (1 page)                                      | the same bare ValueError |
+        | different-tier neighbour | planned fine (2 pages)                                     | the same bare ValueError |
+
+      Two separate problems, one line apart:
+
+      (a) The `Raises:` block at book_pdf_generator.py:1418-1422 still reads "RuntimeError: a
+          pair the walk offered could not be measured -- a member whose clue sets disagree
+          about its grid. **The message names it.**" That is now false for every one of the
+          three cases above: the exception is a ValueError, carries no cause, and names
+          nothing. This is the standing contract
+          `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle` states in so many words ("Both
+          stages abort, both name the id -- which is the whole contract"), and the card's own
+          F-3 amendment applied the remedy to `section_plan` only, although the same commit
+          edited `puzzle_page_plan` two lines away.
+
+      (b) The abort surface widened: a member with no same-tier neighbour was never offered to
+          `compute_pair_layout` and so never aborted this entry; it does now. Production
+          impact is contained -- app.py:2722's handler catches `(ValueError, RuntimeError)` and
+          the editor reports "unknown" -- but the log line the owner is sent to loses the
+          position of the culprit, which is the only handle a 120-puzzle book offers. No row of
+          the declared failure matrix covers this boundary (F-3 is about `book_cell_sizes` and
+          its `section_plan` wrapper; F-14 is about callers handed no map).
+    suggestion: |
+      Route the editor entry through the helper that already exists:
+
+          try:
+              sizes = generator.cell_sizes(payloads)
+          except ValueError as unmeasurable:
+              raise RuntimeError(
+                  f"puzzle {generator._unmeasurable_members(payloads, None)} could not be "
+                  f"laid out: {unmeasurable}"
+              ) from unmeasurable
+          return generator.puzzle_pages(payloads, cell_sizes=sizes)
+
+      ... and leave the `Raises:` block as written, since it then becomes true again. This
+      closes the hole rather than papering it: `_unmeasurable_members` is pure and already
+      proven on the `section_plan` path, the exception type returns to the one the docstring
+      and app.py:2722 both expect, and the widened surface becomes a named abort instead of an
+      anonymous one. Add one case to `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle`
+      driving `puzzle_page_plan` directly for the "alone" shape -- that is the case that does
+      not exist on main at all and so has never been pinned anywhere.
+      If instead the widening is judged wrong (the editor should still answer for a book with
+      one bad member), the fix is a per-member fallback in `cell_sizes`, and that needs its own
+      failure-matrix row -- say which, do not leave both readings live.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: feature
+    type: gap
+    file: tests/property/test_book_pairing.py
+    line: 462
+    title: "EC-027's pairing property is green over a corpus that cannot instantiate F-8, the pairing change this card ships"
+    description: |
+      This card changes a pairing verdict: F-8 declares that a pair whose smaller grid-size book
+      cell is below TWO_UP_MIN_CELL_MM is refused even when the pair's own two-up fit clears
+      7.0 mm. The standing property that governs the pairing walk -- EC-027 / INV-010 / FR-040 --
+      cannot see that, for two independent reasons, and is green for both:
+
+        * `test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly` (line 490) calls
+          `BookPDFGenerator(sheet.book).puzzle_pages([p.payload for p in order])` with **no
+          `cell_sizes`**, i.e. the F-14 fallback. That is a legal contract for `puzzle_pages`,
+          but it is no longer the path production takes, so the 3600-book corpus certifies the
+          pre-card rule.
+        * `..._interior_pages` (line 587) does drive the real path, but filters the corpus:
+          `extents = {(p.columns, p.rows) for p in order}` / `if len(extents) != len(order):
+          continue` (lines ~608-612). Every book it keeps has at most one member per grid size,
+          so the book-wide cell is identically each member's own fit and the oracle cannot
+          diverge. The filter's stated reason is a different one ("so the sequence read off the
+          pages identifies the puzzles"), so nothing in the file records that it is now also
+          what keeps the oracle valid.
+
+      The oracle itself, `_expected_pages` (line 420), is now a model of the superseded rule:
+      it decides each offer with `sheet.shared_cell_mm(first, second, reserve=True)` -- the
+      pair-only fit -- with no term for the grid size's book cell. Its own docstring warns that
+      "one disagreement would desynchronise every later page of the book", which is exactly the
+      failure mode the filter is currently hiding.
+
+      That the divergence is real is proved by the card's own
+      `TestBookCellSize_SharedPageTakesTheSmaller::test_a_pair_whose_book_cell_falls_under_the_two_up_minimum_is_refused`:
+      one hand-built case where production refuses a pair that `_expected_pages` would pair. So
+      the whole of F-8's regression surface is that single hand-built case, while the 3600-book
+      property that exists to catch systematic pairing drift is structurally blind to it. The
+      card recorded precisely this blindness for EC-021's corpus (its finding 2) and not for
+      EC-027's -- the one whose verdict it actually moved.
+    suggestion: |
+      Preferred, and it closes the hole: in `..._interior_pages`, stop identifying puzzles by
+      extent -- key the read-back on the per-puzzle id/name the rows already carry
+      (`puzzle.as_row(f"p{index}")` already gives each a unique id) -- then drop the
+      distinct-extent filter and add the book-wide term to `_expected_pages`:
+      group the printed order by `(columns, rows)`, take the min of `sheet.cell_mm(...)` within
+      each group, and cap each offer's `shared_cell_mm` by the smaller of the two groups' cells
+      before comparing against TWO_UP_MINIMUM_MM. `tests/property/test_book_pdf_geometry.py`'s
+      `Sheet.book_cell_mm` in this same diff is the exact helper to copy, and that file's
+      `shared_binds >= 1` assertion is the pattern for proving the new term is not a no-op --
+      add the same kind of counter here.
+
+      Cheaper and WEAKER, stated as such: leave the corpus alone and write the validity
+      condition at the filter and in `_expected_pages`' docstring ("this oracle models the
+      pair-only fit and is sound only while no book here holds two members of one grid size"),
+      plus one targeted non-property case for F-8. That documents the hole instead of closing
+      it -- the next person who relaxes the filter for an unrelated reason still gets a
+      mysterious red -- so take it only if the orchestrator wants the corpus work on its own
+      card, and say so on that card.
+    confidence: high
+    source: model
+    violates: EC-027
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: compliance
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 4148
+    title: "The declared EC-021 divergence (F-13) is correctly scoped but has no test on either side of its bound"
+    description: |
+      EC-021's second clause, verbatim from meta/architecture/requirements.yml:2237-2239 --
+      "the tile's cell, the add refusal and the finalise count all come from the one computation
+      FR-030's PDF uses, so **no two of them can disagree about a puzzle**". After this card the
+      add refusal and the finalise count read `book_cell_sizes` (a membership's figure) and the
+      tile reads `book_cell_mm` (the candidate's own fit), so two of them CAN disagree. The card
+      declares this (F-13, a STRUCTURE note, and finding 1 to the orchestrator), bounds it
+      ("tile figure >= gate figure, always") and routes the wording decision to the architect
+      station without taking it. I agree with all three of those calls: the clause became
+      unsatisfiable for a non-member candidate on 2026-10-17 when NFR-008's amendment landed
+      (commit 91609aa) WITHOUT propagating to EC-021, so the root cause is a registry
+      propagation gap, not this card, and the card cannot fix it without editing
+      meta/architecture/**, which its own scope forbids. The declaration is also durable: it is
+      committed, both in the card (committed on main at 154ac60) and in `_book_cells`' own
+      docstring.
+
+      What is NOT done is the part that IS this card's:
+
+        * **The user-visible face of the divergence has no test.** A candidate whose grid size
+          already has a deeper member in the book now shows an UNFLAGGED tile with a figure
+          above the floor, and is then refused by the add gate. That loop -- clean tile, refused
+          add -- is new behaviour introduced by this diff and no test exercises it. The nearest
+          tests (`tests/test_book_select_floor_tiles.py`) stub both doors and so assert that
+          neither screen judges for itself, which is a different property.
+        * **The bound has no test.** "tile >= gate, always" is structurally true (the gate's
+          figure is a min over a set that always contains the candidate itself, hence <= the
+          candidate's own fit) but nothing pins it, so a later change that made the tile read a
+          membership's figure for the wrong membership would be silent.
+        * **EC-021's own property test cannot see any of it.** Verified by executing the
+          corpus: `tests/property/test_book_membership_floor.py::puzzle_shapes()` returns 24
+          shapes with 24 DISTINCT extents, so each of its 384 decisions has one member per grid
+          size and the shared figure is the per-puzzle figure throughout. The card states this;
+          I confirmed it rather than taking it.
+    suggestion: |
+      Card-side (closable in this cycle):
+        1. One test on the selection tab for the divergence's surface: a book already holding a
+           deep 30x30, a shallow 30x30 candidate, then assert (a) the tile shows the candidate's
+           own fit with no below-floor flag, (b) `books.below_floor(book_id, [shallow])` refuses
+           it naming the smaller figure, and (c) tile figure >= refusal figure. This closes the
+           bound and makes the divergence a pinned, intentional behaviour instead of an
+           undocumented one; it is deliberately an assertion OF the divergence, not against it,
+           so it will not have to be rewritten when the registry decides.
+      Architect-station (NOT this card, and should not block it):
+        2. Amend EC-021's "no two of them can disagree" clause, or re-scope it to the gate and
+           the finalise count, and re-point its property test. Until then EC-021 is knowingly
+           unmet and its named test reports green on a property that is false in a case it never
+           generates. Widening that corpus is the right move for the amending card, not for this
+           one -- the card's refusal to widen a standing property's corpus is correct.
+    confidence: high
+    source: model
+    violates: EC-021
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_cell_size.py
+    line: 274
+    title: "The M6 guard's docstring claims a discrimination that test does not have -- measured"
+    description: |
+      `TestBookCellSize_SameGridSizeSameCell::test_the_size_is_the_books_and_not_one_levels`
+      says: "A map built per level would print the Easy 20x20s at 7.5 mm and the Hard one at
+      6.35 mm -- two cells for one grid size, in one book ... Added because a mutant that sized
+      each level's slice on its own survived everything else in this file (CARD-225, mutant
+      M6)."
+
+      Reproduced the mutant to check: `puzzle_section`'s call changed from
+      `cell_sizes=cell_sizes` to `cell_sizes=... self.cell_sizes(payloads[start:end])` (the
+      per-level slice). Result over tests/test_book_cell_size.py: **1 failed, 42 passed**, and
+      the single failure is
+      `TestBookCellSize_SharedPageTakesTheSmaller::test_the_pair_is_capped_by_a_member_in_another_level`.
+      The test quoted above PASSES under the mutant. (Backup restored, `diff -q` identical.)
+
+      So its counterfactual is false as shipped: with a per-level map the Easy 20x20s do NOT
+      print at 7.5 mm, because single pages are drawn from `SectionPlan.cell_sizes` in
+      `interior_stream` and never see the slice at all -- which the card's own notes say
+      plainly ("the first pins the claim's substance, the second is the one that can see the
+      mutant"). The honest statement and the committed statement differ, and it is the
+      committed one the next reader meets: they will believe a per-level regression is covered
+      twice when it is covered once, by a test two classes away. This is the claim-vs-mechanism
+      family the last three waves have each produced a finding in, and it is now sitting inside
+      the test written to close that family.
+    suggestion: |
+      Rewrite the docstring to what the test demonstrates -- "a grid size can straddle FR-041's
+      levels and the book's single pages are all sized from SectionPlan.cell_sizes, so the
+      level a member is graded into does not change its cell; the mutant that sizes a level's
+      slice is observable only on the pairing path, which
+      test_the_pair_is_capped_by_a_member_in_another_level pins" -- and cross-reference that
+      test by name so the pair is legible as a pair.
+      Better, if the orchestrator wants the claim to be true rather than corrected: give this
+      test the discrimination its docstring asserts by driving `puzzle_section` directly with
+      the Easy slice and asserting the cell is still the book's. That is the only way a
+      per-level map becomes observable on the single-page path, and it would make the two tests
+      independent guards rather than one guard and one witness. Either remedy is acceptable;
+      what is not is leaving a committed docstring that a 60-second mutation refutes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 6293
+    title: "A book-level spec failure now aborts section_plan as a per-puzzle RuntimeError naming every member"
+    description: |
+      `self.cell_sizes(payloads)` calls `self.page_spec(1)`, so an unreadable stored print
+      specification now raises inside the new try/except and is re-raised as
+      `RuntimeError("puzzle <every member> could not be laid out: <PageSpec error>")`. On main
+      it propagated as a bare ValueError. `_unmeasurable_members` documents the choice ("the
+      failure is then the book's and belongs to all of them") and app.py:5633 catches
+      `(RuntimeError, ValueError)`, so nothing breaks -- but on a 120-puzzle book the message
+      lists 120 numbers for a failure that belongs to none of them, and no test covers the
+      shape.
+    suggestion: |
+      Either raise the spec failure through unchanged (test `self.page_spec(1)` before the
+      try, outside it), or have `_unmeasurable_members` return a book-level phrase when
+      `spec_is_readable` is False instead of enumerating every member -- the branch already
+      distinguishes the case, it just discards the distinction.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_cell_size.py
+    line: 1010
+    title: "The cost corpus is rebuilt and re-measured once per test, six times"
+    description: |
+      `TestBookCellSize_TheCostOfABookWideCell._measure()` is a plain method, called by all six
+      tests of the class. Each call builds 60 seeded books (~1388 random grids, each through
+      `compute_clues`) and then runs `book_cell_mm` twice per member (once inside
+      `book_cell_sizes`, once for the "before" figure) -- so the corpus is constructed six
+      times and ~16.6k `compute_layout` calls are made where ~2.8k would do. No timing was
+      taken (the brief forbids it this cycle), so this is stated structurally, from the call
+      graph, not from a measured cost.
+    suggestion: |
+      Make `_measure` a module- or class-scoped cached fixture (or `@functools.lru_cache` on a
+      module-level helper, since its only input is the seed). The six assertions keep their
+      independence -- they read the same immutable pair of lists -- and the corpus still cannot
+      silently shrink, because `test_the_corpus_is_the_size_it_says_it_is` asserts on the same
+      cached object.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 1086
+    title: "The order of FloorRefusal entries changed: unreadable-clue refusals now all precede below-floor ones"
+    description: |
+      `below_floor` used to append both refusal kinds in submission order from one loop. The
+      split into "read the clue sets" and "judge the shared cell" means an unreadable-clue
+      refusal now sorts before any below-floor refusal regardless of submission position. No
+      test asserts the order (tests/test_book_floor.py and
+      tests/test_book_select_floor_tiles.py are green, 279 tests run here), and the refusal
+      list reaches the owner as a set of per-puzzle messages, so this is a note rather than a
+      defect -- recorded because it is the kind of ordering change a later screen can start
+      depending on without anyone having decided it.
+    suggestion: |
+      If the order is meant to be submission order, sort `refusals` by the submission index
+      before returning (the `clue_sets` dict already preserves it); if it is not meant to be
+      anything, say so in `below_floor`'s docstring so the next screen does not inherit an
+      accident.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: ops
+    type: risk
+    file: src/nonogram/admin/book_manager.py
+    line: 1183
+    title: "The add gate's cost is now proportional to the book's size"
+    description: |
+      `_member_clue_sets` adds one bulk `get_puzzles` over the book's current members, and
+      `book_cell_sizes` then runs `compute_layout` once per prospective member, on every add
+      submission -- so a 150-puzzle book pays 150 layout computations to judge one new puzzle
+      where it previously paid one. One query, pure arithmetic, no threshold in the registry,
+      and no timing taken (forbidden this cycle). Recorded so the figure is on the record
+      before anyone measures the selection step and is surprised.
+    suggestion: |
+      Nothing to do now. If it ever shows up: only the submitted puzzles' grid sizes need
+      measuring, so the member walk could be filtered to members sharing a grid size with the
+      submission before `book_cell_sizes` is called -- that is an identical result over a
+      strictly smaller set, because the map's other keys are never read.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: feature
+    type: question
+    file: meta/kanban/cards/CARD-225.md
+    line: 1
+    title: "The owner-facing form of the measured cost lives only in the card, not beside the code that causes it"
+    description: |
+      The numbers ARE asserted, which is what the brief asked about:
+      `test_the_measured_distribution_is_the_one_the_card_records` pins unchanged 71.5% (+-2),
+      mean loss 1.02% (+-0.05), max 9.30% (+-0.1) and worst absolute 0.523 mm (+-0.01), and
+      `test_how_many_more_puzzles_land_below_the_floor` pins 186 (+-10) -> 325 (+-15) with
+      `now > was`. So the distribution cannot drift silently and the floor figure is in the
+      code's own record.
+      What is only in the card is the consequence that costs the owner work: "+75%, 139 more
+      puzzles that need a stored per-puzzle override before they can join a book, and the owner
+      feels that at the selection step". Neither `BookManager._below_floor_for` nor
+      `_book_cells` -- the two places a future reader meets the flag -- says it.
+    suggestion: |
+      One sentence in `_below_floor_for`'s docstring, beside the F-10/F-11 consequences it
+      already lists: that moving the floor's subject from a puzzle to a membership raised the
+      share of the measured corpus below the floor from 186 to 325 of 1388, naming
+      `TestBookCellSize_TheCostOfABookWideCell` as where that is pinned.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

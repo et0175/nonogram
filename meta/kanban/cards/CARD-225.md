@@ -15,7 +15,7 @@
 **Wave:** 48
 **Depends on:** CARD-222 (the usable area the sizes are fitted against changes with the margins)
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_plan.py, tests/test_book_cell_size.py, tests/property/test_book_pdf_geometry.py, tests/test_book_interior_type_floor.py, tests/fixtures/book_baseline_card225.json, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_select_puzzles.html, src/nonogram/admin/templates/book_finalize.html, meta/profiling/rank_durations.py, tests/helpers/two_up_ink.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
-**Review score:** —
+**Review score:** 7.5 (cycle 1/3 — four Important; does not pass)
 **Started:** 2026-10-19T15:41:00Z
 **Closed:** —
 **Actual:** —
@@ -630,3 +630,52 @@ exactly **43** cases. Every test this card added is in its own file.
 **It passed first time because the render-set was restated before the gate, not after.** CARD-251 hit
 the same condition as a red merge gate; here it was measured directly and fixed in advance, so
 `test_suite_profile` stayed green.
+
+### [Review 1/3] Score: 7.5 — 0 critical, 4 important, 5 minor, 1 info · [Severity gate] FAILS
+
+Report: `meta/review/20261019T173817Z-CARD-225-cycle1.yml`. **Nothing shipped is broken**; what stands
+between this card and 8 is four verification gaps, three closable inside the card and one with a
+registry half that belongs to the architect station.
+
+**⚑ The root cause clusters two of them, and it is the sharpest thing in the review: both standing
+properties whose *meaning* this card changes are verified over corpora that cannot hold two members of
+one grid size.** The card recorded exactly that blindness for **EC-021**'s corpus — and not for
+**EC-027**'s, which is the one whose verdict it moved.
+
+- **F-003 (important) — EC-027's pairing property cannot instantiate the card's own behaviour change.**
+  The card *changes a pairing verdict* (F-8: refuse a pair whose smaller grid-size book cell is under
+  7.0 mm even when the pair's own fit clears it), and the 3600-book property that exists to catch
+  pairing drift is blind to it twice over: the walk half calls `puzzle_pages` with **no `cell_sizes`**
+  (the F-14 fallback, no longer production), and the interior half filters out every book with two
+  members of one extent. The oracle still decides each offer from the **pair-only** fit with no
+  book-wide term. So **F-8's entire regression surface is one hand-built case.**
+- **F-001 (important) — `book_cell_spec`'s two refusal paths are reachable by nobody.**
+  `grep -rn "book_cell_spec" tests/` returns **zero hits**, and its only caller never passes a bad
+  value, so no test can reach either refusal even indirectly. Mutant deleting both: **287 passed, 0
+  failed.** The COMFORT_CURVE refusal is the mechanism the card's own ADR-0036/R1 verdict cites — true
+  of the code, invisible to the suite.
+- **F-002 (important) — a documented failure contract is now false, two lines from the edit that broke
+  it.** `puzzle_page_plan`'s `Raises:` still says *"RuntimeError … The message names it"*; measured on
+  both trees, this branch now raises a **bare `ValueError`** with no `__cause__` and no position, where
+  `main` named the puzzles. F-3's amendment was applied to `section_plan` only. Production is contained
+  (both are caught) but the log line loses the only handle a 120-puzzle book offers.
+- **F-004 (important) — the declared EC-021 divergence is right on all three counts and tested on
+  none.** Correctly scoped, correctly declared, and correctly **not taken** (the clause became
+  unsatisfiable when NFR-008's amendment landed without propagating, so the root cause is the registry).
+  What is missing is this card's half: the user-visible loop it introduces — an **unflagged** tile for a
+  candidate whose grid size already holds a deeper member, then a refusal — has no test.
+
+**F-005 (important) is the M6 story again, and this time it is inside the test written to close M6.**
+`test_the_size_is_the_books_and_not_one_levels`'s docstring says it was *"added because a mutant that
+sized each level's slice on its own survived everything else in this file"* — reproduced, and that test
+**passes under the mutant**. Exactly one test kills M6, two classes away. The card's notes say this
+correctly; the committed docstring, which is what the next reader meets, does not.
+
+**What the reviewer verified rather than took on trust**, and one result is better than the card
+claimed: the *minimum*-not-deepest-fit decision is not merely argued — a mutant using the deepest
+member's fit **reds** `test_no_puzzle_ever_prints_larger_than_it_did` over the 1388-puzzle corpus, so
+the identity is enforced by a test. AC-370's bracket is exactly as claimed and narrowed to what three
+literal assertions measure. **F-11's one-pass prospective membership is sound and gets no finding** —
+it errs only toward over-refusal, never toward admitting a puzzle the floor would reject, and a fixpoint
+would need a tie-break FR-031 does not state. The reviewer also confirmed two `except` branches the card
+calls defensive are *genuinely* unreachable rather than fail-open.
