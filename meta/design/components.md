@@ -293,7 +293,7 @@ Used by: the puzzle player (CARD-162). A check icon (--color-success) and "Solve
 
 ## ResetConfirm
 
-Used by: the puzzle player (CARD-162). An in-page alertdialog popover under the history controls: "Clear the board?" with "Clear board" / "Keep marks"; focus goes to "Keep marks", Escape cancels, and it also closes on any recorded stroke, undo, redo or setBoard while open (`.player-confirm`). Never a browser confirm() dialog.
+Used by: the puzzle player (CARD-162). An in-page alertdialog popover under the history controls: "Reset the board?" with "Reset board" / "Keep marks" (CARD-253 — it names the Reset control that opens it; before that it read "Clear the board?" / "Clear board", which named the fourth brush instead); focus goes to "Keep marks", Escape cancels, and it also closes on any recorded stroke, undo, redo or setBoard while open (`.player-confirm`). Never a browser confirm() dialog.
 
 ## Book detail puzzle table — printed number (CARD-165)
 

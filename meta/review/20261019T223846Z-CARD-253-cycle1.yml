@@ -131,8 +131,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "35298ca"
     dismissed_reason: null
     learned_pattern: null
 
@@ -162,8 +162,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: null  # meta/ is never committed from a worktree; the edit is in the worktree, uncommitted, for the caller to land
     dismissed_reason: null
     learned_pattern:
       pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
@@ -204,8 +204,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "35298ca"
     dismissed_reason: null
     learned_pattern: null
 
@@ -232,8 +232,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "35298ca"
     dismissed_reason: null
     learned_pattern: null
 
