@@ -118,6 +118,21 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_toc.py",
     "tests/test_export_pdf.py",
     "tests/test_layout_page_spec.py",
+    # RESTATED DELIBERATELY 2026-10-19 (CARD-251), which is what this freeze
+    # exists to force. The card's route tests gained two mentions of the
+    # pattern: `interior_stream` (the transfer test cross-checks the warning's
+    # delta against the export's own page count) and `puzzle_pages`, reached
+    # through `book_pdf_generator.puzzle_page_plan`.
+    #
+    # Worth knowing when this file's share is read as a COST: neither mention
+    # draws. `interior_stream` "splits the interior into the part that decides
+    # and the part that draws, and does all of the first before any of the
+    # second" -- the test reads `.page_count` off the plan and never iterates
+    # the pages. The set is a MENTION grep by construction ("a test file is
+    # render-heavy if it mentions any of them"), so the entry is correct by the
+    # definition above; the file's render cost is near zero, and a share
+    # computed from its whole runtime over-states this one file.
+    "tests/test_puzzle_edit_routes.py",
 )
 
 # --------------------------------------------------------------------------
