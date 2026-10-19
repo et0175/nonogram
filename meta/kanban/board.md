@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-19 UTC_  ·  <!-- forge:run wave=46 mode=interactive concurrency=2 -->
+_Updated: 2026-10-19 UTC_  ·  <!-- forge:run wave=47 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -42,6 +42,8 @@ _Updated: 2026-10-19 UTC_  ·  <!-- forge:run wave=46 mode=interactive concurren
 | 44 | CARD-222 P1, CARD-243 P2, CARD-236 P2 | ✓ **complete — 3/3 merged, 0 escalations** · CARD-243 `1280085` (9.0 cycle 1, 0.2d/1d) · CARD-222 `40a93dd` (**9.0** cycle 2, 0.6d/1d, **unblocks 11 cards**) · CARD-236 `459df55` (review skipped, 0.5d/0.5d) · **the suite ended the wave faster than it started — 913s → 785s while gaining 52 tests** (7843 → 7895), because CARD-236 was a cost card; ms/test 116 → 126 → **99** · smoke test satisfied by CARD-236's merge gate without a separate run (main byte-identical to the gated tree) · **two process defects dominated and both are backlog items**: the shared `nonogram_test` has no lock, so concurrent cards TRUNCATE each other's data — it cost CARD-222 a fix attempt chasing a 48-skip regression that did not exist; and an architect amendment landing mid-card invalidated an exemption the card had written correctly |
 | 45 | CARD-244 P1, CARD-223 P1, CARD-248 P1 | ✓ **complete — 3/3 merged, 0 escalations** · CARD-244 `007180d` (0.1d/1d) · CARD-223 `26a6601` (0.2d/1d) · CARD-248 `1256982` (**8.5** cycle 1, 0.3d/1d) · **the wave's product is a gate that can see more than it could**: CARD-244 gave each worktree its own derived test database, which let the merge-gate condition change to `DATABASE_URL` **SET** — skips **12 → 1**, and **11 `db_required` tests the gate could never exercise are now exercised** · the suite again ended the wave faster than it started while gaining **55 tests** (7999 → 8054; ms/test 100 → 98) · smoke test satisfied by CARD-248's merge gate (**8054/1/0 in 784s**) on a byte-identical tree · ⛑ **closes the KDP window** — `main` no longer prints a two-up page with one link for two puzzles · ⚑ **two costs recorded rather than smoothed over**: the new gate condition exposed a non-deterministic `uuid.UUID(hex=inf)` read (the app's module-global engine surviving conftest's `DROP SCHEMA`, filed `@ops`), and **the orchestrator's own tall-pair cost figure for CARD-248 was wrong by more than 2× in the worse direction** — plus a horizontal refusal nobody had costed that removes two-up pages from every trim under ~6.913 in |
 | 46 | CARD-245 P1, CARD-224 P1, CARD-246 P1 | ✓ **complete — 3/3 merged, 0 escalations** · CARD-245 `6184545` (**8.5** c2, 0.4d) · CARD-224 `c65bb3b` (**8.5** c2, 1.6d) · CARD-246 `c7ac7a0` (**8.5** c2, 1.3d) — 3.3d against 3d, **the first wave in four to run over, and the overrun is entirely fix cycles** · ⛑ **smoke test run SEPARATELY and PASS: 8363/1/0 on main**, with the count **predicted before the run** (8292 + 71) and hit exactly — the first wave where no merge gate could serve as the smoke test, because three cards branched from one commit and merged in sequence, so no gate ever saw what main holds · ⚑ **THE THROUGH-LINE: three cards, and on every one the thing that failed was a GUARD CLAIMING COMPLETENESS IT DID NOT HAVE** — a write predicate derived from the class exactly as its card demanded and default-**allow** underneath (8 of 9 write shapes exempt), two property oracles **named** as pinning a boundary they were structurally incapable of pinning, a literal second-renderer glob — **and the orchestrator produced one too**: a merge check whose pathspec zsh never word-split, so it reported success regardless of the tree · ⚑ **five suggested fixes could not do what their own finding asked**, four caught by the fix agent with a demonstration — a review's finding and its remedy deserve separate scrutiny · ⚑ **every important finding on CARD-245 came from a surviving mutant** |
+| 47 | CARD-250 P2, CARD-251 P2 | ▶ **active — dispatched 2026-10-19 on owner instruction, SERIALIZED, CARD-250 first.** Both cards edit `admin/app.py` (a declared hotspot) plus `puzzle_edit.js`, `puzzle_edit.html`, `_puzzle_table.html` and the same browser-test file — overlap **0.71** against `max_overlap` 0.3, so they share the wave but never the clock. Order is not only the conflict edge: **CARD-251 inherits CARD-250's rename** (its confirmation and its AC-9 warning are written against a bar whose exits read "Cancel" = leave and "Back to edit" = stay), so run the other way round every string assertion in CARD-251 would be rewritten at the merge. CARD-251 starts through the slot refill once CARD-250 is **merged**, from a main that already carries the new labels |
+
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -62,11 +64,13 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-_21 cards ready, 0 in progress (wave 46 closed 3/3: CARD-245, CARD-224, CARD-246), 1 blocked.
+_20 cards ready, **1 in progress** (CARD-250, wave 47), 1 blocked.
 **Eligible right now** (every dependency merged): CARD-206, CARD-207, CARD-208, CARD-209,
-CARD-215, CARD-216, CARD-220, CARD-225, CARD-227, CARD-231, CARD-247, CARD-249, CARD-250,
-CARD-251 — fourteen of the twenty-one. CARD-251's blocking obligation was **settled by the owner on
-2026-10-19** (refuse a regrade inside a book; INV-009 stands unamended), so it is dispatchable. The other seven wait on a sibling in this list, not on anything unbuilt: CARD-226 and
+CARD-215, CARD-216, CARD-220, CARD-225, CARD-227, CARD-231, CARD-247, CARD-249,
+CARD-251 — thirteen of the twenty. CARD-251 is eligible but **held by a conflict edge to CARD-250**
+(see wave 47): it is dispatched into the slot CARD-250's merge frees, not into a second slot now.
+Its blocking obligation was **settled by the owner on
+2026-10-19** (refuse a regrade inside a book; INV-009 stands unamended). The other seven wait on a sibling in this list, not on anything unbuilt: CARD-226 and
 CARD-232 on **CARD-225**'s book-wide cell size, CARD-233 on CARD-232, CARD-229 on CARD-206,
 CARD-230 on CARD-229, and CARD-218/CARD-219 on the CARD-206..CARD-209 print cards. **CARD-225 is
 the one card that unblocks two others**, which is what makes it the first refill candidate._
@@ -142,7 +146,11 @@ _CARD-217 profiled the suite solo and neither hypothesis CARD-218/219/220 were c
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-_Wave 46 is **3/3 merged, 0 escalations**: CARD-245 `6184545` (0.4d), CARD-224 `c65bb3b` (1.6d), CARD-246 `c7ac7a0` (1.3d). Smoke test **PASS on main, 8363/1/0**, with its count predicted and hit exactly. Nothing in progress; the wave is ready to close or refill._
+- **CARD-250** The editor's two bars say what they do · P2 · 1d · standard · wave 47 · branch `card/250-editor-exits` · worktree `../PythonProject4-card-250` · started 2026-10-19 — implementation agent running. Its first obligation is **AC-6 failing first**: the list thumbnail is a stable URL with no validator, and a test that merely reads an attribute the card just added proves nothing about the stale picture.
+
+_Wave 47 dispatched 2026-10-19 at concurrency 2 but running **one at a time** — CARD-250 and CARD-251 share `admin/app.py` and three more files (overlap 0.71 ≫ `max_overlap` 0.3). CARD-251 (**architectural**, **TDD**) starts when CARD-250 merges, so it is written against the renamed buttons rather than against labels about to change._
+
+_Wave 46 closed **3/3 merged, 0 escalations**: CARD-245 `6184545` (0.4d), CARD-224 `c65bb3b` (1.6d), CARD-246 `c7ac7a0` (1.3d). Smoke test **PASS on main, 8363/1/0**, with its count predicted and hit exactly._
 
 
 ## Review

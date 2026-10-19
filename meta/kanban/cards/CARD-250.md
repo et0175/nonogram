@@ -1,6 +1,6 @@
 # CARD-250: The editor's two bars say what they do — Cancel leaves, "Back to edit" stays, and both exits land on a fresh list
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/250-editor-exits
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-250
 **Source:** owner's doc "Nonograms - Print layout" → "Puzzle editor", 2026-10-19 — items 1, 2, 3 and 4 (intake in `meta/architecture/inputs/raw-requirements.md`)
 **Idea:** —
-**Wave:** —
+**Wave:** 47
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/puzzle_edit.js, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/_puzzle_table.html, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py, tests/test_admin_design_tokens.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-19T07:15:19Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

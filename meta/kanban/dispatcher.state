@@ -1,9 +1,9 @@
-wave: 46
+wave: 47
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: []
+active: [CARD-250]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-18T18:54:00Z
+last_updated: 2026-10-19T07:15:55Z
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -443,3 +443,31 @@ owner_render_2026_10_19:
     because any stored-difficulty display has to solve the staleness problem F-008 found and a
     name does not.
   found_by: "looking at the shipped page, not by a test and not by review -- there was no claim to break, the editor page being new in CARD-246."
+
+wave_47:
+  dispatched: 2026-10-19T07:15:55Z
+  concurrency: 2
+  owner_instruction: "start the next wave with CARD-250 and CARD-251 (2026-10-19)"
+  cards: [CARD-250, CARD-251]
+  started_now: [CARD-250]
+  queued: [CARD-251]
+  conflict_edges:
+    - pair: [CARD-250, CARD-251]
+      reason: >-
+        predicted: hotspot src/nonogram/admin/app.py, plus three more shared files
+        (static/puzzle_edit.js, templates/puzzle_edit.html, templates/_puzzle_table.html)
+        and the same browser-test file (tests/test_puzzle_editor_ui.py). overlap = 5/7 = 0.71
+        against max_overlap 0.3. SERIALIZED: CARD-250 runs alone, CARD-251 starts through the
+        slot refill once CARD-250 is MERGED, so its worktree branches from a main that already
+        carries the renamed buttons.
+  why_250_first: >-
+    Not only the conflict edge. CARD-251 INHERITS CARD-250's rename: its confirmation dialog and
+    its AC-9 warning are written against a bar whose exits read "Cancel" (leave) and "Back to edit"
+    (stay). Run in the other order, CARD-251 would be written against labels that are about to
+    change and every string assertion in it would need rewriting at the merge.
+  effort_shape: "CARD-250 standard/1d/TDD false; CARD-251 architectural/1d/TDD true (its model is not downgraded, cmd-start-review step 0 spawn rule)."
+  gate_condition: "DATABASE_URL SET (changed 2026-10-18, see gate_condition_change). Full-suite runs take the flock on meta/kanban/.full-suite.lock; implementation agents do not run the full suite."
+  owner_decisions_carried_into_251: >-
+    Both settled 2026-10-19 and recorded on the card: a regrade inside a published book is REFUSED
+    (INV-009), a split two-up pair is ANNOUNCED and Approve stays available. G-3 forbids collapsing
+    one into the other.
