@@ -1068,12 +1068,22 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
         interior is walked before the edit and after the approved save, and
         the two deltas are held equal.
 
-        Why it holds, and what would break it: the guide is fixed, the answer
-        pages are one per puzzle and an edit adds no puzzle, the SOLUTIONS
-        divider is one, and the level dividers follow the levels — which
-        cannot move, because a replacement that regrades a booked puzzle is
-        refused at this same verify (AC-4). Retire that refusal and this test
-        is what notices that the sentence stopped being true.
+        Why it holds: the guide is fixed, the answer pages are one per puzzle
+        and an edit adds no puzzle, the SOLUTIONS divider is one, and the
+        level dividers follow the levels — which cannot move, because a
+        replacement that regrades a booked puzzle is refused at this same
+        verify (AC-4).
+
+        WHAT NOTICES IF THAT STOPS BEING TRUE IS AC-4'S OWN TESTS, NOT THIS
+        ONE (review cycle 2, F-001). An earlier draft of this docstring, of
+        AC-9 and of the card all claimed this test was the detector. Measured:
+        removing the verify's regrade refusal kills five tests and every one
+        of them is AC-4's own, while this one passes — and it cannot do
+        otherwise, because DEPTH_3/4/5 are all Easy, so no regrade is
+        exercised here at all. Nor can the dependency be pinned from inside
+        this class: a cross-tier replacement is REFUSED by AC-4, so such a
+        case would assert the refusal and be AC-4's test again. The transfer
+        argument rests on AC-4 holding; the guard for AC-4 is AC-4.
         """
         first, _second = self._pair(admin_app, books)
         before = self._interior_page_count(admin_app, books)

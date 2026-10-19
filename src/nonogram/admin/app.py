@@ -2701,6 +2701,18 @@ def create_app(debug=None):
             ``changes`` (``added != 0``) and ``partner`` — the name of the
             puzzle this one shares its page with today, or ``None`` when it
             prints alone.
+
+            RESIDUAL, declared rather than left to be discovered (review
+            cycle 2, F-002): ``changes`` is a page-COUNT key, so a split the
+            book's suffix ABSORBS is silent. Measured with this card's own
+            fixtures — four Easy 10x10s at depths (4, 4, 4, 5) plan as
+            [(1,2), (3,), (4,)]; replacing the first with the depth-5 picture
+            plans as [(1,), (2,3), (4,)] — three pages either way, so
+            ``added`` is 0, ``changes`` is False and nothing is said, although
+            that puzzle's page stopped holding two and the second puzzle moved
+            off it. This is faithful to the owner's decision, which is worded
+            about the page COUNT (2026-10-19), and it is written down here
+            because the owner may want the wider question put to them.
         """
         unknown = {"known": False, "changes": None, "added": None,
                    "partner": None}

@@ -1245,8 +1245,12 @@ class PuzzleReviewService:
 
         Returns:
             The stored row as :meth:`get_puzzle` reads it back, or ``None`` if
-            the puzzle does not exist or is held by a book this panel cannot
-            name (:meth:`_row_an_edit_may_touch`).
+            the puzzle does not exist or is held by a book with no identity —
+            no ``book_id`` at all (:meth:`_row_an_edit_may_touch`). A DELETED
+            book still has an id, so it is an identity and takes the other
+            branch: its puzzle gets the confirmation, with the id standing in
+            for the title it cannot read (review cycle 1 F-005, swept in
+            cycle 2 F-003).
 
         Raises:
             EditNeedsConfirmation: a book holds this puzzle and ``confirmed``
