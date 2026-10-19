@@ -1,0 +1,427 @@
+version: 1
+generated_at: "2026-10-19T12:14:39Z"
+target: "CARD-251 cycle 1 — branch card/251-edit-a-booked-puzzle, commit 119fc58, based on main at 71b5ec9; worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-251"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/admin/puzzle_review.py (CARD-251 diff + save/verify order, _an_edit_may_touch, the three refusals)"
+    - "src/nonogram/admin/app.py (EDIT_REFUSAL_REASONS, _submitted_confirmation, _book_holding, _page_count_effect, _shares_a_page_with, _book_answer, _refused, _edit_refusal, both POST routes, the editor page route, puzzle_is_editable, _interior_counts, _book_puzzles)"
+    - "src/nonogram/admin/book_pdf_generator.py (puzzle_page_plan, _payload, puzzle_pages, interior)"
+    - "src/nonogram/admin/static/puzzle_edit.js (full CARD-251 delta + tell/store/onApprove/onBoardChange)"
+    - "src/nonogram/admin/templates/puzzle_edit.html (both new blocks)"
+    - "src/nonogram/admin/templates/_puzzle_table.html (the Edit control branch)"
+    - "tests/test_puzzle_edit_store.py (whole CARD-251 diff)"
+    - "tests/test_puzzle_edit_routes.py (whole CARD-251 diff)"
+    - "tests/test_puzzle_editor_ui.py (whole CARD-251 diff)"
+    - "meta/kanban/cards/CARD-251.md (in full, including the uncommitted Failure matrix / Worktree notes / mutant table)"
+    - "src/nonogram/difficulty.py tier_of_record"
+    - "meta/architecture/requirements.yml (searched for a latency NFR — none exists)"
+  not_reached:
+    - "src/nonogram/export/layout.py compute_pair_layout internals (treated as the authority the card defers to, not re-derived)"
+    - "src/nonogram/admin/book_manager.py INV-008 confirmation machinery (read only via its test)"
+    - "the DB-mode (Postgres) branch of the new routes — tests/test_puzzle_edit_routes.py's DB class skips without nonogram_test on this host (4 skips observed)"
+  confidence: high
+metrics:
+  diff: { files: 8, added: 2685, removed: 101 }
+  max_fan_in: { symbol: "app.puzzle_is_editable", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py", "src/nonogram/admin/puzzle_review.py"]
+  cochange_missing: ["src/nonogram/admin/templates/_puzzle_table.html"]
+  unmeasured:
+    churn: "not_applicable — this is a card-worktree review of a single commit against main; the orchestrator supplied the diff and the hotspot set is read off the card's own conflict-hotspot note rather than a 12-month log"
+    defect_density: "not_applicable — same reason as churn"
+    bus_factor: "not_applicable — single-author repository"
+    timings: "not_applicable — the orchestrator forbade timing measurements on this host (a gate may be running); the AC-9 cost is judged structurally, by call counts, not by wall clock"
+
+system_contract:
+  rules_checked: 10
+  holds: 10
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the diff touches 8 files and pyproject.toml is not among them (git diff --stat main...HEAD); no import of a non-baseline package in any changed file; TestDependencyBaseline_IsExactlyPillowAndNumpy green in the orchestrator's solo run on 119fc58 (8488/1/0)"
+    - "ADR-0029/R2 ✓ holds — verify_replacement_grid now computes grade = self._grade_of(proof) ONCE (puzzle_review.py:1186) and the regrade check reads grade['difficulty_tier']; save_edited_grid reads derived['difficulty_tier'] rather than grading again (puzzle_review.py:1293); no second solver entry. Re-derived by running tests/test_puzzle_edit_store.py::TestBookedEdit_AnUnconfirmedSaveWritesNothing::test_an_unconfirmed_save_measures_nothing_either, whose solver_entries assertions are baseline then baseline+1 — 88 passed in that file's CARD-251 selection"
+    - "ADR-0032/R1 ✓ holds — _refuse_unless_uniquely_solvable is still the first gate after the confirmation in save_edited_grid (puzzle_review.py:1279) and in verify_replacement_grid; none of the three new refusals bypasses or precedes it except the confirmation, which writes nothing"
+    - "ADR-0038/R1 ✓ holds — puzzle_edit.js is edited in place as hand-written ES modules; no bundler, no npm manifest, no vendored library in the diff (8 files, listed)"
+    - "ADR-0038/R6 ✓ holds — the editor page's payload is unchanged (_board_page_payload, app.py:2903); the one new server-rendered field is `book` = {id, title, status, published} and the one new wire field is `book` on the verify/refusal answers, neither carrying a solution grid"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the diff, so pytest-playwright's dev-only extra is untouched"
+    - "ADR-0038/R8 ✓ holds — ran the two new browser classes plus the narrowed ones: pytest tests/test_puzzle_editor_ui.py -k 'TestBookedEdit_TheQuestionNamesTheBook or TestBookedEdit_TheSplitPairIsWordedAsAWarning or TestBookedEdit_TheEditorOpensForABookedPuzzle or BookedPuzzleIsNotEditable or ReachableFromTheCard' → 19 passed, 0 skipped. They execute rather than skip, and both new classes carry @pytest.mark.browser and are covered by PAGE_ISOLATION_DECLARATION (updated in the diff)"
+    - "INV-008 ✓ holds — no membership write anywhere in the diff (book_id is never assigned; save_edited_grid's derived dict has no book_id key), and tests/test_puzzle_edit_routes.py::TestBookedEdit_APublishedBookIsNamedInTheQuestion::test_the_books_own_membership_rule_is_untouched drives add_puzzles_reporting_refusals on a published book and reads needs_confirmation back. This card's `confirmed` flag is INV-008-SHAPED but is a separate flag on a separate route — see finding F-006"
+    - "INV-009 ✓ holds — _refuse_a_regrade_inside_a_book is enforced at the verify (puzzle_review.py:1190) and again at the store (puzzle_review.py:1293), compared through tier_of_record so spelling is not a regrade; book_id is never written, so no level run, divider or 1..n number can move. Covered by TestBookedEdit_ARegradeInsideABookIsRefusedAtVerify (7 tests, both storage modes) and TestBookedEditRoutes_ARegradeIsRefusedAtTheVerify"
+    - "CON-005 ✓ holds — no file under src/nonogram/solver/ is in the diff and no clue encoding or uniqueness logic is re-implemented; PropertyTest_Solver_NeverFalsePositiveUniqueness is untouched and green in the orchestrator's solo run on 119fc58"
+
+root_causes:
+  - id: RC-1
+    title: "the page-count warning's words claim more than puzzle_page_plan measures"
+    finding_ids: [F-001, F-004]
+  - id: RC-2
+    title: "CARD-251's own declarations (F-4, the _EDIT_ROUTES marker rationale, _an_edit_may_touch's docstring) are each stated one step wider than the mechanism behind them"
+    finding_ids: [F-002, F-003, F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/app.py
+    line: 2680
+    title: "The AC-9 warning reports the puzzle-page count as \"that book's page count\""
+    description: |
+      `_page_count_effect` sets `before`/`after` to `len(book_pdf_generator.puzzle_page_plan(...))`,
+      and `puzzle_edit.js`'s `bookNote` renders them as "this grid would change that book's page
+      count from ${pages.before} to ${pages.after}". `puzzle_page_plan` returns only the PUZZLE
+      pages; the book's page count, as this same codebase defines it, also counts the 2-page guide,
+      one divider per non-empty level, the SOLUTIONS divider and the answer pages —
+      `BookPDFGenerator.interior`'s docstring says outright "The list's length is the book's page
+      count (FR-030)", and `app.py`'s own `_interior_counts` → `InteriorCounts.page_count`
+      ("the guide page, the level dividers, the puzzle pages, the SOLUTIONS divider and the answer
+      pages") is the number Finalise already shows the owner.
+
+      Measured on the card's own AC-9 fixture (2 x 10x10 easy, DEPTH_4, Book 1 profile, in-memory
+      panel): the verify answers `{"before": 1, "after": 2}` while
+      `BookPDFGenerator(book).interior_stream(ordered).page_count` is 7 — the owner is told the page
+      count goes "from 1 to 2" when it goes from 7 to 8. On a 150-puzzle book the gap is the guide,
+      four dividers and ~150 answer pages, so the figure would be out by well over a hundred pages
+      and would disagree with the figure the same panel prints on Finalise for the same book.
+
+      The DELTA is right and AC-9's substance ("the book's page count would change", "one page
+      longer") is delivered. What is wrong is the pair of absolute figures, on a path the owner uses
+      to decide whether to approve the edit. This is the standing claims-match-mechanism rule:
+      `puzzle_page_plan` measures puzzle pages and the sentence says book pages.
+    suggestion: |
+      Either (a) stop quoting absolute figures — the only fact the two walks measure is the delta,
+      so say "this grid would make the book one page longer" and name the partner, which is exactly
+      what AC-9 asks for; or (b) take `before`/`after` from `_interior_counts(book, ordered)` and
+      `_interior_counts(book, replaced)`'s `page_count`, so the editor and Finalise quote the same
+      number for the same book. (a) closes the hole because it removes the claim rather than
+      restating it; (b) closes it by making the claim true, at the cost of walking answer packing
+      twice as well (see F-007 on the cost already on this path). If (b) is chosen, the SCOPE+
+      wrapper may become unnecessary, since `_interior_counts` already lives in `app.py`.
+    confidence: high
+    source: static
+    violates: "AC-9"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 268
+    title: "Failure matrix F-4 declares the question says the title could not be read; nothing says it"
+    description: |
+      F-4's declared behaviour is: "the question names the book's **id** and says its title could
+      not be read". The id is named — `needsConfirmationText` and `bookNote` both fall back to
+      `book.title || book.id`, and `puzzle_edit.html` renders `{{ book.title or book.id }}`. The
+      second half is not implemented anywhere: the only text containing "title could not be read"
+      in the shipped files is a source comment at `puzzle_edit.js:227`. What the owner actually
+      reads for a deleted book is "This puzzle is in the book
+      3f2a1b0c-...-...": a bare uuid presented as a title, with no indication that the title was
+      unreadable rather than literally that string.
+
+      The load-bearing half of F-4 — the flag is still required, the store still enforces it — does
+      hold and is driven end to end by
+      `tests/test_puzzle_edit_routes.py::TestBookedEditRoutes_TheConfirmationIsTheServers::test_a_book_whose_title_cannot_be_read_still_needs_the_flag`,
+      which asserts `body["book"]["title"] is None`, the 409 and that the confirmed save then
+      stores. So this is a refuted row rather than a broken guard — but it is refuted, and on an
+      `architectural` card the matrix is the artefact a reviewer is asked to verify.
+    suggestion: |
+      Add one clause in `needsConfirmationText` (and `bookNote`) for `book.title == null`: name the
+      id and say the title could not be read, e.g. "This puzzle is in a book whose title could not
+      be read (id 3f2a1b0c)". Then extend the existing route test's sibling in
+      `TestPuzzleEditor_TheWordsNameTheButtonsThatExist`'s corpus — the `b3` book entry already has
+      `title: None`, so the corpus covers the branch the moment it exists. Alternatively amend F-4
+      to declare what the code does; either closes the row, but only the first closes it in the
+      owner's favour.
+    confidence: high
+    source: static
+    violates: "F-4"
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: question
+    file: tests/test_puzzle_editor_ui.py
+    line: 133
+    title: "The _EDIT_ROUTES start-marker move is justified by a hypothetical the code does not realise"
+    description: |
+      The guard's own machinery was changed, so it was checked directly. The widened reason scrape
+      is sound and the direction that bites still bites: `emitted == set(EDIT_REFUSAL_REASONS)` is
+      an equality, so a vocabulary entry nothing emits still fails. Recomputed both regexes against
+      the live slice: the inline spelling yields {in_a_book, not_found, not_unique, not_verified},
+      `_refused\(\s*\n?\s*"([a-z_]+)"` yields {extent_changed, needs_confirmation,
+      regrade_in_a_book}, and the union equals EDIT_REFUSAL_REASONS exactly.
+
+      The marker move itself, however, is justified by a case that does not exist: the comment says
+      the new helpers "sit in front of `_edit_refusal` ... and a slice that began below them would
+      read a refusal they emitted as none", but none of `_submitted_confirmation`, `_book_holding`,
+      `_page_count_effect`, `_shares_a_page_with`, `_book_answer` or `_refused` emits a reason
+      literal — `_refused` takes `reason` as a parameter and the three call sites are all BELOW
+      `_edit_refusal`, inside the two POST routes. Recomputed with the OLD start marker
+      (`    def _edit_refusal(puzzle_id):`): the emitted set is byte-identical, all seven reasons.
+
+      The widening is safe (strictly more source scanned) and defensible as forward cover, so this
+      is not a loosened guard. It is a justification stated one step wider than its mechanism, in a
+      comment the next card in this area will read as settled convention.
+    suggestion: |
+      Keep the marker where it is and reword the comment to what is true: the slice was widened so
+      that a future refusal emitted from inside one of these helpers is in scope, not because one
+      is emitted there today. The residual paragraph below it is already written to the right
+      standard and can serve as the model.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 254
+    title: "\"The book ... gets one page longer\" is hardcoded beside a computed delta"
+    description: |
+      `bookNote`'s split-pair sentence quotes `pages.before` and `pages.after` and then asserts
+      "The book stays valid and gets one page longer." The delta is not constrained to 1 anywhere:
+      `_page_count_effect` only compares two lengths, and the pairing walk is greedy and forward, so
+      splitting one pair re-walks the whole suffix. A suffix whose pairings reshuffle can in
+      principle move the count by more than one, and the sentence would then quote "60 to 62" while
+      saying "one page longer".
+      The symmetric gap: a split that the suffix absorbs (e.g. positions i,i+1 paired and i+2 alone
+      becoming i alone and i+1,i+2 paired) leaves the count equal, so `changes` is False and the
+      warning is silent — even though the puzzle's page did split and the folios after it did move,
+      which is the harm the card's own prose names ("every folio after it moves"). That silence is
+      faithful to the owner's decision as worded (page COUNT), so it is listed here rather than as a
+      defect, but it is the same mismatch between the measurement and the words.
+    suggestion: |
+      Derive the phrase from the numbers — "gets 1 page longer" / "gets ${after - before} pages
+      longer" — so the sentence cannot disagree with the figures beside it. If the card wants the
+      broader harm covered, that is a separate decision for the owner (announce a changed pairing,
+      not only a changed count) and belongs on a new card, not here.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/puzzle_review.py
+    line: 1003
+    title: "_an_edit_may_touch's docstring says \"a book this panel cannot name\"; it implements bool(book_id)"
+    description: |
+      The seam itself is the right one and should stay: a membership with no book IDENTITY
+      (`in_book` status with no `book_id`, a migration's `""`) keeps the flat `in_a_book` refusal,
+      which is what keeps that reason live rather than retired vocabulary — verified by
+      `TestBookedEdit_TheFifthReasonIsTrueNotListed::test_in_a_book_is_still_a_reason_the_routes_emit`
+      and by `_an_edit_may_touch`'s own four-case unit test. Judged as a convention for later cards:
+      keep it.
+
+      What is wider than the mechanism is the vocabulary. "A book this panel cannot NAME" is used
+      for the predicate `bool(book_id)`, but a `book_id` pointing at a deleted book is equally
+      unnameable and takes the OTHER branch: it gets the question, with a uuid where the title would
+      be (that is F-4's own case, and F-002 above). Three places repeat the phrase
+      (`_an_edit_may_touch`, `_row_an_edit_may_touch`, `puzzle_is_editable`, plus STRUCTURE note 3),
+      so a later card reading "cannot name" will not predict the deleted-book behaviour.
+    suggestion: |
+      Reword to the predicate: refused outright when the membership carries no book IDENTITY; asked
+      about when it carries an id, whether or not that id resolves to a readable title. No code
+      change — the behaviour is correct and tested; it is the three docstrings and the STRUCTURE
+      note that should name `bool(book_id)`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: compliance
+    type: question
+    file: meta/kanban/cards/CARD-251.md
+    line: 143
+    title: "AC-6 reads two ways; the implementation picked the coherent one without amending the AC"
+    description: |
+      AC-6 says "the confirmation it requires is the INV-008 one". Two readings differ: (a) a
+      published book's grid edit routes through `book_manager`'s own INV-008 confirmation machinery,
+      or (b) it uses this card's INV-008-SHAPED flag and the question says the book is published.
+      The implementation is (b) — one flag for draft and published alike, differing only in the
+      sentence — and (b) is the coherent reading, because INV-008 governs MEMBERSHIP and an edit
+      moves none (`test_the_books_own_membership_rule_is_untouched` proves INV-008 still bites on
+      its own route). But AC-6's wording still asserts (a), and on an `architectural` card the AC
+      text is what the next reader checks against.
+    suggestion: |
+      Amend AC-6 in the card to say what was built: a published book's puzzle needs this card's
+      confirmation, the question names the book AND its published status, and INV-008's own
+      membership confirmation is untouched. No code change.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: ops
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2660
+    title: "Every verify of a booked puzzle now reads the whole book row-by-row and walks it twice, and the cost is stated only in the card"
+    description: |
+      Judged structurally, by call counts — no timing taken, per the orchestrator's instruction.
+      `_page_count_effect` runs `_book_puzzles(book)` (app.py:5304), which calls
+      `puzzle_review.get_puzzle(puzzle_id)` once PER MEMBER — in DB mode that is one session and one
+      `SELECT ... WHERE id = ?` each, i.e. ~150 queries on a full book — then `print_order`, then
+      `puzzle_page_plan` twice, each constructing a `BookPDFGenerator` and offering every adjacent
+      equal-tier pair to `compute_pair_layout`. Before this card a verify of a booked puzzle did
+      none of this: it was a 409. The path is interactive — the owner waits on Save.
+
+      Two narrowings exist and neither is taken:
+      * `PuzzleReviewService.get_puzzles` (puzzle_review.py:1744) already reads a set of ids in ONE
+        session and one `WHERE id IN (...)`; `_book_puzzles` predates it and was reused as-is. This
+        is pre-existing, but this card is what puts it on an interactive path.
+      * the second walk's PREFIX is provably identical to the first's — the walk is greedy and
+        forward, and `puzzle_pages`' own docstring states that parity "moves the usable area, never
+        its size, so it cannot change a verdict" — so it could start at the edited puzzle's page
+        rather than at page 1. That saves roughly half of one of the two walks; the `before` walk is
+        needed in full to report the figures at all, so the saving is modest and is worth stating
+        as such rather than as a fix.
+
+      The cost is written down only in the card's `## Worktree notes` ("150 compute_pair_layout
+      calls per verify and may want a look"). `_page_count_effect`'s own docstring and
+      `puzzle_page_plan`'s say nothing about it, and the card is deleted at `done`, so the next
+      reader of this function has no way to learn that it is O(book) on a per-keystroke-adjacent
+      path. There is no latency NFR in `meta/architecture/requirements.yml` to violate — searched —
+      so this is a durability-of-knowledge finding, not a threshold breach.
+    suggestion: |
+      State the cost where the function lives: one sentence in `_page_count_effect`'s docstring
+      ("asked on every verify of a booked puzzle; one row read per member plus two pairing walks
+      over the whole book"). That closes the hole because the next reader meets the fact at the
+      call site instead of in a card that no longer exists. If the figure is ever measured and found
+      to matter, the two cheap moves are `get_puzzles` for the member read and starting the second
+      walk at the edited puzzle's page.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2668
+    title: "_page_count_effect catches six exception classes where F-5 declares two"
+    description: |
+      F-5 declares the unknown answer for a member the pairing walk cannot lay out (`RuntimeError`)
+      or a book with no readable print setup (`ValueError`). The code catches
+      `(ValueError, RuntimeError, TypeError, KeyError, IndexError, AttributeError)`. The four
+      undeclared classes are the shapes a programming error in this helper itself would take — a
+      `grade` dict without `clues_rows`, a row without `id`, a `None` book — and each is converted
+      into a plausible "the page-count effect could not be measured" with a WARNING in the log and
+      no other signal. Verified that the declared ValueError path is the one the test drives: a
+      `trim_width_cm` of "not a number" raises
+      `ValueError: book trim_width_cm must be a number of cm, not 'not a number'` from the
+      `BookPDFGenerator` constructor. The `RuntimeError` arm of F-5 has no test driving it.
+    suggestion: |
+      Narrow the catch to `(ValueError, RuntimeError)` — the two F-5 declares and the two
+      `puzzle_page_plan`'s own `Raises:` block documents — so a defect in this helper surfaces as a
+      500 the owner reports instead of as a soft "unknown". If the wider net is wanted, declare the
+      extra classes in F-5 and say why. Adding a test for the RuntimeError arm (a member whose
+      stored clue sets disagree about its grid) would also close F-5's untested half.
+    confidence: high
+    source: static
+    violates: "F-5"
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/_puzzle_table.html
+    line: 92
+    title: "The list row's comment still says a booked puzzle offers no Edit control"
+    description: |
+      `_puzzle_table.html` is in the card's `Touches` list and is not in the diff. Its behaviour is
+      correct without a change — the row asks `puzzle_is_editable`, whose meaning this card
+      narrowed, and `TestPuzzleEditor_BookedPuzzleIsNotEditable::test_a_puzzle_in_a_NAMEABLE_book_is_offered_the_control_again`
+      proves the control comes back. But its comment still reads "A puzzle a book holds offers
+      none", which is now false for the common case and is the first thing a reader of this row
+      meets.
+    suggestion: |
+      One line: a puzzle in a book the panel can name offers the control again (CARD-251); what
+      offers none is a membership with no book identity. Also drop `_puzzle_table.html` from the
+      card's `Touches`, or touch it — a declared-but-untouched file in `Touches` is the same
+      declaration-vs-reality gap one layer up.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_puzzle_editor_ui.py
+    line: 470
+    title: "TestBookedEdit_TheEditorOpensForABookedPuzzle clears the book singleton on entry but not on exit"
+    description: |
+      `_book` calls `books.books.clear()` before creating its book, and nothing clears afterwards.
+      The in-memory `book_manager` is a module-level singleton that outlives the `admin_app`
+      fixture, which this helper's own comment says. `tests/test_puzzle_edit_routes.py` solved the
+      same problem with a `books` fixture that clears on both sides; this file's helper only clears
+      on the way in, so every test after one of these four runs against a panel holding "Winter
+      Pictures". No current test is affected (all 19 selected pass, and the suite is green solo),
+      so this is a latent ordering dependency rather than a defect.
+    suggestion: |
+      Make it a fixture that yields and clears, matching the routes file's `books`, so the
+      declaration "books outlive the admin_app fixture" is answered in both directions.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

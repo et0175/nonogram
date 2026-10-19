@@ -15,7 +15,7 @@
 **Wave:** 47
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/admin/static/puzzle_edit.js, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/_puzzle_table.html, tests/test_puzzle_edit_routes.py, tests/test_puzzle_edit_store.py, tests/test_puzzle_editor_ui.py
-**Review score:** —
+**Review score:** 8.0 (cycle 1/3 — meets the number, two Important open, so the severity gate fails)
 **Started:** 2026-10-19T10:39:26Z
 **Closed:** —
 **Actual:** —
@@ -139,8 +139,17 @@ the allow-list is a claim that that answer never writes** — make it true at th
 - **AC-5** (guard, the extent): *Given* a replacement grid whose extent differs from the stored row's,
   *then* the store refuses and writes nothing, for a booked puzzle and an unbooked one alike.
   (test: `TestEdit_AReplacementKeepsTheStoredExtent`)
-- **AC-6** (guard, published books): *Given* a puzzle in a **published** book, *then* the confirmation
-  it requires is the INV-008 one, and the question names the book and its status.
+- **AC-6** (guard, published books): *Given* a puzzle in a **published** book, *then* the save requires
+  the same server-side `confirmed` flag an INV-008 membership change requires — **the INV-008 *shape*,
+  not a call into `book_manager`'s membership machinery** — and the question names the book **and says
+  it is published**, so the owner is told which kind of book they are editing into.
+  **AMENDED 2026-10-19 (orchestrator, review cycle 1 F-005).** As written, *"the confirmation it
+  requires is the INV-008 one"* read two ways: routing through `book_manager`, or using an
+  INV-008-shaped flag. The implementation took the second, which is the coherent one — **INV-008 governs
+  book MEMBERSHIP and an edit moves none**, so routing an edit through a membership confirmation would
+  be asserting a change that is not happening. `test_the_books_own_membership_rule_is_untouched` proves
+  INV-008 still bites. The criterion is amended to what was built rather than left ambiguous, because an
+  AC that reads two ways is the defect this wave has now produced on three separate criteria.
   (test: `TestBookedEdit_APublishedBookIsNamedInTheQuestion`)
 - **AC-7** (guard, the other three refusals still refuse): *Given* approve, reject, restore and delete,
   *then* a booked puzzle is still refused by all of them — this card opens **editing** only, and the
@@ -480,3 +489,64 @@ this is the third wave in which that hazard has cost a gate run.
 **What the episode actually produced is a working guard**, after three tries, two of which were the
 defect this board names in cards: a control that counted its own shell, then one that could only ever
 pass. The third was verified in both directions before use and refuses a contended start outright.
+
+### [Review 1/3] Score: 8.0 — 0 critical, 2 important, 7 minor, 1 info · [Severity gate] FAILS · [Review sync] 1 report
+
+Report: `meta/review/20261019T121439Z-CARD-251-cycle1.yml`. Meets `min_score` and **does not pass**: two
+Important are open and **Step 8f/8g emitted `deferred(cost)`**, so this cannot be the passing review —
+the certification must run on the stable cycle.
+
+**The card's spine was verified rather than inherited, and it holds.** G-1: `save_edited_grid` calls the
+confirmation refusal as its **first** act after the row read, before the uniqueness gate, and the client
+cannot reach a store without it — the browser test reads both request bodies off the wire. AC-8's fifth
+reason is **proved** by driving the real route and reading the row back. AC-9 asserts **both** halves.
+G-3's two book rules stay distinct. **M8's narrowed control really moves the counter** (`baseline` then
+`baseline + 1`), and the reviewer swept all nine new controls for siblings of that shape and found none.
+System contract 10/10. All six `STRUCTURE` decisions kept, including the `SCOPE+`: `_payload` is a
+`@staticmethod` reached from **inside its own module**, there is no public payload builder, and `app.py`
+reaches nothing private — accepted on its merits.
+
+**[Review] F-001 (important) — a false number on the owner's decision path.** `_page_count_effect`
+reports `len(puzzle_page_plan(...))`, which counts **only puzzle pages**, as *"the book's page count"* —
+the term this codebase reserves for the figure that also counts the guide, one divider per level, the
+SOLUTIONS divider and the answer pages (`InteriorCounts.page_count`, which is what Finalise already shows
+for the same book). **Measured on the card's own AC-9 fixture: the verify answers `before: 1, after: 2`
+while `interior_stream(...).page_count` is 7.** On a 150-puzzle book it is out by over a hundred, and it
+contradicts what the same panel prints for the same book. Confirmed independently by the orchestrator
+against `InteriorCounts`' own docstring. **The delta is right; the two absolute figures are false.**
+
+**[Review] F-002 (important) — failure matrix F-4 is half-refuted.** F-4 declares the question names the
+book's **id** *and says its title could not be read*. The id is named; nothing says the title was
+unreadable — the only such text is a source comment. The owner reads *"This puzzle is in the book
+3f2a1b0c-…"*, a bare uuid presented as a title. The load-bearing half (the flag is still required, the
+store still enforces) does hold and is driven end to end.
+
+**The seven Minors are mostly this wave's one family again**, and all are one-liners: a guard comment
+one step wider than its mechanism (the `_EDIT_ROUTES` marker move is *safe* — the reviewer recomputed
+both regexes with the old marker and got a byte-identical set — but its stated reason is a hypothetical
+the code does not realise); "gets one page longer" hardcoded beside a computed delta; a docstring saying
+"a book this panel cannot name" over an implementation of `bool(book_id)`; AC-6 reading two ways;
+AC-9's cost recorded **only** in notes that are deleted at `done`; a catch of six exception classes where
+F-5 declares two, the four undeclared ones being exactly the shapes a bug *in that helper* would take;
+and a list-row comment that is now false.
+
+**[Note] The `architectural` declaration obligation is currently unverifiable from history** — the
+failure matrix and worktree notes are uncommitted (nothing under `meta/` is ever committed from a
+worktree), so "declared before any code" rests on the agent's word plus the orchestrator's sync. Stated
+rather than implied.
+
+### [Decision] F-001 — drop the absolute figures, keep the delta (orchestrator, 2026-10-19)
+
+The reviewer offered two closes: remove the figures and state the delta, or source `before`/`after` from
+`_interior_counts` so the editor and Finalise agree. **Chosen: state the delta, drop the absolutes.**
+
+- **AC-9 asks for the delta, not the absolutes** — *"says the book's page count would change and names
+  the puzzle it shares the page with"*. Removing a false claim satisfies the criterion unchanged.
+- **The alternative makes a cost the review already flagged worse.** F-007 records that every verify of a
+  booked puzzle now reads the whole book row-by-row and walks the pairing twice; adding a full interior
+  count to that path, on a request the owner waits on, buys two numbers the criterion never asked for.
+- **The fix must prove the delta it states.** A split pair adds a puzzle page; whether that transfers
+  one-for-one to the interior count depends on nothing else moving — and the tier is pinned, so level
+  runs and their dividers cannot move. If that transfer can be shown, *"one page longer"* is honest; if
+  it cannot, the message must say what was actually measured (a puzzle page) rather than borrow a term
+  that means something larger. **Do not state a transfer you have not tested.**
