@@ -823,3 +823,28 @@ earlier tree**: `main` planned it fine, this branch's first cut raised a bare `V
 raises a `RuntimeError` naming the row. **F-005 took the docstring remedy** and names the one test two
 classes away that actually kills M6. **F-009's suggestion was half-declined with its reason** — no
 filtering or caching added, the figure and the identified narrowing recorded in the docstring instead.
+
+- **[Build gate 2]** `0cba979` — **2 failed**, 8558 passed, 1 skipped, 15:19.
+  `tests/property/test_book_ready_gate.py::test_no_exit_from_draft_bypasses_it_in_either_storage_mode[published-db]`
+  (SQLAlchemy's insertmanyvalues sentinel processor was handed a float: `UUID(hex=inf)` →
+  `AttributeError: 'float' object has no attribute 'replace'`) and
+  `tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault::test_loopback_is_served`
+  (nothing answered on `127.0.0.1:62714` while its own server was up).
+- **[Build gate 2 — not solo in fact]** The gate's guard refuses to START while another pytest is
+  alive; it cannot stop one from starting afterwards. CARD-253's implementation agent ran a
+  288-test Chromium suite (3:05) and two further selections inside this gate's 15-minute window.
+  So the guard did its job and the window was still shared — the rule needs a lock other runs
+  **honour**, not only a check at the door. Recorded as a defect in the gate procedure, not in
+  this card's code.
+- **[What that does and does not license]** It does **not** license writing the two failures off.
+  Both files pass solo (15 passed, 6.9s), but 15 green tests are not evidence about an 8558-test
+  run. The discriminator is that this suite has **no `pytest-randomly`** — collection order is
+  deterministic — so a solo full suite must reproduce anything that is real or order-dependent,
+  and can only come back green if the cause was concurrent. Gate 3 runs solo, first in wave 48's
+  serialized chain, and is the measurement. Until it returns, this card's verdict is **unknown**,
+  not green.
+- **[Build gate 3 — PASSED]** `0cba979`, **solo**: 8560 passed, 1 skipped, 14:39, EXIT=0. The two
+  tests gate 2 failed on are in that count and green. Order is deterministic in this suite, so this
+  run is the evidence gate 2's failures were **concurrent-window artefacts** and not this card's —
+  the attribution is now measured, not argued. Fix cycle 1's ten findings stand closed on a green
+  full suite; next station is the certification review (cycle 2).
