@@ -254,3 +254,42 @@ template header, the `ADDED_SINCE_BEFORE` registry).
   red, green, green — one fix landed between the second and third. That sequence cannot distinguish
   a fix from a failure that stopped appearing, and it is recorded that way rather than counted as
   evidence.
+
+### [Review 1/3] Score 7.5 — FAILED on the severity gate (1 open Important)
+
+Report: `meta/review/20261019T223846Z-CARD-253-cycle1.yml` (copied to main).
+
+- **The card's three hardest claims were re-derived by mutation and all three hold.** The relation
+  guard's shape: M3 (brush renamed "Reset") and M4 (reset button renamed "Clear") both red, and both
+  are mutants **a copied CARD-247 absence guard would pass** — M3 leaves no "Clear" on the page at
+  all. Not copying the editor's shape was the right call, and now it is measured rather than argued.
+  `_control_label`'s `count() == 1`: the reviewer added its own **M10** (rename the title's id) to
+  exercise the zero-match path without unwiring solver.js the way M5 does — it reds all three new
+  tests, so CARD-250's failure mode is shut, not merely described. AC-4: M1 reds a pre-existing
+  updated site **loudly**, on a `Locator.click` timeout against a zero-match locator, because
+  `_button` uses `get_by_role(..., exact=True)` — and that same `exact=True` is what stops the new
+  "Reset board" colliding with `_button(page, "Reset")` under Playwright's default substring
+  matching, which would have been a real hazard of this particular rename.
+- **F-001 (important, `tests/test_puzzle_solver_brush_menu.py:53/:227-230/:248/:285`) — the fourth
+  site of the claim this card corrected three times.** CARD-247's "the brush's label appears in four
+  places, including the reset confirmation" is false now, and this card is what falsified it. The card
+  fixed that claim deliberately in `puzzle_solve.html`'s header and twice in `solver.js`, and missed
+  the third file — which its own notes say it opened and ran. The suite therefore now asserts both
+  things about one page, and a later reader has no reason to prefer the newer one. That half of the
+  claim is also no longer coverage: no mutant on the brush's label can red it, because the
+  confirmation no longer carries the label. It stays green only because the one confirmation element
+  it reads is `#puzzle-player-confirm-text`, which this card did not touch.
+- **Minors**: `meta/design/components.md:296` still quotes the old strings (weighted down — nothing
+  pins that file to the templates, and CARD-247 set the same precedent); AC-3's new test duplicates
+  `TestSolverBrushMenu_FourthBrushIsCalledClear` assertion-for-assertion and **kills no mutant that
+  test does not already kill**, adding one genuinely new structural read; and
+  `marking.py:1225`'s `assert "Clear" not in title…` sits after the two literal equalities, so it can
+  never be the line that reds.
+- **One correction to this card's own record, from the reviewer**: M7 is **not** the only mutant that
+  reds the announce test — M10 reds it too, and M7 also reds the pre-existing progress site, so the
+  literal is independently pinned there as the card claimed. The card's mutant table is what a later
+  reader trusts, so the fix cycle carries that correction.
+- **M6's survival re-confirmed, three runs**, and the narrowed docstring judged true as written: the
+  accname algorithm does prefer `aria-labelledby`. The test earns its place because M7 and M10 are
+  controls that can fail, and because it asserts a relation that survives the next rename where the
+  progress site pins only today's literal.

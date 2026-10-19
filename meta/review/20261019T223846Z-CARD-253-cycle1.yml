@@ -1,0 +1,253 @@
+version: 1
+generated_at: "2026-10-19T22:38:46Z"
+target: "CARD-253 cycle 1 of 3 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-253, branch card/253-player-reset-confirmation, HEAD 9a3cc21; card work = git diff b2b2491 2ba64a5 (10 files)"
+overall_score: 7.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/templates/puzzle_solve.html"
+    - "src/nonogram/admin/static/solver.js (diff + BRUSH_LABEL/setTool region)"
+    - "src/nonogram/admin/templates/_icons.html"
+    - "tests/test_puzzle_solver_marking.py (helpers + the four new tests + updated sites)"
+    - "tests/test_puzzle_solver_progress.py (updated sites)"
+    - "tests/test_puzzle_solver_resume.py, _clues.py, _hint.py, _maybe.py, _percent.py (updated sites, diff)"
+    - "tests/test_browser_fixture_scope.py (ADDED_SINCE_BEFORE + the collection guard + its controls)"
+    - "tests/test_puzzle_solver_brush_menu.py (TestSolverBrushMenu_FourthBrushIsCalledClear + module docstring)"
+    - "meta/kanban/cards/CARD-253.md, meta/design/components.md, meta/architecture/requirements.yml (reset/confirmation clauses)"
+  not_reached:
+    - "src/nonogram/admin/static/admin.css (co-change peer; no selector or class changed by this card)"
+    - "src/nonogram/admin/static/solver_state.js (co-change peer; carries no user-facing label)"
+    - "the rest of the 8529-test suite (never run per the brief; the caller's gate is the citation)"
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 242, removed: 30 }
+  max_fan_in:
+    symbol: 'the literal "Clear board" / "Clear the board?" as a Playwright locator'
+    callers: 19
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/solver.js (30 commits, 8 fix/bug)"
+    - "src/nonogram/admin/templates/puzzle_solve.html (21 commits)"
+  cochange_missing:
+    - "src/nonogram/admin/static/admin.css (17/21 commits with puzzle_solve.html) — judged NOT missing: no class, selector or geometry changed; the register's `max 22rem` still fits a one-character-shorter label"
+    - "src/nonogram/admin/static/solver_state.js (11/21) — judged NOT missing: pure state module, no user-facing string"
+    - "tests/test_puzzle_solver_brush_menu.py (4/21) — IS a missing change; see F-001"
+  unmeasured:
+    churn_window: "tooling_failure — `git log --since=12.months` returned 0 commits for every touched path on this clock while the same query with an absolute `--since=2025-10-20` returned 21; the absolute-date counts are the ones reported above"
+
+system_contract:
+  rules_checked: 10
+  holds: 7
+  unchecked: 2
+  violated: 1
+  verdicts:
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff contains no Python under src/ at all (git diff --stat b2b2491 2ba64a5: one template, one .js comment pair, eight test files); no signature, request field, export field or grid construction appears in it"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no layout function, PageSpec or cell-fitting code in the diff"
+    - "ADR-0038/R1 ✓ holds — no framework, build step, npm or vendored JS added: the only .js change is 2 comment lines (git diff b2b2491 2ba64a5 -- src/nonogram/admin/static/solver.js = 4 lines, every one prefixed //), and pyproject.toml is absent from the 10-file diff"
+    - "ADR-0038/R6 ✓ holds — no route, template or payload added: the src change is two text nodes inside the pre-existing #puzzle-player-confirm element (puzzle_solve.html:192,195) plus the {# #} header; app.py is not in the diff"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the diff; the four new tests reuse the family's existing browser_page fixture and @pytest.mark.browser rather than declaring any dependency"
+    - "ADR-0038/R8 ✓ holds — the four new tests carry @pytest.mark.browser and ran under Chromium in this review's own targeted run (25 passed on the restored tree, see findings evidence); they neither skip nor pass silently"
+    - "ADR-0039/R1 ✗ violated — tests/test_puzzle_solver_brush_menu.py:53, :227-230, :248, :285 keep CARD-247's claim that the brush's label 'Clear' appears in FOUR places including the reset confirmation; after puzzle_solve.html:192,195 that half of the claim is false of the page and no control can fail for it, while this card's own puzzle_solve.html header (:32-45) and AC-3 say three places. See F-001"
+    - "ADR-0039/R2 ✓ holds — the new guards derive nothing from a hand-written set: all four labels are read off the rendered page through structural locators (_RESET/_ACCEPT/_FOURTH_BRUSH, marking.py:1159-1161), and _control_label's count()==1 + non-empty assertion makes an absent control a FAILURE rather than a silent pass — measured, mutants M8 (text emptied) and M10 (title id renamed, the count()==0 path) both red"
+    - "ADR-0039/R3 ✓ holds — the card's only exemption-shaped set is ADDED_SINCE_BEFORE; its control (test_the_baseline_goes_red_in_both_directions) and its equality against today's sites (test_every_allowlist_entry_is_attributed_and_not_already_recorded, plus claim 4's derived count) are pre-existing and cover the four new entries, and mutant M9 (the four entries struck) reds the collection guard naming all four node ids"
+    - "CON-021 ✓ holds — no storage, request or server-state code in the diff; the resume and no-request-per-mark sites were locator-only updates and are green on the caller's build gate for this tree (8529 passed, 1 skipped, exit 0)"
+
+root_causes:
+  - id: RC-1
+    title: "the four-places→three-places correction was applied to the template header and solver.js comments but not to the test file that encodes the same claim"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_brush_menu.py
+    line: 53
+    title: "CARD-247's 'the brush's label is in four places, including the reset confirmation' claim is now false and was left standing"
+    description: |
+      This card deliberately corrected exactly this claim in two other files
+      because the rename made it false — puzzle_solve.html's own {# #} header
+      ("the menu item on this page, the hint below the board and solver.js's
+      BRUSH_LABEL ... are the THREE places", :32-35, plus the new paragraph
+      ":37-45" saying "The reset confirmation is NOT one of them any more") and
+      solver.js's two comment lines. The third place the same claim lives was
+      missed, and the card's notes say the file was opened and run
+      ("brush_menu + marking (126 passed)"), so this is missed, not deferred:
+
+        * :53-55  module docstring — 'The fourth brush reads **"Clear"**
+          everywhere a human reads it — the menu item, the trigger, the usage
+          hint and the reset confirmation'.
+        * :227-230 class docstring — 'The label used to appear in four places
+          and all four made the same claim: ... and the reset confirmation.'
+        * :248 the test's NAME —
+          test_the_item_the_trigger_the_hint_and_the_confirmation_all_say_clear.
+        * :285 — '... the hint and the hidden reset confirmation' listed among
+          what the rename touched and is rendered for the sweep.
+
+      The shipped page disagrees: puzzle_solve.html:192 reads "Reset the
+      board?" and :195 "Reset board". The confirmation element the test
+      actually reads is #puzzle-player-confirm-text ("Every mark is cleared.",
+      :253/:262), which this card did not touch — which is why the test is
+      green, and why the staleness is invisible to the suite. Under
+      ADR-0039/R1 that half of the claim is now narrative, not coverage: no
+      mutant on the brush's label can red it, because the confirmation no
+      longer carries the label.
+
+      The suite now states both things about the same page: brush_menu says the
+      confirmation says Clear; marking.py's new AC-1/AC-2 say it says Reset and
+      not Clear. A future reader resolving that contradiction has no reason to
+      prefer the newer one.
+
+      Measured, not inferred: mutant M3 (the fourth brush renamed "Reset" in
+      puzzle_solve.html:180) reds
+      TestSolverBrushMenu_FourthBrushIsCalledClear::test_the_item_the_trigger_the_hint_and_the_confirmation_all_say_clear
+      and ::test_no_user_facing_string_in_the_player_says_undecided — so the
+      test is live and guarding, which is precisely why its wording matters.
+    suggestion: |
+      Narrow the claim to what is measured, in the same comment-only shape the
+      card already used twice:
+        * :53-55 — "the menu item, the trigger and the usage hint" (drop "and
+          the reset confirmation"), with a half-sentence that CARD-253 moved
+          the confirmation's wording to Reset and that what this file still
+          pins there is the body line "Every mark is cleared.".
+        * :227-230 — "used to appear in four places ... the fourth, the reset
+          confirmation, no longer carries the label (CARD-253); what the first
+          test still asserts about it is its body line."
+        * :285 — same half-sentence.
+      The NAME at :248 is the harder half and needs a decision recorded on the
+      card, not a silent edit: renaming it is a RENAMED_SINCE_BEFORE entry (the
+      card's "no rename table is owed" measurement covered the 19 locator
+      strings, not the test name this change falsified) and G-4 forbids a
+      casual rename. Either rename it with a proper rename-table entry, or keep
+      the name and say on the card why a name that over-claims is being kept.
+      The three docstrings are the part that must not ship as-is.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/design/components.md
+    line: 296
+    title: "the ResetConfirm design-register entry still quotes the old strings"
+    description: |
+      'An in-page alertdialog popover under the history controls: "Clear the
+      board?" with "Clear board" / "Keep marks"' — both literals are what this
+      card changed (puzzle_solve.html:192,195). The register is the project's
+      own description of shipped UI and other cards read it as truth.
+      Weighed down deliberately: no standing rule or test pins components.md
+      to the templates (grep over tests/ finds one unrelated reference), there
+      is no DESIGN-REGISTER protocol document, and CARD-247 set the opposite
+      precedent — it renamed the editor's equivalent without touching this file
+      (git log -- meta/design/components.md stops at CARD-195). So this is a
+      pre-existing convention lapse that this card doubles rather than a rule
+      it broke, and it is a one-line fix at the cheapest possible moment.
+    suggestion: |
+      Update the two literals in the ResetConfirm entry to "Reset the board?" /
+      "Reset board" and note (CARD-253) beside the (CARD-162) attribution.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_solver_marking.py
+    line: 1286
+    title: "AC-3's new browser test duplicates a pre-existing guard and kills no mutant it does not already kill"
+    description: |
+      TestSolverReset_TheBrushKeepsItsName::test_the_fourth_brush_still_reads_clear_in_all_three_places
+      asserts _trigger_text == "Clear", _trigger aria-label == "Brush: Clear"
+      and _menu_item("Clear").count() == 1. All three are already asserted,
+      with the same helpers, by
+      tests/test_puzzle_solver_brush_menu.py:257,262,263
+      (TestSolverBrushMenu_FourthBrushIsCalledClear, CARD-247). Measured: the
+      mutant AC-3 exists to catch — the fourth brush renamed "Reset"
+      (puzzle_solve.html:180) — reds that pre-existing test too (run in this
+      review), and AC-2 in the same new class reds on it as well. So the new
+      test adds one genuinely new assertion, the structural read
+      _control_label('[data-player-tool="unknown"]') == "Clear", and otherwise
+      permanently adds a browser-tier test (the slowest tier, taxing every
+      future card's suite) for a claim already guarded twice.
+      Not an Important: AC-3 asked for a test, G-1 is the owner's decision and
+      a card-local guard for it is defensible; this is a cost note with a
+      measurement behind it.
+    suggestion: |
+      Either cut the test to its one new assertion (the structural
+      _FOURTH_BRUSH read) and cite brush_menu.py's
+      TestSolverBrushMenu_FourthBrushIsCalledClear for the other three in the
+      docstring, or keep it and say in the docstring that it is a deliberate
+      card-local duplicate of that test so a later reader does not dedupe the
+      wrong one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_solver_marking.py
+    line: 1225
+    title: "AC-1's third assertion cannot fail once the two above it pass"
+    description: |
+      assert "Clear" not in title and "Clear" not in accept follows
+      assert title == "Reset the board?" and assert accept == "Reset board".
+      Those equalities already imply it, so the line can never be the one that
+      reds — it is a dead assertion, the same family as CARD-250's "assertion
+      true for every possible implementation" that _control_label was built to
+      prevent one layer down. Harmless, but it reads as extra coverage and is
+      not.
+    suggestion: |
+      Drop the line, or replace it with the casefolded form the card's own edge
+      note implies — `"clear" not in _words(title) | _words(accept)` — which is
+      strictly weaker than the equalities but is at least a different claim.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutants:
+  command: "./.venv/bin/python -m pytest -p no:randomly -q (targeted node ids only; DATABASE_URL=TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nonogram_pythonproject4_card_253_b70c1f32aac5_test)"
+  discipline: "each applied with sed, restored from a cp -p backup in the scratchpad and diff-verified after every run; never git checkout --. Final state: git status clean, git diff --stat HEAD empty."
+  baseline: "5 passed (the four new tests + test_ac320_thirty_marks_cleared_after_accepting); 25 passed on the final restored tree (the two new classes + TestBrowserFixtures_NoTestAddedOrRemoved + TestSolverProgress_ResetAfterConfirm)"
+  runs:
+    - { id: M1, target: 'puzzle_solve.html:195 accept text back to "Clear board"', result: killed, by: "AC-1, AC-2 and TestSolverProgress_ResetAfterConfirm::test_ac320_thirty_marks_cleared_after_accepting (a pre-existing UPDATED site, failing loudly on a Locator.click timeout against a 0-match exact=True locator, not passing on nothing) — AC-4's obligation re-derived independently" }
+    - { id: M2, target: 'puzzle_solve.html:192 title back to "Clear the board?"', result: killed, by: "AC-1, AC-2 and the same pre-existing site" }
+    - { id: M3, target: 'puzzle_solve.html:180 fourth brush renamed "Reset"', result: killed, by: "AC-2 and AC-3 — the mutant an absence-shaped guard copied from CARD-247 AC-7 would MISS (no 'Clear' left on the page at all); also reds the pre-existing TestSolverBrushMenu_FourthBrushIsCalledClear (both its tests), which is the evidence behind F-001 and F-003" }
+    - { id: M4, target: 'puzzle_solve.html:190 reset BUTTON renamed "Clear"', result: killed, by: "AC-2 (the inverse collision, also invisible to an absence guard); AC-3 stays green, correctly, because the brush is untouched" }
+    - { id: M8, target: "puzzle_solve.html:195 accept button emptied of its text", result: killed, by: "AC-1 and AC-2 — _control_label's non-empty assertion, so an empty label is a named failure" }
+    - { id: M10, target: 'puzzle_solve.html:192 title id renamed to puzzle-player-confirm-titlex (the count()==0 path, reviewer-added)', result: killed, by: "all three tests of the new class — _control_label's count() == 1 reds when the locator matches nothing, so the CARD-250 failure mode the helper cites is genuinely shut, not merely described" }
+    - { id: M6, target: 'puzzle_solve.html:191 stale aria-label="Clear the board?" added beside aria-labelledby', result: survived, by: "nothing — EXIT=0 over the new class + the progress site. The card's recorded survivor is confirmed: the accname algorithm prefers aria-labelledby, so the announced name is still the title. The narrowed docstring (marking.py:1259-1272) is TRUE as written and M7 below is a control that can fail, so ADR-0039/R1 is satisfied for this test; the stale-attribute class is simply outside what any accname assertion can see" }
+    - { id: M7, target: "puzzle_solve.html:191 dialog loses aria-labelledby", result: killed, by: "test_the_dialog_announces_the_sentence_it_shows AND the pre-existing test_ac320_thirty_marks_cleared_after_accepting (its get_by_role('alertdialog', name=...)) — so M7 is NOT the only thing that reds the announce test (M10, which retargets aria-labelledby by renaming the title's id, reds it too), and the literal is independently pinned by the progress site" }
+    - { id: M9, target: "test_browser_fixture_scope.py:853-882 — the four new ADDED_SINCE_BEFORE entries struck", result: killed, by: "TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured, reporting 'tests added' and naming all four node ids verbatim" }
