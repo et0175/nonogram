@@ -215,7 +215,7 @@ the allow-list is a claim that that answer never writes** — make it true at th
 
 _Assembled 2026-10-19 by `system_rules.py --card CARD-251 --root meta/architecture` (58 rules returned, `card_scope: touches`). A projection — fix the source artifact, never this list._
 
-**Curated to 10; 48 dropped and declared.** Nearly all of the projection is scoped `src/nonogram/**` or `src/nonogram/admin/**.py` — package-wide, so it matches every card on this board and narrows to nothing. Owner decision 2026-10-17: ship the curated form with the dropped count stated. Kept below are the rules a reviewer can hold *this diff* against.
+**Curated to 10; 48 dropped and declared.** Nearly all of the projection is scoped `src/nonogram/**` or `src/nonogram/admin/**.py` — package-wide, so it matches every card on this board and narrows to nothing. Owner decision 2026-10-17: ship the curated form with the dropped count stated. **Superseded 2026-10-19 by [`meta/kanban/curation.md`](../curation.md)** — this card's curation dropped `ADR-0039`, the rule about claims outrunning their mechanisms, and then produced instances of exactly that family. The rule now keeps every in-scope rule whose enforcement does not reach the card's new code. Kept below are the rules a reviewer can hold *this diff* against.
 
 - **ADR-0006/R1** — The runtime dependency set is exactly stdlib + Pillow + NumPy. No third-
   party package joins the installed dependencies without revising this ADR. Non-executable
