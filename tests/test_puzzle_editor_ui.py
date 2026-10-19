@@ -411,6 +411,59 @@ class TestPuzzleEditor_Guardrails:
         assert "data-player-progress" in player
         assert 'id="puzzle-player-solved"' in player
 
+    #: A write to the save bar's message line, by either route this file could
+    #: take: the binding ``tell`` holds, or a fresh lookup of the element.
+    #: RESIDUAL, stated rather than left as a claim of completeness: a writer
+    #: that aliases the element to a third name first
+    #: (``const m = message; m.textContent = ...``) is not matched. The guard
+    #: reads the two spellings the file actually uses; a third would be a new
+    #: shape, and the coupling tests in
+    #: ``TestPuzzleEditor_TheOfferAndTheWordsAgree`` are what stand behind it.
+    _WRITES_THE_MESSAGE = re.compile(
+        r"""(?:\bmessage\b|getElementById\(\s*['"]puzzle-editor-message['"]\s*\))"""
+        r"""\s*\.\s*(?:textContent|innerText|innerHTML|replaceChildren|replaceWith"""
+        r"""|append|appendChild|insertAdjacentHTML|insertAdjacentText)"""
+    )
+    _WRITES_THE_OFFER = re.compile(r"\bdecide\s*\.\s*hidden\s*=")
+
+    def test_tell_is_the_only_writer_of_the_message_and_the_offer(self) -> None:
+        """G-2, LITERALLY -- the clause, not only its consequence.
+
+        The suite pinned the *coupling* (every sentence carries its own offer,
+        so a refusal never stands beside a live Approve) and that is well
+        pinned. It did not pin the clause G-2 actually states. Measured by the
+        AC/EC/G gate on 2026-10-19: replacing ``tell(inFlightText(inFlight))``
+        in ``onLeave`` with ``message.textContent = inFlightText(inFlight)``
+        -- a literal second writer -- left 98 tests passing. A second writer
+        that happens not to decouple the message from the offer was invisible,
+        which is a claim stated wider than its mechanism (the family that
+        produced a finding on every review cycle of this card).
+
+        So: exactly one write of each, and both inside ``tell``. The point is
+        not tidiness. It is that "a refusal standing beside a live Approve is
+        not a state this file can be in" is only true while one function
+        decides both, and a reviewer should be able to check that by counting
+        rather than by reading every path.
+        """
+        script = (_STATIC / "puzzle_edit.js").read_text()
+        code = "\n".join(
+            line for line in script.splitlines() if not line.lstrip().startswith("//"))
+
+        messages = self._WRITES_THE_MESSAGE.findall(code)
+        offers = self._WRITES_THE_OFFER.findall(code)
+        assert len(messages) == 1, messages
+        assert len(offers) == 1, offers
+
+        # ...and both of them are tell's own. Sliced from its declaration to
+        # the next function's, so a write that moved out of tell but stayed
+        # the only one still fails.
+        start = code.index("function tell(")
+        body = code[start:]
+        end = body.index("\n  function ", 1)
+        tell_body = body[:end]
+        assert self._WRITES_THE_MESSAGE.search(tell_body), tell_body[-400:]
+        assert self._WRITES_THE_OFFER.search(tell_body), tell_body[-400:]
+
     def test_the_editor_ships_no_second_grid_renderer(self, admin_app) -> None:
         """G-2. One renderer in the panel, asserted over what the editor's
         page actually LOADS rather than over one class name (review cycle 1,
@@ -942,10 +995,18 @@ _APPROVE_THEN_PAINT = """([grid]) => {
 #: case. Written out rather than parameterising that helper, because what the
 #: two presses race ends differently and a test should not have to read which
 #: request a shared helper was timed against (review cycle 2, F-002).
+_STATE_AFTER = """{
+    path: window.location.pathname,
+    said: document.getElementById('puzzle-editor-message').textContent,
+    busy: document.getElementById('puzzle-editor-leave').getAttribute('aria-disabled'),
+    confirming: !document.getElementById('puzzle-editor-leave-confirm').hidden,
+  }"""
+
 _APPROVE_THEN_BACK = """() => {
   document.getElementById('puzzle-editor-approve').click();
   document.getElementById('puzzle-editor-back').click();
-}"""
+  return %s;
+}""" % _STATE_AFTER
 
 #: The store's write SUCCEEDED and the page has acted on it: either the
 #: success is on the bar, or the bar is gone because the page left for the
@@ -2332,12 +2393,6 @@ _BADGE_COLOURS = """([ids]) => Object.fromEntries(Object.entries(ids).map(([tier
 #: request is unanswered. Read there rather than after, because the honest
 #: question is what the press did at the moment it was made: a fetch cannot
 #: resolve inside the task that started it, so nothing has answered yet.
-_STATE_AFTER = """{
-    path: window.location.pathname,
-    said: document.getElementById('puzzle-editor-message').textContent,
-    busy: document.getElementById('puzzle-editor-leave').getAttribute('aria-disabled'),
-    confirming: !document.getElementById('puzzle-editor-leave-confirm').hidden,
-  }"""
 
 _APPROVE_THEN_LEAVE = """() => {
   document.getElementById('puzzle-editor-approve').click();
@@ -2890,7 +2945,17 @@ class TestPuzzleEditor_ApproveCommitsThenReturnsToTheList:
         _wait_for_message(browser_page, "Difficulty")
         errors, asked = _watch(browser_page)
 
-        browser_page.evaluate(_APPROVE_THEN_BACK)
+        state = browser_page.evaluate(_APPROVE_THEN_BACK)
+        # THE SILENCE, read in the press's own task (AC/EC/G gate, 2026-10-19).
+        # The amended AC-7 says this press is "ignored in silence" and names
+        # THIS test as carrying that clause -- and it did not: with the guard
+        # changed to `tell(BACK_TO_EDIT); return;` the whole suite still
+        # passed, so the page could have announced "your edit is still there"
+        # over a live store write, which is the alternative AC-7's own
+        # justification records as REJECTED for brushing THE INVARIANT.
+        # Ignored means ignored: the sentence on the bar is still the store's.
+        assert "Storing this grid" in state["said"], state
+        assert "your edit is still there" not in state["said"], state
         _wait_for_the_list(browser_page)
 
         assert _posted(asked, "/edit") == [EDITED], asked
