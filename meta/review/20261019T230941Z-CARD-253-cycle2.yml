@@ -1,0 +1,244 @@
+version: 1
+generated_at: "2026-10-19T23:09:41Z"
+target: "CARD-253 cycle 2 of 3 (CERTIFICATION, confirmation mode) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-253, branch card/253-player-reset-confirmation, HEAD 35298ca; fix delta = git diff 9a3cc21 35298ca (3 test files, +78/-32); src/ delta EMPTY"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+verdict: >-
+  CERTIFY. All four cycle-1 findings are closed and every closure was
+  re-derived by this reviewer's own mutants rather than taken on report.
+  Zero Critical, zero Important, zero Minor. The severity gate passes (no
+  open Important) and 9.5 clears min_score 8. Cycle 1's gating Important was
+  in the CLAIM family; cycle 2 raises no claim-family finding in
+  brush_menu.py or anywhere else, so there is no third generation and the
+  recommendation is unchanged by family regression.
+
+coverage:
+  read:
+    - "git diff 9a3cc21 35298ca (the whole fix delta, 3 files)"
+    - "git diff b2b2491 35298ca -- src/nonogram/admin/templates/puzzle_solve.html (G-3 structural check against the card base)"
+    - "tests/test_puzzle_solver_brush_menu.py (module docstring :51-81, class docstring :237-272, both tests :273-330)"
+    - "tests/test_puzzle_solver_marking.py (:1131-1320 — both CARD-253 classes, AC-1/AC-2/announce docstrings, the reduced AC-3 test, helper usage)"
+    - "tests/test_browser_fixture_scope.py (:709-900 ADDED_SINCE_BEFORE/RENAMED_SINCE_BEFORE, :1032-1086 _rename_problems, :1238-1350 the table's own controls)"
+    - "src/nonogram/admin/templates/puzzle_solve.html (header :28-50, tool menu :176-184, confirm block :189-199)"
+    - "src/nonogram/admin/static/solver.js (BRUSH_LABEL :971-976, the confirmation comment sites)"
+    - "meta/kanban/cards/CARD-253.md (AC, guardrails, system contract, implementation record, cycle-1 record, fix record, both mutant tables)"
+    - "meta/review/20261019T223846Z-CARD-253-cycle1.yml (all four findings, all 9 cycle-1 mutant rows)"
+    - "meta/design/components.md (worktree AND main copies), meta/architecture/requirements.yml (swept for the literals: zero hits), meta/kanban/dispatcher.state:650-675"
+  not_reached:
+    - "CARD-247's inherited mutant sentence in the class docstring ('[UNKNOWN]: \"Undecided\" in BRUSH_LABEL fails both tests'). The fix did not touch that sentence and cycle 1 did not challenge it; MD used \"Cleared\", which does not trip the sweep's 'ndecided' scan, so the exact-form claim is carried from CARD-247, not re-measured here. Corroborated indirectly by MC."
+    - "M7 (dialog loses aria-labelledby) — killed in cycle 1; its claim's substance is unchanged by the fix, which only ADDED M10 beside it. Carried(cycle 1, delta-clean on src/)."
+    - "src/nonogram/admin/static/admin.css and solver_state.js (co-change peers; verified untouched vs the card base, so no read needed)"
+    - "the rest of the 8529-test suite — never run per the brief; the caller's re-gate on 9a3cc21 (8529 passed) is the citation, and the fix delta changed no src/ line"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 78, removed: 32 }
+  src_delta: "EMPTY — git diff --stat 9a3cc21 35298ca -- src/ returns nothing. Verified first, as instructed; it is what bounds this cycle to the evidence layer and makes every src-side guardrail delta-clean."
+  max_fan_in:
+    symbol: 'the body line "Every mark is cleared. Undo brings them back." / #puzzle-player-confirm-text as a test locator'
+    callers: 1
+    note: "grep over tests/ finds exactly ONE assertion site (brush_menu.py:291). This is the static half of MA's 'and nothing else'; MA's run is the measured half."
+  tests_cover_change: true
+  hotspots:
+    - "tests/test_puzzle_solver_brush_menu.py (the file cycle 1's Important was in; the file this cycle's certification centres on)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — the fix delta is comment/docstring-only across 3 test files with an empty src/ delta; co-change peers of a docstring edit carry no signal, and the two peers cycle 1 named (admin.css, solver_state.js) were re-confirmed untouched against the card base b2b2491."
+    churn_window: "tooling_failure — carried from cycle 1: `git log --since=12.months` returns 0 commits for every touched path on this host's clock while an absolute --since=2025-10-20 returns 21. Not re-derived; it weights nothing in a cycle with no findings."
+    timing: "not_applicable — the brief forbids timing measurement (a CARD-225 fix cycle is running concurrently). No wall-clock figure was taken or reported."
+
+system_contract:
+  rules_checked: 10
+  holds: 8
+  unchecked: 2
+  violated: 0
+  verdicts:
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). The fix delta contains no Python under src/ at all (src/ delta is empty); no signature, request field, export field or grid construction appears in it."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). No layout function, PageSpec or cell-fitting code in the delta; src/ delta empty."
+    - "ADR-0038/R1 ✓ holds — src/ delta empty (git diff --stat 9a3cc21 35298ca -- src/), so no framework, build step, npm or vendored JS can have entered; pyproject.toml also untouched against the card base (git diff b2b2491 35298ca --stat -- pyproject.toml empty)."
+    - "ADR-0038/R6 ✓ holds — src/ delta empty; no route, template or payload changed by the fix. The template's confirm block was re-verified byte-identical to the card base apart from the two text nodes (git diff b2b2491 35298ca -- puzzle_solve.html)."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml untouched vs the card base; the reduced AC-3 test still reuses the family's browser_page fixture and @pytest.mark.browser (marking.py:1288, decorator verified intact after the reduction)."
+    - "ADR-0038/R8 ✓ holds — all three changed/reduced tests carry @pytest.mark.browser and ran under real Chromium in this review's own runs (75 passed on the baseline selection, 104 passed on test_browser_fixture_scope.py + test_puzzle_solver_marking.py, both exit 0). They neither skip nor pass silently."
+    - "ADR-0039/R1 ✓ holds — THE RULE CYCLE 1 FOUND VIOLATED, now satisfied and measured. Every narrowed claim the fix wrote was driven to a control that can fail: MA (body line reworded) reds brush_menu's first test and NOTHING else over 75 tests; MB (title reverted) and ME (accept button reverted) each leave BOTH brush_menu tests green and red marking.py's AC-1 and AC-2 — so the division of labour the new docstrings claim exists in both directions, not just the one the fix measured. The reduced AC-3 claim: MC reds the reduced test AND the named survivor, MD reds ONLY the survivor. The corrected M6/M7 record: M10 reds all three tests of the confirmation class, the announce test included."
+    - "ADR-0039/R2 ✓ holds — the reduced AC-3 test still reads its label off the rendered page through the structural locator _FOURTH_BRUSH ('[data-player-tool=\"unknown\"]'), and _control_label's count() == 1 + non-empty assertion still makes an absent control a FAILURE: measured again here by M10, which reds all three tests of the confirmation class via the zero-match path."
+    - "ADR-0039/R3 ✓ holds — the only exemption-shaped set is ADDED_SINCE_BEFORE. Its own controls are green (tests/test_browser_fixture_scope.py whole file, 104 passed with marking.py): test_the_rename_table_refuses_what_it_claims_to, test_every_allowlist_entry_is_attributed_and_not_already_recorded, test_the_family_collects_exactly_what_card_217_measured, test_the_baseline_goes_red_in_both_directions. The fix's two register edits (CARD-247's corrected reason at :813, CARD-253's rewritten entry at :878-884) both pass them."
+    - "CON-021 ✓ holds — src/ delta empty, so no storage, request or server-state code changed; the resume/progress/percent/clues/hint/maybe locator sites are unchanged by this delta and TestSolverProgress_ResetAfterConfirm is green in this review's own runs."
+
+guardrails:
+  - "G-1 ✓ holds — the brush still reads 'Clear' on the page: puzzle_solve.html:180 (>Clear</button>) and solver.js:976 (BRUSH_LABEL[UNKNOWN]: \"Clear\") are both unchanged vs the card base; asserted green by the reduced AC-3 test AND by brush_menu's TestSolverBrushMenu_FourthBrushIsCalledClear."
+  - "G-2 ✓ holds — git diff b2b2491 35298ca --stat -- src/nonogram/admin/templates/puzzle_edit.html is EMPTY. The editor's wording is untouched across the whole card, not just the fix delta."
+  - "G-3 ✓ holds — the confirm block is byte-identical to the card base apart from the two text nodes. Verified line by line in git diff b2b2491 35298ca -- puzzle_solve.html: id=\"puzzle-player-confirm\", role=\"alertdialog\", aria-labelledby=\"puzzle-player-confirm-title\", aria-describedby=\"puzzle-player-confirm-text\", hidden, both <p> ids and classes, data-player-confirm=\"accept\"/\"cancel\", the btn-danger/btn-outline-secondary classes and \"Keep marks\" ALL appear only as context lines."
+  - "G-4 ✓ holds — no test weakened. The F-003 reduction dropped exactly three assertions (_menu_item('Clear').count() == 1, _trigger_text == 'Clear', aria-label == 'Brush: Clear'); all three are asserted VERBATIM with the same helpers by the named survivor at brush_menu.py:283-289 (read, not inferred), and the division is measured: MC reds both, MD reds only the survivor. The F-004 deletion removed an assertion that could never red (dead after the two equalities above it). The rename is registered — ADDED_SINCE_BEFORE rewritten in place at :878-884, still CARD-253's own entry — and TestBrowserFixtures_NoTestAddedOrRemoved is GREEN."
+  - "G-5 ✓ holds — pyproject.toml and src/nonogram/admin/static/admin.css are both untouched vs the card base (git diff b2b2491 35298ca --stat on each returns empty), so no runtime dependency and no colour literal."
+
+cycle1_findings_verdicts:
+  - "F-001 (Important, claim family) — CLOSED AND CERTIFIED. All five sites corrected; the division of labour the new docstrings claim is real in both directions (MA, MB, ME). The kept name is the right call and the registry's refusal of the alternative was independently reproduced."
+  - "F-002 (Minor) — CLOSED. meta/design/components.md:296 now reads 'Reset the board?' / 'Reset board' with the (CARD-253) attribution and the old strings, COMMITTED on main in 5b501e9. The worktree copy is still the old one; harmless and correct — the branch never touched that file, so the three-way merge keeps main's newer version, and the worktree's meta/ is deleted at done. (The cycle-1 note 'the edit is in the worktree, uncommitted' is now stale; the edit is on main.)"
+  - "F-003 (Minor) — CLOSED by reduction, and the reduction is sound. The survivor genuinely covers all three dropped assertions (read verbatim at brush_menu.py:283-289, and measured: MD reds only the survivor). The rename records nothing false, unlike F-001's: it rewrites CARD-253's OWN ADDED_SINCE_BEFORE entry, which needs no RENAMED_SINCE_BEFORE move because the id was never in CARD-217's record — confirmed by driving _family_node_ids(BEFORE_ARTEFACT). The registry's controls are green."
+  - "F-004 (Minor) — CLOSED by deletion. marking.py:1230-1232 now holds exactly two assertions and no third. AC-1 can still red: MB, ME and M10 all red it. The docstring at :1217-1224 says 'Two assertions and no third', names the CARD-250 family and points at AC-2 where the brush's word being absent IS a relation a mutant can fail."
+
+root_causes: []
+
+findings: []
+
+mutants:
+  command: "./.venv/bin/python -m pytest -p no:randomly -q (targeted node ids only; DATABASE_URL=TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nonogram_pythonproject4_card_253_b70c1f32aac5_test, both as literals; meta/kanban/.full-suite.lock verified ABSENT before every run)"
+  discipline: "each applied with sed, restored from a cp -p backup in the session scratchpad and diff-verified after every run (RESTORED-IDENTICAL printed each time); never git checkout --. Final state: git status shows only meta/ modified; git diff --stat HEAD -- src/ tests/ is EMPTY."
+  baseline: "75 passed — tests/test_puzzle_solver_brush_menu.py (whole file) + TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt + TestSolverReset_TheBrushKeepsItsName + TestSolverProgress_ResetAfterConfirm + TestBrowserFixtures_NoTestAddedOrRemoved. Final restored-tree runs: 104 passed (test_browser_fixture_scope.py + test_puzzle_solver_marking.py, whole files) and the 5-selection set green again after the last restore."
+  runs:
+    - id: MA
+      target: 'puzzle_solve.html:193 body line -> "Every mark is removed. Undo brings them back."'
+      result: killed
+      observed: >-
+        Red: ONLY …FourthBrushIsCalledClear::test_the_item_the_trigger_the_hint_and_the_confirmation_all_say_clear,
+        over the full 75-test selection. The fix's "and nothing else" is
+        CONFIRMED, measured; the static half agrees — grep over tests/ finds
+        exactly one assertion of that line and one read of
+        #puzzle-player-confirm-text (brush_menu.py:291). So the body line
+        really is what that file still pins on the confirmation.
+    - id: MB
+      target: 'puzzle_solve.html:192 title reverted to "Clear the board?"'
+      result: killed
+      observed: >-
+        BOTH brush_menu tests stay GREEN; red: marking.py AC-1
+        (test_the_confirmation_reads_reset_and_not_clear) and AC-2
+        (test_the_word_is_the_reset_buttons_and_is_not_the_brushs), plus the
+        pre-existing TestSolverProgress_ResetAfterConfirm::test_ac320_thirty_marks_cleared_after_accepting.
+        The fix's "green here, red there" is CONFIRMED. Also re-proves AC-1
+        can red after F-004's deletion. Identical to cycle 1's M2; the card's
+        MB row omits the progress site because its selection was narrower —
+        narrower, not false, and the card's own M2 row at :193 records it.
+        The announce test stays green by design (it asserts a relation).
+    - id: ME
+      target: 'puzzle_solve.html:195 accept button reverted to "Clear board" (REVIEWER-ADDED — the half of the class docstring''s claim neither cycle had measured)'
+      result: killed
+      observed: >-
+        BOTH brush_menu tests GREEN; red: marking.py AC-1 and AC-2. The class
+        docstring at :265-268 claims the TITLE *or accept button* reverting
+        leaves both brush_menu tests green; cycle 1's M1 and the fix's MB each
+        measured only one of those two halves, over selections that excluded
+        the other file. Both halves are now measured and both are TRUE, so the
+        sentence is not a claim-family defect in a new place.
+    - id: MC
+      target: 'puzzle_solve.html:180 fourth brush menu item renamed "Reset" (= M3 / the mutant AC-3 exists for)'
+      result: killed
+      observed: >-
+        Red: the reduced test_the_fourth_brush_read_structurally_still_reads_clear,
+        BOTH tests of the named survivor …FourthBrushIsCalledClear, AC-2, and
+        8 further pre-existing brush_menu tests keyed on the menu item's text.
+        The mutant the reduced test exists for still reds it — the reduction
+        did not drop the test's reason to exist.
+    - id: MD
+      target: 'solver.js:976 BRUSH_LABEL[UNKNOWN] -> "Cleared" (the EDGE: the trigger''s text and Brush: name, nothing in the DOM menu)'
+      result: killed
+      observed: >-
+        Red: ONLY the named survivor's first test. The reduced AC-3 test stays
+        green, AC-1/AC-2 stay green. Exactly the division of labour the
+        reduced class's docstring claims (:1305-1309), and together with MC it
+        proves the survivor covers what was dropped while the one retained
+        assertion covers what the survivor does not.
+    - id: M10
+      target: 'puzzle_solve.html:192 title element id renamed to puzzle-player-confirm-titlex (the dangling-reference / count()==0 path)'
+      result: killed
+      observed: >-
+        Red: ALL THREE tests of …TheConfirmationNamesTheButtonThatOpensIt, the
+        announce test test_the_dialog_announces_the_sentence_it_shows INCLUDED.
+        So the fix's correction to the card's M6 row and to marking.py:1268-1277
+        — which had named only M7 — is RIGHT rather than differently wrong.
+        Independently re-derived here, not taken from the fix's report.
+  not_rerun:
+    - "M7 (dialog loses aria-labelledby) — killed in cycle 1 over two independent sites; the fix only ADDED M10 beside it in the record and did not reword that claim's substance. Carried(cycle 1, delta-clean on src/)."
+    - "M6 (stale aria-label beside aria-labelledby) — the recorded SURVIVOR. Cycle 1 re-confirmed its survival over three runs and judged the narrowed claim true; the fix did not change what that docstring asserts about it, only the M7/M10 sentence beside it. Carried."
+
+registry_refusal_rederived:
+  what: "Item 3 — the load-bearing fact behind keeping the name at brush_menu.py:248."
+  how: >-
+    Imported _rename_problems, _family_node_ids, BEFORE_ARTEFACT and
+    ADDED_SINCE_BEFORE from tests/test_browser_fixture_scope.py and drove the
+    table entry that a RENAMED_SINCE_BEFORE record for this rename would have
+    to contain (old = …::test_the_item_the_trigger_the_hint_and_the_confirmation_all_say_clear,
+    new = …::test_the_item_the_trigger_the_hint_and_the_confirmations_body_all_say_clear,
+    card CARD-253, an 18-word reason).
+  derived_facts:
+    - "OLD in CARD-217's record (_family_node_ids(BEFORE_ARTEFACT)): False"
+    - "OLD in ADDED_SINCE_BEFORE: True"
+    - "NEW in CARD-217's record: False"
+  refusals_returned: 3
+  refusals:
+    - "not in CARD-217's record, so there is nothing here to move; a test added since is the allowlist's"
+    - "a move may rename a PARAMETER, not a test — …confirmations_body_all_say_clear names a different test function, which is a coverage change and belongs in neither table"
+    - "also in ADDED_SINCE_BEFORE, so the derived baseline counts it twice"
+  conclusion: >-
+    All three refusals reproduce verbatim as the fix reported them, on three
+    independent grounds, from the registry's own code. "Rename it with a
+    proper rename-table entry" is genuinely NOT an available option for this
+    id. The fix's measurement is sound.
+
+judgement_on_the_kept_name:
+  decision: "KEEP the name. The fix made the right call, and the review endorses it."
+  reasoning:
+    - "There is no legal rename path, re-derived above on three independent grounds. The only remaining route — strike CARD-247's ADDED_SINCE_BEFORE entry and add a new one — would record CARD-247's test as REMOVED and CARD-253 as having ADDED a test it did not write."
+    - "The two artefacts are not of equal weight. The register is machine-consulted and carries its own failing controls (test_the_family_collects_exactly_what_card_217_measured, test_the_baseline_goes_red_in_both_directions, test_every_allowlist_entry_is_attributed_and_not_already_recorded); a false entry there DEGRADES A GUARD whose whole job is to make a browser test's disappearance visible — which is precisely the hole ADR-0039/R3 exists to keep shut. The test NAME is read by humans only."
+    - "The name is narrower-than-it-reads, not false. The test does still read the confirmation (#puzzle-player-confirm-text) and does still assert a sentence on it containing the verb — 'Every mark IS CLEARED.' — so 'the confirmation … say[s] clear' is satisfied by what the test asserts; what changed is that it no longer means the brush's LABEL."
+    - "The correction sits three lines above the name, in the same class docstring, where any reader of the name lands; and the register's own prose for that node id was corrected too (:813), so a machine-assisted reader who never opens the file still gets the narrowed claim. That closes most of the residual cost."
+    - "Trading a verifiable register for a nicer identifier is the wrong direction of trade. Buying a name with a false record is exactly the move ADR-0039 forbids one layer down."
+  residual_cost_accepted: >-
+    The node id stays misleading at a glance to anyone who greps test names
+    without reading the docstring above them. Bounded, documented on the card
+    with the measurement, and mitigated at the register. Not a finding.
+
+sixth_site_sweep:
+  question: "Item 2 — the claim existed in five places; is the set closed?"
+  fifth_site_verdict: >-
+    CONFIRMED CORRECTED. tests/test_browser_fixture_scope.py:811-817 — CARD-247's
+    ADDED_SINCE_BEFORE reason no longer ends "…and the reset confirmation"; it
+    now reads "…and the reset confirmation's body line (CARD-253 moved its
+    title and accept button to Reset, so the label is read in three places
+    now)". CARD-247's ATTRIBUTION IS INTACT: the entry's card field is still
+    "CARD-247" and the key is still CARD-247's node id — the correction is in
+    the reason prose only, which is where it belongs.
+  sixth_site: "NONE LIVE. The set is closed."
+  method: >-
+    git grep + working-tree grep for the exact old literals ("Clear the
+    board?", "Clear board") and for the places-count claim across tests/,
+    src/, meta/ and docs/; plus a targeted read of every "confirmation" hit in
+    the solver family, the registry, components.md and requirements.yml.
+  live_sites_now_correct:
+    - "src/nonogram/admin/templates/puzzle_solve.html:34-45 — 'the three places', with the new CARD-253 paragraph (card work, re-verified)"
+    - "src/nonogram/admin/static/solver.js — swept: the only surviving 'Clear' references are :161-162 (the four BRUSHES, a different claim) and :971/:976 (BRUSH_LABEL itself). No places-count claim remains."
+    - "tests/test_puzzle_solver_brush_menu.py:52-54, :69-81, :239-243, :244-252, :264-269, :310-311 — all corrected, all verified above"
+    - "tests/test_browser_fixture_scope.py:813 — the fifth site, corrected"
+    - "meta/design/components.md:296 — F-002, corrected and committed on main (5b501e9)"
+    - "meta/architecture/requirements.yml — ZERO hits for 'Clear' anywhere in the file; no requirement ever encoded the literals, so nothing to correct"
+  historical_records_left_alone_correctly:
+    - "meta/kanban/cards/CARD-162.md:208, CARD-186.md:144, CARD-189.md:74/:282, CARD-247.md:376 — per-card records of what shipped at the time. History, not live claims."
+    - "ONLINE_GAME_SPECIFICATION.md:62 ('Clear board: Start over') — an unrelated pre-existing game-spec checklist, not this control."
+
+out_of_scope_observations:
+  - file: meta/kanban/dispatcher.state
+    line: 663
+    title: "CARD-247's still_open_for_the_owner entry is the issue CARD-253 just closed"
+    note: >-
+      'the PLAYER''s confirmation still reads "Clear the board?" / "Clear
+      board" under a button called Reset … Raised, deliberately left alone,
+      recorded as a decision rather than an oversight.' Judged a HISTORICAL
+      per-card log entry, not a sixth site of the claim: its "still" is scoped
+      to CARD-247's moment and it records a decision at a point in time, the
+      same class as CARD-247.md:376. NOT the F-001 defect — that was a test
+      file's docstring making a coverage-shaped claim about the page it exists
+      to pin. A one-line "closed by CARD-253" beside it would help a later
+      reader. Advisory; does not gate and does not lower the score.
+  - file: meta/review/20261019T223846Z-CARD-253-cycle1.yml
+    line: 0
+    title: "F-002's fixed_in comment is now stale"
+    note: >-
+      It reads 'the edit is in the worktree, uncommitted'. The edit is in fact
+      COMMITTED ON MAIN in 5b501e9 (verified: git show HEAD:meta/design/components.md
+      line 296 carries the new literals), while the worktree's copy still
+      holds the old ones. The net state is correct and merge-safe — the branch
+      never touched that file, so the three-way merge keeps main's newer
+      version — but the record points at the wrong place. Bookkeeping only.

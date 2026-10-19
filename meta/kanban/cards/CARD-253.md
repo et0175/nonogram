@@ -244,3 +244,190 @@ template header, the `ADDED_SINCE_BEFORE` registry).
   owed as this card's own gate — it must pass on the tree it will merge into — and the question of
   whether CARD-252 actually stops the hazard needs the next several waves' gates, which is where
   wave 45 already left it.
+- **[Build gate 3 / re-gate — PASSED]** `9a3cc21` (this card's work merged with `main`, so the tree
+  now carries CARD-252's `reset_engine()` and CARD-247's merged work), solo: **8529 passed**, 1
+  skipped, 15:42, EXIT=0. Third full suite on this card's code, second green one.
+- **[What the re-gate does and does not establish]** It establishes what a gate is for: this card
+  passes the full suite on the tree it will merge into. It establishes **nothing** about whether
+  CARD-252 fixed the intermittent `relation "puzzles" does not exist` class, because build gate 2
+  was already green on this card's own commit *without* that fix. Three runs of this card's suite:
+  red, green, green — one fix landed between the second and third. That sequence cannot distinguish
+  a fix from a failure that stopped appearing, and it is recorded that way rather than counted as
+  evidence.
+
+### [Review 1/3] Score 7.5 — FAILED on the severity gate (1 open Important)
+
+Report: `meta/review/20261019T223846Z-CARD-253-cycle1.yml` (copied to main).
+
+- **The card's three hardest claims were re-derived by mutation and all three hold.** The relation
+  guard's shape: M3 (brush renamed "Reset") and M4 (reset button renamed "Clear") both red, and both
+  are mutants **a copied CARD-247 absence guard would pass** — M3 leaves no "Clear" on the page at
+  all. Not copying the editor's shape was the right call, and now it is measured rather than argued.
+  `_control_label`'s `count() == 1`: the reviewer added its own **M10** (rename the title's id) to
+  exercise the zero-match path without unwiring solver.js the way M5 does — it reds all three new
+  tests, so CARD-250's failure mode is shut, not merely described. AC-4: M1 reds a pre-existing
+  updated site **loudly**, on a `Locator.click` timeout against a zero-match locator, because
+  `_button` uses `get_by_role(..., exact=True)` — and that same `exact=True` is what stops the new
+  "Reset board" colliding with `_button(page, "Reset")` under Playwright's default substring
+  matching, which would have been a real hazard of this particular rename.
+- **F-001 (important, `tests/test_puzzle_solver_brush_menu.py:53/:227-230/:248/:285`) — the fourth
+  site of the claim this card corrected three times.** CARD-247's "the brush's label appears in four
+  places, including the reset confirmation" is false now, and this card is what falsified it. The card
+  fixed that claim deliberately in `puzzle_solve.html`'s header and twice in `solver.js`, and missed
+  the third file — which its own notes say it opened and ran. The suite therefore now asserts both
+  things about one page, and a later reader has no reason to prefer the newer one. That half of the
+  claim is also no longer coverage: no mutant on the brush's label can red it, because the
+  confirmation no longer carries the label. It stays green only because the one confirmation element
+  it reads is `#puzzle-player-confirm-text`, which this card did not touch.
+- **Minors**: `meta/design/components.md:296` still quotes the old strings (weighted down — nothing
+  pins that file to the templates, and CARD-247 set the same precedent); AC-3's new test duplicates
+  `TestSolverBrushMenu_FourthBrushIsCalledClear` assertion-for-assertion and **kills no mutant that
+  test does not already kill**, adding one genuinely new structural read; and
+  `marking.py:1225`'s `assert "Clear" not in title…` sits after the two literal equalities, so it can
+  never be the line that reds.
+- **One correction to this card's own record, from the reviewer**: M7 is **not** the only mutant that
+  reds the announce test — M10 reds it too, and M7 also reds the pre-existing progress site, so the
+  literal is independently pinned there as the card claimed. The card's mutant table is what a later
+  reader trusts, so the fix cycle carries that correction.
+- **M6's survival re-confirmed, three runs**, and the narrowed docstring judged true as written: the
+  accname algorithm does prefer `aria-labelledby`. The test earns its place because M7 and M10 are
+  controls that can fail, and because it asserts a relation that survives the next rename where the
+  progress site pins only today's literal.
+
+### [Fix cycle 1] All four findings closed; F-001's name half decided and recorded
+
+Report updated in place: `meta/review/20261019T223846Z-CARD-253-cycle1.yml` (all four
+`status: fixed`). Comment- and docstring-only work plus one deleted assertion, one reduced test
+and one register line; no executable source line changed.
+
+- **F-001 (Important) — closed. The docstrings corrected; the test NAME kept, deliberately.**
+  `tests/test_puzzle_solver_brush_menu.py`: the module docstring no longer lists the reset
+  confirmation among the places the brush's label is read (three, not four), and a new paragraph
+  says what this file still pins there — the confirmation's BODY line, "Every mark is cleared.
+  Undo brings them back." — and points at `test_puzzle_solver_marking.py`'s
+  `TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt` for the title and accept button. The
+  class docstring (`…FourthBrushIsCalledClear`) and the sweep test's docstring say the same, and
+  the class's mutant paragraph now distinguishes the body line from the title/accept wording.
+  `ADDED_SINCE_BEFORE`'s own CARD-247 reason carried the same false claim (a fifth site the review
+  did not list) and is corrected with it.
+- **F-001's name half: the name at `:248` is KEPT, with the measurement.** A
+  `RENAMED_SINCE_BEFORE` entry for this rename is **refused by the registry's own guard on three
+  independent grounds** — measured by driving `_rename_problems` over the entry that would be
+  written: (1) the id is "not in CARD-217's record, so there is nothing here to move"; (2) "a move
+  may rename a PARAMETER, not a test — … names a different test function, which is a coverage
+  change and **belongs in neither table**"; (3) "also in `ADDED_SINCE_BEFORE`, so the derived
+  baseline counts it twice". So "rename it with a proper rename-table entry" is not an available
+  option for this id: the registry says a test-function rename is not a move. The only remaining
+  route is to strike CARD-247's `ADDED_SINCE_BEFORE` entry and add a new one, which would record
+  CARD-247's test as removed and CARD-253 as having added a test it did not write — a false entry
+  in the register a later reader trusts, to fix a name. Against that, the name's cost is bounded
+  and now documented: the test does still read the confirmation and does still assert a sentence
+  on it ("Every mark **is cleared**"), so "the confirmation … say[s] clear" is not false of what
+  the test asserts — only narrower than it used to mean, which the docstring right above it now
+  states. The class docstring says the name is kept for that reason and points here.
+- **F-002 (Minor) — closed.** `meta/design/components.md:296` (ResetConfirm) now reads
+  "Reset the board?" / "Reset board", attributed `(CARD-253)` with the old strings and why they
+  changed. Not generated — a hand-maintained register; updating it is one line. **Uncommitted**,
+  like these notes: nothing under `meta/` is committed from a worktree.
+- **F-003 (Minor) — closed by reducing, and renamed because the old name then over-claimed.**
+  `TestSolverReset_TheBrushKeepsItsName` keeps only the structural read
+  `_control_label('[data-player-tool="unknown"]') == "Clear"` — the one assertion
+  `TestSolverBrushMenu_FourthBrushIsCalledClear` does not make. **G-6 survivor named**, in the
+  class docstring and in the registry entry: that CARD-247 test covers the menu item's text, the
+  trigger's text and the trigger's `Brush: …` name, and reds on the same mutant (M3). The node id
+  changed (`…still_reads_clear_in_all_three_places` →
+  `…_read_structurally_still_reads_clear`), so its `ADDED_SINCE_BEFORE` entry was rewritten —
+  still CARD-253's own entry, so unlike F-001's name this rename records nothing false: no entry
+  of another card is struck and the family's collection guard is green. Three places asserted in
+  one place is not a claim the name can keep, which is why the reduction took the name with it.
+- **F-004 (Minor) — closed by deleting the line.** `assert "Clear" not in title and "Clear" not in
+  accept` is gone; the two literal equalities above it already imply it, and the reviewer's
+  suggested casefolded replacement would have been dead in exactly the same way. AC-1's docstring
+  now says there are two assertions and no third, names the CARD-250 family, and points at AC-2
+  where the brush's word being absent **is** a relation a mutant can fail.
+
+**Mutants for the changed claims — four, each applied with `sed`, restored from a byte-identical
+`cp -p` backup and `diff`-confirmed (`RESTORED-IDENTICAL` after every run); never
+`git checkout --`.** Two per changed claim, one inside the claimed region and one at its edge.
+
+| # | Mutant | Observed |
+|---|--------|----------|
+| MA | confirmation body line → `Every mark is removed. Undo brings them back.` (inside brush_menu's narrowed claim) | Red: `…FourthBrushIsCalledClear::test_the_item_the_trigger_the_hint_and_the_confirmation_all_say_clear` **and nothing else** — so the body line really is what that file pins on the confirmation |
+| MB | title back to `Clear the board?` (the EDGE of that claim) | **Both** brush_menu tests stay **green**; red: AC-1 and AC-2 in `marking.py`. The title's wording is no longer brush_menu's claim and is pinned where the docstring now points. Also re-proves AC-1 can red after F-004's deletion |
+| MC | fourth brush renamed `Reset` (inside the reduced AC-3's claim; = M3) | Red: the reduced `test_the_fourth_brush_read_structurally_still_reads_clear`, both brush_menu tests and AC-2. The mutant AC-3 exists for still reds the reduced test |
+| MD | `solver.js` `BRUSH_LABEL[UNKNOWN]` → `Cleared` (the EDGE: the trigger's text and name, nothing in the DOM menu) | Red: **only** the named survivor, brush_menu's first test. The reduced test stays green, which is exactly the division of labour its docstring claims |
+| M10 | the title element's `id` renamed (the reviewer's, re-run here) | Red: all three tests of `…TheConfirmationNamesTheButtonThatOpensIt`, the announce test included — the correction to the M7 row above, measured rather than taken on report |
+
+**Tests run in the fix cycle** (never the full suite; `meta/kanban/.full-suite.lock` checked absent
+before each run; no timing measurement taken, another review was running):
+`…FourthBrushIsCalledClear` + the two CARD-253 classes in `marking.py` +
+`TestBrowserFixtures_NoTestAddedOrRemoved` + `TestSolverProgress_ResetAfterConfirm` → **27 passed**
+on the fixed tree; then the five mutant runs above over the first three of those selections, each
+followed by a `diff`-verified restore; then, after the last restore, the whole of
+`tests/test_browser_fixture_scope.py` (the registry's own controls, M9's guard included),
+`tests/test_puzzle_solver_brush_menu.py` (the file whose docstrings changed),
+`tests/test_puzzle_solver_marking.py` and `TestSolverProgress_ResetAfterConfirm` →
+**168 passed, exit 0**. `git diff --stat HEAD -- src/` is empty: every mutant was restored and no
+source line changed in this cycle.
+
+- **[Orchestrator] the name was kept because the registry refused the rename, and that refusal is
+  the interesting part.** I gave the fix agent two priced options: rename with a
+  `RENAMED_SINCE_BEFORE` entry, or keep the name and record why. It found a third fact instead —
+  it drove `_rename_problems` over the entry that would have been written, and the registry's own
+  guard refuses it on **three independent grounds**: the id is not in CARD-217's record so there is
+  nothing to move; a move may rename a *parameter*, not a test, because a different test function is
+  a coverage change that belongs in neither table; and the id is already in `ADDED_SINCE_BEFORE`, so
+  the derived baseline would count it twice. So "rename it properly" was not an available option,
+  and the only route left — strike CARD-247's entry, add a new one — would have recorded CARD-247's
+  test as removed and this card as having added a test it did not write. A false entry in the
+  register a later reader trusts, traded for a better name. Keeping the name is the right call, and
+  it is now measured rather than asserted.
+- **[Orchestrator] a fifth site, found by the fix and not by the review.** CARD-247's own
+  `ADDED_SINCE_BEFORE` *reason* in `tests/test_browser_fixture_scope.py:813` ended "…and the reset
+  confirmation" — the same stale claim, in the registry itself. Corrected in place with CARD-247's
+  attribution left intact.
+- **[Orchestrator] the card's mutant table was corrected against a re-measurement, not against the
+  report.** The fix agent re-ran M10 itself rather than take the reviewer's word: it reds all three
+  tests of the confirmation class, the announce test included. So this card's M6 row now says M7
+  **and M10** are what show that test can fail at all, and `marking.py`'s own docstring — which named
+  only M7 — says both. The table is what a later reader trusts; it is worth more than the time it
+  cost to re-run.
+- **[Orchestrator] `meta/design/components.md`'s ResetConfirm entry is updated on main.** The review
+  weighted that Minor down because nothing pins the register to the templates and CARD-247 set the
+  same precedent. It is fixed anyway: it was simply false, and a register nobody updates stops being
+  one. The entry now carries the old strings and why they changed.
+
+### [Review 2/3] Score 9.5 — **CERTIFIED**, zero findings at every severity
+
+Report: `meta/review/20261019T230941Z-CARD-253-cycle2.yml` (copied to main). Zero Critical, zero
+Important, zero Minor; the 0.5 below 10 is two recorded residuals, not a finding.
+
+- **The cheap bound first**: `git diff --stat 9a3cc21 35298ca -- src/` is **empty**, so every
+  src-side guardrail is delta-clean by construction and the whole mutation budget went on the
+  evidence layer. The fix cycle's full delta is three test files, +78/−32.
+- **F-001's closure is certified in both directions, measured.** **MA** (the confirmation's body line
+  reworded) reds that one `brush_menu` test **and nothing else** across 75 — and the static half
+  agrees: exactly one assertion of that line exists in `tests/`. **MB** (title reverted) leaves both
+  `brush_menu` tests **green** and reds `marking.py`'s AC-1, AC-2 and the pre-existing progress site.
+  That is the division of labour the new docstrings claim, and it is now a measurement.
+- **The certifier measured the half nobody had.** The class docstring claims the title **or the
+  accept button**; both cycles had only ever measured the title. Its own **ME** (accept button
+  reverted to "Clear board") leaves both `brush_menu` tests green and reds AC-1 and AC-2 — so both
+  halves of that sentence are true, and the sentence is no longer wider than its evidence.
+- **The registry refusal re-derived a second time, independently.** All three refusals reproduce
+  verbatim: the id is not in CARD-217's record, the id *is* in `ADDED_SINCE_BEFORE`, and a test-
+  function rename is not a move. The certifier's judgement on keeping the name is worth keeping:
+  *the register is machine-consulted and carries its own failing controls, so a false entry degrades
+  the guard whose job is making a browser test's disappearance visible — buying a nicer identifier
+  with a false record is the wrong direction of trade.* The name is narrower-than-it-reads, not false.
+- **Sixth-site sweep: the set is closed.** `requirements.yml` has zero hits, `solver.js` is clean
+  apart from the four-brushes list and `BRUSH_LABEL` itself, `components.md` is fixed on main, and
+  CARD-247's attribution in the registry is intact (the fix is in the reason prose only). The
+  remaining old-literal hits are per-card historical records and an unrelated game-spec checklist.
+- **ADR-0039/R1 — the rule cycle 1 found violated — now holds and is measured.** No family
+  attribution to make: cycle 2 raises no claim-family finding anywhere, so there is no third
+  generation.
+- **One bookkeeping catch, applied**: cycle 1's F-002 `fixed_in` said the edit was "in the worktree,
+  uncommitted" when it was already landed on main in `5b501e9`. Corrected on main's copy of the
+  cycle-1 report — a report that misstates where a fix lives is a report the retrospective reads
+  wrong.
