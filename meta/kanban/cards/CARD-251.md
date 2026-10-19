@@ -428,3 +428,29 @@ thing from `app.py` reaching in, and only one of those was avoided.
 roughly 150 `compute_pair_layout` calls per verify, on a path the owner waits on. No timing was taken
 (correctly — the host was gating). The review is asked to judge whether the answer can be narrowed to
 the pages that could possibly move.
+
+### [Build gate] FAILED (full, 985s) — CONTENDED, not a verdict · orchestrator, 2026-10-19
+
+**EXIT=1, 5 failed, 8483 passed, 1 skipped — and none of the five is a verdict about this card.**
+Every failure is in `tests/test_admin_binding.py::…::test_a_request_addressed_to_this_machine_is_served`,
+and not one of them is an HTTP-door assertion: all five died on
+`psycopg2.errors.UndefinedTable: relation "puzzles" does not exist`.
+
+**The cause is the orchestrator's, and it was printed in the gate's own output.** The script logs
+`pytest procs before start: N` as a guard; it printed **2**, and I did not read it. The implementation
+agent had *resumed* (its task notified twice — "stopped with background work of its own still running")
+and was still running tests **in this same worktree**. Two concurrent runs in one worktree resolve to
+**one** derived database, so one run's schema teardown raced the other's queries.
+
+**This is a hazard CARD-244 does not cover, and that is worth stating precisely.** CARD-244 gave each
+*worktree* its own derived database and removed the between-worktree collision. It says nothing about
+**two runs inside one worktree**, which is this shape. The between-card case is handled; the
+between-runs case was not.
+
+**Fixed where it belongs — the gate now refuses a contended start** rather than narrating one. A guard
+that prints a number nobody acts on is the *control that cannot fail*, which is the exact family this
+board has filed against cards eight times across CARD-250 and CARD-251. Having written that finding
+repeatedly, shipping it in my own tooling is not a defence.
+
+Re-gated **solo and enforced**. Until that run returns, this card has **no gate verdict** — the red one
+above is evidence about my scheduling, not about `119fc58`.
