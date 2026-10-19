@@ -12,6 +12,12 @@
             when the trim is changed to 6 x 9 in, and the count goes 0 -> 1
     AC-239  (NFR-008) the flag half — a 12-deep band on a 30-wide grid falls
             below the floor and is flagged there
+    CARD-225 cycle-1 F-004
+            TestBookSelect_ATileClearsTheFloorAndTheAddStillRefusesIt — the
+            user-visible face of the card's declared EC-021 divergence (F-13):
+            an unflagged tile for a candidate whose grid size already holds a
+            deeper member, the refusal that follows naming the smaller figure,
+            and the bound the card claims between the two
 
 The evidence class is the Flask test client: these are user-facing criteria on
 server-rendered screens and this project has no browser harness, so each drives
@@ -903,3 +909,120 @@ class TestBookSelectTile_TheFloorVerdictIsMadeOnce:
             assert below_floor_count(finalize_html(panel, book_id)) == 1
         finally:
             monkey.undo()
+
+
+# --------------------------------------------------------------------------
+# CARD-225 review cycle 1, F-004 — the user-visible face of the declared
+# EC-021 divergence (the card's F-13): an unflagged tile, then a refusal
+# --------------------------------------------------------------------------
+
+#: A 30 x 30 with 1-deep gutters: 6.15 mm **alone** on the Book 1 profile,
+#: comfortably clear of the 4.75 mm floor. The card's own figures, written out
+#: here as every other figure in this file is, not read back from
+#: ``book_cell_mm``.
+SHALLOW_THIRTY = (30, 30, 1, 1, 6.15, "26-30")
+
+#: The same grid size with 12- and 8-deep gutters: 4.54 mm, below the floor —
+#: and therefore the whole grid size's printed cell in any book holding it
+#: (NFR-008 as amended 2026-10-17).
+DEEP_THIRTY = (30, 30, 12, 8, 4.54, "26-30")
+
+
+class TestBookSelect_ATileClearsTheFloorAndTheAddStillRefusesIt:
+    """A candidate whose grid size already has a deeper member in the book.
+
+    **This asserts the divergence, deliberately.** EC-021's second clause says
+    the tile, the add refusal and the finalise count "all come from the one
+    computation FR-030's PDF uses, so no two of them can disagree about a
+    puzzle". Since NFR-008's 2026-10-17 amendment the printed cell is a
+    property of a *membership* — one cell per grid size per book, fitted to the
+    deepest-clued member — and a candidate on the selection tab is not a
+    member, so it has no printed figure to show: its tile answers "does this
+    picture fit this book's page" (``book_cell_mm``) and the add gate answers
+    "what would it print at here" (``book_cell_sizes``). CARD-225 declares that
+    divergence (F-13) and routes EC-021's own wording to the architect station
+    rather than amending the registry from a delivery card; what this test
+    pins is the loop the owner actually meets — a clean tile, then a refusal —
+    and the bound the card claims for it, so the behaviour is intentional and
+    observable rather than merely declared.
+
+    It is written to survive the registry's decision either way: it asserts
+    what each screen shows and the ordering between the two figures, and no
+    sentence of EC-021.
+    """
+
+    def _book_with_the_deep_member(self, panel) -> tuple[str, str, str]:
+        """A book already holding the deep 30 x 30, plus a shallow candidate.
+
+        The deep member is put in with ``add_puzzles_to_book`` and its own
+        stored override — which is how a below-floor puzzle legitimately joins
+        a book (INV-006) — so the book under test is one the owner could
+        really have curated.
+        """
+        book_id = panel.book()
+        deep = panel.puzzle(*DEEP_THIRTY[:4])
+        panel.books.add_puzzles_to_book(book_id, [deep], [deep])
+        assert panel.ids_of(book_id) == [deep]
+        return book_id, deep, panel.puzzle(*SHALLOW_THIRTY[:4])
+
+    def test_the_tile_shows_the_candidates_own_fit_and_carries_no_flag(self, panel) -> None:
+        book_id, _deep, shallow = self._book_with_the_deep_member(panel)
+
+        tile = tile_of(tab_html(panel, book_id, SHALLOW_THIRTY[5]), shallow)
+
+        assert f'data-book-cell-mm="{SHALLOW_THIRTY[4]:.2f}"' in tile, tile
+        assert f"{SHALLOW_THIRTY[4]:.2f} mm" in text_of(tile)
+        assert "data-below-floor" not in tile, (
+            "the tile shows the candidate's own page fit, which clears the "
+            "floor: it is not the printed figure and must not be flagged as one"
+        )
+
+    def test_the_add_gate_refuses_it_naming_the_grid_sizes_own_figure(self, panel) -> None:
+        book_id, _deep, shallow = self._book_with_the_deep_member(panel)
+
+        refusals = panel.books.below_floor(book_id, [shallow])
+
+        assert [refusal.puzzle_id for refusal in refusals] == [shallow], refusals
+        assert refusals[0].cell_mm == pytest.approx(DEEP_THIRTY[4], abs=0.005), (
+            "the gate judges the cell the page will really carry: its grid "
+            "size's, fitted to the deeper member already in the book"
+        )
+        # ... and the screen says so, with the figure it enforced.
+        shown = text_of(panel.select(book_id, [shallow]).get_data(as_text=True))
+        assert panel.ids_of(book_id) == [_deep], "it did not join"
+        assert f"{DEEP_THIRTY[4]:.2f} mm" in shown, shown
+        assert f"{FLOOR_MM:g} mm floor" in shown, shown
+
+    def test_the_tile_figure_is_never_below_the_figure_the_gate_enforces(self, panel) -> None:
+        """The card's own bound on the divergence: ``tile >= gate``, always.
+
+        Structurally true — the gate's figure is a minimum over a set that
+        always contains the candidate itself, so it cannot exceed the
+        candidate's own fit — and pinned here because nothing else pins it: a
+        later change that had the tile read a membership's figure, or the wrong
+        membership's, would otherwise be silent.
+
+        The candidate is the only puzzle this has anything to say about: the
+        tab offers what is *not* yet in the book, so the deep member standing
+        behind the refusal has no tile of its own to compare with.
+        """
+        book_id, _deep, shallow = self._book_with_the_deep_member(panel)
+
+        tile = tile_of(tab_html(panel, book_id, SHALLOW_THIRTY[5]), shallow)
+        shown = re.search(r'data-book-cell-mm="([\d.]+)"', tile)
+        assert shown is not None, tile
+        gate = panel.books.below_floor(book_id, [shallow])[0].cell_mm
+
+        assert float(shown.group(1)) >= gate - 0.005, (shown.group(1), gate)
+        # Not vacuous on this book: the two figures really do differ, so the
+        # bound is being asserted where it has something to constrain.
+        assert float(shown.group(1)) > gate + 0.005, (shown.group(1), gate)
+
+    def test_without_the_deep_member_the_same_candidate_is_admitted(self, panel) -> None:
+        """The control: the refusal above is the membership's doing, not the grid's."""
+        book_id = panel.book()
+        shallow = panel.puzzle(*SHALLOW_THIRTY[:4])
+
+        assert panel.books.below_floor(book_id, [shallow]) == []
+        panel.select(book_id, [shallow])
+        assert panel.ids_of(book_id) == [shallow]

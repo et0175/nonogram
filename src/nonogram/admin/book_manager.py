@@ -319,6 +319,32 @@ class FloorRefusal:
         )
 
 
+def _in_submission_order(
+    refusals: List[FloorRefusal], puzzle_ids: List[str]
+) -> List[FloorRefusal]:
+    """``refusals`` in the order the submission listed their ids.
+
+    One refusal list, one order, whichever of the two refusal kinds each entry
+    is (review cycle 1, F-008). :meth:`BookManager._below_floor_for` used to
+    append both kinds from a single loop and so answered in submission order by
+    construction; CARD-225 split that loop in two — read every clue set, then
+    judge every shared cell — which silently put *every* unreadable-clue
+    refusal ahead of *every* below-floor one, wherever the two sat in the
+    submission. Nothing had decided that, and the next screen to read the list
+    would have inherited it as though something had.
+
+    An id not in ``puzzle_ids`` cannot occur (both loops iterate it) and would
+    sort last rather than raise: a refusal is still a refusal, and dropping or
+    crashing on one is the one outcome worse than mis-ordering it.
+    """
+    rank: Dict[str, int] = {}
+    for position, puzzle_id in enumerate(puzzle_ids):
+        rank.setdefault(puzzle_id, position)
+    return sorted(
+        refusals, key=lambda refusal: rank.get(refusal.puzzle_id, len(puzzle_ids))
+    )
+
+
 @dataclass(frozen=True)
 class AddOutcome:
     """What one submission did at the book store: what joined, and what did not.
@@ -999,6 +1025,22 @@ class BookManager:
           a sibling can be refused for a puzzle that did not join. The remedy
           is to resubmit without it (F-11).
 
+        **What the first of those two costs the owner, measured** (review cycle
+        1, F-010): over the card's own 1388-puzzle corpus, moving the floor's
+        subject from a puzzle to a membership takes the share below the floor
+        from 186 to 325 — **+75%, 139 more puzzles that need a stored override
+        before they can join a book** — and the owner meets every one of them
+        at this gate, on the selection step. Pinned, and so unable to drift
+        silently, by ``tests/test_book_cell_size.py``'s
+        ``TestBookCellSize_TheCostOfABookWideCell``.
+
+        **The refusals come back in submission order**, both kinds
+        interleaved, which is the order they came back in before this card
+        split the one loop into "read the clue sets" and "judge the shared
+        cell" (:func:`_in_submission_order`; review cycle 1, F-008 — the split
+        had put every unreadable-clue refusal ahead of every below-floor one,
+        which nothing had decided).
+
         Four postures, each decided deliberately (CARD-121):
 
         * **A record whose cell computes** — the verdict, below vs at-or-above
@@ -1151,17 +1193,21 @@ class BookManager:
                 error,
             )
             measured = {refusal.puzzle_id for refusal in refusals}
-            return refusals + [
-                FloorRefusal(puzzle_id, None, str(error))
-                for puzzle_id in clue_sets
-                if puzzle_id not in measured
-            ]
+            return _in_submission_order(
+                refusals
+                + [
+                    FloorRefusal(puzzle_id, None, str(error))
+                    for puzzle_id in clue_sets
+                    if puzzle_id not in measured
+                ],
+                puzzle_ids,
+            )
 
         for puzzle_id, (row_clues, column_clues) in clue_sets.items():
             cell_mm = sizes[(len(column_clues), len(row_clues))]
             if cell_mm < FLOOR_MM:
                 refusals.append(FloorRefusal(puzzle_id, cell_mm))
-        return refusals
+        return _in_submission_order(refusals, puzzle_ids)
 
     def _member_clue_sets(self, book: Book, already_read: Dict[str, Any]) -> List[Any]:
         """The clue sets of ``book``'s **current** members, for the shared cell.
@@ -1179,6 +1225,17 @@ class BookManager:
         so it cannot be refused retroactively; it contributes no cell to its
         grid size's fit and the finalise count flags it on its own account
         (``_misses_the_floor`` reads an unmeasurable cell as below the floor).
+
+        **What the add gate now costs, stated rather than measured** (review
+        cycle 1, F-009; no timing was taken). This read plus
+        ``book_cell_sizes``' own pass make the gate's cost proportional to the
+        *book*: a 150-member book runs 150 ``compute_layout`` calls to judge
+        one new puzzle where it ran one before. One bulk query, pure
+        arithmetic, and no registry threshold, so nothing is changed for it
+        here; if it ever shows up, only the grid sizes the submission actually
+        holds need measuring, and filtering this walk to members sharing a
+        grid size with the submission is an **identical** result over a
+        strictly smaller set, because the map's other keys are never read.
         """
         if self.puzzle_store is None:
             return []

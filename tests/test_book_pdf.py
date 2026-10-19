@@ -59,7 +59,11 @@ import pytest
 
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_frame
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    page_frame,
+    puzzle_page_plan,
+)
 from nonogram.export.layout import DEFAULT_PAGE_SPEC
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
@@ -1203,6 +1207,75 @@ class TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle:
 
         assert "Half-unmeasurable" in str(raised.value)
         assert raised.value.__cause__ is not None, "the original failure is kept"
+
+    # CARD-225 review cycle 1, F-002. The editor's page-count entry
+    # (``puzzle_page_plan``, CARD-251) asks the same walk for the same book,
+    # and since CARD-225 it settles the book's cell map first — so the map's
+    # own fail-closed ValueError reached it ahead of the walk, bare: a
+    # ``ValueError`` with no cause, no id and no position, for all three
+    # neighbour shapes at once, although this class's contract and that
+    # function's own ``Raises:`` block both say the abort names the member.
+    # The "alone" shape below exists on no earlier tree at all: before this
+    # card it reached neither stage from this entry and planned fine.
+
+    @pytest.mark.parametrize(
+        "neighbour_tier",
+        [
+            pytest.param("easy", id="same-tier"),
+            pytest.param(None, id="alone"),
+            pytest.param("hard", id="different-tier"),
+        ],
+    )
+    def test_the_editors_page_count_names_the_member_whatever_neighbour_it_has(
+        self, neighbour_tier
+    ) -> None:
+        """``puzzle_page_plan`` aborts named, for every neighbour shape."""
+        puzzles = [_unmeasurable_puzzle()]
+        if neighbour_tier is not None:
+            neighbour = _puzzle(*_MIRRORED_PUZZLE, name="Other")
+            neighbour["difficulty_tier"] = neighbour_tier
+            puzzles.append(neighbour)
+
+        with pytest.raises(RuntimeError) as raised:
+            puzzle_page_plan(_book(), puzzles)
+
+        message = str(raised.value)
+        assert "Half-unmeasurable" in message, message
+        assert "could not be laid out" in message, message
+        assert isinstance(raised.value.__cause__, ValueError), (
+            "the original failure is kept"
+        )
+        # The good neighbour is not accused of the bad one's fault.
+        assert "Other" not in message, message
+
+    def test_an_unreadable_print_specification_is_the_books_own_failure(self) -> None:
+        """F-006: a book-level fault stays a bare ``ValueError``, naming no member.
+
+        ``cell_sizes`` reads the book's sheet, so an unreadable stored trim
+        used to arrive at the per-puzzle handler above and come back out as
+        ``RuntimeError("puzzle <every member> could not be laid out: ...")`` —
+        120 numbers for a failure that belongs to none of them. Both entries
+        read the sheet before the handler now, so the distinction
+        ``_unmeasurable_members`` always drew is kept by the caller too.
+        """
+        book = _book()
+        book.trim_width_cm = "abc"
+        puzzles = [
+            _puzzle(*_MIRRORED_PUZZLE, name="First"),
+            _puzzle(*_MIRRORED_PUZZLE, name="Second"),
+        ]
+
+        for call in (
+            lambda: puzzle_page_plan(book, puzzles),
+            lambda: BookPDFGenerator(book).section_plan(puzzles),
+        ):
+            with pytest.raises(ValueError) as raised:
+                call()
+            message = str(raised.value)
+            assert not isinstance(raised.value, RuntimeError), message
+            assert "trim_width_cm" in message, message
+            assert "could not be laid out" not in message, message
+            assert "First" not in message and "Second" not in message, message
 
 
 class TestBookPdf_PageFrameNeedsABookPageSpec:

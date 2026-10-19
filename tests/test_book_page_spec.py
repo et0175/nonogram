@@ -9,6 +9,10 @@
     NFR-008 TestBookPageSpec_FlatStandardCellCap               (the 7.5 mm cap)
             TestBookPageSpec_MinimumSideMargin
     G-1     TestBookCellMm_OnlyReadsComputeLayout               (ADR-0036/R2)
+    CARD-225 cycle-1 F-001
+            TestBookCellSpec_LowersTheCapAndRefusesANonBookSheet (the cap it
+            will not raise, and both of ``book_cell_spec``'s own refusals —
+            reachable by a direct call only)
     F-001/F-003 (CARD-114 minors) TestBookPageSpec_RefusesBadStoredTrimNamingTheColumn
     011     TestMigration011                                    (defaults only,
             no backfill, a working downgrade)
@@ -26,6 +30,7 @@ Expected numbers are CON-018's own, in millimetres, written as literals
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -34,12 +39,18 @@ import pytest
 
 import nonogram.admin.book_manager as book_manager_module
 from nonogram.admin.book_manager import BookManager
-from nonogram.admin.book_page_spec import BOOK1_PROFILE, book_cell_mm, book_page_spec
+from nonogram.admin.book_page_spec import (
+    BOOK1_PROFILE,
+    book_cell_mm,
+    book_cell_spec,
+    book_page_spec,
+)
 from nonogram.admin.print_specs import PrintSpecValidator
 from nonogram.admin.puzzle_review import PuzzleReviewService
 from nonogram.export.layout import (
     DEFAULT_PAGE_SPEC,
     DPI,
+    CellCapPolicy,
     OrientationPolicy,
     PageParity,
     PageSpec,
@@ -491,6 +502,71 @@ class TestBookCellMm_OnlyReadsComputeLayout:
     def test_a_spec_without_parity_has_no_book_cell(self) -> None:
         with pytest.raises(ValueError, match="parity"):
             book_cell_mm(DEFAULT_PAGE_SPEC, _clues(10, 1), _clues(10, 1))
+
+
+# --------------------------------------------------------------------------
+# CARD-225 review cycle 1, F-001 — ``book_cell_spec``'s own two refusals, and
+# the cap it will not raise. Reached only by a direct call: its single
+# production caller (``BookPDFGenerator._puzzle_page_spec``) hands it a figure
+# that ``book_cell_sizes`` just produced, so no caller can carry a bad value to
+# either refusal and nothing but a direct test can red them.
+# --------------------------------------------------------------------------
+
+
+class TestBookCellSpec_LowersTheCapAndRefusesANonBookSheet:
+    """``book_cell_spec(spec, cell)`` = ``spec`` with its flat cap lowered.
+
+    Three behaviours, one test each: the cap is lowered and never raised
+    (CARD-225's G-1/F-5), a sheet carrying NFR-005's comfort curve instead of
+    a flat cap is refused (the structural half of the card's own ADR-0036/R1
+    verdict — a CLI/A4 page has no book cell, and giving it one would move the
+    byte-identical A4 golden), and a ``cell_mm`` that is not a finite positive
+    number of millimetres is refused naming the argument (F-6).
+    """
+
+    def test_a_cell_above_the_sheets_own_cap_is_a_no_op(self) -> None:
+        """F-5: NFR-008's 7.5 mm standard cell is a ceiling this card keeps."""
+        assert book_cell_spec(CON018_ODD, 9.0).cell_cap == 7.5
+        # And at the cap exactly, which is what a grid size already at the
+        # standard cell asks for (AC-3).
+        assert book_cell_spec(CON018_ODD, 7.5).cell_cap == 7.5
+
+    def test_a_cell_below_it_is_the_new_cap_and_nothing_else_moves(self) -> None:
+        lowered = book_cell_spec(CON018_ODD, 6.35)
+        assert lowered.cell_cap == 6.35
+        assert lowered == replace(CON018_ODD, cell_cap=6.35), (
+            "book_cell_spec lowers the cap and touches no other field: the "
+            "sheet is still the book's own (ADR-0036/R2)"
+        )
+
+    def test_a_comfort_curve_sheet_is_refused(self) -> None:
+        """ADR-0036/R1: the CLI's own sheet has no book cell."""
+        with pytest.raises(ValueError, match="comfort curve"):
+            book_cell_spec(DEFAULT_PAGE_SPEC, 6.0)
+        # ... and not because that sheet also has no parity: a book sheet
+        # given the curve is refused for the curve alone.
+        with pytest.raises(ValueError, match="comfort curve"):
+            book_cell_spec(replace(CON018_ODD, cell_cap=CellCapPolicy.COMFORT_CURVE), 6.0)
+
+    @pytest.mark.parametrize(
+        "cell_mm",
+        [
+            pytest.param(0, id="zero"),
+            pytest.param(-1, id="negative"),
+            pytest.param(-0.5, id="negative-float"),
+            pytest.param(float("nan"), id="nan"),
+            pytest.param(float("inf"), id="inf"),
+            pytest.param(float("-inf"), id="-inf"),
+            pytest.param(True, id="bool-true"),
+            pytest.param(False, id="bool-false"),
+            pytest.param("6.0", id="string"),
+            pytest.param(None, id="none"),
+        ],
+    )
+    def test_a_cell_that_is_not_a_finite_positive_number_is_refused(self, cell_mm) -> None:
+        """F-6, including ``True`` — the one branch no production value reaches."""
+        with pytest.raises(ValueError, match="cell_mm"):
+            book_cell_spec(CON018_ODD, cell_mm)
 
 
 # --------------------------------------------------------------------------

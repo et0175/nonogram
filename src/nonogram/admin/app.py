@@ -4176,6 +4176,15 @@ def create_app(debug=None):
 
         A record whose grid size ``members`` does not cover still gets its own
         fit: it is not a member, so nothing of the book's shares its size.
+
+        **What the printed reading costs the owner, measured** (review cycle 1,
+        F-010): over CARD-225's own 1388-puzzle corpus the share below
+        :data:`FLOOR_MM` goes from 186 to 325 — +75%, 139 more puzzles that
+        need a stored override before they can join a book — so the flag this
+        helper feeds fires for half again as many puzzles as it did, and the
+        owner meets them at the selection step. Pinned by
+        ``tests/test_book_cell_size.py``'s
+        ``TestBookCellSize_TheCostOfABookWideCell``.
         """
         try:
             spec = book_page_spec(book)

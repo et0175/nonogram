@@ -46,6 +46,7 @@ two orders of magnitude tighter than the spread this card removes**: the three
 
 from __future__ import annotations
 
+import functools
 import random
 import re
 import statistics
@@ -271,12 +272,23 @@ class TestBookCellSize_SameGridSizeSameCell:
         """The deep member in **another level** still decides for all of them.
 
         A grid size can straddle FR-041's levels, and the puzzle section plans
-        each level's pages in its own walk (``puzzle_section``). A map built
-        per level would print the Easy 20x20s at 7.5 mm and the Hard one at
-        6.35 mm — two cells for one grid size, in one book, which is the
-        owner's issue 4 moved rather than fixed. Added because a mutant that
-        sized each level's slice on its own survived everything else in this
-        file (CARD-225, mutant M6).
+        each level's pages in its own walk (``puzzle_section``) — so this is
+        the claim's substance on the single-page path: three 20x20s, two
+        graded Easy and one Hard, all printed at the Hard one's cell.
+
+        **What it does not do is discriminate the per-level mutant, and the
+        committed docstring used to say it did** (review cycle 1, F-005).
+        Re-measured: with ``puzzle_section``'s walk handed
+        ``self.cell_sizes(payloads[start:end])`` instead of the book's map,
+        this test still **passes** — 1 failed, 42 passed over this file, and
+        the one failure is
+        :meth:`TestBookCellSize_SharedPageTakesTheSmaller.test_the_pair_is_capped_by_a_member_in_another_level`.
+        The reason is mechanical: a book's **single** pages are drawn from
+        ``SectionPlan.cell_sizes`` in ``interior_stream`` and never see the
+        slice at all, so only the **pairing** path can observe a per-level
+        map. The two tests are a pair — this one pins what the rule means for
+        the reader, that one is the only guard that can see it broken — and
+        naming the second here is what makes them legible as one.
         """
         puzzles = [
             _puzzle(20, 20, 3, 2, name="Easy-shallow", tier="easy"),
@@ -486,6 +498,13 @@ class TestBookCellSize_SharedPageTakesTheSmaller:
         because the per-level mutant (M6) survived every other case here: the
         single pages are drawn from ``SectionPlan.cell_sizes`` and never see
         the slice, so the pairing path is the only place this is observable.
+
+        **This is the only test in the repository that kills M6** (re-measured
+        in review cycle 1, F-005: 1 failed, 42 passed over this file, the
+        failure being this one). Its pair is
+        :meth:`TestBookCellSize_SameGridSizeSameCell.test_the_size_is_the_books_and_not_one_levels`,
+        which states the same rule on the single-page path, where it is the
+        claim's substance and cannot be a guard.
         """
         puzzles = [
             _puzzle(*self.PAIR_UPPER, name="Upper", tier="easy"),
@@ -985,6 +1004,51 @@ def _cost_corpus(seed: int) -> List[List[Dict[str, Any]]]:
     return books
 
 
+@functools.lru_cache(maxsize=None)
+def _measured_cost(seed: int) -> Tuple[Tuple[float, ...], Tuple[float, ...]]:
+    """Every corpus puzzle's cell before and after the rule, in one pass.
+
+    ``(before, after)``, parallel: ``before[i]`` is puzzle *i*'s own page fit
+    and ``after[i]`` the cell its grid size prints at in its own book.
+
+    Cached on the seed, which is its only input (review cycle 1, F-007). The
+    six assertions of :class:`TestBookCellSize_TheCostOfABookWideCell` each
+    read the whole measurement, and as a plain method it rebuilt the corpus —
+    ``COST_BOOKS`` books, about 1388 random grids through ``compute_clues`` —
+    and re-measured every member twice, once per test: six constructions and
+    roughly 16.6k ``compute_layout`` calls where one construction and 2.8k
+    do. The six keep their independence, because what they share is an
+    immutable pair of tuples that none of them writes to, and the corpus still
+    cannot silently shrink: ``test_the_corpus_is_the_size_it_says_it_is``
+    asserts :data:`MIN_COST_CASES` against this same object.
+
+    This function imports ``book_cell_mm``/``book_cell_sizes`` deliberately —
+    see the class docstring below: the quantity being measured *is* the
+    difference between those two answers.
+    """
+    from nonogram.admin.book_page_spec import (
+        book_cell_mm,
+        book_cell_sizes,
+        book_page_spec,
+    )
+
+    spec = book_page_spec(_book())
+    before: List[float] = []
+    after: List[float] = []
+    for members in _cost_corpus(seed):
+        sizes = book_cell_sizes(
+            spec, [(m["row_clues"], m["column_clues"]) for m in members]
+        )
+        for member in members:
+            before.append(
+                book_cell_mm(spec, member["row_clues"], member["column_clues"])
+            )
+            after.append(
+                sizes[(len(member["column_clues"]), len(member["row_clues"]))]
+            )
+    return tuple(before), tuple(after)
+
+
 class TestBookCellSize_TheCostOfABookWideCell:
     """What the rule costs, measured rather than estimated (card item 5).
 
@@ -1000,27 +1064,8 @@ class TestBookCellSize_TheCostOfABookWideCell:
     """
 
     def _measure(self):
-        from nonogram.admin.book_page_spec import (
-            book_cell_mm,
-            book_cell_sizes,
-            book_page_spec,
-        )
-
-        spec = book_page_spec(_book())
-        before: List[float] = []
-        after: List[float] = []
-        for members in _cost_corpus(COST_SEED):
-            sizes = book_cell_sizes(
-                spec, [(m["row_clues"], m["column_clues"]) for m in members]
-            )
-            for member in members:
-                own = book_cell_mm(spec, member["row_clues"], member["column_clues"])
-                shared = sizes[
-                    (len(member["column_clues"]), len(member["row_clues"]))
-                ]
-                before.append(own)
-                after.append(shared)
-        return before, after
+        """The one measurement, built once for the whole class (F-007)."""
+        return _measured_cost(COST_SEED)
 
     def test_the_corpus_is_the_size_it_says_it_is(self) -> None:
         before, after = self._measure()

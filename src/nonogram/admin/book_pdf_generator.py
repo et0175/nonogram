@@ -1417,17 +1417,57 @@ def puzzle_page_plan(book: Any, puzzles: List[Any]) -> List["PuzzlePagePlan"]:
 
     Raises:
         ValueError: the book's stored print specification cannot be laid out.
-        RuntimeError: a pair the walk offered could not be measured — a member
-            whose clue sets disagree about its grid. The message names it.
+            The failure is the **book's** and names no member: the sheet is
+            read before any member is measured, exactly as it was before
+            CARD-225 put a cell map in front of the walk (review cycle 1,
+            F-006).
+        RuntimeError: a **member** could not be measured — one whose clue sets
+            disagree about its grid. The message names it (:func:`_named_puzzles`
+            on the rows' own ids), and the original failure is its
+            ``__cause__``.
+
+            Since CARD-225 this is raised for such a member whether or not the
+            pairing walk would have offered it to a pair: the book's cell map
+            measures every member, so the member with no same-tier neighbour —
+            which reached neither stage before and so aborted this entry
+            nowhere — aborts it here too, named (review cycle 1, F-002; the
+            card's failure matrix, row F-3).
     """
     generator = BookPDFGenerator(book)
     payloads = [generator._payload(puzzle) for puzzle in puzzles]
+    ids = [puzzle.get("id") if hasattr(puzzle, "get") else None for puzzle in puzzles]
+    # The book's own sheet, read **outside** the try below: an unreadable
+    # stored print specification is the book's failure and belongs to no
+    # member, so it stays the bare ValueError it has always been rather than
+    # becoming a per-puzzle abort naming all 120 of them (review cycle 1,
+    # F-006). `cell_sizes` would read it again inside the try otherwise.
+    generator.page_spec(1)
     # CARD-225: the same whole-book cell map `section_plan` settles, so the
     # editor's "would this edit split a page" answer is asked of the pages the
     # book really prints — a pairing verdict now depends on the grid sizes'
     # own book cells (F-8), so a walk run without the map would be a model of
     # the export rather than the export.
-    return generator.puzzle_pages(payloads, cell_sizes=generator.cell_sizes(payloads))
+    #
+    # Routed through the same `_unmeasurable_members` helper `section_plan`
+    # uses, for the same reason (review cycle 1, F-002): the map fails closed
+    # for the whole book and says *that* a member will not lay out, not
+    # *which*, and this entry's whole contract is that every abort names a
+    # puzzle. Without this the map's ValueError reached the editor bare —
+    # no name, no position, no cause — and widened this entry's abort surface
+    # to a member the walk never offered anyone.
+    try:
+        cell_sizes = generator.cell_sizes(payloads)
+    except ValueError as unmeasurable:
+        raise RuntimeError(
+            f"puzzle {generator._unmeasurable_members(payloads, ids)} could not "
+            f"be laid out: {unmeasurable}"
+        ) from unmeasurable
+    # `ids` to the walk as well, so the *other* abort this entry can raise —
+    # a pair COMP-007 refused to measure — names the same rows rather than
+    # bare positions. Before this it named "#1, #2" where the handler above
+    # names the id, which would have made the `Raises:` block true of one
+    # branch and not the other.
+    return generator.puzzle_pages(payloads, ids=ids, cell_sizes=cell_sizes)
 
 
 # ---------------------------------------------------------------------------
@@ -6227,8 +6267,13 @@ class BookPDFGenerator:
             page count (CARD-200).
 
         Raises:
-            RuntimeError: a pair the walk offered could not be laid out
-                (:meth:`puzzle_pages`).
+            ValueError: the book's stored print specification cannot be laid
+                out. A book-level failure, named for the book and for no
+                member (review cycle 1, F-006).
+            RuntimeError: a member could not be measured — the whole-book cell
+                map's own failure (:meth:`cell_sizes`, since CARD-225) or a
+                pair the walk offered (:meth:`puzzle_pages`). Either way the
+                message names the puzzle (:meth:`_unmeasurable_members`).
         """
         ordered = print_order(puzzles)
         ids: List[Any] = []
@@ -6279,8 +6324,17 @@ class BookPDFGenerator:
             len([run for run in _level_runs(payloads) if run[0] is not None]),
             len(payloads),
         )
+        # Read once, and **before** the cell map's handler below: a book whose
+        # stored print specification cannot be laid out fails here, as the
+        # book's own bare ValueError, naming no member (review cycle 1,
+        # F-006). `cell_sizes` reads the same sheet, so without this ordering
+        # a book-level fault would come back out of that handler as a
+        # per-puzzle RuntimeError listing all 120 members for a failure that
+        # belongs to none of them. Stated by this one call rather than left to
+        # the TOC measurement's position in this method.
+        spec = self.page_spec(1)
         toc_page_count = measured_toc_page_count(
-            toc_entry_count, page_frame(self.page_spec(1)), self.dpi
+            toc_entry_count, page_frame(spec), self.dpi
         )
         first_page = 1 + GUIDE_PAGE_COUNT + toc_page_count
         # CARD-225 (NFR-008 as amended): the cell each grid size prints at,
