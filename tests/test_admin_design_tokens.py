@@ -6,6 +6,13 @@ literals (the one exception is the tier hue in _tier.html, pinned by
 test_admin_tier_surfaces.py) and no emoji standing in for icons. A drifting
 mirror or a template that smuggles a hex value back in fails here, so the
 design system cannot quietly stop being the one that ships.
+
+**The sweep reads the served JavaScript too, since CARD-250.** It did not,
+and that is the hole item 4 of that card could have fallen through: the tier
+hues are consolidated into ``_tier.html`` precisely because five copies of
+one colour expression had drifted (CARD-076), and a tier-to-hue map written
+in ``static/*.js`` would have been a sixth copy in a language that macro
+cannot reach — invisible to a sweep that read only ``.css`` and ``.html``.
 """
 
 from __future__ import annotations
@@ -43,6 +50,37 @@ def _templates() -> list[Path]:
     return sorted(_TEMPLATES.glob("*.html"))
 
 
+def _scripts() -> list[Path]:
+    return sorted(_STATIC.glob("*.js"))
+
+
+def _code_lines(path: Path):
+    """``(line number, line)`` for the lines that are CODE.
+
+    A whole-line ``//`` comment is prose, and these files explain at length
+    why the colours are not in them — a sweep that read those sentences would
+    fire on the file that documents the rule. A comment TRAILING code is not
+    skipped, so a value cannot be hidden behind one. (Same discipline as
+    ``tests/test_puzzle_editor_ui.py``'s reads of this file set.)
+    """
+    for number, line in enumerate(path.read_text().splitlines(), 1):
+        if line.strip().startswith(("//", "*", "/*")):
+            continue
+        yield number, line
+
+
+#: How a colour can be written INTO a script: a hex literal, a colour
+#: function, or a reach for one of the design system's own colour tokens
+#: (``--color-*``, ``--tier``, ``--grid-*``) or for an element's colour
+#: properties. ``style.setProperty("--player-…")`` is deliberately outside
+#: it: the player sets geometry custom properties that way and those are not
+#: colours.
+_COLOUR_IN_A_SCRIPT = re.compile(
+    r"#[0-9a-fA-F]{6}\b|\brgba?\(|\bhsla?\(|\bcolor-mix\("
+    r"|--color-|--tier\b|--grid-|style\.(?:color|background)"
+)
+
+
 @pytest.mark.skipif(not _DESIGN.exists(), reason="meta/design/ is not shipped with the package")
 def test_the_served_tokens_are_the_design_systems_tokens() -> None:
     assert (_STATIC / "tokens.css").read_text() == (_DESIGN / "tokens.css").read_text(), (
@@ -75,6 +113,60 @@ def test_no_template_uses_emoji_as_icons() -> None:
 def test_no_template_carries_its_own_stylesheet() -> None:
     offences = [path.name for path in _templates() if "<style" in path.read_text()]
     assert offences == [], f"page-local <style> blocks bypass admin.css: {offences}"
+
+
+def test_no_served_script_decides_a_colour() -> None:
+    """CARD-250 AC-9. The panel's colours are chosen in CSS, from the tokens;
+    a script says WHICH state a thing is in (a data attribute, a class) and
+    never what colour that state is.
+
+    The case this was written for is the editor's recomputed tier: the tier
+    word wears its tier's hue, and the hue is in ``admin.css`` keyed off the
+    server's own tier string, because a ``{easy: "#27ae60", …}`` object in
+    ``static/puzzle_edit.js`` would have been the sixth copy of an expression
+    that has already drifted into two defects once (CARD-076) — in the one
+    language ``_tier.html`` cannot be imported into, and the one file this
+    sweep could not see.
+
+    **What this does NOT cover,** since a guard that overstates itself is
+    worse than none: a script may still pick a CLASS or a data attribute per
+    tier, which is the shape CARD-250 uses and which this cannot distinguish
+    from any other attribute write. What it rules out is a script deciding a
+    colour VALUE — the thing that can disagree with the tokens. That the
+    values agree is read off two live surfaces by
+    ``tests/test_puzzle_editor_ui.py``'s
+    ``TestPuzzleEditor_TheGradeWearsItsTierColour``.
+    """
+    offences = [
+        f"{path.name}: {line_number}: {line.strip()[:60]}"
+        for path in _scripts()
+        for line_number, line in _code_lines(path)
+        if _COLOUR_IN_A_SCRIPT.search(line)
+    ]
+
+    assert _scripts(), "the panel serves no scripts — this sweep reads nothing"
+    assert offences == [], (
+        "colours are decided in admin.css from tokens.css, never in a served "
+        f"script: {offences}"
+    )
+
+
+def test_the_tier_hue_macro_is_still_the_only_exception() -> None:
+    """The exception is ONE file and is named in one place. The template sweep
+    above skips ``_tier.html`` by name; this asserts the skip is still earning
+    its keep (that file really does carry the hues) so the exemption cannot
+    outlive the thing it exempts, and that the hues it carries are the ones
+    ``tokens.css`` declares as ``--color-tier-*``."""
+    macro = (_TEMPLATES / "_tier.html").read_text()
+    tokens = (_DESIGN / "tokens.css").read_text() if _DESIGN.exists() else (
+        _STATIC / "tokens.css").read_text()
+
+    hues = set(_HEX.findall(macro))
+    declared = set(_HEX.findall(
+        "\n".join(line for line in tokens.splitlines() if "--color-tier-" in line)))
+
+    assert hues, "_tier.html no longer carries the tier hues — retire its exemption"
+    assert hues <= declared, sorted(hues - declared)
 
 
 def test_the_stylesheet_uses_tokens_not_literals() -> None:

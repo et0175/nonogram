@@ -137,7 +137,13 @@ th a.sort:hover, th a.sort[aria-current] { color: var(--color-text); text-decora
 .badge[data-status="rejected"], .badge[data-status="failed"], .badge[data-status="cancelled"] { color: var(--color-danger); border-color: var(--color-danger); background: var(--color-danger-tint); }
 .badge[data-status="in_book"], .badge[data-status="ready_for_pdf"], .badge[data-status="pdf_generated"], .badge[data-status="ready_for_kdp"], .badge[data-status="current"] { color: var(--color-accent); border-color: var(--color-accent); background: var(--color-accent-tint); }
 .badge[data-status="generating"], .badge[data-status="pending"], .badge[data-status="processing"] { color: var(--color-warning); border-color: var(--color-warning); background: var(--color-warning-tint); }
-.badge.tier { --c: var(--tier, var(--color-tier-none)); color: color-mix(in srgb, var(--c) 50%, var(--color-text)); background: color-mix(in srgb, var(--c) 14%, var(--color-surface)); border-color: color-mix(in srgb, var(--c) 45%, var(--color-surface)); text-transform: none; }
+/* A tier's INK, in one place: the chip, and the tier word in the puzzle
+   editor's save-bar message (.editor-grade, CARD-250). Two copies of this
+   expression would be two colours for one tier the first time either moved,
+   so the word and the badge share it and a test reads the computed colour
+   off both pages. */
+.badge.tier, .editor-grade { --c: var(--tier, var(--color-tier-none)); color: color-mix(in srgb, var(--c) 50%, var(--color-text)); }
+.badge.tier { background: color-mix(in srgb, var(--c) 14%, var(--color-surface)); border-color: color-mix(in srgb, var(--c) 45%, var(--color-surface)); text-transform: none; }
 .badge.rec { background: var(--color-surface-hover); border-color: transparent; }
 .badge.rec[data-level="high"] { color: var(--color-success); }
 .badge.edited { color: var(--color-warning); border-color: var(--color-warning); background: var(--color-warning-tint); text-transform: none; }
@@ -923,3 +929,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .editor-message { flex: 1 1 24rem; margin: 0; }
 .editor-decide { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .editor-decide[hidden] { display: none; }
+/* Save and Cancel, and the positioning ancestor Cancel's confirmation hangs
+   from — .player-confirm (which the dialog reuses rather than restyling) is
+   absolute against it, exactly as Clear's is against .player-history. */
+.editor-actions { position: relative; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* The hue the recomputed tier's word wears, chosen by the tier the SERVER
+   sent (data-tier, written by puzzle_edit.js tell()). The hues are the
+   tokens, so there is no tier-to-colour map in JavaScript and no literal
+   here; the ink itself is the tier chip's own expression, shared above.
+   `guess` is drawn as Hard for _tier.html's reason: rows written while that
+   tier existed read back as Hard, and the unknown-value grey would make a
+   real grade look like a data fault. */
+.editor-grade { font-weight: 600; }
+.editor-grade[data-tier="easy"] { --tier: var(--color-tier-easy); }
+.editor-grade[data-tier="medium"] { --tier: var(--color-tier-medium); }
+.editor-grade[data-tier="hard"] { --tier: var(--color-tier-hard); }
+.editor-grade[data-tier="guess"] { --tier: var(--color-tier-hard); }
