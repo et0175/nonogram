@@ -376,3 +376,32 @@ word is wanted; it is one line and a guard.
 ruled on — but it is sharper now, because the player also has a brush named Clear, so *"Clear board"*
 there can be misread as "apply the Clear brush to the board". Left alone rather than fixed unasked, and
 recorded here so the next reader meets it as a known question rather than as a surprise.
+
+### [Build gate] attempt 1 FAILED (full, 984s) — the known `@ops` hazard, not the tree · 2026-10-19
+
+**EXIT=1, 6 failed, 8498 passed, 1 skipped.** The guard read 0 before starting, so the run was solo.
+All six are the backlog's recorded module-global-engine hazard, confirmed by signature rather than
+assumed:
+
+- five are `tests/test_admin_binding.py::…::test_a_request_addressed_to_this_machine_is_served[*]`,
+  none of them an HTTP-door assertion — the log carries **15** occurrences of
+  `relation "puzzles" does not exist`;
+- the sixth, `tests/test_puzzle_solver_clues.py::…::test_two_matching_runs_circle_nothing…`, timed out
+  on a page whose request had died server-side with
+  `AttributeError: 'float' object has no attribute 'replace'`, raised from
+  `uuid.UUID(hex=<float>)` inside SQLAlchemy's UUID processor — **the exact traceback the backlog item
+  records**, down to the frame.
+
+Neither file is touched by this card. Re-gated solo per the protocol the backlog item itself sets:
+*"a single red `[db]` test in a file the card does not touch must be re-run before it is believed, and
+the re-run must be recorded."*
+
+**⚑ Fourth wave in a row this has cost a full gate run** — wave 45 (CARD-248), wave 46 (the smoke
+test's first run), wave 47 (CARD-251), wave 48 (this card). ~16 minutes each, plus a fresh diagnosis
+every time because the signature varies between `relation does not exist`, `FATAL: database … does not
+exist` and the float/UUID read. On wave 47 it also cost **trust**: the orchestrator mis-attributed that
+red gate to its own scheduling and had to withdraw the attribution after committing it. The backlog
+item names a one-line candidate fix (dispose `nonogram.db.session.engine` and reset `_engine_url` after
+the schema rebuild, with a control that fails). **It is worth a card in the next wave**, and it is
+deliberately not being done mid-wave: `tests/conftest.py` is outside both in-flight cards and changing
+it now would perturb the gates still to run.
