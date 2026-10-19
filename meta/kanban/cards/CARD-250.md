@@ -230,3 +230,143 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-250 --root meta/architectu
   browser test here must be added to `PAGE_ISOLATION_DECLARATION` in that file.
 - **[Do not take timing measurements]** Sibling cards may be active; a contended number is not a
   measurement. Layout and colour measurements are fine.
+
+### Implementation summary (agent, 2026-10-19)
+
+**Option taken for the stale thumbnail: option 1 — version the URL.** `app.py` is untouched; the
+change is the two template lines the card named (`_puzzle_table.html:45` and the detail modal's
+`:289`), so the declared conflict hotspot took no edit at all. No `SCOPE+` lines: every file changed
+is in the card's Touches list.
+
+**AC → test**
+
+| AC | test |
+|---|---|
+| AC-1 | `TestPuzzleEditor_CancelLeavesTheEditor` (click, and from the keyboard) |
+| AC-2 | `TestPuzzleEditor_CancelAsksOnlyWhenThereIsSomethingToLose` (5 tests: unchanged → no question; changed → asks, declining keeps the edit *and* it is still saveable; confirming leaves; Escape = Keep editing; painted-then-undone still asks) |
+| AC-3 | `TestPuzzleEditor_BackToEditKeepsTheEditAndStoresNothing` (renamed from `…_CancelKeepsTheEditAndStoresNothing`; a rename and nothing else — G-1), plus `…TheWordsNameTheButtonsThatExist::test_the_button_the_grade_names_is_the_one_that_goes_back`, which reads the name out of the message and presses *that* |
+| AC-4 | `TestPuzzleEditor_TheWordsNameTheButtonsThatExist` (4 tests) |
+| AC-5 | `TestPuzzleEditor_ApproveCommitsThenReturnsToTheList` |
+| AC-6 | `TestPuzzleEditor_TheListShowsTheEditedPicture` (server tier, 4 tests) + `…ApproveCommitsThenReturnsToTheList::test_the_row_it_lands_on_draws_the_grid_that_was_stored` |
+| AC-7 | `TestPuzzleEditor_NoExitWhileTheStoreIsDeciding` (4 tests) |
+| AC-8 | `TestPuzzleEditor_TheGradeWearsItsTierColour` (both pages read in one test) |
+| AC-9 | `tests/test_admin_design_tokens.py::test_no_served_script_decides_a_colour` + `…::test_the_tier_hue_macro_is_still_the_only_exception` |
+| AC-10 | `TestPuzzleEditor_TheOfferAndTheWordsAgree` — every assertion unchanged; one line added to one test (a 204 that holds the exit's navigation back, so the sentence it reads is still on screen). Mutant M8 below confirms the class still bites after `tell`'s body changed. |
+
+**AC-6's red run, recorded.** The test was written and run against the tree *before* the template
+change (`/private/tmp/.../scratchpad/ac6-red.txt`):
+
+```
+assert drawn_before != drawn_after        # PASSED — the two SVGs really differ
+>       assert after != before, after
+E       AssertionError: /api/puzzle/puzzle_000001/grid
+E       assert '/api/puzzle/puzzle_000001/grid' != '/api/puzzle/puzzle_000001/grid'
+```
+
+All four tests of that class were red; they are green after the two template lines. The claim is
+narrowed in the class docstring: these prove the two pictures differ and the URL moves with them, and
+they explicitly do *not* drive Chromium's heuristic cache.
+
+**Mutants run (16; 15 killed, 1 deliberately surviving the narrow guard and killed by another).**
+
+| mutant | effect | killed by |
+|---|---|---|
+| M1 Cancel does not navigate | — | `test_cancel_goes_to_the_list_and_stores_nothing` |
+| M2 Cancel never asks | — | `test_a_changed_board_is_asked_about_and_declining_keeps_the_edit` |
+| M2b Cancel always asks (edge) | — | `test_an_unchanged_board_is_not_asked_about` |
+| M3 in-flight refusal removed | — | `test_cancel_pressed_while_the_store_is_deciding_does_not_leave` |
+| M3b "Leave editor" stops re-checking in-flight (edge) | — | `test_leave_editor_pressed_after_the_question_was_asked_is_refused_too` |
+| M4 `gradeText` says "or Cancel to go on editing" again | — | `test_the_grade_names_both_buttons_it_offers` **and** `test_the_button_the_grade_names_is_the_one_that_goes_back`; **survives** `test_no_message_names_a_button_the_bar_does_not_carry`, which is exactly what that test's docstring says it cannot see (Cancel *is* a label on the bar now) |
+| M5 a message says "press Hold on" | — | `test_no_message_names_a_button_the_bar_does_not_carry` |
+| M6 Medium wears Hard's hue | — | `test_each_tiers_word_is_that_tiers_colour_and_the_lists_too` |
+| M6b `data-tier` not written (edge) | — | same |
+| M7 a hex literal enters `puzzle_edit.js` | — | `test_no_served_script_decides_a_colour` |
+| M7b **edge:** the script picks a CLASS per tier instead | **survives the AC-9 sweep alone (exit 0)** — the residual that test's docstring declares — and is killed by `test_each_tiers_word_is_that_tiers_colour_and_the_lists_too` | AC-8's colour read |
+| M8 `tell` leaves a live Approve beside a new sentence | — | `test_a_grid_being_checked_is_never_shown_beside_an_approve` (THE INVARIANT still bites after `tell` changed) |
+| M9 the coloured span is filled but never put in the line | — | `test_save_shows_the_recomputed_difficulty_and_stores_nothing` (so "a span's text concatenates into `message.textContent`" is load-bearing, not decoration) |
+| M10 the exit never says it is busy | — | `test_cancel_pressed_while_the_store_is_deciding_does_not_leave` |
+| M11 the thumbnail's version stops moving after the first edit | — | `test_a_second_edit_moves_it_again` |
+| M12 Approve does not leave | — | `test_the_store_holds_the_new_grid_and_the_browser_is_on_the_list` |
+
+**The rename, recorded as the card asks.** `TestPuzzleEditor_CancelKeepsTheEditAndStoresNothing` →
+`TestPuzzleEditor_BackToEditKeepsTheEditAndStoresNothing`; its two methods renamed with it;
+`test_a_cancel_taken_mid_flight_is_not_undone_by_the_answer` →
+`test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer`. In the script,
+`onCancel` → `onBackToEdit` and `CANCELLED` → `BACK_TO_EDIT` (same words — they never named the
+button). Ids: the old `#puzzle-editor-cancel` is now `#puzzle-editor-back`, and the new exit is
+`#puzzle-editor-leave` — the freed *label* was reused, the freed *id* deliberately was not, so no
+existing selector silently retargets. No test retired (G-9).
+
+**The one place AC-7 is read narrowly, flagged for the reviewer.** AC-7 names Cancel *and* Back to
+edit. Cancel is refused mid-flight in words and with `aria-disabled`. Back to edit is **not**
+refused: it never leaves the page, so it has nothing to outrun, and refusing it would change the
+behaviour G-1 says to rename rather than change (and would break
+`test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer`, which AC-10 says passes
+unchanged). What AC-7 asks of it — the page does not navigate, and it says what it did — is asserted
+by `test_back_to_edit_pressed_mid_flight_does_not_navigate_either`. The asymmetry and its reason are
+written in `puzzle_edit.js`'s header, in `inFlightIs`, and in both tests' docstrings. **Not treated
+as a guardrail conflict**, because both halves of AC-7's *then* clause hold for both buttons.
+
+**Consequence of AC-5 worth a second look.** A successful Approve now leaves the page, so nine
+existing browser tests could no longer wait on the "Saved" sentence on a bar the browser has left.
+Eight now wait on the list (`_wait_for_the_list`); the one that must read the sentence
+(`test_a_second_approve_pressed_in_flight_is_not_sent_either`) holds the page with a 204 on the
+navigation (`_stay_on_the_editor`) and keeps every assertion it had.
+`test_approving_from_the_keyboard_commits` lost one assertion about where focus went after a
+successful approve — there is no bar left to stand on; the named survivors are
+`test_the_whole_flow_runs_from_the_keyboard` (Back to edit) and
+`test_an_approval_of_a_grid_the_store_no_longer_remembers_asks_to_verify_again` (a refusal keeps the
+page), both of which still assert the focus discipline. `storedText`'s tail changed from "Your board
+is untouched — go on editing" to "Showing the puzzle list…", because the old sentence became false
+the moment the page started leaving.
+
+**Runs.** `tests/test_puzzle_editor_ui.py tests/test_admin_design_tokens.py` — 106 passed (in the
+default random order and in `-p no:randomly`). Also run green as the shared-template blast radius:
+`test_admin_tier_surfaces.py`, `test_puzzle_edit_routes.py`, `test_puzzle_edit_store.py`,
+`test_card_060_grid_renderer_surface.py`, `test_puzzle_review_bulk_read.py`,
+`test_batch_requested_tier.py`, `test_admin_filter_side_range_and_name.py`,
+`test_admin_rename_strategies_batches.py`, `test_admin_review_actions.py`, `test_admin_serving.py`,
+`test_card_065_follow_ups.py`, `test_card_066_status_filter.py`, `test_puzzles_list_pagination.py`,
+`test_book_floor.py`. The full suite is the orchestrator's gate; it was not run here. No timing
+measurements taken.
+
+### [Scope] orchestrator, 2026-10-19
+
+Changed files vs `main`: `admin.css`, `puzzle_edit.js`, `_puzzle_table.html`, `puzzle_edit.html`,
+`tests/test_admin_design_tokens.py`, `tests/test_puzzle_editor_ui.py` — **six of the seven
+`Touches` entries, no drift, no file outside the prediction.** `src/nonogram/admin/app.py`, the
+declared conflict hotspot, took **no edit**, which is the outcome option 1 was recommended for and
+which leaves CARD-251 a clean base in the file both cards would otherwise collide in.
+
+**AC-6's red run verified independently of the report.** The evidence file shows
+`assert drawn_before != drawn_after` PASSING and the URL assertion failing on the pre-card tree —
+i.e. the two SVGs genuinely differ and the stale case was real before the fix, which is the one thing
+a thumbnail test of this shape can get wrong.
+
+### [Build gate] PASSED (full, 884s) — orchestrator, 2026-10-19
+
+`review.test_scope` is `full` on this board, so the gate is the whole suite. Run on the worktree at
+`318bf1d` with `DATABASE_URL` SET at the worktree's own derived database (CARD-244), under the flock
+on `meta/kanban/.full-suite.lock`. **EXIT=0, first attempt, 8390 passed / 1 skipped / 0 failed** —
+the one skip is the platform `setrlimit` one every run on this machine carries.
+
+**The count reconciles exactly, and that is the evidence.** Collected 8391 on the branch against
+**8364** on `main` — which is itself wave 46's final smoke test (8363 passed + 1 skipped) — so the
+net is **+27**, and all 27 are in this card's own two test files (79 → 106 node ids there, nothing
+else moved).
+
+**[G-9] verified rather than trusted.** Exactly three node ids present on `main` are gone from the
+branch, and all three are the documented renames, each with its successor collected on the branch:
+`…CancelKeepsTheEditAndStoresNothing::{test_cancel_leaves_the_store_and_the_board_as_they_were,
+test_the_edit_can_be_carried_on_and_saved_after_a_cancel}` →
+`…BackToEditKeepsTheEditAndStoresNothing::{…_back_to_edit_leaves_…, …_after_going_back}`, and
+`TheOfferAndTheWordsAgree::test_a_cancel_taken_mid_flight_is_not_undone_by_the_answer` →
+`…test_a_back_to_edit_taken_mid_flight_…`. **No test retired.**
+
+**⚑ The gate's own summary line was suppressed by the orchestrator's flag — my defect, recorded.**
+`pyproject.toml` already sets `addopts = "-q"`, so the gate script's explicit `-q` made it `-qq`, at
+which pytest prints **no** `N passed` line at all. `EXIT=0` was still the authority and `failed`
+appears zero times in the log, but a gate that cannot print its own count is the same shape wave 46
+recorded when `-rs` reported skips and not failures. The flag is dropped, and the counts above were
+re-derived from `--collect-only` with `addopts` cleared rather than read off a line that was never
+printed.

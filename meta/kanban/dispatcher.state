@@ -450,6 +450,12 @@ wave_47:
   owner_instruction: "start the next wave with CARD-250 and CARD-251 (2026-10-19)"
   cards: [CARD-250, CARD-251]
   started_now: [CARD-250]
+  card_250:
+    phase: review
+    review_cycle: 1
+    implementation_commit: 318bf1d
+    build_gate: "PASSED full 884s, EXIT=0 first attempt, 8390/1/0; collected 8391 vs main's 8364 = +27, all 27 in the card's own two test files"
+    at: 2026-10-19T08:06:57Z
   queued: [CARD-251]
   conflict_edges:
     - pair: [CARD-250, CARD-251]
