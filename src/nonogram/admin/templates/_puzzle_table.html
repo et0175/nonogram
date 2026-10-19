@@ -89,7 +89,12 @@
                         it edits ("Edit" alone, repeated down a column of
                         rows, names nothing).
 
-                        A puzzle a book holds offers none, and the
+                        Since CARD-251 a puzzle in a book the panel CAN name
+                        offers the control again — it is editable behind a
+                        confirmation that names the book. What offers none is
+                        a membership with no book identity (a falsy
+                        `book_id`): there is no book to name, so there is no
+                        question to ask (review cycle 1, F-009). The
                         condition is asked ONCE for all three surfaces
                         (review cycle 1, F-010): `puzzle_is_editable` in
                         app.py, over the store's own `_holds_a_book`. This row

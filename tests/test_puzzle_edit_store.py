@@ -61,9 +61,12 @@ import pytest
 import nonogram.admin.puzzle_review as puzzle_review_module
 from nonogram.admin.puzzle_review import (
     MAX_REMEMBERED_VERIFICATIONS,
+    EditNeedsConfirmation,
     EditNotVerified,
     PuzzleFilter,
     PuzzleReviewService,
+    RegradeInsideABook,
+    ReplacementExtentChanged,
 )
 from nonogram.errors import NotUniquelySolvable
 from tests.helpers.db import make_book, sqlite_session_scope
@@ -324,15 +327,19 @@ class TestPuzzleEdit_StoresAndRederivesEverythingDerived:
                     "difficulty_tier", "strategies_used"):
             assert row[key] != before[key], f"{key} was carried over"
 
-    def test_a_resized_edit_moves_width_and_height(self, harness):
-        puzzle_id = harness.seed()
-
-        edit(harness, puzzle_id, solid(12, 15))
-        row = harness.row(puzzle_id)
-
-        assert (row["width"], row["height"]) == (15, 12)
-        assert row["clues_rows"] == [[15]] * 12
-        assert row["clues_cols"] == [[12]] * 15
+    # ``test_a_resized_edit_moves_width_and_height`` lived here until
+    # CARD-251 (G-10, the retirement and its survivors): a replacement grid
+    # now has to keep the stored row's extent (AC-5, Trap 2), so an edit can
+    # no longer resize a puzzle and the behaviour that test pinned is gone.
+    # Its assertions are carried by two survivors:
+    #   * that a differently shaped replacement is REFUSED and writes nothing
+    #     — ``TestEdit_AReplacementKeepsTheStoredExtent``;
+    #   * that ``width`` and ``height`` are still DERIVED from the submitted
+    #     grid rather than left alone —
+    #     ``TestEdit_AReplacementKeepsTheStoredExtent
+    #     .test_a_same_extent_replacement_still_rewrites_width_and_height``,
+    #     which seeds a row whose columns disagree with its grid and reads
+    #     them back corrected.
 
     def test_identity_and_provenance_columns_survive(self, harness):
         """G-3: ``id``, ``batch_id``, ``source_image`` and ``created_at``."""
@@ -514,24 +521,67 @@ class TestPuzzleEdit_GradesFromTheProvingSolve:
 
 
 class TestPuzzleEdit_RefusesAPuzzleThatIsInABook:
-    """AC-4: the precedent approve, reject, restore and delete already set."""
+    """AC-4, as CARD-251 narrowed it: the book this panel cannot NAME.
 
-    def test_the_save_refuses_a_puzzle_a_book_holds(self, harness):
+    CARD-245 refused every booked puzzle here, the precedent approve, reject,
+    restore and delete set. The owner has since asked for the opposite —
+    editable behind a confirmation that names the book — so what is refused
+    outright is only the membership that has no book to name: the legacy
+    ``in_book`` status with no ``book_id``, and a migration's empty-string
+    ``book_id``. "Are you sure?" with no object is a dialog to click through,
+    not a question.
+
+    **G-10, the two retirements and their survivors.**
+    ``test_the_save_refuses_a_puzzle_a_book_holds`` and
+    ``test_the_verify_refuses_it_too`` pinned the old refusal for a NAMEABLE
+    book; the behaviour they asserted is the one the owner reversed. Their
+    survivors are ``TestBookedEdit_AnUnconfirmedSaveWritesNothing`` (the save
+    still writes nothing — it is a confirmation that is missing, not a
+    refusal that is gone) and
+    ``TestBookedEdit_ARegradeInsideABookIsRefusedAtVerify`` (the verify still
+    refuses the edits that would move the book's structure). The two tests
+    below are the same two assertions, kept for the case that is still a flat
+    refusal.
+    """
+
+    def test_the_save_refuses_a_book_it_cannot_name(self, harness):
+        """Held by a book, with no book to name (``_an_edit_may_touch``).
+
+        The legacy ``in_book`` status is the spelling both storage modes can
+        hold: the other one — a migration's empty-string ``book_id`` — cannot
+        be written into a SQLite/Postgres ``uuid`` column at all, and is
+        exercised over the in-memory store through the panel's three surfaces
+        instead (``tests/test_puzzle_editor_ui.py``
+        ``test_a_falsy_but_present_book_id_is_refused_by_control_and_route_alike``).
+        """
         puzzle_id = harness.seed()
-        harness.put_in_a_book(puzzle_id)
+        harness.set_the_legacy_in_book_status(puzzle_id)
         before = harness.row(puzzle_id)
+        assert before.get("book_id") is None, "this arm is the status alone"
 
-        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
         assert harness.store.save_edited_grid(puzzle_id, solid_minus_corner()) is None
+        assert harness.store.save_edited_grid(
+            puzzle_id, solid_minus_corner(), confirmed=True) is None
         assert harness.row(puzzle_id) == before
 
     def test_the_verify_refuses_it_too(self, harness):
         puzzle_id = harness.seed()
-        harness.put_in_a_book(puzzle_id)
+        harness.set_the_legacy_in_book_status(puzzle_id)
 
         assert harness.store.verify_replacement_grid(
             puzzle_id, solid_minus_corner()
         ) is None
+
+    def test_the_rule_itself_reads_both_unnameable_spellings(self):
+        """``_an_edit_may_touch`` is the one spelling four surfaces ask, so it
+        is pinned directly as well as through the two flows above — including
+        the empty-string ``book_id`` no DB column can carry."""
+        may = PuzzleReviewService._an_edit_may_touch
+
+        assert may(None, "approved") is True
+        assert may("a-real-book-id", "approved") is True
+        assert may(None, "in_book") is False
+        assert may("", "approved") is False
 
     def test_a_legacy_in_book_status_refuses_it_as_well(self, harness):
         """Rows written before CARD-100 carry the status rather than a book id.
@@ -549,6 +599,10 @@ class TestPuzzleEdit_RefusesAPuzzleThatIsInABook:
 
         assert harness.store.save_edited_grid(puzzle_id, solid_minus_corner()) is None
         assert harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner()) is None
+        # And the confirmation cannot buy what there is no book to confirm
+        # (CARD-251): a flag is not a name.
+        assert harness.store.save_edited_grid(
+            puzzle_id, solid_minus_corner(), confirmed=True) is None
         assert harness.row(puzzle_id) == before
 
     def test_an_unknown_puzzle_is_not_an_edit_either(self, harness):
@@ -805,8 +859,15 @@ class TestPuzzleEdit_AProofDoesNotCrossGridExtents:
     def test_the_control_the_same_extent_is_answered_from_the_proof(
         self, harness, solver_entries
     ):
-        """So the entry above is the reshape, not every save solving again."""
-        puzzle_id = harness.seed()
+        """So the entry above is the reshape, not every save solving again.
+
+        The seed is a 1x4 row rather than the 10x10 default, since CARD-251:
+        a replacement keeps the stored extent (AC-5), so "the same extent"
+        now has to be the same extent as the ROW's, not merely the same as
+        the verify's. The claim this control makes is unchanged — one proof
+        answers a save of the grid it was bought for.
+        """
+        puzzle_id = harness.seed(grid=ONE_BY_FOUR, width=4, height=1)
         harness.store.verify_replacement_grid(puzzle_id, ONE_BY_FOUR)
         after_the_verify = solver_entries.entries
 
@@ -940,8 +1001,11 @@ class TestPuzzleEdit_StampsTheEditAndKeepsTheQualityScore:
             edit(harness, puzzle_id, solid_minus_corner())
         first = harness.row(puzzle_id)["manually_edited_at"]
 
+        # A different 10x10 grid rather than an 11x11 one: since CARD-251 a
+        # replacement keeps the stored extent (AC-5), and what this test is
+        # about is the stamp, not the shape.
         with frozen_clock(monkeypatch, half_past):
-            edit(harness, puzzle_id, solid(11, 11))
+            edit(harness, puzzle_id, solid())
         second = harness.row(puzzle_id)["manually_edited_at"]
 
         assert first.startswith("2026-10-18T09:00:00"), first
@@ -1635,14 +1699,99 @@ def _reaches(start: str, symbols: dict, callees: dict, target: str) -> bool:
     return False
 
 
+#: Base names a class of this module inherits from to be a refusal: the
+#: exception bases ``puzzle_review`` actually uses. Written out rather than
+#: matched on a suffix, so a class called ``GridValueError`` does not become a
+#: refusal by its name alone.
+_REFUSAL_BASES = frozenset({"ValueError", "Exception", "NotUniquelySolvable", "SolverTimeout"})
+
+
+def _refusal_constructors(module: ast.Module) -> set:
+    """``Class.__init__`` of this module's refusals — DERIVED, not listed.
+
+    A refusal class's ``__init__`` writes attributes on a **fresh exception**:
+    the object it mutates was made by the ``raise`` that is standing in place
+    of a write, so nothing it holds can reach durable state. CARD-251 added
+    three such classes (``EditNeedsConfirmation``, ``RegradeInsideABook``,
+    ``ReplacementExtentChanged``), each carrying the facts its route needs to
+    word the refusal — a book id, two tiers, two extents.
+
+    Recognised **structurally and narrowly**, so this cannot become a second
+    default-allow (F-002's defect): the class's bases must all be in
+    :data:`_REFUSAL_BASES`, and the body must do nothing but call
+    ``super().__init__`` and bind its own **parameters** to ``self``. An
+    ``__init__`` that writes anything else — a value read off a store, a
+    subscript, a call's result — is not derived out and stays a candidate,
+    which is what ``test_a_constructor_that_writes_more_than_its_parameters_is_not_excused``
+    asserts with a probe.
+    """
+    derived = set()
+    for node in module.body:
+        if not isinstance(node, ast.ClassDef):
+            continue
+        bases = [base.id for base in node.bases if isinstance(base, ast.Name)]
+        if not bases or len(bases) != len(node.bases):
+            continue
+        if not set(bases) <= _REFUSAL_BASES:
+            continue
+        for member in node.body:
+            if not isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if member.name != "__init__":
+                continue
+            if _binds_only_its_parameters(member):
+                derived.add(f"{node.name}.__init__")
+    return derived
+
+
+def _binds_only_its_parameters(node) -> bool:
+    """Is every statement of ``node`` ``super().__init__(...)`` or ``self.x = <param>``?"""
+    arguments = {
+        argument.arg
+        for argument in (*node.args.args, *node.args.posonlyargs, *node.args.kwonlyargs)
+    }
+    for statement in node.body:
+        if isinstance(statement, ast.Expr):
+            if isinstance(statement.value, ast.Constant):
+                continue  # the docstring
+            call = statement.value
+            if (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "__init__"
+                and isinstance(call.func.value, ast.Call)
+                and isinstance(call.func.value.func, ast.Name)
+                and call.func.value.func.id == "super"
+            ):
+                continue
+            return False
+        if isinstance(statement, ast.Assign):
+            targets = statement.targets
+            if len(targets) != 1 or not isinstance(targets[0], ast.Attribute):
+                return False
+            if not (
+                isinstance(targets[0].value, ast.Name) and targets[0].value.id == "self"
+            ):
+                return False
+            if not (
+                isinstance(statement.value, ast.Name)
+                and statement.value.id in arguments
+            ):
+                return False
+            continue
+        return False
+    return True
+
+
 def _analyse(module: ast.Module) -> dict:
     """One pass: symbols, their mutating shapes, their callees, the verdicts."""
     symbols = _symbols(module)
     mutations = {name: _mutating_shapes(node) for name, node in symbols.items()}
     callees = {name: _local_callees(name, node, symbols) for name, node in symbols.items()}
     read_only = _provably_read_only(symbols, mutations, callees)
+    refusals = _refusal_constructors(module)
     safe = _accounted_for(symbols, mutations, callees, read_only)
-    candidates = set(symbols) - read_only
+    candidates = set(symbols) - read_only - refusals
     ungated = sorted(
         name
         for name in candidates
@@ -1653,6 +1802,7 @@ def _analyse(module: ast.Module) -> dict:
         "mutations": mutations,
         "callees": callees,
         "read_only": read_only,
+        "refusals": refusals,
         "safe": safe,
         "candidates": candidates,
         "ungated": ungated,
@@ -1768,6 +1918,64 @@ class TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal:
                 f"{name} is not provably read-only: {analysis['mutations'][name]}"
             )
             assert name not in WRITES_NO_GRID, f"{name} should not need an entry"
+
+    def test_card_251s_refusals_are_derived_out_not_listed(self, analysis):
+        """CARD-251's three refusal constructors leave the candidate set by
+        proof, not by an entry on the hand-written list (:func:`_refusal_constructors`).
+
+        The list is kept short on purpose — a long one is the snapshot of
+        today's methods G-1 forbids — and three exception constructors are a
+        *class* of thing, so they are recognised rather than enumerated.
+        """
+        for name in (
+            "EditNeedsConfirmation.__init__",
+            "RegradeInsideABook.__init__",
+            "ReplacementExtentChanged.__init__",
+        ):
+            assert name in analysis["symbols"], f"{name} no longer exists"
+            assert name in analysis["refusals"], f"{name} was not derived out"
+            assert name not in WRITES_NO_GRID, f"{name} should not need an entry"
+            assert name not in analysis["candidates"]
+
+    #: Probes for the derivation's edge. The first is the shape CARD-251's
+    #: refusals have; every other one writes something that is NOT one of the
+    #: constructor's own parameters, and must stay a candidate — otherwise
+    #: "an exception is not a row" would excuse a constructor that reaches a
+    #: store (ADR-0039/R1: a guard needs a control that can fail).
+    _CONSTRUCTOR_PROBES = [
+        pytest.param("        self.book_id = book_id", True, id="own-parameter"),
+        pytest.param("        self.book_id = store.rows[0]", False, id="read-off-a-store"),
+        pytest.param("        self.book_id = book_id or fetch()", False, id="a-calls-result"),
+        pytest.param("        store.puzzles[book_id] = book_id", False, id="writes-elsewhere"),
+        pytest.param("        self.rows['grid'] = book_id", False, id="subscript-on-self"),
+    ]
+
+    @pytest.mark.parametrize("body, excused", _CONSTRUCTOR_PROBES)
+    def test_a_constructor_that_writes_more_than_its_parameters_is_not_excused(
+        self, body, excused
+    ):
+        source = (
+            "class Probe(ValueError):\n"
+            "    def __init__(self, message, *, book_id):\n"
+            '        """A probe."""\n'
+            "        super().__init__(message)\n"
+            f"{body}\n"
+        )
+
+        analysed = _analyse_source(source)
+
+        assert ("Probe.__init__" in analysed["refusals"]) is excused, body
+
+    def test_a_non_exception_class_is_not_a_refusal(self):
+        """The other edge: the bases decide, so an ordinary class's
+        ``__init__`` is never derived out by this rule however it is written."""
+        source = (
+            "class NotARefusal:\n"
+            "    def __init__(self, message, *, book_id):\n"
+            "        self.book_id = book_id\n"
+        )
+
+        assert _analyse_source(source)["refusals"] == set()
 
     def test_the_read_only_list_is_short(self, analysis):
         """A long list would be the snapshot of today's methods G-1 forbids."""
@@ -2235,3 +2443,361 @@ class TestManuallyEditedAt_Migration016:
         }
 
         assert script.get_heads() == [max(on_disk, key=int)]
+
+
+# --------------------------------------------------------------------------
+# CARD-251 — a puzzle already in a book can be edited, behind a confirmation
+#
+# The store half. CARD-245 refused a booked puzzle outright
+# (``TestPuzzleEdit_RefusesAPuzzleThatIsInABook``, above, now narrowed to the
+# book this panel cannot NAME); the owner asked for the opposite behind an
+# "are you sure" question, and this section is the three rules that replace
+# the one refusal:
+#
+#   AC-2  the unconfirmed save writes nothing   TestBookedEdit_AnUnconfirmedSaveWritesNothing
+#   AC-3  the confirmed save stores             TestBookedEdit_AConfirmedSaveStores
+#   AC-4  a regrade inside a book is refused    TestBookedEdit_ARegradeInsideABookIsRefusedAtVerify
+#   AC-5  a replacement keeps the extent        TestEdit_AReplacementKeepsTheStoredExtent
+#
+# Every class here runs over both storage modes, like every other class in
+# this file: the ``harness`` fixture is parametrized, so the DB branch of the
+# new refusals is exercised and cannot skip green.
+# --------------------------------------------------------------------------
+
+
+def booked(harness: Harness, *, tier: str = "easy") -> tuple[str, str]:
+    """A stored puzzle a NAMEABLE book holds, and that book's id.
+
+    ``tier`` is the row's own ``difficulty_tier`` column, which is what the
+    book reads (INV-009) and what AC-4 compares the replacement's new grade
+    against. ``"easy"`` is :data:`MINUS_CORNER_TIER`, so the default fixture
+    is a puzzle whose ordinary replacement is NOT a regrade.
+    """
+    puzzle_id = harness.seed(difficulty_tier=tier)
+    return puzzle_id, harness.put_in_a_book(puzzle_id)
+
+
+class TestBookedEdit_AnUnconfirmedSaveWritesNothing:
+    """AC-2 / G-1: the guard is a confirmation, and it is the SERVER's.
+
+    Asserted on the row rather than on the refusal's type, which is the whole
+    of what "writes nothing" means: the grid, every derived column and the
+    stamp are the ones that were there before, and the refusal names the book
+    so the caller can ask the question.
+    """
+
+    def test_a_verified_grid_is_not_stored_without_the_confirmation(self, harness):
+        puzzle_id, book_id = booked(harness)
+        before = harness.row(puzzle_id)
+        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        with pytest.raises(EditNeedsConfirmation) as refusal:
+            harness.store.save_edited_grid(puzzle_id, solid_minus_corner())
+
+        assert harness.row(puzzle_id) == before
+        assert harness.row(puzzle_id)["manually_edited_at"] is None
+        assert refusal.value.book_id == book_id
+
+    def test_the_default_is_unconfirmed(self, harness):
+        """``confirmed`` is not a parameter a caller can forget INTO a write."""
+        puzzle_id, _book_id = booked(harness)
+        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        with pytest.raises(EditNeedsConfirmation):
+            harness.store.save_edited_grid(puzzle_id, solid_minus_corner(), confirmed=False)
+
+    def test_an_unconfirmed_save_measures_nothing_either(self, harness, solver_entries):
+        """The INV-008 precedent's own words: it measures nothing and writes
+        nothing, rather than doing half the work.
+
+        **Measured on a grid this store has never proved**, which is the only
+        way this counter can move: a save of a grid the verify already proved
+        is answered from the memo and enters no solve anyway
+        (``TestPuzzleEdit_AProofDoesNotCrossGridExtents``), so counting solves
+        across a verify-then-save pair would have been a control that cannot
+        fail — mutant M8, the confirmation moved to *after* the uniqueness
+        gate, survived exactly that version of this test.
+
+        The control is the line below the refusal: the same call WITH the flag
+        does reach the gate and does solve, so the zero above is the
+        confirmation and not a counter that never moves.
+        """
+        puzzle_id, _book_id = booked(harness)
+        unproved = solid_minus_corner()
+        baseline = solver_entries.entries
+
+        with pytest.raises(EditNeedsConfirmation):
+            harness.store.save_edited_grid(puzzle_id, unproved)
+
+        assert solver_entries.entries == baseline
+
+        with pytest.raises(EditNotVerified):
+            harness.store.save_edited_grid(puzzle_id, unproved, confirmed=True)
+
+        assert solver_entries.entries == baseline + 1
+
+    def test_an_unbooked_puzzle_needs_no_confirmation(self, harness):
+        """The control: without it the refusals above could be about anything."""
+        puzzle_id = harness.seed(difficulty_tier="easy")
+
+        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        assert harness.store.save_edited_grid(puzzle_id, solid_minus_corner()) is not None
+
+
+class TestBookedEdit_AConfirmedSaveStores:
+    """AC-3: the new grid lands with everything derived, and the book is kept."""
+
+    def test_the_confirmed_save_stores_and_rederives(self, harness):
+        puzzle_id, book_id = booked(harness)
+        replacement = solid_minus_corner()
+        harness.store.verify_replacement_grid(puzzle_id, replacement)
+
+        stored = harness.store.save_edited_grid(puzzle_id, replacement, confirmed=True)
+
+        assert stored is not None
+        row = harness.row(puzzle_id)
+        assert row["grid"] == replacement
+        assert row["clues_rows"] == MINUS_CORNER_CLUES
+        assert row["clues_cols"] == MINUS_CORNER_CLUES
+        assert row["difficulty_score"] == MINUS_CORNER_SCORE
+        assert row["difficulty_tier"] == MINUS_CORNER_TIER
+        assert row["strategies_used"] == MINUS_CORNER_STRATEGIES
+        assert row["manually_edited_at"] is not None
+
+    def test_the_puzzles_book_is_unchanged(self, harness):
+        """An edit is not a membership change: ``book_id`` is not a derived
+        column and nothing here writes it (INV-008 is about membership, and
+        this card moves none)."""
+        puzzle_id, book_id = booked(harness)
+        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        harness.store.save_edited_grid(puzzle_id, solid_minus_corner(), confirmed=True)
+
+        assert harness.row(puzzle_id)["book_id"] == book_id
+        assert harness.store.in_a_book(puzzle_id) is True
+
+    def test_a_second_confirmed_save_of_the_same_grid_stores_again(self, harness):
+        """Failure matrix F-1: a double click, or a write retried after a
+        dropped connection. A verification is not consumed by a save
+        (CARD-245), so the second one stores the same grid and moves only the
+        stamp."""
+        puzzle_id, _book_id = booked(harness)
+        replacement = solid_minus_corner()
+        harness.store.verify_replacement_grid(puzzle_id, replacement)
+        harness.store.save_edited_grid(puzzle_id, replacement, confirmed=True)
+        first = harness.row(puzzle_id)
+
+        again = harness.store.save_edited_grid(puzzle_id, replacement, confirmed=True)
+
+        assert again is not None
+        assert harness.row(puzzle_id)["grid"] == first["grid"]
+
+
+class TestBookedEdit_ARegradeInsideABookIsRefusedAtVerify:
+    """AC-4 / G-2 / G-3 — the owner's settled rule, and INV-009 untouched.
+
+    A book's order is grouped by tier (INV-009) and a page pairs only equal
+    tiers (INV-010), so a replacement that grades into another tier would move
+    the book's structure under its owner. The owner chose to refuse that
+    rather than to give INV-009 a regrade clause, and to refuse it at the
+    **verify**, where the grade is computed — so it is learnt WITH the grade
+    and before Approve.
+
+    It is refused at the store too (G-2), by the same discipline G-1 applies
+    to the confirmation: a save posted straight at the route, with no page in
+    front of it, writes nothing either.
+    """
+
+    def test_the_verify_refuses_a_replacement_that_changes_the_tier(self, harness):
+        puzzle_id, book_id = booked(harness, tier="medium")
+        before = harness.row(puzzle_id)
+
+        with pytest.raises(RegradeInsideABook) as refusal:
+            harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        assert refusal.value.stored_tier == "medium"
+        assert refusal.value.new_tier == MINUS_CORNER_TIER
+        assert refusal.value.book_id == book_id
+        # Both tiers are in the words too, not only in the attributes.
+        assert "medium" in str(refusal.value).lower()
+        assert MINUS_CORNER_TIER in str(refusal.value).lower()
+        assert harness.row(puzzle_id) == before
+
+    def test_the_store_refuses_it_as_well_even_confirmed(self, harness):
+        """G-2, on the path that can actually reach it.
+
+        The confirmation is the owner's answer to "a book prints this puzzle";
+        it is not an answer to "the book's order would move", so the store
+        refuses a regrade whatever the flag says.
+
+        **The claim is exactly as wide as the path**: the store's check sits
+        after ``_refuse_unless_verified``, so a save with no verification in
+        front of it never reaches it — it is refused earlier, for not being
+        verified, and writes nothing for that reason instead. What reaches the
+        store's own check is a save whose row MOVED between the verify and the
+        save, which is failure matrix F-2: verified while nothing held it,
+        then put in a book, then approved. The row is re-read at the save, so
+        the save decides on the book as it is now.
+        """
+        puzzle_id = harness.seed(difficulty_tier="medium")
+        # Unbooked, so the verify has no book to refuse against and remembers
+        # the proof.
+        assert harness.store.verify_replacement_grid(
+            puzzle_id, solid_minus_corner()) is not None
+        harness.put_in_a_book(puzzle_id)
+        before = harness.row(puzzle_id)
+
+        with pytest.raises(RegradeInsideABook):
+            harness.store.save_edited_grid(
+                puzzle_id, solid_minus_corner(), confirmed=True)
+
+        assert harness.row(puzzle_id) == before
+        assert harness.row(puzzle_id)["manually_edited_at"] is None
+
+    def test_a_save_with_no_verify_is_refused_for_not_being_verified(self, harness):
+        """The narrowing above, asserted rather than only written down: the
+        order of the two checks is a fact about this store, and a reader who
+        assumed the regrade refusal came first would be wrong."""
+        puzzle_id, _book_id = booked(harness, tier="medium")
+        before = harness.row(puzzle_id)
+
+        with pytest.raises(EditNotVerified):
+            harness.store.save_edited_grid(
+                puzzle_id, solid_minus_corner(), confirmed=True)
+
+        assert harness.row(puzzle_id) == before
+
+    def test_no_proof_is_remembered_for_a_refused_regrade(self, harness):
+        """The refusal leaves nothing a later save could approve: a grid whose
+        grade was never shown cannot be stored (CARD-245's own hole)."""
+        puzzle_id, _book_id = booked(harness, tier="medium")
+
+        with pytest.raises(RegradeInsideABook):
+            harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        with pytest.raises(EditNotVerified):
+            harness.store.save_edited_grid(
+                puzzle_id, solid_minus_corner(), confirmed=True)
+
+    def test_the_same_tier_verifies_normally(self, harness):
+        """The other half of AC-4, and the control for the refusals above."""
+        puzzle_id, _book_id = booked(harness, tier="easy")
+
+        grade = harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        assert grade is not None
+        assert grade["difficulty_tier"] == MINUS_CORNER_TIER
+
+    def test_an_unbooked_puzzle_may_be_regraded_freely(self, harness):
+        """G-3's boundary: this rule is about books, not about edits. An
+        unbooked puzzle has no order to move, so a repaint that changes its
+        tier is an ordinary edit."""
+        puzzle_id = harness.seed(difficulty_tier="medium")
+
+        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+        stored = harness.store.save_edited_grid(puzzle_id, solid_minus_corner())
+
+        assert stored is not None
+        assert harness.row(puzzle_id)["difficulty_tier"] == MINUS_CORNER_TIER
+
+    def test_a_tier_spelling_the_row_happens_to_carry_is_read_not_matched(self, harness):
+        """The stored text is read through ``tier_of_record``, the one reader
+        of a stored tier — so "Easy" is the same tier as "easy" and not a
+        regrade."""
+        puzzle_id, _book_id = booked(harness, tier="Easy")
+
+        assert harness.store.verify_replacement_grid(
+            puzzle_id, solid_minus_corner()) is not None
+
+
+class TestEdit_AReplacementKeepsTheStoredExtent:
+    """AC-5 / G-5 / Trap 2: the extent is pinned at the store boundary.
+
+    ``verify_replacement_grid`` reads the submitted grid's own width and
+    height and never compared them with the stored row's. That was
+    unreachable through the page — the editor's board is built from the stored
+    grid and cannot change size — and irrelevant while a booked puzzle was
+    refused outright. This card opens that door, and a differently-shaped grid
+    stored into a booked puzzle changes that book's geometry, which is the
+    harm the original rule was written to prevent.
+
+    It is pinned for a booked puzzle AND an unbooked one: the rule is "a
+    replacement replaces a grid", not "a book is protected", and a store that
+    only guarded the booked case would leave the unbooked rows reachable by
+    the same posted request.
+
+    **Retires** ``TestPuzzleEdit_StoresAndRederivesEverythingDerived
+    .test_a_resized_edit_moves_width_and_height``, whose behaviour this
+    reverses; the survivor of that assertion's *other* half — that ``width``
+    and ``height`` are still re-derived from the grid — is
+    ``test_the_grid_and_every_derived_column_come_from_the_edit`` plus
+    ``test_a_same_extent_replacement_still_rewrites_width_and_height`` below.
+    """
+
+    def test_a_booked_puzzle_refuses_a_differently_shaped_replacement(self, harness):
+        puzzle_id, _book_id = booked(harness)
+        before = harness.row(puzzle_id)
+        harness.store.verify_replacement_grid(puzzle_id, solid(12, 15))
+
+        with pytest.raises(ReplacementExtentChanged) as refusal:
+            harness.store.save_edited_grid(puzzle_id, solid(12, 15), confirmed=True)
+
+        assert refusal.value.stored == (10, 10)
+        assert refusal.value.submitted == (15, 12)
+        assert harness.row(puzzle_id) == before
+
+    def test_an_unbooked_puzzle_refuses_it_too(self, harness):
+        puzzle_id = harness.seed(difficulty_tier="easy")
+        before = harness.row(puzzle_id)
+        harness.store.verify_replacement_grid(puzzle_id, solid(12, 15))
+
+        with pytest.raises(ReplacementExtentChanged):
+            harness.store.save_edited_grid(puzzle_id, solid(12, 15))
+
+        assert harness.row(puzzle_id) == before
+        assert harness.row(puzzle_id)["manually_edited_at"] is None
+
+    def test_the_extent_is_the_grids_and_not_the_rows_own_columns(self, harness):
+        """A row whose ``width``/``height`` columns disagree with its grid is
+        measured by its GRID, the way the editor's board is built. Otherwise
+        this guard would refuse the only replacement such a row can have."""
+        puzzle_id = harness.seed(difficulty_tier="easy", width=3, height=3)
+
+        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+        stored = harness.store.save_edited_grid(puzzle_id, solid_minus_corner())
+
+        assert stored is not None
+        assert (harness.row(puzzle_id)["width"], harness.row(puzzle_id)["height"]) == (10, 10)
+
+    def test_a_same_extent_replacement_still_rewrites_width_and_height(self, harness):
+        """The survivor of the retired resize test's other half: the two
+        columns are still DERIVED from the submitted grid, not left alone."""
+        puzzle_id = harness.seed(difficulty_tier="easy", width=3, height=3)
+
+        edit(harness, puzzle_id, solid_minus_corner())
+
+        row = harness.row(puzzle_id)
+        assert (row["width"], row["height"]) == (10, 10)
+
+    def test_the_extent_refusal_is_not_an_extent_change_in_disguise(self, harness):
+        """The control that can fail: a same-extent replacement is NOT
+        refused, so the two refusals above are about the shape and not about
+        replacements in general."""
+        puzzle_id, _book_id = booked(harness)
+
+        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        assert harness.store.save_edited_grid(
+            puzzle_id, solid_minus_corner(), confirmed=True) is not None
+
+    def test_a_save_whose_grid_moved_is_still_a_not_verified_refusal(self, harness):
+        """The ORDER of the two refusals, pinned: the verification is checked
+        before the extent, so a save carrying a grid nobody verified is still
+        refused for not being verified — the answer CARD-245's own route test
+        reads (``test_a_save_whose_grid_moved_is_a_409``)."""
+        puzzle_id = harness.seed(difficulty_tier="easy")
+        harness.store.verify_replacement_grid(puzzle_id, solid_minus_corner())
+
+        with pytest.raises(EditNotVerified):
+            harness.store.save_edited_grid(puzzle_id, solid(11, 11))

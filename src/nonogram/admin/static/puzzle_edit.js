@@ -207,14 +207,124 @@ export function undecidedText(cells) {
 // prose. The sentence names "Back to edit", which is the label the bar
 // carries since CARD-250's rename; a message that named a button the bar does
 // not have is what TestPuzzleEditor_TheWordsNameTheButtonsThatExist refuses.
-export function gradeText(grade) {
+export function gradeText(grade, book = null) {
   return [
     "This grid is a puzzle. Difficulty: ",
     { tier: grade.difficulty_tier },
     `, score ${grade.difficulty_score} of 100. `
+      + bookNote(book)
       + "Approve to store it, or Back to edit to go on editing.",
   ];
 }
+
+// THE BOOK'S CLAUSE of the grade's sentence (CARD-251). A puzzle a book holds
+// is editable now, so the grade's sentence has two more things to say and the
+// verify is where both belong — the owner's own principle for the tier was
+// "learn it at verify, with the grade".
+//
+//   1. WHICH BOOK, named. The confirmation that follows Approve is about this
+//      book, and "Are you sure?" with no object is a dialog to click through.
+//      The title comes off the wire; a book whose title could not be read is
+//      named by its id AND SAID TO BE (`namedBook`), because the title is
+//      presentation and the guard is the flag the server requires.
+//   2. HOW MANY PAGES THE BOOK WOULD GAIN, and which puzzle this one shares
+//      its page with (AC-9). A book page holds two puzzles only when both fit
+//      at one shared cell (INV-010), and that fit is measured FROM THE CLUES
+//      — so a repaint that keeps the tier and the extent can still deepen a
+//      gutter past the point where the pair fits, split the page in two and
+//      move every folio after it. It is a WARNING and not a refusal (owner,
+//      2026-10-19): Approve stays beside it and an approved edit stores,
+//      because refusing would block any repaint that deepens a paired
+//      puzzle's clues, which is most real edits.
+//
+// The regrade is the one thing this clause never has to word, because it
+// never arrives as a grade: it is refused at the verify (AC-4), so what the
+// page gets for it is a refusal and `refusalText` words it.
+//
+// `null` for a puzzle no book holds, and the empty string then adds nothing
+// to the sentence — which is also what the corpus that calls `gradeText`
+// with one argument gets.
+export function bookNote(book) {
+  if (!book) return "";
+  const named = namedBook(book);
+  const pages = book.pages || {};
+  if (pages.known !== true) {
+    return `This puzzle is in ${named}, and whether this grid would change `
+      + "that book's page count could not be measured here. ";
+  }
+  if (pages.changes !== true) {
+    return `This puzzle is in ${named}. `;
+  }
+  const shared = pages.partner
+    ? `, which it shares with ${pages.partner},`
+    : "";
+  return `This puzzle is in ${named}, and this grid would make that book `
+    + `${pageCountChange(pages.added)}: how deep its clues are decides `
+    + `whether the page it is on${shared} holds two puzzles or one. The book `
+    + "stays valid. ";
+}
+
+// THE BOOK, AS A SENTENCE NAMES IT. A title when there is one; otherwise the
+// id, said to BE an id and said to be standing in for a title that could not
+// be read (review cycle 1, F-002, and failure matrix F-4, which declares
+// exactly that and was half-refuted by a page that printed the bare uuid
+// where the title goes — the owner read "This puzzle is in the book
+// 3f2a1b0c-…" and had no way to tell a missing title from a book literally
+// called that).
+//
+// A book with no readable title is still a book the edit must be confirmed
+// for: the title is presentation and the guard is the server's flag
+// (`_book_holding` in app.py sends `title: null` for a `book_id` that
+// resolves to no book, and the store refuses the unconfirmed save either
+// way). The id is printed in full rather than shortened — it is what the
+// owner would have to quote to find the row.
+function namedBook(book) {
+  if (book.title) return `the book ${book.title}`;
+  return `a book whose title could not be read (id ${book.id})`;
+}
+
+// HOW MUCH LONGER, in the words the measured number supports and no wider
+// (review cycle 1, F-001/F-004). The server answers `added`, a count of
+// pages, which may be more than one and may be NEGATIVE — a replacement
+// whose clues are shallower can let a pair fit that does not fit today, and
+// the book then gets SHORTER. The old sentence quoted the delta's two
+// absolute figures and then asserted "gets one page longer" beside them,
+// neither of which the measurement constrained.
+function pageCountChange(added) {
+  const count = Math.abs(added);
+  const pages = count === 1 ? "one page" : `${count} pages`;
+  return `${pages} ${added < 0 ? "shorter" : "longer"}`;
+}
+
+// THE QUESTION, when the store has answered `needs_confirmation` (AC-2/G-1).
+// The server refused an unconfirmed save, wrote nothing and sent back the
+// book, so this is the sentence that turns that answer into a question — and
+// it is `tell` that writes it, like every other sentence on this bar (G-7).
+// The in-page alertdialog beside it carries only its two answers.
+//
+// A PUBLISHED book is said to be published. The flag is the same one either
+// way; what differs is that for a published book this is INV-008's own
+// confirmation — the one the panel has required for a published book's
+// membership since CARD-131 — and an owner deciding whether to repaint a
+// puzzle that is already on sale needs to know which case they are in
+// (Trap 1: `in_a_book()` cannot tell the two apart, so the question has to).
+export function needsConfirmationText(book) {
+  const named = book ? namedBook(book) : "a book";
+  const published = book && book.published
+    ? ", and that book is published"
+    : "";
+  return `Nothing is stored yet. This puzzle is in ${named}`
+    + `${published}: the grid you verified would replace the grid that book `
+    + "prints. Answer the question below to store it or to leave the stored "
+    + "grid as it is.";
+}
+
+// What the page says when the owner answers "no". Nothing was stored, and
+// nothing on the board was lost either — the same promise Back to edit makes,
+// which is why it reads like its sentence.
+export const BOOK_KEPT =
+  "Not stored: the book keeps the grid it had, and your edit is still on the "
+  + "board. Press Save when you want it checked again.";
 
 // What the store says it stored, in the store's own numbers (the row it
 // wrote, out of the save's response). The page shows no difficulty of its
@@ -285,7 +395,23 @@ export function inFlightText(what) {
 // and holds them to that tuple, so the two cannot drift; a fifth reason
 // added to the routes has to be looked at here, and until it is, the page
 // does not know what the store did and says so.
-const REFUSALS_THAT_NEVER_WRITE = ["not_unique", "not_verified", "in_a_book", "not_found"];
+// CARD-251 adds the fifth, sixth and seventh, and each is a CLAIM that that
+// answer never writes. The claim is made true at the route — the store
+// decides all three before it touches a row, the confirmation before it even
+// solves — and it is proved by driving each one through the real route and
+// reading the row back afterwards
+// (`TestBookedEdit_TheFifthReasonIsTrueNotListed`), rather than by adding a
+// string here and trusting it. That is the whole of what this inversion was
+// for.
+const REFUSALS_THAT_NEVER_WRITE = [
+  "not_unique",
+  "not_verified",
+  "in_a_book",
+  "not_found",
+  "needs_confirmation",
+  "regrade_in_a_book",
+  "extent_changed",
+];
 // The same refusals arriving with no reason on them — the codes CARD-245
 // gives them. `code: 0` (this page's own value for "no answer at all", see
 // post()) is deliberately not among them: no answer is no knowledge.
@@ -332,6 +458,24 @@ export function refusalText(code, message, reason, { storing = false } = {}) {
       + "grid the book was made from, so take it out of the book if its grid "
       + "has to change. Nothing was stored.";
   }
+  if (reason === "needs_confirmation") {
+    // Reached when this answer arrives outside the approve that asked for it
+    // — the handler there turns it into the page's own question instead. It
+    // claims "nothing was stored" because nothing was: the store decides the
+    // confirmation before it solves, let alone writes.
+    return `Nothing was stored.${said} Press Save to check this grid again `
+      + "and answer the question about the book.";
+  }
+  if (reason === "regrade_in_a_book") {
+    return `This edit cannot be stored.${said} A book's order is grouped by `
+      + "difficulty level, so a puzzle in a book keeps its level: paint a grid "
+      + "of the same difficulty, or take the puzzle out of the book. Nothing "
+      + "was stored.";
+  }
+  if (reason === "extent_changed") {
+    return `This grid is not the size of the stored puzzle, so nothing was `
+      + `stored.${said} An edit repaints a puzzle; it never resizes one.`;
+  }
   if (reason === "not_verified") {
     return `Nothing was stored.${said} Press Save to check this grid again.`;
   }
@@ -351,13 +495,19 @@ export function refusalText(code, message, reason, { storing = false } = {}) {
     + "this page does not know how to act on — press Save to try again.";
 }
 
-async function post(path, grid) {
+async function post(path, grid, confirmed = false) {
   let response;
   try {
+    // `confirmed` travels in the body of the save, which is the request the
+    // server refuses without it (CARD-251 G-1). It is sent only when it is
+    // true, so an ordinary save's body is byte-for-byte the one CARD-245
+    // documented, and the server reads it as `is True` — a confirmation is an
+    // answer, not a truthy value.
+    const body = confirmed ? { grid, confirmed: true } : { grid };
     response = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ grid }),
+      body: JSON.stringify(body),
     });
   } catch {
     // No answer at all: a dropped connection, a panel that stopped, a
@@ -397,6 +547,11 @@ function start() {
   const confirmLeave = document.getElementById("puzzle-editor-leave-confirm");
   const leaveAnyway = document.getElementById("puzzle-editor-leave-accept");
   const keepEditing = document.getElementById("puzzle-editor-leave-keep");
+  // The book's question (CARD-251): an alertdialog in the page, never
+  // window.confirm — the rule Clear's and Cancel's questions already follow.
+  const bookQuestion = document.getElementById("puzzle-editor-book-question");
+  const editAnyway = document.getElementById("puzzle-editor-book-accept");
+  const keepTheBook = document.getElementById("puzzle-editor-book-keep");
 
   // The grid whose grade is on screen, or null when there is nothing to
   // approve. Approve sends THIS value and never re-reads the board: the grid
@@ -410,6 +565,13 @@ function start() {
   let turn = 0;
   // "verify", "approve", or null — what is in flight (invariant 3).
   let inFlight = null;
+  // The grid the book's question is about: the verified grid an Approve
+  // already sent once and the server refused for want of the confirmation.
+  // Held apart from `verified` because `tell` takes the Approve offer away
+  // with the question's own sentence — there is nothing to approve while a
+  // question is open, and the answer to the question is what sends this.
+  let awaitingTheBook = null;
+
   // Has the board changed since this page opened it? The board announces its
   // own changes from the ONE place a change is recorded (solver.js
   // BOARD_CHANGE), so this is a fact and not a guess — and it is the whole of
@@ -479,6 +641,15 @@ function start() {
     leave.focus();
   }
 
+  // Put the book's question away and forget the grid it was about. The grid
+  // is forgotten on purpose: the question is the only thing that can send it,
+  // so a grid left behind a closed question would be an unapprovable offer
+  // this page was still holding.
+  function closeTheBookQuestion() {
+    bookQuestion.hidden = true;
+    awaitingTheBook = null;
+  }
+
   async function onSave() {
     if (inFlight !== null) return; // one request at a time; the button says so
     // The board AS DISPLAYED, which during an uncommitted drag is that
@@ -518,15 +689,31 @@ function start() {
       tell(refusalText(code, body && body.message, body && body.reason));
       return;
     }
-    tell(gradeText(body.grade), answer.grid);
+    // `body.book` is absent for a puzzle no book holds, and the grade's
+    // sentence then says nothing about books (CARD-251).
+    tell(gradeText(body.grade, body.book), answer.grid);
     approve.focus();
   }
 
   async function onApprove() {
     if (inFlight !== null || verified === null) return;
     // The grid that was graded, captured when Save was pressed. The board is
-    // NOT read here; see invariant 4.
-    const grid = verified;
+    // NOT read here; see invariant 4. It is sent WITHOUT the book's
+    // confirmation: that question is the server's, and this is the request it
+    // answers (CARD-251 G-1).
+    await store(verified, false);
+  }
+
+  // Send one grid to the store, with or without the book's confirmation.
+  //
+  // `onApprove` sends it the first time unconfirmed, because the question is
+  // the SERVER's: for a puzzle a book holds the answer comes back
+  // `needs_confirmation`, with nothing written and nothing even solved, and
+  // the page turns that answer into its own question. "Edit it anyway" calls
+  // this again with the same grid and the flag — a second request, which is
+  // the point: a dialog that then posted an identical request would be no
+  // implementation of this card.
+  async function store(grid, confirmed) {
     // The turn is captured, not merely spent: a stroke that lands while the
     // store is writing advances it (onBoardChange, before its early return),
     // and that is how this handler learns there is unstored work on the
@@ -538,7 +725,8 @@ function start() {
     tell("Storing this grid...");
     let answered;
     try {
-      answered = await post(`/puzzle/${encodeURIComponent(puzzleId)}/edit`, grid);
+      answered = await post(
+        `/puzzle/${encodeURIComponent(puzzleId)}/edit`, grid, confirmed);
     } finally {
       inFlightIs(null);
     }
@@ -547,11 +735,26 @@ function start() {
     // it. It speaks of "the grid you verified" and not of "this grid",
     // because the board is free to have moved since.
     const { code, body } = answered;
+    if (body && body.ok !== true && body.reason === "needs_confirmation") {
+      // The server asked the question. Nothing was stored — that is what this
+      // reason's place on the allow-list claims and what the route makes true
+      // — so the page keeps the grid, says which book the question is about,
+      // and puts the question's two answers up. The Approve offer goes away
+      // with that sentence: while a question is open the way on is its own
+      // "Edit it anyway", not a second Approve that would only ask again.
+      awaitingTheBook = grid;
+      tell(needsConfirmationText(body.book));
+      bookQuestion.hidden = false;
+      editAnyway.focus();
+      return;
+    }
     if (code !== 200 || !body || body.ok !== true) {
+      awaitingTheBook = null;
       tell(refusalText(code, body && body.message, body && body.reason, { storing: true }));
       save.focus();
       return;
     }
+    awaitingTheBook = null;
     // The store said yes, and what the page does next depends on the board.
     //
     // The answer is TOLD on either branch, before anything else is done with
@@ -656,6 +859,17 @@ function start() {
     // onApprove compares it and, finding the board moved, keeps the page
     // rather than leaving with this stroke (F-001).
     if (inFlight === "approve") return;
+    // The book's question is about ONE grid — the one the owner verified and
+    // approved — so a stroke makes it a question about a grid that is not on
+    // the board any more. Unlike "leave the editor?", which is as true after
+    // a stroke as before it, this one is withdrawn: Clear's confirmation
+    // follows the same rule for the same reason.
+    if (!bookQuestion.hidden) {
+      closeTheBookQuestion();
+      tell(BOARD_MOVED);
+      save.focus();
+      return;
+    }
     // Nothing was claimed, so there is nothing to correct: ordinary painting
     // does not write to the live region.
     if (verified === null && inFlight === null) return;
@@ -678,6 +892,35 @@ function start() {
     window.location.assign(THE_LIST);
   });
   keepEditing.addEventListener("click", closeTheConfirm);
+  // The book's question, answered. "Edit it anyway" is the owner's
+  // confirmation, and it reaches the server as the save's own `confirmed`
+  // field — the same grid, a different request.
+  editAnyway.addEventListener("click", () => {
+    const grid = awaitingTheBook;
+    closeTheBookQuestion();
+    if (inFlight !== null) {
+      // A request started while the question stood open; the answer in flight
+      // is the one the owner must read.
+      tell(inFlightText(inFlight));
+      return;
+    }
+    if (grid === null) return;
+    void store(grid, true);
+  });
+  keepTheBook.addEventListener("click", () => {
+    closeTheBookQuestion();
+    tell(BOOK_KEPT);
+    save.focus();
+  });
+  // Escape answers it the way "Keep the stored grid" does, as the other two
+  // questions on this page do.
+  bookQuestion.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    closeTheBookQuestion();
+    tell(BOOK_KEPT);
+    save.focus();
+  });
   // Escape answers it the way "Keep editing" does, as Clear's does.
   confirmLeave.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;

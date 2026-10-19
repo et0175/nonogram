@@ -87,6 +87,29 @@
     recomputes them from the grid it stores.
 </p>
 
+{#- CARD-251 AC-1/AC-6: a puzzle a book holds IS editable now, behind a
+    confirmation that names the book — so the page names the book first, and
+    says what the panel will and will not let the edit do to it. It is a
+    server-rendered paragraph and not a line the script writes: the fact is
+    true of this page before any request is made, and `tell()` stays the one
+    writer of the save bar's own message (G-7). `book` is `None` for a puzzle
+    no book holds, and the paragraph is then absent rather than empty.
+
+    A book whose title could not be read is named by its id and SAID TO BE
+    (review cycle 1, F-002; failure matrix F-4) — the same words
+    `puzzle_edit.js`'s `namedBook` writes for the question and the grade's
+    clause, so the three surfaces name one book one way. Printing the bare id
+    where the title goes made a uuid read as a title. -#}
+{% if book %}
+<p class="editor-book" id="puzzle-editor-book">
+    This puzzle is in {% if book.title %}the book <strong>{{ book.title }}</strong>{% else %}a book whose title could not be read (id <strong>{{ book.id }}</strong>){% endif %}{% if book.published %}, and that book is <strong>published</strong>{% endif %}.
+    Approving an edit replaces the grid this book prints, so the panel asks
+    you to confirm it first. An edit that would change this puzzle's
+    difficulty level is refused: a book's order is grouped by level, so a
+    regrade would renumber the book.
+</p>
+{% endif %}
+
 <div class="player-toolbar" id="puzzle-player-controls" hidden>
     <div class="player-slot">
     <div class="player-tools" role="group" aria-label="Marking tool">
@@ -146,6 +169,27 @@
     <div class="editor-decide" id="puzzle-editor-decide" hidden>
         <button type="button" class="btn btn-success" id="puzzle-editor-approve">Approve</button>
         <button type="button" class="btn btn-outline-secondary" id="puzzle-editor-back">Back to edit</button>
+    </div>
+    {#- CARD-251: the book's question. It stands OUTSIDE #puzzle-editor-decide
+        because that pair is what the grade's sentence offers and the two are
+        never up at once: the question appears only after an Approve the
+        server refused for want of the confirmation, and that same `tell` puts
+        the Approve offer away. role="alertdialog", never window.confirm — the
+        rule Clear's and Cancel's questions already follow.
+
+        Its words here are STATIC. Which book the question is about is said in
+        the save bar's message line, by `tell` (G-7: one writer of that line),
+        because the book's name comes off the wire with the server's refusal
+        and not from this page's own data. "Edit it anyway" posts the same
+        verified grid again with `confirmed: true`, which is the request the
+        server requires — the question is the server's, not this dialog's. -#}
+    <div class="player-confirm" id="puzzle-editor-book-question" role="alertdialog" aria-labelledby="puzzle-editor-book-question-title" aria-describedby="puzzle-editor-book-question-text" hidden>
+        <p class="player-confirm-title" id="puzzle-editor-book-question-title">Edit a puzzle a book prints?</p>
+        <p class="player-confirm-text" id="puzzle-editor-book-question-text">The book named in the message above prints whatever grid is stored for this puzzle, so approving this edit changes what that book prints the next time it is exported. Nothing is stored yet.</p>
+        <div class="player-confirm-actions">
+            <button type="button" class="btn btn-danger" id="puzzle-editor-book-accept">Edit it anyway</button>
+            <button type="button" class="btn btn-outline-secondary" id="puzzle-editor-book-keep">Keep the stored grid</button>
+        </div>
     </div>
 </div>
 
