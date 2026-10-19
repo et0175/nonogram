@@ -787,6 +787,51 @@ class TestPuzzleEditor_Guardrails:
         assert "FIVE reads of `editing`" in solver
         assert reads == 5, reads
 
+    def test_one_word_does_not_name_a_brush_on_one_page_and_a_wipe_on_the_other(
+        self, admin_app
+    ) -> None:
+        """Owner decision, 2026-10-19: keep "Clear" for the player's fourth
+        brush and rename the editor's board-wipe.
+
+        CARD-247 renamed the player's fourth brush from "Undecided" to
+        "Clear". The editor's reset button was already called "Clear", and the
+        two pages share one renderer — so the same word named a brush that
+        paints ONE cell undecided and a button that wipes the WHOLE board. The
+        owner settled it by renaming this button rather than the brush.
+
+        The button is pinned here because nothing pinned it before: at the time
+        of the rename no test in the suite drove the editor's reset control by
+        its label, so the old name could have come back and the suite would
+        have stayed green. A naming decision with no mechanism is a decision
+        that lasts until the next edit.
+
+        The confirmation moves with the button, which is CARD-250's rule: a
+        page that renames a control and leaves the sentence naming the old one
+        lies about its own controls.
+        """
+        puzzle_id = seed(admin_app)
+        html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
+
+        labels = [re.sub(r"<[^>]+>", "", m).strip()
+                  for m in re.findall(r"<button\b[^>]*>(.*?)</button>", html, re.S)]
+        # A control is named by its text OR by an attribute, and the first
+        # draft of this guard swept only the text (review cycle 2) — so an
+        # aria-label, a title or an input value could have carried the word
+        # while the assertion stayed green. Not reachable today, and that is
+        # exactly when a guard is cheapest to widen. Deliberately NOT a
+        # whole-page sweep: the page embeds the puzzle's own name, so a
+        # puzzle called "Clear…" would red a guard that is about controls.
+        named = labels + re.findall(r'(?:aria-label|title|value)="([^"]*)"', html)
+
+        assert "Reset" in labels, labels
+        # The owner's decision, as a guard rather than as a sentence: no
+        # control on THIS page carries the word the brush now owns.
+        assert not [n for n in named if "Clear" in n], named
+        # And the question the button opens names the button (CARD-250).
+        title = re.search(
+            r'id="puzzle-player-confirm-title"[^>]*>([^<]*)<', html).group(1)
+        assert "Reset" in title and "Clear" not in title, title
+
     def test_the_editor_page_claims_no_difficulty_of_its_own(self, admin_app) -> None:
         """F-008. The player's header badge is a fact about a stored grid; on
         the editor's page the stored grid is what is being rewritten, so the
@@ -1667,7 +1712,7 @@ class TestPuzzleEditor_NoUndecidedCellReachesTheStore:
     def test_the_editor_offers_only_the_two_brushes_an_answer_can_hold(
         self, browser_page, live
     ) -> None:
-        """The narrowing: Maybe and Undecided paint states a boolean grid
+        """The narrowing: Maybe and Clear paint states a boolean grid
         cannot express, so the editor does not offer them."""
         puzzle_id = _seed_live(live)
         _open_editor(browser_page, live, puzzle_id)
@@ -1677,7 +1722,13 @@ class TestPuzzleEditor_NoUndecidedCellReachesTheStore:
         assert _menu_item(browser_page, "Black").is_visible()
         assert _menu_item(browser_page, "White").is_visible()
         assert _menu_item(browser_page, "Maybe").count() == 0
-        assert _menu_item(browser_page, "Undecided").count() == 0
+        # CARD-247 renamed the player's fourth brush to "Clear". Asserting the
+        # OLD label here would be a control that cannot fail: no page in the
+        # panel offers an item named "Undecided" any more, so the absence would
+        # hold for every possible editor. The name asserted is the one the
+        # player really shows (test_the_player_still_offers_all_four below sees
+        # all four).
+        assert _menu_item(browser_page, "Clear").count() == 0
 
     def test_the_player_still_offers_all_four(self, browser_page, live) -> None:
         """G-1's half of the same claim: the brushes were left out of the
