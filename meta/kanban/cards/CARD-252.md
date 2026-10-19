@@ -593,3 +593,154 @@ mechanism**, and a fourth shape exists for any finite list.
   review. The thing being argued over is a test-tree guard on a card whose production delta is
   measured at zero in both cycles. If cycle 3 does not certify, the card does not get a fourth
   attempt at the guard — it gets its claim cut back to what is demonstrable and merges on that.
+
+### Review cycle 2, findings closed, 2026-10-20 (`meta/review/20261019T205927Z-CARD-252-cycle2.yml`)
+
+Score 8.0 (meets `min_score: 8`), failed the severity gate on one Important. Both findings were
+again claim-versus-mechanism, and again nothing about the card's product behaviour changed:
+`src/nonogram/db/session.py` is a **docstring-only** edit this cycle (verified by comparing the
+file's AST with every docstring stripped against `214b629` — executable code identical, so G-1 and
+the G-3 ordering are untouched). All work is in `tests/test_db_engine_lifecycle.py`.
+
+| finding | verdict | where | the mutant that proves it |
+|---|---|---|---|
+| **C2-F-001** (Important) | **closed structurally** — the deny default is now total, not a fourth shape | guard at `:309-485`, claim at `:836-884`, five controls at `:1037-1197` | X1/X2/X3 all **RED** as real-file mutants; branch mutants B1–B7 each red a named control |
+| **C2-F-002** (Minor) | closed by narrowing + a one-line filter | `_test_functions_in` `:106-172`, control at `:740` | B8 (filter deleted) reds `test_a_class_renamed_off_pytests_prefix_is_not_counted` |
+
+**C2-F-001 — the structural exit, not a third widening.** The guard no longer enumerates spellings.
+`_private_global_sites_in` now analyses **every** `setattr`-shaped call — `anything.setattr(...)`
+*and* the bare builtin, via `_is_setattr_call` — and tells the two argument shapes apart by
+**arity** (3+ positional = `setattr(obj, name, value)`, 2 = monkeypatch's string target; the builtin
+cannot take two), which is what distinguishes them in Python rather than a guess. The rule is then:
+
+- a **readable** attribute name that is not one of `session.py`'s engine globals ends the analysis;
+- a target the guard resolves to some **other** module or object ends it too — this is the
+  discrimination that makes totality affordable, and it has its own control;
+- **everything left is a FAILURE**: a target it cannot rule out, and an attribute name it cannot
+  read while the target is or might be the session module.
+
+For the string-target form, `_string_target_tail` reads the *trailing literal segment* even of a
+computed target (`f"{MOD}.engine"` → `engine`), so the guard can tell "names one of my globals on a
+module I cannot read" (**failure**) from "names someone else's attribute" (not my business — this is
+what keeps the tree's real `monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])` green).
+
+The claim at `:836-884` is now *"it recognises these three spellings, and it fails on anything
+setattr-shaped whose target or name it cannot read"* — a claim with no outside — plus the measured
+numbers: over all of `tests/` the total guard finds **nine sites, six pairs, zero unanalysable**, so
+`_EXEMPT_PRIVATE_GLOBAL_SITES` is an equality over the *entire* set the guard sees.
+
+**Triage of what the total guard found across the test tree.** No site needed adding to the
+exemption map: nothing outside the nine known sites sets a session global.
+- **0** unanalysable spellings (the guard's failure list is empty on this head).
+- **13** sites skipped by the other-target discrimination (a non-literal attribute name on something
+  that is plainly not the session module — the six the reviewer named at
+  `test_book_finalise_gutter.py:1907`, `test_book_plan.py:287`, `test_book_trim_persistence.py:891`,
+  `test_web_submission.py:989`, `test_admin_error_text.py:102`, `property/test_image_fit.py:714`,
+  plus the bare-builtin-on-a-class sites). **Correctly not flagged** — the guard must not flag them,
+  so the discrimination is narrowed rather than the claim.
+- **315** sites skipped because the attribute name is readable and simply is not one of the engine
+  globals.
+- **2** sites fall in the one declared residual (below).
+
+**The one residual, declared with its measurement.** The guard follows **names, not values**. A call
+whose target is a computed value *and* whose attribute name is also non-literal gives it nothing on
+either axis, so it skips. Measured: exactly two such sites exist in this tree —
+`tests/property/test_book_membership_floor.py:190` and `tests/test_book_finalise_gutter.py:1511`,
+both `setattr(<a book row>, column, value)` — and failing on them is a red that cannot be
+discriminated without guessing. The **edge** of that bound is pinned too: as soon as the attribute
+name *is* readable, how the target was computed stops mattering, so
+`setattr(sys.modules["nonogram.db.session"], "engine", None)` is a **failure**. That is one corner
+wide, not "computed targets are outside the guard", and it is the same bound already declared and
+accepted in cycle 2 (a fixture-bound name, `importlib` into a local, a `globals()`/`vars()` write).
+
+**C2-F-002.** `_test_functions_in` now filters `ClassDef`s by pytest's `Test` prefix and returns the
+set of classes that passed the filter, so the caller asserts the filter cannot silently empty the
+walk. The docstring's "the way pytest applies it" is gone: it now declares exactly what the walk
+sees (AST-visible `@pytest.mark.db_required` on `Test*` classes and their direct `test*` methods),
+names the five fail-closed divergences, and names the one fail-open direction as the reason the
+filter exists.
+
+**Out-of-scope pointer (the certifier's optional item).** `session.py:249-254` now says which of the
+three AC-3 numbers is a standing control — only `pg_prepared_statements == 0` after 40 executions
+(`test_no_server_side_prepared_statement_is_ever_created`) — and that the 24/24 and the OID 2950 are
+recorded on this card's `## Worktree notes`, not asserted in
+`TestEngineLifecycle_WhyTheHazardCannotBeForced`.
+
+#### Cycle-3 mutants (each applied alone, restored from a byte-identical backup, `diff` clean after each)
+
+Branch mutants — one per new mechanism branch, deleting the branch:
+
+| # | branch deleted | control that reds |
+|---|---|---|
+| **B1** | the bare-builtin arm of `_is_setattr_call` | `test_the_bare_builtin_setattr_spelling_is_a_site` (+ the bound control's edge). `2 failed, 18 passed` |
+| **B2** | the non-literal-attribute-name deny | `test_a_non_literal_attribute_name_is_a_failure`. `1 failed, 19 passed` |
+| **B3a** | the unreadable-module-part deny (string target) | `test_a_computed_string_target_is_a_failure`. `1 failed, 19 passed` |
+| **B3b** | the unreadable-target deny (string target) | `test_a_computed_string_target_is_a_failure`. `1 failed, 19 passed` |
+| **B4** | the other-target discrimination (`verdict is False → continue`) | `test_a_setattr_on_another_module_is_not_this_guards_business` **and** the tree-wide guard. `2 failed, 18 passed` |
+| **B5** | the declared-bound skip (computed target + unreadable name) | `test_a_computed_target_with_an_unreadable_name_is_the_declared_bound` **and** the tree-wide guard. `2 failed, 18 passed` |
+| **B6** | the JoinedStr/BinOp arms of `_string_target_tail` | `test_a_setattr_on_another_module_is_not_this_guards_business` **and** the tree-wide guard. `2 failed, 18 passed` |
+| **B7** | the readable-name-outside-`names` arm | `test_a_setattr_on_another_module_is_not_this_guards_business` **and** the tree-wide guard. `2 failed, 18 passed` |
+| **B8** | the `Test` prefix filter in `_test_functions_in` | `test_a_class_renamed_off_pytests_prefix_is_not_counted`. `1 failed, 19 passed` |
+
+Real-file mutants, appended to a real non-exempt test file (the reviewer's verbatim shapes), run
+against `TestEngineLifecycle_TheResetIsAPublishedSeam`:
+
+| # | mutant | result |
+|---|---|---|
+| **X1** | `monkeypatch.setattr(app_session, name, None)` parametrised over the three globals, in `test_db_isolation.py` | **RED** (SURVIVED cycle 2). `test_db_isolation.py:1020: setattr(app_session, name, ...) — the attribute name is not a literal this guard can read`. `1 failed, 13 passed` |
+| **X2** | the bare builtin `setattr(app_session, "engine", None)` | **RED** (SURVIVED cycle 2). Counted as a site: `Left contains 1 more item: {('test_db_isolation.py','engine'): 1}`. `1 failed, 13 passed` |
+| **X3** | `monkeypatch.setattr(f"{_M}.engine", None)` — a computed string target | **RED** (SURVIVED cycle 2). `1 failed, 13 passed` |
+| **R1** | cycle-1's tenth site in an already-exempt pair | **RED**, twice (the guard equality and its own control). `2 failed, 12 passed` |
+| **R2** | cycle-1's string-target `setattr` in a non-exempt file | **RED**. `1 failed, 13 passed` |
+| **R3** | cycle-1's `import nonogram.db.session as X` then `X.engine = None` | **RED**, twice (completeness + the site guard). `2 failed, 12 passed` |
+
+#### Cycle-3 test selections (lock checked before each; no timings taken)
+
+- `tests/test_db_engine_lifecycle.py`: **20 passed, 0 skipped** (14 + six new controls: five on the
+  AC-5 guard, one on the AC-4 count).
+- Touched-adjacent (`test_db_engine_lifecycle`, `test_card_156_db_fixture`, `test_db_isolation`,
+  `test_db_url_driver`, `test_db_connect_timeout`, `test_db_e2e_smoke`, `test_card_109_database_guard`):
+  **170 passed, 0 skipped, 0 failed** (164 before + the six controls).
+- The same plus `test_cli` (the structural import guard): **266 passed, 0 skipped, 0 failed**
+  (260 in cycle 2 + the six controls).
+
+G-4 held throughout: every run used `nonogram_pythonproject4_card_252_5ddd9defbd0a_test` as both
+`DATABASE_URL` and `TEST_DATABASE_URL`, passed as literals; `nonogram_poc` was never named,
+created, dropped, connected to or truncated, and `_refuse_unless_test_database` was neither widened
+nor bypassed. G-6: nothing retired or renamed this cycle — cycle 1's one rename stands. G-5: no new
+dependency. G-1: zero executable production delta (docstring-stripped ASTs of `session.py`
+identical to `214b629`).
+
+**Is there a fourth shape?** Not inside the claim. The claim is now a deny default over every
+`setattr`-shaped call plus the dotted assignment, with two stated exits (a readable name outside the
+globals; a target resolved to something else) and one stated residual (both axes unreadable,
+measured at two sites). A fourth *spelling* of a reach still exists outside the guard — anything
+that reaches the globals through a value rather than a name, e.g. `globals()["engine"] = None` via a
+fixture-bound module object — but that is the bound the guard declares in writing and does not claim
+to catch, and the AST cannot follow it without executing the test tree.
+
+- **[Orchestrator] what the structural mandate bought, and what it did not.** The guard stopped
+  enumerating spellings: it now analyses every `setattr`-shaped call, tells the two argument shapes
+  apart **by arity** (3+ positional is `setattr(obj, name, value)`; 2 is monkeypatch's string target,
+  and the builtin cannot take two), and fails on anything left after two stated exits. X1, X2 and X3
+  — the three shapes that survived cycle 2 — are all red, and cycle 1's R1/R2/R3 stayed red. Eight
+  branch mutants, one per new branch, with B4/B6/B7 also reddening the tree-wide guard, which is what
+  shows the other-target discrimination is load-bearing rather than decorative.
+  What it did **not** buy is a guard with no limit. The limit is now a **measured** one: the walk
+  follows names, not values, so a call whose target *and* name are both non-literal gives it nothing,
+  and exactly two such sites exist in the tree. The edge is pinned in the direction that matters —
+  `setattr(sys.modules["nonogram.db.session"], "engine", None)` fails, because a readable name makes
+  the computed target irrelevant. That is the difference this card kept failing on: a residual
+  declared with its measurement and its edge, instead of a claim one shape wider than the mechanism.
+- **[Orchestrator] the tree-wide triage is now the claim, which makes it falsifiable by arithmetic.**
+  0 unanalysable, 9 sites over six pairs (so the exemption map is an equality over the **entire** set
+  the guard sees, not a subset), 13 skipped as another module or object — including all six
+  non-literal-name sites the certifier named — 315 skipped as a readable name outside the globals,
+  and 2 as the declared residual. No site was added to the exemption map, which is the part worth
+  noticing: the total guard found nothing outside the nine known sites reaching a session global.
+  Cycle 3 is asked to re-derive all five numbers rather than read them.
+- **[Orchestrator] three cycles have gone into the guard and none into the fix.** `session.py` is
+  docstring-identical by AST for the third cycle running. Cycle 3 is the last review, and it is asked
+  for one of certify / merge-with-the-claim-cut-back / split — and, directly, whether this guard is
+  worth keeping at all, or whether a smaller guard (or a declared convention and no guard) would
+  serve the board better than an AST deny-default with a declared residual.
