@@ -1004,7 +1004,10 @@ def _rename_problems(table: dict[str, tuple[str, str, str]]) -> list[str]:
     exemption to carry a control for what it must NOT absorb: the refusals
     below only ever run over the real (clean) table, so each of them would be
     a branch nothing executes. ``test_the_rename_table_refuses_what_it_claims_to``
-    drives this over tables it has broken on purpose.
+    drives this over tables it has broken on purpose, one case per refusal,
+    asserting each case against the message of the refusal it is for — so a
+    refusal deleted here takes its own case red even though several of those
+    tables trip more than one of the refusals below.
 
     The dangerous entry is not a badly-worded one, it is an entry whose two
     sides are different tests: that would let a card delete a browser test by
@@ -1229,8 +1232,10 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         """:data:`RENAMED_SINCE_BEFORE` has to read as a record of moves.
 
         The refusals themselves are :func:`_rename_problems`, so that the
-        control below can show each of them firing (ADR-0039/R1: a claim about
-        what a guard catches needs a control that can fail). What this test
+        control below can show each of them firing *by its own message* — nine
+        cases, nine named refusals, each one asserted on the line only that
+        refusal writes (ADR-0039/R1: a claim about what a guard catches needs
+        a control that can fail). What this test
         adds is the arithmetic the table has to keep: a move is 1 -> 1, so
         applying the whole table leaves the recorded family exactly as large
         as CARD-217 recorded it.
@@ -1242,36 +1247,87 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         )
 
     def test_the_rename_table_refuses_what_it_claims_to(self) -> None:
-        """Each refusal, driven over a table broken on purpose.
+        """Each refusal, driven over a table broken on purpose and asserted by
+        the message of THAT refusal.
 
         Without this the refusals are branches nothing executes: the real
         table is clean, so every one of them is true for every possible
-        implementation of itself. Each case below is reported WITH the break
-        and absent WITHOUT it, and the real table passes them all.
+        implementation of itself. Asserting only that SOMETHING was refused
+        does not fix that, and this control measured it the hard way: several
+        of the tables below trip two or three refusals at once — every legal
+        ``old`` is by construction recorded, so an entry that "moves to
+        itself" also reads as a merge — and against a non-empty assertion four
+        of the nine refusals could be deleted one at a time with every case
+        still green (CARD-247 review cycle 1, F-001).
+
+        So each case names the refusal it exists for and asserts THAT line is
+        among the problems. Neutralising any one of the nine then takes its
+        own case red, which is measured branch by branch rather than claimed
+        here — the nine results are recorded in CARD-247's worktree notes.
+
+        The fragments have to discriminate, or the same defect moves one layer
+        up: a fragment that another refusal's message would also satisfy pins
+        nothing. Two checks keep that honest — each fragment matches exactly
+        ONE of the problem lines its own case produces (0 means the refusal it
+        names did not fire, 2 means the fragment cannot say which refusal
+        did), and no fragment is a substring of another, so no case can be
+        satisfied by a neighbour's wording.
         """
         old = sorted(RENAMED_SINCE_BEFORE)[0]
         card, new, reason = RENAMED_SINCE_BEFORE[old]
         recorded = sorted(_family_node_ids(BEFORE_ARTEFACT))[0]
         unrecorded = f"{FAMILY_PREFIX}_page.py::TestNotAThing::test_nothing[x]"
 
+        # label -> (a table broken on purpose, the refusal it must provoke)
         broken = {
-            "not a 3-tuple": {old: (card, new)},
-            "nothing to move": {unrecorded: (card, f"{unrecorded}y", reason)},
-            "a merge, not a move": {old: (card, recorded, reason)},
-            "moves to itself": {old: (card, old, reason)},
-            "not of this family": {old: (card, "tests/test_cli.py::test_x", reason)},
-            "renames the test": {
-                old: (card, f"{old.split('[')[0]}_renamed[Clear]", reason)},
-            "unattributed": {old: ("the brush rename", new, reason)},
-            "mute reason": {old: (card, new, "renamed")},
-            "double-counted": {
-                sorted(ADDED_SINCE_BEFORE)[0]: (card, new, reason)},
+            "not a 3-tuple": (
+                {old: (card, new)},
+                "entry must be (card, new id, reason)"),
+            "nothing to move": (
+                {unrecorded: (card, f"{unrecorded}y", reason)},
+                "not in CARD-217's record"),
+            "a merge, not a move": (
+                {old: (card, recorded, reason)},
+                "is itself recorded, so this is not a move but a merge"),
+            "moves to itself": (
+                {old: (card, old, reason)},
+                "moves to itself"),
+            "not of this family": (
+                {old: (card, "tests/test_cli.py::test_x", reason)},
+                "is not a node id of the browser family"),
+            "renames the test": (
+                {old: (card, f"{old.split('[')[0]}_renamed[Clear]", reason)},
+                "a move may rename a PARAMETER, not a test"),
+            "unattributed": (
+                {old: ("the brush rename", new, reason)},
+                "does not name the card that moved it"),
+            "mute reason": (
+                {old: (card, new, "renamed")},
+                "the reason says too little"),
+            "double-counted": (
+                {sorted(ADDED_SINCE_BEFORE)[0]: (card, new, reason)},
+                "also in ADDED_SINCE_BEFORE"),
         }
-        for label, table in broken.items():
-            assert _rename_problems(table) != [], (
-                f"{label}: _rename_problems accepted it, so the rule it is "
-                f"supposed to enforce is narrative"
+        for label, (table, expected) in broken.items():
+            problems = _rename_problems(table)
+            hits = [problem for problem in problems if expected in problem]
+            assert len(hits) == 1, (
+                f"{label}: {expected!r} matched {len(hits)} of {problems} — "
+                f"with 0 the refusal it names did not fire, so the rule it "
+                f"states is narrative (or another refusal is standing in for "
+                f"it); with 2 the fragment is too loose to say which refusal "
+                f"fired"
             )
+        fragments = [expected for _table, expected in broken.values()]
+        assert len(set(fragments)) == len(fragments), fragments
+        nested = [(one, other)
+                  for one in fragments for other in fragments
+                  if one != other and one in other]
+        assert nested == [], (
+            f"{nested}: one expected message contains another, so the case "
+            f"naming the shorter one would stay green on the longer one's "
+            f"refusal — the defect this control is for, one layer up"
+        )
         # ... and the real table trips none of them, so the refusals above are
         # not simply refusing everything.
         assert _rename_problems(RENAMED_SINCE_BEFORE) == []

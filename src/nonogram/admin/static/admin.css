@@ -772,8 +772,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    to the same question one block up: .guide-strip-cell separates a run of
    printed cells with 28% ink on paper, and this is that rule at that weight,
    so the two runs of cells in the panel read alike. Lengths and colours are
-   tokens or a mix of two of them (G-4); the cells' own colours stay
-   .player-swatch's (G-3). */
+   tokens or a mix of two of them (CARD-211's G-4 — the token rule; CARD-247's
+   own G-4 is accessibility), which is pinned rather than only asserted here:
+   tests/test_admin_design_tokens.py
+   test_the_region_toggles_pressed_look_comes_from_tokens collects these two
+   rules by name alongside .player-region's and reports any value that is not
+   a var(--token) or a calc()/color-mix() over tokens, with a control over
+   rules broken on purpose (an rgb(), a named colour, a bare length, a literal
+   inside the mix). The cells' own colours stay .player-swatch's (G-3). */
 .player-brush-run { display: inline-flex; }
 .player-brush-run .player-swatch + .player-swatch { margin-left: calc(-1 * var(--border-width)); border-left-color: color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper)); }
 .player-mirror { display: inline-flex; transform: scaleX(-1); }
