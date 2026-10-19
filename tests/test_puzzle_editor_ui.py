@@ -144,7 +144,8 @@ PAGE_ISOLATION_DECLARATION = (
     "reads localStorage, and suppresses a document event listener — none of "
     "which navigating undoes; and since CARD-250 its tests navigate AWAY from "
     "the editor on purpose, so a page left on the puzzle list is a page the "
-    "next test would have to put back",
+    "next test would have to put back — as is a page deliberately left on the "
+    "editor holding an unstored stroke (review cycle 1, F-001)",
 )
 
 
@@ -776,6 +777,13 @@ SIDE = 10
 STORED = solid(SIDE, SIDE)
 EDITED = solid_minus_corner(SIDE, SIDE)
 
+#: ``EDITED`` with a second cell cleared — the stroke an owner can land while
+#: the store is writing (review cycle 1, F-001). Distinct from both STORED and
+#: EDITED, so "which board is on screen afterwards" has an answer, and
+#: distinct from the grid Approve sent, so "what was stored" has one too.
+PAINTED_WHILE_STORING = [list(row) for row in EDITED]
+PAINTED_WHILE_STORING[1][1] = False
+
 #: Put an arbitrary board on the editor's board without clicking 100 cells.
 #: The cell states are built here, from a literal map, rather than through
 #: ``solver_state.js boardOfGrid`` — the function AC-2 is about — so a test
@@ -829,10 +837,14 @@ def _wait_for_the_list(page) -> None:
 
     So "the store said yes" is observed here as the list page, not as a
     sentence on a bar the browser has navigated away from. The sentence is
-    still written before the exit — ``storedText`` is told whatever happens,
-    because it is the only report of what the store did — and the one test
-    that reads it keeps the page by aborting the navigation
-    (``..._a_second_approve_pressed_in_flight...``).
+    still written before the exit — the store's answer is told whatever
+    happens, because it is the only report of what the store did — and the
+    test that reads the LEAVING one keeps the page by answering the
+    navigation with a 204 (``..._a_second_approve_pressed_in_flight...``).
+    The other sentence, the one the page says when a stroke landed while the
+    store was writing, is read where it is genuinely on screen, because that
+    branch does not navigate at all (review cycle 1, F-001:
+    ``..._a_stroke_made_while_the_store_was_writing_keeps_the_page``).
     """
     page.wait_for_url("**/puzzles", timeout=20_000)
 
@@ -900,6 +912,27 @@ _SAVE_THEN_PAINT = """([grid]) => {
   const height = grid.length, width = grid[0].length;
   const cells = Object.freeze(grid.flat().map((filled) => (filled ? 'filled' : 'empty')));
   window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells }));
+}"""
+
+#: Press Approve and paint, in ONE task: the stroke therefore lands while the
+#: store's write is still unanswered — the window F-001 is about. Written out
+#: rather than reusing ``_SAVE_THEN_PAINT`` with another id, because the two
+#: races end differently and a test should not have to read which button a
+#: shared helper pressed.
+_APPROVE_THEN_PAINT = """([grid]) => {
+  document.getElementById('puzzle-editor-approve').click();
+  const height = grid.length, width = grid[0].length;
+  const cells = Object.freeze(grid.flat().map((filled) => (filled ? 'filled' : 'empty')));
+  window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells }));
+}"""
+
+#: The store's write has been acted on, whichever way it went: either the bar
+#: says so, or the bar is GONE because the page left for the list. A wait that
+#: resolves on both outcomes, so a test that expects one of them reports which
+#: one happened instead of timing out on the other.
+_STORED_OR_LEFT = """() => {
+  const message = document.getElementById('puzzle-editor-message');
+  return message === null || message.textContent.includes('Saved');
 }"""
 
 #: Press Save and then Back to edit, in ONE task: the press therefore lands
@@ -1065,8 +1098,14 @@ class TestPuzzleEditor_SaveShowsDifficultyThenApproveCommits:
         assert row["difficulty_tier"] == MINUS_CORNER_TIER
         assert row["difficulty_score"] == MINUS_CORNER_SCORE
         assert row["manually_edited_at"] is not None
-        # The two-phase flow is over: there is nothing left to approve.
-        assert not _approve_offered(browser_page)
+        # "The two-phase flow is over: there is nothing left to approve" used
+        # to be read here, after ``_wait_for_the_list`` — i.e. on the list,
+        # where ``#puzzle-editor-decide`` matches nothing and ``is_visible()``
+        # is False whatever the editor did (review cycle 1, F-003). Its named
+        # survivor is
+        # ``..._a_second_approve_pressed_in_flight_is_not_sent_either``, which
+        # keeps the document with a 204 and reads the offer out of the bar's
+        # recorded states for the stored sentence as well as the storing one.
 
     def test_the_unchanged_assertion_can_fail(self, browser_page, live) -> None:
         """ADR-0039/R1: the control for "nothing is stored until Approve".
@@ -1404,6 +1443,13 @@ class TestPuzzleEditor_WhatTheServerSays:
         assert "not known" not in said
         assert not _approve_offered(browser_page)
         _assert_stored(live, puzzle_id, STORED)
+        # G-3 / CARD-211: focus is never dropped mid-flow. This refusal is
+        # the branch that owns onApprove's surviving ``save.focus()`` — the
+        # successful branch has no bar left to stand on (CARD-250 AC-5), so
+        # the assertion retired from ``test_approving_from_the_keyboard_commits``
+        # is pinned HERE, which is what the card claims of this test (review
+        # cycle 1, F-002). Delete that one line of the script and this fails.
+        assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-save"
 
     def test_the_same_save_can_then_be_made_again(self, browser_page, live) -> None:
         """The refusal above costs one re-verify and no work."""
@@ -1793,6 +1839,11 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         assert _posted(asked, "/edit") == [EDITED], asked
         assert _stored_grid(live, puzzle_id) == EDITED
         assert "the grid you verified" in said
+        # The LEAVING tail, which is the one that belongs to this path: the
+        # store's two sentences share a head and differ in what the page says
+        # it does next (review cycle 1, F-001), so reading the head alone
+        # would not notice the staying sentence standing here.
+        assert "Showing the puzzle list" in said
         assert errors == []
         # The offer really is down for the whole of the store's write, which
         # is the mechanism and not a by-product of the guard.
@@ -1800,6 +1851,15 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         storing = [state for state in states if "Storing this grid" in state["text"]]
         assert storing, states
         assert not any(state["offered"] for state in storing), storing
+        # And down for the STORED state too — "the two-phase flow is over,
+        # there is nothing left to approve". That used to be read after the
+        # exit, on a page where ``#puzzle-editor-decide`` does not exist and
+        # so was true of every implementation (review cycle 1, F-003); here
+        # the 204 keeps the document, the observer has the state, and the
+        # assertion can fail.
+        saved = [state for state in states if "Saved" in state["text"]]
+        assert saved, states
+        assert not any(state["offered"] for state in saved), saved
 
     def test_a_stroke_while_the_grid_is_being_checked_is_not_graded(
         self, browser_page, live
@@ -2589,10 +2649,12 @@ _MESSAGE_CORPUS = """async ([refusals, grades, cells]) => {
     .map((part) => (typeof part === 'string' ? part : String(part.tier))).join('');
   const said = [module.BACK_TO_EDIT, module.BOARD_MOVED,
                 flat(module.inFlightText('verify')), flat(module.inFlightText('approve')),
-                flat(module.storedText(null))];
+                flat(module.storedText(null)), flat(module.storedAndStayingText(null))];
   for (const grade of grades) {
     said.push(flat(module.gradeText(grade)));
     said.push(flat(module.storedText(grade)));
+    // The store's other tail, the one the page says when it stays (F-001).
+    said.push(flat(module.storedAndStayingText(grade)));
   }
   for (const undecided of cells) said.push(flat(module.undecidedText(undecided)));
   for (const [code, message, reason, storing] of refusals) {
@@ -2611,6 +2673,16 @@ class TestPuzzleEditor_ApproveCommitsThenReturnsToTheList:
     of what the store did, and the page never trades it for the navigation
     (``test_a_second_approve_pressed_in_flight_is_not_sent_either`` reads that
     sentence, holding the page with a 204).
+
+    **The exit's one exception, and what AC-5 therefore means** (review cycle
+    1, F-001; the orchestrator's decision is recorded on the card). AC-5's
+    "and the browser is on ``/puzzles``" is the settled case: the owner
+    approved and let the store answer. A stroke that lands while the store is
+    writing is unstored work that exists only on this board, so the page
+    keeps it and says so instead of leaving — AC-2's own rule ("only when
+    there is nothing to lose") applied to the exit AC-5 adds.
+    ``test_a_stroke_made_while_the_store_was_writing_keeps_the_page`` is that
+    branch; the two tests below are AC-5's own.
     """
 
     def test_the_store_holds_the_new_grid_and_the_browser_is_on_the_list(
@@ -2655,6 +2727,53 @@ class TestPuzzleEditor_ApproveCommitsThenReturnsToTheList:
         # And it is a picture, not a broken image: the versioned url is one
         # the panel really serves.
         assert thumbnail.evaluate("(img) => img.complete && img.naturalWidth > 0")
+
+    def test_a_stroke_made_while_the_store_was_writing_keeps_the_page(
+        self, browser_page, live
+    ) -> None:
+        """F-001: the exit is not taken when taking it would destroy work.
+
+        Approve and paint in ONE task, so the stroke lands while the store's
+        write is unanswered and there is no timing to get wrong. The stroke
+        is unstored work that lives only on this document — the editor keeps
+        nothing of its own in localStorage — so the store's answer is told
+        and the page STAYS, and the sentence the owner reads is the one that
+        is true of staying rather than the one promising a list the browser
+        is not going to.
+
+        What this is NOT: a confirmation. The store has just spoken and its
+        answer is the only report of what it did, so a question in front of
+        it would bury it (the card's ``[Decision] F-001``).
+        """
+        puzzle_id = _seed_live(live, name="Owl")
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        errors, asked = _watch(browser_page)
+
+        browser_page.evaluate(_APPROVE_THEN_PAINT, [PAINTED_WHILE_STORING])
+        browser_page.wait_for_function(_STORED_OR_LEFT, timeout=20_000)
+
+        # It did not leave: the list was never even asked for. (That read
+        # first, because it is the deterministic one — a url read can be
+        # taken before a navigation this page did start has committed.)
+        assert _asked_for_the_list(asked) == [], asked
+        assert browser_page.url.endswith("/editor")
+        # The stroke is still on the board, which is the whole point.
+        assert browser_page.evaluate(_BOARD_STATES) == _states_of(PAINTED_WHILE_STORING)
+        # And the store still did exactly what it was told, with the grid
+        # that was graded — the board is never re-read (invariant 4).
+        assert _posted(asked, "/edit") == [EDITED], asked
+        assert _stored_grid(live, puzzle_id) == EDITED
+        # The sentence is the staying one: it reports the store AND says the
+        # strokes made since are still here and unstored.
+        said = _message(browser_page)
+        assert "the grid you verified is the stored puzzle now" in said
+        assert "the editor stays open" in said
+        assert "are not stored" in said
+        assert "Showing the puzzle list" not in said, said
+        assert errors == [], errors
 
 
 @pytest.mark.browser

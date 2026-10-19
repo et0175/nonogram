@@ -21,7 +21,11 @@
 //                can never store a difficulty nobody saw. The store's answer
 //                is told — it is never dropped — and then the editor is LEFT
 //                for the puzzle list, where the row's picture is the grid
-//                just stored (CARD-250 AC-5/AC-6).
+//                just stored (CARD-250 AC-5/AC-6). It is NOT left when a
+//                stroke landed while the store was writing: that stroke is
+//                unstored work which lives only on this board, so the page
+//                stays and says so, by the same rule Cancel follows — only
+//                leave when there is nothing to lose (review cycle 1, F-001).
 //   Back to edit puts the message and the two buttons away and changes
 //                nothing — not on the server, and not on the board: the edit
 //                is still there to go on with (CARD-246 AC-4). This button was
@@ -80,7 +84,10 @@
 //   2. `turn`. Every request is asked in a turn, and the turn advances on
 //      each new request AND on every recorded board change. An answer from a
 //      spent turn is DROPPED rather than told, so a grade can never appear
-//      for a grid that is no longer on the board.
+//      for a grid that is no longer on the board. A SAVE's answer is the one
+//      exception — it is always told, being the only report of what the
+//      store did — so for it the spent turn decides not whether to speak but
+//      whether to LEAVE: a board that moved keeps the page (F-001).
 //   3. One request at a time: each handler refuses to start a second while
 //      one is in flight, and both buttons say so (aria-disabled). Two
 //      answers can therefore never race to write the message, and a double
@@ -193,13 +200,34 @@ export function gradeText(grade) {
 // wrote, out of the save's response). The page shows no difficulty of its
 // own any more: the header badge it used to point at ("the difficulty shown
 // above") was the PRE-EDIT tier and stayed that way (F-008).
-export function storedText(stored) {
+//
+// The head is the store's answer and is the same on both branches; the TAIL
+// says what the page does next, and that is two different things (review
+// cycle 1, F-001). Approve leaves for the list — unless a stroke landed
+// while the store was writing, in which case the page stays, because leaving
+// would take that stroke with it. One sentence per branch, so neither claims
+// the other's act; both are still written by the one `tell`.
+function storedHead(stored) {
   const graded = stored && stored.difficulty_tier
     ? ` Difficulty: ${stored.difficulty_tier}, score ${stored.difficulty_score} of 100.`
     : "";
-  return `Saved: the grid you verified is the stored puzzle now.${graded} `
+  return `Saved: the grid you verified is the stored puzzle now.${graded} `;
+}
+
+export function storedText(stored) {
+  return storedHead(stored)
     + "Showing the puzzle list, where this puzzle's picture is the grid that "
     + "was just stored.";
+}
+
+// The same store, and a board that moved while it was being written. The
+// editor stays open and says so: the strokes made since are unstored work,
+// and the page that holds them is the only place they exist.
+export function storedAndStayingText(stored) {
+  return storedHead(stored)
+    + "You changed the board while it was being stored, so the editor stays "
+    + "open: those strokes are still on the board and are not stored. Press "
+    + "Save to check the board as it is now.";
 }
 
 // The board stopped being the grid whose grade is on screen (or the grid
@@ -399,7 +427,7 @@ function start() {
 
   // aria-disabled, not `disabled`: the owner may be standing on the button
   // from the keyboard, and `disabled` drops the focus to the document
-  // mid-flow (G-4, CARD-211's pattern). What PREVENTS a second request is
+  // mid-flow (CARD-246 G-4 / CARD-250 G-3, CARD-211's pattern). What PREVENTS a second request is
   // the guard at the top of each handler; this is how the state is said.
   //
   // Cancel joins Save and Approve here, because it is refused for the same
@@ -474,7 +502,11 @@ function start() {
     // The grid that was graded, captured when Save was pressed. The board is
     // NOT read here; see invariant 4.
     const grid = verified;
-    turn += 1;
+    // The turn is captured, not merely spent: a stroke that lands while the
+    // store is writing advances it (onBoardChange, before its early return),
+    // and that is how this handler learns there is unstored work on the
+    // board by the time the answer comes back (review cycle 1, F-001).
+    const mine = (turn += 1);
     inFlightIs("approve");
     // The offer goes away with this sentence: the store is being written, so
     // there is nothing left to approve, and a second Approve cannot be sent.
@@ -495,9 +527,25 @@ function start() {
       save.focus();
       return;
     }
-    // The store said yes. Its answer is told first — it is told whatever
-    // happens, and the exit comes after it, so the one report of what the
-    // store did is never traded for the navigation.
+    // The store said yes, and what the page does next depends on the board.
+    //
+    // The answer is TOLD on either branch, before anything else is done with
+    // it: the refusals above are the ones read on this bar, and this success
+    // is reported to the owner by the list they land on — the row's new
+    // picture (AC-6) — rather than by a sentence a navigation in the same
+    // task leaves unannounced. The sentence is still written, because it is
+    // the only report of what the store did and the page may not go quiet
+    // about it, and on the branch below that stays it is genuinely read.
+    //
+    // A stroke landed while the store was writing (AC-2's own fact, reached
+    // through mechanism 2 rather than a second notion of "changed"): that
+    // work is unstored and lives only on this board, so the page does not
+    // leave with it, and says that they are still on the board and unstored
+    // (F-001).
+    if (mine !== turn) {
+      tell(storedAndStayingText(body.puzzle));
+      return;
+    }
     tell(storedText(body.puzzle));
     window.location.assign(THE_LIST);
   }
@@ -554,7 +602,9 @@ function start() {
     boardChanged = true;
     // An approval is already on its way with the grid it captured, and its
     // answer is what the owner must read — a stroke does not get to speak
-    // over the store.
+    // over the store. The turn spent above is not lost with this return:
+    // onApprove compares it and, finding the board moved, keeps the page
+    // rather than leaving with this stroke (F-001).
     if (inFlight === "approve") return;
     // Nothing was claimed, so there is nothing to correct: ordinary painting
     // does not write to the live region.
