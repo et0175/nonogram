@@ -174,8 +174,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: c62e8f6
     dismissed_reason: null
     learned_pattern: null
 
@@ -212,8 +212,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: c62e8f6
     dismissed_reason: null
     learned_pattern: null
 
@@ -268,8 +268,8 @@ findings:
     source: model
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: c62e8f6
     dismissed_reason: null
     learned_pattern: null
 
@@ -315,8 +315,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: c62e8f6
     dismissed_reason: null
     learned_pattern: null
 
@@ -341,8 +341,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: c62e8f6
     dismissed_reason: null
     learned_pattern: null
 
@@ -370,9 +370,15 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: dismissed
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: >-
+      Declined with its own suggestion ('nothing to do now'): `generator.cell_sizes(payloads)` IS
+      the production door F-003 was about, so a walk run without it certifies the superseded rule,
+      and no cheaper form of it exists. The 18 hand-built books of fix cycle 2's F-004 add 54
+      further member measurements to the 3600-book loop; the hoist the finding names (the loop
+      body's second `sheet.book_cell_mm(order)`) is left for whoever measures a cost, because the
+      brief forbids timing this cycle and no timing figure is claimed anywhere in this fix.
     learned_pattern: null
 
   - id: F-007
@@ -407,8 +413,8 @@ findings:
     source: model
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: c62e8f6
     dismissed_reason: null
     learned_pattern: null
 
