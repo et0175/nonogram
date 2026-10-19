@@ -15,7 +15,7 @@
 **Wave:** 48
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_tools.py, tests/test_admin_design_tokens.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 — one Important open, so the severity gate fails)
 **Started:** 2026-10-19T15:41:00Z
 **Closed:** —
 **Actual:** —
@@ -415,3 +415,45 @@ evidence a gate green on its first is*.
 
 **The count reconciles exactly:** `main` **8495** → branch **8505**, **+10** — brush_menu **+6**,
 editor_ui **+1** (the pin for the owner's button rename), browser_fixture_scope **+3**.
+
+### [Review 1/3] Score: 9.0 — 0 critical, 1 important, 2 minor, 1 info · [Severity gate] FAILS
+
+Report: `meta/review/20261019T173621Z-CARD-247-cycle1.yml`.
+
+**The report's own header says "PASSES" and its body says one Important "stands between this card and a
+clean gate". Those contradict, and this board has settled it twice** (CARD-250 cycle 2, CARD-251 cycle
+1): **a severity gate is not a number.** 9.0 meets `min_score` and the card does not pass while a
+gating finding is open. Recorded here so the contradiction is resolved on the card rather than left for
+the merge to trip over.
+
+**[Review] F-001 (important) — and it is the system catching itself.** The rename table's control,
+`test_the_rename_table_refuses_what_it_claims_to`, asserts only that `_rename_problems(table)` is
+**non-empty** — and several broken cases trip more than one refusal. The reviewer neutralised each of
+the nine branches individually (`if <cond>:` → `if False:`) and ran only that control: branches 1, 2,
+6, 7, 8 died; **branches 3, 4, 5 and 9 SURVIVED**, each shadowed by another refusal firing on the same
+case. So four of the nine refusals are narrative, and three separate places claim otherwise — the
+test's docstring (*"Each case below is reported WITH the break and absent WITHOUT it"*), its sibling's,
+and the card's own note (*"drives all nine… so none of them is a branch nothing executes"*).
+
+**This violates `ADR-0039/R1` — `severity: mandatory` — which says in as many words: "a claim whose
+control cannot fail is narrative, not coverage, and must be narrowed to what is measured or deleted."**
+
+⚑ **That rule is in this card's contract only because of two changes made earlier the same day.** The
+curation convention (`meta/kanban/curation.md`) stopped the orchestrator dropping ADR-0039 by
+judgement, and removing the `contexts: [CTX-001]` short-circuit made the authored scope globs bite.
+Before both, ADR-0039 was dropped from CARD-250's and CARD-251's contracts — the two cards that then
+produced ten findings of exactly this family. **The first card to carry it caught a violation of it on
+the first cycle.**
+
+**The guard itself is not weakened, which is why this is Important and not Critical** — the one
+dangerous shape (a "rename" that merges two recorded ids) is caught a second time by the set-size
+equality in `test_every_rename_entry_moves_one_recorded_id_and_is_attributed`, because
+`_recorded_node_ids()` is a set comprehension and collapses.
+
+**What the reviewer verified rather than inherited**, all six areas it was pointed at: the invisible-
+render pin discriminates (dropping the seam colour fails the cell test and *only* that one, and it
+carries information on exactly the one brush where border and fill share `--grid-ink`); M1's widening
+is load-bearing (removing the added click makes the sweep pass **with the mutant still installed**);
+the rename table cannot delete coverage; **AC-7's two mutants were re-run, not inherited**, and die at
+*different* assertions; the five out-of-`Touches` edits carry no CARD-250-shaped vacuity; and there is
+no behavioural reach into the editor.
