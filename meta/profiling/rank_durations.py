@@ -95,6 +95,12 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/property/test_book_pdf_geometry.py",
     "tests/test_admin_tier_surfaces.py",
     "tests/test_book_answer_key.py",
+    # RESTATED 2026-10-19 (CARD-225). tests/test_book_cell_size.py reads the
+    # book-wide cell off the RENDERED INK (page_ink / two_up_ink), so it walks
+    # the real interior -- 23 mentions of RENDER_API_PATTERN. Unlike CARD-251's
+    # entry, this one genuinely draws, so the share it contributes is a real
+    # render cost rather than an over-statement.
+    "tests/test_book_cell_size.py",
     "tests/test_book_export_interior_cover.py",
     "tests/test_book_finalise_gutter.py",
     "tests/test_book_guide_page.py",
