@@ -130,14 +130,23 @@ def _test_functions_in(source: str):
     ``@pytest.mark.db_required()`` form and a nested test class all come back
     as 0 where pytest collects 1 or 2.
 
-    The one direction that could fail **open** is a class renamed off pytest's
-    ``Test*`` prefix: pytest then collects nothing from it while a walk that
-    took ``test*`` methods out of any ``ClassDef`` still counted them, so the
-    coverage AC-4 exists to protect would go to zero with the count still
-    green. Hence the ``Test`` prefix is a filter here, and the third return
-    value is the set of classes that passed it, so the caller can assert the
-    filter did not silently empty the walk. Control:
-    ``test_a_class_renamed_off_pytests_prefix_is_not_counted``.
+    Two directions could fail **open**, and only the first is closed here.
+    One: a class renamed off pytest's ``Test*`` prefix — pytest then collects
+    nothing from it while a walk that took ``test*`` methods out of any
+    ``ClassDef`` still counted them, so the coverage AC-4 exists to protect
+    would go to zero with the count still green. Hence the ``Test`` prefix is
+    a filter here, and the third return value is the set of classes that
+    passed it, so the caller can assert the filter did not silently empty the
+    walk. Control: ``test_a_class_renamed_off_pytests_prefix_is_not_counted``.
+    Two: a ``Test*`` class that carries an ``__init__`` — pytest refuses to
+    collect it and says so (``PytestCollectionWarning: cannot collect test
+    class ... because it has a __init__ constructor``) while this walk still
+    counts its methods. Measured, on a class holding one ``db_required``
+    marker and one ``test_a``: pytest 0 collected, this walk ``db_required ==
+    {'TestHasInit::test_a'}`` (cycle-3 review C3-F-002). That direction is
+    stated rather than filtered: the warning makes the loss loud in the run,
+    and the module's two ``db_required`` tests are independently pinned by the
+    AC-1/AC-2 controls.
     """
     def marked(node) -> bool:
         return any(
@@ -371,7 +380,18 @@ def _private_global_sites_in(source: str, filename: str, names):
     equality in ``test_no_test_file_outside_the_exemption_sets_those_globals``
     is the decision :data:`_EXEMPT_PRIVATE_GLOBAL_SITES` says it is.
 
-    The deny default is **total**, and that is the whole design. Cycles 1
+    The deny default is total **over the shapes it binds**, and that is the
+    whole design. The shapes it binds are two: every ``setattr``-shaped call
+    with **two or more positional arguments** (the arity dispatch below), and
+    every **simple** attribute assignment target
+    (``isinstance(target, ast.Attribute)`` in an :class:`ast.Assign`). What
+    falls between them reaches no branch at all, so it is neither recorded nor
+    appended to ``unanalysable``: a ``setattr`` whose target or name arrives as
+    a keyword, and an attribute target nested in a tuple or list unpacking or
+    carried by an annotated, ``for`` or ``with`` target. Both are measured at
+    zero sites in this tree and held there by
+    ``test_the_binding_frontier_is_empty_in_this_tree`` (cycle-3 review
+    C3-F-001). Cycles 1
     and 2 of this card's review each widened this function by enumerating
     spellings and then described a reach one shape wider than the new
     enumeration; a fourth shape exists for any finite list. So the rule here
@@ -483,6 +503,75 @@ def _private_global_sites_in(source: str, filename: str, names):
     return sites, unanalysable
 
 
+def _binding_frontier_reaches_in(source: str, filename: str, names):
+    """The reaches that fall OUTSIDE :func:`_private_global_sites_in`'s dispatch.
+
+    That function binds two shapes — a ``setattr``-shaped call with two or more
+    positional arguments, and a *simple* attribute target in an
+    :class:`ast.Assign`. This one reports what falls between them and still
+    reaches ``session.py``: a ``setattr`` with fewer than two positional
+    arguments (target or name bound by keyword, or starred), and an attribute
+    target naming one of ``names`` while nested in a tuple/list unpacking or
+    carried by an annotated, ``for`` or ``with`` target. Cycle-3 review
+    C3-F-001 measured both at zero sites in this tree; this is what keeps that
+    measured instead of asserted in prose.
+
+    Scoped by the guard's own discrimination — a target resolved to some
+    **other** module is none of its business — and deliberately coarser than
+    the guard on the keyword half: it does not read a keyword-bound attribute
+    name, so any such call on the session module is reported whichever
+    attribute it names. That over-reds relative to the guard's "a readable name
+    outside ``names`` ends the analysis" rule, which is the safe direction for
+    a frontier that is empty.
+    """
+    def non_simple_attribute_targets(node):
+        """``(attribute target, the shape carrying it)``, or ``[]``."""
+        if isinstance(node, ast.Assign):
+            carriers = [t for t in node.targets if isinstance(t, (ast.Tuple, ast.List))]
+            shape = "nested in a tuple/list unpacking"
+        elif isinstance(node, ast.AnnAssign):
+            carriers, shape = [node.target], "an annotated assignment target"
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            carriers, shape = [node.target], "a for-loop target"
+        elif isinstance(node, ast.withitem):
+            carriers = [node.optional_vars] if node.optional_vars is not None else []
+            shape = "a with-statement target"
+        else:
+            return []
+        return [
+            (inner, shape) for carrier in carriers for inner in ast.walk(carrier)
+            if isinstance(inner, ast.Attribute)
+        ]
+
+    tree = ast.parse(source)
+    aliases = set(_SESSION_ALIASES) | _session_aliases_in(tree)
+    reaches = []
+
+    def not_ruled_out(node) -> bool:
+        # `None` (unreadable) stays in, like everywhere else in this guard.
+        return _names_the_session_module(_dotted(node), aliases) is not False
+
+    for node in ast.walk(tree):
+        if _is_setattr_call(node) and len(node.args) < 2:
+            receiver = node.args[0] if node.args else next(
+                (kw.value for kw in node.keywords if kw.arg == "target"), None
+            )
+            if not_ruled_out(receiver):
+                reaches.append(
+                    f"{filename}:{node.lineno}: {ast.unparse(node)} "
+                    "— fewer than two positional arguments, so neither arity "
+                    "branch analyses it"
+                )
+        for target, shape in non_simple_attribute_targets(node):
+            if target.attr in names and not_ruled_out(target.value):
+                reaches.append(
+                    f"{filename}:{target.lineno}: {ast.unparse(target)} = ... as "
+                    f"{shape} — not a simple ast.Assign attribute target, so no "
+                    "branch analyses it"
+                )
+    return reaches
+
+
 def _private_global_sites(names):
     """:func:`_private_global_sites_in`, summed over every file under ``tests/``."""
     sites = Counter()
@@ -494,6 +583,16 @@ def _private_global_sites(names):
         sites.update(file_sites)
         unanalysable.extend(file_unanalysable)
     return sites, unanalysable
+
+
+def _binding_frontier_reaches(names):
+    """:func:`_binding_frontier_reaches_in`, over every file under ``tests/``."""
+    reaches = []
+    for path in sorted((REPO / "tests").rglob("*.py")):
+        reaches.extend(
+            _binding_frontier_reaches_in(path.read_text(encoding="utf-8"), path.name, names)
+        )
+    return reaches
 
 
 @pytest.mark.db_required
@@ -839,12 +938,22 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
     aliases the scanned file itself binds (both import spellings) on top of
     :data:`_SESSION_ALIASES`; **and it fails on anything ``setattr``-shaped
     whose target or whose attribute name it cannot read.** That second
-    sentence is the whole claim, and it is deliberately one with no outside:
-    there is no residual "plus some other spellings it happens to see", because
-    :func:`_private_global_sites_in`'s default is deny on every axis it can
-    observe. Cycle 1 of this card's review widened a list of three spellings
-    and claimed three; cycle 2 found the next three out. A claim about a
-    finite shape list always has a fourth shape; this is the exit from that.
+    sentence holds inside one frontier, stated here because it is where the
+    mechanism stops: the analysis is over **positional** argument binding and
+    **simple** assignment targets. A ``setattr`` whose target or whose
+    attribute name arrives as a *keyword*
+    (``monkeypatch.setattr(app_session, name="engine", value=None)``), and an
+    attribute target nested in a tuple or list unpacking or carried by an
+    annotated, ``for`` or ``with`` target
+    (``app_session.engine, app_session.SessionLocal = None, None``), are
+    outside it — they really do set the globals, and this guard passes them
+    silently. Both are measured at **zero sites** in this tree, and
+    ``test_the_binding_frontier_is_empty_in_this_tree`` is what keeps that
+    true: a control that reds on the first such site, rather than a sentence
+    promising there can be none. Cycle 1 of this card's review widened a list
+    of three spellings and claimed three; cycle 2 found the next three out;
+    cycle 3 widened the mechanism and claimed it had no outside. A claim about
+    a finite shape list always has a fourth shape.
 
     Each clause has a control in this class, and six of them are verbatim
     mutants from the two review cycles that SURVIVED the guard version they
@@ -965,6 +1074,77 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             "conftest.py in particular must go through reset_engine() (AC-5); "
             "any other new site — including a second one in a file that "
             "already has some — is a decision to record, not to inherit."
+        )
+
+    def test_the_binding_frontier_is_empty_in_this_tree(self) -> None:
+        """The frontier of :func:`_private_global_sites_in`, asserted not said.
+
+        That function binds *positional* argument binding and *simple*
+        assignment targets. Shapes that fall between its branches reach
+        ``session.py``'s engine globals and pass it silently — a ``setattr``
+        whose target or name arrives as a keyword, and an attribute target
+        nested in a tuple or list unpacking or carried by an annotated,
+        ``for`` or ``with`` target. Cycle-3 review C3-F-001 measured every one
+        of them at **zero sites** in this tree, which is why the remedy was
+        this assertion rather than a fourth widening of the mechanism: the
+        frontier stops being a sentence and becomes a control that reds on the
+        first such site, naming its file, line and spelling.
+
+        Two halves, because a frontier assertion over a tree that is empty
+        would also pass if the scan saw nothing at all: each named shape is
+        fed to the scan as source text and must be reported, and the whole of
+        ``tests/`` must report nothing. The third assertion is the edge — the
+        same keyword-bound spelling on a target that is plainly **not** the
+        session module is not a finding here and must not become one, or this
+        control would be a different, wrong claim
+        (``test_a_setattr_on_another_module_is_not_this_guards_business``).
+        """
+        names = _global_names_assigned_by("_init_engine")
+        imported = "from nonogram.db import session as app_session\n"
+        for shape in (
+            '    monkeypatch.setattr(app_session, name="engine", value=None)',
+            '    monkeypatch.setattr(target=app_session, name="engine", value=None)',
+            "    setattr(*TRIPLE_NAMING_THE_SESSION_MODULE)",
+            "    app_session.engine, app_session.SessionLocal = None, None",
+            "    [app_session.engine] = [None]",
+            "    app_session.engine: object = None",
+            "    for app_session.engine in [None]: pass",
+            '    with open("x") as app_session.engine: pass',
+        ):
+            source = f"{imported}\n\ndef test_frontier_probe(monkeypatch):\n{shape}\n"
+            assert _binding_frontier_reaches_in(source, "test_not_exempt.py", names), (
+                "this spelling reaches session.py's engine globals through a "
+                "shape the AC-5 guard does not analyse, and the frontier scan "
+                f"does not report it either, so nothing sees it: {shape.strip()}"
+            )
+            sites, unanalysable = _private_global_sites_in(source, "test_not_exempt.py", names)
+            assert dict(sites) == {} and unanalysable == [], (
+                "the guard itself now analyses this shape, so it is no longer "
+                "outside the frontier: widen the frontier's statement and this "
+                f"control together. {shape.strip()}: {dict(sites)} / {unanalysable}"
+            )
+
+        assert not _binding_frontier_reaches_in(
+            "import other_module\n\n"
+            "def test_edge(monkeypatch):\n"
+            '    monkeypatch.setattr(other_module, name="engine", value=None)\n',
+            "test_not_exempt.py",
+            names,
+        ), (
+            "the frontier reds on a keyword-bound setattr aimed at a module "
+            "this guard has already resolved to something other than "
+            "session.py, which makes it a different and wrong claim"
+        )
+
+        outside = _binding_frontier_reaches(names)
+        assert not outside, (
+            "these test-tree lines set one of session.py's engine globals "
+            "through a shape the AC-5 guard does not analyse at all — it "
+            "neither counts them as sites nor reports them as unanalysable, "
+            "so they pass it silently. Either route the reset through "
+            "reset_engine() (AC-5), or widen _private_global_sites_in and the "
+            "frontier stated on this class together (cycle-3 review "
+            "C3-F-001):\n  " + "\n  ".join(outside)
         )
 
     # --- the three shapes this guard was NOT written from ---------------
