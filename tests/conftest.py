@@ -430,6 +430,90 @@ def _unusable_reason(database_url: str):
     return reachability
 
 
+def _rebuild_public_schema(engine, database_url: str):
+    """Empty and re-migrate ``public``, then retire any engine older than it.
+
+    The destructive half of :func:`_test_database_tables`, lifted out of the
+    fixture by CARD-252 so that the fixture and the control that pins it drive
+    the *same* code. ``engine`` issues the DDL; ``database_url`` is handed to
+    the Alembic subprocess. Returns the table names to truncate before each
+    test (everything in ``public`` except ``alembic_version``).
+
+    Three steps, in this order, and the order is the point:
+
+    1. ``SET LOCAL lock_timeout`` → ``DROP SCHEMA public CASCADE`` →
+       ``CREATE SCHEMA public``. Emptied first because ``alembic_version`` can
+       say head while the tables beneath it are gone or drifted (CARD-156).
+       The ten-second ``lock_timeout`` turns a connection somebody else holds
+       open into an error rather than a hang.
+    2. ``alembic upgrade head``, in a **subprocess**: its ``env.py`` calls
+       ``logging.config.fileConfig``, which disables every logger already
+       created in this process (and so every later ``caplog`` assertion), and
+       imports the models a second time as ``src.nonogram``.
+    3. :func:`nonogram.db.session.reset_engine` — **last**, so that retiring
+       the engine is the final thing this routine does and no engine
+       predating the new schema can exist when the fixture yields.
+       Deliberate, but not load-bearing, and the earlier reading of G-3 here
+       was wrong: ``reset_engine()`` builds nothing, so putting it before
+       step 2 cannot point a fresh engine at a half-built schema. Measured —
+       moved ahead of the Alembic subprocess, ``tests/test_db_engine_lifecycle.py``
+       stays green (CARD-252's own refutation, re-measured as cycle-1 review
+       mutant R7). The half-built-schema hazard belongs to the card's original
+       sketch, which rebuilt eagerly.
+
+    Step 3 is the fix CARD-252 exists for. ``session.py`` keeps a module-global
+    engine and rebuilds it only when ``DATABASE_URL`` changes, so a process
+    that had already built one for this URL kept it, pool and all, across the
+    ``DROP SCHEMA`` above — leaving a connection older than the schema in the
+    pool, ready to be handed back out. ``tests/test_db_engine_lifecycle.py``
+    pins that this function leaves no such engine behind.
+
+    It does **not** pin that such a connection corrupts a query. Four
+    consecutive build gates on this board reported failures that reproduced on
+    no second run, and they are the motive for the card; the deterministic
+    reproduction was attempted and CARD-252's AC-3 was **withdrawn** for being
+    unforceable on psycopg2, so those gate failures stay unexplained. The test
+    module's docstring says exactly what the control does and does not
+    demonstrate — read it before concluding this call fixed them.
+    """
+    import subprocess
+    import sys
+
+    from nonogram.db import session as app_session
+
+    with engine.begin() as connection:
+        # Same reason as the per-test TRUNCATE: a connection another pipeline
+        # holds open would make DROP SCHEMA wait on its lock until the hang
+        # guard killed the run. This turns that wait into an error that says so.
+        connection.execute(text("SET LOCAL lock_timeout = '10s'"))
+        connection.execute(text("DROP SCHEMA public CASCADE"))
+        connection.execute(text("CREATE SCHEMA public"))
+
+    repo = Path(__file__).resolve().parent.parent
+    migrated = subprocess.run(
+        [sys.executable, "-m", "alembic", "-c", str(repo / "alembic.ini"), "upgrade", "head"],
+        cwd=repo,
+        env={**os.environ, "DATABASE_URL": database_url},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if migrated.returncode != 0:
+        pytest.fail(f"alembic upgrade head failed:\n{migrated.stderr}", pytrace=False)
+
+    with engine.connect() as connection:
+        tables = connection.execute(text(
+            "SELECT tablename FROM pg_tables "
+            "WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
+        )).scalars().all()
+
+    # CARD-252. Last, so that no engine predating the schema above survives
+    # into the run that queries it.
+    app_session.reset_engine()
+
+    return tables
+
+
 @pytest.fixture(scope="session")
 def _test_database_tables(test_db_url):
     """Build the schema once per session; yield an engine and the tables to truncate.
@@ -443,27 +527,17 @@ def _test_database_tables(test_db_url):
     migrations hung off them, so the schema drifted from what production runs.
 
     Now: the ``public`` schema is emptied and rebuilt with ``alembic upgrade
-    head``, once. Emptied first because ``alembic_version`` can say head while
-    the tables beneath it are gone or drifted — which is the state the old
-    fixture left ``nonogram_test`` in, and the state any branch still carrying
-    it will leave it in again.
+    head``, once, and the app's module-global engine is retired afterwards —
+    all three steps, with the reasons for their order, in
+    :func:`_rebuild_public_schema`.
 
-    Alembic runs in a subprocess, not in-process: its ``env.py`` calls
-    ``logging.config.fileConfig``, which disables every logger already created
-    in this process (and so every later ``caplog`` assertion), and imports the
-    models a second time as ``src.nonogram``.
-
-    The DROP runs under a ten-second ``lock_timeout`` (a connection held open
-    elsewhere becomes an error, not a hang), and the engine is disposed
-    however the fixture exits — including a DROP or migration that fails.
+    The engine built here is disposed however the fixture exits — including a
+    DROP or migration that fails.
     """
     _refuse_unless_test_database(test_db_url)
     reason = _unusable_reason(test_db_url)
     if reason:
         pytest.skip(f"Could not set up test database: {reason}")
-
-    import subprocess
-    import sys
 
     from sqlalchemy import create_engine
 
@@ -477,32 +551,7 @@ def _test_database_tables(test_db_url):
     # that times out, a failed migration and the end of the session all leave
     # through the ``finally``.
     try:
-        with engine.begin() as connection:
-            # Same reason as the per-test TRUNCATE: several pipelines share
-            # nonogram_test, and a connection one of them holds open would make
-            # DROP SCHEMA wait on its lock until the hang guard killed the run.
-            # This turns that wait into an error that says so.
-            connection.execute(text("SET LOCAL lock_timeout = '10s'"))
-            connection.execute(text("DROP SCHEMA public CASCADE"))
-            connection.execute(text("CREATE SCHEMA public"))
-
-        repo = Path(__file__).resolve().parent.parent
-        migrated = subprocess.run(
-            [sys.executable, "-m", "alembic", "-c", str(repo / "alembic.ini"), "upgrade", "head"],
-            cwd=repo,
-            env={**os.environ, "DATABASE_URL": test_db_url},
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if migrated.returncode != 0:
-            pytest.fail(f"alembic upgrade head failed:\n{migrated.stderr}", pytrace=False)
-
-        with engine.connect() as connection:
-            tables = connection.execute(text(
-                "SELECT tablename FROM pg_tables "
-                "WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
-            )).scalars().all()
+        tables = _rebuild_public_schema(engine, test_db_url)
         yield engine, tables
     finally:
         engine.dispose()
