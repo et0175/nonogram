@@ -817,3 +817,35 @@ owner wants the wider question.
 **No failure-matrix row is owed for the negative delta, and the reviewer said so plainly**: the matrix
 is boundary × *failure mode*, and a measured negative delta is a successful measurement. F-4 and F-5
 were both re-derived against the code as it now stands and both stand.
+
+### [Build gate] merge gate — RED then GREEN, and the red one was a REAL finding · orchestrator, 2026-10-19
+
+**Attempt 1 (858s): EXIT=1, 2 failed.** The guard read **0** before starting, so this run was genuinely
+solo — the first red gate this wave that was neither contention nor my own instrumentation.
+
+Both failures were in `tests/test_suite_profile.py`, and the second was a **knock-on** (it runs a
+sandboxed sub-suite and asserts every outcome passed). The first: **the frozen `RENDER_HEAVY_SNAPSHOT`
+no longer matched the grep that defines it**, because this card's route tests gained two mentions of
+`RENDER_API_PATTERN` — `interior_stream` (fix cycle 1's transfer test, cross-checking the delta against
+the export's own page count) and `puzzle_pages`, reached through `puzzle_page_plan`.
+
+**That is the guard working exactly as designed.** Its own comment: *"frozen is only safe if drift is
+loud… If a render call site is added to a new test file, this goes red and the snapshot (and the
+profile) are restated **deliberately** rather than silently diverging."* Restated in `73bbacd`.
+
+**⚑ Neither review cycle could have found this, and that is the point worth keeping.** Both were told
+not to run the full suite — correctly, since the gates own it — so a cross-file registry invalidated by
+the card's own test file was invisible to them. Two review cycles, a certification with 16 mutants, and
+an AC/EC/G-grade sweep all passed over it. **The full suite is not a formality after the reviews; it
+sees a class of thing the reviews structurally cannot.**
+
+**One nuance recorded in the constant rather than left for the next reader: neither mention draws.**
+`interior_stream` decides before it draws and the test reads `.page_count` off the plan without
+iterating pages. The set is a **mention** grep by construction, so the entry is correct by its own
+definition — but a share computed from this file's whole runtime **over-states** it, and
+**CARD-218 and CARD-219 are sized against that figure.**
+
+**Attempt 2 (866s, solo): EXIT=0, 8494 passed / 1 skipped / 0 failed.** The count reconciles exactly:
+`main` 8394 collected → branch **8495**, **+101**, and the card's own three test files **296 → 397**,
+also **+101**. Comparable with this branch's 879s build gate; the suite is ~104 → 102 ms/test while
+gaining 101 tests.
