@@ -124,11 +124,20 @@ _BUILDS_A_GRID = re.compile(
     re.I,
 )
 
-#: The markers that bound app.py's manual-edit POST surface — ``_edit_refusal``
-#: and CARD-245's two routes. Every refusal those routes emit is read off that
-#: slice, rather than from the four reasons a test already knows (review cycle
-#: 2, G-007).
-_EDIT_ROUTES = ("    def _edit_refusal(puzzle_id):", '@app.route("/puzzle/<puzzle_id>/editor"')
+#: The markers that bound app.py's manual-edit POST surface — its helpers and
+#: CARD-245's two routes. Every refusal those routes emit is read off that
+#: slice, rather than from the reasons a test already knows (review cycle 2,
+#: G-007).
+#:
+#: The start marker moved from ``_edit_refusal`` to the first of the helpers
+#: when CARD-251 added them (``_submitted_confirmation``, ``_book_holding``,
+#: ``_page_count_effect``, ``_book_answer``, ``_refused``): they sit in front
+#: of ``_edit_refusal`` and are part of the same surface, and a slice that
+#: began below them would read a refusal they emitted as none.
+_EDIT_ROUTES = (
+    "    def _submitted_confirmation():",
+    '@app.route("/puzzle/<puzzle_id>/editor"',
+)
 
 EDITOR = "/puzzle/{}/editor"
 SAVE = "/puzzle/{}/edit"
@@ -154,7 +163,9 @@ PAGE_ISOLATION_DECLARATION = (
     "which navigating undoes; and since CARD-250 its tests navigate AWAY from "
     "the editor on purpose, so a page left on the puzzle list is a page the "
     "next test would have to put back — as is a page deliberately left on the "
-    "editor holding an unstored stroke (review cycle 1, F-001)",
+    "editor holding an unstored stroke (review cycle 1, F-001), and since "
+    "CARD-251 one left holding an OPEN book question, whose two answers are "
+    "the only way past it",
 )
 
 
@@ -204,6 +215,54 @@ def payload_of(html: str) -> dict:
 def book_a_puzzle(app, puzzle_id: str) -> None:
     """Make a book hold ``puzzle_id`` — the in-memory store's own route in."""
     app.puzzle_review_service.assign_to_book([puzzle_id], "11111111-1111-1111-1111-111111111111")
+
+
+def legacy_in_book(live, puzzle_id: str) -> None:
+    """Record membership the pre-CARD-100 way: the ``in_book`` status, no id.
+
+    The spelling of "a book this panel cannot name" that a real database can
+    hold — the other one, an empty-string ``book_id``, does not go into a
+    ``uuid`` column, which is why the in-memory tests use that one and the
+    live ones use this (``tests/test_puzzle_edit_store.py`` says the same).
+    """
+    import uuid as uuid_module
+
+    from nonogram.db.models import Puzzle
+
+    with live.scope() as db:
+        row = (
+            db.query(Puzzle)
+            .filter(Puzzle.id == uuid_module.UUID(puzzle_id))
+            .first()
+        )
+        assert row is not None, f"no puzzles row for {puzzle_id}"
+        row.status = "in_book"
+    stored = live.app.puzzle_review_service.get_puzzle(puzzle_id)
+    assert stored["status"] == "in_book"
+    assert stored.get("book_id") is None, "this arm is the status alone"
+
+
+def seed_with_real_clues(app, grid=None, **overrides) -> str:
+    """A stored puzzle whose ``clues_*`` columns match its grid (CARD-251).
+
+    ``seed`` above stores empty clue columns, which the book's 4.75 mm floor
+    reads as "this puzzle's cell cannot be measured" and refuses — so a test
+    that wants a REAL book to hold a puzzle has to store its clues. The floor
+    is INV-006's and is not this card's to work around.
+    """
+    from nonogram.clues import compute_clues
+
+    grid = solid() if grid is None else grid
+    rows, columns = compute_clues(grid)
+    payload = {
+        "clues_rows": [list(clue) for clue in rows],
+        "clues_cols": [list(clue) for clue in columns],
+        "difficulty_tier": "easy",
+        "difficulty_score": 33,
+        "strategies_used": ["simple_overlap"],
+    }
+    payload.update(overrides)
+    return seed(app, grid=grid, **payload)
 
 
 # --------------------------------------------------------------------------
@@ -310,12 +369,32 @@ class TestPuzzleEditor_OpensOnTheStoredGrid:
 
 
 class TestPuzzleEditor_BookedPuzzleIsNotEditable:
-    """AC-7. Both halves: the control is absent AND the route refuses. A
-    disabled button is not a guard — the URL can be typed."""
+    """AC-7, as CARD-251 narrowed it: the book this panel cannot NAME.
 
-    def test_the_list_row_offers_no_edit_control(self, admin_app) -> None:
+    Both halves of the old claim still hold for that case — the control is
+    absent AND the route refuses, because a missing button is not a guard and
+    the URL can be typed.
+
+    **G-10, the retirements and their survivors.** CARD-246 asserted this for
+    every booked puzzle, in three tests
+    (``test_the_list_row_offers_no_edit_control``,
+    ``test_the_editor_page_itself_refuses_and_says_why``,
+    ``test_the_save_routes_refuse_it_too``). The owner reversed that
+    behaviour, and the survivors are
+    :class:`TestBookedEdit_TheEditorOpensForABookedPuzzle` (the page is served
+    and names the book), ``tests/test_puzzle_edit_routes.py``'s
+    ``TestBookedEditRoutes_TheConfirmationIsTheServers`` (the save still
+    writes nothing without the confirmation) and that file's
+    ``TestBookedEdit_OnlyEditingWasOpened`` (approve, reject, restore and
+    delete still refuse). The two tests kept below are the same two
+    assertions, for the membership that still has no book to name.
+    """
+
+    def test_the_list_row_offers_no_edit_control_for_a_book_it_cannot_name(
+        self, admin_app
+    ) -> None:
         puzzle_id = seed(admin_app)
-        book_a_puzzle(admin_app, puzzle_id)
+        admin_app.puzzle_review_service.assign_to_book([puzzle_id], "")
 
         html = admin_app.test_client().get("/puzzles").get_data(as_text=True)
 
@@ -323,27 +402,12 @@ class TestPuzzleEditor_BookedPuzzleIsNotEditable:
 
     def test_the_editor_page_itself_refuses_and_says_why(self, admin_app) -> None:
         puzzle_id = seed(admin_app)
-        book_a_puzzle(admin_app, puzzle_id)
+        admin_app.puzzle_review_service.assign_to_book([puzzle_id], "")
 
         response = admin_app.test_client().get(EDITOR.format(puzzle_id))
 
         assert response.status_code == 409
         assert "in a book" in response.get_data(as_text=True)
-
-    def test_the_save_routes_refuse_it_too(self, admin_app) -> None:
-        """CARD-245's own guard, asserted from this card as well: AC-7 is the
-        claim that BOTH hold, and a card that only tested its own half would
-        pass while the pair came apart."""
-        puzzle_id = seed(admin_app)
-        book_a_puzzle(admin_app, puzzle_id)
-        client = admin_app.test_client()
-        grid = solid_minus_corner()
-
-        verify = client.post(VERIFY.format(puzzle_id), json={"grid": grid})
-        save = client.post(SAVE.format(puzzle_id), json={"grid": grid})
-
-        assert (verify.status_code, save.status_code) == (409, 409)
-        assert admin_app.puzzle_review_service.get_puzzle(puzzle_id)["grid"] == solid()
 
     def test_a_falsy_but_present_book_id_is_refused_by_control_and_route_alike(
         self, admin_app
@@ -372,14 +436,109 @@ class TestPuzzleEditor_BookedPuzzleIsNotEditable:
     def test_an_unbooked_puzzle_of_the_same_page_is_still_editable(self, admin_app) -> None:
         """The control that can fail: if the row never offered an Edit link at
         all, the absence above would be vacuous."""
-        booked = seed(admin_app)
+        unnameable = seed(admin_app)
         free = seed(admin_app)
-        book_a_puzzle(admin_app, booked)
+        admin_app.puzzle_review_service.assign_to_book([unnameable], "")
 
         html = admin_app.test_client().get("/puzzles").get_data(as_text=True)
 
-        assert f'href="/puzzle/{booked}/editor"' not in html
+        assert f'href="/puzzle/{unnameable}/editor"' not in html
         assert f'href="/puzzle/{free}/editor"' in html
+
+    def test_a_puzzle_in_a_NAMEABLE_book_is_offered_the_control_again(
+        self, admin_app
+    ) -> None:
+        """CARD-251, the other side of the narrowing: a booked puzzle is
+        editable behind the confirmation, so the Edit control comes back — on
+        the list row and in the answer the puzzle's own card reads."""
+        puzzle_id = seed(admin_app)
+        book_a_puzzle(admin_app, puzzle_id)
+        client = admin_app.test_client()
+
+        html = client.get("/puzzles").get_data(as_text=True)
+        details = client.get(f"/api/puzzle/{puzzle_id}/details").get_json()
+
+        assert f'href="/puzzle/{puzzle_id}/editor"' in html
+        assert details["editable"] is True
+
+
+# --------------------------------------------------------------------------
+# CARD-251 AC-1 — the editor opens for a booked puzzle, and names the book
+# --------------------------------------------------------------------------
+
+
+class TestBookedEdit_TheEditorOpensForABookedPuzzle:
+    """AC-1: served, not refused, and it says which book holds the puzzle.
+
+    The page is where the owner meets the fact before they paint anything —
+    the confirmation they will be asked for is about *that* book, and a page
+    that did not name it would leave the question to arrive as a surprise
+    after Save.
+    """
+
+    @staticmethod
+    def _book(admin_app, puzzle_ids, *, title="Winter Pictures", published=False):
+        books = admin_app.book_manager
+        # The in-memory book manager is a module singleton, so books outlive
+        # the `admin_app` fixture.
+        books.books.clear()
+        book_id = books.create_book(
+            title=title, description="Winter pictures", theme="christmas",
+            target_audience="adults",
+        )
+        assert books.add_puzzles_to_book(book_id, list(puzzle_ids)) is True
+        # Asserted rather than assumed: `add_puzzles_to_book` answers True for
+        # "the add was processed", which includes a submission the 4.75 mm
+        # floor refused entirely (INV-006).
+        assert books.get_book(book_id).puzzle_ids == list(puzzle_ids)
+        if published:
+            books.books[book_id].status = "published"
+        return book_id
+
+    def test_the_page_is_served_and_carries_the_stored_grid(self, admin_app) -> None:
+        puzzle_id = seed_with_real_clues(admin_app)
+        self._book(admin_app, [puzzle_id])
+
+        page = admin_app.test_client().get(EDITOR.format(puzzle_id))
+
+        assert page.status_code == 200
+        assert payload_of(page.get_data(as_text=True))["solution"] == solid()
+
+    def test_the_page_names_the_book_that_holds_it(self, admin_app) -> None:
+        puzzle_id = seed_with_real_clues(admin_app)
+        self._book(admin_app, [puzzle_id], title="Winter Pictures")
+
+        html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
+
+        note = re.search(r'<p class="editor-book"[^>]*>(.*?)</p>', re.sub(r"\s+", " ", html))
+        assert note is not None, "the editor page says nothing about the book"
+        assert "Winter Pictures" in note.group(1)
+
+    def test_a_published_books_page_says_it_is_published(self, admin_app) -> None:
+        """AC-6's half of the page: the question names the book AND its status,
+        because a published book's confirmation is INV-008's own."""
+        puzzle_id = seed_with_real_clues(admin_app)
+        self._book(admin_app, [puzzle_id], title="Winter Nights", published=True)
+
+        html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
+        flat = re.sub(r"\s+", " ", html)
+
+        note = re.search(r'<p class="editor-book"[^>]*>(.*?)</p>', flat)
+        assert note is not None
+        assert "Winter Nights" in note.group(1)
+        assert "published" in note.group(1)
+
+    def test_an_unbooked_puzzles_page_says_nothing_about_a_book(
+        self, admin_app
+    ) -> None:
+        """The control that can fail: the note is absent for a puzzle with no
+        book, so the three assertions above are about the membership and not
+        about a paragraph the page always carries."""
+        puzzle_id = seed_with_real_clues(admin_app)
+
+        html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
+
+        assert 'class="editor-book"' not in html
 
 
 # --------------------------------------------------------------------------
@@ -594,8 +753,20 @@ class TestPuzzleEditor_Guardrails:
 
         client = admin_app.test_client()
         unique = seed(admin_app)
-        booked = seed(admin_app)
+        unnameable = seed(admin_app)
+        admin_app.puzzle_review_service.assign_to_book([unnameable], "")
+        # CARD-251's three. `regrade_in_a_book` needs a booked puzzle whose
+        # stored tier the replacement changes (the seed's is "hard" and
+        # `solid_minus_corner` grades easy); `needs_confirmation` needs one
+        # whose tier it does NOT change, so the save gets as far as the
+        # question; `extent_changed` needs a verified grid of another size.
+        regrading = seed_with_real_clues(admin_app, difficulty_tier="hard")
+        book_a_puzzle(admin_app, regrading)
+        booked = seed_with_real_clues(admin_app)
         book_a_puzzle(admin_app, booked)
+        client.post(VERIFY.format(booked), json={"grid": solid_minus_corner()})
+        resized = seed(admin_app)
+        client.post(VERIFY.format(resized), json={"grid": solid(12, 15)})
 
         seen = {
             "not_unique": client.post(
@@ -603,11 +774,22 @@ class TestPuzzleEditor_Guardrails:
             "not_verified": client.post(
                 SAVE.format(unique), json={"grid": solid_minus_corner()}),
             "in_a_book": client.post(
-                VERIFY.format(booked), json={"grid": solid_minus_corner()}),
+                VERIFY.format(unnameable), json={"grid": solid_minus_corner()}),
             "not_found": client.post(
                 SAVE.format("11111111-2222-3333-4444-555555555555"),
                 json={"grid": solid_minus_corner()}),
+            "needs_confirmation": client.post(
+                SAVE.format(booked), json={"grid": solid_minus_corner()}),
+            "regrade_in_a_book": client.post(
+                VERIFY.format(regrading), json={"grid": solid_minus_corner()}),
+            "extent_changed": client.post(
+                SAVE.format(resized), json={"grid": solid(12, 15)}),
         }
+        # Every declared reason is driven, not a subset of them: a reason the
+        # routes gained without joining this map would leave the editor's
+        # branch for it untested.
+        from nonogram.admin.app import EDIT_REFUSAL_REASONS as _declared
+        assert set(seen) == set(_declared), set(_declared) - set(seen)
 
         editor_js = (_STATIC / "puzzle_edit.js").read_text()
         for reason, response in seen.items():
@@ -651,8 +833,19 @@ class TestPuzzleEditor_Guardrails:
         )
 
         # Every reason the two POST routes emit is in the vocabulary, and the
-        # vocabulary has nothing the routes do not emit.
+        # vocabulary has nothing the routes do not emit. TWO spellings are
+        # read, because the routes use two: the inline body CARD-245 wrote,
+        # and CARD-251's `_refused(reason, message, code, puzzle)` — one
+        # refusal body, so every edit refusal carries the same fields.
+        # RESIDUAL, stated rather than left as a claim of completeness: a
+        # refusal emitted in some third shape (a reason held in a variable, a
+        # dict built elsewhere and returned) is not matched. What catches that
+        # is the OTHER direction, which is checked here too — a vocabulary
+        # entry nothing in the slice emits fails this test — plus
+        # ``test_every_refusal_carries_a_reason_the_editor_branches_on``,
+        # which drives each reason through the real routes.
         emitted = set(re.findall(r'"reason":\s*"([a-z_]+)"', edit_routes))
+        emitted |= set(re.findall(r'_refused\(\s*\n?\s*"([a-z_]+)"', edit_routes))
         assert emitted == set(EDIT_REFUSAL_REASONS), emitted
         # And the client's allow-list is that same set, so "nothing was
         # stored" is said for exactly the refusals that never write.
@@ -1113,15 +1306,46 @@ class TestPuzzleEditor_ReachableFromTheCard:
         browser_page.wait_for_function("window.puzzlePlayer !== undefined")
         assert browser_page.url.endswith(f"/puzzle/{puzzle_id}/editor")
 
-    def test_a_booked_puzzles_card_offers_none(self, browser_page, live) -> None:
-        """AC-7 on the card, beside the list row and the route."""
+    def test_a_card_whose_book_cannot_be_named_offers_none(
+        self, browser_page, live
+    ) -> None:
+        """AC-7 on the card, beside the list row and the route — for the
+        membership CARD-251 left refused.
+
+        **G-10, the retirement and its survivor.** This was
+        ``test_a_booked_puzzles_card_offers_none`` and booked the puzzle with
+        a real book, which the owner has since made editable behind a
+        confirmation; the survivor is
+        ``test_a_card_in_a_nameable_book_does_offer_one`` below, which asserts
+        the control is there for that case. What the card still refuses is a
+        book it cannot name — the one spelling of the rule,
+        ``puzzle_is_editable`` over the store's ``_an_edit_may_touch``, which
+        the card reads off ``/details`` rather than working out again.
+        """
+        puzzle_id = _seed_live(live, name="Booked")
+        legacy_in_book(live, puzzle_id)
+        browser_page.goto(f"{live.url}/puzzles")
+        browser_page.locator(f'a.name[onclick*="{puzzle_id}"]').click()
+        browser_page.get_by_role("link", name="Solve", exact=True).wait_for()
+
+        assert browser_page.get_by_role("link", name=re.compile("^Edit")).count() == 0
+
+    def test_a_card_in_a_nameable_book_does_offer_one(
+        self, browser_page, live
+    ) -> None:
+        """CARD-251: the control the test above needs in order to mean
+        anything — a booked puzzle's card offers Edit again."""
         puzzle_id = _seed_live(live, name="Booked")
         live.app.puzzle_review_service.assign_to_book([puzzle_id], make_book(live.scope))
         browser_page.goto(f"{live.url}/puzzles")
         browser_page.locator(f'a.name[onclick*="{puzzle_id}"]').click()
         browser_page.get_by_role("link", name="Solve", exact=True).wait_for()
 
-        assert browser_page.get_by_role("link", name=re.compile("^Edit")).count() == 0
+        # Inside the card, not anywhere on the page: the list row carries one
+        # of its own for this puzzle now, and counting both would not say
+        # which surface answered.
+        card = browser_page.locator("#puzzleDetailModal")
+        assert card.get_by_role("link", name=re.compile("^Edit")).count() == 1
 
 
 @pytest.mark.browser
@@ -2328,6 +2552,16 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         to an owner holding an edit they cannot store. CARD-245 tells them
         apart on the wire (``reason``), so this page tells them apart in
         words.
+
+        **CARD-251 changed which 409 that is.** A puzzle in a book the panel
+        can name is editable now, so the refusal an owner meets by painting a
+        booked puzzle is the REGRADE one — this board's stroke takes the
+        stored ``medium`` row to an Easy grid, and a book's order is grouped
+        by level (INV-009). The words are the same shape and the same
+        promise: the edit cannot be stored, nothing was stored, and the advice
+        is one that can succeed. The other case, where the tier does not move
+        and the page asks its question instead, is
+        :class:`TestBookedEdit_TheQuestionNamesTheBook`.
         """
         puzzle_id = _seed_live(live)
         _open_editor(browser_page, live, puzzle_id)
@@ -2339,8 +2573,8 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         _button(browser_page, "Save").click()
         said = _wait_for_message(browser_page, "cannot be stored")
 
-        assert "in a book" in said
-        assert "take it out of the book" in said.lower()
+        assert "grouped by difficulty level" in said
+        assert "take the puzzle out of the book" in said.lower()
         assert "Nothing was stored" in said
         assert "not known" not in said  # a refusal that never writes is known
         # The advice that can never succeed is gone.
@@ -2625,7 +2859,9 @@ class TestPuzzleEditor_TheWordsNameTheButtonsThatExist:
 
     def _every_message(self, page) -> list[str]:
         rng = random.Random(250)
-        reasons = [None, "not_unique", "not_verified", "in_a_book", "not_found", "too_large"]
+        reasons = [None, "not_unique", "not_verified", "in_a_book", "not_found",
+                   "needs_confirmation", "regrade_in_a_book", "extent_changed",
+                   "too_large"]
         codes = [0, 200, 404, 409, 422, 500, 502, 504]
         # The server's own prose, relayed: lower-case sentences, as CARD-245's
         # messages are. What the server says is the server's claim, not this
@@ -2654,7 +2890,23 @@ class TestPuzzleEditor_TheWordsNameTheButtonsThatExist:
             [[rng.randrange(0, 10), rng.randrange(0, 10)] for _ in range(count)]
             for count in (1, 2, 6, 7, 40)
         ]
-        said = page.evaluate(_MESSAGE_CORPUS, [refusals, grades, cells])
+        # Every shape of the book clause CARD-251 added, so the sentences it
+        # can produce are held to the same rule as every other message.
+        books = [
+            {"id": "b1", "title": "Winter Pictures", "published": False,
+             "pages": {"known": True, "changes": False, "before": 1, "after": 1,
+                       "partner": "snowflake.png"}},
+            {"id": "b2", "title": "Winter Nights", "published": True,
+             "pages": {"known": True, "changes": True, "before": 60, "after": 61,
+                       "partner": "Robin"}},
+            {"id": "b3", "title": None, "published": False,
+             "pages": {"known": False, "changes": None, "before": None,
+                       "after": None, "partner": None}},
+            {"id": "b4", "title": "Alone", "published": False,
+             "pages": {"known": True, "changes": True, "before": 2, "after": 3,
+                       "partner": None}},
+        ]
+        said = page.evaluate(_MESSAGE_CORPUS, [refusals, grades, cells, books])
         # The two sentences written inline by the handlers rather than
         # exported, read off the source so the corpus is the whole vocabulary
         # and not only the exported half.
@@ -2749,7 +3001,7 @@ class TestPuzzleEditor_TheWordsNameTheButtonsThatExist:
 #: itself. The parts of a sentence (CARD-250's coloured tier word) are
 #: flattened the way ``tell`` flattens them into the line, so what is checked
 #: is the sentence the owner reads.
-_MESSAGE_CORPUS = """async ([refusals, grades, cells]) => {
+_MESSAGE_CORPUS = """async ([refusals, grades, cells, books]) => {
   const module = await import('/static/puzzle_edit.js');
   const flat = (text) => (Array.isArray(text) ? text : [text])
     .map((part) => (typeof part === 'string' ? part : String(part.tier))).join('');
@@ -2763,6 +3015,14 @@ _MESSAGE_CORPUS = """async ([refusals, grades, cells]) => {
     said.push(flat(module.storedAndStayingText(grade)));
   }
   for (const undecided of cells) said.push(flat(module.undecidedText(undecided)));
+  // CARD-251's own sentences: the grade's book clause in each of its three
+  // shapes (no change, a split page, a book that could not be measured), the
+  // question, and the answer to "no".
+  said.push(module.BOOK_KEPT);
+  for (const book of books) {
+    said.push(flat(module.needsConfirmationText(book)));
+    for (const grade of grades) said.push(flat(module.gradeText(grade, book)));
+  }
   for (const [code, message, reason, storing] of refusals) {
     said.push(flat(module.refusalText(code, message, reason, { storing })));
   }
@@ -3187,3 +3447,264 @@ class TestPuzzleEditor_TheGradeWearsItsTierColour:
         assert browser_page.locator(".player-head .badge").count() == 0
         assert browser_page.locator("#puzzle-editor .badge").count() == 0
         assert "player-tier" not in served
+
+
+# --------------------------------------------------------------------------
+# CARD-251 — the question in the page, and the sentences that word the book
+# --------------------------------------------------------------------------
+
+
+def _book_question_open(page) -> bool:
+    return page.locator("#puzzle-editor-book-question").is_visible()
+
+
+def _live_book(live, puzzle_id, *, title="Winter Pictures", published=False) -> str:
+    """A real ``books`` row holding ``puzzle_id`` through the store's own path.
+
+    ``make_book`` writes the book and ``assign_to_book`` the row's side, which
+    is the pair CARD-100 keeps together; the book's own ``puzzle_ids`` list is
+    not needed here — the question is about the puzzle's ``book_id`` and the
+    book's title.
+    """
+    from nonogram.db.models import Book
+    import uuid as uuid_module
+
+    book_id = make_book(live.scope, title=title)
+    if published:
+        with live.scope() as db:
+            row = db.query(Book).filter(Book.id == uuid_module.UUID(book_id)).first()
+            row.status = "published"
+    assert live.app.puzzle_review_service.assign_to_book([puzzle_id], book_id) == 1
+    return book_id
+
+
+@pytest.mark.browser
+class TestBookedEdit_TheQuestionNamesTheBook:
+    """AC-2 / AC-6 / G-1 / G-7 in the browser: the guard became a question.
+
+    The flow, and every step of it is load-bearing:
+
+    * **Save** grades the grid, and the grade's own sentence already names the
+      book — the owner's principle for the tier was "learn it at verify, with
+      the grade", and the book is the other thing there is to learn.
+    * **Approve** posts the grid WITHOUT the confirmation. That request is the
+      one the server refuses, so the question is the server's and not this
+      page's: ``needs_confirmation`` comes back, nothing was written, and the
+      page turns the answer into its own in-page ``alertdialog``.
+    * **Edit it anyway** posts the same grid again WITH ``confirmed: true``.
+      Two requests, and the second one is what stores — a dialog that posted
+      an identical request would be no implementation of this card.
+
+    The puzzle is seeded **easy**, the tier ``solid_minus_corner`` grades
+    into, so the flow reaches the question rather than the regrade refusal
+    (which is ``test_a_puzzle_that_entered_a_book_says_this_edit_cannot_be_stored``).
+    """
+
+    def test_the_question_names_the_book_and_the_answer_stores(
+        self, browser_page, live
+    ) -> None:
+        puzzle_id = _seed_live(live, tier="easy")
+        _live_book(live, puzzle_id, title="Winter Pictures")
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        errors, asked = _watch(browser_page)
+
+        _button(browser_page, "Save").click()
+        graded = _wait_for_message(browser_page, "Difficulty")
+        assert "Winter Pictures" in graded, graded
+        assert _approve_offered(browser_page)
+
+        _button(browser_page, "Approve").click()
+        asking = _wait_for_message(browser_page, "Nothing is stored yet")
+
+        # The question: it names the book, and it is in the page.
+        assert "Winter Pictures" in asking, asking
+        assert _book_question_open(browser_page)
+        # No Approve stands beside an open question.
+        assert not _approve_offered(browser_page)
+        # And the server was asked, without the flag, and wrote nothing.
+        unconfirmed = [data for url, data in asked if url.endswith("/edit") and data]
+        assert unconfirmed, "the approve never reached the save route"
+        assert json.loads(unconfirmed[-1]).get("confirmed") is None
+        _assert_stored(live, puzzle_id, STORED)
+
+        _button(browser_page, "Edit it anyway").click()
+        _wait_for_the_list(browser_page)
+
+        # The second request carried the flag, and the grid is stored.
+        confirmed = [
+            json.loads(data) for url, data in asked
+            if url.endswith("/edit") and data
+        ]
+        assert confirmed[-1]["confirmed"] is True, confirmed[-1]
+        assert len(confirmed) == 2, confirmed
+        _assert_stored(live, puzzle_id, EDITED)
+        assert errors == [], errors
+
+    def test_keeping_the_stored_grid_stores_nothing_and_keeps_the_board(
+        self, browser_page, live
+    ) -> None:
+        """The other answer. Nothing is stored, nothing on the board is lost,
+        and the page is still usable — the promise Back to edit makes."""
+        puzzle_id = _seed_live(live, tier="easy")
+        _live_book(live, puzzle_id)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        errors, _asked = _watch(browser_page)
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        _button(browser_page, "Approve").click()
+        _wait_for_message(browser_page, "Nothing is stored yet")
+
+        _button(browser_page, "Keep the stored grid").click()
+        said = _wait_for_message(browser_page, "the book keeps the grid it had")
+
+        assert not _book_question_open(browser_page)
+        assert "your edit is still there" in said or "still on the board" in said
+        assert browser_page.url.endswith("/editor")
+        assert browser_page.evaluate(_BOARD_STATES) == _states_of(EDITED)
+        _assert_stored(live, puzzle_id, STORED)
+        assert errors == [], errors
+        # Still usable: a question was abandoned, not the page.
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+
+    def test_a_stroke_withdraws_the_question(self, browser_page, live) -> None:
+        """The question is about ONE grid, so a stroke makes it a question
+        about a grid that is not on the board. Clear's confirmation follows
+        the same rule; "leave the editor?" deliberately does not, because that
+        one is as true after a stroke as before it."""
+        puzzle_id = _seed_live(live, tier="easy")
+        _live_book(live, puzzle_id)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        errors, _asked = _watch(browser_page)
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        _button(browser_page, "Approve").click()
+        _wait_for_message(browser_page, "Nothing is stored yet")
+        assert _book_question_open(browser_page)
+
+        _cell(browser_page, 2, 2).click()
+        said = _wait_for_message(browser_page, "The board has changed")
+
+        assert not _book_question_open(browser_page)
+        assert "nothing was stored" in said.lower()
+        assert not _approve_offered(browser_page)
+        _assert_stored(live, puzzle_id, STORED)
+        assert errors == [], errors
+
+    def test_a_published_books_question_says_it_is_published(
+        self, browser_page, live
+    ) -> None:
+        """AC-6 in the page: the flag is the same one, and the question says
+        which case the owner is in — a published book's confirmation is
+        INV-008's own, which ``in_a_book()`` cannot tell apart (Trap 1)."""
+        puzzle_id = _seed_live(live, tier="easy")
+        _live_book(live, puzzle_id, title="Winter Nights", published=True)
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        errors, _asked = _watch(browser_page)
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+
+        _button(browser_page, "Approve").click()
+        asking = _wait_for_message(browser_page, "Nothing is stored yet")
+
+        assert "Winter Nights" in asking
+        assert "published" in asking
+        assert errors == [], errors
+
+    def test_an_unbooked_puzzle_is_never_asked(self, browser_page, live) -> None:
+        """The control the four tests above need: without a book there is no
+        question, the grade's sentence says nothing about books, and Approve
+        stores on the first press."""
+        puzzle_id = _seed_live(live, tier="easy")
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        errors, asked = _watch(browser_page)
+
+        _button(browser_page, "Save").click()
+        graded = _wait_for_message(browser_page, "Difficulty")
+        _button(browser_page, "Approve").click()
+        _wait_for_the_list(browser_page)
+
+        assert "book" not in graded.lower(), graded
+        posted = [data for url, data in asked if url.endswith("/edit") and data]
+        assert len(posted) == 1, posted
+        assert json.loads(posted[0]).get("confirmed") is None
+        _assert_stored(live, puzzle_id, EDITED)
+        assert errors == [], errors
+
+
+#: ``bookNote`` over the four shapes its argument can take, read in the page
+#: that ships it. AC-9's own words are here because the facts behind them are
+#: asserted at the route (``tests/test_puzzle_edit_routes.py``
+#: ``TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove``) and the sentence is
+#: the client's half of the same criterion.
+_BOOK_NOTES = """async ([books]) => {
+  const module = await import('/static/puzzle_edit.js');
+  return books.map((book) => module.bookNote(book));
+}"""
+
+
+@pytest.mark.browser
+class TestBookedEdit_TheSplitPairIsWordedAsAWarning:
+    """AC-9's words, and G-3: a warning, never a refusal.
+
+    The verify's answer carries the page-count effect as facts; this is the
+    sentence the page makes of them. The route's own test asserts the facts
+    and that an approved edit stores; this asserts that what the owner READS
+    says the book would gain a page and names the puzzle whose page it shares.
+    """
+
+    _PAGES = [
+        {"id": "b", "title": "Winter Pictures", "published": False,
+         "pages": {"known": True, "changes": True, "before": 60, "after": 61,
+                   "partner": "snowflake.png"}},
+        {"id": "b", "title": "Winter Pictures", "published": False,
+         "pages": {"known": True, "changes": False, "before": 60, "after": 60,
+                   "partner": "snowflake.png"}},
+        {"id": "b", "title": None, "published": False,
+         "pages": {"known": False, "changes": None, "before": None,
+                   "after": None, "partner": None}},
+    ]
+
+    def test_the_three_shapes_say_three_different_things(
+        self, browser_page, live
+    ) -> None:
+        puzzle_id = _seed_live(live, tier="easy")
+        _open_editor(browser_page, live, puzzle_id)
+
+        split, kept, unknown = browser_page.evaluate(_BOOK_NOTES, [self._PAGES])
+
+        # The split page: the count, the partner, and that the book stays valid.
+        assert "Winter Pictures" in split
+        assert "60 to 61" in split
+        assert "snowflake.png" in split
+        assert "one page longer" in split
+        # And it is a warning: nothing in it says the edit cannot be stored.
+        assert "cannot" not in split.lower()
+        assert "refused" not in split.lower()
+
+        # The pair that survives: the book is named, and no page count is
+        # claimed to move.
+        assert "Winter Pictures" in kept
+        assert "61" not in kept
+        assert "page count" not in kept
+
+        # Unmeasurable: it says so rather than claiming either way.
+        assert "could not be measured" in unknown
+        assert "page count" in unknown
+
+    def test_a_book_with_no_note_adds_nothing_to_the_grade(
+        self, browser_page, live
+    ) -> None:
+        """The control: ``bookNote`` of nothing is the empty string, which is
+        why an unbooked puzzle's grade sentence is CARD-246's unchanged."""
+        puzzle_id = _seed_live(live, tier="easy")
+        _open_editor(browser_page, live, puzzle_id)
+
+        notes = browser_page.evaluate(_BOOK_NOTES, [[None]])
+
+        assert notes == [""]

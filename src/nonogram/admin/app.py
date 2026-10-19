@@ -56,8 +56,11 @@ from nonogram.admin.batch_generator import (
 from nonogram.admin.puzzle_review import (
     get_puzzle_review_service,
     BOOK_TAB_SORT,
+    EditNeedsConfirmation,
     EditNotVerified,
     MAX_PUZZLE_NAME_LENGTH,
+    RegradeInsideABook,
+    ReplacementExtentChanged,
     PuzzleFilter,
     PuzzleReviewService,
     PuzzleStatus,
@@ -1181,7 +1184,30 @@ def requested_tier_label(value: object) -> str | None:
 #: by matching the message would break the moment the wording improved. The
 #: words stay beside the reason and are still the owner's sentence; the reason
 #: is only how the client picks which sentence to add to them.
-EDIT_REFUSAL_REASONS = ("not_unique", "not_verified", "in_a_book", "not_found")
+#
+# CARD-251 added the fifth, sixth and seventh. ``needs_confirmation`` is the
+# answer to an unconfirmed save of a booked puzzle (INV-008's shape);
+# ``regrade_in_a_book`` is the owner's settled refusal of an edit that would
+# change a booked puzzle's tier (INV-009); ``extent_changed`` is a replacement
+# that is not the stored grid's size. All three decide **before** the store is
+# touched, which is what lets them join the client's allow-list of answers
+# that never write — and what ``TestBookedEdit_TheFifthReasonIsTrueNotListed``
+# proves by driving each one through the real route and reading the row back
+# (Trap 3, CARD-246 G-001).
+#
+# ``in_a_book`` did not retire with the guard it named: a puzzle held by a
+# book this panel cannot NAME — the legacy ``in_book`` status, a migration's
+# empty-string ``book_id`` — is still refused outright, because the
+# confirmation CARD-251 asks has to name the book it is about.
+EDIT_REFUSAL_REASONS = (
+    "not_unique",
+    "not_verified",
+    "in_a_book",
+    "not_found",
+    "needs_confirmation",
+    "regrade_in_a_book",
+    "extent_changed",
+)
 
 
 def create_app(debug=None):
@@ -2472,8 +2498,18 @@ def create_app(debug=None):
         and the modal's script a third time, so a row carrying a
         falsy-but-present book_id — ``""`` out of a migration — was offered
         an Edit control that the route then refused with a 409.
+
+        **CARD-251 narrowed the rule and kept it single.** A puzzle a book
+        holds is now editable, behind a confirmation that names the book, so
+        this answers True for it and the Edit control is offered again. What
+        stays non-editable is the membership there is no book to NAME — the
+        legacy ``in_book`` status with no ``book_id``, and the empty-string
+        ``book_id`` this method was written for — because a question with no
+        object is a dialog to click through rather than a question. The rule
+        itself is still the store's, one spelling for all four surfaces:
+        ``_an_edit_may_touch``.
         """
-        return not PuzzleReviewService._holds_a_book(
+        return PuzzleReviewService._an_edit_may_touch(
             puzzle.get("book_id"), puzzle.get("status")
         )
 
@@ -2542,12 +2578,166 @@ def create_app(debug=None):
             return None
         return payload.get("grid")
 
+    def _submitted_confirmation():
+        """Has the owner confirmed replacing a booked puzzle's grid (CARD-251)?
+
+        Strictly ``is True``: only JSON ``true`` is an answer to a question.
+        ``"true"``, ``1`` and ``"yes"`` are all truthy in Python and none of
+        them is something the editor sends, so reading them as a confirmation
+        would mean a client that got the type wrong could store into a book by
+        accident (failure matrix F-9).
+        """
+        payload = request.get_json(silent=True)
+        return isinstance(payload, dict) and payload.get("confirmed") is True
+
+    def _book_holding(puzzle):
+        """The book that holds ``puzzle``, as the editor's answers name it.
+
+        ``None`` when no book holds it, and ``None`` when the membership has
+        no book to name — the two cases ``puzzle_is_editable`` already tells
+        apart, the second of which is refused before any of this is asked.
+
+        The store answers ``book_id`` and nothing more (it imports neither
+        ``book_manager`` nor ``book_pdf_generator``), so the title and the
+        status are read here. A ``book_id`` that resolves to no book leaves
+        both ``None``: the title is presentation and the guard is the flag, so
+        an unreadable book still needs confirming and the question names the
+        id instead of a title (failure matrix F-4).
+        """
+        book_id = puzzle.get("book_id")
+        if not PuzzleReviewService._holds_a_book(book_id, puzzle.get("status")):
+            return None
+        if not book_id:
+            return None
+        book = book_mgr.get_book(str(book_id))
+        status = book.status if book else None
+        return {
+            "id": str(book_id),
+            "title": (book.metadata.title or None) if book else None,
+            "status": status,
+            "published": status == BookStatus.PUBLISHED.value,
+            # The Book itself, for the page-count measurement below. Popped
+            # before the dict is serialized.
+            "book": book,
+        }
+
+    def _page_count_effect(book, puzzle_id, grade):
+        """Would storing this grade's clues change the book's page count?
+
+        **The second mechanism, and the one the tier rule does not reach**
+        (CARD-251 AC-9). A book page holds two puzzles only when both fit at
+        one shared cell (INV-010), and that fit is measured FROM THE CLUES —
+        so a repaint that keeps the tier and the extent can still deepen a
+        gutter past the point where the pair fits, split the page in two and
+        move every folio after it. Measured on CON-018's Book 1 profile with
+        two 10x10 easies: equal depths of 1..3 pair at 7.500 mm, depth 4 still
+        pairs at 7.129 mm, depth 5 does not pair at all.
+
+        It is a **warning and not a refusal** (owner decision, 2026-10-19):
+        refusing would block any repaint that deepens a paired puzzle's clues,
+        which is most real edits. So this answers what would happen and the
+        owner decides per edit, with Approve still beside it.
+
+        Both counts come from the one real pairing walk
+        (``book_pdf_generator.puzzle_page_plan``), run twice over the same
+        print order — once as the book stands, once with this grade's
+        re-encoded clues swapped in for the edited row. There is no model of
+        pairing here to drift from the layout's.
+
+        Returns:
+            ``{"known": False, "changes": None, ...}`` when the book could not
+            be measured — a member whose clue sets disagree about its grid, or
+            a print specification that cannot be laid out (failure matrix
+            F-5). Claiming "the page count does not change" out of a failed
+            measurement is the one answer this must never give.
+            Otherwise ``before``, ``after``, ``changes`` and ``partner`` — the
+            name of the puzzle this one shares its page with today, or
+            ``None`` when it prints alone.
+        """
+        unknown = {"known": False, "changes": None, "before": None,
+                   "after": None, "partner": None}
+        try:
+            ordered = book_pdf_generator.print_order(_book_puzzles(book))
+            before = book_pdf_generator.puzzle_page_plan(book, ordered)
+            replaced = [
+                dict(row, clues_rows=grade["clues_rows"], clues_cols=grade["clues_cols"])
+                if str(row.get("id")) == str(puzzle_id) else row
+                for row in ordered
+            ]
+            after = book_pdf_generator.puzzle_page_plan(book, replaced)
+        except (ValueError, RuntimeError, TypeError, KeyError, IndexError, AttributeError) as failure:
+            app.logger.warning(
+                "Book %s could not be measured for puzzle %s's page-count "
+                "effect, so the editor reports it as unknown: %s",
+                getattr(book, "book_id", book), puzzle_id, failure,
+            )
+            return unknown
+        return {
+            "known": True,
+            "before": len(before),
+            "after": len(after),
+            "changes": len(before) != len(after),
+            "partner": _shares_a_page_with(ordered, puzzle_id, before),
+        }
+
+    def _shares_a_page_with(ordered, puzzle_id, plan):
+        """The label of the puzzle ``puzzle_id`` shares its page with, or ``None``.
+
+        A plan page's ``numbers`` are 1-based positions in ``ordered``, so the
+        partner is the other number on the page this puzzle is on.
+        """
+        try:
+            position = [str(row.get("id")) for row in ordered].index(str(puzzle_id)) + 1
+        except ValueError:  # pragma: no cover - the row is a member by construction
+            return None
+        for page in plan:
+            if position not in page.numbers:
+                continue
+            others = [number for number in page.numbers if number != position]
+            if not others:
+                return None
+            partner = ordered[others[0] - 1]
+            return (
+                partner.get("puzzle_name")
+                or partner.get("source_image")
+                or str(partner.get("id"))[:8]
+            )
+        return None
+
+    def _book_answer(puzzle, grade=None):
+        """The ``book`` field of an edit answer, or ``None``.
+
+        ``grade`` is the verified replacement's grade when there is one: with
+        it the answer also carries the page-count effect, which is a fact
+        about *that* grid and so cannot be stated without one.
+        """
+        note = _book_holding(puzzle)
+        if note is None:
+            return None
+        book = note.pop("book")
+        if grade is not None and book is not None:
+            note["pages"] = _page_count_effect(book, puzzle["id"], grade)
+        return note
+
+    def _refused(reason, message, code, puzzle=None):
+        """One refusal body, so every edit refusal carries the same fields."""
+        body = {"ok": False, "reason": reason, "message": message}
+        if puzzle is not None:
+            book = _book_answer(puzzle)
+            if book is not None:
+                body["book"] = book
+        return jsonify(body), code
+
     def _edit_refusal(puzzle_id):
         """``(body, code)`` for a puzzle that may not be edited, or ``None``.
 
         The two reasons are told apart, following approve and reject: a bare
         "not found" would send the owner looking for a missing row when what
         actually stopped them was a book built on this puzzle.
+
+        Since CARD-251 the book arm is narrower than ``in_a_book``: a booked
+        puzzle IS editable, behind a confirmation, so what lands here is the
+        membership there is no book to name (``puzzle_is_editable``).
         """
         if puzzle_review.in_a_book(puzzle_id):
             return (
@@ -2564,7 +2754,17 @@ def create_app(debug=None):
 
     @app.route("/puzzle/<puzzle_id>/edit/verify", methods=["POST"])
     def verify_puzzle_edit(puzzle_id):
-        """Grade a replacement grid for one puzzle. Stores nothing (AC-5)."""
+        """Grade a replacement grid for one puzzle. Stores nothing (AC-5).
+
+        **The phase where a booked puzzle's owner learns everything**
+        (CARD-251). A grade that comes back for a puzzle a book holds carries
+        the ``book`` the confirmation will name, and with it what this
+        particular replacement would do to that book's page count (AC-9) — so
+        the question and the warning arrive WITH the grade and before Approve,
+        which is the owner's own principle for the tier. A regrade is the one
+        answer that is a refusal here rather than a warning (AC-4): it breaks
+        INV-009, and the two rules stay distinct (G-3).
+        """
         try:
             grade = puzzle_review.verify_replacement_grid(puzzle_id, _submitted_grid())
         except NotUniquelySolvable as refusal:
@@ -2572,15 +2772,62 @@ def create_app(debug=None):
             # not be stored — which is a statement about the grid, not about
             # the route.
             return jsonify({"ok": False, "reason": "not_unique", "message": str(refusal)}), 422
+        except RegradeInsideABook as refusal:
+            # 409, like the other conflicts: the grid is a fine puzzle and the
+            # request is well formed — it is the book's order it conflicts
+            # with. No `grade` comes back with it, so the page has nothing to
+            # offer an Approve for.
+            return _refused(
+                "regrade_in_a_book", str(refusal), 409,
+                puzzle_review.get_puzzle(puzzle_id),
+            )
         if grade is None:
             return _edit_refusal(puzzle_id)
-        return jsonify({"ok": True, "grade": grade}), 200
+        answer = {"ok": True, "grade": grade}
+        book = _book_answer(puzzle_review.get_puzzle(puzzle_id), grade)
+        if book is not None:
+            answer["book"] = book
+        return jsonify(answer), 200
 
     @app.route("/puzzle/<puzzle_id>/edit", methods=["POST"])
     def save_puzzle_edit(puzzle_id):
-        """Store a verified replacement grid and everything derived from it."""
+        """Store a verified replacement grid and everything derived from it.
+
+        **The confirmation is read here and enforced in the store**
+        (CARD-251 G-1). ``confirmed`` is a field of this POST's own body, so
+        the question the page asked reaches the server; an unconfirmed save of
+        a booked puzzle writes nothing and answers ``needs_confirmation``,
+        carrying the book so the page can word the question. That is INV-008 /
+        CARD-131's shape, and a client-side dialog that then posted an
+        identical request would be no implementation of it.
+        """
         try:
-            stored = puzzle_review.save_edited_grid(puzzle_id, _submitted_grid())
+            stored = puzzle_review.save_edited_grid(
+                puzzle_id, _submitted_grid(), confirmed=_submitted_confirmation())
+        except EditNeedsConfirmation as refusal:
+            # 409, and the page may say "nothing was stored" for it because
+            # the store decided before it touched a row — asserted by driving
+            # this route and reading the row, not by listing the string
+            # (AC-8).
+            return _refused(
+                "needs_confirmation", str(refusal), 409,
+                puzzle_review.get_puzzle(puzzle_id),
+            )
+        except RegradeInsideABook as refusal:
+            # The same refusal the verify gives, at the store (G-2): a save
+            # posted straight at this route, or one whose row joined a book
+            # between the verify and the approve, writes nothing either.
+            return _refused(
+                "regrade_in_a_book", str(refusal), 409,
+                puzzle_review.get_puzzle(puzzle_id),
+            )
+        except ReplacementExtentChanged as refusal:
+            # 422, with `not_unique`: both are statements about the grid that
+            # was submitted rather than about this route or the stored row.
+            return _refused(
+                "extent_changed", str(refusal), 422,
+                puzzle_review.get_puzzle(puzzle_id),
+            )
         except NotUniquelySolvable as refusal:
             return jsonify({"ok": False, "reason": "not_unique", "message": str(refusal)}), 422
         except EditNotVerified as refusal:
@@ -2615,10 +2862,18 @@ def create_app(debug=None):
         (``static/puzzle_edit.js``) draws no cell and only turns the board
         into an answer for the two routes above. Nothing is written here.
 
-        A puzzle a book holds is refused with the same 409 and the same words
-        the POST routes use (CARD-246 AC-7): the list and the card leave the
-        Edit control out for such a puzzle, and a disabled control is not a
-        guard — the route has to refuse the URL typed by hand too.
+        A puzzle held by a book this panel cannot NAME is refused with the
+        same 409 and the same words the POST routes use (CARD-246 AC-7,
+        narrowed by CARD-251): the list and the card leave the Edit control
+        out for such a puzzle, and a disabled control is not a guard — the
+        route has to refuse the URL typed by hand too.
+
+        A puzzle in a book it CAN name is served, and the page says which book
+        holds it (CARD-251 AC-1). The owner meets that fact before painting
+        anything, because the confirmation they will be asked for on Approve
+        is about that book; a page that did not name it would leave the
+        question to arrive as a surprise after Save. For a **published** book
+        the note says so too — that confirmation is INV-008's own (AC-6).
 
         The clues come from the stored grid through the one encoder
         (``compute_clues``, ADR-0038/R3), so the gutters are the stored
@@ -2637,19 +2892,24 @@ def create_app(debug=None):
         the solved lock and the clue circles are off (solver.js EDIT MODE).
         """
         # Before the row is read for its grid, and in this order on purpose:
-        # `in_a_book` answers False for a puzzle that does not exist, so a
-        # missing id still lands on the 404 below, while a booked puzzle is
-        # refused for the reason that actually stopped the owner even if its
-        # grid is also unreadable.
-        if puzzle_review.in_a_book(puzzle_id):
+        # a puzzle that does not exist is editable by this rule — it is the
+        # 404 below that answers for it — while one held by an unnameable book
+        # is refused for the reason that actually stopped the owner even if
+        # its grid is also unreadable.
+        stored = puzzle_review.get_puzzle(puzzle_id)
+        if stored is not None and not puzzle_is_editable(stored):
             abort(409, description="Cannot edit a puzzle that is in a book")
 
         puzzle, _grid, payload = _board_page_payload(puzzle_id, mode="edit")
+        book = _book_holding(puzzle)
+        if book is not None:
+            book.pop("book")
         return render_template(
             "puzzle_edit.html",
             puzzle_id=str(puzzle["id"]),
             extent=(payload["width"], payload["height"]),
             payload=payload,
+            book=book,
         )
 
     # ------------------------------------------------------------------

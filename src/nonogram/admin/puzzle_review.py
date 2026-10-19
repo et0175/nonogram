@@ -71,6 +71,98 @@ class EditNotVerified(ValueError):
     """
 
 
+class EditNeedsConfirmation(ValueError):
+    """A booked puzzle's grid may be replaced, but only once it is confirmed.
+
+    CARD-251, the owner's request of 2026-10-19: a puzzle a book already holds
+    is editable "with an additional 'are you sure' question". The question has
+    to reach the **server** — a client-side dialog that then posts the same
+    unchanged request is not a guard — so this is the refusal a save gets when
+    it arrives without the owner's answer.
+
+    It mirrors INV-008 / CARD-131's `confirmed` flag exactly
+    (``book_manager.py``: a published book's membership changes only behind an
+    explicit confirmation, and an unconfirmed call *measures nothing and
+    writes nothing*). That is why it is raised before the solve rather than
+    after it: an unconfirmed save pays for no solve, stamps no row and reports
+    the one thing the caller needs in order to ask the question — which book.
+
+    Attributes:
+        book_id: The book that holds this puzzle, so the caller can name it.
+            Never falsy: a book this panel cannot name is refused outright
+            instead (:meth:`PuzzleReviewService._an_edit_may_touch`).
+    """
+
+    def __init__(self, message: str, *, book_id: str) -> None:
+        super().__init__(message)
+        self.book_id = book_id
+
+
+class RegradeInsideABook(ValueError):
+    """A replacement grid for a booked puzzle grades into a different tier.
+
+    **The owner's settled rule, 2026-10-19 (CARD-251).** INV-009 is not
+    amended: a book's order is grouped by tier, every easy puzzle before every
+    medium one, and a page pairs two puzzles only when their tiers are equal
+    (INV-010). A replacement that graded into another tier would therefore
+    move the book's structure — the level runs, the divider pages, the puzzle
+    numbers 1..n — underneath its owner. Refusing it is what keeps INV-009
+    true, and the owner chose that over giving the invariant a regrade clause.
+
+    Raised from the **verify** as well as from the store, deliberately: the
+    verify phase is the one that computes the new tier, so the owner learns
+    this with the grade and before Approve, never as a surprise after storing.
+
+    Attributes:
+        stored_tier: The row's own ``difficulty_tier`` text, as stored.
+        new_tier: The tier the replacement grid grades into.
+        book_id: The book whose order the refusal protects.
+    """
+
+    def __init__(
+        self, message: str, *, stored_tier: object, new_tier: str, book_id: str
+    ) -> None:
+        super().__init__(message)
+        self.stored_tier = stored_tier
+        self.new_tier = new_tier
+        self.book_id = book_id
+
+
+class ReplacementExtentChanged(ValueError):
+    """A replacement grid is not the stored grid's size (CARD-251 AC-5).
+
+    An edit replaces a puzzle's *picture*, not its shape.
+    :meth:`PuzzleReviewService.verify_replacement_grid` read the submitted
+    grid's own width and height and never compared them with the stored row's,
+    which was unreachable through the editor page — its board is built from
+    the stored grid and cannot change size — and irrelevant while a booked
+    puzzle was refused outright. CARD-251 opens that door, and a differently
+    shaped grid stored into a booked puzzle changes that book's geometry: the
+    cell size its pages are fitted at, which puzzles pair, and therefore how
+    many pages the book has. That is the harm the original "no editing a
+    booked puzzle" rule was written to prevent.
+
+    Refused for an unbooked puzzle too. The rule is "a replacement replaces a
+    grid", not "a book is protected": a store that guarded only the booked
+    case would leave every other row reachable by the same posted request.
+
+    Attributes:
+        stored: The stored grid's ``(width, height)``.
+        submitted: The replacement's ``(width, height)``.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        stored: Tuple[int, int],
+        submitted: Tuple[int, int],
+    ) -> None:
+        super().__init__(message)
+        self.stored = stored
+        self.submitted = submitted
+
+
 @dataclass
 class _Verification:
     """One proved grid: the proof, and who has been shown its grade.
@@ -892,20 +984,138 @@ class PuzzleReviewService:
     def _row_an_edit_may_touch(self, puzzle_id: str) -> Optional[Dict[str, Any]]:
         """The stored row, or ``None`` if it may not be edited.
 
-        ``None`` for a puzzle that does not exist **and** for one a book holds
-        — the contract :meth:`_set_status` already set, so the routes tell the
-        two apart by asking :meth:`in_a_book` first and can say which it was.
+        ``None`` for a puzzle that does not exist **and** for one held by a
+        book this panel cannot NAME — the contract :meth:`_set_status` already
+        set, so the routes tell the two apart by asking :meth:`in_a_book`
+        first and can say which it was.
 
-        A booked puzzle is refused for the reason approve, reject, restore and
-        delete already refuse one: editing a puzzle a finalised book prints
-        would change that book's pages underneath it.
+        **CARD-251 narrowed the second case.** Until then every booked puzzle
+        was refused here, for the reason approve, reject, restore and delete
+        still refuse one. The owner has since asked for a booked puzzle to be
+        editable behind a confirmation that *names the book*, so a row whose
+        ``book_id`` is a real id is returned and the confirmation is asked for
+        separately (:meth:`_refuse_unless_confirmed_for_its_book`). What stays
+        refused outright is the membership there is no book to name:
+        :meth:`_an_edit_may_touch` says which that is.
         """
         puzzle = self.get_puzzle(puzzle_id)
         if puzzle is None:
             return None
-        if self._holds_a_book(puzzle.get("book_id"), puzzle.get("status")):
+        if not self._an_edit_may_touch(puzzle.get("book_id"), puzzle.get("status")):
             return None
         return puzzle
+
+    @staticmethod
+    def _an_edit_may_touch(book_id, status) -> bool:
+        """May a row with this membership be edited at all (CARD-251)?
+
+        **One spelling of the rule**, for the four surfaces that ask it: the
+        list row's Edit control and the puzzle card's (both through
+        ``app.py``'s ``puzzle_is_editable``), the editor page's route, and the
+        two save routes through :meth:`_row_an_edit_may_touch`. That is
+        CARD-246's F-010 rule kept — three surfaces disagreeing about one
+        puzzle is how a control got offered for a row the route then refused.
+
+        ``False`` only for a book this panel cannot name: ``_holds_a_book``
+        answers True for the legacy ``in_book`` status with no ``book_id`` at
+        all, and for a migration's empty-string ``book_id``. The confirmation
+        CARD-251 asks has to name the book it is about — "Are you sure?" with
+        no object is a dialog to click through, not a question — so where
+        there is no book to name, the guard stays the refusal it was.
+        """
+        if not PuzzleReviewService._holds_a_book(book_id, status):
+            return True
+        return bool(book_id)
+
+    @staticmethod
+    def _refuse_unless_confirmed_for_its_book(
+        puzzle: Dict[str, Any], confirmed: bool
+    ) -> None:
+        """Refuse an unconfirmed replacement of a booked puzzle's grid (AC-2).
+
+        The INV-008 shape, exactly: the question is the server's, an
+        unconfirmed call writes nothing, and — because this runs before the
+        solve — it measures nothing either.
+
+        Raises:
+            EditNeedsConfirmation: a book holds this puzzle and the caller did
+                not confirm. The refusal carries the ``book_id`` so the caller
+                can name the book in the question it asks.
+        """
+        book_id = puzzle.get("book_id")
+        if not PuzzleReviewService._holds_a_book(book_id, puzzle.get("status")):
+            return
+        if confirmed:
+            return
+        raise EditNeedsConfirmation(
+            "a book holds this puzzle, so replacing its grid has to be "
+            "confirmed: nothing was stored",
+            book_id=str(book_id),
+        )
+
+    @staticmethod
+    def _refuse_a_regrade_inside_a_book(
+        puzzle: Dict[str, Any], new_tier: str
+    ) -> None:
+        """Refuse a replacement that would change a booked puzzle's tier (AC-4).
+
+        The stored text is read through :func:`~nonogram.difficulty.tier_of_record`
+        — the one reader of a stored tier, so ``"Easy"`` and ``"easy"`` are
+        the same tier and ADR-0025's retired ``"guess"`` still reads as Hard.
+        A stored value that is no tier at all reads as ``None``, which differs
+        from every real tier, so such a row is refused: a book groups by tier
+        (INV-009) and a row that moves from "no readable tier" into a level
+        moves the book's structure just as surely as one that changes level.
+
+        Raises:
+            RegradeInsideABook: a book holds this puzzle and the replacement
+                grades into another tier. Nothing is stored and, at the
+                verify, no proof is remembered.
+        """
+        book_id = puzzle.get("book_id")
+        if not PuzzleReviewService._holds_a_book(book_id, puzzle.get("status")):
+            return
+        stored_tier = puzzle.get("difficulty_tier")
+        if tier_of_record(stored_tier) is tier_of_record(new_tier):
+            return
+        raise RegradeInsideABook(
+            f"this grid grades {new_tier} and the puzzle a book holds is "
+            f"stored as {stored_tier}: a book's order is grouped by tier "
+            "(INV-009) and a page pairs equal tiers only (INV-010), so a "
+            "replacement that changes the tier is refused. Nothing was stored",
+            stored_tier=stored_tier,
+            new_tier=new_tier,
+            book_id=str(book_id),
+        )
+
+    @staticmethod
+    def _refuse_unless_the_stored_extent(
+        puzzle: Dict[str, Any], grid: List[List[bool]]
+    ) -> None:
+        """Refuse a replacement that is not the stored grid's size (AC-5, G-5).
+
+        Measured against the stored **grid**, not against the row's own
+        ``width``/``height`` columns: the editor's board is built from the
+        grid (``app.py``'s ``_board_page_payload``), so a row whose columns
+        disagree with its grid would otherwise have no storable replacement at
+        all.
+
+        Raises:
+            ReplacementExtentChanged: the submitted grid's extent is not the
+                stored one's. Nothing is written.
+        """
+        stored_grid = puzzle.get("grid") or []
+        stored = (len(stored_grid[0]) if stored_grid else 0, len(stored_grid))
+        submitted = (len(grid[0]), len(grid))
+        if submitted == stored:
+            return
+        raise ReplacementExtentChanged(
+            f"a replacement grid keeps the puzzle's size: this one is "
+            f"{submitted[0]}x{submitted[1]} and the stored grid is "
+            f"{stored[0]}x{stored[1]}. Nothing was stored",
+            stored=stored,
+            submitted=submitted,
+        )
 
     def _refuse_unless_verified(self, puzzle_id: str, grid: List[List[bool]]) -> None:
         """Refuse a save whose grid is not the grid whose grade was shown.
@@ -941,21 +1151,40 @@ class PuzzleReviewService:
         Returns:
             What one solve says about the grid — ``difficulty_score``,
             ``difficulty_tier``, ``strategies_used``, the re-encoded
-            ``clues_rows``/``clues_cols`` and the extent — or ``None`` if the
-            puzzle does not exist or a book holds it
-            (:meth:`_row_an_edit_may_touch`).
+            ``clues_rows``/``clues_cols``, the extent and (CARD-251) the
+            ``book_id`` of the book that holds the puzzle, if one does — or
+            ``None`` if the puzzle does not exist or is held by a book this
+            panel cannot name (:meth:`_row_an_edit_may_touch`).
+
+            ``book_id`` is the whole of what this method says about the book.
+            The title, the book's status and whether the edit would change the
+            book's page count are the route's to add (``app.py``): a title is
+            ``book_manager``'s and the pairing geometry is
+            ``book_pdf_generator``'s, and this module imports neither.
 
         Raises:
             NotUniquelySolvable: the grid is not a readable grid, or its clue
                 set does not have exactly one solution. The refusal names
                 which (FR-006, CON-005).
+            RegradeInsideABook: a book holds this puzzle and the grid grades
+                into another tier (CARD-251 AC-4). Raised **here**, at the
+                phase that computes the tier, so the owner learns it with the
+                grade and before Approve — and raised before the proof is
+                remembered, so there is nothing a later save could approve.
         """
-        if self._row_an_edit_may_touch(puzzle_id) is None:
+        puzzle = self._row_an_edit_may_touch(puzzle_id)
+        if puzzle is None:
             return None
 
         # The one gate, for the one reason it exists: nothing is graded that
         # has not been proved to be a puzzle first (G-1).
         proof = self._refuse_unless_uniquely_solvable(grid)
+        grade = self._grade_of(proof)
+        # The tier the book reads, against the tier this grid would get. The
+        # refusal belongs after the grade and before the memo: it is a
+        # statement about the grade, and remembering a proof for a grid that
+        # may not be stored would leave an approvable grid behind a refusal.
+        self._refuse_a_regrade_inside_a_book(puzzle, grade["difficulty_tier"])
         fingerprint = self._grid_fingerprint(grid)
         self._remember_proof(fingerprint, proof).shown_for.add(str(puzzle_id))
 
@@ -967,11 +1196,16 @@ class PuzzleReviewService:
             "height": len(grid),
             "clues_rows": [list(clue) for clue in row_clues],
             "clues_cols": [list(clue) for clue in column_clues],
-            **self._grade_of(proof),
+            "book_id": (
+                str(puzzle["book_id"])
+                if self._holds_a_book(puzzle.get("book_id"), puzzle.get("status"))
+                else None
+            ),
+            **grade,
         }
 
     def save_edited_grid(
-        self, puzzle_id: str, grid: object
+        self, puzzle_id: str, grid: object, confirmed: bool = False
     ) -> Optional[Dict[str, Any]]:
         """Store a verified replacement grid, re-deriving everything derived.
 
@@ -992,16 +1226,33 @@ class PuzzleReviewService:
         Args:
             puzzle_id: The puzzle whose grid is replaced.
             grid: The replacement grid, ``list[list[bool]]`` (ADR-0012).
+            confirmed: The owner has confirmed replacing the grid of a puzzle
+                a book holds (CARD-251). Ignored for an unbooked puzzle, which
+                has no book to ask about. ``False`` by default, so a caller
+                cannot reach the write by forgetting the argument — the same
+                shape, and the same default, as ``book_manager``'s INV-008
+                flag.
 
         Returns:
             The stored row as :meth:`get_puzzle` reads it back, or ``None`` if
-            the puzzle does not exist or a book holds it.
+            the puzzle does not exist or is held by a book this panel cannot
+            name (:meth:`_row_an_edit_may_touch`).
 
         Raises:
+            EditNeedsConfirmation: a book holds this puzzle and ``confirmed``
+                is false (CARD-251 AC-2). Raised first, so an unconfirmed save
+                measures nothing and writes nothing.
             NotUniquelySolvable: the grid is not a readable grid, or its clue
                 set does not have exactly one solution. Nothing is written.
             EditNotVerified: the grid is not the one whose grade was shown for
                 this puzzle (AC-6). Nothing is written.
+            ReplacementExtentChanged: the grid is not the stored grid's size
+                (CARD-251 AC-5), booked or not. Nothing is written.
+            RegradeInsideABook: a book holds this puzzle and the grid grades
+                into another tier (CARD-251 AC-4 / G-2). Enforced here as well
+                as at the verify, by the same discipline the confirmation
+                follows: a save posted straight at the route, with no page in
+                front of it, writes nothing either.
 
         A verification is **not** consumed by a save. A retried save of the
         same grid — a double click, a write that failed on the connection —
@@ -1010,16 +1261,24 @@ class PuzzleReviewService:
         *different* grid, which is the hole :class:`EditNotVerified` closes.
 
         Order matters, and it is: *may this row be edited* (a cheap read),
+        *has the owner confirmed its book* (CARD-251 — before the solve, so an
+        unconfirmed save measures nothing as well as writing nothing),
         *is this grid a puzzle* (the gate — so a grid that is not one is
         refused for not being one, which is the stronger answer than "you did
         not verify it"), *was this grid verified* (the two-phase flow's own
-        hole), then the write.
+        hole), *is it the stored grid's size* (CARD-251 AC-5 — after the
+        verification check, so a save carrying a grid nobody verified is still
+        refused for not being verified), *would it regrade a booked puzzle*
+        (CARD-251 G-2), then the write.
         """
-        if self._row_an_edit_may_touch(puzzle_id) is None:
+        row = self._row_an_edit_may_touch(puzzle_id)
+        if row is None:
             return None
 
+        self._refuse_unless_confirmed_for_its_book(row, confirmed)
         proof = self._refuse_unless_uniquely_solvable(grid)
         self._refuse_unless_verified(puzzle_id, grid)
+        self._refuse_unless_the_stored_extent(row, grid)
 
         row_clues, column_clues = compute_clues(grid)
         derived = {
@@ -1030,6 +1289,11 @@ class PuzzleReviewService:
             "height": len(grid),
             **self._grade_of(proof),
         }
+        # G-2: the verify refuses a regrade so the owner learns it with the
+        # grade, and the store refuses it so a save posted straight at the
+        # route cannot walk past that. Read off `derived` — the grade this
+        # write would store — rather than graded a second time (ADR-0029/R2).
+        self._refuse_a_regrade_inside_a_book(row, derived["difficulty_tier"])
         edited_at = datetime.now(timezone.utc)
 
         if self._session_factory is None:

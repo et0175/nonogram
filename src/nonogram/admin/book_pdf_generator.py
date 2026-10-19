@@ -1382,6 +1382,41 @@ def print_order(puzzles: List[Any]) -> List[Any]:
     ]
 
 
+def puzzle_page_plan(book: Any, puzzles: List[Any]) -> List["PuzzlePagePlan"]:
+    """The pages ``puzzles`` would print on in ``book``, and nothing drawn.
+
+    The pairing walk alone (:meth:`BookPDFGenerator.puzzle_pages`), over
+    puzzles **already in print order** (:func:`print_order`): no bitmap is
+    made and no page is rendered, so the answer costs the geometry only. Its
+    length is the book's puzzle-page count, which is the one thing CARD-251's
+    editor needs — it asks this twice for one edit, once over the book's
+    stored clues and once with a replacement's swapped in, and tells the owner
+    when the two disagree (AC-9).
+
+    One walk, and it is the real one. Pairing is decided by
+    :func:`~nonogram.export.layout.compute_pair_layout` from the clue sets, so
+    a question about "would this edit split a page" has to be asked of that
+    function or it is asking about a model of it; INV-010 stays the layout's
+    and a change there moves this answer with it.
+
+    Args:
+        book: The book, as :class:`BookPDFGenerator` takes it.
+        puzzles: Its members as stored rows, in print order.
+
+    Returns:
+        One :class:`PuzzlePagePlan` per puzzle page, in print order. A plan's
+        ``numbers`` are 1-based positions in ``puzzles``, so a page that holds
+        two names both of them.
+
+    Raises:
+        ValueError: the book's stored print specification cannot be laid out.
+        RuntimeError: a pair the walk offered could not be measured — a member
+            whose clue sets disagree about its grid. The message names it.
+    """
+    generator = BookPDFGenerator(book)
+    return generator.puzzle_pages([generator._payload(puzzle) for puzzle in puzzles])
+
+
 # ---------------------------------------------------------------------------
 # Drawing a page COMP-007 measured but draws no call for (FR-040, ADR-0036/R2)
 # ---------------------------------------------------------------------------
