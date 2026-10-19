@@ -132,9 +132,20 @@ Every item above pushes on it:
   message names a button that is not on the bar — assert over the rendered page's own button labels,
   not against a literal list.
   (test: `TestPuzzleEditor_TheWordsNameTheButtonsThatExist`)
-- **AC-5** (happy, Approve exits): *Given* an approved edit, *then* the store holds the new grid
-  **and** the browser is on `/puzzles`.
-  (test: `TestPuzzleEditor_ApproveCommitsThenReturnsToTheList`)
+- **AC-5** (happy, Approve exits): *Given* an approved edit **and a board that has not moved since
+  Approve was pressed**, *then* the store holds the new grid **and** the browser is on `/puzzles`.
+  *Given* a stroke that landed while the store was writing, *then* the store still holds the approved
+  grid, the page **does not leave**, and it says that the strokes made since are still on the board
+  and unstored — the work is never discarded by the exit.
+  (test: `TestPuzzleEditor_ApproveCommitsThenReturnsToTheList`, both cases; the second is
+  `…::test_a_stroke_made_while_the_store_was_writing_keeps_the_page`)
+  **AMENDED 2026-10-19 (orchestrator, review cycle 1 F-001).** As first written this AC said only
+  *"the browser is on `/puzzles`"*, which an implementation satisfies by navigating away from unstored
+  work — and that is exactly what it did. The behaviour was narrowed by the decision recorded under
+  `### [Decision] F-001`; the AC is amended here so that **the criterion reads true rather than
+  wider than the behaviour**, which is the same defect class this card's own guards exist to catch.
+  Nothing about the settled case changed: its original *then* clause is intact and still carried by
+  the same test.
 - **AC-6** (happy, the stale picture — **the failing-first one**): *Given* a puzzle whose grid is
   edited and approved, *when* the list is shown, *then* the thumbnail is the **new** grid. The test
   must be shown failing against the pre-card tree with the two SVGs differing.
@@ -449,3 +460,27 @@ this board's standing rule is to carry a card through its gates.
 
 The staying branch needs a test that can fail, and `storedText`'s tail ("Showing the puzzle list…")
 must split in two: it is false on the branch that stays.
+
+### [Fix 1] declarations — orchestrator, 2026-10-19 · commit `130823f`
+
+All six findings closed or routed: **F-001, F-002, F-003, F-004, F-006 fixed**; **F-005 dismissed** as
+out of scope and filed to the backlog. 107 passed in the card's two test files (106 before, +1).
+`app.py` still untouched, so CARD-251's base in the hotspot is unchanged.
+
+**F-001's fix verified by the orchestrator's own mutant, not by the report.** Flipping the new
+predicate to `if (false)` — i.e. restoring the pre-fix unconditional exit — makes
+`…::test_a_stroke_made_while_the_store_was_writing_keeps_the_page` **FAIL**, and it passes restored.
+So the central new test is not vacuous. The same run incidentally re-confirmed AC-6 live: the request
+log shows `GET /api/puzzle/<id>/grid?v=2026-10-19T08:34:54…`, the versioned URL.
+
+**The fix agent reported an edge mutant that SURVIVED, and that is the most useful line in its
+report.** M16b — the *leaving* branch saying the *staying* sentence — lived at first, "because the two
+tails share a head and nothing read the tail". It added an assertion to kill it rather than narrowing
+the claim or leaving it undeclared. Review cycle 2 is pointed at exactly that shape: whether each tail
+is now pinned on its own branch, in both directions.
+
+**`turn` has acquired a third job and the review was told to judge it.** It was the staleness token for
+answers; mechanism 2 made it decide whether an answer may *speak*; the fix makes it decide whether the
+page may *leave*. `onSave` and `onBackToEdit` also advance it, so the question put to review is whether
+any of those is reachable between Approve and its answer — an overloaded token that two uses can
+disagree about is how this file's earlier defects were shaped.

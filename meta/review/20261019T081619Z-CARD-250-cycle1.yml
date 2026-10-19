@@ -135,8 +135,8 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 130823f
     dismissed_reason: null
     learned_pattern: null
 
@@ -192,8 +192,8 @@ findings:
     source: static
     violates: G-9
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 130823f
     dismissed_reason: null
     learned_pattern: null
 
@@ -249,8 +249,8 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 130823f
     dismissed_reason: null
     learned_pattern: null
 
@@ -294,8 +294,8 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 130823f
     dismissed_reason: null
     learned_pattern: null
 
@@ -337,9 +337,9 @@ findings:
     source: history
     violates: null
     root_cause: null
-    status: open
+    status: dismissed
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: "out of scope, routed to a follow-up by the orchestrator"
     learned_pattern:
       pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
       dismissed_count: 3
@@ -372,7 +372,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 130823f
     dismissed_reason: null
     learned_pattern: null
