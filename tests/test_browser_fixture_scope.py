@@ -850,6 +850,36 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "asserted through Chromium's own computation, pressed, unpressed and "
         "under a brush change, with aria-pressed still flipping",
     ),
+    "tests/test_puzzle_solver_marking.py::"
+    "TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt::"
+    "test_the_confirmation_reads_reset_and_not_clear": (
+        "CARD-253",
+        "AC-1: the renamed reset confirmation reads 'Reset the board?' and "
+        "'Reset board', the two literals this card changed",
+    ),
+    "tests/test_puzzle_solver_marking.py::"
+    "TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt::"
+    "test_the_word_is_the_reset_buttons_and_is_not_the_brushs": (
+        "CARD-253",
+        "AC-2: the relation rather than an absence — the reset button's own "
+        "word is the one its confirmation uses and is not the fourth brush's, "
+        "all four labels read off the rendered page",
+    ),
+    "tests/test_puzzle_solver_marking.py::"
+    "TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt::"
+    "test_the_dialog_announces_the_sentence_it_shows": (
+        "CARD-253",
+        "AC-2 through the accname algorithm: the alertdialog is named by the "
+        "title element it displays, so the sentence announced is the one "
+        "shown whatever that sentence becomes",
+    ),
+    "tests/test_puzzle_solver_marking.py::"
+    "TestSolverReset_TheBrushKeepsItsName::"
+    "test_the_fourth_brush_still_reads_clear_in_all_three_places": (
+        "CARD-253",
+        "AC-3 / G-1: the owner's decision that the brush keeps 'Clear' — the "
+        "menu item, the trigger's text and the trigger's Brush: name",
+    ),
 }
 
 

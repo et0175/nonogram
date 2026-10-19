@@ -328,7 +328,7 @@ class TestSolverPercent_FollowsEveryRecordedChange:
         _button(page, "Hint").click()
         check()
         _button(page, "Reset").click()
-        _button(page, "Clear board").click()
+        _button(page, "Reset board").click()
         check()
         _button(page, "Undo").click()
         check()

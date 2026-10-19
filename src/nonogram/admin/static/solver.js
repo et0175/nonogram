@@ -65,7 +65,7 @@
 // offer is wrong, and static/puzzle_edit.js withdraws it — so it has to hear
 // about a change rather than go looking for one. This event is that seam,
 // and it is dispatched from commit(), the single place a change is RECORDED:
-// a click, a drag, undo, redo, a confirmed Clear and setBoard all pass
+// a click, a drag, undo, redo, a confirmed reset and setBoard all pass
 // through it, so the editor needs no list of controls to watch (a list is
 // what goes stale when the next control is added). An uncommitted mid-drag
 // preview (`show`) is deliberately not announced: nothing is recorded yet
@@ -259,7 +259,7 @@
 //             reset, or the setBoard seam, which replaces the board.
 //   reset     pressing Reset opens the in-page confirmation
 //             #puzzle-player-confirm (role=alertdialog; never window.confirm)
-//             and moves focus to its "Keep marks" button. "Clear board"
+//             and moves focus to its "Keep marks" button. "Reset board"
 //             records resetStroke through record — one undoable step, also
 //             from the solved state; "Keep marks" or Escape changes nothing.
 //             Any of these closes it and returns focus to Reset. So does

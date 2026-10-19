@@ -29,9 +29,20 @@
   UNKNOWN, the item is still data-player-tool="unknown" and a cell holding it
   is still data-state="unknown", so every selector, save and test keyed on
   those values is untouched. solver_state.js keeps calling the state
-  "undecided" because that is the model's name for a cell with no mark; this
-  page, the hint below the board, the reset confirmation and solver.js's
-  BRUSH_LABEL are the four places a human reads it, and they say "Clear".
+  "undecided" because that is the model's name for a cell with no mark; the
+  menu item on this page, the hint below the board and solver.js's
+  BRUSH_LABEL (the trigger's text and its "Brush: …" name) are the three
+  places a human reads it, and they say "Clear".
+
+  The reset confirmation is NOT one of them any more (CARD-253, owner
+  2026-10-19). It used to ask "Clear the board?" with a "Clear board"
+  button, so one word named both a brush that paints ONE cell undecided and
+  a button that wipes the WHOLE board — and it named neither the control
+  that opens it (Reset) nor anything that control does. It now asks "Reset
+  the board?" with "Reset board", which is the wording the editor's
+  equivalent took under CARD-247; the brush keeps "Clear", which was the
+  owner's choice between the two. Its body line ("Every mark is cleared")
+  uses the verb, not the brush's name.
 
   Region is its own control (CARD-211, owner's doc 2026-10-13): the
   [data-player-region] button right after the menu in .player-tools, a
@@ -178,10 +189,10 @@
         <button type="button" class="btn btn-outline-secondary" data-player-action="redo" aria-keyshortcuts="Shift+Control+Z Shift+Meta+Z" aria-disabled="true"><span class="player-mirror">{{ icons.icon('undo') }}</span>Redo</button>
         <button type="button" class="btn btn-outline-secondary" data-player-action="reset" aria-disabled="true" aria-haspopup="dialog" aria-expanded="false" aria-controls="puzzle-player-confirm">{{ icons.icon('refresh') }}Reset</button>
         <div class="player-confirm" id="puzzle-player-confirm" role="alertdialog" aria-labelledby="puzzle-player-confirm-title" aria-describedby="puzzle-player-confirm-text" hidden>
-            <p class="player-confirm-title" id="puzzle-player-confirm-title">Clear the board?</p>
+            <p class="player-confirm-title" id="puzzle-player-confirm-title">Reset the board?</p>
             <p class="player-confirm-text" id="puzzle-player-confirm-text">Every mark is cleared. Undo brings them back.</p>
             <div class="player-confirm-actions">
-                <button type="button" class="btn btn-danger" data-player-confirm="accept">Clear board</button>
+                <button type="button" class="btn btn-danger" data-player-confirm="accept">Reset board</button>
                 <button type="button" class="btn btn-outline-secondary" data-player-confirm="cancel">Keep marks</button>
             </div>
         </div>

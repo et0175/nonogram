@@ -509,12 +509,12 @@ class TestSolverClickFollowsTheBrush:
             third[name] = _at(_states(page), row, 10)
         assert third == {name: (U if name == "nothing" else F) for name in between}
 
-        # A confirmed reset (White: white, then Clear board, then White again).
+        # A confirmed reset (White: white, then Reset board, then White again).
         _tool(page, "White")
         _cell(page, 0, 12).click()
         assert _at(_states(page), 0, 12) == E
         _button(page, "Reset").click()
-        _button(page, "Clear board").click()
+        _button(page, "Reset board").click()
         _cell(page, 0, 12).click()
         assert _marked(_states(page)) == {(0, 12): E}  # a repeat would give black
 
@@ -854,7 +854,7 @@ class TestSolverMarking_UndoRedoByStroke:
         assert len(marks) == 11
 
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()  # CARD-162's in-page confirmation
+        _button(browser_page, "Reset board").click()  # CARD-162's in-page confirmation
         assert _marked(_states(browser_page)) == {}
         assert _is_disabled(browser_page, "Reset")
 
@@ -973,7 +973,7 @@ class TestSolverMarking_KeyboardAndLabels:
         assert _marked(_states(browser_page)) == two
         press("Reset", "Enter")
         browser_page.keyboard.press("Shift+Tab")  # CARD-162's confirmation: focus is on
-        browser_page.keyboard.press("Enter")  # "Keep marks"; "Clear board" is before it
+        browser_page.keyboard.press("Enter")  # "Keep marks"; "Reset board" is before it
         assert _marked(_states(browser_page)) == {}
         press("Undo", "Enter")
         press("Reset", "Space")
@@ -1042,7 +1042,7 @@ class TestSolverMarking_KeyboardAndLabels:
             assert after == two  # the undone stroke is back
         else:
             # CARD-162: Reset opens the in-page confirmation with focus on
-            # "Keep marks"; one more press of the same key on "Clear board".
+            # "Keep marks"; one more press of the same key on "Reset board".
             assert after == two
             assert browser_page.evaluate(_FOCUSED) == "Keep marks"
             browser_page.keyboard.press("Shift+Tab")
@@ -1127,6 +1127,177 @@ class TestSolverMarking_KeyboardAndLabels:
         assert after_next == line | {(4, c): E for c in range(3)}
 
 
+# --------------------------------------------------------------------------
+# CARD-253 — the reset confirmation names the control that opens it
+# --------------------------------------------------------------------------
+
+
+def _control_label(locator, what):
+    """The words a human reads on ONE control: its aria-label if it has one,
+    else its text with the icon markup's empty nodes collapsed away.
+
+    The ``count() == 1`` is the point of the helper, not decoration: a
+    locator that matches nothing returns "" from ``text_content()`` and an
+    assertion about "" passes for every possible implementation (CARD-250).
+    Here a label that is missing is a failure with the control's name in it.
+    """
+    assert locator.count() == 1, what
+    text = locator.get_attribute("aria-label") or locator.text_content() or ""
+    text = re.sub(r"\s+", " ", text).strip()
+    assert text, what
+    return text
+
+
+def _words(label):
+    """The label's words, casefolded — "Reset the board?" -> {reset, the, board}."""
+    return {w.casefold() for w in re.findall(r"[A-Za-z]+", label)}
+
+
+#: Structural locators, deliberately not by label: this pair of tests reads
+#: the labels off the page and asserts a relation between them, so naming a
+#: control by the string under test would assume the answer.
+_RESET = '[data-player-action="reset"]'
+_ACCEPT = '[data-player-confirm="accept"]'
+_FOURTH_BRUSH = '[data-player-tool="unknown"]'
+
+
+@pytest.mark.browser
+class TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt:
+    """CARD-253 (AC-1, AC-2) — the player's reset confirmation used to ask
+    "Clear the board?" with a "Clear board" accept button, while the button
+    that opens it is called Reset and, since CARD-247, the fourth brush is
+    called Clear. So the sentence named neither the control that opened it nor
+    anything that control does, and the one word it did use belonged to a
+    different control on the same toolbar.
+
+    The guard here is deliberately NOT the editor's. CARD-247 AC-7 guards
+    ``puzzle_edit.html`` with "no control on this page carries the word
+    Clear"; on the player that assertion is false and must stay false, because
+    Clear is the correct name of the fourth brush (owner, 2026-10-19). What is
+    asserted instead is the RELATION: the reset button's own word is the word
+    its confirmation uses, and that word is not the brush's. Every one of the
+    four labels is read off the rendered page, so the relation is checked
+    against whatever the template says rather than against a literal repeated
+    from it.
+
+    Mutants, all run, all on ``puzzle_solve.html``, and these are what was
+    OBSERVED:
+
+    * M1 accept button back to "Clear board" — reds AC-1 and AC-2 here, and
+      ``TestSolverProgress_ResetAfterConfirm`` (an updated pre-existing site).
+    * M2 title back to "Clear the board?" — the same three.
+    * M3 the fourth brush renamed "Reset" — reds AC-2 here and AC-3 below.
+      This is the mutant the editor's guard shape would MISS: a page with no
+      "Clear" on it at all satisfies "no control carries the word Clear" while
+      one word again names a brush and a board-wipe.
+    * M4 the reset BUTTON renamed "Clear" — reds AC-2 here. The inverse
+      collision, also invisible to an absence guard.
+    * M8 the accept button emptied of its text — reds AC-1 and AC-2 here and
+      the pre-existing site, rather than passing on a locator that matches
+      nothing, which is what ``_control_label``'s ``count() == 1`` is for.
+    * M5 ``data-player-confirm="accept"`` renamed — reds all five tests, but
+      it also unwires solver.js, so it demonstrates loudness, not isolation.
+    * M6, M7 — see ``test_the_dialog_announces_the_sentence_it_shows``.
+    """
+
+    def _open_the_confirmation(self, page, live):
+        """A stroke (Reset is disabled on an untouched board), then Reset."""
+        _open(page, live, live.store(GRID))
+        _cell(page, 8, 8).click()
+        # Structural, like the locators above: a setup step that named the
+        # button by its label would make these tests fail on the label rather
+        # than on the relation they are about.
+        assert page.locator(_RESET).get_attribute("aria-disabled") != "true"
+        page.locator(_RESET).click()
+        from playwright.sync_api import expect
+
+        expect(page.locator("#puzzle-player-confirm")).to_be_visible()
+
+    def test_the_confirmation_reads_reset_and_not_clear(self, browser_page, live) -> None:
+        """AC-1 — the two strings this card changes, pinned as literals."""
+        self._open_the_confirmation(browser_page, live)
+
+        title = _control_label(browser_page.locator("#puzzle-player-confirm-title"), "title")
+        accept = _control_label(browser_page.locator(_ACCEPT), "accept")
+
+        assert title == "Reset the board?", title
+        assert accept == "Reset board", accept
+        assert "Clear" not in title and "Clear" not in accept, (title, accept)
+
+    def test_the_word_is_the_reset_buttons_and_is_not_the_brushs(self, browser_page, live) -> None:
+        """AC-2 — the relation, read off the page: the reset button is named by
+        a single word; the confirmation's title and its accept button both use
+        that word; the fourth brush's label is a different word and appears in
+        neither. Nothing here is compared against a literal from the template,
+        so the test still means something after the next rename — and it fails
+        whether the confirmation reverts to the brush's word, the brush is
+        renamed to the button's, or the button is renamed to the brush's.
+        """
+        self._open_the_confirmation(browser_page, live)
+
+        reset = _control_label(browser_page.locator(_RESET), "Reset button")
+        brush = _control_label(browser_page.locator(_FOURTH_BRUSH), "fourth brush")
+        title = _control_label(browser_page.locator("#puzzle-player-confirm-title"), "title")
+        accept = _control_label(browser_page.locator(_ACCEPT), "accept")
+
+        # "The word" has to BE one word for the relation to be stated at all.
+        assert len(_words(reset)) == 1, reset
+        assert len(_words(brush)) == 1, brush
+        word = next(iter(_words(reset)))
+
+        assert word in _words(title), (word, title)
+        assert word in _words(accept), (word, accept)
+        assert _words(brush) != _words(reset), (brush, reset)
+        assert not _words(brush) & _words(title), (brush, title)
+        assert not _words(brush) & _words(accept), (brush, accept)
+
+    def test_the_dialog_announces_the_sentence_it_shows(self, browser_page, live) -> None:
+        """AC-2 — the relation reaches the screen reader: the alertdialog's
+        accessible name is the title element it displays, so the sentence
+        announced is the sentence shown, whatever that sentence becomes.
+
+        What this measures, stated narrowly because a mutant said so: it is
+        about the ``aria-labelledby`` TARGET, not about the absence of other
+        labels on the dialog. Adding a stale ``aria-label="Clear the board?"``
+        beside the ``aria-labelledby`` does NOT red this test (mutant M6,
+        survived and recorded) — the accname algorithm prefers
+        ``aria-labelledby``, so the announced name is still the title. What
+        does red it is the dialog losing ``aria-labelledby`` (mutant M7): a
+        dialog takes no name from its contents, so nothing would name it. The
+        wording mutants M1/M2 leave it green by design — it asserts an
+        equality between two things on the page, not a literal.
+        """
+        from playwright.sync_api import expect
+
+        self._open_the_confirmation(browser_page, live)
+        title = _control_label(browser_page.locator("#puzzle-player-confirm-title"), "title")
+
+        expect(browser_page.get_by_role("alertdialog")).to_have_accessible_name(title)
+
+
+@pytest.mark.browser
+class TestSolverReset_TheBrushKeepsItsName:
+    """CARD-253 (AC-3) — this card renames a confirmation, not a brush. The
+    owner's decision of 2026-10-19 is that the player's fourth brush keeps the
+    name Clear; the three places a human reads that name on this page are the
+    menu item, the trigger's text and the trigger's accessible name.
+    """
+
+    def test_the_fourth_brush_still_reads_clear_in_all_three_places(
+        self, browser_page, live
+    ) -> None:
+        _open(browser_page, live, live.store(GRID))
+
+        assert _control_label(browser_page.locator(_FOURTH_BRUSH), "fourth brush") == "Clear"
+
+        _trigger(browser_page).click()  # the menu's items are hidden until it opens
+        assert _menu_item(browser_page, "Clear").count() == 1
+        _menu_item(browser_page, "Clear").click()
+
+        assert _trigger_text(browser_page) == "Clear"
+        assert _trigger(browser_page).get_attribute("aria-label") == "Brush: Clear"
+
+
 @pytest.mark.browser
 class TestSolverMarking_ControlsStayHiddenWithoutABoard:
     """F-004 — the template's claim: the controls and the usage hint are shown
@@ -1202,7 +1373,7 @@ class TestSolverMarking_NoRequestPerMark:
         _button(browser_page, "Redo").click()
         model.redo()
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()  # CARD-162's in-page confirmation
+        _button(browser_page, "Reset board").click()  # CARD-162's in-page confirmation
         model.reset()
 
         assert _states(browser_page) == model.cells()
