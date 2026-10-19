@@ -220,14 +220,15 @@ def test_the_stylesheet_uses_tokens_not_literals() -> None:
 def test_the_region_toggles_pressed_look_comes_from_tokens() -> None:
     """CARD-211 G-4 — the Region toggle is the player toolbar's only
     accent-filled control, so its own rules are the one place a card could
-    smuggle a literal in: every value they declare is a design token, or a
-    ``calc()``/``color-mix()`` over design tokens, and the toggle's size
-    comes from ``.player-toolbar .btn`` (--control-h), never a length of its
-    own.
+    smuggle a literal in. Every value they declare is a design token, a
+    ``calc()``/``color-mix()`` over design tokens, or one of the layout
+    keywords named below; the toggle's height is nobody's business here, it
+    comes from ``.player-toolbar .btn`` (--control-h).
 
     The sweep above catches a hex colour anywhere in admin.css; this pins
     these rules, so a later edit cannot keep the file hex-free by reaching
-    for an rgb()/hsl()/named colour or a hard-coded length here instead.
+    for an rgb()/hsl()/named colour here instead — nor for a hard-coded
+    length, which is reported the same way.
 
     **The toggle's FACE is pinned here too, since CARD-247.** That card
     replaced the word "Region" with three cells and styled them in rules of
