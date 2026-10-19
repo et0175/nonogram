@@ -941,7 +941,7 @@ class TestSolverClues_CirclesFollowEveryCommit:
         assert _circled_set(page) == {("rows", first, 0), ("rows", second, 0)}
 
         _button(page, "Reset").click()
-        _button(page, "Clear board").click()
+        _button(page, "Reset board").click()
         assert _none(page)
         assert problems == []
 

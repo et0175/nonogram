@@ -728,7 +728,7 @@ class TestSolverMaybe_UndoRedo:
 
 @pytest.mark.browser
 class TestSolverMaybe_ResetClearsMaybe:
-    """AC-10 — a board of only "?" marks can be reset; Clear board clears them."""
+    """AC-10 — a board of only "?" marks can be reset; Reset board clears them."""
 
     def test_reset(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -739,7 +739,7 @@ class TestSolverMaybe_ResetClearsMaybe:
         assert _button(browser_page, "Reset").get_attribute("aria-disabled") == "false"
 
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
 
         assert set(_states(browser_page)) == {U}
 

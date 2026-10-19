@@ -730,7 +730,7 @@ class TestSolverHint_IsOneUndoableStroke:
         _hint(browser_page).click()
         _hint(browser_page).click()
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
         assert _marked(_states(browser_page)) == {}
         assert _hints_shown(browser_page) == 2
         _set(browser_page, [U] * (SIDE * SIDE))

@@ -505,7 +505,7 @@ class TestSolverResume_SolvedPuzzleReopensSolved:
         assert _is_disabled(browser_page, "Undo") and _is_disabled(browser_page, "Redo")
         assert not _is_disabled(browser_page, "Reset")
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
         assert set(_states(browser_page)) == {U}
         assert not _is_solved_shown(browser_page)
         assert problems == []
@@ -526,13 +526,13 @@ class TestSolverResume_ResetClearsTheSave:
         assert _saved(browser_page, puzzle_id) is not None
 
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
         assert _saved(browser_page, puzzle_id) is None
         _button(browser_page, "Undo").click()  # default (a): undo still works before a reload
         assert _states(browser_page) == marks
         assert _saved(browser_page, puzzle_id) is not None
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
         assert _saved(browser_page, puzzle_id) is None
 
         _reload(browser_page)
@@ -604,7 +604,7 @@ def _use_the_player(page):
     _button(page, "Redo").click()
     assert _states(page) == marks
     _button(page, "Reset").click()
-    _button(page, "Clear board").click()
+    _button(page, "Reset board").click()
     assert set(_states(page)) == {U}
     _button(page, "Undo").click()
     assert _states(page) == marks
@@ -642,7 +642,7 @@ class TestSolverResume_BrokenStorageDegradesSilently:
         assert browser_page.evaluate("(() => { try { return typeof window.localStorage; } catch (e) { return e.name; } })()") == "SecurityError"
         _use_the_player(browser_page)
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
         _reload(browser_page)
         assert set(_states(browser_page)) == {U}
         assert problems == []

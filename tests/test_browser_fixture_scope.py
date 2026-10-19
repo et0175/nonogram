@@ -811,7 +811,8 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "CARD-247",
         "AC-1: the renamed fourth brush reads Clear in the menu item, the "
         "trigger text, its Brush: name, both hint sentences and the reset "
-        "confirmation",
+        "confirmation's body line (CARD-253 moved its title and accept "
+        "button to Reset, so the label is read in three places now)",
     ),
     "tests/test_puzzle_solver_brush_menu.py::"
     "TestSolverBrushMenu_FourthBrushIsCalledClear::"
@@ -849,6 +850,37 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "AC-4: the text that named the button is gone, so the name is "
         "asserted through Chromium's own computation, pressed, unpressed and "
         "under a brush change, with aria-pressed still flipping",
+    ),
+    "tests/test_puzzle_solver_marking.py::"
+    "TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt::"
+    "test_the_confirmation_reads_reset_and_not_clear": (
+        "CARD-253",
+        "AC-1: the renamed reset confirmation reads 'Reset the board?' and "
+        "'Reset board', the two literals this card changed",
+    ),
+    "tests/test_puzzle_solver_marking.py::"
+    "TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt::"
+    "test_the_word_is_the_reset_buttons_and_is_not_the_brushs": (
+        "CARD-253",
+        "AC-2: the relation rather than an absence — the reset button's own "
+        "word is the one its confirmation uses and is not the fourth brush's, "
+        "all four labels read off the rendered page",
+    ),
+    "tests/test_puzzle_solver_marking.py::"
+    "TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt::"
+    "test_the_dialog_announces_the_sentence_it_shows": (
+        "CARD-253",
+        "AC-2 through the accname algorithm: the alertdialog is named by the "
+        "title element it displays, so the sentence announced is the one "
+        "shown whatever that sentence becomes",
+    ),
+    "tests/test_puzzle_solver_marking.py::"
+    "TestSolverReset_TheBrushKeepsItsName::"
+    "test_the_fourth_brush_read_structurally_still_reads_clear": (
+        "CARD-253",
+        "AC-3 / G-1: the owner's decision that the brush keeps 'Clear', read "
+        "through the structural locator AC-2's relation uses; the menu item, "
+        "trigger text and Brush: name are CARD-247's test (cycle 1, F-003)",
     ),
 }
 
