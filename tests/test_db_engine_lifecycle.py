@@ -316,11 +316,19 @@ def _names_the_session_module(dotted, aliases):
 
 
 def _is_setattr_call(node) -> bool:
-    """Any ``setattr``-shaped call: ``anything.setattr(...)`` or the builtin.
+    """Any call *named* ``setattr``: ``anything.setattr(...)`` or the builtin.
 
-    Both spellings, because the deny default below is only total if nothing
-    gets to decide that it is out of scope. Requiring ``node.func`` to be an
-    ``ast.Attribute`` is what let cycle-2 review mutant X2
+    The match is on the NAME, not on what the name is bound to: ``sa = setattr``
+    followed by ``sa(app_session, "engine", None)`` is invisible here. That sits
+    inside this guard's declared "names, not values" bound and is measured at
+    zero sites in this tree — it is said out loud because "``setattr``-shaped",
+    which this docstring used to say, promises a reach the mechanism does not
+    have (cycle-3 review, suggestion (c)).
+
+    Both spellings, because the deny default below is only total over the shapes
+    it binds if neither spelling gets to decide that it is out of scope.
+    Requiring ``node.func`` to be an ``ast.Attribute`` is what let cycle-2
+    review mutant X2
     (``setattr(app_session, "engine", None)``) through the previous version
     while this class's docstring named ``setattr(module, "name", …)`` as a
     spelling it saw. The builtin is also the more dangerous of the two —
