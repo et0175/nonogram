@@ -237,8 +237,8 @@ findings:
     source: mutation
     violates: "ADR-0039/R1, ADR-0039/R2"
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: f4e5730
     dismissed_reason: null
     learned_pattern: null
     family: "cycle-1 F-002 / cycle-2 C2-F-001 (AC-5 private-globals guard, ADR-0039/R1+R2, claim wider than mechanism) — THIRD consecutive generation, gating in all three"
@@ -304,8 +304,8 @@ findings:
     source: static
     violates: "ADR-0039/R1"
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: f4e5730
     dismissed_reason: null
     learned_pattern: null
     family: "cycle-1 F-003 / cycle-2 C2-F-002 (AC-4 db_required count) — third consecutive cycle in this family, Minor all three times"

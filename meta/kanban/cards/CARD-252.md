@@ -803,3 +803,117 @@ gets; there is no cycle 4.
   proof claim in a dynamic language always has one more axis.* Carded as **CARD-254**, to land after
   this merge — never before, because shrinking a guard while its card is mid-merge is how a guard
   disappears with nothing in its place.
+
+### Review cycle 3, findings closed, 2026-10-20 (`meta/review/20261019T213532Z-CARD-252-cycle3.yml`)
+
+Cycle 3 scored **8.0** and failed the severity gate on one Important, `C3-F-001`. It was the final
+cycle (`max_cycles: 3`), so what follows is the reviewer's own prescribed remedy applied verbatim,
+not a fourth review cycle. Everything *mechanical* the card claims was re-derived by the reviewer
+and holds: all five tree-wide numbers (0 unanalysable / 9 sites in 6 pairs byte-equal to the
+exemption map / 13 other-target skips / 315 readable-name-outside skips / 2 residual), X1 and X2
+still red, B4 and B5 still kill, all six guardrails, and `session.py` docstring-identical by AST for
+the third cycle running. What was false was **four sentences**.
+
+**The defect is a fourth axis, and it is argument binding, not spelling.** `_private_global_sites_in`
+dispatches on three conditions — `ast.Assign` with a simple `ast.Attribute` target (:433), arity
+`>= 3` (:438), arity `== 2` (:465) — and nothing catches what falls between them. Verified
+independently here by calling the function on source text (so a silent pass is visible as
+`({}, [])`, not inferred): `monkeypatch.setattr(app_session, name="engine", value=None)`,
+`monkeypatch.setattr(target=app_session, name="engine", value=None)`, `setattr(*TRIPLE)`,
+`app_session.engine, app_session.SessionLocal = None, None`, `[app_session.engine] = [None]`,
+`app_session.engine: object = None`, `for app_session.engine in [None]`, and
+`with open("x") as app_session.engine` all come back `sites={} unanalysable=[]`, while the plain
+`app_session.engine = None` is counted. All eight really set the globals.
+
+**No branch was added for them, deliberately.** Measured over `tests/**/*.py`: **zero**
+`setattr`-shaped calls with fewer than two positional arguments, and **zero**
+tuple/list/annotated/`for`/`with` attribute targets naming an engine global (`AugAssign` is zero
+too, measured, and is neither claimed nor controlled). Cycle 2's survivors were live idioms at 17
+real sites; these are at none. ADR-0039/R1's remedy for a false universal is "narrowed to what is
+measured or deleted", so the claim was cut back to the mechanism and the frontier was turned into an
+assertion. A fourth widening would have been the fourth generation of the same habit.
+
+#### The four sentences, narrowed (all in `tests/test_db_engine_lifecycle.py`)
+
+| # | was | now |
+|---|---|---|
+| 1 | `:842-845` "That second sentence is the whole claim, and it is deliberately one with no outside: there is no residual … because `_private_global_sites_in`'s default is deny on every axis it can observe." | the **binding frontier**: the analysis is over *positional* argument binding and *simple* assignment targets; a keyword-bound `setattr` and an attribute target nested in a tuple/list or carried by an annotated/`for`/`with` target are outside it, reach the globals, pass silently, are measured at zero sites, and are held there by the new control |
+| 2 | `:847` "A claim about a finite shape list always has a fourth shape; **this is the exit from that**." | the first clause kept, the exit claim deleted; the cycle history now reads "cycle 3 widened the mechanism and claimed it had no outside" |
+| 3 | `:374-375` "The deny default is **total**, and that is the whole design." | "total **over the shapes it binds**", naming both: every `setattr`-shaped call with two or more positional arguments, and every *simple* attribute assignment target in an `ast.Assign`; what falls between reaches no branch and is not reported as unanalysable either |
+| 4 | `:133-134` "The **one** direction that could fail **open** is a class renamed off pytest's `Test*` prefix" | **two** directions, the second named and measured: a `Test*` class carrying an `__init__`, which pytest refuses to collect (`PytestCollectionWarning`) while this walk still counts its methods — measured here as pytest **0 collected** vs the walk's `db_required == {'TestHasInit::test_a'}`. Stated, not filtered (the warning is loud, and AC-1/AC-2 pin the two `db_required` tests independently) |
+
+All four were verified false before being touched. No mechanism changed: `_is_setattr_call`,
+`_string_target_tail`, `_string_target_module`, the arity dispatch and every pre-existing control
+are byte-identical.
+
+#### The addition: `test_the_binding_frontier_is_empty_in_this_tree`
+
+One control, over `tests/**/*.py`, built on two new module-level helpers
+(`_binding_frontier_reaches_in` / `_binding_frontier_reaches`, beside the guard they bound). It
+reports a reach that falls outside the dispatch and still names the session module, with **file,
+line and spelling** in the message, and it reds on a NEW such site rather than on a count somebody
+has to maintain. Three assertions, because a frontier assertion over an empty tree would also pass
+if the scan saw nothing:
+
+1. each of the eight named shapes, fed as source text, **is** reported by the frontier scan — and
+   the same source is still `({}, [])` to `_private_global_sites_in`, which pins "outside the
+   mechanism" as a fact rather than a reading;
+2. the same keyword-bound spelling aimed at a target the guard has already resolved to something
+   **other** than the session module is **not** reported — flagging it would make this a different,
+   wrong claim;
+3. the whole of `tests/` reports nothing.
+
+On the keyword half the frontier is deliberately coarser than the guard: it does not read a
+keyword-bound attribute name, so any such call on the session module is reported whichever
+attribute it names. That over-reds relative to the guard's "a readable name outside `names` ends the
+analysis" rule, which is the safe direction for a frontier that is empty.
+
+#### Cycle-3 remedy mutants (each applied alone to a real non-exempt file, restored from a `cp -p` backup, `diff -q` clean and `shasum -a 256` identical after each)
+
+Pre- and post-mutation hash of `tests/test_db_isolation.py`:
+`d760920b90cbc1e25c2fc4aa897e762daa8c9d35234c7725d7265711a05a6963` (the same value cycle 3's review
+recorded).
+
+| # | mutant | expectation | result |
+|---|---|---|---|
+| **M1** | `monkeypatch.setattr(app_session, name="engine", value=None)` appended to `tests/test_db_isolation.py` — inside the claimed region, the reviewer's own A1 | the new control red | **RED**. `1 failed, 20 passed`; message: `test_db_isolation.py:1020: monkeypatch.setattr(app_session, name='engine', value=None) — fewer than two positional arguments, so neither arity branch analyses it`. The *old* tree-wide guard stayed green, which is exactly the gap the frontier now states |
+| **M2** | `app_session.engine, app_session.SessionLocal = None, None` appended to the same file — the second half of the frontier (the reviewer's B1) | the new control red | **RED**. `1 failed, 20 passed`; both targets named: `app_session.engine = ... as nested in a tuple/list unpacking`, and the same for `SessionLocal` |
+| **M3** | the **edge**: `monkeypatch.setattr(_NotTheSessionModule, name="engine", value=None)` — the same shape on a target that is not `session.py` | **green**, or the control is a different, wrong claim | **GREEN**. `21 passed` |
+
+#### Cycle-3 remedy test selections (lock checked before each; no timings taken)
+
+- `tests/test_db_engine_lifecycle.py`: **21 passed, 0 skipped** (20 + the one new control).
+- `test_db_engine_lifecycle`, `test_cli` (the structural import guard), `test_db_isolation`,
+  `test_db_url_driver`, `test_db_connect_timeout`: **229 passed, 0 skipped, 0 failed**.
+- The full suite was never run; `meta/kanban/.full-suite.lock` was checked before each selection and
+  was never present.
+
+Every run used `nonogram_pythonproject4_card_252_5ddd9defbd0a_test` as both `DATABASE_URL` and
+`TEST_DATABASE_URL`, passed as literals. `nonogram_poc` was never named, created, dropped,
+connected to or truncated; `_refuse_unless_test_database` was neither widened nor bypassed. No
+production file was touched (zero production delta this cycle, as in cycle 3); no dependency added;
+nothing retired or renamed.
+
+**Is there a fifth axis?** The honest answer is that the question is no longer load-bearing, which
+was the point of the remedy. The claim now describes the dispatch — two bound shapes — instead of
+quantifying over everything the function might observe, and the frontier is an assertion that reds
+on the first shape that crosses it. `AugAssign` on an engine global (`app_session.engine += x`) is
+measured at zero sites and is deliberately neither claimed nor controlled; a reach through a *value*
+rather than a name (a fixture-bound module object, `globals()["engine"] = None`) remains the guard's
+written, long-standing residual, and no AST walk can follow it without executing the test tree.
+
+- **[Orchestrator] the fifth sentence, applied after the agent declined it.** The remedy agent flagged
+  cycle 3's suggestion (c) as real and outside its mandate, and it was right on both counts:
+  `_is_setattr_call`'s docstring said *"Any `setattr`-shaped call"* while the mechanism matches on the
+  **name**, so `sa = setattr` followed by `sa(app_session, "engine", None)` is invisible to it. Zero
+  sites in this tree, and inside the guard's declared "names, not values" bound — so the remedy is
+  the same one cycle 3 prescribed for the other four: say it. Done in `c7770b3` (docstring-only, 21
+  passed in the module), with one further "total" narrowed to "total over the shapes it binds" to
+  match `:374`. Five sentences, one mechanism, no new branches.
+- **[Orchestrator] the three review YAMLs now carry their write-backs**, and cycle 3's `fixed_in` was
+  `null` where the agent had written `status: fixed` — filled with `f4e5730` on main's copies, since a
+  report that says *fixed* without saying *by what* is not a record the retrospective can use.
+- **[Merge gate] running on `4fa1687`** — the branch merged with `main` rather than the branch alone.
+  The branch forked at `58ec463`, before CARD-247 landed, so the suite has to run on the tree that
+  will exist after the merge. The merge itself was clean: this card's three files touch nothing
+  CARD-247 touched.
