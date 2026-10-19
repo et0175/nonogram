@@ -405,3 +405,13 @@ item names a one-line candidate fix (dispose `nonogram.db.session.engine` and re
 the schema rebuild, with a control that fails). **It is worth a card in the next wave**, and it is
 deliberately not being done mid-wave: `tests/conftest.py` is outside both in-flight cards and changing
 it now would perturb the gates still to run.
+
+### [Build gate] PASSED (full, 912s, SOLO) on the second attempt — orchestrator, 2026-10-19 · `e0378ea`
+
+**Attempt 2: EXIT=0, 8504 passed / 1 skipped / 0 failed.** Same commit as the red attempt 1, no change
+to the tree — which is what confirms attempt 1's six failures were the `@ops` hazard and not this card.
+Recorded as a second-attempt green, because *a gate green only on its second attempt is not the
+evidence a gate green on its first is*.
+
+**The count reconciles exactly:** `main` **8495** → branch **8505**, **+10** — brush_menu **+6**,
+editor_ui **+1** (the pin for the owner's button rename), browser_fixture_scope **+3**.

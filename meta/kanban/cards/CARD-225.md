@@ -620,3 +620,13 @@ the `contexts: [CTX-001]` short-circuit was removed. The agent noticed the gap a
 assuming. Nothing was built against the wrong contract — it judged all 8 it had and recorded a verdict
 per rule — but the brief asserted a number the agent could not see, which is the same shape this board
 keeps finding. **A card's contract must be re-derived before its worktree is cut, not after.**
+
+### [Build gate] PASSED (full, 963s, SOLO) — orchestrator, 2026-10-19 · `c0d35c0`
+
+**EXIT=0, first attempt: 8537 passed / 1 skipped / 0 failed.** The count reconciles exactly — `main`
+**8495** collected → branch **8538**, **+43**, and the card's own `tests/test_book_cell_size.py` holds
+exactly **43** cases. Every test this card added is in its own file.
+
+**It passed first time because the render-set was restated before the gate, not after.** CARD-251 hit
+the same condition as a red merge gate; here it was measured directly and fixed in advance, so
+`test_suite_profile` stayed green.
