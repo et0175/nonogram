@@ -177,8 +177,15 @@ the allow-list is a claim that that answer never writes** — make it true at th
   `BookPDFGenerator.interior_stream(...).page_count` rather than `app.py`'s own counter, so the
   cross-check is independent: 7 → 8 while the puzzle pages go 1 → 2. It holds because the guide is
   fixed, answers are one per puzzle and an edit adds no puzzle, the SOLUTIONS divider is one, and level
-  dividers follow levels that **cannot move because AC-4 refuses a regrade at this same verify** — so
-  retiring AC-4's refusal breaks that test rather than letting this sentence quietly become false.
+  dividers follow levels that **cannot move because AC-4 refuses a regrade at this same verify**.
+  **CORRECTED 2026-10-19 (review cycle 2, F-001):** this amendment first said *"so retiring AC-4's
+  refusal breaks that test rather than letting this sentence quietly become false"*. **That was false,
+  and it was measured false** — removing the verify's regrade refusal kills five tests, every one of
+  them AC-4's own, while the transfer test passes, and it **cannot** do otherwise because its three
+  depth fixtures are all Easy, so no regrade is exercised there at all. Nor can the dependency be
+  pinned from inside that class: a cross-tier replacement is **refused** by AC-4, so such a case would
+  assert the refusal and be AC-4's test again. The transfer argument rests on AC-4 holding; **the
+  guard for AC-4 is AC-4**.
   (test: `TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove`,
   `…::test_the_puzzle_page_delta_is_the_whole_interiors_delta`,
   `…::test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter`)
@@ -721,9 +728,16 @@ rather than assertion, and `test_the_puzzle_page_delta_is_the_whole_interiors_de
 interior — `BookPDFGenerator.interior_stream(...).page_count`, asked of the **export** rather than of
 `app.py`'s own counter, so the cross-check is independent — and pins **7 → 8 while the puzzle pages go
 1 → 2**. Why it holds is written into the test, and the load-bearing clause is that level dividers
-follow levels that cannot move **because AC-4 refuses a regrade at this same verify**. So retiring
-AC-4's refusal breaks that test rather than letting this sentence quietly become false — a dependency
-made to fail loudly instead of left as prose.
+follow levels that cannot move **because AC-4 refuses a regrade at this same verify**.
+
+**⚑ And the sentence I wrote around that was itself a claim wider than its mechanism — refuted in
+cycle 2 (F-001).** I wrote that retiring AC-4's refusal "breaks that test rather than letting this
+sentence quietly become false", in the fix note, in the test's docstring **and inside AC-9's
+amendment**. Measured: removing that refusal kills five tests, all of them AC-4's own, and the transfer
+test passes — it cannot fail, because its three depth fixtures are all Easy. **A dependency I claimed
+was made to fail loudly was made to fail nowhere.** Corrected at all three sites in `cf56185` and
+above. This is the second time this wave a claim of mine inside an amended AC has been refuted by
+measurement — the first was CARD-250's AC-7 "ignored in silence".
 
 **⚑ The measurement found something the review did not: the delta is SIGNED and the negative case is
 reachable.** Two depth-5 puzzles print on a page each; a depth-3 replacement lets the pair fit and the
@@ -755,3 +769,51 @@ say what the owner settled. No code changed; the behaviour and both tests alread
 This is the **fourth criterion this wave** amended to read true (AC-5 and AC-7 on CARD-250, AC-6 and now
 AC-9 here). That rate is itself a finding for the retrospective: criteria are being written narrower
 than the decisions they serve, and it is the **measurement**, not the review, that keeps catching it.
+
+### [Review 2/3] Score: 9.0 — 0 critical, 0 important, 3 minor, 1 info · **CERTIFICATION COMPLETE** · [Review sync] 2 reports
+
+Report: `meta/review/20261019T130335Z-CARD-251-cycle2.yml`. **The certification cycle 1 deferred has
+run in full**, which is the condition this card's merge depended on.
+
+**16 mutants, 15 killed, 1 survived by declaration.** Every one applied from a byte-identical backup
+and restored by writing the captured bytes back, md5 compared after each run (16/16), final `diff`
+clean, `git status` unchanged, `git checkout` never used, the tree never left mutated across a pause.
+
+- **The six fix cycle 1 reported as killed were RE-RUN, not inherited** — a certification carried on
+  the fixing agent's own word is not a certification (CARD-250 cycle 3's precedent). All six killed,
+  **with the kill counts reproduced exactly**.
+- **The six spine targets cycle 1 verified by reading alone were mutated for the first time**: G-1's
+  confirmation sitting *before* the solve (killed by cycle 1's own narrowed M8 control — so that
+  control really does move), G-2 at both boundaries, the extent check, `_an_edit_may_touch`'s
+  predicate (**16 kills across three files**), G-6's allow-list entry, and G-7's single writer.
+  **INV-009's hold is now mutation-certified at both boundaries rather than read.**
+- The one survivor is F-010's fixture mutant, which fix cycle 1 had **declared** unkillable by
+  construction — the reviewer verified that declaration by measurement rather than accepting it.
+
+**⚑ The one finding that matters is a claim of MINE, refuted by measurement.** I wrote — in AC-9's
+amendment, in my fix note, and it was echoed in the test's docstring — that retiring AC-4's regrade
+refusal would break the transfer test "rather than letting this sentence quietly become false".
+**Removing that refusal kills five tests, every one of them AC-4's own, and the transfer test passes.**
+It cannot fail: its three depth fixtures are all Easy, so no regrade is exercised there at all. And it
+cannot be made to notice — a cross-tier replacement is *refused* by AC-4, so such a case would assert
+the refusal and be AC-4's test again. **The guard for AC-4 is AC-4.** Corrected at all three sites.
+
+**The reviewer asked the right question about severity and I am answering it on the record.** It filed
+this Minor and wrote: *"escalate if the board holds a claim inside an AC to a higher bar than one in a
+docstring."* **It does.** A docstring is read by whoever opens the file; an **acceptance criterion is
+read at merge, by the AC/EC/G gate, and by every later card that inherits the area** — and this one
+was written by the orchestrator while amending the criterion, which is the least supervised text on
+the card. The finding stays Minor in the report (its gating halves all hold and are certified); the
+*correction* was not optional.
+
+**F-002, also worth the owner's eye rather than just the file's:** `changes` is a page-**count** key,
+so a split the book's suffix **absorbs** is silent. Measured with the card's own fixtures — four Easy
+10×10s at depths (4,4,4,5) plan as `[(1,2),(3,),(4,)]`, and replacing the first with the depth-5
+picture plans as `[(1,),(2,3),(4,)]`: three pages either way, so nothing is said although that page
+stopped holding two and the next puzzle moved off it. **Faithful to the decision as worded** (the owner
+settled on the page *count*), now declared where the answer is built — and flagged here in case the
+owner wants the wider question.
+
+**No failure-matrix row is owed for the negative delta, and the reviewer said so plainly**: the matrix
+is boundary × *failure mode*, and a measured negative delta is a successful measurement. F-4 and F-5
+were both re-derived against the code as it now stands and both stand.

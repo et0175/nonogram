@@ -1,0 +1,249 @@
+version: 1
+generated_at: "2026-10-19T13:03:35Z"
+target: "card/251-edit-a-booked-puzzle @ 332f580 (main...HEAD; fix delta 119fc58..332f580)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 2
+mode: confirmation+certification
+
+coverage:
+  read:
+    - "src/nonogram/admin/puzzle_review.py (the three refusals, _an_edit_may_touch/_holds_a_book, verify_replacement_grid, save_edited_grid in full)"
+    - "src/nonogram/admin/app.py (EDIT_REFUSAL_REASONS, _submitted_confirmation, _book_holding, _page_count_effect, _shares_a_page_with, _book_answer, _refused, _edit_refusal, both POST routes, the editor page route, puzzle_is_editable, _book_puzzles, get_puzzles)"
+    - "src/nonogram/admin/book_pdf_generator.py (puzzle_page_plan and the RuntimeError raise site inside puzzle_pages)"
+    - "src/nonogram/admin/static/puzzle_edit.js (bookNote, namedBook, pageCountChange, needsConfirmationText, refusalText, REFUSALS_THAT_NEVER_WRITE, storeStateIsKnown, the tell/bookQuestion flow)"
+    - "src/nonogram/admin/templates/puzzle_edit.html, _puzzle_table.html (both changed blocks)"
+    - "tests/test_puzzle_edit_routes.py (AC-6, AC-8, AC-9 classes and the depth fixture, in full)"
+    - "tests/test_puzzle_editor_ui.py (the two new browser classes, the vocabulary guard, the tell single-writer guard, _EDIT_ROUTES, PAGE_ISOLATION_DECLARATION)"
+    - "tests/test_puzzle_edit_store.py (TestPuzzleEdit_RefusesAPuzzleThatIsInABook and the CARD-251 classes)"
+    - "meta/kanban/cards/CARD-251.md in full (amended AC-6/AC-9, failure matrix, both worktree-note sections, both mutant tables)"
+    - "meta/review/20261019T121439Z-CARD-251-cycle1.yml (all ten findings and the cycle-1 system-contract verdicts)"
+  not_reached:
+    - "src/nonogram/export/layout.py compute_pair_layout internals (treated as the authority AC-9 defers to; probed from outside by injection instead of re-derived)"
+    - "src/nonogram/admin/book_manager.py INV-008 machinery (read only through test_the_books_own_membership_rule_is_untouched)"
+    - "the DB-mode (Postgres) branch of the new routes - tests/test_puzzle_edit_routes.py's DB class skips without nonogram_test on this host (4 skips observed, same as cycle 1)"
+  confidence: high
+
+metrics:
+  diff: { files: 9, added: 3092, removed: 102 }
+  fix_delta: { files: 7, added: 494, removed: 88 }
+  max_fan_in: { symbol: "app.puzzle_is_editable", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py", "src/nonogram/admin/puzzle_review.py"]
+  cochange_missing: []
+  mutants_run: 16
+  mutants_killed: 15
+  mutants_survived: 1
+  unmeasured:
+    churn: "not_applicable - a card-worktree review of three commits against main; the orchestrator supplied the diff and the hotspot set is the card's own conflict-hotspot note, not a 12-month log"
+    defect_density: "not_applicable - same reason as churn"
+    bus_factor: "not_applicable - single-author repository"
+    cochange_missing: "no_eligible_fact - cycle 1's one co-change peer (_puzzle_table.html) is in this diff and was touched by fix 1; no 12-month window was mined, see churn"
+    timings: "not_applicable - the orchestrator forbade timing measurements on this host; AC-9's cost is judged structurally (one row read per member plus two whole-book pairing walks per verify), as in cycle 1"
+
+system_contract:
+  rules_checked: 10
+  holds: 10
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived on this head: git diff --name-only main...HEAD lists 9 files and pyproject.toml is not among them; `git diff main...HEAD -- src | grep -E '^\\+\\s*(import|from) '` returns no new import line in the whole card (the one hit is prose inside a docstring)"
+    - "ADR-0029/R2 ✓ holds — verify_replacement_grid grades once (puzzle_review.py:1192 `grade = self._grade_of(proof)`) and the regrade check reads grade['difficulty_tier']; save_edited_grid builds `derived` from one `self._grade_of(proof)` and the store-side refusal reads derived['difficulty_tier'] (puzzle_review.py:1306). No second solver entry in the diff. Re-derived by mutant N1 (the confirmation moved after the solve), whose kill is the solve-counting test TestBookedEdit_AnUnconfirmedSaveWritesNothing::test_an_unconfirmed_save_measures_nothing_either in both storage modes"
+    - "ADR-0032/R1 ✓ holds — _refuse_unless_uniquely_solvable is still the first gate after the confirmation in save_edited_grid (puzzle_review.py:1289) and the first gate in verify_replacement_grid (:1191); none of the three new refusals precedes it except the confirmation, which writes and measures nothing (mutant N1 pins that order)"
+    - "ADR-0038/R1 ✓ holds — puzzle_edit.js is edited in place as hand-written ES modules; no manifest, bundler or vendored library in the 9 changed files; tests/test_puzzle_editor_ui.py::TestPuzzleEditor_Guardrails::test_the_editor_ships_no_second_grid_renderer green in the 113-pass run of that file on this head"
+    - "ADR-0038/R6 ✓ holds — the only new wire field is `book` = {id, title, status, published, pages{known, added, changes, partner}} (app.py:2621-2628, :2730-2735) and the only new server-rendered field is the same `book`; no solution grid is added to either (the editor page's payload _board_page_payload is untouched by the fix delta)"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the diff, so pytest-playwright's dev-only extra is untouched"
+    - "ADR-0038/R8 ✓ holds — re-run on this head: `pytest tests/test_puzzle_editor_ui.py -m browser` → 78 passed, 35 deselected, 0 skipped; the whole file is 113 passed, 0 skipped. Both new classes carry @pytest.mark.browser (lines 3566, 3774) and the file's PAGE_ISOLATION_DECLARATION names CARD-251's open book question"
+    - "INV-008 ✓ holds — no membership write anywhere in the diff (`book_id` is never assigned; save_edited_grid's `derived` has no book_id key) and tests/test_puzzle_edit_routes.py::TestBookedEdit_APublishedBookIsNamedInTheQuestion::test_the_books_own_membership_rule_is_untouched drives add_puzzles_reporting_refusals on a published book and reads needs_confirmation back with puzzle_ids unchanged. This card's flag is INV-008-SHAPED on a separate route — the reading AC-6 was amended to"
+    - "INV-009 ✓ holds — the regrade refusal is enforced at the verify (puzzle_review.py:1197) and again at the store (:1306), compared through tier_of_record so spelling is not a regrade. Certified by mutation this cycle, not by reading: N3 (verify arm removed) is killed by 5 tests, N2 (store arm removed) by exactly 3, including the AC-8 row read for regrade_in_a_book"
+    - "CON-005 ✓ holds — no file under src/nonogram/solver/ is in the 9-file diff; no clue encoding or uniqueness logic is re-implemented (compute_clues is called, not copied); PropertyTest_Solver_NeverFalsePositiveUniqueness is untouched"
+
+root_causes:
+  - id: RC-1
+    title: "A claim stated wider than its mechanism - the family this wave has produced on every cycle of CARD-250/251"
+    finding_ids: [F-001, F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_edit_routes.py
+    line: 1069
+    title: "The transfer test is claimed to be what notices AC-4's retirement; measured, it does not"
+    description: |
+      AC-9 as amended, the test's own docstring and the card's fix-cycle note all state that
+      `test_the_puzzle_page_delta_is_the_whole_interiors_delta` is the thing that would notice if
+      AC-4's regrade refusal were retired ("Retire that refusal and this test is what notices that
+      the sentence stopped being true").
+
+      Measured (mutant N3, this cycle): removing `self._refuse_a_regrade_inside_a_book(puzzle,
+      grade["difficulty_tier"])` from `verify_replacement_grid` kills 5 tests - all five of them
+      AC-4's own (TestBookedEdit_ARegradeInsideABookIsRefusedAtVerify x4 across both storage modes,
+      TestBookedEditRoutes_ARegradeIsRefusedAtTheVerify x1). The transfer test PASSES. It cannot do
+      otherwise: its three fixture grids DEPTH_3/4/5 are all Easy and are asserted to be
+      (TestBookedEdit_TheDepthFixtureIsWhatItClaims), so no regrade is ever offered to the refusal
+      it is said to depend on.
+
+      The transfer ARGUMENT is sound and the test is a good test of the transfer; what does not
+      exist is the detector the three places claim. AC-4's own five tests do fail, so a retirement
+      cannot happen silently - it just does not point at AC-9's sentence.
+
+      Filed Minor rather than Important deliberately: the AC's gating halves (the words appear, the
+      save stores, the delta is signed) all hold and are mutation-certified; what is refuted is a
+      rationale sentence with no behavioural consequence, which is the severity cycle 1 gave the
+      same shape (F-003, F-005, both low). Escalate if the board wants claims inside an AC held to
+      a higher bar than claims in a docstring.
+    suggestion: |
+      Either reword the three places to "AC-4's own tests are what notice" (one line each, in
+      tests/test_puzzle_edit_routes.py:1069, CARD-251 AC-9 and the fix-cycle note), or make the
+      claim true by giving the transfer class a cross-tier case that AC-4's refusal blocks - which
+      would pin the dependency mechanically instead of asserting it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2733
+    title: "A split pair the suffix absorbs re-paginates the book silently, and nothing in the repo says so"
+    description: |
+      `changes` is `added != 0`, so the warning is keyed on the page COUNT. A greedy forward walk
+      can split the edited puzzle's page and give the page back later in the book, leaving the count
+      equal while the pairing moves.
+
+      Measured on this head with the card's own fixtures (probe over
+      `book_pdf_generator.puzzle_page_plan`, no production code changed): a book of four Easy 10x10
+      puzzles at gutter depths (4, 4, 4, 5) plans as [(1,2), (3,), (4,)] = 3 puzzle pages; replacing
+      puzzle 1's grid with the DEPTH_5 picture plans as [(1,), (2,3), (4,)] = 3 pages. `added` is 0,
+      `changes` is False, and `bookNote`'s only sentence is "This puzzle is in the book X." - so the
+      page this puzzle is on does stop holding two puzzles, puzzle 2 moves off page 1, and the owner
+      is told nothing.
+
+      This is faithful to the owner's settled wording ("says WHEN an edit would change the book's
+      page count"), so it is not a behaviour finding and the review is not widening the owner's
+      rule. What is missing is the declaration: this residual appears nowhere in
+      `_page_count_effect`'s docstring, nowhere in the failure matrix, nowhere in the card and in no
+      test - while the same file declares residuals of exactly this kind beside `_WRITES_THE_MESSAGE`,
+      `_BUILDS_A_GRID` and `_EDIT_ROUTES`. A reader meeting `changes` will read it as "the pairing
+      changes", which is wider than what it measures.
+    suggestion: |
+      Add the residual where the reader meets it - two lines in `_page_count_effect`'s Returns block
+      saying that `added`/`changes` are a page-COUNT delta and that a split the suffix absorbs reads
+      as no change, with the measured (4,4,4,5) construction as the example. Optionally put the case
+      to the owner as a separate question (announce any re-pagination, not only a count change);
+      that is an owner decision, not a review's.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/puzzle_review.py
+    line: 1247
+    title: "Cycle 1's F-005 vocabulary sweep stopped one docstring short of its own sibling"
+    description: |
+      F-005 replaced "a book this panel cannot name" with the predicate ("a membership with NO BOOK
+      IDENTITY") in seven places, including `verify_replacement_grid`'s `Returns:`. Its sibling was
+      missed: `save_edited_grid`'s `Returns:` (puzzle_review.py:1247-1248) still reads "or `None` if
+      the puzzle does not exist or is held by a book this panel cannot name" - which is the sentence
+      the finding was about, naming a case the code now takes the OTHER branch on (a `book_id`
+      resolving to a deleted row IS an identity, is editable, and is answered by the question that
+      names the id).
+
+      The same retired spelling also survives in two test class docstrings
+      (tests/test_puzzle_edit_store.py:524, tests/test_puzzle_editor_ui.py:401 - both "the book this
+      panel cannot NAME") and in two test names
+      (`test_the_save_refuses_a_book_it_cannot_name`,
+      `test_the_list_row_offers_no_edit_control_for_a_book_it_cannot_name`). Those tests assert the
+      right thing - mutant N5 proves it, killing 16 tests across all three files when the identity
+      predicate is dropped - they are just named for a case they do not drive.
+    suggestion: |
+      One-line fix at puzzle_review.py:1247 to match the sibling at :1163. The test docstrings and
+      names are a rename at the next touch of those classes, not now - note them so the next card
+      does not re-derive the seam from a test name.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_editor_ui.py
+    line: 203
+    title: "F-010's fixture is unpinned by construction - measured, not inferred"
+    description: |
+      Fix cycle 1 disclosed that F-010 "was not mutated and cannot usefully be": the mutant (drop
+      the exit clear) is green by construction on any single selection. Verified rather than
+      inherited (mutant N10, this cycle): with `manager.books.clear()` removed from after the
+      `yield`, `pytest tests/test_puzzle_editor_ui.py` is 113 passed - the mutant SURVIVES the whole
+      file, which is the largest selection the hazard could show in.
+
+      So the disclosure is accurate and the fixture is prophylactic: it closes a cross-test ordering
+      hazard that nothing in the file currently depends on. Recorded as info so the next card does
+      not mistake it for a pinned behaviour, and so a future test that DOES depend on an empty
+      singleton is known to be the first one.
+    suggestion: |
+      No action. If the hazard is ever worth pinning, the test is a second test in the file that
+      asserts the manager is empty on entry after a test that created a book - which is a test about
+      pytest ordering and is probably not worth its cost.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+certification:
+  mutation_check: complete
+  baseline_check: "not_applicable - no visual-diff log, screenshots, runtime log or a11y log were provided to this cycle; the static UI checks ran (Step 8g)"
+  deferred_from_cycle_1: ["8f-mutation"]
+  test_command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest <paths> (cwd = the worktree)"
+  baseline_green: "tests/test_puzzle_edit_routes.py + tests/test_puzzle_edit_store.py → 280 passed, 4 skipped; tests/test_puzzle_editor_ui.py → 113 passed, 0 skipped (393/4 total, exactly the fix cycle's reported figure)"
+  restore_discipline: "every mutant applied from a byte-identical backup and restored by writing the captured bytes back; md5 compared after each run (16/16 reported RESTORED byte-identical); final whole-tree diff against the backups: app.py, puzzle_review.py, book_pdf_generator.py, puzzle_edit.js, puzzle_edit.html, test_puzzle_editor_ui.py all identical, and git status is unchanged from the start of the review (only meta/ differs)"
+  mutants:
+    - { id: M15, target: "app.py _page_count_effect: added = len(after) - len(before) + 1", result: killed, killed_by: 6, note: "all 6 tests of AC-9's class that read a number, incl. the transfer test and the two no-change controls - the fix cycle's claim of 6 reproduced exactly" }
+    - { id: M16, target: "puzzle_edit.js pageCountChange returns 'one page longer' whatever the delta", result: killed, killed_by: 1, note: "test_the_five_shapes_say_five_different_things (the -1 shape must read 'one page shorter', the 2 shape '2 pages longer')" }
+    - { id: M17, target: "puzzle_edit.js namedBook falls back to `the book ${book.id}`", result: killed, killed_by: 2, note: "the question's F-4 row and the grade clause's unknown shape - the claimed 2" }
+    - { id: M18, target: "puzzle_edit.html prints {{ book.title or book.id }} again", result: killed, killed_by: 1, note: "test_a_book_whose_title_cannot_be_read_is_named_as_an_id" }
+    - { id: M19, target: "app.py _page_count_effect catch widened back to the six classes", result: killed, killed_by: 1, note: "test_a_defect_in_the_measurement_is_not_dressed_up_as_unknown - exactly 1 across both non-browser files, which is the point of that control" }
+    - { id: M20, target: "app.py _page_count_effect: changes hardcoded True, added left correct", result: killed, killed_by: 3, note: "the two still-pairs controls and the one-puzzle book - changes is pinned independently of added" }
+    - { id: N1, target: "puzzle_review.py save_edited_grid: the confirmation moved AFTER the uniqueness solve (G-1)", result: killed, killed_by: 2, note: "test_an_unconfirmed_save_measures_nothing_either in both storage modes - the narrowed control from cycle 1's M8 really moves" }
+    - { id: N2, target: "puzzle_review.py save_edited_grid: store-side regrade refusal removed (G-2)", result: killed, killed_by: 3, note: "test_the_store_refuses_it_as_well_even_confirmed x2 plus AC-8's regrade_in_a_book row read" }
+    - { id: N3, target: "puzzle_review.py verify_replacement_grid: verify-side regrade refusal removed (AC-4)", result: killed, killed_by: 5, note: "all five are AC-4's own; the AC-9 transfer test passes - see finding F-001" }
+    - { id: N4, target: "puzzle_review.py save_edited_grid: extent check removed (AC-5/G-5)", result: killed, killed_by: 7, note: "booked and unbooked, store and route, plus AC-8's extent_changed row read" }
+    - { id: N5, target: "puzzle_review.py _an_edit_may_touch: the bool(book_id) identity predicate dropped", result: killed, killed_by: 16, note: "16 across all three files - the unnameable book's refusal, in_a_book's liveness, the list row and the card" }
+    - { id: N6, target: "puzzle_edit.js: needs_confirmation removed from REFUSALS_THAT_NEVER_WRITE (G-6)", result: killed, killed_by: 1, note: "test_the_refusal_vocabulary_is_load_bearing_on_both_sides - the equality bites on the client side too" }
+    - { id: N7, target: "puzzle_edit.js: the question written by `message.textContent = ...` instead of tell (G-7)", result: killed, killed_by: 1, note: "test_tell_is_the_only_writer_of_the_message_and_the_offer; no browser test notices, which that guard's own docstring already records" }
+    - { id: N8, target: "app.py: partner read off the AFTER plan instead of the BEFORE plan", result: killed, killed_by: 2, note: "pins the partner as TODAY's page-mate in both delta directions - the negative-delta test's `partner is None` is load-bearing" }
+    - { id: N9, target: "app.py _submitted_confirmation: `is True` relaxed to bool() (failure matrix F-9)", result: killed, killed_by: 4, note: "test_only_json_true_confirms[string|one|word|list]; the {} case is falsy and correctly does not kill" }
+    - { id: N10, target: "tests/test_puzzle_editor_ui.py books fixture: the exit clear dropped (F-010)", result: survived, killed_by: 0, note: "113 passed - confirms the fix cycle's own disclosure; see finding F-004" }
+  probes:
+    - "F-5's RuntimeError arm at its real depth: `book_pdf_generator.compute_pair_layout` patched to raise ZeroDivisionError (a scratchpad script, no repo file changed) → the route answers 200 with {known: false, changes: null, added: null, partner: null} and logs 'puzzle #1, #2 could not be laid out'. The arm is live in the real path and the declared answer is genuinely produced; the shipped test's injection sits one level shallower (see Out-of-scope)."
+    - "cycle 1's F-003 claim re-derived independently: scraping the POST surface with the OLD start marker (_edit_refusal) and the NEW one (_submitted_confirmation) yields the same seven reasons, so the widening is pure forward cover and the comment now says only that."
