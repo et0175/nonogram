@@ -144,3 +144,84 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-253 --root meta/architectu
 - **[Do not take timing measurements]** Two sibling cards are live.
 - **[Why this is a card and not a two-line commit]** 23 sites across 7 files, and the guard's shape is
   the opposite of the editor's. Both are cheap to get wrong and neither is visible in a diff.
+
+### Implementation, 2026-10-19 (commit `2ba64a5`)
+
+**The two strings** (`src/nonogram/admin/templates/puzzle_solve.html`, lines 181 and 184):
+`Clear the board?` → `Reset the board?`, `Clear board` → `Reset board`. Nothing else in that
+element moved: `data-player-confirm="accept"`, every id, `role="alertdialog"`,
+`aria-labelledby`/`aria-describedby` and the Keep marks button are byte-identical (G-3), and the
+diff is 4 lines.
+
+**23 sites, as measured before carding** — the replacement found exactly 23 and the breakdown is
+19 locators + 4 comments/docstrings: clues 1, hint 1, percent 1, maybe 2 (1 locator + 1
+docstring), resume 5, marking 6 (3 locators + 3 comments), progress 7 (6 accept + 1
+`get_by_role("alertdialog", name=…)`). No node id carried the string, confirmed by the family's
+own collection guard, which reports no rename.
+
+**Two files beyond Touches, both for a claim this rename made false.** `static/solver.js` quoted
+`"Clear board"` in the reset paragraph of its header and called the wipe "a confirmed Clear" in
+the BOARD CHANGE note; `puzzle_solve.html`'s own header listed "the reset confirmation" among the
+four places a human reads the brush's name "Clear", which is now three. Comments only — no
+executable line in either file changed.
+
+**One file beyond Touches that the ACs made unavoidable:**
+`tests/test_browser_fixture_scope.py`. Adding a browser test means recording its node id in
+`ADDED_SINCE_BEFORE` with a card and a reason, or
+`TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`
+reds with "tests added". The four new ids are registered; mutant M9 (below) is the control.
+
+**The guard (AC-2), and why its shape is the opposite of the editor's.** CARD-247 AC-7 guards
+`puzzle_edit.html` with "no control on this page carries the word Clear". Copied here it would be
+false by design, because Clear is the correct name of the fourth brush. So
+`TestSolverReset_TheConfirmationNamesTheButtonThatOpensIt` reads FOUR labels off the rendered page
+through structural locators (`[data-player-action="reset"]`, `#puzzle-player-confirm-title`,
+`[data-player-confirm="accept"]`, `[data-player-tool="unknown"]` — never by the label under test,
+which would assume the answer) and asserts: the reset button is named by exactly one word; that
+word is in the title and on the accept button; the brush's word is a different word and is in
+neither. The setup is structural too — it reads `aria-disabled` off the reset locator instead of
+`_is_disabled(page, "Reset")`, so the test fails on the relation rather than on a label.
+`_control_label` asserts `count() == 1` and a non-empty label: a locator matching nothing returns
+`""`, and an assertion about `""` is true for every possible implementation (CARD-250).
+
+**Mutants — all nine run, 8 killed, 1 survivor recorded.** Each applied with `sed`, restored from
+a byte-identical `cp -p` backup and `diff`-confirmed; never `git checkout --`.
+
+| # | Mutant | Observed |
+|---|--------|----------|
+| M1 | accept button back to `Clear board` | **AC-4's evidence.** Red: AC-1, AC-2, and `TestSolverProgress_ResetAfterConfirm::test_ac320_thirty_marks_cleared_after_accepting` (an updated pre-existing site) |
+| M2 | title back to `Clear the board?` | Red: the same three |
+| M3 | fourth brush renamed `Reset` | Red: AC-2, AC-3. **The editor's guard shape would pass this** — a page with no "Clear" on it at all, one word again naming a brush and a board-wipe |
+| M4 | reset BUTTON renamed `Clear` | Red: AC-2 and the progress site. The inverse collision, also invisible to an absence guard |
+| M5 | `data-player-confirm="accept"` renamed | Red: all five. Loud, but it also unwires solver.js, so it shows loudness, not isolation |
+| M8 | accept button emptied of its text | Red: AC-1, AC-2, the progress site — `count() == 1` plus the non-empty check, so a label locator matching nothing cannot pass |
+| M7 | dialog loses `aria-labelledby` | Red: the announce test and the progress site |
+| M6 | stale `aria-label="Clear the board?"` added beside `aria-labelledby` | **SURVIVED.** The accname algorithm prefers `aria-labelledby`, so the announced name is still the title. The test's docstring is narrowed to what this measures — the labelledby TARGET, not the absence of other labels — and M7 is what shows it can fail at all |
+| M9 | the four new ids struck from `ADDED_SINCE_BEFORE` | Red: the family's collection guard, naming all four ids |
+
+**Tests run** (never the full suite; the gate runs it solo): the 7 touched files +
+`TestBrowserFixtures_NoTestAddedOrRemoved` → **288 passed**. Also, because they are coupled to
+the template this card edits: `test_puzzle_solver_brush_menu.py` + `test_puzzle_solver_page.py`
+(117 passed) and, after the header-comment change, brush_menu + marking (126 passed). The
+editor's AC-7 guard was run and is untouched and green (G-2). No timing test was run and no
+timing measurement taken.
+
+**For the reviewer, hardest first.** (1) M6's survival is the one claim narrowed rather than
+proven — read `test_the_dialog_announces_the_sentence_it_shows` and decide whether a test that no
+wording mutant can red earns its place beside AC-2 (M7 reds it; the pre-existing progress site
+covers the literal). (2) AC-2 compares casefolded word SETS, so it states "the reset button's one
+word" and nothing about word order or punctuation — the title's wording freedom is deliberate and
+only AC-1 pins the sentence. (3) The three files outside **Touches** (`solver.js` comments, the
+template header, the `ADDED_SINCE_BEFORE` registry).
+
+- **[Touches drift]** Three files beyond the card's **Touches**, all flagged by the agent, none
+  silent: `tests/test_browser_fixture_scope.py` (+30 — a new browser test MUST register its node
+  id in `ADDED_SINCE_BEFORE` or CARD-217's collection guard reds with "tests added"; the card's
+  note that "no rename table is owed" was right about `RENAMED_SINCE_BEFORE` and wrong to imply
+  the *added* registry was free), `src/nonogram/admin/static/solver.js` (comments only — its reset
+  paragraph quoted the old string) and `puzzle_solve.html`'s own `{# #}` header (it listed the
+  reset confirmation among the four places a human reads the brush's name — now three). No
+  executable line changed in either of the last two.
+- **[Gate]** Queued third in wave 48's serialized gate chain, behind CARD-225's solo re-measure
+  and CARD-252's first build gate. Reason in CARD-225's notes: gates are solo, and this card's
+  own 288-test browser run is what made that rule's gap visible.

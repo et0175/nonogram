@@ -941,3 +941,29 @@ violation gate?"*, and for all 60 rules the answer is genuinely yes. Curation wa
 The discriminator that does exist is `check.kind` plus declared reach — filed to the backlog under
 the architecture-model section with the proposed rule. **No model files were edited.**
 
+
+### Wave 48, in flight: the gate guard checks the door and not the room (2026-10-19)
+
+Wave 47's rule was *"a gate must never run concurrently with anything else that runs pytest"*, and
+the guard written for it refuses to **start** while another pytest is alive. CARD-225's build gate 2
+passed that guard, ran 15:19, and shared its window with CARD-253's implementation agent — a
+288-test Chromium suite plus two further selections. It came back **2 failed** out of 8558, in two
+tests with nothing to do with that card (a UUID sentinel handed a float, and a loopback server
+nothing answered on).
+
+Two things are worth separating, because last wave this board got one of them wrong:
+
+1. **The guard is not broken — its scope is.** A check at the door cannot stop someone entering
+   afterwards. The lock file this gate writes (`meta/kanban/.full-suite.lock`) is written and never
+   **read** by anyone. A control that only the controlled party consults is the claim-family shape
+   (ADR-0039/R1) in the procedure rather than the code.
+2. **"It was probably contention" is not a finding.** Wave 47 is where that exact attribution was
+   made and then refuted by measurement. What makes it answerable here is that this suite has no
+   `pytest-randomly`: collection order is deterministic, so a **solo full suite must reproduce
+   anything real or order-dependent**, and can only come back green if the cause was concurrency.
+   The re-measure is first in a serialized three-gate chain; the card's verdict stays *unknown*
+   until it lands.
+
+Carried to the wave's close: whether the lock should be enforced in `conftest.py` (a card — it is a
+repo behaviour change, and an aborted run needs a message that names the holder) or only in the
+dispatch prompts (free, and relies on each agent reading it).
