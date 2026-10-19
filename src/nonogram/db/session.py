@@ -212,17 +212,50 @@ def reset_engine() -> None:
     ``_rebuild_public_schema``, which the session-scoped
     ``_test_database_tables`` fixture drives: it empties ``public`` with
     ``DROP SCHEMA public CASCADE``, rebuilds it with ``alembic upgrade head``,
-    and then calls this — after the migration, never before, because a fresh
-    engine built against a half-built schema is the same problem wearing a
-    different hat.
+    and then calls this — last, so that retiring the engine is the final thing
+    the rebuild does and nothing can hand out a connection older than the
+    schema once the fixture yields.
 
-    Without it, :func:`_init_engine`'s "rebuild only when the URL changed"
-    cache keeps whatever engine the process had already built for that URL,
-    pool and all, so connections opened *before* the ``DROP SCHEMA`` are
-    handed back out *after* it. Four consecutive waves of this board's build
-    gates reported failures that reproduced on no second run, which is what
-    makes this a published function rather than three assignments in a test
-    file: a later reader of this module can see that something retires the
+    That position is deliberate but **not** load-bearing, and the older
+    reading of it here was wrong: this function builds nothing, so calling it
+    before the migration cannot leave "a fresh engine pointed at a half-built
+    schema". Measured, not reasoned — moving the call ahead of the Alembic
+    subprocess leaves ``tests/test_db_engine_lifecycle.py`` fully green
+    (CARD-252 G-3; the card's own refutation, re-measured as review mutant
+    R7). The half-built-schema hazard belongs to the card's original sketch,
+    which rebuilt the engine eagerly, not to this implementation.
+
+    What is pinned, and what is not
+    -------------------------------
+    Pinned: without this call, :func:`_init_engine`'s "rebuild only when the
+    URL changed" cache keeps whatever engine the process had already built for
+    that URL, pool and all, so a connection opened *before* the
+    ``DROP SCHEMA`` is still in the pool *after* it, ready to be handed back
+    out. ``tests/test_db_engine_lifecycle.py``'s AC-1 forces exactly that
+    connection to exist and goes red when this call — or only its
+    ``dispose()`` — is removed.
+
+    **Not** pinned: that such a survivor corrupts anything. Four consecutive
+    waves of this board's build gates reported failures that reproduced on no
+    second run (``relation "puzzles" does not exist``; a ``UUID`` column
+    arriving as a float, so that ``uuid.UUID(hex=inf)`` called ``.replace`` on
+    it). Those failures are the **motive** for this function, not a measured
+    consequence of its absence. CARD-252 tried to reproduce the corruption
+    deterministically and **withdrew** that acceptance criterion (AC-3): 24/24
+    queries through a connection that outlived a ``DROP SCHEMA`` returned
+    correct values, ``pg_prepared_statements`` held 0 rows after 40
+    executions, and ``puzzles.id`` came back as OID 2950 every time — so the
+    recorded signature is unreachable on psycopg2, and the gate failures
+    remain **unexplained**. Read
+    ``tests/test_db_engine_lifecycle.py``'s module docstring before concluding
+    this function fixed them; ``TestEngineLifecycle_WhyTheHazardCannotBeForced``
+    there measures why the hazard could not be forced, and goes red the day a
+    driver that caches schema-dependent per-connection state arrives — which
+    is the day the attribution becomes testable again.
+
+    What the function therefore removes is the hazard's **precondition**. It
+    is a published function rather than three assignments in a test file so
+    that a later reader of this module can see that something retires the
     engine, and find out who.
 
     Not part of any production path. Nothing in ``src/`` calls it, and it

@@ -47,6 +47,7 @@ from __future__ import annotations
 import ast
 import os
 import time
+from collections import Counter
 from pathlib import Path
 
 import psycopg2
@@ -67,10 +68,10 @@ SESSION_SOURCE = REPO / "src" / "nonogram" / "db" / "session.py"
 CONFTEST_SOURCE = REPO / "tests" / "conftest.py"
 
 #: How many tests in *this* module need the live test database. Asserted, not
-#: read, by :class:`TestEngineLifecycle_TheSkipProfileIsUnchanged` — see AC-4:
-#: the one "fix" for this card that must not happen is making DB-mode tests
-#: skip, and this board's DB tests skip *green*, so a count that nobody
-#: asserts is a count that can quietly go to zero.
+#: read, by :class:`TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish` —
+#: see AC-4: the one "fix" for this card that must not happen is making
+#: DB-mode tests skip, and this board's DB tests skip *green*, so a count that
+#: nobody asserts is a count that can quietly go to zero.
 EXPECTED_DB_REQUIRED_TESTS = 2
 
 #: How long to wait for PostgreSQL to reap a backend whose client socket was
@@ -102,6 +103,50 @@ def _live_backend_pids(engine, pids) -> set:
     return set(rows)
 
 
+def _test_functions_in(source: str):
+    """``(every test function in source, those carrying db_required)``.
+
+    Read from the module's own AST, not from ``request.session.items``
+    (cycle-1 review F-003). The collection answers "how many db_required tests
+    did this *run* select", so any legal targeted selection — one node id,
+    ``-k``, ``--lf`` — made the count red for a reason that has nothing to do
+    with the code: the single-node-id selection reported
+    ``0 test(s) here carry db_required, expected 2``. On the card whose whole
+    subject is that a red must mean the code, the run is the wrong source.
+
+    Keys are ``Class::test`` (or the bare name for a module-level test), and a
+    class-level ``@pytest.mark.db_required`` marks every test it contains, the
+    way pytest applies it.
+    """
+    def marked(node) -> bool:
+        return any(
+            isinstance(decorator, ast.Attribute) and decorator.attr == "db_required"
+            for decorator in node.decorator_list
+        )
+
+    def tests_in(body):
+        return [
+            child for child in body
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and child.name.startswith("test")
+        ]
+
+    every, db_required = set(), set()
+    tree = ast.parse(source)
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            for child in tests_in(node.body):
+                name = f"{node.name}::{child.name}"
+                every.add(name)
+                if marked(node) or marked(child):
+                    db_required.add(name)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test"):
+            every.add(node.name)
+            if marked(node):
+                db_required.add(node.name)
+    return every, db_required
+
+
 def _global_names_assigned_by(function_name: str) -> frozenset:
     """The module-level names ``session.py``'s ``function_name`` declares global and assigns.
 
@@ -109,6 +154,14 @@ def _global_names_assigned_by(function_name: str) -> frozenset:
     the set this guard consults is the set the module actually keeps, so a
     fourth global added to the builder tomorrow is inside the guard's reach on
     the day it is added, not on the day somebody remembers to extend a list.
+
+    That is measured, not hoped for. Cycle-1 review mutant R4 added a fourth
+    global (``_engine_dialect``) to :func:`~nonogram.db.session._init_engine`
+    and ``test_it_resets_exactly_the_globals_the_builder_creates`` went red
+    with exactly the message below. A shape this function cannot analyse
+    biases it to red rather than to a pass: a missing function raises, a
+    tuple or partial-tuple target is simply not collected into ``assigned``,
+    and ``assert built`` in the caller catches a blind read.
     """
     tree = ast.parse(SESSION_SOURCE.read_text(encoding="utf-8"))
     for node in tree.body:
@@ -131,63 +184,178 @@ def _global_names_assigned_by(function_name: str) -> frozenset:
 
 
 #: Test files allowed to set ``session.py``'s engine globals by hand, with the
-#: names each one sets — an equality, not a floor (ADR-0039/R3).
+#: number of times each one sets each name — an equality over **sites**, not a
+#: floor and not a set of ``(file, name)`` pairs (ADR-0039/R3).
 #:
 #: These are ``monkeypatch.setattr`` calls, reversible and function-scoped,
 #: and they exist to make :func:`nonogram.db.session._init_engine` rebuild so
 #: that *its* behaviour can be observed. That is a different question from
 #: retiring the engine after a schema rebuild, which is what
-#: :func:`nonogram.db.session.reset_engine` is for. A tenth such site, or one
-#: in a new file, fails the guard below so that somebody decides rather than
-#: inherits.
-_EXEMPT_PRIVATE_GLOBAL_SITES = frozenset({
-    ("test_db_url_driver.py", "engine"),
-    ("test_db_url_driver.py", "_engine_url"),
-    ("test_db_url_driver.py", "SessionLocal"),
-    ("test_db_connect_timeout.py", "engine"),
-    ("test_db_connect_timeout.py", "_engine_url"),
-    ("test_db_connect_timeout.py", "SessionLocal"),
-})
+#: :func:`nonogram.db.session.reset_engine` is for.
+#:
+#: Nine sites, six pairs — which is why the counts are here. Cycle-1 review
+#: mutant R1 added a *tenth* site under a pair already listed
+#: (``monkeypatch.setattr(db_session, "engine", None)`` in
+#: ``test_db_url_driver.py``) and the pair-set equality this replaced did not
+#: notice. Now a tenth site, a site under a new name, and a site in a new
+#: file each fail the guard below, so that somebody decides rather than
+#: inherits. Controls:
+#: ``test_a_tenth_site_in_an_already_exempt_pair_is_counted`` (R1) and mutant
+#: M3 on CARD-252 (a new file).
+_EXEMPT_PRIVATE_GLOBAL_SITES = {
+    ("test_db_url_driver.py", "engine"): 1,
+    ("test_db_url_driver.py", "_engine_url"): 1,
+    ("test_db_url_driver.py", "SessionLocal"): 1,
+    ("test_db_connect_timeout.py", "engine"): 2,
+    ("test_db_connect_timeout.py", "_engine_url"): 2,
+    ("test_db_connect_timeout.py", "SessionLocal"): 2,
+}
 
-#: The names a test file may be referring to when it names the session module.
-#: Every ``from nonogram.db import session as X`` alias used under ``tests/``.
+#: The dotted paths that *are* the session module, whatever a file calls it.
+#: ``src.`` because the Alembic subprocess imports the package that way.
+_SESSION_MODULE_PATHS = frozenset({"nonogram.db.session", "src.nonogram.db.session"})
+
+#: The packages a ``from … import session`` can name.
+_SESSION_PARENT_MODULES = frozenset({"nonogram.db", "src.nonogram.db"})
+
+#: Local names that mean the session module. A **floor**, not the whole
+#: authority: :func:`_private_global_sites_in` adds whatever aliases the file
+#: it is scanning binds for itself, and
+#: ``test_the_alias_set_covers_every_way_the_tree_names_the_module`` holds this
+#: literal to the aliases the tree's own imports bind.
 _SESSION_ALIASES = frozenset({"session", "db_session", "db_session_module", "app_session"})
 
 
-def _private_global_sites(names) -> set:
-    """Every ``(file, name)`` under ``tests/`` that sets one of ``names`` on the session module.
+def _session_aliases_in(tree) -> set:
+    """Every local name the parsed file ``tree`` binds to the session module.
 
-    Covers both spellings: ``monkeypatch.setattr(db_session, "engine", …)`` and
-    a plain ``db_session.engine = …``. The module is recognised by alias
-    (:data:`_SESSION_ALIASES`), which is why that set is checked for
-    completeness against the tree's own imports by
-    ``test_the_alias_set_covers_every_way_the_tree_names_the_module``.
+    Both import spellings, because both bind a name the guard has to see
+    through: ``from nonogram.db import session as X`` and
+    ``import nonogram.db.session as X``. The second was missing until cycle-1
+    review mutant R3 walked past both the guard and its completeness test with
+    it; ``test_a_plain_import_alias_is_a_site`` is now the control.
     """
-    found = set()
-    for path in sorted((REPO / "tests").rglob("*.py")):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if (
-                        isinstance(target, ast.Attribute)
-                        and isinstance(target.value, ast.Name)
-                        and target.value.id in _SESSION_ALIASES
-                        and target.attr in names
-                    ):
-                        found.add((path.name, target.attr))
-            if (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "setattr"
-                and len(node.args) >= 2
-                and isinstance(node.args[0], ast.Name)
-                and node.args[0].id in _SESSION_ALIASES
-                and isinstance(node.args[1], ast.Constant)
+    aliases = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module in _SESSION_PARENT_MODULES:
+            for alias in node.names:
+                if alias.name == "session":
+                    aliases.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                # ``import nonogram.db.session`` without ``as`` binds only
+                # ``nonogram``; the usable spelling is then the full dotted
+                # path, which :data:`_SESSION_MODULE_PATHS` already covers.
+                if alias.name in _SESSION_MODULE_PATHS and alias.asname:
+                    aliases.add(alias.asname)
+    return aliases
+
+
+def _dotted(node) -> str | None:
+    """``a.b.c`` for a Name/Attribute chain; ``None`` if it is not one."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if not isinstance(node, ast.Name):
+        return None
+    parts.append(node.id)
+    return ".".join(reversed(parts))
+
+
+def _names_the_session_module(dotted, aliases):
+    """``True`` / ``False`` / ``None`` — and ``None`` means *cannot tell*.
+
+    ADR-0039/R2: a spelling this cannot classify is a spelling the guard
+    cannot see through, so its callers must turn ``None`` into a FAILURE and
+    never into a silent pass. Today that is anything whose last component is
+    ``session`` without being a path or an alias the tree binds — e.g.
+    ``import nonogram.db as pkg`` followed by ``pkg.session.engine = …``, or a
+    string target naming some other package's ``session`` module.
+    """
+    if dotted is None:
+        return None
+    if dotted in aliases or dotted in _SESSION_MODULE_PATHS:
+        return True
+    if dotted.rsplit(".", 1)[-1] == "session":
+        return None
+    return False
+
+
+def _private_global_sites_in(source: str, filename: str, names):
+    """``(Counter of (filename, name) per SITE, unanalysable spellings)``.
+
+    Counts occurrences, not distinct ``(file, name)`` pairs, so that the
+    equality in ``test_no_test_file_outside_the_exemption_sets_those_globals``
+    is the decision :data:`_EXEMPT_PRIVATE_GLOBAL_SITES` says it is.
+
+    Three spellings are recognised, each with its own control below:
+
+    * ``db_session.engine = …`` — and any dotted chain, so
+      ``nonogram.db.session.engine = …`` counts too (mutant M3's shape);
+    * ``monkeypatch.setattr(db_session, "engine", …)`` (the nine exempt sites);
+    * ``monkeypatch.setattr("nonogram.db.session.engine", …)`` — pytest's
+      string-target spelling, which cycle-1 review mutant R2 showed the guard
+      could not see at all.
+
+    Everything else that touches one of ``names`` on something this cannot
+    resolve to the session module is returned in the second list, which the
+    guard fails on.
+    """
+    tree = ast.parse(source)
+    aliases = set(_SESSION_ALIASES) | _session_aliases_in(tree)
+    sites = Counter()
+    unanalysable = []
+
+    def record(dotted, name, node, spelling) -> None:
+        verdict = _names_the_session_module(dotted, aliases)
+        if verdict is True:
+            sites[(filename, name)] += 1
+        elif verdict is None:
+            unanalysable.append(f"{filename}:{node.lineno}: {spelling}")
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Attribute) and target.attr in names:
+                    record(
+                        _dotted(target.value), target.attr, node,
+                        f"<{ast.unparse(target.value)}>.{target.attr} = ...",
+                    )
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "setattr"
+            and len(node.args) >= 2
+        ):
+            first = node.args[0]
+            if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                prefix, _, name = first.value.rpartition(".")
+                if prefix and name in names:
+                    record(prefix, name, node, f'setattr("{first.value}", ...)')
+            elif (
+                isinstance(node.args[1], ast.Constant)
+                and isinstance(node.args[1].value, str)
                 and node.args[1].value in names
             ):
-                found.add((path.name, node.args[1].value))
-    return found
+                record(
+                    _dotted(first), node.args[1].value, node,
+                    f'setattr({ast.unparse(first)}, "{node.args[1].value}", ...)',
+                )
+    return sites, unanalysable
+
+
+def _private_global_sites(names):
+    """:func:`_private_global_sites_in`, summed over every file under ``tests/``."""
+    sites = Counter()
+    unanalysable = []
+    for path in sorted((REPO / "tests").rglob("*.py")):
+        file_sites, file_unanalysable = _private_global_sites_in(
+            path.read_text(encoding="utf-8"), path.name, names
+        )
+        sites.update(file_sites)
+        unanalysable.extend(file_unanalysable)
+    return sites, unanalysable
 
 
 @pytest.mark.db_required
@@ -213,6 +381,22 @@ class TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema:
     process predating the schema. It does **not** say that such a survivor
     would have corrupted a query — see this module's docstring, and AC-3's
     withdrawal.
+
+    Declared bound on the three survivors the test's name lists (cycle-1
+    review F-005): two of them are independently falsifiable, the third is
+    not. The engine identity is pinned by mutant M1 (the whole
+    ``reset_engine()`` call deleted) and the pool by review mutant R5 (only
+    the ``dispose()`` deleted). The **backend** assertion is an implied
+    consequence of the pool one, not a third pin: any mutation that leaves a
+    pre-rebuild backend alive also leaves its connection in that pool, so the
+    pool assertion fires first and the backend poll is reached only when it
+    is already going to pass. Measured — ``engine.dispose(close=False)``,
+    SQLAlchemy's own way to abandon a pool without closing its sockets and
+    the one realistic shape that leaves a backend alive, died on the pool
+    assertion instead (review mutant R6). The poll is kept as the
+    belt-and-braces reading of "no survivor" and as the thing that makes the
+    failure message name a backend; it is not a control that can fail on its
+    own.
     """
 
     def test_no_engine_pool_or_backend_predating_the_rebuild_survives_it(
@@ -245,6 +429,14 @@ class TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema:
         )
 
         # --- the thing under test ---------------------------------------
+        # This drives a real DROP SCHEMA / CREATE / `alembic upgrade head` at
+        # whatever point in the run this test lands — the session fixture
+        # drives the same routine before any test body has run. So this one
+        # can inherit a transaction an earlier test left open, which the DDL's
+        # `SET LOCAL lock_timeout = '10s'` turns into a lock-timeout error
+        # *here* rather than in the fixture. If this test ever goes red that
+        # way, the holder is an earlier test's leak, not this card (cycle-1
+        # review F-006); `pg_stat_activity` names the blocking pid.
         try:
             _rebuild_public_schema(fixture_engine, test_db_url)
 
@@ -345,8 +537,13 @@ class TestEngineLifecycle_WhyTheHazardCannotBeForced:
         )
 
 
-class TestEngineLifecycle_TheSkipProfileIsUnchanged:
+class TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish:
     """AC-4: the fix does not buy its green by turning DB tests into skips.
+
+    Renamed from ``TestEngineLifecycle_TheSkipProfileIsUnchanged`` (cycle-1
+    review F-005), which claimed the suite's skip profile — the one thing
+    below that is *not* asserted here. Nothing is retired: the same two tests
+    carry on under the new name.
 
     The hazard only bites ``db_required`` tests, and this board's DB tests skip
     *green* when the database is absent — so narrowing the fixture, or simply
@@ -357,7 +554,9 @@ class TestEngineLifecycle_TheSkipProfileIsUnchanged:
 
     * this module keeps exactly :data:`EXPECTED_DB_REQUIRED_TESTS` tests that
       need the live database, so the coverage that pins the fix cannot quietly
-      drop to zero;
+      drop to zero — counted from the module's own AST
+      (:func:`_test_functions_in`) rather than from the run's collection, so
+      that a targeted selection cannot red it (cycle-1 review F-003);
     * given a PostgreSQL that answers, the ``db_required`` gate produces
       exactly **zero** skip reasons for this worktree's own derived test
       database — so those tests run.
@@ -377,22 +576,19 @@ class TestEngineLifecycle_TheSkipProfileIsUnchanged:
     """
 
     def test_exactly_the_expected_number_of_tests_here_need_the_database(
-        self, request
+        self,
     ) -> None:
         here = Path(__file__).resolve()
-        mine = [
-            item for item in request.session.items
-            if Path(str(item.fspath)).resolve() == here
-        ]
-        assert mine, "this module collected no tests, so the count below is vacuous"
-        db_required = [
-            item for item in mine if item.get_closest_marker("db_required")
-        ]
+        every, db_required = _test_functions_in(here.read_text(encoding="utf-8"))
+        assert every, (
+            "no test functions found in this module's own source, so the count "
+            "below is vacuous"
+        )
         assert len(db_required) == EXPECTED_DB_REQUIRED_TESTS, (
-            f"{len(db_required)} test(s) here carry db_required, expected "
-            f"{EXPECTED_DB_REQUIRED_TESTS}: "
-            f"{[item.name for item in db_required]}. CARD-252's AC-4 — a fix "
-            "that removes the symptom by removing the coverage is not a fix."
+            f"{len(db_required)} test(s) in this module carry db_required, "
+            f"expected {EXPECTED_DB_REQUIRED_TESTS}: {sorted(db_required)}. "
+            "CARD-252's AC-4 — a fix that removes the symptom by removing the "
+            "coverage is not a fix."
         )
 
     def test_a_reachable_postgres_yields_no_db_mode_skip_reasons(self) -> None:
@@ -439,12 +635,30 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
     the module got here.
 
     The guard's set is ``tests/conftest.py``, and the named exemption is the
-    nine pre-existing ``monkeypatch.setattr`` sites in
-    ``tests/test_db_url_driver.py`` and ``tests/test_db_connect_timeout.py``.
-    Those answer a different question — they force ``_init_engine`` to rebuild
-    so that *its* behaviour can be observed — and they are held to an equality
-    (:data:`_EXEMPT_PRIVATE_GLOBAL_SITES`), not a floor, so a tenth site is a
-    decision somebody makes rather than one they inherit (ADR-0039/R3).
+    nine pre-existing ``monkeypatch.setattr`` **sites** (six ``(file, name)``
+    pairs) in ``tests/test_db_url_driver.py`` and
+    ``tests/test_db_connect_timeout.py``. Those answer a different question —
+    they force ``_init_engine`` to rebuild so that *its* behaviour can be
+    observed — and they are held to an equality over sites with their counts
+    (:data:`_EXEMPT_PRIVATE_GLOBAL_SITES`), not a floor and not a set of
+    pairs, so a tenth site under an existing pair is a decision somebody makes
+    rather than one they inherit (ADR-0039/R3).
+
+    What the guard reaches, stated as what has a control (ADR-0039/R1). It
+    sees three spellings — a dotted assignment, ``setattr(module, "name", …)``
+    and ``setattr("dotted.path.name", …)`` — recognises the module by the
+    aliases the scanned file itself binds (both import spellings) on top of
+    :data:`_SESSION_ALIASES`, and **fails** rather than passes on a spelling
+    it cannot resolve to the session module. Each of those four claims has a
+    control in this class, and all four are verbatim mutants from CARD-252's
+    cycle-1 review that SURVIVED the first version of the guard (R1, R2, R3,
+    plus the deny-on-unanalysable shape R3 exposed).
+
+    The bound that remains: the recognition is syntactic. A test file that
+    reached the globals through something no AST walk can follow — a name
+    bound by a fixture, ``importlib.import_module`` into a local, a
+    ``globals()`` write — is outside the guard, and the failure path above
+    only catches the spellings whose last component is still ``session``.
     """
 
     def test_reset_engine_is_public_and_says_who_calls_it(self) -> None:
@@ -458,10 +672,33 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         )
 
     def test_conftest_names_the_seam_at_its_call_site(self) -> None:
-        source = CONFTEST_SOURCE.read_text(encoding="utf-8")
-        assert "reset_engine()" in source, (
-            "tests/conftest.py never calls reset_engine(); either the fix is "
-            "gone or it is spelled some other way."
+        """``conftest.py`` *calls* it — read as a call, not as a substring.
+
+        A text search is the wrong instrument here, and this cycle proved it:
+        narrowing ``_rebuild_public_schema``'s docstring for review finding
+        F-004 put the literal ``reset_engine()`` into conftest's prose, so a
+        substring check would have been satisfied with the call deleted.
+        Mutant M1 (the call gone, the prose kept) is the control.
+
+        Stated bound: the call has to be an attribute call on something that
+        names the session module (``app_session.reset_engine()``). If conftest
+        ever imports the function directly and calls it bare, this test reds
+        and has to be widened — deliberately, rather than quietly accepting
+        any call to anything of that name.
+        """
+        tree = ast.parse(CONFTEST_SOURCE.read_text(encoding="utf-8"))
+        aliases = set(_SESSION_ALIASES) | _session_aliases_in(tree)
+        calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "reset_engine"
+            and _names_the_session_module(_dotted(node.func.value), aliases) is True
+        ]
+        assert calls, (
+            "tests/conftest.py never calls session.reset_engine() — a mention "
+            "in a docstring is not a call site. Either the fix is gone or it "
+            "is spelled some other way (AC-5)."
         )
 
     def test_it_resets_exactly_the_globals_the_builder_creates(self) -> None:
@@ -477,32 +714,126 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
     def test_the_alias_set_covers_every_way_the_tree_names_the_module(self) -> None:
         """Completeness for :data:`_SESSION_ALIASES`, derived from the tree's imports.
 
-        ADR-0039/R2: the guard below recognises the session module by alias, so
-        an alias it does not know is a shape it cannot analyse. That must be a
-        failure, not a silent pass.
+        ADR-0039/R2: the guard recognises the session module by alias, so an
+        alias it does not know is a shape it cannot analyse. That must be a
+        failure, not a silent pass — and it is twice over now: the scan unions
+        the aliases of the file it is reading, and this test holds the literal
+        to the whole tree's imports. Both spellings are collected
+        (:func:`_session_aliases_in`), because cycle-1 review mutant R3 used
+        ``import nonogram.db.session as X`` to slip past both.
         """
         aliases = set()
         for path in sorted((REPO / "tests").rglob("*.py")):
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ImportFrom) and node.module == "nonogram.db":
-                    for alias in node.names:
-                        if alias.name == "session":
-                            aliases.add(alias.asname or alias.name)
+            aliases |= _session_aliases_in(ast.parse(path.read_text(encoding="utf-8")))
         assert aliases, "no test file imports nonogram.db.session (guard is blind)"
         assert aliases <= _SESSION_ALIASES, (
             f"tests/ names the session module as {sorted(aliases - _SESSION_ALIASES)}, "
-            "which the private-globals guard would not see. Add it to "
+            "which the private-globals guard's floor would not carry. Add it to "
             "_SESSION_ALIASES."
         )
 
     def test_no_test_file_outside_the_exemption_sets_those_globals(self) -> None:
         names = _global_names_assigned_by("_init_engine")
-        sites = _private_global_sites(names)
-        assert sites == set(_EXEMPT_PRIVATE_GLOBAL_SITES), (
-            "the set of test files setting session.py's engine globals by hand "
-            f"has changed.\n  new: {sorted(sites - set(_EXEMPT_PRIVATE_GLOBAL_SITES))}"
-            f"\n  gone: {sorted(set(_EXEMPT_PRIVATE_GLOBAL_SITES) - sites)}\n"
+        sites, unanalysable = _private_global_sites(names)
+        assert not unanalysable, (
+            "these test-tree lines set one of session.py's engine globals on "
+            "something this guard cannot resolve to the session module, so it "
+            "cannot say whether they are exempt. ADR-0039/R2 makes that a "
+            f"failure, not a pass:\n  " + "\n  ".join(unanalysable)
+        )
+        assert dict(sites) == _EXEMPT_PRIVATE_GLOBAL_SITES, (
+            "the test-tree sites setting session.py's engine globals by hand "
+            "have changed (counts are per site, not per (file, name) pair).\n"
+            f"  found:  {sorted(sites.items())}\n"
+            f"  expect: {sorted(_EXEMPT_PRIVATE_GLOBAL_SITES.items())}\n"
             "conftest.py in particular must go through reset_engine() (AC-5); "
-            "any other new site is a decision to record, not to inherit."
+            "any other new site — including a second one in a file that "
+            "already has some — is a decision to record, not to inherit."
+        )
+
+    # --- the three shapes this guard was NOT written from ---------------
+    # All three survived it in CARD-252's cycle-1 review (R1/R2/R3: 5 passed
+    # each). They are controls now, because a claim about what a guard catches
+    # needs a control that can fail (ADR-0039/R1). Each feeds source *text* to
+    # the scanner rather than editing a real file, so the control is permanent
+    # instead of being a mutant somebody has to remember to re-apply.
+
+    def test_a_tenth_site_in_an_already_exempt_pair_is_counted(self) -> None:
+        """R1: nine sites are six pairs, and the tenth must not hide in a pair."""
+        names = _global_names_assigned_by("_init_engine")
+        exempt_file = "test_db_url_driver.py"
+        source = (REPO / "tests" / exempt_file).read_text(encoding="utf-8")
+        before, _ = _private_global_sites_in(source, exempt_file, names)
+        key = (exempt_file, "engine")
+        assert before[key] == _EXEMPT_PRIVATE_GLOBAL_SITES[key], (
+            "this control is measured against the real exempt file; its site "
+            "count there has changed, so fix the exemption first."
+        )
+        mutated = source + (
+            "\n\ndef test_r1_control(monkeypatch):\n"
+            '    monkeypatch.setattr(db_session, "engine", None)\n'
+        )
+        after, unanalysable = _private_global_sites_in(mutated, exempt_file, names)
+        assert not unanalysable
+        assert after[key] == before[key] + 1, (
+            "a tenth hand-set site inside an already-exempt (file, name) pair "
+            "was not counted, so the exemption is a set of pairs again and "
+            f"the comment on _EXEMPT_PRIVATE_GLOBAL_SITES is false: {after[key]}"
+        )
+        assert dict(after) != _EXEMPT_PRIVATE_GLOBAL_SITES, (
+            "the guard's equality accepts a tenth site in an exempt pair"
+        )
+
+    def test_the_string_target_spelling_is_a_site(self) -> None:
+        """R2: pytest's own ``setattr("pkg.mod.name", …)`` spelling."""
+        names = _global_names_assigned_by("_init_engine")
+        sites, unanalysable = _private_global_sites_in(
+            "def test_r2_control(monkeypatch):\n"
+            '    monkeypatch.setattr("nonogram.db.session.engine", None)\n',
+            "test_not_exempt.py",
+            names,
+        )
+        assert not unanalysable
+        assert dict(sites) == {("test_not_exempt.py", "engine"): 1}, (
+            "the string-target spelling of monkeypatch.setattr is invisible to "
+            f"the guard, so AC-5's claim is wider than its reach: {dict(sites)}"
+        )
+
+    def test_a_plain_import_alias_is_a_site(self) -> None:
+        """R3: ``import nonogram.db.session as X`` then ``X.engine = …``."""
+        names = _global_names_assigned_by("_init_engine")
+        source = (
+            "import nonogram.db.session as probe\n\n"
+            "def test_r3_control():\n"
+            "    probe.engine = None\n"
+        )
+        assert _session_aliases_in(ast.parse(source)) == {"probe"}, (
+            "the alias-completeness collection does not see the plain-import "
+            "spelling, so its own docstring's promise is unmet"
+        )
+        sites, unanalysable = _private_global_sites_in(source, "test_not_exempt.py", names)
+        assert not unanalysable
+        assert dict(sites) == {("test_not_exempt.py", "engine"): 1}, (
+            "a module aliased by `import nonogram.db.session as X` is invisible "
+            f"to the guard: {dict(sites)}"
+        )
+
+    def test_a_spelling_the_guard_cannot_resolve_is_a_failure(self) -> None:
+        """ADR-0039/R2's default: unanalysable is red, never a silent pass."""
+        names = _global_names_assigned_by("_init_engine")
+        sites, unanalysable = _private_global_sites_in(
+            "import nonogram.db as pkg\n\n"
+            "def test_unresolvable(monkeypatch):\n"
+            "    pkg.session.engine = None\n"
+            '    monkeypatch.setattr("some.other.session.SessionLocal", None)\n',
+            "test_not_exempt.py",
+            names,
+        )
+        assert dict(sites) == {}, (
+            "neither spelling resolves to the session module, so neither is a "
+            f"site: {dict(sites)}"
+        )
+        assert len(unanalysable) == 2, (
+            "a reach the guard cannot classify must come back as a failure, "
+            f"not as nothing to see: {unanalysable}"
         )

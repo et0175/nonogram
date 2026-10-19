@@ -450,19 +450,31 @@ def _rebuild_public_schema(engine, database_url: str):
        ``logging.config.fileConfig``, which disables every logger already
        created in this process (and so every later ``caplog`` assertion), and
        imports the models a second time as ``src.nonogram``.
-    3. :func:`nonogram.db.session.reset_engine` — **after** the migration,
-       never before. Disposing before step 2 would leave a fresh engine
-       pointed at a half-built schema, which is the same defect wearing a
-       different hat (CARD-252 G-3).
+    3. :func:`nonogram.db.session.reset_engine` — **last**, so that retiring
+       the engine is the final thing this routine does and no engine
+       predating the new schema can exist when the fixture yields.
+       Deliberate, but not load-bearing, and the earlier reading of G-3 here
+       was wrong: ``reset_engine()`` builds nothing, so putting it before
+       step 2 cannot point a fresh engine at a half-built schema. Measured —
+       moved ahead of the Alembic subprocess, ``tests/test_db_engine_lifecycle.py``
+       stays green (CARD-252's own refutation, re-measured as cycle-1 review
+       mutant R7). The half-built-schema hazard belongs to the card's original
+       sketch, which rebuilt eagerly.
 
     Step 3 is the fix CARD-252 exists for. ``session.py`` keeps a module-global
     engine and rebuilds it only when ``DATABASE_URL`` changes, so a process
     that had already built one for this URL kept it, pool and all, across the
-    ``DROP SCHEMA`` above — handing out connections older than the schema they
-    query. Four consecutive build gates on this board reported failures that
-    reproduced on no second run. ``tests/test_db_engine_lifecycle.py`` pins
-    that this function leaves no such engine behind, and says there exactly
-    what that control does and does not demonstrate.
+    ``DROP SCHEMA`` above — leaving a connection older than the schema in the
+    pool, ready to be handed back out. ``tests/test_db_engine_lifecycle.py``
+    pins that this function leaves no such engine behind.
+
+    It does **not** pin that such a connection corrupts a query. Four
+    consecutive build gates on this board reported failures that reproduced on
+    no second run, and they are the motive for the card; the deterministic
+    reproduction was attempted and CARD-252's AC-3 was **withdrawn** for being
+    unforceable on psycopg2, so those gate failures stay unexplained. The test
+    module's docstring says exactly what the control does and does not
+    demonstrate — read it before concluding this call fixed them.
     """
     import subprocess
     import sys
