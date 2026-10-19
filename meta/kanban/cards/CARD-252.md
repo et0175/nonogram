@@ -744,3 +744,62 @@ to catch, and the AST cannot follow it without executing the test tree.
   for one of certify / merge-with-the-claim-cut-back / split — and, directly, whether this guard is
   worth keeping at all, or whether a smaller guard (or a declared convention and no guard) would
   serve the board better than an AST deny-default with a declared residual.
+
+### [Review 3/3] Score 8.0 — one open Important · verdict: **merge with the claim cut back**
+
+Report: `meta/review/20261019T213532Z-CARD-252-cycle3.yml` (copied to main). Last review the card
+gets; there is no cycle 4.
+
+- **Every mechanical claim verified, independently.** All five tree-wide numbers re-derived by a
+  separate script replaying the guard's branch decisions rather than reading its output: 0
+  unanalysable, 9 sites in 6 pairs (dict **byte-equal** to `_EXEMPT_PRIVATE_GLOBAL_SITES`), 13
+  other-target skips, 315 readable-name-outside skips, 2 residual. The two residual sites are exactly
+  the two named and no others; the residual's edge mutant reds; the residual's own skip **can fail**
+  (B5 kills). X1 and X2 re-derived as real-file mutants, both red. B4 and B5 spot-checked, both
+  killed, each also reddening the tree-wide guard. All six guardrails hold by measurement, including
+  G-1 re-derived: `session.py` docstring-stripped AST **identical** `214b629`↔`ddd5a18`, so the
+  production delta is zero for the third cycle running.
+- **C3-F-001 (important) — the fourth axis is argument *binding*, not spelling.** The dispatch is
+  three conditions (Assign + `ast.Attribute`; arity ≥ 3; arity == 2) and nothing catches what falls
+  between them: `monkeypatch.setattr(app_session, name="engine", value=None)`, the same with
+  `target=`, `setattr(*TRIPLE)`, and `app_session.engine, app_session.SessionLocal = None, None` (and
+  the same target nested in a list/annotated/`for`/`with`) **reach a session global and pass
+  silently** — confirmed executing, not merely parsed. In every one of them the target *and* the name
+  are readable literals, so they are inside the claim and outside the mechanism: a hidden limit, not
+  a declared one. `:840-845`'s "no outside … deny on every axis it can observe" is literally false.
+- **Why the remedy is prose and not a fourth branch**, and the reviewer did the arithmetic that
+  earns it: **zero** `setattr`-shaped calls in the tree take fewer than two positional arguments, and
+  **zero** tuple/list/annotated attribute targets name an engine global. Cycle 2's survivors were
+  live idioms at 17 real sites; these have **no traffic at all**. What is defective is a universally
+  quantified sentence, and ADR-0039/R1's own remedy is "narrowed to what is measured or deleted".
+- **C3-F-002 (minor)** — a second fail-open direction in the prefix filter: a `Test*` class carrying
+  an `__init__` collects 0 in pytest (with a warning) and counts 1 in the walk. The sentence claiming
+  "the one direction" is the defect; no filter change is wanted.
+- **[Family regression] Third generation, both findings, and the certifier named what actually
+  recurs.** The spelling axis genuinely closed and the mechanism genuinely became a deny default
+  rather than a list — this is not the same defect in a wider shape. What regenerates is one **claim
+  habit**: each fix widens the mechanism, then describes it with a universal quantifier. That is the
+  finding to carry to the retrospective, not a fourth card.
+
+- **[Orchestrator] the remedy is dispatched exactly as prescribed, and deliberately as prose plus one
+  control.** Four sentences narrowed (`:840-845`, `:847`, `:374-375`, `:133-134`) and ~8 lines added:
+  a tree-wide assertion that no `setattr`-shaped call has fewer than two positional arguments and no
+  tuple/list/annotated attribute target names an engine global — both 0 today, so the new bound is a
+  **control that can fail** instead of a sentence that cannot. It carries the two mutants this board
+  requires: the keyword-bound reach appended to a non-exempt file must red it, and the same shape on
+  another module must stay green. The agent is told that a fourth widening of the mechanism is
+  forbidden, and that if any of the four sentences turns out to be true as written it should keep it
+  and say so.
+- **[Orchestrator] the guard's own size is now a separate card, not this card's residue.** The final
+  reviewer answered the question directly: **no, not at this size** — three cycles, nine helpers,
+  ~180 lines of AST machinery, ~220 lines of docstring claims, eleven controls, and **zero real
+  violations caught**; the nine sites it reports are the nine it was written around. What it would
+  keep is about a fifth: `_global_names_assigned_by` plus its test (the one genuinely *derived*
+  authority here, so a fourth global added to `_init_engine` is inside the check the same day), the
+  AST call-site and public-seam tests, and the exemption **equality** reduced to a per-file textual
+  count — which still reds on a new file, a new name or a tenth site while claiming nothing about
+  reach, so there is nothing left to probe. Its reasoning is worth keeping verbatim: *a convention
+  enforced at review is honest about being a convention; an AST deny-default is a proof claim, and a
+  proof claim in a dynamic language always has one more axis.* Carded as **CARD-254**, to land after
+  this merge — never before, because shrinking a guard while its card is mid-merge is how a guard
+  disappears with nothing in its place.
