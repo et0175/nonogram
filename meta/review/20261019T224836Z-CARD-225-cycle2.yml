@@ -1,0 +1,480 @@
+version: 1
+generated_at: "2026-10-19T22:48:36Z"
+target: "card/225-one-cell-size-per-grid-size @ 0cba979 (fix cycle 1; git diff 0cba979^..0cba979, 9 files, +886/-68); cycle-1 target c0d35c0; base main 7bc93c1"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: "confirmation (cycle 2 of 3) — certification; the deferred mutation check of cycle 1 is run here"
+
+coverage:
+  read:
+    - "meta/review/20261019T173817Z-CARD-225-cycle1.yml (all ten findings, in full)"
+    - "meta/kanban/cards/CARD-225.md (AC, guardrails, the 14-rule System contract section, the failure matrix, both Worktree-notes blocks, the [Fix 1] declarations)"
+    - "git diff 0cba979^..0cba979 in full (all 9 files)"
+    - "src/nonogram/admin/book_page_spec.py (book_cell_mm / book_cell_sizes / book_cell_spec, __all__)"
+    - "src/nonogram/admin/book_pdf_generator.py (puzzle_page_plan, section_plan, page_spec, cell_sizes, _puzzle_page_spec, _unmeasurable_members, _named_puzzles, _pair_cell_mm, puzzle_pages signature + ids use, puzzle_section's walk, __init__'s own page_spec read)"
+    - "src/nonogram/admin/book_manager.py (_in_submission_order, _below_floor_for's two return points, _member_clue_sets)"
+    - "src/nonogram/admin/app.py (_book_cells docstring addition)"
+    - "tests/property/test_book_pairing.py (module docstring, Sheet.single_height_mm/cell_mm/book_cell_mm, shared_cell_mm's cap, _member, _book_cell_books, _extent_of, _measured_extent, _book_cap_mm, _expected_pages, both property tests end to end)"
+    - "tests/test_book_page_spec.py (TestBookCellSpec_LowersTheCapAndRefusesANonBookSheet)"
+    - "tests/test_book_pdf.py (TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle, both new tests)"
+    - "tests/test_book_select_floor_tiles.py (TestBookSelect_ATileClearsTheFloorAndTheAddStillRefusesIt, all four)"
+    - "tests/test_book_floor.py (TestBookFloor_RefusalsComeBackInSubmissionOrder, both)"
+    - "tests/test_book_cell_size.py (the two re-narrated docstrings, _measured_cost, _measure)"
+    - "meta/architecture/requirements.yml (EC-021:2229-2242, EC-027:3405-3418, FR-031 context)"
+    - "meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md (## Rules, R1-R3 severities)"
+  not_reached:
+    - "the full suite (forbidden by the brief; gate 3's solo 8560-passed run on this exact commit is taken as the green)"
+    - "tests outside tests/test_book_*.py + tests/property/test_book_*.py for the M6 'only test in the repository' claim (62 files / ~2800 tests were swept; the repository beyond them was not)"
+    - "a rendered-UI pass: no screenshots, runtime log, a11y log or baseline diff were provided this cycle, and the diff touches no template (app.py's change is a docstring)"
+    - "the two gate-2 failures (tests/property/test_book_ready_gate.py, tests/test_admin_binding.py) -- the brief rules them out as concurrent-window artefacts and forbids spending the cycle on them"
+  confidence: high
+metrics:
+  diff: { files: 9, added: 886, removed: 68 }
+  max_fan_in:
+    symbol: "BookPDFGenerator.cell_sizes"
+    callers: 3
+    note: "section_plan, puzzle_page_plan and _unmeasurable_members in src; 31 name occurrences in src, 3 test files. puzzle_page_plan itself has 2 production call sites (app.py:2722, app.py:2728); book_cell_spec has exactly 1 (book_pdf_generator.py:4030)."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (76 commits all-time, 42 of them fix/bug/hotfix -- 55% defect density, the board's busiest and most defect-prone file; both of this cycle's findings are in it)"
+    - "src/nonogram/admin/book_manager.py (34 commits, 13 fix)"
+  cochange_missing:
+    - "tests/helpers/book_corpus.py (21 co-changes in the last 40 commits of the two touched src files; deliberately untouched -- G-5, no baseline re-recorded)"
+    - "tests/test_book_pdf_memory.py (16); tests/test_book_page_numbers.py (16); src/nonogram/export/layout.py (14); tests/property/test_book_export_interior.py (11); tests/test_book_pdf_two_up.py (8); tests/property/test_book_pdf_geometry.py (7) -- all green under this head per gate 3 and under the M6 sweep run here; none is a missing-change candidate for this delta, which only adds tests and docstrings plus two statements in book_pdf_generator.py"
+  unmeasured:
+    churn_12_months: "tooling_failure -- repository commit dates (2026-10-19) sit at/after the host clock, so `git log --since=12.months` returns an empty set by construction. All-time counts used instead and reported under hotspots."
+    bus_factor: "tooling_failure -- `git shortlog -sn` over the touched files returns a single synthetic author for the whole repository; the figure carries no information here."
+    timings: "not_applicable -- the brief forbids timing measurements this cycle (a concurrent review is live). No latency or suite-cost claim in this report rests on a number; the one cost observation is stated as a call count."
+    full_suite: "not_applicable -- forbidden by the brief; gate 3 (solo, 8560 passed / 1 skipped / exit 0 on 0cba979) is the cited green."
+    visual: "no_eligible_fact -- the fix delta touches no template, stylesheet or route body; no screen changed, so no render was requested or needed."
+
+system_contract:
+  rules_checked: 14
+  holds: 1
+  unchecked: 12
+  violated: 1
+  verdicts:
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: nothing in this fix delta reduces a grid extent to a scalar. Grid size travels as the pair `(columns, rows)` throughout (book_page_spec.GridSize, Sheet.book_cell_mm's keys, _extent_of's 4-tuple); no public signature, request field or export field was added or changed."
+    - "ADR-0023/R1 ⚠ unchecked — no_eligible_fact: no export metadata format is touched by this delta (no file under src/nonogram/export/ is in it)."
+    - "ADR-0033/R1 ✓ holds — no puzzle field is written anywhere in the delta: `git diff 0cba979^ 0cba979 -- src | grep -E '\\[(grid|clues_rows|clues_cols|difficulty_tier|strategies)\\] *='` returns nothing, and the three src changes are two docstrings, one docstring block, `_in_submission_order` (sorts FloorRefusal objects) and two `page_spec`/try-block statements. tests/test_book_floor.py::TestBookFloor_...::test_the_puzzle_is_untouched_by_being_measured green in the 6-file run here (exit 0, 0 failures)."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: the delta adds no sheet arithmetic. `git diff 0cba979^ 0cba979 -- src | grep -E '^\\+' | grep -iE 'gutter_mm|outside_mm|trim_|usable_width|usable_height'` is empty; every coordinate still comes from compute_layout/compute_pair_layout, unchanged from the cycle-1 verdict, and no code path was re-pointed."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no band text or `_set_band`/`band_identity` call appears in the delta."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke weight, `min_thin_rule_mm` or profile field is in the delta; the cell figures themselves are unchanged by this fix (no production figure moved — see the F-001/F-002 analysis)."
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: no JavaScript, CSS, template or static file is in the delta."
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: no player or solution-grid transport is in the delta."
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject.toml is not in the delta; no playwright dependency moved."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser test is added or changed by the delta (the new tests are Flask-test-client and in-process)."
+    - "ADR-0039/R1 ✗ violated — src/nonogram/admin/book_pdf_generator.py:1438-1444 and :6327-6334, tests/test_book_pdf.py:1253-1262, and CARD-225.md's failure-matrix row F-3b all claim that the explicit sheet pre-read is what keeps a book-level fault a bare ValueError and that `test_an_unreadable_print_specification_is_the_books_own_failure` pins it. Both controls cannot fail: mutant M10 (delete `generator.page_spec(1)` from puzzle_page_plan) and mutant M14 (move section_plan's `spec = self.page_spec(1)` below the cell-map try) each leave 0 failures across the six touched test files, because `BookPDFGenerator.__init__` already calls `page_frame(self.page_spec(1))` (line 3958; on main at 3897) and raises first. A claim whose control cannot fail is narrative, not coverage — the rule's own words. severity: mandatory. Filed as F-001."
+    - "ADR-0039/R2 ⚠ unchecked — no_eligible_fact: the delta adds no guard over an enumerable set; `_book_cell_books` is a corpus addendum (two hand-built books), not a guard consulting a set, and `_in_submission_order` consults the submission's own id list, which is the authority."
+    - "ADR-0039/R3 ⚠ unchecked — no_eligible_fact: the delta grants no exemption. The one filter it changes (the rendered corpus's distinct-drawing test) is a corpus admission rule that was widened, not an exemption, and the shape it still drops (two members of one grid size with identical gutters) is recorded in the test docstring as having nothing on the page to tell apart."
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no play surface, play-state persistence or player route is in the delta."
+    - "NOTE (model gap, not a rule verdict): the card's `## System contract` section lists the 14 rules enumerated above (tightened 2026-10-19), but the implementation's own `### System contract — verdicts` table judges a DIFFERENT set of 8 (ADR-0033/R1, ADR-0036/R1..R4, ADR-0037/R1, ADR-0037/R2, CON-020) and cycle-1's YAML carried that same 8. Only ADR-0033/R1, ADR-0036/R2, ADR-0037/R1 and ADR-0037/R2 are in both. The projection was tightened after the implementation wrote its verdicts, so neither list is wrong in itself; this cycle enumerates the section as it stands, which is the authority Step 8h names. ADR-0036/R1, ADR-0036/R3, ADR-0036/R4 and CON-020 are therefore no longer in the card's contract and are not re-verdicted here -- their cycle-1 holds stand and nothing in this delta bears on them. Fix the source artifact (the rule scopes / the card's projection), never either list."
+    - "CHECK REFS: ADR-0039/R1's `check: {kind: test, ref: test_the_control_for_each_spelling_depends_on_the_set}` and R2's `test_the_guard_sets_are_derived_and_not_hand_written` both exist (tests/test_suite_profile.py:4061, :4149) and are green on this head (part of the exit-0 run here). Both ADRs state their refs do not reach code written later, which is why R1's violation above is a review-lens finding and not a red checker."
+
+root_causes:
+  - id: RC-1
+    title: "The F-006 remedy was built on a wrong attribution: the property it protects is enforced by BookPDFGenerator.__init__, not by the two statements the fix added, so every claim made for those statements is narrative"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1444
+    title: "The F-006 remedy's mechanism is dead and its cited control cannot fail -- two mutants survive"
+    description: |
+      Fix cycle 1 declared F-006 fixed "structurally rather than incidentally", added two
+      statements to production, and cited one new test as pinning the distinction. Measured,
+      none of that is load-bearing.
+
+      **What the code does.** `BookPDFGenerator.__init__` already reads the sheet:
+      `frame = page_frame(self.page_spec(1))` at book_pdf_generator.py:3958 (unchanged by this
+      card -- present on main at :3897). So a book whose stored print specification cannot be
+      laid out raises `ValueError` in the **constructor**, before any member is measured,
+      before any pre-read, and before any try block. Reproduced directly with the fix's own
+      remedy deleted:
+
+          puzzle_page_plan(book_with_trim_width_cm="abc", puzzles)
+            -> ValueError("book trim_width_cm must be a number of cm, not 'abc'")
+
+      **The two mutants.**
+        * **M10** -- delete `generator.page_spec(1)` (book_pdf_generator.py:1444, the statement
+          whose comment at :1438-1443 says `cell_sizes` "would read it again inside the try
+          otherwise"): **0 failures** over tests/test_book_pdf.py, test_book_floor.py,
+          test_book_select_floor_tiles.py, test_book_cell_size.py, test_book_page_numbers.py,
+          test_book_arrange_page_breaks.py. Re-run solo against
+          `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle`: 10 passed.
+        * **M14** -- move `section_plan`'s `spec = self.page_spec(1)` (and the TOC measurement
+          it feeds) to **below** the cell-map try, i.e. revert exactly the ordering the comment
+          at :6327-6334 says is what keeps a book-level fault out of the per-puzzle handler:
+          **0 failures** over the same six files.
+
+      **The four committed claims the survivors refute.**
+        1. book_pdf_generator.py:1438-1443 -- "read **outside** the try below ... so it stays
+           the bare ValueError it has always been rather than becoming a per-puzzle abort
+           naming all 120 of them. `cell_sizes` would read it again inside the try otherwise."
+           The "otherwise" is unreachable; the statement at :1444 is dead code (a bare
+           expression whose value is discarded).
+        2. book_pdf_generator.py:6327-6334 -- "without this ordering a book-level fault would
+           come back out of that handler as a per-puzzle RuntimeError listing all 120 members
+           ... Stated by this one call rather than left to the TOC measurement's position in
+           this method." It is still left to a call's position -- the constructor's -- which
+           the fix did not find. (The statement itself is a legitimate small improvement: it
+           saves a second `page_spec` call. Only the reason given for it is false.)
+        3. tests/test_book_pdf.py:1253-1262 --
+           `test_an_unreadable_print_specification_is_the_books_own_failure`'s docstring says
+           an unreadable stored trim "used to arrive at the per-puzzle handler above and come
+           back out as RuntimeError(...) -- 120 numbers for a failure that belongs to none of
+           them", and that "Both entries read the sheet before the handler now, so the
+           distinction ... is kept by the caller too". The test passes identically with either
+           caller mechanism removed, so it is a control that cannot fail -- **ADR-0039/R1**,
+           severity `mandatory`, in so many words ("A claim whose control cannot fail is
+           narrative, not coverage, and must be narrowed to what is measured or deleted").
+        4. CARD-225.md failure-matrix row **F-3b** -- "Both entries read the sheet once,
+           before the cell map's handler, so the distinction `_unmeasurable_members` already
+           drew is kept by the callers too ... Pinned by
+           `test_an_unreadable_print_specification_is_the_books_own_failure`." Same claim,
+           committed into the card's declared failure semantics.
+
+      **A fifth consequence, pre-existing but now mis-documented.**
+      `_unmeasurable_members`' `spec_is_readable is False` branch (book_pdf_generator.py:4060-4069)
+      is unreachable from either production entry for the same reason, yet its docstring
+      describes that case as the live one ("Should none refuse -- a book whose sheet itself is
+      unreadable ... every member is named"). Cycle 1's F-006 dismissal was right that the
+      120-number message was never producible; it got the cause wrong, and the fix was built
+      on the wrong cause.
+
+      **What is NOT wrong.** The behaviour is correct on every tree: a bad stored spec is a
+      bare ValueError from both entries, and the new test asserts that truly. The finding is
+      that the claim is wider than its mechanism, which on this board is the finding.
+    suggestion: |
+      Narrow the claims to what is measured, and make the test discriminate something.
+        1. Replace the two comments' counterfactual with the real mechanism, naming the line:
+           "an unreadable stored print specification raises in `BookPDFGenerator.__init__`
+           (`page_frame(self.page_spec(1))`), before any member is measured, so a book-level
+           fault can never reach the cell map's handler. This read is kept only to avoid a
+           second `page_spec` call / is redundant and removable." Delete the dead
+           `generator.page_spec(1)` at :1444, or keep it and say it is a belt-and-braces
+           statement with no control, not a mechanism.
+        2. Give the test the control it claims, which is cheap: drive the shape the
+           constructor cannot catch -- construct the generator on a good book, then make the
+           spec unreadable (`generator.book.trim_width_cm = "abc"`) and call `section_plan` /
+           `puzzle_page_plan`. On that path the pre-read IS what decides, M10/M14 both red, and
+           `_unmeasurable_members`' `spec_is_readable` branch becomes reachable rather than
+           dead. If that path is judged not worth supporting, say so and delete the branch and
+           both statements instead -- what is not acceptable is a committed failure-matrix row
+           citing a control that cannot fail.
+        3. Amend failure-matrix row F-3b to the mechanism that actually holds it.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1466
+    title: "The claim that `ids` reaches the pairing walk so a pair's abort names rows has no control"
+    description: |
+      The comment at book_pdf_generator.py:1466-1470 says: "`ids` to the walk as well, so the
+      *other* abort this entry can raise -- a pair COMP-007 refused to measure -- names the
+      same rows rather than bare positions. Before this it named '#1, #2' where the handler
+      above names the id, which would have made the `Raises:` block true of one branch and not
+      the other."
+
+      Mutant **M13** -- revert that half (`generator.puzzle_pages(payloads, cell_sizes=...)`,
+      i.e. `ids` not passed to the walk): **0 failures** over the same six files. Nothing
+      reaches the walk's pair abort through `puzzle_page_plan`, because a payload that
+      `cell_sizes` can measure but `compute_pair_layout` refuses is not constructed anywhere.
+      `ids` is used in `puzzle_pages` only for the message and for a parallelism check
+      (:6037, :6069), so the change is behaviourally inert except on that unreached path.
+
+      Same root cause as F-001: a true statement about the code, cited as though a test held
+      it. Filed Minor rather than Important because the claim is about a message on an
+      unreached path, not about the failure semantics a declared matrix row rests on.
+    suggestion: |
+      Either add the one case that reaches it -- a payload pair `cell_sizes` measures and
+      `compute_pair_layout` refuses, driven through `puzzle_page_plan`, asserting the id and
+      not "#1, #2" -- or narrow the comment to "passed for parity with `section_plan`; no
+      caller-reachable abort exercises it today".
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: compliance
+    type: question
+    file: meta/architecture/requirements.yml
+    line: 3405
+    title: "EC-027's statement does not name the cap its own property test now enforces -- the EC-021 propagation gap's twin, undeclared"
+    description: |
+      EC-027 (requirements.yml:3405-3418) reads: "a page holds two only when their tiers are
+      equal, they are consecutive in the book order and fit at a shared cell of at least
+      7.0 mm; a puzzle that could pair with its successor under that rule is never left alone
+      by the in-order walk". It names no sheet and no cap.
+
+      Its named property test's module docstring now reads (tests/property/test_book_pairing.py:11-20):
+      "they fit at one shared cell of at least 7.0 mm **on a sheet capped at the smaller of
+      their two grid sizes' book cells** (CARD-225)". The card's own hand-built refusal book
+      instantiates the difference: three 22x10 members, a pair whose own two-up fit is
+      7.254 mm (>= 7.0) that is nevertheless **not** paired, because a third member takes the
+      grid size's book cell to 6.80 mm.
+
+      So EC-027's second clause admits two readings that differ exactly on the F-8 shape --
+      "fit at a shared cell" as the pair's own fit (the pair could pair, the walk leaves it
+      alone, the clause is **false**) or as the fit on the sheet the book offers (the clause
+      holds). The implementation and the test pick the second; the registry says neither.
+
+      This is the same registry-propagation gap the card correctly declared for EC-021 (its
+      F-13, and cycle-1's F-004): NFR-008's 2026-10-17 amendment (commit 91609aa) moved the
+      printed cell from a puzzle to a grid-size-per-book and did not propagate into the
+      consistency ECs that quote it. The card declared it for EC-021 and routed the wording to
+      the architect station. For EC-027 it declared the **behaviour change** (failure-matrix
+      row F-8, naming EC-027) and that the property can now see it -- but nothing records that
+      EC-027's own wording is now under-determined, although fix cycle 1's opening sentence
+      names EC-027 as "the one whose verdict the card actually moved".
+
+      Filed Minor, not Important, because the second reading is the natural one and a skeptic
+      can fairly say EC-027 never specified the sheet, so nothing in the registry is falsified
+      -- unlike EC-021's "no two of them can disagree about a puzzle", which became flatly
+      untrue. `meta/architecture/**` is untouched by this card and must stay so.
+    suggestion: |
+      Card-side, cheap and in scope: one line in the card's findings-for-the-orchestrator
+      block, symmetric with F-13 -- "EC-027's statement does not name the sheet the shared cell
+      is fitted on; since NFR-008's amendment the pairing verdict depends on the grid size's
+      book cell, and the property test states that explicitly while the registry does not.
+      Routed to the architect station; no registry edit from a delivery card."
+      Architect-station, not this card: add the cap term to EC-027's statement (or say
+      explicitly that "fit at a shared cell" means the fit on the sheet the book offers), and
+      re-check AC-248..AC-250 against it.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_book_pairing.py
+    line: 470
+    title: "F-8 and F-9's regression surface inside the property is one hand-built book each"
+    description: |
+      `_book_cell_books()` returns exactly two books; the walk half consumes both, the rendered
+      half consumes only the first. Measured here, with the two books removed from the corpus
+      generators: over the 3600-book sweep `refused_on_book_cell == 0` **and**
+      `book_cell_lowered == 0`, and over the 24-book rendered sweep `shared_binds == 0`. So
+      each of the three counters is satisfied by exactly one occurrence from exactly one
+      hand-built book, and F-9 (a pair paired at a lowered cell) is exercised on the **plan**
+      only -- its ink is pinned elsewhere, by
+      tests/test_book_cell_size.py::TestBookCellSize_SharedPageTakesTheSmaller::test_both_slots_are_drawn_at_the_smaller_of_the_two_book_sizes.
+
+      That is the same one-case surface cycle-1's F-003 criticised, now moved inside the
+      property rather than removed -- which is a real improvement (the counters make the
+      corpus unable to shrink silently, and the 3600-book sweep still certifies the new term
+      never changes a verdict it should not), but it is worth saying plainly rather than
+      letting "the property now sees F-8" read as "F-8 is swept".
+
+      Measured context for the judgement, not an argument against the two books: the shape is
+      **rare, not unreachable**. Over 80,000 off-corpus books from the same `_puzzle`
+      generator (4 seeds x 20,000) F-8 occurred **2** times (seeds 1271 and 7) and F-9 **0**
+      times -- roughly 1 book in 40,000 for F-8. Reaching it by sweeping would need O(10^5)
+      books, ~30x the current corpus and far outside engineering-standards section 6's
+      100-1000-case budget, so hand-building is the right mechanism. The committed wording in
+      `_book_cell_books`' docstring ("essentially never ... measured over the 3600-book sweep
+      below, the shape occurs zero times") is accurate; only the paraphrase "the sweep provably
+      cannot produce it" overstates it.
+    suggestion: |
+      Parametrise the two books instead of fixing them: `_member(columns, 10, ...)` over
+      columns in 22..24 with two or three depth pairs each gives ~6 F-8 cases and ~6 F-9 cases
+      for no rendering cost in the walk half, and the counters become `>= 4` rather than
+      `>= 1`. Also feed `_book_cell_books()[1]` (the F-9 book) to the rendered half, or say in
+      its docstring that F-9's ink is pinned in tests/test_book_cell_size.py and name the test.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_book_pdf.py
+    line: 1277
+    title: "A tautological assertion in the new F-006 test"
+    description: |
+      `assert not isinstance(raised.value, RuntimeError), message` sits inside
+      `with pytest.raises(ValueError)`. `RuntimeError` is not a subclass of `ValueError`, so a
+      RuntimeError would never reach that line -- `pytest.raises(ValueError)` would have let it
+      through and failed the test first. The assertion can never fire. Harmless (the real
+      discriminator is the `pytest.raises(ValueError)` itself, which does work), but it reads
+      as the test's main guard.
+    suggestion: |
+      Delete the line, or replace it with the assertion that carries the intent --
+      `assert type(raised.value) is ValueError, message`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: ops
+    type: risk
+    file: tests/property/test_book_pairing.py
+    line: 745
+    title: "The walk half now runs the whole-book cell map per book -- about 16k added compute_layout calls, no timing taken"
+    description: |
+      `test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly` now calls
+      `generator.cell_sizes(payloads)` for each of 3602 books, which is one `compute_layout`
+      per member -- roughly 16,000 calls the test did not make before. It is unavoidable: that
+      call IS the production door F-003 was about, and a walk run without it certifies the
+      superseded rule. Stated structurally, from the call graph, because the brief forbids
+      timing this cycle; recorded so the figure is on the record before anyone measures the
+      property suite and is surprised. The test's own `sheet.book_cell_mm(order)` runs twice
+      per book (once in `_expected_pages`, once in the loop body) but is pure float arithmetic.
+    suggestion: |
+      Nothing to do now. If the property suite's cost ever shows up, the loop body's second
+      `sheet.book_cell_mm(order)` can be hoisted and passed into `_expected_pages`, and
+      `generator.cell_sizes(payloads)` is the irreducible part.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: feature
+    type: question
+    file: meta/kanban/cards/CARD-225.md
+    line: 41
+    title: "AC-1's wording promises more uniformity than F-9 delivers -- worth one render before the owner meets it in print"
+    description: |
+      AC-1 says "every one of them is drawn at the same cell size, measured off the ink", and
+      the card's title is "One cell size per grid size across the whole book". Failure-matrix
+      row F-9 declares the exception: a two-up page draws
+      `min(book cell A, book cell B, pair fit)`, so when the pair's own two-up fit is below the
+      grid size's book cell, a paired member of a grid size prints **smaller** than a single
+      member of the same grid size in the same book. Worked arithmetic on Book 1: three 13x13s
+      with 1-deep gutters have a book cell of 7.5 mm; two of them paired fit at about 7.27 mm
+      (pair height / 28 cells), the third prints alone at 7.5 mm.
+      This is declared, deliberate and physically necessary, and the AC-1 test exercises a book
+      whose members do not pair -- so nothing here is broken. It is flagged because it is the
+      one thing in this card's geometry that the owner can see on paper and that the card's
+      own headline denies.
+    suggestion: |
+      Not a code change. A render worth asking for before merge, since it is cheap and the
+      owner validates visually: one Book 1 interior holding three 13x13 easy puzzles at 1-deep
+      gutters -- two will share a page, one will print alone -- exported to
+      ~/Documents/nonogram-reviews/CARD-225 and eyeballed for whether the ~0.23 mm difference
+      between the paired grids and the single grid reads as wrong on the page. If it does, the
+      question is for FR-040/AC-4, not for this card. Separately, AC-1's wording could gain
+      "...on the book's single pages" so the headline and F-9 stop disagreeing.
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+cycle1_verdicts:
+  - "F-001 CLOSED — book_cell_spec's two refusals are reached the only way they can be (a direct call on a function that is in `__all__`, not a private helper), and every branch has a killing mutant: M3 (curve refusal deleted) -> 1 failure; M4 (numeric refusal deleted) -> 10 failures; M5 (cap min->max, the claim's edge) -> 14 failures incl. 12 in test_book_cell_size.py; M6-zero (`<= 0` -> `< 0`) -> 1; M7 (bool clause deleted) -> 1; M8 (NaN clause deleted) -> 1; M9 (inf clause deleted) -> 1. No survivor."
+  - "F-002 CLOSED — the documented contract is true: M11 (RuntimeError wrapper deleted) and M12 (ids -> None in the namer) each red all three new parametrized cases, including `alone`, which exists on no earlier tree. Residual: the `ids`-to-the-walk half of the same fix has no control (F-002 this cycle)."
+  - "F-003 CLOSED — and this is the strongest closure in the delta. M1 (`_pair_cell_mm` returns None) reds both halves on the MECHANISM: the walk half on `assert [(1, 2), (3,)] == [(1,), (2,), (3,)]` and the rendered half on the interior page count / ink read-back, not on a counter. M2 (`book_cell_sizes` min->max) reds both halves plus 16 tests in test_book_cell_size.py. The 'zero in 3600' measurement is verified exactly (see F-004 this cycle)."
+  - "F-004 CLOSED — M18 (`_member_clue_sets` dropped from the prospective membership) reds 2 of the 4 new selection-tab tests plus 1 in test_book_cell_size.py. The registry half is untouched and nothing pretends to settle it: requirements.yml's EC-021 statement (:2229-2242) and its `test:` pointer are unchanged, `git log main..HEAD -- meta/architecture/` is empty, and the new class's docstring asserts the two screens' figures and their ordering and no sentence of EC-021."
+  - "F-005 CLOSED, and the narrowing is true AND complete — the docstring now says the test does not discriminate M6 and names the one that does. Verified wider than cycle 1 measured it: M6 (`puzzle_section`'s walk handed `self.cell_sizes(payloads[start:end])`) over all 62 tests/test_book_*.py + tests/property/test_book_*.py files (~2800 tests) kills EXACTLY ONE test, `TestBookCellSize_SharedPageTakesTheSmaller::test_the_pair_is_capped_by_a_member_in_another_level`. The claim 'the only test in the repository that kills M6' holds across the book family; the repository beyond it was not swept."
+  - "F-006 NOT CLOSED — the remedy was taken, the behaviour is right, and the reason given for it is false. See F-001 this cycle (ADR-0039/R1, mandatory)."
+  - "F-007 CLOSED — `_measure` delegates to a module-level `functools.lru_cache`d `_measured_cost(seed)` returning two tuples; the six assertions share an immutable object none writes to, and `test_the_corpus_is_the_size_it_says_it_is` still asserts MIN_COST_CASES against that same object, so the corpus cannot shrink silently. No timing claimed."
+  - "F-008 CLOSED — M15 (`_in_submission_order` returns the list unsorted) reds `test_an_unreadable_member_between_two_small_ones_keeps_its_place`, which is the only arrangement that can tell the restored order from 'unreadable first'; the reversed case is marked as a control and passes either way, as declared. Two edge mutants survive and are not findings: M16 (unknown id sorts first) and M17 (`setdefault` -> last-wins for a duplicated id) both target cases the docstring explicitly declares cannot occur, and it claims no test for them."
+  - "F-009 DECLINED — decline accepted on its merits. The finding's own suggestion was 'nothing to do now'; there is no registry threshold, timing is forbidden, and the figure plus the identified narrowing are now at the cost site (`_member_clue_sets`' docstring). The 'identical result over a strictly smaller set' claim is true by reading: `_below_floor_for` indexes `sizes` only at the submission's own grid sizes, so the map's other keys are never read."
+  - "F-010 CLOSED — one sentence each in `BookManager._below_floor_for` and `app._book_cells`, naming the 186 -> 325 figure, the +75% / 139-puzzle consequence and `TestBookCellSize_TheCostOfABookWideCell` as where it is pinned."
+
+mutants:
+  summary: "18 mutants, all restored from byte-identical backups and `diff -q`-verified; `git status --porcelain` shows src/ and tests/ clean (only meta/ differs, which this review writes). 14 killed, 4 survived."
+  killed:
+    - "M1 `_pair_cell_mm` returns None — both EC-027 halves fail on the page structure / ink read-back"
+    - "M2 `book_cell_sizes` min -> max — both EC-027 halves + 16 tests in test_book_cell_size.py"
+    - "M3 book_cell_spec COMFORT_CURVE refusal deleted — 1"
+    - "M4 book_cell_spec numeric refusal deleted — 10 (all parametrized cases)"
+    - "M5 book_cell_spec cap min -> max (the claim's edge: 'lowered, never raised') — 14"
+    - "M6-zero `cell_mm <= 0` -> `< 0` (boundary) — 1 ([zero])"
+    - "M7 `isinstance(cell_mm, bool)` clause deleted — 1 ([bool-true])"
+    - "M8 NaN clause deleted — 1 ([nan])"
+    - "M9 inf clause deleted — 1 ([inf])"
+    - "M11 `puzzle_page_plan`'s RuntimeError wrapper deleted — 3 (all neighbour shapes)"
+    - "M12 `_unmeasurable_members(payloads, None)` instead of ids — 3"
+    - "M15 `_in_submission_order` returns unsorted — 1"
+    - "M18 `_member_clue_sets` dropped from the prospective membership — 3"
+    - "M6-level `puzzle_section` walk sized on `payloads[start:end]` — exactly 1 over ~2800 book tests (F-005's claim, verified)"
+  survived:
+    - "M10 `generator.page_spec(1)` deleted from `puzzle_page_plan` — 0 failures (F-001)"
+    - "M14 `section_plan`'s spec read moved below the cell-map try — 0 failures (F-001)"
+    - "M13 `ids` not passed to `puzzle_pages` from `puzzle_page_plan` — 0 failures (F-002)"
+    - "M16 / M17 `_in_submission_order`'s unknown-id default and `setdefault` — 0 failures; declared-impossible cases, no claim of coverage, NOT findings"
+  corpus_experiment:
+    - "both hand-built books removed from the walk half's and the rendered half's generators: `refused_on_book_cell == 0`, `book_cell_lowered == 0` over 3600 books, `shared_binds == 0` over 24 books. The card's 'zero occurrences in 3600 books' is verified exactly, and is true of F-9 as well as F-8."
+    - "reachability, measured off-corpus: 4 seeds x 20,000 books through the same `_puzzle` generator -> F-8 twice (seeds 1271, 7), F-9 zero times. The shape is rare (~1 in 40,000 books), not unreachable."
+
+family_regression:
+  statement: |
+    BOTH of this cycle's gating findings fall in a family that already produced a gating
+    finding in cycle 1, on two independent readings of "family":
+      * by rule — cycle-1 F-005 was a committed docstring claiming a discrimination a mutant
+        refuted (ADR-0039/R1's shape). Cycle-2 F-001 is the same shape, now in two production
+        comments, a test docstring and a committed failure-matrix row.
+      * by file/function — cycle-1 F-002 and F-006 were both about
+        `book_pdf_generator.puzzle_page_plan` / `section_plan`'s abort naming and the sheet
+        read in front of it. Cycle-2 F-001 and F-002 are in exactly those two functions,
+        introduced by the commit that fixed F-002 and F-006.
+    So this is two consecutive cycles whose gating finding sits in one family, and the loop is
+    regenerating the defect rather than converging on it. The signal is not the count (10
+    findings closed, 14 of 18 mutants killed, the hardest finding closed on the mechanism) --
+    it is that the fix for a claim-vs-mechanism finding was itself written as a claim without a
+    control, in the same file, in the same cycle. Attribution: F-001 and F-002 are both
+    attributable to fix cycle 1 (new code and new comments at 0cba979). F-003, F-004, F-006 and
+    F-007 are not -- F-003 and F-007 predate the fix (ba6c5b7 / the registry), F-004 is a
+    property of the fix's chosen mechanism rather than a defect in it, F-006 is an unavoidable
+    cost of the correct fix.
+    Recommendation for the retro, not for this card: the standing rule this board keeps
+    re-learning is "a comment that names a mechanism must name the line that enforces it, and
+    a comment that names a test must be refuted by deleting the mechanism." That is ADR-0039/R1
+    already; what is missing is that the fix station runs the deletion, not only the addition.
+    The cheapest enforcement is a fix-cycle obligation: for every claim a fix commits, run the
+    mutant that deletes the claimed mechanism and record the failure count -- fix cycle 1 ran
+    seven mutants (M-A..M-G) and every one of them was an ADDITION's control; not one deleted
+    the F-006 remedy it was asserting.

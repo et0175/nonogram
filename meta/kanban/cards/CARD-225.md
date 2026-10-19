@@ -848,3 +848,89 @@ filtering or caching added, the figure and the identified narrowing recorded in 
   run is the evidence gate 2's failures were **concurrent-window artefacts** and not this card's —
   the attribution is now measured, not argued. Fix cycle 1's ten findings stand closed on a green
   full suite; next station is the certification review (cycle 2).
+
+### [Review 2/3] Score 8.5 — FAILED on the severity gate (1 open Important) · ⚠ family regression
+
+Report: `meta/review/20261019T224836Z-CARD-225-cycle2.yml` (copied to main). Nine of cycle 1's ten
+findings certified closed, F-009's decline accepted, 18 mutants run, 14 killed.
+
+- **F-001 (important, `book_pdf_generator.py:1444`, with `:6327-6334`, `test_book_pdf.py:1253-1262`
+  and failure-matrix row F-3b) — the F-006 remedy's mechanism is dead and its cited control cannot
+  fail.** `BookPDFGenerator.__init__` already calls `page_frame(self.page_spec(1))` at `:3958` — and
+  on `main` at `:3897` — so an unreadable stored print specification raises in the **constructor**,
+  before any member, any pre-read, any try. **M10** (delete the `generator.page_spec(1)` whose comment
+  says `cell_sizes` would otherwise read it inside the try) and **M14** (move `section_plan`'s read
+  below the cell-map try, the ordering `:6327` calls load-bearing) each survive with **0 failures**
+  over six test files, and with M10 applied `puzzle_page_plan` still raises the bare `ValueError`. So
+  `:1444` is dead, `_unmeasurable_members`' `spec_is_readable is False` branch is unreachable from
+  both production entries while its docstring describes it as live, and the card's claim that the
+  distinction is "now **structural** rather than incidental" is false — it is still incidental, to a
+  constructor call the fix never found. Behaviour is correct on every tree; the finding is the claim.
+- **Minors**: F-002, the "`ids` to the walk as well" claim, has no control (M13 survives); F-003,
+  EC-027's registry statement names no sheet and no cap while its named property now claims one — the
+  twin of the EC-021 gap, declared for EC-021 and not for EC-027; F-004, F-8 and F-9's regression
+  surface inside the property is one hand-built book each.
+- **[Family regression] Two consecutive cycles with a gating finding in one family, on both
+  readings** — by rule (cycle 1's F-005 and this cycle's F-001 are both ADR-0039/R1) and by
+  file/function (cycle 1's F-002 and F-006 were about `puzzle_page_plan`/`section_plan`'s abort naming;
+  this cycle's F-001 and F-002 are in exactly those two functions, introduced by the commit that fixed
+  them). **The diagnostic is the sharpest thing in the report**: fix cycle 1 ran seven mutants and
+  *every one was a control for an addition* — not one deleted the remedy it was asserting, which is
+  precisely how a dead mechanism shipped as a closed finding. The fix station needs to mutate by
+  **deletion of each claimed mechanism**, not only by breaking what was added. That is a rule for the
+  retrospective, not a fourth card.
+
+### The two hand-built books — examined and kept
+
+The call the fix flagged for a certifier was examined properly and upheld, with one correction to its
+wording:
+
+- **"Zero in 3600" verified exactly rather than accepted**: with both books removed from the two
+  corpus generators, `refused_on_book_cell == 0` and `book_cell_lowered == 0` over 3600 books, and
+  `shared_binds == 0` over the 24-book rendered sweep — true of F-9 as well as F-8.
+- **"Provably cannot" overstates it, and the committed docstring does not say that.** 4 seeds ×
+  20,000 off-corpus books through the same generator produced **F-8 twice** (seeds 1271 and 7) and F-9
+  never — about 1 book in 40,000. Reaching F-8 reliably needs O(10⁵) books, ~30× the corpus and far
+  outside the 100–1000-case budget, so hand-building remains the right mechanism. The docstring's
+  actual wording ("essentially never … zero times over the 3600-book sweep below") is accurate.
+- **Not a unit test in a property's clothes**: the sweep still supplies the universal half with every
+  pre-existing minimum intact on the same rng stream (the books are appended *after* the sweep, and a
+  sweep-only run reproduced all of them), the two books supply the instantiation, and three counters
+  stop the corpus shrinking silently.
+- **It reds on the mechanism, not the fixtures**: M1 (`_pair_cell_mm` → `None`) and M2
+  (`book_cell_sizes` min→max) each fail both halves — M2 also fails 16 tests in
+  `test_book_cell_size.py` — and neither fires a counter.
+
+### [Orchestrator] F-007 pulled in from out-of-scope: the headline denies the one thing the owner can see
+
+The certifier filed this as an observation and invited a render. I am treating the wording half as a
+**claim fix inside this card**, because it is the same rule the card has now failed twice on.
+
+**AC-1 says "every one of them is drawn at the same cell size", and the card's title says one cell
+size per grid size across the whole book. Declared row F-9 says otherwise**: a *paired* member prints
+smaller than a single member of the same grid size when the pair fit falls below that grid size's
+book cell. The certifier's arithmetic: three 13×13s at 1-deep gutters on Book 1 → book cell 7.5 mm,
+the pair fits at ≈7.27 mm, the third prints at 7.5 mm. Nothing is broken — the behaviour is declared,
+deliberate and physically necessary, and AC-1's own test uses a non-pairing book, which is exactly
+why no test contradicts the sentence.
+
+So the geometry stays and the words change: the pairing exception belongs **in** AC-1's claim, not
+only in a matrix row two sections away. A claim that is true only of the books its test happens to
+use is this wave's whole subject.
+
+**The render is still owed, and it is mine to produce after the fix lands** (`~/Documents/nonogram-reviews/CARD-225`):
+one Book 1 interior with three easy 13×13s at 1-deep gutters, so two share a page and one prints
+alone. That is the page where a 13×13 beside another 13×13 is visibly smaller than the 13×13 on its
+own — the owner should see it on paper and say whether it is acceptable, because no test can answer
+that question.
+
+### [Orchestrator] a bookkeeping gap worth naming
+
+The card's `## System contract` section lists **14** rules (tightened 2026-10-19) while the
+implementation's own verdict table judges a different **8**: `ADR-0036/R1`, `R3`, `R4` and `CON-020`
+have left the contract, and `ADR-0022/R1`, `ADR-0023/R1`, the `ADR-0038/*` and `ADR-0039/*` rules and
+`CON-021` were never judged. Cycle 1 carried the old eight, cycle 2 enumerated the section as it
+stands. This is the curation convention's second-order cost: re-deriving a card's contract mid-flight
+leaves its verdict table pointing at the old list, and nothing checks the two against each other. The
+fix cycle re-derives the table; the convention (`meta/kanban/curation.md`) should say that a
+re-derivation obliges it.
