@@ -56,12 +56,16 @@ A repaint from a sparse picture to a dense one crosses that in one edit, and eve
 moves. This is a **second mechanism** the owner's decision does not reach, because the question asked
 was about the tier.
 
-**What this card does about it, and the alternative if the owner prefers it.** Telling, not refusing:
-refusing would block any repaint that deepens a paired puzzle's clues, which is most real edits, and
-the owner's own principle for the tier was "learn it at verify, with the grade". So the verify answer
-says when an edit would change the book's page count, and the confirmation repeats it. If the owner
-would rather refuse that case too, it is a one-line change to this card's AC-9 and the machinery is
-identical.
+**SETTLED 2026-10-19 (owner): tell, do not refuse — it stays a warning.** The verify answer says when
+an edit would change the book's page count, names the puzzle it shares the page with, and **Approve
+remains available**; the confirmation repeats it. Refusing was offered and declined: it would block any
+repaint that deepens a paired puzzle's clues, which is most real edits, and the owner's own principle
+for the tier was "learn it at verify, with the grade".
+
+**So this card carries two rules about one book, and they are deliberately different.** A regrade is
+**refused** because it breaks an invariant the registry states (INV-009). A split pair is **announced**
+because it breaks nothing — the book stays valid, it is one page longer, and the owner is the one who
+decides whether that is acceptable for this edit. Do not "tidy" them into one behaviour.
 
 ## What to implement
 
@@ -149,9 +153,10 @@ the allow-list is a claim that that answer never writes** — make it true at th
 - **AC-9** (boundary, the page count — the mechanism the tier rule does not reach): *Given* a booked
   puzzle that shares a two-up page, *when* a replacement grid is verified whose clue gutters are deep
   enough that the pair no longer fits, *then* the verify answer **says the book's page count would
-  change** and names the puzzle it shares the page with; Approve remains available (this is a warning,
-  not a refusal — see the decision section). The test drives the measured boundary: same tier, same
-  extent, gutter depth 4 → paired, depth 5 → split.
+  change** and names the puzzle it shares the page with; **Approve remains available and an approved
+  edit stores** — a warning, not a refusal (owner, 2026-10-19). Assert both halves: the words appear
+  AND the save goes through, or the test passes equally against an implementation that refuses. The
+  test drives the measured boundary: same tier, same extent, gutter depth 4 → paired, depth 5 → split.
   (test: `TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove`)
 
 ## Guardrails
@@ -161,17 +166,19 @@ the allow-list is a claim that that answer never writes** — make it true at th
 - G-2: The tier refusal is enforced at the **store**, not only at the verify route — a save whose
   grid grades into another tier writes nothing even if it is posted directly (the same discipline G-1
   applies to the confirmation).
-- G-3: Editing is the only action opened. Approve, reject, restore and delete still refuse a booked
+- G-3: The two book rules stay distinct: a regrade is **refused**, a split pair is **announced** and
+  stores on Approve (AC-4 and AC-9). Collapsing either into the other is a change the owner declined.
+- G-4: Editing is the only action opened. Approve, reject, restore and delete still refuse a booked
   puzzle (AC-7).
-- G-4: A replacement grid never changes the stored extent (Trap 2).
-- G-5: `EDIT_REFUSAL_REASONS` and the client's allow-list stay in step, and the new entry is **proved**
+- G-5: A replacement grid never changes the stored extent (Trap 2).
+- G-6: `EDIT_REFUSAL_REASONS` and the client's allow-list stay in step, and the new entry is **proved**
   not to write (Trap 3, CARD-246 G-001).
-- G-6: `tell(text, offer)` stays the single writer of the message and the Approve offer; the
+- G-7: `tell(text, offer)` stays the single writer of the message and the Approve offer; the
   confirmation does not become a second writer (CARD-246 F-001..F-005).
-- G-7: Nothing here re-derives a difficulty, re-encodes clues or re-checks uniqueness outside the one
+- G-8: Nothing here re-derives a difficulty, re-encodes clues or re-checks uniqueness outside the one
   solve the store already runs (ADR-0029/R2, CARD-246 G-3).
-- G-8: No new runtime dependency (ADR-0006/R1); no framework or build step (ADR-0038/R1).
-- G-9: No test retired without a named survivor (CARD-220's rule).
+- G-9: No new runtime dependency (ADR-0006/R1); no framework or build step (ADR-0038/R1).
+- G-10: No test retired without a named survivor (CARD-220's rule).
 
 ## System contract
 

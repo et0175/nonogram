@@ -510,8 +510,11 @@ Verbatim, the owner's five items:
     folio after it. Measured on the Book 1 profile, two 10x10 easies at equal clue depth: depth 1-3
     pairs at a 7.500 mm cell, depth 4 pairs at **7.129 mm**, depth **5 does not pair at all**. CARD-251
     handles it by TELLING at verify rather than refusing (refusing would block most real repaints of a
-    paired puzzle, and the owner's own principle for the tier was "learn it with the grade"); the
-    alternative is recorded on the card as a one-line change if the owner prefers a refusal.
+    paired puzzle, and the owner's own principle for the tier was "learn it with the grade").
+    **CONFIRMED 2026-10-19 (owner): it stays a warning — Approve remains available and an approved
+    edit stores.** So the card carries two deliberately different rules about one book: a regrade is
+    refused because it breaks an invariant the registry states; a split pair is announced because it
+    breaks nothing — the book stays valid and one page longer, and the owner decides per edit.
   * **The tier is what re-paginates it.** `save_edited_grid` re-derives `difficulty_tier` from the one
     solve, and **INV-009** requires a book's order to run easy → medium → hard with a divider page before
     each non-empty level and puzzle numbers 1..n across the book. INV-009 also says in as many words that
