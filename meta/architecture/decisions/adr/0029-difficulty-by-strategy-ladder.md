@@ -473,27 +473,27 @@ reproducibility promise would stay broken under `--difficulty`.
 ```yaml
 - id: ADR-0029/R1
   statement: The difficulty of a line-solvable puzzle is derived from the rung of the hardest technique its verifying solve required (simple_overlap < line_dp < probe_contradiction) and the share of cells settled at that rung; each rung is the fixed point of its technique, so the rung of a cell is a function of the clue set alone; a deeper solve of the same extent scores strictly higher, and the line-solvable corpus populates every score band.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/difficulty.py", "src/nonogram/solver/**"]}
+  scope: {code: ["src/nonogram/difficulty.py", "src/nonogram/solver/**"]}
   check: {kind: test, ref: TestScoreDifficulty_DeeperLineReasoningScoresHigher}   # AC-119; AC-118's TestScoreDifficulty_LineSolvableCorpusSpansAllThreeBands covers the band-coverage half
   severity: mandatory
 - id: ADR-0029/R2
   statement: Technique classification and the strategies list are computed inside the one verifying solve, never by re-solving; the ordered rung list the solver reports IS the puzzle's strategies list, and the tier is derived from that same list — no second derivation, no second solver entry. The ladder's fixed points are phases of that one monotone forward solve — each continues from the board the previous left, the board is never reset and the search is never re-entered — so running a cheaper technique to exhaustion before a dearer one is not re-solving.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py", "src/nonogram/orchestrator.py"]}
+  scope: {code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py", "src/nonogram/orchestrator.py"]}
   check: {kind: test, ref: TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve}   # AC-135
   severity: mandatory
 - id: ADR-0029/R3
   statement: No clock reading — elapsed_seconds or any other — and no size or density term enters the difficulty score, the tier decision or the strategies list; the score is a pure function of the rung tags of the solve and branch_nodes, identical on every machine.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/difficulty.py", "src/nonogram/solver/**", "src/nonogram/orchestrator.py"]}
+  scope: {code: ["src/nonogram/difficulty.py", "src/nonogram/solver/**", "src/nonogram/orchestrator.py"]}
   check: {kind: test, ref: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime}   # EC-016; EC-018's PropertyTest_SolveStrategies_PureFunctionOfCluesAndPreservedEndToEnd covers the list
   severity: mandatory
 - id: ADR-0029/R4
   statement: The overlap masks that define the simple_overlap rung are computed relative to the line's already-known cells (the leftmost and rightmost placements consistent with them, intersected), and are re-derived natively inside the solver package; the solver never imports clues.py or any other capability module for the purpose (ADR-0007).
-  scope: {contexts: [CTX-001], code: ["src/nonogram/solver/**"]}
+  scope: {code: ["src/nonogram/solver/**"]}
   check: {kind: test, ref: test_every_import_in_the_package_points_inward}   # tests/test_cli.py structural guard (ADR-0007)
   severity: mandatory
 - id: ADR-0029/R5
   statement: Rung attribution is reported only for a clue set with exactly one solution; a clue set with 0 or >= 2 solutions is not a puzzle, has no grade, and carries no attribution at all (empty or None per-cell tags, an all-zero per-rung histogram, an empty rung list). For uniquely-solvable clue sets, rung attribution is invariant under transposition and under line-visit order — a clue set and its transpose yield the same per-rung cell counts, the same rung list and the same score — and a change to the solver's iteration order may change how a fixed point is reached but never which cells belong to which rung. The invariance holds trivially for the non-unique ones too, since both orientations report nothing.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py"]}
+  scope: {code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py"]}
   check: {kind: test, ref: PropertyTest_SolveStrategies_RungsInvariantUnderTransposition}
   severity: mandatory
 ```

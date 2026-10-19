@@ -181,12 +181,12 @@ shape the intake asked us to avoid.
 ```yaml
 - id: ADR-0025/R1
   statement: A scored result whose solve reports branch_nodes > 0 is classified Tier.GUESS, and a result with branch_nodes == 0 is never Tier.GUESS, regardless of score (EC-015). The Easy, Medium and Hard tiers contain only line-solvable puzzles.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/difficulty.py", "src/nonogram/orchestrator.py"]}
+  scope: {code: ["src/nonogram/difficulty.py", "src/nonogram/orchestrator.py"]}
   check: {kind: review-lens}   # becomes {kind: test, ref: PropertyTest_ScoreDifficulty_RequiresGuessingIffSearchBranched} once EC-015's test lands
   severity: mandatory
 - id: ADR-0025/R2
   statement: Tier classification has exactly one implementation, in difficulty.py, taking (score, branch_nodes); no other module derives a tier from a score or from branch_nodes on its own.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/**"]}
+  scope: {code: ["src/nonogram/**"]}
   check: {kind: review-lens}
   severity: mandatory
 ```

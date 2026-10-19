@@ -42,7 +42,7 @@ _"I think we'll aim only for solver for book1, we'll add generator later" + "We'
 - [ ] **Persist user-generated puzzles** (owner: "yes, if they downloaded pdfs or solved them online") — needs the public phase, a user/ownership notion and a retention rule; the `givens` column CARD-216 adds is a prerequisite, not this   @enabler
 
 ## Architecture model (→ /forge:architect, one session)
-- [ ] **Curation needs a discriminator that is not `severity` (waves 44–47 retro, 2026-10-19).** The
+- [x] **DONE 2026-10-19 (convention in `meta/kanban/curation.md`; the `contexts: [CTX-001]` short-circuit removed from 31 rule scopes the same day).** ~~Curation needs a discriminator that is not `severity` (waves 44–47 retro, 2026-10-19).** The
   curated System contract convention drops ~48 of ~57 projected rules per card, by orchestrator
   judgement. On CARD-250 and CARD-251 it dropped **ADR-0039** — the rule about claims outrunning their
   mechanisms — on the two cards that then produced ten instances of that family. **Severity cannot help

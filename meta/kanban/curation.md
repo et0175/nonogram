@@ -50,9 +50,28 @@ convention kept on CARD-250 by instinct and dropped on CARD-251.
 - **16 exceeds the old 6–14 band.** The band was a guess at a tolerable length; 16 is what the rule
   selects here. Prefer the rule and let the number be what it is — a contract whose length is derived
   is worth more than one whose length was chosen.
-- **It selects nearly the same set for every card on this board.** That is not a defect of the rule but
-  a fact about the model: the unenforced rules are a property of the area, not of the card. If that
-  set ever shrinks it will be because dead enforcement was fixed, which is the right reason.
+- ~~**It selects nearly the same set for every card on this board.**~~ **FIXED the same day, and the
+  cause was not what this paragraph assumed.** It was not a fact about the model's rules; it was one
+  key. `system_rules.py` matches a rule to a card by context **before** it consults the rule's `code:`
+  glob, and the branches short-circuit:
+
+  ```python
+  elif any(c in card_contexts for c in r.contexts): out.append(r)   # matched first
+  elif _rule_matches_globs(r, card_globs): out.append(r)            # never reached
+  ```
+
+  31 of the model's rules carried `contexts: [CTX-001]` **alongside** a precise `code:` list — and
+  none carried `contexts` alone. On a single-context project that key matches every card, so every
+  precisely-scoped rule behaved as package-wide and its authored glob was decorative. `ADR-0037/R1`
+  is scoped to **one file** and was reaching a card that never touches it.
+
+  The key was removed from all 31 (2026-10-19); the globs were left exactly as their ADRs authored
+  them. Measured effect: **CARD-247, a player-toolbar card, went from 16 rules to 11** — the book
+  geometry and orchestrator-repair rules now land only on cards that touch those files — while
+  **CARD-225, a book-layout card, keeps all of them** at 14. `ADR-0039` still reaches every card, and
+  its own scope was *widened* to `["tests/**", "src/nonogram/**"]`, because the instances that cost
+  the most cycles were claims in source docstrings. Validator: **0 errors**; no rule's globs match
+  zero files, so nothing was silently retired.
 
 ## One trap, paid for during the writing of this file
 

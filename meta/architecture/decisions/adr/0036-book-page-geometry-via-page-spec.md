@@ -155,7 +155,7 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
     compute_layout called without a PageSpec produces exactly today's A4
     geometry; CLI and web output are byte-for-byte unchanged by any
     book-only PageSpec field.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/export/**"]}
+  scope: {code: ["src/nonogram/export/**"]}
   check: {kind: test, ref: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden}
   severity: mandatory
 - id: ADR-0036/R2
@@ -164,7 +164,7 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
     (compute_layout, and the pair-aware call for two-up pages) with the
     book's PageSpec; the admin panel does not fit cells or place grid lines
     itself.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/admin/**"]}
+  scope: {code: ["src/nonogram/admin/**"]}
   check: {kind: review-lens}
   severity: mandatory
 - id: ADR-0036/R3
@@ -173,7 +173,7 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
     second one is a defect whatever Pillow call it is written with: four cards
     print the same difficulty glyph, and four slightly different dots cannot be
     fixed once a book is on paper.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/**"]}
+  scope: {code: ["src/nonogram/**"]}
   check: {kind: test, ref: test_the_books_own_pages_carry_no_undeclared_round_mark}
   # tests/test_book_difficulty_dots.py (CARD-241, widened by CARD-243). Two
   # instruments, neither inside the other, and the rule is only as wide as
@@ -230,7 +230,7 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
     drawn, never typed: the cheapest way to print a difficulty dot is to append
     a bullet to a header string, and that route bypasses the one drawing site
     and CON-020's type floor at once.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/**"]}
+  scope: {code: ["src/nonogram/**"]}
   check: {kind: test, ref: test_no_module_types_a_round_mark_as_a_character}
   # tests/test_book_difficulty_dots.py (CARD-228). One earned exemption
   # (admin/pdf_generator.py's prose bullets) held to an equality against the

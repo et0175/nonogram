@@ -65,7 +65,7 @@ Book becomes the sole owner of membership (its own `book_puzzles` table), `puzzl
     Book assembly references puzzles by id and never changes a puzzle's grid,
     clues, difficulty tier or strategies; the only puzzle field it may write
     is the book-membership mirror (puzzles.book_id).
-  scope: {contexts: [CTX-001], code: ["src/nonogram/admin/book_*.py"]}
+  scope: {code: ["src/nonogram/admin/book_*.py"]}
   check: {kind: review-lens}
   severity: mandatory
 ```

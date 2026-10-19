@@ -91,11 +91,11 @@
 
 ## System contract
 
-_Assembled 2026-10-19 by `system_rules.py --card CARD-225 --root meta/architecture` (60 rules returned, `card_scope: touches`). A projection — fix the source artifact, never this list._
+_Assembled 2026-10-19 by `system_rules.py --card CARD-225 --root meta/architecture` (46 rules returned, `card_scope: touches`). A projection — fix the source artifact, never this list._
 
-**Curated to 17 by rule; 43 dropped.** First card curated under [`meta/kanban/curation.md`](../curation.md) rather than by judgement: **keep every in-scope rule whose enforcement does not reach this card's new code, drop the rest.** The dropped 43 all carry a `kind: test` check the suite executes on every gate, so listing them here would add lines a reviewer must read and change nothing about whether they hold. The kept ones are the rules **nothing executes** — plus `ADR-0039`, whose checks are tests but whose own comments declare they do not reach code written later.
+**Curated to 14 by rule; 32 dropped.** Curated under [`meta/kanban/curation.md`](../curation.md): keep every in-scope rule whose enforcement does not reach this card's new code, drop the rest. The kept ones are the rules **nothing executes**, plus `ADR-0039`, whose checks are tests but which declares they do not reach code written later.
 
-⚑ **Known residue, stated rather than left to be noticed:** the model's scopes resolve to all of CTX-001, so some rules below are in scope without being in this card's subject area. They are kept because the rule is mechanical and silent dropping is what this convention exists to stop — the fix is tightening the ADRs' scope globs at the architect station, not re-introducing judgement here.
+⚑ **Tightened mid-flight, 2026-10-19: this contract was 17 rules an hour ago.** The model's `contexts: [CTX-001]` key was matching every card before any `code:` glob was consulted, so precisely-scoped rules behaved as package-wide. It was removed from 31 rule scopes and the authored globs became load-bearing. Only rules that do not apply to this card's files were removed — nothing that was relevant to work already done has gone.
 
 - **ADR-0022/R1** — _nothing executes this_
   Grid extent crosses module boundaries as a (width, height) pair. No public function signature,
@@ -104,13 +104,6 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-225 --root meta/architectu
 - **ADR-0023/R1** — _nothing executes this_
   Export metadata records a grid's extent as separate width and height fields. No export format
   writes a scalar \"size\" field, and no decoder reconstructs a grid's dimensions from one.
-- **ADR-0024/R4** — _nothing executes this_
-  The repair's pair choice is a deterministic function of the grid and the solver's witnesses —
-  the region's filled and empty cells ranked by (row, column) — and draws nothing from the
-  injected Random or from host state, so a seed replays the same repair lineage everywhere.
-- **ADR-0024/R5** — _nothing executes this_
-  The repair policy (POL-006) fires only for random mode. Library mode recovers by POL-001
-  redraw and image mode by POL-002 pixel nudge; neither ever repairs.
 - **ADR-0033/R1** — _nothing executes this_
   Book assembly references puzzles by id and never changes a puzzle's grid, clues, difficulty
   tier or strategies; the only puzzle field it may write is the book-membership mirror
@@ -132,9 +125,6 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-225 --root meta/architectu
   admin panel. There is no front-end framework, no build step, no npm toolchain and no vendored
   third-party JavaScript library. Adding any of these reopens this ADR (and ADR-0006/R1 for
   vendored code).
-- **ADR-0038/R4** — _nothing executes this_
-  The player's state logic (board, strokes, undo/redo history, error count, solved predicate)
-  lives in a pure module with no DOM access, separate from rendering.
 - **ADR-0038/R6** — _nothing executes this_
   Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution
   grid to the browser. A public or reader-facing player must not send the solution before the
@@ -153,18 +143,15 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-225 --root meta/architectu
   guard makes about what it catches needs a control that can fail: caught WITH the set member
   present, missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and
   must be narrowed to what is measured or deleted.
-  (check: `test_the_control_for_each_spelling_depends_on_the_set`)
 - **ADR-0039/R2** — _declares its checks do not reach new code_
   A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where
   no such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE,
   never a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3.
-  (check: `test_the_guard_sets_are_derived_and_not_hand_written`)
 - **ADR-0039/R3** — _declares its checks do not reach new code_
   An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT
   absorb — caught with the exemption removed, missed with it in place — is held to an equality
   against the sites that exist today, and records whatever it still cannot see as a measured
   bound with its own failing control.
-  (check: `test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw`)
 - **CON-021** — _nothing executes this_
   Interactive play exists only as the admin panel's puzzle player (TERM-037, FR-044), served
   behind the door that guards every other admin page (CON-015, CON-016). No other surface — the
