@@ -283,7 +283,9 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-247 --root meta/architectu
   only way this table could have become a quiet way to delete coverage. Per **ADR-0039/R1 and /R3**
   the refusals are a function, not a loop inside its own test, and
   `test_the_rename_table_refuses_what_it_claims_to` drives all nine of them over tables broken on
-  purpose, so none of them is a branch nothing executes. **This is the first rename on this board;
+  purpose. **The first version of that control only asserted that SOME refusal fired, which left
+  four of the nine unmeasured** — see the fix-cycle note at the end of this section for what the
+  control asserts now and the branch-by-branch measurement. **This is the first rename on this board;
   the mechanism is general and the next one costs one entry.**
 - **[System contract]** The worktree's card carried the **8-rule** curation; `main` at the time of
   writing carries the **16-rule** one re-derived under `meta/kanban/curation.md`. Judged against the
@@ -315,145 +317,110 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-247 --root meta/architectu
   "?", it is three `data-state` values in the template and one assertion — no layout change, since
   the toggle's width does not depend on which state each cell holds.
 
-### [Scope] orchestrator, 2026-10-19 · `[Touches drift]` recorded
+### Fix cycle 1 notes (agent, 2026-10-19)
 
-**11 files changed against 6 predicted.** Four of the six predicted were touched;
-`tests/test_puzzle_solver_tools.py` and `tests/test_admin_design_tokens.py` were predicted and **not**
-needed. Six files were changed outside the prediction:
+Review cycle 1 scored 9.0 with one Important finding (F-001, a violation of ADR-0039/R1) and two
+minors. Report: `meta/review/20261019T173621Z-CARD-247-cycle1.yml`.
 
-- `tests/test_puzzle_solver_hint.py`, `…_marking.py`, `…_maybe.py`, `…_progress.py`,
-  `tests/test_puzzle_editor_ui.py` — **the renamed label is a locator in each.** Unavoidable and
-  correct: a rename that leaves its locators behind produces tests that pass against a page that no
-  longer exists.
-- `tests/test_browser_fixture_scope.py` — the 334-line `RENAMED_SINCE_BEFORE` table, the card's biggest
-  diff. The label is a **parameter of eight node ids**, so the rename reads to CARD-217's coverage
-  guard as eight removals.
-- `src/nonogram/admin/templates/puzzle_edit.html` — **comment-only**, and the report's wording needs
-  correcting: it says the editor is *"deliberately unchanged and verified so"*, which is true of its
-  markup and behaviour but **not of the file**. The edit updates a Jinja comment that named the old
-  label; leaving it would have left a comment describing a brush that no longer exists, which is this
-  board's own defect family pointing the other way. The edit is right; the sentence about it was not.
+- **[F-001 fixed — the rename control now names the refusal each case must provoke]**
+  `test_the_rename_table_refuses_what_it_claims_to` asserted only `_rename_problems(table) != []`.
+  Several of the nine broken tables trip two or three refusals at once (every legal `old` is
+  recorded, so "moves to itself" also reads as a merge), so **four refusals could be deleted one at
+  a time with the control still green**: branch 3 (`new in before`), 4 (`new == old`), 5 (family
+  prefix) and 9 (`ADDED_SINCE_BEFORE` double-count). `broken` now maps each label to **(table,
+  the text of its own refusal)** and the assertion is `len(hits) == 1` over the problems — 0 means
+  the named refusal did not fire (or another is standing in for it), 2 means the fragment cannot say
+  which one did. All three claim sites were corrected to the mechanism that now exists: this test's
+  docstring, `test_every_rename_entry_moves_one_recorded_id_and_is_attributed`'s ("firing *by its
+  own message*"), `_rename_problems`' own docstring, and the sentence in the implementation note
+  above.
+- **[The nine neutralisations, re-run after the fix — all nine killed]** `if <cond>:` -> `if False:`
+  one branch at a time, running only this control, file restored from a byte-identical copy and
+  sha256-compared after each (`187c75f…`): branch 1 killed (through the `ValueError` at the unpack
+  the `continue` no longer guards), 2 killed, **3 killed**, **4 killed**, **5 killed**, 6 killed,
+  7 killed, 8 killed, **9 killed** — and in each case the failing assertion is that branch's OWN
+  case, not a neighbour's.
+- **[The remedy got the finding's own check: a fragment cannot be satisfied by a different
+  refusal]** Measured, not asserted. (a) With branch 3, 4, 5 or 9 neutralised, its case still
+  produces 1, 1, 1 and 2 problem lines — the very lines that kept the old control green — and
+  **none of them matches the neutralised branch's expected fragment** (`matching_expected=0` in all
+  four). (b) The full 9x9 matrix of *fragment E_i matches case j* against *branch i authored a line
+  in case j* (authorship derived by difference under neutralisation, not by reading the source)
+  agrees in all 81 cells, with the diagonal all true. Two cheap in-test checks keep it that way:
+  each fragment matches exactly one problem line of its own case, and no fragment is a substring of
+  another.
+- **[F-002 fixed — the Region toggle's face is inside the token pin now]**
+  `test_the_region_toggles_pressed_look_comes_from_tokens` collected only `.player-region`-prefixed
+  lines and required `value.startswith("var(--")`, which `inline-flex`, `calc(…)` and
+  `color-mix(…)` could never have satisfied — so `.player-brush-run`'s declarations were pinned by
+  nothing but the whole-file `#rrggbb` sweep, and an `rgb()`, `hsl()`, named colour or bare length
+  there passed both tests. The test now collects `.player-region` **and** `.player-brush-run`
+  rules, pins the four selector strings by name (a rule renamed or reformatted is red, not a
+  quietly smaller sweep), and judges values with `_untokenised`: a value passes when it is a named
+  layout keyword (`_KEYWORD_VALUES`, an explicit set — **not** "any bare keyword", because
+  `color: red` is one) or reaches for a `var(--…)` and, with every token struck out, leaves only
+  `calc`/`color-mix` syntax, numbers, operators and percentages. A literal anywhere inside a
+  `calc()`/`color-mix()` therefore survives the strike and is reported.
+- **[F-002's control, shown failing]** Five literals injected into the real rules one at a time
+  (CSS restored byte-identically, sha256 `68e9922…` after each), each run against the fixed test
+  AND against the cycle-1 test: `rgb(0,0,0)` in the seam rule — **red / green**; `background: red`
+  in `.player-brush-run` — **red / green**; `margin-left: 2px` there — **red / green**;
+  `hsl(0 0% 10%)` inside the `color-mix()` — **red / green**; `#1a1a1a` in the pressed rule — red /
+  red (the one shape the old test already caught). The in-test control is itself controlled:
+  neutralising `_untokenised` to `return []` takes the six broken-on-purpose rules red, so the
+  predicate is not a branch nothing executes. The `admin.css` comment's claim was corrected while
+  there — it cited "(G-4)" for the token rule, which is **CARD-211's** G-4 (this card's G-4 is
+  accessibility) — and now names the test that pins it.
+- **[F-003 dismissed, not fixed — owner's call]** AC-7's guard is on the editor, which after the
+  rename holds only one meaning of "Clear" anyway; the player is where the brush "Clear" and
+  *"Clear the board?"* / *"Clear board"* coexist. The card's `### [Decision]` already records that
+  the player's wording was deliberately left alone and is not what the owner ruled on. Changing
+  those strings or parametrizing the AC-7 guard over both pages would assert "no control named
+  Clear" against a player that deliberately carries one, so the guard would go red on the owner's
+  own decision. Left to the question the orchestrator is putting to the owner.
+- **[F-004 dismissed]** The stale 8-rule System-contract header in this worktree's card copy is the
+  orchestrator's bookkeeping between the two copies; the branch touches no `meta/` file.
+- **[Declarations re-derived]** F-001 — the mechanism changed (a non-empty assertion became a
+  per-refusal message assertion), and every statement of the old one was corrected: two docstrings,
+  `_rename_problems`' docstring and the implementation note above. F-002 — the mechanism changed
+  (collection widened, predicate widened from `startswith("var(--")` to token-only), and the
+  `admin.css` comment that declared it was corrected and attributed. No numeric bound, lifecycle,
+  blast radius, error classification or config-field meaning changed anywhere in this cycle; no AC,
+  no guardrail and no CSS declaration was touched, so every AC (AC-1..AC-6 as this copy lists them,
+  plus AC-7 in `main`'s copy) and the measured layout figures
+  stand as cycle 1 recorded them (re-run green: 50 in `test_puzzle_solver_brush_menu.py`, 109 in
+  the non-browser CSS readers, 38 in the two edited files).
+- **[G-6]** No test retired, renamed or weakened: both edited tests keep their names and every
+  assertion they had; what changed is that each got stricter.
 
-`[Touches drift]` recorded for the retrospective's Step 4e rather than only for this card: five of the
-six drifted files drifted for **one** reason — a user-facing string is a test locator — and `Touches`
-derivation has no way to see that today.
+### [Fix 1] declarations — orchestrator, 2026-10-19 · `bfc60dc`, `bd88213`
 
-### [Orchestrator] Three things verified rather than taken on report
+**F-001 and F-002 fixed; F-003 and F-004 dismissed with reasons.** The control now asserts
+`len(hits) == 1` against each case's **own refusal message** — 0 means the named refusal did not fire
+or another stood in for it, 2 means the fragment cannot say which fired.
 
-**The render defect is real and the fix is legible.** The agent reports that its first build drew three
-filled cells with collapsed borders, so they rendered as **one solid black bar** while every
-`data-state` assertion stayed green. Checked the delivered render
-(`~/Documents/nonogram-reviews/CARD-247/player-toolbar-black-region-on.png`): three distinct cells with
-visible seams. The pin it added, `seam != fill`, is the only assertion in that file a correct
-`data-state` cannot satisfy — which is the right shape for a defect that was invisible to state.
+**Verified independently rather than taken on report.** Neutralising branch 3 (`new in before`), one of
+the four that *survived* cycle 1, now fails — and the failure shows the defect's whole anatomy: the
+case still produces a problem line (the different-test-function refusal standing in), and the expected
+fragment matched **0** of them. That is the shadowing, made visible by the assertion that replaced the
+non-empty check.
 
-**A mutant survived first, and the agent widened the test rather than the claim — correctly.** M1
-(`BRUSH_LABEL` back to "Undecided") initially **survived** the whole-page sweep, because with Black
-selected the fourth label is never rendered. The sweep was asserting over a page that could not contain
-the string. Rather than narrow the claim it gave the sweep the one click that makes the claim true, and
-said so in the docstring. That is the correct call here: the claim ("no user-facing string says
-Undecided") was the one worth keeping, and it was the *test* that was too weak.
+**The remedy was checked the way the finding was**, which is what the brief asked and the step most
+often skipped: a **9×9 matrix** of *fragment Eᵢ matches case j* against *branch i authored a line in
+case j*, with authorship derived **by difference under neutralisation** rather than by reading the
+source. All 81 cells agree, diagonal all true. Plus two in-test keepers — every fragment matches
+exactly one problem line of its own case, and **no fragment is a substring of another**, since nesting
+would let the shorter case ride the longer one's refusal: the same defect one layer up.
 
-**⚑ Owner-facing, and the card's own purpose makes it worth asking about: "Clear" now names two
-different things on two pages that share one renderer.** In the **editor** `Clear` is the button that
-**wipes the whole board** (CARD-246, `data-player-action="reset"`, confirm text *"Every cell goes back
-to undecided"*). In the **player** `Clear` is now the fourth **brush**, which paints one cell undecided.
-The card's purpose is *"the toolbar says what it does"*; a reader who learns the word on one page
-learns the wrong thing on the other. Not a defect against any AC, and not blocking — recorded for the
-owner's render check, since the alternative (a different word for the brush, or renaming the editor's
-button) is a decision rather than a fix.
+**No branch turned out unreachable, so the claim stays at nine** rather than being narrowed — the
+honest outcome only because it was measured both ways.
 
-### [Decision] the editor's button renamed, the brush keeps Clear (owner, 2026-10-19)
+**F-002's control was shown failing on five injected literals**, four of which the cycle-1 test passed
+green, including a literal hidden *inside* a `color-mix()`. The predicate is itself controlled:
+neutralising `_untokenised` reds the six deliberately-broken rules, so it is not a branch nothing
+executes.
 
-Raised from the render as a question, not settled by the orchestrator. The owner chose **rename the
-editor's button, keep Clear for the brush**, and the new name is **"Reset"** — the orchestrator's
-choice, because that is what the player already calls the identical control, so one change removes the
-collision *and* ends an inconsistency CARD-246 had left between the two toolbars. Say so if a different
-word is wanted; it is one line and a guard.
-
-**What was deliberately not changed:** the **player's** confirmation still reads *"Clear the board?"* /
-*"Clear board"* under a button called Reset. That mismatch predates this card and was not what the owner
-ruled on — but it is sharper now, because the player also has a brush named Clear, so *"Clear board"*
-there can be misread as "apply the Clear brush to the board". Left alone rather than fixed unasked, and
-recorded here so the next reader meets it as a known question rather than as a surprise.
-
-### [Build gate] attempt 1 FAILED (full, 984s) — the known `@ops` hazard, not the tree · 2026-10-19
-
-**EXIT=1, 6 failed, 8498 passed, 1 skipped.** The guard read 0 before starting, so the run was solo.
-All six are the backlog's recorded module-global-engine hazard, confirmed by signature rather than
-assumed:
-
-- five are `tests/test_admin_binding.py::…::test_a_request_addressed_to_this_machine_is_served[*]`,
-  none of them an HTTP-door assertion — the log carries **15** occurrences of
-  `relation "puzzles" does not exist`;
-- the sixth, `tests/test_puzzle_solver_clues.py::…::test_two_matching_runs_circle_nothing…`, timed out
-  on a page whose request had died server-side with
-  `AttributeError: 'float' object has no attribute 'replace'`, raised from
-  `uuid.UUID(hex=<float>)` inside SQLAlchemy's UUID processor — **the exact traceback the backlog item
-  records**, down to the frame.
-
-Neither file is touched by this card. Re-gated solo per the protocol the backlog item itself sets:
-*"a single red `[db]` test in a file the card does not touch must be re-run before it is believed, and
-the re-run must be recorded."*
-
-**⚑ Fourth wave in a row this has cost a full gate run** — wave 45 (CARD-248), wave 46 (the smoke
-test's first run), wave 47 (CARD-251), wave 48 (this card). ~16 minutes each, plus a fresh diagnosis
-every time because the signature varies between `relation does not exist`, `FATAL: database … does not
-exist` and the float/UUID read. On wave 47 it also cost **trust**: the orchestrator mis-attributed that
-red gate to its own scheduling and had to withdraw the attribution after committing it. The backlog
-item names a one-line candidate fix (dispose `nonogram.db.session.engine` and reset `_engine_url` after
-the schema rebuild, with a control that fails). **It is worth a card in the next wave**, and it is
-deliberately not being done mid-wave: `tests/conftest.py` is outside both in-flight cards and changing
-it now would perturb the gates still to run.
-
-### [Build gate] PASSED (full, 912s, SOLO) on the second attempt — orchestrator, 2026-10-19 · `e0378ea`
-
-**Attempt 2: EXIT=0, 8504 passed / 1 skipped / 0 failed.** Same commit as the red attempt 1, no change
-to the tree — which is what confirms attempt 1's six failures were the `@ops` hazard and not this card.
-Recorded as a second-attempt green, because *a gate green only on its second attempt is not the
-evidence a gate green on its first is*.
-
-**The count reconciles exactly:** `main` **8495** → branch **8505**, **+10** — brush_menu **+6**,
-editor_ui **+1** (the pin for the owner's button rename), browser_fixture_scope **+3**.
-
-### [Review 1/3] Score: 9.0 — 0 critical, 1 important, 2 minor, 1 info · [Severity gate] FAILS
-
-Report: `meta/review/20261019T173621Z-CARD-247-cycle1.yml`.
-
-**The report's own header says "PASSES" and its body says one Important "stands between this card and a
-clean gate". Those contradict, and this board has settled it twice** (CARD-250 cycle 2, CARD-251 cycle
-1): **a severity gate is not a number.** 9.0 meets `min_score` and the card does not pass while a
-gating finding is open. Recorded here so the contradiction is resolved on the card rather than left for
-the merge to trip over.
-
-**[Review] F-001 (important) — and it is the system catching itself.** The rename table's control,
-`test_the_rename_table_refuses_what_it_claims_to`, asserts only that `_rename_problems(table)` is
-**non-empty** — and several broken cases trip more than one refusal. The reviewer neutralised each of
-the nine branches individually (`if <cond>:` → `if False:`) and ran only that control: branches 1, 2,
-6, 7, 8 died; **branches 3, 4, 5 and 9 SURVIVED**, each shadowed by another refusal firing on the same
-case. So four of the nine refusals are narrative, and three separate places claim otherwise — the
-test's docstring (*"Each case below is reported WITH the break and absent WITHOUT it"*), its sibling's,
-and the card's own note (*"drives all nine… so none of them is a branch nothing executes"*).
-
-**This violates `ADR-0039/R1` — `severity: mandatory` — which says in as many words: "a claim whose
-control cannot fail is narrative, not coverage, and must be narrowed to what is measured or deleted."**
-
-⚑ **That rule is in this card's contract only because of two changes made earlier the same day.** The
-curation convention (`meta/kanban/curation.md`) stopped the orchestrator dropping ADR-0039 by
-judgement, and removing the `contexts: [CTX-001]` short-circuit made the authored scope globs bite.
-Before both, ADR-0039 was dropped from CARD-250's and CARD-251's contracts — the two cards that then
-produced ten findings of exactly this family. **The first card to carry it caught a violation of it on
-the first cycle.**
-
-**The guard itself is not weakened, which is why this is Important and not Critical** — the one
-dangerous shape (a "rename" that merges two recorded ids) is caught a second time by the set-size
-equality in `test_every_rename_entry_moves_one_recorded_id_and_is_attributed`, because
-`_recorded_node_ids()` is a set comprehension and collapses.
-
-**What the reviewer verified rather than inherited**, all six areas it was pointed at: the invisible-
-render pin discriminates (dropping the seam colour fails the cell test and *only* that one, and it
-carries information on exactly the one brush where border and fill share `--grid-ink`); M1's widening
-is load-bearing (removing the added click makes the sweep pass **with the mutant still installed**);
-the rename table cannot delete coverage; **AC-7's two mutants were re-run, not inherited**, and die at
-*different* assertions; the five out-of-`Touches` edits carry no CARD-250-shaped vacuity; and there is
-no behavioural reach into the editor.
+**⚑ And the agent caught an over-claim it had just written** (`bd88213`): its own new docstring said
+*"every value they declare is a design token or a `calc()`/`color-mix()` over tokens"* while
+`display: inline-flex` is neither. Narrowed on re-read — the rule F-001 is about, applied to F-001's
+own remedy, by the agent rather than by review.
