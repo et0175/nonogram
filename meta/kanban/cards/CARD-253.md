@@ -244,3 +244,13 @@ template header, the `ADDED_SINCE_BEFORE` registry).
   owed as this card's own gate — it must pass on the tree it will merge into — and the question of
   whether CARD-252 actually stops the hazard needs the next several waves' gates, which is where
   wave 45 already left it.
+- **[Build gate 3 / re-gate — PASSED]** `9a3cc21` (this card's work merged with `main`, so the tree
+  now carries CARD-252's `reset_engine()` and CARD-247's merged work), solo: **8529 passed**, 1
+  skipped, 15:42, EXIT=0. Third full suite on this card's code, second green one.
+- **[What the re-gate does and does not establish]** It establishes what a gate is for: this card
+  passes the full suite on the tree it will merge into. It establishes **nothing** about whether
+  CARD-252 fixed the intermittent `relation "puzzles" does not exist` class, because build gate 2
+  was already green on this card's own commit *without* that fix. Three runs of this card's suite:
+  red, green, green — one fix landed between the second and third. That sequence cannot distinguish
+  a fix from a failure that stopped appearing, and it is recorded that way rather than counted as
+  evidence.
