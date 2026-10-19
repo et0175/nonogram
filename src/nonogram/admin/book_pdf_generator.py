@@ -372,7 +372,7 @@ import math
 import time
 from collections import Counter
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from importlib import resources
 from typing import Any, Dict, Iterable, Iterator, Optional, List, Sequence, Tuple, Union
@@ -387,7 +387,14 @@ from nonogram.admin.book_answer_key import (
     answer_title,
     plan_small_answer_pages,
 )
-from nonogram.admin.book_page_spec import InkMode, book_ink_mode, book_page_spec
+from nonogram.admin.book_page_spec import (
+    GridSize,
+    InkMode,
+    book_cell_sizes,
+    book_cell_spec,
+    book_ink_mode,
+    book_page_spec,
+)
 from nonogram.admin.book_plan import TIERS, book_level_order
 from nonogram.difficulty import Tier, tier_of_record
 from nonogram.errors import UnletterableTitle
@@ -1414,7 +1421,13 @@ def puzzle_page_plan(book: Any, puzzles: List[Any]) -> List["PuzzlePagePlan"]:
             whose clue sets disagree about its grid. The message names it.
     """
     generator = BookPDFGenerator(book)
-    return generator.puzzle_pages([generator._payload(puzzle) for puzzle in puzzles])
+    payloads = [generator._payload(puzzle) for puzzle in puzzles]
+    # CARD-225: the same whole-book cell map `section_plan` settles, so the
+    # editor's "would this edit split a page" answer is asked of the pages the
+    # book really prints — a pairing verdict now depends on the grid sizes'
+    # own book cells (F-8), so a walk run without the map would be a model of
+    # the export rather than the export.
+    return generator.puzzle_pages(payloads, cell_sizes=generator.cell_sizes(payloads))
 
 
 # ---------------------------------------------------------------------------
@@ -2604,6 +2617,13 @@ class SectionPlan:
             that needs the interior's *own* ``first_answer_page`` arithmetic
             (:meth:`BookPDFGenerator.interior_stream`) does not re-derive it
             from the entry count a second time.
+        cell_sizes: The cell each grid size in this book prints at, in mm
+            (CARD-225, NFR-008 as amended) — :meth:`BookPDFGenerator.cell_sizes`
+            over :attr:`payloads`. The pages in :attr:`pages` were already
+            planned with it, and it is carried here because the **single**
+            puzzle pages are drawn later, by
+            :meth:`BookPDFGenerator.interior_stream`, which must size them by
+            the same map rather than compute a second one.
     """
 
     puzzles: List[Any]
@@ -2612,6 +2632,7 @@ class SectionPlan:
     payloads: List[ExportPayload]
     pages: List[SectionPage]
     toc_page_count: int = 0
+    cell_sizes: Dict[GridSize, float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -3916,6 +3937,122 @@ class BookPDFGenerator:
         """
         return book_page_spec(self.book, page_number)
 
+    def cell_sizes(self, payloads: Sequence[ExportPayload]) -> Dict[GridSize, float]:
+        """The cell each grid size in this book prints at, in mm (NFR-008, CARD-225).
+
+        :func:`~nonogram.admin.book_page_spec.book_cell_sizes` over
+        ``payloads``' clue sets on this book's own sheet — the one door, as
+        every other book figure comes through (EC-021, ADR-0036/R2). The
+        panel selects among ``compute_layout``'s own cells and measures
+        nothing itself.
+
+        **It takes the whole book, never a slice of it.** A grid size's cell
+        is fitted to the deepest-clued member *in the book*, so a map built
+        over one level's puzzles would print that level's 20x20s larger than
+        another level's. Both production callers hand it the full payload
+        list: :meth:`section_plan` (the export and the Arrangement screen)
+        and :func:`puzzle_page_plan` (CARD-251's editor).
+
+        Args:
+            payloads: Every drawable member of the book, in any order.
+
+        Returns:
+            ``{(columns, rows): cell in mm}``, covering exactly the grid
+            sizes ``payloads`` holds.
+
+        Raises:
+            ValueError: the book's stored print specification cannot be laid
+                out, or a payload's clue sets cannot be (fail closed — see
+                ``book_cell_sizes``).
+        """
+        return book_cell_sizes(
+            self.page_spec(1),
+            [(payload.row_clues, payload.column_clues) for payload in payloads],
+        )
+
+    def _puzzle_page_spec(
+        self,
+        page_number: int,
+        cell_mm: Optional[float],
+    ) -> PageSpec:
+        """The sheet one puzzle page is drawn on, capped at its grid size's cell.
+
+        :meth:`page_spec` for ``page_number``, with its flat cap lowered to
+        ``cell_mm`` (:func:`~nonogram.admin.book_page_spec.book_cell_spec`) —
+        which is how the book-wide figure reaches the page without a second
+        placement. ``None`` is the sheet unchanged, which is the per-puzzle
+        fit this card replaces: it is what a caller that was handed no
+        ``cell_sizes`` map gets (F-14), and what every **non-puzzle** page
+        (guide, TOC, divider, answer key) is drawn on, since none of them
+        prints a puzzle at a book cell (F-15, F-16).
+        """
+        spec = self.page_spec(page_number)
+        return spec if cell_mm is None else book_cell_spec(spec, cell_mm)
+
+    @staticmethod
+    def _grid_size(payload: ExportPayload) -> GridSize:
+        """``payload``'s grid size, read off its clue sets exactly as the map keys it."""
+        return (len(payload.column_clues), len(payload.row_clues))
+
+    def _unmeasurable_members(
+        self, payloads: List[ExportPayload], ids: Optional[List[Any]]
+    ) -> str:
+        """Which members :meth:`cell_sizes` could not measure, named (CARD-225).
+
+        The **failure path only**. ``cell_sizes`` fails closed for the whole
+        book (:func:`~nonogram.admin.book_page_spec.book_cell_sizes`), which
+        says *that* a member will not lay out and not *which*; this walks the
+        payloads once more and names every one that refuses, through
+        :func:`_named_puzzles`, so the message is the one the owner can act on.
+
+        A second pass is affordable precisely because it runs only when the
+        export is already aborting, and it cannot disagree with the first:
+        ``book_cell_mm`` is pure, so a member that refused there refuses here.
+        Should none refuse — a book whose sheet itself is unreadable, which
+        ``book_page_spec`` raises for before any member is measured — every
+        member is named, because the failure is then the book's and belongs to
+        all of them.
+        """
+        spec_is_readable = True
+        try:
+            self.page_spec(1)
+        except ValueError:
+            spec_is_readable = False
+        refused: List[int] = []
+        if spec_is_readable:
+            for index, payload in enumerate(payloads):
+                try:
+                    self.cell_sizes([payload])
+                except ValueError:
+                    refused.append(index + 1)
+        numbers = tuple(refused) if refused else tuple(range(1, len(payloads) + 1))
+        return _named_puzzles(ids, numbers)
+
+    def _pair_cell_mm(
+        self,
+        first: ExportPayload,
+        second: ExportPayload,
+        cell_sizes: Optional[Dict[GridSize, float]],
+    ) -> Optional[float]:
+        """The cap a two-up page takes: the **smaller** of its two book cells.
+
+        The owner's rule for a shared page, recorded on CARD-225 ("two
+        puzzles sharing a page use the smaller of their two sizes — this is
+        what makes their grids line up"). Two puzzles of the *same* grid size
+        share one entry, so the rule degenerates to that entry for them.
+
+        ``None`` (no map, or a member whose grid size the map does not cover)
+        leaves the sheet uncapped, which is the pair-only fit that preceded
+        this card (F-14).
+        """
+        if cell_sizes is None:
+            return None
+        cells = [
+            cell_sizes.get(self._grid_size(payload)) for payload in (first, second)
+        ]
+        known = [cell for cell in cells if cell is not None]
+        return min(known) if len(known) == len(cells) else None
+
     def create_cover_page(self, book_title: str, cover_image: Optional[Image.Image] = None) -> Image.Image:
         """Create cover page image, one trim-size page.
 
@@ -4841,9 +4978,22 @@ class BookPDFGenerator:
         )
 
     def _blank_page(
-        self, payload: ExportPayload, puzzle_number: int, puzzle_page: int
+        self,
+        payload: ExportPayload,
+        puzzle_number: int,
+        puzzle_page: int,
+        cell_sizes: Optional[Dict[GridSize, float]] = None,
     ) -> Image.Image:
         """One puzzle's blank page, alone on the sheet of *its own* position.
+
+        **Since CARD-225 the cell is the book's, not this puzzle's**
+        (NFR-008 as amended): ``cell_sizes`` is :meth:`cell_sizes`' map and
+        the sheet is capped at this puzzle's own grid size's entry
+        (:meth:`_puzzle_page_spec`), so every 20x20 in the book draws one
+        cell. The capped sheet is handed to ``render_pages`` and to the
+        ``compute_layout`` call below alike, so the frame's own room check
+        reads the cell that was really drawn. ``None`` — a caller with no map
+        — is the per-puzzle fit this card replaces (F-14).
 
         ``render_pages`` draws a blank page and a solved page from one
         payload; the solved one is dropped here. The puzzle's own full solved
@@ -4901,7 +5051,10 @@ class BookPDFGenerator:
         it is after this puzzle, and the two differ on every page of the
         book.
         """
-        page_spec = self.page_spec(puzzle_page)
+        page_spec = self._puzzle_page_spec(
+            puzzle_page,
+            None if cell_sizes is None else cell_sizes.get(self._grid_size(payload)),
+        )
         blank, _ = render_pages(
             self._puzzle_payload(payload, puzzle_number),
             page_spec=page_spec,
@@ -5745,8 +5898,21 @@ class BookPDFGenerator:
         first_page: int = 1 + GUIDE_PAGE_COUNT,
         ids: Optional[List[Any]] = None,
         first_number: int = 1,
+        cell_sizes: Optional[Dict[GridSize, float]] = None,
     ) -> List[PuzzlePagePlan]:
         """The pairing walk over the book order (FR-040, INV-010, EC-027).
+
+        **Since CARD-225 a pair is offered a capped sheet** (``cell_sizes``,
+        :meth:`cell_sizes`' whole-book map): the pair's spec is capped at the
+        **smaller** of the two members' grid-size cells, which is the owner's
+        own rule for a shared page and what makes the two grids line up. The
+        cap is a ceiling, not a floor — the pair's own two-up fit still wins
+        when it is the smaller (F-9) — and a pair whose smaller book cell is
+        itself below :data:`~nonogram.export.layout.TWO_UP_MIN_CELL_MM` is
+        **refused**, so its two puzzles print on separate pages (F-8). The
+        map is the **book's**, never this walk's own slice: each level's walk
+        is handed the same one by :meth:`puzzle_section`, so a 20x20 does not
+        change size between levels (F-14).
 
         Walks ``payloads`` — the book order, as CARD-126 leaves it — from the
         first puzzle. Puzzle *i* and puzzle *i+1* are offered to COMP-007's
@@ -5847,7 +6013,9 @@ class BookPDFGenerator:
                 pair = None
             else:
                 numbers = (number, number + 1)
-                page_spec = self.page_spec(page_number)
+                page_spec = self._puzzle_page_spec(
+                    page_number, self._pair_cell_mm(first, second, cell_sizes)
+                )
                 try:
                     pair = compute_pair_layout(
                         (first.row_clues, first.column_clues),
@@ -5885,8 +6053,16 @@ class BookPDFGenerator:
         payloads: List[ExportPayload],
         first_page: int = 1 + GUIDE_PAGE_COUNT,
         ids: Optional[List[Any]] = None,
+        cell_sizes: Optional[Dict[GridSize, float]] = None,
     ) -> List[SectionPage]:
         """The interior's puzzle section: a divider per level, then its pages.
+
+        ``cell_sizes`` (CARD-225) is the **book's** per-grid-size cell map and
+        is passed through to every level's :meth:`puzzle_pages` walk
+        unchanged. Splitting the walk at a level boundary therefore still
+        changes no verdict and now no cell either: the map a puzzle is sized
+        by does not depend on which level's slice it was offered in, exactly
+        as :data:`~nonogram.export.layout.TWO_UP_MIN_CELL_MM` does not.
 
         The whole of the interior between the guide page and the SOLUTIONS
         divider (FR-041, INV-009, CARD-128), planned before anything is drawn.
@@ -5986,6 +6162,7 @@ class BookPDFGenerator:
                 first_page=page_number,
                 ids=None if ids is None else ids[start:end],
                 first_number=start + 1,
+                cell_sizes=cell_sizes,
             )
             section.extend(pages)
             page_number += len(pages)
@@ -6106,13 +6283,35 @@ class BookPDFGenerator:
             toc_entry_count, page_frame(self.page_spec(1)), self.dpi
         )
         first_page = 1 + GUIDE_PAGE_COUNT + toc_page_count
+        # CARD-225 (NFR-008 as amended): the cell each grid size prints at,
+        # settled here, once, over the **whole** book — this is the only place
+        # that knows every printable member at once, and the figure has to be
+        # the book's rather than a level's or a page's (see `cell_sizes`). The
+        # pairing walk below is handed it, and so is `interior_stream`, which
+        # draws the single pages from the same map.
+        try:
+            cell_sizes = self.cell_sizes(payloads)
+        except ValueError as unmeasurable:
+            # One bad member stops the whole book — fail closed (F-3) — but the
+            # owner searches a 120-puzzle book by the id in the message and
+            # nothing else, so the abort names it, exactly as the pairing walk's
+            # and the draw loop's do. The culprit is found on the **failure**
+            # path only: the happy path asks `cell_sizes` once (EC-021's one
+            # computation) and never re-measures a member to label it.
+            raise RuntimeError(
+                f"puzzle {self._unmeasurable_members(payloads, ids)} could not be "
+                f"laid out: {unmeasurable}"
+            ) from unmeasurable
         return SectionPlan(
             puzzles=ordered,
             ids=ids,
             printed=printed,
             payloads=payloads,
-            pages=self.puzzle_section(payloads, first_page=first_page, ids=ids),
+            pages=self.puzzle_section(
+                payloads, first_page=first_page, ids=ids, cell_sizes=cell_sizes
+            ),
             toc_page_count=toc_page_count,
+            cell_sizes=cell_sizes,
         )
 
     def interior_pages(self, puzzles: List[dict]) -> List[Image.Image]:
@@ -6553,7 +6752,10 @@ class BookPDFGenerator:
                     if page_plan.pair is None:
                         ((_, payload),) = members
                         page = self._blank_page(
-                            payload, page_plan.numbers[0], page_plan.page_number
+                            payload,
+                            page_plan.numbers[0],
+                            page_plan.page_number,
+                            decided.cell_sizes,
                         )
                     else:
                         page = self._two_up_page(page_plan, [p for _, p in members])

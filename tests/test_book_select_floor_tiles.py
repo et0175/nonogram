@@ -668,12 +668,32 @@ class TestBookFloorTiles_TheCellIsTheOneComputation:
         )
 
     def test_the_finalise_count_follows_it_too(self, panel, monkeypatch) -> None:
+        """The **members'** figure, which since CARD-225 is ``book_cell_sizes``.
+
+        NFR-008 as amended 2026-10-17: a member prints at its *grid size's*
+        cell in this book, so the one computation the finalise count reads is
+        ``book_cell_sizes`` (which is itself ``book_cell_mm`` per member, the
+        minimum taken within each grid size). The tile above still reads
+        ``book_cell_mm``: a candidate is not a member and has no shared cell
+        (CARD-225's F-13).
+        """
         book_id = panel.book()
         puzzle_id = panel.puzzle(*COMFORTABLE)
         panel.books.add_puzzles_to_book(book_id, [puzzle_id])
         import nonogram.admin.app as app_module
 
-        monkeypatch.setattr(app_module, "book_cell_mm", lambda *a, **k: 1.0)
+        # The stub answers for the grid sizes it was *handed*, keyed exactly as
+        # the route keys them — otherwise the lookup would miss and the count
+        # would be reached through the ``book_cell_mm`` fallback instead, and
+        # this control could not fail. ``book_cell_mm`` is therefore left
+        # alone, and the figure below can only have come from here.
+        monkeypatch.setattr(
+            app_module,
+            "book_cell_sizes",
+            lambda spec, members: {
+                (len(columns), len(rows)): 1.0 for rows, columns in members
+            },
+        )
 
         assert below_floor_count(finalize_html(panel, book_id)) == 1
 
@@ -849,7 +869,14 @@ class TestBookSelectTile_TheFloorVerdictIsMadeOnce:
 
         The G-1 guard above this one pins the *number*; this pins the
         *decision* — one puzzle that clears the floor on its own, reported
-        below it by both screens once ``book_cell_mm`` says so.
+        below it by both screens once the one computation says so.
+
+        Since CARD-225 the two screens read **two** doors onto that one
+        computation: the tile asks ``book_cell_mm`` for the candidate's own
+        page fit, the finalise count asks ``book_cell_sizes`` for the cell its
+        grid size really prints at. Both are stubbed here, because the verdict
+        this pins is that *neither screen judges for itself* — not that the two
+        doors are one function (CARD-225's F-13 records why they cannot be).
         """
         puzzle_id = panel.puzzle(*ABOVE_FLOOR_WIDE[:4])
         book_id = panel.book()
@@ -861,6 +888,14 @@ class TestBookSelectTile_TheFloorVerdictIsMadeOnce:
 
         monkey = pytest.MonkeyPatch()
         monkey.setattr(app_module, "book_cell_mm", lambda *a, **k: FLOOR_MM - 0.01)
+        monkey.setattr(
+            app_module,
+            "book_cell_sizes",
+            lambda spec, members: {
+                (len(columns), len(rows)): FLOOR_MM - 0.01
+                for rows, columns in members
+            },
+        )
         try:
             tile = tile_of(tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5]), puzzle_id)
             assert 'data-below-floor="true"' in tile

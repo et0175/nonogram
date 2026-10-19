@@ -6,6 +6,19 @@ pairing — builds its sheet here and measures a puzzle's cell with
 :func:`book_cell_mm`, so that "the cell a puzzle gets in this book" is one
 computation (EC-021).
 
+**Since CARD-225 that question has two forms, and both are answered here.**
+NFR-008 as amended 2026-10-17 chooses the printed cell *per grid size per
+book*, fitted to the deepest-clued member of that grid size, so:
+
+* :func:`book_cell_mm` is one puzzle's own page fit — the largest cell it
+  could take on this sheet, which is a **ceiling** on what it prints at;
+* :func:`book_cell_sizes` is what a grid size really prints at in a given
+  book: the **minimum** of those fits within each grid size. It is a
+  selection over :func:`book_cell_mm`'s answers and measures nothing itself;
+* :func:`book_cell_spec` is how that figure reaches a page — the sheet's flat
+  cap lowered to it, so ``compute_layout`` still does every measurement
+  (ADR-0036/R2) and no caller places anything.
+
 * :data:`BOOK1_PROFILE` is CON-018 **as amended 2026-10-17** (CARD-222): trim
   8.5 x 11 in, gutter 0.5 in, outside 0.5 in, top 0.55 in, bottom 0.47 in, no
   bleed, the 12 mm title band (TERM-028). Three sides moved out from 0.375 in
@@ -74,12 +87,13 @@ of them.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 
 from nonogram.export.layout import (
+    CellCapPolicy,
     OrientationPolicy,
     PageParity,
     PageSpec,
@@ -98,6 +112,8 @@ __all__ = [
     "MIN_TRIM_CM",
     "PrintProfile",
     "book_cell_mm",
+    "book_cell_sizes",
+    "book_cell_spec",
     "book_ink_mode",
     "book_page_spec",
     "ink_mode_from_stored",
@@ -446,3 +462,115 @@ def book_cell_mm(
     if layout.page is None:
         raise ValueError("book_cell_mm needs a book page spec (one with a parity): build it with book_page_spec")
     return layout.page.cell_mm
+
+
+#: A grid size, as the book groups puzzles by it: ``(columns, rows)``, read off
+#: a puzzle's own clue sets (``len(column_clues)`` across, ``len(row_clues)``
+#: down). 30x20 and 20x30 are two grid sizes, not one — they are two different
+#: shapes on the page and a shared cell for them would be meaningless.
+GridSize = tuple[int, int]
+
+#: One member of a book, as the per-grid-size fit reads it: its
+#: ``(row_clues, column_clues)``. Nothing else about a puzzle enters the
+#: computation — not its id, its tier, its name or its grid (ADR-0033/R1).
+BookMember = tuple[Sequence[tuple[int, ...]], Sequence[tuple[int, ...]]]
+
+
+def book_cell_sizes(spec: PageSpec, members: Iterable[BookMember]) -> dict[GridSize, float]:
+    """The cell each **grid size** in this book prints at, in millimetres (NFR-008).
+
+    NFR-008 as amended 2026-10-17: the figure is chosen *per grid size per
+    book*, fitted to the deepest-clued member of that grid size, so every
+    20x20 in one book prints at one cell however its clue columns differ
+    (CARD-225, AC-369).
+
+    **It is a selection, not a second fit.** Each member's own cell is
+    :func:`book_cell_mm` — ``compute_layout``'s, read off (ADR-0036/R2: the
+    admin panel fits no cell) — and this function takes the **minimum** of
+    them within each grid size. Nothing here measures a sheet, a gutter or a
+    margin.
+
+    **Why the minimum rather than "the deepest-clued member's".** They are the
+    same number whenever one member is deepest on both axes, which is the case
+    NFR-008's AC-369 and this card's AC-2 state. They can differ when one
+    member has the deeper **row** clues (which decide the width term) and
+    another the deeper **column** clues (the height term): the minimum is then
+    the only figure at which *neither* overflows, and "the deepest-clued
+    member" has no single referent. The minimum is also what makes
+    non-overflow an identity rather than a case analysis: for any member *m*,
+    ``result <= book_cell_mm(spec, *m)``, so *m*'s own page fit is never
+    exceeded.
+
+    Args:
+        spec: The book's sheet, as :func:`book_page_spec` builds it. Parity
+            moves the usable area and never its size, so either parity gives
+            the same sizes.
+        members: The book's members as ``(row_clues, column_clues)`` pairs, in
+            any order and with repeats allowed. A member appearing twice is
+            one member: the minimum is order- and multiplicity-independent
+            (AC-7).
+
+    Returns:
+        ``{(columns, rows): cell in mm}``, holding exactly the grid sizes
+        ``members`` covers. An empty iterable gives an empty mapping — a book
+        with no members prints no puzzle page, and a caller that asks for a
+        grid size it did not supply gets a :class:`KeyError` rather than a
+        guessed cell (see :func:`book_cell_spec`'s caller contract).
+
+    Raises:
+        ValueError: ``spec`` has no parity, or a member's clue sets cannot be
+            laid out — propagated from :func:`book_cell_mm`/``compute_layout``
+            unchanged, naming what was wrong with it. Fail closed: a book with
+            one unmeasurable member gets **no** sizes at all, rather than
+            sizes for the grid sizes that happened to measure (F-3).
+    """
+    sizes: dict[GridSize, float] = {}
+    for row_clues, column_clues in members:
+        key: GridSize = (len(column_clues), len(row_clues))
+        cell_mm = book_cell_mm(spec, row_clues, column_clues)
+        current = sizes.get(key)
+        sizes[key] = cell_mm if current is None else min(current, cell_mm)
+    return sizes
+
+
+def book_cell_spec(spec: PageSpec, cell_mm: float) -> PageSpec:
+    """``spec`` with its flat cap lowered to ``cell_mm`` — the book's own cell.
+
+    How a book-wide figure reaches the page **without a second placement**
+    (ADR-0036/R2, and the precedent ``compute_pair_layout`` set with its
+    ``fit_spec``): the cell a placed page draws is ``min(cap, page fit)``, so
+    a spec whose cap *is* the grid size's shared cell makes every member of
+    that grid size draw exactly that cell — the shared figure is at or below
+    every member's own fit by construction (:func:`book_cell_sizes`), so the
+    cap is what binds for every one of them, and ``compute_layout`` still does
+    all the measuring.
+
+    The cap is lowered, never raised: NFR-008's 7.5 mm standard cell is a
+    ceiling this card does not touch (G-1). A ``cell_mm`` above the spec's own
+    cap is therefore a no-op rather than an error — it is what a grid size at
+    the cap already asks for (AC-3).
+
+    Args:
+        spec: A **book** sheet: one with a parity and a flat cap in mm.
+        cell_mm: The grid size's own cell, from :func:`book_cell_sizes`.
+
+    Raises:
+        ValueError: ``cell_mm`` is not a finite positive number of mm, or
+            ``spec`` carries NFR-005's comfort curve rather than a flat cap —
+            a CLI/A4 sheet has no book cell, and giving it one would be the
+            byte-identity ADR-0036/R1 forbids rather than a smaller page.
+    """
+    if spec.cell_cap is CellCapPolicy.COMFORT_CURVE:
+        raise ValueError(
+            "book_cell_spec needs a book sheet with a flat cell cap in mm, not "
+            "NFR-005's comfort curve: a CLI page has no book cell"
+        )
+    if (
+        isinstance(cell_mm, bool)
+        or not isinstance(cell_mm, int | float)
+        or cell_mm != cell_mm  # NaN
+        or cell_mm in (float("inf"), float("-inf"))
+        or cell_mm <= 0
+    ):
+        raise ValueError(f"cell_mm must be a finite positive number of mm, not {cell_mm!r}")
+    return replace(spec, cell_cap=min(float(spec.cell_cap), float(cell_mm)))

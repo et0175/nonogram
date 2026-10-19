@@ -161,7 +161,32 @@ class Sheet:
         """The margin on the page's right: the outside margin on an odd page."""
         return self.outside_mm if page_number % 2 else self.gutter_mm
 
-    def drawing_left_mm(self, page_number: int, across: int, down: int) -> float:
+    def book_cell_mm(self, members: "list[tuple[int, int, int, int]]") -> dict:
+        """NFR-008 as amended 2026-10-17: one cell per **grid size** per book.
+
+        CARD-225: a book's cell for a grid size is fitted to the deepest-clued
+        member of that grid size, so a corpus holding two puzzles of one extent
+        at different clue depths prints **both** at the deeper one's cell.
+        Written out here, as this module writes every other figure out —
+        :meth:`cell_mm` is the per-puzzle fit and is now only one term of it.
+
+        Args:
+            members: ``(columns, rows, across, down)`` per member of the book,
+                as :func:`_extent` reports them.
+
+        Returns:
+            ``{(columns, rows): cell in mm}``.
+        """
+        sizes: dict = {}
+        for columns, rows, across, down in members:
+            cell = self.cell_mm(across, down)
+            key = (columns, rows)
+            sizes[key] = cell if key not in sizes else min(sizes[key], cell)
+        return sizes
+
+    def drawing_left_mm(
+        self, page_number: int, across: int, down: int, cell: float | None = None
+    ) -> float:
         """CARD-224 (FR-032's own centring, restored): the drawing centred
         across the usable width of *that* page, on both parities, with the
         spare clamped at zero — a drawing wider than the usable area starts on
@@ -170,7 +195,8 @@ class Sheet:
         Between CARD-204 and this card the drawing was flush with the outer
         margin instead, and this returned ``left_margin + spare`` on an odd
         page and ``left_margin`` on an even one."""
-        spare = self.usable_width_mm - across * self.cell_mm(across, down)
+        drawn = self.cell_mm(across, down) if cell is None else cell
+        spare = self.usable_width_mm - across * drawn
         return self.left_margin_mm(page_number) + max(spare, 0.0) / 2
 
     def puzzle_area_mm(self) -> tuple[float, float]:
@@ -180,7 +206,9 @@ class Sheet:
             self.height_mm - BOTTOM_MM - FOOTER_STRIP_MM,
         )
 
-    def drawing_top_mm(self, across: int, down: int) -> tuple[float, ...]:
+    def drawing_top_mm(
+        self, across: int, down: int, cell: float | None = None
+    ) -> tuple[float, ...]:
         """CARD-224 (FR-032 as amended 2026-10-17): where the drawing's top
         edge may be — one row, or two in one declared window.
 
@@ -206,7 +234,8 @@ class Sheet:
         for where the boundary itself is pinned.
         """
         area_top, area_bottom = self.puzzle_area_mm()
-        spare = (area_bottom - area_top) - down * self.cell_mm(across, down)
+        drawn = self.cell_mm(across, down) if cell is None else cell
+        spare = (area_bottom - area_top) - down * drawn
         band_foot = TOP_MM + BAND_MM
         if spare <= 0:
             return (band_foot,)
@@ -428,7 +457,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
     extents += [(30, 10), (30, 12), (29, 11), (28, 10), (30, 15)]
     assert len(extents) >= 120, len(extents)
 
-    counted = overflowed = 0
+    counted = overflowed = shared_binds = 0
     for sheet in (BOOK1, _random_sheet(rng)):
         puzzles = [_puzzle(rng, columns, rows) for columns, rows in extents]
         # One puzzle to a page, and no divider between them: every row here
@@ -444,6 +473,21 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
         pages = generator.interior_pages(puzzles)
         trim_width_px, trim_height_px = _trim_px(sheet)
         tops: set[int] = set()
+        # CARD-225 (NFR-008 as amended): this corpus names three wide extents
+        # that the even-by-even sweep above *also* produces — (30, 10),
+        # (30, 12) and (28, 10) each appear twice, at two independently drawn
+        # clue depths — so three of its grid sizes have two members and print
+        # at the deeper member's cell rather than at each member's own fit.
+        # The expected top edge is read off that book-wide figure; before this
+        # card the two readings coincided because the cell was fitted per
+        # puzzle. The duplicates are deliberately kept: they are what makes
+        # this corpus exercise the rule at all.
+        book_cells = sheet.book_cell_mm([_extent(puzzle) for puzzle in puzzles])
+        shared_binds += sum(
+            1
+            for columns, rows, across, down in (_extent(p) for p in puzzles)
+            if abs(book_cells[(columns, rows)] - sheet.cell_mm(across, down)) > 1e-9
+        )
 
         for index, puzzle in enumerate(puzzles):
             # interior page 3 + index (CARD-201's guide), shifted by
@@ -460,7 +504,9 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
             # every page: the grid's left border starts there whether or not
             # the drawing fits (a trim too small for it anchors at the usable
             # area's left edge and overflows to the right, keeping this edge).
-            tops_mm = sheet.drawing_top_mm(across, down)
+            tops_mm = sheet.drawing_top_mm(
+                across, down, book_cells[(columns, rows)]
+            )
             assert min(abs(_mm(drawing.top) - top) for top in tops_mm) <= (
                 3 * HALF_PIXEL_MM + 1e-9
             ), (sheet, columns, rows, _mm(drawing.top), tops_mm)
@@ -490,6 +536,12 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
     assert windowed * 10 <= counted, (windowed, counted)
     # The overflowing sheet is a declared case, not a silent gap in the corpus.
     assert overflowed >= 1, overflowed
+    # CARD-225: and the shared-cell reading above is not a no-op dressed up as
+    # one. On at least one of the two sheets a grid size really does hold two
+    # members at different clue depths, so its book cell differs from the
+    # member's own fit; without this the per-puzzle reading would satisfy every
+    # assertion above and the rule would not be exercised here at all.
+    assert shared_binds >= 1, shared_binds
 
 
 def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages() -> None:
