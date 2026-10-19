@@ -1,0 +1,267 @@
+version: 1
+generated_at: "2026-10-19T18:10:03Z"
+target: "card/247-player-toolbar-labels @ bd88213 (base main 7bc93c1); 12 files, +1031/-91. Cycle 2 of 3 — the certification cycle. Fix delta reviewed at full depth: e0378ea..bd88213 = 3 files, +198/-37."
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_browser_fixture_scope.py (_rename_problems and its control, in full)"
+    - "tests/test_admin_design_tokens.py (_TOKEN/_VALUE_STRUCTURE/_KEYWORD_VALUES/_declared_values/_untokenised and the pinned test, in full)"
+    - "tests/test_puzzle_editor_ui.py (the AC-7 guard)"
+    - "tests/test_puzzle_solver_brush_menu.py (AC-1, AC-2, AC-3/AC-4, the measured-layout case)"
+    - "src/nonogram/admin/static/admin.css (the four pinned rules + the delta's comment)"
+    - "src/nonogram/admin/static/solver.js (BRUSH_LABEL, syncTrigger)"
+    - "src/nonogram/admin/templates/puzzle_edit.html (the renamed control + its confirmation)"
+    - "src/nonogram/admin/templates/puzzle_solve.html (payload line, confirmed context-only in the diff)"
+    - "meta/kanban/cards/CARD-247.md (main copy, 11-rule contract, AC-1..AC-7, G-1..G-6, fix-cycle notes)"
+    - "meta/review/20261019T173621Z-CARD-247-cycle1.yml (statuses written back)"
+  not_reached:
+    - "tests/test_puzzle_solver_page.py, _zoom.py, _clues.py, _phone.py (co-change peers, not opened; covered mechanically by the family collection guard, which ran green)"
+    - "~/Documents/nonogram-reviews/CARD-247/ (not re-viewed: the cycle-2 delta's only src change is inside a CSS comment, so the render is byte-identical to the one cycle 1 viewed)"
+  confidence: high
+
+metrics:
+  diff: { files: 12, added: 1031, removed: 91 }
+  delta_diff: { files: 3, added: 198, removed: 37 }
+  max_fan_in:
+    symbol: "_rename_problems (tests/test_browser_fixture_scope.py)"
+    callers: 3
+  tests_cover_change: true
+  churn_12mo:
+    src/nonogram/admin/static/admin.css: 50
+    tests/test_admin_design_tokens.py: 7
+    tests/test_browser_fixture_scope.py: 7
+  defect_density_12mo:
+    src/nonogram/admin/static/admin.css: 29
+    tests/test_admin_design_tokens.py: 4
+    tests/test_browser_fixture_scope.py: 5
+  hotspots:
+    - "src/nonogram/admin/static/admin.css (50 commits / 29 fix-shaped in 12 months; the delta touches only a comment block in it)"
+  cochange_missing:
+    - "tests/test_puzzle_solver_page.py (4 co-changes with the two delta test files)"
+    - "tests/test_puzzle_solver_zoom.py (3 co-changes)"
+    - "tests/test_puzzle_solver_clues.py (2 co-changes)"
+    - "tests/test_puzzle_solver_phone.py (2 co-changes)"
+  cochange_resolution: |
+    Not a missing change. The rename only reaches a test file where the brush label
+    is a locator or a parametrize value; `grep -rn Undecided tests/*.py` leaves only
+    the rename table's recorded OLD ids, prose, and two class names about the MODEL
+    state (TestSolverPage_AllCellsStartUndecided,
+    TestPuzzleEditor_NoUndecidedCellReachesTheStore), none of which the rename
+    touches. The mechanical check is stronger than reading the four files:
+    test_the_family_collects_exactly_what_card_217_measured collects all twelve
+    family files and compares every node id against CARD-217's artefact plus the two
+    recorded tables — it ran green here, so no node id in any unopened peer drifted.
+  unmeasured:
+    visual_baselines: "not_applicable — review.visual is off in meta/kanban/config.yml and no screenshots/runtime log/a11y log/visual diff were provided; the owner validates renders out of band (~/Documents/nonogram-reviews/CARD-247)"
+
+system_contract:
+  rules_checked: 11
+  holds: 8
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: `git diff --name-only 7bc93c1..HEAD | grep '^src/.*\\.py$'` is empty — the branch touches no Python at all, so no public signature, request field or export field exists in it to reduce a grid's extent to a scalar."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no COMP-007 file is in the 12-file branch diff; no book geometry is computed anywhere in it."
+    - "ADR-0038/R1 ✓ holds — the branch's 12 changed files are four static/template files and eight test files; `git diff --name-only 7bc93c1..HEAD | grep -Ei 'package.*json|lock|requirements'` is empty and pyproject.toml is not in the diff. The delta's only src change is a nine-line comment in admin.css."
+    - "ADR-0038/R4 ✓ holds — solver_state.js is absent from the branch diff (checked by name); the new state write is inside solver.js's syncTrigger, the rendering layer. TestSolverBrushMenu_RenameDidNotTouchTheStateName imports the pure module's exports rather than extending them; re-run green against real Chromium in the 202-passed selection."
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: puzzle_solve.html's `{{ payload|tojson }}` line appears in the diff only as context (no +/-), and no network call is added (`grep -nE '^\\+.*(fetch\\(|XMLHttpRequest|navigator\\.send)'` over the src half returns nothing). The CON-015/CON-016 door is untouched."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the branch diff; pytest-playwright>=0.7 is only in [project.optional-dependencies].dev (pyproject.toml:35), not in project.dependencies and not in the admin extra."
+    - "ADR-0038/R8 ✓ holds — the delta adds no browser test and no fixture: the new AC-7 guard is a Flask test-client test on the `admin_app` fixture. The branch's browser tests carry @pytest.mark.browser and reuse CARD-160's browser_page/live fixtures; no new skip path. Re-run against real Chromium: 202 passed in the four-file selection (tests/test_browser_fixture_scope.py, test_admin_design_tokens.py, test_puzzle_editor_ui.py, test_puzzle_solver_brush_menu.py)."
+    - "ADR-0039/R1 ✓ holds — re-derived independently, not carried from the fix report. (a) All nine `_rename_problems` refusals neutralised one at a time (`if <cond>:` -> `if False:`), running only test_the_rename_table_refuses_what_it_claims_to, file restored from a byte-identical copy and sha256-compared after each (187c75fa…): nine killed, zero survivors, including branches 3, 4, 5 and 9 which survived cycle 1 — and in each case the failing assertion names THAT branch's own case with `matched 0` (branch 3: \"a merge, not a move: 'is itself recorded…' matched 0 of [...]\"; branch 4, 5, 9 likewise). (b) The 9x9 matrix was recomputed from a second, hand-written implementation of the nine predicates read out of the source (independent of the fix agent's derivation-by-difference): all 81 cells agree, diagonal all true, zero disagreements. (c) `len(hits) == 1` is not vacuously satisfiable: per-line attribution against nine distinct message markers shows that in every case the single hit is authored by the named branch (cases 3, 4, 5, 9 produce 2, 2, 2 and 3 problem lines and the hit is still the right one). (d) Both in-test keepers can fail: nesting frag 7 into frag 1 reds the nesting assertion, and loosening frag 4 to 'move' reds the `== 1` upper bound with `matched 2`. (e) F-002's own predicate: five literals injected into the real admin.css rules one at a time (rgb() in the seam rule, a named colour, a bare length, hsl() hidden inside the color-mix(), a bare length inside the calc()) are all RED; neutralising `_untokenised` to `return []` reds the broken-on-purpose rules; widening `_KEYWORD_VALUES` to accept 'red' reds the named-colour case. One residual over-claim in the predicate's docstring is filed as F-001 (Minor), below the bar for an R1 violation because the control does fail."
+    - "ADR-0039/R2 ✓ holds — `_rename_problems`' body is unchanged by the delta (only its docstring moved), and RENAMED_SINCE_BEFORE still defaults to deny: test_a_recorded_rename_is_a_move_and_an_unrecorded_one_goes_red ran green. The delta's new hand-written set, `_KEYWORD_VALUES = {\"inline-flex\"}`, is deny-by-default in the same sense: `_untokenised` reports every value that is neither in the set nor token-only, so an unanalysable value is a FAILURE and not a silent pass (measured: 'red', '2px', 'rgb(0,0,0)', '#1a1a1a', 'var(--w) solid var(--c)' all reported)."
+    - "ADR-0039/R3 ✓ holds — both exemptions carry a control for what they must NOT absorb, and both controls were shown failing here: the rename table's (clean WITH the entry, red in both directions WITHOUT it, plus the 1->1 set-size equality `len(_recorded_node_ids()) == len(_family_node_ids(BEFORE_ARTEFACT))`), and `_KEYWORD_VALUES`' (adding 'red' to it reds the 'a named colour' case). The token sweep's equality against today's sites is the new four-selector pin, which I showed can fail twice: renaming .player-brush-run reds it, and deleting the rule reds it — the sweep cannot silently shrink."
+    - "CON-021 ✓ holds — the delta is a CSS comment and two test files; the branch adds no Python, no network call, no persistence (greps above). TestSolverMarking_NoRequestPerMark is untouched by the branch's edit to test_puzzle_solver_marking.py (label-only parametrize rename) and ran green."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_design_tokens.py
+    line: 90
+    title: "`in` is a CSS length unit as well as a color-mix() keyword, so one literal shape escapes the token predicate while its docstring claims none can"
+    description: |
+      `_VALUE_STRUCTURE` must allow the words `calc`, `color-mix`, `in` and `srgb`
+      so that `color-mix(in srgb, …)` survives the strike. But `in` is also a CSS
+      length unit, and the alternation is written `(?:calc|color-mix|in|srgb)\b`
+      with a boundary only on the right — so `in\b` matches the unit suffix of a
+      bare inch length. Measured against the shipped helper:
+
+        calc(1in + var(--border-width)) ........ PASSES (should be reported)
+        calc(var(--x) + 2in) ................... PASSES (should be reported)
+        var(--a) 1in ........................... PASSES (should be reported)
+        calc(1px + var(--x)) ................... reported
+        calc(1em + var(--x)) ................... reported
+        color-mix(in srgb, var(--a) 28%, #fff) . reported
+
+      Three claim sites say no literal can get through:
+      `_untokenised`'s docstring — "``calc()`` and ``color-mix()`` therefore pass
+      only while every colour and length argument inside them is a token: a
+      literal anywhere in one survives the strike"; the test's docstring — "nor
+      for a hard-coded length, which is reported the same way"; and admin.css's
+      comment — "reports any value that is not a var(--token) or a
+      calc()/color-mix() over tokens". Each is a universal, and each is refuted
+      by the three values above.
+
+      Calibrated deliberately low, and the calibration is the point of the
+      finding rather than an apology for it. This is NOT the ADR-0039/R1 defect
+      cycle 1 filed: that control could not fail, and this one demonstrably does
+      — five literal shapes injected into the real rules all go red, including
+      one hidden inside the `color-mix()`, and neutralising the predicate reds
+      the broken-on-purpose rules. The gap is that a universal claim is one
+      obscure unit broader than the mechanism. Blast radius is nil: the escape
+      needs an author to write inch units in a screen stylesheet inside one of
+      four pinned rules, and `grep -nE '[0-9](in|cm|mm|pc|pt)\b'` over admin.css
+      finds none today. Raising this to Important would be inflating a Minor to
+      force a third cycle, which it does not deserve.
+    suggestion: |
+      One character of regex, or one word of docstring — either closes it.
+      (a) Require a boundary on the left of the unit-ambiguous word:
+          `_VALUE_STRUCTURE = re.compile(r"(?:calc|color-mix|srgb)\b|\bin\b|[-+*/0-9.,%() ]")`
+          and add `calc(1in + var(--border-width))` to the `broken` control so the
+          fix carries its own failing case (measured: it passes today, so the case
+          would be red before the regex change and green after).
+      (b) Or narrow the three claim sites to "a literal length or colour in the
+          units this stylesheet uses", per ADR-0039/R1's second option.
+      (a) is cheaper and keeps the claim.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_editor_ui.py
+    line: 816
+    title: "AC-7's \"no control carries the word Clear\" is swept over button TEXT only, so an attribute-borne name would pass"
+    description: |
+      The guard collects `re.findall(r"<button\b[^>]*>(.*?)</button>", html)` and
+      strips tags from the captured text, so the sweep sees inner text and
+      nothing else. A control whose name lives in an attribute —
+      `aria-label="Clear board"`, `title=`, an `<input value=>` — would satisfy
+      it. AC-7's wording is "no control on that page carries the word 'Clear'",
+      which is the broader claim.
+
+      Measured, no "Clear" is reachable today by any route, so the AC is not
+      materially over-stated: `grep -n Clear src/nonogram/admin/templates/
+      puzzle_edit.html` returns exactly two hits, both inside the `{# … #}`
+      header block (lines 1–69) that Jinja never renders; the page's own
+      aria-labels are "Marking tool", "History", "Brush: <label>", "Zoom",
+      "Zoom in", "Zoom out"; and solver.js writes `Brush: <label>` from a
+      two-brush editor menu that no longer offers the fourth brush at all.
+      The page is not all-buttons, though — puzzle_edit.html contributes 19
+      `<button>` and no other control element, but it `{% extends "base.html" %}`,
+      which adds 8 `<a>` nav links and one more button. None of those carries
+      "Clear" either. Recorded so that a future card adding an icon button named
+      by `aria-label`, or a nav entry, does not inherit a guard that reads as
+      broader than it is.
+
+      AC-7's other two clauses ARE guarded, and all three mutants are red
+      (measured here, template restored byte-identically after each):
+        reset button Reset -> Clear ....... red on `assert "Reset" in labels`
+        reset button Reset -> Wipe ........ red on `assert "Reset" in labels`
+        title Reset the board? -> Clear ... red on the title assertion
+        accept Reset board -> Clear board . red on `assert not [... "Clear" ...]`
+      The player half of the collision is the owner's recorded `### [Decision]`
+      and is deliberately not re-raised.
+    suggestion: |
+      One line, and it is the cheaper of the two options because the rendered
+      page is already clean: `assert "Clear" not in html, ...` over the whole
+      rendered page passes today (both template occurrences are inside the Jinja
+      comment), so AC-7's guard can take the same whole-page form AC-1's sweep
+      already uses on the player, and keep the per-button assertions as the
+      useful failure message. Narrowing the claim to "no button on that page is
+      labelled Clear" is the alternative, and is what the guard measures now.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: info
+    category: ops
+    type: question
+    file: meta/kanban/cards/CARD-247.md
+    line: 137
+    title: "The worktree's card copy still carries the stale 8-rule System contract header; main carries the re-derived 11"
+    description: |
+      Unchanged since cycle 1 (its F-004) and still the orchestrator's
+      bookkeeping between the two copies. This review judged against main's
+      11-rule set, by the rules and not by the count, as instructed. No action
+      for the card; recorded so the sync stays visible.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+certification:
+  mutation_check: complete
+  mutants_run: 20
+  survivors: 0
+  survivors_expected: 1
+  note: |
+    One mutant was EXPECTED to survive and did, which is itself a positive
+    result rather than a gap: M1 (solver.js `BRUSH_LABEL[UNKNOWN]` back to
+    "Undecided") combined with the removal of the sweep's widening
+    (`_tool(browser_page, "Clear")` before `page.content()`) runs GREEN. That is
+    the measurement behind the card's claim that the widening is load-bearing —
+    with the widening in place M1 kills BOTH AC-1 tests; with it removed the
+    sweep cannot see the trigger's rendered label at all.
+  tree_integrity: |
+    Every mutated file was restored from a byte-identical pre-captured copy and
+    sha256-compared immediately after each run (20/20 verified, no restore
+    failure). Final whole-diff sanity check: `git diff --stat HEAD -- src tests`
+    is empty and `git status --porcelain` shows only the two states present when
+    this review began (` M meta/kanban/cards/CARD-247.md`,
+    `?? meta/review/…cycle1.yml`). Post-mutation re-run of the four affected
+    test files: 202 passed.
+  mutants:
+    - "_rename_problems branch 1 (not a 3-tuple) neutralised -> KILLED (ValueError at the unpack the `continue` no longer guards)"
+    - "_rename_problems branch 2 (old not recorded) neutralised -> KILLED, own case"
+    - "_rename_problems branch 3 (new in before / merge) neutralised -> KILLED, own case, matched 0 [SURVIVED in cycle 1]"
+    - "_rename_problems branch 4 (moves to itself) neutralised -> KILLED, own case, matched 0 [SURVIVED in cycle 1]"
+    - "_rename_problems branch 5 (family prefix) neutralised -> KILLED, own case, matched 0 [SURVIVED in cycle 1]"
+    - "_rename_problems branch 6 (renames the test) neutralised -> KILLED, own case, matched 0"
+    - "_rename_problems branch 7 (unattributed card) neutralised -> KILLED, own case"
+    - "_rename_problems branch 8 (mute reason) neutralised -> KILLED, own case"
+    - "_rename_problems branch 9 (ADDED double-count) neutralised -> KILLED, own case, matched 0 [SURVIVED in cycle 1]"
+    - "control keeper: fragment 7 loosened to 'card' (nests inside fragment 1) -> KILLED by the no-substring assertion"
+    - "control keeper: fragment 4 loosened to 'move' -> KILLED by `len(hits) == 1` with matched 2"
+    - "F-002 L1: rgb(0,0,0) injected into the real seam rule -> KILLED"
+    - "F-002 L2: `background: red` injected into .player-brush-run -> KILLED"
+    - "F-002 L3: `margin-left: 2px` injected into .player-brush-run -> KILLED"
+    - "F-002 L4: hsl(0 0% 10%) hidden INSIDE the real color-mix() -> KILLED"
+    - "F-002 L5: `calc(1px + var(--border-width))` in the real seam rule -> KILLED"
+    - "F-002 selector pin: .player-brush-run renamed -> KILLED; the rule deleted -> KILLED"
+    - "F-002 predicate: `_untokenised` -> `return []` -> KILLED by the six broken-on-purpose rules; `_KEYWORD_VALUES` widened with 'red' -> KILLED by the named-colour case"
+    - "AC-7: reset button Reset->Clear -> KILLED; Reset->Wipe -> KILLED; confirmation title left behind -> KILLED; accept button left behind -> KILLED"
+    - "AC-3/M10: the seam colour dropped from admin.css -> KILLED by `assert seam != fill` ALONE (rgb(28,35,51) == rgb(28,35,51)); the sibling test still passed, confirming it is the sole discriminator"
+    - "AC-1/M1: solver.js BRUSH_LABEL[UNKNOWN] back to \"Undecided\" -> KILLED, both AC-1 tests (trigger text and the whole-page sweep)"
+  guardrails:
+    - "G-1 ✓ holds — no behaviour test changed across the four commits; the only test-file edits are label-valued parametrize renames with a note, plus two tests made stricter."
+    - "G-2 ✓ holds — the measured layout assertions are two exact numbers with no tolerance (208/136/144); re-measured, not loosened; untouched by the delta."
+    - "G-3 ✓ holds — the toggle's cells are `.player-swatch` spans, reused; the only new rules are the run's layout and its seam colour."
+    - "G-4 ✓ holds — aria-label=\"Region\" and aria-pressed both present and pinned by AC-4's test, which ran green."
+    - "G-5 ✓ holds — pyproject.toml absent from the branch diff; no package.json, lockfile or vendored JS."
+    - "G-6 ✓ holds, verified across all four commits — `git diff 7bc93c1..HEAD -- tests/` removes zero `def test_`/`class Test` lines; the four removed `@pytest.mark.parametrize` lines are label-value renames whose replacements keep the same case counts (4/3/2/3); both edited tests kept their names and got strictly stricter."

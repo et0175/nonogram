@@ -119,8 +119,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "0cba979"
     dismissed_reason: null
     learned_pattern: null
 
@@ -187,8 +187,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "0cba979"
     dismissed_reason: null
     learned_pattern: null
 
@@ -254,8 +254,8 @@ findings:
     source: model
     violates: EC-027
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "0cba979"
     dismissed_reason: null
     learned_pattern: null
 
@@ -318,8 +318,8 @@ findings:
     source: model
     violates: EC-021
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "0cba979"
     dismissed_reason: null
     learned_pattern: null
 
@@ -370,8 +370,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "0cba979"
     dismissed_reason: null
     learned_pattern: null
 
@@ -400,9 +400,24 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
-    dismissed_reason: null
+    status: fixed
+    fixed_in: "0cba979"
+    dismissed_reason: |
+      Fixed, with one correction to the finding: the shape it describes is not
+      reachable on either entry. Measured on this branch before the fix, a
+      book with trim_width_cm="abc" raises a bare
+      ValueError("book trim_width_cm must be a number of cm, not 'abc'") from
+      BOTH `section_plan` and `puzzle_page_plan` -- `section_plan` reads the
+      sheet for its TOC measurement (`page_frame(self.page_spec(1))`) several
+      lines ABOVE the cell map's try, so a book-level fault never reached that
+      handler, and `puzzle_page_plan` had no handler at all. So no 120-number
+      message was ever produced. The remedy was taken anyway, because the
+      property held only by the accident of one call's position: `section_plan`
+      now reads `spec = self.page_spec(1)` once and feeds `page_frame(spec)`
+      (no extra call), `puzzle_page_plan` reads it before its new handler, and
+      `test_an_unreadable_print_specification_is_the_books_own_failure` pins
+      the ValueError for both. The distinction is now structural rather than
+      incidental. Declared as failure-matrix row F-3b.
     learned_pattern: null
 
   - id: F-007
@@ -430,8 +445,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "0cba979"
     dismissed_reason: null
     learned_pattern: null
 
@@ -460,8 +475,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "0cba979"
     dismissed_reason: null
     learned_pattern: null
 
@@ -488,9 +503,17 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
-    dismissed_reason: null
+    status: fixed
+    fixed_in: "0cba979"
+    dismissed_reason: |
+      Judged and the suggestion's first half declined, its second half taken:
+      no filtering or caching was added (the finding's own suggestion is
+      "nothing to do now", there is no registry threshold and timing is
+      forbidden this cycle), and the figure plus the identified narrowing --
+      filter the member walk to members sharing a grid size with the
+      submission, an identical result over a strictly smaller set -- are now
+      stated in `_member_clue_sets`' own docstring, so the next reader meets
+      them where the cost is incurred rather than only in a review report.
     learned_pattern: null
 
   - id: F-010
@@ -520,7 +543,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: "0cba979"
     dismissed_reason: null
     learned_pattern: null
