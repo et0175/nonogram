@@ -2597,16 +2597,19 @@ def create_app(debug=None):
     def _book_holding(puzzle):
         """The book that holds ``puzzle``, as the editor's answers name it.
 
-        ``None`` when no book holds it, and ``None`` when the membership has
-        no book to name — the two cases ``puzzle_is_editable`` already tells
-        apart, the second of which is refused before any of this is asked.
+        ``None`` when no book holds it, and ``None`` when the membership
+        carries no book IDENTITY — the two cases ``puzzle_is_editable``
+        already tells apart, the second of which is refused before any of
+        this is asked.
 
         The store answers ``book_id`` and nothing more (it imports neither
         ``book_manager`` nor ``book_pdf_generator``), so the title and the
         status are read here. A ``book_id`` that resolves to no book leaves
         both ``None``: the title is presentation and the guard is the flag, so
-        an unreadable book still needs confirming and the question names the
-        id instead of a title (failure matrix F-4).
+        an unreadable book still needs confirming, and the question names the
+        id **and says the title could not be read** (failure matrix F-4 —
+        only the first half of that row was built until review cycle 1's
+        F-002; ``puzzle_edit.js``'s ``namedBook`` writes both).
         """
         book_id = puzzle.get("book_id")
         if not PuzzleReviewService._holds_a_book(book_id, puzzle.get("status")):
