@@ -1465,12 +1465,17 @@ class TestPuzzleEditor_WhatTheServerSays:
         assert "not known" not in said
         assert not _approve_offered(browser_page)
         _assert_stored(live, puzzle_id, STORED)
-        # G-3 / CARD-211: focus is never dropped mid-flow. This refusal is
-        # the branch that owns onApprove's surviving ``save.focus()`` — the
-        # successful branch has no bar left to stand on (CARD-250 AC-5), so
-        # the assertion retired from ``test_approving_from_the_keyboard_commits``
-        # is pinned HERE, which is what the card claims of this test (review
-        # cycle 1, F-002). Delete that one line of the script and this fails.
+        # G-3 / CARD-211: focus is never dropped mid-flow. This is onApprove's
+        # REFUSAL branch and it owns the ``save.focus()`` on that branch — one
+        # of the handler's two, the other belonging to the success that KEEPS
+        # the bar because a stroke landed mid-write (pinned by
+        # ``test_a_stroke_made_while_the_store_was_writing_keeps_the_page``;
+        # this comment said that branch did not exist, which fix cycle 1 made
+        # false — review cycle 2, F-001). The one success with nowhere to
+        # stand is the one that LEAVES (CARD-250 AC-5), which is why the
+        # assertion retired from ``test_approving_from_the_keyboard_commits``
+        # is pinned here (review cycle 1, F-002). Delete that one line of the
+        # script and this fails.
         assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-save"
 
     def test_the_same_save_can_then_be_made_again(self, browser_page, live) -> None:
