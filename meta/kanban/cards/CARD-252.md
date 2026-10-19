@@ -539,3 +539,57 @@ holds. G-6: nothing retired; the one rename names its survivor above. G-5: no ne
   `docs/DB_PERSISTENCE_IMPLEMENTATION.md` mentions `session.py` only as "session_scope() context
   manager", which this card does not touch. Nothing regenerated, and the reason is recorded so the
   next person who sees the warning on a docstring-only commit does not go looking.
+
+### [Review 2/3] Score 8.0 — FAILED on the severity gate (1 open Important) · ⚠ family regression
+
+Report: `meta/review/20261019T205927Z-CARD-252-cycle2.yml` (copied to main). `min_score: 8` is met;
+the open Important fails the card regardless, which is what the severity gate is for.
+
+- **G-1 re-derived by the certifier, not taken on assurance**: both files parsed at `fc5508e` and
+  `214b629`, every docstring stripped, `ast.dump` compared — `session.py` **identical**,
+  `conftest.py` **identical**. **Zero executable production delta across the whole fix cycle**, so
+  cycle 1's M1/R5/R6 measurements carry forward legitimately.
+- **All six of cycle 1's findings certified closed**, each with a one-line verdict. F-001 closed
+  **without smuggling in a new claim** — every sentence under "What is pinned" has a nameable
+  control. F-005's declared bound was judged **accurate**, and found to *under*-claim (refutable
+  only by a contrived mutation that checks the connection out first) — the safe direction. The
+  rename is clean under G-6: same two tests, old name recorded, card AC-4 line and AC-status row
+  both updated.
+- **The self-flagged side effect was real.** The pre-fix test was literally
+  `assert "reset_engine()" in source`, and the narrowed conftest docstring now contains that string
+  at `:457` — so the old check *would* have passed with the call deleted. The AST rewrite's M1 (call
+  deleted, prose kept) and M1b (call → attribute read) are both red, re-derived.
+- **⚠ C2-F-001 (important, `test_db_engine_lifecycle.py:285`), family = cycle-1 F-002.** The next
+  three `setattr` spellings out: a non-literal attribute name (`args[1]` not an `ast.Constant`), the
+  **bare builtin** `setattr(app_session, "engine", None)` (the code requires `node.func` to be an
+  `ast.Attribute` while the claim names exactly this spelling), and a computed string target. All
+  three are idioms already in this test tree. ADR-0039/R1 and R2 both recorded violated.
+- **C2-F-002 (minor), family = cycle-1 F-003.** The AST count fails **open** in one direction: a
+  class renamed off pytest's `Test*` prefix counts 2 in the AST and collects 0 in pytest — coverage
+  vanishes, guard stays green. Five other directions bias to red, correctly.
+
+**[Family regression] The loop is regenerating defects in one artifact rather than converging on it**
+— both findings land in families filed in cycle 1, and the gating one is the same file, guard, rules
+and defect class. Two qualifications the certifier made and I keep: it is **not** the same mutant
+surviving twice (cycle 1's three shapes are genuinely fixed and stay fixed — it is the next three
+out), and the recurrence is confined to one guard in one test file while the card's product
+behaviour has never been in question. The mechanism of the regression is the finding: **each fix
+widens the mechanism shape by shape and then writes a reach claim slightly wider than the new
+mechanism**, and a fourth shape exists for any finite list.
+
+- **[Orchestrator] the escalation the family-regression rule asks for, answered rather than queued.**
+  `review.family_regression: on` means escalate and let a human pick the source (design / undefined
+  term / bad slice). The source is already diagnosed, by measurement, in the finding itself: the
+  guard is being widened by enumeration, and its claim keeps running one shape ahead of it. So the
+  decision available to a human is available now, and it is **not** "polish the same guard a third
+  time". Fix cycle 2 is dispatched with a **structural** mandate — make the deny default total, on
+  every axis, so the claim becomes *"these spellings, and it FAILS on anything setattr-shaped whose
+  target or name it cannot read"*, which has no outside to probe. The discrimination that makes
+  totality affordable is already in the guard: a target that is not the session module is none of
+  its business. The explicitly sanctioned alternative is to **retreat the claim** to what the guard
+  reads and claim nothing beyond it, with the measurement that forced the retreat. Both outcomes
+  close the Important; a third enumeration does not, and the agent is told so.
+- **[Orchestrator] what this card is allowed to cost.** `max_cycles: 3`, so cycle 3 is the last
+  review. The thing being argued over is a test-tree guard on a card whose production delta is
+  measured at zero in both cycles. If cycle 3 does not certify, the card does not get a fourth
+  attempt at the guard — it gets its claim cut back to what is demonstrable and merges on that.
