@@ -198,6 +198,46 @@ def _init_engine():
         _engine_url = database_url
 
 
+def reset_engine() -> None:
+    """Retire the module-global engine; the next session request builds a new one.
+
+    Disposes the engine's connection pool (if one was ever built) and clears
+    the cache key :func:`_init_engine` compares against, so the very next
+    :func:`get_session` or :func:`session_scope` constructs a fresh engine
+    against whatever ``DATABASE_URL`` then says — pool included.
+
+    Who calls it and why
+    --------------------
+    CARD-252. The one caller is ``tests/conftest.py``'s
+    ``_rebuild_public_schema``, which the session-scoped
+    ``_test_database_tables`` fixture drives: it empties ``public`` with
+    ``DROP SCHEMA public CASCADE``, rebuilds it with ``alembic upgrade head``,
+    and then calls this — after the migration, never before, because a fresh
+    engine built against a half-built schema is the same problem wearing a
+    different hat.
+
+    Without it, :func:`_init_engine`'s "rebuild only when the URL changed"
+    cache keeps whatever engine the process had already built for that URL,
+    pool and all, so connections opened *before* the ``DROP SCHEMA`` are
+    handed back out *after* it. Four consecutive waves of this board's build
+    gates reported failures that reproduced on no second run, which is what
+    makes this a published function rather than three assignments in a test
+    file: a later reader of this module can see that something retires the
+    engine, and find out who.
+
+    Not part of any production path. Nothing in ``src/`` calls it, and it
+    changes no behaviour for a process that never does — it exists so that the
+    test tree does not have to reach into ``engine``, ``SessionLocal`` and
+    ``_engine_url`` by hand.
+    """
+    global engine, SessionLocal, _engine_url
+    if engine is not None:
+        engine.dispose()
+    engine = None
+    SessionLocal = None
+    _engine_url = None
+
+
 def _engine_options(database_url: str) -> dict:
     """Extra ``create_engine`` keywords for ``database_url``.
 
