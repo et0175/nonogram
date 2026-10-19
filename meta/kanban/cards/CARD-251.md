@@ -166,7 +166,22 @@ the allow-list is a claim that that answer never writes** — make it true at th
   edit stores** — a warning, not a refusal (owner, 2026-10-19). Assert both halves: the words appear
   AND the save goes through, or the test passes equally against an implementation that refuses. The
   test drives the measured boundary: same tier, same extent, gutter depth 4 → paired, depth 5 → split.
-  (test: `TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove`)
+  **AMENDED 2026-10-19 (orchestrator, after fix cycle 1). The change is SIGNED, and the other direction
+  is reachable.** *Given* two puzzles that each print on a page of their own, *when* a replacement's
+  gutters are shallow enough that the pair now **fits**, *then* the same answer says the book gets one
+  page **shorter**. Found by measurement while demonstrating the delta, not by review: on that input the
+  shipped sentence said *"gets one page longer"* and had **no partner to name**. The card's own decision
+  section was already direction-neutral — *"says **when** an edit would change the book's page count"* —
+  so this amends the criterion to the decision it was always implementing, rather than widening either.
+  **The delta is also proved to transfer to the whole interior**, against
+  `BookPDFGenerator.interior_stream(...).page_count` rather than `app.py`'s own counter, so the
+  cross-check is independent: 7 → 8 while the puzzle pages go 1 → 2. It holds because the guide is
+  fixed, answers are one per puzzle and an edit adds no puzzle, the SOLUTIONS divider is one, and level
+  dividers follow levels that **cannot move because AC-4 refuses a regrade at this same verify** — so
+  retiring AC-4's refusal breaks that test rather than letting this sentence quietly become false.
+  (test: `TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove`,
+  `…::test_the_puzzle_page_delta_is_the_whole_interiors_delta`,
+  `…::test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter`)
 
 ## Guardrails
 
@@ -301,13 +316,17 @@ boundary × failure mode, each with the DECLARED behaviour. Wrong-but-declared b
   refusal becomes a code and a `reason`. The alternative, `book_manager`'s outcome dataclass, was
   not copied: that method had three outcomes to report and this one has one (the stored row), so a
   dataclass would have made every existing caller unwrap a success it already had.
-- **STRUCTURE: a book this panel cannot NAME keeps the outright refusal.** `_holds_a_book` true
-  with a falsy `book_id` — the legacy `in_book` status, or a migration's `""` — still leaves
-  `_row_an_edit_may_touch` answering `None`, so the editor page and both POST routes refuse it with
-  the `in_a_book` 409 they always did. The card's own reason: "'Are you sure?' with no object is a
-  dialog to click through". This is also what keeps `in_a_book` a reason the edit routes still emit,
-  so `EDIT_REFUSAL_REASONS`, the client's allow-list and the branch that words it all stay live
-  instead of being retired (G-6, G-10).
+- **STRUCTURE: a membership with NO BOOK IDENTITY keeps the outright refusal.** The predicate is
+  `bool(book_id)` under `_holds_a_book`: true with a falsy `book_id` — the legacy `in_book` status,
+  or a migration's `""` — still leaves `_row_an_edit_may_touch` answering `None`, so the editor page
+  and both POST routes refuse it with the `in_a_book` 409 they always did. The card's own reason:
+  "'Are you sure?' with no object is a dialog to click through". This is also what keeps `in_a_book`
+  a reason the edit routes still emit, so `EDIT_REFUSAL_REASONS`, the client's allow-list and the
+  branch that words it all stay live instead of being retired (G-6, G-10).
+  **Said as the predicate rather than as "a book this panel cannot name"** (review cycle 1, F-005):
+  a `book_id` pointing at a deleted row is equally unnameable and takes the OTHER branch — it IS an
+  identity, so the edit is asked about, and the question names the id and says the title could not
+  be read (failure matrix F-4). The seam is the identity, not the title.
 - **STRUCTURE: the verify answer's `book` object is composed at the ROUTE, not in the store.**
   `puzzle_review` answers `book_id` (its own row's column) and nothing more; `app.py` adds the
   title, the status and the page-count effect, because a title is `book_manager`'s and the pairing
@@ -318,6 +337,18 @@ boundary × failure mode, each with the DECLARED behaviour. Wrong-but-declared b
   book's stored clues and once with the replacement's clues swapped in for the edited row. No
   second implementation of pairing geometry: INV-010 stays the layout's, and a change to
   `compute_pair_layout` moves this warning with it.
+  **It reports a DELTA and no absolute figures** (review cycle 1, F-001; orchestrator decision of
+  2026-10-19). What the two walks count is PUZZLE pages, which is not the book's page count —
+  `InteriorCounts.page_count`, the figure Finalise already shows for the same book, also counts the
+  two-page guide, a divider per non-empty level, the SOLUTIONS divider and an answer page per
+  puzzle (7 against 1 on AC-9's own fixture). The answer is now `added` alone, and the one claim
+  made of it — that a puzzle page gained IS a book page gained — is **measured**, not argued:
+  `test_the_puzzle_page_delta_is_the_whole_interiors_delta` walks the real interior on both sides of
+  an approved save and holds the two deltas equal (7 → 8 while the puzzle pages go 1 → 2). It holds
+  because every other term of the interior is fixed by the edit — the guide, one answer page per
+  puzzle with no puzzle added, the one SOLUTIONS divider, and level dividers that cannot move
+  because a regrade is refused at this same verify (AC-4). Retire AC-4's refusal and that test is
+  what notices the sentence stopped being true.
 - **STRUCTURE: the question reaches the page through `tell` plus an in-page `role="alertdialog"`.**
   The sentence — the one that names the book — is written by `tell` and only by `tell` (G-7); the
   dialog carries its two static answers and nothing composed. `window.confirm` is never used, the
@@ -407,6 +438,134 @@ left mutated across a pause.
 4. **AC-9's measurement cost** — every verify of a booked puzzle now runs the pairing walk twice
    over the whole book. No timing was taken (the host may be running a gate); on a 150-puzzle book
    that is 150 `compute_pair_layout` calls per verify and may want a look.
+
+## Worktree notes (fix cycle 1 — review cycle 1's ten findings)
+
+Review cycle 1 scored **8.0** with two Important findings open. All ten are closed as `fixed` in
+`meta/review/20261019T121439Z-CARD-251-cycle1.yml`, none dismissed. Nothing under `meta/` is
+committed; the code and test changes are one commit on `card/251-edit-a-booked-puzzle`.
+
+### F-001 (important) — the warning states a delta, and the transfer is MEASURED
+
+The orchestrator's recorded decision was *state the delta, drop the absolute figures*, with one
+obligation attached: **prove whatever transfer you state.** It is proved, so the words stay at "one
+page longer" rather than retreating to "a puzzle page".
+
+- `_page_count_effect` now answers `{known, changes, added, partner}`. `added` is
+  `len(after) - len(before)` — signed — and `before`/`after` are **gone from the wire**, not
+  renamed (`assert "before" not in pages and "after" not in pages`).
+- **The transfer, measured rather than argued.**
+  `TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove::test_the_puzzle_page_delta_is_the_whole_interiors_delta`
+  walks the REAL interior (`BookPDFGenerator.interior_stream(...).page_count`, asked of the export
+  rather than of `app.py`'s `_interior_counts`, so the cross-check is independent) before the edit
+  and after the approved save: **7 → 8, while the puzzle pages go 1 → 2**, and `after - before`
+  equals the `added` the route announced. Both absolute figures are pinned in that test, so the two
+  counts cannot be confused for one another again. Why it holds: the guide is fixed, answers are one
+  per puzzle and an edit adds no puzzle, the SOLUTIONS divider is one, and level dividers follow
+  levels that cannot move — a regrade is refused at this same verify (AC-4). That dependency is
+  written into the test, so retiring AC-4's refusal breaks the test rather than the sentence
+  quietly.
+- `_page_count_effect`'s docstring asked *"Would storing this grade's clues change the book's page
+  count?"* over something narrower; it now asks *"How many pages would storing this grade's clues
+  add to the book?"* and states both the delta rule and the transfer.
+
+### F-004, absorbed into F-001 — and the delta turned out to be SIGNED
+
+"gets one page longer" was hardcoded beside a computed number. It is now derived
+(`pageCountChange(added)`: `one page`/`N pages`, `longer`/`shorter`). Measuring for the test found
+more than F-004 reported: **the delta can be negative, and that case is reachable.** Two depth-5
+puzzles print on a page each; replacing one with the depth-3 grid lets the pair fit and the book
+gets one page **shorter** — on which the shipped sentence would have said "the clues are too deep
+for the page this puzzle is on … and gets one page longer", with no partner to name either. Pinned
+by `test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter` (`added == -1`, measured on both
+sides of the approved save) and by the `one page shorter` / `2 pages longer` shapes in the browser
+corpus. The split sentence's mechanism clause was reworded to one that is true in both directions
+("how deep its clues are decides whether the page it is on … holds two puzzles or one").
+
+### F-002 (important) — failure matrix F-4's second half now exists
+
+Fixed in the owner's favour, as directed. `namedBook(book)` in `puzzle_edit.js` is the **one place**
+a book is named for all three surfaces — the question (`needsConfirmationText`), the grade's clause
+(`bookNote`) and the editor page's paragraph (`puzzle_edit.html`, which had the same defect and was
+the FIRST surface the owner meets). A readable title is named; otherwise *"a book whose title could
+not be read (id <uuid>)"*. The id is printed in full: it is what the owner would have to quote to
+find the row. Three new assertions drive it —
+`TestBookedEdit_TheQuestionNamesTheBook::test_the_question_calls_an_unreadable_books_id_an_id`
+(F-4's own row, and it re-checks that AC-6's "published" clause still composes with the new
+wording), the `unknown` shape of
+`TestBookedEdit_TheSplitPairIsWordedAsAWarning::test_the_five_shapes_say_five_different_things`, and
+`TestBookedEdit_TheEditorOpensForABookedPuzzle::test_a_book_whose_title_cannot_be_read_is_named_as_an_id`
+for the page. F-4 is left as declared: the code caught up to the row rather than the row to the code.
+
+### The minors
+
+- **F-003** — the `_EDIT_ROUTES` marker comment no longer claims a case the code does not realise.
+  It now says what is true: no reason is emitted from inside those helpers today (`_refused` takes
+  `reason` as a parameter and all three call sites are below `_edit_refusal`), the widening is
+  forward cover over the whole POST surface, and the other direction still bites because
+  `emitted == set(EDIT_REFUSAL_REASONS)` is an equality. Written as the convention for the next
+  card: widen the slice when the surface grows, not when a reason goes missing.
+- **F-005** — the seam stays (it is what keeps `in_a_book` live); the vocabulary is now the
+  predicate. "A membership with no book IDENTITY" / `bool(book_id)` replaces "a book this panel
+  cannot name" in `_an_edit_may_touch`, `_row_an_edit_may_touch`, `puzzle_is_editable`,
+  `EditNeedsConfirmation.book_id`, `verify_replacement_grid`'s `Returns`, `EDIT_REFUSAL_REASONS`'
+  note and the editor route — each saying that a `book_id` resolving to no readable book IS an
+  identity and takes the other branch. STRUCTURE note 3 above carries the same correction.
+- **F-007** — the cost is now stated where the reader meets it, in `_page_count_effect`'s own
+  docstring: one row read per member (one `SELECT … WHERE id = ?` each in DB mode, ~150 on a full
+  book) plus two pairing walks over the whole book, on every verify of a booked puzzle, a request
+  the owner waits on. The two narrowings are **recorded as available and deliberately not taken** —
+  `get_puzzles`' single `WHERE id IN (…)`, and starting the second walk at the edited puzzle's page
+  since the greedy-forward prefix is provably identical. No timing was taken.
+- **F-008** — the catch is narrowed to `(ValueError, RuntimeError)`, exactly what F-5 and
+  `puzzle_page_plan`'s `Raises:` declare; F-5 needs no amendment. Two tests, because a narrowing
+  nothing drives is prose: `test_a_defect_in_the_measurement_is_not_dressed_up_as_unknown` (a
+  `TypeError` leaves the route instead of becoming a soft "unknown" with a log line) and
+  `test_a_member_the_pairing_walk_cannot_lay_out_is_also_unknown`, which closes **F-5's untested
+  `RuntimeError` arm**. The raise there is injected, and the test says why: no stored row reachable
+  through this panel produces it — clue sets too long (`[[99]] * 10`), too few (`[[1]] * 3`),
+  thirty-deep and absent were each tried, and `add_puzzle`'s gates and INV-006's 4.75 mm floor
+  either refuse them or measure them fine. What F-5 declares is the ANSWER, and that is what the
+  test drives.
+- **F-009** — `_puzzle_table.html`'s comment now says a puzzle in a book the panel CAN name offers
+  the control again, and that what offers none is a membership with no book identity. The file stays
+  in `Touches` and is now touched.
+- **F-010** — `tests/test_puzzle_editor_ui.py` grew the same `books` fixture
+  `tests/test_puzzle_edit_routes.py` has (clears the module singleton on both sides);
+  `TestBookedEdit_TheEditorOpensForABookedPuzzle._book` takes it instead of the app.
+- **F-006** — already closed by the orchestrator's AC-6 amendment, which is in this card. No code
+  change: the implementation was already the coherent reading.
+
+### Mutants run in this cycle, and what each did
+
+Every behaviour change was mutated. Each mutant was applied from a byte-identical backup and
+`diff`-verified back after the run (`app.py:identical js:identical html:identical`); the tree was
+never left mutated across a pause.
+
+| mutant | what it changes | result |
+|---|---|---|
+| **M15** (F-001's own) | `_page_count_effect` reports a wrong number — `added = len(after) - len(before) + 1` | **killed** — all **6** tests of AC-9's class, including the transfer test (the interior's delta no longer equals the announced one) and the "no change" controls, which now announce one |
+| **M16** (F-004's own) | `pageCountChange` returns `"one page longer"` whatever the delta — the hardcoded phrase, back | **killed** — `test_the_five_shapes_say_five_different_things` (the `-1` shape must read "one page shorter" and the `2` shape "2 pages longer") |
+| **M17** (F-002's own) | `namedBook` falls back to `the book ${book.id}` — the shipped behaviour the finding is about | **killed** — **2** tests: the question's F-4 row and the grade clause's `unknown` shape |
+| **M18** (M17's other surface) | the editor page's paragraph prints `{{ book.title or book.id }}` again | **killed** — `test_a_book_whose_title_cannot_be_read_is_named_as_an_id` |
+| **M19** (F-008's own) | the catch is widened back to the six classes | **killed** — exactly 1: `test_a_defect_in_the_measurement_is_not_dressed_up_as_unknown`. Narrow by construction, which is the point: it is the only test that can tell the two catches apart |
+| **M20** (M15's edge) | `changes` is hardcoded `True` while `added` stays right | **killed** — 3: the two "still pairs" controls and the one-puzzle book. `changes` is pinned independently of `added` |
+
+**F-010 was not mutated and cannot usefully be**: the leak it closes is a cross-test ordering
+hazard, so the mutant (dropping the exit clear) is green by construction on any single selection —
+which is exactly why the reviewer filed it as latent rather than as a defect.
+
+### Test selection, green
+
+`tests/test_puzzle_edit_routes.py tests/test_puzzle_edit_store.py tests/test_puzzle_editor_ui.py` —
+**393 passed, 4 skipped** (the 4 are the DB-mode class without `nonogram_test` on this host, as in
+cycle 1; cycle 1's same selection was 389/4, and the three new route tests plus the two new browser
+tests are the difference, one of the browser additions being a rename that grew assertions rather
+than a new node). The browser classes execute rather than skip: cycle 1's own browser selection
+(`-k 'TestBookedEdit_TheQuestionNamesTheBook or TestBookedEdit_TheSplitPairIsWordedAsAWarning or
+TestBookedEdit_TheEditorOpensForABookedPuzzle or BookedPuzzleIsNotEditable or ReachableFromTheCard'`)
+is **21 passed, 0 skipped**, up from 19. The full suite was not re-run — it is green on `119fc58`
+and the gates own it.
 
 ### [Scope] orchestrator, 2026-10-19
 
@@ -550,3 +709,49 @@ The reviewer offered two closes: remove the figures and state the delta, or sour
   runs and their dividers cannot move. If that transfer can be shown, *"one page longer"* is honest; if
   it cannot, the message must say what was actually measured (a puzzle page) rather than borrow a term
   that means something larger. **Do not state a transfer you have not tested.**
+
+### [Fix 1] declarations — orchestrator, 2026-10-19 · commits `46e5bfb`, `332f580`
+
+**All ten findings closed.** 393 passed / 4 skipped in the card's three files (the 4 are the DB-mode
+class without `nonogram_test`, as in cycle 1); the browser selection went 19 → 21. Six mutants, all
+killed, each applied from a byte-identical backup and `diff`-verified back.
+
+**The transfer was DEMONSTRATED, so the words stayed at "one page longer".** The brief required proof
+rather than assertion, and `test_the_puzzle_page_delta_is_the_whole_interiors_delta` walks the real
+interior — `BookPDFGenerator.interior_stream(...).page_count`, asked of the **export** rather than of
+`app.py`'s own counter, so the cross-check is independent — and pins **7 → 8 while the puzzle pages go
+1 → 2**. Why it holds is written into the test, and the load-bearing clause is that level dividers
+follow levels that cannot move **because AC-4 refuses a regrade at this same verify**. So retiring
+AC-4's refusal breaks that test rather than letting this sentence quietly become false — a dependency
+made to fail loudly instead of left as prose.
+
+**⚑ The measurement found something the review did not: the delta is SIGNED and the negative case is
+reachable.** Two depth-5 puzzles print on a page each; a depth-3 replacement lets the pair fit and the
+book gets one page **shorter** — on which the shipped sentence said *"gets one page longer"* and had
+**no partner to name**. Pinned by `test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter`
+(`added == -1`, measured on both sides of the approved save), and the mechanism clause reworded to one
+true in both directions. **This is the third time this wave a measurement taken to satisfy a brief found
+a defect nobody had asked about** — CARD-250's MU-A and MU-J were the others.
+
+**F-5's untested `RuntimeError` arm is closed, with its limit declared rather than hidden.** The raise is
+**injected**: the test's own docstring records that no stored row reachable through this panel produces
+it, and names the four shapes tried (clue sets too long, too few, thirty-deep, absent) — `add_puzzle`'s
+gates and INV-006's floor either refuse them or measure them fine. Honest coverage of the declared
+*answer*, and explicitly **not** coverage of a reachable cause.
+
+**F-010 was not mutated, and the agent said so rather than skipping it quietly** — the mutant (dropping
+the exit clear) is green by construction on any single selection, which is why the reviewer filed it as
+latent rather than as a defect.
+
+### [Decision] AC-9 amended for the signed delta (orchestrator, 2026-10-19)
+
+The agent left AC-9 alone and put the question up: the negative direction is new behaviour, tested, but
+the criterion is worded for the split case only and no failure-matrix row covers it. **Amended**, for
+the reason that decides it: **the card's own decision section was already direction-neutral** — *"the
+verify answer says WHEN an edit would change the book's page count"* — so AC-9's *given* was narrower
+than the decision it implements, not narrower than the behaviour by design. Amending makes the criterion
+say what the owner settled. No code changed; the behaviour and both tests already existed.
+
+This is the **fourth criterion this wave** amended to read true (AC-5 and AC-7 on CARD-250, AC-6 and now
+AC-9 here). That rate is itself a finding for the retrospective: criteria are being written narrower
+than the decisions they serve, and it is the **measurement**, not the review, that keeps catching it.
