@@ -93,10 +93,16 @@
     server-rendered paragraph and not a line the script writes: the fact is
     true of this page before any request is made, and `tell()` stays the one
     writer of the save bar's own message (G-7). `book` is `None` for a puzzle
-    no book holds, and the paragraph is then absent rather than empty. -#}
+    no book holds, and the paragraph is then absent rather than empty.
+
+    A book whose title could not be read is named by its id and SAID TO BE
+    (review cycle 1, F-002; failure matrix F-4) — the same words
+    `puzzle_edit.js`'s `namedBook` writes for the question and the grade's
+    clause, so the three surfaces name one book one way. Printing the bare id
+    where the title goes made a uuid read as a title. -#}
 {% if book %}
 <p class="editor-book" id="puzzle-editor-book">
-    This puzzle is in the book <strong>{{ book.title or book.id }}</strong>{% if book.published %}, and that book is <strong>published</strong>{% endif %}.
+    This puzzle is in {% if book.title %}the book <strong>{{ book.title }}</strong>{% else %}a book whose title could not be read (id <strong>{{ book.id }}</strong>){% endif %}{% if book.published %}, and that book is <strong>published</strong>{% endif %}.
     Approving an edit replaces the grid this book prints, so the panel asks
     you to confirm it first. An edit that would change this puzzle's
     difficulty level is refused: a book's order is grouped by level, so a

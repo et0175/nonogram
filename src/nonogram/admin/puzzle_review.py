@@ -89,8 +89,9 @@ class EditNeedsConfirmation(ValueError):
 
     Attributes:
         book_id: The book that holds this puzzle, so the caller can name it.
-            Never falsy: a book this panel cannot name is refused outright
-            instead (:meth:`PuzzleReviewService._an_edit_may_touch`).
+            Never falsy: a membership with no book IDENTITY is refused
+            outright instead
+            (:meth:`PuzzleReviewService._an_edit_may_touch`).
     """
 
     def __init__(self, message: str, *, book_id: str) -> None:
@@ -984,10 +985,10 @@ class PuzzleReviewService:
     def _row_an_edit_may_touch(self, puzzle_id: str) -> Optional[Dict[str, Any]]:
         """The stored row, or ``None`` if it may not be edited.
 
-        ``None`` for a puzzle that does not exist **and** for one held by a
-        book this panel cannot NAME — the contract :meth:`_set_status` already
-        set, so the routes tell the two apart by asking :meth:`in_a_book`
-        first and can say which it was.
+        ``None`` for a puzzle that does not exist **and** for one whose
+        membership carries NO BOOK IDENTITY — the contract
+        :meth:`_set_status` already set, so the routes tell the two apart by
+        asking :meth:`in_a_book` first and can say which it was.
 
         **CARD-251 narrowed the second case.** Until then every booked puzzle
         was refused here, for the reason approve, reject, restore and delete
@@ -1016,12 +1017,21 @@ class PuzzleReviewService:
         CARD-246's F-010 rule kept — three surfaces disagreeing about one
         puzzle is how a control got offered for a row the route then refused.
 
-        ``False`` only for a book this panel cannot name: ``_holds_a_book``
-        answers True for the legacy ``in_book`` status with no ``book_id`` at
-        all, and for a migration's empty-string ``book_id``. The confirmation
-        CARD-251 asks has to name the book it is about — "Are you sure?" with
-        no object is a dialog to click through, not a question — so where
-        there is no book to name, the guard stays the refusal it was.
+        ``False`` only for a membership with NO BOOK IDENTITY — the
+        predicate is ``bool(book_id)`` under ``_holds_a_book``, which answers
+        True for the legacy ``in_book`` status with no ``book_id`` at all and
+        for a migration's empty-string ``book_id``. The confirmation CARD-251
+        asks has to name the book it is about — "Are you sure?" with no object
+        is a dialog to click through, not a question — so where there is no id
+        to ask about, the guard stays the refusal it was.
+
+        **Said as the predicate rather than as "a book this panel cannot
+        name"** (review cycle 1, F-005): a ``book_id`` pointing at a deleted
+        row is equally unnameable and takes the OTHER branch — it IS an
+        identity, so the edit is asked about, and the question names the id
+        and says the title could not be read (failure matrix F-4,
+        ``puzzle_edit.js``'s ``namedBook``). The seam is the identity, not the
+        title.
         """
         if not PuzzleReviewService._holds_a_book(book_id, status):
             return True
@@ -1153,8 +1163,8 @@ class PuzzleReviewService:
             ``difficulty_tier``, ``strategies_used``, the re-encoded
             ``clues_rows``/``clues_cols``, the extent and (CARD-251) the
             ``book_id`` of the book that holds the puzzle, if one does — or
-            ``None`` if the puzzle does not exist or is held by a book this
-            panel cannot name (:meth:`_row_an_edit_may_touch`).
+            ``None`` if the puzzle does not exist or its membership carries
+            no book identity (:meth:`_row_an_edit_may_touch`).
 
             ``book_id`` is the whole of what this method says about the book.
             The title, the book's status and whether the edit would change the

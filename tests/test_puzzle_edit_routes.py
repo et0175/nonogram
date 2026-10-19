@@ -23,6 +23,8 @@ from pathlib import Path
 
 import pytest
 
+from nonogram.admin import book_pdf_generator
+
 from tests.test_puzzle_edit_store import (
     MINUS_CORNER_CLUES,
     MINUS_CORNER_SCORE,
@@ -1016,6 +1018,16 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
     **Both halves are asserted here on purpose.** A test that only read the
     warning would pass equally against an implementation that refused, which
     is precisely the collapse G-3 forbids.
+
+    **A DELTA, and no absolute figures** (review cycle 1, F-001; orchestrator
+    decision of 2026-10-19). The answer used to carry ``before``/``after``
+    from ``puzzle_page_plan``, which counts the book's PUZZLE pages, and the
+    page quoted them as the book's page count — 1 and 2 for this fixture,
+    whose book is 7 pages long. It now carries ``added`` alone, and the only
+    claim made of it is one this file measures: that the puzzle-page delta IS
+    the book's page delta
+    (:meth:`test_the_puzzle_page_delta_is_the_whole_interiors_delta`, which
+    walks the real interior on both sides of an approved save).
     """
 
     @staticmethod
@@ -1025,6 +1037,82 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
         second = seed_with_real_clues(admin_app, DEPTH_4, source_image="second.png")
         a_book(books, [first, second])
         return first, second
+
+    @staticmethod
+    def _interior_page_count(admin_app, books):
+        """The book's REAL page count — the figure Finalise shows the owner.
+
+        The export's own walk over the book as it stands: the two-page guide,
+        a divider per non-empty level, the puzzle pages, the SOLUTIONS divider
+        and one answer page per puzzle. Asked of ``book_pdf_generator``
+        directly rather than of ``app.py``'s ``_interior_counts``, so that the
+        transfer below is cross-checked against the export and not against
+        another helper on the route's own side.
+        """
+        book = next(iter(books.books.values()))
+        rows = [
+            admin_app.puzzle_review_service.get_puzzle(puzzle_id)
+            for puzzle_id in book.puzzle_ids
+        ]
+        ordered = book_pdf_generator.print_order(rows)
+        generator = book_pdf_generator.BookPDFGenerator(book)
+        return generator.interior_stream(ordered).page_count
+
+    def test_the_puzzle_page_delta_is_the_whole_interiors_delta(
+        self, admin_app, books
+    ):
+        """**The transfer the warning's words rest on** (review cycle 1,
+        F-001). The route measures PUZZLE pages; the sentence says the book
+        gets a page longer. That is only honest if nothing else in the
+        interior moves — and here it is measured rather than argued: the real
+        interior is walked before the edit and after the approved save, and
+        the two deltas are held equal.
+
+        Why it holds, and what would break it: the guide is fixed, the answer
+        pages are one per puzzle and an edit adds no puzzle, the SOLUTIONS
+        divider is one, and the level dividers follow the levels — which
+        cannot move, because a replacement that regrades a booked puzzle is
+        refused at this same verify (AC-4). Retire that refusal and this test
+        is what notices that the sentence stopped being true.
+        """
+        first, _second = self._pair(admin_app, books)
+        before = self._interior_page_count(admin_app, books)
+
+        _code, body = post(admin_app, VERIFY.format(first), DEPTH_5)
+        announced = body["book"]["pages"]["added"]
+        assert post_save(admin_app, first, DEPTH_5, confirmed=True)[0] == 200
+        after = self._interior_page_count(admin_app, books)
+
+        assert announced == 1
+        assert after - before == announced
+        # And the figures the answer no longer quotes: the book is 7 pages
+        # before and 8 after, while its PUZZLE pages go 1 to 2. Pinned so the
+        # two counts cannot be confused for each other again.
+        assert (before, after) == (7, 8)
+
+    def test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter(
+        self, admin_app, books
+    ):
+        """The delta is SIGNED, and nothing constrains it to +1 (review cycle
+        1, F-004 — the old sentence asserted "gets one page longer" beside a
+        computed number). Two depth-5 puzzles print on a page each; replacing
+        one with a depth-3 grid lets the pair fit, and the book gets one page
+        SHORTER. Measured on both sides, like the test above.
+        """
+        first = seed_with_real_clues(admin_app, DEPTH_5, source_image="first.png")
+        _second = seed_with_real_clues(admin_app, DEPTH_5, source_image="second.png")
+        a_book(books, [first, _second])
+        before = self._interior_page_count(admin_app, books)
+
+        _code, body = post(admin_app, VERIFY.format(first), DEPTH_3)
+        pages = body["book"]["pages"]
+        assert pages["changes"] is True
+        assert pages["added"] == -1
+        # Nobody to name: the two print on a page each as the book stands.
+        assert pages["partner"] is None
+
+        assert post_save(admin_app, first, DEPTH_3, confirmed=True)[0] == 200
+        assert self._interior_page_count(admin_app, books) - before == -1
 
     def test_a_split_pair_is_announced_and_the_approved_edit_stores(
         self, admin_app, books
@@ -1039,8 +1127,11 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
         pages = body["book"]["pages"]
         assert pages["known"] is True
         assert pages["changes"] is True
-        assert (pages["before"], pages["after"]) == (1, 2)
+        assert pages["added"] == 1
         assert pages["partner"] == "second.png"
+        # The absolute figures are gone, not renamed (review cycle 1, F-001):
+        # they were the book's PUZZLE pages under the name of its page count.
+        assert "before" not in pages and "after" not in pages
 
         # Half two: Approve is still available, and an approved edit stores.
         code, saved = post_save(admin_app, first, DEPTH_5, confirmed=True)
@@ -1063,7 +1154,7 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
         pages = body["book"]["pages"]
         assert pages["known"] is True
         assert pages["changes"] is False
-        assert (pages["before"], pages["after"]) == (1, 1)
+        assert pages["added"] == 0
 
     def test_a_shallower_replacement_also_keeps_the_page(self, admin_app, books):
         """Depth 3 pairs at the full 7.500 mm cap: the pair survives a
@@ -1106,9 +1197,60 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
         pages = body["book"]["pages"]
         assert pages["known"] is False
         assert pages["changes"] is None
+        assert pages["added"] is None
         # And the edit still goes through: an unmeasurable neighbour is no
         # reason to refuse what the tier and the extent already permit.
         assert post_save(admin_app, first, DEPTH_5, confirmed=True)[0] == 200
+
+    def test_a_member_the_pairing_walk_cannot_lay_out_is_also_unknown(
+        self, admin_app, books, monkeypatch
+    ):
+        """Failure matrix F-5's OTHER arm, which had no test (review cycle 1,
+        F-008). F-5 declares two classes — ``ValueError`` for a book with no
+        readable print setup (the test above) and ``RuntimeError`` for a
+        member the pairing walk cannot lay out. No stored row reachable
+        through this panel produces the second: ``add_puzzle``'s own gates and
+        INV-006's 4.75 mm floor refuse the malformed shapes before they can
+        become members (clue sets too long, too few, or absent were each
+        tried). So the raise itself is injected, which is what this arm of the
+        declaration is about — the ANSWER, not the shape that causes it.
+        """
+        first, _second = self._pair(admin_app, books)
+
+        def cannot_lay_out(*_args, **_kwargs):
+            raise RuntimeError("puzzle second.png could not be laid out")
+
+        monkeypatch.setattr(
+            book_pdf_generator, "puzzle_page_plan", cannot_lay_out
+        )
+
+        code, body = post(admin_app, VERIFY.format(first), DEPTH_5)
+
+        assert code == 200, body
+        assert body["book"]["pages"] == {
+            "known": False, "changes": None, "added": None, "partner": None,
+        }
+
+    def test_a_defect_in_the_measurement_is_not_dressed_up_as_unknown(
+        self, admin_app, books, monkeypatch
+    ):
+        """The control that makes the catch a decision (review cycle 1,
+        F-008). It used to catch ``TypeError``, ``KeyError``, ``IndexError``
+        and ``AttributeError`` as well as F-5's two — exactly the shapes a
+        defect IN the helper takes, each becoming a plausible "could not be
+        measured" with nothing but a log line. Those now leave the route, so
+        the owner reports a 500 instead of trusting a measurement that never
+        ran. Without this the narrowing would be a line of prose.
+        """
+        first, _second = self._pair(admin_app, books)
+
+        def broken(*_args, **_kwargs):
+            raise TypeError("'NoneType' object is not subscriptable")
+
+        monkeypatch.setattr(book_pdf_generator, "puzzle_page_plan", broken)
+
+        with pytest.raises(TypeError):
+            post(admin_app, VERIFY.format(first), DEPTH_5)
 
     def test_the_unknown_answer_is_not_what_a_measurable_book_gives(
         self, admin_app, books

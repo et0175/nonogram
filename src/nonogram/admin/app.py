@@ -1195,10 +1195,12 @@ def requested_tier_label(value: object) -> str | None:
 # proves by driving each one through the real route and reading the row back
 # (Trap 3, CARD-246 G-001).
 #
-# ``in_a_book`` did not retire with the guard it named: a puzzle held by a
-# book this panel cannot NAME — the legacy ``in_book`` status, a migration's
-# empty-string ``book_id`` — is still refused outright, because the
-# confirmation CARD-251 asks has to name the book it is about.
+# ``in_a_book`` did not retire with the guard it named: a puzzle whose
+# membership carries NO BOOK IDENTITY — the legacy ``in_book`` status, a
+# migration's empty-string ``book_id`` — is still refused outright, because
+# the confirmation CARD-251 asks has to name the book it is about. A
+# ``book_id`` that resolves to no readable book is NOT this case: it is an
+# identity, so it gets the question (failure matrix F-4).
 EDIT_REFUSAL_REASONS = (
     "not_unique",
     "not_verified",
@@ -2502,11 +2504,13 @@ def create_app(debug=None):
         **CARD-251 narrowed the rule and kept it single.** A puzzle a book
         holds is now editable, behind a confirmation that names the book, so
         this answers True for it and the Edit control is offered again. What
-        stays non-editable is the membership there is no book to NAME — the
+        stays non-editable is the membership with NO BOOK IDENTITY — the
         legacy ``in_book`` status with no ``book_id``, and the empty-string
         ``book_id`` this method was written for — because a question with no
-        object is a dialog to click through rather than a question. The rule
-        itself is still the store's, one spelling for all four surfaces:
+        object is a dialog to click through rather than a question. A
+        ``book_id`` that resolves to no readable book is an identity and so is
+        editable, with the question naming the id (review cycle 1, F-005). The
+        rule itself is still the store's, one spelling for all four surfaces:
         ``_an_edit_may_touch``.
         """
         return PuzzleReviewService._an_edit_may_touch(
@@ -2622,7 +2626,7 @@ def create_app(debug=None):
         }
 
     def _page_count_effect(book, puzzle_id, grade):
-        """Would storing this grade's clues change the book's page count?
+        """How many pages would storing this grade's clues add to the book?
 
         **The second mechanism, and the one the tier rule does not reach**
         (CARD-251 AC-9). A book page holds two puzzles only when both fit at
@@ -2644,18 +2648,59 @@ def create_app(debug=None):
         re-encoded clues swapped in for the edited row. There is no model of
         pairing here to drift from the layout's.
 
+        **A DELTA, and no absolute figures** (review cycle 1, F-001).
+        ``puzzle_page_plan``'s length is the count of PUZZLE pages, which is
+        not the book's page count: that figure —
+        ``InteriorCounts.page_count``, the one Finalise already shows the
+        owner for the same book — also counts the two-page guide, one divider
+        per non-empty level, the SOLUTIONS divider and one answer page per
+        puzzle. Quoting the one as the other was out by the whole of the rest
+        of the interior (7 pages against 1 on AC-9's own fixture), so the two
+        absolutes are gone and what is reported is ``added``.
+
+        **The delta transfers one-for-one, and that is measured rather than
+        argued.** Of the interior's terms, the guide is fixed, the answer
+        pages are one per puzzle and an edit adds no puzzle, the SOLUTIONS
+        divider is one, and the level dividers follow the levels — which
+        cannot move, because a replacement that regrades a booked puzzle is
+        refused at this same verify (AC-4). So the puzzle pages are the only
+        term an edit can move, and the puzzle-page delta IS the book's.
+        ``TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove``'s
+        ``test_the_puzzle_page_delta_is_the_whole_interiors_delta`` walks the
+        real interior before and after an approved save and holds the two
+        deltas equal; without it the sentence would have to say "a puzzle
+        page" and nothing wider.
+
+        **What it costs, where the reader meets it** (review cycle 1, F-007).
+        This runs on EVERY verify of a booked puzzle, a request the owner
+        waits on: ``_book_puzzles(book)`` reads the book's membership one row
+        at a time (one ``SELECT ... WHERE id = ?`` per member in DB mode —
+        ~150 on a full book), and the pairing walk then runs over the whole
+        book twice, offering every adjacent equal-tier pair to
+        ``compute_pair_layout``. No timing has been taken and there is no
+        latency NFR to breach; two narrowings are known and deliberately NOT
+        taken, so that the next reader does not have to find them again:
+        ``PuzzleReviewService.get_puzzles`` already reads a set of ids in one
+        session and one ``WHERE id IN (...)``, and the second walk's prefix is
+        provably identical to the first's (the walk is greedy and forward), so
+        it could start at the edited puzzle's page — about half of one of the
+        two walks.
+
         Returns:
-            ``{"known": False, "changes": None, ...}`` when the book could not
-            be measured — a member whose clue sets disagree about its grid, or
-            a print specification that cannot be laid out (failure matrix
-            F-5). Claiming "the page count does not change" out of a failed
-            measurement is the one answer this must never give.
-            Otherwise ``before``, ``after``, ``changes`` and ``partner`` — the
-            name of the puzzle this one shares its page with today, or
-            ``None`` when it prints alone.
+            ``{"known": False, "changes": None, "added": None, ...}`` when the
+            book could not be measured — a member whose clue sets disagree
+            about its grid, or a print specification that cannot be laid out
+            (failure matrix F-5). Claiming "the page count does not change"
+            out of a failed measurement is the one answer this must never
+            give.
+            Otherwise ``added`` (how many pages the book would gain, negative
+            when a replacement lets a pair fit that does not fit today),
+            ``changes`` (``added != 0``) and ``partner`` — the name of the
+            puzzle this one shares its page with today, or ``None`` when it
+            prints alone.
         """
-        unknown = {"known": False, "changes": None, "before": None,
-                   "after": None, "partner": None}
+        unknown = {"known": False, "changes": None, "added": None,
+                   "partner": None}
         try:
             ordered = book_pdf_generator.print_order(_book_puzzles(book))
             before = book_pdf_generator.puzzle_page_plan(book, ordered)
@@ -2665,18 +2710,25 @@ def create_app(debug=None):
                 for row in ordered
             ]
             after = book_pdf_generator.puzzle_page_plan(book, replaced)
-        except (ValueError, RuntimeError, TypeError, KeyError, IndexError, AttributeError) as failure:
+        # The two classes failure matrix F-5 declares, and the two
+        # ``puzzle_page_plan``'s own ``Raises:`` block documents — and no
+        # more. A wider net (``TypeError``, ``KeyError``, ``IndexError``,
+        # ``AttributeError`` were caught here until review cycle 1's F-008)
+        # catches exactly the shapes a defect IN THIS HELPER takes and turns
+        # each into a plausible "could not be measured" with nothing but a log
+        # line; those surface as a 500 the owner reports instead.
+        except (ValueError, RuntimeError) as failure:
             app.logger.warning(
                 "Book %s could not be measured for puzzle %s's page-count "
                 "effect, so the editor reports it as unknown: %s",
                 getattr(book, "book_id", book), puzzle_id, failure,
             )
             return unknown
+        added = len(after) - len(before)
         return {
             "known": True,
-            "before": len(before),
-            "after": len(after),
-            "changes": len(before) != len(after),
+            "added": added,
+            "changes": added != 0,
             "partner": _shares_a_page_with(ordered, puzzle_id, before),
         }
 
@@ -2862,8 +2914,8 @@ def create_app(debug=None):
         (``static/puzzle_edit.js``) draws no cell and only turns the board
         into an answer for the two routes above. Nothing is written here.
 
-        A puzzle held by a book this panel cannot NAME is refused with the
-        same 409 and the same words the POST routes use (CARD-246 AC-7,
+        A puzzle whose membership carries no book IDENTITY is refused with
+        the same 409 and the same words the POST routes use (CARD-246 AC-7,
         narrowed by CARD-251): the list and the card leave the Edit control
         out for such a puzzle, and a disabled control is not a guard — the
         route has to refuse the URL typed by hand too.

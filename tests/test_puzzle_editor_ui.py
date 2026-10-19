@@ -132,8 +132,21 @@ _BUILDS_A_GRID = re.compile(
 #: The start marker moved from ``_edit_refusal`` to the first of the helpers
 #: when CARD-251 added them (``_submitted_confirmation``, ``_book_holding``,
 #: ``_page_count_effect``, ``_book_answer``, ``_refused``): they sit in front
-#: of ``_edit_refusal`` and are part of the same surface, and a slice that
-#: began below them would read a refusal they emitted as none.
+#: of ``_edit_refusal`` and are part of the same surface, so the slice is the
+#: whole of it.
+#:
+#: **No reason is emitted from inside those helpers today** (review cycle 1,
+#: F-003, which recomputed both regexes with the old marker and got the same
+#: seven reasons): ``_refused`` takes its ``reason`` as a parameter and all
+#: three call sites are BELOW ``_edit_refusal``, inside the two POST routes.
+#: The widening is forward cover — strictly more of the surface scanned, so a
+#: refusal a later card emits from one of these helpers is in scope the day it
+#: is written — and not a fix for a reason this slice was missing. It cannot
+#: loosen the guard in the other direction: ``emitted ==
+#: set(EDIT_REFUSAL_REASONS)`` is an equality, so a vocabulary entry nothing
+#: emits still fails. The convention for the next card is: the slice is the
+#: whole POST surface, from its first helper, and it is widened when the
+#: surface grows rather than when a reason goes missing.
 _EDIT_ROUTES = (
     "    def _submitted_confirmation():",
     '@app.route("/puzzle/<puzzle_id>/editor"',
@@ -184,6 +197,22 @@ def admin_app(monkeypatch):
     app = create_app()
     app.config["TESTING"] = True
     return app
+
+
+@pytest.fixture
+def books(admin_app):
+    """The panel's book manager, emptied before and after.
+
+    In memory mode ``get_book_manager`` hands back a module-level singleton
+    (``book_manager._book_manager``), so books outlive the ``admin_app``
+    fixture and would leak between tests. The same fixture
+    ``tests/test_puzzle_edit_routes.py`` uses, and for the same reason
+    (review cycle 1, F-010: this file's own helper cleared on entry only).
+    """
+    manager = admin_app.book_manager
+    manager.books.clear()
+    yield manager
+    manager.books.clear()
 
 
 def seed(app, grid=None, **overrides) -> str:
@@ -477,11 +506,14 @@ class TestBookedEdit_TheEditorOpensForABookedPuzzle:
     """
 
     @staticmethod
-    def _book(admin_app, puzzle_ids, *, title="Winter Pictures", published=False):
-        books = admin_app.book_manager
-        # The in-memory book manager is a module singleton, so books outlive
-        # the `admin_app` fixture.
-        books.books.clear()
+    def _book(books, puzzle_ids, *, title="Winter Pictures", published=False):
+        """A real draft book holding ``puzzle_ids``, through the panel's path.
+
+        Takes the ``books`` fixture rather than the app so that the singleton
+        is emptied on the way OUT as well as in (review cycle 1, F-010): it
+        cleared only on entry, so every test after one of these four ran
+        against a panel still holding "Winter Pictures".
+        """
         book_id = books.create_book(
             title=title, description="Winter pictures", theme="christmas",
             target_audience="adults",
@@ -495,18 +527,22 @@ class TestBookedEdit_TheEditorOpensForABookedPuzzle:
             books.books[book_id].status = "published"
         return book_id
 
-    def test_the_page_is_served_and_carries_the_stored_grid(self, admin_app) -> None:
+    def test_the_page_is_served_and_carries_the_stored_grid(
+        self, admin_app, books
+    ) -> None:
         puzzle_id = seed_with_real_clues(admin_app)
-        self._book(admin_app, [puzzle_id])
+        self._book(books, [puzzle_id])
 
         page = admin_app.test_client().get(EDITOR.format(puzzle_id))
 
         assert page.status_code == 200
         assert payload_of(page.get_data(as_text=True))["solution"] == solid()
 
-    def test_the_page_names_the_book_that_holds_it(self, admin_app) -> None:
+    def test_the_page_names_the_book_that_holds_it(
+        self, admin_app, books
+    ) -> None:
         puzzle_id = seed_with_real_clues(admin_app)
-        self._book(admin_app, [puzzle_id], title="Winter Pictures")
+        self._book(books, [puzzle_id], title="Winter Pictures")
 
         html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
 
@@ -514,11 +550,13 @@ class TestBookedEdit_TheEditorOpensForABookedPuzzle:
         assert note is not None, "the editor page says nothing about the book"
         assert "Winter Pictures" in note.group(1)
 
-    def test_a_published_books_page_says_it_is_published(self, admin_app) -> None:
+    def test_a_published_books_page_says_it_is_published(
+        self, admin_app, books
+    ) -> None:
         """AC-6's half of the page: the question names the book AND its status,
         because a published book's confirmation is INV-008's own."""
         puzzle_id = seed_with_real_clues(admin_app)
-        self._book(admin_app, [puzzle_id], title="Winter Nights", published=True)
+        self._book(books, [puzzle_id], title="Winter Nights", published=True)
 
         html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
         flat = re.sub(r"\s+", " ", html)
@@ -527,6 +565,35 @@ class TestBookedEdit_TheEditorOpensForABookedPuzzle:
         assert note is not None
         assert "Winter Nights" in note.group(1)
         assert "published" in note.group(1)
+
+    def test_a_book_whose_title_cannot_be_read_is_named_as_an_id(
+        self, admin_app, books
+    ) -> None:
+        """Failure matrix F-4, on the first surface the owner meets (review
+        cycle 1, F-002). A ``book_id`` that resolves to no book leaves the
+        title ``None``, and the paragraph used to print the bare uuid where
+        the title goes — so the owner read a uuid AS a title. It now says the
+        title could not be read and calls the uuid an id.
+
+        The membership is an identity, so the page is still SERVED: that is
+        the branch ``_an_edit_may_touch`` sends here, and it is the one
+        ``in_a_book`` does not (``test_a_puzzle_in_an_unnameable_book...``).
+        """
+        puzzle_id = seed_with_real_clues(admin_app)
+        gone = "11111111-2222-3333-4444-555555555555"
+        admin_app.puzzle_review_service.assign_to_book([puzzle_id], gone)
+
+        page = admin_app.test_client().get(EDITOR.format(puzzle_id))
+        flat = re.sub(r"\s+", " ", page.get_data(as_text=True))
+
+        assert page.status_code == 200
+        note = re.search(r'<p class="editor-book"[^>]*>(.*?)</p>', flat)
+        assert note is not None, "the editor page says nothing about the book"
+        assert "title could not be read" in note.group(1)
+        assert gone in note.group(1)
+        # And the uuid is not standing in for a title: it is called an id.
+        assert f"id <strong>{gone}</strong>" in note.group(1)
+        assert f"the book <strong>{gone}</strong>" not in note.group(1)
 
     def test_an_unbooked_puzzles_page_says_nothing_about_a_book(
         self, admin_app
@@ -2894,17 +2961,26 @@ class TestPuzzleEditor_TheWordsNameTheButtonsThatExist:
         # can produce are held to the same rule as every other message.
         books = [
             {"id": "b1", "title": "Winter Pictures", "published": False,
-             "pages": {"known": True, "changes": False, "before": 1, "after": 1,
+             "pages": {"known": True, "changes": False, "added": 0,
                        "partner": "snowflake.png"}},
             {"id": "b2", "title": "Winter Nights", "published": True,
-             "pages": {"known": True, "changes": True, "before": 60, "after": 61,
+             "pages": {"known": True, "changes": True, "added": 1,
                        "partner": "Robin"}},
             {"id": "b3", "title": None, "published": False,
-             "pages": {"known": False, "changes": None, "before": None,
-                       "after": None, "partner": None}},
-            {"id": "b4", "title": "Alone", "published": False,
-             "pages": {"known": True, "changes": True, "before": 2, "after": 3,
+             "pages": {"known": False, "changes": None, "added": None,
                        "partner": None}},
+            {"id": "b4", "title": "Alone", "published": False,
+             "pages": {"known": True, "changes": True, "added": 1,
+                       "partner": None}},
+            # Review cycle 1, F-001/F-004: `added` is a signed count and the
+            # sentence is built from it, so both directions and a magnitude
+            # above one are shapes the message rule has to hold for too.
+            {"id": "b5", "title": "Shorter", "published": False,
+             "pages": {"known": True, "changes": True, "added": -1,
+                       "partner": None}},
+            {"id": "b6", "title": "Longer still", "published": True,
+             "pages": {"known": True, "changes": True, "added": 2,
+                       "partner": "Robin"}},
         ]
         said = page.evaluate(_MESSAGE_CORPUS, [refusals, grades, cells, books])
         # The two sentences written inline by the handlers rather than
@@ -3478,6 +3554,15 @@ def _live_book(live, puzzle_id, *, title="Winter Pictures", published=False) -> 
     return book_id
 
 
+#: ``needsConfirmationText`` over the book shapes the server can send, read in
+#: the page that ships it. Failure matrix F-4's own row lands here, because the
+#: question is what F-4 declares behaviour for.
+_QUESTION_TEXTS = """async ([books]) => {
+  const module = await import('/static/puzzle_edit.js');
+  return books.map((book) => module.needsConfirmationText(book));
+}"""
+
+
 @pytest.mark.browser
 class TestBookedEdit_TheQuestionNamesTheBook:
     """AC-2 / AC-6 / G-1 / G-7 in the browser: the guard became a question.
@@ -3540,6 +3625,46 @@ class TestBookedEdit_TheQuestionNamesTheBook:
         assert len(confirmed) == 2, confirmed
         _assert_stored(live, puzzle_id, EDITED)
         assert errors == [], errors
+
+    def test_the_question_calls_an_unreadable_books_id_an_id(
+        self, browser_page, live
+    ) -> None:
+        """**Failure matrix F-4's second half** (review cycle 1, F-002). F-4
+        declares that the question names the book's ID *and says its title
+        could not be read*. Only the first half was built: the owner read
+        "This puzzle is in the book 3f2a1b0c-…", a bare uuid standing where a
+        title goes, with nothing to tell a missing title from a book literally
+        called that.
+
+        The load-bearing half was never in doubt and is driven end to end at
+        the route by ``tests/test_puzzle_edit_routes.py``'s
+        ``test_a_book_whose_title_cannot_be_read_still_needs_the_flag`` (the
+        server sends ``title: null``, refuses the unconfirmed save, and stores
+        the confirmed one). This is the sentence that answer reaches the owner
+        as.
+        """
+        puzzle_id = _seed_live(live, tier="easy")
+        _open_editor(browser_page, live, puzzle_id)
+        gone = "3f2a1b0c-0000-0000-0000-000000000000"
+
+        named, unnamed, published = browser_page.evaluate(_QUESTION_TEXTS, [[
+            {"id": gone, "title": "Winter Pictures", "published": False},
+            {"id": gone, "title": None, "published": False},
+            {"id": gone, "title": None, "published": True},
+        ]])
+
+        # A readable title is still named, and the id is not quoted beside it.
+        assert "the book Winter Pictures" in named
+        assert gone not in named
+
+        assert "title could not be read" in unnamed
+        assert f"id {gone}" in unnamed
+        assert f"the book {gone}" not in unnamed
+
+        # AC-6's half is untouched by the clause: a published book is still
+        # said to be published, with or without a readable title.
+        assert "title could not be read" in published
+        assert "that book is published" in published
 
     def test_keeping_the_stored_grid_stores_nothing_and_keeps_the_board(
         self, browser_page, live
@@ -3660,29 +3785,51 @@ class TestBookedEdit_TheSplitPairIsWordedAsAWarning:
 
     _PAGES = [
         {"id": "b", "title": "Winter Pictures", "published": False,
-         "pages": {"known": True, "changes": True, "before": 60, "after": 61,
+         "pages": {"known": True, "changes": True, "added": 1,
                    "partner": "snowflake.png"}},
         {"id": "b", "title": "Winter Pictures", "published": False,
-         "pages": {"known": True, "changes": False, "before": 60, "after": 60,
+         "pages": {"known": True, "changes": False, "added": 0,
                    "partner": "snowflake.png"}},
-        {"id": "b", "title": None, "published": False,
-         "pages": {"known": False, "changes": None, "before": None,
-                   "after": None, "partner": None}},
+        {"id": "3f2a1b0c-0000-0000-0000-000000000000", "title": None,
+         "published": False,
+         "pages": {"known": False, "changes": None, "added": None,
+                   "partner": None}},
+        # Review cycle 1, F-004: the delta is signed and is not constrained
+        # to one, so the two wordings nothing pinned are pinned here. Both are
+        # reachable and both are measured at the route — a shallower
+        # replacement letting a pair fit that does not fit today is
+        # `test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter`.
+        {"id": "b", "title": "Winter Pictures", "published": False,
+         "pages": {"known": True, "changes": True, "added": -1,
+                   "partner": None}},
+        {"id": "b", "title": "Winter Pictures", "published": False,
+         "pages": {"known": True, "changes": True, "added": 2,
+                   "partner": "snowflake.png"}},
     ]
 
-    def test_the_three_shapes_say_three_different_things(
+    def test_the_five_shapes_say_five_different_things(
         self, browser_page, live
     ) -> None:
+        """Renamed from ``test_the_three_shapes_say_three_different_things``
+        (review cycle 1, F-001/F-004): the three it covered are the first
+        three assertions below, unchanged in substance, and two more shapes
+        joined them."""
         puzzle_id = _seed_live(live, tier="easy")
         _open_editor(browser_page, live, puzzle_id)
 
-        split, kept, unknown = browser_page.evaluate(_BOOK_NOTES, [self._PAGES])
+        split, kept, unknown, shorter, two = browser_page.evaluate(
+            _BOOK_NOTES, [self._PAGES]
+        )
 
-        # The split page: the count, the partner, and that the book stays valid.
+        # The split page: how much longer, the partner, and that the book
+        # stays valid.
         assert "Winter Pictures" in split
-        assert "60 to 61" in split
         assert "snowflake.png" in split
         assert "one page longer" in split
+        # And NO absolute page count (review cycle 1, F-001): the two walks
+        # measure a delta, and the figure this page used to quote was the
+        # book's PUZZLE pages under the name of its page count.
+        assert not re.search(r"\d+", split.replace("snowflake.png", "")), split
         # And it is a warning: nothing in it says the edit cannot be stored.
         assert "cannot" not in split.lower()
         assert "refused" not in split.lower()
@@ -3690,12 +3837,22 @@ class TestBookedEdit_TheSplitPairIsWordedAsAWarning:
         # The pair that survives: the book is named, and no page count is
         # claimed to move.
         assert "Winter Pictures" in kept
-        assert "61" not in kept
         assert "page count" not in kept
+        assert "longer" not in kept and "shorter" not in kept
 
-        # Unmeasurable: it says so rather than claiming either way.
+        # Unmeasurable: it says so rather than claiming either way — and the
+        # book whose title could not be read is named by its id and SAID to
+        # be (review cycle 1, F-002; failure matrix F-4).
         assert "could not be measured" in unknown
         assert "page count" in unknown
+        assert "title could not be read" in unknown
+        assert "id 3f2a1b0c-0000-0000-0000-000000000000" in unknown
+
+        # The other direction, and a magnitude above one: the words follow
+        # the number instead of being written beside it.
+        assert "one page shorter" in shorter
+        assert "longer" not in shorter
+        assert "2 pages longer" in two
 
     def test_a_book_with_no_note_adds_nothing_to_the_grade(
         self, browser_page, live

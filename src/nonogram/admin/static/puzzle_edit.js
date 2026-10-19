@@ -225,9 +225,9 @@ export function gradeText(grade, book = null) {
 //   1. WHICH BOOK, named. The confirmation that follows Approve is about this
 //      book, and "Are you sure?" with no object is a dialog to click through.
 //      The title comes off the wire; a book whose title could not be read is
-//      named by its id, because the title is presentation and the guard is
-//      the flag the server requires.
-//   2. WHETHER THE BOOK WOULD GAIN A PAGE, and which puzzle this one shares
+//      named by its id AND SAID TO BE (`namedBook`), because the title is
+//      presentation and the guard is the flag the server requires.
+//   2. HOW MANY PAGES THE BOOK WOULD GAIN, and which puzzle this one shares
 //      its page with (AC-9). A book page holds two puzzles only when both fit
 //      at one shared cell (INV-010), and that fit is measured FROM THE CLUES
 //      — so a repaint that keeps the tier and the extent can still deepen a
@@ -246,7 +246,7 @@ export function gradeText(grade, book = null) {
 // with one argument gets.
 export function bookNote(book) {
   if (!book) return "";
-  const named = `the book ${book.title || book.id}`;
+  const named = namedBook(book);
   const pages = book.pages || {};
   if (pages.known !== true) {
     return `This puzzle is in ${named}, and whether this grid would change `
@@ -258,11 +258,42 @@ export function bookNote(book) {
   const shared = pages.partner
     ? `, which it shares with ${pages.partner},`
     : "";
-  return `This puzzle is in ${named}, and this grid would change that book's `
-    + `page count from ${pages.before} to ${pages.after}: the clues are too `
-    + `deep for the page this puzzle is on${shared} so the two puzzles on it `
-    + "would print on a page each. The book stays valid and gets one page "
-    + "longer. ";
+  return `This puzzle is in ${named}, and this grid would make that book `
+    + `${pageCountChange(pages.added)}: how deep its clues are decides `
+    + `whether the page it is on${shared} holds two puzzles or one. The book `
+    + "stays valid. ";
+}
+
+// THE BOOK, AS A SENTENCE NAMES IT. A title when there is one; otherwise the
+// id, said to BE an id and said to be standing in for a title that could not
+// be read (review cycle 1, F-002, and failure matrix F-4, which declares
+// exactly that and was half-refuted by a page that printed the bare uuid
+// where the title goes — the owner read "This puzzle is in the book
+// 3f2a1b0c-…" and had no way to tell a missing title from a book literally
+// called that).
+//
+// A book with no readable title is still a book the edit must be confirmed
+// for: the title is presentation and the guard is the server's flag
+// (`_book_holding` in app.py sends `title: null` for a `book_id` that
+// resolves to no book, and the store refuses the unconfirmed save either
+// way). The id is printed in full rather than shortened — it is what the
+// owner would have to quote to find the row.
+function namedBook(book) {
+  if (book.title) return `the book ${book.title}`;
+  return `a book whose title could not be read (id ${book.id})`;
+}
+
+// HOW MUCH LONGER, in the words the measured number supports and no wider
+// (review cycle 1, F-001/F-004). The server answers `added`, a count of
+// pages, which may be more than one and may be NEGATIVE — a replacement
+// whose clues are shallower can let a pair fit that does not fit today, and
+// the book then gets SHORTER. The old sentence quoted the delta's two
+// absolute figures and then asserted "gets one page longer" beside them,
+// neither of which the measurement constrained.
+function pageCountChange(added) {
+  const count = Math.abs(added);
+  const pages = count === 1 ? "one page" : `${count} pages`;
+  return `${pages} ${added < 0 ? "shorter" : "longer"}`;
 }
 
 // THE QUESTION, when the store has answered `needs_confirmation` (AC-2/G-1).
@@ -278,11 +309,11 @@ export function bookNote(book) {
 // puzzle that is already on sale needs to know which case they are in
 // (Trap 1: `in_a_book()` cannot tell the two apart, so the question has to).
 export function needsConfirmationText(book) {
-  const named = book && (book.title || book.id);
+  const named = book ? namedBook(book) : "a book";
   const published = book && book.published
     ? ", and that book is published"
     : "";
-  return `Nothing is stored yet. This puzzle is in ${named || "a book"}`
+  return `Nothing is stored yet. This puzzle is in ${named}`
     + `${published}: the grid you verified would replace the grid that book `
     + "prints. Answer the question below to store it or to leave the stored "
     + "grid as it is.";
