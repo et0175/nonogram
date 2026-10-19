@@ -15,7 +15,7 @@
 **Wave:** 47
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/puzzle_edit.js, src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/_puzzle_table.html, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py, tests/test_admin_design_tokens.py
-**Review score:** —
+**Review score:** 7.5 (cycle 1/3 — below the 8 threshold; two Important)
 **Started:** 2026-10-19T07:15:19Z
 **Closed:** —
 **Actual:** —
@@ -370,3 +370,82 @@ appears zero times in the log, but a gate that cannot print its own count is the
 recorded when `-rs` reported skips and not failures. The flag is dropped, and the counts above were
 re-derived from `--collect-only` with `addopts` cleared rather than read off a line that was never
 printed.
+
+### [Review 1/3] Score: 7.5 — 0 critical, 2 important, 4 minor · [Review sync] 1 report → meta/review/
+
+Report: `meta/review/20261019T081619Z-CARD-250-cycle1.yml` (parses under `yaml.safe_load`; synced into
+the main repo, so it survives the worktree). Below the `min_score: 8` threshold, and the severity gate
+fails independently of the score. **Mutation check (Step 8f) emitted `deferred(cost)`** — correct per
+the cost ladder, and it means **this card cannot merge on this review**: the certification must
+actually run on the stable cycle.
+
+**What the review did NOT find, which is worth as much as what it did.** The brief pointed it at the
+two mutants the implementation declares as surviving by design (M4, M7b) because a declared residual
+that is really a hole is this board's recurring defect. It read the killing tests rather than trusting
+the table and **both kills are real**: M4 is killed twice over (the labels list, and the test that
+presses the button the message names), M7b by the two-surface colour read, since `admin.css` keys only
+on `[data-tier=…]` so all three tiers would collapse to `--color-tier-none`. It also re-derived
+THE INVARIANT after `tell`'s body changed and found all four mechanisms still die under their own
+mutant, with a sharper reason than the card's: the parts are collected into `line` **before**
+`replaceChildren`, and the bar's MutationObserver delivers its records in one microtask checkpoint, so
+no half-written line is observable.
+
+**[Review] F-001 (important) CONFIRMED by the orchestrator against the code, including the remedy's
+premise.** A stroke made while the store is deciding is destroyed by Approve's new exit, and no
+question is asked although the page already knows the board moved. `onApprove` tells the answer and
+then calls `window.location.assign(THE_LIST)` **unconditionally** (`puzzle_edit.js:501-502`), while
+`onBoardChange` sets `boardChanged = true` and returns early by design when `inFlight === "approve"`
+so the store keeps the last word. Before this card the same sequence was safe — the page stayed and
+`storedText` said *"Your board is untouched — go on editing"*; the card's own notes record replacing
+that sentence **because it became false**, without noticing that the work it described is now lost.
+No test covered it before or after. The remedy's load-bearing premise was checked independently:
+`onBoardChange` advances `turn` **before** its early return (`:549` ahead of `:558`), so a turn
+captured at approve time is a true predicate for exactly this sequence.
+
+**[Review] F-002 (important) CONFIRMED, and it is wave 46's through-line in the artifact that is read
+at merge.** The card's note names two survivors for the focus assertion AC-5 forced out of
+`test_approving_from_the_keyboard_commits`, "both of which still assert the focus discipline". Only
+one does. `test_an_approval_of_a_grid_the_store_no_longer_remembers_asks_to_verify_again` contains no
+read of `activeElement` at all — the only reads in the file are at `:1473/1475/1479` (the keyboard
+flow, and `:1479` pins **Back to edit**'s `save.focus()`, not the refusal branch's) and
+`:2305/2352/2393` (the leave confirmation). So the `save.focus()` the diff moved into onApprove's
+refusal branch is pinned by nothing, and deleting it fails no test.
+
+**[Review] F-003 (minor) CONFIRMED — a control that cannot fail.**
+`test_approve_commits_the_grid_that_was_graded:1070` keeps `assert not _approve_offered(browser_page)`
+*after* `_wait_for_the_list`, i.e. on `/puzzles`, where `#puzzle-editor-decide` does not exist and
+Playwright's `is_visible()` returns False for every possible implementation. The review checked the
+other seven retargeted tests and each keeps a substantive post-navigation assertion, so this is
+isolated rather than systemic — but "no Approve stands beside the Saved sentence" is now asserted
+nowhere.
+
+**[Review] The reviewer corrected the orchestrator's own premise on F-006, and it was right to.** The
+brief claimed the `inFlightIs` comment cites the wrong guardrail. It does not: the line is unchanged
+context, and **CARD-246's G-4 really is the accessibility rule**, so its original referent is correct.
+What is left is a bare `G-N` that a reader arriving from CARD-250's list resolves wrongly — fixed by
+qualifying it, not by renumbering.
+
+### [Decision] F-001 — stay and say so, not ask before leaving (orchestrator, 2026-10-19)
+
+The review raised F-001 as partly an owner question: *"stay and say so"* or *"ask before leaving"*.
+Carried as an orchestrator call rather than parked at the wave boundary, with the alternative recorded,
+because the finding is a defect either way — **today the page neither stays nor asks** — and because
+this board's standing rule is to carry a card through its gates.
+
+**Chosen: the page does not leave when the board moved while the store was deciding, and says so.**
+
+- It loses no work, which is the whole of what F-001 is about.
+- It follows AC-2's own principle — *confirm only when there is something to lose* — using the very
+  fact AC-2 introduced (`boardChanged`, latched from the one place a change is announced). No second
+  notion of "changed" enters the file.
+- The rejected alternative would put a **question in front of an answer the owner has not read yet**:
+  the store has just spoken, and that answer "is the only report of what the store actually did".
+  Asking about the exit first buries it.
+- It narrows AC-5's literal *"and the browser is on /puzzles"* to the settled case. AC-5's own test
+  and all eight retargeted tests still exercise that case unchanged, so what narrows is not the AC's
+  scenario but the behaviour on a path the AC does not describe: the owner has created new unstored
+  work mid-store. **If the owner wants the exit to win even then, that is a one-line change** and this
+  note is where to find it.
+
+The staying branch needs a test that can fail, and `storedText`'s tail ("Showing the puzzle list…")
+must split in two: it is false on the branch that stays.

@@ -1,0 +1,378 @@
+version: 1
+generated_at: "2026-10-19T08:16:19Z"
+target: "card/250-editor-exits @ 318bf1d (base main @ f02bd23) — CARD-250 review cycle 1"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/puzzle_edit.js
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/templates/puzzle_edit.html
+    - src/nonogram/admin/templates/_puzzle_table.html
+    - src/nonogram/admin/templates/_tier.html
+    - src/nonogram/admin/templates/puzzle_solve.html
+    - meta/design/tokens.css
+    - tests/test_puzzle_editor_ui.py
+    - tests/test_admin_design_tokens.py
+    - src/nonogram/admin/static/solver.js (BOARD_CHANGE dispatch sites only)
+  not_reached:
+    - src/nonogram/admin/app.py (grid route body; untouched by the diff, read only via grep)
+    - src/nonogram/admin/puzzle_review.py (manually_edited_at write path; grep only)
+    - "rendered browser behaviour: no screenshots, no runtime/a11y log (visual: off)"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 1279, removed: 88 }
+  max_fan_in:
+    symbol: "templates/_puzzle_table.html (Jinja import)"
+    callers: 2
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/puzzle_edit.js (4 commits total; 2 of the 3 pre-card commits are CARD-246 review-fix cycles — highest defect density of the touched set)"
+    - "src/nonogram/admin/static/admin.css (48 commits)"
+  cochange_missing:
+    - "src/nonogram/admin/static/solver.js (3 of puzzle_edit.js's 4 commits) — explained: BOARD_CHANGE is consumed unchanged, no edit needed"
+    - "src/nonogram/admin/app.py (2 of 4; 5 of _puzzle_table.html's 7) — explained: option 1 was chosen over option 2, which is app.py's territory; this absence is what leaves F-005 standing"
+    - "src/nonogram/admin/puzzle_review.py (3 of 7) — explained: it already emits manually_edited_at on both the row context and the detail payload"
+  unmeasured:
+    churn_window: "tooling_failure — `git log --since=12.months` returns 0 for every touched path because repository commit dates (2026-10) lie outside the window the host clock resolves; churn/defect-density were recomputed over full history instead and are reported above"
+    visual_rendered: "provider_unavailable — review.visual is off in meta/kanban/config.yml (no make run target); no screenshots, runtime.log or a11y.log were produced, so rendered behaviour and computed a11y were not verified"
+    mutation_check: "budget_truncated — deferred(cost) per the cost ladder: this cycle carries Important findings, so the certification step was not executed (see system_contract/verdicts and the markdown report)"
+
+system_contract:
+  rules_checked: 8
+  holds: 6
+  unchecked: 2
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is not in the diff (git diff main...HEAD --stat lists 6 files, none of them a manifest); tests/test_puzzle_editor_ui.py::TestPuzzleEditor_Guardrails::test_the_editor_adds_no_dependency_and_no_vendored_script passes unchanged"
+    - "ADR-0038/R1 ✓ holds — the diff adds hand-written ES modules and CSS only: static/puzzle_edit.js keeps its `export function` shape with no bundler artefacts, no package.json or lockfile in the diff, no vendored library (same guard test as above reads for a vendored script)"
+    - "ADR-0038/R2 ✓ holds — no_eligible_fact on the per-mark path itself, but checked rather than assumed: the diff adds exactly two network calls' worth of code and both are in onLeave/onApprove navigation (window.location.assign), not in the marking path; TestSolverMarking_NoRequestPerMark is untouched by the diff"
+    - "ADR-0038/R4 ✓ holds — the module's exported state/prose functions (gradeText, storedText, inFlightText, refusalText, storeStateIsKnown) touch no DOM; the new DOM work (tell's replaceChildren, closeTheConfirm, the two listeners) is all inside start(), the same seam as before. gradeText's new return value is a plain array of strings plus one {tier} marker — data, not a node"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml not in the diff; pytest-playwright stays where it was"
+    - "ADR-0038/R8 ✓ holds — all six new browser classes carry @pytest.mark.browser (lines 2270, 2314, 2433, 2605, 2660, 2786); TestPuzzleEditor_TheListShowsTheEditedPicture is the one new class without it and is correctly server-tier (admin_app fixture, Flask test_client, no browser_page)"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: the diff adds no derivation of a tier. The editor renders the tier string the verify route sends (tell() writes it to textContent and dataset.tier); no second solve and no arithmetic enters this file (TestPuzzleEditor_Guardrails::test_the_editor_decides_no_uniqueness_and_no_difficulty is unchanged by the diff)"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: the host door lives in app.py, which this diff does not touch (--stat confirms); no route was added or changed"
+
+root_causes:
+  - id: RC-1
+    title: "the success exit navigates unconditionally and immediately after tell(), so nothing reads what the page already knows about the board or lets anyone read what it just said"
+    finding_ids: [F-001, F-004]
+  - id: RC-2
+    title: "AC-5's retargeting of nine existing tests moved assertions onto a page where their subject does not exist, and the card's note names a survivor that does not assert what it is named for"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 502
+    title: "A stroke made while the store is deciding is destroyed by Approve's new exit, with no question asked"
+    description: |
+      AC-2's principle is "confirm before leaving only when there is something to lose", and the
+      page latches exactly that fact (`boardChanged`, set in onBoardChange at :554). The exit AC-5
+      adds does not consult it, and there is one reachable sequence where that loses work:
+
+        1. Approve is pressed. onApprove: turn += 1, inFlightIs("approve"),
+           tell("Storing this grid...") — offer withdrawn, decide hidden (:477-481).
+        2. The owner paints a cell. solver.js commits and dispatches BOARD_CHANGE (solver.js:782,
+           the single dispatch site). onBoardChange sets boardChanged = true and then returns
+           early *by design* — `if (inFlight === "approve") return;` (:558) — so the stroke is
+           deliberately not spoken about, to keep the store's word last.
+        3. The store answers 200/ok. tell(storedText(...)) then
+           `window.location.assign(THE_LIST)` (:501-502), unconditionally.
+
+      The stroke from step 2 is gone: the editor keeps no localStorage of its own
+      (TestPuzzleEditor_ThePlayerIsNotRegressed::test_the_editor_writes_nothing_into_the_players_save),
+      so the board dies with the document. Nothing asked, nothing said.
+
+      Before this card the same sequence was safe: the page stayed, the stroke was still on the
+      board, and storedText's old tail said "Your board is untouched — go on editing and press Save
+      again to change it further." The implementation noticed that sentence had become false (the
+      card's own note records replacing it) without noticing the work it described is now destroyed.
+
+      No test covers it, before or after: the suite's only approve-race test is
+      test_approve_sends_the_graded_grid_and_never_re_reads_the_board, which paints *before*
+      Approve, and _SAVE_THEN_PAINT only races a verify.
+
+      Window: between the Approve click and the response — the one moment the owner's hand has
+      just left the mouse on that button. Narrow, not unreachable, and silent when it fires.
+    suggestion: |
+      Reuse mechanism 2 rather than adding a second notion of "changed" — capture the turn at
+      approve time and make only the navigation conditional on it:
+
+          const mine = (turn += 1);          // :477, instead of a bare turn += 1
+          ...
+          tell(storedText(body.puzzle));     // told whatever happens, unchanged
+          if (mine !== turn) return;         // the board moved while the store wrote: stay
+          window.location.assign(THE_LIST);
+
+      Why this closes the hole: every path that can lose the stroke runs through onBoardChange,
+      which already advances `turn` before its early return at :558, so `mine !== turn` is true
+      for exactly the sequence above and false otherwise. It keeps the store's answer told first
+      (AC-7's reason), keeps `tell` the single writer (G-2 — this adds no writer, only a branch
+      after one), and adds no comparison of board against stored grid (the duplicate AC-2's test
+      docstring explicitly rejects).
+
+      One consequence to carry with it, stated rather than glossed: storedText's new tail
+      "Showing the puzzle list, ..." becomes false on the staying branch, so that sentence has to
+      split in two (one for the exit, one for "stored, and the stroke you made since is still on
+      the board"). Both are still written by `tell`, so G-2 holds; AC-4's corpus test picks the
+      new sentence up automatically (it calls storedText over the grade corpus).
+
+      Residual uncertainty, declared: this narrows AC-5's literal "*then* the store holds the new
+      grid **and** the browser is on /puzzles" to the settled case. AC-5's own test seeds no
+      stroke and still passes, as do the eight retargeted tests, but whether the owner prefers
+      "stay and say so" or "ask before leaving" here is their call, not the reviewer's — the
+      finding is that today it neither stays nor asks.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-250.md
+    line: 317
+    title: "One of the two named survivors for the retired focus assertion asserts no focus at all"
+    description: |
+      The card's note on AC-5's blast radius says test_approving_from_the_keyboard_commits lost its
+      assertion about where focus lands, and that "the named survivors are
+      test_the_whole_flow_runs_from_the_keyboard (Back to edit) and
+      test_an_approval_of_a_grid_the_store_no_longer_remembers_asks_to_verify_again (a refusal
+      keeps the page), **both of which still assert the focus discipline**."
+
+      The first does: tests/test_puzzle_editor_ui.py:1479 asserts
+      `document.activeElement.id == "puzzle-editor-save"` after Back to edit.
+
+      The second does not. tests/test_puzzle_editor_ui.py:1379-1406 contains no read of
+      activeElement at all — it asserts the sentence, the absence of "not known", the withdrawn
+      offer and the store. It is a survivor for "a refusal keeps the page"; it is not a survivor
+      for the focus discipline, which is the thing it is named as surviving.
+
+      What that leaves unpinned is concrete: the diff restructured onApprove so that `save.focus()`
+      now runs only in the refusal branch (:495, previously unconditional at the end of the
+      function). Remove that line and no test in the suite fails — the one test that used to read
+      focus after an approve is the one whose assertion was retired, and its replacement reads
+      `browser_page.url` instead (:1500).
+
+      This is the board's recurring defect family rather than a new one: a claim whose cited
+      evidence does not carry it (wave 46's through-line, three cards). It is filed at Important
+      because the claim is in the artifact that will be read at merge, and because the G-3 /
+      CARD-211 discipline it invokes — keyboard focus is never dropped mid-flow — is the reason
+      the aria-disabled pattern exists on this bar at all.
+    suggestion: |
+      Add one line to tests/test_puzzle_editor_ui.py:1406, inside
+      test_an_approval_of_a_grid_the_store_no_longer_remembers_asks_to_verify_again:
+
+          assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-save"
+
+      Why this closes the hole rather than restating it: the test already drives a refused Approve
+      and stays on the page, which is exactly the branch that owns the surviving `save.focus()`
+      call (:495). With the assertion present, deleting that line fails this test, so the card's
+      sentence becomes true of both named survivors instead of one.
+
+      The weaker alternative — correcting the card note to name only
+      test_the_whole_flow_runs_from_the_keyboard and stating plainly that the refused-approve focus
+      hop is unpinned — makes the claim honest but leaves the behaviour unverified. Prefer the
+      assertion; it is one line and it is cheaper than the note.
+    confidence: high
+    source: static
+    violates: G-9
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_editor_ui.py
+    line: 1070
+    title: "A retargeted assertion now runs on /puzzles, where its subject does not exist, and cannot fail"
+    description: |
+      test_approve_commits_the_grid_that_was_graded (:1052) ends:
+
+          _button(browser_page, "Approve").click()
+          _wait_for_the_list(browser_page)
+          ...
+          # The two-phase flow is over: there is nothing left to approve.
+          assert not _approve_offered(browser_page)
+
+      `_wait_for_the_list` waits for the URL to become /puzzles, so by the time the last line runs
+      the document is the puzzle list. `_approve_offered` is
+      `page.locator("#puzzle-editor-decide").is_visible()` (:1797-1798 region, helper at :798) and
+      Playwright's `is_visible()` returns False for a locator that matches nothing — it does not
+      raise. On the list page `#puzzle-editor-decide` matches nothing, so the assertion is True for
+      any implementation whatsoever, including one that leaves the offer standing.
+
+      This is the one of the nine retargeted tests that was weakened into a tautology; I checked
+      the other seven (:1084, :1135, :1176, :1422, :1491, :1878, :1914) and each keeps a
+      substantive post-navigation assertion (store contents, the POSTed grid, the URL, the
+      pageerror list), so the pattern is isolated rather than systemic.
+
+      The property itself is not wholly lost — test_a_second_approve_pressed_in_flight_is_not_sent_either
+      (:1751) holds the page with `_stay_on_the_editor` and asserts no bar state saying "Storing
+      this grid" has an Approve beside it — but that test checks the *storing* state, not the
+      *stored* one, so "no Approve stands beside the Saved sentence" is now asserted nowhere.
+    suggestion: |
+      Either delete the line and its comment (the claim is false of the page the test now ends on,
+      so an honest test says nothing about it), or move it to where the page still exists: read it
+      from the bar-state sequence, as its sibling already does. In
+      test_a_second_approve_pressed_in_flight_is_not_sent_either, which already installs
+      `_WATCH_BAR` and `_stay_on_the_editor`, add to the existing states read at :1792-1795:
+
+          saved = [s for s in states if "Saved" in s["text"]]
+          assert saved, states
+          assert not any(s["offered"] for s in saved), saved
+
+      Why this closes it: that test keeps the document (204 on the navigation) and already records
+      every bar state through a MutationObserver, so the stored state is in `states` and the
+      assertion can genuinely fail — unlike a read taken after the browser has left the page.
+      Deleting the line alone is honest but leaves the stored-state half of mechanism 1 unpinned,
+      which is why the moved assertion is the better of the two.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 498
+    title: "\"never traded for the navigation\" is wider than its mechanism: the store's success sentence is unobservable"
+    description: |
+      :498-502 claims: "The store said yes. Its answer is told first — it is told whatever happens,
+      and the exit comes after it, so the one report of what the store did is never traded for the
+      navigation." The DOM write happens, but `window.location.assign` runs synchronously in the
+      same task, so neither a reader nor a screen reader ever observes the sentence: a
+      `role="status"` live region announces at the next rendering opportunity, which this page does
+      not reach. `/puzzles` carries no flash message either, so the success report exists only as
+      an unobserved DOM mutation.
+
+      The evidence confirms rather than contradicts this: the only test that reads the sentence
+      (test_a_second_approve_pressed_in_flight_is_not_sent_either) can read it solely because
+      `_stay_on_the_editor` suppresses the navigation with a 204 — i.e. the sentence is readable
+      exactly when the production behaviour is switched off.
+
+      This is not an AC failure (AC-5 asks for the exit, and the refusal paths — where the report
+      actually matters — all keep the page via `save.focus(); return;` at :495). It is a comment
+      asserting a property the mechanism does not deliver, which is the house rule's definition of
+      a finding. The new storedText tail ("Showing the puzzle list, where this puzzle's picture is
+      the grid that was just stored.") is prose nobody can read.
+    suggestion: |
+      Narrow the claim to what the code does: the answer is *told* before the exit, and it is the
+      refusal answers that are read on this bar, the success answer being reported by the list the
+      owner lands on (the row's new picture — which AC-6 makes true). That is accurate and still
+      explains why the tell() comes first.
+
+      F-001's remedy also makes the sentence readable on the one path where staying is correct, so
+      fixing F-001 first and then rewording this comment is the cheaper order. I am not claiming
+      the reword alone improves behaviour — it only stops the file promising something it does not
+      do.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 210
+    title: "Four other surfaces still draw the unversioned stable grid URL"
+    description: |
+      Option 1 fixes the cache hazard per call site, and four call sites outside the card's
+      Touches still render the bare, validator-less URL the card's own analysis identifies as the
+      defect:
+
+        - templates/book_select_puzzles.html:210
+        - templates/book_arrange_puzzles.html:148
+        - templates/generated_puzzles.html:53
+        - templates/batch_status.html:78
+
+      AC-6 is satisfied (it names the list), and the two sites the card named are both done. The
+      residual matters most on book_select_puzzles, where the owner picks puzzles for a book by
+      their picture and could be shown the grid they replaced — though the book itself is built
+      from the stored grid, so the consequence is a misleading preview, not a wrong book.
+
+      [history] This is also where the co-change signal points: app.py co-changes with
+      _puzzle_table.html in 5 of its 7 commits and is absent here by design (option 1 was chosen
+      over option 2). It is app.py's absence that leaves these four standing.
+    suggestion: |
+      Out of this card's Touches — route it to a follow-up card rather than widening the diff.
+
+      Worth recording for that card, because it is the option the card's two did not include: an
+      `ETag` or `Last-Modified` derived from `manually_edited_at` on the grid route in app.py
+      fixes all five call sites at once *and* keeps caching (a conditional request gets 304),
+      which is precisely the cost option 2 was rejected for. That is a stronger fix than copying
+      `?v=` into four more templates, and it does not retract option 1 — the versioned URL stays
+      correct beside a validator.
+    confidence: low
+    source: history
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 403
+    title: "An unqualified guardrail id in a file that now spans three cards"
+    description: |
+      The comment above `inFlightIs` cites "(G-4, CARD-211's pattern)" for the aria-disabled rule.
+      Under CARD-250's numbering that is wrong — G-3 is the aria-disabled guardrail and G-4 is the
+      colour rule — but the line is unchanged context in this diff (it predates the card) and its
+      original referent is correct: CARD-246's G-4 is "Accessibility is not optional here"
+      (CARD-246.md:92). CARD-211's own G-4 is the design-token rule, so the citation does not
+      resolve through the card it names either.
+
+      So the defect is not a false claim, it is a bare `G-N` in a file three cards have now
+      written: a reader arriving from CARD-250's guardrail list is pointed at the colour rule.
+      The new test added by this card gets it right and is the contrast —
+      tests/test_puzzle_editor_ui.py::test_the_bars_refusals_never_reach_for_disabled says
+      "CARD-250 G-3, CARD-211's pattern".
+    suggestion: |
+      Qualify the id with its card: "(CARD-246 G-4 / CARD-250 G-3, CARD-211's pattern)". This is a
+      comment-only change and closes the ambiguity completely, since the ambiguity *is* the missing
+      qualifier — there is no behaviour behind it to get wrong.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

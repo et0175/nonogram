@@ -451,8 +451,15 @@ wave_47:
   cards: [CARD-250, CARD-251]
   started_now: [CARD-250]
   card_250:
-    phase: review
+    phase: fix
     review_cycle: 1
+    review_1: "7.5 (threshold 8) -- 0 critical, 2 important, 4 minor; severity gate fails independently of the score. Report meta/review/20261019T081619Z-CARD-250-cycle1.yml, synced to the main repo."
+    mutation_check: "deferred(cost) on cycle 1, per the cost ladder -- so this card CANNOT merge on this review; the certification must run on the stable cycle."
+    fix_1_dispatched: 2026-10-19T08:22:07Z
+    f001_decision: "Orchestrator call, recorded on the card: the page STAYS and says so when the board moved while the store was deciding -- not 'ask before leaving', which would put a question in front of an answer the owner has not read. Narrows AC-5's literal wording to the settled case; a one-line change if the owner wants the exit to win even then."
+    f005_routed: "backlog @tech-debt -- four more surfaces draw the unversioned grid URL; the reviewer's ETag/Last-Modified option fixes all five at once AND keeps caching, which is what option 2 was rejected for. Touches app.py, so it wants its own slot."
+    verified_by_orchestrator: "F-001, F-002 and F-003 all re-derived against the code before briefing the fix agent, including F-001's remedy premise (onBoardChange advances turn BEFORE its early return, so a turn captured at approve time is a true predicate). F-003 is a control that cannot fail: _approve_offered is read on /puzzles, where the locator matches nothing."
+    reviewer_corrected_the_orchestrator: "On F-006 the brief claimed the inFlightIs comment cites the wrong guardrail. It does not -- the line is unchanged context and CARD-246's G-4 really is the accessibility rule. What remains is a bare G-N a reader of CARD-250's list resolves wrongly."
     implementation_commit: 318bf1d
     build_gate: "PASSED full 884s, EXIT=0 first attempt, 8390/1/0; collected 8391 vs main's 8364 = +27, all 27 in the card's own two test files"
     at: 2026-10-19T08:06:57Z
