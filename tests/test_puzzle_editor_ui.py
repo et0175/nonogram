@@ -926,10 +926,32 @@ _APPROVE_THEN_PAINT = """([grid]) => {
   window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells }));
 }"""
 
-#: The store's write has been acted on, whichever way it went: either the bar
-#: says so, or the bar is GONE because the page left for the list. A wait that
-#: resolves on both outcomes, so a test that expects one of them reports which
-#: one happened instead of timing out on the other.
+#: Press Approve and then Back to edit, in ONE task: the press therefore
+#: lands while the store's write is unanswered. The state an owner cannot
+#: reach (the Approve / Back to edit pair is ``hidden``), and the one a script
+#: reaches at once -- the same forcing ``_SAVE_THEN_BACK`` does for the verify
+#: case. Written out rather than parameterising that helper, because what the
+#: two presses race ends differently and a test should not have to read which
+#: request a shared helper was timed against (review cycle 2, F-002).
+_APPROVE_THEN_BACK = """() => {
+  document.getElementById('puzzle-editor-approve').click();
+  document.getElementById('puzzle-editor-back').click();
+}"""
+
+#: The store's write SUCCEEDED and the page has acted on it: either the
+#: success is on the bar, or the bar is gone because the page left for the
+#: list. Both of the two branches a success has are covered, so a test that
+#: expects one of them reports which one happened instead of timing out on
+#: the other -- and the test's own next assertions discriminate them
+#: (``_asked_for_the_list(asked) == []`` and the url).
+#:
+#: A REFUSED write resolves neither disjunct -- no refusal sentence contains
+#: "Saved" -- so that outcome still runs the wait out and fails on the clock.
+#: Deliberate, and the reason this says "succeeded" rather than "whichever way
+#: it went" (review cycle 2, F-003): the two branches this wait exists to
+#: distinguish are both successes, a refusal on this path would be a defect
+#: rather than a case, and a predicate widened to catch it would be three
+#: sentences of coupling for a failure that is already loud, just slow.
 _STORED_OR_LEFT = """() => {
   const message = document.getElementById('puzzle-editor-message');
   return message === null || message.textContent.includes('Saved');
@@ -1537,12 +1559,19 @@ class TestPuzzleEditor_Accessibility:
         _wait_for_the_list(browser_page)
 
         assert _stored_grid(live, puzzle_id) == EDITED
-        # Where focus went after a SUCCESSFUL approve is no longer a question
-        # this page answers: a stored edit leaves the editor (CARD-250 AC-5),
-        # so there is no save bar left to stand on. The focus discipline of
-        # the flow is still pinned where the page stays — on a refusal
-        # (``..._asks_to_verify_again`` keeps the bar) and on Back to edit
-        # (``test_the_whole_flow_runs_from_the_keyboard``, above).
+        # Where focus went is no longer a question THIS path answers: the
+        # approve asked about here leaves the editor (CARD-250 AC-5), so there
+        # is no save bar left to stand on. It is the only outcome of which
+        # that is true. The flow has THREE focus hops, each pinned on the
+        # branch that owns it, and every one of them is a page the editor
+        # keeps:
+        #   * Back to edit — ``test_the_whole_flow_runs_from_the_keyboard``;
+        #   * onApprove's refusal — ``..._asks_to_verify_again``;
+        #   * onApprove's branch that STORED and stayed because a stroke
+        #     landed mid-write —
+        #     ``test_a_stroke_made_while_the_store_was_writing_keeps_the_page``
+        #     (added in fix cycle 1, given its hop and its pin in fix
+        #     cycle 2, review cycle 2 F-001).
         assert browser_page.url.endswith("/puzzles")
 
     def test_the_edit_link_on_the_list_is_in_the_tab_order(self, browser_page, live) -> None:
@@ -1844,6 +1873,14 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         # it does next (review cycle 1, F-001), so reading the head alone
         # would not notice the staying sentence standing here.
         assert "Showing the puzzle list" in said
+        # And the staying tail is NOT standing here beside it. This is the
+        # mirror of the guard the staying test carries, and the pair completes
+        # the 2x2: each tail pinned present on its own branch and absent from
+        # the other. Without it a sentence of head + BOTH tails passed the
+        # whole file -- the page claiming in one breath to stay and to show
+        # the list, and then navigating (review cycle 2, F-004; measured, not
+        # argued: that mutant survived 108 tests and dies on this line).
+        assert "the editor stays open" not in said, said
         assert errors == []
         # The offer really is down for the whole of the store's write, which
         # is the mechanism and not a by-product of the guard.
@@ -2773,6 +2810,56 @@ class TestPuzzleEditor_ApproveCommitsThenReturnsToTheList:
         assert "the editor stays open" in said
         assert "are not stored" in said
         assert "Showing the puzzle list" not in said, said
+        assert errors == [], errors
+        # The bar is still here, so focus is still a question this page has to
+        # answer -- and "Press Save" is only an instruction if Save is what
+        # the owner is standing on. ``tell("Storing this grid...")`` hid the
+        # Approve's own ancestor, so without the handler's ``save.focus()``
+        # this reads ``''``: focus had been dropped to the document, which is
+        # the one thing G-3 / CARD-211 exists to prevent (review cycle 2,
+        # F-001). Delete that line of the script and this fails.
+        assert browser_page.evaluate("() => document.activeElement.id") == "puzzle-editor-save"
+
+    def test_a_back_to_edit_forced_while_the_store_writes_does_not_stop_the_exit(
+        self, browser_page, live
+    ) -> None:
+        """F-002: the exit predicate means "the board moved", and only that.
+
+        ``turn`` carries three jobs -- the staleness token for a verify
+        answer, the request counter, and (since fix cycle 1) the predicate for
+        whether a successful Approve LEAVES. Three of the four sites that
+        advance it cannot disagree with that reading; ``onBackToEdit`` was the
+        fourth, and unguarded. Forced during the store's write it spent the
+        turn, which suppressed the exit AND put a sentence on the bar stating
+        a fact about the board that nothing had told the page -- on a page
+        whose whole discipline is to never say what it was not told.
+
+        An owner cannot reach this press (the pair is ``hidden``, which is
+        ``display: none`` here), but safety resting on another element's
+        visibility is not safety -- the file refuses that argument on this
+        very line, and ``_SAVE_THEN_BACK`` already forces the same press for
+        the verify case. So the guard is narrow, ``inFlight === "approve"``
+        and not ``inFlight !== null``: the verify-case turn spend G-008 added
+        is deliberate and
+        ``test_a_back_to_edit_taken_mid_flight_is_not_undone_by_the_answer``
+        still pins it.
+
+        What this asserts is the guard's whole effect: the board did NOT move,
+        so the store's success still leaves for the list, exactly as it does
+        with no press at all. Remove the guard and the page stays instead.
+        """
+        puzzle_id = _seed_live(live, name="Owl")
+        _open_editor(browser_page, live, puzzle_id)
+        _paint_a_cell(browser_page)
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        errors, asked = _watch(browser_page)
+
+        browser_page.evaluate(_APPROVE_THEN_BACK)
+        _wait_for_the_list(browser_page)
+
+        assert _posted(asked, "/edit") == [EDITED], asked
+        assert _stored_grid(live, puzzle_id) == EDITED
         assert errors == [], errors
 
 

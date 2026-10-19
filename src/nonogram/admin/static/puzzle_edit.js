@@ -544,6 +544,15 @@ function start() {
     // (F-001).
     if (mine !== turn) {
       tell(storedAndStayingText(body.puzzle));
+      // The bar is still here, so focus has somewhere to stand -- and it has
+      // to be put there: `tell("Storing this grid...")` above hid `decide`,
+      // the focused Approve's ancestor, so the browser dropped focus to the
+      // document (G-3 / CARD-211: focus is never dropped mid-flow). Save is
+      // the target because it is the button this very sentence tells the
+      // owner to press, which is the choice onBackToEdit and the refusal
+      // branch above already make, and it is enabled again (`inFlightIs(null)`
+      // ran in the `finally`). Review cycle 2, F-001.
+      save.focus();
       return;
     }
     tell(storedText(body.puzzle));
@@ -553,6 +562,22 @@ function start() {
   // Back to edit (CARD-246's Cancel, renamed; the behaviour below is that
   // card's, unchanged).
   function onBackToEdit() {
+    // Not while the store is writing. This is the one press that could spend
+    // the turn for a reason other than "the board moved", and onApprove READS
+    // that turn to decide whether a successful store LEAVES: forced here
+    // mid-write it would both suppress the exit and make the page state a
+    // fact about the board that is not true ("You changed the board while it
+    // was being stored"). An owner cannot reach it -- the pair is `hidden` --
+    // but that is exactly the argument the comment below refuses, and
+    // `_SAVE_THEN_BACK` already forces such a press for the verify case.
+    //
+    // Narrow on purpose: a blanket `inFlight !== null` would drop the
+    // verify-case turn spend the next line exists for (G-008). Silent, like
+    // onBoardChange's identical guard, and for the same reason: the bar is
+    // mid-"Storing this grid...", and the store's answer is the sentence the
+    // owner must read -- a press that cannot stop the store does not get to
+    // speak over it. Review cycle 2, F-002.
+    if (inFlight === "approve") return;
     // It is a turn of its own (review cycle 2, G-008). An owner cannot reach
     // this mid-flight — the pair is `hidden`, which is `display: none` — but
     // safety that rests on another element's visibility is not safety:
