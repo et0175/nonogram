@@ -1104,3 +1104,21 @@ selection actually contained rather than trusting the word.
 are in `test_db_url_driver.py:383`, `test_export_pdf.py:750`/`:1272`, `test_admin_serving.py:143`); and
 G-9 has no enforcing test at all — its evidence is the diff, which shows exactly three `def test_` and
 one `class` removed and all four reappearing renamed in the same hunks. Net retirements zero.
+
+### [Owner render] checked on the shipped page — 2026-10-19
+
+Render: `~/Documents/nonogram-reviews/CARD-250/` — 28 files through the real panel (Flask over SQLite
+on loopback; `nonogram_poc` untouched), in two passes: the test corpus for the flow, and two real
+generated pictures (duck → cat) so the row's change is visible rather than a missing corner.
+
+**SETTLED (owner): the four buttons stay.** After a Save the bar carries **Save · Cancel · Approve ·
+Back to edit**, all live. That was the one open design question the render raised — the doc asked for a
+Cancel beside Save and a Back to edit beside Approve, and this is the literal reading, but nobody had
+been asked whether the left pair should go quiet while a grade is on screen. Owner: *"the four buttons
+are fine, leave them"*. **A later card proposing to hide Save and Cancel behind a grade is reversing a
+decision, not tidying an oversight.**
+
+**Still open, and deliberately not read as approved by silence:** the row's caption still says
+`duck.png` after the picture became a cat (the caption is the source image, so it is not false, but it
+no longer describes the picture). Raised in the render as a question; no answer, so it stays a question.
+The editor's heading still naming only the extent is **CARD-249**, already carded and ready.

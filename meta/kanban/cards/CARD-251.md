@@ -255,3 +255,172 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-251 --root meta/architectu
 - **[House rules]** `hypothesis` is not in the dependency baseline. Browser tests fail or skip loudly
   with a named reason (ADR-0038/R8). New browser tests go in `tests/test_puzzle_editor_ui.py` and must
   join its `PAGE_ISOLATION_DECLARATION` (CARD-235's glob cannot see that file).
+
+## Failure matrix
+
+_Declared 2026-10-19, before any code was written (the `architectural` obligation). One row per
+boundary × failure mode, each with the DECLARED behaviour. Wrong-but-declared beats undeclared._
+
+| # | boundary × failure mode | DECLARED behaviour |
+|---|---|---|
+| F-1 | `POST /puzzle/<id>/edit` — the same **confirmed** save arrives twice (a double click, a retried write) | Both store. A verification is not consumed by a save (CARD-245), so the grid is still proved, the extent and the tier checks pass again, and the second save rewrites the same five derived columns and moves only `manually_edited_at`. No book state moves: an edit never writes `book_id`. |
+| F-2 | the confirmation arrives for a puzzle whose **book changed underneath it** (joined a book, left one, or the book was published between verify and save) | The row is re-read at the save, so the save decides on the book **as it is now**, never on the verify's reading. Left the book → the flag is unnecessary and the save stores. Joined a book → the flag is required, and an unconfirmed save answers `needs_confirmation` and writes nothing. Published in between → the same one flag covers it (one flag, two sentences), so a confirmation given while the book was a draft still stores. Declared, not refused: the flag means "replace this puzzle's grid although a book prints it", which is as true of the newer book as of the older one, and what protects the book's *structure* — the tier check (AC-4) and the extent check (AC-5) — is re-run against the row as it stands. |
+| F-3 | the process crashes **between verify and store** | Nothing is stored: the verify writes no row. The proof memo lives on the serving process's `PuzzleReviewService` and dies with it, so the next save answers `not_verified` and the owner verifies again — one solve, and nothing ungraded can be stored. Unchanged by this card. |
+| F-4 | the **book's title cannot be read** — `get_book` answers `None` (a deleted row, a `book_id` the panel cannot resolve) or the title is blank | The flag is still required and still enforced at the store; the question names the book's **id** and says its title could not be read. The refusal is NOT widened to "may not be edited": the title is presentation, the guard is the flag. |
+| F-5 | the page-count measurement — the book holds a member the **pairing walk cannot lay out** (`RuntimeError`), or the book has no readable print setup (`ValueError`) | The page-count effect is reported as **unknown**, in those words, and Approve stays available. An unmeasurable neighbour is no reason to refuse an edit the tier and the extent already permit, and claiming "the page count does not change" out of a failed measurement is exactly the lie the warning exists to prevent. |
+| F-6 | the replacement **grades into another tier** for a booked puzzle | Refused at the **verify** (so the owner learns it with the grade, before Approve) **and** at the **store** (G-2), naming both tiers. Nothing stored, no Approve offered. |
+| F-7 | the replacement's **extent differs** from the stored row's | Refused at the **store**, booked and unbooked alike (AC-5, G-5); nothing stored. The verify still grades such a grid — it writes nothing — which is unreachable through the page (the board cannot change size) and is declared here rather than guarded twice. |
+| F-8 | a booked puzzle, **no confirmation**, and a grid that is not a puzzle at all | `needs_confirmation`. The flag is checked **first**, before the solve, precisely so that an unconfirmed call measures nothing and writes nothing (the INV-008 precedent). The owner learns the grid is not a puzzle at the verify, which is the phase that grades. |
+| F-9 | `confirmed` arrives as `"true"`, `1`, `"yes"` or any other non-`True` value | Not a confirmation. The route reads `payload.get("confirmed") is True`, so only JSON `true` confirms. |
+| F-10 | the **editor page** for a puzzle in a book the panel cannot name (the legacy `in_book` status with no `book_id`, or a migration's `""`) | 409, exactly as before this card. F-4's complement: the question must name the book, and where there is no book to name there is no question to ask — so the guard stays a refusal rather than becoming an unanswerable dialog. |
+| F-11 | the confirmed save's **write fails** (the DB connection drops mid-write) | Unchanged by this card: the exception leaves the route, the page's answer is a 5xx with no reason, and `storeStateIsKnown` is false for it — the page says the store's state is not known here and asks for a reload. The new `needs_confirmation` answer does not join that class; it is proved not to write (AC-8). |
+
+## Worktree notes (CARD-251 implementation)
+
+- **STRUCTURE: the confirmation flag is `confirmed` in the save POST's JSON body, read as strict
+  `True`, and enforced inside `PuzzleReviewService.save_edited_grid(..., confirmed=False)` before
+  any solve** — the same parameter name and the same position in the method as INV-008 /
+  CARD-131's (`book_manager.py:1286`, `:1465`), so an unconfirmed call measures nothing and writes
+  nothing rather than doing half the work. The flag is a *body* field and not a query parameter
+  because the editor already posts JSON and a confirmation that can be pinned to a URL is one a
+  prefetch can give.
+- **STRUCTURE: the three new store refusals are exceptions, not a change to the return shape**
+  (`EditNeedsConfirmation`, `RegradeInsideABook`, `ReplacementExtentChanged`, all `ValueError`
+  subclasses like `EditNotVerified` for the reason that class records). `save_edited_grid` keeps
+  its `Optional[dict]` contract — `None` still means "no row an edit may touch" — so no shipped
+  caller changes shape, and `app.py`'s existing `try/except` chain stays the one place a domain
+  refusal becomes a code and a `reason`. The alternative, `book_manager`'s outcome dataclass, was
+  not copied: that method had three outcomes to report and this one has one (the stored row), so a
+  dataclass would have made every existing caller unwrap a success it already had.
+- **STRUCTURE: a book this panel cannot NAME keeps the outright refusal.** `_holds_a_book` true
+  with a falsy `book_id` — the legacy `in_book` status, or a migration's `""` — still leaves
+  `_row_an_edit_may_touch` answering `None`, so the editor page and both POST routes refuse it with
+  the `in_a_book` 409 they always did. The card's own reason: "'Are you sure?' with no object is a
+  dialog to click through". This is also what keeps `in_a_book` a reason the edit routes still emit,
+  so `EDIT_REFUSAL_REASONS`, the client's allow-list and the branch that words it all stay live
+  instead of being retired (G-6, G-10).
+- **STRUCTURE: the verify answer's `book` object is composed at the ROUTE, not in the store.**
+  `puzzle_review` answers `book_id` (its own row's column) and nothing more; `app.py` adds the
+  title, the status and the page-count effect, because a title is `book_manager`'s and the pairing
+  geometry is `book_pdf_generator`'s, and `puzzle_review` imports neither (it imports only
+  `book_plan`, for the one tier order).
+- **STRUCTURE: the page-count effect is measured by running the REAL pairing walk twice** —
+  `book_pdf_generator.print_order` then `BookPDFGenerator(book).puzzle_pages(...)`, once over the
+  book's stored clues and once with the replacement's clues swapped in for the edited row. No
+  second implementation of pairing geometry: INV-010 stays the layout's, and a change to
+  `compute_pair_layout` moves this warning with it.
+- **STRUCTURE: the question reaches the page through `tell` plus an in-page `role="alertdialog"`.**
+  The sentence — the one that names the book — is written by `tell` and only by `tell` (G-7); the
+  dialog carries its two static answers and nothing composed. `window.confirm` is never used, the
+  rule Clear's and Cancel's confirmations already follow.
+
+### TDD ledger — one line per criterion, with the red reason
+
+- **AC-1**: test `TestBookedEdit_TheEditorOpensForABookedPuzzle` red→green — red as
+  `assert page.status_code == 200` failing with 409 (`app.py:2891`'s `in_a_book` abort), and
+  `test_the_page_names_the_book_that_holds_it` red as "the editor page says nothing about the book"
+  (no `editor-book` paragraph existed).
+- **AC-2**: test `TestBookedEdit_AnUnconfirmedSaveWritesNothing` red→green — red as
+  `NameError: name 'EditNeedsConfirmation' is not defined`, then
+  `TypeError: save_edited_grid() got an unexpected keyword argument 'confirmed'`.
+- **AC-3**: test `TestBookedEdit_AConfirmedSaveStores` red→green — same `TypeError` on the keyword;
+  the store returned `None` for every booked row.
+- **AC-4**: test `TestBookedEdit_ARegradeInsideABookIsRefusedAtVerify` red→green — red as
+  `NameError: name 'RegradeInsideABook' is not defined`, and at the route as
+  `assert 'regrade_in_a_book' == 'in_a_book'`.
+- **AC-5**: test `TestEdit_AReplacementKeepsTheStoredExtent` red→green — red as
+  `NameError: name 'ReplacementExtentChanged' is not defined`; the shipped
+  `test_a_resized_edit_moves_width_and_height` was green on the opposite behaviour and is retired
+  with its survivors named in the new class's docstring.
+- **AC-6**: test `TestBookedEdit_APublishedBookIsNamedInTheQuestion` red→green — red as
+  `KeyError: 'book'` (no answer carried the book) and, before that, as an unhandled
+  `EditNeedsConfirmation` escaping the save route.
+- **AC-7**: test `TestBookedEdit_OnlyEditingWasOpened` red→green — red on its own control
+  (`test_editing_the_same_puzzle_does_go_through`) with the unhandled `EditNeedsConfirmation`; the
+  four refusals themselves were green from the start, which is the point of the class.
+- **AC-8**: test `TestBookedEdit_TheFifthReasonIsTrueNotListed` red→green — red as
+  `AssertionError: assert 'needs_confirmation' in ('not_unique', 'not_verified', 'in_a_book', 'not_found')`,
+  then on each of the three reasons' row reads.
+- **AC-9**: test `TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove` red→green — red as
+  `KeyError: 'book'` on the verify answer; the measured boundary (depth 4 pairs at 7.129 mm, depth 5
+  splits) was re-measured on this worktree before the fixture was written and matches the card's
+  table exactly.
+
+**Written after their production code, and said so rather than claimed otherwise:** the browser
+classes `TestBookedEdit_TheQuestionNamesTheBook` and
+`TestBookedEdit_TheSplitPairIsWordedAsAWarning` were added once `puzzle_edit.js` already had the
+flow (the red that drove that code was AC-2's and AC-8's at the route). Each is therefore shown
+failing on a named mutant instead of on a missing implementation: M3 and M13 below.
+
+### Mutants run, and what each did
+
+| mutant | what it changes | result |
+|---|---|---|
+| **M1** | `save_edited_grid` drops the `_refuse_unless_confirmed_for_its_book` call | **killed** — 16 tests, including AC-2's three and AC-8's `needs_confirmation` row read |
+| **M2** (M1's edge) | the confirmation is demanded even when `confirmed` is true | **killed** — 25 tests; AC-3, AC-6's store, AC-9's approved save. The claim "unconfirmed writes nothing / confirmed stores" is pinned on both sides |
+| **M3** | `puzzle_edit.js` `post()` always sends `{ grid }` — the client keeps its dialog and posts an identical request | **killed** — `test_the_question_names_the_book_and_the_answer_stores` (the second request's `confirmed` is never true). This is G-1's own mutant |
+| **M4** | the regrade refusal leaves the **verify** | **killed** — 5 tests, including "no proof is remembered for a refused regrade" |
+| **M5** (G-2's own) | the regrade refusal leaves the **store** | **killed** — exactly 3: the F-2 path test and AC-8's `regrade_in_a_book`. Narrow, which is why the claim about it was narrowed to the path that reaches it |
+| **M6** | the extent check leaves the store | **killed** — 7 tests, booked and unbooked |
+| **M7** (M6's edge) | the extent is read off the row's `width`/`height` columns instead of its grid | **killed** — `test_the_extent_is_the_grids_and_not_the_rows_own_columns` |
+| **M8** (the edge that bit) | the confirmation moves to **after** the uniqueness gate | **SURVIVED first**, then killed. The first version of `test_an_unconfirmed_save_measures_nothing_either` counted solves across a verify-then-save pair, which the proof memo makes a control that cannot fail. Narrowed to an unproved grid, with the confirmed call as the control that moves the counter |
+| **M9** | `_page_count_effect` always answers `changes: False` | **killed** — AC-9's split test |
+| **M10** (M9's edge) | the partner named is the edited puzzle itself | **killed** — AC-9's `partner == "second.png"` |
+| **M11** | `_an_edit_may_touch` answers True for every membership | **killed** — 16 tests across all three files: the unnameable book's refusal, the `in_a_book` reason's liveness, the list row and the card |
+| **M12** (M11's edge) | `_an_edit_may_touch` answers False for every booked row (the pre-card behaviour) | **killed** — 21 tests: AC-1, AC-3, AC-6, AC-9 and the control that the card offers Edit again |
+| **M13** | the page's `{% if book %}` note never renders | **killed** — AC-1's two naming tests |
+| **M14** (G-3's own) | the verify refuses with 409 when the page count would change — the collapse the owner declined | **killed** — AC-9's test and its `known` control. This is the mutant that proves AC-9 asserts BOTH halves |
+
+Every mutant was applied from a byte-identical backup and `diff`-verified back
+(`review:identical app:identical js:identical html:identical` after each run); the tree was never
+left mutated across a pause.
+
+### SCOPE+
+
+- `SCOPE+ src/nonogram/admin/book_pdf_generator.py` — one additive module-level function,
+  `puzzle_page_plan(book, puzzles)`: the pairing walk alone, no bitmap drawn. AC-9 has to ask
+  `compute_pair_layout` itself or it is asking a model of it (INV-010 stays the layout's), and the
+  walk's inputs are built by `BookPDFGenerator._payload`, which is private to that module. Putting
+  the two-line wrapper where the walk lives keeps `app.py` from reaching into another module's
+  private helper. Nothing existing was touched.
+
+### What a reviewer should look at hardest
+
+1. **M8's story** — the one claim that was wider than its mechanism, found by mutating rather than
+   by reading. The narrowed test and its control are the fix; check the control really moves.
+2. **The `in_a_book`/`needs_confirmation` split** — the decision that a book this panel cannot NAME
+   keeps the old flat refusal. It is what kept `EDIT_REFUSAL_REASONS`'s fourth entry live rather
+   than retired, and it is the one structural choice the card did not dictate.
+3. **`_EDIT_ROUTES`' moved start marker and the widened reason scrape** in
+   `test_the_refusal_vocabulary_is_load_bearing_on_both_sides` — a guard's own machinery was
+   changed to see a second spelling (`_refused(reason, …)`). The residual is written down in the
+   test; check the other direction (a vocabulary entry nothing emits) still bites.
+4. **AC-9's measurement cost** — every verify of a booked puzzle now runs the pairing walk twice
+   over the whole book. No timing was taken (the host may be running a gate); on a 150-puzzle book
+   that is 150 `compute_pair_layout` calls per verify and may want a look.
+
+### [Scope] orchestrator, 2026-10-19
+
+Changed: `app.py`, `puzzle_review.py`, `static/puzzle_edit.js`, `templates/puzzle_edit.html` and the
+card's three test files — **seven of the eight `Touches` entries** (`_puzzle_table.html` was predicted
+and not needed). Plus **one file outside the prediction, declared as `SCOPE+`**:
+
+**`src/nonogram/admin/book_pdf_generator.py` — a second declared conflict hotspot.** The change is one
+additive module-level `puzzle_page_plan(book, puzzles)`; nothing existing was reordered or reshaped.
+Read and accepted rather than waved through, for the reason the function's own docstring gives: AC-9
+asks "would this edit split a page", and pairing is decided by `compute_pair_layout` **from the clue
+sets**, so asking anything other than the real walk would be asking about a *model* of INV-010. A model
+is exactly what the card's own measurement section warns against. No card is running beside this one,
+so the hotspot carries no conflict risk today — the cost is that a reviewer must check it, which is
+what this note is for.
+
+**One thing in it for the reviewer:** it calls `generator._payload(puzzle)`, a private method of
+`BookPDFGenerator`, from module level. That may be right — it is the same class — but a private call is
+a coupling the card did not ask for, and it is worth a second opinion on whether the payload shape
+should be reached some other way.
+
+**Flagged by the agent and carried here because it is a real cost, not a nit:** every verify of a
+**booked** puzzle now runs the pairing walk **twice over the whole book** — on a full book that is
+roughly 150 `compute_pair_layout` calls per verify, on a path the owner waits on. No timing was taken
+(correctly — the host was gating). The review is asked to judge whether the answer can be narrowed to
+the pages that could possibly move.

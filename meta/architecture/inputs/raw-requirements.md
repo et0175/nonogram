@@ -474,6 +474,7 @@ Verbatim, the owner's five items:
   exist yet: leave the editor. That is the only reading in which both items are non-redundant, and it is
   the one CARD-250 implements. The alternative — two buttons both called Cancel meaning different things
   on one bar — is not a design anyone asked for. Source: owner's doc, 2026-10-19, items 1 and 3.
+  **CONFIRMED 2026-10-19 (owner) against the shipped page** (render in `~/Documents/nonogram-reviews/CARD-250/`): the reading was right, and so is its visible consequence — after a Save the bar carries **four** live buttons (Save · Cancel · Approve · Back to edit). The orchestrator raised that as the one open design question of the render, since nobody had asked whether the left pair should go quiet while a grade is on screen. Owner: *"the four buttons are fine, leave them"*. **So the left pair staying live is a decision, not an oversight** — a later card proposing to hide Save and Cancel behind a grade is reversing this, not tidying it.
 - **Item 2 is two requests in one line, and the second is the technical one.** "Return to list" is
   navigation. "Reload pictures" is a cache question: the list's thumbnail is `/api/puzzle/<id>/grid`
   (`app.py:5593`), a **stable URL** whose response carries `Content-Type` and **no cache validator and
