@@ -745,3 +745,152 @@ Which station caught what is the wave's structural finding:
 - Skipped with reason: velocity (no `waves.duration`), capacity_drift (no `meta/.skills.yml`),
   tech_debt_aging (no deferred tech-debt cards in wave scope), testing_impact (both cards `TDD: true`,
   so no comparison group), value_calibration (no `meta/business/`), risk_calibration (no register).
+
+## Waves 44–47 — 2026-10-19
+
+_Note: waves 44, 45, 46 and 47 had no retro section. The last one recorded is wave 43 (2026-10-17),
+so these four are examined against a **four-wave gap** — and that gap is a repeat: the wave 40–41
+section opens with the same sentence about a six-wave gap, and named it a finding. **It was recorded
+and not acted on.** The board compounded it by reporting only "a wave-46 retrospective is owed" while
+three others were owed too, so the debt was visible but understated._
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-222 | The interior page frame | 1d | 0.6d | 0.60× | 2 | 9.0 | overestimated (actual) |
+| CARD-243 | Book difficulty dots | 1d | 0.2d | 0.20× | 1 | 9.0 | overestimated (actual) |
+| CARD-236 | Admin local subprocess cost | 0.5d | 0.5d | 1.00× | — | — (review skipped) | accurate (actual) |
+| CARD-244 | Per-worktree test database | 1d | 0.1d | 0.10× | — | — (review skipped) | overestimated (actual) |
+| CARD-223 | The QR in the footer | 1d | 0.2d | 0.20× | — | — (review skipped) | overestimated (actual) |
+| CARD-248 | Two-up shared footer | 1d | 0.3d | 0.30× | 1 | 8.5 | overestimated (actual) |
+| CARD-245 | Edited grid verify and grade | 1d | 0.4d | 0.40× | 2 | 8.5 | overestimated (actual) |
+| CARD-224 | The 42 % float | 1d | 1.6d | 1.60× | 2 | 8.5 | underestimated (actual) |
+| CARD-246 | The manual puzzle editor | 1d | 1.3d | 1.30× | 2 | 8.5 | accurate (actual) |
+| CARD-250 | The editor's two bars | 1d | 0.4d | 0.40× | 3 | 8.0 | overestimated (actual), escalated ×1 |
+| CARD-251 | Editing a booked puzzle | 1d | 0.4d | 0.40× | 2 | 9.0 | overestimated (actual) |
+
+### Metrics
+
+- cards: 11 (4 waves), escalated: 1, review skipped: 3, split: 0, actual_time: 11
+- total_estimate: 10.5d, total_actual: 5.6d
+- **avg_accuracy: 0.59× — estimates run roughly 1.7× too high**, and the signal is not one outlier:
+  8 of 11 cards came in at ≤ 0.6×
+- avg_cycles: 1.9 (8 reviewed cards)
+- avg_final_score: 8.69 (↑ from 8.75 at wave 43 — flat)
+- score_improvement: +1.19 (initial 7.50 → final 8.69, over the 6 cards with both)
+- per wave: W44 3 cards 2.5d→1.3d (0.60×) · W45 3 cards 3d→0.6d (0.20×) · W46 3 cards 3d→3.3d (1.10×)
+  · W47 2 cards 2d→0.8d (0.40×)
+- test_cost: wave-closing suite 789s → 788s → 858s → 866s, while the suite grew **7895 → 8495 tests
+  (+7.6%)**. Per-test 100 → 98 → 103 → 102 ms: **flat across four waves and 600 new tests.**
+  Four gate runs were red and re-run; **three of the four reds were not the tree** (two orchestrator
+  scheduling/instrumentation defects, one non-deterministic DB setup), and one was real.
+
+### Calibration signals
+
+- **python-pro (11 cards, avg accuracy 0.59×, actual) → estimates too high → suggest effort ×0.7.**
+  Confidence medium. This is the first time the board has had 11 same-skill cards with real times in
+  one window, and the direction is consistent across three of the four waves.
+
+### Complexity breakdown
+
+- standard (5 cards): avg cycles 2.0, avg score 8.5, **1 escalated**
+- architectural (6 cards, quality-heavy model): avg cycles 1.8, avg score 8.7, 0 escalated
+- → verdict: **upgrade holding ✓** — design-heavy cards converge at 1.8 cycles against standard's 2.0,
+  and none escalated. `arch_vs_std = −0.2`.
+- → ⚑ **but architectural is 55 % of the window (6/11), far past the ~33 % inflation line.** The marker
+  is meant to be an exception; at this share it is a tier for important cards, which is the failure
+  mode cmd-decompose 6d names. The verdict above is therefore *weaker evidence than it looks*: if most
+  cards are marked architectural, "architectural cards converge well" is close to "cards converge well".
+
+### Finding families
+
+- **a claim states only what its mechanism demonstrates; a control that cannot fail is not a control**
+  — **≥ 14 gating findings across 5 cards** (CARD-245 c1/c2, CARD-224 c2, CARD-246 c1, CARD-250 c1–c3,
+  CARD-251 c1), plus 4 more found outside review (two by fix agents, one by the AC/EC/G gate, one by a
+  merge gate) and **2 in the orchestrator's own tooling**. Qualifies on both promotion tests at once
+  (≥3 in one card across ≥2 cycles, **and** ≥2 in ≥2 different cards).
+  **CORRECTED during this retrospective: a mandatory rule already states it, and the reason it did not
+  bite is its SCOPE.** `ADR-0039/R1` says, almost verbatim, *"a claim whose control cannot fail is
+  narrative, not coverage, and must be narrowed to what is measured or deleted"* — and R2 and R3 cover
+  the derived-set and exemption halves. All three are `severity: mandatory`. **All three are scoped
+  `code: ["tests/**"]`.**
+
+  That glob is the finding. The instances it caught this window were the ones inside test files — the
+  vacuous `_approve_offered` assertion, MU-A, MU-J, CARD-251's M8 control. The instances it could not
+  reach were the ones that cost the most cycles: claims in **source comments and docstrings**
+  (`puzzle_edit.js`'s header and `inFlightIs`, `app.py`'s and `puzzle_review.py`'s `Returns:` blocks)
+  and claims in **acceptance criteria** (four amended this wave), neither of which is under `tests/**`.
+  The orchestrator's own gate scripts are not in the repo at all, so no scope reaches them.
+
+  This is Step 4h case 4 — *the rule existed and did not bite* — and the step is explicit that the fix
+  is the scope, **never a duplicate rule**. **→ routed to `/forge:architect-adr-writer` as a scope
+  delta on ADR-0039/R1–R3: widen from `tests/**` to the claim sites that actually carry claims
+  (`src/**` docstrings and comments, and the card criteria the decompose lens reads), with provenance
+  naming these cards and cycles.** The owner approved promotion on 2026-10-19; it resolves to this
+  amendment rather than a new rule, and the retro's first draft of this entry — which said the family
+  lived only as prose in a prompt — was wrong and is corrected here.
+- **acceptance criteria are written narrower than the decisions they serve** — 4 criteria amended to
+  read true in wave 47 alone (CARD-250 AC-5, AC-7; CARD-251 AC-6, AC-9), each discovered by
+  *measurement* rather than by review. **Not a rule candidate** — this is a requirement-authoring gap,
+  so it routes to the decompose station (and `/forge:architect` where the AC restates a decision):
+  when a card's decision section is direction-neutral or conditional, the AC must be written from the
+  decision, not from the example that motivated it.
+- **two review reports do not parse as YAML** — `20261018T082931Z-CARD-224-cycle1.yml` and
+  `20261018T175800Z-CARD-246-cycle2.yml`, both wave 46, both `mapping values are not allowed here`.
+  "Review YAML must pass `yaml.safe_load`" is a standing rule restated in every brief, and **nothing
+  re-validates the reports after kanban syncs them out of the worktree**, so the breach survived to be
+  found by this retrospective. A validity check at the sync point is one line.
+- fix-induced share: **3 of 18 gating findings after cycle 1 were introduced by a previous fix** (17 %)
+  — CARD-250's cycle-2 focus regression and cycle-3 AC-7 claim, CARD-251's cycle-2 AC-4 detector claim.
+  All three are the first family, arriving *through* the fix step.
+
+### Process shortcuts
+
+- `skip_review` ×3 (CARD-236, CARD-244, CARD-223) — each recorded on its own card as a shortcut rather
+  than a pass, with the evidence that carried the card instead. Outcome: **clean** (no rework; all
+  three merged first-attempt green and none has been reverted or re-opened).
+
+### Suggestions
+
+- **python-pro effort scale ×0.7** (avg_accuracy 0.59× over 11 cards with real times).
+  Apply: `/forge:retrospective calibrate`
+- **Promote the claim family to a standing rule** (see Finding families) — route to
+  `/forge:architect-adr-writer` against ADR-0039 with the provenance above.
+- **Validate review YAML at the sync point** — two unparseable reports reached the main repo in wave 46
+  and nothing noticed. `@tech-debt`.
+- **Architectural marker is at 55 %** — review cmd-decompose 6d's signals before the next decompose;
+  at this share the marker stops discriminating and the model-upgrade verdict stops being evidence.
+- **The retro gap is self-reinforcing and has now happened twice** (six waves before 40–41, four waves
+  before this one). The wave-40 section recorded it; nothing changed. Consider making the wave-close
+  step in `run` refuse to report a wave complete while the previous wave has no retro section.
+
+### Signals exported
+
+- **effort_calibration python-pro/feature: 0.451 (n=14) → 0.523 (n=22), trend improving** — "improving"
+  only in the sense of moving toward 1.0; the group is still estimating at roughly **double** the time
+  it takes.
+- **effort_calibration python-pro/tech-debt: 1.18 (n=10) → 1.008 (n=13), trend improving** — this group
+  is now essentially calibrated, and the contrast is the useful part: **tech-debt cards are estimated
+  well and feature cards are not.** The single ×0.7 applied to both is therefore the wrong shape of
+  correction, and the next retro should split the factor rather than widen it.
+- review_quality python-pro: n=37 → **45** (init 7.40, final 8.69, cycles 1.9 over this window)
+- process_shortcuts `skip_review`: waves_taken 1 → **3**, rework_rate **0.0** — three waves of skipping
+  review on cards whose evidence was carried by mutants and gates, with no rework yet.
+- **testing_impact (first time both groups reached n≥5): final score +0.25 with TDD, cycles −0.75.**
+  5 cards with `TDD: true` against 6 without. The cycle difference is the real signal; the score
+  difference is inside the noise of a 0.5-point review scale.
+- Skipped with reason: velocity (no `waves.duration`), capacity_drift (no `meta/.skills.yml`, so no
+  plan to drift from), tech_debt_aging (no `Deferred waves:` fields), value_calibration (no
+  `meta/business/`), risk_calibration (no register), hypothesis_outcomes (no business ledgers).
+
+### Calibration applied
+
+- **python-pro job_size ×0.7 → 74 backlog ideas** (feature + tech-debt, the categories behind the
+  signal), `priority_score` recomputed, owner-approved 2026-10-19.
+- ⚑ **And the file already carried two earlier calibrations saying the same thing** — "python-pro
+  estimates ~0.55× actual" (waves 28–31) and a wave-32 re-plan that halved WSJF job-size→days. The
+  ratio has not moved. **The reason is visible in this window's card table: every card was estimated
+  at a flat 1d, one at 0.5d.** A constant is not an estimate, so no amount of backlog calibration can
+  correct it — the lever is in `decompose`'s sizing step, not in `backlog-scored.yml`. Recorded here
+  rather than applied, because changing how cards are sized is a decompose-station change.

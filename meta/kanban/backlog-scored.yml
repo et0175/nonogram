@@ -25,6 +25,11 @@ config:
     resting on large grids'
   status_note: Step 3 output; screens and scores are PROPOSED pending owner review (Step 4). wave/rank
     assigned in Step 5.
+  calibration_2026_10_19: 'retro (waves 44-47, 11 python-pro cards with real times): avg accuracy
+    0.59x -- estimates run ~1.7x high. job_size x0.7 applied to backlog feature + tech-debt ideas,
+    owner-approved. NOTE the two calibrations above said the same thing in waves 28-31 and 32, and
+    the ratio has not moved: every card in waves 44-47 was estimated at a flat 1d (one at 0.5d), so
+    what is miscalibrated is the CARD estimate, which this file does not reach.'
   day_calibration:
     note: '2026-10-04 re-plan after the wave-32 retro: WSJF job size → card days halved (1→0.125 … 20→3);
       cards merged in 0.1–0.3 d wall-clock (retro: 0.24× wave 32, ~0.45× over 17 cards)'
@@ -79,13 +84,13 @@ ideas:
     user_business_value: 3
     time_criticality: 2
     risk_reduction: 2
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Every book card skips the docs step; tests/README.md ~20 waves stale
     time_criticality: Taxes every future card's docs step a little
     risk_reduction: Stale test README misleads gate/fix agents
     job_size: Sized for 'create them'; 'drop the step' is ~1
-  priority_score: 2.33
+  priority_score: 3.33
   depends_on: []
   needs_owner_decision: true
   source_line: 10
@@ -128,13 +133,13 @@ ideas:
     user_business_value: 5
     time_criticality: 8
     risk_reduction: 20
-    job_size: 5
+    job_size: 3.5
   reasoning:
     user_business_value: Makes review Step 8h honest about CON-005, the one mandatory correctness property
     time_criticality: Every review gate currently reports some of these rules as covered
     risk_reduction: 'Highest in set: rules believed tested have no test at all'
     job_size: ~20 refs across ADR-0006/0029, CON-005, INV-001/002/008..012; write tests or retype as review-lens
-  priority_score: 6.6
+  priority_score: 9.43
   depends_on: []
   source_line: 14
   wave: 2
@@ -173,13 +178,13 @@ ideas:
     user_business_value: 2
     time_criticality: 3
     risk_reduction: 5
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Model honesty for one solver rule
     time_criticality: Same Step 8h misreport as the dead refs, one rule
     risk_reduction: A check that exists but can't fail on the rule masks a gap no dead-ref check catches
     job_size: One targeted test or retype as review-lens
-  priority_score: 5.0
+  priority_score: 7.14
   depends_on: []
   source_line: 16
   wave: 2
@@ -196,13 +201,13 @@ ideas:
     user_business_value: 3
     time_criticality: 5
     risk_reduction: 8
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Unblocks a clean architecture-validator run
     time_criticality: 'Pre-existing ERROR on main: forge:ci / validate cannot pass on any card'
     risk_reduction: Unresolvable guess-tier ADR chain means rules can't be attributed
     job_size: Edit supersession fields in two ADRs + re-validate
-  priority_score: 8.0
+  priority_score: 11.43
   depends_on: []
   source_line: 17
   route: architect station (cards cannot commit under meta/)
@@ -245,13 +250,13 @@ ideas:
     user_business_value: 3
     time_criticality: 3
     risk_reduction: 8
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Keeps the deployed export from OOM-ing
     time_criticality: Book export grows with page count; no hard date
     risk_reduction: Five waves could break it with every gate green
     job_size: Architect NFR + one measured check
-  priority_score: 4.67
+  priority_score: 6.67
   depends_on: []
   source_line: 19
   wave: 3
@@ -271,13 +276,13 @@ ideas:
     user_business_value: 3
     time_criticality: 2
     risk_reduction: 5
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Behaviours shipped by CARD-158/159 become traceable
     time_criticality: Nothing breaks until a later card regresses them
     risk_reduction: Unspecified behaviour has no regression guard via the model
     job_size: Six ACs at an architect session
-  priority_score: 3.33
+  priority_score: 4.76
   depends_on: []
   source_line: 20
   wave: 4
@@ -294,13 +299,13 @@ ideas:
     user_business_value: 3
     time_criticality: 3
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Plan editing judges edits wrongly on a count change
     time_criticality: Book 1 plan is being edited now
     risk_reduction: Silent wrong state in the book plan
     job_size: revise_plan fix + test
-  priority_score: 4.5
+  priority_score: 6.43
   depends_on: []
   source_line: 23
   wave: 3
@@ -317,13 +322,13 @@ ideas:
     user_business_value: 2
     time_criticality: 2
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Refusal shows the wrong plan to the owner
     time_criticality: Hit only on a refused setup-print
     risk_reduction: Misleading but fails closed
     job_size: Route fix + test
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 24
   wave: 4
@@ -357,13 +362,13 @@ ideas:
     user_business_value: 2
     time_criticality: 1
     risk_reduction: 5
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Memory mode only; owner-accepted
     time_criticality: No deadline
     risk_reduction: Lets a caller bypass set_print_spec validation (data integrity)
     job_size: Return a copy + test
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   source_line: 26
   wave: 3
@@ -381,13 +386,13 @@ ideas:
     user_business_value: 2
     time_criticality: 2
     risk_reduction: 5
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Admin-only surface
     time_criticality: utcnow deprecation will bite on a Python bump
     risk_reduction: Open-redirect-ish referrer + raw exception text are security smells
     job_size: Four small unrelated fixes
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 27
   wave: 4
@@ -430,13 +435,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: No user-visible effect
     time_criticality: No deadline
     risk_reduction: Credential-in-log guard is config-only today
     job_size: ~2 lines on the existing subprocess stderr
-  priority_score: 5.0
+  priority_score: 7.14
   depends_on: []
   source_line: 29
   wave: 2
@@ -455,13 +460,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Dev-script tests only
     time_criticality: No deadline
     risk_reduction: Docker branches match db name only, no runtime coverage
     job_size: Four separate precision fixes
-  priority_score: 1.67
+  priority_score: 2.38
   depends_on: []
   source_line: 30
   wave: 9
@@ -479,13 +484,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: No user effect
     time_criticality: No deadline
     risk_reduction: The mode default is exactly the failure the keyword prevents
     job_size: Three small removals, one touches a migration
-  priority_score: 2.0
+  priority_score: 2.86
   depends_on: []
   source_line: 31
   wave: 8
@@ -503,13 +508,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Wording in card/evidence text
     time_criticality: No deadline
     risk_reduction: Fixture note already says it
     job_size: Text edit
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 32
   wave: 4
@@ -526,14 +531,14 @@ ideas:
     user_business_value: 3
     time_criticality: 5
     risk_reduction: 5
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Proof PDF should print like the interior
     time_criticality: Owner is measuring printed proofs for Book 1 now; RGB proof may not match grayscale
       interior
     risk_reduction: Last interior-like path off the colour-space decision
     job_size: Switch mode + digest/test update
-  priority_score: 6.5
+  priority_score: 9.29
   depends_on: []
   source_line: 33
   wave: 2
@@ -551,13 +556,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Safe today
     time_criticality: No deadline
     risk_reduction: Turns a silent failure into page_plan_failed
     job_size: Agreed remedy + test
-  priority_score: 2.5
+  priority_score: 3.57
   depends_on: []
   source_line: 34
   wave: 6
@@ -575,13 +580,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Unreachable today
     time_criticality: No deadline
     risk_reduction: Diagnostics only
     job_size: Exception routing tweak
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 35
   wave: 5
@@ -598,13 +603,13 @@ ideas:
     user_business_value: 3
     time_criticality: 3
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Arrange screen implies a row prints on page 3 when it doesn't
     time_criticality: Owner is arranging Book 1 now
     risk_reduction: Misread layout could reach print
     job_size: Template marker + test
-  priority_score: 4.5
+  priority_score: 6.43
   depends_on: []
   source_line: 36
   wave: 3
@@ -621,13 +626,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Test precision
     time_criticality: No deadline
     risk_reduction: Closes two gaps around the memory/interior checks
     job_size: Two test tweaks
-  priority_score: 2.5
+  priority_score: 3.57
   depends_on: []
   source_line: 37
   wave: 6
@@ -644,13 +649,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Doc only
     time_criticality: No deadline
     risk_reduction: Misleads future readers
     job_size: Docstring edit
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 38
   wave: 5
@@ -667,13 +672,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Test naming
     time_criticality: No deadline
     risk_reduction: Name encodes a retired rule
     job_size: Rename
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 39
   wave: 5
@@ -690,13 +695,13 @@ ideas:
     user_business_value: 3
     time_criticality: 2
     risk_reduction: 3
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Tier labels on image-derived puzzles in a book should be right
     time_criticality: Owner deferred it; matters before image puzzles fill a book
     risk_reduction: Cutoff unvalidated for a whole puzzle source
     job_size: Run script, analyse, maybe adjust
-  priority_score: 2.67
+  priority_score: 3.81
   depends_on: []
   source_line: 40
   wave: 6
@@ -714,13 +719,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Model/test text
     time_criticality: No deadline
     risk_reduction: Stale model text misleads review
     job_size: Two text edits
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   source_line: 41
   wave: 3
@@ -737,13 +742,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Test precision
     time_criticality: No deadline
     risk_reduction: Narrow regex
     job_size: Regex edit
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 42
   wave: 5
@@ -761,13 +766,13 @@ ideas:
     user_business_value: 2
     time_criticality: 3
     risk_reduction: 8
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Safer parallel pipelines
     time_criticality: 4 parallel pipelines run today; only the full-suite lock prevents it
     risk_reduction: Silent cross-run schema wipe = untrustworthy gates
     job_size: Per-run DB or advisory lock in conftest
-  priority_score: 4.33
+  priority_score: 6.19
   depends_on: []
   source_line: 43
   wave: 3
@@ -785,13 +790,13 @@ ideas:
     user_business_value: 1
     time_criticality: 2
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Dev ergonomics
     time_criticality: Bites -k/--lf in fix cycles
     risk_reduction: False reds erode trust in targeted runs
     job_size: Make the test self-contained
-  priority_score: 2.5
+  priority_score: 3.57
   depends_on: []
   source_line: 44
   wave: 6
@@ -808,13 +813,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Setup friction
     time_criticality: No deadline
     risk_reduction: Documented, not handled
     job_size: Handle in fixture
-  priority_score: 2.0
+  priority_score: 2.86
   depends_on: []
   source_line: 45
   wave: 8
@@ -831,13 +836,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: No user effect
     time_criticality: No deadline
     risk_reduction: Tests touch whatever DB is named (possibly production) before the guard
     job_size: Reorder guard/hook
-  priority_score: 5.0
+  priority_score: 7.14
   depends_on: []
   source_line: 46
   wave: 2
@@ -854,13 +859,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Dev script
     time_criticality: No deadline
     risk_reduction: Same defect CARD-150..152 removed elsewhere
     job_size: One-line change
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   source_line: 47
   wave: 3
@@ -895,13 +900,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Dev message
     time_criticality: No deadline
     risk_reduction: Slower diagnosis
     job_size: Wording in three scripts
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 49
   wave: 5
@@ -919,13 +924,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Test structure
     time_criticality: No deadline
     risk_reduction: Rename breaks two suites
     job_size: Move shared names
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   source_line: 50
   wave: 3
@@ -942,13 +947,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Doc
     time_criticality: No deadline
     risk_reduction: Stale version claim
     job_size: Text edits
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 51
   wave: 5
@@ -1013,13 +1018,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Structure
     time_criticality: No deadline
     risk_reduction: Private coupling
     job_size: Expose gate + switch caller
-  priority_score: 2.0
+  priority_score: 2.86
   depends_on: []
   source_line: 54
   wave: 8
@@ -1037,13 +1042,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Log noise
     time_criticality: No deadline
     risk_reduction: Minor
     job_size: Small
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 55
   wave: 5
@@ -1062,13 +1067,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Unreachable today
     time_criticality: No margin field yet
     risk_reduction: A stored small margin silently degrades Finalise; KDP minimum unchecked
     job_size: Bound check + test
-  priority_score: 5.0
+  priority_score: 7.14
   depends_on: []
   source_line: 56
   wave: 2
@@ -1085,13 +1090,13 @@ ideas:
     user_business_value: 2
     time_criticality: 1
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Faster /books list
     time_criticality: No deadline
     risk_reduction: Perf only
     job_size: Swap to get_puzzles in two places
-  priority_score: 2.5
+  priority_score: 3.57
   depends_on: []
   source_line: 57
   wave: 6
@@ -1206,13 +1211,13 @@ ideas:
     user_business_value: 2
     time_criticality: 1
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Correct alert on refused New book
     time_criticality: No deadline
     risk_reduction: Server refusal now untested at route level
     job_size: Tests + alert fix
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 62
   wave: 5
@@ -1255,13 +1260,13 @@ ideas:
     user_business_value: 2
     time_criticality: 1
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Consistent download affordance
     time_criticality: No deadline
     risk_reduction: No AC covers either
     job_size: Pick one + AC + test
-  priority_score: 2.5
+  priority_score: 3.57
   depends_on: []
   source_line: 64
   wave: 7
@@ -1278,13 +1283,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Style hygiene
     time_criticality: No deadline
     risk_reduction: Minor
     job_size: Move properties
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 65
   wave: 5
@@ -1301,13 +1306,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Structure
     time_criticality: No deadline
     risk_reduction: Private coupling
     job_size: Expose method
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   source_line: 66
   wave: 3
@@ -1324,13 +1329,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Out of trusted scope
     time_criticality: No deadline
     risk_reduction: Surviving mutant
     job_size: Fix + test
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   source_line: 67
   wave: 3
@@ -1349,13 +1354,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Test/comment hygiene
     time_criticality: No deadline
     risk_reduction: Surviving mutant + wrong claims
     job_size: Several small edits
-  priority_score: 2.0
+  priority_score: 2.86
   depends_on: []
   source_line: 68
   wave: 8
@@ -1396,13 +1401,13 @@ ideas:
     user_business_value: 2
     time_criticality: 1
     risk_reduction: 1
-    job_size: 5
+    job_size: 3.5
   reasoning:
     user_business_value: Accessibility of an admin POC
     time_criticality: No ask; no deadline
     risk_reduction: None
     job_size: New interaction + ACs + browser tests
-  priority_score: 0.8
+  priority_score: 1.14
   depends_on:
   - IDEA-064
   source_line: 70
@@ -1420,13 +1425,13 @@ ideas:
     user_business_value: 2
     time_criticality: 3
     risk_reduction: 5
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Trustworthy gates
     time_criticality: Any gate can trip on it
     risk_reduction: Flake in a DB-mode state transition may hide a real race
     job_size: Investigation, uncertain
-  priority_score: 3.33
+  priority_score: 4.76
   depends_on: []
   source_line: 71
   wave: 4
@@ -1444,13 +1449,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Comment/test
     time_criticality: No deadline
     risk_reduction: Minor
     job_size: Small
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 72
   wave: 5
@@ -1492,13 +1497,13 @@ ideas:
     user_business_value: 2
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Consistency with every other screen
     time_criticality: No deadline
     risk_reduction: None
     job_size: Drop .upper() + test
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   source_line: 74
   wave: 4
@@ -1536,13 +1541,13 @@ ideas:
     user_business_value: 2
     time_criticality: 1
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Specified player behaviour
     time_criticality: No deadline
     risk_reduction: Statement says 'every control' is keyboard-reachable; contradicts behaviour
     job_size: Two ACs at architect
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   source_line: 76
   wave: 5
@@ -1624,13 +1629,13 @@ ideas:
     user_business_value: 1
     time_criticality: 2
     risk_reduction: 5
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Test precision
     time_criticality: Trim persistence is live Book 1 data
     risk_reduction: DB-mode trim loss was a real bug (CARD-120 O-2); its guard is vacuous
     job_size: Fix assertion + verify
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   source_line: 82
   wave: 4
@@ -1647,13 +1652,13 @@ ideas:
     user_business_value: 2
     time_criticality: 3
     risk_reduction: 8
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Safer parallel pipelines
     time_criticality: 4 parallel pipelines run today
     risk_reduction: Cross-suite interference = untrustworthy gates
     job_size: Per-test tmp dir
-  priority_score: 6.5
+  priority_score: 9.29
   depends_on: []
   source_line: 83
   wave: 2
@@ -1794,13 +1799,13 @@ ideas:
     user_business_value: 8
     time_criticality: 3
     risk_reduction: 5
-    job_size: 20
+    job_size: 14.0
   reasoning:
     user_business_value: Public companion for book buyers (QR per puzzle); unconfirmed
     time_criticality: Not tied to Book 1 unless QR codes go into it (unconfirmed)
     risk_reduction: Must stop shipping the solution in the page
     job_size: Hosting + URL namespace + number mapping + server-side checking
-  priority_score: 0.8
+  priority_score: 1.14
   depends_on: []
   note: scope unconfirmed
   source_line: 91
@@ -1910,13 +1915,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Docs-only; a reader following them hits the test guard
     time_criticality: None
     risk_reduction: Removes a known wrong instruction
     job_size: One README block
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   scored_at: '2026-10-04'
   wave: 4
@@ -1934,13 +1939,13 @@ ideas:
     user_business_value: 3
     time_criticality: 3
     risk_reduction: 8
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Restores real coverage of the batch upload flow
     time_criticality: 'Moderate: the suite now gates on exit 0, and these pass vacuously'
     risk_reduction: 'High: five tests that cannot fail hide upload regressions (same root cause as CARD-164)'
     job_size: Follow CARD-164's fix in five tests
-  priority_score: 7.0
+  priority_score: 10.0
   depends_on: []
   scored_at: '2026-10-04'
   wave: 2
@@ -1957,13 +1962,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Test robustness only
     time_criticality: None
     risk_reduction: Catches a form/route field rename
     job_size: One GET + assertion
-  priority_score: 5.0
+  priority_score: 7.14
   depends_on: []
   scored_at: '2026-10-04'
   wave: 2
@@ -1980,13 +1985,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Test depth on the book page
     time_criticality: None
     risk_reduction: Covers shared two-up pages and the fallback path
     job_size: Three small test additions
-  priority_score: 2.5
+  priority_score: 3.57
   depends_on: []
   scored_at: '2026-10-04'
   wave: 7
@@ -2026,13 +2031,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Test accuracy
     time_criticality: None
     risk_reduction: A true point-size measure for wrapped lines
     job_size: Test rework
-  priority_score: 2.0
+  priority_score: 2.86
   depends_on: []
   scored_at: '2026-10-04'
   wave: 8
@@ -2102,13 +2107,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Maintainability
     time_criticality: None
     risk_reduction: Stops test files importing private helpers from another test module
     job_size: Move fixtures
-  priority_score: 2.0
+  priority_score: 2.86
   depends_on: []
   scored_at: '2026-10-04'
   wave: 8
@@ -2173,13 +2178,13 @@ ideas:
     user_business_value: 2
     time_criticality: 2
     risk_reduction: 5
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: Faster, leaner export
     time_criticality: No deadline
     risk_reduction: One wasted full-size image per lone puzzle vs the 512 MB panel limit
     job_size: Blank-only render API in COMP-007 + caller
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   scored_at: '2026-10-05'
   wave: 5
@@ -2195,13 +2200,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: None
     time_criticality: None
     risk_reduction: Tightens a security test
     job_size: Two test edits
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   scored_at: '2026-10-05'
   wave: 4
@@ -2217,13 +2222,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Slightly better operator hint
     time_criticality: None
     risk_reduction: Low
     job_size: Strip before the grammar check + test
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   scored_at: '2026-10-05'
   wave: 5
@@ -2239,13 +2244,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Design consistency
     time_criticality: None
     risk_reduction: Low
     job_size: One token decision
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   scored_at: '2026-10-05'
   wave: 5
@@ -2275,13 +2280,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: None
     time_criticality: None
     risk_reduction: A claim not backed by a test
     job_size: Comment/docstring edits
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   scored_at: '2026-10-05'
   wave: 4
@@ -2298,13 +2303,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: Readable notes on unusual trims
     time_criticality: Not reached on the card trims
     risk_reduction: 30+ one-word lines possible on e.g. 8.5x8
     job_size: Placement order tweak + test
-  priority_score: 2.5
+  priority_score: 3.57
   depends_on: []
   scored_at: '2026-10-05'
   wave: 8
@@ -2344,13 +2349,13 @@ ideas:
     user_business_value: 2
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Keyboard focus visibility (a11y)
     time_criticality: None
     risk_reduction: Low
     job_size: CSS token + comment edits
-  priority_score: 5.0
+  priority_score: 7.14
   depends_on: []
   scored_at: '2026-10-05'
   wave: 2
@@ -2367,13 +2372,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 2
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Diagnosability
     time_criticality: None
     risk_reduction: Refusal vs error classification unclear
     job_size: Decide + one test
-  priority_score: 4.0
+  priority_score: 5.71
   depends_on: []
   scored_at: '2026-10-05'
   wave: 4
@@ -2389,13 +2394,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: None
     time_criticality: None
     risk_reduction: Low
     job_size: Docstring edit
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   scored_at: '2026-10-05'
   wave: 5
@@ -2435,13 +2440,13 @@ ideas:
     user_business_value: 1
     time_criticality: 1
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Wording consistency
     time_criticality: None
     risk_reduction: Low
     job_size: Comment + one string
-  priority_score: 3.0
+  priority_score: 4.29
   depends_on: []
   scored_at: '2026-10-05'
   needs_owner_decision: true
@@ -2458,13 +2463,13 @@ ideas:
     user_business_value: 3
     time_criticality: 5
     risk_reduction: 1
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: Finalise is where Book 1 is checked
     time_criticality: Book 1 pre-launch
     risk_reduction: Low
     job_size: Unknown until the owner says what
-  priority_score: 9.0
+  priority_score: 12.86
   depends_on: []
   scored_at: '2026-10-05'
   needs_owner_decision: true
@@ -2480,7 +2485,7 @@ ideas:
     user_business_value: 8
     time_criticality: 8
     risk_reduction: 13
-    job_size: 5
+    job_size: 3.5
   reasoning:
     user_business_value: Every future guard card is judged against R1-R3; today the checks are point tests
       over named guards in one file.
@@ -2489,7 +2494,7 @@ ideas:
     risk_reduction: It is the mechanism behind the wave's single root cause (a coverage claim wider than
       its control) - the highest-leverage item on the board.
     job_size: A derived or render-based completeness check plus re-pointing three check refs.
-  priority_score: 5.8
+  priority_score: 8.29
   depends_on: []
   source: wave 43 retrospective - finding families
 - id: IDEA-107
@@ -2501,7 +2506,7 @@ ideas:
     user_business_value: 5
     time_criticality: 5
     risk_reduction: 3
-    job_size: 2
+    job_size: 1.4
   reasoning:
     user_business_value: config.yml names it as the precondition in its own comment; the inner loop is
       100% full-suite today.
@@ -2509,7 +2514,7 @@ ideas:
       suite three times per card.
     risk_reduction: Narrowing is the one lever that does not trade away a gate.
     job_size: A dev-extra dependency plus flipping one config key.
-  priority_score: 6.5
+  priority_score: 9.29
   depends_on: []
   source: wave 43 retrospective - suggestions
 - id: IDEA-108
@@ -2521,7 +2526,7 @@ ideas:
     user_business_value: 3
     time_criticality: 5
     risk_reduction: 5
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: A test whose verdict depends on another worktree is not a test.
     time_criticality: VERIFIED STILL LIVE (`gettempdir` present). The board dispatches at concurrency
@@ -2529,7 +2534,7 @@ ideas:
     risk_reduction: Removes a whole class of false red; it already cost CARD-211 a failed run in wave
       37.
     job_size: Scope the sweep to tmp_path or filter by the pid prefix the test created.
-  priority_score: 13.0
+  priority_score: 18.57
   depends_on: []
   source: wave 37 retrospective, re-verified wave 43
 - id: IDEA-109
@@ -2541,7 +2546,7 @@ ideas:
     user_business_value: 3
     time_criticality: 8
     risk_reduction: 8
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: A recorded correction that is no longer true is worse than a missing one.
     time_criticality: 'VERIFIED FALSE: the superseded baselines are loaded at runtime in 12 places in
@@ -2550,7 +2555,7 @@ ideas:
     risk_reduction: Stops a ready card starting from a false premise - the cheapest possible intervention
       point.
     job_size: One measurement and one correction to the card.
-  priority_score: 19.0
+  priority_score: 27.14
   depends_on: []
   source: wave 37 retrospective, re-verified wave 43
 - id: IDEA-110
@@ -2562,7 +2567,7 @@ ideas:
     user_business_value: 5
     time_criticality: 3
     risk_reduction: 8
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: A fabricated test name reached four cards in two waves before anyone noticed.
     time_criticality: Mitigated by hand in wave 43 (both cards' names were resolved before dispatch) but
@@ -2570,7 +2575,7 @@ ideas:
     risk_reduction: A review scores the diff, so it structurally cannot notice that a guardrail's name
       resolves to nothing.
     job_size: A grep over backticked names in meta/kanban/cards/, at decompose or as a pre-commit hook.
-  priority_score: 16.0
+  priority_score: 22.86
   depends_on: []
   source: wave 37 retrospective, applied manually in wave 43
 - id: IDEA-111
@@ -2582,14 +2587,14 @@ ideas:
     user_business_value: 3
     time_criticality: 2
     risk_reduction: 5
-    job_size: 1
+    job_size: 0.7
   reasoning:
     user_business_value: The severity gate parses the markdown; the retrospective's family analysis reads
       the YAML. When they disagree, a finding that blocks a merge is invisible to the learning loop.
     time_criticality: Found in wave 43 (CARD-241 F-003). One instance so far.
     risk_reduction: Protects the learning loop's input, which is otherwise silently lossy.
     job_size: Align the writer, or have the gate read the YAML.
-  priority_score: 10.0
+  priority_score: 14.29
   depends_on: []
   source: wave 43 retrospective - process defects
 - id: IDEA-112
@@ -2601,7 +2606,7 @@ ideas:
     user_business_value: 5
     time_criticality: 3
     risk_reduction: 8
-    job_size: 3
+    job_size: 2.1
   reasoning:
     user_business_value: 'Seven sentences the pipeline keeps re-learning one card at a time: the two-consumer
       return value, re-deriving a guardrail''s mechanism clause, a host gate hiding its own evidence,
@@ -2612,7 +2617,7 @@ ideas:
     risk_reduction: Same mechanism as ADR-0039 - a rule in the model is checked, a rule in a brief is
       remembered.
     job_size: One architect pass over seven candidate rules; several may collapse into one.
-  priority_score: 5.33
+  priority_score: 7.62
   depends_on:
   - IDEA-106
   source: wave 37 retrospective, unpromoted
