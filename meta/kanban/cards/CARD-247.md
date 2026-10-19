@@ -203,3 +203,150 @@ _Assembled 2026-10-19 by `system_rules.py --card CARD-247 --root meta/architectu
   `pytest-playwright` in the dev-only extra.
 - **[Do not take timing measurements]** Sibling cards are active; a contended number is not a
   measurement. Layout measurements are fine — they do not depend on host load.
+
+---
+
+### Implementation notes (agent, 2026-10-19)
+
+- **[What shipped]** Two owner-visible changes and nothing else. (1) The fourth brush reads
+  **"Clear"** in every place a human reads it — the menu item, the trigger's text, the trigger's
+  `Brush: <label>` accessible name (`solver.js` `BRUSH_LABEL`), both sentences of the usage hint,
+  and the reset confirmation ("Every mark is cleared. Undo brings them back."). (2) The Region
+  toggle's face is **three `.player-swatch` cells in the active brush's mark** instead of the word
+  "Region"; `syncTrigger` paints them from the same `tool` that writes the trigger, so the two can
+  never disagree, and the button carries `aria-label="Region"` because its name used to be its text.
+- **[The model name was not touched]** `UNKNOWN`, `data-player-tool="unknown"`, `data-state="unknown"`
+  and `solver_state.js`'s own "undecided" wording are all unchanged — pinned by
+  `TestSolverBrushMenu_RenameDidNotTouchTheStateName`, which reads the four exported constants out of
+  the live module. **If the model name should change too, that is still a separate card.**
+- **[AC-5, re-measured with provenance, not loosened]** Identical at 1280×720, 1440×900 and 390×844
+  and for all four brushes: slot = group = **208 px** (13rem, untouched — nothing outside the group
+  moved); Region toggle **64 px** (was 71.7); trigger **136 px** (was 128.3); the toggle's left edge
+  **144 px** into the group (was 136), and it still does not move between brushes, which is the
+  regression the block exists for. The group's content *shrank*: the widest trigger is now "Maybe" at
+  92.1 px natural ("Clear" is the narrowest at 82.4, where "Undecided" was the widest at 124), so the
+  content comes to 164.1 px inside the 208 px floor against CARD-211's 204. Both assertions are as
+  tight as they were (two numbers, no tolerance); the toggle's own width is pinned by them as
+  208 − 136 − 8.
+- **[A defect the tests could not have found — caught in the render]** The first build drew the run
+  with collapsed borders. `.player-swatch[data-state="filled"]` colours its border with the ink it
+  fills with, so **three filled cells edge to edge are one solid black bar** — every `data-state`
+  assertion was green and the owner's "3 cells" was not legible at all. Fixed by re-colouring the
+  shared edge with the panel's own answer to the same question one block up in `admin.css`:
+  `.guide-strip-cell`'s 28 % ink on paper. Pinned by the `seam != fill` assertion in
+  `test_it_renders_three_cells_and_no_region_text` (mutant M10) — the only assertion in the file a
+  correct `data-state` cannot satisfy. Renders for the owner, all four brushes plus Region armed and
+  the menu open: `~/Documents/nonogram-reviews/CARD-247/`.
+- **[Both pages verified — the editor is deliberately unchanged]** `static/solver.js` is shared with
+  `puzzle_edit.html` (CARD-246), which offers **two** brushes and keeps its Region button as the word
+  "Region" with no swatches. Nothing in this card assumes four brushes: `regionCells` is a
+  `querySelectorAll` that is simply empty there, so `syncTrigger`'s loop does nothing, and
+  `.player-brush-run` is a new class the editor's markup does not use, so the editor's layout is
+  bit-for-bit what it was. Verified by running the whole of `tests/test_puzzle_editor_ui.py` (113
+  passed) and by a render of the editor toolbar; a direct read of the editor's toggle gives
+  `text="Region"`, `aria-label=None`, `swatches=0`, `aria-pressed="false"`. **Giving the editor the
+  same icon is a deliberate non-decision**: it is outside this card's `Touches`, its toolbar is
+  measured by CARD-246's own tests, and the owner's doc item is under "Player". If the owner wants
+  the two toolbars identical, it is a cheap follow-up card.
+- **[Out-of-`Touches` edits, and why each was unavoidable]** The label is a *locator* in five other
+  test files, so the rename reaches them whether or not they are listed: `marking`, `maybe`, `hint`,
+  `progress` and `test_puzzle_editor_ui.py`. The editor one is the important one —
+  `test_the_editor_offers_only_the_two_brushes_an_answer_can_hold` asserted
+  `_menu_item("Undecided").count() == 0`, which after this rename would hold for **every possible
+  editor** (CARD-250's family of defect). It now asserts the label the player really shows. Also one
+  Jinja comment in `puzzle_edit.html` that named the old label. **No test was retired and no test
+  function was renamed** (G-6): a test method's name is part of a node id this repo guards, so
+  `test_maybe_sits_between_white_and_undecided_in_the_menu` and
+  `test_arrow_up_and_end_reach_undecided_the_last_item` keep their names with a note saying why.
+- **[The node-id guard needed a new mechanism, and got its control]**
+  `tests/test_browser_fixture_scope.py` derives the family's expected node ids from CARD-217's
+  artefact plus `ADDED_SINCE_BEFORE`. That table can only ever **add**, and a label rename is not an
+  addition: eight existing node ids carry the brush label in their *parameter*
+  (`…[Undecided-Enter]`, `…[chromium-Undecided-1280-720]`, …), so the rename reads to the guard as
+  eight removals and eight additions, and the removal half cannot be registered away. Added
+  `RENAMED_SINCE_BEFORE` (`old id → (card, new id, reason)`), applied by `_recorded_node_ids` before
+  anything is compared. It is a **move**, never a loss: a recorded rename whose old id is still
+  collected is still red in both directions, an unrecorded one is red in both directions, and
+  `_rename_problems` refuses an entry whose two sides name different test functions — which is the
+  only way this table could have become a quiet way to delete coverage. Per **ADR-0039/R1 and /R3**
+  the refusals are a function, not a loop inside its own test, and
+  `test_the_rename_table_refuses_what_it_claims_to` drives all nine of them over tables broken on
+  purpose, so none of them is a branch nothing executes. **This is the first rename on this board;
+  the mechanism is general and the next one costs one entry.**
+- **[System contract]** The worktree's card carried the **8-rule** curation; `main` at the time of
+  writing carries the **16-rule** one re-derived under `meta/kanban/curation.md`. Judged against the
+  16. In subject area and met: ADR-0006/R1 (no dependency added — three CSS lines and an HTML span),
+  ADR-0038/R1 (hand-written CSS/JS, no framework, no build step, nothing vendored), /R2 (no network
+  code touched; no request per mark), /R4 (the change is entirely rendering — `solver_state.js` was
+  not edited at all, and the new tests read it rather than extend it), /R6 (no change to what the
+  payload ships or who may see it), /R7-/R8 (new tests use the family's existing fixtures, which fail
+  loudly with a named reason when Chromium is absent), CON-021 (nothing persisted, nothing served
+  outside the panel's door). ADR-0039/R1–R3 were the ones that actually bit, on the rename table
+  above. Out of subject area and left alone, as the card's declared residue allows: ADR-0022/R1,
+  ADR-0024/R4-R5, ADR-0033/R1, ADR-0036/R2, ADR-0037/R1-R2 (grid extent, repair policy and book
+  geometry — a toolbar label reaches none of them).
+- **[Mutants — ten, all killed, tree restored byte-identical (sha256 compared each time)]**
+  M1 `BRUSH_LABEL[UNKNOWN]` back to "Undecided" → both AC-1 tests. **M1 is the reason the sweep picks
+  the fourth brush before reading the page**: with Black chosen that label is never rendered and the
+  mutant survived the sweep on the first run — the claim was narrowed to what was measured and the
+  test was given the one extra click that makes it true, rather than the docstring being left to
+  overstate. M2 menu item text back → both AC-1 tests *and* AC-2's label/value pairs. M3 confirmation
+  back → both AC-1 tests (not the sweep alone, as first claimed). M4 drop the `regionCells` loop →
+  `test_the_three_cells_follow_the_active_brush`. M5 drop `aria-label="Region"` → the whole of AC-4.
+  M6 two cells instead of three → the count *and* all 12 cells of the measured-layout case. M7 drop
+  `.player-brush-run { display: inline-flex }` → the boxes (a `<span>` is inline, so width/height do
+  not apply and the cells vanish) and again all 12 layout cells. M8 rename `UNKNOWN` to `"clear"` in
+  `solver_state.js` → AC-2. M9 drop `flex: 1 0 auto` → all 12 layout cells, the CARD-211 regression.
+  M10 drop the seam colour → the `seam != fill` assertion alone.
+- **[Owner's parenthetical, recorded]** "in black/dot/question mark/undecided" was read as *the four
+  states three cells can be in*, not one cell of each. If the owner meant one black, one dot and one
+  "?", it is three `data-state` values in the template and one assertion — no layout change, since
+  the toggle's width does not depend on which state each cell holds.
+
+### [Scope] orchestrator, 2026-10-19 · `[Touches drift]` recorded
+
+**11 files changed against 6 predicted.** Four of the six predicted were touched;
+`tests/test_puzzle_solver_tools.py` and `tests/test_admin_design_tokens.py` were predicted and **not**
+needed. Six files were changed outside the prediction:
+
+- `tests/test_puzzle_solver_hint.py`, `…_marking.py`, `…_maybe.py`, `…_progress.py`,
+  `tests/test_puzzle_editor_ui.py` — **the renamed label is a locator in each.** Unavoidable and
+  correct: a rename that leaves its locators behind produces tests that pass against a page that no
+  longer exists.
+- `tests/test_browser_fixture_scope.py` — the 334-line `RENAMED_SINCE_BEFORE` table, the card's biggest
+  diff. The label is a **parameter of eight node ids**, so the rename reads to CARD-217's coverage
+  guard as eight removals.
+- `src/nonogram/admin/templates/puzzle_edit.html` — **comment-only**, and the report's wording needs
+  correcting: it says the editor is *"deliberately unchanged and verified so"*, which is true of its
+  markup and behaviour but **not of the file**. The edit updates a Jinja comment that named the old
+  label; leaving it would have left a comment describing a brush that no longer exists, which is this
+  board's own defect family pointing the other way. The edit is right; the sentence about it was not.
+
+`[Touches drift]` recorded for the retrospective's Step 4e rather than only for this card: five of the
+six drifted files drifted for **one** reason — a user-facing string is a test locator — and `Touches`
+derivation has no way to see that today.
+
+### [Orchestrator] Three things verified rather than taken on report
+
+**The render defect is real and the fix is legible.** The agent reports that its first build drew three
+filled cells with collapsed borders, so they rendered as **one solid black bar** while every
+`data-state` assertion stayed green. Checked the delivered render
+(`~/Documents/nonogram-reviews/CARD-247/player-toolbar-black-region-on.png`): three distinct cells with
+visible seams. The pin it added, `seam != fill`, is the only assertion in that file a correct
+`data-state` cannot satisfy — which is the right shape for a defect that was invisible to state.
+
+**A mutant survived first, and the agent widened the test rather than the claim — correctly.** M1
+(`BRUSH_LABEL` back to "Undecided") initially **survived** the whole-page sweep, because with Black
+selected the fourth label is never rendered. The sweep was asserting over a page that could not contain
+the string. Rather than narrow the claim it gave the sweep the one click that makes the claim true, and
+said so in the docstring. That is the correct call here: the claim ("no user-facing string says
+Undecided") was the one worth keeping, and it was the *test* that was too weak.
+
+**⚑ Owner-facing, and the card's own purpose makes it worth asking about: "Clear" now names two
+different things on two pages that share one renderer.** In the **editor** `Clear` is the button that
+**wipes the whole board** (CARD-246, `data-player-action="reset"`, confirm text *"Every cell goes back
+to undecided"*). In the **player** `Clear` is now the fourth **brush**, which paints one cell undecided.
+The card's purpose is *"the toolbar says what it does"*; a reader who learns the word on one page
+learns the wrong thing on the other. Not a defect against any AC, and not blocking — recorded for the
+owner's render check, since the alternative (a different word for the brush, or renaming the editor's
+button) is a decision rather than a fix.
