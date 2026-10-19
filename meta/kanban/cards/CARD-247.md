@@ -1,6 +1,6 @@
 # CARD-247: The player's toolbar says what it does — "Clear" instead of "Undecided", and three cells instead of the word "Region"
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/247-player-toolbar-labels
-**Worktree:** ../PythonProject4-card-247
+**Worktree:** — (removed at merge)
 **Source:** owner's doc "Player", 2026-10-18 — items 1 and 2: rename "undesided" to "Clear"; the Region button should "display 3 cells (in black/dot/question mark/undecided), not word 'region'"
 **Idea:** —
 **Wave:** 48
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_tools.py, tests/test_admin_design_tokens.py
-**Review score:** 9.0 (cycle 1/3 — one Important open, so the severity gate fails)
+**Review score:** 9.5 (cycle 2/3 — 9.0 → 9.5; certification complete, 0 critical, 0 important)
 **Started:** 2026-10-19T15:41:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-19T18:42:26Z
+**Actual:** 0.4d
+**Merge commit:** 8c807a6
 **Blocked by:** —
 
 ## What to implement
