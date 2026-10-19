@@ -3,7 +3,7 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: [CARD-225, CARD-247]
+active: [CARD-225, CARD-247, CARD-252]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -617,3 +617,26 @@ wave_48:
     Gates run SOLO under a guard that refuses a contended start and was verified both ways before use
     (1 with a live run, 0 idle). No gate runs while a review's mutation pass is live -- the CARD-250
     defect. Two cards in parallel means two build gates: they serialise on the full-suite lock.
+
+card_252_started_mid_wave:
+  at: 2026-10-19T17:33:41Z
+  owner_instruction: "card the @ops engine fix for the next wave (2026-10-19), then: start CARD-252 now"
+  concurrency_note: >-
+    THIS TAKES THE BOARD TO THREE ACTIVE CARDS AGAINST THE OWNER'S STANDING CAP OF 2, on the owner's
+    explicit instruction. Recorded rather than silently absorbed, because the cap exists for a reason
+    and the reason still applies: it was set so merges run sequentially and never alongside concurrent
+    full suites.
+  conflict_edges:
+    - pair: [CARD-252, CARD-225]
+      reason: "NONE -- disjoint. CARD-252 is tests/conftest.py, src/nonogram/db/session.py and one new test file; CARD-225 is the book modules and the book tests."
+    - pair: [CARD-252, CARD-247]
+      reason: "NONE -- disjoint. CARD-247 is solver.js, admin.css, the two puzzle templates and the solver tests."
+  scheduling_consequence: >-
+    Three active cards make SOLO GATE WINDOWS scarcer, and every gate on this board must be solo --
+    the guard refuses a contended start. CARD-225 and CARD-247 both still need merge gates, and
+    CARD-252 will need a build gate. They serialise. Expect the wave to close on gate queueing rather
+    than on agent time, and do not read any gate duration from this window as a cost trend.
+  runtime_isolation: >-
+    Checked rather than assumed: CARD-252 repeatedly DROPs and rebuilds a schema, which is exactly the
+    hazard it exists to fix. It does so in its OWN derived test database (CARD-244), so it cannot
+    disturb the siblings' reviews. The brief says so explicitly and names nonogram_poc as untouchable.

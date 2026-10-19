@@ -1,6 +1,6 @@
 # CARD-252: The test session's schema rebuild disposes the app's engine, so a gate's red means the code
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** ops
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/252-dispose-the-global-engine
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-252
 **Source:** backlog `@ops` item "The app's module-global SQLAlchemy engine survives the test session's `DROP SCHEMA`…", first observed 2026-10-18 on CARD-248's gate; carded on the owner's instruction 2026-10-19 after it cost a fourth gate run.
 **Idea:** —
-**Wave:** —
+**Wave:** 48 (started mid-wave on owner instruction)
 **Depends on:** —
 **Touches:** tests/conftest.py, tests/test_db_engine_lifecycle.py, src/nonogram/db/session.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-19T17:32:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
