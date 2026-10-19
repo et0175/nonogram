@@ -49,6 +49,23 @@ mark) in ``test_puzzle_solver_maybe.py``'s ``TestSolverMaybe_NoRequestPerMark``.
 What stays here is the menu itself — its shape and its keyboard — and Region:
 its control, its mechanics and its announcements.
 
+CARD-247 changes what the toolbar SAYS and SHOWS, and nothing it does
+(owner's doc, 2026-10-18). The fourth brush reads **"Clear"** everywhere a
+human reads it — the menu item, the trigger, the usage hint and the reset
+confirmation — while the model keeps its own name for the state: ``UNKNOWN``,
+``data-player-tool="unknown"`` and ``data-state="unknown"`` are all untouched,
+which is why every selector and save in this family still works. And the
+Region toggle shows three ``.player-swatch`` cells in the chosen brush's mark
+instead of the word "Region" — a picture of what it arms, a three-cell run in
+that brush — so its accessible name now comes from an ``aria-label`` rather
+than from text that no longer exists. Both are pinned below
+(``…FourthBrushIsCalledClear``, ``…RenameDidNotTouchTheStateName``,
+``TestSolverRegion_ShowsThreeCellsInTheActiveBrush``,
+``TestSolverRegion_KeepsItsAccessibleNameAndPressedState``), and the measured
+layout assertion in ``TestSolverBrushMenu_RegionIsItsOwnToggle`` is
+**re-measured** there, never loosened. Paragraphs above this one describe
+CARD-194 and CARD-211 as they shipped and keep the label those cards used.
+
 Fixtures (real Chromium refusing loudly when absent, ADR-0038/R8; a loopback
 Flask panel over a temp SQLite store) are CARD-160's, imported below, same as
 every other puzzle-player test file.
@@ -60,6 +77,7 @@ import pytest
 
 from tests.test_puzzle_solver_marking import (
     _FOCUSED,
+    BRUSHES,
     GRID,
     MENU_ORDER,
     SIDE,
@@ -146,7 +164,7 @@ class TestSolverBrushMenu_OneButtonWithAMenu:
         assert trigger.count() == 1
         assert trigger.get_attribute("aria-haspopup") == "menu"
         assert trigger.get_attribute("aria-expanded") == "false"
-        for name in ("White", "Undecided", "Maybe"):
+        for name in ("White", "Clear", "Maybe"):
             assert browser_page.get_by_role("button", name=name, exact=True).count() == 0
 
 
@@ -174,11 +192,11 @@ class TestSolverBrushMenu_HoldsFourBrushesOnly:
         items = browser_page.get_by_role("menuitemradio")
         names = [items.nth(i).text_content().strip() for i in range(items.count())]
 
-        assert names == MENU_ORDER == ["Black", "White", "Maybe", "Undecided"]
+        assert names == MENU_ORDER == ["Black", "White", "Maybe", "Clear"]
         assert _menu_item(browser_page, "Black").get_attribute("aria-checked") == "true"
         assert all(
             _menu_item(browser_page, name).get_attribute("aria-checked") == "false"
-            for name in ("White", "Maybe", "Undecided")
+            for name in ("White", "Maybe", "Clear")
         )
         assert _trigger(browser_page).get_attribute("aria-expanded") == "true"
         browser_page.keyboard.press("Escape")
@@ -194,6 +212,147 @@ class TestSolverBrushMenu_HoldsFourBrushesOnly:
         # The Region control is outside the menu, in the tool group (AC-2).
         assert browser_page.locator(".player-tools > [data-player-region]").count() == 1
         browser_page.keyboard.press("Escape")
+
+
+# ==========================================================================
+# CARD-247 AC-1 / AC-2 — the fourth brush is "Clear"; the state is not renamed
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverBrushMenu_FourthBrushIsCalledClear:
+    """CARD-247 AC-1 — the fourth brush reads "Clear", and the player says
+    "Undecided" nowhere a human can read it.
+
+    The label used to appear in four places and all four made the same claim:
+    the menu item's own text, the trigger's text and "Brush: <label>" name,
+    the usage hint (twice — the brush's click sequence and the "choose …"
+    list) and the reset confirmation. The second test below is the
+    whole-page form of the claim, because asserting the four literals one by
+    one is exactly how a fifth place gets left behind.
+
+    Mutants, all run and all killed — the claims below are what was
+    observed, not what was expected. Restoring ``[UNKNOWN]: "Undecided"`` in
+    solver.js's ``BRUSH_LABEL`` fails both tests (the trigger's text and its
+    ``Brush:`` name in the first; the sweep in the second, which is why the
+    sweep picks the fourth brush before reading the page — with Black chosen
+    the fourth label is never rendered and that mutant survived the sweep).
+    Restoring the template's ``…>Undecided</button>`` menu text fails both
+    tests and ``…RenameDidNotTouchTheStateName``'s label/value pairs as well.
+    Putting the reset confirmation back to "Every mark goes back to
+    undecided." fails both tests too — the first asserts that sentence
+    directly — so the sweep's own reason for existing is narrower than
+    "catching what the literals miss": it is that a FIFTH place nobody listed
+    cannot hide, which no mutant on the four known places can demonstrate."""
+
+    def test_the_item_the_trigger_the_hint_and_the_confirmation_all_say_clear(
+        self, browser_page, live
+    ) -> None:
+        _open(browser_page, live, live.store(GRID))
+        hint = " ".join(
+            browser_page.locator("p.player-hint#puzzle-player-hint").text_content().split())
+        confirm = browser_page.locator("#puzzle-player-confirm-text").text_content().strip()
+
+        _trigger(browser_page).click()
+        item = _menu_item(browser_page, "Clear")
+        assert item.count() == 1
+        assert item.get_attribute("data-player-tool") == U
+        item.click()
+
+        assert _trigger_text(browser_page) == "Clear"
+        assert _trigger(browser_page).get_attribute("aria-label") == "Brush: Clear"
+        assert "Clear: blank, black, white" in hint, hint
+        assert "choose Black, White, Maybe or Clear" in hint, hint
+        assert confirm == "Every mark is cleared. Undo brings them back.", confirm
+
+    def test_no_user_facing_string_in_the_player_says_undecided(
+        self, browser_page, live
+    ) -> None:
+        """Over the whole rendered page, not over four literals.
+
+        The menu is opened first so the sweep reads it in the state a player
+        sees it in, though its items are in the DOM either way. The template's
+        own ``{# … #}`` header still says "undecided" where it explains that
+        the MODEL keeps that name — Jinja never renders it, so it is not a
+        user-facing string and this sweep cannot see it.
+
+        The fourth brush is picked and the menu left open before the page is
+        read, so that everything the rename touched is actually rendered at
+        that moment: the menu item, the trigger's text and its ``Brush:``
+        accessible name (that one is written by solver.js from
+        ``BRUSH_LABEL`` and exists nowhere in the DOM until the brush is
+        chosen — with Black chosen, a ``BRUSH_LABEL`` mutant survives this
+        sweep), the hint and the hidden reset confirmation.
+
+        The "Clear" line below is this control's control: ``content()``
+        returning something that is not the player's markup (a blank page, an
+        error page) would make the absence of "undecided" hold for the wrong
+        reason, so the sweep is also required to find the word that replaced
+        it."""
+        _open(browser_page, live, live.store(GRID))
+        _tool(browser_page, "Clear")
+        _trigger(browser_page).click()
+
+        html = browser_page.content()
+        browser_page.keyboard.press("Escape")
+
+        offending = [
+            " ".join(line.split()) for line in html.splitlines() if "ndecided" in line
+        ]
+        assert offending == [], offending
+        assert [line for line in html.splitlines() if "Clear" in line], (
+            "the sweep read a page with no 'Clear' in it at all, so its "
+            "'no undecided' half proves nothing")
+
+
+@pytest.mark.browser
+class TestSolverBrushMenu_RenameDidNotTouchTheStateName:
+    """CARD-247 AC-2 / G-1 — the rename is a label and nothing else.
+
+    ``UNKNOWN`` is the model's name for a cell with no mark (solver_state.js,
+    which still documents it as "undecided"), and it is shared with the grid
+    model, the brush ordering, the localStorage save and every CSS rule and
+    selector keyed on ``data-state``. So: the four exported state constants
+    read exactly what they read before, the menu's ``data-player-tool``
+    values are unchanged, the board's cells still start ``data-state="unknown"``,
+    and the owner's brush order is still Black, White, Maybe, then the fourth
+    one.
+
+    Mutant: renaming ``UNKNOWN``'s value to ``"clear"`` in solver_state.js
+    fails the first assertion here, the ``data-player-tool`` pairs and the
+    board's states, all three independently."""
+
+    def test_the_state_names_the_tool_values_and_the_order_are_unchanged(
+        self, browser_page, live
+    ) -> None:
+        _open(browser_page, live, live.store(GRID))
+
+        states = browser_page.evaluate(
+            """async () => {
+              const S = await import('/static/solver_state.js');
+              return { unknown: S.UNKNOWN, filled: S.FILLED, empty: S.EMPTY,
+                       maybe: S.MAYBE, all: [...S.CELL_STATES] };
+            }"""
+        )
+        assert states == {
+            "unknown": U, "filled": F, "empty": E, "maybe": M,
+            "all": [U, F, E, M],
+        }
+
+        _trigger(browser_page).click()
+        items = browser_page.get_by_role("menuitemradio")
+        pairs = [
+            (items.nth(i).text_content().strip(), items.nth(i).get_attribute("data-player-tool"))
+            for i in range(items.count())
+        ]
+        browser_page.keyboard.press("Escape")
+
+        assert pairs == [("Black", F), ("White", E), ("Maybe", M), ("Clear", U)]
+        assert [name for name, _ in pairs] == MENU_ORDER
+        assert set(_states(browser_page)) == {U}
+
+        _tool(browser_page, "Clear")
+        assert _trigger(browser_page).locator(".player-swatch").get_attribute("data-state") == U
 
 
 # ==========================================================================
@@ -316,7 +475,22 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
 
         Mutants: dropping ``flex: 1 0 auto`` restores the four different
         trigger widths and fails every cell; restoring the 13rem on the
-        trigger or the toggle's default padding fails as described above."""
+        trigger or the toggle's default padding fails as described above.
+
+        **CARD-247 re-measured every figure here, and loosened none of them.**
+        Replacing the toggle's word with three cells changed the toggle's own
+        width, and the trigger grows into what the toggle leaves, so two of
+        the three interior numbers moved; the claim they encode did not. The
+        new figures, identical at 1280x720, 1440x900 and 390x844 and for all
+        four brushes: the slot and the group are still exactly 208 px (13rem,
+        untouched — this card changed nothing outside the group), the toggle
+        measures 64 px where CARD-211's word measured 71.7, the trigger
+        measures 136 px where it measured 128.3, and the toggle's left edge
+        sits 144 px into the group where it sat 136. The group's own content
+        shrank: the widest trigger is now "Maybe" at 92.1 px natural width
+        (CARD-247 made the fourth label "Clear", 82.4 px — the narrowest of
+        the four, where "Undecided" was the widest at 124), so the content
+        comes to 164.1 px inside the 208 px floor against CARD-211's 204."""
         context = browser.new_context(viewport={"width": width, "height": height})
         page = context.new_page()
         try:
@@ -335,11 +509,156 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
         finally:
             context.close()
         assert round(boxes["slot"]) == round(boxes["tools"]) == 208, (brush, width, boxes)
-        # 128 px = 208 less the toggle (71.7) and the group's --space-2 gap (8),
-        # i.e. the whole of the group the brush trigger can have; 136 = that
-        # plus the gap, where the toggle therefore always starts.
-        assert round(boxes["trigger"]) == 128, (brush, width, boxes)
-        assert round(boxes["regionOffset"]) == 136, (brush, width, boxes)
+        # 136 px = 208 less the toggle (64 since CARD-247 — three 16 px cells
+        # sharing two 1 px rules, plus the toggle's own padding and borders)
+        # and the group's --space-2 gap (8), i.e. the whole of the group the
+        # brush trigger can have; 144 = that plus the gap, where the toggle
+        # therefore always starts. CARD-211's numbers were 128 and 136, with a
+        # 71.7 px toggle: re-measured, not relaxed — the two assertions are as
+        # tight as they were, and the toggle's width is pinned by them (it is
+        # 208 - 136 - 8, which is why there is no third number for it).
+        assert round(boxes["trigger"]) == 136, (brush, width, boxes)
+        assert round(boxes["regionOffset"]) == 144, (brush, width, boxes)
+
+
+# ==========================================================================
+# CARD-247 AC-3 / AC-4 — the toggle shows three cells, and is still named
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverRegion_ShowsThreeCellsInTheActiveBrush:
+    """CARD-247 AC-3 — the Region toggle's face is three cells in the chosen
+    brush's mark, not the word "Region".
+
+    Three cells rather than one of each state: Region makes the next drag
+    mark with the CURRENT brush, so a three-cell run in that brush's mark is a
+    picture of exactly what the control does (the owner's parenthetical
+    "in black/dot/question mark/undecided" names the four states the three
+    cells can be in — see the card for the alternative reading, which is a
+    cheap change if it was meant).
+
+    The art is reused, not reimplemented (G-3): the cells are
+    ``.player-swatch`` spans, the same definition the menu items and the
+    trigger use, so the last assertion checks the four brushes really do LOOK
+    different in these cells rather than trusting ``data-state`` alone — a
+    wrapper that swallowed the swatch styling would keep every attribute
+    assertion green and show three identical blanks.
+
+    Mutants, all run and all killed: dropping ``for (const cell of
+    regionCells) cell.dataset.state = tool`` from solver.js's ``syncTrigger``
+    leaves all three cells on the page's initial ``filled`` and fails the
+    second test for White, Maybe and Clear; leaving two cells in the template
+    fails the first test's count AND every cell of the measured-layout case
+    above, because the toggle is then narrower; dropping
+    ``.player-brush-run { display: inline-flex }`` collapses the three spans
+    to nothing (a ``<span>`` is inline, and width/height do not apply to one)
+    and fails the first test's boxes and, again, the whole layout case;
+    dropping the seam colour fails the first test's last assertion alone."""
+
+    def test_it_renders_three_cells_and_no_region_text(self, browser_page, live) -> None:
+        _open(browser_page, live, live.store(GRID))
+        toggle = _region_toggle(browser_page)
+        cells = toggle.locator(".player-swatch")
+
+        assert cells.count() == 3
+        assert toggle.text_content().strip() == "", toggle.text_content()
+        assert toggle.locator(".player-brush-run").get_attribute("aria-hidden") == "true"
+        # The initial brush is Black, and the toggle agrees with the trigger
+        # from the first paint (solver.js calls syncTrigger in start()).
+        assert [cells.nth(i).get_attribute("data-state") for i in range(3)] == [F, F, F]
+
+        boxes = [cells.nth(i).bounding_box() for i in range(3)]
+        assert all(box["width"] >= 8 and box["height"] >= 8 for box in boxes), boxes
+        lefts = [round(box["x"]) for box in boxes]
+        assert lefts == sorted(lefts) and len(set(lefts)) == 3, boxes
+        assert len({round(box["y"]) for box in boxes}) == 1, boxes
+
+        # Three cells have to be TELLABLE APART, which three ink fills drawn
+        # edge to edge are not. The first build of this icon shipped exactly
+        # that — ``.player-swatch[data-state="filled"]`` colours its border
+        # with the ink it fills with, so the Black brush drew one solid bar —
+        # and every assertion above it was green, which is why this one is
+        # here: it was found by looking at the render, and it is the only
+        # assertion in this file a correct ``data-state`` cannot satisfy.
+        seam, fill = cells.nth(1).evaluate(
+            """(s) => [getComputedStyle(s).borderLeftColor,
+                       getComputedStyle(s).backgroundColor]""")
+        assert seam != fill, (seam, fill)
+
+    def test_the_three_cells_follow_the_active_brush(self, browser_page, live) -> None:
+        _open(browser_page, live, live.store(GRID))
+        cells = _region_toggle(browser_page).locator(".player-swatch")
+        look = """(s) => ({ background: getComputedStyle(s).backgroundColor,
+                            border: getComputedStyle(s).borderTopColor,
+                            mark: getComputedStyle(s, '::after').content })"""
+
+        states, looks = {}, {}
+        for brush in MENU_ORDER:
+            _tool(browser_page, brush)
+            states[brush] = [cells.nth(i).get_attribute("data-state") for i in range(3)]
+            looks[brush] = cells.nth(0).evaluate(look)
+            # the icon and the trigger are written by one function, so they
+            # can never disagree about which brush is chosen
+            assert _trigger(browser_page).locator(".player-swatch").get_attribute(
+                "data-state") == BRUSHES[brush], brush
+
+        assert states == {brush: [BRUSHES[brush]] * 3 for brush in MENU_ORDER}, states
+        rendered = {brush: tuple(sorted(value.items())) for brush, value in looks.items()}
+        assert len(set(rendered.values())) == 4, looks
+        assert looks["Maybe"]["mark"] == '"?"', looks["Maybe"]
+
+
+@pytest.mark.browser
+class TestSolverRegion_KeepsItsAccessibleNameAndPressedState:
+    """CARD-247 AC-4 / G-4 — the toggle's text is gone and its name is not.
+
+    The button's accessible name came from its own text until CARD-247
+    replaced that text with three decorative cells. Three ``aria-hidden``
+    spans and no label would leave a screen reader announcing an unnamed
+    button — on the one control CARD-211 deliberately gave ``aria-pressed``
+    so that it would announce as on/off. The name is asserted through the
+    role query and ``to_have_accessible_name``, i.e. through Chromium's own
+    name computation and not by reading the attribute that happens to supply
+    it today, and it is asserted pressed, unpressed and under a brush change,
+    because a name that moved with either of those would be a different bug.
+
+    Two mutants, both run and both killed, both at this test's FIRST
+    assertion — which is the one worth having, because it is the one that
+    reads the name the way a screen reader does. Deleting
+    ``aria-label="Region"`` from the template leaves the button with no name
+    at all, and ``get_by_role("button", name="Region")`` matches 0 elements
+    instead of 1. Moving the label onto the ``.player-brush-run`` span
+    instead — a plausible slip, since that span is what replaced the text —
+    gives the same 0: the span is ``aria-hidden``, so its label never reaches
+    the button. Neither mutant is caught by the text assertion, which both
+    satisfy."""
+
+    def test_it_is_still_named_region_pressed_unpressed_and_across_brushes(
+        self, browser_page, live
+    ) -> None:
+        from playwright.sync_api import expect
+
+        _open(browser_page, live, live.store(GRID))
+        toggle = _region_toggle(browser_page)
+
+        assert browser_page.get_by_role("button", name="Region", exact=True).count() == 1
+        expect(toggle).to_have_accessible_name("Region")
+        assert toggle.text_content().strip() == ""  # the name is no longer its text
+        assert _region_pressed(browser_page) == "false"
+
+        toggle.click()
+        assert _region_pressed(browser_page) == "true"
+        expect(toggle).to_have_accessible_name("Region")
+        assert "Region on" in _announced(browser_page)
+
+        toggle.click()
+        assert _region_pressed(browser_page) == "false"
+        expect(toggle).to_have_accessible_name("Region")
+
+        _tool(browser_page, "Maybe")
+        expect(toggle).to_have_accessible_name("Region")
+        assert _region_pressed(browser_page) == "false"
 
 
 # ==========================================================================
@@ -395,10 +714,10 @@ class TestSolverRegion_ArmedDragMarksThenDisarms:
 
     def test_a_drag_that_changes_no_cell_still_disarms(self, browser_page, live) -> None:
         """CARD-194 target behaviour #7 — "a drag ended", not "a cell
-        changed": Undecided dragged over already-undecided cells records a
+        changed": Clear dragged over already-undecided cells records a
         stroke that marks nothing, and Region still turns itself off."""
         _open(browser_page, live, live.store(GRID))
-        _tool(browser_page, "Undecided")
+        _tool(browser_page, "Clear")
         _region(browser_page)
 
         _drag(browser_page, [(6, 1), (6, 5)])
@@ -466,7 +785,7 @@ class TestSolverRegion_DoesNotChangeTheBrush:
     still treat "region" as a name it may receive, as CARD-194's menu did —
     fails here."""
 
-    @pytest.mark.parametrize("brush", ["Black", "White", "Maybe", "Undecided"])
+    @pytest.mark.parametrize("brush", ["Black", "White", "Maybe", "Clear"])
     def test_pressing_and_releasing_region_keeps_the_brush(self, browser_page, live, brush) -> None:
         _open(browser_page, live, live.store(GRID))
         _tool(browser_page, brush)
@@ -596,7 +915,7 @@ class TestSolverRegion_AnnouncesItsState:
 class TestSolverBrushMenu_Keyboard:
     """CARD-194 AC-3 / AC-4 — opening from the trigger, moving inside the
     menu, and leaving it by picking an item, Escape or Tab. CARD-211: the
-    menu's last item is Undecided now, and Tab out of the menu lands on the
+    menu's last item is Clear now, and Tab out of the menu lands on the
     Region toggle, the control that sits between the trigger and Undo."""
 
     def test_arrow_and_enter_pick_a_brush(self, browser_page, live) -> None:
@@ -617,18 +936,19 @@ class TestSolverBrushMenu_Keyboard:
         assert _marked(_states(browser_page)) == {(0, c): E for c in range(4)}
 
     def test_arrow_up_and_end_reach_undecided_the_last_item(self, browser_page, live) -> None:
-        """CARD-211: with Region out of the menu, its last item is Undecided,
+        """CARD-211: with Region out of the menu, its last item is the fourth
+        brush — "Clear" since CARD-247, "Undecided" when this method was named,
         so ArrowUp wrapping from the first item — and End — land there."""
         _open(browser_page, live, live.store(GRID))
         _trigger(browser_page).focus()
         browser_page.keyboard.press("ArrowDown")  # opens on Black, the checked item
 
         browser_page.keyboard.press("ArrowUp")  # wraps past the end
-        assert browser_page.evaluate("document.activeElement.textContent.trim()") == "Undecided"
+        assert browser_page.evaluate("document.activeElement.textContent.trim()") == "Clear"
         browser_page.keyboard.press("Home")
         assert browser_page.evaluate("document.activeElement.textContent.trim()") == "Black"
         browser_page.keyboard.press("End")
-        assert browser_page.evaluate("document.activeElement.textContent.trim()") == "Undecided"
+        assert browser_page.evaluate("document.activeElement.textContent.trim()") == "Clear"
         browser_page.keyboard.press("Escape")
 
     def test_escape_closes_and_tab_leaves(self, browser_page, live) -> None:

@@ -40,7 +40,7 @@ _STATIC = Path(__file__).resolve().parent.parent / "src" / "nonogram" / "admin" 
 
 U, F, E = "unknown", "filled", "empty"
 M = "maybe"  # CARD-186's "?"
-TOOLS = {"Black": F, "White": E, "Undecided": U}
+TOOLS = {"Black": F, "White": E, "Clear": U}  # CARD-247 renamed the label; U is still "unknown"
 #: Every brush (CARD-189): the tool button's name -> the state it paints.
 BRUSHES = {**TOOLS, "Maybe": M}
 
@@ -186,7 +186,7 @@ def _button(page, name):
 #: role="menuitemradio" items, in the owner's order. CARD-211 took Region out
 #: of this menu and gave it a toggle of its own (``_region`` below), so the
 #: menu holds the four brushes and nothing else.
-MENU_ORDER = ["Black", "White", "Maybe", "Undecided"]
+MENU_ORDER = ["Black", "White", "Maybe", "Clear"]
 
 
 def _trigger(page):
@@ -333,7 +333,7 @@ class TestSolverMarking_ClickIgnoresTheSelectedTool:
 
     def test_exactly_one_tool_is_pressed(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
-        for name in ("White", "White", "Undecided", "Black"):
+        for name in ("White", "White", "Clear", "Black"):
             _tool(browser_page, name)
             _trigger(browser_page).click()  # reopen to read the checked items
             checked = {n: _menu_item(browser_page, n).get_attribute("aria-checked") for n in TOOLS}
@@ -382,7 +382,7 @@ _REFUSED_TOOLS_JS = """async () => {
 _SEQUENCES = {
     "Black": [F, E, U, F],
     "White": [E, U, F, E],
-    "Undecided": [F, E, U, F],
+    "Clear": [F, E, U, F],
     "Maybe": [M, U, M, U],
 }
 
@@ -629,8 +629,8 @@ class TestSolverClickFollowsTheBrush:
         assert "Click a cell to cycle" not in text and "for drags" not in text
         assert text == (
             "Click a cell to give it the selected brush's mark; click it again to go on "
-            "(Black: black, white, blank; White: white, blank, black; Undecided: blank, black, white). "
-            "Open the brush menu to choose Black, White, Maybe or Undecided. "
+            "(Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). "
+            "Open the brush menu to choose Black, White, Maybe or Clear. "
             "Press Region, beside the brush, to make the next drag along a row or column "
             "mark with the brush; "
             "with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. "
@@ -694,7 +694,7 @@ class TestSolverMarking_DragMarksOneLine:
 
         assert _marked(_states(browser_page)) == {(r, 8): F for r in range(2, 8)}
 
-    @pytest.mark.parametrize("tool", ["White", "Undecided"])
+    @pytest.mark.parametrize("tool", ["White", "Clear"])
     def test_each_tool_sets_its_state_along_the_line(self, browser_page, live, tool) -> None:
         _open(browser_page, live, live.store(GRID))
         _drag(browser_page, [(4, 0), (4, 9)])  # Black first
@@ -834,8 +834,8 @@ class TestSolverMarking_UndoRedoByStroke:
         _drag(browser_page, [(5, 0), (5, 4)])
         _button(browser_page, "Undo").click()  # redo now holds the row-5 drag
         _drag(browser_page, [(3, 1), (3, 3)])  # Black over black cells: no change
-        _tool(browser_page, "Undecided")
-        _drag(browser_page, [(10, 0), (10, 4)])  # Undecided over blank cells: no change
+        _tool(browser_page, "Clear")
+        _drag(browser_page, [(10, 0), (10, 4)])  # Clear over blank cells: no change
 
         assert not _is_disabled(browser_page, "Redo")  # the redo stack was kept
         _button(browser_page, "Redo").click()
@@ -959,8 +959,8 @@ class TestSolverMarking_KeyboardAndLabels:
 
         _pick_by_keyboard(browser_page, "White", open_key="Space", pick_key="Space")
         assert _trigger_text(browser_page) == "White"
-        _pick_by_keyboard(browser_page, "Undecided", open_key="Enter", pick_key="Enter")
-        assert _trigger_text(browser_page) == "Undecided"
+        _pick_by_keyboard(browser_page, "Clear", open_key="Enter", pick_key="Enter")
+        assert _trigger_text(browser_page) == "Clear"
         _pick_by_keyboard(browser_page, "Black", open_key="Space", pick_key="Space")
         assert _trigger_text(browser_page) == "Black"
 
@@ -993,16 +993,16 @@ class TestSolverMarking_KeyboardAndLabels:
 
     #: The tool selected (by mouse) before the key press — one whose drag
     #: would leave a different state, so a key that does nothing is visible.
-    _PRIOR_TOOL = {"Black": "White", "White": "Undecided", "Undecided": "White"}
+    _PRIOR_TOOL = {"Black": "White", "White": "Clear", "Clear": "White"}
 
     @pytest.mark.parametrize("key", ["Enter", "Space"])
-    @pytest.mark.parametrize("name", ["Black", "White", "Undecided"])
+    @pytest.mark.parametrize("name", ["Black", "White", "Clear"])
     def test_each_tool_acts_on_a_single_key_press(self, browser_page, live, name, key) -> None:
         """AC-310 / CARD-194 — Tab to the trigger; the same key (Enter or
         Space) opens the menu and, after reaching the item, picks it; the
         trigger then names the brush, and the next drag uses it."""
         _open(browser_page, live, live.store(GRID))
-        _drag(browser_page, [(0, 0), (0, 3)])  # Black: row 0 filled, so Undecided shows
+        _drag(browser_page, [(0, 0), (0, 3)])  # Black: row 0 filled, so Clear shows
         _tool(browser_page, self._PRIOR_TOOL[name])
 
         self._tab_to(browser_page, f"Brush: {self._PRIOR_TOOL[name]}")
@@ -1168,7 +1168,7 @@ def _twenty_strokes(page):
     """10 clicks and 10 drags (with tool changes between), mirrored in a model.
     Each click is a first click (CARD-189) with the tool picked before it."""
     model = _Model(SIDE, SIDE)
-    tools = ["Black", "White", "Undecided"]
+    tools = ["Black", "White", "Clear"]
     tool = "Black"
     for k in range(10):
         r, c = k, (3 * k) % SIDE
@@ -1304,7 +1304,7 @@ class TestSolverHistoryModule:
               const S = await import('/static/solver_state.js');
               const refused = (f) => { try { f(); return null; } catch (e) { return e.name; } };
               const board = S.withCell(S.createBoard(3, 2), 1, 2, S.EMPTY);
-              const click = S.clickStroke(board, 1, 2, S.UNKNOWN);  // CARD-189: Undecided on white
+              const click = S.clickStroke(board, 1, 2, S.UNKNOWN);  // CARD-189: Clear on white
               const reset = S.resetStroke(board);
               return {
                 cycledGone: S.cycled === undefined,  // CARD-189: no tool-blind click cycle any more

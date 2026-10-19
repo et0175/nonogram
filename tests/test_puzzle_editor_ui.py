@@ -1667,7 +1667,7 @@ class TestPuzzleEditor_NoUndecidedCellReachesTheStore:
     def test_the_editor_offers_only_the_two_brushes_an_answer_can_hold(
         self, browser_page, live
     ) -> None:
-        """The narrowing: Maybe and Undecided paint states a boolean grid
+        """The narrowing: Maybe and Clear paint states a boolean grid
         cannot express, so the editor does not offer them."""
         puzzle_id = _seed_live(live)
         _open_editor(browser_page, live, puzzle_id)
@@ -1677,7 +1677,13 @@ class TestPuzzleEditor_NoUndecidedCellReachesTheStore:
         assert _menu_item(browser_page, "Black").is_visible()
         assert _menu_item(browser_page, "White").is_visible()
         assert _menu_item(browser_page, "Maybe").count() == 0
-        assert _menu_item(browser_page, "Undecided").count() == 0
+        # CARD-247 renamed the player's fourth brush to "Clear". Asserting the
+        # OLD label here would be a control that cannot fail: no page in the
+        # panel offers an item named "Undecided" any more, so the absence would
+        # hold for every possible editor. The name asserted is the one the
+        # player really shows (test_the_player_still_offers_all_four below sees
+        # all four).
+        assert _menu_item(browser_page, "Clear").count() == 0
 
     def test_the_player_still_offers_all_four(self, browser_page, live) -> None:
         """G-1's half of the same claim: the brushes were left out of the

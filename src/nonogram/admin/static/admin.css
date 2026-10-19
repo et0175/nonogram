@@ -689,8 +689,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    states the fix as a relation instead of a measured number: grow into the
    group's free space (the trigger is its only growable child, the menu being
    absolutely positioned out of flow), never shrink below the label. The
-   result is one width for all four brushes (128.3 px measured, wider than
-   the widest label), the group still exactly 13rem, and the counters' row
+   result is one width for all four brushes (CARD-211 measured 128.3 px;
+   CARD-247 re-measured it at 136 px, because the Region toggle beside it
+   stopped being a word and became three cells — see .player-brush-run below
+   — and the trigger grows into whatever the toggle leaves: 208 less the
+   toggle's 64 and the group's 8 px gap. The toggle's own left edge therefore
+   moved out with it, from 136 px to 144 px from the group's left edge, and
+   still does not move between brushes, which is the regression this whole
+   block exists for), the group still exactly 13rem, and the counters' row
    untouched — pinned for every brush and viewport by
    tests/test_puzzle_solver_brush_menu.py
    TestSolverBrushMenu_RegionIsItsOwnToggle::test_adding_it_leaves_the_tools_slot_at_its_old_width,
@@ -722,12 +728,20 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 /* The Region toggle (CARD-211). Its side padding matches the brush
    trigger's (and .player-zoom .btn's) rather than the wider default, which
    is what keeps .player-tools' CONTENT inside the group's 13rem floor for
-   every brush: the widest trigger text ("Undecided", measured 124 px) plus
-   this toggle (72 px) plus the group's gap comes to 204 px, so the slot is
-   exactly the 13rem it was before this card no matter which brush is
-   chosen — picking a wider brush never nudges the board sideways, and the
-   counters' row at 1280 px is unaffected (measured; see the min-width note
-   above for what happens when the group does grow).
+   every brush: the widest trigger (CARD-211's widest label was
+   "Undecided", and the trigger showing it measured 124 px; CARD-247 renamed
+   that label to "Clear" — 82.4 px, the NARROWEST of the four — which leaves
+   "Maybe" the widest at 92.1 px) plus this toggle (CARD-211's word measured
+   72 px; CARD-247's three cells measure 64 px — three 16 px .player-swatch
+   cells sharing two rules, 46 px of run, plus two --space-2 paddings and two
+   borders) plus the group's 8 px gap comes to 164.1 px, where CARD-211 came
+   to 204 px. So the slot is exactly the 13rem it was before either card no
+   matter which brush is chosen — picking a wider brush never nudges the
+   board sideways, and the counters' row at 1280 px is unaffected (measured
+   at 1280x720, 1440x900 and 390x844 for all four brushes; see the min-width
+   note above for what happens when the group does grow). CARD-247 only ever
+   made this content narrower, so the floor has MORE headroom than CARD-211
+   left it, not less, and nothing outside the group had to move.
    The pressed look is the filled accent the panel already uses for an "on"
    control (.btn-check:checked + .btn, above) — stronger than
    .player-tool-item[aria-checked="true"]'s tint, because this is a mode
@@ -737,6 +751,31 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    as every other toolbar button on a 390 px phone too. */
 .player-region { padding-left: var(--space-2); padding-right: var(--space-2); }
 .player-region[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
+/* The three cells the Region toggle wears instead of the word "Region"
+   (CARD-247, owner's doc 2026-10-18 item 2). No new art: they are
+   .player-swatch spans (above), so what a cell in each of the four states
+   looks like has exactly one definition, and solver.js writes their
+   data-state from the chosen brush — the icon is a picture of what Region
+   arms, a three-cell run in that brush's mark.
+   The run is its own element rather than three swatches straight in the
+   button because .player-toolbar .btn sets a --space-2 gap, which is right
+   for a swatch beside a label and wrong for cells of one run: they need to
+   touch. The negative margin is one border width, so two neighbours draw a
+   single rule between them instead of a double one — the same way the board
+   itself reads.
+   That shared rule is then RE-COLOURED, which the first build of this icon
+   did not do and had to: .player-swatch[data-state="filled"] sets its border
+   to the ink it fills with, so three filled cells drawn edge to edge are one
+   solid bar and the owner's "3 cells" is not legible at all (seen in the
+   render, not in a test — a passing data-state assertion says nothing about
+   whether three cells can be told apart). The mix is the panel's own answer
+   to the same question one block up: .guide-strip-cell separates a run of
+   printed cells with 28% ink on paper, and this is that rule at that weight,
+   so the two runs of cells in the panel read alike. Lengths and colours are
+   tokens or a mix of two of them (G-4); the cells' own colours stay
+   .player-swatch's (G-3). */
+.player-brush-run { display: inline-flex; }
+.player-brush-run .player-swatch + .player-swatch { margin-left: calc(-1 * var(--border-width)); border-left-color: color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper)); }
 .player-mirror { display: inline-flex; transform: scaleX(-1); }
 .player-hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
 /* Progress (CARD-162, FR-044): the counters close the toolbar row; the

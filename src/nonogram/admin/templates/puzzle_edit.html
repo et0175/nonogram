@@ -25,8 +25,10 @@
   page whose script never ran shows no dead buttons.
 
   TWO BRUSHES, not four. Black and White are the only marks an answer can
-  hold — Puzzle.grid is list[list[bool]] (ADR-0012) — so Maybe and Undecided
-  are not offered here. That is a NARROWING OF THE TOOLS AND NOT A GUARANTEE,
+  hold — Puzzle.grid is list[list[bool]] (ADR-0012) — so Maybe and Clear
+  (which CARD-247 renamed from "Undecided" on the player's own menu — the
+  label changed, the UNKNOWN state it paints did not) are not offered here.
+  That is a NARROWING OF THE TOOLS AND NOT A GUARANTEE,
   and the difference matters: a repeat click's third step is "blank" for both
   remaining brushes (solver_state.js clickedState) and a confirmed Reset
   blanks every cell, so an undecided cell is still reachable. CARD-246 AC-6's
