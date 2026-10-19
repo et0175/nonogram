@@ -110,6 +110,18 @@ gave `aria-pressed` so it would announce as on/off. Give it an explicit accessib
   drag is recorded, and pressing it still does **not** change the brush.
   (test: the existing Region behaviour tests, named in the notes, passing unchanged)
 
+- **AC-7** (guard, one word names one thing — **owner decision, 2026-10-19**): *Given* the editor
+  page, *then* its board-wipe button reads **"Reset"**, its confirmation names the same word, and **no
+  control on that page carries the word "Clear"** — which this card has given to the player's fourth
+  brush. Added mid-flight on the owner's instruction after the render raised the collision: the two
+  pages share one renderer, so "Clear" was naming a brush that paints one cell undecided *and* a button
+  that wipes the whole board. The owner chose to rename the button and keep the brush.
+  (test: `TestPuzzleEditor_Guardrails::test_one_word_does_not_name_a_brush_on_one_page_and_a_wipe_on_the_other`)
+  **It needed a pin, not just an edit:** at the time of the rename **no test in the suite drove the
+  editor's reset control by its label**, so the old name could have come back and the suite would have
+  stayed green. Both mutants kill the guard — the old label returning, and the button renamed with the
+  confirmation left behind.
+
 ## Guardrails
 
 - G-1: **Appearance only.** No change to what any brush does, to the undo history, to the
@@ -350,3 +362,17 @@ The card's purpose is *"the toolbar says what it does"*; a reader who learns the
 learns the wrong thing on the other. Not a defect against any AC, and not blocking — recorded for the
 owner's render check, since the alternative (a different word for the brush, or renaming the editor's
 button) is a decision rather than a fix.
+
+### [Decision] the editor's button renamed, the brush keeps Clear (owner, 2026-10-19)
+
+Raised from the render as a question, not settled by the orchestrator. The owner chose **rename the
+editor's button, keep Clear for the brush**, and the new name is **"Reset"** — the orchestrator's
+choice, because that is what the player already calls the identical control, so one change removes the
+collision *and* ends an inconsistency CARD-246 had left between the two toolbars. Say so if a different
+word is wanted; it is one line and a guard.
+
+**What was deliberately not changed:** the **player's** confirmation still reads *"Clear the board?"* /
+*"Clear board"* under a button called Reset. That mismatch predates this card and was not what the owner
+ruled on — but it is sharper now, because the player also has a brush named Clear, so *"Clear board"*
+there can be misread as "apply the Clear brush to the board". Left alone rather than fixed unasked, and
+recorded here so the next reader meets it as a known question rather than as a surprise.
