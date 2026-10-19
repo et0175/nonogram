@@ -3,7 +3,7 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: [CARD-225, CARD-247]
+active: [CARD-225, CARD-252]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -617,3 +617,47 @@ wave_48:
     Gates run SOLO under a guard that refuses a contended start and was verified both ways before use
     (1 with a live run, 0 idle). No gate runs while a review's mutation pass is live -- the CARD-250
     defect. Two cards in parallel means two build gates: they serialise on the full-suite lock.
+
+card_252_started_mid_wave:
+  at: 2026-10-19T17:33:41Z
+  owner_instruction: "card the @ops engine fix for the next wave (2026-10-19), then: start CARD-252 now"
+  concurrency_note: >-
+    THIS TAKES THE BOARD TO THREE ACTIVE CARDS AGAINST THE OWNER'S STANDING CAP OF 2, on the owner's
+    explicit instruction. Recorded rather than silently absorbed, because the cap exists for a reason
+    and the reason still applies: it was set so merges run sequentially and never alongside concurrent
+    full suites.
+  conflict_edges:
+    - pair: [CARD-252, CARD-225]
+      reason: "NONE -- disjoint. CARD-252 is tests/conftest.py, src/nonogram/db/session.py and one new test file; CARD-225 is the book modules and the book tests."
+    - pair: [CARD-252, CARD-247]
+      reason: "NONE -- disjoint. CARD-247 is solver.js, admin.css, the two puzzle templates and the solver tests."
+  scheduling_consequence: >-
+    Three active cards make SOLO GATE WINDOWS scarcer, and every gate on this board must be solo --
+    the guard refuses a contended start. CARD-225 and CARD-247 both still need merge gates, and
+    CARD-252 will need a build gate. They serialise. Expect the wave to close on gate queueing rather
+    than on agent time, and do not read any gate duration from this window as a cost trend.
+  runtime_isolation: >-
+    Checked rather than assumed: CARD-252 repeatedly DROPs and rebuilds a schema, which is exactly the
+    hazard it exists to fix. It does so in its OWN derived test database (CARD-244), so it cannot
+    disturb the siblings' reviews. The brief says so explicitly and names nonogram_poc as untouchable.
+
+card_247_merged:
+  at: 2026-10-19T18:42:52Z
+  merge_commit: 8c807a6
+  review: "9.0 -> 9.5 (2 cycles, 1 fix cycle + the orchestrator closing both cycle-2 minors)"
+  certification: "complete -- 20 mutants, 0 unexpected survivors, all nine refusal branches re-derived rather than sampled, the 9x9 matrix recomputed from a SECOND hand-written implementation of the predicates"
+  actual: 0.4d
+  estimate: 0.5d
+  gate: "8504 passed, 1 skipped, 0 failed in 958s, SOLO, first attempt; main verified byte-identical to the gated tree"
+  two_defects_assertions_could_not_see: >-
+    The first build drew three filled cells with collapsed borders, rendering as ONE BLACK BAR while
+    every data-state assertion stayed green -- caught by looking at the render. The second was a
+    control that could not fail, and it was the card's own: nine refusals asserted only as
+    "problems is non-empty", so four could be deleted with the control still green.
+  adr_0039_earned_its_place_within_hours: >-
+    ADR-0039/R1 reached this card's contract only because the curation convention and the scope-glob
+    fix landed earlier the same day; before that it had been dropped from CARD-250's and CARD-251's
+    contracts by orchestrator judgement. The FIRST card to carry it caught a violation of it on cycle
+    one. That is the clearest evidence this wave produced that the fix was the right one.
+  owner_decision_applied: "rename the editor's button, keep Clear for the brush (2026-10-19). New name Reset, chosen because the player already calls the identical control that, so one change removed the collision and ended an inconsistency CARD-246 left. Pinned, because nothing pinned the label before."
+  still_open_for_the_owner: "the PLAYER's confirmation still reads 'Clear the board?' / 'Clear board' under a button called Reset, two controls from the Clear brush. Raised, deliberately left alone, recorded as a decision rather than an oversight."

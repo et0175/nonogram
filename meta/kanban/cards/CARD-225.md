@@ -15,7 +15,7 @@
 **Wave:** 48
 **Depends on:** CARD-222 (the usable area the sizes are fitted against changes with the margins)
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_plan.py, tests/test_book_cell_size.py, tests/property/test_book_pdf_geometry.py, tests/test_book_interior_type_floor.py, tests/fixtures/book_baseline_card225.json, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_select_puzzles.html, src/nonogram/admin/templates/book_finalize.html, meta/profiling/rank_durations.py, tests/helpers/two_up_ink.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
-**Review score:** —
+**Review score:** 7.5 (cycle 1/3 — four Important; does not pass)
 **Started:** 2026-10-19T15:41:00Z
 **Closed:** —
 **Actual:** —
@@ -282,18 +282,19 @@ one exists. "Grid size" is the pair `(columns, rows)` read off a puzzle's own cl
 |---|----------|--------------|--------------------|---------------|
 | F-1 | `book_cell_sizes(spec, members)` | the book holds **no** member of some grid size | that grid size has no entry; a caller asking for one gets today's per-puzzle fit (`book_cell_mm`) | — |
 | F-2 | `book_cell_sizes` | exactly **one** member of a grid size | the min over a singleton is that member's own fit — AC-5 degenerates by construction, not by a branch | — |
-| F-3 | `book_cell_sizes` | one member's clue sets are unreadable / disagree about the grid | `ValueError` propagates from `book_cell_mm`; **no** grid size gets a size, so nothing is printed on a guessed cell. **Amended during implementation:** the bare propagation broke the standing contract that *every* abort of `interior` names a puzzle, so `section_plan` catches it and raises `RuntimeError("puzzle <id> could not be laid out: ...")` with the `ValueError` as its `__cause__` — `_unmeasurable_members` finds the culprit on the failure path only. Pinned by the four cases of `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle` | — |
+| F-3 | `book_cell_sizes` | one member's clue sets are unreadable / disagree about the grid | `ValueError` propagates from `book_cell_mm`; **no** grid size gets a size, so nothing is printed on a guessed cell. **Amended during implementation:** the bare propagation broke the standing contract that *every* abort of `interior` names a puzzle, so `section_plan` catches it and raises `RuntimeError("puzzle <id> could not be laid out: ...")` with the `ValueError` as its `__cause__` — `_unmeasurable_members` finds the culprit on the failure path only. **Amended again, review cycle 1 F-002:** the amendment had been applied to `section_plan` only, so the editor's `puzzle_page_plan` — which settles the same map two lines away — let that `ValueError` out bare (no id, no position, no `__cause__`) for *every* neighbour shape, including the member with **no** same-tier neighbour, which reached neither stage before this card and so aborted that entry nowhere. Both entries now route through `_unmeasurable_members`, so a member's failure is a named `RuntimeError` from either. Pinned by the four original cases of `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle` plus its three `test_the_editors_page_count_names_the_member_whatever_neighbour_it_has` cases | — |
+| F-3b | `cell_sizes` / `section_plan` / `puzzle_page_plan` | the **book's** stored print specification cannot be laid out (a non-numeric trim, a margin outside KDP's bounds) | a bare `ValueError` naming the column, **not** a per-puzzle `RuntimeError`: the failure is the book's and belongs to no member, so naming all 120 of them for it would be a per-puzzle message for a book-level fault. Both entries read the sheet once, before the cell map's handler, so the distinction `_unmeasurable_members` already drew is kept by the callers too (review cycle 1, F-006). Pinned by `test_an_unreadable_print_specification_is_the_books_own_failure` | — |
 | F-4 | `book_cell_sizes` | members handed in a different order, or the same member twice | the result is byte-identical: `min` over a set-valued grouping (AC-7) | — |
 | F-5 | `book_cell_spec(spec, cell_mm)` | `cell_mm` **above** the spec's own flat cap | the cap wins: `min(spec.cell_cap, cell_mm)`. NFR-008's 7.5 mm can never be widened by this card (G-1) | cap <= 7.5 mm on every book profile |
 | F-6 | `book_cell_spec` | `cell_mm <= 0`, NaN, or `spec.cell_cap is COMFORT_CURVE` | `ValueError`, naming the argument. A book sheet always carries a flat cap; a CLI/A4 spec has no book cell and is refused rather than silently given one (ADR-0036/R1) | — |
 | F-7 | exactness of the shared cell | the cap is a `float` while the fit is an exact `Fraction`, so `min(cap, fit)` for the **deepest** member may differ from the cap by one float ulp | `Layout.page.cell_mm` is **exactly equal** for every member of a grid size (`float(Fraction(repr(x))) == x` round-trips). The exact `pitch` fed to `_round_px` may differ by <= 1 ulp for the deepest member only | <= 2^-52 * 7.5 mm ~ 1.7e-15 mm, i.e. <= 2e-14 device px at 300 DPI. A boundary pixel could in principle round the other way only within that distance of a half-pixel tie; no case in this card's measured corpus does |
-| F-8 | two-up page (FR-040) | the smaller of the two grid sizes' book cells is **below** `TWO_UP_MIN_CELL_MM` (7.0 mm) | the pair is **refused** and the two puzzles print on separate pages. This is a behaviour change: today the pair is fitted from the pair alone and could clear 7.0 mm | book cell < 7.0 mm => no two-up page for that pair |
+| F-8 | two-up page (FR-040) | the smaller of the two grid sizes' book cells is **below** `TWO_UP_MIN_CELL_MM` (7.0 mm) | the pair is **refused** and the two puzzles print on separate pages. This is a behaviour change: today the pair is fitted from the pair alone and could clear 7.0 mm. **EC-027's property can see it since review cycle 1 (F-003)**: `tests/property/test_book_pairing.py` now drives `puzzle_pages` through the whole-book map, its oracle caps every offer at the two grid sizes' book cells, its rendered corpus no longer drops books holding two members of one grid size, and two hand-built books put F-8 and F-9 in the corpus with counters asserting each — measured, both halves fail when `_pair_cell_mm` is made to return `None` | book cell < 7.0 mm => no two-up page for that pair |
 | F-9 | two-up page | the pair's own two-up fit is **smaller** than the smaller book cell | the pair fit wins — it is a physical constraint of putting two drawings on one sheet. AC-4's "the smaller of their two sizes" is a **cap**, not a floor | drawn cell = min(book cell A, book cell B, pair fit) |
 | F-10 | the floor (FR-031) at the add gate | a submitted puzzle clears the floor alone but its grid size's **shared** cell does not | refused without a stored override, with the shared figure named. The gate measures the **prospective membership**: the book's current members **union** the whole submission, because that is what will be printed if the add succeeds | — |
 | F-11 | the add gate | a below-floor sibling in the same submission is itself refused, so it never joins | the refusal of the *other* members of its grid size was nevertheless measured with it in the set — one pass, no fixpoint. **Declared residue:** such a member can be refused for a sibling that did not join; the owner's remedy is to resubmit without it. Chosen over a fixpoint loop deliberately | one measurement pass per add |
 | F-12 | the finalise count (AC-187/AC-188) | the book holds a deep member of a grid size admitted by a stored override | **every** member of that grid size is listed below the floor, each with the shared cell as its `cell_mm` — AC-6 | — |
-| F-13 | the selection tile (CARD-123) | the candidate is not a member, so it has no shared cell | the tile keeps showing the candidate's **own** fit on this book's sheet — a ceiling, not a promise. **Declared divergence from EC-021's "three readings, one number"**: the tile can read above the gate's figure once the book holds a deeper member of the same grid size. The gate's refusal names the figure it enforced, so the owner is told the real number at the one moment it binds | tile figure >= gate figure, always |
-| F-14 | `puzzle_pages` / `puzzle_section` | called without a `cell_sizes` map (a direct caller, a test) | falls back to today's per-puzzle fit. Both production entries (`section_plan`, `puzzle_page_plan`) compute and pass the map over the **whole** book, never over one level's slice | — |
+| F-13 | the selection tile (CARD-123) | the candidate is not a member, so it has no shared cell | the tile keeps showing the candidate's **own** fit on this book's sheet — a ceiling, not a promise. **Declared divergence from EC-021's "three readings, one number"**: the tile can read above the gate's figure once the book holds a deeper member of the same grid size. The gate's refusal names the figure it enforced, so the owner is told the real number at the one moment it binds. **The loop and its bound are pinned since review cycle 1 (F-004)** by `tests/test_book_select_floor_tiles.py`'s `TestBookSelect_ATileClearsTheFloorAndTheAddStillRefusesIt` — an unflagged 6.15 mm tile for a 30x30 candidate, the refusal naming 4.54 mm, and `tile > gate` on that book | tile figure >= gate figure, always |
+| F-14 | `puzzle_pages` / `puzzle_section` | called without a `cell_sizes` map (a direct caller, a test) | falls back to today's per-puzzle fit. Both production entries (`section_plan`, `puzzle_page_plan`) compute and pass the map over the **whole** book, never over one level's slice. The fallback is still a declared contract but is no longer what EC-027's property exercises (review cycle 1, F-003) | — |
 | F-15 | the answer key (FR-042) | an answer tile's cell is fitted by `plan_small_answer_pages` / `solved_puzzle_page` | **unchanged.** FR-042 has its own band ([3.19, 5.0] mm) and its own cap; this card changes the puzzle pages' cell only (G-4) | — |
 | F-16 | the guide page, dividers, TOC | their probe layouts read `self.page_spec(n)` | **unchanged** — they are handed the book's uncapped sheet, so no book-wide puzzle cell can move a rule, a face or a page count on them (ADR-0036/R1) | — |
 | F-17 | a book with one grid size whose shared cell is at the 7.5 mm cap | nothing to lower | the cap stands; the cell is 7.5 mm and not larger (AC-3, G-1) | == 7.5 mm |
@@ -591,42 +592,259 @@ figure was taken anywhere (a sibling card is running concurrently).
 The tree is clean and unmutated: every mutated file was restored from
 `scratchpad/card225-pristine/` and `diff -q` confirmed identical before the commit.
 
-### [Scope] orchestrator, 2026-10-19 — clean, plus one proactive SCOPE+
+## Worktree notes (CARD-225 fix cycle 1, 2026-10-19 — review cycle 1 scored 7.5, four Important)
 
-**8 files changed, every one inside the predicted `Touches`** (its globs `tests/test_book_*.py` cover
-`test_book_select_floor_tiles.py`). **No drift.** Several predictions went unused with stated reasons,
-which is the better direction to be wrong in: `export/layout.py` needed **no edit at all** because the
-book-wide figure reaches the page as a *lowered cap* and `compute_layout` still does every measurement;
-`book_plan.py`, `book_finalize.html` and the helper modules were not needed; and
-`tests/fixtures/book_baseline_card225.json` was **deliberately not created** — every existing baseline
-corpus has at most one member per grid size or members at identical depths, so pages are byte-identical
-and *"a baseline recording no change is one nobody can regress against"*.
+One root cause behind three of the five Important findings, and the review named it: **both
+standing properties whose *meaning* this card changes are verified over corpora that cannot hold
+two members of one grid size.** The implementation notes recorded that blindness for EC-021's
+corpus and not for EC-027's — the one whose verdict the card actually moved. Everything below
+follows from that split: EC-027's corpus is *fixed*, EC-021's is *left alone* and its card-side
+face is tested instead.
 
-**`meta/profiling/rank_durations.py` — SCOPE+, added by the orchestrator before the gate, not by the
-agent.** `tests/test_book_cell_size.py` reads the cell off the **rendered ink**, so it matches
-`RENDER_API_PATTERN` **23 times** and was absent from the frozen render-heavy snapshot. CARD-251 found
-that same condition the expensive way, with a red merge gate; here it was **measured directly** (23
-matches, file absent) and restated deliberately, which is what the guard asks for and costs fifteen
-minutes less. Unlike CARD-251's entry this file genuinely draws, so the share it contributes is a real
-render cost rather than an over-statement — which matters because CARD-218 and CARD-219 are sized
-against that figure.
+### F-003 (important, EC-027) — the pairing property can now see F-8, and fails for the right reason
 
-### [Orchestrator] A brief defect of mine, recorded
+`tests/property/test_book_pairing.py` was green over 3600 books and structurally could not
+instantiate the pairing verdict this card ships, twice over: the walk half called
+`puzzle_pages` with **no `cell_sizes`** (the F-14 fallback, no longer production), and the
+rendered half filtered out every book with two members of one extent. The oracle
+`_expected_pages` decided each offer from the pair alone. All three are closed:
 
-The implementation brief told the agent its curated contract held **17 rules**; the worktree copy it
-actually reads carried the **8** the card was drafted with. Both numbers were mine: I re-curated the
-main copy to 17 **after** the worktree was created, then tightened it to 14 later the same hour when
-the `contexts: [CTX-001]` short-circuit was removed. The agent noticed the gap and said so rather than
-assuming. Nothing was built against the wrong contract — it judged all 8 it had and recorded a verdict
-per rule — but the brief asserted a number the agent could not see, which is the same shape this board
-keeps finding. **A card's contract must be re-derived before its worktree is cut, not after.**
+* **the production door.** The walk half now calls
+  `generator.puzzle_pages(payloads, cell_sizes=generator.cell_sizes(payloads))` — the map
+  `section_plan` and `puzzle_page_plan` both settle.
+* **the oracle.** New `Sheet.single_height_mm`, `Sheet.cell_mm(across, down)` (FR-030's
+  single-page fit, this module's own arithmetic) and `Sheet.book_cell_mm(order)` (the minimum
+  within each grid size), copied in shape from `tests/property/test_book_pdf_geometry.py`'s
+  `Sheet.book_cell_mm`. `Sheet.shared_cell_mm` takes a `cap=` that replaces NFR-008's standard
+  cell as the first term of **both** minima (unreserved and reserved), which is exactly where
+  `compute_pair_layout`'s `fit_spec` carries the lowered cap. `_expected_pages` reads the whole
+  book's cells before it walks it and caps each offer at `_book_cap_mm` — the smaller of the two
+  members' grid-size cells. Cross-checked against production for the six hand-built members:
+  **identical to the last bit** (`diff = 0.000e+00`), not merely within tolerance.
+* **the corpus.** The rendered half's distinct-*extent* filter is replaced by a distinct-*drawing*
+  filter, and the read-back is `(columns, rows, across, down)` — all four measured off the ink
+  (`_measured_extent`, from `page_ink`'s own `left`/`top`/`grid_right`/`grid_bottom`), so two
+  members of one grid size at different clue depths are still told apart by the sequence the pages
+  show. Measured: the ink gives 23.966 for 24, two orders of magnitude from the next integer.
+  Two members of one grid size *and* identical gutters are one drawing twice over and are still
+  filtered out — there is nothing on the page to tell them apart.
+* **and the shape the sweep cannot draw.** F-8 needs one grid size to hold a pair that fits
+  two-up *and* a third, deeper member that takes the size's cell under 7.0 mm. On Book 1 that
+  needs 22..24 columns, shallow rows, and the same grid size **twice** in a book of at most
+  eight: `_puzzle` draws a side in that window about once in twenty-three and the pair of them
+  essentially never — zero occurrences in the 3600-book sweep. So `_book_cell_books()` builds
+  two books by hand (the refusal at 22x10, the smaller-cell case at 24x10), appended **after**
+  the sweep through a generator so every existing minimum still reads on the same rng stream.
+  Counters `refused_on_book_cell >= 1`, `book_cell_lowered >= 1` and `shared_binds >= 1` assert
+  the new term is not a no-op — the `shared_binds` pattern this same diff introduced in
+  `test_book_pdf_geometry.py`.
 
-### [Build gate] PASSED (full, 963s, SOLO) — orchestrator, 2026-10-19 · `c0d35c0`
+**The property can now fail, measured.** Mutant M-A: `_pair_cell_mm` returns `None` (the
+book-wide term deleted from the production side). Before this fix both tests passed; now **both
+fail** — the walk half on `assert [(1, 2), (3,)] == [(1,), (2,), (3,)]`, the rendered half on
+its own page read-back. Mutant M-B: `book_cell_sizes` takes `max` instead of `min` within a grid
+size — **both fail** as well. Both files restored from byte-identical backups, `diff -q`
+confirmed.
 
-**EXIT=0, first attempt: 8537 passed / 1 skipped / 0 failed.** The count reconciles exactly — `main`
-**8495** collected → branch **8538**, **+43**, and the card's own `tests/test_book_cell_size.py` holds
-exactly **43** cases. Every test this card added is in its own file.
+### F-001 (important) — `book_cell_spec`'s two refusals, reached the only way they can be
 
-**It passed first time because the render-set was restated before the gate, not after.** CARD-251 hit
-the same condition as a red merge gate; here it was measured directly and fixed in advance, so
-`test_suite_profile` stayed green.
+`grep -rn "book_cell_spec" tests/` returned zero. New
+`TestBookCellSpec_LowersTheCapAndRefusesANonBookSheet` in `tests/test_book_page_spec.py`: the
+cap wins above 7.5 mm and at it (F-5); the spec is otherwise untouched (`== replace(spec,
+cell_cap=...)`); a `COMFORT_CURVE` sheet is refused, asserted both on `DEFAULT_PAGE_SPEC` (the
+CLI/A4 sheet the ADR-0036/R1 verdict is about) and on a *book* sheet given the curve, so the
+refusal is not passing for want of a parity; and ten bad `cell_mm` values are refused naming the
+argument — `0`, `-1`, `-0.5`, NaN, ±inf, `True`, `False`, a string and `None` (F-6).
+
+**The both-refusals mutant is now red.** Mutant M-C, exactly the reviewer's: both `raise
+ValueError` blocks deleted and the COMFORT_CURVE branch replaced by `return replace(spec,
+cell_cap=float(cell_mm))`. Before: **287 passed, 0 failed** over the five plausible files. After:
+**11 failed, 289 passed**, every failure in the new class. Restored, `diff -q` identical.
+
+### F-002 (important) — the documented contract is true again, and the "alone" case now exists
+
+Measured on this branch before the fix, driving `puzzle_page_plan` with
+`tests/test_book_pdf.py::_unmeasurable_puzzle`:
+
+| case | `main` (7bc93c1) | this branch, before | this branch, after |
+|---|---|---|---|
+| same-tier neighbour | `RuntimeError "puzzle #1, #2 could not be laid out: …"`, `__cause__` a `ValueError` | `ValueError "clue sets disagree about the grid: …"`, `__cause__` `None` | `RuntimeError "puzzle 'Half-unmeasurable' could not be laid out: …"`, `__cause__` a `ValueError` |
+| alone in its tier | planned fine, 1 page | the same bare `ValueError` | the same named `RuntimeError` |
+| different-tier neighbour | planned fine, 2 pages | the same bare `ValueError` | the same named `RuntimeError` |
+
+`puzzle_page_plan` now wraps its `cell_sizes` call in the `_unmeasurable_members` →
+`RuntimeError` the sibling already had, and passes the rows' own **ids** (not positions) so the
+message is the handle a 120-puzzle book offers. Its `Raises:` block is re-derived from the code
+rather than re-worded: it records that the abort is now raised for a member whatever neighbour it
+has, which is new, and that the ValueError case is the *book's* spec. Three new parametrized
+cases in `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle` — including **alone**, which exists
+on no earlier tree — plus an assertion that the good neighbour is not accused. Verified red
+against the pre-fix file: all three fail. Failure-matrix row F-3 amended; `section_plan`'s own
+`Raises:` block updated too.
+
+### F-004 (important) — this card's half of the EC-021 divergence, tested; the registry half untouched
+
+`tests/property/test_book_membership_floor.py`'s corpus is **left alone** (confirmed again:
+`puzzle_shapes()` gives 24 shapes with 24 distinct extents) and no `meta/architecture/**` file is
+edited. What is new is the loop the owner meets, in
+`tests/test_book_select_floor_tiles.py::TestBookSelect_ATileClearsTheFloorAndTheAddStillRefusesIt`:
+a book already holding a 30x30 at 12/8-deep gutters (joined with its own stored override, as
+INV-006 requires), then a 30x30 candidate at 1/1 —
+
+* the tile shows **6.15 mm** with `data-below-floor` absent;
+* `books.below_floor(book_id, [candidate])` refuses it naming **4.54 mm**, the grid size's own
+  figure, and the selection POST shows that figure and the floor;
+* `tile >= gate`, asserted, plus `tile > gate` so the bound is not vacuous on this book;
+* a control: without the deep member the same candidate is admitted.
+
+Written to survive the registry's decision either way — it asserts what each screen shows and
+the ordering between the two figures, and no sentence of EC-021. Discriminating: with
+`_member_clue_sets` dropped from the prospective membership, two of the four fail.
+
+### F-005 (important) — the docstring now says what the test does
+
+M6 reproduced: with `puzzle_section`'s walk handed `self.cell_sizes(payloads[start:end])`,
+`tests/test_book_cell_size.py` gives **1 failed, 42 passed** and the quoted test
+(`test_the_size_is_the_books_and_not_one_levels`) **passes**; the single failure is
+`TestBookCellSize_SharedPageTakesTheSmaller::test_the_pair_is_capped_by_a_member_in_another_level`,
+two classes away. The docstring is corrected to that — it is the claim's substance on the
+single-page path and **not** a guard, because single pages are drawn from
+`SectionPlan.cell_sizes` in `interior_stream` and never see the slice — and it names the test
+that does kill M6. The cross-reference is added in both directions, so the pair is legible as a
+pair from either end.
+
+### Minors
+
+* **F-006 — fixed, with a correction to the finding.** The shape it describes is not reachable:
+  measured before the fix, a book with `trim_width_cm="abc"` raises a bare
+  `ValueError("book trim_width_cm must be a number of cm, not 'abc'")` from **both**
+  `section_plan` (which reads the sheet for its TOC measurement several lines *above* the cell
+  map's try) and `puzzle_page_plan` (which had no handler at all). No 120-number message was ever
+  produced. The remedy was taken anyway, because the property held only by the accident of one
+  call's position: `section_plan` now reads `spec = self.page_spec(1)` once and feeds
+  `page_frame(spec)` (no extra call), `puzzle_page_plan` reads it before its new handler, and
+  `test_an_unreadable_print_specification_is_the_books_own_failure` pins the ValueError for both
+  entries. New failure-matrix row **F-3b**.
+* **F-010 — taken.** One sentence each in `BookManager._below_floor_for` and `app._book_cells`:
+  the floor's subject moving from a puzzle to a membership takes the measured corpus from 186 to
+  325 below the floor — +75%, 139 more puzzles needing a stored override — met at the selection
+  step, and `TestBookCellSize_TheCostOfABookWideCell` is named as where it is pinned.
+* **F-007 — taken.** `_measure` became a module-level `functools.lru_cache`d `_measured_cost(seed)`
+  returning immutable tuples; the six tests keep their independence (none writes to what they
+  share) and `test_the_corpus_is_the_size_it_says_it_is` still asserts `MIN_COST_CASES` against
+  that same object, so the corpus cannot silently shrink. One construction and ~2.8k
+  `compute_layout` calls instead of six and ~16.6k. **No timing figure is claimed** (a sibling
+  card is live).
+* **F-008 — taken, and asserted.** New `_in_submission_order(refusals, puzzle_ids)`, called at
+  both of `_below_floor_for`'s return points, restores the order the one-loop version had by
+  construction. `TestBookFloor_RefusalsComeBackInSubmissionOrder` pins it with an unreadable
+  member *between* two below-floor ones — the only arrangement that can tell the restored order
+  from "unreadable first" — plus the reversed control, which is marked as a control because it
+  passes either way. Red without the sort.
+* **F-009 — judged; the suggestion's first half declined, its second taken.** No filtering or
+  caching was added: the finding's own suggestion is "nothing to do now", there is no registry
+  threshold, and timing is forbidden this cycle. The figure (a 150-member book pays 150
+  `compute_layout` calls to judge one add) and the identified narrowing (filter the member walk
+  to members sharing a grid size with the submission — an identical result over a strictly
+  smaller set, because the map's other keys are never read) are now stated in
+  `_member_clue_sets`' own docstring, where the cost is incurred.
+
+### Mutants run this cycle, and what each did
+
+| | mutant | before the fix | after |
+|---|---|---|---|
+| M-A | `_pair_cell_mm` returns `None` (book-wide term deleted from pairing) | `test_book_pairing.py` green | **both** EC-027 tests fail |
+| M-B | `book_cell_sizes` takes `max` instead of `min` within a grid size | — | **both** EC-027 tests fail |
+| M-C | both `book_cell_spec` refusals deleted, COMFORT_CURVE branch returns a spec | 287 passed / 0 failed | **11 failed**, all in the new class |
+| M-D | `puzzle_page_plan` left as committed (the pre-fix file restored) | — | the three new `puzzle_page_plan` cases fail |
+| M-E | `_below_floor_for`'s `prospective` drops `_member_clue_sets` | — | 2 of the 4 new selection-tab tests fail |
+| M-F | `_in_submission_order` returns the list unsorted | — | the F-008 order test fails (its control passes, as declared) |
+| M-G | `puzzle_section`'s walk sized on `payloads[start:end]` (M6, re-measured) | 1 failed / 42 passed | unchanged — which is the point of F-005 |
+
+Every mutated file was restored from a byte-identical backup and `diff -q`'d; `git diff --stat`
+was used to confirm the two files that should match HEAD exactly do. The tree carries no mutant.
+
+### What was run (not the full suite — the gates own that)
+
+* the nine directly affected files, plus `tests/test_cli.py`'s structural import guard and
+  `tests/test_suite_profile.py`'s frozen-render-set guard: **867 passed, 4 skipped**;
+* every `tests/test_book_*.py` and `tests/property/test_book_*.py`, with
+  `tests/test_books_list*.py`, `tests/test_export_a4_golden.py`,
+  `tests/property/test_cli_exports_byte_identity.py`, `tests/test_layout_page_spec.py` and
+  `tests/test_answer_page_layout.py`: **2779 passed, 1 skipped**;
+* `tests/test_admin_*.py` and `tests/test_puzzle_*.py`: **1326 passed, 4 skipped**.
+
+All green. **No timing figure is claimed anywhere** — two sibling cards are live. The frozen
+render set needs no restatement: every new render call site is in a file already in it
+(`test_book_pairing.py`, `test_book_pdf.py`, `test_book_cell_size.py`), and the guard
+`test_the_frozen_render_set_still_matches_the_grep_that_defines_it` is green.
+
+### Commit
+
+`0cba979` on `card/225-one-cell-size-per-grid-size` — 9 files, `src/` and `tests/` only, staged
+with explicit pathspecs. Nothing under `meta/` is committed: this card's notes and
+`meta/review/20261019T173817Z-CARD-225-cycle1.yml` (all ten findings written back as
+`status: fixed`, `fixed_in: 0cba979`, with F-006's and F-009's decisions recorded in full) stay
+in the working tree for the orchestrator, and `meta/architecture/**` is untouched.
+
+### [Fix 1] declarations — orchestrator, 2026-10-19 · `0cba979`
+
+**All ten findings closed with demonstrations rather than assertions.** 9 files, `src/` and `tests/`
+only; 867 / 2779 / 1326 passed across three widening selections; the frozen render set needed **no**
+restatement, because every new render call site is in a file already in it.
+
+**The decisive evidence for F-003 is the one that matters most: before this fix, the mutant that
+deletes the book-wide term from production left `test_book_pairing.py` GREEN. It now reds both halves.**
+A second mutant (`book_cell_sizes` taking `max` instead of `min`) reds both too, and the widened
+oracle was cross-checked against `book_cell_mm` for all six hand-built members at **diff = 0.000e+00**
+— identical to the last bit, not merely within tolerance.
+
+**⚑ The fix found something the finding had not: F-8 does not occur in the random sweep at all.** It
+needs one grid size holding both a pair that survives CARD-204's folio reserve *and* a member of the
+same size at ≥28 cells — **zero occurrences in 3600 books**. So the corpus alone could never have
+caught it, and two books were hand-built and appended **after** the sweep through a generator, so every
+existing minimum still reads on the same rng stream. Three counters assert the new term is not a no-op.
+
+**The agent flagged that as the judgement call for the certifier rather than burying it**, and it is the
+right thing to flag: adding hand-built books *is* widening a standing property's corpus, which this
+card was right to refuse for EC-021. The distinction it relied on is the one the brief drew — EC-027 is
+the property this card's own change invalidated — and it stated what unpicks cleanly if a certifier
+disagrees: the two books are separable, and the oracle, the production door and the drawing-extent
+read-back stand without them.
+
+**⚑ F-006's premise was wrong, and it said so instead of quietly recording a fix.** The 120-number
+message the finding described **was never producible**: `section_plan` reads the sheet for its TOC
+measurement several lines *above* the cell map's try, and `puzzle_page_plan` had no handler at all, so
+both entries already raised a bare `ValueError`. It took the remedy anyway — because the property held
+only by that one call's position — and corrected the finding's premise in the report and the card.
+
+**F-002 is now measured on three trees**, including the "alone in its tier" case that **exists on no
+earlier tree**: `main` planned it fine, this branch's first cut raised a bare `ValueError`, and the fix
+raises a `RuntimeError` naming the row. **F-005 took the docstring remedy** and names the one test two
+classes away that actually kills M6. **F-009's suggestion was half-declined with its reason** — no
+filtering or caching added, the figure and the identified narrowing recorded in the docstring instead.
+
+- **[Build gate 2]** `0cba979` — **2 failed**, 8558 passed, 1 skipped, 15:19.
+  `tests/property/test_book_ready_gate.py::test_no_exit_from_draft_bypasses_it_in_either_storage_mode[published-db]`
+  (SQLAlchemy's insertmanyvalues sentinel processor was handed a float: `UUID(hex=inf)` →
+  `AttributeError: 'float' object has no attribute 'replace'`) and
+  `tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault::test_loopback_is_served`
+  (nothing answered on `127.0.0.1:62714` while its own server was up).
+- **[Build gate 2 — not solo in fact]** The gate's guard refuses to START while another pytest is
+  alive; it cannot stop one from starting afterwards. CARD-253's implementation agent ran a
+  288-test Chromium suite (3:05) and two further selections inside this gate's 15-minute window.
+  So the guard did its job and the window was still shared — the rule needs a lock other runs
+  **honour**, not only a check at the door. Recorded as a defect in the gate procedure, not in
+  this card's code.
+- **[What that does and does not license]** It does **not** license writing the two failures off.
+  Both files pass solo (15 passed, 6.9s), but 15 green tests are not evidence about an 8558-test
+  run. The discriminator is that this suite has **no `pytest-randomly`** — collection order is
+  deterministic — so a solo full suite must reproduce anything that is real or order-dependent,
+  and can only come back green if the cause was concurrent. Gate 3 runs solo, first in wave 48's
+  serialized chain, and is the measurement. Until it returns, this card's verdict is **unknown**,
+  not green.
+- **[Build gate 3 — PASSED]** `0cba979`, **solo**: 8560 passed, 1 skipped, 14:39, EXIT=0. The two
+  tests gate 2 failed on are in that count and green. Order is deterministic in this suite, so this
+  run is the evidence gate 2's failures were **concurrent-window artefacts** and not this card's —
+  the attribution is now measured, not argued. Fix cycle 1's ten findings stand closed on a green
+  full suite; next station is the certification review (cycle 2).

@@ -805,21 +805,252 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "G-4 as a property: over 3000 seeded lines rule C never loses a "
         "circle rules A and B give, with asserted changed/untouched counts",
     ),
+    "tests/test_puzzle_solver_brush_menu.py::"
+    "TestSolverBrushMenu_FourthBrushIsCalledClear::"
+    "test_the_item_the_trigger_the_hint_and_the_confirmation_all_say_clear": (
+        "CARD-247",
+        "AC-1: the renamed fourth brush reads Clear in the menu item, the "
+        "trigger text, its Brush: name, both hint sentences and the reset "
+        "confirmation",
+    ),
+    "tests/test_puzzle_solver_brush_menu.py::"
+    "TestSolverBrushMenu_FourthBrushIsCalledClear::"
+    "test_no_user_facing_string_in_the_player_says_undecided": (
+        "CARD-247",
+        "AC-1 over the whole rendered page rather than four literals, with a "
+        "control requiring the sweep to find the word that replaced it",
+    ),
+    "tests/test_puzzle_solver_brush_menu.py::"
+    "TestSolverBrushMenu_RenameDidNotTouchTheStateName::"
+    "test_the_state_names_the_tool_values_and_the_order_are_unchanged": (
+        "CARD-247",
+        "AC-2: the label moved and the model did not — the four exported "
+        "state constants, the data-player-tool values, the board's own "
+        "data-state and the brush order are all unchanged",
+    ),
+    "tests/test_puzzle_solver_brush_menu.py::"
+    "TestSolverRegion_ShowsThreeCellsInTheActiveBrush::"
+    "test_it_renders_three_cells_and_no_region_text": (
+        "CARD-247",
+        "AC-3: the Region toggle's face is three rendered cells in a row with "
+        "no text left in the button, and the run is aria-hidden decoration",
+    ),
+    "tests/test_puzzle_solver_brush_menu.py::"
+    "TestSolverRegion_ShowsThreeCellsInTheActiveBrush::"
+    "test_the_three_cells_follow_the_active_brush": (
+        "CARD-247",
+        "AC-3: all three cells carry the chosen brush's state for each of the "
+        "four brushes, agree with the trigger, and really look different",
+    ),
+    "tests/test_puzzle_solver_brush_menu.py::"
+    "TestSolverRegion_KeepsItsAccessibleNameAndPressedState::"
+    "test_it_is_still_named_region_pressed_unpressed_and_across_brushes": (
+        "CARD-247",
+        "AC-4: the text that named the button is gone, so the name is "
+        "asserted through Chromium's own computation, pressed, unpressed and "
+        "under a brush change, with aria-pressed still flipping",
+    ),
 }
+
+
+#: The three files CARD-247's moves are in, spelled once (the ids below are
+#: long enough without repeating the path four times per entry).
+_BRUSH_MENU = f"{FAMILY_PREFIX}_brush_menu.py::"
+_MARKING = f"{FAMILY_PREFIX}_marking.py::"
+_MAYBE = f"{FAMILY_PREFIX}_maybe.py::"
+
+#: Node ids whose PARAMETER was renamed, with no change to what the test does.
+#:
+#: :data:`ADDED_SINCE_BEFORE` can only ever add, and a rename is not an
+#: addition: it is one id leaving and another arriving, which the guard reports
+#: as both "tests added" and "tests removed" — and the removal half cannot be
+#: registered away, because an id CARD-217 recorded must not simply disappear.
+#: CARD-213 was the first card to add a browser test; CARD-247 is the first to
+#: rename a parameter of one, and renaming a parameter is exactly what a
+#: user-facing label rename does to this family: eight node ids carried the
+#: brush label "Undecided" in their parameter, and the owner renamed that
+#: label to "Clear".
+#:
+#: So a rename is recorded here as a MOVE, ``old id -> (card, new id,
+#: reason)``, and :func:`_recorded_node_ids` applies it to CARD-217's record
+#: before anything is compared. Both directions still bite, and the table
+#: cannot be used to lose a test:
+#:
+#: * an UNrecorded rename is still red in both directions
+#:   (``test_a_recorded_rename_is_a_move_and_an_unrecorded_one_goes_red``);
+#: * a recorded rename whose old id is still collected is red in both
+#:   directions too, so the table describes a move that happened rather than
+#:   excusing one that did not;
+#: * a move may only change what is inside the ``[...]`` of a node id —
+#:   ``test_every_rename_entry_moves_one_recorded_id_and_is_attributed``
+#:   refuses an entry whose two sides name different test functions, which is
+#:   how this table would otherwise become a way to delete coverage quietly.
+RENAMED_SINCE_BEFORE: dict[str, tuple[str, str, str]] = {
+    f"{_BRUSH_MENU}TestSolverBrushMenu_RegionIsItsOwnToggle::"
+    "test_adding_it_leaves_the_tools_slot_at_its_old_width"
+    "[chromium-Undecided-1280-720]": (
+        "CARD-247",
+        f"{_BRUSH_MENU}TestSolverBrushMenu_RegionIsItsOwnToggle::"
+        "test_adding_it_leaves_the_tools_slot_at_its_old_width"
+        "[chromium-Clear-1280-720]",
+        "the case is parametrized over MENU_ORDER, whose fourth brush the "
+        "owner renamed from Undecided to Clear; the measured layout claim is "
+        "the same claim, re-measured in the same test",
+    ),
+    f"{_BRUSH_MENU}TestSolverBrushMenu_RegionIsItsOwnToggle::"
+    "test_adding_it_leaves_the_tools_slot_at_its_old_width"
+    "[chromium-Undecided-1440-900]": (
+        "CARD-247",
+        f"{_BRUSH_MENU}TestSolverBrushMenu_RegionIsItsOwnToggle::"
+        "test_adding_it_leaves_the_tools_slot_at_its_old_width"
+        "[chromium-Clear-1440-900]",
+        "the same MENU_ORDER rename at the 1440x900 viewport; the brush is a "
+        "parameter of the layout case and nothing about the case changed",
+    ),
+    f"{_BRUSH_MENU}TestSolverBrushMenu_RegionIsItsOwnToggle::"
+    "test_adding_it_leaves_the_tools_slot_at_its_old_width"
+    "[chromium-Undecided-390-844]": (
+        "CARD-247",
+        f"{_BRUSH_MENU}TestSolverBrushMenu_RegionIsItsOwnToggle::"
+        "test_adding_it_leaves_the_tools_slot_at_its_old_width"
+        "[chromium-Clear-390-844]",
+        "the same MENU_ORDER rename at the 390x844 phone viewport; the brush "
+        "is a parameter of the layout case and nothing about the case changed",
+    ),
+    f"{_BRUSH_MENU}TestSolverRegion_DoesNotChangeTheBrush::"
+    "test_pressing_and_releasing_region_keeps_the_brush[Undecided]": (
+        "CARD-247",
+        f"{_BRUSH_MENU}TestSolverRegion_DoesNotChangeTheBrush::"
+        "test_pressing_and_releasing_region_keeps_the_brush[Clear]",
+        "the brush parametrize list names the four labels; the renamed label "
+        "is the only thing that moved and the behaviour asserted is CARD-211's",
+    ),
+    f"{_MARKING}TestSolverMarking_DragMarksOneLine::"
+    "test_each_tool_sets_its_state_along_the_line[Undecided]": (
+        "CARD-247",
+        f"{_MARKING}TestSolverMarking_DragMarksOneLine::"
+        "test_each_tool_sets_its_state_along_the_line[Clear]",
+        "the tool parametrize names the label the menu shows; the state the "
+        "drag lays down is still unknown and the assertion is unchanged",
+    ),
+    f"{_MARKING}TestSolverMarking_KeyboardAndLabels::"
+    "test_each_tool_acts_on_a_single_key_press[Undecided-Enter]": (
+        "CARD-247",
+        f"{_MARKING}TestSolverMarking_KeyboardAndLabels::"
+        "test_each_tool_acts_on_a_single_key_press[Clear-Enter]",
+        "the name parametrize names the label reached in the menu; the key "
+        "and the keyboard claim of AC-310 are untouched",
+    ),
+    f"{_MARKING}TestSolverMarking_KeyboardAndLabels::"
+    "test_each_tool_acts_on_a_single_key_press[Undecided-Space]": (
+        "CARD-247",
+        f"{_MARKING}TestSolverMarking_KeyboardAndLabels::"
+        "test_each_tool_acts_on_a_single_key_press[Clear-Space]",
+        "the same rename on the Space half of the same keyboard case, whose "
+        "assertions CARD-247 did not touch",
+    ),
+    f"{_MAYBE}TestSolverMaybe_ClickWithTheMaybeTool::"
+    "test_a_maybe_cell_clicked_with_another_tool_takes_its_state"
+    "[Undecided-unknown]": (
+        "CARD-247",
+        f"{_MAYBE}TestSolverMaybe_ClickWithTheMaybeTool::"
+        "test_a_maybe_cell_clicked_with_another_tool_takes_its_state"
+        "[Clear-unknown]",
+        "the parametrize pairs the brush label with the state it paints; the "
+        "label moved to Clear and the state it is paired with is still unknown",
+    ),
+}
+
+
+def _recorded_node_ids(
+    renames: dict[str, tuple[str, str, str]] | None = None,
+) -> set[str]:
+    """CARD-217's recorded family, with every recorded rename applied.
+
+    A rename is a move (see :data:`RENAMED_SINCE_BEFORE`): the id leaves and
+    one id arrives, so this set is always the same size as the artefact's own.
+    ``renames`` is a parameter only so the controls below can run the
+    derivation against a table they have altered; every real caller passes
+    nothing.
+    """
+    moves = RENAMED_SINCE_BEFORE if renames is None else renames
+    return {
+        moves[node][1] if node in moves else node
+        for node in _family_node_ids(BEFORE_ARTEFACT)
+    }
 
 
 def _baseline_node_ids(
     allowlist: dict[str, tuple[str, str]] | None = None,
+    renames: dict[str, tuple[str, str, str]] | None = None,
 ) -> set[str]:
     """The node ids the family is expected to hold: the record | the allowlist.
 
-    CARD-217's committed artefact supplies the recorded part and
-    :data:`ADDED_SINCE_BEFORE` the part added since. ``allowlist`` is a
-    parameter only so the control below can run this same derivation against a
-    table it has altered; every real caller passes nothing.
+    CARD-217's committed artefact supplies the recorded part (through
+    :func:`_recorded_node_ids`, which applies the recorded renames to it) and
+    :data:`ADDED_SINCE_BEFORE` the part added since. ``allowlist`` and
+    ``renames`` are parameters only so the controls below can run this same
+    derivation against tables they have altered; every real caller passes
+    nothing.
     """
     entries = ADDED_SINCE_BEFORE if allowlist is None else allowlist
-    return _family_node_ids(BEFORE_ARTEFACT) | set(entries)
+    return _recorded_node_ids(renames) | set(entries)
+
+
+def _rename_problems(table: dict[str, tuple[str, str, str]]) -> list[str]:
+    """What is wrong with ``table`` as a record of moves, one line each.
+
+    A function and not a loop inside its test, because ADR-0039/R3 asks an
+    exemption to carry a control for what it must NOT absorb: the refusals
+    below only ever run over the real (clean) table, so each of them would be
+    a branch nothing executes. ``test_the_rename_table_refuses_what_it_claims_to``
+    drives this over tables it has broken on purpose, one case per refusal,
+    asserting each case against the message of the refusal it is for — so a
+    refusal deleted here takes its own case red even though several of those
+    tables trip more than one of the refusals below.
+
+    The dangerous entry is not a badly-worded one, it is an entry whose two
+    sides are different tests: that would let a card delete a browser test by
+    "renaming" it into one that already exists, which is the hole the
+    allowlist was careful not to leave. So a move must start at an id
+    CARD-217 recorded, end at one it did not, name only a different parameter
+    of the SAME test function, and appear in neither direction in
+    :data:`ADDED_SINCE_BEFORE`.
+    """
+    before = _family_node_ids(BEFORE_ARTEFACT)
+    problems: list[str] = []
+    for old, entry in sorted(table.items()):
+        if not isinstance(entry, tuple) or len(entry) != 3:
+            problems.append(
+                f"{old}: entry must be (card, new id, reason), not {entry!r}")
+            continue
+        card, new, reason = entry
+        if old not in before:
+            problems.append(
+                f"{old}: not in CARD-217's record, so there is nothing here to "
+                f"move; a test added since is the allowlist's")
+        if new in before:
+            problems.append(
+                f"{old}: {new} is itself recorded, so this is not a move but a "
+                f"merge of two tests into one")
+        if new == old:
+            problems.append(f"{old}: moves to itself")
+        if not new.startswith(FAMILY_PREFIX) or "::" not in new:
+            problems.append(f"{old}: {new} is not a node id of the browser family")
+        if old.split("[")[0] != new.split("[")[0]:
+            problems.append(
+                f"{old}: a move may rename a PARAMETER, not a test — {new} "
+                f"names a different test function, which is a coverage change "
+                f"and belongs in neither table")
+        if not re.fullmatch(r"CARD-\d+", card):
+            problems.append(f"{old}: {card!r} does not name the card that moved it")
+        if len(reason.split()) < 8:
+            problems.append(f"{old}: the reason says too little: {reason!r}")
+        if old in ADDED_SINCE_BEFORE or new in ADDED_SINCE_BEFORE:
+            problems.append(
+                f"{old}: also in ADDED_SINCE_BEFORE, so the derived baseline "
+                f"counts it twice")
+    return problems
 
 
 def _collection_drift(
@@ -916,7 +1147,10 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         4. the derived count moves with the allowlist, so it cannot silently
            become a snapshot again.
         """
-        before = _family_node_ids(BEFORE_ARTEFACT)
+        # The recorded family as it stands after the renames — the set an
+        # empty allowlist derives. Claim 4 below is what pins it to the
+        # artefact's own size, so a rename cannot quietly add or lose an id.
+        before = _baseline_node_ids({})
         recorded = sorted(ADDED_SINCE_BEFORE)[0]
         one_entry = {recorded: ADDED_SINCE_BEFORE[recorded]}
         unrecorded = (
@@ -957,8 +1191,9 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
                 "removed": [dropped],
             }
 
-        # 4 — the count is a function of the allowlist, not a literal.
-        assert len(_baseline_node_ids({})) == len(before)
+        # 4 — the count is a function of the allowlist, not a literal, and
+        # the renames are moves, so they leave the recorded size alone.
+        assert len(_baseline_node_ids({})) == len(_family_node_ids(BEFORE_ARTEFACT))
         assert len(_baseline_node_ids(one_entry)) == len(before) + 1
         assert len(_baseline_node_ids()) == len(before) + len(ADDED_SINCE_BEFORE)
 
@@ -990,6 +1225,145 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
                     f"nothing and double-counts in the derived baseline"
                 )
         assert wrong == [], wrong
+
+    def test_every_rename_entry_moves_one_recorded_id_and_is_attributed(
+        self,
+    ) -> None:
+        """:data:`RENAMED_SINCE_BEFORE` has to read as a record of moves.
+
+        The refusals themselves are :func:`_rename_problems`, so that the
+        control below can show each of them firing *by its own message* — nine
+        cases, nine named refusals, each one asserted on the line only that
+        refusal writes (ADR-0039/R1: a claim about what a guard catches needs
+        a control that can fail). What this test
+        adds is the arithmetic the table has to keep: a move is 1 -> 1, so
+        applying the whole table leaves the recorded family exactly as large
+        as CARD-217 recorded it.
+        """
+        assert _rename_problems(RENAMED_SINCE_BEFORE) == []
+        assert len(_recorded_node_ids()) == len(_family_node_ids(BEFORE_ARTEFACT)), (
+            "applying the renames changed the recorded family's size, so one "
+            "of them is not a move"
+        )
+
+    def test_the_rename_table_refuses_what_it_claims_to(self) -> None:
+        """Each refusal, driven over a table broken on purpose and asserted by
+        the message of THAT refusal.
+
+        Without this the refusals are branches nothing executes: the real
+        table is clean, so every one of them is true for every possible
+        implementation of itself. Asserting only that SOMETHING was refused
+        does not fix that, and this control measured it the hard way: several
+        of the tables below trip two or three refusals at once — every legal
+        ``old`` is by construction recorded, so an entry that "moves to
+        itself" also reads as a merge — and against a non-empty assertion four
+        of the nine refusals could be deleted one at a time with every case
+        still green (CARD-247 review cycle 1, F-001).
+
+        So each case names the refusal it exists for and asserts THAT line is
+        among the problems. Neutralising any one of the nine then takes its
+        own case red, which is measured branch by branch rather than claimed
+        here — the nine results are recorded in CARD-247's worktree notes.
+
+        The fragments have to discriminate, or the same defect moves one layer
+        up: a fragment that another refusal's message would also satisfy pins
+        nothing. Two checks keep that honest — each fragment matches exactly
+        ONE of the problem lines its own case produces (0 means the refusal it
+        names did not fire, 2 means the fragment cannot say which refusal
+        did), and no fragment is a substring of another, so no case can be
+        satisfied by a neighbour's wording.
+        """
+        old = sorted(RENAMED_SINCE_BEFORE)[0]
+        card, new, reason = RENAMED_SINCE_BEFORE[old]
+        recorded = sorted(_family_node_ids(BEFORE_ARTEFACT))[0]
+        unrecorded = f"{FAMILY_PREFIX}_page.py::TestNotAThing::test_nothing[x]"
+
+        # label -> (a table broken on purpose, the refusal it must provoke)
+        broken = {
+            "not a 3-tuple": (
+                {old: (card, new)},
+                "entry must be (card, new id, reason)"),
+            "nothing to move": (
+                {unrecorded: (card, f"{unrecorded}y", reason)},
+                "not in CARD-217's record"),
+            "a merge, not a move": (
+                {old: (card, recorded, reason)},
+                "is itself recorded, so this is not a move but a merge"),
+            "moves to itself": (
+                {old: (card, old, reason)},
+                "moves to itself"),
+            "not of this family": (
+                {old: (card, "tests/test_cli.py::test_x", reason)},
+                "is not a node id of the browser family"),
+            "renames the test": (
+                {old: (card, f"{old.split('[')[0]}_renamed[Clear]", reason)},
+                "a move may rename a PARAMETER, not a test"),
+            "unattributed": (
+                {old: ("the brush rename", new, reason)},
+                "does not name the card that moved it"),
+            "mute reason": (
+                {old: (card, new, "renamed")},
+                "the reason says too little"),
+            "double-counted": (
+                {sorted(ADDED_SINCE_BEFORE)[0]: (card, new, reason)},
+                "also in ADDED_SINCE_BEFORE"),
+        }
+        for label, (table, expected) in broken.items():
+            problems = _rename_problems(table)
+            hits = [problem for problem in problems if expected in problem]
+            assert len(hits) == 1, (
+                f"{label}: {expected!r} matched {len(hits)} of {problems} — "
+                f"with 0 the refusal it names did not fire, so the rule it "
+                f"states is narrative (or another refusal is standing in for "
+                f"it); with 2 the fragment is too loose to say which refusal "
+                f"fired"
+            )
+        fragments = [expected for _table, expected in broken.values()]
+        assert len(set(fragments)) == len(fragments), fragments
+        nested = [(one, other)
+                  for one in fragments for other in fragments
+                  if one != other and one in other]
+        assert nested == [], (
+            f"{nested}: one expected message contains another, so the case "
+            f"naming the shorter one would stay green on the longer one's "
+            f"refusal — the defect this control is for, one layer up"
+        )
+        # ... and the real table trips none of them, so the refusals above are
+        # not simply refusing everything.
+        assert _rename_problems(RENAMED_SINCE_BEFORE) == []
+        assert _rename_problems({old: RENAMED_SINCE_BEFORE[old]}) == []
+
+    def test_a_recorded_rename_is_a_move_and_an_unrecorded_one_goes_red(
+        self,
+    ) -> None:
+        """The rename table is a set the guard consults, so it gets a control.
+
+        Driven over injected sets, like the allowlist's control above, and over
+        one real entry so the derivation is exercised as it actually runs.
+        Three claims: a recorded move is clean, an unrecorded one is red in
+        BOTH directions (which is what a rename looks like to the guard), and
+        a recorded move whose old id is still being collected is red in both
+        directions too — the table describes a move that happened, it does not
+        excuse one that did not.
+        """
+        before = _family_node_ids(BEFORE_ARTEFACT)
+        old = sorted(RENAMED_SINCE_BEFORE)[0]
+        _card, new, _reason = RENAMED_SINCE_BEFORE[old]
+        one_move = {old: RENAMED_SINCE_BEFORE[old]}
+        tree = (before - {old}) | {new}
+
+        assert _collection_drift(tree, _baseline_node_ids({}, one_move)) == {
+            "added": [],
+            "removed": [],
+        }
+        assert _collection_drift(tree, _baseline_node_ids({}, {})) == {
+            "added": [new],
+            "removed": [old],
+        }
+        assert _collection_drift(before, _baseline_node_ids({}, one_move)) == {
+            "added": [old],
+            "removed": [new],
+        }
 
     def test_the_twelve_files_are_still_twelve(self) -> None:
         files = _family_files()

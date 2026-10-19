@@ -20,13 +20,18 @@
   What stays, and is the player's own code unchanged: the brush trigger and
   its menu, the Region toggle (aria-pressed, CARD-211), the visually hidden
   role="status" announce line every toggle and every hint writes to, undo,
-  redo, reset with its role="alertdialog" confirmation, and zoom. The
+  redo, reset with its role="alertdialog" confirmation, and zoom. Its label is RESET here and
+  not "Clear": CARD-247 gave the player's fourth brush the name Clear, and
+  one word naming a brush on one page and a board-wipe on the other is what
+  the owner settled on 2026-10-19 by renaming this button. The
   toolbar starts hidden and solver.js shows it once the board is drawn, so a
   page whose script never ran shows no dead buttons.
 
   TWO BRUSHES, not four. Black and White are the only marks an answer can
-  hold — Puzzle.grid is list[list[bool]] (ADR-0012) — so Maybe and Undecided
-  are not offered here. That is a NARROWING OF THE TOOLS AND NOT A GUARANTEE,
+  hold — Puzzle.grid is list[list[bool]] (ADR-0012) — so Maybe and Clear
+  (which CARD-247 renamed from "Undecided" on the player's own menu — the
+  label changed, the UNKNOWN state it paints did not) are not offered here.
+  That is a NARROWING OF THE TOOLS AND NOT A GUARANTEE,
   and the difference matters: a repeat click's third step is "blank" for both
   remaining brushes (solver_state.js clickedState) and a confirmed Reset
   blanks every cell, so an undecided cell is still reachable. CARD-246 AC-6's
@@ -48,7 +53,7 @@
   CARD-250 named the two bars for what they do. Beside Save, CANCEL LEAVES
   the editor for /puzzles and stores nothing; it asks first in the page
   (#puzzle-editor-leave-confirm, role="alertdialog" — never window.confirm,
-  the rule Clear's confirmation already follows) and only when the board has
+  the rule Reset's confirmation already follows) and only when the board has
   changed since it was opened. Beside Approve, BACK TO EDIT is CARD-246's
   Cancel under the name of what it always did: put the message and the offer
   away and go on editing, nothing stored.
@@ -128,12 +133,12 @@
     <div class="player-history" role="group" aria-label="History">
         <button type="button" class="btn btn-outline-secondary" data-player-action="undo" aria-keyshortcuts="Control+Z Meta+Z" aria-disabled="true">Undo</button>
         <button type="button" class="btn btn-outline-secondary" data-player-action="redo" aria-keyshortcuts="Shift+Control+Z Shift+Meta+Z" aria-disabled="true">Redo</button>
-        <button type="button" class="btn btn-outline-secondary" data-player-action="reset" aria-disabled="true" aria-haspopup="dialog" aria-expanded="false" aria-controls="puzzle-player-confirm">Clear</button>
+        <button type="button" class="btn btn-outline-secondary" data-player-action="reset" aria-disabled="true" aria-haspopup="dialog" aria-expanded="false" aria-controls="puzzle-player-confirm">Reset</button>
         <div class="player-confirm" id="puzzle-player-confirm" role="alertdialog" aria-labelledby="puzzle-player-confirm-title" aria-describedby="puzzle-player-confirm-text" hidden>
-            <p class="player-confirm-title" id="puzzle-player-confirm-title">Clear the board?</p>
+            <p class="player-confirm-title" id="puzzle-player-confirm-title">Reset the board?</p>
             <p class="player-confirm-text" id="puzzle-player-confirm-text">Every cell goes back to undecided, and an undecided cell cannot be saved. Undo brings them back.</p>
             <div class="player-confirm-actions">
-                <button type="button" class="btn btn-danger" data-player-confirm="accept">Clear board</button>
+                <button type="button" class="btn btn-danger" data-player-confirm="accept">Reset board</button>
                 <button type="button" class="btn btn-outline-secondary" data-player-confirm="cancel">Keep marks</button>
             </div>
         </div>
@@ -175,7 +180,7 @@
         never up at once: the question appears only after an Approve the
         server refused for want of the confirmation, and that same `tell` puts
         the Approve offer away. role="alertdialog", never window.confirm — the
-        rule Clear's and Cancel's questions already follow.
+        rule Reset's and Cancel's questions already follow.
 
         Its words here are STATIC. Which book the question is about is said in
         the save bar's message line, by `tell` (G-7: one writer of that line),

@@ -249,7 +249,7 @@ class TestSolverProgress_LiveErrorCount:
         _tool(browser_page, "White")
         _drag(browser_page, [(row, 0), (row, SIDE - 1)])  # the whole row white
         assert _error_count(browser_page) == SIDE - wrong == _errors_of(_states(browser_page), GRID)
-        _tool(browser_page, "Undecided")
+        _tool(browser_page, "Clear")
         _drag(browser_page, [(row, 0), (row, SIDE - 1)])  # undecided never counts
         assert _error_count(browser_page) == 0
         browser_page.keyboard.press("Control+z")

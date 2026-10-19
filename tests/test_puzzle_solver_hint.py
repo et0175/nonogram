@@ -798,7 +798,7 @@ class TestSolverHint_DisabledWithNothingToReveal:
         cells[0] = E if cells[0] == F else F
         _set(browser_page, cells)
         assert _is_disabled(browser_page, "Hint")
-        _tool(browser_page, "Undecided")  # CARD-189: its first click blanks a dark or white cell; CARD-194: via the menu
+        _tool(browser_page, "Clear")  # CARD-189: its first click blanks a dark or white cell; CARD-194: via the menu
         _cell(browser_page, 0, 0).click()
         assert _states(browser_page)[0] == U
         assert not _is_disabled(browser_page, "Hint")
