@@ -429,28 +429,33 @@ roughly 150 `compute_pair_layout` calls per verify, on a path the owner waits on
 (correctly — the host was gating). The review is asked to judge whether the answer can be narrowed to
 the pages that could possibly move.
 
-### [Build gate] FAILED (full, 985s) — CONTENDED, not a verdict · orchestrator, 2026-10-19
+### [Build gate] FAILED (full, 985s) — attribution WITHDRAWN and re-opened · orchestrator, 2026-10-19
 
-**EXIT=1, 5 failed, 8483 passed, 1 skipped — and none of the five is a verdict about this card.**
-Every failure is in `tests/test_admin_binding.py::…::test_a_request_addressed_to_this_machine_is_served`,
-and not one of them is an HTTP-door assertion: all five died on
+**EXIT=1, 5 failed, 8483 passed, 1 skipped.** All five are
+`tests/test_admin_binding.py::…::test_a_request_addressed_to_this_machine_is_served`, and not one is an
+HTTP-door assertion: every one died on
 `psycopg2.errors.UndefinedTable: relation "puzzles" does not exist`.
 
-**The cause is the orchestrator's, and it was printed in the gate's own output.** The script logs
-`pytest procs before start: N` as a guard; it printed **2**, and I did not read it. The implementation
-agent had *resumed* (its task notified twice — "stopped with background work of its own still running")
-and was still running tests **in this same worktree**. Two concurrent runs in one worktree resolve to
-**one** derived database, so one run's schema teardown raced the other's queries.
+**My first explanation was wrong and is withdrawn.** I wrote that the implementation agent had resumed
+and was running tests in the same worktree, citing the gate's own `pytest procs before start: 2`. That
+count was **self-matching**: it was `ps aux | grep -c "[p]ytest"`, and the invoking shell's own command
+line contains the word, so it counted itself. The rewritten guard then reported **3 with nothing
+running at all**, which is how the error surfaced. The true process count during gate 1 is **unknown**,
+so the contention story has no evidence behind it.
 
-**This is a hazard CARD-244 does not cover, and that is worth stating precisely.** CARD-244 gave each
-*worktree* its own derived database and removed the between-worktree collision. It says nothing about
-**two runs inside one worktree**, which is this shape. The between-card case is handled; the
-between-runs case was not.
+What the failure signature does match is the **known `@ops` hazard already on this board**: wave 46
+recorded the app's module-global engine surviving conftest's `DROP SCHEMA`, and the wave-46 smoke test's
+first run died with `FATAL: database … does not exist` for the same family of reason — a connection
+reaching the database outside the fixture that prepares it. That is a hypothesis, not a verdict, and it
+stays open until the solo re-gate returns.
 
-**Fixed where it belongs — the gate now refuses a contended start** rather than narrating one. A guard
-that prints a number nobody acts on is the *control that cannot fail*, which is the exact family this
-board has filed against cards eight times across CARD-250 and CARD-251. Having written that finding
-repeatedly, shipping it in my own tooling is not a defence.
+**The guard is fixed, and it took three attempts, which is the part worth keeping.** Version 1 matched
+any command line containing "pytest" and counted its own shell. Version 2 anchored on
+`python[0-9.]*` and matched **nothing**, because this machine's interpreter basename is `Python` with a
+capital P. Version 3 matches on the *executable* (field 1) and was **verified both ways before use** —
+2 while a run is alive, 0 when idle. The first two versions were written and trusted without that
+check, which is the same defect in my tooling that this board files against cards: a control nobody
+proved could fail, and then one that could only fail.
 
-Re-gated **solo and enforced**. Until that run returns, this card has **no gate verdict** — the red one
-above is evidence about my scheduling, not about `119fc58`.
+**Until the solo re-gate returns, this card has no gate verdict.** The red run above is evidence about
+my instrumentation, not about `119fc58`.
