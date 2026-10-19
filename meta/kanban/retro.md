@@ -810,26 +810,34 @@ three others were owed too, so the debt was visible but understated._
   CARD-251 c1), plus 4 more found outside review (two by fix agents, one by the AC/EC/G gate, one by a
   merge gate) and **2 in the orchestrator's own tooling**. Qualifies on both promotion tests at once
   (≥3 in one card across ≥2 cycles, **and** ≥2 in ≥2 different cards).
-  **CORRECTED during this retrospective: a mandatory rule already states it, and the reason it did not
-  bite is its SCOPE.** `ADR-0039/R1` says, almost verbatim, *"a claim whose control cannot fail is
-  narrative, not coverage, and must be narrowed to what is measured or deleted"* — and R2 and R3 cover
-  the derived-set and exemption halves. All three are `severity: mandatory`. **All three are scoped
-  `code: ["tests/**"]`.**
+  **CORRECTED TWICE. The rule exists, its scope is fine, and what dropped it was the orchestrator.**
 
-  That glob is the finding. The instances it caught this window were the ones inside test files — the
-  vacuous `_approve_offered` assertion, MU-A, MU-J, CARD-251's M8 control. The instances it could not
-  reach were the ones that cost the most cycles: claims in **source comments and docstrings**
-  (`puzzle_edit.js`'s header and `inFlightIs`, `app.py`'s and `puzzle_review.py`'s `Returns:` blocks)
-  and claims in **acceptance criteria** (four amended this wave), neither of which is under `tests/**`.
-  The orchestrator's own gate scripts are not in the repo at all, so no scope reaches them.
+  `ADR-0039/R1` states this family almost verbatim — *"a claim whose control cannot fail is narrative,
+  not coverage, and must be narrowed to what is measured or deleted"* — with R2 and R3 covering the
+  derived-set and exemption halves, all three `severity: mandatory`.
 
-  This is Step 4h case 4 — *the rule existed and did not bite* — and the step is explicit that the fix
-  is the scope, **never a duplicate rule**. **→ routed to `/forge:architect-adr-writer` as a scope
-  delta on ADR-0039/R1–R3: widen from `tests/**` to the claim sites that actually carry claims
-  (`src/**` docstrings and comments, and the card criteria the decompose lens reads), with provenance
-  naming these cards and cycles.** The owner approved promotion on 2026-10-19; it resolves to this
-  amendment rather than a new rule, and the retro's first draft of this entry — which said the family
-  lived only as prose in a prompt — was wrong and is corrected here.
+  The first correction said the rules were scoped `code: ["tests/**"]` and that this was the gap. **That
+  was wrong.** The written scope is `{contexts: [CTX-001], code: ["tests/**"]}`, and `contexts` is
+  additive: `system_rules.py` resolves it to every `src/nonogram/**` glob **plus** `tests/**`. It
+  already covers every file CARD-250 and CARD-251 touched.
+
+  **The rule reached both cards and was dropped in curation — by the orchestrator, on both.** The
+  projection returned it for each; CARD-250 shipped `Curated to 8; 49 dropped` and CARD-251
+  `Curated to 10; 48 dropped`, and **ADR-0039 is in the dropped pile on both** — the two cards that
+  then produced ten instances of the exact family it exists to prevent.
+
+  **Why the curation had nothing to go on: 57 of the 57 rules the projection returns are
+  `severity: mandatory`.** Severity cannot discriminate when everything carries the same value, so
+  "ship 6–14 curated" is an unaided judgement call, and it went wrong twice in one wave on the
+  highest-value rule on the board.
+
+  **→ The fix is not in the ADR.** Nothing about ADR-0039 needs editing — not its scope, not its
+  statement, not its checks. Two deltas belong elsewhere: a **decompose-station** rule that curation
+  may not drop a rule whose provenance names cards from recent waves (ADR-0039's names CARD-238,
+  CARD-228 and CARD-239 — three cards, ten cycles, nineteen gating findings); and an
+  **architect-station** question, that a model in which every rule is mandatory has no priority signal
+  to curate by. Both are owner decisions, recorded here rather than taken.
+
 - **acceptance criteria are written narrower than the decisions they serve** — 4 criteria amended to
   read true in wave 47 alone (CARD-250 AC-5, AC-7; CARD-251 AC-6, AC-9), each discovered by
   *measurement* rather than by review. **Not a rule candidate** — this is a requirement-authoring gap,
@@ -894,3 +902,21 @@ three others were owed too, so the debt was visible but understated._
   at a flat 1d, one at 0.5d.** A constant is not an estimate, so no amount of backlog calibration can
   correct it — the lever is in `decompose`'s sizing step, not in `backlog-scored.yml`. Recorded here
   rather than applied, because changing how cards are sized is a decompose-station change.
+
+### Correction log for this section (2026-10-19)
+
+This retrospective got its headline finding wrong twice before measurement settled it, and the drafts
+are recorded rather than silently replaced — the section is about claims outrunning their mechanisms.
+
+1. **First draft:** "the family lives only as prose in a brief/memory" → false; `ADR-0039` already
+   states it as three mandatory rules.
+2. **Second draft:** "the rule exists but is scoped `tests/**`, which is why it did not bite" → also
+   false; the written `code:` glob is one input, and `contexts: [CTX-001]` resolves the effective scope
+   to all of `src/nonogram/**` plus `tests/**`.
+3. **What measurement showed:** the rule reached both cards and the **orchestrator's curation dropped
+   it on both**, with no severity signal to prevent that because 57 of 57 projected rules are
+   `mandatory`.
+
+Each draft was more specific than its evidence, which is the family itself, committed inside the
+retrospective about the family. Worth more than the finding it corrects.
+
