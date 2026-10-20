@@ -81,3 +81,26 @@ the top of the owning test file — e.g. `tests/test_sourcing_random.py:18` carr
 Grepping for `class <ref>` finds nothing and makes 20 of the model's 33 checks look dead. They are not.
 **Resolve a ref through the owning file's table before concluding anything about enforcement** — the
 first draft of this convention was built on that false reading and had to be withdrawn.
+
+## A trap in rule 2, found while curating CARD-254 and CARD-255 (2026-10-20)
+
+Rule 2 says to keep a `kind: test` rule whose ADR **declares a reach limit**, and names the idiom to
+grep for: *"Reach, stated rather than implied"*. Two things make that grep fail silently, and both
+bit on the first wave that used it:
+
+1. **`system_rules.py`'s output does not carry the ADR's comment text at all.** The emitted rule
+   carries `id`, `source_kind`, `statement`, `severity`, `scope`, `check` — and nothing else. A
+   curation script that reads the tool's YAML can therefore *never* match the idiom, and drops every
+   rule under rule 2. **Read the ADR files, not the tool output.**
+2. **The idiom's case varies.** ADR-0036 and ADR-0037 write "Reach, stated rather than implied";
+   **ADR-0039 writes "REACH, stated rather than implied"** in capitals. A case-sensitive grep keeps
+   the first two and drops the third — which is to say, it drops exactly the rule family this whole
+   convention exists to protect, for the third time (CARD-250, CARD-251, and nearly here).
+
+The derivation that works: collect the ADR *files* whose text matches the idiom **case-insensitively**,
+and keep every `kind: test` rule belonging to them. On CARD-254 that moves the contract from 5 kept to
+**10**; on CARD-255 from 2 to **5**. Both cards are about guards — one removes a guard, one adds one —
+so a contract without ADR-0039 would have been a contract missing its only relevant rule.
+
+**Sanity check worth running every time**: if the card's `Touches` includes `tests/**` or
+`src/nonogram/**` and ADR-0039 is *not* in the kept set, the derivation is broken, not the scope.

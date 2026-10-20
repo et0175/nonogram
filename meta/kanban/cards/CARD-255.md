@@ -1,6 +1,6 @@
 # CARD-255: A pytest run refuses to start while another worktree holds the full-suite lock
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** ops
 **Complexity:** standard
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/255-full-suite-lock-is-enforced
+**Worktree:** ../PythonProject4-card-255
 **Source:** wave 48 retrospective, owner decision 2026-10-20 — "the full-suite lock gets enforced in conftest.py", after CARD-225's build gate 2 shared its window with a browser suite and reported two failures that were not the tree.
 **Idea:** —
-**Wave:** 49 (queued)
+**Wave:** 49
 **Depends on:** —
 **Touches:** tests/conftest.py, meta/kanban/.full-suite.lock (format only), tests/test_full_suite_lock.py (new)
 **Review score:** —
-**Started:** — · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Started:** 2026-10-20T05:15:11Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
 ## Why
@@ -82,3 +82,33 @@ the lock. Requirements that make it a control rather than an irritation:
   two distinct holder identities, and the mutant that proves it is "treat every lock as foreign"
   (which must red the gate's own self-run case).
 - **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`.
+
+## System contract
+
+Curated to **5 of 10** in-scope rules under `meta/kanban/curation.md`: every rule whose
+enforcement does not reach this card's new code is kept; the rest are dropped because the suite runs them
+on every gate. **5 dropped.**
+
+- **ADR-0038/R7** — _review-lens — nothing executes it_
+  Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in
+  pyproject.toml. It is never added to project.dependencies or to the admin extra.
+- **ADR-0038/R8** — _review-lens — nothing executes it_
+  Browser tests run locally, against Chromium installed by `playwright install chromium`. When
+  Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible
+  in the run summary. They never pass silently. Once a CI pipeline exists, it installs Chromium
+  (playwright install chromium) before running them; until then there is no CI, and that is a
+  known gap, not a met clause.
+- **ADR-0039/R1** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  A set a guard consults needs a completeness test written before the set, and any claim the guard
+  makes about what it catches needs a control that can fail: caught WITH the set member present,
+  missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and must be
+  narrowed to what is measured or deleted.
+- **ADR-0039/R2** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where no
+  such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE, never
+  a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3.
+- **ADR-0039/R3** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT
+  absorb — caught with the exemption removed, missed with it in place — is held to an equality
+  against the sites that exist today, and records whatever it still cannot see as a measured bound
+  with its own failing control.
