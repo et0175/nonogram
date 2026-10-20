@@ -7,7 +7,7 @@
      words and the exception is named here, in AC-1 and in the scope statement, rather than
      living only in a matrix row. -->
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Complexity:** architectural
@@ -22,11 +22,11 @@
 **Wave:** 48
 **Depends on:** CARD-222 (the usable area the sizes are fitted against changes with the margins)
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_plan.py, tests/test_book_cell_size.py, tests/property/test_book_pdf_geometry.py, tests/test_book_interior_type_floor.py, tests/fixtures/book_baseline_card225.json, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_select_puzzles.html, src/nonogram/admin/templates/book_finalize.html, meta/profiling/rank_durations.py, tests/helpers/two_up_ink.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
-**Review score:** 7.5 (cycle 1/3 — four Important; does not pass)
+**Review score:** 8.5 (cycle 3/3 — certified, no open Important)
 **Started:** 2026-10-19T15:41:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-20T00:20:58Z
+**Actual:** 1.08d (8.7h wall clock: 3 review cycles, 2 fix cycles, 3 build gates, 1 merge gate)
+**Merge commit:** 00b6ff0f
 **Blocked by:** —
 
 ## What to implement
@@ -1286,3 +1286,32 @@ recorded; two of the Minors closed before the merge in `426ec2a`.
   either. The certifier's rule for the retrospective is the sharpest thing in this cycle: **a
   committed figure is a claim too, and its control is recomputation. Fix cycle 2 ran five deletion
   mutants and not one calculator.**
+
+### Merged — `00b6ff0f`, and the owner's three renders
+
+- **[Merge gate — PASSED]** `11053cad` (branch merged with `main`), solo: **8595 passed**, 1 skipped,
+  16:23, EXIT=0.
+- **[Renders]** `~/Documents/nonogram-reviews/CARD-225/{thirteens,refusal,lowered}/` — interior PDF,
+  a PNG per page, a `cells.json` per case, and a `README.md` naming the exact files to open and the
+  question each one asks. Built from the card's **own corpus helpers**, so each page is the shape its
+  property asserts rather than a hand-made lookalike. Measured on the production path:
+  - **thirteens** — book cell 7.5000; pair laid out at **7.1287**, single at **7.5000** (the pair at
+    95.0 %, a **0.371 mm** step). Files `page-05.png` (pair) and `page-06.png` (single).
+  - **refusal** (F-8) — book cell **6.8036** and **nothing pairs**: three single pages, all at 6.8036.
+  - **lowered** (F-9) — book cell **7.0556**, pair and single both at 7.0556, so **no visible step** —
+    the control for case 1.
+- **[One thing to know about the render files]** the PNG number is the *stream* page, which counts the
+  guide and contents pages, so a puzzle page's file number is its page number **+ 2**. Recorded in the
+  README because it is exactly the kind of thing that makes an owner open the wrong page and conclude
+  nothing is wrong.
+- **[A defect in my own render script, found and fixed before it misled anyone]** the first run died on
+  `AttributeError: 'Layout' object has no attribute 'cell_mm'`. A single page's realized cell lives on
+  `layout.page.cell_mm`; only a *pair* layout carries `cell_mm` directly. Worth recording because the
+  same asymmetry is what made the card's own arithmetic wrong for two cycles: asking the pair-shaped
+  question of a single-page object gives nothing, and asking `_pair_cell_mm` gives the **cap** (7.5),
+  not the realized size.
+- **[Still open, and not this card's to close]** EC-027's registry statement names no sheet and no cap
+  while its property test now states one — the architect station's, recorded as orchestrator finding 4.
+  And whether **6.80 mm** is acceptable in print: no test can judge it, and the floor that stops it
+  going lower (FR-040's 7.0 mm) is about *pairing*, not a single page's legibility. If the owner says
+  it is too small, that is a new card and a new floor, not a defect in this one.
