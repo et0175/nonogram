@@ -216,14 +216,13 @@ def reset_engine() -> None:
     the rebuild does and nothing can hand out a connection older than the
     schema once the fixture yields.
 
-    That position is deliberate but **not** load-bearing, and the older
-    reading of it here was wrong: this function builds nothing, so calling it
-    before the migration cannot leave "a fresh engine pointed at a half-built
-    schema". Measured, not reasoned — moving the call ahead of the Alembic
-    subprocess leaves ``tests/test_db_engine_lifecycle.py`` fully green
-    (CARD-252 G-3; the card's own refutation, re-measured as review mutant
-    R7). The half-built-schema hazard belongs to the card's original sketch,
-    which rebuilt the engine eagerly, not to this implementation.
+    That position is deliberate but **not** load-bearing: this function builds
+    nothing, so calling it before the migration cannot leave "a fresh engine
+    pointed at a half-built schema". Measured, not reasoned — moving the call
+    ahead of the Alembic subprocess leaves ``tests/test_db_engine_lifecycle.py``
+    fully green (CARD-252 G-3). The half-built-schema hazard belongs to that
+    card's original sketch, which rebuilt the engine eagerly, not to this
+    implementation.
 
     What is pinned, and what is not
     -------------------------------
@@ -273,6 +272,17 @@ def reset_engine() -> None:
     which is a different question from retiring an engine after a schema
     rebuild. A third exception is a card, not a commit.
 
+    **This docstring is the only statement of that convention and of the bound
+    below.** ``TestEngineLifecycle_TheResetIsAPublishedSeam`` in
+    ``tests/test_db_engine_lifecycle.py`` lists the controls and points here
+    for the rest, instead of repeating it in the same words — a doubling that
+    was itself a claim, with nothing to red when the two copies drifted.
+    ``test_both_convention_texts_agree_on_the_mechanisms_parameters`` is what
+    reds now: it holds both texts to the mechanism's own parameters — the
+    globals :func:`_init_engine` creates and the two spellings that are
+    counted — read from this module's AST and from the scan's own patterns,
+    never quoted.
+
     That is a **convention, enforced at review**. The only mechanism behind it
     is a textual count in ``tests/test_db_engine_lifecycle.py``
     (``test_no_test_file_outside_the_exemption_sets_those_globals``): per file
@@ -281,9 +291,7 @@ def reset_engine() -> None:
     against a declared exemption. It therefore reds on a new file, a new name,
     or a tenth site in a file that already has some.
 
-    What that count does **not** enforce, stated here because CARD-252 spent
-    three review cycles on a predecessor whose claim about its own reach was
-    wider than its mechanism, and CARD-254 exists to end that:
+    What that count does **not** enforce:
 
     * It counts **text**, not reaches. It does not know what object a counted
       line sets, so a ``monkeypatch.setattr`` naming one of these three
@@ -294,31 +302,32 @@ def reset_engine() -> None:
       names beside a ``setattr(`` or a ``.<name> =``. A name computed at
       runtime, a ``globals()`` or ``vars()`` write, ``importlib`` into a local,
       a ``sys.modules`` swap, ``monkeypatch.delattr``, an attribute target
-      nested in a list unpacking, and a ``setattr(`` whose **receiver argument
-      itself contains parentheses** — ``setattr`` applied to
-      ``sys.modules.get(…)`` rather than to a plain name — all reach or
-      replace these globals without being counted.
+      nested in a list unpacking, every element but the last of a tuple
+      unpacking, a target handed over as one whole dotted-path string (the
+      quoted literal is then the path, not the bare name), and a ``setattr(``
+      whose **receiver argument itself contains parentheses** — ``setattr``
+      applied to ``sys.modules.get(…)`` rather than to a plain name — all reach
+      or replace these globals without being counted. Nothing here says they
+      cannot happen; only that this count will not tell you when they do.
     * Where the name sits in the file is **not** one of those blind cases. The
       scan stops at a parenthesis, never at a newline, so a ``setattr(`` call a
       formatter wrapped across lines is counted exactly as the same call
-      written on one line is. Said here because it was not true, and not
-      declared, until CARD-254's review cycle 1 (F-001): a wrapped call is the
-      spelling a formatter actually produces, and a backstop blind to it has no
-      job left. Crossing newlines costs over-reads, in the same safe direction
-      and with a price: a ``setattr(`` left unclosed in prose, a comment or a
-      string literal reaches a quoted global name further down the file,
-      because the scan stops only at a parenthesis and prose routinely has
-      none. So prose in ``tests/`` that quotes a ``setattr(`` spelling must
-      keep a parenthesis or a ``)`` between it and any quoted global name —
-      which is why neither spelling example above writes one of the three
-      names out.
+      written on one line is — that being the spelling a formatter actually
+      produces, a backstop blind to it would have no job left. Crossing
+      newlines costs over-reads, in the same safe direction and with a price: a
+      ``setattr(`` left unclosed in prose, a comment or a string literal
+      reaches a quoted global name further down the file, because the scan
+      stops only at a parenthesis and prose routinely has none. So prose in
+      ``tests/`` that quotes a ``setattr(`` spelling must keep a parenthesis or
+      a ``)`` between it and any quoted global name — which is why neither
+      spelling example above writes one of the three names out.
     * It is therefore **not** a proof that no test hand-sets these globals, and
       nothing in this project claims it is. An AST deny-default was tried for
       exactly that claim and withdrawn: in a dynamic language a proof claim
-      always has one more axis, and the predecessor paid one review cycle per
-      axis while catching zero real violations. A convention enforced at review
-      is honest about being a convention; this count makes its cheap half
-      mechanical and claims nothing further.
+      always has one more axis, and that predecessor caught zero real
+      violations while its own reach claim kept failing review. A convention
+      enforced at review is honest about being a convention; this count makes
+      its cheap half mechanical and claims nothing further.
 
     Not part of any production path. Nothing in ``src/`` calls it, and it
     changes no behaviour for a process that never does — it exists so that the

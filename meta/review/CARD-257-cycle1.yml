@@ -1,0 +1,407 @@
+version: 1
+generated_at: "2026-10-20T00:00:00Z"
+target: "card/257-cut-the-guards-prose @ 245bc898 (git diff main...HEAD)"
+card: CARD-257
+cycle: 1
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/db/session.py"
+    - "tests/test_db_engine_lifecycle.py"
+    - "tests/conftest.py (reset_engine call site and its docstring)"
+    - "meta/kanban/cards/CARD-257.md (on main, in full)"
+  not_reached:
+    - "the implementation agent's own per-assert instrument (not present in the worktree; a second, independent instrument was written for this review instead)"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 277, removed: 283 }
+  max_fan_in: { symbol: "nonogram.db.session.reset_engine", callers: 1 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/db/session.py"
+    - "tests/test_db_engine_lifecycle.py"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact - the only co-change peers of the two touched files over 12 months are each other (15 and 9 commits); no third peer appears, and tests/conftest.py needs no change because session.py's docstring-stripped AST is byte-identical before and after"
+
+system_contract:
+  rules_checked: 10
+  holds: 3
+  unchecked: 6
+  violated: 1
+  verdicts:
+    - "ADR-0022/R1 (review-lens) - unchecked - no_eligible_fact: the diff touches no signature, request field, export field or source mode; grid extent does not appear in either file"
+    - "ADR-0036/R3 (reach-limited) - unchecked - no_eligible_fact: the diff adds no drawing code; no round-mark site in either file"
+    - "ADR-0036/R4 (reach-limited) - holds - scanned every character of every .py under src/nonogram/**: 3 hits, all U+2022 in src/nonogram/admin/pdf_generator.py (the declared exemption); 0 banned codepoints among this diff's added lines, including the session.py docstring it rewrites"
+    - "ADR-0038/R6 (review-lens) - unchecked - no_eligible_fact: no player, no solution-grid transport in the diff"
+    - "ADR-0038/R7 (review-lens) - unchecked - no_eligible_fact: pyproject.toml is not touched; no browser dependency added"
+    - "ADR-0038/R8 (review-lens) - unchecked - no_eligible_fact: no browser test in the diff; the guard file ran 13 passed / 0 skipped, so nothing skipped silently in the touched selection"
+    - "ADR-0039/R1 (reach-limited) - violated - tests/test_db_engine_lifecycle.py:857 (claim stated at :304-308 and in the assert message at :858-860): the name-agreement arm cannot fail for the global `engine`; see finding F-001"
+    - "ADR-0039/R2 (reach-limited) - holds - every set the new code consults is derived from an enumerable authority: the globals from session.py's AST (_global_names_assigned_by), the two spellings from the name (_hand_set_spellings), and the new _spelling_heads from those compiled patterns' leading literal runs. No hand-written set is introduced; GLOBAL-ADD, SPELL-HEAD-RENAME and ASSIGN-HEAD-RENAME each red the arm that names them (measured per assert)"
+    - "ADR-0039/R3 (reach-limited) - holds - _EXEMPT_HAND_SET_SITES is unchanged by the diff and recomputed dict-equal to the live tree (9 sites, 6 pairs, zero matches outside the two exempt files); the measured bound is restated once, and the class docstring now declares that exactly one blind-to item (a receiver argument containing parentheses) carries a control of its own - which I verified is true of the list as it ships"
+    - "CON-021 (review-lens) - unchecked - no_eligible_fact: no play surface, no play-state persistence in the diff"
+
+root_causes:
+  - id: RC-1
+    title: "Card-record line-split figures were not recomputed at the final revision"
+    finding_ids: [F-002, F-003]
+  - id: RC-2
+    title: "The retired 'same words in two places' pattern survives in a second, unscoped instance, and its load-bearing successor is not declared where the next prose cut will be made"
+    finding_ids: [F-004, F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 857
+    title: "AC-2's name-agreement arm cannot fail for the global `engine` (1 of its 3 set members is narrative)"
+    description: |
+      The new control's first assert is a substring membership test:
+
+          assert {name for name in names if name in text} == set(names)
+
+      with names == ['SessionLocal', '_engine_url', 'engine']. `engine` is a
+      substring of `reset_engine`, `_init_engine`, `_engine_url` and
+      `create_engine`, so `'engine' in text` is satisfied by any text that
+      merely mentions the function - it does not measure whether the text
+      names the global. For the guard text the arm is provably unfalsifiable:
+      the same test's assert at :869 requires `"reset_engine" in guard`, which
+      forces `'engine' in guard`.
+
+      Measured with an independent per-assert instrument (every ast.Assert
+      rewritten into a recording try/except keyed on its own lineno; mutants
+      installed as module attributes or as in-memory source, so no line number
+      shifts; the instrument reproduces the card's AC-2, AC-3 and AC-4
+      matrices cell for cell, on main and on HEAD):
+
+        DOC-NAME-DEL-PROD[SessionLocal]  -> :857 RED
+        DOC-NAME-DEL-PROD[_engine_url]   -> :857 RED
+        DOC-NAME-DEL-PROD[engine]        -> :857 PASS
+        DOC-NAME-DEL-GUARD[SessionLocal] -> :857 RED
+        DOC-NAME-DEL-GUARD[_engine_url]  -> :857 RED
+        DOC-NAME-DEL-GUARD[engine]       -> :857 PASS
+
+      (the [engine] mutants delete every word-boundary occurrence of the bare
+      name `engine` from the text and leave `reset_engine` / `_init_engine`
+      intact - i.e. a text that has genuinely stopped naming that global.)
+
+      Three claims are therefore stated wider than the mechanism:
+        * the control's docstring at :304-308 - "**DOC-NAME-DEL** (a global
+          dropped from either text)";
+        * the assert's own message at :858-860 - "{label} does not name every
+          global _init_engine() creates";
+        * the card's AC-2 and its matrix row `DOC-NAME-DEL -> :857 RED`, which
+          is true only for a name choice the matrix does not state.
+
+      This is the card's single new control, and it is the whole replacement
+      for a rule that was retired precisely because it had no control
+      (ADR-0039/R1: "a claim whose control cannot fail is narrative, not
+      coverage, and must be narrowed to what is measured or deleted"). The
+      failure direction is safe (a missed red, never a false red), which is
+      why this is Important rather than Critical.
+    suggestion: |
+      Make the membership test word-bounded so all three set members are
+      measured:
+
+          import re  # already imported
+          assert {
+              name for name in names
+              if re.search(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])", text)
+          } == set(names), ...
+
+      Both texts carry a standalone `engine` today (reset_engine()'s docstring
+      12 times, the class docstring twice), so the fix keeps the test green;
+      the class docstring's dependence on it is the same one the card already
+      declares as a residue.
+
+      Alternatively, narrow the two sentences to the two names that are
+      measured - but that weakens AC-2, which asks for the three global names.
+
+      CERTIFICATION: a later cycle must show, per assert, that
+      DOC-NAME-DEL[engine] reds :857 on BOTH texts while SHIPPED stays green,
+      and that the mutant is applied per name (three mutants, not one) - a
+      single DOC-NAME-DEL that happens to pick SessionLocal is exactly the
+      evidence that missed this. Because max_cycles is a cycle budget and not
+      a last-mile rule, this fix must not land as the last commit before the
+      merge gate without a cycle seeing that per-name matrix.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-257.md
+    line: 349
+    title: "Residue says 'three of its sections' are CARD-252's record and names two; the third section is this card's own scope"
+    description: |
+      reset_engine()'s docstring has exactly three underlined sections:
+      "Who calls it and why", "What is pinned, and what is not" and
+      "The convention, and what little enforces it". The first two are
+      CARD-252's record; the third is the single source this card created, so
+      it is this card's scope, not a deferred residue. The card's residue
+      sentence says "three of its sections (`Who calls it and why`, `What is
+      pinned, and what is not`) are CARD-252's record rather than this card's
+      scope" - a count of three against two named items, with the unnamed one
+      being the opposite of what the sentence claims.
+
+      Judged on the substance: deferring the two CARD-252 sections IS right -
+      they are outside all three declared cuts, and taking them would have
+      made this card a rewrite of another card's record. The defect is the
+      count, not the deferral.
+    suggestion: |
+      Say "two of its sections" and name them, or name the third and state
+      which card owns it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-257.md
+    line: 180
+    title: "Three of the card's line-split figures are off by one on recomputation"
+    description: |
+      Recomputed with ast + tokenize using the card's own method (prose =
+      docstring lines union comment lines; code = total - prose - blanks):
+
+        guard file before   prose 616 / code 440 / 1.40 : 1   HELD exactly
+        guard file after    prose 568 / code 465 / 1.22 : 1   card says 567
+        session.py before   prose 275 / code  64             HELD exactly
+        session.py after    prose 284 / code  64             HELD exactly
+
+      So the after-prose figure is 568, not 567 (the code figure 465 and both
+      ratios are right either way - 568/465 and 567/465 both round to 1.22:1).
+      Consequently the code delta is +25, not the "24 lines of code" the card
+      states. Separately, control B's docstring goes 63 -> 47, not the card's
+      63 -> 48.
+
+      Everything else recomputed held exactly: 1177 -> 1162 and 384 -> 393;
+      class docstring 116 -> 59; reset_engine 126 -> 135; control A 125 -> 107
+      (docstring 37 -> 30); _hand_set_spellings docstring 33 -> 31; the 69
+      put back decomposes exactly as _spelling_heads 13 + the control 53 +
+      _NAME_PLACEHOLDER 3.
+
+      No conclusion of the card turns on these; the figures are a claim whose
+      control is recomputation, which is why they are reported rather than
+      swallowed.
+    suggestion: |
+      Recompute the split at 245bc898 and correct 567 -> 568, "24 lines of
+      code" -> 25, and 63 -> 48 to 63 -> 47.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 711
+    title: "The class docstring's opening paragraph is now load-bearing, and the class docstring does not say so"
+    description: |
+      The AC-2 control holds each text to the three global names. In the class
+      docstring the only place all three are written out is the opening
+      paragraph - "assigning ``None`` to ``engine``, ``SessionLocal`` and
+      ``_engine_url`` from inside ``conftest.py``" - which is CARD-252's record
+      of a rejected alternative and reads as exactly the kind of historical
+      prose cut 3 of this very card exists to remove. A maintainer performing
+      the next prose cut sees no signal there.
+
+      The bound is declared in two places a maintainer of that paragraph would
+      not be reading: the card's residue section, and the control's own
+      docstring ("A text may hold the names in double backticks, which the
+      scan does not count"), which states the mechanism but not that this
+      paragraph is where the names live.
+
+      Not gating: the failure is a loud red with a message that names the
+      cause. The card declared this residue honestly, which is why it is a
+      Minor and not a finding about concealment.
+    suggestion: |
+      Add one clause to the class docstring beside those names, e.g. "(these
+      three names are also what
+      test_both_convention_texts_agree_on_the_mechanisms_parameters holds this
+      docstring to - do not reword them away)". CERTIFICATION: a reviewer can
+      re-derive it by reading the class docstring alone, with no card and no
+      control open.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/conftest.py
+    line: 469
+    title: "A second 'same words in two places' doubling of a CARD-252 bound survives, uncontrolled and unmentioned"
+    description: |
+      Cut 3 removed from session.py the sentences "the older reading of it here
+      was wrong" and "re-measured as review mutant R7". tests/conftest.py's
+      _rebuild_public_schema docstring (lines 469-479) still carries the same
+      statement verbatim in substance: "Deliberate, but not load-bearing, and
+      the earlier reading of G-3 here was wrong: ``reset_engine()`` builds
+      nothing ... Measured - moved ahead of the Alembic subprocess,
+      ``tests/test_db_engine_lifecycle.py`` stays green (CARD-252's own
+      refutation, re-measured as cycle-1 review mutant R7)."
+
+      So the step-3-position bound is still written twice, in the same two-file
+      pair, with nothing that reds if the copies drift - structurally the same
+      uncontrolled rule this card retired for the convention text. The two
+      copies agree today, so no claim is false and no bound is lost; this is a
+      leftover of the retired pattern, not a defect in the shipped mechanism.
+
+      conftest.py is outside the card's declared `Touches:`, and the three cuts
+      are scoped to the guard's prose, so this is not an AC failure. It is
+      recorded because the card's residue section lists reset_engine()'s two
+      CARD-252 sections and not this third copy of one of them, which makes
+      the residue statement incomplete rather than dishonest.
+    suggestion: |
+      A follow-up card: single-source the step-3-position bound the way this
+      card single-sourced the convention (conftest.py keeps the pointer,
+      reset_engine() keeps the statement), and add it to the residue list so
+      the next card inherits a complete map.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+acceptance_criteria:
+  - id: AC-1
+    verdict: met
+    evidence: |
+      Independent clause-survival diff of the retired class-docstring copy
+      against reset_engine()'s docstring, the new class docstring, the module
+      docstring and the four control docstrings. My own split gives 25 clauses
+      (the card used a finer 41-clause split); 23 survive above 80% content-token
+      coverage, and the 2 below are both review narration the card declares as
+      deliberately dropped under cut 3 ("The exit was not a fourth mechanism",
+      and the M3c / test_db_isolation.py incident). No bound lost its only
+      statement.
+      Single-sourcing verified tree-wide, not just across the two files:
+      globals(), importlib, delattr, "list unpacking", "dotted-path",
+      "convention, enforced at review" and "recorded exceptions" each occur 0
+      times in the guard file and once in session.py; no third file restates
+      the blind-to list, the counting rule or the bound.
+      The two gained clauses both narrow: "every element but the last of a
+      tuple unpacking" (moved from the guard's copy) and "a target handed over
+      as one whole dotted-path string" - I verified the latter is true of the
+      mechanism (the pattern requires a quote immediately before the name; a
+      dotted path puts a dot there), so it adds to the blind-to list and
+      cannot widen the guard's claim. No clause was silently widened.
+  - id: AC-2
+    verdict: met_with_finding
+    evidence: |
+      "Derived from the code, not a string comparison" is satisfied: `names`
+      come from session.py's AST via _global_names_assigned_by, `heads` from
+      the two compiled patterns' leading literal runs via the new
+      _spelling_heads, and no assert compares the two docstrings to each
+      other. GLOBAL-ADD reds :857; SPELL-HEAD-RENAME and ASSIGN-HEAD-RENAME
+      each red :863; DOC-POINTER-DEL reds :869; the scan-side mutants
+      (SPELL-SETATTR-DEL, SPELL-ASSIGN-DEL, COUNT-COLLAPSE, NORM-DEL,
+      PAREN-DEL) leave all four green - it is a text control, as claimed.
+      The card's reported fix of its own first-version defect is real and
+      complete: `names` are read from the text as it ships, the placeholder
+      substitution happens only afterwards and feeds only the heads check, and
+      that substitution is load-bearing rather than decorative (SUBST-DEL and
+      PLACEHOLDER-RENAME each red :863). The sibling heads assert does not
+      carry the same shape of defect - neither head has an independent source
+      in either text.
+      The defect is F-001: the names arm measures 2 of its 3 set members.
+  - id: AC-3
+    verdict: met
+    evidence: |
+      Reproduced both of CARD-254's cycle-3 matrices cell for cell on main
+      with my own instrument (9 asserts of control A, 5 of control B, under
+      SHIPPED / SPELL-SETATTR-DEL / SPELL-ASSIGN-DEL / COUNT-COLLAPSE /
+      NORM-DEL / PAREN-DEL / SPELL-HEAD-RENAME / ASSIGN-HEAD-RENAME), then on
+      HEAD. Every remaining arm's row is unchanged across the deletion:
+      :945->:955, :974->:972, :978->:976, :984->:982, :992->:990,
+      :1001->:999, :1092->:1074, :1110->:1092, :1136->:1122, :1151->:1137,
+      :1171->:1156 all match the card's after column exactly.
+  - id: AC-4
+    verdict: met
+    evidence: |
+      The precondition `two_calls_source.count("setattr(") == 2` is asserted
+      at :1117, before the position assert at :1122. Certified with a
+      line-count-preserving PROBE-ONE-CALL (arm 2b's first call replaced by
+      three "\n" strings, 3 lines for 3 lines): :1117 RED while :1122 stays
+      PASS - the card's point made executable. Note the mutant must target the
+      occurrence inside arm 2b's probe; the same three source lines appear
+      earlier in the file, and a first-occurrence replacement silently mutates
+      the wrong arm and returns all-PASS.
+  - id: AC-5
+    verdict: met
+    evidence: |
+      Tree sweep over tests/**/*.py recomputed: 9 sites, 6 pairs, dict-equal
+      to _EXEMPT_HAND_SET_SITES True, zero matches outside the two exempt
+      files - identical on main and HEAD. The 12 / 9 / 3 measurement also
+      holds: of 375 `setattr(` occurrences under tests/, 12 have a quoted
+      global name downstream, 9 are counted, 3 are stopped by their own `)`.
+      session.py with every module/class/function docstring stripped,
+      round-tripped through ast.unparse, re-parsed and ast.dump'ed: length
+      9154, sha256
+      bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c -
+      the declared value, and byte-identical to main's.
+
+guardrails:
+  - id: G-1
+    verdict: holds
+    evidence: "session.py's docstring-stripped AST is byte-identical before and after (same 9154-char dump, same sha256), so the two regexes, the counter, the dict and the equality are provably untouched. In the guard file the only non-prose changes are the new _NAME_PLACEHOLDER / _spelling_heads / control, the deleted arm 2 and AC-4's precondition."
+  - id: G-2
+    verdict: holds
+    evidence: "Verified over seven mutants plus SHIPPED on main: the deleted arm (:956) reds only under SPELL-SETATTR-DEL and SPELL-HEAD-RENAME, and arm 1 (:945) reds under both - arm 2's kill set is a strict subset of arm 1's, so no mutant kills arm 2 while arm 1 survives. On HEAD, arm 1 (:955) still reds under exactly that pair, and its probe file is no exemption's, so the named survivor really carries the new-file direction."
+  - id: G-3
+    verdict: holds
+    evidence: "nonogram_poc was never named, created, dropped, connected to or truncated. Every run used the derived database nonogram_pythonproject4_card_257_01bc64b6d28b_test, passed as both DATABASE_URL and TEST_DATABASE_URL. _refuse_unless_test_database was neither widened nor bypassed."
+  - id: G-4
+    verdict: holds
+    evidence: "pyproject.toml untouched; the additions use only re / ast, already imported. stdlib only (ADR-0006/R1)."
+
+notes:
+  - "[Adversarial] dropped false positive: 'the gained dotted-path blind-to clause is an uncontrolled new claim'. Refuted - the claim is true of the mechanism (the pattern requires a quote immediately before the name) and it narrows the guard's reach; and the class docstring now explicitly declares that exactly one blind-to item carries a control of its own, so the absence of controls for the rest is declared rather than hidden."
+  - "[Adversarial] dropped false positive: 'AC-2's control is a string comparison of two docstrings in disguise'. Refuted - names come from session.py's AST and heads from the compiled patterns; GLOBAL-ADD / SPELL-HEAD-RENAME / ASSIGN-HEAD-RENAME each red, and the five scan mutants leave all four asserts green."
+  - "[Adversarial] dropped false positive: '_NAME_PLACEHOLDER and its substitution are a dead mechanism'. Refuted - SUBST-DEL (shown = text) and PLACEHOLDER-RENAME each red :863."
+  - "[Adversarial] dropped false positive: 'deleting arm 2 lost the new-file direction'. Refuted - arm 1 on HEAD reds under exactly the mutant set that killed the deleted arm, and its probe file is no exemption's."
+  - "[Adversarial] dropped false positive: 'the diff edits a docstring, so ADR-0036/R4 is at risk'. Refuted - 0 banned codepoints among the added lines; the only tree-wide hits are the 3 declared U+2022 in pdf_generator.py."
+  - "[Adversarial] dropped false positive: 'the equality's new failure message no longer names the exempt files, so a red run cannot tell the maintainer which files are excepted'. Refuted - _EXEMPT_HAND_SET_SITES is printed in the same message and is the authority the message points at."
+  - "[Adversarial] dropped false positive: 'the AC-2 control adds a new uncontrolled claim that the two texts agree'. Refuted - no assert compares the texts to each other, and the pointer assert :869 is itself controlled by DOC-POINTER-DEL."
+  - "[Procedure] No full suite was run. Targeted selections only: tests/test_db_engine_lifecycle.py (13 passed, 0 skipped) and the card's touched-adjacent selection (409 passed, 0 skipped, 0 failed). meta/kanban/.full-suite.lock was confirmed absent before every pytest invocation and was never created, modified or deleted."
+  - "[Procedure] No timing measurement was taken or reported. No file in either repository was mutated on disk: every mutant was applied to an in-memory copy of the source and executed through a self-written per-assert instrument, so no cp -p backup or restore was needed and `git status` is unchanged apart from this report."
+  - "[Procedure] The known @ops hazard (relation \"puzzles\" does not exist in tests/test_admin_binding.py) did not occur; that selection was not run."
+  - "[Observation] The derived test database does exist on this host - the guard file reports 13 passed / 0 skipped with -rs, i.e. its db_required class ran rather than skipping. That diverges from the dispatch note's expectation of a skip, and is worth knowing for the gate, but it affects no verdict here."
