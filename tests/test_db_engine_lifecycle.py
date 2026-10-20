@@ -40,12 +40,25 @@ across the DROP, or a connection left idle-in-transaction so the DROP takes
 the lock-timeout path. None of those exist on this code path today
 (psycopg2 2.9, SQLAlchemy 2.0, pool reset on return), and manufacturing one
 would be testing the manufactured thing rather than the suite.
+
+**CARD-254 shrank the AC-5 half of this file.** What used to live here was an
+AST deny-default over the test tree -- nine helpers, ~180 lines of machinery and
+eleven controls -- that claimed no test could reach ``session.py``'s engine
+globals unseen. It caught zero real violations in three review cycles and its
+own reach claim gated the card in each of them, one axis per cycle. What is
+left is the part that had authority: a derived check that ``reset_engine``
+retires exactly what ``_init_engine`` builds, two checks that the seam is
+published and really called, and a per-file **textual count** standing behind a
+declared convention. The convention, and an explicit list of what the count does
+not enforce, is on :func:`nonogram.db.session.reset_engine`;
+:class:`TestEngineLifecycle_TheResetIsAPublishedSeam` repeats the bound.
 """
 
 from __future__ import annotations
 
 import ast
 import os
+import re
 import time
 from collections import Counter
 from pathlib import Path
@@ -216,9 +229,10 @@ def _global_names_assigned_by(function_name: str) -> frozenset:
     )
 
 
-#: Test files allowed to set ``session.py``'s engine globals by hand, with the
-#: number of times each one sets each name — an equality over **sites**, not a
-#: floor and not a set of ``(file, name)`` pairs (ADR-0039/R3).
+#: Test files allowed to hand-set ``session.py``'s engine globals, with the
+#: number of times the textual scan below counts each name in each one — an
+#: equality over **counted sites**, not a floor and not a set of
+#: ``(file, name)`` pairs (ADR-0039/R3).
 #:
 #: These are ``monkeypatch.setattr`` calls, reversible and function-scoped,
 #: and they exist to make :func:`nonogram.db.session._init_engine` rebuild so
@@ -226,16 +240,16 @@ def _global_names_assigned_by(function_name: str) -> frozenset:
 #: retiring the engine after a schema rebuild, which is what
 #: :func:`nonogram.db.session.reset_engine` is for.
 #:
-#: Nine sites, six pairs — which is why the counts are here. Cycle-1 review
-#: mutant R1 added a *tenth* site under a pair already listed
-#: (``monkeypatch.setattr(db_session, "engine", None)`` in
-#: ``test_db_url_driver.py``) and the pair-set equality this replaced did not
-#: notice. Now a tenth site, a site under a new name, and a site in a new
-#: file each fail the guard below, so that somebody decides rather than
-#: inherits. Controls:
-#: ``test_a_tenth_site_in_an_already_exempt_pair_is_counted`` (R1) and mutant
-#: M3 on CARD-252 (a new file).
-_EXEMPT_PRIVATE_GLOBAL_SITES = {
+#: The counts are here, rather than a set of pairs, because cycle-1 review
+#: mutant R1 on CARD-252 added a *tenth* site under a pair already listed
+#: and a pair-set equality did not notice. A tenth site, a site under a new
+#: name and a site in a new file each red the equality below. Control:
+#: ``test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site``.
+#:
+#: This dict is a declaration, not a derivation, and the equality is its
+#: control: if the scan ever goes blind it reports ``{}``, which is not this
+#: dict, so blindness is red rather than green.
+_EXEMPT_HAND_SET_SITES = {
     ("test_db_url_driver.py", "engine"): 1,
     ("test_db_url_driver.py", "_engine_url"): 1,
     ("test_db_url_driver.py", "SessionLocal"): 1,
@@ -251,22 +265,19 @@ _SESSION_MODULE_PATHS = frozenset({"nonogram.db.session", "src.nonogram.db.sessi
 #: The packages a ``from … import session`` can name.
 _SESSION_PARENT_MODULES = frozenset({"nonogram.db", "src.nonogram.db"})
 
-#: Local names that mean the session module. A **floor**, not the whole
-#: authority: :func:`_private_global_sites_in` adds whatever aliases the file
-#: it is scanning binds for itself, and
-#: ``test_the_alias_set_covers_every_way_the_tree_names_the_module`` holds this
-#: literal to the aliases the tree's own imports bind.
-_SESSION_ALIASES = frozenset({"session", "db_session", "db_session_module", "app_session"})
-
 
 def _session_aliases_in(tree) -> set:
     """Every local name the parsed file ``tree`` binds to the session module.
 
-    Both import spellings, because both bind a name the guard has to see
-    through: ``from nonogram.db import session as X`` and
-    ``import nonogram.db.session as X``. The second was missing until cycle-1
-    review mutant R3 walked past both the guard and its completeness test with
-    it; ``test_a_plain_import_alias_is_a_site`` is now the control.
+    Both import spellings, because both bind a name:
+    ``from nonogram.db import session as X`` and
+    ``import nonogram.db.session as X``.
+
+    Derived from the scanned file's own imports rather than held as a literal
+    floor (ADR-0039/R2), which is why
+    ``test_conftest_names_the_seam_at_its_call_site`` keeps working when
+    ``conftest.py`` renames its alias. Its one consumer is that test; it makes
+    no claim about anything else in the tree.
     """
     aliases = set()
     for node in ast.walk(tree):
@@ -284,323 +295,75 @@ def _session_aliases_in(tree) -> set:
     return aliases
 
 
-def _dotted(node) -> str | None:
-    """``a.b.c`` for a Name/Attribute chain; ``None`` if it is not one."""
-    parts = []
-    while isinstance(node, ast.Attribute):
-        parts.append(node.attr)
-        node = node.value
-    if not isinstance(node, ast.Name):
-        return None
-    parts.append(node.id)
-    return ".".join(reversed(parts))
+def _hand_set_spellings(name: str):
+    """The two text shapes that count as hand-setting ``name``.
 
+    A regex pair, built from the name rather than written out, so the three
+    names come from :func:`_global_names_assigned_by` and nothing here has to
+    be kept in step by hand (ADR-0039/R2):
 
-def _names_the_session_module(dotted, aliases):
-    """``True`` / ``False`` / ``None`` — and ``None`` means *cannot tell*.
+    * ``setattr(… "name" …)`` — any ``setattr``-spelled call that carries the
+      attribute name as a quoted literal, whatever its receiver and however
+      its arguments are bound. The scan is **newline-insensitive**: the only
+      character that stops it between the ``setattr(`` and the quoted name is
+      a parenthesis, so a call a formatter wrapped across lines counts exactly
+      as the same call written on one line does. CARD-254 review cycle 1,
+      F-001: the wrapped form is the single most likely way a contributor
+      actually writes that line, and a backstop blind to it has no job left
+      (mutant M3c). Control:
+      :meth:`TestEngineLifecycle_TheResetIsAPublishedSeam.test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`.
+    * ``.name =`` — an attribute of that name on the left of a plain
+      assignment, whatever the receiver is.
 
-    ADR-0039/R2: a spelling this cannot classify is a spelling the guard
-    cannot see through, so its callers must turn ``None`` into a FAILURE and
-    never into a silent pass. Today that is anything whose last component is
-    ``session`` without being a path or an alias the tree binds — e.g.
-    ``import nonogram.db as pkg`` followed by ``pkg.session.engine = …``, or a
-    string target naming some other package's ``session`` module.
+    The parenthesis exclusion is what keeps the first pattern from running
+    past the end of its own call and matching a name belonging to the next
+    one — measured as a match *position* by arm 2b of that control, because a
+    count cannot see it: ``re.finditer`` is non-overlapping, so an
+    over-reaching match swallows the next call whole and the total is the same
+    either way (CARD-254 review cycle 2, F-001). It is also why a ``setattr(``
+    whose *receiver argument* itself contains parentheses stays invisible, and
+    it is the only thing that stops the scan: a ``setattr(`` left unclosed in
+    prose or a comment reaches a quoted global name further down the file
+    (arm 4). Both convention texts declare both halves.
+
+    Word boundaries are the quotes and the leading dot, which is what keeps
+    ``"create_engine"`` and ``._engine_url`` out of ``engine``'s count.
     """
-    if dotted is None:
-        return None
-    if dotted in aliases or dotted in _SESSION_MODULE_PATHS:
-        return True
-    if dotted.rsplit(".", 1)[-1] == "session":
-        return None
-    return False
-
-
-def _is_setattr_call(node) -> bool:
-    """Any call *named* ``setattr``: ``anything.setattr(...)`` or the builtin.
-
-    The match is on the NAME, not on what the name is bound to: ``sa = setattr``
-    followed by ``sa(app_session, "engine", None)`` is invisible here. That sits
-    inside this guard's declared "names, not values" bound and is measured at
-    zero sites in this tree — it is said out loud because "``setattr``-shaped",
-    which this docstring used to say, promises a reach the mechanism does not
-    have (cycle-3 review, suggestion (c)).
-
-    Both spellings, because the deny default below is only total over the shapes
-    it binds if neither spelling gets to decide that it is out of scope.
-    Requiring ``node.func`` to be an ``ast.Attribute`` is what let cycle-2
-    review mutant X2
-    (``setattr(app_session, "engine", None)``) through the previous version
-    while this class's docstring named ``setattr(module, "name", …)`` as a
-    spelling it saw. The builtin is also the more dangerous of the two —
-    ``monkeypatch`` reverses itself at teardown and ``setattr`` does not — and
-    this tree uses it on modules and classes at a dozen sites.
-    """
-    if not isinstance(node, ast.Call):
-        return False
-    func = node.func
+    escaped = re.escape(name)
     return (
-        (isinstance(func, ast.Attribute) and func.attr == "setattr")
-        or (isinstance(func, ast.Name) and func.id == "setattr")
+        re.compile(rf'setattr\([^()]*?["\']{escaped}["\']'),
+        re.compile(rf"\.{escaped}\s*=(?!=)"),
     )
 
 
-def _string_target_tail(node) -> str | None:
-    """The attribute name a ``setattr`` string target ends in, or ``None``.
+def _hand_set_sites_in(source: str, filename: str, names) -> Counter:
+    """``Counter`` of ``(filename, name)`` per text match of a hand-set spelling.
 
-    ``"nonogram.db.session.engine"`` → ``"engine"``. Also ``f"{MOD}.engine"``
-    and ``MOD + ".engine"`` → ``"engine"``: the trailing literal segment of a
-    computed target is statically readable even when the module part is not,
-    which is what keeps the total default from reding on the tree's real
-    computed targets (``monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])``
-    names ``_WEB_SOURCES``, so it is nothing to this guard). ``None`` means
-    the guard cannot read the name at all, and its caller fails on that.
+    A grep, deliberately — see
+    :class:`TestEngineLifecycle_TheResetIsAPublishedSeam` for what that does
+    and does not mean. It reads text, not syntax: it does not know what object
+    is being set, it does not know whether the line executes, and a spelling
+    that does not put one of ``names`` next to a ``setattr(`` or a ``.name =``
+    in the file's text is invisible to it. "Next to" is newline-insensitive and
+    parenthesis-sensitive — see :func:`_hand_set_spellings` for exactly what
+    that means and which spelling it therefore still misses.
     """
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value.rpartition(".")[2]
-    if isinstance(node, ast.JoinedStr) and node.values:
-        tail = node.values[-1]
-    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        tail = node.right
-    else:
-        return None
-    if isinstance(tail, ast.Constant) and isinstance(tail.value, str) and "." in tail.value:
-        return tail.value.rpartition(".")[2]
-    return None
-
-
-def _string_target_module(node) -> str | None:
-    """The module part of a ``setattr`` string target, or ``None`` if unreadable.
-
-    Only a whole string literal is readable. A computed target
-    (``f"{MOD}.engine"``) returns ``None``, and the caller turns that into a
-    FAILURE rather than a pass, because it cannot rule out that the computed
-    part is the session module — cycle-2 review mutant X3.
-    """
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value.rpartition(".")[0]
-    return None
-
-
-def _private_global_sites_in(source: str, filename: str, names):
-    """``(Counter of (filename, name) per SITE, unanalysable spellings)``.
-
-    Counts occurrences, not distinct ``(file, name)`` pairs, so that the
-    equality in ``test_no_test_file_outside_the_exemption_sets_those_globals``
-    is the decision :data:`_EXEMPT_PRIVATE_GLOBAL_SITES` says it is.
-
-    The deny default is total **over the shapes it binds**, and that is the
-    whole design. The shapes it binds are two: every ``setattr``-shaped call
-    with **two or more positional arguments** (the arity dispatch below), and
-    every **simple** attribute assignment target
-    (``isinstance(target, ast.Attribute)`` in an :class:`ast.Assign`). What
-    falls between them reaches no branch at all, so it is neither recorded nor
-    appended to ``unanalysable``: a ``setattr`` whose target or name arrives as
-    a keyword, and an attribute target nested in a tuple or list unpacking or
-    carried by an annotated, ``for`` or ``with`` target. Both are measured at
-    zero sites in this tree and held there by
-    ``test_the_binding_frontier_is_empty_in_this_tree`` (cycle-3 review
-    C3-F-001). Cycles 1
-    and 2 of this card's review each widened this function by enumerating
-    spellings and then described a reach one shape wider than the new
-    enumeration; a fourth shape exists for any finite list. So the rule here
-    is not a list of shapes:
-
-    * every ``setattr``-shaped call is analysed — ``anything.setattr(...)``
-      **and** the bare builtin (:func:`_is_setattr_call`);
-    * a readable attribute name that is not in ``names`` ends the analysis:
-      the call demonstrably does not touch one of ``session.py``'s engine
-      globals;
-    * a target the guard resolves to some **other** module or object ends it
-      too. That discrimination is the reason the default can be total without
-      drowning in false reds — measured over this tree, it is what keeps 13
-      sites (a non-literal attribute name on a target that is plainly not the
-      session module) and 315 more (a readable attribute name that simply is
-      not one of the engine globals) out of the failure list. It has its own
-      control (``test_a_setattr_on_another_module_is_not_this_guards_business``);
-    * everything that is left is a FAILURE, appended to the second list: a
-      target the guard cannot rule out, and an attribute name it cannot read
-      while the target is — or might be — the session module (ADR-0039/R2).
-
-    The two argument shapes are told apart by **arity**, which is what
-    distinguishes them in Python rather than a guess: three or more positional
-    arguments is ``setattr(obj, "name", value)``; two is ``monkeypatch``'s
-    ``setattr("dotted.path.name", value)``, and the builtin cannot take two.
-    Alongside them, the dotted assignment ``db_session.engine = …`` (any
-    chain, so ``nonogram.db.session.engine = …`` counts too — mutant M3's
-    shape), whose attribute name is always readable and whose receiver is a
-    failure whenever the guard cannot rule it out.
-
-    The one residual, stated because it is **not** covered: this guard
-    follows *names*, not values. A call whose target is a computed value (a
-    subscript, a call result) *and* whose attribute name is also non-literal
-    gives it nothing on either axis, so it is skipped rather than failed.
-    Measured over this tree, exactly two such sites exist —
-    ``tests/property/test_book_membership_floor.py:190`` and
-    ``tests/test_book_finalise_gutter.py:1511``, both
-    ``setattr(<a book row>, column, value)`` — and failing on them would be a red the guard cannot
-    discriminate without guessing. When the attribute name *is* readable the
-    target's provenance stops mattering:
-    ``setattr(sys.modules["nonogram.db.session"], "engine", …)`` fails.
-    Control: ``test_a_computed_target_with_an_unreadable_name_is_the_declared_bound``.
-    """
-    tree = ast.parse(source)
-    aliases = set(_SESSION_ALIASES) | _session_aliases_in(tree)
     sites = Counter()
-    unanalysable = []
-
-    def record(dotted, name, node, spelling) -> None:
-        verdict = _names_the_session_module(dotted, aliases)
-        if verdict is True:
-            sites[(filename, name)] += 1
-        elif verdict is None:
-            unanalysable.append(f"{filename}:{node.lineno}: {spelling}")
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Attribute) and target.attr in names:
-                    record(
-                        _dotted(target.value), target.attr, node,
-                        f"<{ast.unparse(target.value)}>.{target.attr} = ...",
-                    )
-        elif _is_setattr_call(node) and len(node.args) >= 3:
-            # ``setattr(obj, name, value)`` — the attribute name is args[1].
-            target, name_node = node.args[0], node.args[1]
-            readable = (
-                name_node.value
-                if isinstance(name_node, ast.Constant) and isinstance(name_node.value, str)
-                else None
-            )
-            if readable is not None and readable not in names:
-                continue  # a readable name outside `names` is nothing to this guard
-            chain = _dotted(target)
-            if _names_the_session_module(chain, aliases) is False:
-                continue  # some other module or object — none of this guard's business
-            if readable is not None:
-                record(
-                    chain, readable, node,
-                    f'setattr({ast.unparse(target)}, "{readable}", ...)',
-                )
-            elif chain is None:
-                continue  # the declared bound: a computed target AND an unreadable name
-            else:
-                unanalysable.append(
-                    f"{filename}:{node.lineno}: "
-                    f"setattr({ast.unparse(target)}, {ast.unparse(name_node)}, ...) "
-                    "— the attribute name is not a literal this guard can read, and "
-                    "the target is not ruled out"
-                )
-        elif _is_setattr_call(node) and len(node.args) == 2:
-            # ``setattr("dotted.path.name", value)`` — monkeypatch's string target.
-            target = node.args[0]
-            tail = _string_target_tail(target)
-            if tail is None:
-                unanalysable.append(
-                    f"{filename}:{node.lineno}: setattr({ast.unparse(target)}, ...) "
-                    "— the target string is not one this guard can read"
-                )
-            elif tail in names:
-                module = _string_target_module(target)
-                if module is None:
-                    unanalysable.append(
-                        f"{filename}:{node.lineno}: setattr({ast.unparse(target)}, ...) "
-                        f"— names {tail!r} on a module this guard cannot read"
-                    )
-                else:
-                    record(module, tail, node, f'setattr("{target.value}", ...)')
-    return sites, unanalysable
+    for name in names:
+        for pattern in _hand_set_spellings(name):
+            for _ in pattern.finditer(source):
+                sites[(filename, name)] += 1
+    return sites
 
 
-def _binding_frontier_reaches_in(source: str, filename: str, names):
-    """The reaches that fall OUTSIDE :func:`_private_global_sites_in`'s dispatch.
-
-    That function binds two shapes — a ``setattr``-shaped call with two or more
-    positional arguments, and a *simple* attribute target in an
-    :class:`ast.Assign`. This one reports what falls between them and still
-    reaches ``session.py``: a ``setattr`` with fewer than two positional
-    arguments (target or name bound by keyword, or starred), and an attribute
-    target naming one of ``names`` while nested in a tuple/list unpacking or
-    carried by an annotated, ``for`` or ``with`` target. Cycle-3 review
-    C3-F-001 measured both at zero sites in this tree; this is what keeps that
-    measured instead of asserted in prose.
-
-    Scoped by the guard's own discrimination — a target resolved to some
-    **other** module is none of its business — and deliberately coarser than
-    the guard on the keyword half: it does not read a keyword-bound attribute
-    name, so any such call on the session module is reported whichever
-    attribute it names. That over-reds relative to the guard's "a readable name
-    outside ``names`` ends the analysis" rule, which is the safe direction for
-    a frontier that is empty.
-    """
-    def non_simple_attribute_targets(node):
-        """``(attribute target, the shape carrying it)``, or ``[]``."""
-        if isinstance(node, ast.Assign):
-            carriers = [t for t in node.targets if isinstance(t, (ast.Tuple, ast.List))]
-            shape = "nested in a tuple/list unpacking"
-        elif isinstance(node, ast.AnnAssign):
-            carriers, shape = [node.target], "an annotated assignment target"
-        elif isinstance(node, (ast.For, ast.AsyncFor)):
-            carriers, shape = [node.target], "a for-loop target"
-        elif isinstance(node, ast.withitem):
-            carriers = [node.optional_vars] if node.optional_vars is not None else []
-            shape = "a with-statement target"
-        else:
-            return []
-        return [
-            (inner, shape) for carrier in carriers for inner in ast.walk(carrier)
-            if isinstance(inner, ast.Attribute)
-        ]
-
-    tree = ast.parse(source)
-    aliases = set(_SESSION_ALIASES) | _session_aliases_in(tree)
-    reaches = []
-
-    def not_ruled_out(node) -> bool:
-        # `None` (unreadable) stays in, like everywhere else in this guard.
-        return _names_the_session_module(_dotted(node), aliases) is not False
-
-    for node in ast.walk(tree):
-        if _is_setattr_call(node) and len(node.args) < 2:
-            receiver = node.args[0] if node.args else next(
-                (kw.value for kw in node.keywords if kw.arg == "target"), None
-            )
-            if not_ruled_out(receiver):
-                reaches.append(
-                    f"{filename}:{node.lineno}: {ast.unparse(node)} "
-                    "— fewer than two positional arguments, so neither arity "
-                    "branch analyses it"
-                )
-        for target, shape in non_simple_attribute_targets(node):
-            if target.attr in names and not_ruled_out(target.value):
-                reaches.append(
-                    f"{filename}:{target.lineno}: {ast.unparse(target)} = ... as "
-                    f"{shape} — not a simple ast.Assign attribute target, so no "
-                    "branch analyses it"
-                )
-    return reaches
-
-
-def _private_global_sites(names):
-    """:func:`_private_global_sites_in`, summed over every file under ``tests/``."""
+def _hand_set_sites(names) -> Counter:
+    """:func:`_hand_set_sites_in`, summed over every file under ``tests/``."""
     sites = Counter()
-    unanalysable = []
     for path in sorted((REPO / "tests").rglob("*.py")):
-        file_sites, file_unanalysable = _private_global_sites_in(
-            path.read_text(encoding="utf-8"), path.name, names
+        sites.update(
+            _hand_set_sites_in(path.read_text(encoding="utf-8"), path.name, names)
         )
-        sites.update(file_sites)
-        unanalysable.extend(file_unanalysable)
-    return sites, unanalysable
-
-
-def _binding_frontier_reaches(names):
-    """:func:`_binding_frontier_reaches_in`, over every file under ``tests/``."""
-    reaches = []
-    for path in sorted((REPO / "tests").rglob("*.py")):
-        reaches.extend(
-            _binding_frontier_reaches_in(path.read_text(encoding="utf-8"), path.name, names)
-        )
-    return reaches
+    return sites
 
 
 @pytest.mark.db_required
@@ -924,74 +687,116 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
 
     The decision (recorded as a ``STRUCTURE:`` note on CARD-252): the fixture
     calls :func:`nonogram.db.session.reset_engine`. The alternative — the card's
-    own sketch, ``app_session.engine = None`` and friends inside
-    ``conftest.py`` — is the same four lines, but it leaves ``session.py``
-    silent about the fact that something retires its engine, and silent is how
-    the module got here.
+    own sketch, assigning ``None`` to ``engine``, ``SessionLocal`` and
+    ``_engine_url`` from inside ``conftest.py`` — is the same four lines, but it
+    leaves ``session.py`` silent about the fact that something retires its
+    engine, and silent is how the module got here.
 
-    The guard's set is ``tests/conftest.py``, and the named exemption is the
-    nine pre-existing ``monkeypatch.setattr`` **sites** (six ``(file, name)``
-    pairs) in ``tests/test_db_url_driver.py`` and
-    ``tests/test_db_connect_timeout.py``. Those answer a different question —
-    they force ``_init_engine`` to rebuild so that *its* behaviour can be
-    observed — and they are held to an equality over sites with their counts
-    (:data:`_EXEMPT_PRIVATE_GLOBAL_SITES`), not a floor and not a set of
-    pairs, so a tenth site under an existing pair is a decision somebody makes
-    rather than one they inherit (ADR-0039/R3).
+    What this class is, after CARD-254
+    ----------------------------------
+    Three checks with derived authority, and one grep.
 
-    What the guard reaches, stated as what has a control (ADR-0039/R1). It
-    recognises three spellings — a dotted assignment,
-    ``setattr(obj, "name", …)`` in **both** the ``monkeypatch.setattr`` and
-    the bare-builtin form, and ``setattr("dotted.path.name", …)`` — by the
-    aliases the scanned file itself binds (both import spellings) on top of
-    :data:`_SESSION_ALIASES`; **and it fails on anything ``setattr``-shaped
-    whose target or whose attribute name it cannot read.** That second
-    sentence holds inside one frontier, stated here because it is where the
-    mechanism stops: the analysis is over **positional** argument binding and
-    **simple** assignment targets. A ``setattr`` whose target or whose
-    attribute name arrives as a *keyword*
-    (``monkeypatch.setattr(app_session, name="engine", value=None)``), and an
-    attribute target nested in a tuple or list unpacking or carried by an
-    annotated, ``for`` or ``with`` target
-    (``app_session.engine, app_session.SessionLocal = None, None``), are
-    outside it — they really do set the globals, and this guard passes them
-    silently. Both are measured at **zero sites** in this tree, and
-    ``test_the_binding_frontier_is_empty_in_this_tree`` is what keeps that
-    true: a control that reds on the first such site, rather than a sentence
-    promising there can be none. Cycle 1 of this card's review widened a list
-    of three spellings and claimed three; cycle 2 found the next three out;
-    cycle 3 widened the mechanism and claimed it had no outside. A claim about
-    a finite shape list always has a fourth shape.
+    1. :meth:`test_it_resets_exactly_the_globals_the_builder_creates` reads
+       ``session.py``'s own AST and holds ``reset_engine``'s global set equal
+       to ``_init_engine``'s, so a fourth global added to the builder tomorrow
+       is inside the check that day. This is the one check here that protects
+       the product change, and it is the only *derived* authority in the file.
+    2. :meth:`test_reset_engine_is_public_and_says_who_calls_it` and
+       :meth:`test_conftest_names_the_seam_at_its_call_site` pin the seam
+       itself: a public, documented function that names its caller, and a real
+       AST **call** in ``conftest.py`` rather than a mention of its name in
+       prose.
+    3. :meth:`test_no_test_file_outside_the_exemption_sets_those_globals` is
+       the convention's backstop, and it is a **textual count**: per file under
+       ``tests/``, how many times each of the three global names appears next
+       to a ``setattr(`` or on the left of an attribute assignment
+       (:func:`_hand_set_sites_in`), held to an equality against
+       :data:`_EXEMPT_HAND_SET_SITES`. It reds on a new file, a new name, or a
+       tenth site in a file that already has some
+       (:meth:`test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site`),
+       and the *shape* of call it counts — wrapped across lines yes,
+       parenthesised receiver no — is pinned by
+       :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`.
 
-    Each clause has a control in this class, and six of them are verbatim
-    mutants from the two review cycles that SURVIVED the guard version they
-    were aimed at — R1, R2, R3 (cycle 1) and X1, X2, X3 (cycle 2) — plus the
-    deny-on-unanalysable default R3 exposed. The *discrimination* that makes a
-    total default affordable has its own control as well
-    (``test_a_setattr_on_another_module_is_not_this_guards_business``):
-    without it the guard would red on idioms this tree already uses: measured,
-    13 sites set a non-literal attribute name on a target that is plainly not
-    the session module, and 315 more set a readable attribute name that simply
-    is not one of the engine globals.
+    What the count does NOT enforce
+    -------------------------------
+    Said at length because the predecessor of this class was an AST
+    deny-default whose *claim* about its own reach gated CARD-252 in three
+    consecutive review cycles while catching zero real violations. The exit was
+    not a fourth mechanism; it was to stop making a reach claim at all. So:
 
-    Measured on this head, over every file under ``tests/``: the total guard
-    finds **nine sites** (six ``(file, name)`` pairs) and **zero**
-    unanalysable spellings. So :data:`_EXEMPT_PRIVATE_GLOBAL_SITES` is an
-    equality over the entire set the guard sees, not over a subset of it —
-    there is nothing the guard reports that the exemption does not account
-    for, and nothing it declines to report that it could have read.
+    * **It is text, not reach.** It does not know what object a counted line
+      sets. A ``monkeypatch.setattr`` naming one of these three attributes on
+      some unrelated class counts; so does a line inside a docstring, a comment
+      or a string literal. It over-reds, which is the safe direction
+      for a backstop, and it is at zero false positives over this tree today
+      for two reasons, both accidents of how the tree happens to be written:
+      no other file in ``tests/`` writes these three names beside a
+      ``setattr(`` or a ``.name =``, and no file leaves a ``setattr(``
+      unclosed upstream of one of them (see the newline bullet below). Both
+      were measured over the whole tree at CARD-254 review cycle 2: of the
+      ``setattr(`` occurrences under ``tests/``, twelve have a quoted global
+      name somewhere downstream, nine of those are the counted sites, and the
+      other three are stopped by their own ``)`` — adjacent
+      ``monkeypatch.setattr`` calls in the two exempt files, which is arm 2b's
+      property holding in the real tree rather than in a probe.
+    * **It is blind to any spelling that does not put the literal name beside
+      a ``setattr(`` or a ``.name =``.** A name computed at runtime, a
+      ``globals()`` or ``vars()`` write, ``importlib`` into a local, a
+      ``sys.modules`` swap, ``monkeypatch.delattr``, an attribute target
+      nested in a list unpacking (``[…] = …``), every element but the last
+      of a tuple unpacking, and a ``setattr(`` whose **receiver argument
+      itself contains parentheses** — ``setattr`` applied to
+      ``sys.modules.get(…)`` rather than to a plain name — all reach or
+      replace the globals and are **not** counted. There
+      is no claim here that they cannot happen — only that nothing in this file
+      will tell you when they do. The receiver-parentheses case is measured,
+      not asserted: arm 3 of
+      :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`
+      reds if it ever starts being counted.
+    * **Where the name sits in the file is not one of those blind cases.** The
+      scan stops at a parenthesis, never at a newline, so a ``setattr(`` call a
+      formatter wrapped across lines is counted exactly as the same call
+      written on one line is. Said here because it was not true, and not
+      declared, until CARD-254's review cycle 1 (F-001): mutant M3c — a wrapped
+      hand-set appended to ``tests/test_db_isolation.py``, a file no exemption
+      lists — left the equality green. A wrapped call is the spelling a
+      formatter actually produces, so the mechanism was widened rather than the
+      claim narrowed. Crossing newlines costs over-reads, in the same safe
+      direction and with a price: a ``setattr(`` left unclosed in prose, a
+      comment or a string literal reaches a quoted global name further down the
+      file, because the scan stops only at a parenthesis and prose routinely
+      has none. So prose in ``tests/`` that quotes a ``setattr(`` spelling must
+      keep a parenthesis or a ``)`` between it and any quoted global name —
+      which is why neither of the two spelling examples in these bullets writes
+      one of the three names out. Controls: arms 1, 2a, 2b and 4 of
+      :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`
+      (a wrapped call is counted at all; an unrelated wrapped call manufactures
+      no match, which widening a *count* could otherwise turn into a
+      false-positive engine; the match starts at the call that carries the
+      name, not at an earlier one; and the unclosed-``setattr(``-in-prose
+      over-read is what it is said to be).
+    * **It therefore proves nothing about whether a test hand-sets these
+      globals.** What stands behind that is the convention recorded on
+      :func:`nonogram.db.session.reset_engine`: tests call ``reset_engine()``;
+      ``test_db_url_driver.py`` and ``test_db_connect_timeout.py`` are the two
+      recorded exceptions; a third is a card, not a commit. A convention
+      enforced at review is honest about being a convention. The count makes
+      the cheap half of it mechanical and claims nothing else.
 
-    The bound that remains, and it is one bound said twice: the guard follows
-    **names, not values**. A test file that reached the globals through
-    something no AST walk can follow — a name bound by a fixture,
-    ``importlib.import_module`` into a local, a ``globals()`` or ``vars()``
-    write — is outside it. So is the single ``setattr`` corner where the
-    target is a computed value *and* the attribute name is non-literal, which
-    gives the guard nothing on either axis; that corner is measured at two
-    book-row sites in this tree (measured, not estimated) and is skipped
-    rather than failed for exactly that reason (:func:`_private_global_sites_in`, and
-    ``test_a_computed_target_with_an_unreadable_name_is_the_declared_bound``
-    pins both it and its edge).
+    It is also why ``test_db_engine_lifecycle.py`` is not itself an exemption,
+    and the reason is now two things rather than one. Its probe strings are
+    built from the derived names at runtime, so no probe writes a name out;
+    and the only literal spellings of the three names anywhere in this file
+    are the keys of :data:`_EXEMPT_HAND_SET_SITES`, which sit above every
+    ``setattr(`` occurrence in the file, so no unclosed ``setattr(`` in the
+    prose below them can reach one. The second half is load-bearing, not
+    incidental: before CARD-254's review cycle 2 the receiver-parentheses
+    bullet above spelled one of the names out 33 characters downstream of a
+    ``setattr(``, and the only thing keeping this file from reddening the
+    equality against itself was an editorial parenthesis in that sentence
+    (F-002). Either way the equality above is what checks it, since an entry
+    for this file would break the dict.
     """
 
     def test_reset_engine_is_public_and_says_who_calls_it(self) -> None:
@@ -1007,26 +812,32 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
     def test_conftest_names_the_seam_at_its_call_site(self) -> None:
         """``conftest.py`` *calls* it — read as a call, not as a substring.
 
-        A text search is the wrong instrument here, and this cycle proved it:
+        A text search is the wrong instrument here, and CARD-252 proved it:
         narrowing ``_rebuild_public_schema``'s docstring for review finding
         F-004 put the literal ``reset_engine()`` into conftest's prose, so a
         substring check would have been satisfied with the call deleted.
         Mutant M1 (the call gone, the prose kept) is the control.
 
-        Stated bound: the call has to be an attribute call on something that
-        names the session module (``app_session.reset_engine()``). If conftest
-        ever imports the function directly and calls it bare, this test reds
-        and has to be widened — deliberately, rather than quietly accepting
-        any call to anything of that name.
+        Stated bound: the call has to be an attribute call whose receiver
+        ``conftest.py`` itself binds to the session module, or spells as the
+        module's dotted path (:func:`_session_aliases_in`,
+        :data:`_SESSION_MODULE_PATHS`). If conftest ever imports the function
+        directly and calls it bare, this test reds and has to be widened —
+        deliberately, rather than quietly accepting any call to anything of
+        that name. Nothing else about conftest's shape is read here.
         """
         tree = ast.parse(CONFTEST_SOURCE.read_text(encoding="utf-8"))
-        aliases = set(_SESSION_ALIASES) | _session_aliases_in(tree)
+        receivers = _session_aliases_in(tree) | set(_SESSION_MODULE_PATHS)
+        assert _session_aliases_in(tree), (
+            "tests/conftest.py imports nonogram.db.session under no name this "
+            "check can see, so it could not find a call through one either"
+        )
         calls = [
             node for node in ast.walk(tree)
             if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
             and node.func.attr == "reset_engine"
-            and _names_the_session_module(_dotted(node.func.value), aliases) is True
+            and ast.unparse(node.func.value) in receivers
         ]
         assert calls, (
             "tests/conftest.py never calls session.reset_engine() — a mention "
@@ -1044,372 +855,323 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             "behind is a cache key that outlives the schema."
         )
 
-    def test_the_alias_set_covers_every_way_the_tree_names_the_module(self) -> None:
-        """Completeness for :data:`_SESSION_ALIASES`, derived from the tree's imports.
-
-        ADR-0039/R2: the guard recognises the session module by alias, so an
-        alias it does not know is a shape it cannot analyse. That must be a
-        failure, not a silent pass — and it is twice over now: the scan unions
-        the aliases of the file it is reading, and this test holds the literal
-        to the whole tree's imports. Both spellings are collected
-        (:func:`_session_aliases_in`), because cycle-1 review mutant R3 used
-        ``import nonogram.db.session as X`` to slip past both.
-        """
-        aliases = set()
-        for path in sorted((REPO / "tests").rglob("*.py")):
-            aliases |= _session_aliases_in(ast.parse(path.read_text(encoding="utf-8")))
-        assert aliases, "no test file imports nonogram.db.session (guard is blind)"
-        assert aliases <= _SESSION_ALIASES, (
-            f"tests/ names the session module as {sorted(aliases - _SESSION_ALIASES)}, "
-            "which the private-globals guard's floor would not carry. Add it to "
-            "_SESSION_ALIASES."
-        )
-
     def test_no_test_file_outside_the_exemption_sets_those_globals(self) -> None:
-        names = _global_names_assigned_by("_init_engine")
-        sites, unanalysable = _private_global_sites(names)
-        assert not unanalysable, (
-            "these test-tree lines set one of session.py's engine globals on "
-            "something this guard cannot resolve to the session module, so it "
-            "cannot say whether they are exempt. ADR-0039/R2 makes that a "
-            f"failure, not a pass:\n  " + "\n  ".join(unanalysable)
-        )
-        assert dict(sites) == _EXEMPT_PRIVATE_GLOBAL_SITES, (
-            "the test-tree sites setting session.py's engine globals by hand "
-            "have changed (counts are per site, not per (file, name) pair).\n"
-            f"  found:  {sorted(sites.items())}\n"
-            f"  expect: {sorted(_EXEMPT_PRIVATE_GLOBAL_SITES.items())}\n"
-            "conftest.py in particular must go through reset_engine() (AC-5); "
-            "any other new site — including a second one in a file that "
-            "already has some — is a decision to record, not to inherit."
-        )
+        """The convention's backstop: a per-file textual count, held to an equality.
 
-    def test_the_binding_frontier_is_empty_in_this_tree(self) -> None:
-        """The frontier of :func:`_private_global_sites_in`, asserted not said.
-
-        That function binds *positional* argument binding and *simple*
-        assignment targets. Shapes that fall between its branches reach
-        ``session.py``'s engine globals and pass it silently — a ``setattr``
-        whose target or name arrives as a keyword, and an attribute target
-        nested in a tuple or list unpacking or carried by an annotated,
-        ``for`` or ``with`` target. Cycle-3 review C3-F-001 measured every one
-        of them at **zero sites** in this tree, which is why the remedy was
-        this assertion rather than a fourth widening of the mechanism: the
-        frontier stops being a sentence and becomes a control that reds on the
-        first such site, naming its file, line and spelling.
-
-        Two halves, because a frontier assertion over a tree that is empty
-        would also pass if the scan saw nothing at all: each named shape is
-        fed to the scan as source text and must be reported, and the whole of
-        ``tests/`` must report nothing. The third assertion is the edge — the
-        same keyword-bound spelling on a target that is plainly **not** the
-        session module is not a finding here and must not become one, or this
-        control would be a different, wrong claim
-        (``test_a_setattr_on_another_module_is_not_this_guards_business``).
+        Read the class docstring for what this does not enforce. In one line:
+        it counts text, so it cannot say that a counted line sets one of
+        ``session.py``'s globals, and it cannot see a hand-set written any
+        other way.
         """
         names = _global_names_assigned_by("_init_engine")
-        imported = "from nonogram.db import session as app_session\n"
-        for shape in (
-            '    monkeypatch.setattr(app_session, name="engine", value=None)',
-            '    monkeypatch.setattr(target=app_session, name="engine", value=None)',
-            "    setattr(*TRIPLE_NAMING_THE_SESSION_MODULE)",
-            "    app_session.engine, app_session.SessionLocal = None, None",
-            "    [app_session.engine] = [None]",
-            "    app_session.engine: object = None",
-            "    for app_session.engine in [None]: pass",
-            '    with open("x") as app_session.engine: pass',
+        assert names, "no module-level globals found in _init_engine (guard is blind)"
+        sites = _hand_set_sites(names)
+        assert dict(sites) == _EXEMPT_HAND_SET_SITES, (
+            "the per-file count of session.py's engine global names written "
+            "next to a setattr( or as an attribute assignment has changed "
+            "(counts are per text match, not per (file, name) pair).\n"
+            f"  found:  {sorted(sites.items())}\n"
+            f"  expect: {sorted(_EXEMPT_HAND_SET_SITES.items())}\n"
+            "The convention is on nonogram.db.session.reset_engine: tests call "
+            "reset_engine(); test_db_url_driver.py and test_db_connect_timeout.py "
+            "are the two recorded exceptions; a third one — including a second "
+            "site in a file that already has some — is a card, not a commit."
+        )
+
+    def test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site(self) -> None:
+        """Every direction the equality claims to catch, each fed as source text.
+
+        Not mutants somebody has to remember to re-apply. Each arm builds its
+        hand-set line from a name :func:`_global_names_assigned_by` derived
+        from ``session.py``, which is also why this file contributes no counted
+        site of its own.
+
+        The claim under control is the equality's, and only the equality's:
+        each arm produces a count the exemption does not account for. Nothing
+        here claims the scan sees every way a global can be set -- the class
+        docstring says the opposite, at length.
+
+        What each arm measures is the **count** the scan produces for its own
+        probe source. It does not measure the equality's reaction to that
+        count: ``dict(...) == _EXEMPT_HAND_SET_SITES`` reacts to any difference
+        by construction, so there is no mechanism there to delete and nothing
+        for an arm to kill. Two asserts here used to compare a single-file
+        probe count against the whole six-pair exemption and say in their
+        message that the equality would otherwise pass; those comparisons were
+        true for every possible probe value and were removed in CARD-254 review
+        cycle 2 (F-001's family). Each arm below now asserts the count, and
+        nothing else.
+
+        Four arms, one per clause, with the mutant that reds each (measured per
+        assert, never off a single pytest result -- see the matrix note on
+        :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`):
+
+        1. both spellings are counted at all, without which the rest would be
+           vacuous -- reds if either regex in :func:`_hand_set_spellings` is
+           dropped;
+        2. a new file -- reds if the ``setattr(`` spelling stops being counted;
+        3. a new name -- the same, under a name no exemption entry covers;
+        4. a tenth site inside a pair the exemption already lists (CARD-252's
+           cycle-1 mutant R1, which a pair-*set* equality did not notice) --
+           reds if the counter is collapsed to one per ``(file, name)`` pair,
+           which is the mechanism this arm exists for.
+        """
+        names = sorted(_global_names_assigned_by("_init_engine"))
+        assert names, "no module-level globals found in _init_engine (guard is blind)"
+        probe_file = "test_not_exempt.py"
+        assert not any(
+            key[0] == probe_file for key in _EXEMPT_HAND_SET_SITES
+        ), f"{probe_file} has become a real exemption; pick another probe name"
+
+        def setattr_spelling(name: str) -> str:
+            # Built, never written out, so the literal name never appears in
+            # this file's own text and the tree-wide count stays clean.
+            return f'    monkeypatch.setattr(db_session, "{name}", None)\n'
+
+        def assignment_spelling(name: str) -> str:
+            return f"    db_session.{name} = None\n"
+
+        # 1. both spellings are counted -- the two halves of
+        #    _hand_set_spellings, each load-bearing on its own.
+        for spelling, label in (
+            (setattr_spelling, "a quoted attribute name in a setattr( call"),
+            (assignment_spelling, "an attribute assignment"),
         ):
-            source = f"{imported}\n\ndef test_frontier_probe(monkeypatch):\n{shape}\n"
-            assert _binding_frontier_reaches_in(source, "test_not_exempt.py", names), (
-                "this spelling reaches session.py's engine globals through a "
-                "shape the AC-5 guard does not analyse, and the frontier scan "
-                f"does not report it either, so nothing sees it: {shape.strip()}"
+            counted = _hand_set_sites_in(
+                f"def test_spelling(monkeypatch):\n{spelling(names[0])}",
+                probe_file,
+                names,
             )
-            sites, unanalysable = _private_global_sites_in(source, "test_not_exempt.py", names)
-            assert dict(sites) == {} and unanalysable == [], (
-                "the guard itself now analyses this shape, so it is no longer "
-                "outside the frontier: widen the frontier's statement and this "
-                f"control together. {shape.strip()}: {dict(sites)} / {unanalysable}"
+            assert dict(counted) == {(probe_file, names[0]): 1}, (
+                f"{label} is not counted, so the equality cannot red on it: "
+                f"{dict(counted)}"
             )
 
-        assert not _binding_frontier_reaches_in(
-            "import other_module\n\n"
-            "def test_edge(monkeypatch):\n"
-            '    monkeypatch.setattr(other_module, name="engine", value=None)\n',
-            "test_not_exempt.py",
+        # 2. a new file: a site in a file the exemption does not list at all.
+        new_file = _hand_set_sites_in(
+            f"def test_new_file(monkeypatch):\n{setattr_spelling(names[0])}",
+            probe_file,
             names,
-        ), (
-            "the frontier reds on a keyword-bound setattr aimed at a module "
-            "this guard has already resolved to something other than "
-            "session.py, which makes it a different and wrong claim"
+        )
+        assert dict(new_file) == {(probe_file, names[0]): 1}, (
+            "a hand-set site in a file outside the exemption is not counted, "
+            "so a new file would add nothing for the equality to notice: "
+            f"{dict(new_file)}"
         )
 
-        outside = _binding_frontier_reaches(names)
-        assert not outside, (
-            "these test-tree lines set one of session.py's engine globals "
-            "through a shape the AC-5 guard does not analyse at all — it "
-            "neither counts them as sites nor reports them as unanalysable, "
-            "so they pass it silently. Either route the reset through "
-            "reset_engine() (AC-5), or widen _private_global_sites_in and the "
-            "frontier stated on this class together (cycle-3 review "
-            "C3-F-001):\n  " + "\n  ".join(outside)
-        )
-
-    # --- the three shapes this guard was NOT written from ---------------
-    # All three survived it in CARD-252's cycle-1 review (R1/R2/R3: 5 passed
-    # each). They are controls now, because a claim about what a guard catches
-    # needs a control that can fail (ADR-0039/R1). Each feeds source *text* to
-    # the scanner rather than editing a real file, so the control is permanent
-    # instead of being a mutant somebody has to remember to re-apply.
-
-    def test_a_tenth_site_in_an_already_exempt_pair_is_counted(self) -> None:
-        """R1: nine sites are six pairs, and the tenth must not hide in a pair."""
-        names = _global_names_assigned_by("_init_engine")
+        # 3. a new name: a site under a name no exemption entry covers.
+        # Derived so it cannot collide with a real global and turn this arm
+        # into a false red the day session.py grows a fourth one.
+        intruder = "_engine_probe"
+        while intruder in names:
+            intruder += "_"
         exempt_file = "test_db_url_driver.py"
+        new_name = _hand_set_sites_in(
+            f"def test_new_name(monkeypatch):\n{setattr_spelling(intruder)}",
+            exempt_file,
+            [*names, intruder],
+        )
+        assert dict(new_name) == {(exempt_file, intruder): 1}, (
+            "a site under a name outside the exemption is not counted, so a "
+            f"fourth global could be hand-set silently: {dict(new_name)}"
+        )
+        assert (exempt_file, intruder) not in _EXEMPT_HAND_SET_SITES
+
+        # 4. a tenth site inside a pair the exemption already lists.
+        listed = sorted(
+            name for name in names if (exempt_file, name) in _EXEMPT_HAND_SET_SITES
+        )
+        assert listed, (
+            f"{exempt_file} lists none of {names}, so this arm has nothing to "
+            "add a tenth site to; fix the exemption or this control first."
+        )
+        tenth = listed[0]
         source = (REPO / "tests" / exempt_file).read_text(encoding="utf-8")
-        before, _ = _private_global_sites_in(source, exempt_file, names)
-        key = (exempt_file, "engine")
-        assert before[key] == _EXEMPT_PRIVATE_GLOBAL_SITES[key], (
-            "this control is measured against the real exempt file; its site "
-            "count there has changed, so fix the exemption first."
+        before = _hand_set_sites_in(source, exempt_file, names)
+        key = (exempt_file, tenth)
+        assert before[key] == _EXEMPT_HAND_SET_SITES[key], (
+            "this arm is measured against the real exempt file; its count "
+            "there has changed, so fix the exemption first."
         )
-        mutated = source + (
-            "\n\ndef test_r1_control(monkeypatch):\n"
-            '    monkeypatch.setattr(db_session, "engine", None)\n'
+        after = _hand_set_sites_in(
+            source + f"\n\ndef test_r1_control(monkeypatch):\n{setattr_spelling(tenth)}",
+            exempt_file,
+            names,
         )
-        after, unanalysable = _private_global_sites_in(mutated, exempt_file, names)
-        assert not unanalysable
         assert after[key] == before[key] + 1, (
             "a tenth hand-set site inside an already-exempt (file, name) pair "
-            "was not counted, so the exemption is a set of pairs again and "
-            f"the comment on _EXEMPT_PRIVATE_GLOBAL_SITES is false: {after[key]}"
-        )
-        assert dict(after) != _EXEMPT_PRIVATE_GLOBAL_SITES, (
-            "the guard's equality accepts a tenth site in an exempt pair"
+            "was not counted, so the exemption is a set of pairs again and the "
+            f"comment on _EXEMPT_HAND_SET_SITES is false: {after[key]}"
         )
 
-    def test_the_string_target_spelling_is_a_site(self) -> None:
-        """R2: pytest's own ``setattr("pkg.mod.name", …)`` spelling."""
-        names = _global_names_assigned_by("_init_engine")
-        sites, unanalysable = _private_global_sites_in(
-            "def test_r2_control(monkeypatch):\n"
-            '    monkeypatch.setattr("nonogram.db.session.engine", None)\n',
-            "test_not_exempt.py",
-            names,
-        )
-        assert not unanalysable
-        assert dict(sites) == {("test_not_exempt.py", "engine"): 1}, (
-            "the string-target spelling of monkeypatch.setattr is invisible to "
-            f"the guard, so AC-5's claim is wider than its reach: {dict(sites)}"
-        )
-
-    def test_a_plain_import_alias_is_a_site(self) -> None:
-        """R3: ``import nonogram.db.session as X`` then ``X.engine = …``."""
-        names = _global_names_assigned_by("_init_engine")
-        source = (
-            "import nonogram.db.session as probe\n\n"
-            "def test_r3_control():\n"
-            "    probe.engine = None\n"
-        )
-        assert _session_aliases_in(ast.parse(source)) == {"probe"}, (
-            "the alias-completeness collection does not see the plain-import "
-            "spelling, so its own docstring's promise is unmet"
-        )
-        sites, unanalysable = _private_global_sites_in(source, "test_not_exempt.py", names)
-        assert not unanalysable
-        assert dict(sites) == {("test_not_exempt.py", "engine"): 1}, (
-            "a module aliased by `import nonogram.db.session as X` is invisible "
-            f"to the guard: {dict(sites)}"
-        )
-
-    # --- the three shapes cycle 2 found one layer out -------------------
-    # X1/X2/X3 are the cycle-2 review's verbatim mutants. All three SURVIVED
-    # the cycle-1 guard (9 passed, unanalysable empty), two of them while the
-    # class docstring above named their spelling. They are controls for the
-    # *total* deny default rather than for three more branches: X2 pins the
-    # call-shape axis, X1 the attribute-name axis, X3 the string-target axis.
-
-    def test_the_bare_builtin_setattr_spelling_is_a_site(self) -> None:
-        """X2: ``setattr(app_session, "engine", None)``, no monkeypatch receiver.
-
-        The guard required ``node.func`` to be an ``ast.Attribute``, so the
-        builtin was invisible — while the claim above literally named
-        ``setattr(module, "name", …)``. It is the more dangerous of the two
-        spellings as well: ``monkeypatch`` undoes itself at teardown and this
-        does not.
-        """
-        names = _global_names_assigned_by("_init_engine")
-        sites, unanalysable = _private_global_sites_in(
-            "from nonogram.db import session as app_session\n\n"
-            "def test_x2_control():\n"
-            '    setattr(app_session, "engine", None)\n',
-            "test_not_exempt.py",
-            names,
-        )
-        assert not unanalysable
-        assert dict(sites) == {("test_not_exempt.py", "engine"): 1}, (
-            "the bare builtin setattr is invisible to the guard, so a spelling "
-            f"the AC-5 claim names is outside its mechanism: {dict(sites)}"
-        )
-
-    def test_a_non_literal_attribute_name_is_a_failure(self) -> None:
-        """X1: ``monkeypatch.setattr(app_session, name, None)`` — the tree's own idiom.
-
-        The target resolves to the session module and the attribute name
-        cannot be read, so the guard cannot say *which* global is set and
-        therefore cannot say the site is exempt. ADR-0039/R2 makes that a
-        failure, not nothing to see. This spelling is at six sites in this
-        tree today, on other objects.
-        """
-        names = _global_names_assigned_by("_init_engine")
-        sites, unanalysable = _private_global_sites_in(
-            "from nonogram.db import session as app_session\n\n"
-            '@pytest.mark.parametrize("name", ["engine", "SessionLocal"])\n'
-            "def test_x1_control(monkeypatch, name):\n"
-            "    monkeypatch.setattr(app_session, name, None)\n",
-            "test_not_exempt.py",
-            names,
-        )
-        assert dict(sites) == {}, (
-            f"a non-literal name cannot be counted as a site: {dict(sites)}"
-        )
-        assert len(unanalysable) == 1, (
-            "a setattr on the session module whose attribute name the guard "
-            "cannot read must come back as a failure, not as nothing to see: "
-            f"{unanalysable}"
-        )
-
-    def test_a_computed_string_target_is_a_failure(self) -> None:
-        """X3: ``monkeypatch.setattr(f"{MOD}.engine", None)`` and ``MOD + ".engine"``.
-
-        The trailing literal segment names ``engine``, so the guard knows the
-        call sets one of ``session.py``'s globals; the module part is computed,
-        so it cannot rule out that it is the session module. Both halves of
-        that are needed — reading the tail is what keeps
-        ``monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])`` (which this
-        tree really does contain) out of the failure list. The third spelling
-        here is a target the guard cannot read at all (a bare name holding the
-        path), which is a failure for the same reason.
-        """
-        names = _global_names_assigned_by("_init_engine")
-        sites, unanalysable = _private_global_sites_in(
-            '_X3_MODULE = "nonogram.db.session"\n'
-            '_X3_TARGET = "nonogram.db.session.engine"\n\n'
-            "def test_x3_control(monkeypatch):\n"
-            '    monkeypatch.setattr(f"{_X3_MODULE}.engine", None)\n'
-            '    monkeypatch.setattr(_X3_MODULE + ".SessionLocal", None)\n'
-            "    monkeypatch.setattr(_X3_TARGET, None)\n",
-            "test_not_exempt.py",
-            names,
-        )
-        assert dict(sites) == {}, (
-            f"a computed module part cannot be resolved to a site: {dict(sites)}"
-        )
-        assert len(unanalysable) == 3, (
-            "a string target the guard cannot read must be a failure for every "
-            "spelling of it — a computed module part, a concatenation, and a "
-            f"target it cannot read at all: {unanalysable}"
-        )
-
-    def test_a_setattr_on_another_module_is_not_this_guards_business(self) -> None:
-        """The discrimination that makes the total deny default affordable.
-
-        Two things end the analysis without a failure: a target the guard
-        resolves to something that is **not** the session module, and an
-        attribute name it *can* read that is not one of the engine globals.
-        Without them a total default would red on idioms this tree already
-        uses — ``monkeypatch.setattr(SomeClass, name, …)``, the bare builtin on
-        a class, and a computed string target naming some other module's
-        attribute. Measured: 13 sites in the first arm, 315 in the second.
-
-        This is the control for both arms, and the measurement that says they
-        are enough is ``test_no_test_file_outside_the_exemption_sets_those_globals``
-        itself: zero unanalysable spellings over the whole of ``tests/``.
-        """
-        names = _global_names_assigned_by("_init_engine")
-        sites, unanalysable = _private_global_sites_in(
-            "from nonogram.book.pdf import BookPDFGenerator\n"
-            "from nonogram.db import session as app_session\n\n"
-            "def test_other_targets(monkeypatch, name):\n"
-            "    monkeypatch.setattr(BookPDFGenerator, name, None)\n"
-            "    setattr(BookPDFGenerator, name, None)\n"
-            '    monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])\n'
-            '    monkeypatch.setattr("nonogram.web.pages._CACHE", None)\n'
-            '    monkeypatch.setattr(app_session, "get_session", None)\n',
-            "test_not_exempt.py",
-            names,
-        )
-        assert dict(sites) == {}, (
-            "none of these touches one of session.py's engine globals, so none "
-            f"is a site: {dict(sites)}"
-        )
-        assert unanalysable == [], (
-            "the guard reds on setattr calls that are plainly none of its "
-            "business, which is how a total deny default becomes unusable: "
-            f"{unanalysable}"
-        )
-
-    def test_a_computed_target_with_an_unreadable_name_is_the_declared_bound(
+    def test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not(
         self,
     ) -> None:
-        """The residual, pinned so that it stays *stated* rather than drifting.
+        """What the scan sees of a ``setattr(`` call's *shape*, in both directions.
 
-        The guard follows names, not values. When the target is a computed
-        value **and** the attribute name is non-literal it has nothing on
-        either axis, and it skips: there are exactly two such sites in this
-        tree (``tests/property/test_book_membership_floor.py:190``,
-        ``tests/test_book_finalise_gutter.py:1511``), both setting a book
-        row's column, and failing on them would be a red that cannot be
-        discriminated without guessing.
+        CARD-254 review cycle 1, F-001. The convention texts used to say the
+        scan counts a literal name "beside a ``setattr(``", and both bounded
+        their own blindness without mentioning that the name had to sit on the
+        same physical line. It did: the pattern excluded newlines, so a call a
+        formatter had wrapped reached the globals uncounted and undeclared —
+        certified by mutant M3c, a wrapped hand-set appended to
+        ``tests/test_db_isolation.py``, which left the equality above green.
+        That is the single most likely way the line is actually written, so the
+        mechanism was widened rather than the claim narrowed; the remaining
+        blind case (parentheses in the receiver argument) was declared instead.
 
-        The edge of that bound is the second half here: as soon as the
-        attribute name *is* readable, how the target was computed stops
-        mattering and the call fails. So the bound is exactly one corner wide,
-        not "computed targets are outside the guard".
+        One arm per claim the texts now make, each named with the mutation
+        that reds it. There are two: **NORM-DEL**, which puts ``\\n`` back into
+        :func:`_hand_set_spellings`' character class (the pattern before this
+        card), and **PAREN-DEL**, which deletes the parenthesis exclusion
+        (``[^()]*?`` → ``.*?`` under ``re.DOTALL``).
+
+        Read that matrix **per assertion, never per test run**. Every arm below
+        is an ``assert`` in this one function, so pytest can only report that
+        the function failed — it cannot say which arm did the killing, and an
+        arm after the first failing one is never even evaluated. Two
+        generations of this control were certified off such a result, and both
+        times it hid an arm that could not fail (CARD-254 review cycle 2,
+        F-001). Re-derive it by evaluating each assert on its own.
+
+        1. **arm 1, in the claimed region** — a wrapped call is counted exactly
+           as the one-line form is. Reds under NORM-DEL; it is the in-tree
+           standing form of M3c.
+        2. **arm 2a, at the edge: no false positive** — a wrapped call carrying
+           a name that is *not* one of the three globals manufactures no match,
+           even with a global name quoted further down the probe. Reds under
+           PAREN-DEL. Without it, widening the scan would be a false-positive
+           engine over every file in ``tests/``: the equality is a count, so
+           one spurious match reds the suite for everyone.
+        3. **arm 2b, at the edge: no over-reach** — given two wrapped calls in
+           a row of which only the second carries a global name, the match
+           *starts* at the second call. Reds under PAREN-DEL (the match starts
+           at the first call, 49 instead of 122), and also under NORM-DEL,
+           which leaves the wrapped call unmatched altogether. Asserted as a
+           **position**, because a count cannot see this property at all:
+           ``re.finditer`` yields non-overlapping matches, so a first match
+           that over-reaches swallows the second call whole and the total stays
+           1 either way. The count form of this arm was twice declared "killed
+           by PAREN-DEL" and was not — it passed under PAREN-DEL and red only
+           under NORM-DEL, i.e. for arm 1's reason (review cycle 2, F-001). The
+           position form is the first time this arm's own sentence is measured.
+        4. **arm 3, the declared blind case** — a receiver argument that itself
+           contains parentheses is *not* counted. Reds under PAREN-DEL. The
+           "blind to" bullet in
+           :func:`nonogram.db.session.reset_engine`'s docstring and in this
+           class's docstring says so, and this arm is what makes that sentence
+           a measured statement rather than prose.
+        5. **arm 4, the declared over-read** — a ``setattr(`` that is never
+           closed, in a comment or in prose, *is* counted against a quoted
+           global name further down the file. Reds under NORM-DEL. This is the
+           false-positive surface the widening added: ``[^()]*?`` stops only at
+           a parenthesis, and prose routinely has none. It is wrong in the safe
+           direction (a loud red, never a silent miss), both convention texts
+           declare it, and this arm is what keeps that declaration measured
+           rather than composed from two other bullets.
         """
-        names = _global_names_assigned_by("_init_engine")
-        skipped, quiet = _private_global_sites_in(
-            "def test_sets_a_row_column(panel, book_id, column):\n"
-            "    setattr(panel.books.get_book(book_id), column, 1)\n",
-            "test_not_exempt.py",
+        names = sorted(_global_names_assigned_by("_init_engine"))
+        assert names, "no module-level globals found in _init_engine (guard is blind)"
+        probe_file = "test_not_exempt.py"
+        assert not any(
+            key[0] == probe_file for key in _EXEMPT_HAND_SET_SITES
+        ), f"{probe_file} has become a real exemption; pick another probe name"
+        name = names[0]
+
+        # The name is interpolated, never written out, so this file still
+        # contributes no counted site of its own -- which the equality in
+        # test_no_test_file_outside_the_exemption_sets_those_globals checks.
+        wrapped = _hand_set_sites_in(
+            "def test_wrapped(monkeypatch):\n"
+            "    monkeypatch.setattr(\n"
+            f'        db_session, "{name}", None\n'
+            "    )\n",
+            probe_file,
             names,
         )
-        assert dict(skipped) == {} and quiet == [], (
-            "the declared bound has moved: a computed target with a "
-            "non-literal name is reported, which reds the two book-row sites "
-            f"this tree already has: {dict(skipped)} / {quiet}"
-        )
-        sites, unanalysable = _private_global_sites_in(
-            "import sys\n\n"
-            "def test_via_sys_modules():\n"
-            '    setattr(sys.modules["nonogram.db.session"], "engine", None)\n',
-            "test_not_exempt.py",
-            names,
-        )
-        assert dict(sites) == {}, (
-            f"sys.modules[...] is not a name the guard resolves: {dict(sites)}"
-        )
-        assert len(unanalysable) == 1, (
-            "a readable attribute name in `names` must fail however the target "
-            f"was computed — that is the edge of the declared bound: {unanalysable}"
+        assert dict(wrapped) == {(probe_file, name): 1}, (
+            "a setattr( call wrapped across lines -- what any formatter "
+            "produces once the line passes the column limit -- is not "
+            "counted, so the backstop is blind to the most likely spelling of "
+            f"the thing it exists to red (mutant M3c): {dict(wrapped)}"
         )
 
-    def test_a_spelling_the_guard_cannot_resolve_is_a_failure(self) -> None:
-        """ADR-0039/R2's default: unanalysable is red, never a silent pass."""
-        names = _global_names_assigned_by("_init_engine")
-        sites, unanalysable = _private_global_sites_in(
-            "import nonogram.db as pkg\n\n"
-            "def test_unresolvable(monkeypatch):\n"
-            "    pkg.session.engine = None\n"
-            '    monkeypatch.setattr("some.other.session.SessionLocal", None)\n',
-            "test_not_exempt.py",
+        # 2a. an unrelated attribute name, wrapped, with a global name quoted
+        #     further down the file: no match may be manufactured.
+        unrelated = _hand_set_sites_in(
+            "def test_unrelated(monkeypatch):\n"
+            "    monkeypatch.setattr(\n"
+            '        db_session, "pool_pre_ping", True\n'
+            "    )\n"
+            f'    assert probe == "{name}"\n',
+            probe_file,
             names,
         )
-        assert dict(sites) == {}, (
-            "neither spelling resolves to the session module, so neither is a "
-            f"site: {dict(sites)}"
+        assert dict(unrelated) == {}, (
+            "widening the scan past newlines made it match a global name "
+            "against an unrelated setattr( call, which would red the equality "
+            f"for every future file in tests/: {dict(unrelated)}"
         )
-        assert len(unanalysable) == 2, (
-            "a reach the guard cannot classify must come back as a failure, "
-            f"not as nothing to see: {unanalysable}"
+
+        # 2b. two wrapped calls in a row, only the second carrying the name:
+        #     the match has to START at the second one. Asserted as a POSITION,
+        #     not as a count, because a count cannot see this property at all:
+        #     re.finditer yields non-overlapping matches, so a first match that
+        #     over-reaches swallows the second call whole and the total stays 1
+        #     either way. CARD-254 review cycle 2, F-001 -- the count form of
+        #     this arm passed under the mutant that deletes the very mechanism
+        #     it named, and reds only for arm 1's reason.
+        two_calls_source = (
+            "def test_two_calls(monkeypatch):\n"
+            "    monkeypatch.setattr(\n"
+            '        db_session, "pool_pre_ping", True\n'
+            "    )\n"
+            "    monkeypatch.setattr(\n"
+            f'        db_session, "{name}", None\n'
+            "    )\n"
+        )
+        setattr_pattern = _hand_set_spellings(name)[0]
+        match = setattr_pattern.search(two_calls_source)
+        second_call = two_calls_source.rindex("setattr(")
+        assert match is not None and match.start() == second_call, (
+            "the scan ran past one setattr( call's closing parenthesis into "
+            "the next call's arguments: the match starts at "
+            f"{None if match is None else match.start()}, not at the second "
+            f"setattr( at {second_call}"
+        )
+
+        # 3. the declared blind case: parentheses inside the receiver argument.
+        receiver_parens = _hand_set_sites_in(
+            "def test_receiver_parens():\n"
+            '    setattr(sys.modules.get("nonogram.db.session"), '
+            f'"{name}", None)\n',
+            probe_file,
+            names,
+        )
+        assert dict(receiver_parens) == {}, (
+            "a setattr( whose receiver argument contains parentheses is now "
+            "counted, which is more than either convention text claims; "
+            "widen the texts in the same words or narrow this control: "
+            f"{dict(receiver_parens)}"
+        )
+
+        # 4. the declared over-read: an unclosed setattr( in a comment reaches
+        #    a quoted global name on a later line, because [^()]*? stops only
+        #    at a parenthesis and prose routinely has none. Wrong, in the safe
+        #    direction, and measured here so that the sentence saying so in
+        #    both convention texts is not merely composed from two other
+        #    bullets (CARD-254 review cycle 2, F-002).
+        prose = _hand_set_sites_in(
+            "def test_prose():\n"
+            "    # a hand-set is written setattr(\n"
+            f'    assert probe == "{name}"\n',
+            probe_file,
+            names,
+        )
+        assert dict(prose) == {(probe_file, name): 1}, (
+            "an unclosed setattr( in prose no longer reaches a quoted global "
+            "name further down the file. That is a narrower scan than both "
+            "convention texts declare: narrow the texts in the same words, and "
+            "drop the warning that prose in tests/ quoting a setattr( "
+            f"spelling has to keep a parenthesis before any global name: {dict(prose)}"
         )
