@@ -904,12 +904,27 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
     # fail at 900 books) but did read as though the corpus were a quarter of
     # its size. No minimum here is lowered.
     #
-    # The book floor is 3600 less the ``near_threshold`` tolerance asserted at
-    # the foot of this test, which is the only way a case leaves the loop
-    # without counting. The page floor keeps about 6 % for a future geometry
-    # change that moves the pairing share (pairing fewer pairs prints *more*
-    # pages, so this floor is the safe direction). Both fail outright if the
-    # corpus is ever shrunk back towards 900 books, which printed about 4000.
+    # The book floor was derived as 3600 less the ``near_threshold`` tolerance
+    # asserted at the foot of this test, which is the only way a case leaves
+    # the loop without counting. The page floor keeps about 6 % for a future
+    # geometry change that moves the pairing share (pairing fewer pairs prints
+    # *more* pages, so this floor is the safe direction). Both fail outright if
+    # the corpus is ever shrunk back towards 900 books, which printed about
+    # 4000.
+    #
+    # **Two of these floors were diluted by review cycle 2's F-004 and are
+    # restated here rather than re-tightened** (review cycle 3, F-003). The
+    # corpus is now 3618 books, not 3600: the 18 hand-built ones
+    # (:func:`_book_cell_books`) are appended after the sweep. So ``books >=
+    # 3595`` leaves an effective sweep tolerance of 23, not the 5 this comment
+    # reasoned about, and ``paired >= 100`` is met by the sweep's own 106 with
+    # 9 more coming from the F-9 family — a 7-pair sweep regression would now
+    # be absorbed. Measured, not assumed: with the hand-built books removed,
+    # every minimum in this block still passes. They are left as they are
+    # because tightening a sweep floor against a corpus that two cards have
+    # already grown is how these figures went stale twice; what the floors are
+    # for is catching a corpus that *shrinks*, and they still do that
+    # outright.
     assert books >= 3595, books
     assert pages >= 15000, pages
     # Both verdicts, and every reason a pair is refused, are in the corpus.

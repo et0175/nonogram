@@ -4075,9 +4075,12 @@ class BookPDFGenerator:
         specification is itself unreadable; that branch was unreachable from
         both production entries, because
         :meth:`BookPDFGenerator.__init__` lays the sheet out when the
-        generator is built and raises there, so nothing holding an unreadable
-        sheet ever gets as far as a payload (review cycle 2, F-001). It is
-        deleted rather than documented as live.
+        generator is built and raises there, so no production caller gets as
+        far as a payload holding an unreadable sheet (review cycle 2, F-001).
+        Scoped to production callers deliberately: a specification mutated to
+        an unreadable value after construction can reach a payload, and review
+        cycle 3's probe found no caller that does it. It is deleted rather
+        than documented as live.
 
         Should none of the payloads refuse alone, every member is still
         named — a fail-safe for a ``cell_sizes`` that refuses a set no single
@@ -6353,13 +6356,17 @@ class BookPDFGenerator:
         # Read once here and fed to the TOC measurement below, which saves
         # `page_frame(self.page_spec(1))` a second call on the same sheet.
         #
-        # **Its position makes no claim.** A book whose stored print
-        # specification cannot be laid out never reaches this method at all:
-        # `__init__` laid the same sheet out when the generator was built and
-        # raised there, which is what keeps a book-level fault out of the cell
-        # map's handler below (review cycle 2, F-001). Moving this read under
-        # that try fails no test, so nothing here is stated as a mechanism —
-        # the mechanism, and its mutant, are in `__init__`.
+        # **Its position makes no claim.** No production caller reaches this
+        # method holding a book whose stored print specification cannot be
+        # laid out: `__init__` laid the same sheet out when the generator was
+        # built and raised there, which is what keeps a book-level fault out
+        # of the cell map's handler below (review cycle 2, F-001). Said that
+        # way on purpose — a specification mutated to an unreadable value
+        # *after* construction does arrive here, and this read then refuses it
+        # with the bare `ValueError` row F-3b asks for; review cycle 3 drove
+        # exactly that probe, and found no caller that does it. Moving this
+        # read under that try fails no test, so nothing here is stated as a
+        # mechanism — the mechanism, and its mutant, are in `__init__`.
         spec = self.page_spec(1)
         toc_page_count = measured_toc_page_count(
             toc_entry_count, page_frame(spec), self.dpi
