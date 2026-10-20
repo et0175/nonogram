@@ -1,6 +1,6 @@
 # CARD-256: The lock guard's path-redirect variable gets the same control and the same loudness as its override
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** ops
 **Complexity:** trivial
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/256-the-lock-path-var-gets-a-control
+**Worktree:** ../PythonProject4-card-256
 **Source:** CARD-255 review cycle 3, F-203 — the certifier's answer to "is there any failure mode that would be *silent*?"
 **Idea:** —
-**Wave:** 50 (queued)
+**Wave:** 50
 **Depends on:** CARD-255 (merged)
 **Touches:** tests/test_full_suite_lock.py, tests/full_suite_lock.py, tests/README.md
 **Review score:** —
-**Started:** — · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Started:** 2026-10-20T08:41:42Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
 ## Why — one measured hole, and it is the silent kind
@@ -103,3 +103,34 @@ prefixes returns 542 entries, all `100644`, so an equality on the mode is availa
 - **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`. Note the known
   trap: read the ADR files **case-insensitively** for the reach-limit idiom, or ADR-0039 silently
   drops out of the contract — and this card is entirely about ADR-0039/R1 and R3.
+
+## System contract
+
+Curated to **5 of 10** in-scope rules under `meta/kanban/curation.md`: every rule whose
+enforcement does not reach this card's new code is kept; the rest are dropped because the suite runs them on
+every gate. **5 dropped.** ADR-0039 present, as the sanity check requires for a card
+touching `tests/**`.
+
+- **ADR-0038/R7** — _review-lens — nothing executes it_
+  Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in
+  pyproject.toml. It is never added to project.dependencies or to the admin extra.
+- **ADR-0038/R8** — _review-lens — nothing executes it_
+  Browser tests run locally, against Chromium installed by `playwright install chromium`. When
+  Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible
+  in the run summary. They never pass silently. Once a CI pipeline exists, it installs Chromium
+  (playwright install chromium) before running them; until then there is no CI, and that is a
+  known gap, not a met clause.
+- **ADR-0039/R1** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  A set a guard consults needs a completeness test written before the set, and any claim the guard
+  makes about what it catches needs a control that can fail: caught WITH the set member present,
+  missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and must be
+  narrowed to what is measured or deleted.
+- **ADR-0039/R2** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where no
+  such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE, never
+  a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3.
+- **ADR-0039/R3** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT
+  absorb — caught with the exemption removed, missed with it in place — is held to an equality
+  against the sites that exist today, and records whatever it still cannot see as a measured bound
+  with its own failing control.
