@@ -387,3 +387,6 @@ dropped, connected to or truncated.
   `What is pinned, and what is not` sections are **CARD-252's** record, outside this card's three
   cuts. And the AC-2 control holds the guard text to names in double backticks, which the scan does
   not count — so the class docstring's opening paragraph is now load-bearing.
+- **[Build gate 1 — PASSED]** `245bc898`, solo: **8623 passed**, 1 skipped, 16:34, EXIT=0. Reconciles
+  exactly: main 8622 + the one test AC-2's control adds. The guard said nothing during the run, which
+  is correct for a gate holding its own lock.

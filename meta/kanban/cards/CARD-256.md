@@ -328,3 +328,21 @@ touched.
   surviving mutant that changes nothing observable, not as a hole and not as a kill. Likewise
   `"\n".join(lines) or None` is named an **equivalent** mutant. A report that names its equivalent
   mutants is one I can read.
+- **[Build gate 1 — FAILED, and it is the `@ops` hazard, on a tree that carries the fix]** `28de78d9`,
+  solo: 5 failed, 8622 passed, 16:32. All five in
+  `tests/test_admin_binding.py::TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine`, with
+  **10 occurrences of `relation "puzzles" does not exist`** — the signature verbatim, and the same
+  five parametrisations CARD-253's build gate 1 failed on in wave 48. The count reconciles (8622 + the
+  5 tests this card adds = 8627), so nothing was lost; these are failures, not absences.
+- **[Why this one matters beyond this card]** `src/nonogram/db/session.py:201` defines
+  `reset_engine()` and `tests/conftest.py:528` calls it — **CARD-252's fix is present and wired in
+  this tree.** When that card merged I recorded, deliberately, that merging it did **not** establish
+  that it stops the hazard, because CARD-253 had gone red then green on the same commit *without* the
+  fix, and "a single green gate cannot distinguish a fix working from a failure not appearing". The
+  answer was owed to the next several waves' gates. **This is the first one, and it is a red.**
+- **[The measurement that decides what it means]** a re-run on the **same commit**, solo, is running.
+  Green ⇒ the class is still intermittent *with* the fix in place, which means `reset_engine()` did
+  not remove it and CARD-252's own docstring — already careful to say the four waves of failures
+  "remain unexplained" — stays exactly as honest as it was. Red again ⇒ something in this card's tree
+  reproduces it deterministically, which would be the first reproducible instance this board has ever
+  had and worth far more than this card.
