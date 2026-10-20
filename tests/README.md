@@ -299,13 +299,26 @@ ls meta/kanban/.full-suite.lock             # must not exist
 ```
 
 Take the lock for the duration so a concurrent `cmd-start-review` backs off,
-and remove it when done:
+and remove it when done. **The lock is enforced** since CARD-255: a pytest run
+started in any *other* worktree while this file exists refuses to start, so the
+file has to say which worktree holds it — one written without a `worktree:`
+line refuses every run on the host, including yours.
 
 ```bash
-echo "profiling run, started $(date -u +%Y-%m-%dT%H:%M:%SZ)" > meta/kanban/.full-suite.lock
+LOCK=/Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock
+{ echo "holder: profiling run"
+  echo "at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "worktree: $PWD"
+  echo "commit: $(git rev-parse --short HEAD)"; } > "$LOCK"
 # ... run the suite ...
-rm meta/kanban/.full-suite.lock
+rm "$LOCK"
 ```
+
+The path is the **main** checkout's, whichever worktree you run in: every gate
+script writes that one file, and `tests/full_suite_lock.py` reads that one file
+(see its module docstring for the staleness rule and
+`NONOGRAM_IGNORE_FULL_SUITE_LOCK`, the override that walks past a lock whose
+holder is gone and announces that it did).
 
 If anything else was running, **wait and re-run**. Do not record the number.
 An artefact that cannot honestly say `solo run: yes` is not a profile.
