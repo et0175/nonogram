@@ -317,8 +317,14 @@ def _hand_set_spellings(name: str):
 
     The parenthesis exclusion is what keeps the first pattern from running
     past the end of its own call and matching a name belonging to the next
-    one — and is also why a ``setattr(`` whose *receiver argument* itself
-    contains parentheses stays invisible, which both convention texts declare.
+    one — measured as a match *position* by arm 2b of that control, because a
+    count cannot see it: ``re.finditer`` is non-overlapping, so an
+    over-reaching match swallows the next call whole and the total is the same
+    either way (CARD-254 review cycle 2, F-001). It is also why a ``setattr(``
+    whose *receiver argument* itself contains parentheses stays invisible, and
+    it is the only thing that stops the scan: a ``setattr(`` left unclosed in
+    prose or a comment reaches a quoted global name further down the file
+    (arm 4). Both convention texts declare both halves.
 
     Word boundaries are the quotes and the leading dot, which is what keeps
     ``"create_engine"`` and ``._engine_url`` out of ``engine``'s count.
@@ -724,16 +730,25 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
       some unrelated class counts; so does a line inside a docstring, a comment
       or a string literal. It over-reds, which is the safe direction
       for a backstop, and it is at zero false positives over this tree today
-      only because no other file in ``tests/`` happens to write these three
-      names that way.
+      for two reasons, both accidents of how the tree happens to be written:
+      no other file in ``tests/`` writes these three names beside a
+      ``setattr(`` or a ``.name =``, and no file leaves a ``setattr(``
+      unclosed upstream of one of them (see the newline bullet below). Both
+      were measured over the whole tree at CARD-254 review cycle 2: of the
+      ``setattr(`` occurrences under ``tests/``, twelve have a quoted global
+      name somewhere downstream, nine of those are the counted sites, and the
+      other three are stopped by their own ``)`` — adjacent
+      ``monkeypatch.setattr`` calls in the two exempt files, which is arm 2b's
+      property holding in the real tree rather than in a probe.
     * **It is blind to any spelling that does not put the literal name beside
       a ``setattr(`` or a ``.name =``.** A name computed at runtime, a
       ``globals()`` or ``vars()`` write, ``importlib`` into a local, a
       ``sys.modules`` swap, ``monkeypatch.delattr``, an attribute target
       nested in a list unpacking (``[…] = …``), every element but the last
       of a tuple unpacking, and a ``setattr(`` whose **receiver argument
-      itself contains parentheses** (``setattr(sys.modules.get(...), "engine",
-      None)``) all reach or replace the globals and are **not** counted. There
+      itself contains parentheses** — ``setattr`` applied to
+      ``sys.modules.get(…)`` rather than to a plain name — all reach or
+      replace the globals and are **not** counted. There
       is no claim here that they cannot happen — only that nothing in this file
       will tell you when they do. The receiver-parentheses case is measured,
       not asserted: arm 3 of
@@ -747,10 +762,20 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
       hand-set appended to ``tests/test_db_isolation.py``, a file no exemption
       lists — left the equality green. A wrapped call is the spelling a
       formatter actually produces, so the mechanism was widened rather than the
-      claim narrowed. Controls: arms 1 and 2 of
+      claim narrowed. Crossing newlines costs over-reads, in the same safe
+      direction and with a price: a ``setattr(`` left unclosed in prose, a
+      comment or a string literal reaches a quoted global name further down the
+      file, because the scan stops only at a parenthesis and prose routinely
+      has none. So prose in ``tests/`` that quotes a ``setattr(`` spelling must
+      keep a parenthesis or a ``)`` between it and any quoted global name —
+      which is why neither of the two spelling examples in these bullets writes
+      one of the three names out. Controls: arms 1, 2a, 2b and 4 of
       :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`
-      (counted at all; and not matched across an unrelated call, which widening
-      a *count* could otherwise turn into a false-positive engine).
+      (a wrapped call is counted at all; an unrelated wrapped call manufactures
+      no match, which widening a *count* could otherwise turn into a
+      false-positive engine; the match starts at the call that carries the
+      name, not at an earlier one; and the unclosed-``setattr(``-in-prose
+      over-read is what it is said to be).
     * **It therefore proves nothing about whether a test hand-sets these
       globals.** What stands behind that is the convention recorded on
       :func:`nonogram.db.session.reset_engine`: tests call ``reset_engine()``;
@@ -759,10 +784,19 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
       enforced at review is honest about being a convention. The count makes
       the cheap half of it mechanical and claims nothing else.
 
-    It is also why ``test_db_engine_lifecycle.py`` is not itself an exemption:
-    its probe strings are built from the derived names at runtime, so this file
-    contributes no counted site — which the equality above checks, since an
-    entry for it would break the dict.
+    It is also why ``test_db_engine_lifecycle.py`` is not itself an exemption,
+    and the reason is now two things rather than one. Its probe strings are
+    built from the derived names at runtime, so no probe writes a name out;
+    and the only literal spellings of the three names anywhere in this file
+    are the keys of :data:`_EXEMPT_HAND_SET_SITES`, which sit above every
+    ``setattr(`` occurrence in the file, so no unclosed ``setattr(`` in the
+    prose below them can reach one. The second half is load-bearing, not
+    incidental: before CARD-254's review cycle 2 the receiver-parentheses
+    bullet above spelled one of the names out 33 characters downstream of a
+    ``setattr(``, and the only thing keeping this file from reddening the
+    equality against itself was an editorial parenthesis in that sentence
+    (F-002). Either way the equality above is what checks it, since an entry
+    for this file would break the dict.
     """
 
     def test_reset_engine_is_public_and_says_who_calls_it(self) -> None:
@@ -857,10 +891,30 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         here claims the scan sees every way a global can be set -- the class
         docstring says the opposite, at length.
 
-        Four arms, one per clause: both spellings are counted at all (without
-        which the rest would be vacuous), a new file, a new name, and a tenth
-        site inside a pair the exemption already lists (CARD-252's cycle-1
-        mutant R1, which a pair-set equality did not notice).
+        What each arm measures is the **count** the scan produces for its own
+        probe source. It does not measure the equality's reaction to that
+        count: ``dict(...) == _EXEMPT_HAND_SET_SITES`` reacts to any difference
+        by construction, so there is no mechanism there to delete and nothing
+        for an arm to kill. Two asserts here used to compare a single-file
+        probe count against the whole six-pair exemption and say in their
+        message that the equality would otherwise pass; those comparisons were
+        true for every possible probe value and were removed in CARD-254 review
+        cycle 2 (F-001's family). Each arm below now asserts the count, and
+        nothing else.
+
+        Four arms, one per clause, with the mutant that reds each (measured per
+        assert, never off a single pytest result -- see the matrix note on
+        :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`):
+
+        1. both spellings are counted at all, without which the rest would be
+           vacuous -- reds if either regex in :func:`_hand_set_spellings` is
+           dropped;
+        2. a new file -- reds if the ``setattr(`` spelling stops being counted;
+        3. a new name -- the same, under a name no exemption entry covers;
+        4. a tenth site inside a pair the exemption already lists (CARD-252's
+           cycle-1 mutant R1, which a pair-*set* equality did not notice) --
+           reds if the counter is collapsed to one per ``(file, name)`` pair,
+           which is the mechanism this arm exists for.
         """
         names = sorted(_global_names_assigned_by("_init_engine"))
         assert names, "no module-level globals found in _init_engine (guard is blind)"
@@ -899,9 +953,10 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             probe_file,
             names,
         )
-        assert dict(new_file) != {} and dict(new_file) != _EXEMPT_HAND_SET_SITES, (
-            "a hand-set site in a file outside the exemption does not change "
-            f"the count, so a new file would pass the equality: {dict(new_file)}"
+        assert dict(new_file) == {(probe_file, names[0]): 1}, (
+            "a hand-set site in a file outside the exemption is not counted, "
+            "so a new file would add nothing for the equality to notice: "
+            f"{dict(new_file)}"
         )
 
         # 3. a new name: a site under a name no exemption entry covers.
@@ -948,9 +1003,6 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             "was not counted, so the exemption is a set of pairs again and the "
             f"comment on _EXEMPT_HAND_SET_SITES is false: {after[key]}"
         )
-        assert dict(after) != _EXEMPT_HAND_SET_SITES, (
-            "the equality accepts a tenth site in an exempt pair"
-        )
 
     def test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not(
         self,
@@ -968,23 +1020,55 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         mechanism was widened rather than the claim narrowed; the remaining
         blind case (parentheses in the receiver argument) was declared instead.
 
-        Three arms, one per claim the texts now make:
+        One arm per claim the texts now make, each named with the mutation
+        that reds it. There are two: **NORM-DEL**, which puts ``\\n`` back into
+        :func:`_hand_set_spellings`' character class (the pattern before this
+        card), and **PAREN-DEL**, which deletes the parenthesis exclusion
+        (``[^()]*?`` → ``.*?`` under ``re.DOTALL``).
 
-        1. **in the claimed region** — a wrapped call is counted exactly as the
-           one-line form is. Delete the widening (put ``\\n`` back into
-           :func:`_hand_set_spellings`' character class) and this arm reds; it
-           is the in-tree standing form of M3c.
-        2. **at the edge** — a wrapped call carrying a name that is *not* one
-           of the three globals is not counted, and a wrapped call does not
-           reach past its own closing parenthesis into the next call's
-           arguments. Without this, widening the scan would be a
-           false-positive engine over every file in ``tests/``: the equality is
-           a count, so one spurious match reds the suite for everyone.
-        3. **the declared blind case** — a receiver argument that itself
-           contains parentheses is *not* counted. The "blind to" bullet in
+        Read that matrix **per assertion, never per test run**. Every arm below
+        is an ``assert`` in this one function, so pytest can only report that
+        the function failed — it cannot say which arm did the killing, and an
+        arm after the first failing one is never even evaluated. Two
+        generations of this control were certified off such a result, and both
+        times it hid an arm that could not fail (CARD-254 review cycle 2,
+        F-001). Re-derive it by evaluating each assert on its own.
+
+        1. **arm 1, in the claimed region** — a wrapped call is counted exactly
+           as the one-line form is. Reds under NORM-DEL; it is the in-tree
+           standing form of M3c.
+        2. **arm 2a, at the edge: no false positive** — a wrapped call carrying
+           a name that is *not* one of the three globals manufactures no match,
+           even with a global name quoted further down the probe. Reds under
+           PAREN-DEL. Without it, widening the scan would be a false-positive
+           engine over every file in ``tests/``: the equality is a count, so
+           one spurious match reds the suite for everyone.
+        3. **arm 2b, at the edge: no over-reach** — given two wrapped calls in
+           a row of which only the second carries a global name, the match
+           *starts* at the second call. Reds under PAREN-DEL (the match starts
+           at the first call, 49 instead of 122), and also under NORM-DEL,
+           which leaves the wrapped call unmatched altogether. Asserted as a
+           **position**, because a count cannot see this property at all:
+           ``re.finditer`` yields non-overlapping matches, so a first match
+           that over-reaches swallows the second call whole and the total stays
+           1 either way. The count form of this arm was twice declared "killed
+           by PAREN-DEL" and was not — it passed under PAREN-DEL and red only
+           under NORM-DEL, i.e. for arm 1's reason (review cycle 2, F-001). The
+           position form is the first time this arm's own sentence is measured.
+        4. **arm 3, the declared blind case** — a receiver argument that itself
+           contains parentheses is *not* counted. Reds under PAREN-DEL. The
+           "blind to" bullet in
            :func:`nonogram.db.session.reset_engine`'s docstring and in this
            class's docstring says so, and this arm is what makes that sentence
            a measured statement rather than prose.
+        5. **arm 4, the declared over-read** — a ``setattr(`` that is never
+           closed, in a comment or in prose, *is* counted against a quoted
+           global name further down the file. Reds under NORM-DEL. This is the
+           false-positive surface the widening added: ``[^()]*?`` stops only at
+           a parenthesis, and prose routinely has none. It is wrong in the safe
+           direction (a loud red, never a silent miss), both convention texts
+           declare it, and this arm is what keeps that declaration measured
+           rather than composed from two other bullets.
         """
         names = sorted(_global_names_assigned_by("_init_engine"))
         assert names, "no module-level globals found in _init_engine (guard is blind)"
@@ -1029,21 +1113,31 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             f"for every future file in tests/: {dict(unrelated)}"
         )
 
-        # 2b. two wrapped calls in a row: exactly the one carrying the name.
-        two_calls = _hand_set_sites_in(
+        # 2b. two wrapped calls in a row, only the second carrying the name:
+        #     the match has to START at the second one. Asserted as a POSITION,
+        #     not as a count, because a count cannot see this property at all:
+        #     re.finditer yields non-overlapping matches, so a first match that
+        #     over-reaches swallows the second call whole and the total stays 1
+        #     either way. CARD-254 review cycle 2, F-001 -- the count form of
+        #     this arm passed under the mutant that deletes the very mechanism
+        #     it named, and reds only for arm 1's reason.
+        two_calls_source = (
             "def test_two_calls(monkeypatch):\n"
             "    monkeypatch.setattr(\n"
             '        db_session, "pool_pre_ping", True\n'
             "    )\n"
             "    monkeypatch.setattr(\n"
             f'        db_session, "{name}", None\n'
-            "    )\n",
-            probe_file,
-            names,
+            "    )\n"
         )
-        assert dict(two_calls) == {(probe_file, name): 1}, (
+        setattr_pattern = _hand_set_spellings(name)[0]
+        match = setattr_pattern.search(two_calls_source)
+        second_call = two_calls_source.rindex("setattr(")
+        assert match is not None and match.start() == second_call, (
             "the scan ran past one setattr( call's closing parenthesis into "
-            f"the next call's arguments: {dict(two_calls)}"
+            "the next call's arguments: the match starts at "
+            f"{None if match is None else match.start()}, not at the second "
+            f"setattr( at {second_call}"
         )
 
         # 3. the declared blind case: parentheses inside the receiver argument.
@@ -1059,4 +1153,25 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             "counted, which is more than either convention text claims; "
             "widen the texts in the same words or narrow this control: "
             f"{dict(receiver_parens)}"
+        )
+
+        # 4. the declared over-read: an unclosed setattr( in a comment reaches
+        #    a quoted global name on a later line, because [^()]*? stops only
+        #    at a parenthesis and prose routinely has none. Wrong, in the safe
+        #    direction, and measured here so that the sentence saying so in
+        #    both convention texts is not merely composed from two other
+        #    bullets (CARD-254 review cycle 2, F-002).
+        prose = _hand_set_sites_in(
+            "def test_prose():\n"
+            "    # a hand-set is written setattr(\n"
+            f'    assert probe == "{name}"\n',
+            probe_file,
+            names,
+        )
+        assert dict(prose) == {(probe_file, name): 1}, (
+            "an unclosed setattr( in prose no longer reaches a quoted global "
+            "name further down the file. That is a narrower scan than both "
+            "convention texts declare: narrow the texts in the same words, and "
+            "drop the warning that prose in tests/ quoting a setattr( "
+            f"spelling has to keep a parenthesis before any global name: {dict(prose)}"
         )
