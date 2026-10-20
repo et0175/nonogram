@@ -844,8 +844,16 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         one text as a whole word -- six mutants, one per name per text, since
         the names arm tests whole words and so each name fails on its own),
         **SPELL-HEAD-RENAME** / **ASSIGN-HEAD-RENAME** (a spelling's head
-        changed, so neither text describes the mechanism any more) and
-        **DOC-POINTER-DEL** (the pointer to the single source gone).
+        changed, so neither text describes the mechanism any more), and
+        **POINTER-ROT** (both ``:func:`` references renamed to a function that
+        does not exist) or **POINTER-DEL-WORD** (every whole-word
+        ``reset_engine`` gone).
+
+        The pointer arm tests the *dotted path*, derived from the function
+        object, not the bare name: the class docstring it reads also carries
+        ``reset_engine`` inside a control's own method name, which is not a
+        pointer and which on its own satisfies a bare substring test. Renaming
+        that method is therefore not a lost pointer, and does not red.
         """
         names = _global_names_assigned_by("_init_engine")
         assert names, "no module-level globals found in _init_engine (guard is blind)"
@@ -862,11 +870,11 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             # has one, which is a check that cannot fail for that name.
             #
             # Whole words, not substrings: ``engine`` sits inside
-            # ``reset_engine``, ``_init_engine``, ``_engine_url`` and
-            # ``create_engine``, which both texts mention anyway -- and the
-            # pointer assert below forces ``reset_engine`` into the guard
-            # text -- so a substring test for that name could not fail. Word
-            # bounds are what make each of the three names red on its own.
+            # ``_init_engine`` and ``_engine_url``, which both texts mention,
+            # and inside ``reset_engine``, which the pointer assert below
+            # forces into the guard text -- so a substring test for that name
+            # could not fail on either text. Word bounds are what make each of
+            # the three names red on its own.
             assert {
                 name
                 for name in names
@@ -884,9 +892,14 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
                 "text, or the text was reworded away from the scan"
             )
 
-        assert "reset_engine" in guard, (
-            "this class no longer points at the convention's single source; a "
-            "pointer that rots is how the duplication came back last time"
+        pointer = app_session.reset_engine
+        target = f"{pointer.__module__}.{pointer.__name__}"
+        assert target in guard, (
+            f"this class's docstring no longer carries `{target}`, the "
+            "convention's single source -- and the bare name is not the "
+            "pointer: this docstring carries it inside a control's own method "
+            "name too, which is what kept a substring test green. A pointer "
+            "that rots is how the duplication came back last time"
         )
 
     def test_no_test_file_outside_the_exemption_sets_those_globals(self) -> None:
