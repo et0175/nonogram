@@ -372,3 +372,168 @@ Report: `meta/review/20261020T062646Z-CARD-254-cycle1.yml` (copied to main).
   `DINGBAT_EXEMPT_MODULES` entry, and it pre-dates this card), so the verdict was right and the
   sentence was wrong. Being corrected on an overstated self-scan, on the card whose subject is
   overstated claims, is the wave's joke at my expense and is fixed in the fix cycle.
+
+## Worktree notes — review cycle 1 fixes, 2026-10-20
+
+Report: `meta/review/20261020T062646Z-CARD-254-cycle1.yml` — score 8.5, one open Important (F-001),
+one Minor out of scope (F-002), one card-prose observation (OBS-1). Fixed on
+`card/254-shrink-the-private-globals-guard`, on top of `de0ea945`.
+
+### F-001 (Important) — CLOSED. The mechanism was widened; the remaining case was declared.
+
+The scan's `setattr(` pattern was `setattr\([^()\n]*?["']NAME["']`. The character class excluded
+**newlines and parentheses**, so two spellings put a literal global name inside a real `setattr(`
+call, reached the globals, were **not** in the declared "blind to" list, and were **not** counted:
+
+```python
+monkeypatch.setattr(                                               # (a) formatter-wrapped
+    app_session, "engine", None
+)
+setattr(sys.modules.get("nonogram.db.session"), "engine", None)    # (b) parens in the receiver
+```
+
+The remedy is split, and the split is the point. This card's thesis is *narrow the claim, don't
+widen the mechanism* — which is right for (b) and wrong for (a): a formatter wraps long calls, so
+(a) is the single most likely way a contributor actually writes that line, and a backstop blind to
+the most common spelling of a hand-set site has no job left.
+
+**(a) — mechanism fixed, no reach claim added.** `_hand_set_spellings`
+(`tests/test_db_engine_lifecycle.py:328`) now compiles `setattr\([^()]*?["']NAME["']`: the `\n` is
+gone from the character class, so the scan is newline-insensitive and the parenthesis stop is the
+only thing that ends it. This is the "collapse newlines before matching" remedy expressed as one
+pattern instead of two mechanisms — a `[^()]` class already matches newlines, so normalising the
+text first and then excluding `\n` would be the same behaviour with a dead exclusion left in the
+regex. Counting unit **unchanged**: per `(file, name)` text match, byte-comparable with
+`_EXEMPT_HAND_SET_SITES`.
+
+**Re-measured tree sweep, after the change:** `9 sites, 6 pairs, dict(_hand_set_sites(names)) ==
+_EXEMPT_HAND_SET_SITES → True, zero matches in any other file under tests/`. Identical to the
+pre-fix numbers, so the dict needed no adjustment. A differential sweep (old pattern vs new,
+per `(file, name)`, over every `tests/**/*.py`) returned **no delta at all**: the widening
+introduced **zero false positives anywhere in `tests/**`**.
+
+**(b) — declared, in both texts, in the same words.** `reset_engine()`'s docstring
+(`src/nonogram/db/session.py:288-305`) and `TestEngineLifecycle_TheResetIsAPublishedSeam`'s
+docstring (`tests/test_db_engine_lifecycle.py:729-752`) both now list *a `setattr(` whose **receiver
+argument itself contains parentheses*** among the blind cases, and both now state the converse —
+that position in the file is not a blind case, because the scan stops at a parenthesis and never at
+a newline.
+
+**Controls (one inside the claimed region, one at its edge, one for the declaration).** New test
+`TestEngineLifecycle_TheResetIsAPublishedSeam::test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`
+(`tests/test_db_engine_lifecycle.py:955`), four arms:
+
+| arm | claim | mutant that kills it |
+|---|---|---|
+| 1 — in the region | a wrapped `setattr(` is counted exactly as the one-line form | **NORM-DEL** (`\n` put back into the class) → **KILLED**; and **M3c** as a real-file mutant → **KILLED** (see below) |
+| 2a — at the edge | a wrapped `setattr(` carrying a name that is **not** one of the three globals is **not** counted, even with a global name quoted further down the file | **PAREN-DEL** (`[^()]*?` → `.*?` under `re.DOTALL`) → **KILLED** |
+| 2b — at the edge | the scan does not run past one call's closing parenthesis into the next call's arguments (two wrapped calls in a row count exactly 1) | **PAREN-DEL** → same |
+| 3 — the (b) declaration | a receiver argument containing parentheses is **not** counted, so the blind list is a measured statement rather than prose | broadening the pattern past parens makes it counted → reds |
+
+**M3c, re-run as a real-file mutant** on `tests/test_db_isolation.py` (a file no exemption lists),
+shape (a) appended as a new test function:
+
+- at `de0ea945`: `TestEngineLifecycle_TheResetIsAPublishedSeam` → **5 passed, guard silent** (the
+  defect, reproduced before fixing);
+- after the fix: **`test_no_test_file_outside_the_exemption_sets_those_globals` FAILED**, reporting
+  `found: … (('test_db_isolation.py', 'engine'), 1) …` against the expected dict — exactly one extra
+  item, correctly attributed.
+
+Restored from a byte-identical `cp` backup and `diff`-verified (`RESTORE OK (byte-identical)`);
+never `git checkout --`. Same for every regex mutant on `tests/test_db_engine_lifecycle.py`.
+
+**`session.py` is still docstring-only.** Re-proved after the edit: every module/class/function
+docstring stripped, `ast.dump` sha256 —
+
+```
+a60d53a4 (base)  : bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c
+de0ea945 (card)  : bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c
+worktree (fixed) : bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c
+```
+
+G-1 unaffected: `reset_engine()` and its single call site are unchanged.
+
+### F-002 (Minor) — NOT FIXED HERE, recorded as an orchestrator finding
+
+**Out of this card's scope by its own `Touches:` line (`meta/architecture/` — no), and it belongs to
+the architect station. `meta/architecture/` was not touched.**
+
+The reviewer's finding, in the reviewer's own wording: ADR-0039/R2 (severity *mandatory*, scope
+`tests/**`) states that *"a guard's set is derived from an authority the runtime can enumerate, not
+hand-written. Where no such authority exists, the guard defaults to deny: a shape it cannot analyse
+is a FAILURE, never a silent pass."* This card's guard splits against that rule: its **name** set
+satisfies the first clause and does so measurably (D1 killed / D2 green), but its **shape** set is
+two hand-written regexes with no enumerable authority, and a shape it cannot see is a silent pass —
+which is precisely the trade this card makes and the board's retro endorsed. The defect is that the
+decision lives in a worktree note while ADR-0039 still reads `Status: Accepted`, `Revised: —`,
+`severity: mandatory`. *"Left as is, the model asserts a discipline the tree knowingly does not hold
+— which is the same 'claim wider than mechanism' failure this card exists to end, one layer up — and
+the next guard-shrink card re-litigates it from scratch."*
+
+**What is owed:** an amendment to ADR-0039/R2 adding a sanctioned alternative to the deny-default —
+*a guard MAY instead drop the reach claim entirely, provided the narrowed claim is stated where the
+mechanism lives and every remaining claim keeps a failing control (R1)* — citing CARD-252 / CARD-254
+as the measured case. **R2 as written forbids what the board actually decided.** This needs a
+follow-up card on the architect station; nothing in this worktree can land it.
+
+### OBS-1 (card prose) — CORRECTED
+
+The card's ADR-0036/R3/R4 line claimed *"`src/nonogram/**` scanned after the docstring edit: no
+codepoint in U+25A0..U+25FF, U+2022 or U+2219"*. **Literally false**:
+`src/nonogram/admin/pdf_generator.py` carries U+2022 three times. Re-measured here — that module is
+the *only* hit in `src/nonogram/**`, it is the declared `DINGBAT_EXEMPT_MODULES` entry
+(`tests/test_book_difficulty_dots.py:787`), and it pre-dates this card, so the rule and the verdict
+were right and only the sentence was wrong. The sentence now says what was actually checked: this
+card's diff introduces no such codepoint, and the authoritative check is green. An overstated
+self-scan is the exact genre this card exists to criticise.
+
+### Test selections run in this cycle (no full suite, no timings)
+
+`meta/kanban/.full-suite.lock` checked absent before **every** run. Database
+`nonogram_pythonproject4_card_254_ffd0825b4ddf_test` (derived by `tests/db_name.py` for this
+worktree), passed as both `DATABASE_URL` and `TEST_DATABASE_URL` as literals. `nonogram_poc` was
+never named, created, dropped, connected to or truncated.
+
+- `tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam` — **6 passed**
+  (the mutant baseline; 5 before the added control)
+- `tests/test_db_engine_lifecycle.py` — **12 passed, 0 skipped** (11 before the added control)
+- `tests/test_db_engine_lifecycle.py tests/test_db_url_driver.py tests/test_db_connect_timeout.py
+  tests/test_db_isolation.py tests/test_suite_profile.py tests/test_book_difficulty_dots.py` —
+  **673 passed, 0 failed, 0 skipped**
+- the same plus `tests/test_cli.py` (the structural import guard, re-run because `src/` was edited)
+  — **769 passed, 0 failed, 0 skipped** (final state, all mutants restored and `diff`-verified)
+
+G-2: no skip path added or removed; the added control is not `db_required`, so
+`EXPECTED_DB_REQUIRED_TESTS = 2` is unchanged and both DB tests still ran.
+G-5: no dependency change; no new import (`re` was already imported).
+
+### DECLARATIONS
+
+- `DECLARATIONS F-001 — updated.` The mechanism's reach changed (a wrapped `setattr(` now counts),
+  so every statement of the old behaviour was re-derived from the code: `_hand_set_spellings`'
+  docstring, `_hand_set_sites_in`'s docstring, item 3 of the guard class's "what this class is"
+  list, the guard class's "blind to" bullet, `reset_engine()`'s "blind to" bullet in `session.py`,
+  and this card's AC-4 convention section. The per-file counting unit and
+  `_EXEMPT_HAND_SET_SITES` are **re-derived and confirmed unchanged** (9 sites, 6 pairs, equality
+  true). No config field, parameter or timeout acquired a second job.
+- `DECLARATIONS F-002 — none (not fixed here; recorded above as an orchestrator finding).`
+- `DECLARATIONS OBS-1 — updated.` The card's ADR-0036 line now states what was measured.
+
+- **[Orchestrator] figures above this line are the pre-fix ones.** The implementation record states
+  919 lines / 11 tests / AC-5 class 5; after the cycle-1 fix the file is **1062 lines / 12 tests /
+  AC-5 class 6** (the new four-arm control). The worktree's copy of this card edited those numbers in
+  place; main's keeps the original and names the correction here, so the sequence stays readable —
+  which is also what "a committed figure is a claim" means for a card's own record.
+
+- **[Orchestrator] the deviation the fix flagged against itself, and I think it is right.** I asked
+  for "newlines collapsed before matching"; the agent removed `\n` from the character class instead,
+  because **`[^()]` already matches newlines** — so normalising first *and* keeping the `\n`
+  exclusion would leave a dead exclusion in the regex, which is the "mechanism nobody can delete"
+  shape this card exists to criticise. The certification cycle is asked to judge it on the merits and
+  to look for any input where the two forms differ (`\r\n`, a line continuation, a docstring
+  containing `setattr(`). Flagging a deviation from the brief, with the reason, is the behaviour this
+  board wants; following the brief into a dead exclusion would not have been.
+- **[Orchestrator] the widening added no false positive anywhere.** A differential sweep — old
+  pattern vs new, per `(file, name)`, over every `tests/**/*.py` — returned **no delta at all**, and
+  the tree sweep is unchanged: 9 sites, 6 pairs, dict-equal, zero matches elsewhere. The dict needed
+  no adjustment, quiet or otherwise, which is the part I would have wanted to catch if it had.

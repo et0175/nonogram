@@ -300,3 +300,110 @@ gating; both are one-clause fixes in files this card already owns.
 - **F-009 recorded and deliberately not "fixed"**: a lock naming a worktree that no longer exists
   refuses every run until it goes stale. A filesystem-existence check would hand a live gate's window
   away whenever a path is briefly unreadable; the override is the documented escape.
+
+### Review cycle 1 — the fix (score 7.5, two open Important)
+
+Report: `meta/review/20261020T062654Z-CARD-255-cycle1.yml`. Selection throughout:
+`tests/test_full_suite_lock.py`, **24 passed before / 30 passed after**. No timing taken (a fix
+cycle was live on CARD-254); the board's real lock was never created, modified or deleted — every
+lock in this work lived in the session scratchpad behind `NONOGRAM_FULL_SUITE_LOCK`.
+
+**RC-1 — `_same_tree` was the card's whole claim with no direct test.** Four findings, one cause.
+
+- **F-001 (Important, ADR-0039/R2) — a relative `worktree:` was a silent pass.** `os.path.realpath`
+  resolves a relative value against the *reading* process's cwd, and gates run pytest from the
+  worktree root, so a foreign holder's `worktree: .` resolved, inside every other worktree, to that
+  worktree: `verdict()` returned `(True, None)` and the run proceeded printing nothing. Probed live
+  before the fix: exit 0, `1 passed`, no "full-suite lock" line anywhere.
+  Fixed with one clause, not a second vocabulary: `_names_a_tree` (`tests/full_suite_lock.py:226`)
+  requires `os.path.isabs(expanduser(...))` before the exemption is even considered
+  (`tests/full_suite_lock.py:322`), so a relative value folds into the *same* branch as a lock that
+  names no worktree at all — the shape ADR-0039/R2 already refused — and the explanation says which
+  of the two it was (`tests/full_suite_lock.py:341-354`).
+  Probed live after the fix, same lock: **exit 4**, `ERROR: Refusing to start`, and
+  `its worktree: value '.' is not an absolute path, so it would resolve to whichever tree happened
+  to read it`.
+  **The clause changes the verdict for no lock any gate script writes.** All five scripts in the
+  orchestrator's scratchpad (`gate.sh`, `gate-225/247/250/251.sh`) write `worktree: $WT` with `$WT`
+  absolute. Measured rather than asserted: the pre-fix and post-fix modules were loaded side by side
+  and each script's exact lock text put to both, read by its own holder, by another worktree and by
+  the main checkout — 15 pairs, **0 verdicts changed**.
+- **F-002 / F-003 / F-005 — three survivors, now three reds.** Re-run as real mutants against the
+  fixed tree, each restored from a byte-identical backup (`diff -q`, never `git checkout --`):
+
+  | mutant | before | after |
+  |---|---|---|
+  | NA-prefix (`_same_tree` → `startswith`) | survived, 24 passed | **1 failed, 29 passed** — `…-card-25 read as …-card-255` |
+  | NB-realpath (`_same_tree` → raw string equality) | survived, 24 passed | **1 failed, 29 passed** — `a trailing slash made a tree foreign` |
+  | ND-readlock (`except OSError: return ""` → `return None`) | survived, 24 passed | **1 failed, 29 passed** — `a lock that cannot be read read as no lock` |
+
+  The controls: `test_same_tree_is_exact_identity_not_a_prefix_or_a_spelling`
+  (`tests/test_full_suite_lock.py:230`) is a direct table over the board's *real* neighbours — the
+  main checkout and `…-card-25` are prefixes of `…-card-255`, so exactness is the live case, not a
+  hypothetical — plus trailing slash, `/.`, a `tmp_path` symlink and `~`;
+  `test_a_lock_that_cannot_be_read_is_not_the_same_as_no_lock` (`:284`) uses a *directory* at the
+  lock path rather than `chmod 0o000`, which does not stop the file's owner on every host.
+  Two further mutants on the new clause and on the exemption pair, to keep each new claim owned:
+  **NC-isabs** (`_names_a_tree` → `bool(value)`) → 3 failed; **M1-no-exemption** → 3 failed, the
+  three self-run cases only, both refusal tests still green; **M2-no-abort** → 2 failed.
+
+**F-004 (Important, ADR-0039/R1) — a claim wider than its own pathspec.**
+`test_nothing_in_the_tree_sets_the_override_for_a_run` claimed the tree and scanned
+`-- tests src pyproject.toml`. The pathspec is gone (`tests/test_full_suite_lock.py:420-464`); the
+allowlist is now `OVERRIDE_NAMERS` (the guard, this file, `tests/README.md`) plus the prose prefixes
+`meta/kanban/cards/` and `meta/review/` — the latter needed because review reports quote the
+variable and `meta/review/` is tracked in main. Both bounds are now stated in the docstring rather
+than left to be discovered: `git grep` reads **tracked** files only, and the gate scripts live
+outside the repo so they cannot be held by this test at all.
+Control (mutant **NE-runner**): `export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1` appended to
+`scripts/run_admin_tests.sh` — the in-tree pytest runner that already exports env for the suite, and
+the strongest co-change peer of `tests/conftest.py` absent from the diff. Widened test: **1 failed**
+(`assert not ['scripts/run_admin_tests.sh']`). The old pathspec'd scan, run against the same mutated
+tree, returned exactly the three allowlisted files — it would have stayed green. Runner restored
+byte-identical.
+
+**The small ones.**
+
+- **F-007** — a lock stamped ahead of this clock printed `age: -3600s`. `_describe` now prints
+  `stamped 3600s in the future (clock skew?)` (`tests/full_suite_lock.py:279-289`); the verdict is
+  untouched (a negative age is below the threshold, so the refusal stands), which the control asserts
+  both ways (`test_a_lock_stamped_in_the_future_refuses_and_says_so_in_words`).
+- **F-010** — `tests/README.md`'s snippet gained `trap 'rm -f "$LOCK"' EXIT`. Said in the same place:
+  the gate scripts have the same `rm -f` shape with no trap of their own, they live outside this repo
+  and are not this card's to edit, so an aborted *gate* still leaves its lock and the override is the
+  way past it.
+- **F-006** — left as the project's convention (`tests/database_guard.py:103` reads its opt-out the
+  same way) and now said out loud where it is defined (`tests/full_suite_lock.py:89-93`): any
+  non-empty value turns it on, `=0` included, and the run announces it either way, so the surprising
+  spelling cannot become a quiet suppression.
+- **F-008** — AC-5's structural guard keeps its text rule and says in its own docstring that it is a
+  text rule over prose as well as code, failing in the safe direction. It now also reads the claim
+  off the module's syntax: no `ast.Call` in `tests/full_suite_lock.py` resolves to
+  `skip/skipif/importorskip/xfail/add_marker/exit`.
+- **F-009 — recorded, not fixed, on purpose.** A lock naming a worktree that no longer exists
+  refuses every run on the host until it goes stale. Adding a filesystem-existence check would hand
+  a live gate's window away whenever its path is briefly unreadable — the defect this card removes.
+  The override is the documented escape, it is named on the line below every refusal, and merge
+  discipline removes a worktree *at* merge, which is also when its gate has deleted its lock.
+
+**AC-5 and the ordinary run, re-proved after the change.** The abort is still an abort, never a
+skip: the guard names no skip API (text rule **and** AST rule), and the three allowed real-run cases
+each assert `1 passed` with `skipped` nowhere. The skip profile was re-derived on its own selection —
+five db-bearing files (`test_card_156_db_fixture`, `test_db_url_driver`, `test_db_isolation`,
+`test_card_109_database_guard`, `test_db_engine_lifecycle`), no `DATABASE_URL` — against the fixed
+guard and then against the pre-fix one restored for the comparison: **153 passed, 7 skipped** both
+times, one named reason (`Database not reachable: DATABASE_URL is not set`), and the two outputs are
+**byte-identical**. A tree with no lock says nothing about a lock: no `full-suite lock` line and no
+mention of the override in that run's output, and
+`test_a_tree_with_no_lock_runs_exactly_as_it_did_before` asserts it.
+Neighbours that read the guard or the README: `test_guard_integrity.py`, `test_suite_profile.py`,
+`test_full_suite_lock.py`, `test_db_url_driver.py`, `test_cli.py` — **712 passed**.
+
+**Declarations re-derived.** The identity rule changed, so every statement of it was corrected in
+the same pass: the module docstring now names *both* members of the unanalysable shape and why a
+relative value is one (`tests/full_suite_lock.py:23-37`); `_same_tree`'s own docstring states the
+exactness claim, the normalisation claim and its new precondition (`:203-224`); `tests/README.md`
+told a human to hand-write a lock and now says the `worktree:` line must be **absolute**, with
+`worktree: .` named as a refusal; the override's doc comment records its spelling. The age display
+changed, so its comment explains why the verdict did not. No config field, parameter or timeout
+acquired a second job.

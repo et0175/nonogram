@@ -136,10 +136,41 @@ findings:
     source: static
     violates: "AC-4"
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
+    fix_notes: |
+      Split remedy, applied 2026-10-20 on card/254-shrink-the-private-globals-guard.
+      (a) MECHANISM WIDENED, no reach claim added: _hand_set_spellings
+      (tests/test_db_engine_lifecycle.py:328) now compiles
+      setattr\([^()]*?["']NAME["'] -- the \n is gone from the character class, so the
+      scan is newline-insensitive and only a parenthesis stops it. A formatter-wrapped
+      call now counts exactly as the one-line form. Counting unit unchanged (per
+      (file, name) text match, byte-comparable with _EXEMPT_HAND_SET_SITES).
+      Re-measured sweep: 9 sites, 6 pairs, equality True, zero matches elsewhere --
+      identical to pre-fix, dict unchanged. A differential sweep (old vs new pattern,
+      every tests/**/*.py) returned no delta: zero false positives introduced.
+      (b) DECLARED, in both texts in the same words: a setattr( whose receiver argument
+      itself contains parentheses is listed among the blind cases in
+      src/nonogram/db/session.py:288-305 (reset_engine's docstring) and
+      tests/test_db_engine_lifecycle.py:729-752 (the guard class's docstring); both also
+      state the converse, that position in the file is NOT a blind case.
+      CONTROLS: new test
+      TestEngineLifecycle_TheResetIsAPublishedSeam::test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not
+      (tests/test_db_engine_lifecycle.py:955), four arms. In-region arm killed by
+      NORM-DEL (\n restored to the class) and by M3c re-run as a real-file mutant on
+      tests/test_db_isolation.py -- M3c left the class at 5 passed at de0ea945 and now
+      reds test_no_test_file_outside_the_exemption_sets_those_globals with exactly one
+      extra item. Edge arms (unrelated name wrapped; two wrapped calls in a row) killed
+      by PAREN-DEL ([^()]*? -> .*? under re.DOTALL), which is what keeps the widening
+      from being a false-positive engine over a count-based equality. Declaration arm
+      pins the receiver-parens form as uncounted.
+      session.py stays docstring-only: docstring-stripped ast.dump sha256
+      bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c at a60d53a4,
+      de0ea945 and this worktree. Every mutant restored from a byte-identical backup,
+      diff-verified. Selections: AC-5 class 6 passed; the module 12 passed, 0 skipped;
+      the six-file touched-adjacent selection 673 passed, 0 failed, 0 skipped.
 
   - id: F-002
     severity: low
@@ -188,9 +219,20 @@ findings:
     source: model
     violates: "ADR-0039/R2"
     root_cause: RC-1
-    status: open
+    status: dismissed
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: |
+      Accepted as a real finding, declined in this card: the fix edits
+      meta/architecture/, which CARD-254's Touches: line explicitly excludes
+      ("meta/architecture/ -- no"), and the amendment belongs to the architect
+      station. meta/architecture/ was not touched. Recorded verbatim on
+      meta/kanban/cards/CARD-254.md as an orchestrator finding, with the reviewer's
+      own wording: R2 as written forbids what the board actually decided, and an
+      amendment sanctioning "drop the reach claim" as an alternative to the
+      deny-default -- provided the narrowed claim is stated where the mechanism lives
+      and every remaining claim keeps a failing control (R1) -- is owed, citing
+      CARD-252 / CARD-254 as the measured case. Needs a follow-up card; nothing in
+      this worktree can land it.
     learned_pattern:
       pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
       dismissed_count: 3

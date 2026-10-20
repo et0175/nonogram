@@ -121,8 +121,8 @@ findings:
     source: static
     violates: ADR-0039/R2
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
 
@@ -179,8 +179,8 @@ findings:
     source: history
     violates: ADR-0039/R1
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
 
@@ -210,8 +210,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
 
@@ -238,8 +238,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
 
@@ -263,8 +263,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
 
@@ -288,8 +288,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
 
@@ -315,8 +315,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
 
@@ -343,8 +343,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
 
@@ -370,9 +370,10 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: dismissed
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: >-
+      Recorded, not fixed, on purpose: a filesystem-existence check would hand a live gate's window away whenever its path is briefly unreadable, which is the defect this card removes. The override is the documented escape, named on the line below every refusal, and merge discipline removes a worktree at merge — which is also when its gate has deleted its lock. Recorded in the card's cycle-1 notes.
     learned_pattern: null
 
   - id: F-010
@@ -396,7 +397,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 346671ed
     dismissed_reason: null
     learned_pattern: null
