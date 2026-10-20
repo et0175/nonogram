@@ -1257,3 +1257,190 @@ the merge rather than in the certifier's closing paragraph.
    hit), and the predicate/exemption pairing rule.
 3. **No effort multiplier, third wave running**, and the **0.5d floor for claim-correction cards
    stays** — both of this wave's cards sat on it and came in under.
+
+## Wave 50 — 2026-10-20
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-256 | The lock guard's path-redirect variable gets a control and the same loudness as its override | 0.25d | 0.84d | 3.36× | 3/3 | 9.0 (from 8.5) | significantly underestimated (actual) |
+| CARD-257 | Cut the guard's prose — the cut CARD-254 measured but could not take | 0.25d | 0.80d | 3.20× | 3/3 | 9.0 (from 8.5) | significantly underestimated (actual) |
+
+### Metrics
+
+- cards: 2, parked: 0, split: 0, actual_time: 2; escalated: 0
+- total_estimate: **0.5d**, total_actual **1.64d** → 3.28× by budget. **Read this as 1.68×, not 3.28×.**
+  Both cards ran **concurrently** and share one wall-clock: the wave's elapsed time was **0.84d** against
+  0.5d estimated. Per-card `Actual` is the wave's elapsed time, not the card's own work, and summing two
+  concurrent cards double-counts the same hours. *Recorded as a measurement defect in the board's own
+  accuracy metric, not as a fact about these cards* — see the calibration note.
+- avg_cycles: **3.0** — both cards spent every cycle they had, for the **second wave running**
+- avg_final_score **9.0** (→ flat vs wave 49, the first flat wave in this journal at the ceiling) ·
+  score_improvement **+0.5** (initial 8.5 → final 9.0) · neither card ever scored below 8.0
+- test_cost: **5 gate runs, 4724s = 1.31h, 100 % full-scope, 1 wasted** (CARD-256's build gate 1, 992s,
+  red on the `@ops` hazard). Wave-closing suite **874s on 8628 tests = 101 ms/test**, against wave 49's
+  **970s on 8622 = 112 ms/test** — **the fastest run in this journal**, and the +13.5 % blip wave 48
+  flagged is now two waves gone.
+- suite growth: 8622 → **8628** (+6: CARD-256's 5 tests, CARD-257's 1). `suite-timing.log` is gitignored,
+  so every figure above is restated here.
+
+### Calibration signals
+
+- **python-pro, 2 cards.** By card the ratio is 3.36× / 3.20×; by wave elapsed it is **1.68×**. I am
+  **not** feeding either number into the effort library this wave, and the reason is that the metric is
+  broken for concurrent cards rather than that the cards were well estimated. Two cards sharing a
+  wall-clock cannot both be charged the whole of it.
+- **What the honest signal is: 0.25d was the wrong estimate, and not because the work was large.**
+  CARD-256's guard file `tests/full_suite_lock.py` is **byte-identical** at both of its commits (blob
+  `7b90cad0`); its fix 2 **committed nothing at all**; CARD-257's three code commits total about **50
+  changed lines**. The cost was **six review cycles across two four-arm controls**. So the estimate was
+  not wrong about the edit — it was wrong about the **certification**.
+- **Proposal for the owner: a 0.5d floor for claim-correction cards is not enough; these need 0.75d.**
+  The 0.5d floor adopted in wave 48 was tested by wave 49's two cards (0.41d, 0.33d) and held. Wave 50's
+  two cards were estimated *below* the floor at 0.25d because they looked like prose edits, and both ran
+  the full three cycles. **A card whose subject is a claim or a measurement should not be estimated as
+  trivial, whatever its diff size.**
+
+### Complexity breakdown
+
+- **trivial (2 cards): avg cycles 3.0, avg score 9.0, 0 escalated**
+- standard: none this wave · architectural: none this wave
+- → with history (9 standard, 7 architectural): standard 2.33 cycles vs architectural 2.03,
+  `arch_vs_std = −0.30` → **upgrade still holding ✓**, unchanged by this wave.
+- **⚑ But the `Complexity` field is now actively misleading on this board.** Wave 49 recorded that
+  *standard* cards are where the cycles go, not architectural ones. Wave 50 goes further: **both cards
+  were marked `trivial` and both spent every cycle they had.** Three waves running, every card that
+  consumed its full budget had a **claim** as its subject — and the marker that predicts cycles is not
+  trivial/standard/architectural, it is *does this card assert something about its own tests*.
+
+### Finding families
+
+- **ADR-0039/R1 is the entire wave: 5 of 5 gating findings, both cards, every cycle.** Not R2, not R3 —
+  **R1 alone**, "a claim stated wider than its mechanism, or a control that cannot fail". That is
+  **fifteen consecutive gating findings** across waves 48, 49 and 50 in the ADR-0039 family.
+- **Where they were is new, and it is the wave's headline. Not one was in a guard.** CARD-256's guard
+  shipped sound at `28de78d9` and never changed; all three of its findings were about **how the card
+  described its own measurements**. CARD-257's two were both **bare substring membership tests** in the
+  control the card itself added — `engine` is a substring of `reset_engine`/`_init_engine`/`_engine_url`/
+  `create_engine` (23 substring vs 12 whole-word occurrences in one text), and `reset_engine` appears four
+  times in the other, once **inside a control's own method name**, which alone kept the assert green.
+- **fix-induced share: 2 of 3 gating findings after cycle 1.** The six-consecutive streak of waves 48–49
+  **broke** — CARD-257's cycle-2 Important **predated** its fix (`245bc898`, untouched by `df23bf64`), so
+  it was the implementation's own defect found late, not the loop feeding on itself. CARD-256's two were
+  fix-induced, in the fix's **record**, while the fix's **code survived every mutant aimed at it**.
+- **⚑ FAMILY FLAG on CARD-256, recorded and deliberately NOT escalated.** Both of
+  `review.family_regression`'s preconditions were met for the first time: cycle 2's new gating findings
+  were attributed to the previous fix *and* fell in one family (the card's claims about its own
+  measurements). Not escalated to the decompose station because nothing about the slice, design or terms
+  was wrong — the code was sound and certified, and the remedy was two one-paragraph corrections the
+  reviewer had already measured. **Escalating would have bought a human decision on an answered
+  question.** Surfaced here instead, because the owner should see that a fix station can produce two
+  gating findings while its code survives everything thrown at it.
+
+### PROMOTE — an instrument has a domain
+
+This is the wave's durable output, and it was paid for five separate times by five different agents.
+
+> **An instrument has a domain, and the domain is part of every figure it produces.**
+> Corollary, measured: **an instrumented-only kill is an attribution a plain run cannot make; a
+> plain-only kill is an observation the instrument cannot make — and only the second kind corrupts a
+> figure.** Caveat: an instrumented-only kill does **not** establish that the arm has its own control
+> (a subsumed arm reds under the instrument too), only that the attribution needs the instrument.
+> **Second clause, from F-009: a figure summarising rows must be counted from the rows, not from the
+> narrative.**
+
+**Five ways a per-assertion instrument lies, all found in this one wave:**
+
+| # | the lie | found by | cost |
+|---|---|---|---|
+| 1 | a **test count** reported as an assertion count — "41 assertions" was 41 collected tests; the file held **129** nodes | CARD-256 review 1 | the matrix was measured over an undeclared subset that excluded the arm killing M-Q, so a **killed** mutant was recorded as a **survivor** |
+| 2 | **last-write-wins** aggregation loses a RED from an assert inside a `for` loop | CARD-257 review 1 | would have lost **3 of 6** kills on the fixed arm |
+| 3 | **suppressed propagation** — a recording wrapper swallows `AssertionError`, so a child pytest reports `1 passed` with rc 0 | CARD-256 review 2 | four real kills recorded as **PASS**, inflating "unkilled" from 80 to 84 |
+| 4 | a **leaked patch** — two of three mutated attributes restored | CARD-257 fix 2 | a leaked patch and a real kill look identical |
+| 5 | a **no-op mutant** — deleting a literal `.SessionLocal` that *neither text contains* (both write `.<name>` and the arm substitutes a placeholder first) | CARD-257 review 3 | returned 2 of 4 cells; a no-op mutant and a surviving mutant look identical |
+
+Plus wave 49's original: deletion mutants must be **line-count-preserving** or the numbering shifts and
+every assert reports NOT-REACHED. **Six traps, and nothing in the tree remembers any of them.**
+
+**PROMOTE — a fix audits the DEFECT CLASS across siblings, not the sibling the brief names.** Mine.
+CARD-257's fix-1 brief named **one** sibling to check; the fix checked exactly that one, correctly and
+thoroughly, and cycle 2 then gated on **a different arm of the same control with the identical defect**.
+A brief that enumerates a sibling gets that sibling checked; a brief that names the defect class gets
+every arm checked.
+
+**PROMOTE — enumerate a card's additions by AST, not by reading.** CARD-257's fix 2 answered "which
+membership tests did this card add?" by parsing the file at `main` and at `HEAD` and collecting every
+`ast.Assert` containing an `In` compare: **main 2, HEAD 4**. A derived answer to the question my own
+briefs had been answering from memory — and getting wrong.
+
+**PROMOTE — reproducing a figure with the original method only confirms the method.** CARD-257's fix 1
+reproduced the card's line-split *method* and found the method itself broken: `code = total − prose −
+blank` **double-subtracts blank lines that sit inside a docstring** (22 on main, 23 after), which is where
+the false "`session.py` code 64 both sides" came from. Under set arithmetic it is **86 before and 86
+after, unchanged** — which is what *docstring-only* means and agrees with the byte-identical AST. Cycle 1
+had marked that very figure "held exactly" by re-running the same formula. **CARD-256's fix 2 then applied
+the remedy by construction: rather than re-run the recording pass, it measured in two NEW domains.**
+
+### The wave's best control, and nobody built it
+
+`kill_matrix.Instrument.visit_Assert` and `plain_lines.ReRaise.visit_Assert` are the same transformer
+except the handler is `[record]` versus `[record, raise]`. So **the recording pass *is* the
+handler-that-forgot-the-`raise`**, and its M-Q row is exactly the degraded row the re-raising pass's
+control predicts: outer `{105, 106}` with the four premises PASS. **The failing state is on disk, not
+hypothesised.** That is the strongest form a control can take and it fell out of the architecture rather
+than being constructed.
+
+### The answer owed since CARD-252 merged: `reset_engine()` did not stop the `@ops` hazard
+
+CARD-256's build gate 1 failed with the `@ops` signature verbatim — 5 failed, **10 occurrences of
+`relation "puzzles" does not exist`**, the same five parametrisations CARD-253 failed on in wave 48 — on a
+tree where `reset_engine()` is defined (`session.py:201`) and called (`conftest.py:528`). Gate 2 on **the
+same commit** passed. Red-then-green on one commit **with the fix present** ⇒ the fix did not remove the
+class.
+
+**CARD-252 was never wrong, and that is the point worth keeping.** Its AC-3 was *withdrawn* with a
+measuring survivor and its docstring says the four waves of failures "remain unexplained"; three review
+cycles each stopped an instinct to let it claim the cure. **Had it shipped that claim, this gate would
+read as a regression in a fix that never fixed anything.** Instead it is evidence about the hazard. The
+claim rule paid for itself in a way nobody could have demonstrated at the time.
+
+- **What stops:** attributing any red to "the known `@ops` hazard, which CARD-252 addresses". The honest
+  attribution is "cause unknown, unaffected by the engine disposal".
+- **What starts: CARD-258**, which guesses no cause — two are already dead (psycopg2 has no
+  `prepare_threshold`, wave 45; the global engine is now disposed, this wave) — and instead makes the
+  **next** occurrence record which database, schema, engine, pool, pid and thread the failing connection
+  was attached to, with its trap written in: the obvious implementation captures through the failed
+  connection, which is in a broken transaction.
+
+### A second environmental red, and the difference in how it was handled
+
+CARD-256's fix found 3 reds in `tests/test_db_isolation.py` in a targeted selection — **and ran the
+control on unmodified `main` before attributing them**, finding the identical three, with `tests/`,
+`src/` and `pyproject.toml` byte-identical between the two trees. Pre-existing, environmental,
+selection-dependent; main's gates are green at full-suite scope. **That control is exactly what the
+`@ops` class never got for four waves**, and it cost one extra selection.
+
+### Process defects — mine, recorded
+
+1. **A brief that enumerates one sibling gets one sibling checked.** CARD-257's second gating finding
+   exists because my fix-1 brief named the heads arm and not the pointer arm. Promoted above.
+2. **F-009: I wrote "22 of 26 rows" where the measurement is 14 of 26 (13 net), and my list omitted
+   M-B.** Twelve per-mutant figures beside it were all correct, which is how a wrong cardinality
+   survives. It happened **in a paragraph whose entire subject was figures stated over the wrong
+   domain**. Promoted above as the rule's second clause.
+3. **F-008: I compressed "the control holds the text to the names in double backticks" at three sites.**
+   Read as what the control *enforces* it is false, and measured so — the arm reads a word-bounded bare
+   name anywhere in the text. A sentence I wrote to *summarise* a control became a claim *about* it.
+4. **Both cycle-1 briefs stated as fact that the derived test database "does not exist on this host, so
+   DB-mode tests skip".** It exists — `gate.sh` creates it — and the guard file reports 13 passed / **0
+   skipped**. No verdict depended on it.
+5. **I warned the cycle-3 reviewer that a trap line occurs four times in the file. It occurs five.**
+
+### Cards opened by this wave
+
+- **CARD-258** (wave 51, queued) — make the next `relation "puzzles"` red diagnostic. Guesses no cause.
+- **CARD-259** (wave 51, queued) — the doubling behind the doubling: CARD-252's record lives in three
+  places, one of which is now load-bearing for a control. Carries CARD-257's **three measured latents**
+  (L-1 partial-reword, L-2 first-occurrence, L-3 the dotted path's right lookahead with 0 carriers
+  tree-wide) and **all six instrument traps**, because it will build an instrument.
