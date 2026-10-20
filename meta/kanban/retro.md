@@ -1444,3 +1444,35 @@ selection-dependent; main's gates are green at full-suite scope. **That control 
   places, one of which is now load-bearing for a control. Carries CARD-257's **three measured latents**
   (L-1 partial-reword, L-2 first-occurrence, L-3 the dotted path's right lookahead with 0 carriers
   tree-wide) and **all six instrument traps**, because it will build an instrument.
+
+### Decisions — wave 50 (owner, 2026-10-20)
+
+1. **Commit the instrument once → CARD-260 (wave 51, enabler, 0.75d).** All six traps become
+   **acceptance criteria certified against planted failures**, not comments: a line-count-shifting mutant
+   is refused; aggregation is any-RED across iterations with last-write-wins as its disagreeing control;
+   a child-dependent arm is reported as a **declared blind spot** in the recording pass and as a kill in
+   the re-raising one; a planted leaked patch is caught by re-running SHIPPED *between* mutants; a no-op
+   mutant is refused; and every figure carries its **domain and an `ast.walk` denominator**. AC-7 anchors
+   it on the two matrices this wave measured three independent ways — `test_full_suite_lock.py` at
+   `ddb1731b` (130/130) and `test_db_engine_lifecycle.py` at `b441ba00` (the four-arm grid).
+   **CARD-259 now depends on it and consumes it rather than building a sixth.**
+   The card's own trap is written in: *an instrument that certifies itself is exactly the defect CARD-256
+   gated on three times.*
+2. **Family flag on CARD-256: endorsed as recorded-not-escalated.** Both of
+   `review.family_regression`'s preconditions were met for the first time on this board, and the
+   judgement stands — nothing about the slice, design or terms was wrong, the code was sound and
+   certified, and the remedy was two one-paragraph corrections the reviewer had already measured.
+   Escalation would have bought a human decision on an answered question. **Recorded as precedent**: the
+   flag is a signal to surface at the wave boundary, not an automatic stop, *when the findings are
+   confined to the fix's record and its code survives the mutants aimed at it.* The distinction to carry
+   forward is **code-implicated vs record-only**.
+3. **Estimation: the claim-card floor rises 0.5d → 0.75d**, and **a card whose subject is a claim or a
+   measurement may not be estimated as `trivial`, whatever its diff size.** Evidence: wave 48 adopted the
+   0.5d floor; wave 49's two cards sat on it and came in at 0.41d and 0.33d, so it held; wave 50's two
+   were estimated *below* it at 0.25d because they looked like prose edits, and **both ran the full three
+   cycles** — with a byte-identical guard file, a fix that committed nothing, and ~50 changed lines
+   between them. The estimate was never wrong about the edit; it was wrong about the certification.
+4. **Four rules promoted to the brief-rules memory** (all four offered, all four taken): *an instrument
+   has a domain* with both corollaries; *audit the defect class, not the sibling the brief names*;
+   *enumerate a card's additions by AST, not by reading*; *reproducing a figure with its original method
+   only confirms the method*.
