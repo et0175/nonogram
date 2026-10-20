@@ -548,3 +548,121 @@ test from this same file; and restores every file verified with `diff -q` **and*
 figure is reproducible from that path for as long as the directory lives, and **not from the tree** — a
 declared bound, not a hidden one. *Commit the instrument once, as its own card* goes to the retrospective:
 three agents have now built it independently and each hit a different trap first.
+
+### [Review 2/3] Score: 8.0 — FAILS the gate on TWO new Importants, both made by the fix's record, not its code
+
+Report: `meta/review/CARD-256-cycle2.yml`. **All six of cycle 1's findings carried forward as `fixed`,
+`fixed_in: f2236045`** — F-001 is genuinely closed on substance. **F-007 and F-008 are new, Important,
+both ADR-0039/R1.** Both are **record-only**: no code moves, no test changes, so cycle 3 is cheap — but it
+is needed, and cycle 3 is the last.
+
+**The fix's code survived every kill attempt**, which is what makes the diagnosis precise. `M-TP` reds the
+new `:750` assertion **alone** — not subsumed, not a control that cannot fail. `M-T` reds `:698` alone and
+leaves `:750` green, so the two halves of the one `ls-files` call really are isolated. And the reviewer's
+own **M-WIDE** (widen `PROSE_SHAPES` by one shape) reds `:750` **and** `:685` — so the shape exemption now
+carries ADR-0039/R3's must-not-absorb control, **which it did not have before the fix.** A genuine
+strengthening. One equivalent mutant noted and correctly not filed: the tab-split in `_tracked_index` is
+indistinguishable from `split()[3]` in today's tree (0 tracked paths under either prefix contain a space),
+and the docstring states it as a *reason for the choice*, not as something a test catches.
+
+**Verdict on the instrument: all five of its numbered claims hold** — and not on its own word. Every
+`ast.Assert` at any depth is reached (the missing `generic_visit` inside the visitor loses nothing, since
+an `Assert` statement cannot contain an `Assert`), cross-checked against an independent `ast.walk`, and
+**corroborated twice independently: the reviewer's own `ast.walk` count is 130, and a `sys.monitoring`
+LINE tracer — a wholly different mechanism — reached all 130 linenos.** Pristine-first with three real
+guards (`count(old)==1`, equal newline counts, equal `splitlines()` length), verified by applying 11
+mutants by hand under the same guards. Per-pid holds and the rationale is real. Plain runs too, and they
+were decisive. `cp -p` + `diff -q` + `shasum -a 256`, with **no git command anywhere in the file**.
+
+**But it has one undeclared limit, and that limit is the finding.**
+
+---
+
+**F-007 — Important, gating — ADR-0039/R1.** The recording wrapper catches `AssertionError`, so under a
+mutant the **child** pytest runs the *instrumented* file: the child's assert fails, the wrapper swallows
+it, the child reports **`1 passed` with rc 0**, and the parent's real-process premises therefore record
+**PASS**. The fix named this mechanism for *test-level* results — it is exactly why it added the plain
+passes — and **never drew the consequence for its own per-assertion figures.**
+
+Measured cost: at least **four** of the 84 (`:1104`, `:1115`, `:1136`, `:1167`) are reddened by **M-Q in a
+plain run** and recorded **PASS** by the instrument. So **84 is an upper bound** — at most 80 — and the
+four counterexamples are precisely the premises the record dismissed as *"they establish that the run
+happened"*. The matrix also under-attributes every real-process arm: it gives M-Q `:105/:106`, where a
+plain run gives M-Q `:105, :1067, :1104, :1115, :1136, :1167`.
+
+The number itself recomputes **in the domain it was measured in** (46 FAIL / 84 no-FAIL of 130, derived
+independently from `results-sweep.json`), and the *reason* is largely right — all 84 mapped to their
+enclosing tests, the great majority CARD-255's pure-function arms, and of the 26 assertion entries this
+card added or reshaped only three sit in the 84. **None of the 84 is a genuinely uncontrolled claim of this
+card.** So the honest statement is **the number, the reason, AND the domain** — plus the plain-domain
+kills, which cost one flag to recover (`--tb=line` on the existing plain pass).
+
+**F-008 — Important, gating — ADR-0039/R1.** The record says `:1174` is unkilled because *"only a new
+verdict phrase would red it, which is precisely the enumeration bound F-006 declares"*. That is **false,
+and self-contradictory in the same commit**: a fourth phrase **cannot** red it — that *is* F-006's bound —
+while what does red it is an **enumerated** phrase reaching a run that should have none. The reviewer's
+**M-1174** reds `:1174` **alone**. So "unkilled by this set" is true, "not a dead control" is true, and
+the reason given for both was the wrong mechanism.
+
+---
+
+**F-006's prediction was TESTED and CONFIRMED**, which is the part of the fix that earned its keep. Fourth
+phrase on `verdict()`'s self-run branch → `test_a_gate_running_under_its_own_lock_is_not_refused` **green**
+(the only red is the *unit* test at `:133/:134`, which the declaration does not speak for). Fourth phrase
+on `current_verdict()`'s no-lock branch → **41 passed**, with the new phrase printed in the measuring run's
+own output and **nothing in the file noticing** — wider than declared, but consistent with it. Bound (b) is
+visible in the AST (one `Assert` node each at `:1071`/`:1174`) and in every plain run.
+
+**Eleven independent probes, nine plain-run rows re-run and matching exactly.** M-Q (6 of 41, the exact
+six), M-Q2 (rc 4, nothing collected, one ERROR line), M-A (2 tests red, only failing arm `:820`), M-R2 (4
+red, `:1107` and `:1118` among the failing arms), M-RD (10 of 41, arm `:795`), M-TP, M-T, M-K — all agree.
+**Two disagreements**, both now findings: every real-process arm is under-attributed, and the `:1174`
+reason.
+
+**Node counts and baseline, re-derived not carried:** **111 / 129 (+18) / 130 (+1)**. `41` is the collected
+test count — 36 on main, 41 at HEAD by `--collect-only` — and **the fix states it nowhere as an assertion
+count.** Baseline **130 of 130 PASS and reached, zero NOT-REACHED**, taken from the `sys.monitoring` tracer
+rather than from the instrument.
+
+**G-1 verified rather than assumed:** `tests/full_suite_lock.py` is **byte-identical** at `28de78d9` and
+`f2236045` — same blob sha `7b90cad0` at both, matching the worktree — so **G-1 needs no re-derivation**.
+`OVERRIDE_NAMERS`, `OVERRIDE_PROSE` and `PROSE_SHAPES` read verbatim and identical at **all three**
+commits; no `+`/`-` line touches any of the three assignments; the change above `PROSE_SHAPES` is
+comment-only. **No new exemption, none widened.**
+
+**The `test_db_isolation.py` attribution is CONFIRMED.** The identical 3 fail in the worktree **and** in
+the unmodified main checkout, same env, 48 passed in both, same three names — and `tests/`, `src/` and
+`pyproject.toml` are byte-identical between `c1d65cd2` and main HEAD, so the control is clean.
+Pre-existing, environmental, selection-dependent; **not a regression this card introduced.** Cause not
+investigated.
+
+**Noted, not filed: main's population today is 551, not the 550 the fix's narrative states.** It drifted
+*within this wave*. That is the fix's own argument about uncontrolled numbers turning on the fix — and
+precisely why the controlled form is the `:750` equality. Recomputed and held: 546 in the worktree, all
+mode `100644`, suffixes exactly `{.md, .yml}`, the `>= 500` floor intact, 8 scan hits all exempted, 0
+offenders. **Seven more adversarial false positives dropped**; the ledger is not extended by anything
+unreproduced.
+
+**System contract:** ADR-0039/R2 ✓, ADR-0039/R3 ✓ (**strengthened**), ADR-0039/R1 ✗ (F-007, F-008),
+ADR-0038/R7 and R8 ⚠ `no_eligible_fact`.
+
+**[The family, and the decision not to escalate]** Three gating findings on this card, and **all three are
+one shape: a measurement reported over a domain that is not the domain it was measured in.** Cycle 1: `41`
+was a collected test count stated as an assertion count. F-007: `84` is an instrumented-domain figure
+stated as a property of the mutant set. F-008: a stated *reason* that a run refutes. By
+`review.family_regression: on` **both preconditions are met this time** — cycle 2's new gating findings
+*are* attributed to the previous fix, and they fall in one family (the card's record claims about its own
+measurements). I am **recording the family and not escalating to the decompose station**, because nothing
+about this card's slice, design or terms is wrong: the code is sound and certified, the remedy is two
+one-paragraph corrections whose exact content the reviewer has already measured, and cycle 3 certifies
+them. Escalating would buy a human decision about a question that is already answered. **Surfaced at the
+wave boundary rather than buried here**, because the owner should see that a fix station can produce two
+gating findings while its code survives every mutant aimed at it.
+
+**[What this says about the instrument rule, one wave after promoting it]** Wave 49 promoted *per-assertion
+measurement with a line-count-preserving instrument*. Wave 50 has now found **four distinct ways the
+instrument lies**, each discovered by a different agent: the line-numbering shift (wave 49), reporting a
+**test count** as an assertion count (cycle 1), **last-write-wins aggregation** losing a RED from an assert
+inside a `for` loop (CARD-257 cycle 1), and now **the recording wrapper suppressing propagation so a child
+process reports `1 passed`** (F-007). The rule needs its own clause: *an instrument has a domain, and the
+domain is part of every figure it produces.*

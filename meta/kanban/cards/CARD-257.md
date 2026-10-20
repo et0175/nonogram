@@ -245,12 +245,38 @@ docstrings.
 **Measured before handing back** (per-assert, mutants installed as module
 attributes so they are line-count-preserving by construction):
 
+> **⚠ SUPERSEDED — two of these four rows were wrong, and the table is kept as the record of what
+> `245bc898` actually measured, not as a current claim.** `DOC-NAME-DEL` was refuted at review cycle 1
+> (true only for a name choice the matrix never stated — `engine` is a substring of `reset_engine`,
+> `_init_engine`, `_engine_url`), and `DOC-POINTER-DEL` at review cycle 2 (true only under a
+> substring-wide deletion that also removes a control's own method name). **The current state is the
+> table below.** Both arms shifted twice; every line number in this table is stale.
+
 | assert | what it is | GLOBAL-ADD | DOC-NAME-DEL | DOC-NAME-DEL-GUARD | SPELL-HEAD-RENAME | ASSIGN-HEAD-RENAME | DOC-POINTER-DEL | NAMES-BLIND |
 |---|---|---|---|---|---|---|---|---|
 | `:845` | preamble (names non-empty) | PASS | PASS | PASS | PASS | PASS | PASS | **RED** |
-| `:857` | the globals, per text | **RED** | **RED** | **RED** | PASS | PASS | PASS | n/r |
+| `:857` | the globals, per text | **RED** | **RED** † | **RED** † | PASS | PASS | PASS | n/r |
 | `:863` | the spellings, per text | PASS | PASS | PASS | **RED** | **RED** | PASS | n/r |
-| `:869` | the pointer to the single source | PASS | PASS | PASS | PASS | PASS | **RED** | n/r |
+| `:869` | the pointer to the single source | PASS | PASS | PASS | PASS | PASS | **RED** † | n/r |
+
+† refuted; see the superseding table.
+
+**The current AC-2 matrix, at `daa721ae`** — per assert, ANY-RED aggregated over every execution
+(the names and heads arms run **twice**, once per text), line-count-preserving mutants, domain =
+one `ast.Assert` node's verdict:
+
+| assert | what it is | SHIPPED | DOC-NAME-DEL ×3 names ×2 texts | GLOBAL-ADD | DOC-HEAD-DEL ×2 heads ×2 texts | SPELL/ASSIGN-HEAD-RENAME | POINTER-ROT | POINTER-DEL-WORD | CONTROLS-RENAME-ONLY | NAMES-BLIND |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `:859` | preamble (names non-empty) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | **RED** |
+| `:878` | the globals, per text, **whole word** | PASS | **RED** (all 6) | **RED** | PASS | PASS | PASS | PASS | PASS | n/r |
+| `:889` | the spellings, per text | PASS | PASS | PASS | **RED** (all 4) | **RED** | PASS | PASS | PASS | n/r |
+| `:897` | the **derived dotted path** to the single source | PASS | PASS | PASS | PASS | PASS | **RED** | **RED** | PASS | n/r |
+
+The pointer arm is now `target = f"{pointer.__module__}.{pointer.__name__}"` with `pointer =
+app_session.reset_engine` — **both** halves derived, so no hand-written literal remains (ADR-0039/R2).
+`CONTROLS-RENAME-ONLY` passing is the point: renaming a control's own method is **not** a lost pointer,
+so the arm is better *targeted*, not merely stricter. Two extra kills the `__module__`-plus-literal form
+would not have: **CODE-RENAME** (function renamed in code, docstrings stale) and **MODULE-MOVE**.
 
 Every assert reds under a mutant that deletes what its own sentence names, and
 both *sides* are live: `DOC-NAME-DEL` (production text) and
@@ -704,3 +730,97 @@ form, and it is a rule for the fix station, not a note about this card.
 **[Cycle budget]** Cycle 3 is the last (`max_cycles: 3`) and it certifies fix 2 — so the final edit does
 **not** ship uncertified this time, which is what the wave-48 rule asks for. The cost is that a new
 Important in cycle 3 leaves no cycle to fix it and escalates.
+
+### [Fix 2] `daa721ae` — the pointer arm, and an arm-by-arm audit that enumerated the card's additions by AST
+
+Commit `daa721ae` on `card/257-cut-the-guards-prose` (third commit, after `245bc898` and `df23bf64`),
+pathspec `tests/test_db_engine_lifecycle.py` only — **1 file, +23/−10**, 1180 → **1193** lines.
+`src/nonogram/db/session.py` is byte-unchanged (0 files under `src/` in the delta) so it was not passed.
+Nothing under `meta/` in the commit.
+
+**F-006 — fixed.** The pointer arm is now `pointer = app_session.reset_engine` /
+`target = f"{pointer.__module__}.{pointer.__name__}"`. The fix derived **both** halves rather than quoting
+`reset_engine`, which removes the last hand-written literal (**ADR-0039/R2**) and is strictly more
+discriminating — it adds two kills the `__module__`-plus-literal form does not have, and changes none of
+the four required readings.
+
+| mutant | `:897` | post-condition |
+| --- | --- | --- |
+| **SHIPPED** | **PASS** | — |
+| **POINTER-ROT** (both `:func:` references → a function that does not exist; `Controls` untouched) | **RED** | dotted-path occurrences 0, bare substrings **2** |
+| **POINTER-DEL-WORD** (every whole-word `reset_engine` gone; `Controls` untouched) | **RED** | whole-word 0, substrings **1** — exactly the `Controls` method name |
+| **CONTROLS-RENAME-ONLY** | **PASS** | dotted-path occurrences 2 |
+| POINTER-DEL-WORD + CONTROLS-RENAME (cycle 2's 4th row) | RED | substrings 0 |
+| *extra, from deriving `__name__`* — CODE-RENAME | **RED** | — |
+| *extra, from deriving `__module__`* — MODULE-MOVE | **RED** | — |
+
+**The arm-by-arm audit, and the part I want kept: the card's additions were enumerated by AST, not by
+reading.** Parsing the file at `main` and at HEAD and collecting every `ast.Assert` containing an
+`ast.Compare` with `In`/`NotIn` gives **main 2, HEAD 4** — so this card added exactly **two** membership
+tests, the heads arm and the pointer arm. The other two are pre-existing. That is a derived answer to
+"which membership tests did this card add", where my own brief had been guessing at siblings by name.
+
+| arm | added here? | mutant | verdict |
+| --- | --- | --- | --- |
+| preamble `:859` `assert names` | no | NAMES-BLIND → **RED** | **fine** — not a membership test at all; a non-emptiness check on a derived set, so no "other occurrence" can satisfy it |
+| names `:878` (word-bounded) | re-spelled by `df23bf64` | 6 `DOC-NAME-DEL` cells → **RED**; GLOBAL-ADD → **RED** | **fine as claimed** — the docstring says *"as a whole word"*, which is exactly what reds |
+| heads `:889` | **yes** | 4 `DOC-HEAD-DEL` cells, SPELL/ASSIGN-HEAD-RENAME → **RED** | **fine, and cycle 2's conclusion re-verified rather than assumed** — the claim is *"this text shows the spelling"*, and any occurrence of `setattr(` literally is showing it, so no occurrence is "other" in a falsifying way |
+| pointer `:897` | **yes** | POINTER-ROT, POINTER-DEL-WORD | **was the defect; fixed** |
+| `:773` `"conftest" in doc` | no (on main, byte-identical) | occurrence count | **fine** — `conftest` appears exactly once in that docstring |
+| `:994` exempt-site membership | no (on main) | — | **fine** — membership in a derived dict, not a "names X" claim |
+
+**Two latents measured and deliberately declared rather than fixed**, both pre-existing with identical
+verdicts before and after:
+
+- **`AUDIT NAME-DEL-BACKTICKED[engine]`** — replace only the backticked ```engine``` and keep the bare
+  English prose. Names arm **PASS** on both texts (backticked left 0; whole-word `engine` left 10 prod /
+  1 guard, the latter being *"something retires its engine"*). So a **partial reword** of the enumeration
+  would not red for `engine`, while `SessionLocal`/`_engine_url` would.
+- **`AUDIT HEAD-DEL-FIRST[setattr(]`** — delete only the first, mechanism-describing occurrence. Heads arm
+  **PASS**; `setattr(` left 5 prod / 3 guard.
+
+Its stated reasons: neither over-states a **shipped** sentence, and cycle 2's certification instruction
+requires the other three arms' rows be unchanged, so moving either arm on the last fix would ship
+uncertified. Cycle 3 has been asked to judge this independently, with the consequence named: a gating
+verdict there means escalation, not a fourth cycle.
+
+**F-007 — fixed.** Recounted in the two texts the assert actually scans: `reset_engine` **0 prod / 4
+guard**, `_init_engine` 4/1, `_engine_url` 2/1, `create_engine` **0/0**. `create_engine` appears **7×** in
+`session.py`'s *source* and **0×** in either scanned docstring — so naming it invited the reader to believe
+the scan sees something it cannot. The comment now names only `_init_engine` and `_engine_url` as *"both
+texts mention"*, plus `reset_engine` as forced into the guard text by the pointer assert. The conclusion is
+unchanged and still measured: prod 23 substring / 12 whole-word (**11 embedded**), guard 8 / 2 (**6
+embedded**).
+
+**Claims narrowed, including one the agent had introduced itself.** The control docstring's mutant row
+`DOC-POINTER-DEL` becomes `POINTER-ROT` **or** `POINTER-DEL-WORD`, with a paragraph stating that the arm
+tests the derived dotted path, that the class docstring carries `reset_engine` inside a control's own
+method name which alone satisfied a bare substring test, and that renaming that method is therefore **not**
+a lost pointer and does not red. The assert's message no longer says *"this class no longer points at the
+convention's single source"* — true only under a mutant that deletes the method name too. And on its first
+pass the agent wrote "this docstring" where the arm reads the **class** docstring; it caught and corrected
+that in the same fix.
+
+**A fourth form of the board's instrument trap, caught by the agent in its own work.** Its first post-fix
+run showed `GLOBAL-ADD` and all four audit mutants reddening the heads arm — a surprising red. Re-run solo:
+its `run()` restored `_global_names_assigned_by` and `_spelling_heads` but **not** `_hand_set_spellings`,
+so an earlier patch **leaked into every later mutant**. **A leaked patch and a real kill look identical.**
+The remedy is to verify SHIPPED comes back all-PASS *between* mutants, not only at the start.
+
+**Guardrails re-derived:** `session.py` AST dump **9154**, sha256 `bdb10905…` unchanged; **0** banned
+codepoints among the 23 added lines and **3** tree-wide, all U+2022 in `pdf_generator.py` (the declared
+exemption); AC-5 tree sweep **9 sites / 6 pairs / dict-equal True / 0 outside** the two exempt files, and
+`_EXEMPT_HAND_SET_SITES` appears **0** times in the diff; G-1 the two regexes, counter, dict and equality
+untouched; G-2 13 tests before and after; G-4 stdlib only, no new import.
+
+**My corrections to the card, done:** the AC-2 matrix is **superseded in place** — the `245bc898` table is
+kept as the record of what was actually measured then, annotated with the two rows later refuted
+(`DOC-NAME-DEL` at cycle 1, `DOC-POINTER-DEL` at cycle 2), and the current table at `daa721ae` is written
+beneath it with all four arm line numbers restated (`:859 / :878 / :889 / :897`). F-002 and F-003 were
+corrected in the card body earlier.
+
+**[Three independent instruments on one card]** fix 1's, cycle 2's, and fix 2's — each written from
+scratch, none re-using another's, and **each found a different defect the others' shape would have hidden.**
+That is now the strongest argument on the board for *commit the instrument once, as its own card*: not
+because writing it is expensive, but because four distinct ways to get it wrong have been discovered in one
+wave, and nothing in the tree remembers any of them.
