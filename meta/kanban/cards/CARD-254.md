@@ -319,3 +319,15 @@ be added wherever that skill lives**; it is the half of the remedy a worktree ca
   `Touches`. The convention is written in `session.py`'s docstring and the guard class's docstring,
   which is where a maintainer of this code will meet it. The standards line is **outstanding** and is
   the owner's to place, since it edits another repository.
+- **[Owner instruction, done] the standards line is placed** —
+  `~/MyProjects/forge_1/forge/skills/engineering-standards/SKILL.md`, §6 "Testing policy", as a
+  standing bullet before the suite-performance rules. Written **generically**, since that artifact is
+  cross-project: *a test does not hand-set another module's private globals — it calls that module's
+  published seam*, with recorded exceptions listed where the seam is defined. Two enforcement notes
+  carried with it, both earned here: that a count-based backstop **must state what it does not
+  enforce**, and that the rule **must not be escalated into a proof** — with CARD-252's three cycles
+  (spellings → argument binding → computed targets) as the cited cost, and the shrunk version's
+  catch of the shape the AST version missed as the punchline.
+- **[Owner] that file is not under version control.** `~/MyProjects/forge_1` has no git repository
+  (`git status` exits 128), so this edit has no history and nothing will tell you if it is
+  overwritten by a skill update. Worth knowing before more hard-won rules are written there.
