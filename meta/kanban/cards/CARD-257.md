@@ -1,6 +1,6 @@
 # CARD-257: Cut the guard's prose to what its 22 lines actually claim
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** trivial
@@ -15,8 +15,8 @@
 **Wave:** 50
 **Depends on:** CARD-254 (merged `9e8aad6d`)
 **Touches:** tests/test_db_engine_lifecycle.py, src/nonogram/db/session.py (docstring only)
-**Review score:** —
-**Started:** 2026-10-20T08:41:42Z · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Review score:** 9.0 (cycle 3/3 — certified, no open Important)
+**Started:** 2026-10-20T08:41:42Z · **Closed:** 2026-10-20T15:07:00Z · **Actual:** 0.8d · **Merge commit:** `b441ba00`
 **Blocked by:** —
 
 ## Why — the arithmetic, which is the whole case
@@ -917,3 +917,25 @@ real kill. The leak hazard itself was handled: a fixed snapshot of all six patch
 every mutant, and SHIPPED re-run all-PASS **between** mutants, all 22 times.
 
 **Eight adversarial false positives dropped**; the board's ledger stays at 13.
+
+### [Merge gate — PASSED] and merged as `b441ba00`
+
+`d67ac802` (the card's three commits with main merged in), **solo**: **8623 passed, 1 skipped, EXIT=0**.
+Reconciles exactly — main 8622 + the one test AC-2's control adds; fix 1 and fix 2 added no test (G-2: 13
+collected in the guard file before and after). `meta/` was identical to main before the gate, so the only
+delta the gate measured was `src/nonogram/db/session.py` and `tests/test_db_engine_lifecycle.py`.
+
+**The gate also answered CARD-256's F-004(b) by naming the skip.** It is
+`tests/test_book_pdf_memory.py:1288` — `setrlimit(RLIMIT_AS)` which this kernel refuses
+(`current limit exceeds maximum limit`), so the address-space half of that card's AC-2 is **not run on this
+machine** and says so loudly, with the resident-set sentry and the arithmetic derivation carrying the
+executed half. That is the skip whose omission from a gate line made CARD-256's two gate totals differ by
+one — derived there by arithmetic, named here by `-rfs`.
+
+**Closed 0.8d against a 0.25d estimate** — 3.2×. The honest attribution is not that the cuts were hard:
+the three code commits total **+25/−10, +23/−10** and one implementation commit. The cost was **three
+review cycles on one four-arm control**, two of them gating on the same defect class found one arm at a
+time. Note for the retrospective that this card and CARD-256 ran concurrently and share their wall-clock,
+so each card's `Actual` is the wave's elapsed time, not its own.
+
+**Worktree removed; `card/257-cut-the-guards-prose` kept as the merged branch.**
