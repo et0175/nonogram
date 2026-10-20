@@ -1,0 +1,327 @@
+version: 1
+generated_at: "2026-10-20T00:00:00Z"
+target: "card/256-the-lock-path-var-gets-a-control @ 28de78d9 (base main c1d65cd2) — CARD-256 cycle 1 of 3, full review; 3 files: tests/full_suite_lock.py, tests/test_full_suite_lock.py, tests/README.md"
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.20"
+
+coverage:
+  read:
+    - tests/full_suite_lock.py
+    - tests/test_full_suite_lock.py
+    - tests/README.md
+    - tests/conftest.py
+    - meta/kanban/cards/CARD-256.md
+    - meta/review/20261020T072614Z-CARD-255-cycle3.yml
+  not_reached:
+    - "the full suite — forbidden by the brief (the orchestrator runs it at the gates under the lock). Targeted selection only: tests/test_full_suite_lock.py, 41 tests, green."
+    - "the per-assertion mutation instrument the card's matrix was produced with: it exists nowhere in the tree or the diff (git grep 'ast.Assert' finds only prose references in meta/), so its output could not be re-derived, only spot-checked."
+    - "the five out-of-repo gate scripts — outside this repo, untouched by this diff."
+    - "the two build-gate totals (8622/8627) — a full run is forbidden, so the absolute numbers are read, not held."
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 332, removed: 34 }
+  max_fan_in:
+    symbol: "tests.full_suite_lock.redirect_note (new)"
+    callers: 3
+    note: >-
+      One production caller (pytest_configure, via tests/conftest.py:96) and two
+      test callers in tests/test_full_suite_lock.py. The widened scan helper
+      tests.test_full_suite_lock._scan has 2 callers, both in that file (the tree
+      scan and its control) — which is what makes AC-2's mutant a single edit.
+  tests_cover_change: true
+  hotspots:
+    - tests/test_full_suite_lock.py
+    - tests/full_suite_lock.py
+  cochange_missing: []
+  unmeasured:
+    churn: "no_eligible_fact — both guard files were created by CARD-255 two days ago; a 12-month churn/defect-density window has nothing in it by construction."
+    cochange_missing: "no_eligible_fact — same window; tests/README.md is the only co-change peer either file has ever had, and it is in this diff."
+    suite_totals: "budget_truncated — the brief forbids a full-suite run, so 8622 passed / 8627 passed could not be recomputed."
+    timings: "not_applicable — the brief forbids taking or reporting any wall-clock measurement (CARD-257 is live on this machine)."
+
+system_contract:
+  rules_checked: 5
+  holds: 2
+  unchecked: 2
+  violated: 1
+  verdicts:
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: the diff is three files (tests/full_suite_lock.py, tests/test_full_suite_lock.py, tests/README.md); it touches no pyproject.toml and no browser/playwright test, so nothing in it bears on where pytest-playwright is declared."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser test and no skip/xfail/marker machinery in the diff; the module still names no skip API (test_the_guard_cannot_turn_a_refusal_into_a_skip green in the 41-test selection), but that is CARD-255's guard, not this rule's subject."
+    - "ADR-0039/R1 ✗ violated — meta/kanban/cards/CARD-256.md, '### Per-assertion kill matrix' / 'Measured bounds': the record states M-Q as a measured survivor; recomputation refutes it (the mutant reds 6 of 41 tests, including test_no_lock_file_is_the_ordinary_case, which calls verdict(None, ...) directly). See F-001."
+    - "ADR-0039/R2 ✓ holds — both derived sets come from authorities the runtime enumerates and both default to deny. Recomputed: `git grep -l -e NONOGRAM_IGNORE_FULL_SUITE_LOCK -e NONOGRAM_FULL_SUITE_LOCK` in the worktree = 8 hits, all 8 exempted (3 in OVERRIDE_NAMERS, 5 prose under the two prefixes), 0 offenders; `git ls-files -s meta/kanban/cards/ meta/review/` = 546 entries, all mode 100644. An unexempted hit is an offender and an empty enumeration reds `len(modes) >= 500`, so neither predicate has a silent-pass arm. Measured, not read: M-1 (second -e dropped from _scan) and M-M (startswith half of the prose exemption -> True) each red test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught."
+    - "ADR-0039/R3 ✓ holds — no new exemption: `git diff main...HEAD` changes no line of OVERRIDE_NAMERS, OVERRIDE_PROSE or PROSE_SHAPES (only the comment above PROSE_SHAPES). The prose exemption's control fails both ways (M-M measured here; M-E recorded by the card). The axis the extension clause cannot bound is held as an equality over today's 546 sites with its own failing control — `assert \"100755\" in _tracked_modes(repo)` inside the exemption's control test. The residual bound (untracked files, out-of-repo gate scripts) is recorded in LOCK_PATH_VAR's docstring rather than claimed sound. The stale per-extension figure in the same comment block fails safe and is filed as F-003, not as an R3 violation."
+
+root_causes:
+  - id: RC-1
+    title: "declared residues asserted from reasoning rather than from a run"
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: "figures committed beside a figure that was updated, with no recomputing control"
+    finding_ids: [F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: high
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 237
+    title: "M-Q is reported as a measured survivor but is killed six ways; the instrument's scope is undeclared and its 41-assertion figure does not recompute"
+    description: |
+      The Implementation record's 'Measured bounds' block states: "M-Q (the `verdict`
+      no-lock branch) survives: current_verdict returns before calling verdict when
+      there is no lock, so that branch is unreachable from a real run."
+
+      The second half is true — current_verdict (tests/full_suite_lock.py:388-390)
+      returns (True, None) before calling verdict when read_lock gives None, so the
+      branch is unreachable from a real run. The first half is false. verdict is unit
+      tested directly: tests/test_full_suite_lock.py:103 calls
+      guard.verdict(None, worktree=..., age_seconds=None, overridden=False) and
+      asserts `allowed is True` and `said is None`. Probed (cp -p backup, restored,
+      diff -q and shasum -a 256 both clean): replacing that branch's `return True, None`
+      with `return False, "M-Q probe"` reds 6 of the 41 tests —
+      test_no_lock_file_is_the_ordinary_case plus the five real-process cases, because
+      SELECTION is that same canary test. No variant of "returns a verdict" survives
+      `assert said is None`.
+
+      The reason the harness said otherwise is the instrument's reach, and that is the
+      part worth fixing. The card claims an instrument that rewrites "every ast.Assert
+      at any depth" and reports "all 41 assertions PASS and reached". The file holds
+      129 ast.Assert nodes at HEAD (111 on main, so this card adds 18); the ten tests
+      the kill matrix names hold 38. 41 is the collected *test* count (recomputed:
+      36 -> 41), not an assertion count. So the matrix was measured against an
+      undeclared ~41-node subset that excludes test_no_lock_file_is_the_ordinary_case —
+      which is exactly the arm that kills M-Q. The instrument itself is in neither the
+      diff nor the tree (`git grep 'ast.Assert'` finds only prose in meta/), so the
+      figure cannot be re-derived at all.
+
+      Net effect: the card's principal evidence artefact — the 21-row kill matrix — is
+      not reproducible, and the one row I could recompute independently is wrong. The
+      shipped code and tests are sound (AC-1..AC-5 all verified independently below);
+      this is an evidence-integrity defect in the record, and on this board the record
+      is what the next card reads.
+    suggestion: |
+      Restate the residue as measured: M-Q is killed by
+      test_no_lock_file_is_the_ordinary_case (6 of 41 tests red), and what survives is
+      nothing — the unreachability-from-a-real-run observation stands on its own and
+      does not need a survivor to carry it. Then either (a) declare the instrument's
+      scope explicitly — which files, which node count, e.g. "129 ast.Assert nodes in
+      tests/test_full_suite_lock.py" — and re-run the 21 mutants against the full set,
+      or (b) commit the instrument so the figure has a recomputing control. Replace the
+      "41 assertions" figure with the number that recomputes (129 at HEAD, +18 from this
+      card). Certification: a cycle-2 read of the restated record plus one re-run of the
+      M-Q edit — it is a record-only change, no code moves, so it can be confirmed
+      cheaply and need not be the last commit before the gate.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 242
+    title: "the absent redirection mutant is justified by a premise G-5 does not state, and the redirection is already controlled"
+    description: |
+      The record says: "A mutant deleting the redirection (lock_path() ignoring the
+      variable) is deliberately not in the set: under it every real-process case here
+      reads the board's own lock, which G-5 forbids."
+
+      G-5 forbids creating, modifying or deleting the board's real lock. Reading it is
+      not in the prohibition, so the stated premise is not what the guardrail says.
+      More to the point, the mechanism is not uncontrolled and needs no real-process
+      case at all: tests/test_full_suite_lock.py:742-747
+      (test_the_lock_path_is_injectable_so_a_test_never_touches_the_real_one) asserts
+      `guard.lock_path() == elsewhere` with the variable set and
+      `== guard.default_lock_path(...)` with it unset — both in-process, with no file
+      anywhere near the board's path. Deleting `if named: return Path(named)` from
+      lock_path reds that test immediately.
+
+      So the record understates its own coverage on a premise that does not hold. Same
+      shape as F-001 and the same remedy: state what a run shows, not what the
+      guardrail is assumed to forbid.
+    suggestion: |
+      Replace the paragraph with the measured fact: the redirection is killed in-process
+      by test_the_lock_path_is_injectable_so_a_test_never_touches_the_real_one, so no
+      real-process mutant is needed and G-5 is not implicated either way.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: ops
+    type: gap
+    file: tests/test_full_suite_lock.py
+    line: 484
+    title: "the per-extension census in the PROSE_SHAPES comment is stale and has no recomputing control, in the block this card rewrote"
+    description: |
+      PROSE_SHAPES' comment states: "These two shapes are the whole tracked population
+      of those directories, not a guess at it: `git ls-files meta/kanban/cards
+      meta/review` in the main checkout is 256 .md and 286 .yml files and nothing
+      else."
+
+      Recomputed: the worktree has 258 .md and 288 .yml (546 total); main has 259 .md
+      and 288 .yml (547). 256/286 = 542 is the figure the card's own "What to
+      implement" quotes, i.e. the pre-implementation measurement. This card rewrote the
+      first half of this same comment block and updated the neighbouring figure (546, in
+      the new test's failure message, which does recompute and does hold), but left the
+      per-extension pair at the drafting value.
+
+      The figure has no control: nothing recomputes the extension census, and the new
+      _tracked_modes equality asserts modes, not suffixes. The substance of the claim
+      (only .md and .yml under the two prefixes) is still true and fails safe — a prose
+      file in a third format naming a switch would not be exempted and would red the
+      tree scan — which is why this is Minor rather than an ADR-0039/R3 violation.
+    suggestion: |
+      Either drop the two counts and keep the shapes claim ("every tracked file under
+      the two prefixes is .md or .yml"), or add the one assertion that makes them a
+      measured claim — `set(Path(p).suffix for p in git ls-files <prefixes>) == {".md",
+      ".yml"}` beside the mode equality in
+      test_the_exempted_prefixes_hold_nothing_a_shell_can_run, which already enumerates
+      the same population. Certification: recompute the census in cycle 2.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 336
+    title: "the build-gate reconciliation conflates two different fives and leaves the two gates' totals one apart"
+    description: |
+      Build gate 1's bullet reads: "The count reconciles (8622 + the 5 tests this card
+      adds = 8627), so nothing was lost". The five tests this card adds (36 -> 41,
+      recomputed and confirmed) are already inside gate 1's 8622 passes; the five that
+      make 8622 into 8627 are gate 1's five *failures* in
+      tests/test_admin_binding.py. The later bullet gets it right ("gate 1's five
+      failures are gate 2's five passes") — this one asserts a reconciliation the
+      arithmetic does not support, from a coincidence of the number five.
+
+      Separately, gate 2 is recorded as "8627 passed, 1 skipped" (8628 collected) and
+      gate 1 as "5 failed, 8622 passed" (8627 collected). The two totals differ by the
+      skip, which is not mentioned on the gate-1 line, so the reconciliation that is
+      claimed is one test short of closing. The absolute numbers could not be
+      recomputed — the brief forbids a full-suite run — so this is the internal
+      consistency of the record, not a claim about the suite.
+    suggestion: |
+      Restate as "gate 1: 8627 collected (8622 passed + 5 failed, 1 skipped); gate 2:
+      the same 8627 collected, all passed, 1 skipped — the five failures are the five
+      passes", and say separately that the card adds 5 tests (36 -> 41). Certification:
+      a cycle-2 read; the gate totals themselves are the orchestrator's to re-derive.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: ops
+    type: gap
+    file: tests/test_full_suite_lock.py
+    line: 588
+    title: "the two conftest substring assertions cannot fail while the assertion above them passes, and their one independent reach is undeclared"
+    description: |
+      test_nothing_in_the_tree_sets_either_of_the_guards_env_switches ends with
+      `assert guard.OVERRIDE not in conftest` and the new
+      `assert guard.LOCK_PATH_VAR not in conftest`, after `assert not offenders`.
+      tests/conftest.py is tracked (`git ls-files --error-unmatch tests/conftest.py`),
+      is not in OVERRIDE_NAMERS and sits under neither prose prefix — so if it named
+      either switch it would already be an offender and the preceding assertion would
+      have failed. In a real pytest run these two arms are only reachable when they are
+      guaranteed to pass.
+
+      That matches the card's own matrix (M-K and M-K2 are recorded as killing them),
+      but only because the per-assertion instrument records instead of raising; in the
+      suite the discriminator is always `not offenders`. Their single genuine
+      independent reach — `tests/conftest.py` becoming untracked, where `git grep`
+      stops seeing it and `read_text` does not — is real and is the reason to keep
+      them, and it is nowhere stated.
+    suggestion: |
+      Keep the assertions and say what they are for, in one clause: "git grep reads
+      tracked files only, so this re-reads the conftest directly — the one shape the
+      scan above cannot see is an untracked one". Nothing else need change.
+      Certification: a cycle-2 read of the added clause.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: ops
+    type: risk
+    file: tests/test_full_suite_lock.py
+    line: 1099
+    title: "the two real-process silence assertions were narrowed from one substring to a hand-enumerated three-phrase list, and the narrowing is not declared as a bound"
+    description: |
+      test_a_tree_with_no_lock_runs_exactly_as_it_did_before and
+      test_a_gate_running_under_its_own_lock_is_not_refused both had
+      `assert "full-suite lock" not in combined` replaced by a loop over
+      ("Refusing to start", "running anyway", "stale"). The replacement is forced and
+      correct — every real-process case redirects the lock path by construction
+      (_run_pytest always sets LOCK_PATH_VAR), so the announcement this card adds now
+      appears in the output and the old substring can no longer be used. The three
+      phrases do enumerate every verdict message verdict() can produce today.
+
+      What is not stated is that the assertion is now a closed list rather than a
+      prefix: a fourth verdict phrase added later would be reported on a self-run or a
+      no-lock run and neither test would notice. The old form could not drift that way.
+      Both docstrings explain why the line is there; neither says the enumeration is
+      the bound.
+
+      Each of the two loops is also a single ast.Assert covering three phrases, so a
+      plain pytest run stops at the first failing phrase — which is the per-assertion
+      hazard the card's own instrument exists to remove, reintroduced inside the
+      assertion.
+    suggestion: |
+      Add one clause to each docstring naming the enumeration as the bound ("the three
+      phrases are every message verdict() returns today; a fourth would pass this
+      test"), or derive the list from the verdict messages instead of restating them.
+      Certification: a cycle-2 read, or a mutant that adds a fourth verdict phrase and
+      shows which test reds.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+adversarial_notes:
+  - "[Adversarial] dropped false positive: 'the refused path never announces the redirection' — pytest_configure sets _ANNOUNCEMENT to None when the verdict refuses, so a refused redirected run prints no redirect note. Dropped: the refusal message itself carries `lock: <path>` through _describe (tests/full_suite_lock.py:303), so the redirected path is named in the only output a refused run produces, and pytest_terminal_summary does not run after a UsageError anyway. No silence."
+  - "[Adversarial] dropped false positive: '`_ANNOUNCEMENT = \"\\n\".join(lines) or None` has a dead `or None`' — the card declares it an equivalent mutant and the declaration is correct: both consumers filter falsy (tests/conftest.py:161-164 builds `[line for line in lines if line]`, and pytest_terminal_summary guards with `if _ANNOUNCEMENT`), and no test asserts `report_line() is None`. Equivalent, declared as such, not a finding."
+  - "[Adversarial] dropped false positive: 'AC-5 is broken — a tree with no lock no longer behaves exactly as before, it now prints a line' — true of the redirected real-process case only, which is the card's intent; the production case (variable unset) is measured by test_an_ordinary_run_says_nothing_about_where_its_lock_came_from and by the hook test, and the skip profile assertion (`\"skipped\" not in combined`) is untouched in all four real-process cases. Declared in the card and in the test docstring."
+  - "[Adversarial] dropped false positive: 'OVERRIDE_NAMERS is a hand-written set, so ADR-0039/R2 is violated' — it is CARD-255's set, unchanged by this diff (verified against git diff main...HEAD, not the prose), it is an equality over three exact paths which R3 explicitly accepts, and this card adds no new exemption. Not this card's finding."
+  - "[Adversarial] dropped false positive: 'the `len(modes) >= 500` floor is a dead mechanism — no mutant isolates it from the mode equality' — both M-X and M-S empty the enumeration and red both assertions, so neither isolates the floor; but the floor has real independent reach (a population that shrinks to a handful of 100644 files passes the equality and fails the floor) and the equality has its own failing control. Noted out-of-scope rather than filed."

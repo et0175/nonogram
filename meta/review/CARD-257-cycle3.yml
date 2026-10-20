@@ -1,0 +1,648 @@
+version: 1
+generated_at: "2026-10-20T00:00:00Z"
+target: "card/257-cut-the-guards-prose @ daa721ae (FINAL cycle 3/3; fix delta df23bf64..daa721ae, 1 file, +23/-10, tests only)"
+card: CARD-257
+cycle: 3
+mode: confirmation
+overall_score: 9.0
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_db_engine_lifecycle.py (the AC-2 control in full at HEAD, the class docstring, the exemption dict, _hand_set_spellings / _spelling_heads)"
+    - "src/nonogram/db/session.py (verified byte-unchanged by the fix delta; docstring-stripped AST re-derived on HEAD and on main)"
+    - "meta/review/CARD-257-cycle1.yml (in full, 407 lines)"
+    - "meta/review/CARD-257-cycle2.yml (in full, 643 lines)"
+    - "meta/kanban/cards/CARD-257.md on main (in full, including the restated AC-2 matrix and the [Review 2/3] section)"
+  not_reached:
+    - "the fix station's scripts and cycle 2's instrument -- neither re-run; a third instrument was written from scratch for this cycle, and every deciding reading was additionally re-derived WITHOUT any instrument by lifting the arm's own test expression out of the AST"
+    - "tests/conftest.py (cycle-1 F-005's territory, carded as CARD-259; outside the delta)"
+  confidence: high
+
+metrics:
+  diff:
+    files: 1
+    added: 23
+    removed: 10
+  fix_delta_files: ["tests/test_db_engine_lifecycle.py"]
+  src_files_in_delta: 0
+  max_fan_in:
+    symbol: "nonogram.db.session.reset_engine"
+    callers: 1
+  tests_cover_change: true
+  hotspots:
+    - "tests/test_db_engine_lifecycle.py"
+  cochange_missing: []
+  per_assertion_domain: >-
+    DOMAIN, stated because this board has paid for the confusion four times:
+    every PASS/RED in this report is the verdict of ONE ast.Assert node of
+    test_both_convention_texts_agree_on_the_mechanisms_parameters, keyed on its
+    OWN source lineno (lifted as a literal constant from the unmodified parse),
+    ANY-RED aggregated over every execution of that node within one call of the
+    test. The names arm (:878) and the heads arm (:889) execute TWICE per run,
+    once per text, and their raw pre-aggregation outcome lists are recorded.
+    It is NOT a collected-test count, NOT a mutant count and NOT the test's
+    pass/fail. Separately: "13 tests" is a pytest COLLECTION count for
+    tests/test_db_engine_lifecycle.py; "15" is the number of `def test_`
+    occurrences in that file, two of which sit inside embedded probe source
+    strings and are not collected. The two figures are different domains.
+  arm_line_numbers_derived_this_cycle:
+    preamble: 859
+    names: 878
+    heads: 889
+    pointer: 897
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact - the fix delta is a single file; its only 12-month
+      co-change peer is src/nonogram/db/session.py, which is provably unchanged
+      (0 files under src/ in the delta, blob sha a32bae5b identical across
+      daa721ae^..daa721ae, docstring-stripped AST dump 9154 / sha256
+      bdb10905... identical on HEAD and on main), so no peer is missing.
+    timings: >-
+      not_applicable - no timing measurement was taken or reported; CARD-256 is
+      in a fix cycle on this machine concurrently.
+
+system_contract:
+  rules_checked: 10
+  holds: 4
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0022/R1 (review-lens) - unchecked - no_eligible_fact: the fix delta touches no signature, request field, export field or source mode; grid extent appears nowhere in its 23 added lines - carried(cycle 2, delta-clean)"
+    - "ADR-0036/R3 (reach-limited) - unchecked - no_eligible_fact: the fix delta adds no drawing code and contains 0 files under src/nonogram/** - carried(cycle 2, delta-clean)"
+    - "ADR-0036/R4 (reach-limited) - holds - re-derived on this head: 0 banned codepoints (U+25A0..U+25FF, U+2022, U+2219) among the 23 added lines of daa721ae; tree-wide scan of every character of every .py under src/nonogram/** gives 3 hits, all U+2022 in src/nonogram/admin/pdf_generator.py, the declared exemption. The delta contains 0 src files and session.py's blob sha is identical across daa721ae^..daa721ae."
+    - "ADR-0038/R6 (review-lens) - unchecked - no_eligible_fact: no player, no solution-grid transport in the fix delta - carried(cycle 2, delta-clean)"
+    - "ADR-0038/R7 (review-lens) - unchecked - no_eligible_fact: pyproject.toml is untouched across main...HEAD (git diff --stat empty) and the fix adds no import at all (`re` and `ast` were already imported) - re-derived rather than carried"
+    - "ADR-0038/R8 (review-lens) - unchecked - no_eligible_fact: no browser test in the fix delta. Re-derived the no-silent-skip observation on this head: tests/test_db_engine_lifecycle.py reports 13 passed, 0 skipped with -rs, so the db_required class ran rather than skipping."
+    - "ADR-0039/R1 (reach-limited) - holds - re-derived on this head, per assert, ANY-RED aggregated, with line-count-preserving mutants. Every claim the control makes about what it catches has a control that can fail: NAMES-BLIND reds :859; six DOC-NAME-DEL cells and GLOBAL-ADD red :878; four DOC-HEAD-DEL cells and SPELL-HEAD-RENAME / ASSIGN-HEAD-RENAME red :889; POINTER-ROT and POINTER-DEL-WORD both red :897. The two NON-red claims the fix narrowed are also measured as non-reds (CONTROLS-RENAME-ONLY PASS on all four arms). Cycle 2's violation (F-006, the bare-substring pointer arm) is independently verified CLOSED at daa721ae, re-derived twice -- once instrumented, once by lifting the arm's own test expression out of the AST."
+    - "ADR-0039/R2 (reach-limited) - holds - the pointer arm's needle is now derived in BOTH halves from the function object the test already holds: target = f\"{pointer.__module__}.{pointer.__name__}\" with pointer = app_session.reset_engine. No hand-written literal of the name remains at that arm. Genuinely derived, not relocated, and measured as such: CODE-RENAME (__name__ changed, docstrings stale) reds :897 and MODULE-MOVE (__module__ changed) reds :897, neither of which the __module__-plus-quoted-literal form would have caught. The names and heads sets are unchanged and still derived (session.py's AST; the two compiled patterns' leading literal runs)."
+    - "ADR-0039/R3 (reach-limited) - holds - re-derived rather than carried, since the rule's scope is tests/** and the delta lands there: _EXEMPT_HAND_SET_SITES appears 0 times in the fix diff, and the tree sweep over tests/**/*.py recomputes to 9 sites / 6 pairs / dict-equal to _EXEMPT_HAND_SET_SITES True / 0 matches outside the two exempt files (test_db_connect_timeout.py, test_db_url_driver.py)."
+    - "CON-021 (review-lens) - unchecked - no_eligible_fact: no play surface, no play-state persistence in the fix delta - carried(cycle 2, delta-clean)"
+
+root_causes:
+  - id: RC-1
+    title: "Card-record figures were not recomputed at the final revision (and the card's split formula double-subtracted blank lines inside docstrings)"
+    finding_ids: [F-002, F-003]
+  - id: RC-2
+    title: "The retired 'same words in two places' pattern survives in a second, unscoped instance"
+    finding_ids: [F-004, F-005]
+  - id: RC-3
+    title: >-
+      Substring membership standing in for a named-thing check: the AC-2 control
+      asks four questions of two docstrings, and two of them were spelled as
+      `needle in text` where the needle is also a substring of a sibling
+      identifier the same text carries for an unrelated reason. Both instances
+      (F-001, the names arm; F-006, the pointer arm) are now closed, the first
+      by a word bound and the second by a derived dotted path. The cluster is
+      resolved, not merely its symptoms.
+    finding_ids: [F-001, F-006]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 878
+    title: "AC-2's name-agreement arm cannot fail for the global `engine` (1 of its 3 set members is narrative)"
+    description: |
+      Cycle 1's gating Important. CLOSED. Re-verified at daa721ae with a THIRD
+      independent instrument, at the newly derived line numbers.
+
+      Per assert, ANY-RED aggregated, line-count-preserving:
+
+        mutant                            :859  :878  :889  :897
+        SHIPPED                           PASS  PASS  PASS  PASS
+        DOC-NAME-DEL-PROD[SessionLocal]   PASS  RED   PASS  PASS
+        DOC-NAME-DEL-PROD[_engine_url]    PASS  RED   PASS  PASS
+        DOC-NAME-DEL-PROD[engine]         PASS  RED   PASS  PASS
+        DOC-NAME-DEL-GUARD[SessionLocal]  PASS  RED   PASS  PASS
+        DOC-NAME-DEL-GUARD[_engine_url]   PASS  RED   PASS  PASS
+        DOC-NAME-DEL-GUARD[engine]        PASS  RED   PASS  PASS
+        GLOBAL-ADD                        PASS  RED   PASS  PASS
+        NAMES-BLIND                       RED   n/r   n/r   n/r
+
+      Raw pre-aggregation lists confirm the aggregation is doing real work:
+      the PROD cells are ['RED','PASS'] and the GUARD cells ['PASS','RED'] --
+      last-write-wins would have lost three of the six.
+
+      Independently re-derived WITHOUT the instrument, by evaluating the arm's
+      own set-comprehension expression against mutated texts under four
+      matchers (shipped word bound / bare substring / LOOKBEHIND-DEL /
+      LOOKAHEAD-DEL) x two texts x five mutants. Both the bare substring and
+      LOOKBEHIND-DEL leave DOC-NAME-DEL[engine] PASS on BOTH texts -- cycle 1's
+      defect reproduced exactly, which is the inside-the-claimed-region mutant
+      the fix's comment needs. LOOKAHEAD-DEL survives (defence in depth; the
+      comment claims only "word bounds", never that each half reds alone).
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-3
+    status: fixed
+    fixed_in: df23bf64
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 897
+    title: "AC-2's pointer arm is a substring test that no deletion or rotting of the pointer can fail - it is held up by a method name in the Controls list"
+    description: |
+      Cycle 2's gating Important. CLOSED at daa721ae. The arm now reads:
+
+          pointer = app_session.reset_engine
+          target = f"{pointer.__module__}.{pointer.__name__}"
+          assert target in guard, (...)
+
+      All four REQUIRED readings reproduce, plus both claimed extras. Measured
+      per assert, ANY-RED aggregated, line-count-preserving, and then
+      re-derived a second time with NO instrument at all by compiling the
+      arm's own test expression (`target in guard`, lifted from the AST at
+      :897) and evaluating it against mutated guard strings:
+
+        mutant                  :859  :878  :889  :897
+        SHIPPED                 PASS  PASS  PASS  PASS
+        POINTER-ROT             PASS  PASS  PASS  RED
+        POINTER-DEL-WORD        PASS  PASS  PASS  RED
+        CONTROLS-RENAME-ONLY    PASS  PASS  PASS  PASS
+        CODE-RENAME   (extra)   PASS  PASS  PASS  RED
+        MODULE-MOVE   (extra)   PASS  PASS  PASS  RED
+
+      Post-conditions, all three as claimed:
+        * POINTER-ROT (both `:func:` dotted references renamed to
+          nonogram.db.session.retire_engine, Controls entry untouched):
+          dotted-path occurrences 0, bare `reset_engine` substrings 2,
+          Controls entry still present True.
+        * POINTER-DEL-WORD (every whole-word `reset_engine` removed, Controls
+          entry untouched): whole-word 0, substrings 1 -- exactly the Controls
+          method name `test_reset_engine_is_public_and_says_who_calls_it`,
+          Controls entry still present True.
+        * CONTROLS-RENAME-ONLY: dotted-path occurrences 2, Controls entry gone.
+
+      One of the two is indeed not enough: the instrument-free candidate grid
+      reproduces that a word bound `\breset_engine\b` PASSes POINTER-ROT and
+      only REDs POINTER-DEL-WORD, while the shipped derived-dotted form REDs
+      both -- better TARGETED, not merely stricter, and CONTROLS-RENAME-ONLY
+      PASSing is the point.
+
+      The guard-text census that grounds it: dotted path 2, `reset_engine`
+      substring 4 / whole-word 3; the fourth substring is the embedded method
+      name, and 0 occurrences of the dotted path anywhere in src/ or tests/
+      are embedded in a longer identifier.
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-3
+    status: fixed
+    fixed_in: daa721ae
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 872
+    title: "The fix's inline comment names four identifiers as things 'both texts mention anyway'; two of the four are mentioned by neither text or by only one"
+    description: |
+      Cycle 2's Minor. CLOSED at daa721ae. The shipped comment now reads
+      (:872-877):
+
+        # Whole words, not substrings: ``engine`` sits inside
+        # ``_init_engine`` and ``_engine_url``, which both texts mention,
+        # and inside ``reset_engine``, which the pointer assert below
+        # forces into the guard text -- so a substring test for that name
+        # could not fail on either text. Word bounds are what make each of
+        # the three names red on its own.
+
+      The recount, in the two docstrings the assert actually scans
+      (app_session.reset_engine.__doc__ and the class docstring), as
+      substrings -- prod / guard:
+
+        create_engine   0 / 0
+        reset_engine    0 / 4
+        _init_engine    4 / 1
+        _engine_url     2 / 1
+
+      Every claimed figure reproduces exactly. `create_engine` is dropped,
+      which is correct: it occurs 7x in session.py's SOURCE but 0x in either
+      scanned docstring, and naming a source-only identifier in a comment
+      about a docstring scan was the defect. The surviving list is now exactly
+      the identifiers each text really carries, with the text named per
+      identifier: `_init_engine` and `_engine_url` in both, `reset_engine`
+      forced into the guard text by the pointer assert (which now requires the
+      dotted path, and the dotted path contains the bare name as a substring,
+      so the forcing claim survives the pointer arm's rewrite).
+
+      Embedded-occurrence counts also as claimed: prod `engine` 23 substring /
+      12 whole-word (11 embedded), guard 8 / 2 (6 embedded).
+
+      The conclusion "a substring test for that name could not fail on either
+      text" is measured, not reasoned: the instrument-free matcher cross
+      product shows DOC-NAME-DEL[engine] PASSing on BOTH texts under a bare
+      substring matcher and under LOOKBEHIND-DEL.
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: daa721ae
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-257.md
+    line: 382
+    title: "Residue says 'three of its sections' are CARD-252's record and names two; the third section is this card's own scope"
+    description: |
+      Carried from cycles 1 and 2. CLOSED in the card body on main at
+      a05d88db. The residue now reads "**two** of its three sections (`Who
+      calls it and why`, `What is pinned, and what is not`) are CARD-252's
+      record rather than this card's scope -- the third, `The convention, and
+      what little enforces it`, is the single source **this card created**",
+      with the correction's provenance named. Verified against the shipped
+      docstring: reset_engine()'s docstring has exactly those three underlined
+      sections, and the third is the single source the card created. Count and
+      attribution now both right.
+    suggestion: |
+      No action. Closed in the card body.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: a05d88db
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-257.md
+    line: 183
+    title: "Three of the card's line-split figures are off by one on recomputation - plus a method defect in the formula itself"
+    description: |
+      Carried from cycles 1 and 2. CLOSED in the card body on main at
+      a05d88db. Every correction re-derived independently this cycle with my
+      own ast + tokenize split (prose = docstring lines UNION comment lines;
+      blank = lines whose strip() is empty):
+
+        tests/test_db_engine_lifecycle.py
+          main      total 1177  prose 616  blank 121  blank-in-prose 54
+          245bc898  total 1162  prose 568  blank 129  blank-in-prose 56
+          df23bf64  total 1180  prose 581  blank 129  blank-in-prose 56
+          daa721ae  total 1193  prose 589  blank 130  blank-in-prose 57
+        src/nonogram/db/session.py
+          main      total  384  prose 275  blank  45  blank-in-prose 22
+          245bc898  total  393  prose 284  blank  46  blank-in-prose 23
+          daa721ae  total  393  prose 284  blank  46  blank-in-prose 23
+
+      Checked against the corrected card:
+        * after-prose 568 (card now 568, was 567) - CORRECT
+        * code 440 -> 465, i.e. +25 (card now "25 lines of code" at both
+          sites, was 24) - CORRECT
+        * control B's docstring 63 -> 47 (card now 47, was 48) - CORRECT;
+          control A 125 -> 107 / docstring 37 -> 30 and class docstring
+          116 -> 59 also hold
+        * session.py row 63 / 4.51 : 1 (card now 63 and 4.51, was 64 and
+          4.44) - CORRECT: the card's own formula total - prose - blank gives
+          393 - 284 - 46 = 63, and 284/63 = 4.51; the before row 384 - 275 -
+          45 = 64 and 275/64 = 4.30 also hold
+        * the footnote's set-based statement "86 code lines before and 86
+          after, unchanged" - CORRECT: total - |docstring UNION comment UNION
+          blank| gives 384 - 298 = 86 and 393 - 307 = 86, and the guard file's
+          set-based column 494 -> 521 also holds
+
+      Not recomputed with the card's defective formula alone -- a figure is a
+      claim and reproducing it with the original method only confirms the
+      method, which is exactly how the double-subtraction survived. Both
+      methods were computed side by side and the footnote now names the method,
+      which is what makes 86 readable.
+    suggestion: |
+      No action. Closed in the card body.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: a05d88db
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 713
+    title: "The class docstring's opening paragraph is now load-bearing, and the class docstring does not say so"
+    description: |
+      Cycle 1's Minor. CLOSED at df23bf64; carried(cycle 2, delta-clean) for
+      the clause itself, and re-derived this cycle for the one property the
+      pointer-arm rewrite could have disturbed.
+
+      The shipped clause (:713-716) is unchanged by daa721ae and still names
+      no global of its own, so it cannot substitute for the enumeration and
+      defeat the mutant: all six DOC-NAME-DEL cells, including both GUARD
+      [engine] cells, still RED at :878 on this head.
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: df23bf64
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/conftest.py
+    line: 469
+    title: "A second 'same words in two places' doubling of a CARD-252 bound survives, uncontrolled and unmentioned"
+    description: |
+      Cycle 1's Minor, resolved at cycle 2 as CARDED rather than fixed:
+      CARD-259 exists on main at status `ready`, wave 51, naming this finding
+      as its source and depending on CARD-257 merging first. conftest.py is
+      outside this card's declared Touches and outside both fix deltas; it was
+      neither edited nor committed. Nothing regressed.
+    suggestion: |
+      No action on CARD-257. Carried by CARD-259.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "Out of CARD-257's declared scope; accepted and routed to CARD-259 (status ready, wave 51), which names this finding as its source and depends on CARD-257 merging first."
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-257.md
+    line: 388
+    title: "The residue's one-line summary of what AC-2's control enforces reads as though the control required the names in double backticks; it does not"
+    description: |
+      NEW this cycle, Minor, non-gating, card-record only -- the shipped code
+      and its tests state this correctly.
+
+      The card's residue says:
+
+        "The AC-2 control holds the guard's text to the *names* in double
+         backticks, which the scan does not count."
+
+      Read descriptively this is true and is a compression of the control's own
+      docstring at :838-840 ("A text may hold the names in double backticks,
+      which the scan does not count"). Read as a statement of what the control
+      enforces it is false, and measured so: AUDIT NAME-DEL-BACKTICKED[engine]
+      -- replace every ``engine`` with ``<redacted>`` in both texts -- leaves
+      the names arm PASS on both texts, because the arm's matcher is a word
+      bound on the bare name and the guard's same paragraph still says
+      "something retires its engine". Post-condition: backticked occurrences 0,
+      whole-word `engine` 10 (prod) / 1 (guard).
+
+      So the control holds each text to naming each global AS A WHOLE WORD
+      ANYWHERE in that text; the double backticks are how today's texts happen
+      to spell two of the three, and are irrelevant to the arm. The sentence is
+      the only place in the card record that could lead a maintainer of that
+      paragraph to the wrong conclusion about what reds.
+
+      Same class as F-002/F-003 (card-record prose stated wider than the
+      mechanism), which is why it is filed rather than swallowed, and Minor
+      because no shipped claim and no bound depends on it.
+    suggestion: |
+      At merge, in the residue only: "The AC-2 control holds each text to
+      naming each of the three globals as a whole word, anywhere in that text
+      (the double backticks today's texts use are not what the arm reads, and
+      are what keeps the hand-set scan from counting them). That is
+      load-bearing for the class docstring's opening paragraph."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+declared_latents:
+  - id: L-1
+    mutant: "AUDIT NAME-DEL-BACKTICKED[engine]"
+    verdict: not_gating
+    arm: "names, :878"
+    measured: "names arm PASS on BOTH texts; post-condition backticked occurrences 0, whole-word `engine` 10 (prod) / 1 (guard)"
+    shipped_sentence: >-
+      "**DOC-NAME-DEL**[*name*] (one global dropped from one text as a whole
+      word -- six mutants, one per name per text, since the names arm tests
+      whole words and so each name fails on its own)"
+    judgement: >-
+      The declaration is the honest ADR-0039/R1 outcome, not an over-claim. The
+      shipped row is worded "as a whole word", and a whole-word `engine` is
+      exactly what survives this mutant (10 in prod, 1 in guard), so the PASS
+      is the claim being true rather than a control failing to fire. The arm's
+      own failure message says the same ("does not name every global ... as a
+      whole word"). The mutant demonstrates only that the control is
+      per-name-over-the-whole-text, not per-sentence -- which is what its
+      wording says. No bound is lost and the failure direction is a text that
+      still names the global passing, which is correct behaviour. Follow-up
+      material at most; CARD-259 is the natural home, since it already takes
+      these two texts.
+  - id: L-2
+    mutant: "AUDIT HEAD-DEL-FIRST[setattr(]"
+    verdict: not_gating
+    arm: "heads, :889"
+    measured: "heads arm PASS on BOTH texts; post-condition `setattr(` left 5 (prod) / 3 (guard)"
+    shipped_sentence: >-
+      "{label} does not show every spelling _hand_set_spellings counts
+      ({list(heads)}): either the scan changed without the text, or the text
+      was reworded away from the scan"
+    judgement: >-
+      Not gating, for the same reason and more cleanly: the claim is "does not
+      SHOW every spelling", and a text with 5 (prod) / 3 (guard) remaining
+      occurrences still shows it. The control docstring's heads row claims only
+      a head RENAME ("a spelling's head changed, so neither text describes the
+      mechanism any more"), which reds on both texts under both
+      SPELL-HEAD-RENAME and ASSIGN-HEAD-RENAME. Nothing shipped claims an
+      occurrence count. Deleting one of several occurrences is not the loss the
+      claim names.
+  - id: L-3
+    note: >-
+      One further residual bound of the NEW pointer arm, measured and recorded
+      rather than filed: `target in guard` is still a substring test, so an
+      identifier that strictly EXTENDS the dotted path (e.g.
+      nonogram.db.session.reset_engine_pool) would satisfy it without being a
+      pointer. Measured: 0 such occurrences in the guard text, 0 in the
+      production text, and 0 anywhere under src/ or tests/. A word-bounded
+      variant (`re.escape(target) + r"(?![A-Za-z0-9_])"`) stays PASS on SHIPPED
+      and would close it, so the bound is cheap to retire -- but doing it on
+      the last fix would move the very row cycle 3 is certifying, and no
+      shipped sentence over-claims today. Follow-up, not a finding.
+
+acceptance_criteria:
+  - id: AC-1
+    verdict: met
+    evidence: >-
+      carried(cycle 2, delta-clean). The fix delta changes no clause of any
+      single-sourced text: its 23 added lines are two paragraphs of the AC-2
+      control's own docstring, a re-worded six-line inline comment, and the
+      pointer arm's three statements. The blind-to list, the counting rule and
+      the bound live in session.py, whose docstring-stripped AST is
+      byte-identical to main's on this head (dump 9154, sha256 bdb10905...).
+  - id: AC-2
+    verdict: met
+    evidence: |
+      MET, no finding. The full matrix, independently derived this cycle at
+      line numbers I derived myself from the unmodified parse (:859 preamble,
+      :878 names, :889 heads, :897 pointer), per assert, ANY-RED aggregated
+      over every execution, line-count-preserving:
+
+        mutant                       :859  :878  :889  :897
+        SHIPPED                      PASS  PASS  PASS  PASS
+        NAMES-BLIND                  RED   n/r   n/r   n/r
+        GLOBAL-ADD                   PASS  RED   PASS  PASS
+        DOC-NAME-DEL-PROD   x3       PASS  RED   PASS  PASS
+        DOC-NAME-DEL-GUARD  x3       PASS  RED   PASS  PASS
+        DOC-HEAD-DEL-PROD   x2       PASS  PASS  RED   PASS
+        DOC-HEAD-DEL-GUARD  x2       PASS  PASS  RED   PASS
+        SPELL-HEAD-RENAME            PASS  PASS  RED   PASS
+        ASSIGN-HEAD-RENAME           PASS  PASS  RED   PASS
+        POINTER-ROT                  PASS  PASS  PASS  RED
+        POINTER-DEL-WORD             PASS  PASS  PASS  RED
+        CONTROLS-RENAME-ONLY         PASS  PASS  PASS  PASS
+        CODE-RENAME                  PASS  PASS  PASS  RED
+        MODULE-MOVE                  PASS  PASS  PASS  RED
+        AUDIT NAME-DEL-BACKTICKED    PASS  PASS  PASS  PASS
+        AUDIT HEAD-DEL-FIRST         PASS  PASS  PASS  PASS
+
+      The other three arms' rows are UNCHANGED from cycle 2's certified grid:
+      six DOC-NAME-DEL cells RED at the names arm, GLOBAL-ADD RED there, four
+      DOC-HEAD-DEL cells RED at the heads arm, SPELL-HEAD-RENAME and
+      ASSIGN-HEAD-RENAME RED there, NAMES-BLIND RED at the preamble, SHIPPED
+      all-PASS on all four. The pointer arm's row is the new one and carries
+      all four required readings plus both claimed extras.
+
+      Every narrowed claim reads true, checked sentence by sentence against
+      the grid: `DOC-POINTER-DEL` occurs 0 times anywhere in the tree; the
+      control docstring's row now names POINTER-ROT and POINTER-DEL-WORD, both
+      of which red; its new paragraph's four statements are each measured (the
+      arm tests the derived dotted path; the class docstring carries
+      `reset_engine` inside a control's own method name -- substring 4,
+      whole-word 3, the fourth being that method; that occurrence ON ITS OWN
+      satisfies a bare substring test -- POINTER-DEL-WORD leaves exactly it
+      and the old assert PASSes; renaming that method does not red --
+      CONTROLS-RENAME-ONLY PASS). Nothing in either text says the arm reds on
+      a control rename; both say the opposite, correctly. The corrected "class
+      docstring" wording also reads true: the arm reads type(self).__doc__, the
+      label is "this class's docstring" and the message says "this class's
+      docstring no longer carries `{target}`" -- the imprecise "this class" of
+      df23bf64's message is gone.
+  - id: AC-3
+    verdict: met
+    evidence: >-
+      carried(cycle 2, delta-clean). The fix delta touches neither control A
+      nor control B: both are byte-identical at df23bf64 and daa721ae
+      (control A 107 lines / docstring 30; control B 158 lines / docstring 47,
+      re-derived this cycle at all four shas), and every assert in both sits
+      outside the delta's hunks. Cycle 1 reproduced both of CARD-254's cycle-3
+      matrices cell for cell.
+  - id: AC-4
+    verdict: met
+    evidence: >-
+      carried(cycle 2, delta-clean). The precondition and the position assert
+      both live in control B, which the delta does not touch (158 lines,
+      docstring 47, identical at df23bf64 and daa721ae). Cycle 1 certified it
+      with a line-count-preserving PROBE-ONE-CALL targeted at the occurrence
+      inside arm 2b's own probe; that targeting requirement still binds for any
+      re-derivation, since the same three source lines appear earlier in the
+      file and a first-occurrence replacement mutates the wrong arm and returns
+      a false all-green.
+  - id: AC-5
+    verdict: met
+    evidence: >-
+      Re-derived on this head rather than carried. session.py's
+      docstring-stripped AST round-tripped through ast.unparse, re-parsed and
+      ast.dump'ed: dump length 9154, sha256
+      bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c --
+      identical on HEAD and on main, i.e. the declared value. The fix commit
+      contains 0 files under src/ and session.py's blob sha is a32bae5b on both
+      daa721ae^ and daa721ae. Tree sweep over tests/**/*.py recomputed with the
+      module's own helpers: 9 sites, 6 pairs, dict-equal to
+      _EXEMPT_HAND_SET_SITES True, 0 matches outside the two exempt files.
+
+guardrails:
+  - id: G-1
+    verdict: holds
+    evidence: >-
+      Re-derived. The fix commit touches one file and it is a test file (0
+      files under src/); the two regexes, the counter, the dict and the
+      equality all live in territory the delta does not enter
+      (_EXEMPT_HAND_SET_SITES appears 0 times in the diff), and session.py's
+      docstring-stripped AST is byte-identical to main's. The delta's only
+      executable change is three statements of the pointer arm; _hand_set_
+      spellings, _spelling_heads and _global_names_assigned_by are untouched.
+  - id: G-2
+    verdict: holds
+    evidence: >-
+      Re-derived on this head. No test is added and none retired by the fix
+      delta: the diff contains no added or removed `def test_` line, and
+      tests/test_db_engine_lifecycle.py reports 13 passed / 0 skipped at both
+      df23bf64 (cycle 2) and daa721ae. DOMAIN: 13 is a pytest COLLECTION count
+      for that file; the file holds 15 `def test_` occurrences, two of which
+      sit inside embedded probe source strings and are not collected -- the
+      same 15 at both shas.
+  - id: G-3
+    verdict: holds
+    evidence: >-
+      nonogram_poc was never named, created, dropped, connected to or
+      truncated. Every run used the derived database
+      nonogram_pythonproject4_card_257_01bc64b6d28b_test, passed as both
+      DATABASE_URL and TEST_DATABASE_URL. _refuse_unless_test_database was
+      neither widened nor bypassed.
+  - id: G-4
+    verdict: holds
+    evidence: >-
+      pyproject.toml is untouched across main...HEAD (git diff --stat empty),
+      and the fix delta adds no import line at all (`re` and `ast` were already
+      imported). stdlib only.
+
+notes:
+  - "[Mutation check] RUN, not deferred. mutation_check: true and this is the stable confirmation cycle with no gating findings. 22 mutants over the AC-2 control, all per-assert, all line-count-preserving by construction (no file on disk was ever edited): SHIPPED, NAMES-BLIND, GLOBAL-ADD, 6x DOC-NAME-DEL, 4x DOC-HEAD-DEL, SPELL-HEAD-RENAME, ASSIGN-HEAD-RENAME, POINTER-ROT, POINTER-DEL-WORD, CONTROLS-RENAME-ONLY, CODE-RENAME, MODULE-MOVE, and the two declared-latent AUDIT mutants. Plus 40 instrument-free cells (4 matchers x 2 texts x 5 mutants) and 16 instrument-free pointer cells (4 candidate asserts x 4 mutants) derived by lifting the arms' own expressions out of the AST."
+  - "[Instrument discipline] The board's leaked-patch hazard was handled explicitly: a fixed snapshot of EVERY patched attribute (_global_names_assigned_by, _hand_set_spellings, the class __doc__, and reset_engine's __doc__, __name__ and __module__) is restored after each mutant, and SHIPPED is re-run and required to come back all-PASS BETWEEN mutants, not only at the start. It did, after every one of the 22."
+  - "[Instrument trap, fifth form -- found in my own work] My first head-deletion mutant deleted the literal head `.SessionLocal` from each raw text and returned only 2 of the 4 DOC-HEAD-DEL cells RED -- a surprising PASS. Re-run solo: NEITHER raw text contains the literal `.SessionLocal` (0 occurrences in both); both write `.<name>` once, and the arm substitutes _NAME_PLACEHOLDER before scanning. So the faithful mutant must delete the head AS THE TEXT SHOWS IT, placeholder form included; with that, all four cells RED and each mutant carries a post-condition asserting the substituted text genuinely no longer shows the head. A no-op mutant and a surviving mutant look identical, exactly like a leaked patch and a real kill."
+  - "[Adversarial] dropped false positive: 'the pointer arm is still `needle in text`, so it carries the identical defect class as F-001 and F-006 and the fix only moved the needle'. Refuted by measurement, not by argument: for the shape to recur, some occurrence of the dotted path must not be a pointer, i.e. an identifier strictly extending `nonogram.db.session.reset_engine`. There are 0 in the guard text, 0 in the production text and 0 anywhere under src/ or tests/. F-006's defect had a live carrier in the shipped text; this one has none. Recorded as declared latent L-3 with the measurement and a one-line closer, not filed."
+  - "[Adversarial] dropped false positive: 'CODE-RENAME is an unrealisable mutant -- a real rename makes app_session.reset_engine raise AttributeError at :895, so the arm never evaluates and the claimed extra kill is fiction'. Partly right and refuted on the part that matters: the realisable form is a rename WITH an alias or re-export left behind (`reset_engine = retire_engine`), which is precisely the stale-docstring drift the claim is about -- then __name__ is `retire_engine`, the derived target misses, and :897 reds while the __module__-plus-quoted-literal form would have PASSed. Without an alias the test still reds, one line earlier and louder. Either way the extra kill is real; only the route differs, and the DOMAIN of the reading is stated."
+  - "[Adversarial] dropped false positive: 'the control docstring lists POINTER-ROT/POINTER-DEL-WORD among the mutants that red the test without saying the pointer arm reads only the class docstring, so the row over-claims for the production text'. Refuted: the production text carries 0 occurrences of `reset_engine` and 0 of the dotted path, and the paragraph immediately below the row says `the class docstring it reads`. The row is scoped by the paragraph that follows it."
+  - "[Adversarial] dropped false positive: 'the assert message says the embedded method name `is what kept a substring test green`, but under POINTER-ROT the whole-word occurrence in Control 1 prose also keeps it green, so the message singles out the wrong carrier'. Refuted as a misreading of the message's own scope: under POINTER-DEL-WORD the method name is the SOLE remaining occurrence (substrings 1, whole-word 0) and the old substring assert PASSes -- which is exactly the sentence's claim, and the control docstring states it in the precise form (`which on its own satisfies a bare substring test`)."
+  - "[Adversarial] dropped false positive: 'the F-004 clause promises `reword one of the three away and that control reds, per name`, and AUDIT NAME-DEL-BACKTICKED[engine] refutes it -- rewording the enumeration`s backticked ``engine`` away reds nothing'. Refuted on the clause`s own wording: the preceding clause scopes it, `holds THIS DOCSTRING to naming each of them as a whole word`, so `away` means away from the docstring, and a whole-word removal does red, per name, in all six cells. The mutant leaves whole-word `engine` at 1 in the guard (`something retires its engine`), i.e. the docstring still names the global -- the control passing is the claim being true."
+  - "[Adversarial] dropped false positive: 'the comment`s conclusion `a substring test for that name could not fail on either text` is an absolute with no control on the production side, since nothing FORCES _init_engine or _engine_url into that text'. Refuted: the conclusion`s subject is the mutant class the comment is justifying, and the instrument-free matcher cross product supplies the control -- DOC-NAME-DEL[engine] PASSes on BOTH texts under a bare substring matcher and under LOOKBEHIND-DEL, and REDs on both under the shipped word bound. The sentence states a fact (`which both texts mention`) plus a conclusion that is measured."
+  - "[Adversarial] dropped false positive: 'the delta edits a docstring under src/, so ADR-0036/R4 needs a fresh scan'. Refuted: 0 files under src/ in daa721ae and an identical blob sha across daa721ae^..daa721ae. Scanned anyway -- 0 banned codepoints among the 23 added lines, 3 tree-wide hits, all the declared U+2022 exemption in pdf_generator.py."
+  - "[Adversarial] dropped false positive: 'the new f-string failure message embeds the dotted path, which could satisfy the scan it reports on'. Refuted: the message is a code string in the function body, not a docstring; the arm reads only type(self).__doc__, and the dotted path appears in the class docstring exactly twice, both as real `:func:` pointers."
+  - "[Line numbers] Derived independently from the unmodified parse, never reused from any report: preamble :859, names :878, heads :889, pointer :897. Both trap classes were honoured -- the NAMES-BLIND assert source line occurs FIVE times in the file (:816, :859, :914, :960, :1087; four of them asserts plus one in test_it_resets_exactly_the_globals_the_builder_creates), so no by-text or first-occurrence targeting was used anywhere: every assert is keyed on its own ast.Assert lineno lifted as a literal constant from the parse."
+  - "[Card-body corrections] All five of the orchestrator's corrections were re-derived independently and HOLD: after-prose 568; `25 lines of code` at both sites; control B's docstring 63 -> 47; the session.py row 63 / 4.51 : 1 with the method footnote and the set-based `86 before and 86 after`; and the residue's `two of its three`, naming the third correctly as the single source this card created. The restated AC-2 matrix row and the four arm line numbers also match my independent grid cell for cell. One ADJACENT residue sentence, not among the corrections, is filed as F-008."
+  - "[Procedure] No full suite was run. Targeted selection only: tests/test_db_engine_lifecycle.py (13 passed, 0 skipped with -rs; the db_required class ran rather than skipping on this host). meta/kanban/.full-suite.lock was confirmed absent immediately before every pytest invocation and was never created, modified or deleted. No lock file of any kind was written; the board's meta/kanban/ directory contains no lock file."
+  - "[Procedure] No timing measurement was taken or reported. CARD-256 is in a fix cycle on this machine concurrently."
+  - "[Procedure] Nothing was committed. No git commit / add / checkout -- / stash / merge / restore was run, and no git restore command of any kind. No file in either repository was mutated on disk: every mutant is an in-memory attribute patch or an in-memory string applied after module exec, so no cp -p backup and no restore was needed. git status in the worktree is unchanged apart from this report. Nothing was written under meta/kanban/ or meta/architecture/; the only file this review wrote is meta/review/CARD-257-cycle3.yml."
+  - "[Procedure] The two prior reports were read in full and left byte-untouched. The known @ops hazard (relation \"puzzles\" does not exist in tests/test_admin_binding.py) did not occur; that selection was not run. Cause unknown and not fixed; unaffected by the engine disposal."
+  - "[Per-assertion domain] Restated: every PASS/RED here is one ast.Assert node's verdict, keyed on its own lineno, ANY-RED aggregated across that node's executions. :878 and :889 execute twice per run and their raw outcome lists are recorded. No number in this report is a collected-test count, and the one collection count that appears (13) is labelled as such."
