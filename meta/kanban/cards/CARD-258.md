@@ -1,6 +1,6 @@
 # CARD-258: Make the next `relation "puzzles" does not exist` red say what it was talking to
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** ops
 **Complexity:** standard
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/258-the-ops-red-says-what-it-talked-to
+**Worktree:** ../PythonProject4-card-258
 **Source:** CARD-256's build gates 1 and 2 (2026-10-20) — red then green on the same commit, on a tree carrying CARD-252's `reset_engine()`. The hazard survives the fix that was expected to remove it.
 **Idea:** —
-**Wave:** 51 (queued)
+**Wave:** 51
 **Depends on:** —
 **Touches:** tests/conftest.py, tests/test_admin_binding.py, tests/helpers/ (a new diagnostic helper), src/nonogram/db/session.py — only if a read-only accessor is needed
 **Review score:** —
-**Started:** — · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Started:** 2026-10-20T16:52:59Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
 ## Why — four waves, one signature, no data
@@ -104,3 +104,50 @@ silent when the error is anything else.
   is the first real datum this class has produced.
 - **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`, reading the ADR
   files case-insensitively for the reach-limit idiom.
+
+## System contract
+
+Curated to **10 of 29** in-scope rules under `meta/kanban/curation.md`: every rule whose
+enforcement does not reach this card's new code is kept; the rest are dropped because the suite runs them
+on every gate. **19 dropped.** ADR-0039 present, as the sanity check requires for a card
+touching `tests/**`.
+
+- **ADR-0022/R1** — _review-lens — nothing executes it_
+  Grid extent crosses module boundaries as a (width, height) pair. No public function signature,
+  request field, or export field reduces a grid's extent to a single scalar "size", and no source
+  mode constructs a grid from one integer.
+- **ADR-0036/R3** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect
+  whatever Pillow call it is written with.
+- **ADR-0036/R4** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in
+  U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed.
+- **ADR-0038/R6** — _review-lens — nothing executes it_
+  Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution
+  grid to the browser. A public or reader-facing player must not send the solution before the
+  puzzle is solved, and any public phase reopens this ADR (CON-021).
+- **ADR-0038/R7** — _review-lens — nothing executes it_
+  Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in
+  pyproject.toml. It is never added to project.dependencies or to the admin extra.
+- **ADR-0038/R8** — _review-lens — nothing executes it_
+  Browser tests run locally, against Chromium installed by `playwright install chromium`. When
+  Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible
+  in the run summary. They never pass silently.
+- **ADR-0039/R1** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  A set a guard consults needs a completeness test written before the set, and any claim the guard
+  makes about what it catches needs a control that can fail: caught WITH the set member present,
+  missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and must be
+  narrowed to what is measured or deleted.
+- **ADR-0039/R2** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where no
+  such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE, never
+  a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3.
+- **ADR-0039/R3** — _`kind: test`, but its ADR declares the check's reach stops at the code that existed when it was written_
+  An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT
+  absorb — caught with the exemption removed, missed with it in place — is held to an equality
+  against the sites that exist today, and records whatever it still cannot see as a measured bound
+  with its own failing control.
+- **CON-021** — _review-lens — nothing executes it_
+  Interactive play exists only as the admin panel's puzzle player, behind the door that guards
+  every other admin page (CON-015, CON-016). Play state is never persisted on the server; the one
+  place it may be kept is the browser's own localStorage, per puzzle.
