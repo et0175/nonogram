@@ -390,3 +390,93 @@ dropped, connected to or truncated.
 - **[Build gate 1 — PASSED]** `245bc898`, solo: **8623 passed**, 1 skipped, 16:34, EXIT=0. Reconciles
   exactly: main 8622 + the one test AC-2's control adds. The guard said nothing during the run, which
   is correct for a gate holding its own lock.
+
+### [Review 1/3] Score: 8.5 — FAILS the severity gate (one open Important)
+
+Report: `meta/review/CARD-257-cycle1.yml` (5 findings, all `status: open`). Score 8.5 ≥ min_score 8, but
+**one open Important fails the card regardless of score.**
+
+- **F-001 — Important, gating — ADR-0039/R1 — `tests/test_db_engine_lifecycle.py:857`.** AC-2's
+  name-agreement arm **cannot fail for the global `engine`**. The assert is a substring test —
+  `{name for name in names if name in text} == set(names)` — and `engine` is a substring of
+  `reset_engine`, `_init_engine`, `_engine_url` and `create_engine`, so `'engine' in text` is satisfied
+  by any text that merely mentions one of those functions. For the guard text it is **provably**
+  unfalsifiable: the same test's `:869` requires `"reset_engine" in guard`. Measured per assert:
+
+  | mutant | `:857` |
+  | --- | --- |
+  | `DOC-NAME-DEL-PROD[SessionLocal]` / `[_engine_url]` | **RED** |
+  | `DOC-NAME-DEL-GUARD[SessionLocal]` / `[_engine_url]` | **RED** |
+  | `DOC-NAME-DEL-PROD[engine]` | **PASS** |
+  | `DOC-NAME-DEL-GUARD[engine]` | **PASS** |
+
+  So one of three set members is narrative, not coverage — and AC-2's claim ("the three global names …
+  this one reds") and the matrix row `DOC-NAME-DEL → :857 RED` are both **wider than the mechanism**:
+  the row is true only for a name choice the matrix never states. Restated at `:304-308` and in the
+  assert's own failure message at `:858-860`. Failure direction is safe (a missed red, not a false red),
+  hence Important and not Critical.
+- **F-002** (medium) the residue says "**three** of its sections … are CARD-252's record" and names
+  **two**; `reset_engine()` has exactly three, and the third — *The convention, and what little enforces
+  it* — is **this card's own scope**, the opposite of what the sentence claims.
+- **F-003** (low) three line-split figures are off by one on recomputation: after-prose **568** not 567;
+  code delta **+25** not "24 lines of code"; control B's docstring **63 → 47** not 63 → 48.
+- **F-004** (low) the class docstring's **opening paragraph is now load-bearing** — it is the only place
+  all three globals are written out, and the control holds the text to names in double backticks, which
+  the scan does not count. The class docstring says so nowhere, and that paragraph reads as pure
+  CARD-252 history, i.e. the exact prose cut 3 targets. The next prose cut deletes what a control needs.
+- **F-005** (low) a **second** "same words in two places" doubling survives at `tests/conftest.py:469-479`
+  — the step-3-position / "re-measured as review mutant R7" narration this card cut from `session.py`,
+  still there verbatim in substance, uncontrolled, and absent from the residue list. **Outside
+  `Touches:`, so not an AC failure** — carded rather than fixed.
+
+Root causes: **RC-1** card figures not recomputed at the final revision (F-002 + F-003); **RC-2** the
+retired pattern's second instance and its successor's new bound both undeclared (F-004 + F-005).
+
+**What held, recomputed independently.** `1177 → 1162`, `384 → 393`; prose/code `616/440 → 1.40:1` and
+**1.22:1**; docstrings `116 → 59`, `126 → 135`, `125 → 107`, `171 → 158`, `33 → 31`; the 69-put-back
+decomposition 13 + 53 + 3; tree sweep **9 sites, 6 pairs, dict-equal True, zero matches outside the two
+exempt files**, identical on main and HEAD; **12 `setattr(` / 9 counted / 3 stopped by their own `)`**
+out of 375 occurrences; `13 passed` and `409 passed`.
+
+**AC-5 / G-1 — the AST sha256 held to the byte** and, better than declared: dump length **9154**, sha256
+`bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c`, and **byte-identical to main's** —
+which proves independently that the `session.py` edit is docstring-only rather than asserting it.
+
+**AC-1 — clause survival held substantively, and tree-wide.** The reviewer built its own coarser split
+(25 clauses) and token-checked each against all **seven** surviving texts: 23 above 80 % content-token
+coverage, the 2 below both review narration cut 3 declares as deliberately dropped. Single-sourcing
+verified across the whole tree, not just the two files: `globals()`, `importlib`, `delattr`, list
+unpacking, dotted-path, *convention, enforced at review*, *recorded exceptions* each occur **0** times in
+the guard file and once in `session.py`, and no third file restates the list, the rule or the bound. Both
+gained clauses **narrow**, and the dotted-path one was verified *true of the mechanism* — the pattern
+requires a quote immediately before the name, and a dotted path puts a dot there. **No clause widened.**
+
+**AC-3 holds, AC-4 certified, G-2 holds**, all reproduced with the reviewer's own instrument (the
+implementation's is not in the worktree): both of CARD-254's cycle-3 matrices reproduced **cell for cell
+on main** and the card's after-column cell for cell on HEAD; over 7 mutants + SHIPPED the deleted arm
+`:956` reds only under `SPELL-SETATTR-DEL` and `SPELL-HEAD-RENAME` while arm 1 reds under both — a strict
+subset, so no mutant kills arm 2 while arm 1 survives; `PROBE-ONE-CALL` (3 lines for 3 lines) reds
+`:1117` while `:1122` stays **PASS**.
+
+**AC-2's "derived from the code, not a string comparison" — SATISFIED.** Names from `session.py`'s AST,
+heads from the two compiled patterns' leading literal runs; no assert compares the two docstrings. The
+card's self-caught placeholder defect is **really fixed and complete** — names are read from the text as
+it ships, the substitution runs afterwards and feeds only the heads check, and it is load-bearing
+(`SUBST-DEL` and `PLACEHOLDER-RENAME` each red `:863`). F-001 is the one defect, inside the names arm.
+
+**Seven adversarial false positives dropped** before filing; no fourteenth entry added to the ledger.
+System contract: 10 checked — 3 ✓, 6 ⚠ `no_eligible_fact`, 1 ✗ (ADR-0039/R1 via F-001). **ADR-0036/R4 ✓**
+by a full codepoint scan of `src/nonogram/**`: 3 hits, all U+2022 in `pdf_generator.py` (the declared
+exemption), **0** banned codepoints among this diff's added lines.
+
+**[Two instrument traps paid for again, in new forms]** The reviewer's first instrument aggregated
+**last-write-wins** and lost a RED from an assert inside a `for` loop — a *third* distinct form of
+"a surviving mutant and a never-reached assert look identical", after wave 49's line-numbering trap and
+CARD-256's domain trap. And `PROBE-ONE-CALL` must target the occurrence **inside arm 2b's probe**: the
+same three lines appear earlier in the file, and a first-occurrence replacement silently mutates the
+wrong arm and returns a false all-green. Both are now recorded for the fix station.
+
+**[Orchestrator defect, mine]** Both cycle-1 dispatch briefs told the reviewers the derived test database
+"does not exist on this host, so DB-mode tests skip". It **does** exist — `gate.sh` creates it — and the
+guard file reports 13 passed / **0 skipped** under `-rs`. No verdict depended on it, but I stated as fact
+something I had not checked for this worktree.
