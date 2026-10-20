@@ -573,3 +573,263 @@ Report: `meta/review/20261020T070159Z-CARD-254-cycle2.yml` (copied to main).
   are near misses; the nearest is the guard file's **own docstring, added by the cycle-1 fix**
   (paren@65, `"engine"`@98). One prose reflow makes the guard match itself and reds the tree-wide
   equality for everyone. Measured rather than asserted, which is the only reason it is a Minor.
+
+### The instrument first: a per-ASSERT kill matrix, which is what cycle 1 and cycle 2 both lacked
+
+RC-1 is not "an arm was wrong", it is "the measurement could not see the arm". All of a control's
+arms are `assert`s inside one test function, so pytest stops at the first failing one and prints a
+single `FAILED <test>` line that says nothing about the arms after it. Two generations of this family
+were certified off exactly that line.
+
+So the matrix below is measured with an instrument that can see arms individually: every `assert` in
+the target function — **at any nesting depth**, including the one inside arm 1's `for` loop — is
+rewritten by an `ast.NodeTransformer` into a `try/except AssertionError` that records PASS/RED and
+lets execution continue. The function body is then executed statement by statement against each
+mutant, with the mutated helper installed as a module attribute so the test's own code resolves it.
+Verdicts are aggregated per source line (RED if any execution of that assert red). Script:
+`per-assert instrumentation, scratchpad only` — it measures, it ships nothing.
+
+### F-001 (Important) — CLOSED by **restatement** (the certifier's option b), not by deletion
+
+Arm 2b's claim ("the scan ran past one `setattr(` call's closing parenthesis into the next call's
+arguments") was asserted as a **count**, and a count cannot see that property at all: `re.finditer`
+yields non-overlapping matches, so an over-reaching first match swallows the second call whole and
+the total is 1 either way. Measured on the arm's own probe source:
+
+| pattern | `search().start()` | `rindex("setattr(")` | `findall` count |
+|---|---|---|---|
+| shipped | **122** | 122 | 1 |
+| PAREN-DEL | **49** (the *first* call) | 122 | 1 |
+| NORM-DEL | `None` | 122 | 0 |
+
+The count is 1 under both shipped and PAREN-DEL — which is why the old arm could not fail for its own
+sentence. Restatement chosen over deletion because it makes the closing-parenthesis claim **measured
+for the first time** rather than retiring it, which is strictly more coverage and is what the card
+exists to do; deletion was the fallback and was not needed.
+
+```python
+setattr_pattern = _hand_set_spellings(name)[0]
+match = setattr_pattern.search(two_calls_source)
+second_call = two_calls_source.rindex("setattr(")
+assert match is not None and match.start() == second_call, (...)
+```
+
+### F-002 (Minor) — CLOSED: the sentence reflowed, and the stated reason corrected
+
+The receiver-parentheses example in both convention texts spelled a global name out
+(`setattr(sys.modules.get(...), "engine", None)`), 33 characters downstream of a `setattr(` with
+nothing but one editorial parenthesis between them. Reflowed in both texts, in the same words, to an
+example that **writes no global name at all**: "a `setattr(` whose **receiver argument itself
+contains parentheses** — `setattr` applied to `sys.modules.get(…)` rather than to a plain name".
+
+Self-match distance, re-measured over the guard file:
+
+| | quoted global-name literals in the file | self-matches | near misses (a parenthesis first) | nearest |
+|---|---|---|---|---|
+| pristine `f0701729` | 7 | 0 | 8 | **:734 — paren@65, `"engine"`@98 → 33 chars of slack** |
+| after the reflow | 6 (all of them `_EXEMPT_HAND_SET_SITES`' own keys) | 0 | **0** | — none: every one of those six literals sits *above* the file's first `setattr(` occurrence |
+
+So the distance is no longer "33 characters and one editorial parenthesis"; there is now **no quoted
+global name anywhere downstream of any `setattr(` in the file**, which is a structural property
+rather than an accident of punctuation.
+
+That F-002 was a live hazard and not a hypothetical is now measured too, and it is the one new fact
+this cycle turned up: **at `f0701729` the guard file really did self-match under PAREN-DEL.**
+
+| PAREN-DEL over `tests/` | tree-wide equality |
+|---|---|
+| with the pristine `f0701729` guard file | **reds** — `{('test_db_engine_lifecycle.py', 'engine'): (expected 0, actual 1)}` |
+| with the reflowed guard file | **holds** |
+
+This changes one of cycle 2's recorded facts and is reported rather than buried: the certifier saw
+PAREN-DEL kill *two* tests (the control and the tree-wide equality). The second kill was **the
+self-match**, i.e. F-002 firing — not a property of the tree. With F-002 fixed, PAREN-DEL now kills
+only the control, through arms 2a, 2b and 3. No claim is weakened: the equality never claimed to
+control the parenthesis exclusion; the three arms do, and they are measured.
+
+Also corrected, because it was the incomplete half of the same sentence: the class docstring's reason
+for the tree being clean. It said "only because no other file in `tests/` happens to write these
+three names that way". It now gives **both** reasons (no file writes them that way, *and* no file
+leaves a `setattr(` unclosed upstream of one) with the tree-wide measurement behind them — of the
+`setattr(` occurrences under `tests/`, twelve have a quoted global name downstream, nine are the
+counted sites, and the other three are stopped by their own `)` (adjacent `monkeypatch.setattr` calls
+in the two exempt files — arm 2b's property holding in the real tree rather than in a probe).
+
+**New arm 4, so the new sentence is not narrative.** The prose over-read is now declared in both
+texts *and* measured: a probe with an unclosed `setattr(` in a comment and a quoted global name two
+lines later is counted (1 site), which reds under NORM-DEL. Without it the F-002 sentence would be a
+claim composed out of two other bullets with no control — the exact genus this card exists to end.
+
+### F-003 (Minor, card prose) — CORRECTED
+
+"Why `test_db_engine_lifecycle.py` is not itself an exemption" above now gives the real reason (two
+reasons, the second load-bearing) instead of "the retired prose that quoted the spellings is gone",
+which the cycle-1 fix had itself falsified. The conclusion was re-derived and is unchanged: zero
+counted sites.
+
+### Found while re-deriving: the same defect, twice more, in the neighbouring control (in this card's own delta)
+
+Answering the brief's question — *does any text still call something a control that cannot fail for
+what it claims?* — honestly required running the per-assert instrument over the other multi-arm
+control added by `de0ea945`, `test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site`. Two of
+its asserts compared a **single-file probe count** against the **whole six-pair exemption** and said
+in their failure message that the equality would otherwise pass:
+
+- `assert dict(new_file) != {} and dict(new_file) != _EXEMPT_HAND_SET_SITES`
+- `assert dict(after) != _EXEMPT_HAND_SET_SITES`, message "the equality accepts a tenth site in an
+  exempt pair"
+
+Both right-hand comparisons are **unconditionally true**: a probe dict's keys are all under one file
+that the preamble already asserts is not an exempt file (or under one exempt file, ≤3 keys), while
+the exemption has 6 keys over 2 files, so they can never be equal — tenth site or not. Fixed by
+asserting only what is measured: the first is now the stronger
+`dict(new_file) == {(probe_file, names[0]): 1}`, the second is **deleted** (the assert above it,
+`after[key] == before[key] + 1`, is the one that measures the tenth site, and it reds under
+COUNT-COLLAPSE). The test docstring now states plainly that each arm measures the count its probe
+produces and **not** the equality's reaction to that count — `dict(...) == _EXEMPT_HAND_SET_SITES`
+reacts to any difference by construction, so there is no mechanism there to delete and nothing for an
+arm to kill.
+
+### Per-assert kill matrix — measured, not inferred
+
+`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not` (final state). NORM-DEL = `\n`
+back in the character class; PAREN-DEL = `[^()]*?` → `.*?` under `re.DOTALL`.
+
+| assert | what it is | SHIPPED | NORM-DEL | PAREN-DEL |
+|---|---|---|---|---|
+| `:1074` | preamble guard (`names` non-empty) | PASS | PASS | PASS |
+| `:1076` | preamble guard (probe file is not an exemption) | PASS | PASS | PASS |
+| `:1092` | **arm 1** — a wrapped call is counted | PASS | **RED** | PASS |
+| `:1110` | **arm 2a** — an unrelated wrapped call manufactures no match | PASS | PASS | **RED** |
+| `:1136` | **arm 2b** — the match *starts* at the call carrying the name | PASS | **RED** | **RED** |
+| `:1151` | **arm 3** — a parenthesised receiver is not counted | PASS | PASS | **RED** |
+| `:1171` | **arm 4** — an unclosed `setattr(` in prose *is* counted | PASS | **RED** | PASS |
+
+Arm 2b reds under PAREN-DEL (match at 49 instead of 122) **and** under NORM-DEL, which leaves the
+wrapped call unmatched altogether; the docstring states both rather than only the flattering one.
+Every claim-bearing assert reds under at least one mutant that deletes the mechanism its own sentence
+names. Compare the pristine `f0701729` matrix, same instrument: arm 2b was `PASS / RED / PASS`.
+
+`test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site` (final state), against the mutants
+that delete what *it* names. SPELL-SETATTR-DEL / SPELL-ASSIGN-DEL drop one regex from
+`_hand_set_spellings`; COUNT-COLLAPSE makes `_hand_set_sites_in` count one per `(file, name)` pair
+instead of one per text match.
+
+| assert | what it is | SHIPPED | SPELL-SETATTR-DEL | SPELL-ASSIGN-DEL | COUNT-COLLAPSE |
+|---|---|---|---|---|---|
+| `:920`, `:922` | preamble guards | PASS | PASS | PASS | PASS |
+| `:945` | **arm 1** — both spellings counted (nested in a `for`) | PASS | **RED** | **RED** | PASS |
+| `:956` | **arm 2** — a new file | PASS | **RED** | PASS | PASS |
+| `:974` | **arm 3** — a new name | PASS | **RED** | PASS | PASS |
+| `:978`, `:984` | precondition guards | PASS | PASS | PASS | PASS |
+| `:992` | precondition (the real exempt file's count is still what the exemption says) | PASS | **RED** | PASS | PASS |
+| `:1001` | **arm 4** — a tenth site inside an already-exempt pair | PASS | **RED** | PASS | **RED** |
+
+### Mutants re-run as real-file mutants (per-test, for the record)
+
+Each applied alone from a `cp -p` backup and restored from that backup; `diff -q` clean and
+`shasum -a 256` identical after each; `git diff f0701729 -- src tests` shows only the intended edits.
+Never `git checkout --`.
+
+| mutant | selection | result |
+|---|---|---|
+| **NORM-DEL** | `tests/test_db_engine_lifecycle.py` (12 tests) | **KILLED** — 1 failed, the control, dying at **arm 1** (`:1092`). Exactly the per-test blindness RC-1 is about: this run says nothing about arms 2a…4. |
+| **PAREN-DEL** | the same | **KILLED** — 1 failed, the control. Per-assert: 2a, 2b and 3 red (see matrix). The tree-wide equality now stays green, because its cycle-2 kill was the guard file's own self-match (F-002). |
+| **M3c** (real file: a formatter-wrapped `monkeypatch.setattr(app_session, "engine", None)` appended to `tests/test_db_isolation.py`, which no exemption lists) | `…::TestEngineLifecycle_TheResetIsAPublishedSeam` | **KILLED** — 1 failed, `test_no_test_file_outside_the_exemption_sets_those_globals`, "Left contains 1 more item", attributed to the file |
+| **M3c + NORM-DEL** (the pre-fix pattern facing a wrapped hand-set) | `…::test_no_test_file_outside_the_exemption_sets_those_globals` | **SURVIVED**, as predicted — 1 passed. Re-derives the *before* half of the M3c claim without checking out `de0ea945`. |
+
+### Sweeps re-derived at the final state
+
+Names derived independently from `session.py`'s AST (`_init_engine`'s `global` statement):
+`['SessionLocal', '_engine_url', 'engine']` — never from the test.
+
+- **Tree sweep** over every `tests/**/*.py`: **9 sites, 6 pairs**, dict-equal to
+  `_EXEMPT_HAND_SET_SITES` **True**, zero matching files outside the two exempt ones.
+- **Differential sweep**, old `[^()\n]` vs new `[^()]`, per `(file, name)`: **DELTA NONE**.
+- **Brief-form sweep** (collapse newlines, keep the `\n` exclusion) vs the implemented form:
+  **DELTA new-vs-brief: NONE** — the certifier's settled point, re-confirmed at the final state.
+- **G-1**: `src/nonogram/db/session.py` parsed at `a60d53a4`, `de0ea945`, `f0701729` **and the
+  worktree**, every module/class/function docstring stripped, round-tripped through `ast.unparse`,
+  re-parsed and `ast.dump`ed: all four give dump length **9154** and sha256
+  **`bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c`** — the declared value, to the
+  byte. The cycle-2 edit to `session.py` is +11/−3 lines, all inside `reset_engine`'s docstring.
+
+### Test selections run in this cycle (no full suite, no timings)
+
+`meta/kanban/.full-suite.lock` checked absent before **every** run. Database
+`nonogram_pythonproject4_card_254_ffd0825b4ddf_test` (derived by `tests/db_name.py` for this
+worktree), passed as both `DATABASE_URL` and `TEST_DATABASE_URL` as literals. `nonogram_poc` was
+never named, created, dropped, connected to or truncated; `_refuse_unless_test_database` untouched.
+A fix cycle was running on CARD-255 concurrently, so no timing is reported or relied on.
+
+- `tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam` — **6 passed**
+- `tests/test_db_engine_lifecycle.py` — **12 passed, 0 skipped** (unchanged: arm 4 is an assert
+  inside the existing control, not a new test)
+- the 7-module selection `tests/test_db_engine_lifecycle.py tests/test_db_isolation.py
+  tests/test_db_url_driver.py tests/test_db_connect_timeout.py tests/test_suite_profile.py
+  tests/test_book_difficulty_dots.py tests/test_cli.py` — **769 passed, 0 failed, 0 skipped,
+  EXIT=0** (final state, all mutants restored and `diff`-verified), the same 769 the certifier ran
+- G-2: `0 skipped` with `-rs`; no skip path added. G-5: zero added `import`/`from` lines;
+  `pyproject.toml` untouched. G-4: `nonogram_poc` and `_refuse_unless_test_database` appear 0 times
+  in the delta.
+
+### Is anything still called a control that cannot fail for what it claims?
+
+**No.** Every claim-bearing assert in both multi-arm controls reds under at least one mutant that
+deletes the mechanism its own sentence names — measured per assert, in the two matrices above. The
+remaining always-PASS asserts are preamble/precondition guards: they state what the probe needs to be
+a valid probe, carry no claim about the scan's reach, and each can fail if its precondition stops
+holding (`:992` demonstrably does).
+
+### DECLARATIONS
+
+- `DECLARATIONS F-001 — updated.` The mechanism did not change; the *instrument* did (a count became
+  a match position), so every statement of what arm 2b controls was re-derived from the code: the
+  control's own docstring (arm list rewritten with the per-assert-not-per-test rule and the mutant
+  that reds each arm), `_hand_set_spellings`' docstring (the parenthesis exclusion is now stated as
+  measured-by-position, with the reason a count cannot see it), the class docstring's "Controls:"
+  line (now arms 1, 2a, 2b and 4), and this card's cycle-1 arm table (the false 2b row struck through
+  and corrected in place rather than silently rewritten). No numeric bound, lifecycle, blast radius,
+  error classification or config-field meaning changed. No config field, parameter or timeout
+  acquired a second job.
+- `DECLARATIONS F-002 — updated.` The false-positive surface statement changed, so both convention
+  texts were re-derived in the same words: the receiver-parentheses example no longer writes a global
+  name out, the newline bullet now states the prose over-read it costs and the rule that follows from
+  it, the "why the tree is clean" sentence now gives both reasons with the tree-wide measurement, and
+  arm 4 makes the new sentence measured rather than composed. `_EXEMPT_HAND_SET_SITES` and the
+  per-file counting unit are **re-derived and confirmed unchanged** (9 sites, 6 pairs, equality true,
+  differential delta none).
+- `DECLARATIONS F-003 — updated.` The card's "not itself an exemption" paragraph now states the real
+  reason; its conclusion was re-derived and confirmed (zero counted sites).
+- `DECLARATIONS (neighbouring control) — updated.` Two vacuous comparisons removed from
+  `test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site`, and that test's docstring now
+  states what each arm measures and what it does not (the equality's reaction to a count is dict
+  equality, not a mechanism an arm can kill). No behaviour of the scan changed.
+
+- **[Orchestrator] the fix took the restatement, which was the better of the two remedies offered.**
+  Deleting arm 2b would have retired the claim; restating it as a **match-position** assertion makes
+  the closing-parenthesis property **measured for the first time** — shipped starts at 122 (the second
+  call), PAREN-DEL at 49 (the first), while the count stays 1 under both, which is the old arm's
+  blindness reproduced before fixing it.
+- **[Orchestrator] it built the instrument the finding implied, and then found the same defect twice
+  more in this card's own delta.** An `ast.NodeTransformer` rewrites every assert — *at any nesting
+  depth* — into a recording try/except, so a per-arm matrix is measured rather than inferred from one
+  `FAILED` line. Its first attempt numbered arms off top-level nodes only and misaligned once a nested
+  assert red; it rebuilt it and said so. Run over the card's **other** multi-arm control, two asserts
+  turned out to be unconditionally true (a single-file probe count compared against the whole six-pair
+  exemption, with a message claiming the equality would otherwise pass). One strengthened, one
+  deleted, and that test's docstring now says each arm measures the count its probe produces and
+  **not** the equality's reaction — `dict(...) == EXEMPT` reacts to any difference by construction, so
+  there is no mechanism to delete and nothing for an arm to kill.
+- **[Orchestrator] it corrected the certifier on a fact, with the measurement.** At `f0701729`
+  PAREN-DEL killed **two** tests, not one — and the second kill was F-002 itself: the guard file's own
+  docstring self-matching. With the reflow, PAREN-DEL kills only the control. Reported rather than
+  buried, which is the behaviour that makes these reports usable.
+- **[Orchestrator] the self-match distance is now structural, not punctuation luck.** Before: 7 quoted
+  global-name literals, nearest 33 characters and one editorial parenthesis from matching. After: 6,
+  **all of them the exemption's own keys, all sitting above the file's first `setattr(`** — so there
+  is no quoted global name anywhere downstream of any `setattr(` in the file. And the class
+  docstring's reason for the tree being clean is now the measured one: of the `setattr(` occurrences
+  under `tests/`, twelve have a quoted global name downstream, nine are the counted sites, and the
+  other three are stopped by their own `)` — arm 2b's property holding in the real tree rather than in
+  a probe.

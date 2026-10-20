@@ -167,8 +167,10 @@ findings:
     source: static
     violates: "ADR-0039/R1"
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: a0c7c987
+    fix_note: |
+      restated arm 2b as a match-POSITION assertion (pattern.search(src).start() == src.rindex('setattr(')): shipped 122, PAREN-DEL 49 -> reds. Per-assert kill matrix re-derived with an AST instrument that records every assert independently; arm 2b now PASS/RED/RED (shipped/NORM-DEL/PAREN-DEL). All three texts that call it a control updated (control docstring arm list, class docstring Controls: line, card cycle-1 arm table struck through and corrected).
     dismissed_reason: null
     learned_pattern: null
 
@@ -250,8 +252,10 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: a0c7c987
+    fix_note: |
+      receiver-parentheses example reflowed in BOTH texts to one that writes no global name out; guard file now has 0 near misses (was: paren@65, "engine"@98, 33 chars of slack) because its only quoted global-name literals are _EXEMPT_HAND_SET_SITES' own keys, all above the file's first setattr(. Class docstring's 'why the tree is clean' now gives both reasons with the tree-wide measurement (12 occurrences with a name downstream, 9 counted, 3 stopped by their own paren). New arm 4 measures the prose over-read. NOTE: at f0701729 PAREN-DEL's second kill (the tree-wide equality) WAS this self-match; with it fixed PAREN-DEL kills only the control, via arms 2a/2b/3.
     dismissed_reason: null
     learned_pattern: null
 
@@ -290,8 +294,10 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: a0c7c987
+    fix_note: |
+      card paragraph rewritten: two reasons, the second (no quoted global name downstream of any setattr( in the file) load-bearing, with the PAREN-DEL self-match measurement behind it. Conclusion re-derived unchanged: zero counted sites.
     dismissed_reason: null
     learned_pattern: null
 
