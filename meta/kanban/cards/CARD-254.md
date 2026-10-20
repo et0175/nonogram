@@ -1,6 +1,6 @@
 # CARD-254: Shrink CARD-252's private-globals guard to the part that has authority
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -15,8 +15,8 @@
 **Wave:** 49
 **Depends on:** — (CARD-252 is merged; this card edits what it shipped)
 **Touches:** tests/test_db_engine_lifecycle.py, src/nonogram/db/session.py (docstring only), meta/architecture/ — no
-**Review score:** —
-**Started:** 2026-10-20T05:15:11Z · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Review score:** 9.0 (cycle 3/3 — certified, no open Important)
+**Started:** 2026-10-20T05:15:11Z · **Closed:** 2026-10-20T08:30:01Z · **Actual:** 0.41d (3.2h: 3 review cycles, 2 fix cycles, 1 build gate + 1 merge gate) · **Merge commit:** 9e8aad6d
 **Blocked by:** —
 
 ## Why
@@ -891,3 +891,24 @@ twice on purpose, "in the same words", and that doubling has been paid three tim
 both copies, cycle 2 edited both, and two of this cycle's Minors live in text that would need
 correcting in both. *"The same words in two places" is itself a claim with no control: nothing reds
 if they drift.*
+
+### Merged — `9e8aad6d`
+
+- **[Merge gate — PASSED]** `be173c90` (branch merged with `main`), solo: **8622 passed**, 1 skipped,
+  16:10, EXIT=0. Reconciles exactly: main 8631 after CARD-255 − this module's 21 tests + its 12 = 8622.
+- **[It was the first gate ever run under CARD-255's guard, and the guard stayed silent]** — correct
+  behaviour for a run holding its **own** lock, now confirmed on a second worktree and a second
+  commit. The two cards certified each other on the way out.
+- **[The honest arithmetic, kept where the next shrink card will find it]** the shrink removed 496
+  lines; the two review cycles put **258 back — 52 %** — as controls and as prose about controls. Net
+  **−181 (−10.4 %)** against "retire ~400, keep ~55". The mechanism that does the catching is **22
+  executable lines**; the prose around it runs **1.69 : 1**, and `reset_engine()`'s docstring is 126
+  lines for a 6-line body. **This is a fact about the pipeline, not about the card** — a review cycle
+  that demands a control and a declaration for every claim will grow a file even while it is
+  shrinking it, and nothing in the process notices.
+- **[The three cuts are CARD-257, not folded in]** — single-source the duplicated convention (~100
+  lines, and it retires the uncontrolled "same words in two places" rule), delete control A's
+  duplicate arm (~10 lines, zero coverage), and stop narrating review history in shipped docstrings
+  (~25 lines, which is where this card's own recurring genus kept reappearing). Folding even the
+  ten-line cut in would have shipped an unreviewed edit after `max_cycles` — the last-mile rule from
+  wave 48's retrospective, held here at the cost of ten easy lines.
