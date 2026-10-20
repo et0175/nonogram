@@ -146,3 +146,176 @@ on every gate. **19 dropped.**
   compute the error count and the solved state; this is permitted for the admin panel only, and a
   public or reader-facing player must not send a puzzle's solution to the browser before the
   puzzle is solved.
+
+
+---
+
+## Worktree notes — implementation, 2026-10-20
+
+Branch `card/254-shrink-the-private-globals-guard`, based on `a60d53a4`.
+
+**Shape of the change.** `tests/test_db_engine_lifecycle.py` 1415 → 919 lines (`+293 / −748`);
+21 tests → 11; the AC-5 class 15 tests → 5; nine module-level helpers retired, three added
+(`_hand_set_spellings`, `_hand_set_sites_in`, `_hand_set_sites`). `src/nonogram/db/session.py`
+`+41 / −0`, all inside `reset_engine`'s docstring.
+
+### G-1: `session.py` is docstring-only, proved by AST identity
+
+Both revisions of `src/nonogram/db/session.py` (`a60d53a4` and this head) were parsed, had **every**
+module/class/function docstring stripped, were round-tripped through `ast.unparse` and re-parsed, and
+`ast.dump`-compared:
+
+```
+docstring-stripped AST identical: True
+base dump len: 9154   head dump len: 9154
+base sha256: bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c
+head sha256: bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c
+raw diff: +41 / −0 lines
+```
+
+`reset_engine()` and its single call site (`tests/conftest.py:512`, untouched) are unchanged.
+
+### What was kept, and the mutant that proves each one load-bearing
+
+| kept | mutant | result |
+|---|---|---|
+| `_global_names_assigned_by` + `test_it_resets_exactly_the_globals_the_builder_creates` | **R4** — a fourth global (`_engine_dialect`) added to `_init_engine` | **KILLED**, exactly one test, with the promised message (`reset_engine() resets [...] but _init_engine() builds [... '_engine_dialect' ...]`) |
+| `test_conftest_names_the_seam_at_its_call_site` (AST call) | **M1** — the `app_session.reset_engine()` call deleted from conftest, all prose kept | **KILLED** (also reds the real AC-1 test, as CARD-252 recorded) |
+| the same test's **receiver** check | **RECV** — the call kept, spelled `reset_engine()` on an unrelated object | **KILLED** — the receiver check is not decoration |
+| `_session_aliases_in` (alias derivation, reduced to conftest's own imports) | **ALIAS** — the `from nonogram.db import session as X` branch deleted | **KILLED** with the blind-guard message |
+| `test_reset_engine_is_public_and_says_who_calls_it` | **M1b** — every mention of `conftest` removed from the docstring; **M1b2** — `reset_engine` renamed `_reset_engine` | **KILLED** by both |
+| the exemption **equality**, now a per-file textual count | **M3** — a `setattr`-spelled hand-set appended to `tests/test_db_isolation.py` (a file no exemption lists); **M3b** — the same as a dotted assignment; **R1** — a *tenth* site under an already-exempt pair | **KILLED** by all three, each naming the file and printing found-vs-expected (AC-1) |
+| the `setattr(… "name")` half of `_hand_set_spellings` | **P1** — that regex deleted | **KILLED** — reds both the equality and the new control |
+| the `.name =` half of `_hand_set_spellings` | **P2** — that regex deleted | **KILLED only by the new control.** The equality stays **green**: all nine real sites are `setattr`-spelled, so this half has no traffic. It is kept because it is the spelling the convention is about (the card's rejected sketch), and the control is what makes it load-bearing. **Stated, not hidden.** |
+| deriving the name set inside the equality test | **D1** — a fourth global added to *and* retired by `session.py`, then hand-set in a non-exempt file → **KILLED**. **D2** — D1 plus the equality's name set hardcoded to today's three → **5 passed, green** | the derivation is load-bearing: hardcoding lets a hand-set fourth global pass silently |
+
+Restores: every mutant applied alone from a `cp -p` backup, restored from that backup, verified with
+`diff -q` **and** `shasum -a 256` after each run; never `git checkout --`. Final hashes identical to
+the pre-mutation values for all five targets.
+
+**Nothing in the keep list turned out to be decorative.** The one honest qualification is P2 above:
+the `.name =` half of the textual scan has zero traffic in this tree, so only the added control kills
+it.
+
+### Retirement table (G-3 / AC-3)
+
+| retired | survivor, or why unreplaced |
+|---|---|
+| `_private_global_sites_in`, `_private_global_sites` | `_hand_set_sites_in` / `_hand_set_sites` — a textual count with no reach claim |
+| `_is_setattr_call` | **deliberately unreplaced, because** the whole point of the shrink is that enumerating call shapes is the claim surface that cost three cycles. The text scan matches any line spelling `setattr(` with the name quoted, whatever its receiver and *whatever its argument binding* — which is why it also counts the keyword-bound shape (C3-F-001's `A1`) that the AST guard missed. |
+| `_string_target_tail`, `_string_target_module` | **deliberately unreplaced, because** `monkeypatch.setattr("nonogram.db.session.engine", None)` contains `setattr(` and `"…engine"`… but the quoted literal is the *whole path*, so the scan does **not** count it. This is a real loss of reach, and it is now stated in both conventions (the "blind to every spelling that does not put the literal name beside a `setattr(` or a `.<name> =`" bullet) instead of being claimed away. |
+| the arity dispatch (`len(node.args) >= 3` / `== 2`) | **deliberately unreplaced** — same reason; a text scan has no arity. |
+| `_binding_frontier_reaches_in`, `_binding_frontier_reaches` + `test_the_binding_frontier_is_empty_in_this_tree` | **deliberately unreplaced, because** the frontier existed only to bound the AST dispatch. With no dispatch there is no frontier; what remains is one honest "blind to" list. The keyword-bound shape it was written for is now *counted* by the text scan; the tuple/list-unpacking shape is not, and that is in the "blind to" list. |
+| `_dotted`, `_names_the_session_module`, `_SESSION_ALIASES` (the literal floor) | the call-site test now resolves its receiver with `ast.unparse(...) in _session_aliases_in(tree) | _SESSION_MODULE_PATHS`. Certified by **RECV** and **ALIAS**. |
+| `test_the_alias_set_covers_every_way_the_tree_names_the_module` | **deliberately unreplaced, because** it was the completeness test for the retired literal floor. There is no floor left: the only consumer derives its aliases from the one file it reads. |
+| `test_a_tenth_site_in_an_already_exempt_pair_is_counted` (R1) | arm 4 of `test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site`; mutant **R1** re-run as a real-file mutant |
+| `test_the_string_target_spelling_is_a_site` (R2) | **deliberately unreplaced** — its mechanism is retired (see `_string_target_*` above); the loss is declared, not controlled |
+| `test_a_plain_import_alias_is_a_site` (R3) | the alias derivation it protected survives, certified by **ALIAS**. The *site*-counting half is gone with the AST scan: the text scan does not care how the module was named. |
+| `test_the_bare_builtin_setattr_spelling_is_a_site` (X2) | the text scan matches `setattr(` with no receiver requirement at all; arm 1 of the new control |
+| `test_a_non_literal_attribute_name_is_a_failure` (X1) | **deliberately unreplaced, because** the deny-on-unanalysable default is retired with the AST guard. A computed attribute name is in the declared "blind to" list. |
+| `test_a_computed_string_target_is_a_failure` (X3) | **deliberately unreplaced** — same reason |
+| `test_a_setattr_on_another_module_is_not_this_guards_business` | **deliberately unreplaced, because** it controlled the *discrimination* that made a total deny default affordable. The text scan has no discrimination and does not want one: it over-reds by design, which is now the first "does not enforce" bullet. Measured: over-reding costs nothing today — the whole of `tests/` yields exactly the nine exempt sites and no false positives. |
+| `test_a_computed_target_with_an_unreadable_name_is_the_declared_bound` | **deliberately unreplaced** — the residual it pinned was a corner of the retired dispatch |
+| `test_a_spelling_the_guard_cannot_resolve_is_a_failure` | **deliberately unreplaced** — ditto; there is no "cannot resolve" verdict left to default |
+| `_EXEMPT_PRIVATE_GLOBAL_SITES` (renamed) | `_EXEMPT_HAND_SET_SITES`, same six keys and nine counts. Renamed because the old name claimed the entries were *sites that set private globals*, which a text scan cannot know. |
+
+`_test_functions_in` and CARD-252's AC-4 count are **untouched** — out of this card's scope
+(C3-F-002 is a CARD-252 residue, not this card's).
+
+### The convention text, and what it says it does not enforce (AC-4)
+
+Written in two places: `src/nonogram/db/session.py`'s `reset_engine()` docstring (the declared
+convention) and `TestEngineLifecycle_TheResetIsAPublishedSeam`'s docstring (the same bound, next to
+the mechanism). Both say, in these words:
+
+- the convention: *tests do not hand-set `engine` / `SessionLocal` / `_engine_url`; they call
+  `reset_engine()`. `test_db_url_driver.py` and `test_db_connect_timeout.py` are the two recorded
+  exceptions. A third is a card, not a commit.*
+- it is a **convention enforced at review**, and the only mechanism behind it is a textual count
+  held to a declared equality, so it reds on a new file, a new name, or a tenth site;
+- **it does not enforce**: (1) *reach* — it counts text, does not know what object a counted line
+  sets, counts an unrelated class's attribute of the same name and counts occurrences in docstrings,
+  comments and string literals, i.e. it over-reds; (2) *coverage* — it is blind to every spelling
+  that does not put one of the three literal names beside a `setattr(` or a `.<name> =`: a runtime-computed
+  name, a `globals()`/`vars()` write, `importlib` into a local, a `sys.modules` swap,
+  `monkeypatch.delattr`, a list-unpacking target, a `monkeypatch.setattr("dotted.path.name", …)`
+  whole-path string; (3) it is therefore **not a proof** that no test hand-sets these globals, and
+  nothing here claims it is.
+
+The last bullet names the retired predecessor explicitly: an AST deny-default was tried for exactly
+that claim and withdrawn, because in a dynamic language a proof claim always has one more axis.
+
+### Why `test_db_engine_lifecycle.py` is not itself an exemption
+
+Every probe line in the kept controls is **built** from a derived name at runtime
+(`f'    monkeypatch.setattr(db_session, "{name}", None)\n'`), and the retired prose that quoted the
+spellings is gone, so the guard file contributes **zero** counted sites. The equality checks this:
+an entry for it would break the dict. Measured over `tests/**/*.py`: 9 sites, 6 pairs, byte-equal to
+`_EXEMPT_HAND_SET_SITES`, and no other file in the tree matches at all.
+
+### Test selections run (no full suite, no timings)
+
+`meta/kanban/.full-suite.lock` checked absent before **every** run. Database
+`nonogram_pythonproject4_card_254_ffd0825b4ddf_test` (derived by `tests/db_name.py` for this
+worktree), passed as both `DATABASE_URL` and `TEST_DATABASE_URL` as literals. `nonogram_poc` was
+never named, created, dropped, connected to or truncated; `_refuse_unless_test_database` untouched.
+
+- `tests/test_db_engine_lifecycle.py` — **11 passed, 0 skipped** (was 21 passed)
+- `tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam` — **5 passed**
+  (baseline for every guard mutant above)
+- touched-adjacent: `test_db_engine_lifecycle`, `test_db_url_driver`, `test_db_connect_timeout`,
+  `test_db_isolation`, `test_cli` (the structural import guard), `test_book_difficulty_dots`
+  (ADR-0036/R3+R4), `test_card_156_db_fixture`, `test_db_e2e_smoke`,
+  `test_card_109_database_guard` — **407 passed, 0 skipped, 0 failed** (`-rs` reports no skips)
+
+G-2: no skip path added or removed. The eleven retired tests were none of them `db_required` and
+introduced no skip; both `db_required` tests in the module are untouched and still ran.
+G-5: no dependency change — the only new import is stdlib `re`.
+
+### System-contract rules checked
+
+- **ADR-0039/R1** — every claim in the new text has a control that can fail, and the three claims
+  that have none (`_string_target_*`'s reach, the arity axis, the discrimination) are **deleted**,
+  not narrowed-and-kept. The one asymmetry is recorded above (P2).
+- **ADR-0039/R2** — the name set is still derived from `session.py`'s AST, and D1/D2 measure that
+  the derivation is load-bearing. The guard no longer *defaults to deny*, because it no longer
+  claims the reach that made a deny default necessary; that trade is the card.
+- **ADR-0039/R3** — the exemption is still an equality over counts (not a floor, not a pair set),
+  with its own control, and what it cannot see is stated rather than bounded by a measurement that
+  would need maintaining.
+- **ADR-0036/R3 / R4** — `src/nonogram/**` scanned after the docstring edit: no codepoint in
+  U+25A0..U+25FF, U+2022 or U+2219; `tests/test_book_difficulty_dots.py` green in the selection.
+- **ADR-0006/R1 / G-5** — `pyproject.toml` untouched.
+- **ADR-0022/R1, ADR-0038/R6–R8, CON-021** — review-lens only; nothing in this card touches grid
+  extent, a player surface, Playwright, or interactive play.
+
+### Note for the orchestrator
+
+The card's "What to implement" also asks for *one line in the engineering standards*. There is no
+engineering-standards artifact in this repository — `forge:engineering-standards` lives outside the
+checkout and `Touches:` does not list it — so the convention was written into `session.py`'s
+docstring and the guard class's docstring only. **The standards line is still outstanding and has to
+be added wherever that skill lives**; it is the half of the remedy a worktree cannot land.
+
+- **[Orchestrator] the shrink bought reach it did not set out to buy, and that is the result worth
+  keeping.** CARD-252's AST deny-default gated cycle 3 on one hole: a **keyword-bound**
+  `monkeypatch.setattr(app_session, name="engine", …)` reached a session global and passed silently,
+  because the dispatch was arity-based. **The textual scan counts it**, because a grep has no notion
+  of argument binding. Three review cycles of proof machinery were beaten, on that axis, by the
+  dumber mechanism — which is the sharpest argument this board has produced for preferring a small
+  true claim to a large one.
+- **[Orchestrator] the one honest asymmetry, left stated rather than tidied away.** Deleting the
+  `.name =` half of the scan leaves the tree-wide equality **green** (mutant P2), because all nine
+  real exempt sites are `setattr`-spelled; it is load-bearing only through the control written for
+  it. The agent kept it — it is the spelling the convention is actually about, CARD-252's rejected
+  `app_session.engine = None` sketch — and said so instead of letting the asymmetry sit unnoticed.
+  That is the rule from last wave's retro working on the first card that could have broken it.
+- **[Orchestrator] one real loss of reach, declared**: the whole-path string target
+  `monkeypatch.setattr("nonogram.db.session.engine", None)` is no longer seen, and is named in the
+  convention's "blind to" list rather than quietly dropped.
+- **[Owner] the half of the remedy a worktree cannot land.** The card asks for one line in the
+  engineering standards; **there is no engineering-standards artifact in this repository** — that
+  skill lives outside the checkout under `~/MyProjects/forge_1`, and it is not in this card's
+  `Touches`. The convention is written in `session.py`'s docstring and the guard class's docstring,
+  which is where a maintainer of this code will meet it. The standards line is **outstanding** and is
+  the owner's to place, since it edits another repository.
