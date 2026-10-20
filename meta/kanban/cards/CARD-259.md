@@ -13,7 +13,7 @@
 **Source:** CARD-257 review cycle 1, F-005 (a second surviving doubling) and the card's own declared residue (`reset_engine()` is 135 lines for a 6-line body)
 **Idea:** —
 **Wave:** 51 (queued)
-**Depends on:** CARD-257 (must merge first — it creates the single source this card points at)
+**Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py
 **Review score:** —
 **Started:** — · **Closed:** — · **Actual:** — · **Merge commit:** —
@@ -111,7 +111,9 @@ untidy.
     path (`…reset_engine_pool`) would satisfy it without being a pointer. Measured: **0** such occurrences
     in either text and **0 anywhere under `src/` or `tests/`** — a measured bound, not a finding. **A right
     lookahead closes it and stays PASS on SHIPPED**, and is cheap.
-- **[Five instrument traps the board has now paid for — all five, because this card will build one]**
+- **[Use CARD-260's committed instrument — owner decision, wave 50 retrospective. Do not write a sixth.]**
+  The six traps below are CARD-260's acceptance criteria, each a control that can fail. They are listed here
+  only so this card can tell whether the instrument it imports actually carries them:
   (1) deletion mutants must be **line-count-preserving**, or the numbering shifts and every assert reports
   NOT-REACHED; (2) aggregate **ANY-RED** over every execution, never last-write-wins, or a RED from an
   assert inside a `for` loop is lost; (3) **target the occurrence inside the arm you mean** — identical
