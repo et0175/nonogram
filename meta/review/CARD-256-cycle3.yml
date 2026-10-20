@@ -1,0 +1,328 @@
+version: 1
+generated_at: "2026-10-20T14:52:00Z"
+target: "card/256-the-lock-path-var-gets-a-control @ f2236045 (two commits on main c1d65cd2: 28de78d9 implementation, f2236045 fix 1; fix 2 committed nothing) -- review cycle 3 of 3, FINAL, confirmation mode"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-256.md on main, in full (Why / What / AC / Guardrails / System contract / Implementation record / [Review 1/3] / [Fix 1] as corrected by fix 2 / [Review 2/3] / [Fix 2])"
+    - "meta/review/CARD-256-cycle1.yml and meta/review/CARD-256-cycle2.yml, in full"
+    - "tests/full_suite_lock.py (imports, LOCK_PATH_VAR, lock_path, redirect_note, pytest_configure, pytest_terminal_summary)"
+    - "tests/test_full_suite_lock.py (the three exemption assignments at all three commits by blob; the :1067/:1071 and :1167/:1174 enumerated-silence loops; the :698/:736/:742/:750 equality pair)"
+    - "the fix-2 probe: scratchpad/c256fix3/plain_lines.py in full, results-plain-reraise.json (all 52 rows), runs/<MUTANT>-{plain,reraise}/pytest.out and runs/*/records/rec-*.txt"
+    - "the fix-1 instrument: scratchpad/c256fix/kill_matrix.py (MUTANTS, Instrument.visit_Assert, aggregation), results-sweep.json (all 48 rows), runs/*/records/rec-*.txt"
+  not_reached:
+    - "the full suite -- forbidden by the brief. Targeted selection only: tests/test_full_suite_lock.py (41 collected) six times under my own mutation probe."
+    - "the two build-gate absolute totals (8622/8627/8628) -- a full run is forbidden outside a gate; F-004(b)'s arithmetic is read for internal consistency, as cycles 1 and 2 also declared."
+    - "the five out-of-repo gate scripts -- outside this repo, untouched by this change, and declared as a bound in LOCK_PATH_VAR's docstring."
+    - "wall-clock behaviour -- the brief forbids taking or reporting any timing measurement (CARD-257 is in its own final review on this machine)."
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 410, removed: 38 }
+  cycle3_delta: { files: 0, added: 0, removed: 0 }
+  max_fan_in:
+    symbol: "tests.test_full_suite_lock._tracked_index"
+    callers: 2
+    note: "Both call sites in the same file: the equality pair at :736/:742/:750 and its own failing control at :698. That is what lets M-T and M-TP isolate the two halves of one git ls-files call -- reproduced independently this cycle (C3-T reds :698 alone and leaves :750 green; C3-TP reds :750 alone)."
+  tests_cover_change: true
+  hotspots: ["tests/test_full_suite_lock.py"]
+  cochange_missing: []
+  unmeasured:
+    churn: "no_eligible_fact -- both guard files were created by CARD-255 three days ago; a 12-month churn/defect-density window has nothing in it by construction."
+    cochange_missing: "no_eligible_fact -- same window. tests/README.md is the file's only co-change peer ever and it is in the card's own diff (blob 962c0d0d, identical at 28de78d9 and f2236045)."
+    suite_totals: "budget_truncated -- the brief forbids a full-suite run, so 8622/8627/8628 could not be re-derived. Same bound as cycles 1 and 2."
+    timings: "not_applicable -- the brief forbids taking or reporting any wall-clock measurement."
+
+system_contract:
+  rules_checked: 5
+  holds: 3
+  unchecked: 2
+  violated: 0
+  verdicts:
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: the cycle-3 delta is zero repo files (git diff f2236045 -- tests/ src/ pyproject.toml is empty); the card's whole change touches no pyproject.toml and no browser/playwright test, so nothing bears on where pytest-playwright is declared. Carried from cycles 1-2, delta-clean."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser test and no skip/xfail/marker machinery anywhere in the change. Re-derived this cycle rather than carried, because G-2 names the same territory: grep -nE 'skip|xfail|importorskip|add_marker|pytest.exit|Exit' over tests/full_suite_lock.py returns NOTHING at all, and the abort is 'raise pytest.UsageError(said)' at pytest_configure. That is CARD-255's guard, not this rule's subject."
+    - "ADR-0039/R1 ✓ holds — every per-assertion figure in the record now names the domain it was measured in, and each one I recomputed reproduces. Recomputed independently from the probe JSONs AND re-derived from the raw runs/*/pytest.out and runs/*/records/rec-*.txt: recording pass 46 FAIL / 84 no-FAIL, plain pass 33, union 50, killed-by-no-mutant 80 of 130 -- all four exact. The 17 recording-only linenos are exactly the card's list (:106 :134 :620 :621 :689 :694 :742 :854 :975 :976 :977 :978 :1068 :1071 :1091 :1092 :1093) and the 4 plain-only are exactly :1104 :1115 :1136 :1167. The 80's composition maps to the enclosing tests exactly as stated (10 + 10 + 5 + 5, the stale/threshold/future-stamp rules, the two age fallbacks, the skip-API pair), and :1105/:1116/:1137/:1168 are unkilled in both domains -- PASS in the recording pass, NOT-REACHED in the re-raising pass, which is the stated mechanism measured. Controls that can fail, verified by running them: C3-1174 reds :1174 ALONE (1 failed, 40 passed, message 'a run with no lock in sight reports a verdict: stale'), C3-TP reds :750 alone, C3-T reds :698 alone leaving :750 green, C3-4B leaves all 41 green with the fourth phrase printed twice (F-006 bound (a) as a measurement, declared in the docstring at :1160-1163, not claimed sound), C3-Q2 collects nothing at rc 4 and reds no test. The one figure that did NOT reproduce is F-009 below, and it is not an R1 claim: it is a count of attribution loss between two measurement domains, not a claim about what any assertion catches, and the per-mutant figures beside it are all correct."
+    - "ADR-0039/R2 ✓ holds — recomputed fresh in the worktree at f2236045, not carried: git grep -l -e NONOGRAM_IGNORE_FULL_SUITE_LOCK -e NONOGRAM_FULL_SUITE_LOCK = 8 hits, all 8 exempted (3 in OVERRIDE_NAMERS, 5 prose under the two prefixes), 0 offenders; git ls-tree -r f2236045 -- meta/kanban/cards/ meta/review/ = 546 entries, every mode 100644, suffix set exactly {.md, .yml} (258 .md + 288 .yml). An unexempted hit is an offender, an emptied enumeration reds the >=500 floor, and an unseen shape reds the :750 equality -- no silent-pass arm. Measured, not read: C3-TP and C3-T isolate the two halves of the one ls-files call."
+    - "ADR-0039/R3 ✓ holds — no new exemption, none widened. OVERRIDE_NAMERS, OVERRIDE_PROSE and PROSE_SHAPES parsed out of the blobs at c1d65cd2 (a1d2c2b9), 28de78d9 (8f1072ac) and f2236045 (43188167) and are byte-equal in all three (3 exact paths; ('meta/kanban/cards/', 'meta/review/'); ('.md', '.yml')). The must-not-absorb control for the shape half is live and can fail (C3-TP reds :750 alone; cycle 2's M-WIDE reds :750 and :685). The residual reaches (an untracked conftest; the out-of-repo gate scripts) stay declared as bounds the test cannot create."
+
+root_causes:
+  - id: RC-1
+    title: "record claims about the card's own measurements, stated over a domain or a cardinality the measurement does not support"
+    finding_ids: [F-001, F-007, F-008, F-009]
+
+findings:
+  - id: F-001
+    severity: high
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 237
+    title: "M-Q reported as a measured survivor; the instrument's scope undeclared and the 41-assertion figure not recomputing"
+    description: |
+      Cycle 1, gating. Closed on substance at f2236045 and re-verified here rather than carried:
+      the node counts 111 / 129 / 130 reproduce (ast.walk over the three blobs), 41 is stated only
+      as the collected test count, and M-Q's row now gives both domains plus the union. Independently
+      re-derived this cycle from the raw runs: M-Q reds 6 of 41 tests in a plain run, the six named
+      exactly, with plain linenos :105 :1067 :1104 :1115 :1136 :1167 and recording linenos :105 :106.
+      Both linenos sit above line 484, the first hunk of the f2236045 diff, so they hold at 28de78d9 too.
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: f2236045
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 242
+    title: "the absent redirection mutant justified by a premise G-5 does not state, and the redirection already controlled"
+    description: |
+      Closed at f2236045 by measurement: M-RD reds :795 and 10 of 41 tests, re-derived here from the
+      raw plain run (10 FAILED lines, 10 tb lines, 7 distinct linenos because :433 is parametrised
+      four ways). The record now says G-5 is not implicated either way, which is what G-5 says.
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f2236045
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: ops
+    type: gap
+    file: tests/test_full_suite_lock.py
+    line: 484
+    title: "the stale per-extension census in the PROSE_SHAPES comment had no recomputing control"
+    description: |
+      Closed at f2236045 by deletion plus an equality, re-verified independently here. The one census
+      figure left in the record is 546 pinned to f2236045, which recomputes exactly: git ls-tree -r
+      f2236045 -- meta/kanban/cards/ meta/review/ gives 546 entries, all mode 100644, suffixes exactly
+      258 .md + 288 .yml. The >=500 floor holds. The claim is now carried by the :750 equality out of the
+      same git ls-files call as the mode equality, and its control can fail (C3-TP reds :750 alone;
+      C3-T reds :698 alone and leaves :750 green). The record's point about drift is itself confirmed:
+      main's live population is 553 today, after being read as 550, 551 and 552 inside this one wave.
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f2236045
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 336
+    title: "the build-gate reconciliation conflated two different fives and left the totals one apart"
+    description: |
+      Closed at f2236045 by arithmetic with its bound declared (8628 collected both gates; gate 1's
+      line omitted its skip). The absolute totals remain unmeasured by this review as by both previous
+      ones -- a full suite is forbidden outside a gate -- and the record declares that bound itself.
+    suggestion: |
+      No action. Closed.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f2236045
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: ops
+    type: gap
+    file: tests/test_full_suite_lock.py
+    line: 588
+    title: "the two conftest substring assertions cannot fail while the assertion above them passes, and their one independent reach was undeclared"
+    description: |
+      Closed at f2236045 as a declared subsumption, and the declaration is now the stronger reading:
+      re-derived here, M-K reds :614 and :621 and M-K2 reds :614 and :620 in the recording pass, while a
+      plain run reds :614 ALONE with :620 and :621 both NOT-REACHED. So the two arms have no independent
+      control from this set, which is exactly what the docstring declares, and the one reach that would
+      be independent (an untracked conftest) stays declared as a bound the test cannot create.
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f2236045
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: ops
+    type: risk
+    file: tests/test_full_suite_lock.py
+    line: 1099
+    title: "the real-process silence assertions were narrowed to a hand-enumerated three-phrase list and the narrowing was not declared as a bound"
+    description: |
+      Closed at f2236045, and the declaration makes a falsifiable prediction that I tested myself rather
+      than read. Bound (a): C3-4B puts a fourth phrase ('quarantined: ...') on current_verdict()'s no-lock
+      branch -- 41 passed, with the phrase printed twice in the measuring run's own output and nothing in
+      the file noticing. Bound (b) is visible in the AST: test_a_gate_running_under_its_own_lock_is_not_refused
+      holds asserts at :1067 :1068 :1069 :1071 and test_a_tree_with_no_lock_runs_exactly_as_it_did_before at
+      :1167 :1168 :1169 :1170 :1174 -- one Assert node per loop, so a plain run stops at the first phrase that
+      fails. Both bounds are stated in the test's own docstring, not only on the card.
+    suggestion: |
+      No action. Closed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f2236045
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: high
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 470
+    title: "the 84-of-130 bound was an instrumented-domain figure stated as a property of the mutant set"
+    description: |
+      Cycle 2, gating. FIXED BY A RECORD CHANGE WITH NO COMMIT -- there is deliberately no sha for this
+      finding. The fix landed as corrected text in the '[Fix 1]' section of
+      meta/kanban/cards/CARD-256.md, which is main's working file (shown as ' M meta/kanban/cards/CARD-256.md'
+      in main's git status); HEAD stays f2236045 and tests/ is clean in the worktree.
+      Verified, not read. Both domains are now named, the union is given, and all four figures recompute
+      independently -- first from the two probe JSONs, then again from the raw runs/*/pytest.out (a strict
+      '^/.*test_full_suite_lock.py:(\d+): ' match on the --tb=line lines, which agrees with the probe's own
+      regex to the lineno) and from the raw runs/*/records/rec-*.txt with FAIL-sticky aggregation:
+      recording 46 FAIL / 84 no-FAIL, plain 33, union 50, killed-by-no-mutant 80. The 17 recording-only and
+      4 plain-only lineno sets are exactly the card's lists. The mechanism is measured rather than argued:
+      under M-Q the four premises :1104 :1115 :1136 :1167 are PASS in the recording pass and FAIL in the
+      re-raising pass, and the child pid records FAIL at :105 (child_fails [105] for M-Q, [] for all 22
+      others -- confirmed row by row). The generalisation the correction carries holds as stated for every
+      row: all 28 recording-only arms across 14 rows are NOT-REACHED under plain semantics (short-circuit),
+      and the ONLY suppression anywhere in the set is M-Q's five arms (:1067 :1104 :1115 :1136 :1167).
+    suggestion: |
+      No action. Closed record-only; nothing to commit. If the board wants the correction under version
+      control, that is the already-carded 'commit the instrument once, as its own card', not this card.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    fix_kind: record-only
+    fix_location: "meta/kanban/cards/CARD-256.md '[Fix 1]' section (main's working file, uncommitted by design); HEAD unchanged at f2236045"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: high
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 462
+    title: "the reason given for :1174 being unkilled was the one mechanism the assertion provably cannot notice"
+    description: |
+      Cycle 2, gating. FIXED BY A RECORD CHANGE WITH NO COMMIT -- no sha, same location and status as F-007
+      ('[Fix 1]' in meta/kanban/cards/CARD-256.md on main; HEAD stays f2236045).
+      Both new rows reproduced under my own independently written probe, with my own mutant text:
+      C3-1174 (an ENUMERATED phrase returned from current_verdict()'s no-lock branch) gives 1 failed /
+      40 passed, the only red at tests/test_full_suite_lock.py:1174, message
+      "a run with no lock in sight reports a verdict: 'stale'" -- the assertion reds ALONE, so the control
+      is live, not dead. C3-4B (a FOURTH phrase, in no list) gives 41 passed with the phrase printed twice
+      in the run's own output -- the direction the old reason named as the killer is the one direction the
+      assertion cannot see, exactly as the correction now says. The second repair is confirmed too:
+      C3-Q2 aborts in pytest_configure with 'ERROR: Refusing to start', rc 4, nothing collected and no test
+      red, so the implementation matrix's old attribution of that row to M-Q2 was empty, not merely wrong,
+      and M-1174 is the right occupant.
+    suggestion: |
+      No action. Closed record-only; nothing to commit.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    fix_kind: record-only
+    fix_location: "meta/kanban/cards/CARD-256.md '[Fix 1]' section (main's working file, uncommitted by design); HEAD unchanged at f2236045"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-256.md
+    line: 780
+    title: "'22 of 26 rows lose attribution in the plain domain' -- measured 14 of 26, and the list that follows it omits M-B"
+    description: |
+      New at cycle 3, Minor, NOT gating. In '[Fix 2]', the sibling audit's summary sentence states
+      "22 of 26 rows lose attribution in the plain domain" and then names twelve mutants
+      (M-X 8->3, M-RD 14->7, M-F 6->3, M-S 4->2, M-A 3->2, M-Y 5->3, M-R2 5->4, and
+      M-K/M-K2/M-1/M-M/M-C 2->1). Every one of those twelve per-mutant figures is correct -- I
+      reproduced all twelve. The headline count is not.
+
+      Measured three ways (results-sweep.json vs results-plain-reraise.json; the raw
+      runs/*/pytest.out --tb=line lines; the raw runs/*/records/rec-*.txt), over the 26 rows the
+      same paragraph counts (BASELINE + the 23-mutant set + M-1174 + M-4B):
+        * 14 rows have at least one attribution the plain domain does not make
+          (the twelve listed, plus M-B 2->1 which the list omits, plus M-Q which loses :106
+          while gaining five);
+        * 13 rows lose net (M-Q gains: 2 -> 6);
+        * 11 rows are unchanged (M-D, M-E, M-N, M-P, M-R, M-T, M-TP, M-V, M-Q2, M-4B, BASELINE);
+        * 2 rows gain (M-Q, M-1174).
+      13 + 11 + 2 = 26. No reading of "rows" in that paragraph -- run rows, mutant rows, lost arms
+      (28), or distinct recording-only linenos (17) -- yields 22.
+
+      Why this is Minor and not another Important of the F-007 family: the sentence's load-bearing
+      content is the short-circuit-versus-suppression distinction, and that distinction is correct
+      EVERYWHERE. All 28 recording-only arms across those 14 rows are NOT-REACHED under plain
+      semantics, so each is a lost attribution, never a hidden survivor; and M-Q really is the only
+      row whose missing kills were suppressed (PASS) rather than short-circuited. So no assertion's
+      control status is misrepresented by the miscount -- which is the line cycle 1 drew when it filed
+      the stale census (F-003) and the gate arithmetic (F-004) as Minor rather than Important.
+      It is also not an ADR-0039/R1 violation: it makes no claim about what the guard or any assertion
+      catches, it is a statistic about attribution loss between two measurement domains.
+    suggestion: |
+      Replace "22 of 26 rows" with "14 of 26 rows (13 of them net; M-Q loses :106 and gains five)" and
+      add M-B 2->1 to the list. Nothing else in the paragraph needs to move.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+adversarial_dropped:
+  - "[Adversarial] dropped false positive: '14 of the card's 21 rows reproduce exactly' is an undercount. 5 moved + 14 reproducing leaves 2 of 21 mutant rows unaccounted, and inverting the implementation matrix to per-mutant sets gives 16 rows whose same-assertion attributions are unchanged, or 13 if a row that gained the fix's own new :750 assertion (M-X, M-Y, M-S) counts as changed. Dropped: 'reproduce exactly' has no stated criterion, two defensible partitions bracket the figure (13 and 16), and pinning it requires mapping prose assertion descriptions to linenos by hand -- a re-derivation I cannot make refutable. Noted as an observation instead."
+  - "[Adversarial] dropped false positive: 'the only mutant of the 23 whose kill reaches the child process' is too strong, because M-F also reaches a child (the child refuses to start and the parent's rc == 0 premise at :1067 reds in both domains). Dropped: the claim's own parenthetical names the measurement it is making -- child_fails, a field that exists only in the re-raising pass and means 'an assertion inside a child recorded FAIL' -- and that measurement is exactly right ([105] for M-Q, [] for all 22 others, verified row by row). A claim that names the field it was measured from is domain-labelled, which is the rule being certified."
+  - "[Adversarial] dropped false positive: the recording pass's outer-pid heuristic (outer = the pid with the most distinct linenos) is unstable, because under M-A the raw records show a child pid with FAILs at :820/:1138/:1141 while the re-raising pass reports child_fails []. Dropped: it changes no figure -- re-derived from the raw records, the recording union is 46 whether child FAILs are folded in or not -- and no figure in the record rests on the split."
+  - "[Adversarial] dropped false positive: the two new passes are not independent of the recording pass because plain_lines.py imports MUTANTS from kill_matrix. Dropped: the shared element is the independent variable (the mutant texts), not the measurement; the measurement mechanism is new in both passes (the plain pass has no instrumentation at all and reads pytest's own --tb=line), and I re-defined five mutants from scratch in my own probe with my own text and reproduced every row I checked."
+  - "[Adversarial] dropped false positive: the 550/551/552 readings and cycle 1's '(main 547)' are live uncontrolled population figures still in the record. Dropped: in the '[Fix 1]' section those three readings ARE the drift evidence and carry their own control (they disagree), and 542 is explicitly labelled as the drafting-time comment. The two live readings that remain ('main 547' at [Review 1/3], 'today is 551' at [Review 2/3]) are cycle-scoped observations inside review sections, the second of which exists precisely to document the drift, and cycle 2 filed it as 'noted, not filed'. Main reads 553 today, which is the point, not a counterexample."
+  - "[Adversarial] dropped false positive: the re-raising pass's control is asserted rather than exercised. Dropped: it is exercised, and its failing state is on disk. kill_matrix.Instrument.visit_Assert and plain_lines.ReRaise.visit_Assert are the same transformer except that the latter's handler is [record, Raise()] and the former's is [record] -- so the recording pass IS the handler-that-forgot-the-raise, and its M-Q row is exactly the predicted degraded row: outer {105, 106} with :1104/:1115/:1136/:1167 recorded PASS. The control can fail and has been seen failing."
+  - "[Adversarial] dropped false positive: G-1 is unverified this cycle because no co_code comparison was re-run. Dropped: tests/full_suite_lock.py is blob 7b90cad0a90df6782bf59b2853059a3d5b269bfc at 28de78d9, at f2236045 and in the worktree (git ls-tree / git hash-object), so there is nothing for a co_code walk to compare -- the file the guardrail is about has not changed since the verdict was certified at cycle 1."

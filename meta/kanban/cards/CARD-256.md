@@ -777,9 +777,16 @@ domains; F-003's `M-TP`/`M-T` in **both** domains (the load-bearing half) with `
 F-005's arms recording-only, a plain run redding `:614` alone — which *strengthens* the subsumption the
 docstring declares.
 
-**22 of 26 rows lose attribution in the plain domain** (M-X 8→3, M-RD 14→7, M-F 6→3, M-S 4→2, M-A 3→2,
-M-Y 5→3, M-R2 5→4, M-K/M-K2/M-1/M-M/M-C 2→1). That is **short-circuit, not suppression** — and the whole
-basis for calling those figures under-labelled rather than wrong. **M-Q was the only one actually wrong,
+**14 of 26 rows lose attribution in the plain domain — 13 net** (M-X 8→3, M-RD 14→7, M-F 6→3, M-S 4→2,
+M-A 3→2, M-Y 5→3, M-R2 5→4, M-B 2→1, M-K/M-K2/M-1/M-M/M-C 2→1; 11 rows unchanged, 2 gain, and M-Q loses
+`:106` while gaining five — 13 + 11 + 2 = 26). *(Corrected at review cycle 3, F-009: I wrote "22 of 26" and
+omitted M-B. No reading of "rows" yields 22 — not run rows, mutant rows, lost arms (28), nor distinct
+recording-only linenos (17). Every one of the twelve per-mutant figures I did give was right, which is how
+a wrong cardinality survived beside twelve correct ones.)* That is **short-circuit, not suppression** — and
+the whole basis for calling those figures under-labelled rather than wrong. Certified: **all 28
+recording-only arms across 14 rows are NOT-REACHED under plain semantics**, so every loss is short-circuit
+and none is a hidden survivor, and **the only suppression anywhere in the set is M-Q's five arms**
+(`:1067 :1104 :1115 :1136 :1167`). **M-Q was the only one actually wrong,
 because its missing kills were suppressed (reported PASS), not short-circuited (reported NOT-REACHED).**
 
 **Safety discipline, stated because 52 runs of file mutation deserve it:** board-lock check **before and
@@ -802,3 +809,82 @@ each by a different agent: the line-numbering shift (wave 49), a **test count** 
 count (cycle 1), **last-write-wins** aggregation losing a loop-interior RED (CARD-257 cycle 1), and
 **suppressed propagation** making a child report `1 passed` (F-007) — with a fifth on CARD-257, a **leaked
 patch** that looks identical to a real kill.
+
+### [Review 3/3] Score: 9.0 — ✓ threshold reached, 0 Critical, 0 Important. Clear for the merge gate
+
+Report: `meta/review/CARD-256-cycle3.yml`. F-001…F-008 all closed; one new **Minor**, F-009, corrected in
+this commit. Contract **5 checked, 3 ✓, 2 ⚠ `no_eligible_fact`, 0 ✗** — **ADR-0039/R1 moves from violated to
+holding.** Seven false-positive candidates dropped; the reviewer says it looked hard for a gating finding.
+
+**46 / 33 / 50 / 80 reproduce exactly, derived twice and not from the probes' own summaries** — once from
+the two result JSONs, then again from the raw artefacts: a strict `^/…test_full_suite_lock.py:(\d+): ` match
+over the `--tb=line` output (**33**, identical) and FAIL-sticky aggregation over the per-assert record files
+(**46**, identical). `46 ∪ 33 = 50` holds and is **not additive**; 130 − 50 = 80.
+
+**The 17 and the 4 check out by name, character for character.** And the key asymmetry is confirmed as a
+measurement rather than a gloss: `:1105 :1116 :1137 :1168` are unkilled in both domains — **PASS in the
+recording pass, NOT-REACHED in the re-raising one** — "suppressed in one, never reached in the other".
+`:1174` is in the 80.
+
+**M-1174, M-4B and M-Q2 all behave as claimed**, re-run by the reviewer with its own probe and its own
+mutant text: C3-1174 → 1 failed / 40 passed, sole red at `:1174`, so the control is **live and alone**;
+C3-4B → **41 passed** with the fourth phrase printed **twice** in the run's own output and nothing noticing
+— and the reviewer found that bound is declared **in the test's own docstring at `:1160-63`**, not only on
+the card; C3-Q2 → rc 4, nothing collected, **no test red**, so the old matrix row attributing
+`…tree_with_no_lock…` to M-Q2 really was **empty** and M-1174 is the right occupant.
+
+**The sibling audit is certified in full: "naming the domain is all any of them needs" is TRUE for every
+item, and the short-circuit/suppression distinction is drawn correctly EVERYWHERE.** The decisive
+measurement: **all 28 recording-only arms across 14 rows are NOT-REACHED under plain semantics**, so every
+loss is short-circuit and **none is a hidden survivor** — and the **only** suppression anywhere in the
+23-mutant set is M-Q's five arms (`:1067 :1104 :1115 :1136 :1167`). `child_fails` verified row by row:
+`[105]` for M-Q, `[]` for all 22 others.
+
+**Independence, judged rather than assumed.** The two new passes are *genuinely* independent in the
+mechanism that mattered — the plain pass has no instrumentation at all and reads pytest's own traceback; the
+re-raising transformer is separate code, not imported; both propagate `AssertionError`, so **the F-007
+mechanism cannot be shared.** What *is* shared is the mutant text and the line-count-preserving assumption —
+**the independent variable, not the measurement** — and the reviewer closed even that gap by re-defining
+five mutants from scratch and reproducing every row it ran.
+
+**And the re-raising pass's control has been seen failing, not merely asserted.** `Instrument.visit_Assert`
+and `ReRaise.visit_Assert` are the same transformer except the handler is `[record]` vs `[record, raise]` —
+so **the recording pass *is* the handler-that-forgot-the-`raise`**, and its M-Q row is exactly the predicted
+degraded row: outer `{105, 106}` with the four premises PASS. **The failing state is on disk, not
+hypothesised.** That is the strongest form a control can take and it fell out of the architecture rather
+than being built.
+
+**The generalisation sentence is true as stated and covers the case**, verified in both directions — with
+one caveat the reviewer asks be carried into the *wave* rule rather than the card: **an instrumented-only
+kill does not establish that the arm has its own control** (M-K's `:621` is subsumed by `:614`), only that
+the attribution needs the instrument. The record already carries that caveat where it matters, in F-005's
+declared subsumption.
+
+**Census: no live uncontrolled population figure survives in the certified record.** `546` recomputed at
+`f2236045` — **546 entries, every mode `100644`, suffixes exactly 258 `.md` + 288 `.yml`**, floor intact.
+542 is labelled as the drafting-time comment; 550/551/552 are the drift evidence *with their own control*
+(they disagree with each other). **And main reads 553 today** — a fourth reading inside one wave, confirming
+the record's own argument again.
+
+**G-1 settled by blob identity:** `tests/full_suite_lock.py` is `7b90cad0a90df6782bf59b2853059a3d5b269bfc`
+at `28de78d9`, at `f2236045` **and** by `git hash-object` in the worktree, so **there is nothing for a
+`co_code` walk to compare.** The three sets parsed out of the three blobs and byte-equal at all three
+commits: 3 exact paths, 2 prefixes, `('.md', '.yml')`. **No new exemption, none widened.** Scan recomputed
+fresh: 8 hits, 3 namers + 5 prose, **0 offenders**. G-2 re-derived rather than carried: the guard names **no**
+skip API at all and aborts via `raise pytest.UsageError`. G-4 stdlib only. Cycle-3 delta empty.
+
+**F-009 (Minor, corrected in this commit) — mine, and it is the counting equivalent of this card's whole
+family.** `[Fix 2]` said "**22 of 26 rows** lose attribution in the plain domain". Measured three ways it is
+**14 of 26 (13 net)**, and my list omitted **M-B (2→1)**. No reading of "rows" yields 22 — not run rows,
+mutant rows, lost arms (28), nor distinct recording-only linenos (17). **Every one of the twelve per-mutant
+figures I did give was correct**, which is exactly how a wrong cardinality survives beside twelve right
+ones. Non-gating because the sentence's load-bearing content — the short-circuit/suppression distinction —
+is correct everywhere, so **no assertion's control status is misrepresented**; and it is not an ADR-0039/R1
+violation because it claims nothing about what the guard or any assertion catches. That is the same line
+cycle 1 drew in filing the stale census and the gate arithmetic as Minor.
+
+**[The rule the wave earned, with its second clause]** *An instrument has a domain, and the domain is part
+of every figure it produces* — and now, from F-009: ***a figure summarising rows must be counted from the
+rows, not from the narrative.*** Fix 2's audit of 26 rows across three measurement domains was the right
+method and still produced one wrong cardinality in its own summary. Mine, in a paragraph whose entire
+subject was figures stated over the wrong domain.
