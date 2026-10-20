@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** CARD-257 review cycle 1, F-005 (a second surviving doubling) and the card's own declared residue (`reset_engine()` is 135 lines for a 6-line body)
 **Idea:** —
-**Wave:** 51 (queued)
+**Wave:** 52 (queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py
 **Review score:** —
