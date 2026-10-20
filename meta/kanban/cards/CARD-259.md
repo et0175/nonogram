@@ -26,7 +26,7 @@ claim, and nothing red if the two copies drifted. It replaced it with AC-2 — a
 mechanism's own parameters, derived from the code. That worked, and its cycle-1 review then found the
 same pattern one file over.
 
-**F-005, measured:** `tests/conftest.py:469-479` still carries, verbatim in substance, the step-3
+**F-005, measured:** `tests/conftest.py:472-478` still carries, verbatim in substance, the step-3
 narration CARD-257 cut from `session.py` — *"Deliberate, but not load-bearing, and the earlier reading of
 G-3 here was wrong"*, the moved-ahead-of-Alembic measurement, and *"re-measured as cycle-1 review mutant
 R7"*. It is uncontrolled, it is review history shipped inside code, and it was absent from CARD-257's

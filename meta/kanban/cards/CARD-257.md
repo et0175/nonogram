@@ -480,3 +480,114 @@ wrong arm and returns a false all-green. Both are now recorded for the fix stati
 "does not exist on this host, so DB-mode tests skip". It **does** exist — `gate.sh` creates it — and the
 guard file reports 13 passed / **0 skipped** under `-rs`. No verdict depended on it, but I stated as fact
 something I had not checked for this worktree.
+
+### [Fix 1] `df23bf64` — F-001 and F-004 closed; the card's measurement *method* was also wrong
+
+Commit `df23bf64` on `card/257-cut-the-guards-prose`, pathspecs `tests/test_db_engine_lifecycle.py`
+`src/nonogram/db/session.py` (the card's `Touches`, exactly). `session.py` contributed nothing — it is
+unchanged — so the commit is **1 file, +25/−7**. Nothing under `meta/` in it.
+
+**F-001 — fixed.** The names arm is now word-bounded,
+`re.search(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])", text)` (stdlib; `re` already imported).
+The claim in the control's docstring and the assert's own failure message were both narrowed to say
+*whole word*, and a six-line inline comment states the mechanism — which identifiers contain `engine`,
+and that the pointer assert forces `reset_engine` into the guard text. Asserts shifted:
+`:845→:851`, `:857→:870`, `:863→:881`, `:869→:887`.
+
+Grid, re-derived per assert with **any-RED aggregation** and mutants installed as module attributes
+(line-count-preserving by construction). Fidelity first: before the edit the instrument reproduced
+cycle 1's F-001 table cell for cell **and** the card's AC-2 columns for `GLOBAL-ADD` and `NAMES-BLIND`.
+
+| mutant | `:851` preamble | `:870` names | `:881` heads | `:887` pointer |
+| --- | --- | --- | --- | --- |
+| SHIPPED | PASS | PASS | PASS | PASS |
+| `DOC-NAME-DEL-PROD[SessionLocal]` / `[_engine_url]` / `[engine]` | PASS | **RED** | PASS | PASS |
+| `DOC-NAME-DEL-GUARD[SessionLocal]` / `[_engine_url]` / `[engine]` | PASS | **RED** | PASS | PASS |
+| `GLOBAL-ADD` | PASS | **RED** | PASS | PASS |
+| `NAMES-BLIND` | **RED** | n/r | n/r | n/r |
+
+All six name×text cells red where two were PASS before. `:887` stays PASS under the `[engine]` cells,
+which is the point: `reset_engine` survives that mutant, so the pointer assert no longer props the names
+arm up.
+
+**The sibling `:881` was deliberately left a substring test, and the reasoning is load-bearing.**
+Word-bounding it would be **wrong, not merely stricter**: the dotted head `.SessionLocal` begins with `.`,
+so a left lookbehind tests the character *before* the dot and would reject a legitimate receiver spelling
+such as `app.SessionLocal =` — exactly the shape the scan's pattern 2 counts. Census, measured rather
+than reasoned: `setattr(` prod 6 total / 6 standalone, guard 4/4; `.SessionLocal` prod 1/1, guard 1/1 —
+**zero occurrences embedded in a larger identifier in either text**, so substring and word-bounded are
+*equivalent* on both texts as they ship. Contrast with `engine`, which had **23 substring vs 12
+standalone** occurrences in the prod text and **8 vs 2** in the guard text, the surplus being the four
+identifiers both texts must mention anyway. Declared latent, not fixed: a hypothetical `.SessionLocalX`
+or `_setattr(` would satisfy it; both are 0 today. Each of the four `DOC-HEAD-DEL` cells reds `:881`.
+
+**F-004 — fixed.** One clause beside the three names in the class docstring's opening paragraph, saying
+that this is the only place the docstring names all three and that the control holds it to naming each as
+a whole word. Two properties the fix was deliberate about: the clause **names no global itself**, so it
+cannot substitute for the paragraph and defeat the mutant (`DOC-NAME-DEL-GUARD[*]` still reds all three
+after the edit — had the clause repeated the names, that cell would have come back PASS), and the "only
+place" claim is measured (guard standalone counts `SessionLocal` 1, `_engine_url` 1, `engine` 2, the
+second being *"something retires its engine"* in the same paragraph).
+
+**F-002 confirmed by AST.** `reset_engine()` has **exactly three** underline-style sections —
+`Who calls it and why` (docstring line 9), `What is pinned, and what is not` (27), `The convention, and
+what little enforces it` (65). The first two are CARD-252's record; **the third is the single source this
+card created.** So the residue's "three of its sections … are CARD-252's record" is wrong in both count
+and attribution, exactly as cycle 1 said.
+
+**F-003 — all three corrections confirmed, and a fourth defect found in the card's METHOD.**
+The split method was reproduced exactly (prose = docstring physical lines ∪ comment lines;
+`code = total − prose − blank`) and it hits both of the card's main-revision anchors to the line
+(guard 616/440, session 275/64), so the method is the card's, not a different one.
+
+| | prose | code | ratio | card said |
+| --- | --- | --- | --- | --- |
+| guard file, main | 616 | 440 | 1.40 : 1 | held |
+| guard file, `245bc898` | **568** | **465** | 1.22 : 1 | 567 — **wrong, 568** |
+| `session.py`, main | 275 | 64 | 4.30 : 1 | held |
+| `session.py`, `245bc898` | 284 | **63** | **4.51 : 1** | 64 / 4.44 : 1 — **wrong**, and cycle 1 called it held |
+
+Also confirmed: code delta **+25**, not "24 lines of code"; control B's docstring **63 → 47**, not 63 → 48.
+Re-confirmed as held: control A 125 → 107 (docstring 37 → 30), class docstring 116 → 59,
+`reset_engine()` 126 → 135, `_hand_set_spellings` docstring 33 → 31.
+
+**The method defect, which neither the card nor cycle 1 caught:** `code = total − prose − blank`
+**double-subtracts blank lines that sit inside a docstring** (22 such on main, 23 at `245bc898`). The
+docstring grew by 9 lines, one of them blank, so the artifact shifted by one and produced the false
+"64 both sides". Under set arithmetic — `code = total − |prose ∪ blank|` — `session.py` has **86 code
+lines before and 86 after, unchanged**, which is what *docstring-only* means and agrees with the
+byte-identical AST. The same artifact inflates the guard file's code figures (set-based 494 → 521 → 526).
+**This is the figures rule biting its own instrument:** recomputation caught three stale numbers, and
+reproducing the *method* caught the one that was never computable.
+
+**Line-reference correction to cycle 1's report.** The DOC-NAME-DEL claim is at `:838-842` on
+`245bc898` (now `:843-849`), **not** `:304-308` — that range is inside `_hand_set_spellings`' docstring
+and says nothing about DOC-NAME-DEL. `meta/review/CARD-257-cycle1.yml` is left as the reviewer filed it;
+the correction lives here.
+
+**New figures created by the fix**, same method as the card: guard file **1162 → 1180** (+18), prose
+**568 → 581**, code **465 → 470**, ratio **1.22 : 1 → 1.24 : 1**; class docstring **59 → 63**; the AC-2
+control **53 → 67** lines (docstring 23 → 25); `session.py` unchanged at **393**. Every assert in
+controls A and B shifts by exactly **+18**, so the card's AC-3/AC-4 "after" columns renumber:
+`:929→:947, :931→:949, :955→:973, :972→:990, :976→:994, :982→:1000, :990→:1008, :999→:1017` and
+`:1056→:1074, :1058→:1076, :1074→:1092, :1092→:1110, :1117→:1135, :1122→:1140, :1137→:1155, :1156→:1174`.
+
+**G-1 / AC-5 re-derived**: `session.py` never left the tree (`git diff HEAD -- src/nonogram/db/session.py`
+empty); docstring-stripped AST dump length **9154**, sha256
+`bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c` — the declared value, to the byte.
+**ADR-0036/R4**: 0 banned codepoints among the 25 added lines; tree-wide 3 hits, all U+2022 in
+`pdf_generator.py`, the declared exemption. **G-4**: no dependency added.
+
+**F-005 not fixed, as instructed — carded as CARD-259, now with its measured extent.** The duplicated
+statement is `tests/conftest.py` **lines 472-478**, inside `_rebuild_public_schema`'s docstring (its
+step-3 item spans 469-478). **Nothing controls it**: no test anywhere reads
+`_rebuild_public_schema.__doc__` (a `.__doc__` grep over `tests/` returns only `reset_engine`, the guard
+class, `round_ink`, `web`, `pages`, `pdf`); the only cross-references are an *import of the function* and
+prose mentions. `tests/conftest.py` was neither edited nor committed.
+
+**[The fix ran the instrument over its own additions, which is what the rule is for.]** Both touched
+assertions were measured per assert with a named mutant that reds them, and the kill attempt against
+F-004's new clause is the *same* mutant as F-001's fix — `DOC-NAME-DEL-GUARD[engine]` would have come back
+PASS if the clause had repeated the names. It reds. No defect found in its own additions this time, one
+wave after the rule was promoted because six consecutive gating findings had been created by the previous
+fix.
