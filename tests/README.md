@@ -450,6 +450,119 @@ It reports the lines the entry contract rejects and how many of the lines
 carrying a rate bracket actually give their rate back, exits 1 if either
 count is wrong, and never writes.
 
+## Measuring which assertions a mutant kills (`kill_matrix.py`)
+
+`tests/kill_matrix.py` reports, for one target test file and a set of mutants,
+**every** `ast.Assert` node in that file as `PASS` / `FAIL` / `NOT-REACHED` /
+`BLIND`, keyed on each node's own `lineno`. Its tests are
+`tests/test_kill_matrix.py`.
+
+Why it exists at all: a test short-circuits at its first failing assert, so one
+`FAILED` line says nothing about the arms that never ran — **a surviving mutant
+and a never-reached assert look identical** in a test-level reading. This board
+rebuilt that instrument five times in one wave and each build hit a *different*
+way it lies. Those six ways are its acceptance criteria, each with a control
+that fails.
+
+### Two passes, and a figure must say which one it came from
+
+Both are the same transformer with one difference: whether its handler
+re-raises.
+
+| pass | what it buys | what it costs |
+| --- | --- | --- |
+| `Pass.RECORDING` | per-arm attribution — every arm measured, no short-circuit hides one | suppressed propagation: with `child_instrumentation=True`, an arm that reads a child pytest's outcome **cannot** record `FAIL`, so it is reported `BLIND` |
+| `Pass.RERAISING` | true propagation and true cross-process semantics | stops at the first failing assert in a test, leaving later arms `NOT-REACHED` |
+
+Neither pass alone is the kill set. An instrumented-only kill is an
+*attribution* a plain run cannot make; a plain-only kill is an *observation* the
+instrument cannot make — and only the second kind corrupts a figure. An
+instrumented-only kill does not establish that an arm has its own control (a
+subsumed arm reds under the instrument too), only that the attribution needs the
+instrument.
+
+`pass_` is positional on `Runner.run()` with no default, `Matrix` refuses a
+`pass_` that is not a `Pass` member, and every figure interpolates both the pass
+and the denominator. The denominator is the `ast.Assert` node count, carried
+separately from `collected_tests`, so a figure cannot quote one while meaning
+the other.
+
+### Using it
+
+```python
+from tests.kill_matrix import Edit, Mutant, Pass, Runner
+
+runner = Runner(selection=["tests/test_thing.py::test_one_arm"], repo_root=REPO)
+result = runner.run(
+    Pass.RECORDING,
+    [Mutant("ROT", (Edit(path=SRC, old="shipped", new="rotted"),))],
+)
+print(result.table())          # the grid, with the pass in its header
+print(result.cell("ROT", 897))  # one cell
+```
+
+`Edit` is validated before it is applied. `expect` is how many occurrences of
+`old` the caller asserts are there (all are replaced); `occurrence` (1-based)
+instead targets exactly one, which is what a repeated line forces a caller to
+do.
+
+### What it refuses, and why each refusal exists
+
+| refused | because |
+| --- | --- |
+| a mutant that changes the **line count** | every assert below the edit shifts its `lineno` and reports `NOT-REACHED`; a green run with a blank matrix is indistinguishable from a file that never ran |
+| a mutant whose `old` is **absent** | it writes nothing, so every assert passes — indistinguishable from a surviving mutant |
+| a mutant whose `old` occurs a different number of times than `expect` | a by-text substitution on a repeated line mutates a different site and returns a false reading; name the `occurrence` |
+| a target with **two asserts on one line** | the matrix is keyed on a lineno and could only merge them into one cell |
+| an **empty** selection, a directory, a path that is not a file, or a selection spanning two files | it never runs the full suite, and a selection it cannot resolve to one file is a failure, not a silent pass |
+| starting while `meta/kanban/.full-suite.lock` exists under the given repo root | another worktree owns the host; it also never writes a lock |
+| an edit naming `_refuse_unless_test_database` or `nonogram_poc`, or an edit to `tests/conftest.py` or `tests/database_guard.py` | the database guard is never widened or bypassed |
+
+Aggregation across executions is **ANY-RED**: one RED anywhere is a kill. An
+assert inside a `for` loop runs once per iteration and an assert in a test that
+also runs in a child process records once per pid, and last-write-wins loses
+those REDs — `aggregate_last_write_wins` is kept beside `aggregate_any_red` as
+the control that must disagree with it.
+
+`SHIPPED` is re-run and asserted FAIL-free **between** mutants, not only at the
+start, and compared to its own first reading cell for cell: a leaked patch and a
+real kill look identical.
+
+Restores are `cp -p` from backups, verified with `diff -q` **and**
+`shasum -a 256`, with every later edit's content read from the backup.
+**No git command anywhere** — `test_kill_matrix.py` enumerates that from this
+module's own AST rather than by reading it. It takes no timing measurements and
+reports none; `subprocess`'s `timeout=` is a bound on a hung child, not a
+measurement.
+
+### Its two anchors
+
+`test_kill_matrix.py` reproduces two matrices this board measured three
+independent ways in wave 50, which is what keeps the instrument from certifying
+itself:
+
+* `tests/test_full_suite_lock.py` at `ddb1731b` — **130 of 130 PASS and
+  reached**, zero `NOT-REACHED`, with `41` as the *collected test* count and
+  never the denominator.
+* `tests/test_db_engine_lifecycle.py` at `b441ba00` — CARD-257's four-arm grid
+  at `:859` / `:878` / `:889` / `:897`: six `DOC-NAME-DEL` cells RED at `:878`,
+  four `DOC-HEAD-DEL` cells RED at `:889`, `NAMES-BLIND` RED at `:859` with the
+  three arms below it `NOT-REACHED`, `POINTER-ROT` and `POINTER-DEL-WORD` RED at
+  `:897`, `CONTROLS-RENAME-ONLY` `PASS`, SHIPPED all-PASS.
+
+### Declared bounds
+
+* `child_dependent_linenos` is **intra-function**: it marks every assert after a
+  possible spawn in the same function, so it over-marks rather than
+  under-marks, and it does **not** see an arm that reads a child's outcome
+  through a helper's return value or a fixture.
+* The `BLIND` overlay is applied only when `child_instrumentation=True`. With it
+  off the child is pristine, propagation across the boundary is intact, and
+  those arms are measured for real.
+* One target file per run, so a matrix's domain is never ambiguous.
+* The database-guard refusal is a path-and-text refusal over the sites that
+  carry the guard today, not an analysis of what an edit would do.
+
 ## Troubleshooting
 
 **"ModuleNotFoundError: No module named 'nonogram'"**
