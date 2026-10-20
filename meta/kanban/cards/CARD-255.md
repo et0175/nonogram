@@ -256,3 +256,47 @@ sibling card was live on this host), and the full suite was not run here — the
   mutant) — **this gate would have refused itself** and exited 4 before collecting. It ran. That is
   the self-run case certified in production conditions rather than in a test's temp directory, and it
   is why the card was gated before being reviewed rather than after.
+
+### [Review 1/3] Score 7.5 — FAILED on the severity gate (2 open Important)
+
+Report: `meta/review/20261020T062654Z-CARD-255-cycle1.yml` (copied to main). Ten findings, two
+gating; both are one-clause fixes in files this card already owns.
+
+- **The identity design is certified, including the premise.** The reviewer **read all three gate
+  scripts** rather than taking the pid argument on trust: each writes the lock and *then* runs pytest
+  as a child, so a pid rule would have refused every gate. Five of six identity probes come back
+  correct — prefix sharing is exact equality (`…-card-25` vs `…-card-255` → False), trailing slash
+  and `~` normalise, symlinks resolve on both sides, a linked worktree resolves to the main root.
+- **M1 re-derived exactly**: "treat every lock as foreign" reds the three self-run cases and leaves
+  **both refusal tests green**. The suite genuinely distinguishes *refuses a foreign lock* from
+  *refuses everything* — the card's trap, closed and now independently confirmed.
+- **The stale rule holds and its riskiest claim is controlled.** `Z` is not read as local time —
+  numerically (1792473498 vs `time.mktime`'s 1792462698, 10800s out) **and** by a mutant that reds in
+  either hemisphere's sign. Undeterminable age is genuinely not treated as old; `STALE_SECONDS` ≥ 4×
+  the longest hold on record is a test, not a comment.
+- **F-001 (important) — the silent direction.** `os.path.realpath` resolves a **relative** value
+  against the *reading* process's cwd, and gates run pytest from the worktree root. A foreign lock
+  reading `worktree: .` therefore resolves, inside every other worktree, to that worktree: the run
+  proceeds and **prints nothing**. Probed live. What makes it gating is the asymmetry with the card's
+  own principle — the module adopts ADR-0039/R2 verbatim and refuses a lock naming **no** worktree,
+  while a value that cannot be resolved to a tree is the same shape and gets the opposite verdict.
+  And `tests/README.md`, changed by this card, now tells a human to hand-write a lock.
+- **RC-1 — `_same_tree` is the function this card reduces to and it has no direct test.** Three
+  mutants survived at 24 passed: `startswith` for exactness, raw string equality for normalisation,
+  and `return None` for the `""` distinction. Every identity assertion reaches that function through
+  `verdict()` with two already-resolved, exactly-equal absolute paths — so three documented claims
+  have no control that can fail. One fix (the `isabs` clause plus a direct table test) closes all
+  four findings.
+- **F-004 (important) — a test whose claim is wider than its own pathspec.**
+  `test_nothing_in_the_tree_sets_the_override_for_a_run` says "nothing **in the tree**" and then greps
+  `-- tests src pyproject.toml`. Measured: whole-tree grep returns 3 files, the scanned set 2 — the
+  pathspec buys nothing and costs the claim its reach. `scripts/run_admin_tests.sh` is an in-tree
+  pytest runner that already exports env for the suite, and is the strongest co-change peer of
+  `conftest.py` absent from this diff: an export there would disable the guard for every run through
+  it and leave the test green.
+- **The collateral fix is the whole fix, proven.** The reviewer rebuilt a copied root both ways:
+  without the `_ROOT_CONTENTS` entry → `exit 4, ImportError` at `conftest.py:148`; with it → exit 0.
+  It also enumerated conftest's complete `tests.*` import set and confirmed no other such list exists.
+- **F-009 recorded and deliberately not "fixed"**: a lock naming a worktree that no longer exists
+  refuses every run until it goes stale. A filesystem-existence check would hand a live gate's window
+  away whenever a path is briefly unreadable; the override is the documented escape.

@@ -335,3 +335,40 @@ be added wherever that skill lives**; it is the half of the remedy a worktree ca
   reconciles exactly: main was 8595 at CARD-225's merge gate, this card retires **10** tests
   (21 → 11 in its module), 8595 − 10 = 8585. A shrink card's gate is worth reading for the
   subtraction as much as for the colour.
+
+### [Review 1/3] Score 8.5 — FAILED on the severity gate (1 open Important)
+
+Report: `meta/review/20261020T062646Z-CARD-254-cycle1.yml` (copied to main).
+
+- **The shrink is certified where it matters.** G-1 re-derived independently to **the same sha256**
+  (`bdb10905…`, both dumps 9154 bytes). The retirement table checked **item by item against an AST
+  diff**: 11 test functions retired and 1 added, 9 helpers retired and 3 added, 2 globals — **all 22
+  accounted for**, nothing retired that is in neither list, and the two survivor claims most able to
+  be hollow were spot-checked and are real. The derivation is load-bearing (D2: hardcode the name set
+  and the equality goes green while D1 reds). The declared P2 asymmetry reproduces exactly.
+- **The headline is TRUE, verified rather than repeated**: the textual scan **counts** the
+  keyword-bound `monkeypatch.setattr(app_session, name="engine", …)` shape that was CARD-252 cycle
+  3's gating hole. The dumber mechanism closes the axis the proof claim could not.
+- **F-001 (important) — AC-4 unmet, and it is the one failure this card could least afford.** The
+  regexes exclude newlines *and* parentheses, so a **formatter-wrapped** `setattr(` call — the single
+  most likely way a contributor actually writes that line — reaches the globals, is **not** in the
+  declared "blind to" list, and is **not** counted. Certified by a surviving real-file mutant
+  (**M3c**: the wrapped form appended to a non-exempt file → 5 passed, guard silent) where the
+  one-line and dotted forms each killed the equality. No live site is missed today (an AST sweep
+  found zero), so it is a disclosure defect with a latent miss. *The claim is wider than the
+  mechanism, in the one sentence written to stop exactly that.*
+- **Remedy split, deliberately.** The reviewer proposed narrowing both texts. That is right for the
+  parens-in-receiver shape and **wrong for the wrapped call**: a backstop whose only job is to red
+  when someone adds a hand-set site, and which is blind to the most common spelling of one, has no
+  job left. So the fix cycle widens the *mechanism* for (a) — normalise whitespace before matching,
+  with an edge control proving it does not start matching across unrelated calls — and *declares* (b).
+- **F-002 (minor, out of scope — routed, not fixed)**: ADR-0039/R2's deny-default clause is traded
+  away by this card while the ADR still reads Accepted / mandatory. **R2 as written forbids what this
+  board actually decided.** An amendment sanctioning "drop the reach claim" as an alternative to the
+  deny-default is owed to the architect station; `meta/architecture/` is not in this card's Touches
+  and was not touched.
+- **OBS-1 — my own record was overstated.** The card claimed a clean U+2022 scan over `src/nonogram/**`;
+  `admin/pdf_generator.py` carries U+2022 three times. The rule **holds** (that module is the declared
+  `DINGBAT_EXEMPT_MODULES` entry, and it pre-dates this card), so the verdict was right and the
+  sentence was wrong. Being corrected on an overstated self-scan, on the card whose subject is
+  overstated claims, is the wave's joke at my expense and is fixed in the fix cycle.
