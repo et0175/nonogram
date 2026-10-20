@@ -346,3 +346,25 @@ touched.
   "remain unexplained" — stays exactly as honest as it was. Red again ⇒ something in this card's tree
   reproduces it deterministically, which would be the first reproducible instance this board has ever
   had and worth far more than this card.
+- **[Build gate 2 — PASSED, same commit]** `28de78d9`, solo: **8627 passed**, 1 skipped, 16:08,
+  EXIT=0. 8622 + 5 = 8627, so gate 1's five failures are gate 2's five passes. **The card's own code
+  is clear**; the gate passes on this run.
+
+### The answer owed since CARD-252 merged: `reset_engine()` did not stop the hazard
+
+Red, then green, on **the same commit**, on a tree where `reset_engine()` is defined
+(`session.py:201`) and called (`conftest.py:528`). That is the same red-then-green shape CARD-253
+produced in wave 48 **without** the fix. So:
+
+- **The `@ops` class survives CARD-252.** Four waves of gate reds were attributed to a hazard that
+  card was expected to remove, and the first gate to hit it afterwards behaves identically.
+- **CARD-252 was never wrong, and this is why its wording matters.** Its AC-3 was **withdrawn** with
+  a measuring survivor, and its docstring says the four waves of irreproducible failures **remain
+  unexplained**. Every cycle's instinct was to let that card claim the cure; the claim rule stopped
+  it three times. Had it shipped the cure claim, this gate would now be evidence of a regression in
+  a fix that never fixed anything — instead it is evidence about the hazard, which is what it is.
+- **What stops now**: attributing a red to "the known `@ops` hazard, which CARD-252 addresses". The
+  honest attribution is "the known `@ops` hazard, cause unknown, unaffected by the engine disposal".
+- **What starts**: CARD-258, which does not guess at a cause — it makes the **next** occurrence say
+  which database, which engine and which process the failing connection was attached to. Four waves
+  of this class have produced one signature and no data.
