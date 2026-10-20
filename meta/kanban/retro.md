@@ -967,3 +967,122 @@ Two things are worth separating, because last wave this board got one of them wr
 Carried to the wave's close: whether the lock should be enforced in `conftest.py` (a card — it is a
 repo behaviour change, and an aborted run needs a message that names the holder) or only in the
 dispatch prompts (free, and relies on each agent reading it).
+
+## Wave 48 — 2026-10-20
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-225 | One cell size per grid size across the whole book | 1d | 1.08d | 1.08× | 3/3 | 8.5 (from 7.5) | accurate (actual) |
+| CARD-252 | The schema rebuild disposes the app's engine | 0.5d | 0.6d | 1.20× | 3/3 | 8.0 (from 7.0) | accurate (actual) |
+| CARD-253 | The player's reset confirmation names its own button | 0.25d | 0.61d | **2.44×** | 2/3 | 9.5 (from 7.5) | **significantly underestimated** (actual) |
+
+### Metrics
+
+- cards: 3, parked: 0, split: 0, actual_time: 3; **family-regression flags on 2 of 3** (CARD-225,
+  CARD-252) — neither parked, both answered in-line
+- total_estimate: 1.75d, total_actual: 2.29d
+- avg_accuracy: **1.57× by card**, 1.31× by budget — estimates ran *low* for the first time in five waves
+- avg_cycles: 2.67 (the highest this journal records)
+- avg_final_score: 8.67 (↓ −0.02 vs waves 44–47 — flat)
+- score_improvement: +1.33 (initial 7.33 → final 8.67)
+- test_cost: **12 gate runs, 11105s = 3.08h, 100 % full-scope** (`review.test_scope: full`).
+  Wave-closing suite 983s against wave 47's 866s (**+13.5 %**) while the suite grew 8495 → 8595
+  tests (+1.2 %); per-test 102 → 114 ms. **30 minutes of that gate time bought nothing**: one gate
+  shared its window with a browser suite (225 build 2) and one was the intermittent `@ops` class
+  (253 build 1), both green on re-run of the same tree.
+
+### Calibration signals
+
+- **python-pro, 3 cards, avg accuracy 1.57× (actual) → "estimates too low" → would suggest ×1.57.**
+  Weighted with the previous 11 cards: **0.59× → 0.80×**, trend *improving* (closer to 1.0),
+  sample 14, confidence medium.
+- **Do not apply another blanket factor, and this wave is the reason.** Waves 44–47 measured 0.59×
+  and the owner applied **×0.7**. The very next wave came in at 1.57×. A single multiplier is
+  chasing a number that is not one population: **the card whose subject was geometry landed at
+  1.08×, and the two whose subject was wording landed at 1.20× and 2.44×.** What the estimates
+  missed is not effort-per-day, it is **claim surface** — how much a card asserts about itself.
+- Proposed instead of a multiplier: when a card's deliverable is a *claim correction* (prose, a
+  guard, a docstring, a registry entry), floor it at **0.5d** regardless of how few lines it edits,
+  and say so in the card. CARD-253 edited two template strings and cost 0.61d; CARD-252 shipped 40
+  lines of production code and cost 0.6d. Neither was mis-scoped — both were mis-*priced*.
+
+### Complexity breakdown
+
+- standard (2 cards): avg cycles 2.5, avg score 8.75, 0 parked
+- architectural (1 card, quality-heavy model): avg cycles 3.0, avg score 8.5, 0 parked
+- → with history (7 architectural, 7 standard): architectural 2.03 cycles vs standard 2.14,
+  `arch_vs_std = −0.11` → **upgrade still holding ✓**, with one caveat worth carrying: the
+  architectural card was also the only one whose *estimate held*, and the two standard cards are
+  where the cycles went.
+
+### Finding families
+
+- **"a claim stated wider than its mechanism, or a control that cannot fail"** — ADR-0039/R1,
+  promoted last wave, fired on **every gating finding of this wave** (CARD-252 F-001/F-002,
+  C2-F-001, C3-F-001; CARD-225 C2-F-001; CARD-253 F-001). The rule is not failing — it is being
+  *caught by* rather than *prevented by*, which is what a mandatory rule with a reviewer-side check
+  does. Not re-promoted; see the two sub-families below, which are new.
+- **NEW, promotion candidate: "a claimed mechanism is mutated by DELETION, not only by breaking
+  what it added."** 3 gating findings across 2 cards (CARD-225 C2-F-001, CARD-252 C2-F-001 and
+  C3-F-001). Measured diagnosis, from CARD-225's cycle-2 report: *fix cycle 1 ran seven mutants and
+  every one was a control for an addition; not one deleted the remedy it was asserting* — which is
+  exactly how a **dead** mechanism (a `page_spec` read whose comment called it load-bearing while
+  the constructor already raised) shipped as a closed finding. Applied as the fix-cycle-2 mandate on
+  both cards, and cycle 3 then found no claim whose deletion mutant fails to red. **This is a
+  process rule, not an architecture rule** — it belongs in the pipeline brief, not in an ADR.
+- **WATCH (below threshold): "a committed figure is a claim too, and its control is
+  recomputation."** 1 gating + 1 minor. CARD-225 carried "pair fits ≈7.27 mm, ≈0.23 mm apart"
+  through two review cycles; the measured values are **7.1287 mm and 0.371 mm** — 60 % under, and
+  it was about to go into the owner's render brief. No mutant can catch a stale number; only
+  re-running the calculation can. Fix cycle 2 ran five deletion mutants and not one calculator.
+- **fix-induced share: 3 of 3 gating findings after cycle 1 were introduced by the previous fix
+  (100 %).** CARD-252's C2-F-001 and C3-F-001, CARD-225's C2-F-001. The one gating finding that was
+  *not* fix-induced was CARD-253's cycle-1 Important, and that one was inherited from CARD-247.
+
+### Merge conflicts and scope
+
+- **No merge conflicts this wave.** All three cards merged `main` in before their merge gate and
+  none conflicted; `git merge-tree` was checked ahead of CARD-252's merge and came back clean.
+- **Touches drift**: CARD-253 touched 3 files beyond its `Touches` — `test_browser_fixture_scope.py`
+  (unavoidable: a new browser test *must* register its node id or CARD-217's collection guard reds),
+  `solver.js` (comments) and its own template header. All three self-flagged by the implementer.
+  The registry file is now the wave's most frequent drift target and is a hotspot candidate.
+
+### Process defects, mine
+
+1. **The gate guard checks the door, not the room.** It refuses to *start* beside another pytest and
+   cannot stop one starting after. CARD-225's build gate 2 shared its 15-minute window with a
+   288-test Chromium suite and came back 2-failed on tests unrelated to the card. The lock file the
+   gate writes (`meta/kanban/.full-suite.lock`) is written and **read by nobody**. Carried as an
+   open choice: enforce it in `conftest.py` (a card — it changes repo behaviour and an aborted run
+   must name the holder), or keep it as a line in every dispatch prompt (free, relies on each agent
+   reading it). Every agent this wave was told to check it, and every one did.
+2. **My own render script asserted the wrong shape and died on it**: a single page's realized cell
+   is `layout.page.cell_mm`, while only a *pair* layout carries `cell_mm` directly. Recorded because
+   it is the same asymmetry that made the card's arithmetic wrong for two cycles — `_pair_cell_mm`
+   returns the **cap**, so anyone checking there finds 7.5 and stops looking.
+3. **A review report said `fixed` with `fixed_in: null`.** Caught by the next cycle's certifier and
+   filled. A report that says *fixed* without saying *by what* is one the retrospective reads wrong.
+
+### Suggestions
+
+- **Do not run `/forge:retrospective calibrate` for python-pro this wave.** The ×0.7 from waves
+  44–47 was applied and the next wave overshot to 1.57×; the weighted figure (0.80×) is drifting
+  toward 1.0 on its own. Price **claim surface** instead — the 0.5d floor for claim-correction cards
+  described above.
+- **Promote the deletion-mutant rule into the standing pipeline brief** (owner memory
+  `card-pipeline-brief-rules`), alongside the existing "every new test file must be shown failing on
+  at least one mutant". Proposed wording: *a fix must mutate by deleting each mechanism its claims
+  name — a mutant that only breaks what the fix added certifies the addition and says nothing about
+  whether the mechanism is load-bearing.*
+- **Add a recomputation obligation to the same brief**: *a figure committed to a card or a docstring
+  is a claim; re-derive it from the production path before the card merges.* One measured instance
+  this wave, 60 % off, caught only because a certifier recomputed it.
+- **Suite cost +13.5 % in one wave while the suite grew 1.2 %** — below the +20 % trigger but the
+  first non-flat per-test figure in five waves (102 → 114 ms). Worth one look next wave before it
+  becomes a trend; the likely cause is the 66 new tests being render- and PDF-heavy rather than a
+  regression in the existing ones.
+- **`conflict.hotspots` candidate**: `tests/test_browser_fixture_scope.py` — every browser-test card
+  must edit it, and this wave it drifted outside `Touches` again.
