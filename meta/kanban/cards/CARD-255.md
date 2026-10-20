@@ -248,3 +248,11 @@ sibling card was live on this host), and the full suite was not run here — the
   repo root needs — without it every copied root failed to import its own conftest, reddening both
   arms of an unrelated card's AC-6) and `tests/README.md` (its profiling-lock snippet wrote a lock
   naming no worktree, which the new guard correctly refuses).
+- **[Build gate 1 — PASSED]** `3711af2b`, solo: **8619 passed**, 1 skipped, 17:20, EXIT=0. The count
+  reconciles exactly: main 8595 + the card's **24** new tests = 8619.
+- **[The gate was also this guard's first live self-run case]** The gate script writes
+  `meta/kanban/.full-suite.lock` naming this card's own worktree, and the tree under test carries the
+  guard that reads it. Had identity been got wrong — a pid rule, or "every lock is foreign" (the M1
+  mutant) — **this gate would have refused itself** and exited 4 before collecting. It ran. That is
+  the self-run case certified in production conditions rather than in a test's temp directory, and it
+  is why the card was gated before being reviewed rather than after.

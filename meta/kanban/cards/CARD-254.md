@@ -331,3 +331,7 @@ be added wherever that skill lives**; it is the half of the remedy a worktree ca
 - **[Owner] that file is not under version control.** `~/MyProjects/forge_1` has no git repository
   (`git status` exits 128), so this edit has no history and nothing will tell you if it is
   overwritten by a skill update. Worth knowing before more hard-won rules are written there.
+- **[Build gate 1 — PASSED]** `de0ea945`, solo: **8585 passed**, 1 skipped, 16:42, EXIT=0. The count
+  reconciles exactly: main was 8595 at CARD-225's merge gate, this card retires **10** tests
+  (21 → 11 in its module), 8595 − 10 = 8585. A shrink card's gate is worth reading for the
+  subtraction as much as for the colour.
