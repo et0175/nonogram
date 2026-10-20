@@ -368,3 +368,57 @@ produced in wave 48 **without** the fix. So:
 - **What starts**: CARD-258, which does not guess at a cause — it makes the **next** occurrence say
   which database, which engine and which process the failing connection was attached to. Four waves
   of this class have produced one signature and no data.
+
+### [Review 1/3] Score: 8.5 — FAILS the severity gate (one open Important)
+
+Report: `meta/review/CARD-256-cycle1.yml` (6 findings, all `status: open`). Score 8.5 ≥ min_score 8, but
+**one open Important fails the card regardless of score.**
+
+- **F-001 — Important, gating — ADR-0039/R1.** The record states **M-Q as a measured survivor**. It is
+  not: `verdict` is unit-tested directly (`test_full_suite_lock.py:103`, `guard.verdict(None, …)`
+  asserting `allowed is True` and `said is None`), so mutating the no-lock branch **reds 6 of 41
+  tests**. The *unreachability-from-a-real-run* half of the claim is true and stands; the *survival*
+  half is false.
+  Root cause is the matrix's scope, not the mutant. The record claims "every `ast.Assert` at any
+  depth" and "all **41** assertions PASS and reached" — but **41 is the collected test count**
+  (36 → 41). The file holds **129** `ast.Assert` nodes at HEAD (111 on main, +18 from this card), and
+  the ten tests the matrix names hold 38. So the matrix was measured against an **undeclared subset**
+  which excludes exactly the arm that kills M-Q — and the instrument is in neither the diff nor the
+  tree, so the figure cannot be re-derived at all.
+- **F-002** (Minor) the absent redirection mutant is justified by a premise G-5 does not state (G-5
+  forbids create/modify/delete, not reading), and the redirection *is* controlled in-process by
+  `test_the_lock_path_is_injectable_so_a_test_never_touches_the_real_one:742` — the record understates
+  its own coverage.
+- **F-003** (Minor) the `PROSE_SHAPES` comment census "256 `.md` and 286 `.yml`" is stale (258/288) and
+  has no recomputing control; this card rewrote that block and updated the neighbouring 546 but not the pair.
+- **F-004** (Minor) "8622 + the 5 tests this card adds = 8627" conflates the 5 added tests (already
+  inside the 8622 passes) with gate 1's 5 *failures*; gate 1's line also omits the skip gate 2 reports.
+- **F-005** (Minor) the two `conftest` substring assertions cannot fail while `assert not offenders`
+  above them passes; their one genuine independent reach — an **untracked** conftest — is undeclared.
+- **F-006** (Minor) the two real-process silence assertions were narrowed to a hand-enumerated
+  three-phrase list; the enumeration is now the bound and is not declared as one, and each loop is one
+  `ast.Assert` over three phrases, so it short-circuits.
+
+**Nine figures recomputed and held**, which is worth recording beside the one that did not: 546 tracked
+files under both prefixes all `100644` (main 547); the `>= 500` floor; 41 **tests**; 21 mutants as a
+count; the **seven**-name skip set with independent reach two; the `co_code` identity table **exactly**
+(only `<module>` and `pytest_configure` differ, `redirect_note` is new, **17** shared code objects
+byte-identical — the card lists 16, omitting compiler-generated `__annotate__`); "no new exemption, the
+three sets as CARD-255 left them" verified **against the diff, not the prose**; and "the union scan adds
+no hit outside the eight exempted files" (8 hits, 3 namers + 5 prose, 0 offenders).
+
+**Residues judged:** the `"\n".join(lines) or None` equivalent mutant **accepted** (both consumers filter
+falsy; nothing asserts `report_line() is None`). The absent-redirection-mutant *reasoning* **rejected**,
+conclusion harmless. The declared trap **avoided** — the shipped tests assert the run *says* it was
+redirected, and the reviewer killed the announcement two ways (M-A, M-B) rather than reading it.
+
+**Five adversarial false positives dropped** before filing. System contract: ADR-0039/R2 and R3 hold
+(both derived sets recomputed, both default to DENY; mode axis closed by an equality over today's 546
+sites with its own failing control); ADR-0039/R1 violated by F-001; ADR-0038/R7 and R8 `no_eligible_fact`.
+
+**[The rule that caught it, and the direction it failed in]** Wave 49 promoted per-assertion measurement
+with a line-count-preserving instrument. This is the first card to carry it at the *implementation*
+station, and it failed in the mirror image of last wave's failure: not a never-reached assert read as a
+kill, but a **never-measured assert read as a survivor**. The claimed scope ("every `ast.Assert` at any
+depth") was the right scope; the number beside it was a different quantity. Both waves' defects are the
+same shape — *a measurement whose domain is not the domain it is reported over*.
