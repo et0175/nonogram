@@ -661,6 +661,54 @@ class TestBookFloor_FailsClosedOnWhatItCannotMeasure:
         assert shelf.books.floor_overrides(book_id) == [puzzle_id]
 
 
+class TestBookFloor_RefusalsComeBackInSubmissionOrder:
+    """One list, one order, whichever kind each refusal is.
+
+    CARD-225 review cycle 1, F-008. ``_below_floor_for`` appended both refusal
+    kinds — "its clues cannot be read" and "its cell is under the floor" —
+    from one loop and so answered in submission order by construction. That
+    card split the loop in two (read every clue set, then judge every shared
+    cell), which put every unreadable-clue refusal ahead of every below-floor
+    one however the submission was ordered. Nothing had decided that and no
+    test could see it, so it is pinned here as the order the list has always
+    had rather than left as an accident for the next screen to inherit.
+    """
+
+    def test_an_unreadable_member_between_two_small_ones_keeps_its_place(
+        self, panel
+    ) -> None:
+        first = panel.puzzle(*BELOW_FLOOR[:4])
+        middle = panel.puzzle(*ABOVE_FLOOR[:4])
+        last = panel.puzzle(*BELOW_FLOOR[:4])
+        panel.store.puzzles[middle]["clues_rows"] = "not a clue set"
+        book_id = panel.book()
+
+        refusals = panel.books.below_floor(book_id, [first, middle, last])
+
+        assert [refusal.puzzle_id for refusal in refusals] == [first, middle, last]
+        # ... and the two kinds really are both present, so the order above is
+        # an order *between* them and not three of one kind.
+        assert [refusal.cell_mm is None for refusal in refusals] == [
+            False,
+            True,
+            False,
+        ], refusals
+
+    def test_the_unreadable_member_first_is_also_left_where_it_was(self, panel) -> None:
+        """The control: the assertion above would also hold if the list were
+        always sorted "unreadable first", so the same submission is made the
+        other way round."""
+        first = panel.puzzle(*ABOVE_FLOOR[:4])
+        last = panel.puzzle(*BELOW_FLOOR[:4])
+        panel.store.puzzles[first]["clues_rows"] = "not a clue set"
+        book_id = panel.book()
+
+        refusals = panel.books.below_floor(book_id, [first, last])
+
+        assert [refusal.puzzle_id for refusal in refusals] == [first, last]
+        assert [refusal.cell_mm is None for refusal in refusals] == [True, False]
+
+
 # --------------------------------------------------------------------------
 # CARD-173 — an unreadable print setup refuses once and names its remedy
 # --------------------------------------------------------------------------

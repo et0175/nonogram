@@ -175,13 +175,23 @@
             {% elif puzzles %}
             <div class="puzzle-grid">
                 {% for puzzle in puzzles %}
-                {#- CARD-123 (FR-031, NFR-008): the cell this puzzle prints at
-                    in *this* book, already capped at 7.5 mm, computed by
-                    COMP-007's layout through book_cell_mm — the same number
-                    the add refusal and the book PDF use (G-1, EC-021). `none`
-                    is a puzzle whose cell cannot be measured at all, which the
-                    floor treats as missing it. Two decimals: one is too coarse
-                    beside a 4.75 mm floor (4.79 would read as 4.8).
+                {#- CARD-123 (FR-031, NFR-008): the cell this puzzle can take
+                    on *this* book's page, already capped at 7.5 mm, computed by
+                    COMP-007's layout through book_cell_mm. `none` is a puzzle
+                    whose cell cannot be measured at all, which the floor treats
+                    as missing it. Two decimals: one is too coarse beside a
+                    4.75 mm floor (4.79 would read as 4.8).
+
+                    CARD-225 (NFR-008 as amended 2026-10-17): this is the
+                    candidate's **own** page fit, which is a ceiling on what it
+                    will print at rather than the printed figure itself. The
+                    printed cell is chosen per grid size per book, fitted to the
+                    deepest-clued member of that grid size, so a puzzle that is
+                    not yet a member has no printed figure to show — the add
+                    refusal names the one it enforced, and the finalise summary
+                    reports it for the members. The route decides all of this
+                    (`_book_cells`, whose `members` argument picks the reading);
+                    nothing is chosen here.
 
                     Both mappings are keyed by the id *as a string*, exactly as
                     the route builds them, so a record whose id is not already

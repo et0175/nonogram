@@ -17,6 +17,7 @@ from nonogram.admin.book_page_spec import (
     BOOK1_PROFILE,
     FLOOR_MM,
     book_cell_mm,
+    book_cell_sizes,
     book_page_spec,
     ink_mode_from_stored,
 )
@@ -316,6 +317,32 @@ class FloorRefusal:
             f"against the {FLOOR_MM:g} mm floor. Tick the override for it to "
             f"add it anyway."
         )
+
+
+def _in_submission_order(
+    refusals: List[FloorRefusal], puzzle_ids: List[str]
+) -> List[FloorRefusal]:
+    """``refusals`` in the order the submission listed their ids.
+
+    One refusal list, one order, whichever of the two refusal kinds each entry
+    is (review cycle 1, F-008). :meth:`BookManager._below_floor_for` used to
+    append both kinds from a single loop and so answered in submission order by
+    construction; CARD-225 split that loop in two — read every clue set, then
+    judge every shared cell — which silently put *every* unreadable-clue
+    refusal ahead of *every* below-floor one, wherever the two sat in the
+    submission. Nothing had decided that, and the next screen to read the list
+    would have inherited it as though something had.
+
+    An id not in ``puzzle_ids`` cannot occur (both loops iterate it) and would
+    sort last rather than raise: a refusal is still a refusal, and dropping or
+    crashing on one is the one outcome worse than mis-ordering it.
+    """
+    rank: Dict[str, int] = {}
+    for position, puzzle_id in enumerate(puzzle_ids):
+        rank.setdefault(puzzle_id, position)
+    return sorted(
+        refusals, key=lambda refusal: rank.get(refusal.puzzle_id, len(puzzle_ids))
+    )
 
 
 @dataclass(frozen=True)
@@ -978,16 +1005,47 @@ class BookManager:
         id whose cell cannot be computed although the store holds a record for
         it. :meth:`floor_refusals` is this, minus the ids an override covers.
 
-        The cell is ``book_cell_mm(book_page_spec(book), ...)`` and nothing
-        else — the one computation FR-030's PDF uses (G-1, EC-021). The clue
-        fields are converted exactly as the book PDF converts them, so the two
-        measure the same puzzle.
+        The cell is the one the page will really carry, and since CARD-225
+        (NFR-008 as amended 2026-10-17) that is the puzzle's **grid size's**
+        cell in this book rather than the puzzle's own page fit:
+        ``book_cell_sizes(book_page_spec(book), ...)`` over the **prospective
+        membership** — the book's current members plus this whole submission,
+        which is what will be printed if the add succeeds — read for the grid
+        size this puzzle belongs to. It is still the one computation FR-030's
+        PDF uses (G-1, EC-021), and the clue fields are converted exactly as
+        the book PDF converts them, so the two measure the same puzzle.
+
+        **Two consequences, both deliberate** (CARD-225's failure matrix):
+
+        * a puzzle that clears the floor *alone* is refused when a deeper
+          member of its grid size is already in the book, because that is the
+          cell it would print at (F-10);
+        * a submitted member the floor goes on to refuse was nevertheless in
+          the set its siblings were measured with — one pass, no fixpoint — so
+          a sibling can be refused for a puzzle that did not join. The remedy
+          is to resubmit without it (F-11).
+
+        **What the first of those two costs the owner, measured** (review cycle
+        1, F-010): over the card's own 1388-puzzle corpus, moving the floor's
+        subject from a puzzle to a membership takes the share below the floor
+        from 186 to 325 — **+75%, 139 more puzzles that need a stored override
+        before they can join a book** — and the owner meets every one of them
+        at this gate, on the selection step. Pinned, and so unable to drift
+        silently, by ``tests/test_book_cell_size.py``'s
+        ``TestBookCellSize_TheCostOfABookWideCell``.
+
+        **The refusals come back in submission order**, both kinds
+        interleaved, which is the order they came back in before this card
+        split the one loop into "read the clue sets" and "judge the shared
+        cell" (:func:`_in_submission_order`; review cycle 1, F-008 — the split
+        had put every unreadable-clue refusal ahead of every below-floor one,
+        which nothing had decided).
 
         Four postures, each decided deliberately (CARD-121):
 
         * **A record whose cell computes** — the verdict, below vs at-or-above
-          :data:`FLOOR_MM`. Exactly at the floor passes (AC-186 reads it as
-          "at or above").
+          :data:`FLOOR_MM`, on its grid size's shared cell. Exactly at the
+          floor passes (AC-186 reads it as "at or above").
         * **A record whose clues cannot be read** — refused, with the reason
           (``cell_mm`` is ``None``). Fail closed: the store *has* this puzzle,
           so it is one the floor has jurisdiction over, and a cell nobody can
@@ -1070,6 +1128,10 @@ class BookManager:
             raise ValueError(unreadable_print_setup_refusal(str(unreadable))) from unreadable
 
         refusals: List[FloorRefusal] = []
+        # The submission's own clue sets, read once each, in submission order.
+        # They are both what the floor judges and half of the membership the
+        # shared cell is fitted over (below).
+        clue_sets: Dict[str, Any] = {}
         for puzzle_id in puzzle_ids:
             try:
                 record = self.puzzle_store.get_puzzle(puzzle_id)
@@ -1092,8 +1154,7 @@ class BookManager:
                 # Read, never re-graded (ADR-0033/R1, ADR-0031).
                 tiers[puzzle_id] = tier_of_record(record.get("difficulty_tier"))
             try:
-                cell_mm = book_cell_mm(
-                    spec,
+                clue_sets[puzzle_id] = (
                     _clue_lines(record, "clues_rows"),
                     _clue_lines(record, "clues_cols"),
                 )
@@ -1106,9 +1167,121 @@ class BookManager:
                 )
                 refusals.append(FloorRefusal(puzzle_id, None, str(error)))
                 continue
+
+        # CARD-225 (NFR-008 as amended 2026-10-17): the cell a puzzle prints at
+        # is its **grid size's**, fitted to the deepest-clued member of that
+        # grid size *in this book* — so the figure the floor judges is the one
+        # the page will really carry, for every member of the size and not only
+        # for the one that forced it (AC-6). The membership the map is built
+        # over is the **prospective** one: what the book will hold if this add
+        # succeeds, which is its current members plus the whole submission
+        # (F-10). One pass, no fixpoint: a submitted member the floor goes on to
+        # refuse was nevertheless in the set its siblings were measured with
+        # (F-11, declared).
+        prospective = list(clue_sets.values()) + self._member_clue_sets(book, clue_sets)
+        try:
+            sizes = book_cell_sizes(spec, prospective)
+        except ValueError as error:
+            # Only reachable from a *member* whose clues are unreadable, and
+            # `_member_clue_sets` has already dropped those; a submitted one was
+            # refused above and never reaches here. Fail closed anyway rather
+            # than measure the rest against a half-built map.
+            logger.warning(
+                "Book %s: no grid size could be measured (%s); every submitted "
+                "puzzle is refused rather than admitted unmeasured.",
+                book.book_id,
+                error,
+            )
+            measured = {refusal.puzzle_id for refusal in refusals}
+            return _in_submission_order(
+                refusals
+                + [
+                    FloorRefusal(puzzle_id, None, str(error))
+                    for puzzle_id in clue_sets
+                    if puzzle_id not in measured
+                ],
+                puzzle_ids,
+            )
+
+        for puzzle_id, (row_clues, column_clues) in clue_sets.items():
+            cell_mm = sizes[(len(column_clues), len(row_clues))]
             if cell_mm < FLOOR_MM:
                 refusals.append(FloorRefusal(puzzle_id, cell_mm))
-        return refusals
+        return _in_submission_order(refusals, puzzle_ids)
+
+    def _member_clue_sets(self, book: Book, already_read: Dict[str, Any]) -> List[Any]:
+        """The clue sets of ``book``'s **current** members, for the shared cell.
+
+        The other half of the prospective membership a submission is measured
+        against (CARD-225, F-10). One bulk read (``get_puzzles``) rather than a
+        session per member, and the ids ``already_read`` holds are not read
+        again — the submission has just been resolved and a member re-submitted
+        is one member.
+
+        Two ids contribute nothing and are skipped with a warning, the posture
+        :meth:`below_floor` already takes for them: one that matches no row (a
+        phantom id is not a puzzle and has no cell), and one whose stored clues
+        cannot be read. The second is a member that is **already in the book**,
+        so it cannot be refused retroactively; it contributes no cell to its
+        grid size's fit and the finalise count flags it on its own account
+        (``_misses_the_floor`` reads an unmeasurable cell as below the floor).
+
+        **What the add gate now costs, stated rather than measured** (review
+        cycle 1, F-009; no timing was taken). This read plus
+        ``book_cell_sizes``' own pass make the gate's cost proportional to the
+        *book*: a 150-member book runs 150 ``compute_layout`` calls to judge
+        one new puzzle where it ran one before. One bulk query, pure
+        arithmetic, and no registry threshold, so nothing is changed for it
+        here; if it ever shows up, only the grid sizes the submission actually
+        holds need measuring, and filtering this walk to members sharing a
+        grid size with the submission is an **identical** result over a
+        strictly smaller set, because the map's other keys are never read.
+        """
+        if self.puzzle_store is None:
+            return []
+        unread = [
+            puzzle_id
+            for puzzle_id in dict.fromkeys(str(pid) for pid in book.puzzle_ids)
+            if puzzle_id not in already_read
+        ]
+        if not unread:
+            return []
+        try:
+            records = self.puzzle_store.get_puzzles(unread)
+        except (ValueError, TypeError) as error:
+            logger.warning(
+                "Book %s: its current members could not be read (%s), so the "
+                "shared cell is fitted to the submission alone.",
+                book.book_id,
+                error,
+            )
+            return []
+        clue_sets: List[Any] = []
+        for puzzle_id in unread:
+            record = records.get(puzzle_id)
+            if record is None:
+                logger.warning(
+                    "Book member %r matches no stored puzzle; it contributes no "
+                    "cell to its grid size's shared size.",
+                    puzzle_id,
+                )
+                continue
+            try:
+                clue_sets.append(
+                    (
+                        _clue_lines(record, "clues_rows"),
+                        _clue_lines(record, "clues_cols"),
+                    )
+                )
+            except ValueError as error:
+                logger.warning(
+                    "Book member %s has unreadable clues (%s); it contributes no "
+                    "cell to its grid size's shared size, and the finalise count "
+                    "flags it on its own account.",
+                    puzzle_id,
+                    error,
+                )
+        return clue_sets
 
     def floor_refusals(
         self, book_id: str, puzzle_ids, overrides=()

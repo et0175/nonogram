@@ -84,6 +84,7 @@ from nonogram.admin.book_page_spec import (
     FLOOR_MM,
     InkMode,
     book_cell_mm,
+    book_cell_sizes,
     book_ink_mode,
     book_page_spec,
 )
@@ -4144,13 +4145,46 @@ def create_app(debug=None):
         except (TypeError, ValueError) as error:
             raise ValueError(f"{field_name} is not a clue set ({error})") from None
 
-    def _book_cells(book, records):
+    def _book_cells(book, records, members=None):
         """``{puzzle id: printed cell in mm}`` on this book's current sheet.
 
         ``None`` for a record whose cell cannot be measured — clues that
         cannot be read, or a stored print specification ``book_page_spec``
         refuses (then no puzzle has a cell on this book at all, and the screen
         says so rather than showing a number nobody computed).
+
+        **Two readings, and which one a screen gets is ``members``**
+        (CARD-225, NFR-008 as amended 2026-10-17):
+
+        * ``members`` given — the **printed** cell: the cell each record's
+          *grid size* prints at in a book holding ``members``, fitted to the
+          deepest-clued member of that grid size
+          (``book_cell_sizes``). This is what the finalise screen's
+          below-floor list is built from, so the flag is raised for **every**
+          member of a grid size one deep member took under the floor and not
+          only for that member (AC-6: the flag describes what is printed).
+        * ``members`` omitted — each record's **own** page fit, measured
+          alone (``book_cell_mm``), which is the largest cell it could take
+          on this sheet. That is what the selection tab's tiles show: a
+          candidate is not a member, so it has no grid size's shared cell
+          yet, and what the tile answers is "does this picture fit this
+          book's page". It is an upper bound on the printed figure, never
+          below it, and the add gate names the figure it enforced when the
+          two differ (CARD-225's F-13, a declared divergence from EC-021's
+          "three readings, one number" — the printed cell is a property of a
+          membership and a candidate has none).
+
+        A record whose grid size ``members`` does not cover still gets its own
+        fit: it is not a member, so nothing of the book's shares its size.
+
+        **What the printed reading costs the owner, measured** (review cycle 1,
+        F-010): over CARD-225's own 1388-puzzle corpus the share below
+        :data:`FLOOR_MM` goes from 186 to 325 — +75%, 139 more puzzles that
+        need a stored override before they can join a book — so the flag this
+        helper feeds fires for half again as many puzzles as it did, and the
+        owner meets them at the selection step. Pinned by
+        ``tests/test_book_cell_size.py``'s
+        ``TestBookCellSize_TheCostOfABookWideCell``.
         """
         try:
             spec = book_page_spec(book)
@@ -4163,13 +4197,44 @@ def create_app(debug=None):
             )
             return {str(record.get("id")): None for record in records}
 
+        # The printed cell per grid size, when the caller named a membership.
+        # Built from the members whose clues read — one that does not contributes
+        # no cell to its size and is flagged on its own account below, the same
+        # posture ``BookManager.below_floor`` takes for it.
+        shared = {}
+        if members is not None:
+            readable = []
+            for member in members:
+                try:
+                    readable.append(
+                        (
+                            _clue_lines(member, "clues_rows"),
+                            _clue_lines(member, "clues_cols"),
+                        )
+                    )
+                except (ValueError, TypeError):
+                    continue
+            try:
+                shared = book_cell_sizes(spec, readable)
+            except (ValueError, TypeError) as error:
+                app.logger.warning(
+                    "Book %s: no grid size could be measured (%s); every member "
+                    "falls back to its own page fit.",
+                    book.book_id,
+                    error,
+                )
+                shared = {}
+
         cells = {}
         for record in records:
             try:
-                cells[str(record.get("id"))] = book_cell_mm(
-                    spec,
-                    _clue_lines(record, "clues_rows"),
-                    _clue_lines(record, "clues_cols"),
+                row_clues = _clue_lines(record, "clues_rows")
+                column_clues = _clue_lines(record, "clues_cols")
+                grid_size = (len(column_clues), len(row_clues))
+                cells[str(record.get("id"))] = (
+                    shared[grid_size]
+                    if grid_size in shared
+                    else book_cell_mm(spec, row_clues, column_clues)
                 )
             except (ValueError, TypeError) as error:
                 app.logger.warning(
@@ -5147,7 +5212,7 @@ def create_app(debug=None):
         # overrides — an override records that the owner accepted a small cell
         # once, not that the cell is still the same one — so a trim changed
         # after curation shows up here (AC-188).
-        book_cells = _book_cells(book, puzzles_in_book)
+        book_cells = _book_cells(book, puzzles_in_book, members=puzzles_in_book)
         # The same verdict the selection tile carries, from the same helper on
         # the same mapping — the floor is compared in one place only (G-1).
         missing_the_floor = _below_floor_ids(book_cells)
