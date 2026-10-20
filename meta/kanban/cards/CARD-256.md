@@ -1,6 +1,6 @@
 # CARD-256: The lock guard's path-redirect variable gets the same control and the same loudness as its override
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** ops
 **Complexity:** trivial
@@ -15,8 +15,8 @@
 **Wave:** 50
 **Depends on:** CARD-255 (merged)
 **Touches:** tests/test_full_suite_lock.py, tests/full_suite_lock.py, tests/README.md
-**Review score:** —
-**Started:** 2026-10-20T08:41:42Z · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Review score:** 9.0 (cycle 3/3 — certified, no open Important)
+**Started:** 2026-10-20T08:41:42Z · **Closed:** 2026-10-20T15:22:06Z · **Actual:** 0.84d · **Merge commit:** `ddb1731b`
 **Blocked by:** —
 
 ## Why — one measured hole, and it is the silent kind
@@ -888,3 +888,29 @@ of every figure it produces* — and now, from F-009: ***a figure summarising ro
 rows, not from the narrative.*** Fix 2's audit of 26 rows across three measurement domains was the right
 method and still produced one wrong cardinality in its own summary. Mine, in a paragraph whose entire
 subject was figures stated over the wrong domain.
+
+### [Merge gate — PASSED] and merged as `ddb1731b`
+
+`380885dc` (the card's two commits with main merged in, so **CARD-257's merged code was in the tree too** —
+this gate certifies the pair together), **solo**: **8628 passed, 1 skipped, EXIT=0**. Reconciles exactly:
+main 8623 after CARD-257 + **the 5 tests this card adds** = 8628. The single skip is the named
+`setrlimit(RLIMIT_AS)` one, unchanged.
+
+**AC-3's rotting half was certified by the gate itself, not by a probe.** The run held its own lock at the
+board's own path, so the correct behaviour was to print **nothing** about where the lock came from — and the
+phrase `full-suite lock` occurs **0 times** in 8628 passing tests. That is the assertion most likely to
+decay into an always-true check, verified on a real full-suite run with the announcement code present and
+the redirection unused.
+
+**It is also the second merge gate ever run under CARD-255's guard, and the first with something new to
+say.** It stayed correctly silent, as CARD-254's did before the announcement existed.
+
+**Closed 0.84d against a 0.25d estimate** — 3.4×, and the attribution is unambiguous because the code
+barely moved: the guard file `tests/full_suite_lock.py` is **byte-identical at `28de78d9` and `f2236045`**
+(blob `7b90cad0`), the whole card is `+410/−38` across three files, and **fix 2 committed nothing at all**.
+Every one of the three gating findings was about how the card described its own measurements. This card and
+CARD-257 ran concurrently and share their wall-clock, so each `Actual` is the wave's elapsed time rather
+than the card's own — the retrospective should read the pair's 1.6d of recorded actual against 0.5d of
+estimate as **one** 0.84d wave, not two independent overruns.
+
+**Worktree removed; `card/256-the-lock-path-var-gets-a-control` kept as the merged branch.**
