@@ -537,3 +537,39 @@ G-5: no dependency change; no new import (`re` was already imported).
   pattern vs new, per `(file, name)`, over every `tests/**/*.py` — returned **no delta at all**, and
   the tree sweep is unchanged: 9 sites, 6 pairs, dict-equal, zero matches elsewhere. The dict needed
   no adjustment, quiet or otherwise, which is the part I would have wanted to catch if it had.
+
+### [Review 2/3] Score 8.5 — FAILED on the severity gate (1 open Important) · ⚠ second generation
+
+Report: `meta/review/20261020T070159Z-CARD-254-cycle2.yml` (copied to main).
+
+- **The deviation is vindicated, behaviourally rather than by argument.** The certifier *implemented*
+  my brief's form (collapse `\r\n`→`\n`→space, keep `[^()\n]`) and ran it against the shipped form on
+  11 constructed shapes and the whole tree: they agree on **every** input, including `\r\n`, a
+  backslash continuation and a docstring containing `setattr(`, with `DELTA new-vs-brief: NONE` over
+  all of `tests/**/*.py`. So the agent's version is the same semantics with **one fewer dead
+  character** — and my brief was the form carrying the dead exclusion this card exists to criticise.
+- Both sweeps re-derived exactly, with the global names taken from `session.py`'s **own AST** rather
+  than imported from the guard. M3c re-derived in **both** directions, including the before-half
+  without a checkout (stack NORM-DEL on M3c → the equality stays green, so M3c genuinely survived at
+  the old pattern). G-1 the same sha256 at all three revisions. Both convention texts carry the
+  receiver-parens case and its converse word-for-word.
+- **⚠ F-001 (important, `:1044`) — a control whose assertion cannot fail for the property it names.**
+  Arm 2b says *"the scan ran past one `setattr(` call's closing parenthesis into the next call's
+  arguments"*. Apply PAREN-DEL — the mutant deleting exactly that mechanism — and the scan **does**
+  run past it, and **arm 2b still passes**, because `re.finditer` returns non-overlapping matches: the
+  over-reaching first match swallows the second call whole and the count stays 1 either way. Arm 2b
+  reds only under NORM-DEL, i.e. for arm 1's reason. It is a duplicate of arm 1 wearing arm 2a's
+  description.
+- **Why nobody saw it, and this is the transferable part.** The live PAREN-DEL run dies at arm 2a's
+  assert and never evaluates 2b, reporting one `FAILED <test>` line that says nothing about which arms
+  did the killing. **A per-arm kill matrix cannot be read off a per-test result.** The certifier
+  derived it per arm, outside pytest, twice — once standalone and once with each probe extracted from
+  the test function's own AST so the strings were the test's and not a paraphrase.
+- **The recurrence is the *method*, not the sentence.** Both generations of this card's family were
+  certified by reading a result that could not distinguish **killed** from **never reached** — cycle 1
+  a surviving mutant mistaken for reach, cycle 2 a short-circuited test mistaken for four kills.
+- **F-002 (minor) — the widening's false-positive surface reaches into prose, and the guard file is
+  33 characters from matching itself.** Over 366 `setattr(` occurrences under `tests/`, 9 match and 5
+  are near misses; the nearest is the guard file's **own docstring, added by the cycle-1 fix**
+  (paren@65, `"engine"`@98). One prose reflow makes the guard match itself and reds the tree-wide
+  equality for everyone. Measured rather than asserted, which is the only reason it is a Minor.

@@ -1,0 +1,361 @@
+version: 1
+generated_at: "2026-10-20T07:01:59Z"
+target: "card/254-shrink-the-private-globals-guard @ f0701729 (fix delta de0ea945..f0701729, base a60d53a4) -- worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-254"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 2
+cycle_kind: certification
+mode: confirmation
+
+coverage:
+  read:
+    - "src/nonogram/db/session.py (reset_engine docstring, full)"
+    - "tests/test_db_engine_lifecycle.py (_hand_set_spellings / _hand_set_sites_in / _hand_set_sites, _EXEMPT_HAND_SET_SITES, the guard class docstring, the new control in full)"
+    - "tests/test_db_isolation.py (M3c host)"
+    - "git diff de0ea945 f0701729 (both files, in full)"
+    - "meta/review/20261020T062646Z-CARD-254-cycle1.yml (full)"
+    - "meta/kanban/cards/CARD-254.md (full, incl. the retirement table and the review-1 section)"
+    - "~/.forge/retro-signals.yml -> signals.review_false_positives"
+  not_reached:
+    - "the full suite (forbidden by the dispatch brief; build gate 1 at de0ea945 taken on trust, and no gate has been taken at f0701729)"
+    - "~/MyProjects/forge_1/forge/skills/engineering-standards/SKILL.md (outside the checkout; the owner's standards line still unverified, as in cycle 1)"
+    - "the retirement table and the G-1/P2/headline certifications were CARRIED from cycle 1 per the dispatch brief, except G-1 which was re-derived"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 164, removed: 13 }
+  max_fan_in: { symbol: "nonogram.db.session.reset_engine", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/db/session.py", "tests/test_db_engine_lifecycle.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact -- the 12-month co-change window over the two touched files (15 commits) yields only those same two files (session.py 13, test_db_engine_lifecycle.py 7); there is no third peer that could be absent."
+
+system_contract:
+  rules_checked: 10
+  holds: 3
+  unchecked: 6
+  violated: 1
+  verdicts:
+    - "ADR-0039/R1 ✗ violated — tests/test_db_engine_lifecycle.py:1033-1047 (arm 2b of test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not). NOT carriable: the fix delta's whole subject is new controls for new claims, which is R1's subject. Re-derived rather than argued. Three of the four arms have a control that can fail: arm 1 (a wrapped call is counted) is killed by NORM-DEL; arm 2a (an unrelated wrapped call manufactures no match) and arm 3 (a parenthesised receiver is not counted) are killed by PAREN-DEL. Arm 2b -- 'the scan ran past one setattr( call's closing parenthesis into the next call's arguments' -- CANNOT fail for the property it names: under PAREN-DEL ([^()]*? -> .*? under re.DOTALL) the scan does run past the closing parenthesis, and arm 2b still PASSES, because re.finditer returns non-overlapping matches so the over-reaching first match swallows the second setattr( and the count stays exactly 1. Measured twice, independently: a standalone pattern matrix, and the arm's own probe source extracted from the test's AST and evaluated under both patterns. Arm 2b reds only under NORM-DEL, i.e. for arm 1's reason. R1: 'A claim whose control cannot fail is narrative, not coverage, and must be narrowed to what is measured or deleted.' Filed as F-001; mandatory rule, scope tests/** -> Important."
+    - "ADR-0039/R2 ✗→ carried(cycle 1) — the NAME set is still derived from session.py's AST (D1/D2 certified at cycle 1; the delta does not touch _global_names_assigned_by). The SHAPE set is still two hand-written regexes with no enumerable authority -- the delta edits one of them but does not change its authority status -- so cycle 1's verdict stands unchanged and is carried, with its finding (cycle-1 F-002) already accepted-and-routed to the architect station as out of this card's Touches. Not re-filed, not double-counted. Counted under 'violated' once, in cycle 1; reported here as carried, which is why the count line below shows 1 violated (F-001) and this line separately."
+    - "ADR-0039/R3 ✓ holds — re-derived from scratch, both halves the fix reports. (a) Tree sweep over every tests/**/*.py with the names derived independently from session.py's AST ('SessionLocal', '_engine_url', 'engine'): 9 sites, 6 pairs, dict-equal to _EXEMPT_HAND_SET_SITES True, zero matching files outside the two exempt ones. (b) Differential sweep, old pattern ([^()\\n]) vs new ([^()]), per (file, name), over the same tree: DELTA NONE -- the widening introduces no false positive anywhere in the tree today. (c) The exemption is still held to an equality, not a floor: M3c re-run as a real-file mutant (a formatter-wrapped monkeypatch.setattr appended to tests/test_db_isolation.py, a file no exemption lists) reds test_no_test_file_outside_the_exemption_sets_those_globals with exactly one extra item, {('test_db_isolation.py', 'engine'): 1}, correctly attributed, 1 test failed. Stacking NORM-DEL on top of M3c (= de0ea945's pattern plus the wrapped hand-set) leaves that equality GREEN, which re-derives the cycle-1 'before' half without checking out de0ea945."
+    - "ADR-0036/R3 ✓ holds — the authoritative check, tests/test_book_difficulty_dots.py, ran green on this head inside the 7-module selection (769 passed, 0 failed, 0 skipped, EXIT=0). The delta adds no drawing site: the src/ half is 14 lines inside reset_engine's docstring, and G-1's docstring-stripped AST identity (below) proves no executable change."
+    - "ADR-0036/R4 ✓ holds — same green authoritative check on this head. The delta's src/ half is docstring prose only; it introduces no codepoint in U+25A0..U+25FF, U+2022 or U+2219 (the added text is ASCII apart from the em-dash and the ... ellipsis already present elsewhere in the file). Cycle 1's OBS-1 (the card's overstated 'clean scan' sentence, where admin/pdf_generator.py carries the DECLARED dingbat exemption) is unchanged by this delta and is not re-filed."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). The delta is a docstring block in session.py plus one test control; no public signature, request field or export field is touched, and grep for width/height/size over the delta returns 0 hits."
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). No player surface, no solution-grid transport, no admin page in the delta (git diff --name-only = session.py, test_db_engine_lifecycle.py)."
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). pyproject.toml is not in the delta; no Playwright declaration changes. G-5 re-checked on the delta: zero added import lines at all."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). No browser test added or changed."
+    - "CON-021 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). No interactive play, no persistence of play state, no public surface in the delta."
+
+guardrails:
+  - "G-1 ✓ holds — RE-DERIVED independently (not carried), per the dispatch brief. src/nonogram/db/session.py parsed at all three revisions, every module/class/function docstring stripped, round-tripped through ast.unparse, re-parsed, ast.dump-compared: a60d53a4, de0ea945 and f0701729 all give dump length 9154 and sha256 bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c -- the declared value, to the byte. reset_engine() and its single call site are unchanged; the delta's src/ half is +14/-6 lines all inside the docstring."
+  - "G-2 ✓ holds — 0 skipped across the 7-module selection with -rs (769 passed, EXIT=0), including tests/test_suite_profile.py which is the module that asserts the skip profile. The delta adds no skip path (the new control takes no db_required marker and no fixture)."
+  - "G-3 ✓ holds — carried(cycle 1, delta-clean). The fix delta retires no test; it adds exactly one (test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not), so the retirement table cycle 1 checked item-by-item against an AST diff is untouched. Module count 11 -> 12 confirmed by run."
+  - "G-4 ✓ holds — the string 'nonogram_poc' appears 0 times in the delta; '_refuse_unless_test_database' appears 0 times. Every run in this review used the derived worktree URL nonogram_pythonproject4_card_254_ffd0825b4ddf_test, passed as both DATABASE_URL and TEST_DATABASE_URL as literals."
+  - "G-5 ✓ holds — git diff de0ea945 f0701729 contains zero added 'import '/'from ' lines; pyproject.toml is not in the delta's file list."
+
+root_causes:
+  - id: RC-1
+    title: "the new control's edge arms were certified by one suite run, so the arm that cannot fail was never distinguished from the arm that can"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "the widening enlarged the scan's false-positive surface into cross-line prose, and the enlargement is declared only by composition while the guard file itself is its nearest instance"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 1044
+    title: "arm 2b of the new control cannot fail for the claim it makes: under PAREN-DEL the scan DOES run past the closing parenthesis and arm 2b still passes (ADR-0039/R1)"
+    description: |
+      SECOND GENERATION of cycle 1's family. Cycle 1's Important (F-001) was
+      ADR-0039/R1: a claim wider than its mechanism, in the sentence written to
+      stop exactly that. The recurrence is one layer in: the claim is now in a
+      *control's* docstring, and the mechanism that is too narrow is the control
+      arm itself.
+
+      The fix's own notes, the test's docstring and the dispatch brief all state
+      that the two edge arms are "both killed by PAREN-DEL". Arm 2a is. Arm 2b
+      is not, and cannot be.
+
+      Arm 2b (tests/test_db_engine_lifecycle.py:1033-1047, the assert at 1044) asserts, on two
+      wrapped calls in a row of which only the second carries a global name:
+
+          assert dict(two_calls) == {(probe_file, name): 1}, (
+              "the scan ran past one setattr( call's closing parenthesis into "
+              f"the next call's arguments: {dict(two_calls)}"
+          )
+
+      Apply PAREN-DEL -- the mutant that deletes the very mechanism this arm
+      names, `[^()]*?` -> `.*?` under re.DOTALL -- and the scan DOES run past the
+      first call's closing parenthesis into the second call's arguments. Arm 2b
+      still PASSES. The reason is re.finditer's non-overlapping semantics: the
+      over-reaching first match starts at the FIRST `setattr(` and consumes the
+      second one whole, so finditer never restarts inside it, and the count is
+      exactly 1 either way. The property the arm names is invisible to the
+      instrument the arm uses.
+
+      Measured twice, independently, not argued:
+
+        (1) a standalone pattern matrix over the four arms:
+              arm              SHIPPED   NORM-DEL   PAREN-DEL
+              arm1 wrapped       PASS       RED        PASS
+              arm2a unrelated    PASS       PASS       RED
+              arm2b two-calls    PASS       RED        PASS   <-- survives
+              arm3 recv-parens   PASS       PASS       RED
+        (2) the same, with each probe source extracted from the test function's
+            own AST (ast.unparse of the first argument of each
+            _hand_set_sites_in call) and eval'd, so the strings are the test's,
+            not a paraphrase: arm2b PASS under PAREN-DEL, actual
+            {('test_not_exempt.py', 'SessionLocal'): 1} == expected.
+
+      Why the fix believed otherwise: all four arms are assertions inside ONE
+      test function, so the live PAREN-DEL run dies at arm 2a's assert and never
+      evaluates 2b. The run reports "FAILED
+      test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not", which
+      is true and says nothing about which arms did the killing. A per-arm kill
+      matrix cannot be read off a per-test result.
+
+      Arm 2b reds only under NORM-DEL -- i.e. for arm 1's reason, because it
+      happens to contain a wrapped call. So it is a duplicate of arm 1 wearing
+      arm 2a's description. Under ADR-0039/R1 (mandatory, scope tests/**) that
+      is narrative, not coverage: "A claim whose control cannot fail is
+      narrative, not coverage, and must be narrowed to what is measured or
+      deleted."
+
+      Blast radius is bounded and worth saying plainly: the *mechanism* is still
+      controlled. Arm 2a kills PAREN-DEL on its own, so the false-positive-engine
+      risk the widening created is genuinely guarded; nothing in the tree is
+      miscounted (the differential sweep is zero-delta). This is an uncontrolled
+      claim in a control, on the card whose thesis is that an uncontrolled claim
+      must be narrowed or deleted -- which is why it is Important rather than
+      Minor, and why it is worth one more cycle on a card that exists to make
+      this exact point.
+    suggestion: |
+      Two honest options; the first is cheaper and matches the card's own thesis.
+
+      (a) DELETE arm 2b and drop its clause from the texts. R1's own remedy.
+          Arm 2a already carries the whole edge claim ("widening a count could
+          otherwise turn it into a false-positive engine"), and it can fail.
+          Then fix the three places that claim 2b is a control:
+            - the test docstring's arm-2 bullet (tests/test_db_engine_lifecycle.py:977-984),
+            - the class docstring's "Controls: arms 1 and 2 ... (counted at all;
+              and not matched across an unrelated call)" (tests/test_db_engine_lifecycle.py:750-753),
+            - the card's fix notes ("Edge arms ... killed by PAREN-DEL").
+
+      (b) RESTATE arm 2b so it can fail -- assert the match POSITION, not the
+          count. Verified to work before proposing it:
+              second = source.rindex("setattr(")
+              assert pattern.search(source).start() == second
+          shipped: match starts at 122 == second setattr( at 122 -> PASS
+          PAREN-DEL: match starts at 49 -> RED (over-reach detected)
+          This needs _hand_set_spellings' first pattern in the test's hands
+          (it is already module-level), and it makes the closing-parenthesis
+          claim a measured statement for the first time.
+
+      Either way, re-derive the kill matrix PER ARM, not per test: a single
+      pytest result over a four-assert test cannot distinguish an arm that was
+      killed from an arm that was never reached.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R1"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: tests/test_db_engine_lifecycle.py
+    line: 744
+    title: "the widening enlarges the false-positive surface to an unclosed `setattr(` in prose reaching across lines, and the guard file's own new docstring is one prose edit from self-matching"
+    description: |
+      The deviation itself is correct (see the verdict in the markdown report)
+      and the differential sweep is genuinely zero-delta. But "zero delta today"
+      is not "no new surface", and the new surface is where a text scan goes
+      wrong. Constructed probes, old pattern vs new:
+
+          case                                        old  new
+          A one-line call                              1    1
+          B formatter-wrapped                          0    1   <- intended
+          C CRLF-wrapped                               0    1   <- intended
+          D backslash continuation                     0    1   <- intended
+          E receiver has parens                        0    0   <- declared blind
+          F receiver parens, wrapped                   0    0   <- declared blind
+          G comment `setattr(`, name on a later line   0    1   <- NEW false positive
+          H docstring `setattr(`, name later           0    1   <- NEW false positive
+          I unrelated wrapped call, paren between      0    0
+          J two wrapped calls                          0    1   <- intended
+          K string literal "setattr(", name later      0    1   <- NEW false positive
+
+      G/H/K are new-only and wrong: no code sets anything. They are reachable
+      because `[^()]*?` now crosses newlines, so any `setattr(` that is never
+      closed by a `)` before the next quoted global name -- which is what prose
+      and comments routinely contain -- matches. The equality is tree-wide and
+      count-based, so one such match reds
+      test_no_test_file_outside_the_exemption_sets_those_globals for everyone.
+
+      How near the tree actually is, measured (366 `setattr(` occurrences under
+      tests/, 9 matched, 5 near misses where a global name sits within 200 chars
+      but a parenthesis came first):
+
+        tests/test_db_engine_lifecycle.py:734 -- the guard file's OWN docstring,
+        added by this very fix: paren@65, name@98. The only thing between its
+        `setattr(` and the literal "engine" 33 characters later is the editorial
+        parenthesis in "parentheses** (".
+
+      I then measured the fragility rather than asserting it. Reflowing that one
+      sentence:
+        as shipped                             -> 0 matches
+        parens -> dashes                       -> 0 matches
+        paren-free receiver example            -> 1 MATCH (suite reds)
+        no inner setattr example               -> 1 MATCH (suite reds)
+      So the guard file does not match itself only because its illustrative
+      example happens to embed parentheses. A maintainer rewording that bullet
+      -- on the bullet that documents this very behaviour -- reds the suite.
+
+      Declared or not? Bullet 1 of both texts says an occurrence "in a docstring,
+      a comment or a string literal" is counted, and the new bullet says the scan
+      "stops at a parenthesis, never at a newline". Compose the two and G/H/K
+      follow, so the texts are not inaccurate. But the class docstring's
+      explanation of why the tree is clean -- "at zero false positives over this
+      tree today only because no other file in `tests/` happens to write these
+      three names that way" -- is now incomplete: it is also because no file
+      happens to leave a `setattr(` unclosed upstream of one of these names, and
+      this file comes within 33 characters of being the exception. Minor, not
+      Important: measured at zero, declared by composition, and the failure mode
+      is a loud self-naming red rather than a silent miss.
+    suggestion: |
+      One sentence in both texts, in the same words (the card's own discipline):
+      note that because the scan crosses newlines, a `setattr(` left unclosed in
+      prose, a comment or a string literal can reach a quoted name further down
+      the file, so prose in `tests/` that quotes a `setattr(` spelling should
+      keep a parenthesis or a `)` between it and any quoted global name -- as the
+      receiver-parentheses example in these very bullets does.
+
+      Optionally add it as a fifth arm (a probe with a commented `setattr(` and a
+      quoted global name two lines later), which turns the sentence into a
+      measured statement and pins whichever way the board decides it should go.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-254.md
+    line: 250
+    title: "the card's reason for why the guard file is not itself an exemption is stale after the fix"
+    description: |
+      CARD-254.md:248-254 ("Why `test_db_engine_lifecycle.py` is not itself an
+      exemption") gives two reasons the guard file contributes zero counted
+      sites: the probe lines are built from a derived name at runtime, and "the
+      retired prose that quoted the spellings is gone".
+
+      The conclusion is still TRUE -- I re-derived it, the file contributes zero
+      sites -- and the first reason still holds (every probe interpolates
+      f'"{name}"', so no literal appears). The second reason no longer does: the
+      fix re-introduces prose that quotes a `setattr(` spelling alongside a
+      literal "engine" (tests/test_db_engine_lifecycle.py:734-737, and the same
+      sentence in src/nonogram/db/session.py:298-300), and zero-ness now depends
+      additionally on an intervening parenthesis (F-002).
+
+      Same genus as cycle 1's OBS-1 -- a self-report that outran what was
+      measured, on the card whose subject is self-reports that outrun their
+      mechanism. Filed Minor because the claim's conclusion is correct and the
+      fix is one sentence on the card, not in code.
+    suggestion: |
+      Amend that paragraph when the fix notes for cycle 2 are written: the guard
+      file contributes zero counted sites because every probe builds its name at
+      runtime AND because the one place its prose quotes a `setattr(` next to a
+      literal name keeps a parenthesis between them -- which is load-bearing, not
+      incidental (F-002).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
+    line: 20
+    title: "CARRIED from cycle 1 (F-002): ADR-0039/R2's deny-default clause is traded away while the ADR still reads Accepted / mandatory"
+    description: |
+      Carried unchanged from cycle 1, where it was accepted as a real finding and
+      dismissed as outside this card's Touches ("meta/architecture/ -- no"), with
+      the amendment routed to the architect station as a follow-up card. The fix
+      delta does not touch meta/architecture/ and does not change the analysis:
+      the SHAPE set is still two hand-written regexes with no enumerable
+      authority. Re-listed here only so cycle 2's enumeration is complete; it is
+      not a new finding, is not counted in this cycle's score, and must not be
+      re-triaged.
+    suggestion: |
+      Unchanged: a follow-up card amending ADR-0039/R2 to sanction "drop the
+      reach claim" as an alternative to the deny-default, provided the narrowed
+      claim is stated where the mechanism lives and every remaining claim keeps a
+      failing control (R1), citing CARD-252 / CARD-254 as the measured case.
+    confidence: medium
+    source: model
+    violates: "ADR-0039/R2"
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: |
+      Carried from cycle 1 as already-dismissed: out of this card's declared
+      Touches, routed to the architect station. Matches the cross-project
+      review_false_positives pattern "Real finding outside the card's declared
+      scope ... deferred to a backlog follow-up rather than wrong"
+      (dismissed_count 3), which is exactly why it is not re-gated here.
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+mutants:
+  - id: NORM-DEL
+    target: "tests/test_db_engine_lifecycle.py:_hand_set_spellings"
+    mutation: "restore the newline to the character class: [^()] -> [^()\\n] (i.e. revert to de0ea945's pattern)"
+    selection: "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam"
+    result: "KILLED -- 1 failed, exactly test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not, at arm 1, with the promised message and the diff {('test_not_exempt.py','SessionLocal'): 1} missing. The tree-wide equality stayed GREEN, which is the declared design: no real site is wrapped."
+  - id: PAREN-DEL
+    target: "tests/test_db_engine_lifecycle.py:_hand_set_spellings"
+    mutation: "delete the parenthesis exclusion: [^()]*? -> .*? under re.DOTALL"
+    selection: "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam"
+    result: "KILLED -- 2 failed: the new control (at arm 2a, with its own message) and test_no_test_file_outside_the_exemption_sets_those_globals. Per-arm, re-derived outside pytest because the test short-circuits: 2a RED, 3 RED, 1 PASS, 2b PASS. Arm 2b surviving is F-001."
+  - id: M3c
+    target: "tests/test_db_isolation.py (real file, no exemption lists it)"
+    mutation: "append a new test function whose body is a formatter-wrapped monkeypatch.setattr(\\n app_session, \"engine\", None\\n)"
+    selection: "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam"
+    result: "KILLED at f0701729 -- 1 failed, test_no_test_file_outside_the_exemption_sets_those_globals, 'Left contains 1 more item: {(\"test_db_isolation.py\", \"engine\"): 1}', correctly attributed to the file. The after half of the fix's claim, re-derived."
+  - id: M3c+NORM-DEL
+    target: "both of the above, stacked"
+    mutation: "M3c present AND de0ea945's pattern restored -- i.e. the pre-fix guard facing a wrapped hand-set"
+    selection: "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam"
+    result: "SURVIVED as predicted -- the equality stays GREEN and only the (nonexistent-at-de0ea945) new control reds. This re-derives the BEFORE half of the fix's M3c claim without checking out de0ea945: at the old pattern the wrapped hand-set is invisible."
+mutant_restores: "Every mutant applied alone from a cp -p backup and restored from that backup; diff -q clean and shasum -a 256 identical after each (lifecycle aeac7594..., isolation d760920b...). git diff f0701729 -- src tests is empty. Never git checkout --."
+
+sweeps:
+  tree_sweep: "names derived independently from session.py's AST ['SessionLocal','_engine_url','engine']; 9 sites, 6 pairs, dict-equal to _EXEMPT_HAND_SET_SITES True, 0 matching files outside the two exempt ones -- identical to the fix's report."
+  differential_sweep: "old ([^()\\n]) vs new ([^()]) per (file, name) over every tests/**/*.py: DELTA NONE. Confirmed."
+  brief_form_sweep: "the dispatch brief's form (collapse newlines, keep the \\n exclusion) over the same tree: 9 sites, 6 pairs, dict-equal True, DELTA NONE vs the implemented form."
