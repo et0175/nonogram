@@ -1,6 +1,6 @@
 # CARD-255: A pytest run refuses to start while another worktree holds the full-suite lock
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** ops
 **Complexity:** standard
@@ -15,8 +15,8 @@
 **Wave:** 49
 **Depends on:** —
 **Touches:** tests/conftest.py, meta/kanban/.full-suite.lock (format only), tests/test_full_suite_lock.py (new)
-**Review score:** —
-**Started:** 2026-10-20T05:15:11Z · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Review score:** 9.0 (cycle 3/3 — certified, no open Important)
+**Started:** 2026-10-20T05:15:11Z · **Closed:** 2026-10-20T07:51:11Z · **Actual:** 0.33d (2.6h: 3 review cycles, 2 fix cycles, 1 build gate + 1 merge gate) · **Merge commit:** 6fe67edf
 **Blocked by:** —
 
 ## Why
@@ -647,3 +647,22 @@ Filed Minor on probability, not consequence: no in-tree file sets it today, the 
 document it, and its one purpose is the test seam this card's own brief mandated. The remedy is two
 tokens (`-e OVERRIDE -e LOCK_PATH_VAR`), verified to add no hit outside the four already-exempted
 files.
+
+### Merged — `6fe67edf`
+
+- **[Merge gate — PASSED]** `006de3b9` (branch merged with `main`), solo: **8631 passed**, 1 skipped,
+  16:53, EXIT=0. Reconciles exactly: main 8595 + 36 tests this card adds (24 at implementation, +6 in
+  fix 1, +6 in fix 2).
+- **[What now runs in front of every pytest on this board]** A run that starts while another worktree
+  holds `meta/kanban/.full-suite.lock` exits **4 before collection**, naming the holder, its commit,
+  the lock's age and the override. A run holding its own lock proceeds — certified in production by
+  this card's own build gate, which wrote a lock naming its worktree and ran under it.
+- **[The standing requirement, repeated here because it outlives the card]** `gate.sh` must be passed
+  an **absolute** worktree path. A relative one makes the gate refuse itself at exit 4 — strictly
+  better than the pre-fix silent board-wide disable, but it binds whoever drives the gates, and
+  `gate.sh` lives outside the repo where no test can hold it.
+- **[Still open, and carded rather than patched]** `NONOGRAM_FULL_SUITE_LOCK` redirects the guard in
+  silence, and the tree scan watches only the override variable — **CARD-256**, P1, with the
+  two-token remedy already verified. Patching it after `max_cycles` would have shipped an unreviewed
+  edit into the file that decides whether any test runs, which is exactly the last-mile failure wave
+  48's retrospective named.
