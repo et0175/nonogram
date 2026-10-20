@@ -709,7 +709,11 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
     own sketch, assigning ``None`` to ``engine``, ``SessionLocal`` and
     ``_engine_url`` from inside ``conftest.py`` — is the same four lines, but it
     leaves ``session.py`` silent about the fact that something retires its
-    engine, and silent is how the module got here.
+    engine, and silent is how the module got here. That sentence is the only
+    place this docstring names all three globals, and
+    :meth:`test_both_convention_texts_agree_on_the_mechanisms_parameters`
+    holds this docstring to naming each of them as a whole word -- reword one
+    of the three away and that control reds, per name.
 
     The convention behind the backstop below -- and the bound on what that
     backstop enforces, whose blind-to list is this guard's declared limit --
@@ -836,9 +840,11 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         spelling would otherwise quote one.
 
         Reds under **GLOBAL-ADD** (a fourth global in ``_init_engine``, which
-        neither text names), **DOC-NAME-DEL** (a global dropped from either
-        text), **SPELL-HEAD-RENAME** / **ASSIGN-HEAD-RENAME** (a spelling's
-        head changed, so neither text describes the mechanism any more) and
+        neither text names), **DOC-NAME-DEL**[*name*] (one global dropped from
+        one text as a whole word -- six mutants, one per name per text, since
+        the names arm tests whole words and so each name fails on its own),
+        **SPELL-HEAD-RENAME** / **ASSIGN-HEAD-RENAME** (a spelling's head
+        changed, so neither text describes the mechanism any more) and
         **DOC-POINTER-DEL** (the pointer to the single source gone).
         """
         names = _global_names_assigned_by("_init_engine")
@@ -854,10 +860,22 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             # The names are read from the text as it ships. Substituting the
             # placeholder first would put names[0] back into every text that
             # has one, which is a check that cannot fail for that name.
-            assert {name for name in names if name in text} == set(names), (
+            #
+            # Whole words, not substrings: ``engine`` sits inside
+            # ``reset_engine``, ``_init_engine``, ``_engine_url`` and
+            # ``create_engine``, which both texts mention anyway -- and the
+            # pointer assert below forces ``reset_engine`` into the guard
+            # text -- so a substring test for that name could not fail. Word
+            # bounds are what make each of the three names red on its own.
+            assert {
+                name
+                for name in names
+                if re.search(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])", text)
+            } == set(names), (
                 f"{label} does not name every global _init_engine() creates "
-                f"({sorted(names)}): a global the convention omits is one "
-                "nobody knows not to hand-set"
+                f"({sorted(names)}) as a whole word -- ``engine`` inside "
+                "``reset_engine`` is not a mention of the global: a global the "
+                "convention omits is one nobody knows not to hand-set"
             )
             shown = text.replace(_NAME_PLACEHOLDER, sorted(names)[0])
             assert {head for head in heads if head in shown} == set(heads), (
