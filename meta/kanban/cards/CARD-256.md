@@ -134,3 +134,197 @@ touching `tests/**`.
   absorb — caught with the exemption removed, missed with it in place — is held to an equality
   against the sites that exist today, and records whatever it still cannot see as a measured bound
   with its own failing control.
+
+
+## Implementation record (worktree, uncommitted)
+
+**Commit:** `28de78d9` on `card/256-the-lock-path-var-gets-a-control`, pathspecs
+`tests/full_suite_lock.py tests/test_full_suite_lock.py tests/README.md` (the card's Touches, exactly).
+Nothing under `meta/` committed. The board's real lock was checked absent before every pytest and
+was never created, modified or deleted; every lock these tests make lives under `tmp_path` behind
+`NONOGRAM_FULL_SUITE_LOCK` (G-5).
+
+### TDD — the test failed first
+
+`tests/test_full_suite_lock.py` 36 -> 41 tests. The red run, before any guard change:
+
+```
+FAILED test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught
+   the scan saw ['ci/forge-ci.yml', 'meta/kanban/cards/CARD-999.md',
+   'meta/kanban/cards/run-the-suite.sh', 'meta/review/...cycle1.yml',
+   'meta/review/run-the-suite.sh']            # the three path-var setters invisible
+FAILED test_a_redirected_run_says_which_lock_it_read
+   AttributeError: module 'tests.full_suite_lock' has no attribute 'redirect_note'
+FAILED test_an_ordinary_run_says_nothing_about_where_its_lock_came_from      (same)
+FAILED test_a_redirected_real_run_announces_it_in_the_terminal_summary
+   assert '<tmp>/there-is-no-lock-here.lock' in '. [100%]\n1 passed in 0.03s\n'
+4 failed, 1 passed
+```
+
+That last line is F-203 itself: a redirected run, `1 passed`, nothing said.
+
+### What the announcement says
+
+```
+full-suite lock: reading the lock from /private/tmp/.../there-is-no-lock-here, not the
+board's own /Users/omelnikova/.../meta/kanban/.full-suite.lock — NONOGRAM_FULL_SUITE_LOCK is set
+```
+
+Printed in the terminal summary (where `-q` cannot hide it) and in the run header. The certifier's
+probe re-run: `NONOGRAM_FULL_SUITE_LOCK=<no lock there> pytest tests/test_clues.py` -> `386 passed`
+**plus that line**; the same selection with the variable unset -> `386 passed` and nothing added.
+No file was created at the probe path.
+
+### G-1 — the verdict did not move
+
+`co_code`/`co_consts` of every code object, baseline vs HEAD (compiled from source, walked
+recursively):
+
+| differs | identical |
+| --- | --- |
+| `<module>` (the new `def` + `__all__` gains `redirect_note`; `dis` diff is those four instructions and line shifts, no statement changed), `pytest_configure` (the announcement path) | `verdict`, `current_verdict`, `lock_path`, `default_lock_path`, `read_lock`, `parse_fields`, `_same_tree`, `_names_a_tree`, `_epoch`, `lock_age_seconds`, `_describe`, `_one_line`, `this_worktree`, `main_repo_root`, `report_line`, `pytest_terminal_summary` — byte-identical in both |
+
+Behaviourally re-proved too (mutant **M-F**, `names_a_tree and _same_tree(...)` -> `False and ...`,
+i.e. treat every lock as foreign): reds the self-run case (3 assertions) and leaves the refusal
+case green — CARD-255's pair, unchanged.
+
+### Per-assertion kill matrix
+
+Instrument: every `ast.Assert` **at any depth** (the two `for`-loop asserts included) rewritten into
+a recording try/except keyed on the node's own `lineno`, so a short-circuit cannot hide an arm —
+`BASELINE` shows all 41 assertions **PASS and reached**, and no assertion reports NOT-REACHED under
+any mutant. All 21 mutants are line-count preserving (deletions become never-matching values).
+
+| test | assert | killed by |
+| --- | --- | --- |
+| `…sets_either_of_the_guards_env_switches` | `not offenders` | M-N, M-X, M-Y, M-K, M-K2 |
+| | `OVERRIDE not in conftest` | M-K2 |
+| | `LOCK_PATH_VAR not in conftest` | M-K |
+| `…setter_under_an_allowlisted_prefix_is_still_caught` | `hits == prose+setters+elsewhere` | **M-1** |
+| | `all setters under the prefixes` | M-X |
+| | `elsewhere is prose-shaped and outside` | M-Y |
+| | `offenders == setters+elsewhere` | M-1, **M-M**, M-E, M-X, M-Y |
+| | `offenders(elsewhere) == elsewhere` | **M-M** |
+| | `offenders(prose) == []` | M-X, M-Y |
+| | `100755 in _tracked_modes(repo)` | M-X, M-T, M-S |
+| `…exempted_prefixes_hold_nothing_a_shell_can_run` | `len(modes) >= 500` | M-X, M-S |
+| | `set(modes) == {100644}` | M-X, M-S |
+| `…redirected_run_says_which_lock_it_read` | `note is not None` | **M-A** |
+| | `the path is in it` | M-A, M-D |
+| | `the variable is in it` | M-A, M-V |
+| | `the default path is in it` | M-A, M-P |
+| `…ordinary_run_says_nothing_about_where_its_lock_came_from` | unset -> `None` | M-C |
+| | `''` -> `None` | M-C |
+| `…summary_hook_says_nothing_when_there_is_nothing_to_say` | `quiet.lines == []` | M-R |
+| | `loud.lines == [the line]` | M-R2 |
+| `…gate_running_under_its_own_lock_is_not_refused` | rc == 0 / `1 passed` / no verdict phrase | M-F (3 of 4) |
+| `…redirected_real_run_announces_it…` | the path is in the output | M-A, **M-B**, M-D, M-R2 |
+| | the variable is in the output | M-A, M-B, M-V, M-R2 |
+| `…tree_with_no_lock_runs_exactly_as_it_did_before` | no verdict phrase | M-Q2 |
+
+Mutants: **M-1** second `-e` dropped from `_scan` (AC-2); **M-M** `startswith` half of the prose
+exemption -> `True` (AC-4); **M-E** `endswith` half -> `True`; **M-N** `not in OVERRIDE_NAMERS` ->
+`True`; **M-X** `OVERRIDE_PROSE` -> prefixes nothing is under; **M-Y** `PROSE_SHAPES` ->
+`(".txt",".ini")`; **M-T** `_tracked_modes` reports `100644` for everything; **M-S** its pathspec
+lists nothing; **M-K/M-K2** `tests/conftest.py` names the path var / the override (in a comment,
+line-preserving); **M-A** `redirect_note` always `None` (the announcement deleted); **M-B** the hook
+drops `redirect_note()` from `_ANNOUNCEMENT` (the announcement deleted at the wiring); **M-C** the
+note becomes unconditional; **M-D/M-V/M-P** the path / the variable / the default path removed from
+the sentence; **M-R** `if _ANNOUNCEMENT` widened; **M-R2** `write_line` deleted; **M-Q/M-Q2**
+`verdict` / `current_verdict`'s no-lock branch returns a verdict; **M-F** every lock foreign.
+
+**Measured bounds, stated rather than left to be found.**
+- `M-Q` (the `verdict` no-lock branch) **survives**: `current_verdict` returns before calling
+  `verdict` when there is no lock, so that branch is unreachable from a real run. `M-Q2`, the same
+  edit in `current_verdict`, is killed. Not fixed — the surviving edit changes nothing observable.
+- `_ANNOUNCEMENT = "\n".join(lines) or None` -> without the `or None`: an **equivalent** mutant
+  (`""` and `None` are both falsy at both report hooks), so no control can tell them apart.
+- A mutant deleting the *redirection* (`lock_path()` ignoring the variable) is deliberately **not**
+  in the set: under it every real-process case here reads the board's own lock, which G-5 forbids.
+- Unkilled by this set, and why: the four `rc == 0` / `1 passed` premises in the two redirected
+  real-run cases (they establish that the run happened, not what it said — the claims beside them
+  are killed four ways each); the two `"skipped" not in combined` assertions (CARD-255's, untouched,
+  measured there); and `test_a_foreign_lock_aborts_a_real_run_before_collection` in full (CARD-255's,
+  included only to show M-F leaves it green).
+- Every mutant was restored from a byte-identical backup, `diff`-verified in the harness itself
+  (`assert d.returncode == 0`); no `git checkout --`. `tests/conftest.py` ends the work unmodified
+  (`git status` clean).
+
+### The four sentences, narrowed
+
+1. `test_full_suite_lock.py` `PROSE_SHAPES` — was *"prose, never anything a shell can run"*. Now
+   states that the clause bounds the **extension** and nothing else, that an executable `.md`/`.yml`
+   under a prefix is exempted by it (probed live at 100755), and that the mode axis is closed by a
+   separate equality, named.
+2. `_scan_offenders` docstring — was *"an executable under an exempted prefix is still an offender"*.
+   Now *"prose exempts prose by extension, so a `.sh` under an exempted prefix is still an offender —
+   an executable `.md` is not"*, plus what each half of the clause must not absorb.
+3. `full_suite_lock.py` `LOCK_PATH_VAR` — was *"Unset — which is every real run, gate or agent"*.
+   Now: that it is unset is held only as far as it is measured — no **tracked** file in this tree
+   names it (the widened scan, named); untracked files and the out-of-repo gate scripts are outside
+   `git grep`'s reach and are read, not held; and what closes the rest is that a run which does set
+   it says so.
+4. `test_the_guard_cannot_turn_a_refusal_into_a_skip` — *"five of the **six** names below"* ->
+   **seven** (the set holds `skip`, `skipif`, `importorskip`, `xfail`, `add_marker`, `exit`, `Exit`;
+   the text rule reaches five, so the syntax rule's independent reach is two, which the same
+   docstring already said).
+
+**Optional item taken:** the mode axis is closed outright, not just narrowed —
+`test_the_exempted_prefixes_hold_nothing_a_shell_can_run` is an equality over `git ls-files -s` for
+both prefixes (546 tracked files, all `100644`, with a `>= 500` population floor so the corpus
+cannot silently shrink), and its own failing control is one assertion inside the exemption's control
+test, where a `0755` file under an exempted prefix exists and must be seen (`M-T`/`M-S` kill it).
+
+### Renames (nothing retired)
+
+- `test_nothing_in_the_tree_sets_the_override_for_a_run` ->
+  `test_nothing_in_the_tree_sets_either_of_the_guards_env_switches`; same assertions, widened, and
+  the old name is recorded in the new docstring so CARD-255's record still resolves.
+- `_override_offenders` -> `_scan_offenders` (it now filters hits for both switches). `OVERRIDE_NAMERS`,
+  `OVERRIDE_PROSE` and `PROSE_SHAPES` are untouched, as the card required.
+- New `_scan(cwd)`: one definition of the scan for the tree and for its control, so AC-2's mutant is
+  a single edit that reds the control.
+
+### Test selections
+
+| selection | result |
+| --- | --- |
+| `tests/test_full_suite_lock.py` | 41 passed |
+| `tests/test_full_suite_lock.py tests/test_guard_integrity.py` | 172 passed |
+| `tests/test_clues.py` (an ordinary selection, variable unset) | 386 passed, nothing added to the output |
+| `tests/test_card_109_database_guard.py` (the conftest wiring) | 19 passed |
+| the same four, 22 times, under the mutation harness | the matrix above |
+
+`DATABASE_URL`/`TEST_DATABASE_URL` both set to the derived
+`nonogram_pythonproject4_card_256_c360f3e725e2_test`; DB-mode tests skip because it does not exist
+on this host. No timing measurements taken (CARD-257 live on this machine). `nonogram_poc` never
+touched.
+
+- **[Orchestrator] wave 49's three new rules were applied at the *implementation* station and they
+  worked on the first card to carry them.** The per-assertion instrument was built as specified —
+  every `ast.Assert` at any depth, keyed on its own `lineno`, **21 mutants all line-count-preserving**
+  — and it reports something no per-test run can: **baseline all 41 assertions PASS and are reached,
+  and no assertion reports NOT-REACHED under any mutant.** That sentence is the whole point of the
+  rule: without it, "this control is green" and "this control never ran" are the same observation.
+- **[Orchestrator] the card's optional item was taken, and it is the better half of the result.** The
+  mode axis is **closed rather than exempted**: an equality over `git ls-files -s` for both prefixes
+  (546 tracked files, all `100644`, with a ≥500 population floor), and its *own* failing control is
+  an assertion inside the exemption's control test, where a `0755` file under an exempted prefix must
+  be seen. So *"prose, never anything a shell can run"* is now **true with a control** instead of
+  narrowed into a disclaimer — the opposite of how this family has usually ended.
+- **[Orchestrator] no new exemption was added, which was the card's second trap.**
+  `OVERRIDE_NAMERS`, `OVERRIDE_PROSE` and `PROSE_SHAPES` are exactly as CARD-255 left them, and the
+  union scan adds no hit outside the eight already-exempted files. The widening and the control share
+  **one** `_scan` definition, so AC-2's mutant is a single edit that reds the control — rather than a
+  widened predicate paid for with an exemption, which is precisely what CARD-255 cycle 2 gated on.
+- **[Orchestrator] M-M is killed two ways now**, and the second is the interesting one: the
+  exemption's control plants prose-shaped setters **outside** both prefixes (`ci/forge-ci.yml`,
+  `.github/workflows/suite.yml`, `docs/running-the-suite.md`) and asserts they are offenders. Under
+  M-M the exemption becomes "any `.md`/`.yml` anywhere" and both the union assertion and the
+  dedicated one red. CARD-255's own F-202 survivor is dead.
+- **[Orchestrator] the residuals are stated, including one that survives.** **M-Q survives** —
+  `current_verdict` returns before calling `verdict` when there is no lock, so that branch is
+  unreachable from a real run, and the same edit one level up (M-Q2) is killed. It is recorded as a
+  surviving mutant that changes nothing observable, not as a hole and not as a kill. Likewise
+  `"\n".join(lines) or None` is named an **equivalent** mutant. A report that names its equivalent
+  mutants is one I can read.
