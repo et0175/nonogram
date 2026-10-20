@@ -293,9 +293,17 @@ def reset_engine() -> None:
     * It is blind to every spelling that does not put one of the three literal
       names beside a ``setattr(`` or a ``.<name> =``. A name computed at
       runtime, a ``globals()`` or ``vars()`` write, ``importlib`` into a local,
-      a ``sys.modules`` swap, ``monkeypatch.delattr``, and an attribute target
-      nested in a list unpacking all reach or replace these globals without
-      being counted.
+      a ``sys.modules`` swap, ``monkeypatch.delattr``, an attribute target
+      nested in a list unpacking, and a ``setattr(`` whose **receiver argument
+      itself contains parentheses** (``setattr(sys.modules.get(...), "engine",
+      None)``) all reach or replace these globals without being counted.
+    * Where the name sits in the file is **not** one of those blind cases. The
+      scan stops at a parenthesis, never at a newline, so a ``setattr(`` call a
+      formatter wrapped across lines is counted exactly as the same call
+      written on one line is. Said here because it was not true, and not
+      declared, until CARD-254's review cycle 1 (F-001): a wrapped call is the
+      spelling a formatter actually produces, and a backstop blind to it has no
+      job left.
     * It is therefore **not** a proof that no test hand-sets these globals, and
       nothing in this project claims it is. An AST deny-default was tried for
       exactly that claim and withdrawn: in a dynamic language a proof claim

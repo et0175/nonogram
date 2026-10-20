@@ -302,18 +302,30 @@ def _hand_set_spellings(name: str):
     names come from :func:`_global_names_assigned_by` and nothing here has to
     be kept in step by hand (ADR-0039/R2):
 
-    * ``setattr(… "name" …)`` — any ``setattr``-spelled call on one line that
-      carries the attribute name as a quoted literal, whatever its receiver
-      and however its arguments are bound;
+    * ``setattr(… "name" …)`` — any ``setattr``-spelled call that carries the
+      attribute name as a quoted literal, whatever its receiver and however
+      its arguments are bound. The scan is **newline-insensitive**: the only
+      character that stops it between the ``setattr(`` and the quoted name is
+      a parenthesis, so a call a formatter wrapped across lines counts exactly
+      as the same call written on one line does. CARD-254 review cycle 1,
+      F-001: the wrapped form is the single most likely way a contributor
+      actually writes that line, and a backstop blind to it has no job left
+      (mutant M3c). Control:
+      :meth:`TestEngineLifecycle_TheResetIsAPublishedSeam.test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`.
     * ``.name =`` — an attribute of that name on the left of a plain
       assignment, whatever the receiver is.
+
+    The parenthesis exclusion is what keeps the first pattern from running
+    past the end of its own call and matching a name belonging to the next
+    one — and is also why a ``setattr(`` whose *receiver argument* itself
+    contains parentheses stays invisible, which both convention texts declare.
 
     Word boundaries are the quotes and the leading dot, which is what keeps
     ``"create_engine"`` and ``._engine_url`` out of ``engine``'s count.
     """
     escaped = re.escape(name)
     return (
-        re.compile(rf'setattr\([^()\n]*?["\']{escaped}["\']'),
+        re.compile(rf'setattr\([^()]*?["\']{escaped}["\']'),
         re.compile(rf"\.{escaped}\s*=(?!=)"),
     )
 
@@ -326,7 +338,9 @@ def _hand_set_sites_in(source: str, filename: str, names) -> Counter:
     and does not mean. It reads text, not syntax: it does not know what object
     is being set, it does not know whether the line executes, and a spelling
     that does not put one of ``names`` next to a ``setattr(`` or a ``.name =``
-    in the file's text is invisible to it.
+    in the file's text is invisible to it. "Next to" is newline-insensitive and
+    parenthesis-sensitive — see :func:`_hand_set_spellings` for exactly what
+    that means and which spelling it therefore still misses.
     """
     sites = Counter()
     for name in names:
@@ -693,7 +707,10 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
        (:func:`_hand_set_sites_in`), held to an equality against
        :data:`_EXEMPT_HAND_SET_SITES`. It reds on a new file, a new name, or a
        tenth site in a file that already has some
-       (:meth:`test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site`).
+       (:meth:`test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site`),
+       and the *shape* of call it counts — wrapped across lines yes,
+       parenthesised receiver no — is pinned by
+       :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`.
 
     What the count does NOT enforce
     -------------------------------
@@ -713,10 +730,27 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
       a ``setattr(`` or a ``.name =``.** A name computed at runtime, a
       ``globals()`` or ``vars()`` write, ``importlib`` into a local, a
       ``sys.modules`` swap, ``monkeypatch.delattr``, an attribute target
-      nested in a list unpacking (``[…] = …``), and every element but the last
-      of a tuple unpacking all reach or replace the globals and are **not**
-      counted. There is no claim here that they cannot happen — only that
-      nothing in this file will tell you when they do.
+      nested in a list unpacking (``[…] = …``), every element but the last
+      of a tuple unpacking, and a ``setattr(`` whose **receiver argument
+      itself contains parentheses** (``setattr(sys.modules.get(...), "engine",
+      None)``) all reach or replace the globals and are **not** counted. There
+      is no claim here that they cannot happen — only that nothing in this file
+      will tell you when they do. The receiver-parentheses case is measured,
+      not asserted: arm 3 of
+      :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`
+      reds if it ever starts being counted.
+    * **Where the name sits in the file is not one of those blind cases.** The
+      scan stops at a parenthesis, never at a newline, so a ``setattr(`` call a
+      formatter wrapped across lines is counted exactly as the same call
+      written on one line is. Said here because it was not true, and not
+      declared, until CARD-254's review cycle 1 (F-001): mutant M3c — a wrapped
+      hand-set appended to ``tests/test_db_isolation.py``, a file no exemption
+      lists — left the equality green. A wrapped call is the spelling a
+      formatter actually produces, so the mechanism was widened rather than the
+      claim narrowed. Controls: arms 1 and 2 of
+      :meth:`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`
+      (counted at all; and not matched across an unrelated call, which widening
+      a *count* could otherwise turn into a false-positive engine).
     * **It therefore proves nothing about whether a test hand-sets these
       globals.** What stands behind that is the convention recorded on
       :func:`nonogram.db.session.reset_engine`: tests call ``reset_engine()``;
@@ -916,4 +950,113 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         )
         assert dict(after) != _EXEMPT_HAND_SET_SITES, (
             "the equality accepts a tenth site in an exempt pair"
+        )
+
+    def test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not(
+        self,
+    ) -> None:
+        """What the scan sees of a ``setattr(`` call's *shape*, in both directions.
+
+        CARD-254 review cycle 1, F-001. The convention texts used to say the
+        scan counts a literal name "beside a ``setattr(``", and both bounded
+        their own blindness without mentioning that the name had to sit on the
+        same physical line. It did: the pattern excluded newlines, so a call a
+        formatter had wrapped reached the globals uncounted and undeclared —
+        certified by mutant M3c, a wrapped hand-set appended to
+        ``tests/test_db_isolation.py``, which left the equality above green.
+        That is the single most likely way the line is actually written, so the
+        mechanism was widened rather than the claim narrowed; the remaining
+        blind case (parentheses in the receiver argument) was declared instead.
+
+        Three arms, one per claim the texts now make:
+
+        1. **in the claimed region** — a wrapped call is counted exactly as the
+           one-line form is. Delete the widening (put ``\\n`` back into
+           :func:`_hand_set_spellings`' character class) and this arm reds; it
+           is the in-tree standing form of M3c.
+        2. **at the edge** — a wrapped call carrying a name that is *not* one
+           of the three globals is not counted, and a wrapped call does not
+           reach past its own closing parenthesis into the next call's
+           arguments. Without this, widening the scan would be a
+           false-positive engine over every file in ``tests/``: the equality is
+           a count, so one spurious match reds the suite for everyone.
+        3. **the declared blind case** — a receiver argument that itself
+           contains parentheses is *not* counted. The "blind to" bullet in
+           :func:`nonogram.db.session.reset_engine`'s docstring and in this
+           class's docstring says so, and this arm is what makes that sentence
+           a measured statement rather than prose.
+        """
+        names = sorted(_global_names_assigned_by("_init_engine"))
+        assert names, "no module-level globals found in _init_engine (guard is blind)"
+        probe_file = "test_not_exempt.py"
+        assert not any(
+            key[0] == probe_file for key in _EXEMPT_HAND_SET_SITES
+        ), f"{probe_file} has become a real exemption; pick another probe name"
+        name = names[0]
+
+        # The name is interpolated, never written out, so this file still
+        # contributes no counted site of its own -- which the equality in
+        # test_no_test_file_outside_the_exemption_sets_those_globals checks.
+        wrapped = _hand_set_sites_in(
+            "def test_wrapped(monkeypatch):\n"
+            "    monkeypatch.setattr(\n"
+            f'        db_session, "{name}", None\n'
+            "    )\n",
+            probe_file,
+            names,
+        )
+        assert dict(wrapped) == {(probe_file, name): 1}, (
+            "a setattr( call wrapped across lines -- what any formatter "
+            "produces once the line passes the column limit -- is not "
+            "counted, so the backstop is blind to the most likely spelling of "
+            f"the thing it exists to red (mutant M3c): {dict(wrapped)}"
+        )
+
+        # 2a. an unrelated attribute name, wrapped, with a global name quoted
+        #     further down the file: no match may be manufactured.
+        unrelated = _hand_set_sites_in(
+            "def test_unrelated(monkeypatch):\n"
+            "    monkeypatch.setattr(\n"
+            '        db_session, "pool_pre_ping", True\n'
+            "    )\n"
+            f'    assert probe == "{name}"\n',
+            probe_file,
+            names,
+        )
+        assert dict(unrelated) == {}, (
+            "widening the scan past newlines made it match a global name "
+            "against an unrelated setattr( call, which would red the equality "
+            f"for every future file in tests/: {dict(unrelated)}"
+        )
+
+        # 2b. two wrapped calls in a row: exactly the one carrying the name.
+        two_calls = _hand_set_sites_in(
+            "def test_two_calls(monkeypatch):\n"
+            "    monkeypatch.setattr(\n"
+            '        db_session, "pool_pre_ping", True\n'
+            "    )\n"
+            "    monkeypatch.setattr(\n"
+            f'        db_session, "{name}", None\n'
+            "    )\n",
+            probe_file,
+            names,
+        )
+        assert dict(two_calls) == {(probe_file, name): 1}, (
+            "the scan ran past one setattr( call's closing parenthesis into "
+            f"the next call's arguments: {dict(two_calls)}"
+        )
+
+        # 3. the declared blind case: parentheses inside the receiver argument.
+        receiver_parens = _hand_set_sites_in(
+            "def test_receiver_parens():\n"
+            '    setattr(sys.modules.get("nonogram.db.session"), '
+            f'"{name}", None)\n',
+            probe_file,
+            names,
+        )
+        assert dict(receiver_parens) == {}, (
+            "a setattr( whose receiver argument contains parentheses is now "
+            "counted, which is more than either convention text claims; "
+            "widen the texts in the same words or narrow this control: "
+            f"{dict(receiver_parens)}"
         )
