@@ -20,9 +20,20 @@ be a pid: the gate script writes the lock and then launches pytest as a
 **child**, so no pid the file could carry is ever the pid of the process this
 code runs in. What every gate does do is run pytest in the worktree it names
 in the file. So the holder's identity is ``worktree:``, compared with the tree
-this module was imported from — and a lock that names no worktree is refused
-rather than assumed to be ours (ADR-0039/R2: a shape the guard cannot analyse
-is a refusal, never a silent pass).
+this module was imported from — and a lock that does not name a worktree this
+guard can resolve to a tree is refused rather than assumed to be ours
+(ADR-0039/R2: a shape the guard cannot analyse is a refusal, never a silent
+pass).
+
+Two values are that shape and both take the same branch: a **missing**
+``worktree:``, and a **relative** one. ``realpath`` resolves a relative value
+against the *reading* process's cwd, and every gate runs pytest from its own
+worktree root — so a foreign holder's ``worktree: .`` would resolve, inside
+every other worktree, to that worktree, be recognised as this run's own, and
+let the run through saying nothing at all. It names a path, but not a tree.
+No gate script writes one (all three write ``worktree: $WT`` absolutely), but
+``tests/README.md`` tells a human to hand-write a lock, and that is reach
+enough.
 
 The stale rule is an age threshold, not a pid
 ---------------------------------------------
@@ -74,6 +85,12 @@ __all__ = [
 #: on every run that uses it — the one thing worse than a contended gate is a
 #: board that cannot run tests at all, and the one thing worse than that is a
 #: suppression nobody can see in the output.
+#:
+#: Any non-empty value turns it on, ``=0`` and ``=false`` included. That is
+#: the same spelling ``tests/database_guard.py`` reads its own opt-out with,
+#: kept deliberately so the two guards have one convention rather than two —
+#: and an overridden run announces itself in the terminal summary, so the
+#: surprising spelling cannot become a quiet suppression.
 #:
 #: No gate script sets it, which is what makes it an override
 #: (``test_the_gate_scripts_do_not_set_the_override``).
@@ -186,12 +203,35 @@ def parse_fields(text: str) -> dict[str, str]:
 def _same_tree(one: str, other: str) -> bool:
     """Do two paths name the same checkout?
 
-    Through ``realpath`` both sides: ``/tmp`` is a symlink on macOS and a
-    worktree reached through one is the same worktree.
+    **Exact** equality of the two resolved paths, never a prefix test: on
+    this board the worktrees are siblings whose paths share a prefix
+    (``…-card-25`` and ``…-card-255``; the main checkout is a prefix of all of
+    them), so a prefix rule would read the shorter holder's lock as the longer
+    tree's own and pass a foreign lock in silence.
+
+    Through ``realpath`` on both sides: ``/tmp`` is a symlink on macOS and a
+    worktree reached through one is the same worktree; a trailing slash and a
+    leading ``~`` normalise to the same answer too.
+
+    Both values must already be absolute — ``realpath`` resolves a relative
+    one against *this* process's cwd, which would make ``.`` mean "wherever
+    the reader is". :func:`verdict` establishes that with :func:`_names_a_tree`
+    before it asks.
     """
     return os.path.realpath(os.path.expanduser(one.strip())) == os.path.realpath(
         os.path.expanduser(other.strip())
     )
+
+
+def _names_a_tree(value: str | None) -> bool:
+    """Can this ``worktree:`` value be resolved to a tree at all?
+
+    A missing value cannot, and neither can a relative one, for the reason in
+    :func:`_same_tree`. Both are the shape ADR-0039/R2 calls unanalysable, and
+    :func:`verdict` refuses both through one branch rather than inventing a
+    second vocabulary for the second one.
+    """
+    return bool(value) and os.path.isabs(os.path.expanduser(value.strip()))
 
 
 def _epoch(stamp: str) -> float | None:
@@ -236,7 +276,16 @@ def _describe(fields: dict[str, str], age_seconds: float | None, path: Path | No
         lines.append(f"  {key + ':':10}{fields.get(key, '(not in the lock file)')}")
     for key in sorted(set(fields) - set(REPORTED_FIELDS)):
         lines.append(f"  {key + ':':10}{fields[key]}")
-    age = "unknown" if age_seconds is None else f"{age_seconds:.0f}s"
+    if age_seconds is None:
+        age = "unknown"
+    elif age_seconds < 0:
+        # Clock skew between the writer and this reader, or a hand-written
+        # stamp. The verdict is unaffected — a negative age is below the
+        # threshold, so the refusal stands — but "-3600s" reads as nonsense to
+        # the person being refused, so it is printed as what it is.
+        age = f"stamped {-age_seconds:.0f}s in the future (clock skew?)"
+    else:
+        age = f"{age_seconds:.0f}s"
     lines.append(f"  {'age:':10}{age} (stale after {STALE_SECONDS:.0f}s)")
     lines.append(f"  {'lock:':10}{path if path is not None else '(unnamed)'}")
     return "\n".join(lines)
@@ -269,7 +318,8 @@ def verdict(
 
     fields = parse_fields(lock_text)
     held_by = fields.get("worktree")
-    if held_by and _same_tree(held_by, worktree):
+    names_a_tree = _names_a_tree(held_by)
+    if names_a_tree and _same_tree(held_by or "", worktree):
         # The gate writes the lock and then runs the suite in the worktree it
         # named. Refusing here would stop every gate on the board; this is the
         # case "treat every lock as foreign" reds.
@@ -288,14 +338,20 @@ def verdict(
             f"presumed gone. Delete {path} if it is."
         )
 
-    unnamed = (
-        ""
-        if held_by
-        else (
-            "\nThis lock names no worktree, so it cannot be recognised as this run's own "
-            "and is refused rather than assumed harmless.\n"
+    if names_a_tree:
+        unnamed = ""
+    else:
+        why = (
+            f"its worktree: value {held_by!r} is not an absolute path, so it would "
+            "resolve to whichever tree happened to read it"
+            if held_by
+            else "it has no worktree: line at all"
         )
-    )
+        unnamed = (
+            f"\nThis lock does not name a worktree this guard can resolve to a tree "
+            f"({why}), so it cannot be recognised as this run's own and is refused "
+            f"rather than assumed harmless.\n"
+        )
     return False, (
         f"Refusing to start: another worktree holds the full-suite lock.\n"
         f"\n"

@@ -10,6 +10,15 @@
           unset, nothing announces one
     AC-5  a tree with no lock behaves exactly as before — no skip, no line
 
+``_same_tree`` is the function the whole card reduces to, so it is measured
+directly as well as through :func:`verdict`
+(:func:`test_same_tree_is_exact_identity_not_a_prefix_or_a_spelling`,
+:func:`test_a_value_that_is_not_an_absolute_path_names_no_tree`). Reached only
+through ``verdict`` it is always handed two already-resolved, exactly-equal
+absolute paths, which is the one case that cannot tell an exact comparison
+from a prefix test, or ``realpath`` from no normalisation at all: three
+mutants of it survived the suite before those tests existed.
+
 ``meta/kanban/.full-suite.lock`` was written by every full-suite gate and read
 by nobody. The gate's own guard refuses to *start* beside another pytest, which
 is a check at the door that cannot stop someone entering afterwards: CARD-225's
@@ -35,6 +44,7 @@ worktree it names.
 
 from __future__ import annotations
 
+import ast
 import os
 import subprocess
 import sys
@@ -181,6 +191,120 @@ def test_a_lock_that_names_no_worktree_is_refused_rather_than_assumed_ours():
     assert "worktree" in said
 
 
+def test_a_relative_worktree_value_is_refused_rather_than_resolved_against_the_reader():
+    """ADR-0039/R2 again: ``worktree: .`` names a path, but not a tree.
+
+    ``realpath`` resolves a relative value against the *reading* process's
+    cwd, and every gate runs pytest from its worktree root. So a foreign
+    holder's ``worktree: .`` would resolve, inside every *other* worktree, to
+    that worktree: the guard would recognise a lock it has never held as its
+    own, let the run through, and print nothing — CARD-225's defect restored.
+    It is the same unanalysable shape as a lock with no ``worktree:`` line and
+    takes the same branch, with the refusal saying which of the two it was.
+
+    No gate script writes a relative value (all three write ``worktree: $WT``),
+    but ``tests/README.md`` now tells a human to hand-write a lock.
+    """
+    # The dangerous spelling exactly: a relative value resolves to the reading
+    # process's own cwd, which is what used to make this a silent pass.
+    allowed, said = guard.verdict(
+        gate_lock(worktree="."), worktree=os.getcwd(), age_seconds=30.0, overridden=False
+    )
+
+    assert allowed is False, "a foreign lock reading 'worktree: .' was taken for this run's own"
+    assert "not an absolute path" in said, "the refusal does not say why it could not tell"
+
+    for relative in (".", "./", "../PythonProject4-card-254", "PythonProject4-card-255"):
+        allowed, said = guard.verdict(
+            gate_lock(worktree=relative),
+            worktree=str(REPO),
+            age_seconds=30.0,
+            overridden=False,
+        )
+
+        assert allowed is False, f"worktree: {relative!r} let a foreign lock through"
+        assert "worktree" in said
+        assert relative in said, "the refusal does not quote the value it could not resolve"
+
+
+def test_same_tree_is_exact_identity_not_a_prefix_or_a_spelling(tmp_path):
+    """The identity rule, measured on its own function rather than through a verdict.
+
+    Every other case here hands :func:`guard.verdict` two already-resolved,
+    exactly-equal absolute paths, under which an exact comparison, a
+    ``startswith`` and a bare string equality are indistinguishable — all
+    three were live mutants that the suite passed. The pairs below are the
+    board's real neighbours, not invented ones: the worktrees are siblings of
+    the main checkout and of each other, and their paths share prefixes.
+    """
+    tree = tmp_path / "PythonProject4-card-255"
+    sibling = tmp_path / "PythonProject4-card-25"
+    main = tmp_path / "PythonProject4"
+    for directory in (tree, sibling, main):
+        directory.mkdir()
+    through_symlink = tmp_path / "reached-through-a-symlink"
+    through_symlink.symlink_to(tree)
+    me = str(tree)
+
+    # Exactness: every one of these is a *different* tree that shares a prefix.
+    assert guard._same_tree(str(sibling), me) is False, "…-card-25 read as …-card-255"
+    assert guard._same_tree(me, str(sibling)) is False, "…-card-255 read as …-card-25"
+    assert guard._same_tree(str(main), me) is False, "the main checkout read as a worktree of it"
+    assert guard._same_tree(me, str(main)) is False
+    assert guard._same_tree(me + "-and-more", me) is False
+
+    # Normalisation: every one of these is the *same* tree, spelled differently.
+    assert guard._same_tree(me, me) is True
+    assert guard._same_tree(me + "/", me) is True, "a trailing slash made a tree foreign"
+    assert guard._same_tree(me + "/.", me) is True
+    assert guard._same_tree(str(through_symlink), me) is True, (
+        "a worktree reached through a symlink read as a different worktree — the "
+        "expensive direction: a gate refused by its own lock"
+    )
+    assert guard._same_tree("~", os.path.realpath(os.path.expanduser("~"))) is True, (
+        "a leading ~ is not expanded"
+    )
+
+
+def test_a_value_that_is_not_an_absolute_path_names_no_tree():
+    """The clause that makes a relative ``worktree:`` unanalysable, directly."""
+    assert guard._names_a_tree(str(REPO)) is True
+    assert guard._names_a_tree("/tmp/some-other-worktree") is True
+    assert guard._names_a_tree("~/PycharmProjects/PythonProject4") is True
+
+    assert guard._names_a_tree(None) is False, "a missing worktree: names a tree"
+    assert guard._names_a_tree("") is False
+    assert guard._names_a_tree("   ") is False, "whitespace names a tree"
+    assert guard._names_a_tree(".") is False
+    assert guard._names_a_tree("./") is False
+    assert guard._names_a_tree("../PythonProject4-card-254") is False
+    assert guard._names_a_tree("PythonProject4-card-255") is False
+
+
+def test_a_lock_that_cannot_be_read_is_not_the_same_as_no_lock(tmp_path, monkeypatch):
+    """"There is a lock and I cannot read it" is a refusal, not a clear road.
+
+    :func:`guard.read_lock` answers ``""`` for a file it cannot read and
+    ``None`` only for one that is not there, and the difference is the entire
+    verdict: ``None`` returns early as "no lock at all", while ``""`` parses to
+    no fields, names no worktree, and is refused. A directory at the lock path
+    is the deterministic way to make the read fail — ``chmod 0o000`` does not
+    stop the file's own owner on every host.
+    """
+    unreadable = tmp_path / "unreadable.full-suite.lock"
+    unreadable.mkdir()
+
+    assert guard.read_lock(unreadable) == "", "a lock that cannot be read read as no lock"
+    assert guard.read_lock(tmp_path / "there-is-nothing-here.lock") is None
+
+    monkeypatch.delenv(guard.OVERRIDE, raising=False)
+    monkeypatch.setenv(guard.LOCK_PATH_VAR, str(unreadable))
+    allowed, said = guard.current_verdict()
+
+    assert allowed is False, "an unreadable lock let the run start"
+    assert "worktree" in said
+
+
 # --------------------------------------------------------------------------
 # AC-3 — a dead holder must not wedge the board
 # --------------------------------------------------------------------------
@@ -234,6 +358,23 @@ def test_an_age_that_cannot_be_determined_is_not_treated_as_stale():
     assert allowed is False
 
 
+def test_a_lock_stamped_in_the_future_refuses_and_says_so_in_words():
+    """Clock skew between a writer and this reader, or a hand-written stamp.
+
+    The verdict is the safe one either way — a negative age is below the
+    threshold, so the refusal stands — but the refused person used to be shown
+    ``age: -3600s``, which reads as nonsense.
+    """
+    allowed, said = guard.verdict(
+        gate_lock(), worktree=str(REPO), age_seconds=-3600.0, overridden=False
+    )
+
+    assert allowed is False, "a lock stamped in the future stopped being a lock"
+    assert "-3600" not in said, "the refusal prints a negative age"
+    assert "future" in said, "the refusal does not say the stamp is ahead of this clock"
+    assert str(int(guard.STALE_SECONDS)) in said
+
+
 # --------------------------------------------------------------------------
 # AC-4 — the override
 # --------------------------------------------------------------------------
@@ -260,29 +401,58 @@ def test_the_refusal_says_how_to_proceed_on_purpose():
     assert guard.OVERRIDE in said, "the refusal does not name the way out"
 
 
+#: Files whose job is to *name* the override: the guard (reads it and prints
+#: it), this file (sets it in a child process on purpose — the AC-4 test), and
+#: ``tests/README.md`` (documents it as the way out).
+OVERRIDE_NAMERS = frozenset(
+    {
+        "tests/full_suite_lock.py",
+        "tests/test_full_suite_lock.py",
+        "tests/README.md",
+    }
+)
+
+#: And the board's prose, which quotes the refusal: card text and review
+#: reports. Prefixes, because the filenames are per-card.
+OVERRIDE_PROSE = ("meta/kanban/cards/", "meta/review/")
+
+
 def test_nothing_in_the_tree_sets_the_override_for_a_run():
     """AC-4's premise: an override the producers set is not an override.
 
-    The gate scripts live outside the repo (the orchestrator's scratchpad),
-    so what is checkable here is the tree: nothing in it may set the variable
-    for a run. Three files are allowed to *name* it — the guard (which reads
-    it and prints it), this file (which sets it in a child process on purpose,
-    which is the AC-4 test), and ``tests/README.md`` (which documents it as
-    the way out). Anything else, and particularly anything under ``src`` or in
-    ``pyproject.toml``, would be the tree quietly switching its own guard off.
+    The scan is the **whole tree**, because that is the claim. A hand-written
+    pathspec (it was ``tests src pyproject.toml``) cannot see
+    ``scripts/run_admin_tests.sh``, an in-tree pytest runner that already
+    exports env for the suite and is the closest co-change peer of
+    ``tests/conftest.py``: one ``export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1``
+    line there would switch this guard off for every run through it and leave
+    a pathspec'd scan green. Same for ``scripts/README.md``, ``start.sh``,
+    ``Dockerfile``, ``docker-compose.yml`` and ``.env.example``. Widening the
+    scan costs nothing: the allowlist below already pins the files legitimately
+    allowed to name the variable.
+
+    Two bounds of the measurement, stated rather than left to be discovered.
+    ``git grep`` reads **tracked** files only, so an untracked runner is
+    invisible to it. And the gate scripts live outside the repo (the
+    orchestrator's scratchpad), so they cannot be held by this test at all —
+    that they do not set it is checked by reading them, not here.
     """
     hits = subprocess.run(
-        ["git", "grep", "-l", guard.OVERRIDE, "--", "tests", "src", "pyproject.toml"],
+        ["git", "grep", "-l", guard.OVERRIDE],
         cwd=REPO,
         capture_output=True,
         text=True,
     ).stdout.split()
 
-    assert set(hits) <= {
-        "tests/full_suite_lock.py",
-        "tests/test_full_suite_lock.py",
-        "tests/README.md",
-    }, f"{hits} mention the override; a tree that sets it has no override"
+    offenders = [
+        path
+        for path in hits
+        if path not in OVERRIDE_NAMERS and not path.startswith(OVERRIDE_PROSE)
+    ]
+
+    assert not offenders, (
+        f"{offenders} mention the override; a tree that sets it has no override"
+    )
 
     conftest = (REPO / "tests" / "conftest.py").read_text(encoding="utf-8")
     assert guard.OVERRIDE not in conftest
@@ -416,6 +586,13 @@ def test_the_guard_cannot_turn_a_refusal_into_a_skip():
     come from; the three allowed cases below each assert ``1 passed`` and
     ``skipped`` nowhere in the output, which is the same claim from the other
     side.
+
+    Two rules, because they measure different things. The first is a **text**
+    rule over the whole file, prose included: a docstring that explained the
+    abort by naming the alternative would red it, and that is the intended
+    strictness — it fails in the safe direction. The second is the claim
+    itself, read off the module's syntax: no call in it resolves to a name
+    that can turn a failure into a non-result.
     """
     source = Path(guard.__file__).read_text(encoding="utf-8")
 
@@ -424,6 +601,18 @@ def test_the_guard_cannot_turn_a_refusal_into_a_skip():
             f"the lock guard names {forbidden!r}; its only outcomes are an abort, "
             "a printed line, and silence"
         )
+
+    called = {
+        node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+    }
+    forbidden_apis = {"skip", "skipif", "importorskip", "xfail", "add_marker", "exit"}
+
+    assert not called & forbidden_apis, (
+        f"the lock guard calls {sorted(called & forbidden_apis)}; its only outcomes are "
+        "an abort, a printed line, and silence"
+    )
 
 
 def test_a_gate_running_under_its_own_lock_is_not_refused(tmp_path):
@@ -445,6 +634,26 @@ def test_a_gate_running_under_its_own_lock_is_not_refused(tmp_path):
     assert "full-suite lock" not in combined, (
         "the gate's own run reports a lock verdict nobody needs to read"
     )
+
+
+def test_a_relative_worktree_value_does_not_disable_the_guard_in_a_real_run(tmp_path):
+    """The pure function's verdict, confirmed where the cwd is real.
+
+    This is the shape that matters: pytest is started *from the worktree
+    root*, so before the ``isabs`` clause a lock reading ``worktree: .`` was
+    recognised as this tree's own in every tree that read it — exit 0, the
+    test ran, and the output said nothing about a lock at all.
+    """
+    lock = tmp_path / "relative.full-suite.lock"
+    lock.write_text(gate_lock(worktree="."))
+
+    result = _run_pytest(lock)
+    combined = result.stdout + result.stderr
+
+    assert result.returncode != 0, combined
+    assert "1 passed" not in combined, "a lock reading 'worktree: .' let the run through"
+    assert "gate CARD-254 fake-gate-for-the-test" in combined
+    assert "not an absolute path" in combined
 
 
 def test_a_stale_lock_does_not_wedge_the_board(tmp_path):
