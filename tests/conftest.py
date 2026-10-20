@@ -87,10 +87,13 @@ def _unreachable_reason(database_url: str):
 def pytest_configure(config):
     """Register custom markers; start the hang guard; check the database.
 
-    The database check is first and raises: CARD-109's whole point is that the
-    run must not begin against a database nobody chose, and beginning includes
-    collection.
+    The lock check is first and the database check second, both raising:
+    CARD-255's point is that the run must not *start* while another worktree
+    is running the suite, and CARD-109's is that it must not begin against a
+    database nobody chose. Beginning includes collection, and both land before
+    any fixture exists, let alone one that connects (CARD-255 G-1).
     """
+    _full_suite_lock.pytest_configure(config)
     _database_guard.pytest_configure(config)
     _hang_guard_configure(config)
     config.addinivalue_line("markers", "unit: isolated component tests")
@@ -136,15 +139,28 @@ from tests.hang_guard import (  # noqa: F401
 # which a hook defined here could not do.
 from tests import database_guard as _database_guard
 
+# CARD-255's full-suite lock guard, in its own module for the same reason
+# again: its own tests start real runs in a subprocess and watch this refuse
+# them. `pytest_terminal_summary` is imported under its own name because that
+# is how it gets registered — and it, not the header line below, is what makes
+# an override or an ignored stale lock visible, since `addopts = "-q"` means
+# pytest prints no header at all in the runs this board actually does.
+from tests import full_suite_lock as _full_suite_lock
+from tests.full_suite_lock import pytest_terminal_summary  # noqa: F401
+
 
 def pytest_report_header(config):
-    """Compose the two guards' header lines.
+    """Compose the three guards' header lines.
 
     Defined here rather than imported, because importing one name and then
     defining another of the same name would silently drop the first — and the
     hang guard's line is how a killed run's stack dump is findable.
     """
-    lines = [_hang_guard_report_header(config), _database_guard.report_line()]
+    lines = [
+        _hang_guard_report_header(config),
+        _database_guard.report_line(),
+        _full_suite_lock.report_line(),
+    ]
     said = [line for line in lines if line]
     return said or None
 

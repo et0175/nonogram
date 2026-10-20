@@ -873,6 +873,13 @@ _ROOT_CONTENTS = (
     "tests/db_name.py",
     "tests/hang_guard.py",
     "tests/database_guard.py",
+    # CARD-255: the third module `tests/conftest.py` imports a hook from. A
+    # copied root without it cannot import its own conftest, and both arms of
+    # AC-6 below come back red for a reason that has nothing to do with
+    # databases. Each copied root is its own main root (no `.git`), so it
+    # resolves a lock path of its own, finds nothing there, and the probes run
+    # exactly as they did.
+    "tests/full_suite_lock.py",
     "tests/helpers",
 )
 
