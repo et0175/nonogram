@@ -98,5 +98,31 @@ untidy.
   occurrence **inside the arm you mean** (identical source lines appear earlier in the file and a
   first-occurrence replacement silently mutates the wrong arm, returning a false all-green); and report the
   **domain** of any per-assertion figure — CARD-256 reported a test count as an assertion count.
+- **[Three latents inherited from CARD-257, all measured, none gating there]** This card already takes the
+  two texts they live in, so it is their natural home.
+  - **L-1** `AUDIT NAME-DEL-BACKTICKED[engine]` — replace only the backticked ```engine``` and keep the bare
+    English prose: the names arm stays **PASS** (backticked occurrences 0, whole-word `engine` 10 prod /
+    1 guard). The control is per-name-over-the-whole-text, not per-sentence. A **partial reword** of the
+    enumeration therefore would not red for `engine`, while `SessionLocal`/`_engine_url` would.
+  - **L-2** `AUDIT HEAD-DEL-FIRST[setattr(]` — delete only the first, mechanism-describing occurrence: the
+    heads arm stays **PASS** (`setattr(` left 5 prod / 3 guard). Nothing shipped claims an occurrence count,
+    which is why it was declared rather than fixed.
+  - **L-3** `target in guard` is still a substring test, so an identifier strictly *extending* the dotted
+    path (`…reset_engine_pool`) would satisfy it without being a pointer. Measured: **0** such occurrences
+    in either text and **0 anywhere under `src/` or `tests/`** — a measured bound, not a finding. **A right
+    lookahead closes it and stays PASS on SHIPPED**, and is cheap.
+- **[Five instrument traps the board has now paid for — all five, because this card will build one]**
+  (1) deletion mutants must be **line-count-preserving**, or the numbering shifts and every assert reports
+  NOT-REACHED; (2) aggregate **ANY-RED** over every execution, never last-write-wins, or a RED from an
+  assert inside a `for` loop is lost; (3) **target the occurrence inside the arm you mean** — identical
+  source lines appear elsewhere in the file and a first-occurrence replacement silently mutates the wrong
+  arm, returning a false all-green (the NAMES-BLIND line occurs **five** times in
+  `test_db_engine_lifecycle.py`); (4) **restore every patched attribute** and re-run SHIPPED all-PASS
+  *between* mutants — a leaked patch and a real kill look identical; (5) **a mutant must delete the thing
+  as the text shows it** — deleting a literal `.SessionLocal` that neither text contains (both write
+  `.<name>` and the arm substitutes a placeholder) returns PASS, and **a no-op mutant and a surviving mutant
+  look identical**. And over all of them: **report the DOMAIN of every per-assertion figure** — an
+  instrumented-only kill is an attribution a plain run cannot make; a plain-only kill is an observation the
+  instrument cannot make, and only the second kind corrupts a figure.
 - **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`, reading the ADR files
   **case-insensitively** for the reach-limit idiom. This card is about ADR-0039/R1.

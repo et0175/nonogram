@@ -385,9 +385,16 @@ dropped, connected to or truncated.
   created**. (Corrected at review cycle 1 / fix 1: the original sentence said "three" and named two,
   wrong in both count and attribution.) A later card can take them; this one only trimmed two sentences there
   ("the older reading of it here was wrong", "re-measured as review mutant R7").
-- The AC-2 control holds the guard's text to the *names* in double backticks,
-  which the scan does not count. That is load-bearing for the class docstring's
-  opening paragraph: it now has to keep naming the three globals.
+- The AC-2 control holds the guard's text to each of the three *names*
+  **as a word-bounded bare name, anywhere in the text** — the double backticks
+  the paragraph happens to use are irrelevant to it, and the scan does not count
+  them either way. *(Corrected at review cycle 3, F-008: the original sentence
+  said the control holds the text to the names "in double backticks", which read
+  as what the control enforces is false and was measured so —
+  `AUDIT NAME-DEL-BACKTICKED[engine]` leaves the names arm PASS with backticked
+  occurrences at 0.)* It is still load-bearing for the class docstring's opening
+  paragraph: that paragraph is the only place all three globals are written out,
+  so it has to keep naming them.
 
 - **[Orchestrator] the new rule caught a defect in the agent's own addition before hand-back, which
   is exactly what it was promoted for.** Its first version of AC-2's control substituted the name
@@ -420,8 +427,10 @@ dropped, connected to or truncated.
 - **[Residue, flagged for the reviewer]** `reset_engine()`'s docstring is still 135 lines for a 6-line
   body. The duplication is gone and the pointer is controlled, but its `Who calls it and why` and
   `What is pinned, and what is not` sections are **CARD-252's** record, outside this card's three
-  cuts. And the AC-2 control holds the guard text to names in double backticks, which the scan does
-  not count — so the class docstring's opening paragraph is now load-bearing.
+  cuts. And the AC-2 control holds the guard text to each name **as a word-bounded bare name anywhere in
+  the text** (not to the double backticks, which it never reads) — so the class docstring's opening
+  paragraph, the only place all three are written out, is now load-bearing. *(Wording corrected at review
+  cycle 3, F-008.)*
 - **[Build gate 1 — PASSED]** `245bc898`, solo: **8623 passed**, 1 skipped, 16:34, EXIT=0. Reconciles
   exactly: main 8622 + the one test AC-2's control adds. The guard said nothing during the run, which
   is correct for a gate holding its own lock.
@@ -456,8 +465,9 @@ Report: `meta/review/CARD-257-cycle1.yml` (5 findings, all `status: open`). Scor
 - **F-003** (low) three line-split figures are off by one on recomputation: after-prose **568** not 567;
   code delta **+25** not "24 lines of code"; control B's docstring **63 → 47** not 63 → 48.
 - **F-004** (low) the class docstring's **opening paragraph is now load-bearing** — it is the only place
-  all three globals are written out, and the control holds the text to names in double backticks, which
-  the scan does not count. The class docstring says so nowhere, and that paragraph reads as pure
+  all three globals are written out, and the control holds the text to each name as a **word-bounded bare
+  name anywhere in the text** (the double backticks are not what it reads — wording corrected at cycle 3,
+  F-008). The class docstring says so nowhere, and that paragraph reads as pure
   CARD-252 history, i.e. the exact prose cut 3 targets. The next prose cut deletes what a control needs.
 - **F-005** (low) a **second** "same words in two places" doubling survives at `tests/conftest.py:469-479`
   — the step-3-position / "re-measured as review mutant R7" narration this card cut from `session.py`,
@@ -824,3 +834,86 @@ scratch, none re-using another's, and **each found a different defect the others
 That is now the strongest argument on the board for *commit the instrument once, as its own card*: not
 because writing it is expensive, but because four distinct ways to get it wrong have been discovered in one
 wave, and nothing in the tree remembers any of them.
+
+### [Review 3/3] Score: 9.0 — ✓ threshold reached, 0 Critical, 0 Important. Clear for the merge gate
+
+Report: `meta/review/CARD-257-cycle3.yml`. Every prior finding carried forward with a real `fixed_in:` —
+F-001/F-004 → `df23bf64`, F-006/F-007 → `daa721ae`, **F-002/F-003 → `a05d88db`** (the reviewer located my
+card-body correction commit rather than leaving a null), F-005 `wontfix`, carded to CARD-259. One new
+**Minor**, F-008, corrected in this commit. **ADR-0039/R1 moves from ✗ to ✓**; contract 10 checked, 4 ✓,
+6 ⚠ `no_eligible_fact`, **0 ✗**.
+
+**Arm line numbers derived from the unmodified parse, nothing reused:** `:859 / :878 / :889 / :897`. And a
+correction to my own trap warning — the NAMES-BLIND assert source line occurs **five** times in the file
+(`:816, :859, :914, :960, :1087`), not four; the extra is `:816` in
+`test_it_resets_exactly_the_globals_the_builder_creates`. Every assert was keyed on its own `lineno` lifted
+as a literal, so no by-text or first-occurrence targeting was used anywhere.
+
+**The pointer arm: all four required readings plus both extras.** SHIPPED **PASS**; POINTER-ROT **RED**;
+POINTER-DEL-WORD **RED**; CONTROLS-RENAME-ONLY **PASS**; CODE-RENAME **RED**; MODULE-MOVE **RED**. All three
+post-conditions exact (ROT → dotted 0 / bare substrings 2; DEL-WORD → whole-word 0 / substrings 1, precisely
+the `Controls` method name; CONTROLS-RENAME-ONLY → dotted 2). **Re-derived a second time with no instrument
+at all**, by compiling `target in guard` straight out of the AST at `:897` and evaluating against mutated
+guard strings — identical. And the one-mutant-is-not-enough point reproduced on a candidate: a word bound
+`\breset_engine\b` **passes** POINTER-ROT and reds only POINTER-DEL-WORD, where the derived dotted path reds
+both.
+
+**The other three arms' rows are unchanged**, with the raw pre-aggregation lists recorded: the PROD name
+cells are `['RED','PASS']` and the GUARD cells `['PASS','RED']` — **ANY-RED is doing real work**, again.
+
+**ADR-0039/R2 holds and the derivation is load-bearing, not relocated** — measured: CODE-RENAME and
+MODULE-MOVE both red, and neither would have been caught by the `__module__`-plus-quoted-literal form. One
+domain note the reviewer added rather than glossed: a bare rename makes `app_session.reset_engine` raise
+`AttributeError` one line earlier, so the *realisable* form of CODE-RENAME is a rename **with an alias or
+re-export left behind** — which is exactly the stale-docstring drift the claim is about. Fail-closed either
+way, never a silent pass.
+
+**The two declared latents: the declaration is honest, neither gates.** L-1 (`AUDIT
+NAME-DEL-BACKTICKED[engine]`) leaves the names arm PASS with backticked occurrences 0 and whole-word
+`engine` at 10 prod / 1 guard — **the PASS is the claim being true, not a control failing to fire**, since
+the text still names the global as a whole word, which is exactly what the row asserts. L-2 (`AUDIT
+HEAD-DEL-FIRST`) leaves `setattr(` at 5 prod / 3 guard, and a text with 5 occurrences still *shows* the
+spelling; nothing shipped claims an occurrence count. The reviewer adversarially tested the one strained
+reading that could make L-1 gating — F-004's clause *"reword one of the three away and that control reds,
+per name"* — and refuted it on the clause's own scope. Both go to CARD-259, which already takes these texts.
+
+**A third latent found and recorded, not filed (L-3):** `target in guard` is still a substring test, so an
+identifier strictly *extending* the dotted path (`…reset_engine_pool`) would satisfy it without being a
+pointer. Measured: **0** such occurrences in the guard text, 0 in the production text, **0 anywhere under
+`src/` or `tests/`**. F-006's defect had a live carrier; this one has none, so it is a measured bound rather
+than a finding. A right lookahead closes it and stays PASS on SHIPPED — cheap, added to CARD-259.
+
+**F-008 (Minor, corrected in this commit)** — `CARD-257.md:388` said *"the AC-2 control holds the guard's
+text to the names **in double backticks**, which the scan does not count"*. Read descriptively that is a
+true compression of the control's docstring; read as what the control **enforces** it is false, and measured
+so: `AUDIT NAME-DEL-BACKTICKED[engine]` leaves the names arm PASS with backticked occurrences at 0. The arm
+reads a **word-bounded bare name anywhere in the text**; the backticks are irrelevant to it. **I had written
+that compression at three sites and all three are now corrected** — same class as F-002/F-003, and the same
+lesson: a sentence I wrote to summarise a control became a claim about the control.
+
+**My card-body corrections: none is wrong.** All five re-derived with the reviewer's own `ast`+`tokenize`
+split, computing **both** methods side by side rather than re-running the card's defective formula —
+after-prose 568 ✓; `+25` ✓; control B docstring 63→47 ✓ (and control A 125→107 / 37→30, class docstring
+116→59 also hold); the `session.py` row 63 / 4.51 ✓ (the card's own formula gives 393−284−46 = 63, and
+284/63 = 4.51), with the footnote's set-based **86 before and 86 after** ✓ and the guard file's 494 → 521 ✓;
+the residue's "two of its three" with the third named correctly ✓. The restated AC-2 matrix and the four arm
+line numbers match the reviewer's grid cell for cell.
+
+**Guardrails, all re-derived:** `session.py` byte-unchanged (0 files under `src/`, blob `a32bae5b` identical
+across `daa721ae^..daa721ae`); AST dump **9154**, sha256 `bdb10905…`, identical on HEAD and main; tree sweep
+**9 / 6 / True / 0**; **0** banned codepoints among the 23 added lines and **3** tree-wide, all U+2022 in
+`pdf_generator.py`; G-4 `pyproject.toml` untouched, no import added. **G-2 with its domain stated, which is
+the habit this wave built:** no `def test_` added or removed in the delta, **13 passed / 0 skipped** at both
+shas — and *13 is a pytest collection count*, where the file holds **15** `def test_` occurrences, two of
+them inside embedded probe strings, the same 15 at both shas.
+
+**[A fifth form of the instrument trap, caught by the reviewer in its own work]** Its first head-deletion
+mutant deleted the literal `.SessionLocal` and returned only **2 of 4** cells RED. Re-run solo: **neither
+raw text contains that literal** — both write `.<name>` once and the arm substitutes the placeholder before
+scanning. So the faithful mutant must delete the head **as the text shows it**, placeholder form included;
+with that, all four cells red, each carrying a post-condition that the substituted text genuinely no longer
+shows the head. **A no-op mutant and a surviving mutant look identical** — exactly like a leaked patch and a
+real kill. The leak hazard itself was handled: a fixed snapshot of all six patched attributes restored after
+every mutant, and SHIPPED re-run all-PASS **between** mutants, all 22 times.
+
+**Eight adversarial false positives dropped**; the board's ledger stays at 13.
