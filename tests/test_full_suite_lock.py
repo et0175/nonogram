@@ -481,10 +481,16 @@ OVERRIDE_PROSE = ("meta/kanban/cards/", "meta/review/")
 #: The prefixes' trailing slashes are load-bearing in the same way:
 #: ``meta/review-archive/`` and ``meta/reviews/`` do not match them.
 #:
-#: These two shapes are the whole tracked population of those directories, not
-#: a guess at it: ``git ls-files meta/kanban/cards meta/review`` in the main
-#: checkout is 256 ``.md`` and 286 ``.yml`` files and nothing else. A prose
-#: file in a third format is a one-word edit here *and* a deliberate one.
+#: These two shapes are the whole tracked population of those directories, and
+#: that is held by an equality rather than counted here: the shape equality in
+#: :func:`test_the_exempted_prefixes_hold_nothing_a_shell_can_run` holds
+#: ``git ls-files`` over both prefixes to exactly these two suffixes, over the
+#: same population as the mode equality beside it and out of the same call. No
+#: census figure is quoted here, on purpose: the population grows with every
+#: card — the figure this comment carried was the card's drafting measurement
+#: and was already stale when cycle 1 recomputed it — and nothing recomputes a
+#: number written in a comment. A prose file in a third format reds that
+#: equality: a one-word edit here *and* a deliberate one.
 PROSE_SHAPES = (".md", ".yml")
 
 
@@ -503,11 +509,17 @@ def _scan(cwd):
     ).stdout.split()
 
 
-def _tracked_modes(cwd):
-    """The git index mode of every tracked file under the exempted prefixes.
+def _tracked_index(cwd):
+    """The git index mode *and* path of every tracked file under the prefixes.
 
-    One definition for the equality over the real tree and for its own control
-    in a throwaway repo, so the two cannot drift apart.
+    One definition for the equalities over the real tree and for their own
+    control in a throwaway repo, so the two cannot drift apart — and one
+    ``git ls-files`` call behind both the mode equality and the shape equality,
+    so those two can never be measured over different populations.
+
+    ``ls-files -s`` prints ``<mode> <sha> <stage><TAB><path>``, so the mode
+    comes off the whitespace split and the path off the tab, not off
+    ``split()[3]``: a tracked path may contain spaces.
     """
     listed = subprocess.run(
         ["git", "ls-files", "-s", *OVERRIDE_PROSE],
@@ -516,7 +528,7 @@ def _tracked_modes(cwd):
         text=True,
         check=True,
     ).stdout.splitlines()
-    return [line.split()[0] for line in listed]
+    return [(line.split()[0], line.split("\t", 1)[1]) for line in listed]
 
 
 def _scan_offenders(paths):
@@ -575,6 +587,25 @@ def test_nothing_in_the_tree_sets_either_of_the_guards_env_switches():
     invisible to it. And the gate scripts live outside the repo (the
     orchestrator's scratchpad), so they cannot be held by this test at all —
     that they set neither name is checked by reading them, not here.
+
+    **The two conftest arms at the end are subsumed, and that is measured.**
+    ``tests/conftest.py`` is tracked, is not in :data:`OVERRIDE_NAMERS` and
+    sits under neither prose prefix, so a conftest that named either switch
+    would already be in ``offenders`` and the assertion above it would have
+    failed first: in a plain run they are only reached when they are
+    guaranteed to pass. The per-assertion instrument says the same thing
+    rather than leaving it to be argued — every mutant that reds either arm
+    (a conftest that names the path variable, a conftest that names the
+    override) reds ``not offenders`` too, and no mutant in the set reds an arm
+    on its own.
+
+    They are kept for the one reach the scan does not have, which is their
+    whole justification and all of it: ``git grep`` reads tracked files, and
+    ``read_text`` reads the file. An **untracked** ``tests/conftest.py``
+    naming a switch is invisible to the scan and visible to these two arms.
+    That state is one this test cannot create — it would have to untrack a
+    file in the live tree — so the reach is a **declared bound**, not a
+    controlled one: these arms cover it, and nothing here proves they do.
     """
     hits = _scan(REPO)
 
@@ -664,7 +695,7 @@ def test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught(tmp_pa
         "the per-card prose the exemption exists for is no longer exempt"
     )
 
-    assert "100755" in _tracked_modes(repo), (
+    assert "100755" in [mode for mode, _ in _tracked_index(repo)], (
         "the mode axis cannot be measured: this repo holds an executable under an "
         "exempted prefix and git does not record it, so the equality in "
         "test_the_exempted_prefixes_hold_nothing_a_shell_can_run cannot fail and "
@@ -688,8 +719,19 @@ def test_the_exempted_prefixes_hold_nothing_a_shell_can_run():
     prose" a measured claim; the first file that changes that reds this test,
     where the question "should the exemption see a file's mode?" can be
     answered on purpose instead of in silence.
+
+    The *shape* half of the exemption is held here too, over the same
+    population and out of the same call, because cycle 1's F-003 found it
+    stated as a census in :data:`PROSE_SHAPES`' comment with nothing
+    recomputing it — the counts there had gone stale between drafting and
+    review. An equality over the suffixes says the same thing and cannot go
+    stale: the exemption grants exactly the shapes those directories hold.
+    Measured, not asserted: the mutant that points :data:`PROSE_SHAPES` at
+    other suffixes reds it, as does the one that empties this call's pathspec
+    and the one that reports one path for every entry.
     """
-    modes = _tracked_modes(REPO)
+    index = _tracked_index(REPO)
+    modes = [mode for mode, _ in index]
 
     assert len(modes) >= 500, (
         f"the exempted prefixes hold {len(modes)} tracked files; the population this "
@@ -701,6 +743,16 @@ def test_the_exempted_prefixes_hold_nothing_a_shell_can_run():
         f"{sorted(set(modes))} under {OVERRIDE_PROSE}: something a shell can run sits "
         "under a prefix the scan exempts by extension, so an executable .md/.yml setter "
         "there would be absorbed"
+    )
+
+    shapes = {Path(path).suffix for _, path in index}
+
+    assert shapes == set(PROSE_SHAPES), (
+        f"{sorted(shapes)} under {OVERRIDE_PROSE} against an exemption for "
+        f"{sorted(PROSE_SHAPES)}: the prefixes no longer hold exactly the shapes the "
+        "exemption grants, so the clause is either exempting a shape that is not there "
+        "or missing one that is — and a prose file in a third format is a deliberate "
+        "edit to PROSE_SHAPES, not a silent pass"
     )
 
 
@@ -990,6 +1042,21 @@ def test_a_gate_running_under_its_own_lock_is_not_refused(tmp_path):
     This is the whole reason the test needs two holder identities: with the
     lock naming *this* tree, the run must go through, and a guard that treats
     every lock as foreign reds here while the refusal above stays green.
+
+    **The silence assertion is a closed enumeration, and that is its bound.**
+    It read ``"full-suite lock" not in combined`` until CARD-256, which could
+    not survive here: this run redirects the lock path by construction (it may
+    not read the board's own lock) and so now carries the redirect note, which
+    opens with that very phrase. What replaced it is a hand-written list of
+    the three phrases :func:`guard.verdict` can return today — ``"Refusing to
+    start"`` (the refusal), ``"running anyway"`` (the override) and ``"stale"``
+    (the walked-past stale lock). A **fourth** verdict message added later
+    would be printed on this self-run and neither this test nor
+    :func:`test_a_tree_with_no_lock_runs_exactly_as_it_did_before` would
+    notice; the old form could not drift that way. Second bound: the loop is a
+    single ``assert``, so a plain run stops at the first phrase that fails and
+    reports only that one — which phrase reds is the per-assertion
+    instrument's business, not this run's.
     """
     lock = tmp_path / "own.full-suite.lock"
     lock.write_text(gate_lock(worktree=str(REPO)))
@@ -1086,6 +1153,13 @@ def test_a_tree_with_no_lock_runs_exactly_as_it_did_before(tmp_path):
     run says so. The production case — the variable unset, nothing said at all
     — is :func:`test_an_ordinary_run_says_nothing_about_where_its_lock_came_from`,
     which is where it can be measured without a lock file anywhere near it.
+
+    The three-phrase silence assertion carries the same two bounds as the one
+    in :func:`test_a_gate_running_under_its_own_lock_is_not_refused`, stated
+    there: the list is a closed enumeration of what :func:`guard.verdict`
+    returns today, so a fourth message would pass this test; and the loop is a
+    single ``assert``, so a plain run reports only the first phrase that
+    fails.
     """
     result = _run_pytest(tmp_path / "there-is-no-lock-here.lock")
     combined = result.stdout + result.stderr
