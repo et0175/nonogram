@@ -75,6 +75,7 @@ __all__ = [
     "main_repo_root",
     "parse_fields",
     "read_lock",
+    "redirect_note",
     "report_line",
     "this_worktree",
     "verdict",
@@ -101,8 +102,17 @@ OVERRIDE = "NONOGRAM_IGNORE_FULL_SUITE_LOCK"
 
 #: Points the guard at a different lock file. Exists for this guard's own
 #: tests: they must never create or delete the board's real lock, because a
-#: gate may be holding it. Unset — which is every real run, gate or agent —
-#: the path is :func:`default_lock_path`, the one file every gate writes.
+#: gate may be holding it. Unset, the path is :func:`default_lock_path`, the
+#: one file every gate writes.
+#:
+#: That it *is* unset on a real run is held rather than asserted, and only as
+#: far as it is measured: no **tracked** file in this tree names it, by
+#: ``test_nothing_in_the_tree_sets_either_of_the_guards_env_switches``, the
+#: same whole-tree scan that holds the override. Untracked files are outside
+#: ``git grep``'s reach and the gate scripts live outside this repo entirely;
+#: those are read, not held. What closes the rest is that a run which does set
+#: it says so — :func:`redirect_note`, for the same reason the override
+#: announces itself.
 LOCK_PATH_VAR = "NONOGRAM_FULL_SUITE_LOCK"
 
 #: How old a lock may be before it is treated as abandoned.
@@ -398,6 +408,35 @@ def report_line() -> str | None:
     return _ANNOUNCEMENT
 
 
+def redirect_note() -> str | None:
+    """What a run whose lock path was redirected has to say, or ``None``.
+
+    :data:`LOCK_PATH_VAR` decides which file the verdict is taken from, and
+    until CARD-256 it decided it in silence. Pointed at a path holding no
+    lock, the guard answered ``386 passed``, ``current_verdict() ==
+    (True, None)`` and ``report_line() is None`` — so on a board where the
+    real file would have refused the run, that is a run allowed that should
+    have been refused, printing nothing at all.
+
+    The redirection stays — these tests may never create or delete the board's
+    own lock — so what is added is the sentence, for the reason the override
+    has one: a switch that changes this guard's verdict without saying so is
+    indistinguishable from the guard not working.
+
+    ``None`` whenever the variable is unset or empty — every run nothing has
+    redirected, which :data:`LOCK_PATH_VAR` says how far is held. ``if named``
+    is the same reading :func:`lock_path` gives the value, so the note cannot
+    claim a redirection that did not happen.
+    """
+    named = os.getenv(LOCK_PATH_VAR)
+    if not named:
+        return None
+    return (
+        f"full-suite lock: reading the lock from {named}, not the board's own "
+        f"{default_lock_path()} — {LOCK_PATH_VAR} is set"
+    )
+
+
 def pytest_configure(config) -> None:
     """Stop the run before collection while another worktree holds the lock.
 
@@ -409,7 +448,8 @@ def pytest_configure(config) -> None:
     global _ANNOUNCEMENT
 
     allowed, said = current_verdict()
-    _ANNOUNCEMENT = said if allowed else None
+    lines = [line for line in (redirect_note(), said) if line] if allowed else []
+    _ANNOUNCEMENT = "\n".join(lines) or None
     if not allowed:
         raise pytest.UsageError(said)
 

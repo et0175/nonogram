@@ -461,8 +461,15 @@ OVERRIDE_NAMERS = frozenset(
 #: reports. Prefixes, because the filenames are per-card.
 OVERRIDE_PROSE = ("meta/kanban/cards/", "meta/review/")
 
-#: The shapes those two directories are exempted *for*: prose, never anything
-#: a shell can run. A bare prefix exempts a whole directory and says nothing
+#: The shapes those two directories are exempted *for*. The clause bounds the
+#: **extension** and nothing else: an executable ``.md`` or ``.yml`` under
+#: either prefix is exempted too, probed live at mode 100755. What closes that
+#: axis is a separate equality — every file git tracks under the two prefixes
+#: is mode ``100644`` today
+#: (:func:`test_the_exempted_prefixes_hold_nothing_a_shell_can_run`), so a
+#: file that changes it reds that test instead of slipping past this clause.
+#:
+#: A bare prefix exempts a whole directory and says nothing
 #: about a file's shape, so a runner dropped into either one would set the
 #: override for every run through it and leave this scan green. Probed, not
 #: reasoned about: two executable ``run-the-suite.sh`` files, one under each
@@ -481,16 +488,53 @@ OVERRIDE_PROSE = ("meta/kanban/cards/", "meta/review/")
 PROSE_SHAPES = (".md", ".yml")
 
 
-def _override_offenders(paths):
-    """Of the scanned files that name the override, the ones with no business.
+def _scan(cwd):
+    """Every tracked file naming either of the guard's two env switches.
+
+    One definition for both scans below — the tree scan and its control — so
+    the mutant that drops a name from it is a single edit and both of them
+    red on it. ``git grep -l -e A -e B`` is the union, not an intersection.
+    """
+    return subprocess.run(
+        ["git", "grep", "-l", "-e", guard.OVERRIDE, "-e", guard.LOCK_PATH_VAR],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+
+
+def _tracked_modes(cwd):
+    """The git index mode of every tracked file under the exempted prefixes.
+
+    One definition for the equality over the real tree and for its own control
+    in a throwaway repo, so the two cannot drift apart.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "-s", *OVERRIDE_PROSE],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+    return [line.split()[0] for line in listed]
+
+
+def _scan_offenders(paths):
+    """Of the scanned files that name a switch, the ones with no business.
 
     Two exemptions, each bounded on an axis it can be bounded on.
     :data:`OVERRIDE_NAMERS` is an equality over three exact paths — the shape
     ADR-0039/R3 asks for. :data:`OVERRIDE_PROSE` cannot be an equality (the
     filenames under it are per-card and are created after this test is
     written), so it is bounded on the other axis instead, by
-    :data:`PROSE_SHAPES`: prose exempts prose, and an executable under an
-    exempted prefix is still an offender.
+    :data:`PROSE_SHAPES`: prose exempts prose *by extension*, so a ``.sh``
+    under an exempted prefix is still an offender — an executable ``.md`` is
+    not, and the mode axis is closed by an equality of its own rather than by
+    this clause (see :data:`PROSE_SHAPES`). Both halves of the clause are
+    load-bearing and both are controlled: without ``endswith`` the exemption
+    takes in a runner under either prefix, and without ``startswith`` it
+    becomes "any prose shape anywhere" and takes in ``ci/forge-ci.yml`` and
+    ``.github/workflows/*.yml``.
     """
     return [
         path
@@ -500,8 +544,20 @@ def _override_offenders(paths):
     ]
 
 
-def test_nothing_in_the_tree_sets_the_override_for_a_run():
-    """AC-4's premise: an override the producers set is not an override.
+def test_nothing_in_the_tree_sets_either_of_the_guards_env_switches():
+    """AC-1/AC-4's premise: a switch the producers set is not a switch.
+
+    CARD-256 widened this from the override alone (it was
+    ``test_nothing_in_the_tree_sets_the_override_for_a_run``) to both of the
+    guard's env switches, because the second one is the silent one and had no
+    scan at all. The route is the same file: ``scripts/run_admin_tests.sh`` is
+    an in-tree pytest wrapper with a block of ``export``s, and an
+    ``export NONOGRAM_FULL_SUITE_LOCK=<a path holding no lock>`` there would
+    make every verdict "no lock, go ahead" for every run through it. CARD-255
+    cycle 2 proved this scan reds when the *override* is exported in such a
+    file; that it reds on the other name too is measured, as the mutant that
+    drops the second token from :func:`_scan` — it reds the control below.
+    Two tokens, one scan, the same exemptions.
 
     The scan is the **whole tree**, because that is the claim. A hand-written
     pathspec (it was ``tests src pyproject.toml``) cannot see
@@ -518,23 +574,20 @@ def test_nothing_in_the_tree_sets_the_override_for_a_run():
     ``git grep`` reads **tracked** files only, so an untracked runner is
     invisible to it. And the gate scripts live outside the repo (the
     orchestrator's scratchpad), so they cannot be held by this test at all —
-    that they do not set it is checked by reading them, not here.
+    that they set neither name is checked by reading them, not here.
     """
-    hits = subprocess.run(
-        ["git", "grep", "-l", guard.OVERRIDE],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-    ).stdout.split()
+    hits = _scan(REPO)
 
-    offenders = _override_offenders(hits)
+    offenders = _scan_offenders(hits)
 
     assert not offenders, (
-        f"{offenders} mention the override; a tree that sets it has no override"
+        f"{offenders} name {guard.OVERRIDE} or {guard.LOCK_PATH_VAR}; a tree that sets "
+        "either one has neither an override nor a guard"
     )
 
     conftest = (REPO / "tests" / "conftest.py").read_text(encoding="utf-8")
     assert guard.OVERRIDE not in conftest
+    assert guard.LOCK_PATH_VAR not in conftest
 
 
 def test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught(tmp_path):
@@ -562,8 +615,18 @@ def test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught(tmp_pa
     setters = {
         "meta/kanban/cards/run-the-suite.sh": f'export {guard.OVERRIDE}=1\nexec pytest "$@"\n',
         "meta/review/run-the-suite.sh": f'export {guard.OVERRIDE}=1\nexec pytest "$@"\n',
+        "meta/kanban/cards/point-the-guard-elsewhere.sh": (
+            f'export {guard.LOCK_PATH_VAR}=/tmp/there-is-no-lock-here\nexec pytest "$@"\n'
+        ),
     }
-    for relative, body in {**prose, **setters}.items():
+    elsewhere = {
+        "ci/forge-ci.yml": f"env:\n  {guard.OVERRIDE}: '1'\n",
+        ".github/workflows/suite.yml": (
+            f"env:\n  {guard.LOCK_PATH_VAR}: /tmp/there-is-no-lock-here\n"
+        ),
+        "docs/running-the-suite.md": f"`{guard.LOCK_PATH_VAR}=/tmp/there-is-no-lock-here pytest`\n",
+    }
+    for relative, body in {**prose, **setters, **elsewhere}.items():
         written = repo / relative
         written.parent.mkdir(parents=True, exist_ok=True)
         written.write_text(body, encoding="utf-8")
@@ -572,24 +635,72 @@ def test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught(tmp_pa
     for command in (["git", "init", "-q"], ["git", "add", "-Af", "."]):
         subprocess.run(command, cwd=repo, check=True, capture_output=True)
 
-    hits = subprocess.run(
-        ["git", "grep", "-l", guard.OVERRIDE], cwd=repo, capture_output=True, text=True
-    ).stdout.split()
+    hits = _scan(repo)
 
-    assert sorted(hits) == sorted({**prose, **setters}), (
-        f"the probe is not what this test thinks it is: git grep saw {hits}"
+    assert sorted(hits) == sorted({**prose, **setters, **elsewhere}), (
+        f"the probe is not what this test thinks it is: the scan saw {hits}"
     )
     assert all(path.startswith(OVERRIDE_PROSE) for path in setters), (
         "the setters no longer sit under the exempted prefixes, so they prove nothing "
         "about the clause that bounds them"
     )
+    assert not any(path.startswith(OVERRIDE_PROSE) for path in elsewhere) and all(
+        path.endswith(PROSE_SHAPES) for path in elsewhere
+    ), (
+        "the files outside the prefixes are no longer prose-shaped, so they prove "
+        "nothing about the clause that bounds the exemption to those two directories"
+    )
 
-    assert sorted(_override_offenders(hits)) == sorted(setters), (
+    assert sorted(_scan_offenders(hits)) == sorted({**setters, **elsewhere}), (
         "an executable setter under an allowlisted prefix was absorbed by the exemption; "
         "the scan above would be green with a live in-tree setter"
     )
-    assert _override_offenders(list(prose)) == [], (
+    assert sorted(_scan_offenders(list(elsewhere))) == sorted(elsewhere), (
+        "a `.md`/`.yml` setter outside both exempted prefixes was absorbed: with the "
+        "prefix half of the clause gone the exemption is 'any prose shape anywhere', "
+        "which takes in ci/forge-ci.yml and .github/workflows/*.yml"
+    )
+    assert _scan_offenders(list(prose)) == [], (
         "the per-card prose the exemption exists for is no longer exempt"
+    )
+
+    assert "100755" in _tracked_modes(repo), (
+        "the mode axis cannot be measured: this repo holds an executable under an "
+        "exempted prefix and git does not record it, so the equality in "
+        "test_the_exempted_prefixes_hold_nothing_a_shell_can_run cannot fail and "
+        "claims nothing"
+    )
+
+
+def test_the_exempted_prefixes_hold_nothing_a_shell_can_run():
+    """The mode axis the extension clause cannot bound, closed by an equality.
+
+    :data:`PROSE_SHAPES` bounds the exemption to ``.md`` and ``.yml``, which
+    is an extension and not a capability: an executable ``.md`` under either
+    prefix is exempted by that clause, and the exemption's own control
+    (:func:`test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught`)
+    cannot see it because it probes the extension axis.
+
+    So the other axis is held here, as the equality ADR-0039/R3 asks for and
+    over the whole tracked population rather than a sample: ``git ls-files -s``
+    over both prefixes, every mode ``100644``. Nothing under those two
+    directories is executable today, which is what makes "prose exempts
+    prose" a measured claim; the first file that changes that reds this test,
+    where the question "should the exemption see a file's mode?" can be
+    answered on purpose instead of in silence.
+    """
+    modes = _tracked_modes(REPO)
+
+    assert len(modes) >= 500, (
+        f"the exempted prefixes hold {len(modes)} tracked files; the population this "
+        "equality was measured over (546) cannot have shrunk by an order of magnitude, "
+        "so the pathspecs no longer name what they did"
+    )
+
+    assert set(modes) == {"100644"}, (
+        f"{sorted(set(modes))} under {OVERRIDE_PROSE}: something a shell can run sits "
+        "under a prefix the scan exempts by extension, so an executable .md/.yml setter "
+        "there would be absorbed"
     )
 
 
@@ -634,6 +745,103 @@ def test_the_lock_path_is_injectable_so_a_test_never_touches_the_real_one(monkey
     monkeypatch.delenv(guard.LOCK_PATH_VAR)
 
     assert guard.lock_path() == guard.default_lock_path(guard.this_worktree())
+
+
+def test_a_redirected_run_says_which_lock_it_read(monkeypatch, tmp_path):
+    """AC-3. The hole F-203 probed, which was the silent kind.
+
+    Pointed at a path holding no lock, the guard reported ``386 passed``,
+    ``current_verdict() == (True, None)`` and ``report_line() is None`` — so
+    on a board where the real file would have refused that run, it is a run
+    allowed that should have been refused, printing nothing at all. That is
+    the certifier's probe, re-run in this card's evidence and now answered
+    with a line. The redirection is not the defect and is not
+    removed here (the tests above need it, and must never touch the board's
+    own lock); the silence is. So what is held is the sentence, and the mutant
+    this test exists for deletes the announcement, not the redirection.
+    """
+    elsewhere = tmp_path / "pretend.lock"
+    monkeypatch.setenv(guard.LOCK_PATH_VAR, str(elsewhere))
+
+    note = guard.redirect_note()
+
+    assert note is not None, "the lock path was redirected and the run said nothing"
+    assert str(elsewhere) in note, "the announcement does not name the lock it read"
+    assert guard.LOCK_PATH_VAR in note, (
+        "the announcement does not name the switch that redirected the guard"
+    )
+    assert str(guard.default_lock_path()) in note, (
+        "the announcement does not say which lock was not read"
+    )
+
+
+def test_an_ordinary_run_says_nothing_about_where_its_lock_came_from(monkeypatch):
+    """AC-3's other half, and the half that rots.
+
+    Unset is the production configuration — the scan above holds that no
+    tracked file in this tree names the variable, and the only setters in the
+    tree are this file's own tests — and a provenance line on an unredirected
+    run would be noise in the output the override and the stale-lock
+    walk-past have to be visible in. This is also the only place the unset
+    case *can* be measured: every real-process case in this file redirects the
+    path by construction, because none of them may read the board's own lock.
+
+    The empty value is the same answer as unset, which is how
+    :func:`guard.lock_path` reads it (``if named:``) — stated here because a
+    line that announced a redirection that did not happen would be a false
+    announcement, the same defect in the other direction.
+    """
+    monkeypatch.delenv(guard.LOCK_PATH_VAR, raising=False)
+
+    assert guard.redirect_note() is None, (
+        "a run reading the board's own lock announced a redirection"
+    )
+
+    monkeypatch.setenv(guard.LOCK_PATH_VAR, "")
+
+    assert guard.redirect_note() is None, (
+        f"{guard.LOCK_PATH_VAR}='' redirects nothing, so there is nothing to announce"
+    )
+
+
+def test_the_summary_hook_says_nothing_when_there_is_nothing_to_say(monkeypatch):
+    """AC-3/AC-5 at the hook: silence is the default, and it is measured here.
+
+    Every real-process case in this file redirects the lock path, so every one
+    of them now has something to announce — which leaves the *silent* branch
+    of :func:`guard.pytest_terminal_summary` unreachable in a subprocess
+    without pointing a run at the board's own lock, and G-5 forbids that. So
+    the hook is called directly, both ways, with a reporter that records what
+    it is handed.
+
+    The mutant this closes prints on every run regardless
+    (``if _ANNOUNCEMENT`` widened): ``write_line`` does not reject ``None``,
+    so under it every ordinary run on the board grows a line reading
+    ``None`` — and nothing in a real-process case here could tell.
+    """
+
+    class Reporter:
+        def __init__(self):
+            self.lines = []
+
+        def write_line(self, line, **_markup):
+            self.lines.append(line)
+
+    quiet = Reporter()
+    monkeypatch.setattr(guard, "_ANNOUNCEMENT", None)
+    guard.pytest_terminal_summary(quiet, 0, None)
+
+    assert quiet.lines == [], (
+        f"a run with nothing to report wrote {quiet.lines} to the summary"
+    )
+
+    loud = Reporter()
+    monkeypatch.setattr(guard, "_ANNOUNCEMENT", "full-suite lock: something happened")
+    guard.pytest_terminal_summary(loud, 0, None)
+
+    assert loud.lines == ["full-suite lock: something happened"], (
+        f"a decision was taken and the summary said {loud.lines}"
+    )
 
 
 def test_the_age_comes_from_the_at_field_the_gates_write(tmp_path):
@@ -732,7 +940,7 @@ def test_the_guard_cannot_turn_a_refusal_into_a_skip():
     The first is a **text** rule over the whole file, prose included: a
     docstring that explained the abort by naming the alternative would red it,
     and that is the intended strictness — it fails in the safe direction. It
-    runs first, so while it passes five of the six names below cannot be
+    runs first, so while it passes five of the seven names below cannot be
     spelled anywhere in the module at all: ``skip``, ``skipif`` and
     ``importorskip`` are forbidden as substrings of ``"skip"``, and
     ``add_marker`` and ``xfail`` by name.
@@ -792,9 +1000,10 @@ def test_a_gate_running_under_its_own_lock_is_not_refused(tmp_path):
     assert result.returncode == 0, combined
     assert "1 passed" in combined
     assert "skipped" not in combined, "the abort became a skip, which is AC-5's whole worry"
-    assert "full-suite lock" not in combined, (
-        "the gate's own run reports a lock verdict nobody needs to read"
-    )
+    for verdict_said in ("Refusing to start", "running anyway", "stale"):
+        assert verdict_said not in combined, (
+            f"the gate's own run reports a lock verdict nobody needs to read: {verdict_said!r}"
+        )
 
 
 def test_a_relative_worktree_value_does_not_disable_the_guard_in_a_real_run(tmp_path):
@@ -842,8 +1051,42 @@ def test_the_override_lets_a_contended_run_through_and_announces_itself(foreign_
     assert guard.OVERRIDE in combined, "the override was used and the run was quiet about it"
 
 
+def test_a_redirected_real_run_announces_it_in_the_terminal_summary(tmp_path):
+    """AC-3 in a real process, at ``-q``, which is where every gate runs.
+
+    ``pyproject`` sets ``addopts = "-q"`` and pytest prints no run header at
+    that verbosity, so the header line :func:`guard.report_line` feeds cannot
+    be where this is proved — the terminal summary is, for the same reason the
+    override's announcement goes through it.
+
+    The lock path here holds no lock at all: that is F-203's probe exactly, a
+    run that would have been refused had it read the board's own file, and the
+    one that used to print nothing.
+    """
+    result = _run_pytest(tmp_path / "there-is-no-lock-here.lock")
+    combined = result.stdout + result.stderr
+
+    assert result.returncode == 0, combined
+    assert "1 passed" in combined
+    assert str(tmp_path / "there-is-no-lock-here.lock") in combined, (
+        "a run that read its lock from somewhere else did not say which file"
+    )
+    assert guard.LOCK_PATH_VAR in combined, (
+        "a redirected run did not name the switch that redirected it"
+    )
+
+
 def test_a_tree_with_no_lock_runs_exactly_as_it_did_before(tmp_path):
-    """AC-5 — the ordinary run: unchanged, and silent about all of this."""
+    """AC-5 — the ordinary run: unchanged, and silent about all of this.
+
+    "Silent" is the **verdict** and the skip profile, which is what CARD-255
+    proved here and what has not moved. Since CARD-256 this run also carries
+    one line it asks for itself: it points :data:`guard.LOCK_PATH_VAR` at a
+    temp path, because it may not read the board's own lock, and a redirected
+    run says so. The production case — the variable unset, nothing said at all
+    — is :func:`test_an_ordinary_run_says_nothing_about_where_its_lock_came_from`,
+    which is where it can be measured without a lock file anywhere near it.
+    """
     result = _run_pytest(tmp_path / "there-is-no-lock-here.lock")
     combined = result.stdout + result.stderr
 
@@ -853,4 +1096,7 @@ def test_a_tree_with_no_lock_runs_exactly_as_it_did_before(tmp_path):
     assert guard.OVERRIDE not in combined, (
         "a run with no lock advertises the override, which is noise on every run"
     )
-    assert "full-suite lock" not in combined
+    for verdict_said in ("Refusing to start", "running anyway", "stale"):
+        assert verdict_said not in combined, (
+            f"a run with no lock in sight reports a verdict: {verdict_said!r}"
+        )

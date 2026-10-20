@@ -338,6 +338,18 @@ script writes that one file, and `tests/full_suite_lock.py` reads that one file
 `NONOGRAM_IGNORE_FULL_SUITE_LOCK`, the override that walks past a lock whose
 holder is gone and announces that it did).
 
+The guard's other switch, `NONOGRAM_FULL_SUITE_LOCK`, points it at a different
+file. It exists so the guard's own tests never create or delete the board's
+real lock, and it is not a thing to reach for by hand: a path holding no lock
+makes every verdict "no lock, go ahead". Since CARD-256 a run that sets it says
+which file it read and which one it did not, in the terminal summary — it
+changes this guard's verdict, so it may not change it quietly. Neither switch
+may be set by anything *in* the tree: one `export` in a pytest wrapper would
+decide it for every run through that wrapper, and
+`test_nothing_in_the_tree_sets_either_of_the_guards_env_switches` greps the
+whole tracked tree for both names (this file is one of the three allowed to
+name them, which is why they are spelled out here).
+
 If anything else was running, **wait and re-run**. Do not record the number.
 An artefact that cannot honestly say `solo run: yes` is not a profile.
 
