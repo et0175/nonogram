@@ -1,0 +1,369 @@
+version: 1
+generated_at: "2026-10-20T06:58:28Z"
+target: "card/255-full-suite-lock-is-enforced @ 346671ed (parent 3711af2b, base a60d53a4) — CARD-255 cycle 2 of 3, CERTIFICATION (confirmation mode over the fix delta: tests/full_suite_lock.py, tests/test_full_suite_lock.py, tests/README.md)"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/full_suite_lock.py
+    - tests/test_full_suite_lock.py
+    - tests/README.md
+    - tests/conftest.py
+    - tests/database_guard.py
+    - scripts/run_admin_tests.sh
+    - meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
+    - meta/kanban/cards/CARD-255.md
+    - meta/kanban/config.yml
+    - meta/review/20261020T062654Z-CARD-255-cycle1.yml
+    - "the five lock-writing gate scripts (gate.sh, gate-225.sh, gate-247.sh, gate-250.sh, gate-251.sh) — the lock's producers; gate248.sh writes no lock"
+  not_reached:
+    - "the full suite (forbidden by the brief; the gate ran 8619 passed at the pre-fix commit 3711af2b)"
+    - "tests/test_db_isolation.py AC-6 two-tree arms (db_required; the derived database does not exist on this host) — unchanged by this delta"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 304, removed: 30 }
+  max_fan_in:
+    symbol: "tests.full_suite_lock.verdict (via current_verdict -> pytest_configure)"
+    callers: 1
+    note: >-
+      One call site (tests/conftest.py:96), but the blast radius is every pytest
+      session in this repository: the pre-fix gate collected 8619 tests and every
+      gate and every agent selection passes through this call. _names_a_tree, new
+      in this delta, has exactly one production caller (tests/full_suite_lock.py:321)
+      and one direct test.
+  tests_cover_change: true
+  hotspots:
+    - "tests/README.md — 9 commits/12mo, 2 fix-shaped; the only delta file with history (the two guard files are 2 commits old, both from this card)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — tests/full_suite_lock.py and tests/test_full_suite_lock.py
+      were created by this card (2 commits each, both this card's), so their 12-month
+      co-change set is only each other and tests/README.md, all three present in this
+      delta. There is no peer to be missing. (Cycle 1's peer, scripts/run_admin_tests.sh,
+      is now covered by the widened scan rather than by being edited — see F-004's verdict.)
+    bus_factor: >-
+      no_eligible_fact — git shortlog returns no authors for the delta files in the
+      window (single-committer board, identities not attributed per file)
+    db_mode_regression: >-
+      provider_unavailable — nonogram_pythonproject4_card_255_410d375ffae9_test does
+      not exist on this host, so DB-mode arms skip; expected, not a regression
+    timing: >-
+      not_applicable — the brief forbids timing measurements (a CARD-254 fix cycle is
+      live on this host). Elapsed-time lines that differ between runs below are reported
+      as incidental noise, never as a measurement.
+
+system_contract:
+  rules_checked: 5
+  holds: 4
+  unchecked: 0
+  violated: 1
+  verdicts:
+    - "ADR-0038/R7 ✓ holds — pytest-playwright/Chromium stays a dev-only extra: pyproject.toml is in neither the delta nor the card. Re-derivable: `git diff --stat 3711af2b 346671ed` = 3 files (tests/README.md, tests/full_suite_lock.py, tests/test_full_suite_lock.py); `git diff --stat a60d53a4 346671ed` = 5 files, pyproject.toml absent from both. G-3 holds with it: the guard still imports calendar/os/time/pathlib only (tests/full_suite_lock.py:62-65) and the delta's one new import is stdlib `ast` (tests/test_full_suite_lock.py:47)."
+    - "ADR-0038/R8 ✓ holds — re-derived fresh on a five-file db-bearing selection of my own choosing (tests/test_card_156_db_fixture.py, tests/test_card_109_database_guard.py, tests/test_db_connect_timeout.py, tests/test_db_e2e_smoke.py, tests/test_puzzle_edit_routes.py) with DATABASE_URL unset: 108 passed, 12 skipped, exit 0, and the skip carries a named reason — `SKIPPED [12] tests/conftest.py:193: Database not reachable: DATABASE_URL is not set`. Output is byte-identical to the same selection under the a60d53a4 pristine conftest (no guard at all) except that one line number (193 vs 177) and the elapsed-time line. Nothing passes silently, and the refusal itself is loud: exit 4 probed live with an injected foreign lock."
+    - "ADR-0039/R1 ✓ holds — every claim the delta's code makes about what the guard catches now has a control that can fail. 13 mutants run, 13 killed: M-A (isabs clause deleted -> 3 failed), M-B / M-B2 (prefix match, both directions -> the direct table reds in each direction at the assertion that names it), M-C / M-C2 (realpath deleted -> trailing-slash assertion), M-C3 / M-J (expanduser deleted -> the `~` assertions), M-I (realpath -> normpath -> killed ONLY by the symlink assertion, so F-003's claim has a uniquely live control), M-D (read_lock OSError -> None), M-E (negative-age branch deleted), M-F (the refusal stops distinguishing a relative value from a missing one -> 2 failed), M-G (abort via pytest.exit -> killed ONLY by the new AST rule), M-H (NE-runner: `export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1` appended to scripts/run_admin_tests.sh -> reds post-fix, GREEN under the cycle-1 test body). Cycle 1's three survivors are all dead. Residual, filed Minor rather than as an R1 violation because neither is a claim about what the guard catches: the `=0`-turns-the-override-on spelling (M-K survived, 30 passed) and the documented exit code 4 have no control."
+    - "ADR-0039/R2 ✓ holds — cycle 1's violation is closed at tests/full_suite_lock.py:226-234 and :321-322: a `worktree:` value that cannot be resolved to a tree — missing OR relative — now takes one refusal branch, and the refusal names which of the two it was. Re-derived live over 18 adversarial shapes (see F-004/F-001 verdict lines and the equivalence section of the markdown report): `worktree: .` in a real run exits non-zero with `not an absolute path` in the output. And the override scan's set is now derived from an authority the runtime can enumerate (`git grep` over the tracked tree) instead of a hand-written pathspec, with the tracked-only and out-of-repo bounds stated in the docstring."
+    - "ADR-0039/R3 ✗ violated — tests/test_full_suite_lock.py:411-414 and :447-451: the F-004 fix introduced a SECOND exemption — `OVERRIDE_PROSE = ('meta/kanban/cards/', 'meta/review/')`, matched by `path.startswith(...)` — which carries no control for what it must not absorb and no equality against the shapes that exist today (only `.md` under cards/ and `.yml` under review/). Probed live: two executable `export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1` shell scripts placed at meta/kanban/cards/run-the-suite.sh and meta/review/run-the-suite.sh, both visible to `git grep`, and test_nothing_in_the_tree_sets_the_override_for_a_run stayed GREEN (1 passed). This is the shape the rule's own comment names as its counter-example: 'the fix for a too-narrow predicate added an exemption that re-opened the same route one hoist later, and its controls tested only what it exempted.' Finding F-101."
+
+root_causes:
+  - id: RC-1
+    title: "An exemption added by the F-004 fix is wider than the shapes it justifies, and has no control — second generation of cycle 1's ADR-0039 family"
+    finding_ids: [F-101]
+  - id: RC-2
+    title: "Three documented claims in the delta are stated in prose and have no control that can fail (override value semantics, the exit code, the AST rule's independent reach)"
+    finding_ids: [F-102, F-103, F-104]
+
+findings:
+  - id: F-101
+    severity: high
+    category: ops
+    type: gap
+    file: tests/test_full_suite_lock.py
+    line: 414
+    title: "The override scan's new prose allowlist exempts two whole directories by prefix, with no control and no equality against the shapes that exist there"
+    description: |
+      The F-004 fix did the right thing to the scan — it is now the whole tracked
+      tree, and M-H proves it (an `export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1`
+      appended to scripts/run_admin_tests.sh reds the test post-fix and was GREEN
+      under the cycle-1 body). But it paid for that reach with a new exemption:
+
+          OVERRIDE_PROSE = ("meta/kanban/cards/", "meta/review/")
+          ...
+          if path not in OVERRIDE_NAMERS and not path.startswith(OVERRIDE_PROSE)
+
+      `OVERRIDE_NAMERS` is three exact paths — an equality, which is what
+      ADR-0039/R3 asks for. `OVERRIDE_PROSE` is two open-ended directory
+      prefixes with no constraint on the file's shape, and nothing tests that it
+      cannot absorb a real setter.
+
+      Probed live in this worktree, not reasoned about:
+
+          meta/kanban/cards/run-the-suite.sh   (chmod +x)
+          meta/review/run-the-suite.sh         (chmod +x)
+          both containing: export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1
+                           exec pytest "$@"
+          git add -N both  ->  git grep -l NONOGRAM_IGNORE_FULL_SUITE_LOCK
+                               lists both
+          pytest tests/test_full_suite_lock.py::test_nothing_in_the_tree_sets_the_override_for_a_run
+          ->  1 passed
+
+      Two live in-tree setters, test green. (Both files removed and the index
+      reset afterwards; `git status` verified clean.)
+
+      This is cycle 1's standard applied to the new clause, not a higher one:
+      F-004 gated on the fact that an export in scripts/run_admin_tests.sh
+      *would* switch the guard off and leave the test green — nobody had
+      actually written one. The same sentence is now true of two directories
+      instead of one file.
+
+      It is also the exact shape ADR-0039/R3's own comment records as the reason
+      the rule exists: "CARD-239 cycle 2 is the counter-example this rule exists
+      for: the fix for a too-narrow predicate added an exemption that re-opened
+      the same route one hoist later, and its controls tested only what it
+      exempted." R3 is `severity: mandatory`.
+
+      What is NOT the finding: the prefixes are correctly spelled with trailing
+      slashes, so a sibling directory (`meta/review-archive/`, `meta/reviews/`)
+      does not match — checked. And both prefixes are load-bearing, not
+      speculative: in this worktree `git grep` hits
+      meta/kanban/cards/CARD-255.md, and in the main checkout it also hits the
+      tracked meta/review/20261020T062654Z-CARD-255-cycle1.yml. Per-card
+      filenames are why a prefix was reached for; the problem is only that the
+      prefix was not bounded to the shapes those directories hold.
+    suggestion: |
+      One clause, and it restores the equality R3 asks for while keeping the
+      per-card flexibility the prefix was reached for:
+
+          PROSE_SHAPES = (".md", ".yml")
+          ...
+          and not (path.startswith(OVERRIDE_PROSE) and path.endswith(PROSE_SHAPES))
+
+      Its control is the probe above, as a test: write an executable
+      `*.sh` naming the override under each exempted prefix (tmp_path plus a
+      monkeypatched REPO, or `git add -N` in a throwaway clone), and assert the
+      offender list is non-empty. That is "caught with the exemption removed,
+      missed with it in place" for the new exemption, which is what the existing
+      M-H control does for the scan but not for the allowlist.
+    confidence: high
+    source: model
+    violates: ADR-0039/R3
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: ops
+    type: risk
+    file: tests/full_suite_lock.py
+    line: 89
+    title: "Mutation survivor: the documented '=0 turns the override on' semantics has no control"
+    description: |
+      F-006 was closed by saying it out loud at the definition (lines 89-93).
+      The claim itself is true and the cross-module claim inside it checks out —
+      tests/database_guard.py:103 really does read its opt-out as
+      `opted_out=bool(os.getenv(OPT_OUT))`, so the two guards do share one
+      convention. Judged on the brief's own question ("is said-out-loud
+      sufficient — `=0` turning the override ON is the kind of thing that
+      surprises someone at 2am"): it is sufficient for discoverability and
+      insufficient as coverage.
+
+      Mutant M-K — `overridden=bool(os.getenv(OVERRIDE))` (line 383) tightened to
+      `os.getenv(OVERRIDE) in {"1", "true", "yes", "on"}` — SURVIVED: 30 passed.
+      Every override test either passes a bool straight into the pure `verdict()`
+      or sets the variable to `"1"` in a child process, so the value semantics
+      the docstring now documents are exercised by nothing, in either direction.
+      A future card that "tidies" this to a truthy set would change a documented
+      behaviour with the suite green.
+
+      Not escalated: the behaviour is right for this board (one convention with
+      database_guard), it fails in the loud direction (an overridden run
+      announces itself through pytest_terminal_summary in exactly the case that
+      matters — a lock being walked past), and cycle 1 filed and the owner
+      accepted it as `low`. Reported because a mutant survived and a survivor is
+      reported.
+    suggestion: |
+      One parametrised test over `current_verdict()` with a monkeypatched env:
+      `("1", True), ("0", True), ("false", True), ("", False)` against a foreign
+      lock, asserting `allowed` — which pins the spelling the docstring claims
+      and kills M-K.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: ops
+    type: gap
+    file: tests/test_full_suite_lock.py
+    line: 573
+    title: "The documented exit code 4 has no control: `returncode != 0` accepts pytest.exit"
+    description: |
+      The card's "What a gate sees now" block states the refusal is "exit 4,
+      before collection", and exit 4 is what the guard actually produces
+      (`pytest.UsageError` -> USAGE_ERROR; probed live here with an injected
+      foreign lock: EXIT=4). No test holds it. All six real-run assertions are
+      `result.returncode != 0` / `== 0` (lines 573, 631, 653, 667, 678, 689).
+
+      Measured, not asserted: mutant M-G replaced
+      `raise pytest.UsageError(said)` with `pytest.exit(said)` — exit code 2,
+      not 4 — and every real-run test stayed green; only the new AST rule
+      reddened. So the exit *code* claim has no control at all, and the only
+      thing standing between it and a silent change is a text/AST rule about
+      the word "exit".
+
+      Low because nothing consumes the code: all five gate scripts record
+      `EXIT=$?` and none branches on 4 (read). It is a claim in card prose with
+      no mechanism, which on this board is a family worth naming even when the
+      blast radius is a log line.
+    suggestion: |
+      Change the AC-1 real-run assertion to `result.returncode == 4` (and say in
+      one line why 4: UsageError is the only outcome, and a different code means
+      the abort moved to a different mechanism).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: ops
+    type: risk
+    file: tests/test_full_suite_lock.py
+    line: 611
+    title: "F-008's new AST rule reaches exactly one name past the text rule it sits behind"
+    description: |
+      The fix added, inside test_the_guard_cannot_turn_a_refusal_into_a_skip, an
+      AST pass asserting no call in the module resolves to
+      {skip, skipif, importorskip, xfail, add_marker, exit}, with the docstring
+      framing it as "the claim itself, read off the module's syntax".
+
+      Judged against that framing: the text rule immediately above it (lines
+      606-610) already asserts the substrings "skip", "add_marker" and "xfail"
+      are absent from the whole file, and it runs first in the same test. So five
+      of the AST rule's six names cannot fire — if the text rule passes, no call
+      can be spelled `skip`, `skipif`, `importorskip`, `xfail` or `add_marker`.
+      The AST rule's only independent member is `exit`.
+
+      That one member is demonstrably live, which is why this is a note and not a
+      violation: mutant M-G (`raise pytest.UsageError(said)` ->
+      `pytest.exit(said)`) was killed by the AST rule and by nothing else —
+      1 failed, every real-run test green. So the fix did buy a control that did
+      not exist, just a narrower one than the docstring implies.
+    suggestion: |
+      Either say in the docstring that the AST rule's reach past the text rule is
+      the non-skip exit APIs (and widen it to the ones that matter: `exit`,
+      `Exit`, `wasxfail`), or drop "skip"/"skipif"/"importorskip" from
+      forbidden_apis so the two rules do not overlap and each one's reach is
+      readable.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-105
+    severity: low
+    category: ops
+    type: risk
+    file: tests/README.md
+    line: 311
+    title: "The new `trap ... EXIT` stays armed for the profiler's whole shell and can delete a gate's lock"
+    description: |
+      F-010's fix added `trap 'rm -f "$LOCK"' EXIT` to the profiling snippet, at
+      top level. The trap is armed when the line runs and stays armed until that
+      shell exits — not until the profile ends. The snippet is pasted into an
+      interactive shell (the section's own framing: "Take the lock for the
+      duration ... and remove it when done"), so the sequence
+
+          human profiles, deletes the lock with the documented `rm -f`,
+          keeps the terminal open;
+          a gate takes meta/kanban/.full-suite.lock;
+          the human closes the terminal
+
+      fires the trap and deletes a LIVE gate's lock, switching this guard off for
+      the remainder of that gate — the silent direction this card exists to
+      close, reached through the fix for the finding about the opposite direction.
+
+      Narrow (it needs that ordering) and strictly better than cycle-1's
+      no-trap state in the Ctrl-C case it was written for. Reported because the
+      snippet is now load-bearing and because `rm -f` on a path the shell does
+      not own is what makes it reach past the profile.
+    suggestion: |
+      Scope the trap to the profile rather than the shell — either run the block
+      in a subshell, `( trap 'rm -f "$LOCK"' EXIT; ...; )`, or add `trap - EXIT`
+      on the line after the documented `rm -f "$LOCK"`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: info
+    category: ops
+    type: question
+    file: tests/full_suite_lock.py
+    line: 226
+    title: "The one real-producer shape whose verdict the isabs clause changes: gate.sh invoked with a relative worktree argument"
+    description: |
+      Answering the brief's question directly — is there a lock a real producer
+      could write that the guard now refuses and previously allowed? Yes, exactly
+      one: `gate.sh <worktree> <out> <why>` takes its worktree as an argument
+      (`WT="$1"`, gate.sh:5) and writes `worktree: $WT` verbatim, then `cd "$WT"`
+      and runs pytest there. Invoked relatively —
+      `gate.sh ../PythonProject4-card-255 out.txt "build gate"` — the lock reads
+      `worktree: ../PythonProject4-card-255`, and from inside that worktree that
+      value resolves to the worktree itself. Probed: pre-fix True (the gate's own
+      run proceeds), post-fix False (the gate refuses itself at exit 4, naming
+      `'../PythonProject4-card-255' is not an absolute path`).
+
+      This is the intended direction and not a defect: pre-fix that same lock
+      ALSO resolved to every other worktree's own path, so it disabled the guard
+      board-wide in silence (F-001). Loud self-refusal with the reason printed is
+      the better of the two. Recorded so the orchestrator knows the standing
+      requirement explicitly: keep passing gate.sh an absolute worktree. The four
+      dedicated scripts hardcode absolute paths; gate.sh is the only one that
+      could be called otherwise, and it lives outside the repo where no test can
+      reach it.
+
+      Also recorded here: the directory-at-the-lock-path trick in
+      test_a_lock_that_cannot_be_read_is_not_the_same_as_no_lock does exercise the
+      `except OSError` branch (M-D killed it through both of its assertions), but
+      the docstring's stated reason for preferring it over `chmod 0o000` is not
+      reproducible on this host — `chmod 000` then `read_text()` raises
+      PermissionError for euid 501 here. The claim is about other hosts (root,
+      some ACL/NFS setups) and the directory route is strictly more
+      deterministic, so the choice is right; only its justification is
+      unverifiable where it is written.
+    suggestion: "No change asked for. Optionally narrow the docstring's reason to 'a directory is deterministic on every host' rather than a claim about chmod."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

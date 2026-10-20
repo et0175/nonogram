@@ -407,3 +407,46 @@ told a human to hand-write a lock and now says the `worktree:` line must be **ab
 `worktree: .` named as a refusal; the override's doc comment records its spelling. The age display
 changed, so its comment explains why the verdict did not. No config field, parameter or timeout
 acquired a second job.
+
+### [Review 2/3] Score 8.5 — FAILED on the severity gate (1 open Important) · ⚠ second generation
+
+Report: `meta/review/20261020T065828Z-CARD-255-cycle2.yml` (copied to main).
+
+- **The measurement that licensed the `isabs` clause was re-derived and came back *stronger* than the
+  fix reported**: 15 pairs, 0 verdicts changed — **and all 15 messages byte-identical**, not merely
+  the booleans. With the structural reason attached, which turns the sample into an argument: for any
+  **absolute** `worktree:` value, `_names_a_tree(held_by) ≡ bool(held_by)`, so both branches take
+  exactly the pre-fix path and behaviour can only differ where the value is non-empty and
+  non-absolute.
+- **18 adversarial path shapes probed, all unchanged** pre-vs-post: `~`, `~` alone,
+  `~nonexistentuser`, trailing spaces/tab/**CR** (a CRLF-written lock), leading spaces, trailing and
+  double and triple slashes, a symlinked parent on each side, an absolute path containing `..`, and
+  `$WT` unset. `expanduser` inside `isabs` saves the `~` family; `realpath` normalises the rest.
+- **Cycle 1's three survivors are all dead, and the table is tight**: each assertion is live for a
+  *distinct* mutant — prefix in each direction (M-B/M-B2), trailing slash (M-C/M-C2), `~` (M-C3/M-J),
+  and the symlink case reds **only** under `realpath → normpath` (M-I). AC-5 re-proved byte-identical
+  against **both** the pre-fix guard and the no-guard baseline, on a five-file selection of the
+  certifier's own choosing.
+- **⚠ F-101 (important, `test_full_suite_lock.py:414`) — the second generation of cycle 1's family.**
+  The F-004 fix widened the scan correctly and **paid for it with a new exemption**: two whole
+  directories exempted by path **prefix**, with no constraint on file shape and no control. Probed
+  live: two executable `export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1` scripts placed under the
+  allowlisted prefixes, both visible to `git grep` — **the test stayed green with two live in-tree
+  setters.** That is cycle 1's own evidentiary standard, and it is verbatim the shape ADR-0039/R3's
+  comment names as its reason for existing. Said plainly: **the fix for a claim wider than its
+  mechanism was itself a claim wider than its mechanism, one directory over.**
+- **Minors**: the documented `=0`-enables-the-override semantics has no control (M-K survived); the
+  documented exit code 4 is asserted only as `!= 0`, which is why a `pytest.exit` mutant (code 2)
+  passed every real-run test; the new AST rule reaches exactly **one** name past the text rule it
+  sits behind; and the `trap … EXIT` added in cycle 1 stays armed for the profiler's whole shell, so
+  a later Ctrl-C could delete a **live gate's** lock — narrower than what it replaced, but worse in
+  kind.
+
+### [Standing requirement for the orchestrator] `gate.sh` must be passed an absolute worktree
+
+The certifier found exactly one real-producer shape whose verdict changes: `gate.sh <worktree>`
+invoked with a **relative** path now makes the gate refuse **itself** at exit 4. That is the right
+trade — pre-fix, the same lock resolved to every *other* worktree's own path and disabled the guard
+board-wide in silence — but it is a requirement on whoever drives the gates. The four dedicated gate
+scripts hardcode absolute paths; `gate.sh` takes `$1` and lives outside the repo, where no test can
+hold it. **Every gate invocation in this session passes an absolute path, and must keep doing so.**
