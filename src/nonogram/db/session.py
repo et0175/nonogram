@@ -198,6 +198,84 @@ def _init_engine():
         _engine_url = database_url
 
 
+def reset_engine() -> None:
+    """Retire the module-global engine; the next session request builds a new one.
+
+    Disposes the engine's connection pool (if one was ever built) and clears
+    the cache key :func:`_init_engine` compares against, so the very next
+    :func:`get_session` or :func:`session_scope` constructs a fresh engine
+    against whatever ``DATABASE_URL`` then says — pool included.
+
+    Who calls it and why
+    --------------------
+    CARD-252. The one caller is ``tests/conftest.py``'s
+    ``_rebuild_public_schema``, which the session-scoped
+    ``_test_database_tables`` fixture drives: it empties ``public`` with
+    ``DROP SCHEMA public CASCADE``, rebuilds it with ``alembic upgrade head``,
+    and then calls this — last, so that retiring the engine is the final thing
+    the rebuild does and nothing can hand out a connection older than the
+    schema once the fixture yields.
+
+    That position is deliberate but **not** load-bearing, and the older
+    reading of it here was wrong: this function builds nothing, so calling it
+    before the migration cannot leave "a fresh engine pointed at a half-built
+    schema". Measured, not reasoned — moving the call ahead of the Alembic
+    subprocess leaves ``tests/test_db_engine_lifecycle.py`` fully green
+    (CARD-252 G-3; the card's own refutation, re-measured as review mutant
+    R7). The half-built-schema hazard belongs to the card's original sketch,
+    which rebuilt the engine eagerly, not to this implementation.
+
+    What is pinned, and what is not
+    -------------------------------
+    Pinned: without this call, :func:`_init_engine`'s "rebuild only when the
+    URL changed" cache keeps whatever engine the process had already built for
+    that URL, pool and all, so a connection opened *before* the
+    ``DROP SCHEMA`` is still in the pool *after* it, ready to be handed back
+    out. ``tests/test_db_engine_lifecycle.py``'s AC-1 forces exactly that
+    connection to exist and goes red when this call — or only its
+    ``dispose()`` — is removed.
+
+    **Not** pinned: that such a survivor corrupts anything. Four consecutive
+    waves of this board's build gates reported failures that reproduced on no
+    second run (``relation "puzzles" does not exist``; a ``UUID`` column
+    arriving as a float, so that ``uuid.UUID(hex=inf)`` called ``.replace`` on
+    it). Those failures are the **motive** for this function, not a measured
+    consequence of its absence. CARD-252 tried to reproduce the corruption
+    deterministically and **withdrew** that acceptance criterion (AC-3): 24/24
+    queries through a connection that outlived a ``DROP SCHEMA`` returned
+    correct values, ``pg_prepared_statements`` held 0 rows after 40
+    executions, and ``puzzles.id`` came back as OID 2950 every time — so the
+    recorded signature is unreachable on psycopg2, and the gate failures
+    remain **unexplained**. Of those three numbers only the
+    ``pg_prepared_statements`` zero is a standing assertion
+    (``test_no_server_side_prepared_statement_is_ever_created``); the 24/24
+    and the OID 2950 are recorded on CARD-252's ``## Worktree notes``, not
+    asserted anywhere, so do not go looking for them in the class named
+    below. Read
+    ``tests/test_db_engine_lifecycle.py``'s module docstring before concluding
+    this function fixed them; ``TestEngineLifecycle_WhyTheHazardCannotBeForced``
+    there measures why the hazard could not be forced, and goes red the day a
+    driver that caches schema-dependent per-connection state arrives — which
+    is the day the attribution becomes testable again.
+
+    What the function therefore removes is the hazard's **precondition**. It
+    is a published function rather than three assignments in a test file so
+    that a later reader of this module can see that something retires the
+    engine, and find out who.
+
+    Not part of any production path. Nothing in ``src/`` calls it, and it
+    changes no behaviour for a process that never does — it exists so that the
+    test tree does not have to reach into ``engine``, ``SessionLocal`` and
+    ``_engine_url`` by hand.
+    """
+    global engine, SessionLocal, _engine_url
+    if engine is not None:
+        engine.dispose()
+    engine = None
+    SessionLocal = None
+    _engine_url = None
+
+
 def _engine_options(database_url: str) -> dict:
     """Extra ``create_engine`` keywords for ``database_url``.
 

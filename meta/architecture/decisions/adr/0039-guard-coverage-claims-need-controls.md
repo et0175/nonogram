@@ -142,6 +142,23 @@ amount of rewording gives a brief a failing test.
   the 2026-10-05 promotion of the same family into the kanban implementation brief, which carried
   no check and whose wording was satisfiable while the defect persisted.
 
+## Scope revision — 2026-10-19
+
+R1–R3 were authored with `code: ["tests/**"]`, on the reading that a guard is a test. Waves 46–47
+measured otherwise: of the ten instances of this family, the ones that cost the most review cycles
+were claims written in **source docstrings and comments** about what a test catches — `puzzle_edit.js`'s
+header and `inFlightIs`, `app.py`'s and `puzzle_review.py`'s `Returns:` blocks — which `tests/**` does
+not reach. That is also the reading this ADR's own Context records from the wave-33 promotion: *"a
+comment or docstring claim about what a test catches needs a mutant proving it"*.
+
+The three scopes therefore now read `["tests/**", "src/nonogram/**"]`. The statements are unchanged.
+
+Separately and mechanically, the `contexts: [CTX-001]` key was removed from these and 28 other rule
+scopes across the model on the same day. On a single-context project that key matched every card
+before the `code:` glob was ever consulted (`system_rules.py`: the contexts branch short-circuits the
+glob branch), so every precisely-scoped rule was behaving as package-wide. Removing it is what makes
+the authored globs load-bearing — including these two.
+
 ## Rules
 
 ```yaml
@@ -152,7 +169,7 @@ amount of rewording gives a brief a failing test.
     caught WITH the set member present, missed WITHOUT it. A claim whose control
     cannot fail is narrative, not coverage, and must be narrowed to what is
     measured or deleted.
-  scope: {contexts: [CTX-001], code: ["tests/**"]}
+  scope: {code: ["tests/**", "src/nonogram/**"]}
   check: {kind: test, ref: test_the_control_for_each_spelling_depends_on_the_set}
   # tests/test_suite_profile.py — the CARD-238 artefact this rule generalises: a
   # control must be caught WITH its set member and missed WITHOUT it, which is a
@@ -167,7 +184,7 @@ amount of rewording gives a brief a failing test.
     hand-written. Where no such authority exists, the guard defaults to deny:
     a shape it cannot analyse is a FAILURE, never a silent pass, and the
     unanalysable sites become named exemptions under ADR-0039/R3.
-  scope: {contexts: [CTX-001], code: ["tests/**"]}
+  scope: {code: ["tests/**", "src/nonogram/**"]}
   check: {kind: test, ref: test_the_guard_sets_are_derived_and_not_hand_written}
   # tests/test_suite_profile.py. The discriminator was observed twice WITHIN single
   # cards: halves deriving from dir(os)/dir(ImageDraw.ImageDraw) were sound from the
@@ -182,7 +199,7 @@ amount of rewording gives a brief a failing test.
     what it must NOT absorb — caught with the exemption removed, missed with it in
     place — is held to an equality against the sites that exist today, and records
     whatever it still cannot see as a measured bound with its own failing control.
-  scope: {contexts: [CTX-001], code: ["tests/**"]}
+  scope: {code: ["tests/**", "src/nonogram/**"]}
   check: {kind: test, ref: test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw}
   # tests/test_book_difficulty_dots.py — an equality against the modules that carry
   # the codepoint today, plus a second assertion that the exempt module cannot draw,

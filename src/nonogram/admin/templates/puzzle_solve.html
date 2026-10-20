@@ -21,8 +21,28 @@
   tools live behind one trigger button (named "Brush: <chosen>" by its
   aria-label; its visible text is the chosen brush, nothing else) and a
   role="menu" of FOUR role="menuitemradio" items (Black, White, Maybe,
-  Undecided) that solver.js shows and wires. Exactly one of them is
+  Clear) that solver.js shows and wires. Exactly one of them is
   aria-checked="true".
+
+  The fourth brush reads "Clear" (CARD-247, owner's doc 2026-10-18 item 1).
+  That is a LABEL change and nothing else: the state it paints is still
+  UNKNOWN, the item is still data-player-tool="unknown" and a cell holding it
+  is still data-state="unknown", so every selector, save and test keyed on
+  those values is untouched. solver_state.js keeps calling the state
+  "undecided" because that is the model's name for a cell with no mark; the
+  menu item on this page, the hint below the board and solver.js's
+  BRUSH_LABEL (the trigger's text and its "Brush: …" name) are the three
+  places a human reads it, and they say "Clear".
+
+  The reset confirmation is NOT one of them any more (CARD-253, owner
+  2026-10-19). It used to ask "Clear the board?" with a "Clear board"
+  button, so one word named both a brush that paints ONE cell undecided and
+  a button that wipes the WHOLE board — and it named neither the control
+  that opens it (Reset) nor anything that control does. It now asks "Reset
+  the board?" with "Reset board", which is the wording the editor's
+  equivalent took under CARD-247; the brush keeps "Clear", which was the
+  owner's choice between the two. Its body line ("Every mark is cleared")
+  uses the verb, not the brush's name.
 
   Region is its own control (CARD-211, owner's doc 2026-10-13): the
   [data-player-region] button right after the menu in .player-tools, a
@@ -37,6 +57,19 @@
   tests/test_puzzle_solver_maybe.py). Being inside .player-tools, Region is
   hidden with the brush control while the board is solved (admin.css
   .player-toolbar.is-solved), where there is nothing left to mark.
+
+  Since CARD-247 (owner's doc 2026-10-18 item 2) the toggle SHOWS what it
+  does instead of saying it: three .player-swatch cells — the same four-state
+  art the brush menu and the trigger use (one definition of what a cell in
+  each state looks like) — in the chosen brush's mark, which is a picture of
+  exactly what Region arms, a three-cell run painted by the current brush.
+  solver.js's syncTrigger writes their data-state from the brush alongside the
+  trigger's own swatch, so the icon and the trigger never disagree. The three
+  cells sit in ONE aria-hidden .player-brush-run wrapper: they are decoration,
+  and the button's accessible name is now aria-label="Region" rather than its
+  own text, which the swatches replaced — three aria-hidden spans and no label
+  would leave a screen reader announcing an unnamed button, on the one control
+  CARD-211 deliberately gave aria-pressed so it would announce as on/off.
 
   The semantics are CARD-194's with ONE deliberate divergence: with Region
   on, a drag (any pointer type) marks with the chosen brush and Region turns
@@ -55,8 +88,9 @@
   announced through #puzzle-player-announce below, never by rewriting the
   brush trigger's label.
 
-  The "?" mark (CARD-186): a fourth tool, Maybe, follows Undecided. With it a
-  click marks a cell "?" and a second click clears it; a drag paints "?".
+  The "?" mark (CARD-186): a fourth tool, Maybe, which the owner's order
+  puts before Clear. With it a click marks a cell "?" and a second click
+  clears it; a drag paints "?".
 
   Clues on both sides (CARD-212, owner's doc 2026-10-13): a big board repeats
   its clues on both sides of an axis — row clues left AND right, column clues
@@ -143,9 +177,9 @@
             <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="filled" aria-checked="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
             <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="empty" aria-checked="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
             <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="maybe" aria-checked="false"><span class="player-swatch" data-state="maybe" aria-hidden="true"></span>Maybe</button>
-            <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="unknown" aria-checked="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Undecided</button>
+            <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="unknown" aria-checked="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Clear</button>
         </div>
-        <button type="button" class="btn btn-outline-secondary player-region" id="puzzle-player-region" data-player-region aria-pressed="false">Region</button>
+        <button type="button" class="btn btn-outline-secondary player-region" id="puzzle-player-region" data-player-region aria-pressed="false" aria-label="Region"><span class="player-brush-run" aria-hidden="true"><span class="player-swatch" data-state="filled"></span><span class="player-swatch" data-state="filled"></span><span class="player-swatch" data-state="filled"></span></span></button>
     </div>
     <div class="player-solved-box"><p class="player-solved" id="puzzle-player-solved" hidden>{{ icons.icon('check') }}<span>Solved: <strong class="player-solved-name" data-player-solved-name>{{ title }}</strong></span></p></div>
     </div>
@@ -155,10 +189,10 @@
         <button type="button" class="btn btn-outline-secondary" data-player-action="redo" aria-keyshortcuts="Shift+Control+Z Shift+Meta+Z" aria-disabled="true"><span class="player-mirror">{{ icons.icon('undo') }}</span>Redo</button>
         <button type="button" class="btn btn-outline-secondary" data-player-action="reset" aria-disabled="true" aria-haspopup="dialog" aria-expanded="false" aria-controls="puzzle-player-confirm">{{ icons.icon('refresh') }}Reset</button>
         <div class="player-confirm" id="puzzle-player-confirm" role="alertdialog" aria-labelledby="puzzle-player-confirm-title" aria-describedby="puzzle-player-confirm-text" hidden>
-            <p class="player-confirm-title" id="puzzle-player-confirm-title">Clear the board?</p>
-            <p class="player-confirm-text" id="puzzle-player-confirm-text">Every mark goes back to undecided. Undo brings them back.</p>
+            <p class="player-confirm-title" id="puzzle-player-confirm-title">Reset the board?</p>
+            <p class="player-confirm-text" id="puzzle-player-confirm-text">Every mark is cleared. Undo brings them back.</p>
             <div class="player-confirm-actions">
-                <button type="button" class="btn btn-danger" data-player-confirm="accept">Clear board</button>
+                <button type="button" class="btn btn-danger" data-player-confirm="accept">Reset board</button>
                 <button type="button" class="btn btn-outline-secondary" data-player-confirm="cancel">Keep marks</button>
             </div>
         </div>
@@ -185,7 +219,7 @@
     </p>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Undecided: blank, black, white). Open the brush menu to choose Black, White, Maybe or Undecided. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it.</p>
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Clear: blank, black, white). Open the brush menu to choose Black, White, Maybe or Clear. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}

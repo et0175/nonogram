@@ -1,0 +1,550 @@
+version: 1
+generated_at: "2026-10-19T20:59:27Z"
+target: "card/252-dispose-the-global-engine @ 214b629 (fix delta fc5508e..214b629; base 58ec463)"
+overall_score: 8.0
+risk_level: low
+review_lane: full
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 2
+mode: certification
+min_score: 8
+max_cycles: 3
+
+scope:
+  mode_note: |
+    Confirmation cycle on the fix delta fc5508e..214b629 (three files). The card's product
+    behaviour was certified in cycle 1 and is unchanged this cycle (proved below, not assumed),
+    so the depth went where the delta is: the AC-5 guard's reach, the rewritten call-site test,
+    the AST-derived db_required count, and the two narrowed docstrings.
+  reviewed:
+    - "src/nonogram/db/session.py (reset_engine's docstring, :201-275 — read in full)"
+    - "tests/conftest.py (_rebuild_public_schema :433-515 and _test_database_tables :517-556 — read in full)"
+    - "tests/test_db_engine_lifecycle.py (840 lines, read in full)"
+    - "meta/review/20261019T202638Z-CARD-252-cycle1.yml (read in full)"
+    - "meta/kanban/cards/CARD-252.md incl. the uncommitted '### Review cycle 1, findings closed' section (read from the working tree)"
+  read_for_context:
+    - "src/nonogram/db/session.py module globals, POSTGRES_DRIVER, _init_engine, _engine_options"
+    - "tests/test_db_engine_lifecycle.py at fc5508e (the pre-fix guard and the pre-fix substring call-site test)"
+    - "the whole tests/ tree, surveyed by grep for setattr spellings (see finding C2-F-001's evidence)"
+  excluded_by_brief:
+    - "cycle 1's own verdicts — this cycle decides whether the fix closed them, not whether they were right"
+    - "the full suite — forbidden; targeted selections only"
+    - "timings — forbidden on this shared host"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 486, removed: 110 }
+  production_code_delta: 0
+  tests_cover_change: true
+  mutants_run: 9
+  mutants_killed: 6
+  mutants_survived: 3
+  read_only_reach_probes: 20
+  full_suite_run: false
+  unmeasured:
+    timings: "not_applicable — the orchestrator forbids timing measurement on this shared host"
+    suite_skip_profile: "not_applicable — AC-4's suite-wide half needs the full suite, which the brief forbids. The module's own contribution was measured: 14 passed, 0 skipped; the touched-adjacent selection: 164 passed, 0 skipped."
+    churn: "not_applicable — three-file card worktree; no 12-month log mined"
+    fan_in_reset_engine: "measured — grep -rn reset_engine src/ returns only the definition at session.py:201 (callers in src/: genuinely zero)"
+
+guardrails:
+  - "G-1 (no production behaviour change) HOLDS — re-derived independently, not taken on assurance. Both files' ASTs were parsed with every module/class/function docstring stripped and `ast.dump` compared between fc5508e and 214b629: src/nonogram/db/session.py IDENTICAL, tests/conftest.py IDENTICAL. The raw diff on those two files touches only lines inside triple-quoted docstrings. `grep -rn reset_engine src/` still returns only the definition (session.py:201). The AC-1 test body is executable-identical too (the only delta is the eight-line F-006 comment), so cycle-1's M1/R5/R6/M3 measurements carry forward."
+  - "G-2 (no test made to skip) HOLDS — `tests/test_db_engine_lifecycle.py`: 14 passed, 0 skipped (10 + the four new controls). Touched-adjacent selection (test_db_engine_lifecycle, test_card_156_db_fixture, test_db_isolation, test_db_url_driver, test_db_connect_timeout, test_db_e2e_smoke, test_card_109_database_guard): 164 passed, 0 skipped, 0 failed. The four tests added this cycle are not db_required and introduce no skip path."
+  - "G-3 (reset after `alembic upgrade head`, before the fixture yields) HOLDS as an ordering — `app_session.reset_engine()` is at conftest.py:512, after the Alembic subprocess (:501) and after the truncate-list read (:505); `_test_database_tables` yields at :552. Cycle-1's F-004 complaint was about the stated REASON, and both docstrings now state the position as deliberate-but-not-load-bearing with R7 quoted as the measurement — see the F-004 verdict."
+  - "G-4 (nonogram_poc untouched; _refuse_unless_test_database neither widened nor bypassed) HOLDS, verified by diff: `git diff fc5508e 214b629 | grep -E 'nonogram_poc|_refuse_unless_test_database'` returns nothing. Every DDL this review caused ran against nonogram_pythonproject4_card_252_5ddd9defbd0a_test, derived for this worktree by tests/db_name.py and passed as both DATABASE_URL and TEST_DATABASE_URL. nonogram_poc was never named, created, dropped, connected to or truncated."
+  - "G-5 (no new runtime dependency) HOLDS — `git diff --stat fc5508e 214b629 -- pyproject.toml` is empty. The one import added this cycle is `from collections import Counter`, stdlib."
+  - "G-6 (no test retired or renamed without a named survivor) HOLDS — pre/post enumeration of class and def lines: all 10 cycle-1 tests are present at 214b629; four are added (14 total); none deleted. One class renamed, TestEngineLifecycle_TheSkipProfileIsUnchanged -> TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish, carrying the same two tests, with the old name recorded in the new class docstring (:543-546) so a grep lands. The card's AC-4 '(test: …)' line (CARD-252.md:128-130) and the AC-status row (:236) both name the new class."
+
+system_contract:
+  rules_checked: 8
+  holds: 5
+  unchecked: 1
+  violated: 2
+  verdicts:
+    - "ADR-0022/R1 ✓ holds — the fix delta contains no extent-bearing identifier at all: `git diff fc5508e 214b629 | grep -niE '\\b(width|height|size|extent)\\b'` on added/removed lines returns zero hits. No signature, request field or export field changed."
+    - "ADR-0038/R6 ✓ holds — same scan for `solution|player|admin` on the delta's added/removed lines returns zero hits; no admin/player code and no solution grid is touched."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the delta (`git diff --stat fc5508e 214b629 -- pyproject.toml` empty), so pytest-playwright's dev-only extra is untouched."
+    - "ADR-0038/R8 ✓ holds, and the delta does not weaken it — the module adds no silent pass: test_a_reachable_postgres_yields_no_db_mode_skip_reasons (:594) probes Postgres with a bare psycopg2.connect, independent of conftest's cached verdict, and turns 'Postgres answers but the gate would skip' into a FAILURE. Measured green on this head: 14 passed, 0 skipped. Its only skip path carries a named reason."
+    - "ADR-0039/R1 (mandatory) ✗ violated — tests/test_db_engine_lifecycle.py:647-655 states what the AC-5 guard reaches and claims each clause has a control: 'It sees three spellings — a dotted assignment, ``setattr(module, \"name\", …)`` and ``setattr(\"dotted.path.name\", …)``' and '**fails** rather than passes on a spelling it cannot resolve'. Mutant X2 refutes the second spelling as written (bare builtin `setattr(app_session, \"engine\", None)` is not seen) and X1/X3 refute the fail-closed clause (an unreadable attribute-name arg and a computed string target both pass silently). No control exists for either. See finding C2-F-001."
+    - "ADR-0039/R2 (mandatory) ✗ violated — the deny default added this cycle is applied on one axis only. `_private_global_sites_in` (:285-345) reaches `_names_the_session_module` only when it has already read a literal target AND a literal attribute name; when either is non-literal it records nothing and reports nothing unanalysable. Measured: X1 (`monkeypatch.setattr(app_session, name, None)`) and X3 (`monkeypatch.setattr(f'{MOD}.engine', None)`) both leave the guard 9/9 green with an empty unanalysable list, where the rule requires a FAILURE. Same finding C2-F-001."
+    - "ADR-0039/R3 ✓ holds — the exemption is now a {(file, name): count} equality over SITES (:205-212, asserted at :744). Independently re-derived this cycle: mutant R1 (a tenth `monkeypatch.setattr(db_session, \"engine\", None)` site appended to the already-exempt test_db_url_driver.py) is now RED twice — the guard equality (`('test_db_url_driver.py','engine'): 2` vs `1`) and its own control test_a_tenth_site_in_an_already_exempt_pair_is_counted. It SURVIVED in cycle 1."
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no interactive-play surface exists in the delta's three files; a grep of the delta for localStorage/play/mark/solve returns only the substrings `marked`/`resolve` from the guard's own helpers. I did not re-derive the rule from elsewhere."
+
+root_causes:
+  - id: RC-1
+    title: "A claim stated wider than its mechanism, in the AC-5 guard's own description of its reach (ADR-0039/R1) — the same root cause as cycle-1 F-002, regenerated one layer out"
+    finding_ids: [C2-F-001]
+  - id: RC-2
+    title: "A count derived from a model of pytest rather than from pytest — the same root cause as cycle-1 F-003, now in the opposite direction"
+    finding_ids: [C2-F-002]
+
+findings:
+  - id: C2-F-001
+    severity: important
+    category: testing
+    type: guard_narrower_than_its_claim
+    file: tests/test_db_engine_lifecycle.py
+    line: 285
+    title: "The private-globals guard silently passes three setattr spellings that reach session.py's globals — two of which it claims to see, all three already idiomatic in this tree, none named by the declared bound"
+    description: |
+      Cycle 1's F-002 is genuinely closed for the three shapes it reported (R1/R2/R3 all
+      independently re-derived RED below, and the deny default has a working control, G4).
+      But the same guard, under the same two mandatory rules, now has three new surviving
+      shapes — and this time the file positively claims two of them.
+
+      What the file claims:
+        :300-303 (_private_global_sites_in) — "Everything else that touches one of ``names``
+        on something this cannot resolve to the session module is returned in the second
+        list, which the guard fails on."
+        :647-655 (the AC-5 class) — "What the guard reaches, stated as what has a control
+        (ADR-0039/R1). It sees three spellings — a dotted assignment,
+        ``setattr(module, "name", …)`` and ``setattr("dotted.path.name", …)`` — … and
+        **fails** rather than passes on a spelling it cannot resolve to the session module.
+        Each of those four claims has a control in this class."
+
+      Three mutants, each appended to a real non-exempt test file (tests/test_db_isolation.py),
+      each applied alone and restored from a byte-identical backup verified with `diff` and
+      `shasum -a 256`. All three SURVIVED — TestEngineLifecycle_TheResetIsAPublishedSeam
+      stayed 9 passed, with the unanalysable list empty every time:
+
+      X1 — the tree's own parametrised-monkeypatch idiom, reaching all three globals:
+             @pytest.mark.parametrize("name", ["engine", "SessionLocal", "_engine_url"])
+             def test_x1(monkeypatch, name):
+                 monkeypatch.setattr(app_session, name, None)
+           SURVIVED. The target resolves (app_session is in _SESSION_ALIASES) but args[1] is
+           not an ast.Constant, so the `elif` at :336-340 is false and `record` is never
+           called — neither a site nor unanalysable. This is not an exotic shape: the same
+           spelling exists at six sites in this tree today — test_book_finalise_gutter.py:1907,
+           test_book_plan.py:287, test_book_trim_persistence.py:891, test_web_submission.py:989,
+           test_admin_error_text.py:102, property/test_image_fit.py:714.
+
+      X2 — the spelling the class docstring names, in the builtin form:
+             def test_x2():
+                 setattr(app_session, "engine", None)
+           SURVIVED. :326-327 requires `node.func` to be an ast.Attribute with attr
+           "setattr", i.e. a `receiver.setattr(...)` call, so the bare builtin is invisible.
+           ``setattr(module, "name", …)`` at :648 is exactly this spelling. It is also the
+           more dangerous one — unlike monkeypatch it is not reversed at teardown — and it is
+           used on classes and modules at 10+ sites in this tree (e.g.
+           test_book_pdf_memory.py:477 `setattr(BookPDFGenerator, name, tracking(drawn))`,
+           test_book_floor.py:865, test_book_select_floor_tiles.py:148).
+
+      X3 — a computed string target:
+             _X3_MODULE = "nonogram.db.session"
+             def test_x3(monkeypatch):
+                 monkeypatch.setattr(f"{_X3_MODULE}.engine", None)
+           SURVIVED. args[0] is a JoinedStr, so the string-target branch at :332 is false;
+           args[1] is `None`, so the object branch is false too. This spelling also already
+           exists in the tree: test_web_server.py:2198
+           `monkeypatch.setattr(f"{__name__}._WEB_SOURCES", [])`.
+
+      Why these are not the declared bound. :656-661 declares: "the recognition is syntactic.
+      A test file that reached the globals through something no AST walk can follow — a name
+      bound by a fixture, ``importlib.import_module`` into a local, a ``globals()`` write — is
+      outside the guard, and the failure path above only catches the spellings whose last
+      component is still ``session``." I verified those three named shapes do indeed pass
+      silently (probes P6/P7/P8) — correctly declared limits, not defects, and I raise nothing
+      for them. X1/X2/X3 are different: an AST walk CAN follow all three (X2's target and name
+      are both literals and the target is a known alias), and the clause about "spellings whose
+      last component is still session" does not reach them, because for X1 and X3 the failure
+      path is never entered at all. The board accepts a stated bound and refuses a hidden one;
+      this is a hidden one.
+
+      Where the deny default stops: it fires only when `_dotted` returns a chain whose last
+      component is "session" (probe P9, `sys.modules['nonogram.db.session'].engine = None`,
+      correctly comes back as a FAILURE). It is not applied on the attribute-name axis or to a
+      non-literal string target, which is where ADR-0039/R2 needs it.
+
+      Family attribution: cycle-1 F-002 — same file, same function family
+      (_private_global_sites_in / the AC-5 class's reach claim), same two mandatory rules
+      (ADR-0039/R1 and R2), same defect class (a claim about what the guard catches, refuted
+      by a surviving mutant). This is the SECOND consecutive cycle whose gating finding falls in
+      this family. Attributable to cycle 1's fix in part: the mechanism gap for a bare `setattr`
+      and a non-literal arg pre-dates it, but the explicit "it sees three spellings … and fails
+      rather than passes" claim and the bound that omits them were both written this cycle.
+    suggestion: |
+      Two mechanical changes plus the bound, all in _private_global_sites_in:
+      (a) Accept a bare `setattr` name as well as an attribute `.setattr`: match
+          `isinstance(node.func, ast.Name) and node.func.id == "setattr"` alongside the
+          existing Attribute branch — the body below already handles both arg shapes.
+      (b) Apply the deny default on the other two axes. When the call is a setattr-shaped call
+          whose first argument resolves True (or whose first argument is a string the guard
+          cannot read) and whose attribute-name argument is NOT a literal in `names`, append to
+          `unanalysable` instead of returning silently; same for a non-Constant first argument
+          that is not a Name/Attribute chain. The failure message already exists.
+      (c) Then narrow :648 and :656-661 to whatever the code ends up catching, and name the
+          residual shapes (a name bound by a fixture, importlib into a local, a globals() write)
+          as the bound they already are.
+      X1/X2/X3 are the three controls to add alongside, and they cost four lines each — they can
+      be in-source text probes like the existing R1/R2/R3 controls rather than file mutants.
+    confidence: high
+    source: mutation
+    violates: "ADR-0039/R1, ADR-0039/R2"
+    root_cause: RC-1
+    status: fixed
+    fixed_in: ddd5a18
+    dismissed_reason: null
+    learned_pattern: null
+    family: "cycle-1 F-002 (AC-5 private-globals guard, ADR-0039/R1+R2) — second consecutive gating cycle in this family"
+
+  - id: C2-F-002
+    severity: minor
+    category: testing
+    type: claim_wider_than_mechanism
+    file: tests/test_db_engine_lifecycle.py
+    line: 106
+    title: "The AST db_required count closed cycle-1's false red but opened one false green: a test class renamed off pytest's Test* prefix keeps the count at 2 while pytest collects nothing"
+    description: |
+      F-003 is closed — the single-node-id selection the cycle-1 reviewer reported red
+      (…::TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish::test_exactly_the_expected_number_of_tests_here_need_the_database)
+      is 1 passed on this head, measured. The new derivation reads the module's own AST, which
+      is exactly what the reviewer prescribed.
+
+      Its docstring (:119) says a class-level marker "marks every test it contains, the way
+      pytest applies it". That one clause is true. But `_test_functions_in` diverges from
+      pytest's real marker resolution in six ways, measured by feeding source text straight to
+      the function:
+
+        module-level `pytestmark = pytest.mark.db_required` -> AST 0, pytest 2   (fail-closed)
+        class-level `pytestmark = [pytest.mark.db_required]` -> AST 0, pytest 1  (fail-closed)
+        marker inherited from a base class                  -> AST 0, pytest 1  (fail-closed)
+        `@pytest.mark.db_required()` with parens            -> AST 0, pytest 1  (fail-closed)
+        a nested test class                                 -> AST 0, pytest 1  (fail-closed)
+        a class renamed off the `Test*` prefix              -> AST 2, pytest 0  (FAIL-OPEN)
+
+      Five of the six bias to red, which is the right default and costs nothing. The sixth is
+      the problem, and it is the one direction AC-4 exists to catch: rename
+      `TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema` to anything pytest's
+      `python_classes` does not match and the class stops being collected entirely — the
+      coverage that pins the fix goes to zero, silently — while `_test_functions_in` still
+      counts its tests (it collects `test*` functions out of any ClassDef regardless of the
+      class's name) and the guard stays green. `assert every` at :583 catches only "no tests at
+      all". Cycle 1's collection-based measurement did catch this shape, so the fix traded a
+      false red for a false green in the direction that matters.
+
+      Filed Minor, matching the severity band of the finding it replaces: the shape needs a
+      deliberate rename of a test class, every other divergence is fail-closed, and the module's
+      two db_required tests are independently pinned by the mutants M4/F3a/F3b.
+
+      Family attribution: cycle-1 F-003 (RC-2, "a count measured from the wrong source").
+      Attributable to cycle 1's fix — the blind spot did not exist before it. Second consecutive
+      cycle in this family, at Minor severity both times.
+    suggestion: |
+      One line, plus one docstring sentence. In `_test_functions_in`, skip a ClassDef whose name
+      does not start with "Test" (and assert that at least one class WAS considered, so the
+      filter cannot silently empty the set) — then a rename reds the count instead of hiding in
+      it. Then declare the bound in the docstring: the derivation sees AST-visible
+      `pytest.mark.db_required` decorators on `Test*`-prefixed classes and their direct `test*`
+      methods only, so `pytestmark`, an inherited marker, a nested class and the parenthesised
+      marker form all bias it to red. Replace "the way pytest applies it" with that.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: ddd5a18
+    dismissed_reason: null
+    learned_pattern: null
+    family: "cycle-1 F-003 (AC-4 db_required count) — second consecutive cycle in this family, Minor both times"
+
+cycle_1_finding_verdicts:
+  - id: F-001
+    severity_in_cycle_1: important
+    verdict: closed
+    note: |
+      CLOSED, and it did not smuggle in a new claim. The docstring (session.py:234-262) now
+      splits "What is pinned" from "**Not** pinned". Every sentence in "What is pinned" has a
+      control I can name: the cache keeping the engine -> M1 (re-derived RED this cycle: "the
+      app's global engine survived the schema rebuild"); "pool and all … still in the pool after
+      it" -> R5 (cycle 1; carries, because reset_engine's code and AC-1's test body are both
+      executable-identical on this head); "forces exactly that connection to exist" -> the two
+      vacuity-guarded precondition assertions at :421 and :426; "goes red when this call — or
+      only its dispose() — is removed" -> M1 and R5 respectively. "Ready to be handed back out"
+      is an inference rather than an assertion, and a fair one.
+      Of the three measurements quoted, `pg_prepared_statements` held 0 after 40 executions
+      matches test_no_server_side_prepared_statement_is_ever_created exactly (40 iterations,
+      `SELECT count(*) FROM pg_prepared_statements`, assert == 0). The other two (24/24 correct,
+      OID 2950) are NOT standing controls — but the docstring attributes them to the card's AC-3
+      attempt ("CARD-252 tried to reproduce the corruption deterministically and **withdrew**
+      that acceptance criterion (AC-3): 24/24 …"), which is accurate and is where the card
+      records them. The sentence that names the survivor class claims only that it "measures why
+      the hazard could not be forced", which it does. No over-claim introduced.
+  - id: F-002
+    severity_in_cycle_1: important
+    verdict: closed for the three reported shapes; the same claim-versus-reach defect recurs in three new ones (C2-F-001)
+    note: |
+      All three cycle-1 survivors are now RED, re-derived by me as real-file mutants rather than
+      taken from the report: R1 (tenth site in an exempt pair) RED twice; R2 (string-target
+      setattr in a non-exempt file) RED with `{('test_db_isolation.py','engine'): 1}` as the
+      extra item; R3 (plain `import nonogram.db.session as X`) RED twice — the completeness test
+      ("tests/ names the session module as ['_review_probe_session']") and the site guard. The
+      deny default has a working control: G4 (`None` -> `False` in _names_the_session_module)
+      reds test_a_spelling_the_guard_cannot_resolve_is_a_failure. The exemption is a real site
+      equality. So the finding as written is closed — but see C2-F-001, which is the same rule
+      and the same function one layer out.
+  - id: F-003
+    severity_in_cycle_1: minor
+    verdict: closed
+    note: |
+      CLOSED. The reviewer's red selection (that node id alone) is 1 passed on this head,
+      measured. The count now comes from the module's own AST. The derivation's own blind spot is
+      filed separately as C2-F-002.
+  - id: F-004
+    severity_in_cycle_1: minor
+    verdict: closed
+    note: |
+      CLOSED in both places. conftest.py:453-462 and session.py:235-244 now state the position as
+      deliberate but explicitly "**not** load-bearing", say the earlier reading was wrong, say
+      that reset_engine() builds nothing so the half-built-schema hazard cannot apply, quote R7's
+      measurement as the evidence, and attribute the hazard to the card's original
+      eager-rebuild sketch. G-3 continues to hold as an ordering (conftest.py:512, after Alembic
+      at :501, before the yield at :552).
+  - id: F-005
+    severity_in_cycle_1: minor
+    verdict: closed
+    note: |
+      CLOSED, and the declaration is accurate. The AC-1 class docstring (:385-399) now names M1
+      and R5 as the two independent pins, declares the backend assertion an implied consequence
+      of the pool one, cites R6 as the measurement, and says the poll is kept for the failure
+      message rather than as a control. I judged the universal claim ("any mutation that leaves a
+      pre-rebuild backend alive also leaves its connection in that pool") and it is true for
+      every mutation confined to reset_engine()/its dispose: the test asserts exactly one
+      connection is checked into `before_pool`, and that connection is the recorded backend's
+      only client socket, so leaving the backend alive means leaving it in that pool object —
+      `dispose(close=False)` recreates engine.pool but `before_pool` keeps its queue, which is
+      why R6 died at :449. See the out-of-scope note for the one contrived counterexample.
+      The rename is clean under G-6: TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish
+      carries the same two tests, the old name is in the new class docstring (:543-546), and the
+      card's AC-4 line (:128-130) and AC-status row (:236) both name it.
+  - id: F-006
+    severity_in_cycle_1: nit
+    verdict: closed
+    note: |
+      CLOSED. tests/test_db_engine_lifecycle.py:432-439 carries exactly the attribution note the
+      reviewer asked for, above the real _rebuild_public_schema call: a lock-timeout red there is
+      an earlier test's leaked transaction rather than this card, and pg_stat_activity names the
+      blocking pid.
+
+side_effect_the_fix_flagged_itself:
+  claim: "narrowing conftest's docstring put the literal `reset_engine()` into conftest's prose, which would have satisfied the old substring check with the call deleted"
+  verified: true
+  evidence: |
+    The pre-fix test was literally `assert "reset_engine()" in source` (fc5508e's
+    test_db_engine_lifecycle.py:460-465). conftest.py:457 now contains the literal
+    ``reset_engine()`` inside _rebuild_public_schema's docstring. So with the call deleted the
+    old test would have passed — the fix agent's self-report is correct, and this is the most
+    interesting thing in the cycle.
+  new_test_bound: |
+    The rewrite (:674-702) parses conftest's AST and requires an ast.Call whose func is an
+    ast.Attribute named reset_engine on something `_names_the_session_module` resolves to True.
+    Its bound is stated in its own docstring: a bare imported `reset_engine()` would red it,
+    deliberately. That is a correctly declared limit.
+  controls_verified:
+    - "M1 (call deleted, prose kept — 2 mentions of reset_engine still in conftest): RED. AC-1 (`the app's global engine survived the schema rebuild`) and test_conftest_names_the_seam_at_its_call_site (`a mention in a docstring is not a call site`)."
+    - "M1b (call turned into an attribute read, `app_session.reset_engine` with no parens): RED on test_conftest_names_the_seam_at_its_call_site."
+
+mutation_check:
+  performed: true
+  cost_note: |
+    Not deferred — this is the confirmation cycle on stable code, which is where this board's
+    cost ladder puts the mutation budget, and cycle 1's three Importants-grade findings all came
+    from surviving mutants rather than from reading code. Each mutant was applied alone, the
+    target file backed up with `cp -p` beforehand, restored from that backup, and the restore
+    verified with `diff -q` immediately (never `git checkout --`). Final state verified three
+    ways: `diff -q` clean on all four touched files, `shasum -a 256` identical to the
+    pre-mutation hashes, and `git status --porcelain` showing only the orchestrator's own
+    pre-existing meta/ entries.
+  restored_verified: true
+  pre_mutation_hashes:
+    tests/test_db_isolation.py: "d760920b90cbc1e25c2fc4aa897e762daa8c9d35234c7725d7265711a05a6963"
+    tests/test_db_url_driver.py: "835df463f6ce72b90f1a3dea62b458f900da9f6e11ed6634801915d6486bbf53"
+    tests/conftest.py: "50e8189744d39eee7569f1f8fd5077991dce1d7f8a1dc62241c6902c0a4c3267"
+    tests/test_db_engine_lifecycle.py: "f623d689f38b399f0e4f7326dc6efd4e5df552a2365319bf50e3c4b1ba10a61c"
+  mutants:
+    - id: R1
+      target: "tests/test_db_url_driver.py (appended test)"
+      change: "a tenth hand-set site in an already-exempt (file, name) pair: monkeypatch.setattr(db_session, \"engine\", None)"
+      expectation: "cycle 1 says this SURVIVED; the fix claims the site equality now catches it"
+      result: KILLED
+      output: "2 failed — test_no_test_file_outside_the_exemption_sets_those_globals (found ('test_db_url_driver.py','engine'): 2 vs expect 1) and test_a_tenth_site_in_an_already_exempt_pair_is_counted"
+      finding: null
+    - id: R2
+      target: "tests/test_db_isolation.py (appended test)"
+      change: "monkeypatch.setattr(\"nonogram.db.session.engine\", None) — the string-target spelling in a non-exempt file"
+      expectation: "cycle 1 says this SURVIVED; the fix claims the string-target branch catches it"
+      result: KILLED
+      output: "1 failed — the guard equality, `Left contains 1 more item: {('test_db_isolation.py', 'engine'): 1}`"
+      finding: null
+    - id: R3
+      target: "tests/test_db_isolation.py (appended import + test)"
+      change: "import nonogram.db.session as _review_probe_session, then direct assignment to engine / SessionLocal / _engine_url"
+      expectation: "cycle 1 says this SURVIVED both the guard and its completeness test"
+      result: KILLED
+      output: "2 failed — test_the_alias_set_covers_every_way_the_tree_names_the_module (`tests/ names the session module as ['_review_probe_session']`) and the site guard"
+      finding: null
+    - id: G4
+      target: "tests/test_db_engine_lifecycle.py:281"
+      change: "`return None` -> `return False` in _names_the_session_module (the deny default removed)"
+      expectation: "the fix claims a control exists for the deny default"
+      result: KILLED
+      output: "1 failed — test_a_spelling_the_guard_cannot_resolve_is_a_failure: `a reach the guard cannot classify must come back as a failure, not as nothing to see: []`"
+      finding: null
+    - id: X1
+      target: "tests/test_db_isolation.py (appended test)"
+      change: "the tree's own parametrised-monkeypatch idiom: monkeypatch.setattr(app_session, name, None) over [\"engine\", \"SessionLocal\", \"_engine_url\"]"
+      expectation: "ADR-0039/R2 — a shape the guard cannot analyse must be a FAILURE; the class docstring also claims it fails on anything it cannot resolve"
+      result: SURVIVED
+      output: "TestEngineLifecycle_TheResetIsAPublishedSeam: 9 passed, unanalysable empty"
+      finding: C2-F-001
+    - id: X2
+      target: "tests/test_db_isolation.py (appended test)"
+      change: "the builtin spelling the class docstring names: setattr(app_session, \"engine\", None)"
+      expectation: ":648 claims the guard sees `setattr(module, \"name\", …)`"
+      result: SURVIVED
+      output: "TestEngineLifecycle_TheResetIsAPublishedSeam: 9 passed, unanalysable empty"
+      finding: C2-F-001
+    - id: X3
+      target: "tests/test_db_isolation.py (appended test)"
+      change: "a computed string target: monkeypatch.setattr(f\"{_X3_MODULE}.engine\", None) — the spelling test_web_server.py:2198 already uses"
+      expectation: "the string-target branch, or failing that the deny default"
+      result: SURVIVED
+      output: "TestEngineLifecycle_TheResetIsAPublishedSeam: 9 passed, unanalysable empty"
+      finding: C2-F-001
+    - id: M1
+      target: "tests/conftest.py:512"
+      change: "`app_session.reset_engine()` deleted, the narrowed docstring's `reset_engine()` prose kept (2 mentions remain)"
+      expectation: "AC-1 red, and the rewritten AST call-site test red despite the prose"
+      result: KILLED
+      output: "2 failed — AC-1 (`the app's global engine survived the schema rebuild`) and test_conftest_names_the_seam_at_its_call_site (`a mention in a docstring is not a call site`)"
+      finding: null
+    - id: M1b
+      target: "tests/conftest.py:512"
+      change: "`app_session.reset_engine()` -> `app_session.reset_engine` (the call turned into an attribute read)"
+      expectation: "the call-site claim's edge"
+      result: KILLED
+      output: "1 failed — test_conftest_names_the_seam_at_its_call_site"
+      finding: null
+  read_only_probes:
+    note: |
+      Reach probes run by calling _private_global_sites_in / _test_functions_in on source text
+      directly (no file edited). Cheaper than a mutant and strictly stronger evidence about
+      reach, because a silent pass is visible as ({}, []) rather than inferred from a green run.
+    private_globals_guard:
+      - "P0 `import nonogram.db.session as s` + `s.engine = None` -> SITE (caught)"
+      - "P1 builtin `setattr(app_session, 'engine', None)` -> SILENT PASS (= mutant X2)"
+      - "P2 `monkeypatch.setattr(f'{\"nonogram.db.session\"}.engine', None)` -> SILENT PASS (= mutant X3)"
+      - "P3 `monkeypatch.setattr(MOD + '.engine', None)` -> SILENT PASS"
+      - "P4 `monkeypatch.setattr(app_session, NAME, None)` -> SILENT PASS (= mutant X1)"
+      - "P5 local alias rebound (`alias = s; alias.engine = None`) -> SILENT PASS — covered by the declared bound's clause 'the failure path only catches the spellings whose last component is still session'; NOT raised"
+      - "P6 fixture-bound module name -> SILENT PASS — named in the declared bound; NOT raised"
+      - "P7 `vars(s)['engine'] = None` -> SILENT PASS — the declared bound's globals()-write family; NOT raised"
+      - "P8 `importlib.import_module(...)` into a local -> SILENT PASS — named in the declared bound; NOT raised"
+      - "P9 `sys.modules['nonogram.db.session'].engine = None` -> FAILURE (deny default fires correctly)"
+    db_required_derivation:
+      - "C0 the module's real shape (class marker + method marker) -> 2 (correct)"
+      - "C1 module `pytestmark` -> AST 0 / pytest 2 (fail-closed)"
+      - "C2 class `pytestmark` list -> AST 0 / pytest 1 (fail-closed)"
+      - "C3 marker inherited from a base class -> AST 0 / pytest 1 (fail-closed)"
+      - "C4 `@pytest.mark.db_required()` with parens -> AST 0 / pytest 1 (fail-closed)"
+      - "C5 nested test class -> AST 0 / pytest 1 (fail-closed)"
+      - "C6 parametrised db_required test -> AST 1 / pytest 3 items (a definitional difference, not a defect)"
+      - "C7 class renamed off the `Test*` prefix -> AST 2 / pytest 0 (FAIL-OPEN — C2-F-002)"
+      - "C8 `from pytest import mark` spelling -> 1 (correct)"
+      - "C9 db_required test also marked `@pytest.mark.skip` -> 1 (same blind spot the collection-based count had; not a regression)"
+
+test_runs:
+  database: "nonogram_pythonproject4_card_252_5ddd9defbd0a_test (derived for this worktree by tests/db_name.py), passed as both DATABASE_URL and TEST_DATABASE_URL"
+  lock_checked_before_every_run: true
+  full_suite_run: false
+  runs:
+    - "tests/test_db_engine_lifecycle.py (baseline): 14 passed, 0 skipped"
+    - "…::TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish::test_exactly_the_expected_number_of_tests_here_need_the_database alone: 1 passed (cycle-1 F-003's red is gone)"
+    - "TestEngineLifecycle_TheResetIsAPublishedSeam under R1 / R2 / R3 / G4: 2, 1, 2, 1 failed respectively"
+    - "TestEngineLifecycle_TheResetIsAPublishedSeam under X1 / X2 / X3: 9 passed each (survivors)"
+    - "tests/test_db_engine_lifecycle.py under M1: 2 failed"
+    - "TestEngineLifecycle_TheResetIsAPublishedSeam under M1b: 1 failed"
+    - "touched-adjacent selection (test_db_engine_lifecycle, test_card_156_db_fixture, test_db_isolation, test_db_url_driver, test_db_connect_timeout, test_db_e2e_smoke, test_card_109_database_guard): 164 passed, 0 skipped, 0 failed"
+    - "tests/test_db_engine_lifecycle.py after restoring everything: 14 passed, 0 skipped"
+  discarded_run:
+    note: |
+      One M1 run was discarded as invalid and re-done. My own shell export
+      (`export DATABASE_URL=… TEST_DATABASE_URL=$DATABASE_URL`) left TEST_DATABASE_URL empty,
+      which produced a SQLAlchemy ArgumentError and 2 errors + 1 unrelated failure. Recorded
+      because a reader comparing run counts would otherwise see an unexplained red: it was my
+      environment, not the card. The re-run with both variables set literally gave the result
+      above, and the immediately following baseline was 14 passed.
+
+ac_verdicts:
+  - "AC-1 PASS — carried(cycle 1, delta-clean) on the mechanism (the test body is executable-identical; only the F-006 comment was added) and re-confirmed this cycle by M1."
+  - "AC-2 PASS — M1 re-derived RED by me on this head, with the narrowed prose in place."
+  - "AC-3 WITHDRAWN, accepted — unchanged this cycle; the survivor class's two tests are green and its measurement (pg_prepared_statements == 0 after 40 executions) is what session.py's docstring quotes."
+  - "AC-4 PASS — the module's db_required floor now comes from the module's own AST and the reviewer's red selection passes; the zero-skip-reasons half is untouched and still uses a bare psycopg2.connect as its second implementation. The derivation's one fail-open shape is C2-F-002 (Minor)."
+  - "AC-5 PASS on its gating half — reset_engine is public, documented, names its caller, and conftest calls it as a real AST call (M1/M1b both red). Its advertised reach is again wider than its mechanism: C2-F-001."
+
+verdict:
+  score: 8.0
+  min_score: 8
+  severity_gate: "FAILED — one open Important (C2-F-001). One is enough regardless of score."
+  score_arithmetic: "10 − 1 (one Important) − 0.5 (one Minor) − 0.5 (recurrence: a gating finding in the same file/function/rule family for the second consecutive cycle is evidence the artifact's claims are not converging, which the rubric's meaning column treats as worse than an isolated finding) = 8.0"
+  family_regression_check: |
+    BOTH of this cycle's findings fall in a family that already gated or was filed in cycle 1:
+      C2-F-001 -> cycle-1 F-002: tests/test_db_engine_lifecycle.py, the AC-5 private-globals
+                  guard, ADR-0039/R1 + R2, "a claim about what the guard catches, refuted by a
+                  surviving mutant". GATING in both cycles.
+      C2-F-002 -> cycle-1 F-003: the AC-4 db_required count, "a count measured from the wrong
+                  source". Minor in both cycles.
+    So the loop IS regenerating defects in this one artifact rather than converging on it — the
+    orchestrator asked to be told this explicitly rather than infer it from a score. Two
+    qualifications that matter for what to do about it: (a) the three cycle-1 shapes are
+    genuinely fixed and stay fixed — this is not the same mutant surviving twice, it is the next
+    three shapes out; (b) the recurrence is confined to one guard in one test file, and nothing
+    about the card's product behaviour has been in question in either cycle (G-1 proved by AST
+    comparison both times). The pattern is specifically that each cycle's fix widens the guard's
+    mechanism and then writes a reach claim slightly wider than the new mechanism. A third cycle
+    that widens again by shape will very likely produce a fourth. The cheaper exit is to make the
+    deny default total — fail on any setattr-shaped call whose target or name the guard cannot
+    read as a literal — so the claim becomes "it catches these three spellings and FAILS on
+    everything else it cannot read", which has no shape-by-shape frontier left to probe.
+  recommendation: |
+    Fail cycle 2 on the severity gate and run cycle 3, the last one. The fix did most of what it
+    claimed: all six cycle-1 findings are closed, the three shapes that survived cycle 1 are RED
+    (re-derived independently, not taken from the report), the deny default and the site equality
+    both have working controls, G-1 is proved rather than asserted (docstring-stripped ASTs
+    identical on both production-adjacent files), and the one side effect the fix flagged against
+    itself was real and is correctly handled by an AST call-site test with M1/M1b as controls.
+    What remains is one Important of the same shape as cycle 1's, in the same guard: three
+    setattr spellings that reach session.py's globals and pass silently, two of them named in the
+    file's own description of its reach, all three already present as idioms elsewhere in this
+    tree, and none of them covered by the declared bound. The fix is mechanical — accept the bare
+    builtin `setattr`, and route a non-literal target or name into the existing `unanalysable`
+    failure path — and should be made total rather than shape-by-shape, so cycle 3 is not a
+    fourth round of the same probe. C2-F-002 is one line plus one docstring sentence and can ride
+    along.
+  key_concerns:
+    - "The AC-5 guard's reach claim is wider than its mechanism for the second cycle running (ADR-0039/R1+R2), and the three new surviving shapes are idioms this test tree already uses at 17 sites."
+    - "The AST db_required count has one fail-open direction — a test class renamed off pytest's Test* prefix — which is the exact direction AC-4 exists to catch and which the cycle-1 measurement did catch."
+    - "Nothing about the card's product behaviour or guardrails is in question: zero executable production delta this cycle, verified by AST comparison; all six guardrails hold."
+  approve_conditions:
+    - "C2-F-001 closed: the deny default applied to any setattr-shaped call whose target or attribute name is not a literal the guard can read, the bare builtin `setattr` spelling recognised, the :648 and :656-661 claims narrowed to the resulting mechanism, and X1/X2/X3 added as in-source controls."
+    - "C2-F-002 closed or declared: either the `Test*` class-name filter added, or the docstring's 'the way pytest applies it' narrowed to the bound the derivation actually has."
+  coverage_confidence: |
+    Read: the fix delta in full (three files), both pre-fix versions of the two files I compared
+    ASTs on, the pre-fix guard and call-site test, the cycle-1 report in full, the card in full
+    including its uncommitted cycle-1 section, and the whole tests/ tree by targeted grep for
+    setattr spellings. Not reached: the full suite (forbidden), AC-4's suite-wide skip profile
+    (needs it), and any timing (forbidden). Everything I assert about the guard's reach is
+    measured — eight file mutants with verified byte-identical restores plus twenty read-only
+    probes — so no finding here rests on reading alone. Confidence high.
+    [forge 2026.8.17]; unmeasured: timings (not_applicable), suite_skip_profile (not_applicable),
+    churn (not_applicable).
+
+out_of_scope_observations:
+  - "F-005's declaration is universally quantified ('any mutation that leaves a pre-rebuild backend alive also leaves its connection in that pool') and is refutable only by a contrived mutation that checks the pooled connection out before disposing — `conn = engine.raw_connection(); engine.dispose(close=False)` would leave before_pool.checkedin() == 0 and the backend alive, in which case the backend poll WOULD be the assertion that fires. So the declaration slightly under-claims the poll's value rather than over-claiming it, which is the safe direction. No change asked."
+  - "TestEngineLifecycle_WhyTheHazardCannotBeForced keys the driver on the module constant session.POSTGRES_DRIVER and on psycopg2's own class, so a driver adopted by naming it in DATABASE_URL alone (`postgresql+psycopg://…`, which _init_engine honours at session.py:129) would leave the class green. In practice test_db_url_driver.py:103-122 ties POSTGRES_DRIVER to the installed package, so the gap is narrow. Accepted in cycle 1 and unchanged by this delta; recorded, not raised."
+  - "Two of the three measurements session.py's docstring quotes (24/24 queries correct, OID 2950) are card-recorded history rather than standing controls. The docstring attributes them correctly to CARD-252's AC-3 attempt, so this is not an over-claim — but a reader who goes looking for the OID measurement inside TestEngineLifecycle_WhyTheHazardCannotBeForced will not find it there. One clause ('recorded on CARD-252, not asserted here') would close the gap entirely."
+  - "tests/conftest.py:512's call is reached by the AC-5 guard only through the `app_session.` receiver spelling, which test_conftest_names_the_seam_at_its_call_site declares as its own bound. Correctly declared."
+
+notes_for_the_next_cycle:
+  - "The report is at meta/review/20261019T205927Z-CARD-252-cycle2.yml INSIDE the worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-252. meta/ is never committed from a worktree, so it needs the kanban card-sync copy to survive."
+  - "Nothing was committed by this review. git status --porcelain at the end shows only the orchestrator's own pre-existing entries: ' M meta/kanban/cards/CARD-252.md' and '?? meta/review/20261019T202638Z-CARD-252-cycle1.yml' (plus this new report)."

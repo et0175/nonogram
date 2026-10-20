@@ -239,27 +239,27 @@ abandonment message keeps ADR-0002's uniform `GenerationAbandoned`.
 ```yaml
 - id: ADR-0024/R1
   statement: A repaired random-mode grid is accepted only after a fresh solver run on its own re-derived clues reports solution_count exactly 1. The orchestrator never assumes uniqueness from the fact that a grid was repaired.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/orchestrator.py"]}
+  scope: {code: ["src/nonogram/orchestrator.py"]}
   check: {kind: test, ref: PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound}
   severity: mandatory
 - id: ADR-0024/R2
   statement: Repairs and redraws advance the same RetryCounter bounded by MAX_RETRY_ATTEMPTS (30 since ADR-0002/R1; 20 when this rule was written). K, the consecutive-repair limit on one lineage, is a named constant beside it and is never a second bound; exhausting the counter raises GenerationAbandoned whichever kind of attempt came last.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/orchestrator.py"]}
+  scope: {code: ["src/nonogram/orchestrator.py"]}
   check: {kind: test, ref: TestRecovery_RepairAttemptsCountAgainstRetryBound}
   severity: mandatory
 - id: ADR-0024/R3
   statement: A repair flips exactly one filled cell and one empty cell of the parent grid, both inside the witness-disagreement set (falling back to the undecided mask only when that set holds no filled/empty pair), so the filled count is preserved and no cell outside the region changes.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/orchestrator.py"]}
+  scope: {code: ["src/nonogram/orchestrator.py"]}
   check: {kind: test, ref: TestRecovery_RepairKeepsFilledCountExact}
   severity: mandatory
 - id: ADR-0024/R4
   statement: The repair's pair choice is a deterministic function of the grid and the solver's witnesses — the region's filled and empty cells ranked by (row, column) — and draws nothing from the injected Random or from host state, so a seed replays the same repair lineage everywhere.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/orchestrator.py"]}
+  scope: {code: ["src/nonogram/orchestrator.py"]}
   check: {kind: review-lens}
   severity: mandatory
 - id: ADR-0024/R5
   statement: The repair policy (POL-006) fires only for random mode. Library mode recovers by POL-001 redraw and image mode by POL-002 pixel nudge; neither ever repairs.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/orchestrator.py"]}
+  scope: {code: ["src/nonogram/orchestrator.py"]}
   check: {kind: review-lens}
   severity: mandatory
 ```

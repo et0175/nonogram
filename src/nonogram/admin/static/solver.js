@@ -65,7 +65,7 @@
 // offer is wrong, and static/puzzle_edit.js withdraws it — so it has to hear
 // about a change rather than go looking for one. This event is that seam,
 // and it is dispatched from commit(), the single place a change is RECORDED:
-// a click, a drag, undo, redo, a confirmed Clear and setBoard all pass
+// a click, a drag, undo, redo, a confirmed reset and setBoard all pass
 // through it, so the editor needs no list of controls to watch (a list is
 // what goes stale when the next control is added). An uncommitted mid-drag
 // preview (`show`) is deliberately not announced: nothing is recorded yet
@@ -158,8 +158,11 @@
 //   menu      #puzzle-player-tool-trigger (a button, aria-haspopup="menu")
 //             opens #puzzle-player-tool-menu (role="menu", initially hidden):
 //             FOUR role="menuitemradio" [data-player-tool] items in the
-//             owner's order — Black, White, Maybe, Undecided (the four
-//             brushes, filled/empty/maybe/unknown). Region was a fifth item
+//             owner's order — Black, White, Maybe, Clear (the four
+//             brushes, filled/empty/maybe/unknown; the fourth reads "Clear"
+//             since CARD-247 — a label change only, its data-player-tool is
+//             still "unknown" and solver_state.js still calls the state
+//             "undecided"). Region was a fifth item
 //             until CARD-211 and is now a control of its own (see "region"
 //             below), so the menu holds brushes only and exactly one item is
 //             aria-checked="true": the chosen brush. The trigger's accessible
@@ -182,7 +185,12 @@
 //             Region toggle, a plain <button> carrying its state in
 //             aria-pressed ("true"/"false") rather than aria-checked — it is
 //             a mode, not one option among several, which is what a screen
-//             reader should announce. Pressing it arms Region; it disarms
+//             reader should announce. Since CARD-247 its face is three
+//             .player-swatch cells in the chosen brush's mark instead of the
+//             word "Region" — syncTrigger writes their data-state from the
+//             brush, the run is aria-hidden, and the button's name comes
+//             from an aria-label the template carries (the text that used to
+//             name it is gone). Pressing it arms Region; it disarms
 //             again when pressed a second time and, one-shot, the instant a
 //             drag is recorded (#7) — the flag's whole transition table is
 //             solver_state.js nextRegion, so this file only says which event
@@ -251,7 +259,7 @@
 //             reset, or the setBoard seam, which replaces the board.
 //   reset     pressing Reset opens the in-page confirmation
 //             #puzzle-player-confirm (role=alertdialog; never window.confirm)
-//             and moves focus to its "Keep marks" button. "Clear board"
+//             and moves focus to its "Keep marks" button. "Reset board"
 //             records resetStroke through record — one undoable step, also
 //             from the solved state; "Keep marks" or Escape changes nothing.
 //             Any of these closes it and returns focus to Reset. So does
@@ -960,7 +968,12 @@ function isAt(position, [row, col]) {
 //: The brush each menu item paints, keyed by its data-player-tool (see
 //: "menu" above). Region is deliberately absent — it is never a brush, has
 //: no cell state, and since CARD-211 is not a menu item at all.
-const BRUSH_LABEL = { [FILLED]: "Black", [EMPTY]: "White", [MAYBE]: "Maybe", [UNKNOWN]: "Undecided" };
+//: These are the labels a HUMAN reads, not the states: UNKNOWN reads "Clear"
+//: (CARD-247, owner's doc 2026-10-18) while the state keeps the model's own
+//: name, "undecided" (solver_state.js). Renaming a value here renames it in
+//: the trigger's visible text and in its "Brush: <label>" accessible name,
+//: and nowhere else.
+const BRUSH_LABEL = { [FILLED]: "Black", [EMPTY]: "White", [MAYBE]: "Maybe", [UNKNOWN]: "Clear" };
 
 //: What #puzzle-player-announce says about the Region toggle (CARD-211
 //: AC-6). The "on" line names what Region will do, because that is the
@@ -982,6 +995,12 @@ function wireMarking(container, player) {
   // use — start()'s showProgress writes it too, and whichever wrote last
   // wins, which is why only a genuine change is ever written).
   const regionToggle = document.getElementById("puzzle-player-region");
+  // The three cells the toggle wears instead of the word "Region"
+  // (CARD-247): syncTrigger paints them with the chosen brush. Read with
+  // querySelectorAll and not asserted: puzzle_edit.html (CARD-246) loads this
+  // same file with a Region toggle that still carries text, where this is
+  // empty and syncTrigger's loop simply does nothing.
+  const regionCells = [...regionToggle.querySelectorAll(".player-swatch")];
   const announce = document.getElementById("puzzle-player-announce");
   const actions = Object.fromEntries(
     [...controls.querySelectorAll("[data-player-action]")].map((b) => [b.dataset.playerAction, b]));
@@ -1081,11 +1100,19 @@ function wireMarking(container, player) {
   // The trigger's name/text and which menu item is checked, from `tool`
   // alone (see "menu" above): since CARD-211 the menu holds brushes only, so
   // Region no longer shows up in either the label or the checked item.
+  // Since CARD-247 the Region toggle's three cells are painted from the same
+  // `tool` in the same place, so the icon cannot drift from the trigger: one
+  // function writes both, and every brush change goes through it (start() and
+  // pick() are its only callers). The toggle's own NAME is not touched here —
+  // it is a fixed aria-label on the button, because Region's name does not
+  // change with the brush (CARD-211: the brush and Region are independent,
+  // and the flip is announced through the live region, never by relabelling).
   function syncTrigger() {
     const label = BRUSH_LABEL[tool];
     trigger.setAttribute("aria-label", `Brush: ${label}`);
     triggerSwatch.dataset.state = tool;
     triggerText.textContent = label;
+    for (const cell of regionCells) cell.dataset.state = tool;
     for (const item of items) {
       item.setAttribute("aria-checked", String(item.dataset.playerTool === tool));
     }

@@ -73,7 +73,7 @@ Adding or removing puzzles in a book that has left draft (after FR-038's confirm
     No book leaves draft (to any other status) unless it has a stored plan
     and every longest-side x tier cell's count, divided by the planned
     total, is within +/-3 percentage points of that cell's planned share.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/admin/book_manager.py"]}
+  scope: {code: ["src/nonogram/admin/book_manager.py"]}
   check: {kind: test, ref: TestBookStatus_EveryExitFromDraftIsGatedOnThePlan}
   severity: mandatory
 ```

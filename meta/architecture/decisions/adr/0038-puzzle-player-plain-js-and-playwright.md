@@ -88,14 +88,14 @@ Mirror the client's state rules in a Python reference model for the property tes
     static files by the admin panel. There is no front-end framework, no build
     step, no npm toolchain and no vendored third-party JavaScript library.
     Adding any of these reopens this ADR (and ADR-0006/R1 for vendored code).
-  scope: {contexts: [CTX-001], code: ["src/nonogram/admin/static/**", "src/nonogram/admin/templates/**"]}
+  scope: {code: ["src/nonogram/admin/static/**", "src/nonogram/admin/templates/**"]}
   check: {kind: review-lens}
   severity: mandatory
 - id: ADR-0038/R2
   statement: >-
     Marking, undo, redo, the error count and the solved check run entirely in
     the browser. A loaded player page issues no network request per mark.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/admin/static/**"]}
+  scope: {code: ["src/nonogram/admin/static/**"]}
   check: {kind: test, ref: TestSolverMarking_NoRequestPerMark}   # FR-044 AC-311 (planned, CARD-161)
   severity: mandatory
 - id: ADR-0038/R3
@@ -103,7 +103,7 @@ Mirror the client's state rules in a Python reference model for the property tes
     The player page's clues are embedded as JSON from compute_clues of the
     stored grid (the one encoder). The client never re-derives clues from the
     solution.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/admin/**"]}
+  scope: {code: ["src/nonogram/admin/**"]}
   check: {kind: test, ref: TestSolverPage_ShowsTheClues}   # FR-044 AC-297 (planned, CARD-160)
   severity: mandatory
 - id: ADR-0038/R4
@@ -111,7 +111,7 @@ Mirror the client's state rules in a Python reference model for the property tes
     The player's state logic (board, strokes, undo/redo history, error count,
     solved predicate) lives in a pure module with no DOM access, separate from
     rendering.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/admin/static/**"]}
+  scope: {code: ["src/nonogram/admin/static/**"]}
   check: {kind: review-lens}
   severity: mandatory
 - id: ADR-0038/R5
@@ -128,7 +128,7 @@ Mirror the client's state rules in a Python reference model for the property tes
     a puzzle's solution grid to the browser. A public or reader-facing player
     must not send the solution before the puzzle is solved, and any public
     phase reopens this ADR (CON-021).
-  scope: {contexts: [CTX-001], code: ["src/nonogram/**"]}
+  scope: {code: ["src/nonogram/**"]}
   check: {kind: review-lens}
   severity: mandatory
 - id: ADR-0038/R7

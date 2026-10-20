@@ -154,7 +154,7 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   statement: >-
     A book puzzle page never prints the picture's title; its band shows the
     puzzle number and the solver's tier only.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/admin/book_pdf_generator.py"]}
+  scope: {code: ["src/nonogram/admin/book_pdf_generator.py"]}
   check: {kind: review-lens}
   severity: mandatory
 - id: ADR-0037/R2
@@ -184,7 +184,7 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
     axes, 2.08 pt outer border -- each of them at least 2 device pixels at the
     render resolution, with the cell lines lighter in ink than the fifth lines
     and the border; the default PageSpec's strokes are unchanged.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/export/layout.py", "src/nonogram/admin/book_page_spec.py"]}
+  scope: {code: ["src/nonogram/export/layout.py", "src/nonogram/admin/book_page_spec.py"]}
   check: {kind: review-lens}
   severity: mandatory
 ```

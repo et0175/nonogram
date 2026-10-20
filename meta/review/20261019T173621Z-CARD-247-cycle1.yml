@@ -1,0 +1,233 @@
+version: 1
+generated_at: "2026-10-19T17:36:21Z"
+target: "card/247-player-toolbar-labels @ e0378ea (base main 7bc93c1); 11 files, +856/-77"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/static/admin.css"
+    - "src/nonogram/admin/static/solver.js"
+    - "src/nonogram/admin/templates/puzzle_solve.html"
+    - "src/nonogram/admin/templates/puzzle_edit.html"
+    - "tests/test_browser_fixture_scope.py"
+    - "tests/test_puzzle_solver_brush_menu.py"
+    - "tests/test_puzzle_editor_ui.py"
+    - "tests/test_puzzle_solver_marking.py"
+    - "tests/test_puzzle_solver_maybe.py"
+    - "tests/test_puzzle_solver_hint.py"
+    - "tests/test_puzzle_solver_progress.py"
+    - "tests/test_admin_design_tokens.py"
+    - "meta/kanban/cards/CARD-247.md (main copy, 11-rule contract)"
+    - "meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md"
+    - "~/Documents/nonogram-reviews/CARD-247/ (8 owner renders, all viewed)"
+  not_reached:
+    - "src/nonogram/admin/static/solver_state.js (read only around the UNKNOWN docs; not in the diff)"
+    - "tests/test_puzzle_solver_phone.py, _zoom.py, _clues.py, _page.py (co-change peers; covered by the recorded full-gate green, not re-run here)"
+  confidence: high
+metrics:
+  diff: { files: 11, added: 856, removed: 77 }
+  max_fan_in:
+    symbol: "solver.js syncTrigger"
+    callers: 2
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/admin.css (48 commits all-time)"
+    - "src/nonogram/admin/static/solver.js (28 commits all-time)"
+  cochange_missing:
+    - "src/nonogram/admin/static/solver_state.js (10 co-changes; deliberately untouched — AC-2)"
+  unmeasured:
+    churn_12mo: "tooling_failure — `git log --since=12.months` returned 0 commits on files with 28 and 48 commits all-time; the windowed query is unreliable in this checkout, so all-time counts were used instead"
+    cochange_window: "tooling_failure — same window problem; co-change was computed over the last 40 commits touching the three player files rather than a 12-month window"
+
+system_contract:
+  rules_checked: 11
+  holds: 7
+  unchecked: 3
+  violated: 1
+  verdicts:
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the whole src/ half of the diff is two CSS rules, five lines of solver.js and template text; no Python signature, request field or export field is added or changed, so nothing here can reduce a grid's extent to a scalar."
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: COMP-007's layout functions and PageSpec are absent from the 11-file diff; no book geometry is computed anywhere in it."
+    - "ADR-0038/R1 ✓ holds — the diff adds two hand-written CSS rules (.player-brush-run, admin.css:777-778) and five lines of plain ES in solver.js; `git diff main...HEAD --stat` lists no package.json, no lockfile, no vendored .js and no build config."
+    - "ADR-0038/R4 ✓ holds — solver_state.js is not in the diff at all; the new state-writing (`for (const cell of regionCells) cell.dataset.state = tool`, solver.js:1115) sits inside syncTrigger, the rendering layer, and TestSolverBrushMenu_RenameDidNotTouchTheStateName imports the pure module's exports rather than extending them (ran green, 22 passed in the CARD-247 selection)."
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: neither the player payload nor the CON-015/CON-016 door is touched; puzzle_solve.html's `{{ payload|tojson }}` line is unchanged in the diff."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the diff; pytest-playwright>=0.7 remains only in [project.optional-dependencies].dev (pyproject.toml:35), not in project.dependencies and not in the admin extra."
+    - "ADR-0038/R8 ✓ holds — the six new browser tests carry @pytest.mark.browser and reuse the CARD-160 browser_page/live fixtures imported at the top of test_puzzle_solver_brush_menu.py; the diff defines no new fixture and no new skip path. Re-run against real Chromium: 22 passed in 8.33s."
+    - "ADR-0039/R1 ✗ violated — tests/test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_rename_table_refuses_what_it_claims_to: neutralising each of _rename_problems' nine refusals one at a time, four survive the control (branch 3 `new in before`, branch 4 `new == old`, branch 5 family-prefix, branch 9 ADDED_SINCE_BEFORE double-count). See finding F-001."
+    - "ADR-0039/R2 ✓ holds — RENAMED_SINCE_BEFORE records human rename decisions, for which no runtime-enumerable authority exists, and the guard defaults to deny: test_a_recorded_rename_is_a_move_and_an_unrecorded_one_goes_red asserts an unrecorded rename is red in BOTH directions and a recorded one whose old id is still collected is red too (ran green, 29 passed in the file)."
+    - "ADR-0039/R3 ✓ holds — the rename table is an exemption and carries the control for what it must not absorb (same test: clean WITH the entry, red in both directions WITHOUT it) plus an equality against today's sites (`len(_recorded_node_ids()) == len(_family_node_ids(BEFORE_ARTEFACT))` in test_every_rename_entry_moves_one_recorded_id_and_is_attributed). The refusal-control gap is filed once, under R1."
+    - "CON-021 ✓ holds — no server, persistence or network code appears in the diff; the change is label text, one CSS rule pair and one DOM write per brush change, and TestSolverMarking_NoRequestPerMark is untouched and ran green (tests/test_puzzle_solver_marking.py in the 236-passed selection)."
+
+root_causes:
+  - id: RC-1
+    title: "_rename_problems' control asserts only that SOME refusal fired, not WHICH"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_browser_fixture_scope.py
+    line: 1245
+    title: "Four of the nine rename-table refusals are narrative: deleting them leaves the control green"
+    description: |
+      `test_the_rename_table_refuses_what_it_claims_to` drives nine deliberately-broken
+      tables through `_rename_problems` and asserts, for each, only
+      `_rename_problems(table) != []`. Because several broken cases trip more than one
+      refusal, four of the nine refusals are never shown to execute.
+
+      Measured, one branch neutralised at a time (`if <cond>:` -> `if False:`), running
+      only this control, tree restored byte-identical after each:
+
+        branch 1  not a 3-tuple ................................. killed
+        branch 2  old not in CARD-217's record .................. killed
+        branch 3  new in record ("a merge, not a move") ......... SURVIVED
+        branch 4  new == old ("moves to itself") ................ SURVIVED
+        branch 5  new not of the browser family ................. SURVIVED
+        branch 6  old/new name different test functions ......... killed
+        branch 7  card id does not match CARD-\d+ ............... killed
+        branch 8  reason shorter than 8 words ................... killed
+        branch 9  old/new also in ADDED_SINCE_BEFORE ............ SURVIVED
+
+      Why each survivor is shadowed: branch 4's case `{old: (card, old, reason)}` also
+      trips branch 3, because every legal `old` is by construction in `before`; branch
+      5's case `tests/test_cli.py::test_x` also trips branch 6; branch 9's case uses an
+      ADDED id as `old`, which also trips branch 2; branch 3's case targets a different
+      test function, which also trips branch 6.
+
+      This contradicts the test's own docstring ("Each case below is reported WITH the
+      break and absent WITHOUT it"), the sibling test's ("so that the control below can
+      show each of them firing (ADR-0039/R1)") and the card's worktree note ("drives all
+      nine of them over tables broken on purpose, so none of them is a branch nothing
+      executes"). ADR-0039/R1 is `mandatory` and names exactly this: "a claim whose
+      control cannot fail is narrative, not coverage, and must be narrowed to what is
+      measured or deleted".
+
+      Calibration — the coverage guard itself is NOT weakened. Each survivor is strictly
+      shadowed, and the one genuinely dangerous shape (a "rename" that merges two
+      recorded ids) is caught a second time by the set-size equality in
+      `test_every_rename_entry_moves_one_recorded_id_and_is_attributed`, which goes red
+      because `_recorded_node_ids()` is a set comprehension and collapses. So this is a
+      defective claim about the control, not a hole in the table — which is why it is
+      Important and not Critical.
+    suggestion: |
+      Make each case name the refusal it is supposed to provoke, and assert that one:
+
+        broken = {
+            "moves to itself": ({old: (card, old, reason)}, "moves to itself"),
+            "not of this family": ({old: (card, "tests/test_cli.py::test_x", reason)},
+                                   "is not a node id of the browser family"),
+            ...
+        }
+        for label, (table, expected) in broken.items():
+            problems = _rename_problems(table)
+            assert any(expected in p for p in problems), (label, problems)
+
+      Then re-run the nine neutralisations: every branch must take its own case red.
+      (The remedy needs the same check as the finding — a fragment assertion that
+      matches a *different* refusal's message would reproduce the defect one layer up.)
+      Alternatively, per R1's other option, narrow the two docstrings and the card note
+      to the five refusals the control actually measures — but the discriminating
+      version costs one line per case and keeps the claim.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 777
+    title: "The Region toggle's new face rules sit outside every token pin, by class name rather than by principle"
+    description: |
+      `test_the_region_toggles_pressed_look_comes_from_tokens` collects only the lines
+      that `startswith(".player-region")` and requires every declared value to
+      `startswith("var(--")`. The two new rules are named `.player-brush-run`, so they
+      are not collected — and they could not have been: `display: inline-flex`,
+      `calc(-1 * var(--border-width))` and `color-mix(in srgb, var(--grid-ink) 28%,
+      var(--grid-paper))` all fail a literal `var(--` prefix test. The agent's report
+      calls this deliberate ("the token rule's assertion is unchanged rather than
+      relaxed"), which is true as stated, but the consequence is that the declarations
+      styling the Region toggle's face are pinned by nothing more than the whole-file
+      `#[0-9a-f]{6}` sweep — an `rgb()`, `hsl()` or named colour added here later passes
+      both tests. The CSS comment's own claim, "Lengths and colours are tokens or a mix
+      of two of them (G-4)", therefore has no control behind it. (Two notes: the token
+      guardrail is CARD-211's G-4; this card's G-4 is accessibility. And
+      `.guide-strip-cell:345`, the precedent these rules borrow, is unpinned in exactly
+      the same way, so this is not a new hole class.)
+    suggestion: |
+      Extend the existing test rather than adding another: collect
+      `.player-region`-prefixed AND `.player-brush-run`-prefixed rules, and replace the
+      `startswith("var(--")` predicate with one that accepts a bare CSS keyword and a
+      `calc(`/`color-mix(` whose every colour or length argument is a `var(--…)`. Pin it
+      with a control (a literal `rgb(…)` in a `.player-brush-run` rule must go red).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/admin/templates/puzzle_solve.html
+    line: 181
+    title: "AC-7's one-word rule is guarded on the editor, which has no Clear brush, and not on the player, which does"
+    description: |
+      AC-7's guard asserts that no control on the EDITOR page carries the word "Clear".
+      The editor has no brush called Clear, so after the rename that page holds only one
+      meaning of the word anyway. The player page is where both meanings now coexist: the
+      fourth brush reads "Clear" (puzzle_solve.html:169) while the reset button's
+      confirmation still reads "Clear the board?" (:181) with an accept button "Clear
+      board" (:185), two controls away. "Clear board" there is readable as "apply the
+      Clear brush to the board" — the sharper form of the collision AC-7 was added to
+      remove. The card records this explicitly under `### [Decision]` as deliberate and
+      owner-unasked, so it is a defect against no AC; it is recorded here because the
+      guard that now exists would stay green however much worse the player's wording got.
+    suggestion: |
+      Owner's word, not a code fix. If the player's confirmation is to follow the editor
+      ("Reset the board?" / "Reset board", matching the button that opens it), it is two
+      strings plus one line in the existing AC-7 guard, parametrized over both pages.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: ops
+    type: question
+    file: meta/kanban/cards/CARD-247.md
+    line: 137
+    title: "The worktree's card copy carries the stale 8-rule System contract; main carries the re-derived 11"
+    description: |
+      The worktree copy records "Assembled 2026-10-18 … curated to 8"; main's copy
+      records "Assembled 2026-10-19 … curated to 11 by rule; 29 dropped" after the
+      `contexts: [CTX-001]` short-circuit was removed (65444f5). This review was run
+      against main's 11-rule set. No action for this card — noted so the sync is visible.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

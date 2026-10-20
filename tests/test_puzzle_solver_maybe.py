@@ -5,7 +5,7 @@ A fourth cell state, MAYBE ("maybe", drawn as "?"): neither dark nor white,
 never an error, and no board holding one is solved. A fourth tool, Maybe,
 paints "?" along a drag like any tool; its click marks a cell "?" and clears a
 "?" back to undecided. Since CARD-189 a click follows the selected brush: a
-first click on a "?" with Black, White or Undecided gives that brush's state
+first click on a "?" with Black, White or Clear gives that brush's state
 (CARD-186's interim "a "?" goes to black" is gone), and every click needs a
 tool. The hint (CARD-183) and the clue circles (CARD-188) read "?" as
 undecided.
@@ -70,7 +70,7 @@ _CODE = {U: "u", F: "f", E: "e", M: "m"}
 _STATE = {code: state for state, code in _CODE.items()}
 
 #: What one FIRST click does (CARD-189), written out: state -> the state after
-#: a first click with (Black, White, Undecided, Maybe). Repeat clicks are
+#: a first click with (Black, White, Clear, Maybe). Repeat clicks are
 #: tested in test_puzzle_solver_marking.py (TestSolverClickFollowsTheBrush).
 _CLICK_TABLE = {
     U: (F, E, F, M),
@@ -108,7 +108,7 @@ def _pressed(page):
     no change), so this still reports all four as a dict keyed by name."""
     _trigger(page).click()
     checked = {name: _menu_item(page, name).get_attribute("aria-checked")
-               for name in ("Black", "White", "Undecided", "Maybe")}
+               for name in ("Black", "White", "Clear", "Maybe")}
     page.keyboard.press("Escape")
     return checked
 
@@ -632,7 +632,7 @@ class TestSolverMaybe_ClickWithTheMaybeTool:
 
     # CARD-189: a "?" clicked with a colour brush takes that brush's state
     # (CARD-186's interim rule sent it to black whatever the brush).
-    @pytest.mark.parametrize("tool, after", [("Black", F), ("White", E), ("Undecided", U)])
+    @pytest.mark.parametrize("tool, after", [("Black", F), ("White", E), ("Clear", U)])
     def test_a_maybe_cell_clicked_with_another_tool_takes_its_state(self, browser_page, live, tool, after) -> None:
         _open(browser_page, live, live.store(GRID))
         _tool(browser_page, "Maybe")
@@ -728,7 +728,7 @@ class TestSolverMaybe_UndoRedo:
 
 @pytest.mark.browser
 class TestSolverMaybe_ResetClearsMaybe:
-    """AC-10 — a board of only "?" marks can be reset; Clear board clears them."""
+    """AC-10 — a board of only "?" marks can be reset; Reset board clears them."""
 
     def test_reset(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -739,7 +739,7 @@ class TestSolverMaybe_ResetClearsMaybe:
         assert _button(browser_page, "Reset").get_attribute("aria-disabled") == "false"
 
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
 
         assert set(_states(browser_page)) == {U}
 
@@ -890,14 +890,18 @@ class TestSolverMaybe_ToolKeyboardAndLabel:
         _trigger(browser_page).click()
         names = [item.text_content().strip() for item in browser_page.locator('[role="menuitemradio"]').all()]
         browser_page.keyboard.press("Escape")
-        assert names == ["Black", "White", "Maybe", "Undecided"]  # CARD-211: Region left the menu
+        # CARD-211: Region left the menu. CARD-247: the fourth brush reads "Clear"
+        # (this method's own name keeps the old label — a browser test's node id is
+        # recorded in tests/test_browser_fixture_scope.py and renaming it is a
+        # coverage change, which a label rename is not).
+        assert names == ["Black", "White", "Maybe", "Clear"]
 
     @pytest.mark.parametrize("key", ["Enter", "Space"])
     def test_enter_and_space_select_it(self, browser_page, live, key) -> None:
         _open(browser_page, live, live.store(GRID))
         assert _pressed(browser_page)["Black"] == "true"
         _pick_by_keyboard(browser_page, "Maybe", open_key=key, pick_key=key)
-        assert _pressed(browser_page) == {"Black": "false", "White": "false", "Undecided": "false", "Maybe": "true"}
+        assert _pressed(browser_page) == {"Black": "false", "White": "false", "Clear": "false", "Maybe": "true"}
         _cell(browser_page, 9, 9).click()  # the selected tool governs the click
         assert _marked(_states(browser_page)) == {(9, 9): M}
 

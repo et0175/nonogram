@@ -249,7 +249,7 @@ class TestSolverProgress_LiveErrorCount:
         _tool(browser_page, "White")
         _drag(browser_page, [(row, 0), (row, SIDE - 1)])  # the whole row white
         assert _error_count(browser_page) == SIDE - wrong == _errors_of(_states(browser_page), GRID)
-        _tool(browser_page, "Undecided")
+        _tool(browser_page, "Clear")
         _drag(browser_page, [(row, 0), (row, SIDE - 1)])  # undecided never counts
         assert _error_count(browser_page) == 0
         browser_page.keyboard.press("Control+z")
@@ -451,7 +451,7 @@ class TestSolverProgress_LockedUntilReset:
         _solve(browser_page)
         solved = _states(browser_page)
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
         assert set(_states(browser_page)) == {U}
         assert not _is_solved_shown(browser_page)
 
@@ -554,10 +554,10 @@ class TestSolverProgress_ResetAfterConfirm:
         assert _error_count(browser_page) == _errors_of(_states(browser_page), GRID) > 0
 
         _button(browser_page, "Reset").click()
-        confirm = browser_page.get_by_role("alertdialog", name="Clear the board?")
+        confirm = browser_page.get_by_role("alertdialog", name="Reset the board?")
         assert confirm.is_visible()
         assert len(_marked(_states(browser_page))) == 30  # nothing cleared yet
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
 
         assert not confirm.is_visible()
         assert set(_states(browser_page)) == {U}
@@ -572,7 +572,7 @@ class TestSolverProgress_ResetAfterConfirm:
         _solve(browser_page)
 
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
 
         assert set(_states(browser_page)) == {U}
         assert _error_count(browser_page) == 0
@@ -629,7 +629,7 @@ class TestSolverProgress_ResetAfterConfirm:
 
         browser_page.keyboard.press("Space")
         browser_page.keyboard.press("Shift+Tab")
-        assert browser_page.evaluate(_FOCUSED) == "Clear board"
+        assert browser_page.evaluate(_FOCUSED) == "Reset board"
         browser_page.keyboard.press("Space")
         assert set(_states(browser_page)) == {U}
         assert browser_page.evaluate(_FOCUSED) == "Reset"
@@ -697,7 +697,7 @@ class TestSolverProgress_ResetAfterConfirm:
         _solve(browser_page)
         solved = _states(browser_page)
         _button(browser_page, "Reset").click()
-        _button(browser_page, "Clear board").click()
+        _button(browser_page, "Reset board").click()
         _button(browser_page, "Undo").click()
         assert _states(browser_page) == solved
         assert _is_solved_shown(browser_page)
@@ -724,7 +724,7 @@ class TestSolverProgress_StaysInThePage:
         _cell(browser_page, *_EMPTY[0]).click()
         _button(browser_page, "Undo").click()
         _solve(browser_page)
-        for name in ("Reset", "Keep marks", "Reset", "Clear board", "Undo"):
+        for name in ("Reset", "Keep marks", "Reset", "Reset board", "Undo"):
             _button(browser_page, name).click()
         browser_page.keyboard.press("Escape")
 

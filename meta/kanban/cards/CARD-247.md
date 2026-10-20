@@ -1,6 +1,6 @@
 # CARD-247: The player's toolbar says what it does — "Clear" instead of "Undecided", and three cells instead of the word "Region"
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/247-player-toolbar-labels
-**Worktree:** —
+**Worktree:** — (removed at merge)
 **Source:** owner's doc "Player", 2026-10-18 — items 1 and 2: rename "undesided" to "Clear"; the Region button should "display 3 cells (in black/dot/question mark/undecided), not word 'region'"
 **Idea:** —
-**Wave:** —
+**Wave:** 48
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_tools.py, tests/test_admin_design_tokens.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 2/3 — 9.0 → 9.5; certification complete, 0 critical, 0 important)
+**Started:** 2026-10-19T15:41:00Z
+**Closed:** 2026-10-19T18:42:26Z
+**Actual:** 0.4d
+**Merge commit:** 8c807a6
 **Blocked by:** —
 
 ## What to implement
@@ -110,6 +110,18 @@ gave `aria-pressed` so it would announce as on/off. Give it an explicit accessib
   drag is recorded, and pressing it still does **not** change the brush.
   (test: the existing Region behaviour tests, named in the notes, passing unchanged)
 
+- **AC-7** (guard, one word names one thing — **owner decision, 2026-10-19**): *Given* the editor
+  page, *then* its board-wipe button reads **"Reset"**, its confirmation names the same word, and **no
+  control on that page carries the word "Clear"** — which this card has given to the player's fourth
+  brush. Added mid-flight on the owner's instruction after the render raised the collision: the two
+  pages share one renderer, so "Clear" was naming a brush that paints one cell undecided *and* a button
+  that wipes the whole board. The owner chose to rename the button and keep the brush.
+  (test: `TestPuzzleEditor_Guardrails::test_one_word_does_not_name_a_brush_on_one_page_and_a_wipe_on_the_other`)
+  **It needed a pin, not just an edit:** at the time of the rename **no test in the suite drove the
+  editor's reset control by its label**, so the old name could have come back and the suite would have
+  stayed green. Both mutants kill the guard — the old label returning, and the button renamed with the
+  confirmation left behind.
+
 ## Guardrails
 
 - G-1: **Appearance only.** No change to what any brush does, to the undo history, to the
@@ -124,37 +136,68 @@ gave `aria-pressed` so it would announce as on/off. Give it an explicit accessib
 
 ## System contract
 
-_Assembled 2026-10-18 by `system_rules.py --card CARD-247 --root meta/architecture` (57 rules returned, `card_scope: touches`). A projection — fix the source artifact, never this list._
+_Assembled 2026-10-19 by `system_rules.py --card CARD-247 --root meta/architecture` (40 rules returned, `card_scope: touches`). A projection — fix the source artifact, never this list._
 
-**Curated to 8; 49 dropped and declared.** The projection returned **57**, of which **49** are scoped `src/nonogram/**` — package-wide, so they match every card in the project and narrow to nothing. Owner decision 2026-10-17: ship the curated form (6–14 rules, kept where the rule's scope names a file this card touches or the card names the rule's artifact) with the dropped count stated. This is not a judgement that the dropped rules do not apply — it is that a ~57-rule contract measurably produces **fake** coverage on this board: reviews emitted a count line claiming all rules checked while marking 45–48 of 53 `⚠ unchecked` and writing 6–12 verdict lines, where 10- and 13-rule contracts produced full coverage. The root cause is the package-wide scoping and is tracked in `meta/kanban/backlog.md`.
+**Curated to 11 by rule; 29 dropped.** Curated under [`meta/kanban/curation.md`](../curation.md): keep every in-scope rule whose enforcement does not reach this card's new code, drop the rest. The kept ones are the rules **nothing executes**, plus `ADR-0039`, whose checks are tests but which declares they do not reach code written later.
 
-- **ADR-0006/R1** — The runtime dependency set is exactly stdlib + Pillow + NumPy. No third-party
-  package joins the installed dependencies without revising this ADR. Non-executable static assets
-  (fonts and similar data files) may ship as package data instead, and doing so is not a dependency
-  change. (check: test: TestDependencyBaseline_IsExactlyPillowAndNumpy)
-- **ADR-0038/R1** — The puzzle player's client is hand-written JavaScript and CSS served as static
-  files by the admin panel. There is no front-end framework, no build step, no npm toolchain and no
-  vendored third-party JavaScript library. Adding any of these reopens this ADR (and ADR-0006/R1 for
-  vendored code). (check: review-lens)
-- **ADR-0038/R2** — Marking, undo, redo, the error count and the solved check run entirely in the
-  browser. A loaded player page issues no network request per mark. (check: test:
-  TestSolverMarking_NoRequestPerMark)
-- **ADR-0038/R3** — The player page's clues are embedded as JSON from compute_clues of the stored
-  grid (the one encoder). The client never re-derives clues from the solution. (check: test:
-  TestSolverPage_ShowsTheClues)
-- **ADR-0038/R4** — The player's state logic (board, strokes, undo/redo history, error count, solved
-  predicate) lives in a pure module with no DOM access, separate from rendering. (check: review-
-  lens)
-- **ADR-0038/R6** — Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a
-  puzzle's solution grid to the browser. A public or reader-facing player must not send the solution
-  before the puzzle is solved, and any public phase reopens this ADR (CON-021). (check: review-lens)
-- **ADR-0038/R7** — Browser tests use pytest-playwright with Chromium, declared only in a dev-only
-  extra in pyproject.toml. It is never added to project.dependencies or to the admin extra. (check:
-  review-lens)
-- **ADR-0038/R8** — Browser tests run locally, against Chromium installed by `playwright install
-  chromium`. When Chromium is not installed, browser tests fail or skip loudly, with a named skip
-  reason visible in the run summary. They never pass silently. Once a CI pipeline exists, it
-  installs Chromium (playwright install chromium) befor… (check: review-lens)
+⚑ **Tightened mid-flight, 2026-10-19: this contract was 16 rules an hour ago.** The model's `contexts: [CTX-001]` key was matching every card before any `code:` glob was consulted, so precisely-scoped rules behaved as package-wide. It was removed from 31 rule scopes and the authored globs became load-bearing. Only rules that do not apply to this card's files were removed — nothing that was relevant to work already done has gone.
+
+- **ADR-0022/R1** — _nothing executes this_
+  Grid extent crosses module boundaries as a (width, height) pair. No public function signature,
+  request field, or export field reduces a grid's extent to a single scalar \"size\", and no
+  source mode constructs a grid from one integer.
+- **ADR-0036/R2** — _nothing executes this_
+  Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the
+  pair-aware call for two-up pages) with the book's PageSpec; the admin panel does not fit cells
+  or place grid lines itself.
+- **ADR-0038/R1** — _nothing executes this_
+  The puzzle player's client is hand-written JavaScript and CSS served as static files by the
+  admin panel. There is no front-end framework, no build step, no npm toolchain and no vendored
+  third-party JavaScript library. Adding any of these reopens this ADR (and ADR-0006/R1 for
+  vendored code).
+- **ADR-0038/R4** — _nothing executes this_
+  The player's state logic (board, strokes, undo/redo history, error count, solved predicate)
+  lives in a pure module with no DOM access, separate from rendering.
+- **ADR-0038/R6** — _nothing executes this_
+  Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution
+  grid to the browser. A public or reader-facing player must not send the solution before the
+  puzzle is solved, and any public phase reopens this ADR (CON-021).
+- **ADR-0038/R7** — _nothing executes this_
+  Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in
+  pyproject.toml. It is never added to project.dependencies or to the admin extra.
+- **ADR-0038/R8** — _nothing executes this_
+  Browser tests run locally, against Chromium installed by `playwright install chromium`. When
+  Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible
+  in the run summary. They never pass silently. Once a CI pipeline exists, it installs Chromium
+  (playwright install chromium) before running them; until then there is no CI, and that is a
+  known gap, not a met clause.
+- **ADR-0039/R1** — _declares its checks do not reach new code_
+  A set a guard consults needs a completeness test written before the set, and any claim the
+  guard makes about what it catches needs a control that can fail: caught WITH the set member
+  present, missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and
+  must be narrowed to what is measured or deleted.
+- **ADR-0039/R2** — _declares its checks do not reach new code_
+  A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where
+  no such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE,
+  never a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3.
+- **ADR-0039/R3** — _declares its checks do not reach new code_
+  An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT
+  absorb — caught with the exemption removed, missed with it in place — is held to an equality
+  against the sites that exist today, and records whatever it still cannot see as a measured
+  bound with its own failing control.
+- **CON-021** — _nothing executes this_
+  Interactive play exists only as the admin panel's puzzle player (TERM-037, FR-044), served
+  behind the door that guards every other admin page (CON-015, CON-016). No other surface — the
+  CLI, the web UI, or any public or hosted page — offers an interactive or playable puzzle. Play
+  state is never persisted on the server: no progress, marks, error count, score or solve time
+  is written to a database, file or server, no network request is made per mark, and no user
+  account exists for playing (CON-017). The one place play state may be kept is the browser's
+  own localStorage, per puzzle, so that a puzzle reopened in that browser resumes where it was;
+  it never leaves that browser. The admin player ships the puzzle's solution grid to the browser
+  to compute the error count and the solved state; this is permitted for the admin panel only,
+  and a public or reader-facing player must not send a puzzle's solution to the browser before
+  the puzzle is solved.
+
 ## Worktree notes
 
 - **[The owner's doc had a third Player item and it was empty.]** "3." is a bare number with
@@ -172,3 +215,212 @@ _Assembled 2026-10-18 by `system_rules.py --card CARD-247 --root meta/architectu
   `pytest-playwright` in the dev-only extra.
 - **[Do not take timing measurements]** Sibling cards are active; a contended number is not a
   measurement. Layout measurements are fine — they do not depend on host load.
+
+---
+
+### Implementation notes (agent, 2026-10-19)
+
+- **[What shipped]** Two owner-visible changes and nothing else. (1) The fourth brush reads
+  **"Clear"** in every place a human reads it — the menu item, the trigger's text, the trigger's
+  `Brush: <label>` accessible name (`solver.js` `BRUSH_LABEL`), both sentences of the usage hint,
+  and the reset confirmation ("Every mark is cleared. Undo brings them back."). (2) The Region
+  toggle's face is **three `.player-swatch` cells in the active brush's mark** instead of the word
+  "Region"; `syncTrigger` paints them from the same `tool` that writes the trigger, so the two can
+  never disagree, and the button carries `aria-label="Region"` because its name used to be its text.
+- **[The model name was not touched]** `UNKNOWN`, `data-player-tool="unknown"`, `data-state="unknown"`
+  and `solver_state.js`'s own "undecided" wording are all unchanged — pinned by
+  `TestSolverBrushMenu_RenameDidNotTouchTheStateName`, which reads the four exported constants out of
+  the live module. **If the model name should change too, that is still a separate card.**
+- **[AC-5, re-measured with provenance, not loosened]** Identical at 1280×720, 1440×900 and 390×844
+  and for all four brushes: slot = group = **208 px** (13rem, untouched — nothing outside the group
+  moved); Region toggle **64 px** (was 71.7); trigger **136 px** (was 128.3); the toggle's left edge
+  **144 px** into the group (was 136), and it still does not move between brushes, which is the
+  regression the block exists for. The group's content *shrank*: the widest trigger is now "Maybe" at
+  92.1 px natural ("Clear" is the narrowest at 82.4, where "Undecided" was the widest at 124), so the
+  content comes to 164.1 px inside the 208 px floor against CARD-211's 204. Both assertions are as
+  tight as they were (two numbers, no tolerance); the toggle's own width is pinned by them as
+  208 − 136 − 8.
+- **[A defect the tests could not have found — caught in the render]** The first build drew the run
+  with collapsed borders. `.player-swatch[data-state="filled"]` colours its border with the ink it
+  fills with, so **three filled cells edge to edge are one solid black bar** — every `data-state`
+  assertion was green and the owner's "3 cells" was not legible at all. Fixed by re-colouring the
+  shared edge with the panel's own answer to the same question one block up in `admin.css`:
+  `.guide-strip-cell`'s 28 % ink on paper. Pinned by the `seam != fill` assertion in
+  `test_it_renders_three_cells_and_no_region_text` (mutant M10) — the only assertion in the file a
+  correct `data-state` cannot satisfy. Renders for the owner, all four brushes plus Region armed and
+  the menu open: `~/Documents/nonogram-reviews/CARD-247/`.
+- **[Both pages verified — the editor is deliberately unchanged]** `static/solver.js` is shared with
+  `puzzle_edit.html` (CARD-246), which offers **two** brushes and keeps its Region button as the word
+  "Region" with no swatches. Nothing in this card assumes four brushes: `regionCells` is a
+  `querySelectorAll` that is simply empty there, so `syncTrigger`'s loop does nothing, and
+  `.player-brush-run` is a new class the editor's markup does not use, so the editor's layout is
+  bit-for-bit what it was. Verified by running the whole of `tests/test_puzzle_editor_ui.py` (113
+  passed) and by a render of the editor toolbar; a direct read of the editor's toggle gives
+  `text="Region"`, `aria-label=None`, `swatches=0`, `aria-pressed="false"`. **Giving the editor the
+  same icon is a deliberate non-decision**: it is outside this card's `Touches`, its toolbar is
+  measured by CARD-246's own tests, and the owner's doc item is under "Player". If the owner wants
+  the two toolbars identical, it is a cheap follow-up card.
+- **[Out-of-`Touches` edits, and why each was unavoidable]** The label is a *locator* in five other
+  test files, so the rename reaches them whether or not they are listed: `marking`, `maybe`, `hint`,
+  `progress` and `test_puzzle_editor_ui.py`. The editor one is the important one —
+  `test_the_editor_offers_only_the_two_brushes_an_answer_can_hold` asserted
+  `_menu_item("Undecided").count() == 0`, which after this rename would hold for **every possible
+  editor** (CARD-250's family of defect). It now asserts the label the player really shows. Also one
+  Jinja comment in `puzzle_edit.html` that named the old label. **No test was retired and no test
+  function was renamed** (G-6): a test method's name is part of a node id this repo guards, so
+  `test_maybe_sits_between_white_and_undecided_in_the_menu` and
+  `test_arrow_up_and_end_reach_undecided_the_last_item` keep their names with a note saying why.
+- **[The node-id guard needed a new mechanism, and got its control]**
+  `tests/test_browser_fixture_scope.py` derives the family's expected node ids from CARD-217's
+  artefact plus `ADDED_SINCE_BEFORE`. That table can only ever **add**, and a label rename is not an
+  addition: eight existing node ids carry the brush label in their *parameter*
+  (`…[Undecided-Enter]`, `…[chromium-Undecided-1280-720]`, …), so the rename reads to the guard as
+  eight removals and eight additions, and the removal half cannot be registered away. Added
+  `RENAMED_SINCE_BEFORE` (`old id → (card, new id, reason)`), applied by `_recorded_node_ids` before
+  anything is compared. It is a **move**, never a loss: a recorded rename whose old id is still
+  collected is still red in both directions, an unrecorded one is red in both directions, and
+  `_rename_problems` refuses an entry whose two sides name different test functions — which is the
+  only way this table could have become a quiet way to delete coverage. Per **ADR-0039/R1 and /R3**
+  the refusals are a function, not a loop inside its own test, and
+  `test_the_rename_table_refuses_what_it_claims_to` drives all nine of them over tables broken on
+  purpose. **The first version of that control only asserted that SOME refusal fired, which left
+  four of the nine unmeasured** — see the fix-cycle note at the end of this section for what the
+  control asserts now and the branch-by-branch measurement. **This is the first rename on this board;
+  the mechanism is general and the next one costs one entry.**
+- **[System contract]** The worktree's card carried the **8-rule** curation; `main` at the time of
+  writing carries the **16-rule** one re-derived under `meta/kanban/curation.md`. Judged against the
+  16. In subject area and met: ADR-0006/R1 (no dependency added — three CSS lines and an HTML span),
+  ADR-0038/R1 (hand-written CSS/JS, no framework, no build step, nothing vendored), /R2 (no network
+  code touched; no request per mark), /R4 (the change is entirely rendering — `solver_state.js` was
+  not edited at all, and the new tests read it rather than extend it), /R6 (no change to what the
+  payload ships or who may see it), /R7-/R8 (new tests use the family's existing fixtures, which fail
+  loudly with a named reason when Chromium is absent), CON-021 (nothing persisted, nothing served
+  outside the panel's door). ADR-0039/R1–R3 were the ones that actually bit, on the rename table
+  above. Out of subject area and left alone, as the card's declared residue allows: ADR-0022/R1,
+  ADR-0024/R4-R5, ADR-0033/R1, ADR-0036/R2, ADR-0037/R1-R2 (grid extent, repair policy and book
+  geometry — a toolbar label reaches none of them).
+- **[Mutants — ten, all killed, tree restored byte-identical (sha256 compared each time)]**
+  M1 `BRUSH_LABEL[UNKNOWN]` back to "Undecided" → both AC-1 tests. **M1 is the reason the sweep picks
+  the fourth brush before reading the page**: with Black chosen that label is never rendered and the
+  mutant survived the sweep on the first run — the claim was narrowed to what was measured and the
+  test was given the one extra click that makes it true, rather than the docstring being left to
+  overstate. M2 menu item text back → both AC-1 tests *and* AC-2's label/value pairs. M3 confirmation
+  back → both AC-1 tests (not the sweep alone, as first claimed). M4 drop the `regionCells` loop →
+  `test_the_three_cells_follow_the_active_brush`. M5 drop `aria-label="Region"` → the whole of AC-4.
+  M6 two cells instead of three → the count *and* all 12 cells of the measured-layout case. M7 drop
+  `.player-brush-run { display: inline-flex }` → the boxes (a `<span>` is inline, so width/height do
+  not apply and the cells vanish) and again all 12 layout cells. M8 rename `UNKNOWN` to `"clear"` in
+  `solver_state.js` → AC-2. M9 drop `flex: 1 0 auto` → all 12 layout cells, the CARD-211 regression.
+  M10 drop the seam colour → the `seam != fill` assertion alone.
+- **[Owner's parenthetical, recorded]** "in black/dot/question mark/undecided" was read as *the four
+  states three cells can be in*, not one cell of each. If the owner meant one black, one dot and one
+  "?", it is three `data-state` values in the template and one assertion — no layout change, since
+  the toggle's width does not depend on which state each cell holds.
+
+### Fix cycle 1 notes (agent, 2026-10-19)
+
+Review cycle 1 scored 9.0 with one Important finding (F-001, a violation of ADR-0039/R1) and two
+minors. Report: `meta/review/20261019T173621Z-CARD-247-cycle1.yml`.
+
+- **[F-001 fixed — the rename control now names the refusal each case must provoke]**
+  `test_the_rename_table_refuses_what_it_claims_to` asserted only `_rename_problems(table) != []`.
+  Several of the nine broken tables trip two or three refusals at once (every legal `old` is
+  recorded, so "moves to itself" also reads as a merge), so **four refusals could be deleted one at
+  a time with the control still green**: branch 3 (`new in before`), 4 (`new == old`), 5 (family
+  prefix) and 9 (`ADDED_SINCE_BEFORE` double-count). `broken` now maps each label to **(table,
+  the text of its own refusal)** and the assertion is `len(hits) == 1` over the problems — 0 means
+  the named refusal did not fire (or another is standing in for it), 2 means the fragment cannot say
+  which one did. All three claim sites were corrected to the mechanism that now exists: this test's
+  docstring, `test_every_rename_entry_moves_one_recorded_id_and_is_attributed`'s ("firing *by its
+  own message*"), `_rename_problems`' own docstring, and the sentence in the implementation note
+  above.
+- **[The nine neutralisations, re-run after the fix — all nine killed]** `if <cond>:` -> `if False:`
+  one branch at a time, running only this control, file restored from a byte-identical copy and
+  sha256-compared after each (`187c75f…`): branch 1 killed (through the `ValueError` at the unpack
+  the `continue` no longer guards), 2 killed, **3 killed**, **4 killed**, **5 killed**, 6 killed,
+  7 killed, 8 killed, **9 killed** — and in each case the failing assertion is that branch's OWN
+  case, not a neighbour's.
+- **[The remedy got the finding's own check: a fragment cannot be satisfied by a different
+  refusal]** Measured, not asserted. (a) With branch 3, 4, 5 or 9 neutralised, its case still
+  produces 1, 1, 1 and 2 problem lines — the very lines that kept the old control green — and
+  **none of them matches the neutralised branch's expected fragment** (`matching_expected=0` in all
+  four). (b) The full 9x9 matrix of *fragment E_i matches case j* against *branch i authored a line
+  in case j* (authorship derived by difference under neutralisation, not by reading the source)
+  agrees in all 81 cells, with the diagonal all true. Two cheap in-test checks keep it that way:
+  each fragment matches exactly one problem line of its own case, and no fragment is a substring of
+  another.
+- **[F-002 fixed — the Region toggle's face is inside the token pin now]**
+  `test_the_region_toggles_pressed_look_comes_from_tokens` collected only `.player-region`-prefixed
+  lines and required `value.startswith("var(--")`, which `inline-flex`, `calc(…)` and
+  `color-mix(…)` could never have satisfied — so `.player-brush-run`'s declarations were pinned by
+  nothing but the whole-file `#rrggbb` sweep, and an `rgb()`, `hsl()`, named colour or bare length
+  there passed both tests. The test now collects `.player-region` **and** `.player-brush-run`
+  rules, pins the four selector strings by name (a rule renamed or reformatted is red, not a
+  quietly smaller sweep), and judges values with `_untokenised`: a value passes when it is a named
+  layout keyword (`_KEYWORD_VALUES`, an explicit set — **not** "any bare keyword", because
+  `color: red` is one) or reaches for a `var(--…)` and, with every token struck out, leaves only
+  `calc`/`color-mix` syntax, numbers, operators and percentages. A literal anywhere inside a
+  `calc()`/`color-mix()` therefore survives the strike and is reported.
+- **[F-002's control, shown failing]** Five literals injected into the real rules one at a time
+  (CSS restored byte-identically, sha256 `68e9922…` after each), each run against the fixed test
+  AND against the cycle-1 test: `rgb(0,0,0)` in the seam rule — **red / green**; `background: red`
+  in `.player-brush-run` — **red / green**; `margin-left: 2px` there — **red / green**;
+  `hsl(0 0% 10%)` inside the `color-mix()` — **red / green**; `#1a1a1a` in the pressed rule — red /
+  red (the one shape the old test already caught). The in-test control is itself controlled:
+  neutralising `_untokenised` to `return []` takes the six broken-on-purpose rules red, so the
+  predicate is not a branch nothing executes. The `admin.css` comment's claim was corrected while
+  there — it cited "(G-4)" for the token rule, which is **CARD-211's** G-4 (this card's G-4 is
+  accessibility) — and now names the test that pins it.
+- **[F-003 dismissed, not fixed — owner's call]** AC-7's guard is on the editor, which after the
+  rename holds only one meaning of "Clear" anyway; the player is where the brush "Clear" and
+  *"Clear the board?"* / *"Clear board"* coexist. The card's `### [Decision]` already records that
+  the player's wording was deliberately left alone and is not what the owner ruled on. Changing
+  those strings or parametrizing the AC-7 guard over both pages would assert "no control named
+  Clear" against a player that deliberately carries one, so the guard would go red on the owner's
+  own decision. Left to the question the orchestrator is putting to the owner.
+- **[F-004 dismissed]** The stale 8-rule System-contract header in this worktree's card copy is the
+  orchestrator's bookkeeping between the two copies; the branch touches no `meta/` file.
+- **[Declarations re-derived]** F-001 — the mechanism changed (a non-empty assertion became a
+  per-refusal message assertion), and every statement of the old one was corrected: two docstrings,
+  `_rename_problems`' docstring and the implementation note above. F-002 — the mechanism changed
+  (collection widened, predicate widened from `startswith("var(--")` to token-only), and the
+  `admin.css` comment that declared it was corrected and attributed. No numeric bound, lifecycle,
+  blast radius, error classification or config-field meaning changed anywhere in this cycle; no AC,
+  no guardrail and no CSS declaration was touched, so every AC (AC-1..AC-6 as this copy lists them,
+  plus AC-7 in `main`'s copy) and the measured layout figures
+  stand as cycle 1 recorded them (re-run green: 50 in `test_puzzle_solver_brush_menu.py`, 109 in
+  the non-browser CSS readers, 38 in the two edited files).
+- **[G-6]** No test retired, renamed or weakened: both edited tests keep their names and every
+  assertion they had; what changed is that each got stricter.
+
+### [Fix 1] declarations — orchestrator, 2026-10-19 · `bfc60dc`, `bd88213`
+
+**F-001 and F-002 fixed; F-003 and F-004 dismissed with reasons.** The control now asserts
+`len(hits) == 1` against each case's **own refusal message** — 0 means the named refusal did not fire
+or another stood in for it, 2 means the fragment cannot say which fired.
+
+**Verified independently rather than taken on report.** Neutralising branch 3 (`new in before`), one of
+the four that *survived* cycle 1, now fails — and the failure shows the defect's whole anatomy: the
+case still produces a problem line (the different-test-function refusal standing in), and the expected
+fragment matched **0** of them. That is the shadowing, made visible by the assertion that replaced the
+non-empty check.
+
+**The remedy was checked the way the finding was**, which is what the brief asked and the step most
+often skipped: a **9×9 matrix** of *fragment Eᵢ matches case j* against *branch i authored a line in
+case j*, with authorship derived **by difference under neutralisation** rather than by reading the
+source. All 81 cells agree, diagonal all true. Plus two in-test keepers — every fragment matches
+exactly one problem line of its own case, and **no fragment is a substring of another**, since nesting
+would let the shorter case ride the longer one's refusal: the same defect one layer up.
+
+**No branch turned out unreachable, so the claim stays at nine** rather than being narrowed — the
+honest outcome only because it was measured both ways.
+
+**F-002's control was shown failing on five injected literals**, four of which the cycle-1 test passed
+green, including a literal hidden *inside* a `color-mix()`. The predicate is itself controlled:
+neutralising `_untokenised` reds the six deliberately-broken rules, so it is not a branch nothing
+executes.
+
+**⚑ And the agent caught an over-claim it had just written** (`bd88213`): its own new docstring said
+*"every value they declare is a design token or a `calc()`/`color-mix()` over tokens"* while
+`display: inline-flex` is neither. Narrowed on re-read — the rule F-001 is about, applied to F-001's
+own remedy, by the agent rather than by review.

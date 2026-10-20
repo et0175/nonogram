@@ -81,7 +81,7 @@ Model the web UI as its own bounded context (CTX-002) and/or its own deployable 
     orchestrator.GenerationRequest — and no domain logic or validation,
     mirroring cli.py; it may import the orchestrator but no capability
     module may import it or cli.py.
-  scope: {contexts: [CTX-001], code: ["src/nonogram/web/**", "src/nonogram/cli.py"]}
+  scope: {code: ["src/nonogram/web/**", "src/nonogram/cli.py"]}
   check: {kind: test, ref: test_every_import_in_the_package_points_inward}
   severity: mandatory
 ```
