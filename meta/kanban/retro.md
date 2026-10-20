@@ -1086,3 +1086,34 @@ dispatch prompts (free, and relies on each agent reading it).
   regression in the existing ones.
 - **`conflict.hotspots` candidate**: `tests/test_browser_fixture_scope.py` — every browser-test card
   must edit it, and this wave it drifted outside `Touches` again.
+
+### Process shortcuts (owner, 2026-10-20)
+
+- `other:gate_window_shared` → **rework**. CARD-225's build gate 2 ran beside a browser suite and
+  produced two failures that were not the tree. Cost: one 15-minute gate re-run, one attribution
+  withdrawn after it was already written down.
+- `other:merged_on_a_cut_back_claim` → clean, so far. CARD-252 merged with its claim narrowed
+  rather than taking a fourth cycle (`max_cycles: 3`). A deliberate exit on the final reviewer's own
+  prescription — recorded because a deliberate exit taken twice is a habit.
+- `skip_review` → **and the owner is right where I was wrong.** My read was "every card ran at least
+  two cycles", which is true and beside the point: on **both** CARD-252 and CARD-225 the *last code
+  commit before the merge gate was never reviewed by anyone*. CARD-252's claim cut-back (`f4e5730`,
+  plus my own `c7770b3`) and CARD-225's two-Minor fix (`426ec2a`) were applied after their final
+  review cycle, on that cycle's own prescription, and went to the merge gate uncertified. The gates
+  were green, so nothing broke — but "the reviewer told me to" is not the same as "a reviewer saw
+  the result", and this wave's entire subject was changes nobody checked. The structural cause is
+  that `max_cycles: 3` is a cycle budget, not a *last-mile* rule: a card that spends all three has
+  no mechanism left to certify the edit it makes on the way out.
+
+### Decisions taken at this retro (owner, 2026-10-20)
+
+1. **No effort multiplier for python-pro.** The weighted figure (0.59× → 0.80×, sample 14) is drifting
+   to 1.0 on its own. Price **claim surface** instead: a card whose deliverable is a claim correction
+   is floored at **0.5d** regardless of how few lines it edits. Not applied via
+   `/forge:retrospective calibrate` — `backlog-scored.yml` is untouched this wave.
+2. **The full-suite lock gets enforced in `conftest.py`** — carded, not left to dispatch prompts. A
+   pytest run that starts while another worktree holds the lock must abort naming the holder. The
+   prompt line stays in the meantime.
+3. **The deletion-mutant rule is promoted** into the standing pipeline brief
+   (`card-pipeline-brief-rules`), together with the recomputation obligation for committed figures.
+   Not routed to an ADR: it is a rule about how the fix station works, not about the system.
