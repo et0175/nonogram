@@ -1117,3 +1117,118 @@ dispatch prompts (free, and relies on each agent reading it).
 3. **The deletion-mutant rule is promoted** into the standing pipeline brief
    (`card-pipeline-brief-rules`), together with the recomputation obligation for committed figures.
    Not routed to an ADR: it is a rule about how the fix station works, not about the system.
+
+## Wave 49 — 2026-10-20
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-254 | Shrink the private-globals guard to the part with authority | 0.5d | 0.41d | 0.82× | 3/3 | 9.0 (from 8.5) | accurate (actual) |
+| CARD-255 | A pytest run refuses to start while another worktree holds the lock | 0.5d | 0.33d | 0.66× | 3/3 | 9.0 (from 7.5) | overestimated (actual) |
+
+### Metrics
+
+- cards: 2, parked: 0, split: 0, actual_time: 2; **family-regression flags on 2 of 2** — both at cycle
+  2, both the *second generation* of their own cycle-1 finding
+- total_estimate: 1d, total_actual: 0.74d; avg_accuracy **0.74×** by card and by budget
+- avg_cycles: **3.0** — both cards spent every cycle they had; the highest this journal records
+- avg_final_score: **9.0** (↑ +0.33 vs wave 48) · score_improvement: +1.0 (initial 8.0 → final 9.0)
+- test_cost: **4 gate runs, 4025s = 1.12h, 100 % full-scope**, and **zero wasted** — no red gate this
+  wave was anything but the tree. Wave-closing suite **970s against wave 48's 983s on 27 more tests**;
+  112 vs 114 ms/test, so the +13.5 % blip wave 48 flagged did not become a trend.
+- **Both cards ran their full three cycles and neither was parked**, which is what an 0.74× accuracy
+  with a 9.0 score means on this board: the work was not under-estimated, it was **review-bound**.
+
+### Calibration signals
+
+- **python-pro, 2 cards, avg 0.74× (actual).** Weighted into the library: feature 0.626 (n 24,
+  unchanged this wave), **ops 0.633 → 0.653 (n 7)**, **tech-debt 1.008 → 0.992 (n 14)** — all three
+  drifting toward 1.0, trend *improving*. **No multiplier applied, again** (wave 48's decision), and
+  this wave argues for it: the two cards estimated at 0.5d came in at 0.41d and 0.33d, which is
+  exactly what the **0.5d floor for claim-correction cards** was for. The floor was adopted last wave
+  and these are the first two cards to sit on it. It is doing its job and should stay.
+
+### Complexity breakdown
+
+- standard (2 cards): avg cycles 3.0, avg score 9.0, 0 parked
+- architectural: none this wave
+- → with history (9 standard, 7 architectural): standard 2.33 cycles vs architectural 2.03,
+  `arch_vs_std = −0.30` → **upgrade still holding ✓**. But note what two waves of data now say:
+  **standard cards are where the cycles go**, not architectural ones. Three waves running, every card
+  that spent all three cycles has been a *standard* card whose subject was a claim.
+
+### Finding families
+
+- **ADR-0039 is the whole wave: all 5 gating findings, both cards, every cycle.** R1 (a claim wider
+  than its mechanism) ×4, R3 (an exemption without a control) ×1. The rule is working exactly as a
+  mandatory reviewer-side check works — **catching, never preventing** — which is now its third wave
+  of doing so.
+- **fix-induced share: 2 of 2 gating findings after cycle 1 were introduced by the previous fix
+  (100 %)** — CARD-254's arm 2b was added by its cycle-1 fix; CARD-255's prose allowlist was added by
+  its. Wave 48 was 3 of 3. **Six consecutive gating findings across two waves have been created by
+  the fix for the previous one.** This is now the board's dominant defect source and it is not
+  slowing down.
+- **PROMOTE — "a per-arm kill matrix cannot be read off a per-test result."** CARD-254's cycle-2
+  Important *was* this, and its cycle-1 Important was certified the same way: a test short-circuits at
+  its first failing assert, so one `FAILED` line says nothing about the arms that never ran, and a
+  surviving mutant and a never-reached assert look identical. Both of that card's generations were
+  certified by reading a result that could not distinguish **killed** from **never reached**. The
+  remedy is mechanical and was built twice this wave, independently: rewrite every `ast.Assert` at any
+  depth into a recording try/except, and keep deletion mutants **line-count-preserving** so the
+  numbering cannot shift. Both agents hit the misalignment trap first and said so.
+- **WATCH — "widening a predicate and adding an exemption are the same edit."** CARD-255 cycle 2:
+  the fix that correctly widened the override scan paid for it with two directories exempted by
+  prefix, uncontrolled. One gating finding, below threshold, and ADR-0039/R3 already states the rule —
+  what is new is the *pairing*: the exemption arrives in the same commit as the widening and needs its
+  failing control there too.
+
+### The wave's own measurement: a review cycle grows a file while shrinking it
+
+CARD-254 set out to retire ~400 lines and keep ~55. Measured at merge:
+
+```
+tests/test_db_engine_lifecycle.py  1415 → 919 → 1062 → 1177
+src/nonogram/db/session.py          327 → 368 →  376 →  384
+                                   base  shrink  cyc1   cyc2
+```
+
+**The shrink removed 496 lines; its two review cycles put 258 back — 52 %.** Net **−181 (−10.4 %)**.
+The mechanism that does the catching is **22 executable lines**; prose to mechanism in what survives
+is **1.69 : 1**, and `reset_engine()`'s docstring is 126 lines for a 6-line body.
+
+Every restored line closed a legitimate finding. **That is the point:** a pipeline that demands a
+control and a declaration for every claim will grow a file even while the card is shrinking it, and
+nothing in the process notices. Carried as CARD-257, and as a question for the next shrink card:
+**state the target as a net figure and report it at each cycle**, so the arithmetic is visible before
+the merge rather than in the certifier's closing paragraph.
+
+### Process defects, mine
+
+1. **The curation convention nearly dropped ADR-0039 for the third time** (CARD-250, CARD-251, and
+   almost both of this wave's cards). Two causes, now in `curation.md`: `system_rules.py`'s output
+   carries **no ADR comment text at all**, so a script reading the tool's YAML can never match the
+   "declares a reach limit" idiom; and the idiom's **case varies** — ADR-0036/0037 write "Reach…",
+   ADR-0039 writes "REACH…". Fixed, with a sanity check: a card touching `tests/**` or
+   `src/nonogram/**` whose kept set lacks ADR-0039 has a broken derivation, not a narrow scope. It
+   mattered: both cards are about guards, one removing and one adding.
+2. **My fix brief for CARD-254 specified the form with the dead mechanism.** I asked for "collapse
+   newlines, then keep the `\n` exclusion"; `[^()]` already matches newlines, so that would have left
+   an exclusion that can never fire — the exact shape the card exists to criticise. The agent deviated
+   and said why; the certifier implemented *my* version and measured both on 11 shapes and the whole
+   tree: identical on every input. **Flagging a deviation with its reason is the behaviour this board
+   wants**, and following my brief would have shipped the defect.
+
+### Suggestions
+
+- **Promote the per-arm rule into the standing pipeline brief** alongside the deletion-mutant rule
+  from wave 48: *a control that carries several assertions is measured per assertion; a per-test
+  result cannot distinguish a killed arm from one that never ran, and the instrument must keep
+  deletion mutants line-count-preserving.*
+- **Add the pairing rule to the same brief:** *a fix that widens a predicate and adds an exemption
+  ships both with their controls in the same commit — the exemption is the half that gets forgotten.*
+- **Keep the 0.5d floor** for claim-correction cards; both cards this wave sat on it and came in under.
+- **No effort multiplier**, third wave running. All three python-pro buckets are drifting toward 1.0
+  on their own.
+- **Shrink cards state a net target and report it per cycle.** CARD-254's −10.4 % was invisible until
+  the final paragraph of the last review.
