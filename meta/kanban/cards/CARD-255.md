@@ -601,3 +601,49 @@ offender predicate is test-side).
   semantics) went from surviving at 30 passed to **3 failed**, and M-G (the `pytest.exit`
   substitution) from being caught by the AST rule alone to failing the exit-code assertion as well.
   Both were Minors; both were the "documented claim with no control" shape this wave keeps finding.
+
+### [Review 3/3] Score 9.0 — **CERTIFIED**, no open Important · 7.5 → 8.5 → 9.0
+
+Report: `meta/review/20261020T072614Z-CARD-255-cycle3.yml` (copied to main). Three Minors and three
+info recorded; system contract 5 checked, **5 hold, 0 violated**.
+
+- **The shape constraint is not a third-generation exemption**, and the census was re-derived
+  independently: `git ls-files meta/kanban/cards meta/review` = **542 files = 286 `.yml` + 256 `.md`**,
+  zero other extensions, zero case variants, **zero tracked symlinks, zero exec-bit entries**. The
+  docstring's figure is exact. With the honest reading attached: as applied today the clause narrows
+  **nothing** — every tracked file there is already prose — so its whole value is prospective.
+- **19 attack shapes probed, 16 caught**: `notes.md.sh`, `.MD`/`.YML` case variants (fail-safe
+  direction), `x.yaml`, `x.yml.bak`, `noext`, `Makefile`, and the sibling directories
+  `meta/review-archive/`, `meta/reviews/`, `meta/kanban/cards-archive/` — so the trailing slashes are
+  load-bearing, re-derived. A symlink under an exempted prefix is neutralised because `git grep`
+  never lists it.
+- **Kills measured per assertion, not per test** — the lesson CARD-254's cycle 2 paid for, applied
+  here the same day. M-L reds the promoted probe at exactly one assertion; M-N (a setter relocated to
+  `scripts/`) reds the probe's **integrity** assertion with its own message and nothing else; M-Q
+  (whole exemption deleted) reds the equality-against-today's-sites. M-K killed per arm (3 of 5
+  parametrisations red, the right 3). M-G killed **twice, independently**.
+- **"Runtime untouched" derived from the diff rather than the claim**: every changed guard line starts
+  with `#:`, the two module ASTs hash equal, and all **19 code objects compile to byte-identical
+  `co_code`** — only the line table shifted. AC-5 byte-identical across the post-fix guard, the
+  pre-fix guard and the no-guard base conftest on a 579-test selection.
+- **No third generation.** Each generation's reachable hole is strictly narrower, and this one is not
+  reachable by any mechanism here: nothing on this board executes files out of `meta/review/` or
+  `meta/kanban/cards/`. Cycles 1 and 2 were each about a file a human or a gate would **run**; this is
+  about a file nothing runs.
+
+### The one silent failure mode, found by the question that was worth asking
+
+**`NONOGRAM_FULL_SUITE_LOCK` is the guard's second env switch and the silent one.** Probed: pointed at
+a path holding no lock, `386 passed`, `current_verdict() == (True, None)`, `report_line() == None` —
+**a run allowed that should have been refused, printing nothing at all**, where the override walks
+past a lock loudly by design. And the tree scan greps the *override* variable only, so an in-tree
+setter of the **path** variable sits outside the control that exists for the other one. The route is
+concrete: `scripts/run_admin_tests.sh` — the very file cycle 1's F-004 was about, where cycle 2's M-H
+proved the scan reds for the override — would stay green with
+`export NONOGRAM_FULL_SUITE_LOCK=/tmp/none` appended. The guard's docstring asserts the condition that
+makes it safe ("Unset — which is every real run, gate or agent") and **nothing holds it**.
+
+Filed Minor on probability, not consequence: no in-tree file sets it today, the README does not
+document it, and its one purpose is the test seam this card's own brief mandated. The remedy is two
+tokens (`-e OVERRIDE -e LOCK_PATH_VAR`), verified to add no hit outside the four already-exempted
+files.
