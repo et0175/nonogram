@@ -448,7 +448,12 @@ let a child pytest report `1 passed` and hide real-process propagation.
 
 **F-001 — closed, and the correction is larger than the finding. Five rows moved:**
 
-1. **M-Q is killed, not surviving** — `:105` and `:106` in `test_no_lock_file_is_the_ordinary_case`, and
+1. **M-Q is killed, not surviving** — **recording pass** `:105`, `:106`; **plain pass** `:105`, `:1067`,
+   `:1104`, `:1115`, `:1136`, `:1167`, one per failing test; **union** `:105 :106 :1067 :1104 :1115 :1136
+   :1167` (corrected at fix 2 — the original row gave only the recording pass's two). **M-Q is the only
+   mutant of the 23 whose kill reaches the child process** (`child_fails` is `[105]` for M-Q and `[]` for all
+   22 others), which is why its was the only row *under*-attributed rather than merely short-attributed. In
+   `test_no_lock_file_is_the_ordinary_case`, and
    **6 of 41 tests** red in a plain run, reproduced solo twice. Both linenos sit above every edit in this
    fix, so they hold for `28de78d9` too. The *unreachability-from-a-real-run* observation about
    `current_verdict` stands on its own and needed no survivor to be true.
@@ -456,29 +461,96 @@ let a child pytest report `1 passed` and hide real-process propagation.
    phrase. Measured: **no assertion runs at all.** `current_verdict()` refuses on *every* pytest, so the
    measuring run aborts in `pytest_configure` — `ERROR: Refusing to start`, **exit 4, 0 collected, all 130
    asserts NOT-REACHED**. The mutant is detected maximally loudly, and by **nothing in the matrix**.
-3. **M-A kills one arm, not four.** Only `:820` (`note is not None`). `:821`/`:822`/`:825` are
+3. **M-A kills one arm of that unit test, not four.** Only `:820` (`note is not None`) — and, added at fix
+   2 for scope: M-A also reds `:1138` in **both** domains and `:1141` in the recording pass.
+   `:821`/`:822`/`:825` are
    **NOT-REACHED**, because with `note is None` the next line raises `TypeError` rather than
    `AssertionError`, so the test errors and the remaining arms never run. Test-level coverage is intact;
    the attribution was wrong. **This is the instrument's own hazard appearing inside its own output** —
    and only a per-assertion run with NOT-REACHED reporting can see it.
-4. **M-F reds 6 assertions across 3 tests, not 3** (`:133`, `:134`, `:152`, `:1067`, `:1068`, `:1071`). The
+4. **M-F reds 6 arms in the recording pass across 3 tests, not 3** (`:133`, `:134`, `:152`, `:1067`,
+   `:1068`, `:1071`; a plain run gives `:133 :152 :1067` — the same 3 tests red). The
    refusal case stays green, so CARD-255's pair holds as recorded.
 5. **M-R2 has two kills the undeclared subset could not see** — `:1107` (`"stale" in combined.lower()`) and
    `:1118` (`guard.OVERRIDE in combined`), 4 tests red in a plain run: the widest real reach in the set.
 
-**14 of the card's 21 rows reproduce exactly.** And **`:1174` is killed by nothing in the set** — not a
-dead control: only a *new* verdict phrase would red it, which is precisely the enumeration bound F-006 now
-declares. That is bound (a) made visible rather than asserted.
+**14 of the card's 21 rows reproduce exactly.** And **`:1174` is killed by nothing in the 23-mutant set**,
+and its control is **not** dead — but the reason first given for that was exactly backwards, and is
+corrected at fix 2. **M-1174** (new row) makes `current_verdict`'s no-lock branch return one of the three
+*enumerated* phrases and reds `:1174` **alone**: 1 failed, 40 passed, the failure reading
+`a run with no lock in sight reports a verdict: 'stale'`. What `:1174` **cannot** see is a **fourth**
+phrase — which is F-006's bound (a), measured here too: **M-4B**, the same branch returning a phrase in no
+list, leaves all **41 green** while printing that phrase twice in the measuring run's own output. *The
+original sentence named as the killer the one thing the assertion provably cannot notice.*
 
-**A bound the card never stated: 84 of 130 assertions are killed by no mutant in this set.** Overwhelmingly
-CARD-255's pure-function arms — `parse_fields`, `_same_tree`, `_names_a_tree`, the stale/threshold/
-future-stamp rules, the two age fallbacks, the skip-API text and syntax rules — which these 23 mutants were
-never aimed at. The card's "Unkilled by this set, and why" bullet covered a small part of that and
-**understated the count**; the honest statement is the number together with the reason.
+Two rows follow from that, and the second repairs an implementation-matrix row fix 1 only half-corrected —
+the original matrix attributed `…tree_with_no_lock…` / *no verdict phrase* to **M-Q2**, which collects
+nothing at all, so that row was **empty**, not merely wrong:
 
-**F-003 — the census is DELETED, not corrected.** A number in a comment has no control, and the population
-grows every card: 542 at drafting, **546** in the worktree today, **550** on main today — already past the
-reviewer's own recomputation. What the figure claimed is now held by an equality at **`:750`**: the suffixes
+| test | assert | killed by |
+| --- | --- | --- |
+| `…tree_with_no_lock_runs_exactly_as_it_did_before` | no verdict phrase (`:1174`) | **M-1174** — *not* M-Q2, which aborts before collection and reds nothing |
+| (deliberately green, the measured form of F-006's bound (a)) | the same assert | **M-4B** — a *fourth* phrase, in no list: 41 passed |
+
+Both are one-line, line-count-preserving substitutions on the same `if text is None: return True, None`
+that M-Q2 targets.
+
+**Two measurement domains, named — and the bound stated in each.** *(This paragraph replaced an earlier one
+that said "84 of 130 assertions are killed by no mutant in this set"; that was the recording pass's number
+stated as if it were the mutant set's. Corrected at fix 2, measured by two new passes over the same 23
+mutants, neither of them the recording pass, agreeing with each other on all 26 rows.)*
+
+Every per-assertion figure in this record comes from one of two passes, and they do not see the same things.
+
+- **The recording pass** (the instrument): each `ast.Assert` is wrapped in a `try/except AssertionError` that
+  **records and continues**, so within a test every arm is measured independently and no short-circuit can
+  hide one — which is what it was built for. The price is suppressed propagation: **an assertion whose truth
+  depends on a child pytest's outcome cannot record FAIL at all.** The real-process cases run `SELECTION` —
+  one test out of *this same instrumented file* — in a child process, so under **M-Q** the child's `:105`
+  fails, the wrapper swallows it, the child reports `1 passed` with rc 0, and the parent's `returncode == 0`
+  premises record **PASS by construction**. Declared as **a bound on the instrument**: in the recording pass
+  *reached* means reachability-under-suppressed-`AssertionError`, strictly wider than a plain run's, and
+  **PASS is not evidence of a surviving assertion for any arm that reads a child's outcome** — there, PASS is
+  an observation that pass cannot fail to make.
+- **The plain pass** (no instrumentation, `--tb=line`): true propagation and true cross-process semantics, at
+  the price of exactly one failing lineno per failed test — every arm after the first failure in that test is
+  never reached, so it attributes nothing to them.
+
+Neither pass alone is the kill set; the **union** is.
+
+| domain | assertions with a FAIL | killed by no mutant |
+| --- | --- | --- |
+| recording pass | **46** | **84** |
+| plain pass (`--tb=line`) | **33** | 97 |
+| **union of both** | **50** | **80** |
+
+**17 linenos are kills only the recording pass can see** — `:106 :134 :620 :621 :689 :694 :742 :854 :975
+:976 :977 :978 :1068 :1071 :1091 :1092 :1093`: the test had already aborted on an earlier arm, so the
+assertion *is* controlled and only its **attribution** needs the instrument. **Four are kills only a plain
+run can see** — `:1104 :1115 :1136 :1167`, all M-Q, and all four exactly the `rc == 0` premises the old
+record dismissed as *"they establish that the run happened"*. Those four are the ones that matter, because
+for them the recording pass did not report NOT-REACHED — it reported **PASS**.
+
+**So: 84 of 130 record no FAIL in the recording pass; 80 of 130 are killed by no mutant in this set in
+either domain.** The reason stands, re-checked by mapping all 80 to their enclosing tests: overwhelmingly
+CARD-255's pure-function arms — 10 in `test_same_tree_is_exact_identity…`, 10 in `test_a_value_that_is_not_
+an_absolute_path…`, 5 and 5 in the foreign-lock and relative-worktree refusals, the stale/threshold/
+future-stamp rules, the two age fallbacks, the skip-API pair — which these 23 mutants were never aimed at.
+Four of the 80 are the `"1 passed" in combined` companions of the arms just recovered (`:1105 :1116 :1137
+:1168`): unkilled in **both** domains — suppressed in the recording pass, never reached in the plain one —
+and their only control is the test-level signal, 6 of 41 tests red under M-Q.
+
+**The distinction in one sentence, which is the whole of F-007:** *an instrumented-only kill is an
+attribution the plain run cannot make; a plain-only kill is an observation the instrument cannot make — and
+only the second kind corrupts a figure.*
+
+**F-003 — the census is DELETED, not corrected.** A number in a comment has no control, and this population
+moves faster than a card does: the comment said **542** when this card was drafted. The figure on main was
+read **three** times inside this one wave and was different every time — 550, 551, 552 — so **no live main
+figure is quoted here any more**; the claim is held by the equality at `:750`. The one census figure left in
+the record is **546, the tracked population under both prefixes at `f2236045`** (suffixes exactly
+`{.md, .yml}`), stated as the population the equality was measured over, with the `>= 500` floor as its
+control. *A tree-pinned figure is the only kind worth keeping.* What the figure claimed is now held by an equality at **`:750`**: the suffixes
 git tracks under both prefixes are exactly `PROSE_SHAPES`, measured **out of the same `git ls-files` call**
 as the mode equality (`_tracked_modes` → `_tracked_index(cwd)`, returning `(mode, path)`), so the two
 equalities can never be measured over different populations. No new uncontrolled number replaced it. The
@@ -486,7 +558,8 @@ equalities can never be measured over different populations. No new uncontrolled
 equality was measured over, with the floor as its control.
 
 Mutants over the fix's own additions: `:750` red by **M-TP** (deletes the path half of the one `ls-files`
-call the claim names) and **M-Y**, plus M-X and M-S; **M-T** (the mode half) leaves it green — so M-T and
+call the claim names) and **M-Y**, plus M-X and M-S **in the recording pass** (in a plain run those tests
+abort earlier, at `:736`); **M-T** (the mode half) leaves it green **in both domains** — so M-T and
 M-TP **isolate the two halves of that one return** rather than certifying the addition. `:698` (changed
 call site), `:736`, `:742` keep their rows unchanged: the rename weakened nothing.
 **`OVERRIDE_NAMERS`, `OVERRIDE_PROSE` and `PROSE_SHAPES` keep exactly CARD-255's values**, verified by diff
@@ -495,7 +568,9 @@ stated explicitly as F-003 requires. No exemption added, none widened.
 
 **F-005 — declared as a measurement, not an argument.** `tests/conftest.py` is tracked and unexempted, so a
 conftest naming either switch would already be in `offenders` and `:614` would fail first — and the
-instrument agrees: every mutant reddening either arm (**M-K** → `:621`, **M-K2** → `:620`) reds `:614` too,
+instrument agrees: every mutant reddening either arm (**M-K** → `:621`, **M-K2** → `:620`, both
+**recording-pass** attributions — a plain run reds `:614` **alone**, with both arms NOT-REACHED, which is
+precisely the subsumption the new docstring declares) reds `:614` too,
 and **no mutant in the set reds an arm on its own**. The one independent reach — an **untracked** conftest,
 which `git grep` cannot see and `read_text` can — is declared as a bound **the test cannot create** (it
 would have to untrack a file in the live tree), not claimed as coverage.
@@ -666,3 +741,64 @@ instrument lies**, each discovered by a different agent: the line-numbering shif
 inside a `for` loop (CARD-257 cycle 1), and now **the recording wrapper suppressing propagation so a child
 process reports `1 passed`** (F-007). The rule needs its own clause: *an instrument has a domain, and the
 domain is part of every figure it produces.*
+
+### [Fix 2] no commit — both findings were record claims, and the record is `main`'s file
+
+**Nothing committed; no repo file created, modified or deleted.** `git status` in the worktree shows `tests/`
+clean. F-007 and F-008 were claims *about* measurements, so the fix is the corrected text, applied in place
+in the `[Fix 1]` section above. HEAD stays `f2236045`.
+
+**The method is the deliverable.** Rather than re-run the recording pass, fix 2 ran **two new passes over the
+same 23 mutants, neither of them the recording pass**, and they agree with each other on all 26 rows:
+
+- a **plain pass** with `--tb=line` — true propagation, one failing lineno per failed test;
+- a **re-raising pass** — the handler records **and re-raises**, so the semantics are plain semantics while
+  reachability is still reported.
+
+That matters because of what CARD-257 found this same wave: **reproducing a figure with the original method
+only confirms the method.** Two new domains is the answer to that, not a third run of the first one.
+
+**What the re-raising pass bought, beyond agreement:**
+- a **third independent baseline** — 130 of 130 PASS, **0 NOT-REACHED**, under true propagation (cycle 2
+  corroborated the baseline with `sys.monitoring`; this is a third mechanism);
+- **its own control, which can fail**: a handler that forgot the `raise` would show M-Q's outer row as
+  `{105}` with the four premises PASS — that is, the recording pass's row. It did not;
+- **plain-domain reachability**, which `--tb=line` cannot report: under M-Q, 6 FAIL / 107 PASS / **17
+  NOT-REACHED**, and the NOT-REACHED set contains `:106`, `:1105`, `:1116`, `:1137`, `:1168` — the arms the
+  recording pass measures as kills or as PASS. The complementarity as a measurement rather than an argument;
+- **child-process attribution** — the child pid's `FAIL` at `:105` under M-Q: the F-007 mechanism caught in
+  the act.
+
+**The sibling audit.** Every other per-assertion figure in `[Fix 1]` was checked against both domains.
+**Naming the domain is all any of them needs**, with one wanting a scope word (M-A). All are now labelled
+above: M-Q both domains plus union; M-Q2 holds in both; M-A scoped to its unit test, with `:1138` in both
+domains and `:1141` recording-only; M-F recording-pass arms vs 3 plain tests; M-R2's `:1107`/`:1118` in both
+domains; F-003's `M-TP`/`M-T` in **both** domains (the load-bearing half) with `M-X`/`M-S` recording-only;
+F-005's arms recording-only, a plain run redding `:614` alone — which *strengthens* the subsumption the
+docstring declares.
+
+**22 of 26 rows lose attribution in the plain domain** (M-X 8→3, M-RD 14→7, M-F 6→3, M-S 4→2, M-A 3→2,
+M-Y 5→3, M-R2 5→4, M-K/M-K2/M-1/M-M/M-C 2→1). That is **short-circuit, not suppression** — and the whole
+basis for calling those figures under-labelled rather than wrong. **M-Q was the only one actually wrong,
+because its missing kills were suppressed (reported PASS), not short-circuited (reported NOT-REACHED).**
+
+**Safety discipline, stated because 52 runs of file mutation deserve it:** board-lock check **before and
+after every run**; `cp -p` backups of all three mutated files with all later content read from the backups;
+the three substitution guards (occurs exactly once / equal newline counts / equal `splitlines()` length);
+restore in a `finally` verified with `diff -q` **and** `shasum -a 256`; **52/52 runs reporting a verified
+restore**; post-sweep sha256 byte-identical to pre-sweep; `git status -- tests/` clean; and **no git command
+anywhere in the probe** — the only git used was read-only.
+
+**The `_tracked_index` tab-split equivalent mutant was left alone, as briefed, with no control invented for
+it.** Probe: `/private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/e6396d39-0b74-4498-9018-df045632a00c/scratchpad/c256fix3/plain_lines.py`
+with `results-plain-reraise.json` and `runs/<MUTANT>-{plain,reraise}/pytest.out`.
+
+**[What this card is actually about, in the end]** It was carded as *the lock path var gets a control* — a
+0.25d trivial. Its code shipped sound at `28de78d9` and has not changed since except one comment-and-assertion
+commit. All three gating findings were about **how the card described its own measurements**, and the wave's
+durable output is a rule the board did not have: **an instrument has a domain, and the domain is part of
+every figure it produces.** Four distinct ways a per-assertion instrument lies were found in this one wave,
+each by a different agent: the line-numbering shift (wave 49), a **test count** reported as an assertion
+count (cycle 1), **last-write-wins** aggregation losing a loop-interior RED (CARD-257 cycle 1), and
+**suppressed propagation** making a child report `1 passed` (F-007) — with a fifth on CARD-257, a **leaked
+patch** that looks identical to a real kill.
