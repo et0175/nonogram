@@ -422,3 +422,129 @@ station, and it failed in the mirror image of last wave's failure: not a never-r
 kill, but a **never-measured assert read as a survivor**. The claimed scope ("every `ast.Assert` at any
 depth") was the right scope; the number beside it was a different quantity. Both waves' defects are the
 same shape — *a measurement whose domain is not the domain it is reported over*.
+
+### [Fix 1] `f2236045` — the full-set instrument moved FIVE of the card's 21 rows, not one
+
+Commit `f2236045` on `card/256-the-lock-path-var-gets-a-control`, pathspec
+`tests/test_full_suite_lock.py` only — 1 file, **+85/−11**. `tests/full_suite_lock.py` and
+`tests/README.md` needed no change and are not in it (a subset of `Touches`, no drift; the README was
+checked and names no census figure and no renamed helper). Nothing under `meta/` in the commit.
+
+**Node counts — the figure that recomputes, replacing the one that did not.**
+
+| tree | `ast.Assert` nodes in `tests/test_full_suite_lock.py` |
+| --- | --- |
+| main `c1d65cd2` | **111** |
+| `28de78d9` (implementation) | **129** — the card adds **18** |
+| `f2236045` (this fix) | **130** (+1, the new shape equality) |
+
+The card's **41 is the collected test count** (36 → 41), re-confirmed as 41 collected / 41 passed. It is
+not an assertion count and is no longer stated as one.
+
+**Baseline over all 130 nodes: 130 PASS and reached, zero NOT-REACHED.** 23 mutants (the card's 21, plus
+**M-TP** for this fix's own addition and **M-RD** for F-002(a)), each run **twice** — instrumented for
+per-assertion attribution, and plain, because the recording wrapper suppresses `AssertionError` and would
+let a child pytest report `1 passed` and hide real-process propagation.
+
+**F-001 — closed, and the correction is larger than the finding. Five rows moved:**
+
+1. **M-Q is killed, not surviving** — `:105` and `:106` in `test_no_lock_file_is_the_ordinary_case`, and
+   **6 of 41 tests** red in a plain run, reproduced solo twice. Both linenos sit above every edit in this
+   fix, so they hold for `28de78d9` too. The *unreachability-from-a-real-run* observation about
+   `current_verdict` stands on its own and needed no survivor to be true.
+2. **M-Q2's row was wrong, and the mutant is bigger than a row.** The card said it kills the no-verdict
+   phrase. Measured: **no assertion runs at all.** `current_verdict()` refuses on *every* pytest, so the
+   measuring run aborts in `pytest_configure` — `ERROR: Refusing to start`, **exit 4, 0 collected, all 130
+   asserts NOT-REACHED**. The mutant is detected maximally loudly, and by **nothing in the matrix**.
+3. **M-A kills one arm, not four.** Only `:820` (`note is not None`). `:821`/`:822`/`:825` are
+   **NOT-REACHED**, because with `note is None` the next line raises `TypeError` rather than
+   `AssertionError`, so the test errors and the remaining arms never run. Test-level coverage is intact;
+   the attribution was wrong. **This is the instrument's own hazard appearing inside its own output** —
+   and only a per-assertion run with NOT-REACHED reporting can see it.
+4. **M-F reds 6 assertions across 3 tests, not 3** (`:133`, `:134`, `:152`, `:1067`, `:1068`, `:1071`). The
+   refusal case stays green, so CARD-255's pair holds as recorded.
+5. **M-R2 has two kills the undeclared subset could not see** — `:1107` (`"stale" in combined.lower()`) and
+   `:1118` (`guard.OVERRIDE in combined`), 4 tests red in a plain run: the widest real reach in the set.
+
+**14 of the card's 21 rows reproduce exactly.** And **`:1174` is killed by nothing in the set** — not a
+dead control: only a *new* verdict phrase would red it, which is precisely the enumeration bound F-006 now
+declares. That is bound (a) made visible rather than asserted.
+
+**A bound the card never stated: 84 of 130 assertions are killed by no mutant in this set.** Overwhelmingly
+CARD-255's pure-function arms — `parse_fields`, `_same_tree`, `_names_a_tree`, the stale/threshold/
+future-stamp rules, the two age fallbacks, the skip-API text and syntax rules — which these 23 mutants were
+never aimed at. The card's "Unkilled by this set, and why" bullet covered a small part of that and
+**understated the count**; the honest statement is the number together with the reason.
+
+**F-003 — the census is DELETED, not corrected.** A number in a comment has no control, and the population
+grows every card: 542 at drafting, **546** in the worktree today, **550** on main today — already past the
+reviewer's own recomputation. What the figure claimed is now held by an equality at **`:750`**: the suffixes
+git tracks under both prefixes are exactly `PROSE_SHAPES`, measured **out of the same `git ls-files` call**
+as the mode equality (`_tracked_modes` → `_tracked_index(cwd)`, returning `(mode, path)`), so the two
+equalities can never be measured over different populations. No new uncontrolled number replaced it. The
+`>= 500` floor and its "(546)" were recomputed and left alone — 546 is stated as the population the
+equality was measured over, with the floor as its control.
+
+Mutants over the fix's own additions: `:750` red by **M-TP** (deletes the path half of the one `ls-files`
+call the claim names) and **M-Y**, plus M-X and M-S; **M-T** (the mode half) leaves it green — so M-T and
+M-TP **isolate the two halves of that one return** rather than certifying the addition. `:698` (changed
+call site), `:736`, `:742` keep their rows unchanged: the rename weakened nothing.
+**`OVERRIDE_NAMERS`, `OVERRIDE_PROSE` and `PROSE_SHAPES` keep exactly CARD-255's values**, verified by diff
+— no `+`/`-` line touches any of the three assignments; the change above `PROSE_SHAPES` is comment-only,
+stated explicitly as F-003 requires. No exemption added, none widened.
+
+**F-005 — declared as a measurement, not an argument.** `tests/conftest.py` is tracked and unexempted, so a
+conftest naming either switch would already be in `offenders` and `:614` would fail first — and the
+instrument agrees: every mutant reddening either arm (**M-K** → `:621`, **M-K2** → `:620`) reds `:614` too,
+and **no mutant in the set reds an arm on its own**. The one independent reach — an **untracked** conftest,
+which `git grep` cannot see and `read_text` can — is declared as a bound **the test cannot create** (it
+would have to untrack a file in the live tree), not claimed as coverage.
+
+**F-006 — both bounds declared, and the declaration now makes a falsifiable prediction.** (a) The three
+phrases are a **closed enumeration** of what `verdict()` returns today — `"Refusing to start"`,
+`"running anyway"`, `"stale"` — so a fourth message would be printed on a self-run or a no-lock run and
+**neither test would notice**; the old `"full-suite lock" not in combined` form could not drift that way but
+is unusable here, because every real-process case now carries the redirect note, which opens with that
+phrase. (b) Each loop is a single `ast.Assert`, so a plain run stops at the first phrase that fails.
+Backed rather than asserted: `:1071` is red by M-F, and `:1174` by nothing in the set.
+
+**F-002(a) — confirmed by measurement.** **M-RD** (deletes the redirection so `lock_path()` ignores
+`LOCK_PATH_VAR`, line-preserving) reds `test_the_lock_path_is_injectable_so_a_test_never_touches_the_real_one`
+at **`:795`** and **10 of 41 tests**. The record understated its own coverage, and no real-process mutant is
+needed. **G-5 is not implicated either way**: under M-RD the probes *read* the board's lock path (checked
+absent) and never create, modify or delete anything there — so the record's premise "which G-5 forbids" is
+not what G-5 says.
+
+**F-004(b) — confirmed by arithmetic rather than a run.** Collection is deterministic for the same commit,
+host and invocation. Gate 2: 8627 passed + 1 skipped = **8628 collected**. Gate 1 as recorded: 8622 passed
++ 5 failed = 8627 = 8628 − 1 — so gate 1 **also had 1 skipped and its line omits it**. With the skip
+restored the two reconcile exactly: 8628 collected both times, gate 1's five failures are gate 2's five
+passes, and the card separately adds 5 tests (36 → 41). Declared bound: the absolute totals could not be
+re-derived (a full suite is forbidden outside a gate) and the skipping test was not identified.
+
+**[A pre-existing red, with its control, not attributed to this card]** `tests/test_db_isolation.py` reds 3
+tests in a targeted selection (`…never_existed_is_created_and_migrated`, `…absent_database_skips_rather_
+than_fails_with_no_server`, `…two_trees_pass_concurrently_and_the_same_pair_reds_when_they_share`). **The
+identical 3 fail on unmodified main at `c1d65cd2` with the same env**, so they are this host's Postgres
+environment, not this tree and not this fix. Cause not investigated. Worth noting that main's gates are
+green at full-suite scope, so this is selection-dependent — and worth noting too that the control was run
+*before* the attribution, which is the part the `@ops` class never got for four waves.
+
+**[Touches-drift note, nothing to commit]** the matrix above referenced `_tracked_modes`; the helper is now
+`_tracked_index`. Corrected here.
+
+**[The instrument, and why it is not committed]**
+`/private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/e6396d39-0b74-4498-9018-df045632a00c/scratchpad/c256fix/kill_matrix.py`,
+with `report.py`, `matrix.txt`, `results-sweep.json`, `results-rerun.json`, `sweep.log`,
+`runs/<MUTANT>-{instr,plain}/pytest.out` and `apply_fixes.py` beside it. It refuses to start if the board's
+real lock exists; takes `cp -p` backups and reads all later content from them, never from git; applies one
+mutant as an exact substitution asserting it occurs **exactly once** and that the file's line count is
+**unchanged**; applies it to the **pristine** source *before* instrumenting, so the linenos keyed on
+afterwards are the committed file's; rewrites **every** `ast.Assert` at any depth into a recording
+`try/except/else`, verified by asserting the transformer's node list equals an independent `ast.walk`
+enumeration; records **per-pid**, because the real-process cases start child pytest processes running one
+test from this same file; and restores every file verified with `diff -q` **and** `shasum -a 256`.
+**A new file is outside the card's three `Touches` paths, so committing it would be touches drift.** The
+figure is reproducible from that path for as long as the directory lives, and **not from the tree** — a
+declared bound, not a hidden one. *Commit the instrument once, as its own card* goes to the retrospective:
+three agents have now built it independently and each hit a different trap first.
