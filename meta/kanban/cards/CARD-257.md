@@ -180,21 +180,28 @@ Raw: **−15 / +9 = −6** over both files. The useful split, measured with
 | | prose | code | prose:code |
 |---|---|---|---|
 | guard file, before | 616 | 440 | 1.40 : 1 |
-| guard file, after | **567** | **465** | **1.22 : 1** |
+| guard file, after | **568** | **465** | **1.22 : 1** |
 | `session.py`, before | 275 | 64 | 4.30 : 1 |
-| `session.py`, after | 284 | 64 | 4.44 : 1 |
+| `session.py`, after | 284 | 63 ‡ | 4.51 : 1 ‡ |
+
+‡ **The method, not just the number, was wrong** — corrected at review cycle 1 / fix 1. `code = total − prose − blank`
+**double-subtracts blank lines that sit inside a docstring** (22 on main, 23 here), and the docstring grew by 9 lines,
+one of them blank, which is where the original "64 both sides" came from. Under set arithmetic —
+`code = total − |docstring lines ∪ comment lines ∪ blank lines|` — `session.py` has **86 code lines before and 86
+after, unchanged**, which is what *docstring-only* means and agrees with the byte-identical docstring-stripped AST
+(dump 9154, sha256 `bdb10905…`). The same artifact inflates the guard file's code column (set-based: 494 → 521).
 
 **85 lines of prose were cut; AC-2's control put 69 back as mechanism** —
 `_spelling_heads` (13), the control (53), `_NAME_PLACEHOLDER` (3). That is the
 same arithmetic CARD-254 recorded, with one difference worth keeping: this
-time what came back is 24 lines of *code* and a docstring that names the
+time what came back is 25 lines of *code* and a docstring that names the
 mutants reddening each of its asserts, not prose about a control. The guard
 class's docstring is **116 → 59**; `reset_engine()`'s is **126 → 135**,
 because single-sourcing moves text *into* the source of truth (the pointer
 paragraph, plus the two clauses only the guard's copy carried).
 
 Element by element: class docstring 116 → 59; control A 125 → 107 (docstring
-37 → 30, arm 2 gone); control B 171 → 158 (docstring 63 → 48, +9 for AC-4's
+37 → 30, arm 2 gone); control B 171 → 158 (docstring 63 → 47, +9 for AC-4's
 precondition); `_hand_set_spellings` docstring 33 → 31.
 
 ### AC-1 — the clause-survival diff: 41 clauses checked, 0 lost
@@ -346,9 +353,11 @@ dropped, connected to or truncated.
 
 - `reset_engine()`'s docstring is **135 lines for a 6-line body**. The
   duplication is gone and the pointer is controlled, but the single source is
-  still long, and three of its sections (`Who calls it and why`, `What is
+  still long, and **two** of its three sections (`Who calls it and why`, `What is
   pinned, and what is not`) are CARD-252's record rather than this card's
-  scope. A later card can take them; this one only trimmed two sentences there
+  scope — the third, `The convention, and what little enforces it`, is the single source **this card
+  created**. (Corrected at review cycle 1 / fix 1: the original sentence said "three" and named two,
+  wrong in both count and attribution.) A later card can take them; this one only trimmed two sentences there
   ("the older reading of it here was wrong", "re-measured as review mutant R7").
 - The AC-2 control holds the guard's text to the *names* in double backticks,
   which the scan does not count. That is load-bearing for the class docstring's
@@ -362,7 +371,7 @@ dropped, connected to or truncated.
   findings were created by the previous fix, the first card to carry the rule caught its own.**
 - **[Orchestrator] it reproduced CARD-254's 52 % phenomenon, measured it, and named the difference.**
   85 lines of prose cut, **69 put back by AC-2's control** — raw net **−6**. But the composition is
-  not the same: what came back is **24 lines of code** plus a docstring naming the mutant per assert,
+  not the same: what came back is **25 lines of code** plus a docstring naming the mutant per assert,
   where CARD-254's cycles put back prose *about* controls. The ratio moved where it matters: the
   guard file's prose:code goes **1.40 : 1 → 1.22 : 1**, and the duplicated class docstring **116 →
   59**. This is the honest shape of the trade: a control that replaces an uncontrolled rule costs
@@ -591,3 +600,107 @@ F-004's new clause is the *same* mutant as F-001's fix — `DOC-NAME-DEL-GUARD[e
 PASS if the clause had repeated the names. It reds. No defect found in its own additions this time, one
 wave after the rule was promoted because six consecutive gating findings had been created by the previous
 fix.
+
+### [Review 2/3] Score: 8.5 — a NEW open Important. The fix closed what it claimed and left the identical defect one assert down
+
+Report: `meta/review/CARD-257-cycle2.yml`. **F-001 fixed** (`df23bf64`), **F-004 fixed** (`df23bf64`),
+**F-005 wontfix** — resolved as carded (CARD-259). **F-006 is new, Important, gating.** Not a confirmation
+delta, so cycle 3 runs in full mode.
+
+**F-001's fix verified independently.** The reviewer wrote a second instrument from scratch — every
+`ast.Assert` wrapped on its **own** source lineno, the tree handed straight to `compile()` and never
+re-unparsed so no line can shift, every mutant an in-memory attribute patch, **any-RED** aggregation — and
+reproduced the fix's grid **cell for cell**. All three deciding readings hold: SHIPPED all-PASS; all six
+`DOC-NAME-DEL` cells RED at `:870`; `:887` **PASS** under both `[engine]` cells. Worth recording: the raw
+outcome lists show each RED landing on the mutated text's own iteration, so **any-RED aggregation is doing
+real work here — last-write-wins would have lost three of the six.** A sub-mechanism cross product adds the
+two mutants the comment needs: `LOOKBEHIND-DEL` **reproduces cycle 1's defect exactly** (both `[engine]`
+cells go PASS) as the inside-the-region mutant, and `LOOKAHEAD-DEL` survives all 16 cells as the
+claim's-edge mutant.
+
+**The heads arm's deliberate exception survived the check.** The census reproduced exactly (prod `setattr(`
+6/6, guard 4/4, `.SessionLocal` 1/1 and 1/1, **0 embedded in a larger identifier**), and a word-bounded
+variant stays green on all four cells — so word-bounding would not break today's text, but it *would* be
+wrong rather than merely stricter: `app.SessionLocal = None` and `x.SessionLocal = None` are genuinely
+matched by scan pattern 2 `\.SessionLocal\s*=(?!=)` and a left lookbehind rejects them. Today's texts write
+`` ``.SessionLocal =`` `` after a backtick, which is *why* the two are currently equivalent — and the fix
+stated that equivalence rather than hiding behind it.
+
+**F-004 is not self-defeating, verified by the right mutant.** "Delete every whole-word name" cannot
+distinguish the clause from the paragraph, so the reviewer ran **ENUM-DEL-KEEP-CLAUSE**: remove only the
+enumeration sentence, keep the appended clause. The clause alone holds **0** whole-word occurrences of each
+of the three names; the guard's counts go 1→0, 1→0, 2→0 and `:870` **REDs**. The clause is a signpost, not a
+second copy.
+
+---
+
+**F-006 — Important, gating — `tests/test_db_engine_lifecycle.py:887` — ADR-0039/R1.**
+`assert "reset_engine" in guard` is a bare substring test. The guard docstring carries `reset_engine`
+**4×**: twice as the real pointer (``:func:`nonogram.db.session.reset_engine` ``), once in Control 1's
+prose, and **once embedded in a method name in the `Controls` list** —
+``:meth:`test_reset_engine_is_public_and_says_who_calls_it` ``. That fourth occurrence is not a pointer, and
+it alone keeps the assert green:
+
+| mutant | `:887` |
+| --- | --- |
+| SHIPPED | PASS |
+| **POINTER-ROT** (both `:func:` references renamed to a function that does not exist; `Controls` untouched) | **PASS** |
+| **POINTER-DEL-WORD** (every whole-word `reset_engine` gone; `Controls` untouched) | **PASS** |
+| POINTER-DEL-WORD + `Controls` entry renamed | RED |
+
+POINTER-ROT is the likeliest real drift — rename the function, miss the two references — and it is
+**literally the failure the assert's own message names**, *"a pointer that rots"*. Re-derived a second time
+with no instrument at all, by compiling the assert's own test expression out of the AST and evaluating it
+against mutated guard strings, so the finding does not rest on instrumentation.
+
+**Word-bounding is not the fix, and the measurement says so**: a word bound still passes POINTER-ROT,
+because Control 1's prose carries `reset_engine` as a whole word. What discriminates is the **dotted path,
+derived rather than quoted** — `f"{app_session.reset_engine.__module__}.reset_engine"` — which reds under
+**both** POINTER-ROT and POINTER-DEL-WORD, passes on SHIPPED, and correctly **passes when only the
+`Controls` entry is renamed**: better *targeted*, not merely stricter, the same distinction the fix drew
+for the heads arm.
+
+**Provenance matters here.** This assert does not exist on main — it is this card's own new control from
+`245bc898`, untouched by fix 1. So cycle 1's "DOC-POINTER-DEL reds `:869`" reproduces only under a
+substring-wide deletion that removes the method name too, which is the **identical epistemic error** as
+cycle 1's `DOC-NAME-DEL → RED`: true only for a mutant shape the matrix never stated.
+
+- **F-007** (Minor) the comment fix 1 added says `engine` sits inside `reset_engine`, `_init_engine`,
+  `_engine_url` and `create_engine`, "which both texts mention anyway". Counted: `create_engine` **0/0**
+  (neither text), `reset_engine` **0/4** (guard only), `_init_engine` 4/1, `_engine_url` 2/1. The conclusion
+  is sound and measured; **the supporting list is wider than the texts** — this rule, inside a comment added
+  to satisfy this rule.
+
+**F-002 and F-003 corrected in the card body in this commit**, not only in the review sections: after-prose
+**567 → 568**; "24 lines of code" → **25** (both sites); control B's docstring `63 → 48` → **`63 → 47`**;
+the `session.py` row **64 / 4.44 → 63 / 4.51** with a footnote carrying the method correction and the
+set-based statement (**86 code lines before and 86 after, unchanged**); and the residue's "three of its
+sections" → **two of its three**, naming the third as the single source this card created. The cycle-2
+reviewer's preferred wording is the footnote's.
+
+**System contract: 10 checked — 3 ✓, 6 ⚠ `no_eligible_fact`, 1 ✗** (ADR-0039/R1 via F-006), all re-derived
+rather than carried: ADR-0036/R4 (0 banned codepoints added; 3 tree-wide, all the declared U+2022 in
+`pdf_generator.py`), R2, R3 (**9 sites / 6 pairs / dict-equal True / zero outside**). AC-5 re-derived: AST
+dump **9154**, sha256 `bdb10905…`, identical on HEAD and main; `session.py` blob sha `a32bae5b` identical
+across `HEAD~1..HEAD`, **0 files under `src/` in the fix delta**. **Seven more adversarial false positives
+dropped**; the ledger stays at 13.
+
+**[Family note — recorded, not escalated]** Cycles 1 and 2 both gated on **ADR-0039/R1**, in **the same test
+function**, in **the same defect class**: a bare substring membership test whose claim some *other*
+occurrence of the string satisfies. By `review.family_regression: on` that is one family. The detector's
+other precondition is not met — F-006 is **not** attributed to the previous fix; it predates it
+(`245bc898`) and fix 1 never touched `:887`. So this is not the loop feeding on itself, and escalating to
+the decompose station would cost more than the remedy, which is known, small and already measured. Recorded
+as a family because the shape is what matters: **this card's new control has a systematic defect across its
+arms, and it is being found one arm at a time.**
+
+**[Orchestrator defect, mine, and it is the reason the second arm survived]** My fix-1 brief named **one**
+sibling to check — the heads arm at `:863` — and the fix checked exactly that one, correctly and
+thoroughly. I never named the pointer arm. **A brief that enumerates one sibling gets one sibling checked;
+a brief that names the defect class gets every arm checked.** Fix 2's brief asks for an arm-by-arm audit of
+every membership test the card added, including the ones that turn out to be fine. That is the durable
+form, and it is a rule for the fix station, not a note about this card.
+
+**[Cycle budget]** Cycle 3 is the last (`max_cycles: 3`) and it certifies fix 2 — so the final edit does
+**not** ship uncertified this time, which is what the wave-48 rule asks for. The cost is that a new
+Important in cycle 3 leaves no cycle to fix it and escalates.
