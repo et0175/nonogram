@@ -51,8 +51,9 @@
    `min(book cell A, book cell B, pair fit)`, so when a pair's own two-up fit falls below its
    grid size's book cell, the two paired members print *smaller* than a single member of the
    same grid size in the same book. Worked: three 13x13s at 1-deep gutters on Book 1 have a
-   book cell of 7.5 mm, the pair of them fits at about 7.27 mm, and the third prints alone at
-   7.5 mm — a ~0.23 mm difference the owner can see on paper. It is physically necessary
+   book cell of 7.5 mm, the pair of them is laid out at **7.1287 mm**, and the third prints alone
+   at 7.5 mm — a **0.371 mm** difference (the pair is 95.0 % of the single) the owner can see on
+   paper. It is physically necessary
    (two drawings on one sheet) and deliberate; what fix cycle 2 changed is that the card's own
    headline no longer denies it.
 2. The flat **7.5 mm cap stands** (NFR-008's standard cell, and the owner restates it).
@@ -550,7 +551,7 @@ that records no change is a fixture nobody can regress against.
    grid size whenever the pair's own two-up fit falls below that grid size's book cell — and AC-1's
    own test uses a book whose members do not pair, so no test contradicted the sentence. AC-1 and
    the card's scope statement now carry the exception, with the 13x13 arithmetic (book cell
-   7.5 mm, pair fit ~7.27 mm, ~0.23 mm apart). **No geometry changed** — F-9 is physically
+   7.5 mm, pair laid out at 7.1287 mm, **0.371 mm** apart). **No geometry changed** — F-9 is physically
    necessary and the owner's render of that page is still owed, which is the orchestrator's to
    produce. The card's H1 and `meta/kanban/board.md`'s one-line title still read "across the whole
    book"; both are the board's own text, not this card's to edit from a worktree, and the narrowed
@@ -978,7 +979,7 @@ The certifier filed this as an observation and invited a render. I am treating t
 size per grid size across the whole book. Declared row F-9 says otherwise**: a *paired* member prints
 smaller than a single member of the same grid size when the pair fit falls below that grid size's
 book cell. The certifier's arithmetic: three 13×13s at 1-deep gutters on Book 1 → book cell 7.5 mm,
-the pair fits at ≈7.27 mm, the third prints at 7.5 mm. Nothing is broken — the behaviour is declared,
+the pair is laid out at **7.1287 mm**, the third prints at 7.5 mm — **0.371 mm** apart. Nothing is broken — the behaviour is declared,
 deliberate and physically necessary, and AC-1's own test uses a non-pairing book, which is exactly
 why no test contradicts the sentence.
 
@@ -1125,7 +1126,7 @@ claimed** — a sibling card is live and the card's standing note forbids it.
 AC-1 now reads "every one of them **that prints on a single page**", with the pairing exception, its
 arithmetic and the pointer to AC-4 and row F-9 in the criterion itself; the `## What to implement`
 scope statement carries the same exception, named as F-9, with the 13x13 worked case (book cell
-7.5 mm, pair fit ~7.27 mm, ~0.23 mm apart). Recorded as item 5 in **Findings for the orchestrator**.
+7.5 mm, pair laid out at 7.1287 mm, **0.371 mm** apart). Recorded as item 5 in **Findings for the orchestrator**.
 The card's H1 and `meta/kanban/board.md`'s title line still read "across the whole book" — board
 text, not this card's to edit from a worktree, and flagged there for the orchestrator. **No
 production figure moved**, so the owner's render of that page is still the discriminator and is still
@@ -1235,3 +1236,53 @@ title is left alone as a generated summary line. If the owner would rather the h
 
 **Still not closed, by design**: EC-027's registry wording is the architect station's (recorded as
 orchestrator finding 4), and the Book 1 three-13×13 render is mine, owed after the certification.
+
+### [Review 3/3] Score 8.5 — **CERTIFIED**, zero open Important
+
+Report: `meta/review/20261019T235440Z-CARD-225-cycle3.yml` (copied to main). Three Minors and a nit
+recorded; two of the Minors closed before the merge in `426ec2a`.
+
+- **The question that decided the card: is there a third generation? No.** The certifier ran the
+  deletion mutant for **every** claim fix cycle 2 left standing, and there is no claim whose deletion
+  mutant fails to red. M19 (the constructor's eager read made to fall back) **3 failed**, with a
+  failure message matching the docstring exactly; M20 (per-member walk deleted) **2 failed** with
+  `[alone]` surviving as declared; M21 reds both EC-027 halves **on page structure, not a counter**;
+  M22/M23 red their corpus floors. M13 and M14 are declared survivors and survive — *the comments
+  predict them*. And the certifier added **M24** against the one disclaimer the fix did not mutate
+  ("no test pins that branch"): it survives, so **the disclaimer is true rather than merely humble**.
+  That is a generational change in how the fix station works, and it is the wave's best result.
+- **M19's edge probed, no hole**: six production construction sites, all fresh-and-immediate, one
+  assignment of `self.book`, no `__new__`, no classmethod constructor, no cached instance — and the
+  certifier checked `pdf_generator.py:344`'s `_pdf_generator` singleton specifically, because a cached
+  instance was the one way the mechanism could have had a hole. It is a different, reportlab-based
+  class of the same name.
+- **F-002 (minor, card) — the arithmetic in this card was wrong, and I re-measured it myself before
+  correcting it.** Through the production door: book cell map `{(13,13): 7.5}`, plan `PAIR(1,2)` +
+  `SINGLE(3)`, the pair's realized `cell_mm` **7.128738**, the single **7.500000** — a **0.3713 mm**
+  step, the pair at **95.0 %** of the single. The card said ≈7.27 mm and ≈0.23 mm: **60 % under**. The
+  mechanism matters as much as the number — `_pair_cell_mm` returns the 7.5 **cap**; the shortfall
+  comes from `compute_pair_layout` fitting two drawings onto one page under that cap. A reader told
+  to look at `_pair_cell_mm` would find 7.5 and conclude the card was wrong about pairing entirely.
+  Corrected at all four sites. **This is why it is worth correcting even though nothing is broken:**
+  the figure was about to go into the owner's render brief, and they would have read 0.371 as a defect
+  after being told to expect 0.23.
+- **F-001 and F-003 (minor) closed in `426ec2a`** — two absolutes scoped to production callers with
+  the probe named, and the two sweep floors cycle 2's corpus growth diluted restated with their real
+  tolerances (3618 books, so `books >= 3595` leaves 23 not 5; `paired >= 100` met by the sweep's 106
+  with 9 from the F-9 family). Measured: with the hand-built books removed every minimum still passes.
+- **F-004 (nit) answered rather than edited away**: `meta/profiling/rank_durations.py` **is** committed
+  on the branch while the Commit sections say nothing under `meta/` is committed. Both are right, and
+  the blanket sentence is what is wrong: this board's rule is that **`meta/kanban/cards/**` and
+  `meta/architecture/**` are never committed from a worktree** — a card's own record and the
+  architecture model belong to main and to the architect station. `rank_durations.py` is a profiling
+  helper named in this card's own `Touches`, so it is part of the card's work like any source file.
+  `meta/architecture/**` is untouched, confirmed by a name-only diff.
+- **The certifier declined to credit ADR-0039/R1 with a pass it had not earned** — recorded
+  `⚠ unchecked` rather than `✓ holds`, because the mutant discipline is reproducible but F-001 left
+  one refuted sentence standing at the time. That sentence is now scoped, in `426ec2a`.
+- **Family regression: both residues fire, and they are a different species.** Cycles 1 and 2 were
+  *coverage* claims whose controls could not fail. These two have **no mechanism to delete** — a
+  reachability absolute and a number copied forward without recomputation — so no mutant can catch
+  either. The certifier's rule for the retrospective is the sharpest thing in this cycle: **a
+  committed figure is a claim too, and its control is recomputation. Fix cycle 2 ran five deletion
+  mutants and not one calculator.**
