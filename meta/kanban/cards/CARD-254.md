@@ -833,3 +833,61 @@ holding (`:992` demonstrably does).
   under `tests/`, twelve have a quoted global name downstream, nine are the counted sites, and the
   other three are stopped by their own `)` — arm 2b's property holding in the real tree rather than in
   a probe.
+
+### [Review 3/3] Score 9.0 — **CERTIFIED**, no open Important · 8.5 → 8.5 → 9.0
+
+Report: `meta/review/20261020T080821Z-CARD-254-cycle3.yml` (copied to main). Five Minors, none gating.
+
+- **No third generation.** The certifier built its **own** instrument rather than trusting the fix's:
+  every `ast.Assert` at any depth rewritten into a recording try/except keyed on the node's own
+  `lineno`, with every deletion mutant **line-count-preserving** (a deleted regex slot gets a
+  never-matching pattern instead of being removed), so the misalignment the fix reported is
+  structurally impossible. It hit that trap first with line-deleting mutants — every assert came back
+  `NOT-REACHED` — and said so. **Both of the fix's matrices reproduce cell for cell**, across nine
+  mutants including four it added to probe arm independence.
+- **Every claim-bearing assert reds under the mutant its own sentence names**, and arm 4 reds
+  *uniquely* under one of the new mutants, so it is independently killable rather than a relabelled
+  arm 1. The strengthened assert reds; the deleted one was genuinely vacuous; **no coverage lost**.
+- **The fix's correction of cycle 2 is right**, verified from git blobs without a checkout:
+  `f0701729` + PAREN-DEL → 10 sites / 7 pairs with the guard file self-matching; `a0c7c987` +
+  PAREN-DEL → 9 / 6, dict-equal, and PAREN-DEL now kills exactly one test.
+- **The structural self-match claim holds exactly**: six quoted global-name literals, all exemption
+  keys, all above the file's first `setattr(` at offset 14941; self-count `{}` under shipped **and**
+  PAREN-DEL. The tree-wide figure too: 383 `setattr(` under `tests/`, 12 with a quoted global
+  downstream, 9 counted, 3 stopped by their own `)` — and the certifier opened all three.
+- **G-1 at all four revisions**, same sha256, same 9154-byte dump.
+- **Minors worth keeping**: arm 2 of control A is a strict duplicate of arm 1 (the probes differ only
+  in a function *name*, invisible to a text scan — no mutant kills one without the other); arm 2b's
+  position assert lacks the two-`setattr(` precondition the same file asserts for every other probe;
+  and two shipped docstring sentences are wrong about *cycles* — "those comparisons were true for
+  every possible probe value" (one of them reds under SETATTR-DEL) and "two generations of this
+  control" (there was one; two of the **family**).
+- **Third cycle running in which this card's self-report outran what happened** — cycle 1's OBS-1,
+  cycle 2's F-003, now twice. Each time the conclusion was right and a sentence was wrong. **First
+  time it has shipped inside the code rather than sitting on the card**, which is why the cut below
+  is worth taking.
+
+### The closing answer: the mechanism yes, the prose no — with the arithmetic
+
+**What catches things is ~22 executable lines**: two regexes (2 lines), a 6-line counter, a 6-entry
+dict, a 14-line tree-wide equality. Those 22 lines caught the keyword-bound shape CARD-252's ~400
+lines of AST machinery missed through three cycles. Keep all of it.
+
+**But measured against this card's own target:**
+
+```
+tests/test_db_engine_lifecycle.py  1415 → 919 → 1062 → 1177
+src/nonogram/db/session.py          327 → 368 →  376 →  384
+                                   base  shrink  cyc1   cyc2
+```
+
+The shrink removed 496 lines. **The two review cycles put 258 back — 52 % of it** — as controls and
+as prose *about* controls. Net over both files: **−181 lines (−10.4 %)**, against a card that declared
+"retire ~400 lines" and "keep ~55". Prose-to-mechanism in the surviving guard: **297 : 176, i.e.
+1.69 : 1**; `reset_engine()`'s docstring is **126 lines for a 6-line body — 21 : 1**.
+
+**And the named disease is the duplication rule this card wrote itself.** The convention is written
+twice on purpose, "in the same words", and that doubling has been paid three times — cycle 1 edited
+both copies, cycle 2 edited both, and two of this cycle's Minors live in text that would need
+correcting in both. *"The same words in two places" is itself a claim with no control: nothing reds
+if they drift.*
