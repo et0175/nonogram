@@ -263,6 +263,47 @@ def reset_engine() -> None:
     that a later reader of this module can see that something retires the
     engine, and find out who.
 
+    The convention, and what little enforces it
+    -------------------------------------------
+    CARD-254. **Tests do not hand-set this module's engine globals** --
+    ``engine``, ``SessionLocal`` and ``_engine_url``. They call this function.
+    ``tests/test_db_url_driver.py`` and ``tests/test_db_connect_timeout.py``
+    are the two recorded exceptions: they monkeypatch the globals to force
+    :func:`_init_engine` to rebuild so that *its* behaviour can be observed,
+    which is a different question from retiring an engine after a schema
+    rebuild. A third exception is a card, not a commit.
+
+    That is a **convention, enforced at review**. The only mechanism behind it
+    is a textual count in ``tests/test_db_engine_lifecycle.py``
+    (``test_no_test_file_outside_the_exemption_sets_those_globals``): per file
+    under ``tests/``, how many times each of these three names appears beside a
+    ``setattr(`` or on the left of an attribute assignment, held to an equality
+    against a declared exemption. It therefore reds on a new file, a new name,
+    or a tenth site in a file that already has some.
+
+    What that count does **not** enforce, stated here because CARD-252 spent
+    three review cycles on a predecessor whose claim about its own reach was
+    wider than its mechanism, and CARD-254 exists to end that:
+
+    * It counts **text**, not reaches. It does not know what object a counted
+      line sets, so a ``monkeypatch.setattr`` naming one of these three
+      attributes on an unrelated class is counted too, as is an occurrence in a
+      docstring, a comment or a string literal. It over-reds; that is the safe
+      direction for a backstop, not a guarantee of precision.
+    * It is blind to every spelling that does not put one of the three literal
+      names beside a ``setattr(`` or a ``.<name> =``. A name computed at
+      runtime, a ``globals()`` or ``vars()`` write, ``importlib`` into a local,
+      a ``sys.modules`` swap, ``monkeypatch.delattr``, and an attribute target
+      nested in a list unpacking all reach or replace these globals without
+      being counted.
+    * It is therefore **not** a proof that no test hand-sets these globals, and
+      nothing in this project claims it is. An AST deny-default was tried for
+      exactly that claim and withdrawn: in a dynamic language a proof claim
+      always has one more axis, and the predecessor paid one review cycle per
+      axis while catching zero real violations. A convention enforced at review
+      is honest about being a convention; this count makes its cheap half
+      mechanical and claims nothing further.
+
     Not part of any production path. Nothing in ``src/`` calls it, and it
     changes no behaviour for a process that never does — it exists so that the
     test tree does not have to reach into ``engine``, ``SessionLocal`` and
