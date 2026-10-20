@@ -1,0 +1,598 @@
+version: 1
+generated_at: "2026-10-20T08:08:21Z"
+target: "card/254-shrink-the-private-globals-guard @ a0c7c987 (fix delta f0701729..a0c7c987, base a60d53a4) -- worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-254"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 3
+cycle_kind: certification
+mode: confirmation
+verdict: certify
+
+coverage:
+  read:
+    - "git diff f0701729 a0c7c987 (both files, in full)"
+    - "tests/test_db_engine_lifecycle.py -- _hand_set_spellings / _hand_set_sites_in / _hand_set_sites, _EXEMPT_HAND_SET_SITES, the AC-5 class docstring, and BOTH multi-arm controls in full"
+    - "src/nonogram/db/session.py (reset_engine docstring, full)"
+    - "tests/test_db_connect_timeout.py:70-80 and tests/test_db_url_driver.py:169-178 (the three real 'stopped by their own )' sites)"
+    - "meta/review/20261020T062646Z-CARD-254-cycle1.yml (full)"
+    - "meta/review/20261020T070159Z-CARD-254-cycle2.yml (full)"
+    - "meta/kanban/cards/CARD-254.md (full, incl. both fix-note sections and both per-assert matrices)"
+    - "meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md (header + ## Rules block, verbatim)"
+    - "~/.forge/retro-signals.yml -> signals.review_false_positives"
+  not_reached:
+    - "the full suite (forbidden by the dispatch brief; build gate 1 at de0ea945 taken on trust; no gate has been taken at a0c7c987)"
+    - "~/MyProjects/forge_1/forge/skills/engineering-standards/SKILL.md (outside the checkout, and that tree has no git repository -- the owner's standards line is still unverified, as in cycles 1 and 2)"
+    - "tests 1-4 of the AC-5 class (reset_engine-is-public, conftest-names-the-seam, resets-exactly-the-globals, the tree-wide equality): CARRIED from cycles 1-2, delta-clean -- the fix delta touches only the two multi-arm controls and the docstrings"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 170, removed: 47 }
+  max_fan_in: { symbol: "nonogram.db.session.reset_engine", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/db/session.py", "tests/test_db_engine_lifecycle.py"]
+  cochange_missing: []
+  churn_12mo: 16
+  defect_commits_12mo: 10
+  unmeasured:
+    cochange_missing: "no_eligible_fact -- the 12-month co-change window over the two touched files (16 commits) yields only those same two files (session.py 14, test_db_engine_lifecycle.py 8); there is no third peer that could be absent."
+
+system_contract:
+  rules_checked: 10
+  holds: 4
+  unchecked: 5
+  violated: 1
+  verdicts:
+    - >-
+      ADR-0039/R1 ✓ holds -- RE-DERIVED, with my own instrument, not the agent's.
+      I wrote an independent ast.NodeTransformer that rewrites EVERY ast.Assert at
+      ANY depth (including the one nested in control A's for-loop) into a recording
+      try/except, execs the rewritten module, and keys verdicts by the Assert node's
+      own lineno. Mutants are applied to the module SOURCE TEXT before parsing, and
+      every deletion mutant is line-count-preserving (a never-matching pattern in
+      the deleted slot rather than a removed line) specifically so no line number can
+      shift -- which is the misalignment the agent reported in its own first attempt.
+      Result: every claim-bearing assert in BOTH multi-arm controls reds under a
+      mutant that deletes the mechanism its own sentence names. Control B
+      (test_a_wrapped_call_...): arm 1 :1092 RED under NORM-DEL; arm 2a :1110 RED
+      under PAREN-DEL only; arm 2b :1136 RED under BOTH NORM-DEL and PAREN-DEL;
+      arm 3 :1151 RED under PAREN-DEL; arm 4 :1171 RED under NORM-DEL and (uniquely)
+      under COMMA-REQ, so arm 4 is independently killable and not a relabelled arm 1.
+      Control A (test_the_count_reds_...): arm 1 :945 RED under SETATTR-DEL on its
+      setattr iteration and under ASSIGN-DEL on its assignment iteration; arm 2 :956
+      RED under SETATTR-DEL; arm 3 :974 RED under SETATTR-DEL and (uniquely) under
+      NAMES-HARDCODE; arm 4 :1001 RED under SETATTR-DEL and (uniquely) under
+      PAIR-COLLAPSE. Nine mutants in all (NORM-DEL, PAREN-DEL, SETATTR-DEL,
+      ASSIGN-DEL, PAIR-COLLAPSE, COMMENT-STOP, COMMA-REQ, NAMES-HARDCODE,
+      OPENPAREN-OK). My matrix reproduces the card's two tables cell for cell.
+      THERE IS NO THIRD GENERATION. The residue is redundancy, not narrative: arm 2
+      of control A can fail, it just cannot fail without arm 1's setattr iteration
+      failing too (F-001, Minor) -- R1 forbids an uncontrolled claim, not a duplicated
+      control.
+    - >-
+      ADR-0039/R2 ✗→ carried(cycle 1) -- the SHAPE set is still two hand-written
+      regexes with no enumerable authority, and the guard still does not default to
+      deny. ADR-0039 re-read at this head: Status: Accepted, Revised: —, severity:
+      mandatory, R2 verbatim unchanged; git log a60d53a4..a0c7c987 -- meta/architecture/
+      is empty. Out of this card's Touches (meta/architecture/ — no), accepted at
+      cycle 1 and dismissed as routed to the architect station, carried unchanged at
+      cycle 2. Counted under 'violated' once, in cycle 1; reported here as carried,
+      not re-filed and not re-triaged. The follow-up card is still owed.
+    - >-
+      ADR-0039/R3 ✓ holds -- re-derived from scratch with the names taken from
+      session.py's own AST (_init_engine's global statement -> ['SessionLocal',
+      '_engine_url', 'engine']), never imported from the guard. (a) Tree sweep over
+      every tests/**/*.py: 9 sites, 6 pairs, dict-equal to _EXEMPT_HAND_SET_SITES
+      True, zero matching files outside the two exempt ones. (b) Differential sweep,
+      old [^()\n] vs new [^()], per (file, name): DELTA NONE. (c) Brief-form sweep
+      (collapse newlines, keep the \n exclusion): DELTA NONE, same 9/6/equal.
+      (d) The exemption is still an equality, not a floor and not a pair set: arm 4
+      (:1001) reds under PAIR-COLLAPSE and under no other mutant in my set.
+      (e) The residual bound is now measured, and I re-derived the figure behind it:
+      of 383 setattr( occurrences under tests/, exactly 12 have a quoted global name
+      somewhere downstream, 9 of those are the counted sites, and the other 3 are
+      stopped by their own ')' -- test_db_connect_timeout.py:74 and
+      test_db_url_driver.py:173,174, which are indeed adjacent monkeypatch.setattr
+      calls in the two exempt files, exactly as the class docstring says.
+      Noted, not filed: six of the declared blind cases still carry no failing
+      control (see the out-of-scope observation) -- same position cycles 1 and 2 took.
+    - >-
+      ADR-0036/R3 ✓ holds -- the authoritative check tests/test_book_difficulty_dots.py
+      ran green on this head inside a 6-module selection (673 passed, 0 failed,
+      0 skipped, EXIT=0). The delta adds no drawing site: its src/ half is 14 lines
+      inside reset_engine's docstring, and G-1's docstring-stripped AST identity
+      (below) proves no executable change at all.
+    - >-
+      ADR-0036/R4 ✓ holds -- same green authoritative check on this head, plus a
+      direct scan of the delta's added src/ lines for codepoints in U+25A0..U+25FF,
+      U+2022 and U+2219: zero. Cycle 1's OBS-1 (the card's overstated 'clean scan'
+      sentence, where admin/pdf_generator.py carries the DECLARED dingbat exemption)
+      was corrected at f0701729 and is unchanged by this delta.
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). The delta is a docstring block in session.py plus two control bodies; no public signature, request field or export field is touched, and grep for width/height/size over the delta returns 0 hits."
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). No player surface, no solution-grid transport, no admin page in the delta (git diff --name-only = session.py, test_db_engine_lifecycle.py)."
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). pyproject.toml is not in the delta; no Playwright declaration changes. Re-checked on this delta: zero added 'import '/'from ' lines."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). No browser test added or changed."
+    - "CON-021 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean). No interactive play, no persistence of play state, no public surface in the delta."
+
+guardrails:
+  - >-
+      G-1 ✓ holds -- RE-DERIVED independently (not carried). src/nonogram/db/session.py
+      parsed at all FOUR revisions, every module/class/function docstring stripped,
+      round-tripped through ast.unparse, re-parsed and ast.dump-compared: a60d53a4,
+      de0ea945, f0701729 AND a0c7c987 all give dump length 9154 and sha256
+      bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c -- the declared
+      value, to the byte. reset_engine() and its single call site (tests/conftest.py:512)
+      are unchanged; the delta's src/ half is +14/-6 lines all inside the docstring.
+  - >-
+      G-2 ✓ holds -- 0 skipped with -rs across two selections on this head: 6 modules
+      (673 passed, 0 failed, 0 skipped, EXIT=0) and tests/test_cli.py +
+      tests/test_suite_profile.py (495 passed, 0 skipped, EXIT=0). test_suite_profile.py,
+      the module that asserts the skip profile, is in both and passed. The delta adds
+      no skip path: it adds asserts inside existing tests, not tests (test count 12 at
+      f0701729 and 12 at a0c7c987, measured by git show | grep -c '^    def test_').
+  - >-
+      G-3 ✓ holds -- carried(cycle 1, delta-clean), re-confirmed mechanically. The fix
+      delta retires no test and adds none: 12 test functions in the module at both
+      f0701729 and a0c7c987. The retirement table cycle 1 checked item-by-item against
+      an AST diff is untouched.
+  - >-
+      G-4 ✓ holds -- the strings 'nonogram_poc' and '_refuse_unless_test_database' appear
+      0 times in the delta (git diff f0701729 a0c7c987 | grep -cE). Every run in this
+      review used the derived worktree URL
+      nonogram_pythonproject4_card_254_ffd0825b4ddf_test, passed as both DATABASE_URL
+      and TEST_DATABASE_URL as literals. nonogram_poc was never named, created, dropped,
+      connected to or truncated.
+  - >-
+      G-5 ✓ holds -- git diff f0701729 a0c7c987 contains zero added 'import '/'from '
+      lines; pyproject.toml is not in the delta's file list.
+
+root_causes:
+  - id: RC-1
+    title: "the two multi-arm controls carry three declared clauses that are not three measurements: one duplicated arm, and two prose sentences about review history that outran what happened"
+    finding_ids: [F-001, F-002, F-003]
+  - id: RC-2
+    title: "the surviving guard's prose outweighs its mechanism 1.69:1, and 52% of the card's shrink was restored by the two review cycles' controls-and-prose-about-controls"
+    finding_ids: [F-005]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 956
+    title: "arm 2 of the neighbouring control is a strict duplicate of arm 1's setattr iteration -- no mutant can kill one without the other"
+    description: |
+      Control A's docstring lists arm 2 as a separate clause -- "2. a new file --
+      reds if the ``setattr(`` spelling stops being counted" (:912) -- and the
+      test's own name claims "the count reds on a new file".
+
+      Measured: arm 2's probe and arm 1's first-iteration probe are the same
+      input to the scan. Side by side, with the derived name interpolated:
+
+        arm 1 iter 1: 'def test_spelling(monkeypatch):\n    monkeypatch.setattr(db_session, "SessionLocal", None)\n'
+        arm 2:        'def test_new_file(monkeypatch):\n    monkeypatch.setattr(db_session, "SessionLocal", None)\n'
+
+      The only difference is the probe function's NAME, which a text scan cannot
+      see. Same probe_file, same global name, same spelling, and the asserts are
+      character-for-character the same predicate
+      (`dict(...) == {(probe_file, names[0]): 1}`). I ran both through the scan
+      under every mutant of _hand_set_spellings: identical Counter in all three
+      cases (shipped, setattr-half deleted, assignment-half deleted). In the
+      per-assert matrix :945 and :956 red under exactly the same single mutant
+      (SETATTR-DEL) and under no other -- while arms 3 and 4 each have a mutant
+      that kills only them (NAMES-HARDCODE for :974, PAIR-COLLAPSE for :1001).
+
+      This is NOT a third generation of F-001 and I want to be exact about why:
+      arm 2 CAN fail, and it fails for the reason its own sentence gives. The
+      cycle-2 fix already narrowed that sentence from the direction-claim ("a new
+      file") to the mechanism-claim ("reds if the setattr( spelling stops being
+      counted"), which is what ADR-0039/R1 asks for. What is left is a duplicated
+      control wearing a clause label -- ten lines that measure nothing the line
+      above them does not. The docstring's own framing ("Four arms, one per
+      clause", "Every direction the equality claims to catch") is what makes it
+      read as a fourth measurement.
+    suggestion: |
+      Delete arm 2 (:950-959) and its docstring bullet. Arm 1's setattr iteration
+      is the measurement; the "new file" direction is the equality's reaction to
+      that count, which the same docstring already says is dict equality and not a
+      mechanism an arm can kill. If the clause is worth naming, name it there:
+      "a site in a file the exemption does not list is counted (arm 1) and the
+      equality reacts to any count it does not account for, by construction".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_db_engine_lifecycle.py
+    line: 899
+    title: "the control's own docstring says both removed comparisons 'were true for every possible probe value' -- one of them was not"
+    description: |
+      tests/test_db_engine_lifecycle.py:893-903 explains the cycle-2 deletions:
+
+        "Two asserts here used to compare a single-file probe count against the
+         whole six-pair exemption and say in their message that the equality would
+         otherwise pass; those comparisons were true for every possible probe value
+         and were removed in CARD-254 review cycle 2 (F-001's family)."
+
+      Measured against the f0701729 source, the two asserts were:
+
+        (i)  assert dict(new_file) != {} and dict(new_file) != _EXEMPT_HAND_SET_SITES
+        (ii) assert dict(after) != _EXEMPT_HAND_SET_SITES
+
+      (ii) is unconditionally true -- `after` holds keys under one file only, the
+      exemption holds six keys over two files, so they can never be equal, tenth
+      site or not. Confirmed: deleting it lost nothing, and :1001
+      (`after[key] == before[key] + 1`) is the assert that measures the tenth site
+      and reds under PAIR-COLLAPSE. The cycle-2 fix's claim about (ii) is right.
+
+      (i) is NOT true for every probe value. Its FIRST conjunct, `dict(new_file)
+      != {}`, reds under SETATTR-DEL: with the setattr half of the spelling pair
+      deleted the probe counts nothing, dict(new_file) == {}, and the assert fails.
+      I ran it: `drop=setattr -> dict={} -> (!={}) False -> assert passes=False`.
+      Only (i)'s SECOND conjunct was vacuous.
+
+      No coverage was lost -- the replacement
+      `dict(new_file) == {(probe_file, names[0]): 1}` is strictly stronger than
+      `!= {} and != EXEMPT` -- so the fix is right and only the stated reason is
+      wrong. Filed because this is the THIRD occurrence of this card's own
+      recurring genus (cycle-1 OBS-1 on the card, cycle-2 F-003 on the card, now
+      shipped in a test docstring), and the first time it has shipped inside the
+      code rather than sitting on the card.
+    suggestion: |
+      One clause: "...one of those comparisons was true for every possible probe
+      value (the tenth-site one) and the other was true except when the setattr
+      half of the scan is deleted, which the assert above it already covers; both
+      were replaced by asserting only the count."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_db_engine_lifecycle.py
+    line: 1038
+    title: "'Two generations of this control were certified off such a result' -- there was one, and the earlier generation had no arms"
+    description: |
+      tests/test_db_engine_lifecycle.py:1032-1038, in the per-assert-not-per-test
+      note that is the fix's best contribution:
+
+        "Two generations of this control were certified off such a result, and both
+         times it hid an arm that could not fail (CARD-254 review cycle 2, F-001)."
+
+      Measured with git: `test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not`
+      is absent at a60d53a4 and at de0ea945, and present at f0701729 and a0c7c987.
+      So there was exactly ONE prior generation of this control. And the cycle-1
+      generation (de0ea945) had no arms at all -- its defect was a SURVIVING
+      real-file mutant (M3c), which is a different failure mode from a
+      never-evaluated assert.
+
+      The accurate statement is the one cycle 2 actually made: two generations of
+      this CARD'S FAMILY were certified off a result that could not distinguish
+      killed from never-reached -- cycle 1 a surviving mutant mistaken for reach,
+      cycle 2 a short-circuited test mistaken for four kills. The docstring
+      compresses "the family" into "this control" and the sentence stops being
+      true.
+
+      Same genus as F-002, same cluster, and worth one sentence of irony: it is a
+      history claim wider than its mechanism, in the paragraph written to stop
+      claims wider than their mechanisms.
+    suggestion: |
+      "Two generations of this card's claims were certified off such a result, and
+      the second time it hid an arm that could not fail (CARD-254 review cycle 2,
+      F-001)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_db_engine_lifecycle.py
+    line: 1136
+    title: "arm 2b's position assert would pass trivially on a one-call probe, and nothing asserts the probe has two"
+    description: |
+      The brief asked directly whether a position assertion can pass for a wrong
+      reason. It can, and here is the one way:
+
+        second_call = two_calls_source.rindex("setattr(")
+        assert match is not None and match.start() == second_call
+
+      `rindex` returns the LAST occurrence. On a probe containing only one
+      `setattr(`, `second_call` is that one occurrence, the pattern necessarily
+      matches at a `setattr(`, and the assert is trivially true -- the over-reach
+      property would be unmeasured and the arm would still be green.
+
+      Today it discriminates, measured: the probe contains exactly two `setattr(`
+      occurrences, at offsets 49 and 122, and
+        shipped   -> match.start() = 122 (== rindex)  PASS
+        PAREN-DEL -> match.start() =  49              RED
+        NORM-DEL  -> match is None                    RED
+      which reproduces the card's 122 / 49 / None table exactly.
+
+      So this is a latent vacuity, not a live one -- which is why it is Minor. It
+      is filed because the rest of this file asserts every probe precondition
+      explicitly (:922 the probe file is not an exemption, :984 the exempt file
+      lists a name, :992 the real file's count still matches the exemption), and
+      this arm, uniquely, leaves the property its instrument depends on
+      unasserted. A maintainer trimming the probe to one call gets a green arm and
+      no signal.
+    suggestion: |
+      One line before the assert, in the file's existing idiom:
+
+        assert two_calls_source.count("setattr(") == 2, (
+            "this arm needs two setattr( calls in the probe; with one, rindex "
+            "returns the only occurrence and the position assert is vacuous"
+        )
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_db_engine_lifecycle.py
+    line: 684
+    title: "the shrink card's net is -181 lines, not -400: the two review cycles restored 52% of it, and the surviving guard is 1.69 lines of prose per line of mechanism"
+    description: |
+      This is the answer to the card's own question, measured rather than argued,
+      and it is recorded as a finding so the next guard-shrink card inherits the
+      number instead of the anecdote.
+
+      Line counts, per revision (git show | wc -l):
+
+        tests/test_db_engine_lifecycle.py   1415 -> 919 -> 1062 -> 1177
+                                            base   shrink  cyc1   cyc2
+        src/nonogram/db/session.py           327 -> 368 ->  376 ->  384
+
+      The shrink removed 496 lines. Cycle 1's fix put back 143, cycle 2's put back
+      115 -- 258 lines, 52% of the shrink, restored by controls and by prose about
+      controls. Net over both files: 1742 -> 1561, i.e. -181 lines (-10.4%),
+      against a card that declared "Retire (~400 lines of code and prose)" and
+      "Keep (~55 lines -- the part with real authority)".
+
+      Prose-to-mechanism in the surviving AC-5 guard, measured by AST (docstring
+      spans + comment-only lines vs executable lines):
+
+        _hand_set_spellings                          doc  33   exec   2
+        _hand_set_sites_in                           doc  11   exec   6
+        _hand_set_sites                              doc   1   exec   7
+        AC-5 class docstring                         doc 116   exec   -
+        test_no_test_file_outside_the_exemption...   doc   7   exec  14
+        test_the_count_reds_on_a_new_file...         doc  37 + 9 comments   exec  68
+        test_a_wrapped_call_is_counted...            doc  63 + 20 comments  exec  79
+        ------------------------------------------------------------------
+        TOTAL                                        prose 297   exec 176   = 1.69 : 1
+
+      And in session.py: reset_engine()'s docstring is 126 lines for a 6-line
+      function body -- 21:1.
+
+      What actually catches things is about 22 executable lines: two regexes
+      (2 lines), a 6-line counter, a 6-entry dict, and the 14-line tree-wide
+      equality. Those 22 lines caught the keyword-bound
+      `monkeypatch.setattr(app_session, name="engine", ...)` shape that CARD-252's
+      ~400 lines of AST machinery missed through three review cycles. That part is
+      unambiguously worth keeping.
+
+      The claim-heavy part is the duplication rule. The convention is written
+      twice on purpose, "in the same words" -- the AC-5 class docstring (116 lines)
+      and reset_engine()'s docstring (126 lines) -- and that doubling has been paid
+      three times already: cycle 1 edited both, cycle 2 edited both, and two of
+      this cycle's four Minors (F-002, F-003) live in text that would have to be
+      corrected in both places. "The same words in two places" is itself an
+      unverified claim: nothing reds if they drift.
+    suggestion: |
+      Three cuts, roughly -135 lines, with no measured property lost:
+
+      1. Single-source the convention. Keep it on reset_engine() (where the seam
+         is); replace the class docstring's copy with a one-line cross-reference
+         plus the "Controls:" list. ~100 lines, and it retires the
+         "in-the-same-words-in-two-places" rule, which is a claim with no control.
+      2. Delete control A's arm 2 (F-001). ~10 lines, zero coverage.
+      3. Stop narrating review history in shipped docstrings. Both prose Minors
+         this cycle (F-002, F-003) are wrong about review CYCLES, not about the
+         mechanism. A docstring needs the arm's property and the mutant that reds
+         it; which cycle found it belongs on the card. ~25 lines across the two
+         control docstrings -- and it closes the surface where this card's own
+         recurring genus keeps reappearing.
+
+      Not a gate. If the board prefers to land as-is, land as-is: nothing here is
+      wrong, it is only heavy.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
+    line: 20
+    title: "CARRIED from cycles 1-2: ADR-0039/R2's deny-default clause is traded away while the ADR still reads Accepted / mandatory"
+    description: |
+      Carried unchanged. Accepted as a real finding at cycle 1 and dismissed as
+      outside this card's Touches ("meta/architecture/ -- no"), with the amendment
+      routed to the architect station; carried at cycle 2 on the same terms.
+      Re-checked at this head: ADR-0039 still reads Status: Accepted, Revised: —,
+      R2 severity mandatory, and git log a60d53a4..a0c7c987 -- meta/architecture/
+      is empty. The SHAPE set is still two hand-written regexes with no enumerable
+      authority. Re-listed only so cycle 3's enumeration is complete; not a new
+      finding, not counted in this cycle's score, and not to be re-triaged.
+    suggestion: |
+      Unchanged: a follow-up card amending ADR-0039/R2 to sanction "drop the reach
+      claim" as an alternative to the deny-default, provided the narrowed claim is
+      stated where the mechanism lives and every remaining claim keeps a failing
+      control (R1), citing CARD-252 / CARD-254 as the measured case.
+    confidence: medium
+    source: model
+    violates: "ADR-0039/R2"
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: |
+      Carried from cycles 1-2 as already-dismissed: out of this card's declared
+      Touches, routed to the architect station. Matches the cross-project
+      review_false_positives pattern "Real finding outside the card's declared
+      scope ... deferred to a backlog follow-up rather than wrong"
+      (dismissed_count 3), which is why it is not re-gated here.
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+per_assert_matrix:
+  method: >-
+    My own ast.NodeTransformer, written for this review and independent of the
+    agent's: every ast.Assert at any nesting depth is rewritten into
+    try: <assert>; __REC__(lineno, None) / except AssertionError as e:
+    __REC__(lineno, e), so execution continues past a red assert and each one is
+    recorded under the lineno of its own Assert node. The module is then exec'd and
+    the two target methods called directly. Mutants are applied to the module source
+    text before parsing, and every deletion mutant preserves the line count (the
+    deleted regex slot is filled with a never-matching pattern rather than removed),
+    so no lineno can shift -- the misalignment the agent reported in its first
+    attempt is structurally impossible here. An assert in a loop records one verdict
+    per iteration (reported as PASS/RED in iteration order).
+  mutants:
+    NORM-DEL: "[^()]*? -> [^()\\n]*? (restore the newline exclusion = the pattern before this card)"
+    PAREN-DEL: "[^()]*? -> (?s:.*?) (delete the parenthesis exclusion, keeping newline-crossing)"
+    SETATTR-DEL: "the setattr( half of _hand_set_spellings replaced by a never-matching pattern"
+    ASSIGN-DEL: "the .name = half of _hand_set_spellings replaced by a never-matching pattern"
+    PAIR-COLLAPSE: "_hand_set_sites_in: sites[(filename, name)] += 1 -> = 1 (one per pair, not per match)"
+    COMMENT-STOP: "[^()]*? -> [^()#]*? (stop at a comment marker)"
+    COMMA-REQ: "setattr\\([^()]*? -> setattr\\([^()]*?,[^()]*? (require an argument comma)"
+    NAMES-HARDCODE: "_hand_set_sites_in iterates a hardcoded three-name tuple instead of its names parameter"
+    OPENPAREN-OK: "[^()]*? -> [^)]*? (allow an opening paren, still stop at a closing one)"
+  control_a:
+    test: "test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site"
+    rows:
+      - ":920, :922 preamble guards -- PASS under all nine mutants"
+      - ":945 arm 1, both spellings counted (nested in a for) -- RED/PASS under SETATTR-DEL, PASS/RED under ASSIGN-DEL; each iteration kills its own half, exactly as the docstring claims"
+      - ":956 arm 2, a new file -- RED under SETATTR-DEL only; no mutant kills it without also killing :945 iter 1 (F-001)"
+      - ":974 arm 3, a new name -- RED under SETATTR-DEL and uniquely under NAMES-HARDCODE"
+      - ":978, :984 precondition guards -- PASS under all nine"
+      - ":992 precondition (the real exempt file's count still matches the exemption) -- RED under SETATTR-DEL, which is a precondition doing its job"
+      - ":1001 arm 4, a tenth site in an already-exempt pair -- RED under SETATTR-DEL and uniquely under PAIR-COLLAPSE, the mechanism the arm names"
+  control_b:
+    test: "test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not"
+    rows:
+      - ":1074, :1076 preamble guards -- PASS under all nine mutants"
+      - ":1092 arm 1, a wrapped call is counted -- RED under NORM-DEL (and SETATTR-DEL). Docstring claims NORM-DEL. ✓"
+      - ":1110 arm 2a, an unrelated wrapped call manufactures no match -- RED under PAREN-DEL only. Docstring claims PAREN-DEL. ✓"
+      - ":1136 arm 2b, the match STARTS at the call carrying the name -- RED under PAREN-DEL AND NORM-DEL (and SETATTR-DEL). Docstring claims both, not only the flattering one. ✓ Positions re-derived: shipped 122, PAREN-DEL 49, NORM-DEL None, rindex 122, probe contains exactly two setattr( at offsets 49 and 122."
+      - ":1151 arm 3, a parenthesised receiver is not counted -- RED under PAREN-DEL. Docstring claims PAREN-DEL. ✓ OPENPAREN-OK does not kill it (the receiver's own ')' still stops the scan), so arm 3 and arm 2a probe the same exclusion from two sides -- both sentences name it and both are measured."
+      - ":1171 arm 4, an unclosed setattr( in prose IS counted -- RED under NORM-DEL (and SETATTR-DEL) and uniquely under COMMA-REQ, which deletes the prose over-read while leaving the wrapped-call widening intact. So arm 4 is independently killable and not a relabelled arm 1. Docstring claims NORM-DEL. ✓"
+  conclusion: >-
+    No third generation. Every claim-bearing assert in both controls reds under a
+    mutant that deletes the mechanism its own sentence names, and the two cells the
+    brief singled out (arm 2b under PAREN-DEL and under NORM-DEL) are both red and
+    both stated. The card's own two matrices reproduce cell for cell under an
+    independent instrument.
+
+mutants_live:
+  - id: NORM-DEL
+    target: "tests/test_db_engine_lifecycle.py:_hand_set_spellings (live pytest)"
+    selection: "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam"
+    result: "KILLED -- EXIT=1, exactly 1 failed: test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not. The tree-wide equality stayed GREEN, the declared design (no real site is wrapped)."
+  - id: PAREN-DEL
+    target: "the same"
+    selection: "the same"
+    result: "KILLED -- EXIT=1, exactly 1 failed: the control. ONE test, not two -- which is the cycle-2 correction confirmed live."
+mutant_restores: >-
+  Both mutants applied alone from a cp -p backup and restored from that backup.
+  shasum -a 256 of tests/test_db_engine_lifecycle.py is
+  36938390df4d9ad374db3638f4f51e8b36781558cd11e48efabdab256c1b6c82 before the first
+  mutation and after the last; diff -q clean after each restore;
+  git diff a0c7c987 -- src tests is empty; git status shows only the pre-existing
+  meta/ entries. Never git checkout --.
+
+corrections_verified:
+  cycle2_self_match_correction: >-
+    VERIFIED, and the fix's correction of its own reviewer is right. I re-ran the
+    tree-wide sweep from git blobs (git ls-tree + git show per file, no checkout) at
+    both revisions under both patterns:
+      f0701729 + shipped pattern  -> 9 sites, 6 pairs, dict-equal True
+      f0701729 + PAREN-DEL        -> 10 sites, 7 pairs, dict-equal FALSE, the extra
+                                     item being {('test_db_engine_lifecycle.py','engine'): 1}
+                                     -- the guard file self-matching
+      a0c7c987 + shipped pattern  -> 9 sites, 6 pairs, dict-equal True
+      a0c7c987 + PAREN-DEL        -> 9 sites, 6 pairs, dict-equal True
+    So at f0701729 PAREN-DEL really did kill TWO tests (the control plus the
+    tree-wide equality) and the second kill was F-002 firing, not a property of the
+    tree; after the reflow it kills only the control. Confirmed live as well: the
+    PAREN-DEL run above reports exactly 1 failed.
+  f002_reflow_structural_claim: >-
+    VERIFIED. The guard file contains exactly SIX quoted global-name literals, at
+    lines 253, 254, 255, 256, 257, 258 -- every one of them a key of
+    _EXEMPT_HAND_SET_SITES -- and the file's first `setattr(` occurrence is at
+    offset 14941 (line 305), so all six sit ABOVE it: all(lit_offset < first_setattr)
+    is True. There are 40 `setattr(` occurrences in the file and zero `.engine =` /
+    `._engine_url =` / `.SessionLocal =` occurrences. Self-count over the guard file
+    is {} under the shipped pattern AND under PAREN-DEL. The claim is structural, as
+    stated, not punctuation luck.
+  tree_wide_figure: >-
+    VERIFIED exactly. 383 `setattr(` occurrences under tests/; 12 have a quoted
+    global name somewhere downstream; 9 of those are matched at that start by the
+    shipped pattern (the counted sites); 3 are stopped by their own ')' --
+    test_db_connect_timeout.py:74, test_db_url_driver.py:173 and :174. I opened all
+    three: they are adjacent monkeypatch.setattr calls in the two exempt files,
+    exactly as the class docstring says, and the one at :173 is
+    monkeypatch.setattr(db_session, "create_engine", capturing) -- which also
+    re-confirms that the quote word-boundary keeps "create_engine" out of engine's
+    count.
+  deleted_assert_lost_no_coverage: >-
+    VERIFIED. `assert dict(after) != _EXEMPT_HAND_SET_SITES` was unconditionally
+    true (after's keys are all under one file, the exemption's span two), and
+    :1001 (`after[key] == before[key] + 1`) is the assert that measures the tenth
+    site -- RED under PAIR-COLLAPSE and under no other mutant. The strengthened
+    assert at :956 reds under SETATTR-DEL, the mutant that deletes what it names.
+    The fix's claim about the deletion is right; its claim about WHY both were
+    vacuous is not (F-002).
+
+sweeps:
+  tree_sweep: "names derived independently from session.py's AST ['SessionLocal','_engine_url','engine']; 9 sites, 6 pairs, dict-equal to _EXEMPT_HAND_SET_SITES True, 0 matching files outside the two exempt ones."
+  differential_sweep: "old ([^()\\n]) vs new ([^()]) per (file, name) over every tests/**/*.py: DELTA NONE."
+  brief_form_sweep: "the dispatch brief's form (collapse newlines, keep the \\n exclusion) over the same tree: 9 sites, 6 pairs, dict-equal True, DELTA NONE vs the implemented form."
+  g1_ast_identity: "session.py docstring-stripped AST at a60d53a4 / de0ea945 / f0701729 / a0c7c987: dump length 9154 and sha256 bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c at all four."
+
+runs:
+  lock: "meta/kanban/.full-suite.lock checked absent in the worktree AND in the main repo before every run and again at the end. The main-repo guard CARD-255 added is not in this tree (base a60d53a4), so the check was done by hand."
+  database: "nonogram_pythonproject4_card_254_ffd0825b4ddf_test, derived by tests/db_name.py for this worktree, passed as both DATABASE_URL and TEST_DATABASE_URL as literals. nonogram_poc never named, created, dropped, connected to or truncated."
+  timings: "none taken or relied on -- the card carries a standing note against them."
+  selections:
+    - "tests/test_db_engine_lifecycle.py tests/test_suite_profile.py tests/test_book_difficulty_dots.py tests/test_db_url_driver.py tests/test_db_connect_timeout.py tests/test_db_isolation.py -- 673 passed, 0 failed, 0 skipped (-rs), EXIT=0"
+    - "tests/test_cli.py tests/test_suite_profile.py (the structural import guard, re-run because src/ was edited) -- 495 passed, 0 failed, 0 skipped (-rs), EXIT=0"
+    - "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam -- the mutant baseline for both live mutants"

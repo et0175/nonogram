@@ -1,0 +1,238 @@
+version: 1
+generated_at: "2026-10-20T06:26:46Z"
+target: "card/254-shrink-the-private-globals-guard @ de0ea945 (base a60d53a4) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-254"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/db/session.py"
+    - "tests/test_db_engine_lifecycle.py"
+    - "tests/conftest.py (reset_engine call site, imports)"
+    - "tests/test_db_url_driver.py (exempt sites)"
+    - "tests/test_db_connect_timeout.py (exempt sites)"
+    - "tests/test_db_isolation.py (mutant host)"
+    - "tests/test_suite_profile.py (ADR-0039 R1/R2 check refs)"
+    - "tests/test_book_difficulty_dots.py (ADR-0036 R3/R4 + dingbat exemption)"
+    - "meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md"
+    - "meta/kanban/cards/CARD-254.md"
+  not_reached:
+    - "the full suite (forbidden by the dispatch brief; build gate taken on trust)"
+    - "~/MyProjects/forge_1/.../engineering-standards/SKILL.md (outside the checkout; the owner's standards line not verified)"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 293, removed: 748 }
+  max_fan_in: { symbol: "nonogram.db.session.reset_engine", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/db/session.py", "tests/test_db_engine_lifecycle.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the 12-month co-change window over the two touched files yields only those same two files (session.py 12 commits, test_db_engine_lifecycle.py 6); there is no third peer to be absent."
+
+system_contract:
+  rules_checked: 10
+  holds: 5
+  unchecked: 4
+  violated: 1
+  verdicts:
+    - "ADR-0039/R1 ✓ holds — every claim the new guard makes has a control that can fail, re-derived by mutant: the derived name set by R4/R4d (killed, exactly test_it_resets_exactly_the_globals_the_builder_creates), the exemption equality by M3/M3b (killed, real-file hand-sets appended to tests/test_db_isolation.py), the setattr regex half by P1 (killed, 2 tests), the `.name =` half by P2 (killed by the new control only — declared), the receiver resolution by ALIAS (killed). The one previously-unmeasured claim is the 'blind to' list, filed as F-001. Note: the rule's own check ref test_the_control_for_each_spelling_depends_on_the_set (tests/test_suite_profile.py) ran green here but is file-local to that module and by the ADR's stated reach does not reach this guard — this verdict is the Step 8h read, as the ADR intends."
+    - "ADR-0039/R2 ✗ violated — tests/test_db_engine_lifecycle.py:296-318 (_hand_set_spellings). The NAME set is genuinely derived from session.py's AST and the derivation is load-bearing (D1 killed / D2 green, re-derived). But the SHAPE set — two hand-written regexes — has no enumerable authority, and the rule's second clause for that case ('a shape it cannot analyse is a FAILURE, never a silent pass') is not met: a shape it cannot see is a silent pass, certified by surviving mutant M3c. The ADR's own R2 comment names this exact case ('a completeness test over a hand-enumerated set of syntactic shapes is not a completeness test'). The card declares the trade in its worktree notes but ADR-0039 is still Accepted / Revised: — . Filed as F-002; Touches: excludes meta/architecture/, so the amendment is a follow-up, not this card's edit."
+    - "ADR-0039/R3 ✓ holds — the exemption is an equality over per-(file,name) counts, not a floor and not a pair set: dict(_hand_set_sites(names)) re-derived == _EXEMPT_HAND_SET_SITES exactly (9 sites, 6 pairs, 0 false positives over all of tests/**/*.py). Controls that can fail: arm 4 of test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site (tenth site inside an already-exempt pair), plus real-file mutants M3 (new file, setattr spelling) and M3b (new file, dotted assignment) — both killed. The exemption absorbs nothing it is not held to."
+    - "ADR-0036/R3 ✓ holds — tests/test_book_difficulty_dots.py ran green on this head (549 passed with test_suite_profile.py); the diff adds no drawing site (src/ delta is docstring-only, proved below)."
+    - "ADR-0036/R4 ✓ holds — authoritative check green on this head (tests/test_book_difficulty_dots.py). My own naive scan of src/nonogram/** found U+2022 three times in admin/pdf_generator.py, which is the DECLARED dingbat exemption (DINGBAT_EXEMPT_MODULES = {'nonogram.admin.pdf_generator'}); no new codepoint is introduced by this diff. The card's note asserting a clean scan is literally inaccurate — see OBS-1 — but the rule itself is satisfied."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff is a docstring block in session.py plus a test-tree shrink; no public signature, request field or export field is touched, and grep for width/height/size over the diff returns 0 hits."
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: no player surface, no solution-grid transport and no admin page in the diff."
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject.toml is not in the diff (git diff --name-only = session.py, test_db_engine_lifecycle.py); no Playwright declaration changes."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser test is added or changed. Adjacent: the db_required skip gate is still asserted loud by test_a_reachable_postgres_yields_no_db_mode_skip_reasons, which is untouched and passed."
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no interactive play, no persistence of play state, no public surface in the diff."
+
+root_causes:
+  - id: RC-1
+    title: "the guard's 'blind to' list is hand-written narrative rather than a measured bound, and it is incomplete"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/db/session.py
+    line: 290
+    title: "AC-4 unmet: a formatter-wrapped `setattr(` reaches the globals, is not in the declared 'blind to' list, and is not counted (mutant M3c survived)"
+    description: |
+      Both convention texts — src/nonogram/db/session.py:290-293 (reset_engine's
+      docstring) and tests/test_db_engine_lifecycle.py:696-702 (the guard class's
+      docstring) — bound the scan's blindness in these words:
+
+        "It is blind to every spelling that does not put one of the three literal
+         names beside a `setattr(` or a `.<name> =`."
+
+      and then enumerate the blind cases: a runtime-computed name, a
+      globals()/vars() write, importlib into a local, a sys.modules swap,
+      monkeypatch.delattr, a list-unpacking target, and a whole-path string
+      target. I verified every one of those is genuinely blind, and verified the
+      card's headline (the keyword-bound `monkeypatch.setattr(app_session,
+      name="engine", value=None)` — CARD-252 cycle 3's C3-F-001 hole — IS counted;
+      that claim is true).
+
+      But the regexes in _hand_set_spellings (tests/test_db_engine_lifecycle.py:316)
+      are `setattr\([^()\n]*?["']NAME["']` — the character class excludes BOTH
+      newlines and parentheses. So two further spellings put the literal name as an
+      argument of a `setattr(` call, reach the globals, are NOT in the blind list,
+      and are NOT counted:
+
+        (a) the call wrapped across lines — exactly what any formatter produces
+            once the line passes the column limit:
+                monkeypatch.setattr(
+                    app_session, "engine", None
+                )
+        (b) a receiver argument that itself contains parentheses:
+                setattr(sys.modules.get("nonogram.db.session"), "engine", None)
+                setattr(session_module(), "engine", None)
+
+      Certified, not argued. Mutant M3c: shape (a) appended as a new test function
+      to tests/test_db_isolation.py — a file no exemption lists — left the AC-5 class
+      at **5 passed**. The same hand-set written on one line (mutant M3) and as a
+      dotted assignment (M3b) each killed
+      test_no_test_file_outside_the_exemption_sets_those_globals. So the gap is in
+      the mechanism, not in my reading of it, and it is reachable by the single most
+      likely way a contributor would actually write the line.
+
+      This is the AC-4 failure specifically, not a request for more reach: AC-4 says
+      the convention text must say what it does not enforce, "the failure this card
+      exists to end is a guard whose claim is wider than its mechanism". A reader of
+      the bullet above concludes a wrapped setattr is counted. It is not. The claim
+      is wider than the mechanism, in the one sentence written to stop that.
+
+      Not a live miscount today: I swept tests/**/*.py by AST for every real
+      `setattr` call carrying one of the three names and compared against the text
+      scan — zero real sites are missed, and the tree-wide count is byte-equal to
+      _EXEMPT_HAND_SET_SITES (9 sites, 6 pairs). So this is a disclosure defect with
+      a latent miss, not a broken exemption. Hence Important, not Critical.
+    suggestion: |
+      Cheapest honest fix, and the one that matches this card's own thesis (narrow
+      the claim to what is measured rather than widen the mechanism): add the two
+      cases to the "blind to" bullet in BOTH texts — src/nonogram/db/session.py's
+      reset_engine docstring and
+      TestEngineLifecycle_TheResetIsAPublishedSeam's docstring — e.g. "...and a
+      `setattr(` call whose literal name does not sit on the same line as the
+      `setattr(` (any formatter-wrapped call), or whose receiver argument itself
+      contains parentheses." One sentence per text.
+
+      If instead the reach is wanted: _hand_set_sites_in could scan the joined
+      source with the newline exclusion dropped (`[^()]*?` under re.DOTALL) — but
+      that changes the counts and would need the equality re-measured plus a new
+      control arm, and it still leaves case (b). Prefer the disclosure fix; the
+      card's whole argument is that a small true claim beats a large one.
+
+      Either way, add an arm to test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site
+      (or a sibling) that pins the chosen behaviour, so the next cycle does not
+      re-discover this by probe.
+    confidence: high
+    source: static
+    violates: "AC-4"
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+    fix_notes: |
+      Split remedy, applied 2026-10-20 on card/254-shrink-the-private-globals-guard.
+      (a) MECHANISM WIDENED, no reach claim added: _hand_set_spellings
+      (tests/test_db_engine_lifecycle.py:328) now compiles
+      setattr\([^()]*?["']NAME["'] -- the \n is gone from the character class, so the
+      scan is newline-insensitive and only a parenthesis stops it. A formatter-wrapped
+      call now counts exactly as the one-line form. Counting unit unchanged (per
+      (file, name) text match, byte-comparable with _EXEMPT_HAND_SET_SITES).
+      Re-measured sweep: 9 sites, 6 pairs, equality True, zero matches elsewhere --
+      identical to pre-fix, dict unchanged. A differential sweep (old vs new pattern,
+      every tests/**/*.py) returned no delta: zero false positives introduced.
+      (b) DECLARED, in both texts in the same words: a setattr( whose receiver argument
+      itself contains parentheses is listed among the blind cases in
+      src/nonogram/db/session.py:288-305 (reset_engine's docstring) and
+      tests/test_db_engine_lifecycle.py:729-752 (the guard class's docstring); both also
+      state the converse, that position in the file is NOT a blind case.
+      CONTROLS: new test
+      TestEngineLifecycle_TheResetIsAPublishedSeam::test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not
+      (tests/test_db_engine_lifecycle.py:955), four arms. In-region arm killed by
+      NORM-DEL (\n restored to the class) and by M3c re-run as a real-file mutant on
+      tests/test_db_isolation.py -- M3c left the class at 5 passed at de0ea945 and now
+      reds test_no_test_file_outside_the_exemption_sets_those_globals with exactly one
+      extra item. Edge arms (unrelated name wrapped; two wrapped calls in a row) killed
+      by PAREN-DEL ([^()]*? -> .*? under re.DOTALL), which is what keeps the widening
+      from being a false-positive engine over a count-based equality. Declaration arm
+      pins the receiver-parens form as uncounted.
+      session.py stays docstring-only: docstring-stripped ast.dump sha256
+      bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c at a60d53a4,
+      de0ea945 and this worktree. Every mutant restored from a byte-identical backup,
+      diff-verified. Selections: AC-5 class 6 passed; the module 12 passed, 0 skipped;
+      the six-file touched-adjacent selection 673 passed, 0 failed, 0 skipped.
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
+    line: 20
+    title: "ADR-0039/R2's deny-default clause is consciously traded away, but the ADR is still Accepted / Revised: —"
+    description: |
+      ADR-0039/R2 (severity: mandatory, scope tests/**) states: "A guard's set is
+      derived from an authority the runtime can enumerate, not hand-written. Where
+      no such authority exists, the guard defaults to deny: a shape it cannot
+      analyse is a FAILURE, never a silent pass." Its own trailing comment names
+      this very case: "A completeness test over a hand-enumerated set of syntactic
+      shapes is not a completeness test, because no authority enumerates the shapes."
+
+      The new guard splits cleanly against that rule. Its NAME set satisfies the
+      first clause and does so measurably — I re-derived D1 (a fourth global added
+      to and retired by session.py, then hand-set in a non-exempt file → KILLED) and
+      D2 (the same with the name set hardcoded to today's three → 5 passed, green).
+      The derivation is load-bearing, exactly as the card reports.
+
+      Its SHAPE set does not. Two hand-written regexes, no enumerable authority, and
+      a shape it cannot see is a silent pass (M3c). The card is open about this —
+      "the guard no longer defaults to deny, because it no longer claims the reach
+      that made a deny default necessary; that trade is the card" — and the board's
+      own retro endorsed the shrink, so this is a decision, not an oversight. The
+      defect is that the decision lives in a worktree note while ADR-0039 still
+      reads Status: Accepted, Revised: —, severity: mandatory. Left as is, the model
+      asserts a discipline the tree knowingly does not hold — which is the same
+      "claim wider than mechanism" failure this card exists to end, one layer up —
+      and the next guard-shrink card re-litigates it from scratch.
+
+      Filed Minor, not Important, for two reasons: the better-scoped reading is that
+      R2's first clause (the one with teeth, and the one D1/D2 certify) holds; and
+      the fix edits meta/architecture/, which this card's `Touches:` explicitly
+      excludes ("meta/architecture/ — no").
+    suggestion: |
+      Do not edit it from this worktree. Open a follow-up card to amend ADR-0039:
+      add to R2 a sanctioned alternative to the deny-default — a guard MAY instead
+      drop the reach claim entirely, provided the narrowed claim is stated where the
+      mechanism lives and every remaining claim keeps a failing control (R1) — and
+      cite CARD-252/CARD-254 as the measured case. That is the rule the board
+      actually decided; R2 as written forbids it.
+    confidence: medium
+    source: model
+    violates: "ADR-0039/R2"
+    root_cause: RC-1
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: |
+      Accepted as a real finding, declined in this card: the fix edits
+      meta/architecture/, which CARD-254's Touches: line explicitly excludes
+      ("meta/architecture/ -- no"), and the amendment belongs to the architect
+      station. meta/architecture/ was not touched. Recorded verbatim on
+      meta/kanban/cards/CARD-254.md as an orchestrator finding, with the reviewer's
+      own wording: R2 as written forbids what the board actually decided, and an
+      amendment sanctioning "drop the reach claim" as an alternative to the
+      deny-default -- provided the narrowed claim is stated where the mechanism lives
+      and every remaining claim keeps a failing control (R1) -- is owed, citing
+      CARD-252 / CARD-254 as the measured case. Needs a follow-up card; nothing in
+      this worktree can land it.
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
