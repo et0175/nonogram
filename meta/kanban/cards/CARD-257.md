@@ -162,3 +162,228 @@ touching `tests/**`.
   compute the error count and the solved state; this is permitted for the admin panel only, and a
   public or reader-facing player must not send a puzzle's solution to the browser before the
   puzzle is solved.
+
+
+## Worktree notes — implementation (CARD-257)
+
+### Line counts, against CARD-254's figures
+
+```
+tests/test_db_engine_lifecycle.py  1415 → 919 → 1062 → 1177 → 1162
+src/nonogram/db/session.py          327 → 368 →  376 →  384 →  393
+                                   base  shrink  cyc1   cyc2   CARD-257
+```
+
+Raw: **−15 / +9 = −6** over both files. The useful split, measured with
+`ast` + `tokenize` (docstring lines ∪ comment lines vs. code lines):
+
+| | prose | code | prose:code |
+|---|---|---|---|
+| guard file, before | 616 | 440 | 1.40 : 1 |
+| guard file, after | **567** | **465** | **1.22 : 1** |
+| `session.py`, before | 275 | 64 | 4.30 : 1 |
+| `session.py`, after | 284 | 64 | 4.44 : 1 |
+
+**85 lines of prose were cut; AC-2's control put 69 back as mechanism** —
+`_spelling_heads` (13), the control (53), `_NAME_PLACEHOLDER` (3). That is the
+same arithmetic CARD-254 recorded, with one difference worth keeping: this
+time what came back is 24 lines of *code* and a docstring that names the
+mutants reddening each of its asserts, not prose about a control. The guard
+class's docstring is **116 → 59**; `reset_engine()`'s is **126 → 135**,
+because single-sourcing moves text *into* the source of truth (the pointer
+paragraph, plus the two clauses only the guard's copy carried).
+
+Element by element: class docstring 116 → 59; control A 125 → 107 (docstring
+37 → 30, arm 2 gone); control B 171 → 158 (docstring 63 → 48, +9 for AC-4's
+precondition); `_hand_set_spellings` docstring 33 → 31.
+
+### AC-1 — the clause-survival diff: 41 clauses checked, 0 lost
+
+The retired copy was split into 41 clauses and each checked, by token, against
+the final `reset_engine()` docstring, the final guard-class docstring and the
+control docstrings (`scratchpad .../c257/ac1.py`). Every clause survives, and
+each bound survives in exactly **one** place:
+
+- the **blind-to list** lives only in `reset_engine()`: `globals()`,
+  `importlib`, `delattr`, `list unpacking`, `dotted-path` each occur **0** times
+  in the guard file and once in `session.py`. It gained the two clauses only the
+  guard's copy had (*every element but the last of a tuple unpacking*) or that
+  CARD-254's retirement table declared without either docstring enumerating (*a
+  target passed as one whole dotted-path string*) — both narrow the guard's
+  claim, never widen it.
+- the **counting rule** and *convention, enforced at review* / *a card, not a
+  commit*: once, in `session.py`. The equality's failure message no longer
+  repeats the exempt-file list either — it points at the single source, since
+  the dict above it is the authority.
+- the **tree measurement** (12 `setattr(` with a quoted global downstream, 9
+  counted, 3 stopped by their own `)`, i.e. arm 2b's property in the real tree)
+  and *why this file is not itself an exemption*: once, in the guard class,
+  where the tree they describe is.
+
+**No bound lost its only statement.** Three *incidents* were dropped with their
+claims kept (cut 3): M3c's narration, the "33 characters downstream / an
+editorial parenthesis" F-002 story, and the two sentences cycle 3 flagged as
+wrong about cycles ("those comparisons were true for every possible probe
+value", "two generations of this control").
+
+### AC-2 — the control that replaced "the same words in two places"
+
+`test_both_convention_texts_agree_on_the_mechanisms_parameters`: an equality
+over the mechanism's parameters, both sides symmetric — the globals
+`_global_names_assigned_by("_init_engine")` finds, and the two spelling heads
+read off `_hand_set_spellings`' compiled patterns (`_spelling_heads`: each
+pattern's leading literal run, unescaped). Not a string comparison of the two
+docstrings.
+
+**Measured before handing back** (per-assert, mutants installed as module
+attributes so they are line-count-preserving by construction):
+
+| assert | what it is | GLOBAL-ADD | DOC-NAME-DEL | DOC-NAME-DEL-GUARD | SPELL-HEAD-RENAME | ASSIGN-HEAD-RENAME | DOC-POINTER-DEL | NAMES-BLIND |
+|---|---|---|---|---|---|---|---|---|
+| `:845` | preamble (names non-empty) | PASS | PASS | PASS | PASS | PASS | PASS | **RED** |
+| `:857` | the globals, per text | **RED** | **RED** | **RED** | PASS | PASS | PASS | n/r |
+| `:863` | the spellings, per text | PASS | PASS | PASS | **RED** | **RED** | PASS | n/r |
+| `:869` | the pointer to the single source | PASS | PASS | PASS | PASS | PASS | **RED** | n/r |
+
+Every assert reds under a mutant that deletes what its own sentence names, and
+both *sides* are live: `DOC-NAME-DEL` (production text) and
+`DOC-NAME-DEL-GUARD` (class text) each red `:857` on their own. The six helper
+mutants of the old matrices (`SPELL-*-DEL`, `COUNT-COLLAPSE`, `NORM-DEL`,
+`PAREN-DEL`) leave all four green — it is a text control, not a scan control.
+
+**A defect the instrument caught in my own addition, before hand-back:** the
+first version substituted `_NAME_PLACEHOLDER` *before* the name check, which
+put `names[0]` back into every text that has a placeholder — so
+`DOC-NAME-DEL-GUARD` returned PASS. The names are now read from the text as it
+ships, and the substitution is used only for the spelling heads.
+
+### AC-3 — per-assert kill matrix, before and after deleting arm 2
+
+Instrument: every `ast.Assert` at any depth rewritten into a recording
+try/except keyed on the node's own `lineno`; mutants installed as module
+attributes, so no deletion mutant can shift a line number. It reproduces both
+of CARD-254's cycle-3 matrices **cell for cell** before any edit of mine.
+
+`test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site`:
+
+| assert (before → after) | what it is | SHIPPED | SPELL-SETATTR-DEL | SPELL-ASSIGN-DEL | COUNT-COLLAPSE |
+|---|---|---|---|---|---|
+| `:920` → `:929` | preamble | PASS | PASS | PASS | PASS |
+| `:922` → `:931` | preamble | PASS | PASS | PASS | PASS |
+| `:945` → `:955` | **arm 1** (nested in the `for`) | PASS | **RED** | **RED** | PASS |
+| `:956` → *deleted* | **arm 2, "a new file"** | PASS | **RED** | PASS | PASS |
+| `:974` → `:972` | arm 2 now, a new name | PASS | **RED** | PASS | PASS |
+| `:978` → `:976` | precondition | PASS | PASS | PASS | PASS |
+| `:984` → `:982` | precondition | PASS | PASS | PASS | PASS |
+| `:992` → `:990` | precondition (real file's count) | PASS | **RED** | PASS | PASS |
+| `:1001` → `:999` | arm 3 now, a tenth site | PASS | **RED** | PASS | **RED** |
+
+**Every remaining arm's row is unchanged.** The deleted arm's row is a strict
+subset of arm 1's, across **nine** mutants (the four above plus `NORM-DEL`,
+`PAREN-DEL`, `GLOBAL-ADD`, `SPELL-HEAD-RENAME`, `ASSIGN-HEAD-RENAME`): it reds
+only under `SPELL-SETATTR-DEL` and `SPELL-HEAD-RENAME`, and arm 1 reds under
+both. **No mutant kills arm 2 while arm 1 survives** — zero marginal coverage,
+which is G-2's evidence; its named survivor is arm 1, whose probe file
+(`test_not_exempt.py`) is no exemption's, so the test's name stays true and its
+docstring now says which arm carries the *new file* direction.
+
+`test_a_wrapped_call_is_counted_and_a_parenthesised_receiver_is_not` — also
+unchanged, arm for arm:
+
+| assert (before → after) | arm | SHIPPED | NORM-DEL | PAREN-DEL |
+|---|---|---|---|---|
+| `:1092` → `:1074` | arm 1 | PASS | **RED** | PASS |
+| `:1110` → `:1092` | arm 2a | PASS | PASS | **RED** |
+| — → `:1117` | **AC-4's new precondition** | PASS | PASS | PASS |
+| `:1136` → `:1122` | arm 2b | PASS | **RED** | **RED** |
+| `:1151` → `:1137` | arm 3 | PASS | PASS | **RED** |
+| `:1171` → `:1156` | arm 4 | PASS | **RED** | PASS |
+
+### AC-4 — arm 2b's precondition, and the mutant that reds it
+
+`assert two_calls_source.count("setattr(") == 2` before the position assert.
+Certified with a **real-file, line-count-preserving** mutant,
+**PROBE-ONE-CALL** (the probe's first call replaced by three `"\n"` strings):
+the precondition reds (`:1116` in that run) while the position assert stays
+**PASS** — exactly the card's point, that `rindex` finds the last call and a
+one-call probe makes the position trivially green. Applied from a `cp -p`
+backup and restored from it: `diff -q` clean, `shasum -a 256` identical
+(`447c5be5…`). Never `git checkout --`.
+
+### AC-5 / G-1 — re-derived, unchanged
+
+Names derived from `session.py`'s AST, never from the test:
+`['SessionLocal', '_engine_url', 'engine']`.
+
+- Tree sweep over `tests/**/*.py`: **9 sites, 6 pairs**, dict-equal to
+  `_EXEMPT_HAND_SET_SITES` **True**, **zero** matches outside the two exempt
+  files. Identical before and after the cuts.
+- `session.py` with every module/class/function docstring stripped,
+  round-tripped through `ast.unparse`, re-parsed and `ast.dump`ed: dump length
+  **9154**, sha256
+  **`bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c`** — the
+  declared value, to the byte. The `session.py` edit is docstring-only; the two
+  regexes, the counter, the dict and the equality are untouched (G-1).
+
+### Test selections (no full suite, no timings)
+
+`meta/kanban/.full-suite.lock` checked absent before **every** run. Database
+`nonogram_pythonproject4_card_257_01bc64b6d28b_test` (derived by
+`tests/db_name.py` for this worktree), passed as both `DATABASE_URL` and
+`TEST_DATABASE_URL` as literals. `nonogram_poc` was never named, created,
+dropped, connected to or truncated.
+
+- `tests/test_db_engine_lifecycle.py` — **13 passed, 0 skipped** (`-rs` reports
+  none; was 12 — the new control is the thirteenth)
+- touched-adjacent: `test_db_engine_lifecycle`, `test_db_url_driver`,
+  `test_db_connect_timeout`, `test_db_isolation`, `test_cli` (the structural
+  import guard), `test_card_156_db_fixture`, `test_db_e2e_smoke`,
+  `test_card_109_database_guard`, `test_book_difficulty_dots` —
+  **409 passed, 0 skipped, 0 failed** (CARD-254's 407 for the same selection +
+  the file's 12th and 13th tests)
+
+### Residue
+
+- `reset_engine()`'s docstring is **135 lines for a 6-line body**. The
+  duplication is gone and the pointer is controlled, but the single source is
+  still long, and three of its sections (`Who calls it and why`, `What is
+  pinned, and what is not`) are CARD-252's record rather than this card's
+  scope. A later card can take them; this one only trimmed two sentences there
+  ("the older reading of it here was wrong", "re-measured as review mutant R7").
+- The AC-2 control holds the guard's text to the *names* in double backticks,
+  which the scan does not count. That is load-bearing for the class docstring's
+  opening paragraph: it now has to keep naming the three globals.
+
+- **[Orchestrator] the new rule caught a defect in the agent's own addition before hand-back, which
+  is exactly what it was promoted for.** Its first version of AC-2's control substituted the name
+  placeholder **before** the name check, re-injecting `names[0]` into any text carrying a placeholder
+  — so `DOC-NAME-DEL-GUARD` came back **PASS** on a text that no longer named the globals. The
+  instrument found it; the agent fixed it and reported it. **One wave after six consecutive gating
+  findings were created by the previous fix, the first card to carry the rule caught its own.**
+- **[Orchestrator] it reproduced CARD-254's 52 % phenomenon, measured it, and named the difference.**
+  85 lines of prose cut, **69 put back by AC-2's control** — raw net **−6**. But the composition is
+  not the same: what came back is **24 lines of code** plus a docstring naming the mutant per assert,
+  where CARD-254's cycles put back prose *about* controls. The ratio moved where it matters: the
+  guard file's prose:code goes **1.40 : 1 → 1.22 : 1**, and the duplicated class docstring **116 →
+  59**. This is the honest shape of the trade: a control that replaces an uncontrolled rule costs
+  lines, and those lines are a different thing from the lines it retired.
+- **[Orchestrator] AC-1's clause-survival diff is the part I would have most expected to go wrong:
+  41 clauses, 0 lost.** Each clause of the retired copy token-checked against all three surviving
+  texts. The blind-to list now lives only in `reset_engine()` — `globals()`, `importlib`, `delattr`,
+  list unpacking and dotted-path each occur **zero** times in the guard file — and it *gained* two
+  clauses: the one only the guard's copy carried, and one CARD-254's retirement table declared while
+  neither docstring enumerated it. **Both narrow the claim; neither widens it.** Three *incidents*
+  were dropped with their claims kept, which is cut 3 doing precisely its job.
+- **[Orchestrator] AC-3 reproduced CARD-254's cycle-3 matrices cell for cell before any edit**, and
+  every remaining arm's row is unchanged after the deletion. Over nine mutants the deleted arm's row
+  is a **strict subset** of arm 1's — no mutant kills arm 2 while arm 1 survives — which is what
+  "zero coverage lost" has to mean to be worth saying.
+- **[Orchestrator] AC-4's precondition is certified by the mutant that makes it matter**: with the
+  probe reduced to one `setattr(` call, the precondition **reds** while the position assert stays
+  **PASS**. That is the card's point made executable — `rindex` on a one-call probe makes the position
+  assertion trivially true.
+- **[Residue, flagged for the reviewer]** `reset_engine()`'s docstring is still 135 lines for a 6-line
+  body. The duplication is gone and the pointer is controlled, but its `Who calls it and why` and
+  `What is pinned, and what is not` sections are **CARD-252's** record, outside this card's three
+  cuts. And the AC-2 control holds the guard text to names in double backticks, which the scan does
+  not count — so the class docstring's opening paragraph is now load-bearing.
