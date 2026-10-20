@@ -11,6 +11,10 @@ engine = None
 SessionLocal = None
 _engine_url = None  # DATABASE_URL the current engine/SessionLocal were built for
 
+#: How many times :func:`reset_engine` has run in this process. Read through
+#: :func:`reset_count`; see that function for why it exists and who reads it.
+_reset_count = 0
+
 #: How long a connection attempt may take before it is an error (CARD-097).
 #:
 #: libpq's default is **no deadline at all**, and "no deadline" is not a
@@ -334,12 +338,38 @@ def reset_engine() -> None:
     test tree does not have to reach into ``engine``, ``SessionLocal`` and
     ``_engine_url`` by hand.
     """
-    global engine, SessionLocal, _engine_url
+    global engine, SessionLocal, _engine_url, _reset_count
     if engine is not None:
         engine.dispose()
     engine = None
     SessionLocal = None
     _engine_url = None
+    _reset_count += 1
+
+
+def reset_count() -> int:
+    """How many times :func:`reset_engine` has run since this process started.
+
+    Read-only and additive (CARD-258 G-1). Nothing in ``src/`` calls it --
+    held by ``test_nothing_in_src_calls_the_reset_counter``, which enumerates
+    ``src`` by AST -- and a process that never calls it behaves exactly as it
+    did before this existed.
+
+    Who reads it, and why. ``tests/helpers/undefined_table_report.py`` is the
+    one reader: on a ``relation "puzzles" does not exist`` failure it records
+    which engine object the process had, and "has this engine been retired
+    since the schema was rebuilt, and how often" is part of that question.
+    Four build gates have reported that failure with no data behind it; the
+    engine's ``id()`` alone cannot distinguish an engine that is fresh because
+    :func:`reset_engine` ran from one that was simply never built, and this
+    counter can.
+
+    It counts **calls**, not disposals: :func:`reset_engine` increments
+    whether or not there was an engine to dispose of, because "it was called
+    and there was nothing to retire" is itself a thing a reader of that report
+    needs to be able to see.
+    """
+    return _reset_count
 
 
 def _engine_options(database_url: str) -> dict:
