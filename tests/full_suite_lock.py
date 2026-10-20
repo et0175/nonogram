@@ -90,7 +90,10 @@ __all__ = [
 #: the same spelling ``tests/database_guard.py`` reads its own opt-out with,
 #: kept deliberately so the two guards have one convention rather than two —
 #: and an overridden run announces itself in the terminal summary, so the
-#: surprising spelling cannot become a quiet suppression.
+#: surprising spelling cannot become a quiet suppression. Said out loud here
+#: *and* held by a test, because a documented value semantics with no control
+#: is a sentence a tidy-up can falsify in silence:
+#: ``test_any_non_empty_value_turns_the_override_on_including_zero``.
 #:
 #: No gate script sets it, which is what makes it an override
 #: (``test_the_gate_scripts_do_not_set_the_override``).

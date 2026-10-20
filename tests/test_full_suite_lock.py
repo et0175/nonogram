@@ -288,8 +288,10 @@ def test_a_lock_that_cannot_be_read_is_not_the_same_as_no_lock(tmp_path, monkeyp
     ``None`` only for one that is not there, and the difference is the entire
     verdict: ``None`` returns early as "no lock at all", while ``""`` parses to
     no fields, names no worktree, and is refused. A directory at the lock path
-    is the deterministic way to make the read fail — ``chmod 0o000`` does not
-    stop the file's own owner on every host.
+    is the way to make the read fail that is deterministic on every host; what
+    ``chmod 0o000`` does to its own owner is host-dependent (on this one it
+    raises, which is why the claim is stated as the directory's determinism
+    rather than as something measured about ``chmod``).
     """
     unreadable = tmp_path / "unreadable.full-suite.lock"
     unreadable.mkdir()
@@ -393,6 +395,49 @@ def test_the_override_allows_a_contended_run_and_names_itself():
     )
 
 
+@pytest.mark.parametrize(
+    ("value", "turns_it_on"),
+    [("1", True), ("0", True), ("false", True), ("no", True), ("", False)],
+)
+def test_any_non_empty_value_turns_the_override_on_including_zero(
+    tmp_path, monkeypatch, value, turns_it_on
+):
+    """The spelling the override documents, held by a test and not by prose.
+
+    ``overridden=bool(os.getenv(OVERRIDE))``: any non-empty value is on, ``=0``
+    and ``=false`` included. That is deliberate — it is the same convention
+    ``tests/database_guard.py`` reads its own opt-out with
+    (``opted_out=bool(os.getenv(OPT_OUT))``), kept so the two guards have one
+    convention rather than two — but it was documented and measured by nothing:
+    every other override case here either hands :func:`guard.verdict` a bool
+    directly or sets ``=1`` in a child process, so a mutant tightening the
+    spelling to a truthy set (``in {"1", "true", "yes", "on"}``) changed a
+    documented behaviour with the file green.
+
+    ``=0`` switching a guard **on** is the surprising direction, so it is the
+    one pinned: a future tidy-up that makes ``=0`` mean off has to red this.
+    The empty value is the other boundary — unset and ``=''`` are the same
+    answer, and the lock stands.
+    """
+    lock = tmp_path / "foreign.full-suite.lock"
+    lock.write_text(gate_lock())
+    monkeypatch.setenv(guard.LOCK_PATH_VAR, str(lock))
+    monkeypatch.setenv(guard.OVERRIDE, value)
+
+    allowed, said = guard.current_verdict()
+
+    assert allowed is turns_it_on, (
+        f"{guard.OVERRIDE}={value!r} did not {'enable' if turns_it_on else 'leave off'} "
+        "the override"
+    )
+    assert said is not None
+    if turns_it_on:
+        assert guard.OVERRIDE in said, "an overridden run walked past a lock quietly"
+        assert "running anyway" in said
+    else:
+        assert "Refusing to start" in said
+
+
 def test_the_refusal_says_how_to_proceed_on_purpose():
     _allowed, said = guard.verdict(
         gate_lock(), worktree=str(REPO), age_seconds=10.0, overridden=False
@@ -415,6 +460,44 @@ OVERRIDE_NAMERS = frozenset(
 #: And the board's prose, which quotes the refusal: card text and review
 #: reports. Prefixes, because the filenames are per-card.
 OVERRIDE_PROSE = ("meta/kanban/cards/", "meta/review/")
+
+#: The shapes those two directories are exempted *for*: prose, never anything
+#: a shell can run. A bare prefix exempts a whole directory and says nothing
+#: about a file's shape, so a runner dropped into either one would set the
+#: override for every run through it and leave this scan green. Probed, not
+#: reasoned about: two executable ``run-the-suite.sh`` files, one under each
+#: prefix, each carrying ``export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1``, were
+#: visible to ``git grep`` and invisible to the scan below while the exemption
+#: matched on the prefix alone. Its control is
+#: :func:`test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught`.
+#:
+#: The prefixes' trailing slashes are load-bearing in the same way:
+#: ``meta/review-archive/`` and ``meta/reviews/`` do not match them.
+#:
+#: These two shapes are the whole tracked population of those directories, not
+#: a guess at it: ``git ls-files meta/kanban/cards meta/review`` in the main
+#: checkout is 256 ``.md`` and 286 ``.yml`` files and nothing else. A prose
+#: file in a third format is a one-word edit here *and* a deliberate one.
+PROSE_SHAPES = (".md", ".yml")
+
+
+def _override_offenders(paths):
+    """Of the scanned files that name the override, the ones with no business.
+
+    Two exemptions, each bounded on an axis it can be bounded on.
+    :data:`OVERRIDE_NAMERS` is an equality over three exact paths — the shape
+    ADR-0039/R3 asks for. :data:`OVERRIDE_PROSE` cannot be an equality (the
+    filenames under it are per-card and are created after this test is
+    written), so it is bounded on the other axis instead, by
+    :data:`PROSE_SHAPES`: prose exempts prose, and an executable under an
+    exempted prefix is still an offender.
+    """
+    return [
+        path
+        for path in paths
+        if path not in OVERRIDE_NAMERS
+        and not (path.startswith(OVERRIDE_PROSE) and path.endswith(PROSE_SHAPES))
+    ]
 
 
 def test_nothing_in_the_tree_sets_the_override_for_a_run():
@@ -444,11 +527,7 @@ def test_nothing_in_the_tree_sets_the_override_for_a_run():
         text=True,
     ).stdout.split()
 
-    offenders = [
-        path
-        for path in hits
-        if path not in OVERRIDE_NAMERS and not path.startswith(OVERRIDE_PROSE)
-    ]
+    offenders = _override_offenders(hits)
 
     assert not offenders, (
         f"{offenders} mention the override; a tree that sets it has no override"
@@ -456,6 +535,62 @@ def test_nothing_in_the_tree_sets_the_override_for_a_run():
 
     conftest = (REPO / "tests" / "conftest.py").read_text(encoding="utf-8")
     assert guard.OVERRIDE not in conftest
+
+
+def test_an_executable_setter_under_an_allowlisted_prefix_is_still_caught(tmp_path):
+    """The prose exemption's own control: what it must not be able to absorb.
+
+    ADR-0039/R3 — an exemption set must be enumerable and controlled. The scan
+    above is the whole tracked tree, and that reach was paid for with a prefix
+    exemption for ``meta/kanban/cards/`` and ``meta/review/``. A prefix carries
+    no constraint on a file's shape, so before :data:`PROSE_SHAPES` existed two
+    executable ``run-the-suite.sh`` scripts — one under each prefix, each with
+    ``export NONOGRAM_IGNORE_FULL_SUITE_LOCK=1`` — were listed by ``git grep``
+    and the scan above stayed green with two live in-tree setters. That is
+    cycle 1's finding one directory over: a setter nobody had written yet.
+
+    So the probe becomes the control. In a **throwaway** repo on purpose: this
+    test must never add a file under the real ``meta/``, where the board's own
+    lock lives and where a gate may be running. The scan is the same
+    ``git grep -l`` and the same predicate.
+    """
+    repo = tmp_path / "throwaway-tree"
+    prose = {
+        "meta/kanban/cards/CARD-999.md": f"the way out is `{guard.OVERRIDE}=1 pytest ...`\n",
+        "meta/review/20261020T000000Z-CARD-999-cycle1.yml": f"title: {guard.OVERRIDE} is quoted\n",
+    }
+    setters = {
+        "meta/kanban/cards/run-the-suite.sh": f'export {guard.OVERRIDE}=1\nexec pytest "$@"\n',
+        "meta/review/run-the-suite.sh": f'export {guard.OVERRIDE}=1\nexec pytest "$@"\n',
+    }
+    for relative, body in {**prose, **setters}.items():
+        written = repo / relative
+        written.parent.mkdir(parents=True, exist_ok=True)
+        written.write_text(body, encoding="utf-8")
+        if written.suffix == ".sh":
+            written.chmod(0o755)
+    for command in (["git", "init", "-q"], ["git", "add", "-Af", "."]):
+        subprocess.run(command, cwd=repo, check=True, capture_output=True)
+
+    hits = subprocess.run(
+        ["git", "grep", "-l", guard.OVERRIDE], cwd=repo, capture_output=True, text=True
+    ).stdout.split()
+
+    assert sorted(hits) == sorted({**prose, **setters}), (
+        f"the probe is not what this test thinks it is: git grep saw {hits}"
+    )
+    assert all(path.startswith(OVERRIDE_PROSE) for path in setters), (
+        "the setters no longer sit under the exempted prefixes, so they prove nothing "
+        "about the clause that bounds them"
+    )
+
+    assert sorted(_override_offenders(hits)) == sorted(setters), (
+        "an executable setter under an allowlisted prefix was absorbed by the exemption; "
+        "the scan above would be green with a live in-tree setter"
+    )
+    assert _override_offenders(list(prose)) == [], (
+        "the per-card prose the exemption exists for is no longer exempt"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -570,7 +705,13 @@ def test_a_foreign_lock_aborts_a_real_run_before_collection(foreign_lock):
     result = _run_pytest(foreign_lock)
     combined = result.stdout + result.stderr
 
-    assert result.returncode != 0, combined
+    # Exit 4, not merely non-zero. ``pytest.UsageError`` is pytest's
+    # USAGE_ERROR and is the only outcome this abort has, which is what the
+    # card's "What a gate sees now" block states; a different code means the
+    # abort moved to another mechanism. Measured: the mutant that aborts with
+    # ``pytest.exit(said)`` instead exits 2, and every real-run assertion in
+    # this file that asked only for non-zero stayed green under it.
+    assert result.returncode == 4, combined
     assert "1 passed" not in combined, "the run collected and ran a test anyway"
     assert "gate CARD-254 fake-gate-for-the-test" in combined
     assert "0ff1ce0" in combined
@@ -587,12 +728,24 @@ def test_the_guard_cannot_turn_a_refusal_into_a_skip():
     ``skipped`` nowhere in the output, which is the same claim from the other
     side.
 
-    Two rules, because they measure different things. The first is a **text**
-    rule over the whole file, prose included: a docstring that explained the
-    abort by naming the alternative would red it, and that is the intended
-    strictness — it fails in the safe direction. The second is the claim
-    itself, read off the module's syntax: no call in it resolves to a name
-    that can turn a failure into a non-result.
+    Two rules, and what the second adds to the first is exactly two names.
+    The first is a **text** rule over the whole file, prose included: a
+    docstring that explained the abort by naming the alternative would red it,
+    and that is the intended strictness — it fails in the safe direction. It
+    runs first, so while it passes five of the six names below cannot be
+    spelled anywhere in the module at all: ``skip``, ``skipif`` and
+    ``importorskip`` are forbidden as substrings of ``"skip"``, and
+    ``add_marker`` and ``xfail`` by name.
+
+    The syntax rule's independent reach is therefore the non-result *exit*
+    APIs — ``exit`` and ``Exit`` — which no substring rule here forbids. One
+    name of it is demonstrably live: the mutant replacing
+    ``raise pytest.UsageError(said)`` with ``pytest.exit(said)`` is killed
+    here, and (before the exit-code assertion in
+    :func:`test_a_foreign_lock_aborts_a_real_run_before_collection`) was killed
+    nowhere else. Walking the syntax rather than the text is also what makes
+    the claim "the module *calls* no such API" instead of "never writes the
+    word".
     """
     source = Path(guard.__file__).read_text(encoding="utf-8")
 
@@ -607,7 +760,15 @@ def test_the_guard_cannot_turn_a_refusal_into_a_skip():
         for node in ast.walk(ast.parse(source))
         if isinstance(node, ast.Call)
     }
-    forbidden_apis = {"skip", "skipif", "importorskip", "xfail", "add_marker", "exit"}
+    forbidden_apis = {
+        "skip",
+        "skipif",
+        "importorskip",
+        "xfail",
+        "add_marker",
+        "exit",
+        "Exit",
+    }
 
     assert not called & forbidden_apis, (
         f"the lock guard calls {sorted(called & forbidden_apis)}; its only outcomes are "

@@ -308,20 +308,29 @@ including yours. `$PWD` below is absolute, which is why it is spelled that way.
 
 ```bash
 LOCK=/Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock
-trap 'rm -f "$LOCK"' EXIT   # a Ctrl-C would otherwise leave it for 6h
 { echo "holder: profiling run"
   echo "at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "worktree: $PWD"
   echo "commit: $(git rev-parse --short HEAD)"; } > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT   # armed here, where the lock is yours: a Ctrl-C
+                            # would otherwise leave it for 6h
 # ... run the suite ...
-rm -f "$LOCK"
+rm -f "$LOCK"; trap - EXIT  # and disarmed here, in the same breath
 ```
 
 The `trap` is the difference between an interrupted profile and a board that
-refuses every run for the next six hours. The gate scripts have the same
-`rm -f` shape and no trap of their own; they live outside this repo and are
-nobody's to edit here, so an aborted *gate* still leaves its lock behind and
-the override (below) is the way past it.
+refuses every run for the next six hours. **Disarm it with the lock.** An
+`EXIT` trap at top level is armed until the *shell* exits, not until the
+profile ends — so a trap left armed in an open terminal deletes whatever is at
+that path whenever you later close the window, and by then the lock there may
+be a live gate's. `rm -f` on a path this shell no longer owns is the silent
+direction this guard exists to close, reached through the handling for the
+loud one. (A `( ... )` subshell around the three steps does the same job if
+you would rather not think about it.)
+
+The gate scripts have the same `rm -f` shape and no trap of their own; they
+live outside this repo and are nobody's to edit here, so an aborted *gate*
+still leaves its lock behind and the override (below) is the way past it.
 
 The path is the **main** checkout's, whichever worktree you run in: every gate
 script writes that one file, and `tests/full_suite_lock.py` reads that one file
