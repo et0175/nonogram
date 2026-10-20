@@ -1232,3 +1232,28 @@ the merge rather than in the certifier's closing paragraph.
   on their own.
 - **Shrink cards state a net target and report it per cycle.** CARD-254's −10.4 % was invisible until
   the final paragraph of the last review.
+
+### Process shortcuts (owner, 2026-10-20)
+
+- `other:residue_carded_not_fixed` → clean. CARD-255's silent lock-redirect and CARD-254's ten-line
+  duplicate arm were both carded (CARD-256, CARD-257) rather than patched after `max_cycles`.
+  Deliberate, and the right call twice — but the owner is right that it is worth a signal: **a queue
+  of residues that grows faster than it drains is a slower version of shipping them unreviewed.**
+  Two in, zero out this wave; watch the ratio at wave 50's close.
+- `other:adr0039_nearly_dropped_again` → **rework-adjacent**, third occurrence (CARD-250, CARD-251,
+  and both of this wave's cards). Caught before dispatch this time, with a sanity check added. Logged
+  as a shortcut rather than only as my defect because it is a *process* that keeps failing the same
+  way, not a mistake that keeps being made.
+
+### Decisions taken at this retro (owner, 2026-10-20)
+
+1. **The fix station runs the kill instrument over its own additions before hand-back.** Six
+   consecutive gating findings across two waves were created by the previous fix, and both of this
+   wave's were in a **control the previous fix had just written**. The agent that writes a control is
+   the cheapest place to discover it cannot fail. Promoted to the standing pipeline brief, and it
+   will appear in every fix dispatch from wave 50.
+2. **Both of this wave's rules promoted** into `card-pipeline-brief-rules`: the per-assertion
+   measurement rule (with the line-count-preserving instrument and the misalignment trap both agents
+   hit), and the predicate/exemption pairing rule.
+3. **No effort multiplier, third wave running**, and the **0.5d floor for claim-correction cards
+   stays** — both of this wave's cards sat on it and came in under.
