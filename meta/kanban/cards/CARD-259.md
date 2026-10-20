@@ -118,7 +118,8 @@ untidy.
   NOT-REACHED; (2) aggregate **ANY-RED** over every execution, never last-write-wins, or a RED from an
   assert inside a `for` loop is lost; (3) **target the occurrence inside the arm you mean** — identical
   source lines appear elsewhere in the file and a first-occurrence replacement silently mutates the wrong
-  arm, returning a false all-green (the NAMES-BLIND line occurs **five** times in
+  arm, returning a false all-green (the NAMES-BLIND **message** occurs **five** times, and the whole
+  source line `assert names, …` only **four** — see the note below — in
   `test_db_engine_lifecycle.py`); (4) **restore every patched attribute** and re-run SHIPPED all-PASS
   *between* mutants — a leaked patch and a real kill look identical; (5) **a mutant must delete the thing
   as the text shows it** — deleting a literal `.SessionLocal` that neither text contains (both write
@@ -126,5 +127,15 @@ untidy.
   look identical**. And over all of them: **report the DOMAIN of every per-assertion figure** — an
   instrumented-only kill is an attribution a plain run cannot make; a plain-only kill is an observation the
   instrument cannot make, and only the second kind corrupts a figure.
+- **[The five-vs-four note, measured by CARD-260]** in `test_db_engine_lifecycle.py` the NAMES-BLIND
+  assert's **message** occurs **5** times (`:816, :859, :914, :960, :1087`) but the **whole source line**
+  only **4** (`:859, :914, :960, :1087`), because `:816` is `assert built, …` and the rest are
+  `assert names, …`. A mutant keyed on the line finds four. CARD-257's arm is `occurrence=2`, at `:859`.
+- **[A seventh shape, found by CARD-260 in its own work: a SMALL line shift misattributes, and that is
+  worse than a blank reading.]** Its first AC-1 plant deleted **one** line, shifting the asserts from
+  `{9,10,11,18,19}` to `{8,9,10,17,18}` — **overlapping** the pristine numbering, so the matrix was
+  silently *misattributed* rather than all-NOT-REACHED, and the assertion written to catch it was simply
+  false. Only a shift large enough that no moved lineno lands on a pristine one reads as NOT-REACHED.
+  **A misattributed cell looks like a measurement; a NOT-REACHED cell looks like a problem.**
 - **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`, reading the ADR files
   **case-insensitively** for the reach-limit idiom. This card is about ADR-0039/R1.

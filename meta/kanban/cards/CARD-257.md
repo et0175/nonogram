@@ -844,7 +844,7 @@ card-body correction commit rather than leaving a null), F-005 `wontfix`, carded
 6 ⚠ `no_eligible_fact`, **0 ✗**.
 
 **Arm line numbers derived from the unmodified parse, nothing reused:** `:859 / :878 / :889 / :897`. And a
-correction to my own trap warning — the NAMES-BLIND assert source line occurs **five** times in the file
+correction to my own trap warning — the NAMES-BLIND assert **message** occurs **five** times in the file
 (`:816, :859, :914, :960, :1087`), not four; the extra is `:816` in
 `test_it_resets_exactly_the_globals_the_builder_creates`. Every assert was keyed on its own `lineno` lifted
 as a literal, so no by-text or first-occurrence targeting was used anywhere.
@@ -939,3 +939,19 @@ time. Note for the retrospective that this card and CARD-256 ran concurrently an
 so each card's `Actual` is the wave's elapsed time, not its own.
 
 **Worktree removed; `card/257-cut-the-guards-prose` kept as the merged branch.**
+
+### [Correction, wave 51] the five-vs-four distinction, measured
+
+CARD-260's implementation measured what my cycle-3 brief had carried over as "the assert source line occurs
+five times", and it is two different counts:
+
+- the assert's **message** occurs **5** times — `:816, :859, :914, :960, :1087`;
+- the **whole source line** occurs **4** times — `:859, :914, :960, :1087` — because **`:816` is
+  `assert built, …`** where the other four are `assert names, …`.
+
+Re-derived independently here: 5 message hits, **2** distinct whole lines (1× `built`, 4× `names`). A
+mutant keyed on the source line therefore finds **four** occurrences, so a brief saying "five" makes an
+agent's `occurrence=` index wrong — **which is trap 5's own shape, in the warning written to prevent trap
+5.** CARD-260 now asserts both numbers so neither can drift, and records `occurrence=2` as CARD-257's
+`NAMES-BLIND` arm at `:859`.
+
