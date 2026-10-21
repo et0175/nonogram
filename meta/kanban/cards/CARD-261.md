@@ -1,0 +1,157 @@
+# CARD-261: Both component maps drift silently; hold them to the package the import walk already enumerates
+
+**Status:** ready
+**Priority:** P2
+**Category:** tech-debt
+**Estimate:** 0.75d
+**Complexity:** standard
+**Revision pending:** false
+**Skill:** python-pro
+**TDD:** true
+**Branch:** card/261-control-the-component-map
+**Worktree:** —
+**Source:** found 2026-10-22 while establishing what `forge:explain` could ground its L4 narrative on. Two of the five defects were corrected directly in `9c4e851a` (CLAUDE.md's two "not yet built" rows); the owner carded the rest rather than take a wider edit to the project's instruction file outside a card.
+**Idea:** —
+**Wave:** —
+**Depends on:** —
+**Touches:** CLAUDE.md, src/nonogram/__init__.py, tests/test_cli.py
+**Review score:** —
+**Started:** —
+**Closed:** —
+**Actual:** —
+**Merge commit:** —
+**Blocked by:** —
+
+## Why — the map is read by every agent brief, and nothing reds when it lies
+
+`CLAUDE.md` is loaded as project instructions in **every** session, and step 7a of the kanban
+`start` procedure extracts its sections into **every implementation agent's brief**. Its package
+layout block is therefore the most-read description of this system, and it names
+`src/nonogram/__init__.py`'s docstring as "the canonical map". **Neither map has a control.** No test
+under `tests/` reads `CLAUDE.md` at all — verified, the only occurrences are prose mentions.
+
+**Measured 2026-10-22, all five against the code on disk:**
+
+| where | claim | reality |
+|---|---|---|
+| `CLAUDE.md:50` | `difficulty.py COMP-006 not yet built` | **fixed in `9c4e851a`** — 28 KB, 2 test files |
+| `CLAUDE.md:51` | `export/ COMP-007 not yet built` | **fixed in `9c4e851a`** — 6 renderers, 5 test files |
+| `CLAUDE.md:45` | `cli.py COMP-001 the only inbound adapter` | **three** adapters: COMP-001, COMP-008 `web/`, COMP-009 `admin/` |
+| `CLAUDE.md:47` | `sourcing/ … random implemented; library/image are future work` | `sourcing/` holds `library.py`, `image.py`, `random_grid.py`, `templates/` |
+| `CLAUDE.md:45-51` | the block lists seven components | **COMP-008, COMP-009, COMP-010 are absent** — `web/`, `admin/`, `db/` |
+| `src/nonogram/__init__.py:10-14` | COMP-003..COMP-007 each annotated `(later card)` | all five shipped |
+
+So roughly half the shipped system is missing from the layout a new session reads first, and the file
+CLAUDE.md defers to as canonical is stale in the same direction. **The two "not yet built" rows had
+been misinforming briefs for 51 waves** — a card asking whether it could use the difficulty scorer was
+reading that it did not exist.
+
+**This is ADR-0039/R1's family, not a typo.** The map makes a claim about the code; the claim has no
+control that can fail; it drifted. Correcting the text alone leaves the mechanism that produced the
+drift exactly as it was, and this board has the measurement to show that is not enough — CARD-257 cut
+prose with no control and its review found the same shape one file over, which became CARD-259, whose
+own review found it one file over again.
+
+## What to implement
+
+1. **Correct both maps** to the shipped system: CLAUDE.md's three remaining defects (the "only inbound
+   adapter" clause, the "future work" clause, and the three missing rows), and `__init__.py`'s five
+   `(later card)` annotations. One statement per fact — do not restate a component's role in both
+   files; CLAUDE.md already names `__init__.py` as canonical, so the terse map belongs there and
+   CLAUDE.md's block should point at it rather than duplicate it. (CARD-257's and CARD-259's lesson:
+   two copies of one statement is the defect, not the tidiness problem.)
+2. **Give the row set a control, by extending the walk that already exists.** `tests/test_cli.py`
+   already enumerates the package for its layering guard — `test_the_import_walk_actually_sees_the_package`
+   (`:892`) is itself the control for that walk's reach, and `test_every_import_in_the_package_points_inward`
+   (`:949`) consumes the enumeration. **Extend that enumeration into a map control; do not write a
+   second walk.** The authority the runtime can enumerate is the package's own modules, which is what
+   ADR-0039/R2 asks for.
+3. **Default-deny, both directions.** A component module present in the package and absent from a map
+   is a **FAILURE**; a row naming a module that does not exist is a **FAILURE**. A shape the control
+   cannot analyse is a failure too, never a silent pass.
+
+## Acceptance criteria
+
+- **AC-1** *Given* the corrected maps, *then* every module the import walk enumerates as a component
+  appears in the canonical map exactly **once**, and every row of the canonical map names a module
+  that exists. (test: `TestComponentMap_EveryComponentIsListedExactlyOnce`)
+- **AC-2** *Given* a **planted** component module added to the package and listed in neither map,
+  *then* the control reds **naming that module**; removed, the control passes. And symmetrically: a
+  **planted row** naming a module that does not exist reds, naming the row. Both states demonstrated,
+  not reasoned about — a derivation whose plant does not red is the defect this criterion exists to
+  prevent. (test: `TestComponentMap_APlantedModuleAndAPlantedRowBothRed`)
+- **AC-3** *Given* CLAUDE.md, *then* its layout block carries no component row of its own — it points
+  at `src/nonogram/__init__.py` — so there is exactly one place a row can drift from. If the owner
+  prefers to keep a copy in CLAUDE.md, then that copy is held to the canonical one by the same control
+  and the AC is met that way instead; **state which of the two shapes shipped and why.** (test:
+  `TestComponentMap_ThereIsOneRowPerComponentAcrossBothFiles`)
+- **AC-4** *Given* the extension, *then* `tests/test_cli.py`'s existing layering behaviour is
+  unchanged: the same forbidden edges still red and the same legal ones still pass, demonstrated by
+  re-running its existing edge-rejection parametrisation rather than asserting it.
+- **AC-5** (guard) *Given* all edits, *then* no component's **description** is claimed to be
+  controlled. The enumeration can hold the **row set**; it cannot judge whether "scores 0..100 from
+  the solver's rung tags" is an accurate account of `difficulty.py`. Declare that bound explicitly in
+  the control's docstring. An honest bound is required; a premise that hides the hole is the thing
+  this board gates on.
+
+## Guardrails
+
+- G-1: **The layering guard's behaviour is unchanged.** This card extends what the walk's output is
+  used for; it does not relax, retarget or delete any existing import rule or its controls.
+- G-2: **No third copy of the map.** Not in `tests/README.md`, not in `docs/`, not in the new
+  control's docstring. The control reads the maps; it does not restate them.
+- G-3: No new runtime dependency (ADR-0006/R1); stdlib only.
+- G-4: **CLAUDE.md's instruction content outside the layout block is untouched.** Commands, test style,
+  the dependency-baseline paragraph and the boundary-types paragraph are not this card's to edit.
+- G-5: `nonogram_poc` is never created, dropped, connected to or truncated;
+  `_refuse_unless_test_database` is neither widened nor bypassed.
+- G-6: ADR-0036/R4 — no codepoint in U+25A0..U+25FF, U+2022 or U+2219 in any `src/nonogram/**` string
+  literal, docstrings included. This card edits `src/nonogram/__init__.py`'s docstring, so the rule is
+  live: `pdf_generator.py`'s three U+2022 are the declared exemption and a clean-scan claim over the
+  whole tree would be false.
+
+## Architecture context
+
+- **Components:** all of COMP-001..COMP-010 are named by the maps; the card changes none of them.
+- **ADR:** ADR-0039/R1–R3 (a claim needs a control that can fail; the set is derived from an authority
+  the runtime can enumerate and defaults to deny; an exemption carries a control for what it must not
+  absorb). ADR-0006/R1 (closed dependency baseline). ADR-0036/R4 (no typed round marks).
+- **Trace:** `meta/architecture/trace.yml` — not updated by this card; it changes documentation and one
+  test, no requirement's verifying test.
+
+## Worktree notes
+
+- **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`, reading the ADR
+  files **case-insensitively** for the reach-limit idiom (the lens output carries no comment text and
+  ADR-0039 writes the idiom in capitals). Sanity check: `Touches` includes `tests/**` and
+  `src/nonogram/**`, so ADR-0039 must be in the kept set — if it is not, the derivation is broken, not
+  the scope.
+- **[Do not take timing measurements]** other cards may share this machine.
+- **[The estimate is a claim-card estimate, not an edit estimate.]** The diff is a handful of prose
+  lines and one test. It is cut at **0.75d** because the owner's wave-50 rule floors a card whose
+  subject is a claim or a measurement at 0.75d and forbids `trivial`, whatever the diff size. Two
+  waves of evidence: wave 50's two cards were cut at 0.25d and took ~0.8d each; wave 51's CARD-260 was
+  cut at 0.75d and took **3.3d**. The estimate prices the edit; the cost is the certification.
+- **[The trap, inherited from three cards in a row]** The failure mode when cutting a duplicated
+  statement is cutting the sentence that is the **only** statement of a bound. CLAUDE.md's layout block
+  is immediately followed by the paragraph that explains the layering rule and names
+  `solver/propagate.py`'s `mask_runs` precedent — that paragraph is **not** a map row and is **not**
+  duplicated in `__init__.py`. Do not take it with the rows. Split the retired text into clauses and
+  show every clause survives somewhere, as CARD-257's AC-1 and CARD-259's AC-1 did.
+- **[Why "the only inbound adapter" is the most expensive of the three]** It is not merely out of date,
+  it is a statement an agent acts on. A brief that says there is one inbound adapter invites a card to
+  add CLI surface for something the web UI or admin panel already exposes — and `tests/test_cli.py:754`
+  already records that `cli` imports `web` as a deliberate launch edge, so the code contradicts it in
+  the very file this card extends.
+- **[Already corrected, do not re-fix]** `CLAUDE.md:50-51` were fixed in `9c4e851a` and verified on
+  disk first. Three defects remain in that block plus five in `__init__.py`. Read the current file; do
+  not work from the table in `## Why` as if it were the live state.
+- **[Use CARD-260's committed instrument for any per-assertion measurement]** `tests/kill_matrix.py`,
+  documented in `tests/README.md` from line 453. Do not write another. Keep deletion mutants
+  **line-count-preserving**, aggregate **any-RED**, target the occurrence inside the arm you mean,
+  re-run SHIPPED between mutants, and **report the domain** of every per-assertion figure.
+- **[A related finding, deliberately not in this card's scope]** `forge:explain`'s structural inputs
+  are missing from this project: `contexts.yml`, `capabilities.yml`, `actors.yml` and
+  `external_systems.yml` do not exist under `meta/architecture/`, so the `docs/how-it-works/` build of
+  2026-10-22 derived its context and capabilities from the C4 pumls plus `requirements.yml` and
+  `trace.yml`, and wrote no actor-role perspectives. That belongs at the architect station, not here.
