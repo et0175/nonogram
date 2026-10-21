@@ -26,14 +26,41 @@ review:
 
   test_command: "./.venv/bin/python -m pytest"
 
-  # FULL, deliberately. The skill's Python recipe narrows only with
-  # pytest-testmon installed ("import-graph heuristics on Python are not
-  # trustworthy enough to gate on"); it is not in this venv, so `impact` would
-  # fall back to full on every cycle while claiming to be scoped. Install
-  # pytest-testmon and flip this to `impact` if the suite becomes the
-  # bottleneck. Note the suite is the dominant per-cycle cost:
-  # O(suite) x cycles x cards x max_concurrent.
-  test_scope: full
+  # IMPACT, owner decision 2026-10-22. The reason is NOT that the suite became
+  # the bottleneck -- it is that `full` is unreachable at this board's
+  # concurrency, which nobody had noticed:
+  #
+  #   A full-suite gate takes meta/kanban/.full-suite.lock, and CARD-255's guard
+  #   makes pytest_configure raise pytest.UsageError on a FOREIGN holder. So a
+  #   full gate taken by one card reds every pytest run a sibling card's agent
+  #   makes, in its own worktree, for the whole ~16.5 minutes. With
+  #   max_concurrent 2 (owner's standing cap) and test_scope full, the two
+  #   settings contradict each other: whichever card reaches a gate first breaks
+  #   the other. Measured on wave 52, where CARD-259's gate ran while CARD-206
+  #   was still implementing.
+  #
+  # The suite being the dominant per-cycle cost -- O(suite) x cycles x cards x
+  # max_concurrent -- is still true and is still a reason. It is just not the
+  # reason this flipped.
+  #
+  # WHAT THE PREVIOUS COMMENT WARNED ABOUT IS STILL TRUE AND IS NOT YET CLOSED.
+  # It read: the skill's python-pro recipe narrows only with pytest-testmon
+  # installed ("import-graph heuristics on Python are not trustworthy enough to
+  # gate on"); without it there is NO narrowing -- the gate falls back to full
+  # and notes "[Build gate] impact underivable". pytest-testmon is still not in
+  # this venv. So this value alone does not narrow anything: taken literally it
+  # buys a fallback to full that CLAIMS to be scoped, which is worse than `full`
+  # honestly stated.
+  #
+  # What makes it real is one of two things, and until one lands every cycle
+  # gate must record its own selection on the card (which is what CARD-259's
+  # build gate note does -- eight named files, 815 passed):
+  #   (a) a harness `make test-impact` target, which cmd-start-review prefers
+  #       over the inline recipes ("one source of truth"). No new dependency.
+  #       This project has no Makefile at all today.
+  #   (b) pytest-testmon in the dev extra, which makes a coverage-based selector
+  #       part of the gate path -- a dependency decision, not a config one.
+  test_scope: impact
 
   # On: this project already reviews by mutation — merged cards routinely
   # record "4 of 5 mutants caught", and CARD-105 went as far as proving the
