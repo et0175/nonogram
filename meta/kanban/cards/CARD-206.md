@@ -1,22 +1,22 @@
 # CARD-206: The interior opens with a blank title / copyright page, ahead of the guide
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** false (config default; this card is a geometry/position change with an existing suite)
 **Branch:** card/206-interior-title-page
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-206
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 ("# Book structure — The generator should construct the PDF in this order: Front matter ├─ Title / copyright page ├─ How to Solve Nonograms ├─ Table of Contents [generated]"); owner decision 2026-10-13 via AskUserQuestion — the page is **reserved blank** (a template page), not populated: "Leave it blank (template page) — reserve the page in the page plan so counts and parity are right, print nothing on it; you add the copyright text in the PDF afterwards."
 **Idea:** —
-**Wave:** —
+**Wave:** 52
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-21T22:30:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -123,29 +123,42 @@ took for FR-042/INV-011.
 
 ## System contract
 
-_Assembled 2026-10-17 by `system_rules.py --card CARD-206 --root meta/architecture` (58 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+_Re-derived at dispatch (2026-10-21) by `system_rules.py --card CARD-206 --root meta/architecture`
+(`card_scope: touches`), curated under `meta/kanban/curation.md`: **projection 42 → kept 14,
+dropped 28**. A projection — fix the source artifact, never this list._
 
-**Carried notes on these rules** (recorded context, not derivable from the registry):
+**Derivation, so a later reader can reproduce it:** keep every `check.kind: review-lens` rule (nothing
+executes them, so a reviewer is the only enforcement), plus every `kind: test` rule belonging to an ADR
+whose text declares a reach limit — the idiom *"reach, stated rather than implied"*, matched **in the ADR
+files and case-insensitively**, because the lens output carries no comment text and ADR-0039 writes it in
+capitals. That selects **ADR-0036, ADR-0037, ADR-0039**. The remaining 28 `kind: test` rules are
+dropped: the suite executes them on every gate, so listing them adds a line a reviewer must read and
+changes nothing about whether they hold.
 
-- **INV-013 / FR-043 — the amendment this card flagged LANDED** on 2026-10-17 (commit
-  `91609aa`), jointly with CARD-229 and as one statement covering both claimants: interior
-  page 1 is now the book's blank title / copyright page (no folio, no ink) and the guide
-  follows as a facing spread on pages 2 (verso) and 3 (recto). **Nothing is owed at the
-  architect station for this card** — the registry now states what this card builds. Build
-  against AC-283 (page 1 is the title page, no ink of any kind), AC-286, AC-287 (re-measured:
-  the first puzzle page moves to interior page 6, a left-hand page), AC-289 and EC-034.
-  AC-283's test name is this card's own `TestBookExport_InteriorOpensWithABlankTitlePage`, a
-  planned name — it does not exist yet, so write it rather than assume it.
+**Sanity check (curation.md's own):** this card's `Touches` includes `src/nonogram/admin/**`, so ADR-0039 must be in the
+kept set — it is (ADR-0039/R1, ADR-0039/R2, ADR-0039/R3). The previous contract on this card was assembled 2026-10-17 under the superseded "ship 6-14 by judgement" convention and **carried no ADR-0039 at all** — the precise failure curation.md records on CARD-250 and CARD-251 and nearly repeated on CARD-254/255. It listed 8 rules and dismissed 51 as "package-wide"; the key that made them look package-wide was removed from all 31 affected rules on 2026-10-19, so the projection is now 42 rather than 58.
 
-- ADR-0035/R1 — No book leaves draft (to any other status) unless it has a stored plan and every longest-side x tier cell's count, divided by the planned total, is within +/-3 perc… (check: test: TestBookStatus_EveryExitFromDraftIsGatedOnThePlan)
-- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
-- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
-- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
-- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
-- ADR-0037/R1 — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only. (check: review-lens)
-- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
+**Review-lens — nothing executes these; the reviewer is the control** (8):
 
-_51 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
+- **ADR-0022/R1** — Grid extent crosses module boundaries as a (width, height) pair. No public function signature, request field, or export field reduces a grid's extent to a single scalar "size", and no source mode constructs a grid from one integer.
+- **ADR-0033/R1** — Book assembly references puzzles by id and never changes a puzzle's grid, clues, difficulty tier or strategies; the only puzzle field it may write is the book-membership mirror (puzzles.book_id).
+- **ADR-0036/R2** — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin panel does not fit cells or place grid lines itself.
+- **ADR-0037/R1** — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only.
+- **ADR-0038/R6** — Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution grid to the browser. A public or reader-facing player must not send the solution before the puzzle is solved, and any public phase reopens this ADR (CON-021).
+- **ADR-0038/R7** — Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in pyproject.toml. It is never added to project.dependencies or to the admin extra.
+- **ADR-0038/R8** — Browser tests run locally, against Chromium installed by `playwright install chromium`. When Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible in the run summary. They never pass silently. Once a CI pipeline exists, it installs Chromium (playwright install chromium) before running them; until then there is no CI, and that is a known gap, not a met clause.
+- **CON-021** — Interactive play exists only as the admin panel's puzzle player (TERM-037, FR-044), served behind the door that guards every other admin page (CON-015, CON-016). No other surface — the CLI, the web UI, or any public or hosted page — offers an interactive or playable puzzle. Play state is never persisted on the server: no progress, marks, error count, score or solve time is written to a database, file or server, no network request is made per mark, and no user account exists for playing (CON-017). The one place play state may be kept is the browser's own localStorage, per puzzle, so that a puzzle reopened in that browser resumes where it was; it never leaves that browser. The admin player ships the puzzle's solution grid to the browser to compute the error count and the solved state; this is permitted for the admin panel only, and a public or reader-facing player must not send a puzzle's solution to the browser before the puzzle is solved.
+
+**Reach-limited — the ADR itself states its checks do not reach code written later** (6):
+
+- **ADR-0036/R1** — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. — check: `TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden`
+- **ADR-0036/R3** — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same difficulty glyph, and four slightly different dots cannot be fixed once a book is on paper. — check: `test_the_books_own_pages_carry_no_undeclared_round_mark`
+- **ADR-0036/R4** — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: the cheapest way to print a difficulty dot is to append a bullet to a header string, and that route bypasses the one drawing site and CON-020's type floor at once. — check: `test_no_module_types_a_round_mark_as_a_character`
+- **ADR-0039/R1** — A set a guard consults needs a completeness test written before the set, and any claim the guard makes about what it catches needs a control that can fail: caught WITH the set member present, missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and must be narrowed to what is measured or deleted. — check: `test_the_control_for_each_spelling_depends_on_the_set`
+- **ADR-0039/R2** — A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where no such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE, never a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3. — check: `test_the_guard_sets_are_derived_and_not_hand_written`
+- **ADR-0039/R3** — An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT absorb — caught with the exemption removed, missed with it in place — is held to an equality against the sites that exist today, and records whatever it still cannot see as a measured bound with its own failing control. — check: `test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw`
+
+_Dropped (28), each executed by the suite on every gate: ADR-0006/R1, ADR-0022/R3, ADR-0022/R4, ADR-0027/R2, ADR-0032/R1, ADR-0032/R2, ADR-0035/R1, ADR-0038/R3, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-020, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013._
 
 ## Architecture context
 
@@ -158,7 +171,15 @@ _51 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 
 ## Worktree notes
 
-—
+- **[Env]** forge 2026.8.17. No `meta/.skills.yml` in this project, so there is no `forge.min_version` to
+  compare against and no `models:` block — agents inherit the session model. The note is written because it
+  is what makes a later diagnosis of this card's evidence possible at all.
+- **[Dispatched]** wave 52, 2026-10-21T22:30:00Z, alongside CARD-259 on the owner's wave-boundary decision. Verified
+  disjoint from it on every file (see `dispatcher.state → wave_52`), so the two run genuinely in parallel.
+- **[Do not take timing measurements]** another card shares this machine this wave.
+- **[System contract re-derived at dispatch]** The contract this card carried was assembled 2026-10-17
+  under the superseded convention and **contained no ADR-0039**. It does now. Read the new
+  `## System contract` section, not a memory of the old one.
 
 ## Amendment 2026-10-14 — the owner's "Puzzle page layout" artifact
 
