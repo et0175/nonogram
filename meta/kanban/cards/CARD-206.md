@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 52
 **Depends on:** —
-**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
 **Review score:** —
 **Started:** 2026-10-21T22:18:12Z
 **Closed:** —
@@ -473,3 +473,30 @@ dispatch behaviour — are that file and, arguably, the book test suite as one h
 need a rebase onto main after this card merges, and the three sharing `book_pdf_generator.py` plus
 `book_corpus.py` will need their page maps re-read, not just re-merged. CARD-218 and CARD-219 are the
 two whose whole subject is those test files, so they are the ones to dispatch soonest or re-cut.
+
+---
+
+### [Touches corrected] One entry added after the scope gate, and only one
+
+`tests/helpers/book_corpus.py` was added to `Touches` on the owner's instruction, after
+`tests/helpers/book_corpus.py` became a `conflict.hotspots` entry in `cf79eea3`. The reason is narrow
+and mechanical: **the hotspot rule serialises a pair only when both cards *declare* the path.** This
+card edited the corpus without declaring it, so without this entry the ten ready cards that do declare
+it would serialise against each other and not against this card — the exact pair that measured 89% and
+100% real overlap (CARD-218, CARD-219) would still have been dispatched alongside it.
+
+**Why one entry and not the twenty-one others this card actually changed.** `Touches` feeds two
+mechanisms with opposite requirements: the **conflict predictor**, which wants the true footprint, and
+the **scope gate**, which needs a *prediction* to measure growth against. Widening a card's `Touches`
+to its finished diff buys the first by blinding the second — it would make the gate report no growth on
+any card, which is the mechanism that produced this card's most useful finding. So the correction is
+confined to the single path that is now a declared hotspot, for a dispatch decision, and the backlog's
+`@ops` item carries the general problem.
+
+**Nothing is lost by correcting it at this point in the card's life.** The scope gate already ran
+against the original 6-file prediction and its verdict is recorded above in full, including the 27-file
+measurement and the twelve-sibling table. A later cycle re-running the gate will see 7 declared against
+27 actual rather than 6 against 27 — a 22% → 26% prediction, still growth, still detected.
+
+**Residual, unchanged by this edit:** a card that touches the corpus *undeclared* is still invisible to
+the hotspot rule. That is a property of predicting footprints, not of this card.
