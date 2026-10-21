@@ -1,0 +1,259 @@
+version: 1
+generated_at: "2026-10-21T16:53:00Z"
+target: "CARD-260 cycle 5 (round 5 overall, re-entry cycle 2/3) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-260, branch card/260-commit-the-kill-instrument @ f9718739 + five uncommitted fix rounds, target main"
+overall_score: 8.8
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_kill_matrix.py (2475 lines, working-tree state, digest 1468707b) — the census block :47-:186 and every test it feeds in full; the rest skimmed by AST census rather than line by line"
+    - "tests/kill_matrix.py (1433 lines, working-tree state, digest 8dee3401 — byte-identical to the state cycle 4 reviewed, so unchanged by round 5)"
+    - "tests/README.md (full round-5 diff, +193 lines, digest 81dfaa8c)"
+    - "meta/kanban/cards/CARD-260.md on MAIN (1572 lines — the live record, incl. [Review 4 — re-entry], F-401's note and the [Stalled check])"
+    - "meta/review/20261021T141913Z-CARD-260-cycle4.yml (in full, incl. suggestion 1 which this cycle judges)"
+    - "meta/kanban/curation.md (the curation rule and its ADR-0039 sanity check)"
+    - "git show HEAD:tests/test_kill_matrix.py (the pre-fix membership-check shape, for the 'did the equality lose anything' question)"
+  not_reached:
+    - "the browser tier (pytest-playwright/Chromium) — deliberately not run, ADR-0038/R8"
+    - "the full suite — out of scope by instruction; the impact set was run instead"
+    - "the pre-round-5 working-tree state (c2113a33) — it is uncommitted and unrecoverable, so the round-5 delta was corroborated by digest agreement with the cycle-4 report, never diffed"
+    - "the instrument pointed at tests/test_kill_matrix.py itself — forbidden by the safety constraints, so the per-assertion reach claim was re-derived by AST + pytest short-circuit semantics rather than by the instrument"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 2048, removed: 141 }
+  max_fan_in: { symbol: "tests.kill_matrix (module)", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["tests/test_kill_matrix.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — tests/kill_matrix.py and tests/test_kill_matrix.py are new in f9718739 (churn 1 each), so there is no 12-month co-change history to mine; tests/README.md's peers are deliberately outside this card's Touches"
+    fix_delta: "no_eligible_fact — nothing on this card is committed, so there is no diffable previous-reviewed state. Round 5's starting point was established by digest agreement (cycle 4's recorded c2113a33/1686c5c2/8dee3401) rather than by a diff."
+
+system_contract:
+  rules_checked: 5
+  holds: 3
+  unchecked: 1
+  violated: 1
+  verdicts:
+    - "ADR-0038/R7 ✓ holds — re-derived, not carried: `grep -n playwright pyproject.toml` puts pytest-playwright only in `[project.optional-dependencies] dev`, absent from `dependencies` and from the `admin` extra; `git status --porcelain` in the worktree is exactly tests/README.md, tests/kill_matrix.py, tests/test_kill_matrix.py, so this diff touches no manifest at all. Reproduce with those two commands."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: a ✓ needs a real browser-tier run (Chromium present vs absent, with the named skip reason visible in the summary), which this review must not run; nothing in the diff (three test-infrastructure files, no browser marker, no conftest hook) bears on browser-test loudness. Fourth cycle with the same typed reason, deliberately not upgraded."
+    - "ADR-0039/R1 ✗ violated — tests/test_kill_matrix.py:1032-1044: the WITHOUT-half docstring prefaces its red-count enumeration with 'Measured per assertion, not asserted in prose' and then names arms that cannot FAIL. Measured on this tree: D17 (GIT_COMMAND widened to `.*git.*`) reds :1059 and :1165 only — the named 'prose arm beside it' (:1064) is NOT-REACHED behind :1059; D13 (the `_SPAWN` walk in `_spawn_argv_heads` neutered) and D18 (`km._SPAWN` itself neutered) each red exactly three arms inside these tests (:1051, :1145, :1240), not 'five arms across three of these tests' — :1055/:1056 sit behind :1051 and :1146 behind :1145 and are NOT-REACHED. See F-501. **The ground F-401 opened is CLOSED and mutation-confirmed**: all seven censuses now have a WITH half, and fifteen mechanism mutants were all killed (see verification.mutation_check), including the three that survived at 67 passed in cycle 4. This is the third distinct ground on which R1 has been violated on this card (cycle 3: the refusals; cycle 4: the censuses; cycle 5: the controls' own red enumeration) — same rule, each time one layer further out, and each time weaker."
+    - "ADR-0039/R2 ✓ holds — re-derived position by position on this tree, not inherited: `_resolve_selection` refuses empty / non-file / two-file selections (:1584, :1593, and the green run); `_RAN_EXIT_CODES = frozenset({0,1})` with everything else raising UnmeasuredRun; `_refuse_unless_clean`'s `reached == 0` deny; the reporting surface enumerated from the module's own AST (:1472). The new `_spawn_argv_heads` is default-deny at three positions (:118 no argv, :121 non-enumerable argv, :128-:133 non-literal argv[0]) and I walked the shapes it could still swallow: keyword-only `args=[...]` hits :118, an empty list literal raises IndexError, a starred `[*cmd]` fails the sys.executable assert — every one a failure, none a silent partial list. Its control is measured: D4 (the isinstance guard made vacuous) KILLS test_g5_the_argv_census_fails_rather_than_skips. The hand-written sets that remain (SPAWN_IMPORT_MODULES, TIMING_MODULES, CLOCK_NAMES, _FORBIDDEN_TEXT) are R2's explicit allowance while both sides are controlled, and both sides now are — D5/D6/D8 (member deleted), D3/D7/D9 (member replaced) and D10/D11/D16 (member added) each red."
+    - "ADR-0039/R3 ✓ holds — re-derived: G-4's one pinned sibling is an equality (`extra == {\"tests\", \"full_suite_lock\"}`, :2098) so a third party and a vanished sibling both red; G-3's path-identity exemption carries its own validity self-check (:2010); G-2's own-tree exemption is controlled by a foreign lock plus a decoy; bound 1's unseen region is both-sided (:766 positive, :778 the bound); bound 2 is both-sided (:804/:809 absence, :816 positive — and D18 reds :816); the flag-off bound is measured cell-for-cell against the flag-on reading (:919-:924). The new run-time-assembly bound (:1086, `heads == [\"sh\"] and named == []`) is a legal shape for a bound — it carries a positive equality, not absence alone — but note it is a second-line control only: every mutant that would move it reds :1051 or :1059 first, so it is reached in the green baseline and shadowed under every mutant I ran."
+
+root_causes:
+  - id: RC-1
+    title: "The controls' own red-count enumerations are counted as would-red arms rather than as measured FAILs, which is this card's own trap 1/trap 2 at the docstring layer"
+    finding_ids: [F-501]
+
+findings:
+  - id: F-501
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_kill_matrix.py
+    line: 1032
+    title: "The WITHOUT-half docstring's red-count enumeration names arms that cannot FAIL — 'five arms' is three, and one named arm is NOT-REACHED"
+    description: |
+      `test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere`'s docstring
+      (:1032-:1044) opens with "Measured per assertion, not asserted in prose" and then
+      enumerates which arms red under which mutation. Two of its five clauses are not what
+      the measurement says, and both failures are the shape this card exists to prevent — a
+      test short-circuits at its first failing assert, so an arm named as a red that sits
+      behind another red is NOT-REACHED, and NOT-REACHED is indistinguishable from a
+      survivor, which is trap 1 and trap 2 of the card's own table.
+
+      Measured on this working tree, every mutant line-count-preserving and restored from a
+      `cp -p` backup with digests re-verified:
+
+        D17  GIT_COMMAND -> `.*git.*` ("widening it until it matches prose")
+             -> rc=1, reds at :1059 (`invoked == []`, on kill_matrix.py's own sentence)
+                and :1165 (the planted-command arm).
+             The clause "the prose arm beside it" names :1064
+             (`not GIT_COMMAND.match("No git command anywhere")`), which NEVER EXECUTES —
+             :1059 is five lines above it in the same test.
+
+        D13  the `_SPAWN` walk in `_spawn_argv_heads` neutered
+             -> rc=1, reds at :1051, :1145, :1240 — three arms, three tests.
+        D18  `km._SPAWN`'s `subprocess` alternative neutered (the other reading of the
+             same clause) -> rc=1, reds at :741, :766, :816, :862, :897, :1051, :1145,
+             :1240 — still exactly three inside *these* tests.
+             The clause "neutering the `_SPAWN` walk reds five arms across three of these
+             tests" is therefore false under both readings: :1055 and :1056 sit behind
+             :1051's `assert commands` and :1146 sits behind :1145's equality, so they are
+             NOT-REACHED, not FAIL.
+
+      The three other clauses ARE accurate and I confirmed each: narrowing GIT_COMMAND reds
+      :1060 and :1165 (D2); breaking the `"git"` substring reds :1146 (D1); dropping a
+      SPAWN_IMPORT_MODULES member reds :1195 (D8).
+
+      Failure scenario. A maintainer widening or narrowing one of these predicates reads this
+      docstring as the map of which asserts are its controls, sees five, and concludes the
+      mechanism is five-ways covered. Three are. The two shadowed arms publish as
+      NOT-REACHED — the exact cell this card's AC-6 and trap 1 exist to keep distinguishable
+      from a survivor. The guards themselves are not weakened by this; the claim about them is.
+
+      Why this is R1 and not prose polish: the clause is a claim about what a control catches,
+      it is untrue as measured, and nothing can fail if it drifts further. ADR-0039/R1's
+      closing sentence is the applicable one — "must be narrowed to what is measured or
+      deleted". Cycle 4 declined to file F-402 under R1 on the ground that the clause there was
+      TRUE and derivable; that distinction is what makes this one different.
+    suggestion: |
+      Narrow the sentence to the arms that actually FAIL, and say where the others are:
+        - widening: "reds `invoked == []` here (:1059) and the planted-command arm there
+          (:1165); the prose arm at :1064 sits behind :1059 and reads NOT-REACHED";
+        - `_SPAWN`: "reds :1051 here, :1145 and :1240 there — three arms across three tests;
+          :1055/:1056 and :1146 sit behind them and read NOT-REACHED".
+      Or, if the five arms are wanted as five measured controls, split the WITHOUT-half test so
+      each arm is independently reachable — which is the move the card's own per-assertion
+      thesis argues for, and would also unshadow the :1086 bound.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: |
+      REFUTED by adversarial verification (shared/adversarial-verification.md), and re-measured
+      independently by the orchestrator. Clause 2 is the decisive one: the prose arm at :1064 DOES
+      have a control that can fail. Widening GIT_COMMAND to the minimal pattern that satisfies the
+      docstring's own definition of "matches prose" -- r".*git(\s|$)" -- leaves :1059 PASSING and
+      reds :1064 with its own message, in a plain propagating pytest run. :1064 is shadowed only
+      under the broader r".*git.*" the reviewer happened to choose, where :1059 reds first. R1 asks
+      whether a control CAN fail, not whether it fails under every mutant, so the R1 filing does not
+      hold. Clause 1's count is also right when measured the way the docstring says it was measured:
+      under the recording pass, neutering _SPAWN reds exactly five arms (:1051 :1055 :1085 :1145
+      :1146); the five-arm count is the recording pass's, which is that pass's defining property per
+      kill_matrix.py:22-29. One residue survives and is NOT this finding: the sub-phrase "across
+      three of these tests" is two tests plus one out-of-domain red at the pytest.raises loop.
+      Carried to the follow-up card as prose polish on a measured, accurate sentence.
+    learned_pattern: null
+
+  - id: F-502
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_kill_matrix.py
+    line: 1013
+    title: "The `(\\S*/)?git(\\s|$)` literal is restated in prose twice, and neither restatement has a control"
+    description: |
+      The round-5 hoist left exactly one executable spelling of the pattern (`GIT_COMMAND`,
+      :74 — verified: one match for the literal in the file) and that is the fix's central
+      claim, which holds. But the literal is also spelled out in prose in two places:
+      :1013 ("``GIT_COMMAND``, the one spelling of ``(\\S*/)?git(\\s|$)`` in this file") and
+      tests/README.md's G-5 paragraph. D17 and D2 both changed GIT_COMMAND and neither
+      restatement reds — nothing checks them. This is the weakest member of the same family:
+      it cannot disable a guard, it can only go stale, and the staleness lands on the one
+      sentence a reader uses to find the single spelling.
+    suggestion: |
+      Either drop the literal from the two prose sites and name only `GIT_COMMAND`, or add one
+      assert (`GIT_COMMAND.pattern == r"(\\S*/)?git(\\s|$)"`) so a change to the constant reds
+      the documentation that quotes it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-402
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_kill_matrix.py
+    line: 253
+    title: "The F-302 control's justification clause is true but undemonstrated (carried from cycle 4, still open)"
+    description: |
+      Re-derived, not carried on the predecessor's word: `run()` still has no predicate that a
+      mutant changed a file, so the clause ("without it `_apply` is a no-op and the mutant's
+      column publishes as a survivor") remains true and remains underived in the suite.
+      Round 5 was scoped to F-401 and deliberately did not add a second claim in a round about
+      claims. **I judge that call correct**: adding a plant for a true, ten-line-derivable
+      consequence while the censuses were uncontrolled would have been the wrong order of work,
+      and the clause's own subject (the refusal) has controls that can fail (M2/M3).
+    suggestion: |
+      Unchanged from cycle 4: leave it, or construct the empty-edit mutant past the refusal via
+      `object.__setattr__` and assert its column equals SHIPPED's cell for cell.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-403
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_kill_matrix.py
+    line: 302
+    title: "The F-301 control spawns a second child pytest outside `run()`'s lock refusal (carried from cycle 4, still open)"
+    description: |
+      Unchanged by round 5 (kill_matrix.py is byte-identical to the state cycle 4 reviewed, and
+      the `_measure` call is still at :302 inside the same try). The bound is real and bounded:
+      the child's cwd is the tmp fixture directory, so neither the repo conftest nor the
+      board-lock hook loads in it, and the board's own lock was absent throughout this review
+      and never touched. Leaving it open in a round scoped to F-401 was the right call; it is a
+      docstring-list omission, not a safety gap.
+    suggestion: |
+      No change required. If the card wants the bound stated, add `_measure` to `Runner.workdir`'s
+      docstring list of helper-driving tests.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verification:
+  tests_run: "pytest tests/test_kill_matrix.py tests/test_full_suite_lock.py tests/test_db_isolation.py -q -p no:randomly in the worktree: 164 results (161 passed, 3 skipped), EXIT=0 — the 3 skips are the known no-nonogram_test-database skips, corroborating the brief's figures. tests/test_kill_matrix.py collects 72, confirming the fix's 67 -> 72 claim. The full suite was NOT run (instruction); build gate 6 is carried per procedure."
+  fix_delta_corroboration: "The three digests the fix reported as its post-edit state are exactly what is on disk: tests/test_kill_matrix.py 1468707b466416d268e8ffb8034afa31e18267f0bdb8e4dc0e2ad468dcc36f49, tests/README.md 81dfaa8c7937571c1f5f49c2e727468ececfd0844be918587c633bf9d4d57753, tests/kill_matrix.py 8dee34010bb62abe2f1c0a8bbba3f29a2ec17c4aa1d1b385013db154cef7136d (unchanged, and identical to the digest cycle 4 recorded). So the whole of round 5 is in the test and the README, as claimed."
+  f401_closure: "CLOSED and mutation-confirmed, on independently chosen mutants rather than on the fix's list. Cycle 4's three survivors are now kills: M5's shape (D1) reds :1146; M6's (D2) reds :1060 and :1165; M7's (D3) reds :2170. The generated-plant trap the fix says it fell into and backed out of leaves NO residue: every plant source (GIT_SPAWN_TARGET, GIT_STRING_TARGET, SPAWN_IMPORT_TARGET, CLOCK_READING_TARGET) is a literal triple-quoted string, every expected finding is a literal list, and the only places the sets appear outside their own callables are the three deliberate set-vs-literal pins (:1208, :2174, :2191). The one plant that is generated rather than written out (the env-name template at :2060, built from km._ENV_TARGET) is generated from a DIFFERENT authority than the predicate under test (ENV_NAME_SHAPE), so it is not the inversion — D12 confirms it reds."
+  predecessor_prescription_judged: "Cycle 4's suggestion 1 — replace the three membership checks with `sorted(set(commands)) == [\"cp\", \"diff\", \"shasum\", \"sys.executable\"]` — is sound, and it loses nothing. At HEAD the check was one conjunction (`\"cp\" in commands and \"diff\" in commands and \"shasum\" in commands`); the equality implies all three and additionally rejects any new or vanished spawn name. Verified by measurement, not by argument: D15 (the instrument's `[\"diff\", \"-q\", ...]` spawn changed to a behaviour-equivalent `[\"cmp\", \"-s\", ...]`) reds :1055 and ONLY :1055 — so the equality is a control that can fail, on exactly the event it claims to catch. `_git_among(commands) == []` survives beside it, so the git predicate was not dropped in the trade."
+  reach_bounds_judged:
+    argv_census_unmeasurable: "CONFIRMED by derivation (the instrument may not be pointed at any PythonProject4 path, so this was not measured with it). test_g5_the_argv_census_fails_rather_than_skips plants its failures in `_spawn_argv_heads`, a module-level helper of the test file itself. Instrumenting the file rewrites those ast.Assert nodes into recording try/except, so in the RECORDING pass they record FAIL and do not propagate — the pytest.raises would then see nothing and the test would red on DID NOT RAISE, and SHIPPED would carry FAIL cells, which `_refuse_unless_clean` refuses. The claim is sound and the README states it in the right place."
+    d4_crash_vs_failure: "The claim and the behaviour MATCH, and I am not filing it. Measured: with the isinstance guard made vacuous the census raises AttributeError('Name' object has no attribute 'elts') at :128 and the mutant is KILLED (rc=1) — the control does its job. ADR-0039/R2 asks for a FAILURE and never a silent pass; a crash is a failure, and the shape that reaches the crash is an argv the census cannot analyse, which is precisely the case R2 governs. The test's name ('fails rather than skips') is about the census's behaviour, not about which exception class carries it, and it is true under the mutant. The honest caveat, which belongs in the report and not in a finding: the message that names WHICH shape was refused is lost in that state, so the mutant is killed by a crash rather than by the named assertion. I walked the remaining shapes for an actual silent pass and found none (keyword-only args hit :118, an empty argv literal raises IndexError, a starred argv fails the sys.executable assert)."
+    bound_heads_sh: "The fix's verdict is defensible and I confirm it with one caveat. `heads == [\"sh\"] and named == []` is a legal shape for a declared bound: the conjunction carries a POSITIVE equality (`heads == [\"sh\"]`), so it is not absence-only and it can fail. The caveat is reachability, not shape: every mutant I ran that would move it reds :1051 or :1059 first, so under mutation it is always NOT-REACHED and it is demonstrated only in the green baseline. That is a second-line control, and it is one of the two things splitting the WITHOUT-half test would fix (see F-501's suggestion)."
+    bound_pathlib: "CONFIRMED one-sided by construction, and harmless. `_aliased_spawn_imports(ast.parse(\"from pathlib import Path\")) == []` (:1218) is the 'must not flag' side; it can only red if SPAWN_IMPORT_MODULES gained `pathlib` specifically, and the general case (any member added) is covered by the pin at :1208, which D11 reds. Not a finding."
+  class_enumeration_recomputed: "Recomputed by AST on the shipped file rather than inherited, and it does NOT reproduce the fix's figures. ast.Assert nodes: 189 (181 inside `test_*` functions, 8 inside module-level helpers), against the fix's 172 — a figure I cannot reconcile under any definition I tried, and which is not stated with its domain. Absence-shaped under my own predicate (== []/()/frozenset()/0/\"\" or `not X`): 27, against the fix's 30 — a definitional gap, not necessarily an error. Over the instrument's own source: 7 censuses, which matches. Per-assertion over the seven census-bearing tests: 29 assertions (ac4 8, argv-plant 2, string-plant 3, import-plant 3, env 5, g6-WITHOUT 2, g6-WITH 6), reaching the fix's 32 only if the three default-deny asserts inside `_spawn_argv_heads` are counted as well. NONE of these figures is committed to the artifact (grep for 172/189/30 in the two files finds nothing), so this is a reporting-hygiene observation and not a finding against the code — but the card's own trap 1 is a figure quoted without its domain, and 172/30/32 are quoted without theirs."
+  per_assertion_measurement: "Re-derived from the rows, not from a narrative, and by a route the brief's safety constraints allow. The instrument may not be pointed at any PythonProject4 path, so instead: (1) all 7 census-bearing tests PASS in the baseline, and a passing pytest test executes every assert in its body — there is no short-circuit on success; (2) by AST, every one of those 29 assertions is an UNCONDITIONAL statement of the function body (nested count = 0 for all seven), so none can be skipped by control flow. Therefore 29 of 29 reached, 0 FAIL, 0 NOT-REACHED — the fix's '0 FAIL of N reached, every arm reached' is CONFIRMED; only its N is unreconcilable (see above). The same per-assertion discipline is what refutes the docstring's red counts in F-501: under mutation, pytest stops the test at its first failing assert, so an arm named as a red behind another red is NOT-REACHED."
+  mutation_check:
+    ran: true
+    reason: "review.mutation_check: true and this is the candidate passing cycle by the cost ladder. Re-derived on the current working tree; the fix's own D1-D12 list was NOT inherited — these mutants were chosen from the mechanisms the claims name, and deliberately cover member DELETION, member REPLACEMENT and member ADDITION separately, because a replacement certifies a different thing from a deletion."
+    mutants: 18
+    killed: 17
+    survived: 1
+    detail:
+      - { id: D1, target: "tests/test_kill_matrix.py:145 _git_among", mutation: "\"git\" in str(name) -> \"gxt\" in str(name)", verdict: killed, by: "test_g5_the_argv_census_catches_a_planted_git_spawn :1146 — cycle 4's M5 survivor, now a kill" }
+      - { id: D2, target: "tests/test_kill_matrix.py:74 GIT_COMMAND", mutation: "(\\S*/)?git(\\s|$) -> (?!x)x", verdict: killed, by: ":1060 (absolute-path arm) and :1165 (planted-command arm) — cycle 4's M6 survivor, now a kill" }
+      - { id: D3, target: "tests/test_kill_matrix.py:82 TIMING_MODULES", mutation: "REPLACE member \"time\" -> \"zzz_mod\"", verdict: killed, by: "test_g6_the_timing_censuses_catch_a_planted_clock :2170 — cycle 4's M7 survivor, now a kill" }
+      - { id: D4, target: "tests/test_kill_matrix.py:121 _spawn_argv_heads default-deny", mutation: "assert isinstance(argv, (ast.List, ast.Tuple)) -> assert True or isinstance(...)", verdict: killed, by: "test_g5_the_argv_census_fails_rather_than_skips — via AttributeError at :128, see verification.reach_bounds_judged.d4_crash_vs_failure" }
+      - { id: D5, target: "tests/test_kill_matrix.py:82 TIMING_MODULES", mutation: "DELETE member \"time\"", verdict: killed, by: ":2170 — the deletion form, distinct from D3's replacement" }
+      - { id: D6, target: "tests/test_kill_matrix.py:86 CLOCK_NAMES", mutation: "DELETE member \"elapsed\"", verdict: killed, by: ":2187" }
+      - { id: D7, target: "tests/test_kill_matrix.py:86 CLOCK_NAMES", mutation: "REPLACE member \"monotonic\" -> \"zzz_clock\"", verdict: killed, by: ":2187" }
+      - { id: D8, target: "tests/test_kill_matrix.py:79 SPAWN_IMPORT_MODULES", mutation: "DELETE member \"pty\"", verdict: killed, by: "test_g5_the_bare_name_spawn_import_census_catches_a_planted_import :1195" }
+      - { id: D9, target: "tests/test_kill_matrix.py:79 SPAWN_IMPORT_MODULES", mutation: "REPLACE member \"posix\" -> \"zzz\"", verdict: killed, by: ":1195" }
+      - { id: D10, target: "tests/test_kill_matrix.py:82 TIMING_MODULES", mutation: "ADD member \"sched\"", verdict: killed, by: ":2174 — the set-vs-literal pin; the other direction of the paired assert" }
+      - { id: D11, target: "tests/test_kill_matrix.py:79 SPAWN_IMPORT_MODULES", mutation: "ADD member \"socket\"", verdict: killed, by: ":1208" }
+      - { id: D12, target: "tests/test_kill_matrix.py:91 ENV_NAME_SHAPE", mutation: "KILL_MATRIX[A-Z_]* -> (?!x)x", verdict: killed, by: "test_the_generated_plugin_names_exactly_the_env_vars_the_runner_sets :2050" }
+      - { id: D13, target: "tests/test_kill_matrix.py:110 the _SPAWN walk in _spawn_argv_heads", mutation: "if not km._SPAWN.search(...) -> if True or km._SPAWN.search(...)", verdict: killed, by: ":1051, :1145, :1240 — three arms, not the docstring's five; see F-501" }
+      - { id: D14, target: "tests/test_kill_matrix.py:1055 the spawn-name equality", mutation: "sorted(set(commands)) == [...] -> == sorted(set(commands))", verdict: SURVIVED, note: "NOT a finding: this mutant disables the assertion itself rather than a mechanism, which is true of any assert and certifies nothing. The equality's own control is D15." }
+      - { id: D15, target: "tests/kill_matrix.py:1088 the diff spawn", mutation: "[\"diff\", \"-q\", ...] -> [\"cmp\", \"-s\", ...] (behaviour-equivalent)", verdict: killed, by: ":1055 and only :1055 — the equality cycle 4 prescribed is a control that can fail, on the event it claims to catch" }
+      - { id: D16, target: "tests/test_kill_matrix.py:86 CLOCK_NAMES", mutation: "ADD member \"cpu_time\"", verdict: killed, by: ":2191" }
+      - { id: D17, target: "tests/test_kill_matrix.py:74 GIT_COMMAND", mutation: "WIDEN to .*git.*", verdict: killed, by: ":1059 and :1165 — and NOT :1064, which the docstring names; this is F-501's first instance" }
+      - { id: D18, target: "tests/kill_matrix.py:441 km._SPAWN", mutation: "\\b(subprocess| -> \\b(zzzsubprocess|", verdict: killed, by: ":741, :766, :816, :862, :897, :1051, :1145, :1240 — the alternate reading of the docstring's '_SPAWN walk' clause, still three arms inside these tests; F-501's second instance" }
+  mutation_discipline: "cp -p backups of both mutation targets taken into the scratchpad before the first mutant and every mutant restored with `cp -p` from that backup inside a finally — never git checkout/restore/stash, which was never run in this worktree. Every mutant was asserted to occur EXACTLY ONCE in the target and to preserve both the splitlines() length and the newline count before being written, so the instrument's line numbering never shifted. shasum -a 256 re-verified after every mutant against the pre-mutation digest, with the harness refusing to continue on a mismatch; all 17 restores verified. Pre- and post-review digests are identical: tests/test_kill_matrix.py 1468707b466416d268e8ffb8034afa31e18267f0bdb8e4dc0e2ad468dcc36f49, tests/kill_matrix.py 8dee34010bb62abe2f1c0a8bbba3f29a2ec17c4aa1d1b385013db154cef7136d, tests/README.md 81dfaa8c7937571c1f5f49c2e727468ececfd0844be918587c633bf9d4d57753. `git diff --stat` is byte-identical before and after (3 files, 2048 insertions, 141 deletions) and `git status --porcelain` is unchanged. The kill-matrix instrument was never pointed at any path under PythonProject4*; the only mutation targets were the two files under review. nonogram_poc was never created, dropped, truncated or connected to, and `_refuse_unless_test_database` was neither read for widening nor touched."
+  lock_discipline: "/Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock DOES NOT EXIST and was never created, written, deleted or overridden by this review. I never needed the lock (the impact set does not take it) and so never set NONOGRAM_FULL_SUITE_LOCK. No timing measurement was taken anywhere in this review and no duration is reported — G-6's own rule, applied to the reviewer."
+  timing_discipline: "No clock was read and no duration recorded or reported, per G-6 and the card's own standing note."
+  stalled_check: "Round 4 -> round 5: Δscore = +0.3 (8.5 -> 8.8), below min_improvement 0.5; Δfindings = 0 (one gating finding before, one now). The stall signature is present for the SECOND consecutive round pair. What is different from a true stall, and it is the owner's call whether it is enough: the enumerated work was in fact finished (all five named absence sites now carry planted positives, and the three cycle-4 survivors are kills under independently chosen mutants), and the new finding is one layer further out and materially weaker — a docstring's count of which arms red, not a census that can be silently disabled. This is round 5 of a 6-round fatigue threshold."
+  family_question: "R1 has now been violated on this card on three distinct grounds: the refusals (cycle 3, closed), the censuses (cycle 4, closed and mutation-confirmed here), and the controls' own red-count enumeration (cycle 5). Same rule, each time one layer further from the code and weaker in consequence. That is a convergence pattern, not a repetition: each round's ground is strictly less dangerous than the last. It is also a warning — the rule's reach keeps extending outward, and at some point the honest move is to bound what the rule governs rather than to keep chasing it one prose layer at a time."

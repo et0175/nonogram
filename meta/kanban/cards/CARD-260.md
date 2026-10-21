@@ -15,7 +15,7 @@
 **Wave:** 51
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py, tests/README.md
-**Review score:** 8.5 (round 4 — re-entry cycle 1/3)
+**Review score:** 8.8 (round 5 — re-entry cycle 2/3)
 **Started:** 2026-10-20T16:52:59Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
@@ -1570,3 +1570,158 @@ five absence-assertion sites (`:901`, `:935`, `:942`, `:1840`, `:1843`), each cl
 positive and each verifiable by killing its mechanism, plus hoisting one regex into a shared constant.
 A stall is a loop that keeps finding unknowns; this is a finite list. **Round 4 of a 6-round fatigue
 threshold** — so a round 5 is affordable, and a round 6 would not be.
+
+### [Fix 5] FIX PRE-GATE: PASS — and the fix found a trap in my own brief
+
+Scoped to F-401 by the owner's authorisation of a round 5. All **8** tests the fix named exist and pass.
+`DECLARATIONS F-401 — doc ×3, doc `_spawn_argv_heads` (new), README, matrix none`. The `matrix none` is
+**correct and I verified it**: CARD-260 has no `## Failure matrix` section (15 other cards on this board
+do). `tests/kill_matrix.py` is byte-identical to fix 4 (`8dee3401…`) — the whole of round 5 is in
+`tests/test_kill_matrix.py` (`c2113a33…` → `1468707b…`) and `tests/README.md` (`1686c5c2…` → `81dfaa8c…`).
+**Those pre-edit digests are the three the cycle-4 report records as what it reviewed**, so round 5's
+starting point is corroborated by the previous reviewer even though nothing on this card is committed and
+no delta is diffable.
+
+Shape: the seven inline census comprehensions became seven module-level callables
+(`_aliased_spawn_imports`, `_spawn_argv_heads`, `_git_among`, `_git_command_strings`,
+`_timing_module_imports`, `_clock_names_in`, `_hard_coded_env_names`), each called twice — on `INSTRUMENT`
+asserting nothing is found, and on a planted source asserting the violation **is** found. One shared
+`GIT_COMMAND = re.compile(r"(\S*/)?git(\s|$)")` replaced four copies. 67 → 72 tests.
+
+**[The brief was wrong three ways, and the fix caught all three.]**
+1. **The class is seven sites, not the five I enumerated.** The two I missed: the prose-side regex assert
+   (my brief dismissed it as a pseudo-control; after the hoist it is a real one) and
+   `"KILL_MATRIX" not in km._PLUGIN_SOURCE`, a census over the instrument's **generated** source.
+2. **My proposed remedy reproduces the defect if the plant is derived from the set under test.** The fix's
+   first implementation built each planted source *from* the set (`"".join(f"import {m}" for m in
+   TIMING_MODULES)`) and compared the finding against that same set — delete a member and the plant and the
+   expectation shrink together, agree, and nothing reds. **That is F-401's own inversion rebuilt inside
+   F-401's fix.** It caught it pre-hand-back and measured it: three of its mutants are genuine member
+   *deletions* and all three would have survived the generated shape. The distinction it handed back is the
+   sharp one: *coupling to the predicate* detects; *deriving the expectation from the predicate's own data*
+   does not. Shipped shape — plants as literal text, expectations as literals, and each hand-written set
+   gets a **pair** of asserts (finding-vs-literal, set-vs-literal) so a member deleted **and** a member
+   added both red.
+3. **I pointed it at the card in the worktree**, which is the stale 134-line implementation snapshot; the
+   1572-line record with every review note is on main. It reported "the card has no review notes" and was
+   describing a different file than I was.
+
+**[Orchestration gap, recorded because it cost the next station something.]** The fix's twelve-mutant
+D-list existed only in its hand-back to me — nothing on disk carried it — so when I asked the reviewer to
+re-derive D1–D12 it could not, and built its own eighteen-mutant set instead. Its conclusions stand on its
+own measurements, but **the two reports' D-ids are not the same mutants and must not be read as such.**
+The fix's list, persisted here so it is auditable: D1 `GIT_COMMAND`→never-matching; D2 `_git_among`'s
+`"git"`→`"gxt"`; D3 `SPAWN_IMPORT_MODULES` member replaced; D4 `_spawn_argv_heads` default-deny
+`isinstance(argv,(ast.List,ast.Tuple))`→`(ast.AST,ast.Tuple)`; D5 `TIMING_MODULES` member replaced;
+D6 `CLOCK_NAMES` member replaced; D7 `ENV_NAME_SHAPE`→never-matching; D8 the `km._SPAWN` walk neutered;
+D9 `GIT_COMMAND`→`.*git.*` (widened); D10/D11/D12 `SPAWN_IMPORT_MODULES`/`TIMING_MODULES`/`CLOCK_NAMES`
+member **deleted** (as distinct from replaced). All twelve line-count-preserving, `cp -p`-backed, restored
+byte-identical.
+
+### [Review 5 — re-entry cycle 2/3] Score: 8.8 (8.5 → 8.8, Δ+0.3) — and its one gating finding was REFUTED
+
+Report: `meta/review/20261021T165300Z-CARD-260-cycle5.yml`. **[Review sync]** 1 report → `meta/review/`.
+**Step 8h: 3 ✓ holds, 1 ⚠ unchecked (ADR-0038/R8 — fourth cycle, same typed reason, deliberately not
+upgraded), 1 ✗ (ADR-0039/R1 → F-501, now dismissed).** R2 and R3 re-verified position by position.
+
+**F-401 is closed and mutation-confirmed.** The reviewer killed 17 of 18 mutants it chose itself; the
+survivor disables an assertion rather than a mechanism and therefore certifies nothing. It confirmed
+**no residue of the generated-plant shape anywhere**, including arms the fix did not flag — every plant is
+literal triple-quoted text, every expectation a literal list — and confirmed the paired assert closes both
+directions: member deleted (3 mutants), replaced (3), added (3), all killed, the added case by the literal
+pin whose failure message is the instruction to plant the new member.
+
+### [Adversarial verification] 1 finding → REFUTED; 1 positive verdict → REPRODUCED
+
+**F-501 (the only gating finding) — REFUTED, and I re-measured it myself rather than taking the skeptic's
+word.** The finding said the docstring at `:1032-1044` names arms that cannot fail, specifically that the
+prose arm `:1064` never executes under a widened `GIT_COMMAND` because `:1059` reds first. My own run, one
+mutation of line 74, plain propagating pytest, file restored byte-identical (`1468707b…` both sides):
+
+| widening | `:1059` (`invoked == []`) | `:1064` (prose arm) |
+|---|---|---|
+| `r".*git(\s\|$)"` — the minimal pattern satisfying the docstring's own "matches prose" | **passes** | **FAILS**, own message |
+| `r".*git.*"` — the reviewer's choice | **FAILS** | shadowed |
+
+So the prose arm **does** have a control that can fail; it is shadowed only under the broader pattern the
+reviewer happened to pick. `re.match` with a non-DOTALL `.*` cannot reach past line 1 of a multi-line
+string constant, which is why the module's own "No git command anywhere" sentence is invisible to the
+narrower widening. **R1 asks whether a control CAN fail, not whether it fails under every mutant** — the
+filing does not hold. The skeptic also showed clause 1's count is right *measured the way the docstring
+says it was measured*: under the **recording** pass, neutering `_SPAWN` reds exactly five arms
+(`:1051 :1055 :1085 :1145 :1146`), and per-assertion measurement immune to short-circuit is that pass's
+defining property (`kill_matrix.py:22-29`). The reviewer had counted under the re-raising pass.
+**One residue is real and is not the filed violation:** "across three of these tests" is two tests, plus a
+third red out of domain at the `pytest.raises` loop. Follow-up, not a gate.
+
+**ADR-0039/R2 `✓ holds` — REPRODUCED** (re-derivation spot-check, not re-judgment). All three shapes the
+verdict cites fail closed, verified by feeding the census freshly written sources: keyword `args=` → named
+line-numbered `AssertionError`; starred argv → names the shape refused; empty argv literal → raises. The
+structural argument is what makes it stick: once a call matches, every path either appends exactly one head
+or raises, and the only `continue` is the match filter itself, so a **matched** call cannot be silently
+omitted. 20 further argv shapes and 15 odd AST positions (f-string expression, decorator, `match` case,
+except handler, comprehension, async def) all raised — zero silent omissions.
+
+### [Figures] the fix's class-enumeration numbers do not reproduce — 189, not 172
+
+The reviewer recounted and so did I, independently: **189** `ast.Assert` nodes in the shipped file (181 in
+`test_*` functions, 8 in module-level helpers), against the fix's **172**. A grep-style count of
+`assert ` line-starts gives **202** — a third domain. The absence-shaped count differs definitionally
+(fix 30, reviewer 27) and the 32-vs-29 gap is whether the three default-deny asserts inside
+`_spawn_argv_heads` are counted. **This is reporting hygiene, not a defect in the code, and I verified
+that:** none of 172, 30, 189, 27 or 29 appears anywhere in `tests/test_kill_matrix.py`,
+`tests/README.md` or `tests/kill_matrix.py`. The committed assert-count figures that *do* ship are
+controlled — `130` is recomputed by `assert counted == 130` whose failure message instructs re-derivation,
+and the fixture's `5 assertion nodes` is parsed back out of the instrument's own output at `:1466`.
+**It is nonetheless this card's own trap 1** — an instrument has a domain, and the domain is part of every
+figure it produces — committed in the hand-back prose rather than in the artifact. I repeated the `32` to
+the owner before checking it; corrected here.
+
+### [Scope gate] cycle 5: IN_SCOPE
+
+`git status --short` in the worktree is the same three files as every prior round
+(`tests/README.md`, `tests/kill_matrix.py`, `tests/test_kill_matrix.py`); round 5 touched two of them and
+added no component. No ready sibling's `Touches` is covered.
+
+### [Family] streak STAYS 1 — nothing to attribute
+
+The family check needs a *gating* finding attributed to the previous fix. After adversarial verification
+there is no gating finding, so there is nothing to attribute and the trigger cannot fire. Recorded rather
+than skipped, because a cycle that ends with zero gating findings is exactly where this check gets quietly
+dropped.
+
+### [Stalled check] does NOT fire — the success path is open
+
+Raw aggregate 4 → 5 would read Δscore +0.3 (below `min_improvement` 0.5) and Δfindings 1 → 1, which is the
+stall signature that was present at round 4 and was the owner's reason to authorise this round. **After
+verification it is Δfindings 1 → 0.** The stalled check governs whether to keep looping; the loop's
+*success* condition — score ≥ `min_score` 8 **and** zero critical/important surviving verification — is
+met at **8.8 with zero**. So the review loop exits successful at round 5 of a 6-round fatigue threshold,
+and the next station is the AC/EC/G gate, which this card has never run.
+
+**Remaining findings, none gating:** F-502 (minor — the `(\S*/)?git(\s|$)` literal is restated in prose at
+`:1013` and in the README's G-5 paragraph with no control; one assert on `GIT_COMMAND.pattern` closes it),
+F-402 and F-403 (low, carried from cycle 4 and re-derived here rather than taken on the predecessor's
+word).
+
+### [Follow-up observations] for the card owed after merge — all out of round-5 scope
+
+1. **An uncontrolled figure one layer further out.** `_scoped_edits`'s docstring at `:2275` claims
+   `setattr(` "occurs 6 times in one docstring and 32 times in the file around it". Recomputed against its
+   real target `tests/test_db_engine_lifecycle.py`: **32 total** occurrences — so "32 in the file"
+   reproduces as the file total — but **13 inside docstrings across five of them, at most 4 in any one**.
+   "6 times in one docstring" does not reproduce under my count. I am deliberately **not** calling it
+   false: my domain may not be the author's, and mistaking a domain difference for an error is this card's
+   own trap 1. It is pre-existing from rounds 1–4 and wants re-derivation, not a verdict.
+2. **The empty argv literal fails with a bare `IndexError`** — no message, no line number, no naming of the
+   shape, unlike its three sibling asserts. R2's letter is satisfied (a failure, never a silent pass) but
+   nothing *plants* that shape, so nothing pins it. `assert argv.elts, f"empty spawn argv at line
+   {node.lineno}"` plus a fourth plant in `test_g5_the_argv_census_fails_rather_than_skips` closes it.
+3. **Three alias routes are invisible to both spawn censuses** — `import subprocess as sp; sp.run(...)`,
+   `run = subprocess.run`, and `functools.partial(subprocess.run, ...)`. The import census inspects only
+   `ast.ImportFrom`, and the docstring names only the `from subprocess import run` route as refused. These
+   are *not matched as spawn-shaped at all* — a different category from a matched-then-swallowed shape —
+   and the complementary strings half catches all three. Only the run-time-assembled variant escapes both,
+   and that is the bound the card already declares and demonstrates. Inside a named bound, not a quiet
+   swallow; worth naming in the docstring anyway.
+4. **`mkdtemp` workdir / in-tree mutation window** — carried from earlier rounds, still owed.

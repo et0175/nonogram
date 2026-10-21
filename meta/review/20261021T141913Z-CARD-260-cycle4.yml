@@ -116,8 +116,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 5 (uncommitted) -- tests/test_kill_matrix.py c2113a33 -> 1468707b'
     dismissed_reason: null
     learned_pattern: null
 
