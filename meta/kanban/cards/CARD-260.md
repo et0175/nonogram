@@ -85,7 +85,17 @@ the knowledge evaporates with the scratchpad every time.
 ## Guardrails
 
 - G-1: The instrument never runs the full suite. It takes a targeted selection and refuses an empty one.
-- G-2: It never writes a lock, and refuses to start if `meta/kanban/.full-suite.lock` exists.
+- G-2: It never writes a lock, and refuses to start when `meta/kanban/.full-suite.lock` is held by
+  **another** worktree — taking `full_suite_lock.current_verdict()` whole rather than re-deriving it, so
+  an own-tree, a stale, or an announced-override lock does **not** refuse.
+  **[Restated at the AC/EC/G gate, 2026-10-21.]** The original wording was "refuses to start if
+  `meta/kanban/.full-suite.lock` exists", and the code does not do that — deliberately. A gate holds
+  that file for its whole duration, so the literal rule made the instrument refuse inside the very gate
+  certifying it: **23 `LockHeld` reds in build gate 3**, recorded under `### [Build-fix 1/2]`, closed by
+  adopting CARD-255's identity rule (by **worktree**, not by existence). The guardrail's text was never
+  updated to match that decision; this is that update, not a weakening. The foreign-holder refusal that
+  remains **is** controlled — `allowed or 1` reds two arms, and re-deriving `board_lock_path` locally reds
+  a third.
 - G-3: `nonogram_poc` is never created, dropped, connected to or truncated;
   `_refuse_unless_test_database` is neither widened nor bypassed.
 - G-4: No new runtime dependency (ADR-0006/R1) — `ast`, `pathlib`, `subprocess`, `hashlib` are stdlib.
@@ -1706,13 +1716,16 @@ word).
 
 ### [Follow-up observations] for the card owed after merge — all out of round-5 scope
 
-1. **An uncontrolled figure one layer further out.** `_scoped_edits`'s docstring at `:2275` claims
-   `setattr(` "occurs 6 times in one docstring and 32 times in the file around it". Recomputed against its
-   real target `tests/test_db_engine_lifecycle.py`: **32 total** occurrences — so "32 in the file"
-   reproduces as the file total — but **13 inside docstrings across five of them, at most 4 in any one**.
-   "6 times in one docstring" does not reproduce under my count. I am deliberately **not** calling it
-   false: my domain may not be the author's, and mistaking a domain difference for an error is this card's
-   own trap 1. It is pre-existing from rounds 1–4 and wants re-derivation, not a verdict.
+1. ~~**An uncontrolled figure one layer further out.**~~ **STRUCK — the figure is correct and the error
+   was mine.** I had recorded that `_scoped_edits`'s docstring at `:2275` — `setattr(` "occurs 6 times in
+   one docstring and 32 times in the file around it" — did not reproduce, having counted **13 across five
+   docstrings** in `tests/test_db_engine_lifecycle.py`. **I counted in the wrong file.** `_scoped_edits`
+   is called on *two* texts, and the sentence names one clause for each: `setattr(` occurs **exactly 6
+   times in `src/nonogram/db/session.py`, all six inside `reset_engine`'s docstring** (which is the span
+   the anchor mutates), and **exactly 32 times in `tests/test_db_engine_lifecycle.py`**, the file around
+   it. Both clauses reproduce exactly. Recorded rather than deleted: a false "does not reproduce" costs
+   the same as a missed finding, and the mistake is this card's own trap 1 — I read a figure without its
+   domain and then measured in a domain the author never claimed.
 2. **The empty argv literal fails with a bare `IndexError`** — no message, no line number, no naming of the
    shape, unlike its three sibling asserts. R2's letter is satisfied (a failure, never a silent pass) but
    nothing *plants* that shape, so nothing pins it. `assert argv.elts, f"empty spawn argv at line
@@ -1725,3 +1738,28 @@ word).
    and that is the bound the card already declares and demonstrates. Inside a named bound, not a quiet
    swallow; worth naming in the docstring anyway.
 4. **`mkdtemp` workdir / in-tree mutation window** — carried from earlier rounds, still owed.
+
+### [AC/EC/G gate — forward hazard] AC-7's anchors survive main's movement, verified by derivation
+
+The gate flagged that main is 11 commits ahead and CARD-258 changed `src/nonogram/db/session.py`, from
+which AC-7's second anchor derives its mutant grid — so the anchor could pass here and red after the
+rebase. Checked before rebasing, against both blobs rather than by reading:
+
+- `session.py` **did** move: `057ad2b4…` at `b441ba00` → `c37a2664…` at main.
+- `_init_engine_globals()` returns **`('SessionLocal', '_engine_url', 'engine')` at both** revisions.
+  CARD-258's `_reset_count` never enters it — not because of the `ast.Assign`-vs-`AugAssign` gap in that
+  function (there is no `AugAssign` inside `_init_engine` at either revision), but because `_reset_count`
+  is not declared global in `_init_engine` at all. It is declared in `reset_engine`, which the derivation
+  does not read.
+- The grid's one hard-coded figure, `count("global engine, SessionLocal, _engine_url") == 2`, **still
+  holds on main** — main's second occurrence is `global engine, SessionLocal, _engine_url, _reset_count`,
+  and the pin is a **substring** count, so the added name is invisible to it. That is what carries the
+  anchor across the move; it is also a mild fragility worth naming, since a *reordered* declaration would
+  red where an appended one does not.
+- `reset_engine`'s docstring is unchanged in every respect the grid mutates: `engine` ×23,
+  `SessionLocal` ×2, `_engine_url` ×2, `setattr(` ×6 at both revisions. `tests/test_db_engine_lifecycle.py`
+  is not in main's diff at all.
+- No collision: main changed none of the card's three files, so the rebase is clean for code.
+
+Both AC-7 tests still get one run on the rebased tree before `done` — a derivation that holds is not a
+substitute for the gate it feeds.
