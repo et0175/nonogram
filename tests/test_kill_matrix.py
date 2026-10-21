@@ -1558,17 +1558,25 @@ def test_ac5_a_no_op_mutant_is_refused(simple_target):
 #: The five-occurrence case from the wild, named in CARD-257's cycle-3 record.
 #: A correction that is itself trap 5's shape: what occurs **five** times in
 #: ``tests/test_db_engine_lifecycle.py`` is the assert's *message*; the whole
-#: source line occurs four times, because ``:816`` asserts ``built`` where the
+#: source line occurs four times, because ``:818`` asserts ``built`` where the
 #: other four assert ``names``. Measured here rather than carried over, and
 #: both numbers are asserted below so neither can drift.
+#:
+#: The **line numbers** are a position in a live file and they moved once
+#: already: CARD-259 cut CARD-252's record out of two of the three texts the
+#: anchored test reads, which shifted every occurrence below the edit
+#: (``816, 859, 914, 960, 1087`` -> ``818, 877, 935, 981, 1108``). The two
+#: *counts* (5 and 4) and the arm's *occurrence* (2) did not move, which is the
+#: reason they, and not the positions, are what the anchor is about. Re-derive
+#: these from the file rather than trusting them.
 NAMES_BLIND_MESSAGE = "no module-level globals found in _init_engine (guard is blind)"
 NAMES_BLIND_LINE = (
     '        assert names, "no module-level globals found in _init_engine '
     '(guard is blind)"'
 )
-NAMES_BLIND_OCCURRENCES = (816, 859, 914, 960, 1087)
-#: ``:859`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which is
-#: the whole point: a caller who did not name it would have mutated ``:816``,
+NAMES_BLIND_OCCURRENCES = (818, 877, 935, 981, 1108)
+#: ``:877`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which is
+#: the whole point: a caller who did not name it would have mutated ``:818``,
 #: in a different test, and read the answer off the wrong arm.
 NAMES_BLIND_ARM_OCCURRENCE = 2
 LIFECYCLE = REPO / "tests" / "test_db_engine_lifecycle.py"
@@ -1606,8 +1614,8 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
     """Each of the five is reachable, and each hits its own line and no other.
 
     This is trap 5's second half in the wild: ``occurrence=2`` is CARD-257's
-    ``NAMES-BLIND`` arm at ``:859``, and a caller who did not name it would have
-    silently mutated ``:816``, which belongs to a different test.
+    ``NAMES-BLIND`` arm at ``:877``, and a caller who did not name it would have
+    silently mutated ``:818``, which belongs to a different test.
     """
     source = LIFECYCLE.read_text(encoding="utf-8")
     mutated = km.apply_edit(
@@ -1627,7 +1635,7 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
         if before != after
     ]
     assert moved == [lineno], moved
-    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 859
+    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 877
 
 
 def test_ac5_an_occurrence_past_the_end_is_refused():
@@ -2467,11 +2475,11 @@ SESSION_PY = REPO / "src" / "nonogram" / "db" / "session.py"
 FOUR_ARM = (
     "tests/test_db_engine_lifecycle.py"
     "::TestEngineLifecycle_TheResetIsAPublishedSeam"
-    "::test_both_convention_texts_agree_on_the_mechanisms_parameters"
+    "::test_all_three_convention_texts_agree_on_the_mechanisms_parameters"
 )
 #: CARD-257's four arms, restated from its cycle-3 record and re-derived from
 #: the unmodified parse below rather than trusted.
-PREAMBLE, NAMES, HEADS, POINTER = 859, 878, 889, 897
+PREAMBLE, NAMES, HEADS, POINTER = 877, 897, 908, 916
 WORD = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"
 
 
@@ -2662,20 +2670,32 @@ def _function_span(path: Path, name: str) -> tuple[int, int]:
 
 
 def test_ac7_the_four_arm_grid_of_card_257_reproduces():
-    """``tests/test_db_engine_lifecycle.py`` at ``b441ba00``: the second anchor.
+    """``tests/test_db_engine_lifecycle.py``: the second anchor, CARD-257's grid.
 
-    The arms sit at ``:859`` (preamble), ``:878`` (names), ``:889`` (heads) and
-    ``:897`` (pointer) -- re-derived from the unmodified parse here, never
-    reused from a previous reading. What must come back is CARD-257's grid, cell
-    for cell: six ``DOC-NAME-DEL`` cells RED at ``:878``, four ``DOC-HEAD-DEL``
-    cells RED at ``:889``, ``NAMES-BLIND`` RED at ``:859`` with the three arms
-    below it NOT-REACHED, ``POINTER-ROT`` and ``POINTER-DEL-WORD`` RED at
-    ``:897``, ``CONTROLS-RENAME-ONLY`` PASS, and SHIPPED all-PASS.
+    The **grid** is CARD-257's, measured at ``b441ba00``. The **positions** are
+    not: CARD-259 cut CARD-252's record out of two of the three texts that test
+    reads, and the four arms moved from ``:859`` / ``:878`` / ``:889`` / ``:897``
+    to ``:877`` (preamble), ``:897`` (names), ``:908`` (heads) and ``:916``
+    (pointer). That is the anchor's own distinction: what reproduces is the grid
+    cell for cell, not an address. Re-derived from the unmodified parse here,
+    never reused from a previous reading -- and ``:897`` is now the names arm
+    where it used to be the pointer arm, which is exactly the overlapping-shift
+    misattribution this instrument refuses for a mutant, so the constants above
+    are updated in the same commit as the file they index.
 
-    The two arms inside the ``for label, text in texts`` loop run twice, once
-    per text, so each ``DOC-NAME-DEL`` cell records ``['RED','PASS']`` or
-    ``['PASS','RED']`` -- which is why ANY-RED is doing real work here and not
-    only in a fixture.
+    What must come back: six ``DOC-NAME-DEL`` cells RED at the names arm, four
+    ``DOC-HEAD-DEL`` cells RED at the heads arm, ``NAMES-BLIND`` RED at the
+    preamble with the three arms below it NOT-REACHED, ``POINTER-ROT`` and
+    ``POINTER-DEL-WORD`` RED at the pointer arm, ``CONTROLS-RENAME-ONLY`` PASS,
+    and SHIPPED all-PASS.
+
+    The two arms inside the ``for label, text in texts`` loop run **three**
+    times now, once per text (CARD-259 added ``conftest.py``'s pointer as the
+    third), so each ``DOC-NAME-DEL`` cell records one RED among three outcomes
+    -- which is why ANY-RED is doing real work here and not only in a fixture.
+    The mutant count stays 14 because this anchor scopes its edits to the two
+    texts it can reach: the third lives in ``tests/conftest.py``, which the
+    instrument refuses to edit by identity.
     """
     source = LIFECYCLE.read_text(encoding="utf-8")
     linenos = set(km.assert_linenos(source, str(LIFECYCLE)))

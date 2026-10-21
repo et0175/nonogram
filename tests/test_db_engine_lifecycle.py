@@ -704,24 +704,26 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
     """AC-5: the reset is a named function on ``session.py``, not three
     assignments in a test file.
 
-    The decision (recorded as a ``STRUCTURE:`` note on CARD-252): the fixture
-    calls :func:`nonogram.db.session.reset_engine`. The alternative — the card's
-    own sketch, assigning ``None`` to ``engine``, ``SessionLocal`` and
-    ``_engine_url`` from inside ``conftest.py`` — is the same four lines, but it
-    leaves ``session.py`` silent about the fact that something retires its
-    engine, and silent is how the module got here. That sentence is the only
-    place this docstring names all three globals, and
-    :meth:`test_both_convention_texts_agree_on_the_mechanisms_parameters`
+    The decision is recorded as a ``STRUCTURE:`` note on CARD-252, and *why* it
+    went that way -- who calls the seam, and what the call does and does not
+    pin -- is written once on :func:`nonogram.db.session.reset_engine`
+    (CARD-259). What this docstring keeps is the decision's *input*: the
+    alternative was to assign ``None`` to ``engine``, ``SessionLocal`` and
+    ``_engine_url`` from inside ``conftest.py``, the same four lines, bought at
+    the price of a module that stays silent -- and silent is how it got here.
+    That sentence is the only place this docstring names all three globals, and
+    :meth:`test_all_three_convention_texts_agree_on_the_mechanisms_parameters`
     holds this docstring to naming each of them as a whole word -- reword one
     of the three away and that control reds, per name.
 
     The convention behind the backstop below -- and the bound on what that
     backstop enforces, whose blind-to list is this guard's declared limit --
     is written **once**, on :func:`nonogram.db.session.reset_engine`. **This
-    class does not repeat it.** It used to, "in the same words", which was a
-    claim with nothing to red when the two copies drifted;
-    :meth:`test_both_convention_texts_agree_on_the_mechanisms_parameters` is
-    what replaces that rule.
+    class does not repeat it**, and neither does ``conftest.py``'s step 3 at
+    the call site. Both used to, "in the same words", which was a claim with
+    nothing to red when the copies drifted;
+    :meth:`test_all_three_convention_texts_agree_on_the_mechanisms_parameters`
+    is what replaces that rule, over all three texts.
 
     Controls
     --------
@@ -746,7 +748,7 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
        declared bound stop being prose: the wrapped call it counts, the
        parenthesised receiver it does not, the unclosed ``setattr(`` in prose
        it over-reads.
-    5. :meth:`test_both_convention_texts_agree_on_the_mechanisms_parameters`
+    5. :meth:`test_all_three_convention_texts_agree_on_the_mechanisms_parameters`
        -- what replaced "the same words in two places".
 
     Measured over the whole tree, not reasoned: of the ``setattr(``
@@ -821,8 +823,8 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             "behind is a cache key that outlives the schema."
         )
 
-    def test_both_convention_texts_agree_on_the_mechanisms_parameters(self) -> None:
-        """AC-2: both texts, held to the mechanism's own parameters.
+    def test_all_three_convention_texts_agree_on_the_mechanisms_parameters(self) -> None:
+        """AC-2: all three texts, held to the mechanism's own parameters.
 
         The convention used to be written twice, "in the same words" -- a claim
         with no control: nothing red when the copies drifted, and the doubling
@@ -832,19 +834,29 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         prose -- the globals the builder creates
         (:func:`_global_names_assigned_by`) and the two spellings the scan
         counts (:func:`_spelling_heads`), both read from the code. Deliberately
-        **not** a string comparison of two docstrings, which would be the same
+        **not** a string comparison of docstrings, which would be the same
         uncontrolled rule with a test attached.
+
+        The **third** text is ``tests/conftest.py``'s pointer at the call site
+        (CARD-259). CARD-252's record was written there a third time, in
+        substance, and what replaced it is a pointer -- which is the shape this
+        control exists to stop being uncontrolled. It is read **first**, so a
+        mutant on that text reds on the loop's first iteration and names its
+        own arm even in an uninstrumented run: the per-assertion instrument
+        refuses an edit landing on ``tests/conftest.py`` by identity, because
+        that file carries the database guard, so that text's cells cannot be
+        measured by the instrument at all.
 
         A text may hold the names in double backticks, which the scan does not
         count, and writes :data:`_NAME_PLACEHOLDER` where the attribute
         spelling would otherwise quote one.
 
         Reds under **GLOBAL-ADD** (a fourth global in ``_init_engine``, which
-        neither text names), **DOC-NAME-DEL**[*name*] (one global dropped from
-        one text as a whole word -- six mutants, one per name per text, since
-        the names arm tests whole words and so each name fails on its own),
-        **SPELL-HEAD-RENAME** / **ASSIGN-HEAD-RENAME** (a spelling's head
-        changed, so neither text describes the mechanism any more), and
+        no text names), **DOC-NAME-DEL**[*name*@*text*] (one global dropped
+        from one text as a whole word -- nine mutants, one per name per text,
+        since the names arm tests whole words and so each name fails on its
+        own), **SPELL-HEAD-RENAME** / **ASSIGN-HEAD-RENAME** (a spelling's head
+        changed, so no text describes the mechanism any more), and
         **POINTER-ROT** (both ``:func:`` references renamed to a function that
         does not exist) or **POINTER-DEL-WORD** (every whole-word
         ``reset_engine`` gone).
@@ -853,13 +865,20 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         object, not the bare name: the class docstring it reads also carries
         ``reset_engine`` inside a control's own method name, which is not a
         pointer and which on its own satisfies a bare substring test. Renaming
-        that method is therefore not a lost pointer, and does not red.
+        that method is therefore not a lost pointer, and does not red. The
+        match is word-bounded on both sides, so an identifier that merely
+        *extends* the dotted path (``...reset_engine_pool``) no longer
+        satisfies it -- a substring test it did satisfy, with no occurrence of
+        that shape anywhere under ``src/`` or ``tests/`` to prove it mattered
+        (CARD-257 L-3: a measured bound, closed here because closing it is a
+        lookahead).
         """
         names = _global_names_assigned_by("_init_engine")
         assert names, "no module-level globals found in _init_engine (guard is blind)"
         heads = _spelling_heads(sorted(names)[0])
         guard = type(self).__doc__ or ""
         texts = (
+            ("conftest.py's pointer at the call site", _rebuild_public_schema.__doc__ or ""),
             ("reset_engine()'s docstring", app_session.reset_engine.__doc__ or ""),
             ("this class's docstring", guard),
         )
@@ -870,11 +889,11 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             # has one, which is a check that cannot fail for that name.
             #
             # Whole words, not substrings: ``engine`` sits inside
-            # ``_init_engine`` and ``_engine_url``, which both texts mention,
-            # and inside ``reset_engine``, which the pointer assert below
-            # forces into the guard text -- so a substring test for that name
-            # could not fail on either text. Word bounds are what make each of
-            # the three names red on its own.
+            # ``_init_engine`` and ``_engine_url``, which all three texts
+            # mention, and inside ``reset_engine``, which the pointer assert
+            # below forces into the guard text -- so a substring test for that
+            # name could not fail on any of them. Word bounds are what make
+            # each of the three names red on its own.
             assert {
                 name
                 for name in names
@@ -894,7 +913,9 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
 
         pointer = app_session.reset_engine
         target = f"{pointer.__module__}.{pointer.__name__}"
-        assert target in guard, (
+        assert re.search(
+            rf"(?<![A-Za-z0-9_]){re.escape(target)}(?![A-Za-z0-9_])", guard
+        ), (
             f"this class's docstring no longer carries `{target}`, the "
             "convention's single source -- and the bare name is not the "
             "pointer: this docstring carries it inside a control's own method "

@@ -230,9 +230,12 @@ def reset_engine() -> None:
     nothing, so calling it before the migration cannot leave "a fresh engine
     pointed at a half-built schema". Measured, not reasoned — moving the call
     ahead of the Alembic subprocess leaves ``tests/test_db_engine_lifecycle.py``
-    fully green (CARD-252 G-3). The half-built-schema hazard belongs to that
-    card's original sketch, which rebuilt the engine eagerly, not to this
-    implementation.
+    fully green (CARD-252 G-3, re-measured as CARD-257's cycle-1 review mutant
+    R7). An earlier reading of that guardrail, written at the call site in
+    ``conftest.py``, had it backwards and took the position for the fix; the
+    measurement is the authority, and this is the one place either is recorded
+    (CARD-259). The half-built-schema hazard belongs to that card's original
+    sketch, which rebuilt the engine eagerly, not to this implementation.
 
     What is pinned, and what is not
     -------------------------------
@@ -282,14 +285,18 @@ def reset_engine() -> None:
     which is a different question from retiring an engine after a schema
     rebuild. A third exception is a card, not a commit.
 
-    **This docstring is the only statement of that convention and of the bound
-    below.** ``TestEngineLifecycle_TheResetIsAPublishedSeam`` in
+    **This docstring is the only statement of that convention, of CARD-252's
+    record above, and of the bound below.**
+    ``TestEngineLifecycle_TheResetIsAPublishedSeam`` in
     ``tests/test_db_engine_lifecycle.py`` lists the controls and points here
-    for the rest, instead of repeating it in the same words — a doubling that
-    was itself a claim, with nothing to red when the two copies drifted.
-    ``test_both_convention_texts_agree_on_the_mechanisms_parameters`` is what
-    reds now: it holds both texts to the mechanism's own parameters — the
-    globals :func:`_init_engine` creates and the two spellings that are
+    for the rest, and so does ``_rebuild_public_schema``'s step 3 in
+    ``tests/conftest.py``, instead of either repeating it in the same words — a
+    doubling that was itself a claim, with nothing to red when the copies
+    drifted, and which CARD-259 found still standing in the third text after
+    CARD-257 had retired the second.
+    ``test_all_three_convention_texts_agree_on_the_mechanisms_parameters`` is
+    what reds now: it holds all three texts to the mechanism's own parameters —
+    the globals :func:`_init_engine` creates and the two spellings that are
     counted — read from this module's AST and from the scan's own patterns,
     never quoted.
 
