@@ -85,17 +85,23 @@ def _unreachable_reason(database_url: str):
 
 
 def pytest_configure(config):
-    """Register custom markers; start the hang guard; check the database.
+    """Register custom markers and the diagnostic; start the hang guard; check
+    the database.
 
     The lock check is first and the database check second, both raising:
     CARD-255's point is that the run must not *start* while another worktree
     is running the suite, and CARD-109's is that it must not begin against a
     database nobody chose. Beginning includes collection, and both land before
     any fixture exists, let alone one that connects (CARD-255 G-1).
+
+    CARD-258's diagnostic is registered after all three, so a run one of them
+    refuses never registers it; it costs nothing until an exception is being
+    reported, and only then for one error class.
     """
     _full_suite_lock.pytest_configure(config)
     _database_guard.pytest_configure(config)
     _hang_guard_configure(config)
+    _undefined_table_report.register(config)
     config.addinivalue_line("markers", "unit: isolated component tests")
     config.addinivalue_line("markers", "integration: multi-component tests")
     config.addinivalue_line("markers", "e2e: end-to-end workflow tests")
@@ -147,6 +153,14 @@ from tests import database_guard as _database_guard
 # pytest prints no header at all in the runs this board actually does.
 from tests import full_suite_lock as _full_suite_lock
 from tests.full_suite_lock import pytest_terminal_summary  # noqa: F401
+
+# CARD-258's undefined-table diagnostic. Registered as a named plugin from
+# `pytest_configure` rather than imported as a hook, for two reasons: this
+# conftest already owns four hook names and a fifth import would be one more
+# name to keep from colliding, and a registration under a name is what
+# `-p no:undefined-table-report` can block — so the diagnostic can be shown
+# absent on the real suite, which is what AC-2 asks for.
+from tests.helpers import undefined_table_report as _undefined_table_report
 
 
 def pytest_report_header(config):
