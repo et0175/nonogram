@@ -202,3 +202,266 @@ _Dropped (19), each executed by the suite on every gate: ADR-0006/R1, ADR-0027/R
   **A misattributed cell looks like a measurement; a NOT-REACHED cell looks like a problem.**
 - **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`, reading the ADR files
   **case-insensitively** for the reach-limit idiom. This card is about ADR-0039/R1.
+
+---
+
+## Worktree notes (implementation, 2026-10-22)
+
+### Reading of the card, stated so a reviewer can disagree with it rather than guess
+
+CARD-252's record exists in three texts. AC-1 says each clause appears **once** and *the other two*
+sites carry a pointer -- one site keeps the record, two point at it. "What to implement" 1 names the
+keeper: **`reset_engine()`'s docstring**. So the record stays there, and `conftest.py`'s step 3 and the
+class docstring's opening paragraph were reduced to pointers. `reset_engine()`'s docstring is therefore
+**not** shortened by this card; what was removed is the duplication at the other two sites, plus two
+clauses that were there a third time and are now absorbed into the keeper (see the survival table).
+**Declared bound:** the "135 lines for a 6-line body" residue named in `## Why` is unchanged in length.
+No AC asks for it to shrink -- AC-4 asks the opposite, that the `session.py` edit be docstring-only --
+and relocating CARD-252's record into a *fourth* text would have recreated the problem. If the board
+wanted the keeper trimmed, that is a different card and this note is where to start it.
+
+### AC -> test -> red->green
+
+- **AC-1: test `clause_survival` (card-time, scratch) red->green.** 44 clauses of the retired copies,
+  each with a **named** surviving statement, machine-checked by phrase presence in the named file.
+  First run: 41/44 (three rows had the wrong line-wrap in the phrase, i.e. the *check* was wrong, not
+  the code) -> corrected -> **44/44**. Failing state demonstrated: deleting the R7 clause's only
+  surviving statement from `session.py` gives `43/44` and names the lost clause; restored and verified
+  (`shasum -a 256` equal, `diff -q` clean).
+- **AC-2: test `test_all_three_convention_texts_agree_on_the_mechanisms_parameters` red->green.**
+  Red first, before any prose was written, with exactly the right reason:
+  `conftest.py's pointer at the call site does not name every global _init_engine() creates
+  (['SessionLocal', '_engine_url', 'engine']) as a whole word` / `assert {'engine'} == {...}`. Green
+  after `conftest.py`'s pointer was written.
+- **AC-3: test `test_ac7_the_four_arm_grid_of_card_257_reproduces` red->green.** Red first on its own
+  precondition (`assert set(arms) <= linenos` -- `:859` and `:878` are no longer assert linenos at
+  HEAD), green after the four constants were re-derived. CARD-257's grid reproduces cell for cell.
+- **AC-4: test `derive_hash` + `independent_sweep` (card-time, scratch) red->green.** The AST half is
+  green before and after by construction, so its red is a *planted mechanism change*: `_reset_count
+  += 1` -> `+= 2` keeps the dump length at 9487 and moves the digest to `5a26f679...`. The sweep half
+  is the standing `test_no_test_file_outside_the_exemption_sets_those_globals`, re-derived here by a
+  second implementation.
+
+### AC-2's kill matrix -- three names x three texts, with the DOMAIN of every cell
+
+Every cell deletes the name **as its text shows it**: every whole-word occurrence inside that text's
+own docstring span, replaced by `Z`-fill of equal length (line-count-preserving), by explicit 1-based
+occurrence over the whole file, applied in descending order.
+
+| name | `prod` (reset_engine's docstring) | `guard` (class docstring) | `conftest` (the new pointer) |
+| --- | --- | --- | --- |
+| `SessionLocal`  | FAIL @ `:897` | FAIL @ `:897` | FAIL @ `:897` |
+| `_engine_url`   | FAIL @ `:897` | FAIL @ `:897` | FAIL @ `:897` |
+| `engine`        | FAIL @ `:897` | FAIL @ `:897` | FAIL @ `:897` |
+
+**Domains, stated per column because they are not the same:**
+- `prod` and `guard` (6 cells): CARD-260's committed instrument, `Pass.RECORDING`, ANY-RED, child
+  instrumentation **off**, denominator **47 `ast.Assert` nodes** (not a collected-test count; the
+  selection collects **1** test), SHIPPED `0 FAIL of 4 reached` at pytest exit 0, re-run between
+  mutants. Each mutant: `exit 0, 4 reached, 1 FAIL`. Because the recording pass suppresses the raise,
+  that reading is an **attribution**, not an observation -- so the same 6 were re-measured under
+  `Pass.RERAISING`: same 6 FAIL cells at `:897`, pytest **exit 1** (true propagation, which a plain run
+  would also see), the pointer arm `:916` NOT-REACHED as the short-circuit requires. No cell is
+  instrumented-only.
+- `conftest` (3 cells): **plain-run domain only.** The instrument *refuses by identity* an edit landing
+  on `tests/conftest.py` (`_refuse_forbidden_path`, `_FORBIDDEN_PATHS`) because that file carries the
+  database guard, so these cells **cannot** be measured by it. Measured by an uninstrumented pytest:
+  exit 1, the arm read off pytest's own reported lineno (`:897`) and the assert's own label
+  (`conftest.py's pointer at the call site ...`). The control reads the conftest text **first** so that
+  the first failing assert *is* this arm -- that ordering is what buys the attribution a plain run
+  cannot otherwise give. SHIPPED re-run (exit 0) **between** every mutant; `cp -p` backup in
+  `tempfile.mkdtemp()`, restore in `finally`, verified `shasum -a 256` **and** `diff -q`
+  (`13152427f87e...` before and after). Occurrence counts deleted: `SessionLocal` 1, `_engine_url` 1,
+  `engine` **6**.
+- **Honest bound on this column:** a plain run has no per-arm matrix. It gives one first-failing assert,
+  so these three cells are attributed by *position in the loop plus the message*, not by the
+  instrument. That is the weaker attribution and the stronger observation, and it is the only reading
+  available without widening a database guard -- which G-3 forbids outright.
+
+The heads arm's `conftest` cells were measured in the same plain domain and are reported as a bonus,
+not as an AC: `HEAD-DEL[setattr(@conftest]` and `HEAD-DEL[.<name>@conftest]` both FAIL @ `:908`, one
+occurrence each on disk -- unlike the prod text, where L-2 survives because there are six.
+
+### AC-3 -- the file's arms are unchanged, arm for arm and not address for address
+
+`test_ac7_the_four_arm_grid_of_card_257_reproduces` passes: six `DOC-NAME-DEL` cells RED at the names
+arm, four `DOC-HEAD-DEL` RED at the heads arm, `NAMES-BLIND` RED at the preamble with the three arms
+below it NOT-REACHED, `POINTER-ROT` and `POINTER-DEL-WORD` RED at the pointer arm,
+`CONTROLS-RENAME-ONLY` PASS, SHIPPED all-PASS. Domain: committed instrument, `Pass.RECORDING`, ANY-RED,
+14 mutants, line-count-preserving, each scoped to its own docstring span by occurrence.
+
+The **addresses** moved and the **grid** did not:
+
+| arm | at the merge-base | at HEAD |
+| --- | --- | --- |
+| preamble | `:859` | `:877` |
+| names | `:878` | `:897` |
+| heads | `:889` | `:908` |
+| pointer | `:897` | `:916` |
+
+The two loop arms now execute **three** times per run instead of two, so each `DOC-NAME-DEL` cell is
+one RED among three outcomes -- ANY-RED is doing more work than before, not less.
+
+### SCOPE+
+
+- **`SCOPE+ tests/test_kill_matrix.py`** -- CARD-260's two anchors index `test_db_engine_lifecycle.py`
+  by **absolute line number** held in module-level literals (`NAMES_BLIND_OCCURRENCES`,
+  `PREAMBLE/NAMES/HEADS/POINTER`) and by the anchored test's **name** (`FOUR_ARM`). Any edit inside
+  this card's `Touches` moves them, so they are updated **in the same commit as the file they index**:
+  `NAMES_BLIND_OCCURRENCES (816, 859, 914, 960, 1087) -> (818, 877, 935, 981, 1108)`, the arms as
+  tabled above, `NAMES_BLIND_ARM_OCCURRENCE` unchanged at **2**, the two counts unchanged at **5**
+  (message) and **4** (whole source line), and `FOUR_ARM`'s selection renamed. All re-derived from
+  HEAD's own parse, not guessed. No mechanism in that file was changed.
+- **`SCOPE+ tests/README.md`** -- line 644 recites the same four addresses. Leaving them is the stale-pin
+  failure this card's own AC-4 was cut from, so they are updated with the grid-not-address distinction
+  stated beside them.
+
+### Finding about CARD-260's deliverable (recorded, not reimplemented around)
+
+All six traps the card lists **are** carried by the instrument I imported, each with a control that can
+fail, and one is carried further than the card states:
+
+1. line-count-preserving: `test_ac1_a_line_count_shifting_mutant_is_refused`, with the planted positive
+   `test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing`. And the **seventh shape** the
+   card describes (a small, overlapping shift that misattributes) is closed structurally, not by line
+   count: the target's assert **topology** is re-derived from disk after every mutant, so a moved,
+   swapped or merged assert is refused (`test_ac1_an_equal_line_count_edit_that_moves_an_assert_is_refused`,
+   `..._two_asserts_swapped_are_refused_though_the_linenos_are_identical`,
+   `..._merges_two_asserts_onto_one_line_is_refused`).
+2. ANY-RED: `test_ac2_any_red_and_last_write_wins_disagree_where_it_matters` plus a real two-iteration run.
+3. the occurrence inside the arm you mean: `test_ac5_the_five_occurrence_case_from_the_wild_...`,
+   `test_ac5_an_explicit_occurrence_hits_exactly_that_lineno` (parametrized over all five).
+4. restore + SHIPPED between mutants: `test_ac4_two_sequential_mutants_each_see_a_clean_shipped`,
+   `test_ac4_a_leaked_patch_is_caught_by_the_shipped_re_run_between_mutants`, and the five
+   restore-verification arms.
+5. a no-op mutant: `test_ac5_a_no_op_mutant_is_refused`.
+6. the DOMAIN of every figure: `test_ac6_every_figure_this_instrument_prints_carries_its_pass` and three more.
+
+**F-1 (finding, worth a card):** the instrument refuses a *mutant* that shifts a lineno and re-derives
+its topology from disk -- but **its own anchors do neither.** `test_ac7`'s precondition is
+`assert set(arms) <= linenos`, a **membership** test: it is satisfied by *any* four assert linenos in
+the file, so it certifies that the four constants are asserts, never that they are *those four arms*.
+What made this card's shift read loudly rather than as a misattribution is the shift's **size**, not
+the check: measured, `:859` and `:878` are no longer assert linenos at HEAD, which is what red.
+`:897`, however, **is** -- it was the pointer arm at the merge-base and is the names arm now, which is
+precisely the overlapping-shift misattribution CARD-260 recorded as its seventh shape, standing inside
+its own anchor. **Honest bound:** I did not construct a shift that lands all four old addresses on
+other asserts, so the misattribution is *undemonstrated here* -- what is measured is that the check
+cannot tell one apart. I did not redesign the anchor (the dispatch brief says to record rather than
+reimplement around); I updated the literals and wrote the grid-not-address distinction into the
+anchor's own docstring, where the next agent will read it.
+
+**F-2 (smaller):** running `tests/test_kill_matrix.py` transiently mutates `src/nonogram/db/session.py`
+and `tests/test_db_engine_lifecycle.py` on disk (it is its own second anchor). Any digest of those files
+read **while that file's suite is running** is meaningless. I hit this: a `shasum` taken mid-run read
+`0fd37d9d...` where the pristine file is `03a882c7...`, and the docstring-stripped AST matched the
+merge-base *anyway*, because the mutants in flight were docstring-only -- a reading that looked clean
+and was not a reading of the shipped file at all. Every figure below was re-taken after the run exited.
+
+### AC-4, derived -- not one literal trusted, including the brief's
+
+Method, implemented independently of any committed helper: `git merge-base HEAD main` -> that
+revision's `src/nonogram/db/session.py` -> `ast.parse` -> drop the leading string `Expr` of every
+`Module`/`ClassDef`/`FunctionDef`/`AsyncFunctionDef`, substituting `Pass` for a body that empties ->
+`ast.dump` -> SHA-256.
+
+| revision | dump length | SHA-256 |
+| --- | --- | --- |
+| `b441ba00` (CARD-257's merge, where the card was cut) | **9154** | `bdb10905cdf413c531b907fc0311ec049a3619406860e5702d26b60b0653186c` |
+| `4584caf4` (CARD-258) | 9487 | `49978874aa80a43a851d2146473dcf342b18c8884d8b854fb2366ba1477fbf49` |
+| `main` | 9487 | `49978874...` |
+| **`27ca88c7` (`git merge-base HEAD main`)** | **9487** | **`49978874aa80a43a851d2146473dcf342b18c8884d8b854fb2366ba1477fbf49`** |
+| **this worktree, after all cuts** | **9487** | **`49978874aa80a43a851d2146473dcf342b18c8884d8b854fb2366ba1477fbf49`** |
+
+So the `session.py` edit is docstring-only: **proved** by recomputation against the merge-base, not
+asserted. The method's own control is that it reproduces the card's stale figure *exactly* at
+`b441ba00` (9154 / `bdb10905...`), which is what establishes the method rather than the number -- and
+condemns the number, since CARD-258 moved the file afterwards. The digest's failing state is measured:
+a one-token **mechanism** change (`_reset_count += 1` -> `+= 2`) leaves the dump length at **9487** and
+moves the digest to `5a26f679...`, i.e. the length is not the control and the digest is.
+
+**Declared bound -- why this is NOT committed as a test.** A merge-base comparison is **inert after
+merge**: once `HEAD` is `main`, `git merge-base HEAD main` is `main` itself and the test compares
+`session.py` to itself, green forever whatever anybody does to it. A control that cannot fail after the
+commit that adds it is narrative. Hard-coding the digest instead is what this card's AC-4 did, and it
+rotted inside two waves. So AC-4's AST half is a **card-time guard**, recorded here with its method and
+its failing state; its standing half is the tree sweep below, which has no baseline to rot.
+
+Sweep half of AC-4, re-derived **in a second domain** (a regex-free reimplementation: `str.find` plus a
+hand-rolled forward scan, no `re`, no shared helper -- reproducing a figure with its original method
+only confirms the method): **6 pairs, 9 sites**, dict-equal to `_EXEMPT_HAND_SET_SITES`, and **zero**
+matches in any other file under `tests/` -- including the two files this card edited. The standing
+`test_no_test_file_outside_the_exemption_sets_those_globals` agrees.
+
+### The three inherited latents
+
+- **L-1 `NAME-DEL-BACKTICKED[engine]` -- re-measured, left declared, with the reason.** Reproduced
+  exactly: the prod text holds whole-word `engine` **12** times of which **2** are backticked, the guard
+  text **2** of which **1** is -- so deleting only the backticked ones leaves **10 prod / 1 guard**,
+  which is CARD-257's recorded post-mutant figure to the digit. It is **not** closed, and the reason is
+  measured rather than preferred: the obvious closure is to require each name *inside double backticks*,
+  and with **two** backticked `engine` in the prod text that closure does not close it either -- a
+  partial reword still leaves one. A closure that does not close is worse than a declared latent.
+- **L-2 `HEAD-DEL-FIRST[setattr(]` -- re-measured, left declared.** `setattr(` occurs **6** times in the
+  prod text and **4** in the guard text, so deleting the first leaves 5/3 and the heads arm stays PASS
+  -- CARD-257's figure reproduced. Left declared on purpose: the only closure is an **occurrence-count**
+  claim, and a count that moves whenever prose is edited is exactly the stale pin AC-4 was cut from.
+  Nothing shipped claims an occurrence count. (Measured aside: in the **new** conftest text each head
+  occurs exactly **once**, so there a single-head deletion *does* red -- see the heads cells above.)
+- **L-3 `target in guard` -- CLOSED, and it stays PASS on SHIPPED.** The pointer arm is now
+  `re.search(rf"(?<![A-Za-z0-9_]){re.escape(target)}(?![A-Za-z0-9_])", guard)`. Measured on the shape
+  the guard was **not** written from: an identifier that merely extends the dotted path
+  (`nonogram.db.session.reset_engine_pool`) satisfies the substring test (`substring=True`) and fails
+  the bounded one (`word-bounded=False`), while SHIPPED satisfies both. CARD-257's bound reproduced:
+  **0** occurrences of an extending identifier anywhere under `src/` or `tests/`.
+
+### Guardrails
+
+- **G-1 no mechanism change.** `session.py`: docstrings only, proved by AC-4's AST equality.
+  `conftest.py`: docstring only (`git diff` touches no statement). `test_db_engine_lifecycle.py`:
+  docstrings, plus the one extended control -- a third entry in its `texts` tuple and the L-3 lookahead.
+  `test_kill_matrix.py`: four literals, one selection string and prose; no mechanism.
+- **G-2 no clause retired without a named surviving statement.** 44/44, with a demonstrated failing state.
+- **G-3.** `nonogram_poc` never created, dropped, connected to or truncated; it is not named anywhere in
+  this diff. `_refuse_unless_test_database` is untouched -- and so is the instrument's own refusal to
+  edit `tests/conftest.py`, which is **why** the third column is a plain-run reading rather than an
+  instrumented one. I routed around the guard's *reach*, never around the guard.
+- **G-4.** stdlib only (`ast`, `re`, `subprocess`, `shutil`, `tempfile`, `pathlib`). No new dependency;
+  the scratch scripts are not committed.
+- **G-5 ADR-0036/R4.** `TestDifficultyDots_HasExactlyOneDrawingSite` 29 passed. Independent scan of
+  every `str` constant under `src/nonogram/**` for U+25A0..U+25FF / U+2022 / U+2219: the only hits are
+  `src/nonogram/admin/pdf_generator.py:321`, three U+2022 -- the **declared exemption**, unchanged. A
+  clean-scan claim over the whole tree would be false and is not made.
+
+### Green set (not the full suite -- the orchestrator owns that gate)
+
+`tests/test_kill_matrix.py tests/test_db_engine_lifecycle.py tests/test_db_url_driver.py
+tests/test_db_connect_timeout.py tests/test_full_suite_lock.py` -> **189 passed, 2 skipped**. The 2
+skips are this file's `db_required` tests with no reachable test database; they skip **green**, so AC-1
+and AC-2 of `TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema` are **not** evidence from
+this run. Declared, not glossed.
+
+`tests/test_guard_integrity.py tests/test_suite_profile.py` -> **530 passed**: the structural censuses
+over the whole test tree (the lateral-import guard among them) are unaffected by any of this. And
+`tests/conftest.py`'s own docstring-stripped AST is **equal** to the merge-base's (33624 bytes), so that
+file's edit is docstring-only too -- the same proof as AC-4's, run on the second file rather than
+claimed from the first.
+
+### Honest bounds, collected
+
+1. The clause survival check is **phrase presence** in a named file. It shows the words survive where
+   this card says they do; it does not show the meaning does, and a row whose named home is wrong would
+   still pass if the phrase happened to occur there.
+2. The `conftest` column is a **plain-run** reading: one first-failing assert, not a per-arm matrix.
+   The conftest-first ordering is what makes that assert the arm under test, and that ordering is a
+   property of the control, not of the measurement.
+3. AC-4's AST half is a card-time proof, inert as a committed test (see above). Its standing half is the
+   sweep.
+4. F-1's misattribution shape is **undemonstrated here**; what is measured is that the anchor's
+   precondition cannot distinguish it.
+5. L-1 and L-2 remain open, each with a measured reason why the available closure is not one.
+6. `reset_engine()`'s docstring length is unchanged. This card removed the duplication, not the residue.
+7. The two `db_required` tests in the edited file did not run.
+8. No timing measurement was taken and none is reported anywhere above.
+9. `NONOGRAM_FULL_SUITE_LOCK` was redirected to `/tmp/card259-scratch.lock` for every run in this
+   worktree; `meta/kanban/.full-suite.lock` was never read, created, modified or deleted.
