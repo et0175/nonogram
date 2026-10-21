@@ -1855,3 +1855,34 @@ weakening, it is the only wording the code can hold, and the hold is controlled 
    arms; a file replaced by different bytes that happened to yield 130 would not. Both anchor files are
    byte-identical to their named commits today, verified read-only — but that is an external check, not the
    test's.
+
+### [Merge gate] PASSED on the rebased tree — 8718 passed, 27 skipped, exit 0, and the skips are a declared bound
+
+Held the board lock as the deliberate gate holder for `f2d0231a` (own-tree verdict verified before writing
+it; `holder`/`why`/`worktree` absolute/`commit`/`at`, released in a trap — "lock released: yes"). Full
+suite, not the impact scope: this is the once-per-card run that backstops `review.test_scope: impact`.
+
+**The bound, stated rather than buried: 27 skipped where this board's earlier gates ran 1.** CARD-258's
+merge gate was 8668 passed / **1** skipped and CARD-260's own build gates 4 and 5 were 8690 and 8694
+passed / **1** skipped. The difference is environmental, not the card's: `DATABASE_URL` is unset in this
+session, so every DB-mode test skips with `conftest.py:207 Database not reachable` — 14 of them in
+`test_db_isolation.py` + `test_db_engine_lifecycle.py` + `test_admin_binding.py` alone. **This gate
+therefore exercised ~26 fewer tests than the ones that certified CARD-258.** This is the board's own
+known "DB tests skip silently" hazard, and naming it is the only honest way to pass on it.
+
+Why it is acceptable *for this card specifically*, which is a different question from whether it is
+acceptable in general:
+- The card's whole diff is **three test-only files** — `tests/kill_matrix.py`, `tests/test_kill_matrix.py`,
+  `tests/README.md`. Nothing in `src/` and nothing in `tests/conftest.py`.
+- G-3 was verified statically at the AC gate by enumeration, not by running: no DB driver import, no
+  `create_engine`, no `DATABASE_URL` write, no `DROP`/`TRUNCATE`/`CREATE DATABASE`, and `Runner._pytest`
+  passes no `DATABASE_URL` while running with `cwd=repo_root` so the conftest's database guard still gates
+  every child.
+- The `_refuse_unless_test_database` guard selection is **28 passed, 0 skipped** — that evidence is real,
+  not vacuous-by-skip.
+- `tests/test_kill_matrix.py` itself has **zero** skips (76 passed), so none of the 27 is in a file this
+  card touched.
+
+**What is owed:** a full suite with Postgres reachable is the stronger gate and this card did not get one
+at its final state. That is a bound on this merge, not a claim that the skips do not matter — captured to
+the backlog.
