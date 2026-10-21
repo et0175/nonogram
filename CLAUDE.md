@@ -47,8 +47,8 @@ orchestrator.py  COMP-002  owns the Puzzle aggregate; drives the capability modu
 sourcing/         COMP-003  sources a solution grid (random implemented; library/image are future work)
 clues.py          COMP-004  pure run-length-encoding of a grid into row/column clues
 solver/           COMP-005  hand-rolled constraint-propagation + backtracking uniqueness solver
-difficulty.py     COMP-006  not yet built
-export/           COMP-007  not yet built
+difficulty.py     COMP-006  scores 0..100 from the solver's rung tags, then the Easy/Medium/Hard bands
+export/           COMP-007  PNG/SVG/JSON/CSV/PDF renderers, plus `layout.py`'s shared page geometry
 ```
 
 `cli` imports `orchestrator`; `orchestrator` imports the capability modules; **capability modules never import `cli`, the orchestrator, or each other laterally** — their only shared dependencies are `errors.py` (a flat, import-free exception hierarchy) and `limits.py` (the supported grid size range, `MIN_SIZE`/`MAX_SIZE`, also import-free — use it instead of writing 10 or 30). This is not just convention: `tests/test_cli.py` contains a structural guard that walks `src/nonogram/**/*.py` on disk with `ast` and fails the suite on any lateral or inward-pointing import, so it automatically covers new capability modules as they're added. When two capabilities need to share logic, reimplement it natively in each rather than importing across — see `solver/propagate.py`'s `mask_runs` for the precedent (it deliberately reimplements one clue-encoding check rather than importing `clues.py`, and is cross-checked against `clues.encode_line` from the test tree instead, where the import is legal).
