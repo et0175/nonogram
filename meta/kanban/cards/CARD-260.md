@@ -1,6 +1,6 @@
 # CARD-260: Commit the per-assertion kill instrument once, with all six of its known traps as controls
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** enabler
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/260-commit-the-kill-instrument
-**Worktree:** ../PythonProject4-card-260
+**Worktree:** —
 **Source:** Wave 50 retrospective, owner decision — five agents built this instrument from scratch in one wave and each hit a different trap first
 **Idea:** —
 **Wave:** 51
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py, tests/README.md
 **Review score:** 8.8 (round 5 — re-entry cycle 2/3)
-**Started:** 2026-10-20T16:52:59Z · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Started:** 2026-10-20T16:52:59Z · **Closed:** 2026-10-21T19:03:11Z · **Actual:** 3.3d · **Merge commit:** 62f52ec6
 **Blocked by:** —
 
 ## Why — the traps are known, and nothing in the tree remembers them
