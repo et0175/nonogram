@@ -93,7 +93,7 @@ findings:
     source: static
     violates: G-2
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -135,7 +135,7 @@ findings:
     source: static
     violates: G-3
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -173,7 +173,7 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -213,7 +213,7 @@ findings:
     source: static
     violates: ADR-0039/R2
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -259,7 +259,7 @@ findings:
     source: static
     violates: ADR-0039/R3
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -295,7 +295,7 @@ findings:
     source: model
     violates: ADR-0039/R2
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern:
@@ -331,7 +331,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -361,7 +361,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -393,7 +393,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -415,7 +415,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -439,7 +439,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null

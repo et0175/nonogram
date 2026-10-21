@@ -98,7 +98,11 @@ the knowledge evaporates with the scratchpad every time.
   a third.
 - G-3: `nonogram_poc` is never created, dropped, connected to or truncated;
   `_refuse_unless_test_database` is neither widened nor bypassed.
-- G-4: No new runtime dependency (ADR-0006/R1) — `ast`, `pathlib`, `subprocess`, `hashlib` are stdlib.
+- G-4: No new runtime dependency (ADR-0006/R1) — `ast`, `pathlib`, `subprocess`, `tempfile` are stdlib.
+  **[Corrected at the AC/EC/G gate, 2026-10-21.]** This line named `hashlib`, which the instrument does
+  **not** import: the digest comes from the external `shasum` binary, which is exactly why
+  `_verification_failures` carries a "shasum could not run" branch at all. The guardrail held; its
+  prose named a module that is not there.
 - G-5: It never restores a file with git. `cp -p` backups only, verified two ways.
 - G-6: It takes **no timing measurements** and reports none.
 
@@ -1763,3 +1767,91 @@ rebase. Checked before rebasing, against both blobs rather than by reading:
 
 Both AC-7 tests still get one run on the rebased tree before `done` — a derivation that holds is not a
 substitute for the gate it feeds.
+
+### [Fix 6 / AC-gate remedy] FIX PRE-GATE: PASS — G-5's second half now has a control per arm
+
+Five named tests, all exist and pass. `tests/test_kill_matrix.py` `1468707b…` → `294a6422…` (2475 → 2701
+lines), `tests/kill_matrix.py` `8dee3401…` → `4279dc5d…` (1433 → 1455), `tests/README.md` `81dfaa8c…` →
+`5f2f9659…`. 72 → 76 tests. `DECLARATIONS G-5 — doc module docstring (re-derived), doc
+`Runner._verification_failures` (re-derived), README G-5 paragraph (new per-arm paragraph), `:125`
+confirmed, matrix none`. `DECLARATIONS AC-6 — doc none; module docstring's trap-1 sentence confirmed`.
+
+**My own mutant, re-run against the fixed tree — the arms are isolated, which is the point:**
+
+| mutant | reds |
+|---|---|
+| `diff -q` arm alone | `…_is_caught_by_diff_q`, `…_fails_the_run_from_its_finally` |
+| `shasum` arm alone | `…_is_caught_by_shasum_256`, `…_fails_the_run_from_its_finally` |
+| **both — the one that left 72 passed** | all three |
+
+File restored byte-identical (`4279dc5d…`, 1455 lines) after each.
+
+**The plant is in `cp` itself, and it has to be.** A successful `cp -p backup path` makes the two files
+equal **by construction**, so no *input* can make `_verification_failures` see a mismatch. The control puts
+a four-line `sh` shim first on `PATH` that, for restores only (recognised by which end the `backup.*` name
+sits on), exits 0 and writes nothing. That is the actual hazard G-5 names — an exit code saying it worked
+while the bytes on disk are not the backup's — rather than a re-spelling of the comparison, which is the
+four-copy defect this card already gated on once.
+
+**And it sharpened the finding rather than accepting it.** With both comparisons dead the suite looked calm
+because a wrong-bytes restore *is* still caught one step later, by the between-mutants SHIPPED re-run. But
+that backstop exists only **between** mutants: the outer `finally` has no re-run after it, so on the last
+or only mutant of a run the file is left mutated and published as verified — with G-5 forbidding a git
+restore. The hole is narrower than "nothing notices" and worse than it sounds: it is precisely the exit
+path with no backstop.
+
+The `shasum`-cannot-run branch is now controlled too, by narrowing `PATH` to a directory with `cp` and
+`diff` and no `shasum` at all. Scope stated rather than implied: that plants the **absent binary** (the
+`OSError` half), which is what the docstring's sentence claims; a `shasum` that exists and exits non-zero
+takes the same `except` and the same `append`, so the *branch* is controlled and the two exception classes
+are not controlled separately.
+
+### [AC/EC check] All criteria/constraints ✓ (evidence)
+
+Fresh re-run of the full gate after fix 6, on all 13 items, with the previous run's verdicts deliberately
+**withheld from the verifier** so no conclusion could be inherited. 22 mutants, every one
+line-count-preserving, `cp -p`-backed, and restored verified by **both** `shasum -a 256` and `diff -q`.
+Baseline and post-gate both 76 passed, RC=0, digests identical at start and end.
+
+```
+AC-1 ✓ demonstrated — _refuse_line_shift neutered -> 4 red (DID NOT RAISE MutantRefused); topology
+       re-check neutered -> 3 more
+AC-2 ✓ demonstrated — aggregate_any_red -> last-write-wins -> 2 red ('PASS' == 'FAIL'), incl. the real-run arm
+AC-3 ✓ demonstrated — Pass.reraise forced True; blind-spot set emptied; _Recorder always raising -> all red
+AC-4 ✓ demonstrated — between-mutants check removed, and fed the STALE shipped -> red both ways
+AC-5 ✓ demonstrated — found = source.count(old) -> edit.expect -> 6 red
+AC-6 ✓ demonstrated — trap 1 exactly: figure prints {collected_tests} under "assertion nodes" -> red
+AC-7 ✓ demonstrated — orelse=[] so no PASS is ever recorded -> both anchors red
+G-1  ✓ demonstrated — both selection refusals off + _RAN_EXIT_CODES widened -> 3 red
+G-2  ✓ demonstrated — read AS RESTATED, and controlled in BOTH directions (see below)
+G-3  ✓ demonstrated — static + 28 passing guard tests, 0 skipped; refusals neutered -> 9 red
+G-4  ✓ demonstrated — import equality; `import ast, numpy` -> red; a stdlib addition correctly does not
+G-5  ✓ demonstrated — both restore comparisons dead -> 3 red; git censuses inert -> 4 red
+G-6  ✓ demonstrated — set members dropped -> red; a real clock planted -> red
+```
+
+**G-2's restatement is itself controlled, which is the evidence I most wanted and did not ask for.** The
+verifier added a third plant the card never claimed: putting the **old by-existence rule back** reds
+`test_g2_a_lock_this_worktree_holds_does_not_refuse_the_start` and the four-state equality test. So the
+own-tree / stale / override relaxations are **measured, not merely declared** — the restatement is not a
+weakening, it is the only wording the code can hold, and the hold is controlled in both directions.
+
+**Four honest bounds the gate recorded while still passing the items. None gates; all are follow-up.**
+1. **"G-2 never writes a lock" has no behavioural control** — it rests on a structural enumeration of every
+   write site in `kill_matrix.py` (three: the plugin's per-pid jsonl under its temp records dir, the
+   mutated target in `_apply`, the generated plugin file), complete over the card's own code. The verifier
+   deliberately did **not** plant a lock-writing mutant, and said why: `board_lock_path()` honours the env
+   override, but one G-2 test does `monkeypatch.delenv`, so such a plant could reach the **main checkout's
+   real lock file**. Declining that plant was the right call and the reason belongs on the record.
+2. **AC-4's honest-path test is not a second control** — `test_ac4_two_sequential_mutants_each_see_a_clean_shipped`
+   survived both AC-4 plants; it checks the between-matrices exist, are FAIL-free and equal SHIPPED's cells,
+   so an implementation storing the initial `shipped` under each mutant's name would satisfy it. The leak
+   test is the whole control.
+3. **AC-3's structural arm does not route through `Pass`** — it calls `km._Recorder(reraise)` with literal
+   booleans, so it is insensitive to a `Pass.reraise` mutation. It has its own control via the raise branch,
+   so AC-3 is covered in two layers, but they are independent arms, not one chain.
+4. **AC-7's anchors pin content, not commit identity** — `LOCK_GUARD_TEST`/`LIFECYCLE` read the working
+   tree (there is no git call; G-5 forbids one). Content drift reds via `counted == 130` and the re-derived
+   arms; a file replaced by different bytes that happened to yield 130 would not. Both anchor files are
+   byte-identical to their named commits today, verified read-only — but that is an external check, not the
+   test's.

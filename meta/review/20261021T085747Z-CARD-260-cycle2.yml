@@ -138,7 +138,7 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -201,7 +201,7 @@ findings:
     source: static
     violates: ADR-0039/R2
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -233,7 +233,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -266,7 +266,7 @@ findings:
     source: model
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -304,8 +304,8 @@ findings:
     source: model
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'card text corrected 2026-10-21 at the AC/EC/G gate (G-4 module list, G-2 restatement)'
     dismissed_reason: null
     learned_pattern: null
 
@@ -358,8 +358,8 @@ findings:
     source: model
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'card text corrected 2026-10-21 at the AC/EC/G gate (G-4 module list, G-2 restatement)'
     dismissed_reason: null
     learned_pattern: null
 

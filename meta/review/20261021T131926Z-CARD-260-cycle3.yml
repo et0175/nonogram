@@ -129,8 +129,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 4 (escalation remedy) -- confirmed by the cycle-4 review, mutation-verified'
     dismissed_reason: null
     learned_pattern: null
 
@@ -163,8 +163,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 4 (escalation remedy) -- confirmed by the cycle-4 review, mutation-verified'
     dismissed_reason: null
     learned_pattern: null
 
@@ -200,8 +200,8 @@ findings:
     source: history
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 4 (escalation remedy) -- confirmed by the cycle-4 review, mutation-verified'
     dismissed_reason: null
     learned_pattern: null
 
@@ -243,8 +243,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 4 (escalation remedy) -- confirmed by the cycle-4 review, mutation-verified'
     dismissed_reason: null
     learned_pattern: null
 
