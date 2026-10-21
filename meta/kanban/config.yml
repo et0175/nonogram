@@ -102,6 +102,24 @@ conflict:
     - src/nonogram/admin/book_manager.py
     - migrations/**                        # migration index; merged order is what runs
     - src/nonogram/db/**
+    # Added 2026-10-22 (owner). The shared book corpus: 10 READY cards declare it
+    # (CARD-209, 218, 219, 226, 227, 229, 230, 231, 232, 233), so any two of them
+    # running concurrently edit the same fixtures and page maps. It was measured
+    # as the most-shared file on this board -- present in 9 of the 12 ready-card
+    # overlaps with CARD-206's real diff -- and it was in no hotspot, while the
+    # ten cards that DO collide on book_pdf_generator.py were already covered.
+    #
+    # What this entry does NOT catch, stated so nobody reads it as closed: the
+    # hotspot rule needs BOTH cards to *declare* the path, and CARD-206 edited
+    # this file without declaring it (Touches said 6 files; the diff was 27). So
+    # CARD-218 and CARD-219 -- the two whose real overlap with CARD-206 was 89%
+    # and 100% -- are serialized against each OTHER by this line and still not
+    # against a card that touches the corpus undeclared. That residue is the
+    # `Touches`-is-a-prediction problem, filed as an @ops item in backlog.md,
+    # and it is deliberately NOT fixed by widening every card's Touches: the
+    # same field feeds the scope gate, which needs a prediction to detect growth
+    # against. Two jobs, opposite requirements.
+    - tests/helpers/book_corpus.py
 
 done:
   require_pr: false
