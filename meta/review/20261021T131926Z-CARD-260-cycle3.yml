@@ -1,0 +1,308 @@
+version: 1
+generated_at: "2026-10-21T13:19:26Z"
+target: "CARD-260 cycle 3/3 (LAST) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-260, branch card/260-commit-the-kill-instrument. State under review = HEAD f9718739 PLUS three uncommitted fix rounds in the working tree (cycle-1 fixes, build-fix, cycle-2 fixes), i.e. `git diff main...HEAD` + `git diff`."
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: full                        # cycle 2 discovered gating findings; discovery resets the mode
+
+coverage:
+  read:
+    - tests/kill_matrix.py             # whole file, 1431 lines, working-tree state
+    - tests/test_kill_matrix.py        # whole file, 2083 lines, working-tree state
+    - tests/README.md                  # full `git diff HEAD` hunks + the Declared bounds / anchors / refusal-table sections
+    - meta/kanban/cards/CARD-260.md    # What/AC/Guardrails/System contract/eight declared bounds/all three cycles' records
+    - meta/review/20261021T085747Z-CARD-260-cycle2.yml   # cycle-2 verdicts, re-verified not inherited
+    - tests/conftest.py                # _refuse_unless_test_database / _refusal_reason (G-3 reach; raises via pytest.fail, not assert)
+    - tests/test_db_engine_lifecycle.py  # anchor 2 target — independent AST census (202 Call nodes, 0 spawn-shaped)
+    - tests/test_full_suite_lock.py      # anchor 1 target — child-dependent census
+  not_reached:
+    - "the rest of the suite (build gate 5 PASSED at 8694/1 skipped; not re-established per instruction)"
+    - "the browser tier (pytest-playwright/Chromium) — instructed not to run it; see ADR-0038/R8"
+    - "tests/database_guard.py body (only its existence and identity as the guard's second half were used)"
+  confidence: high
+  executed:
+    - "pytest tests/test_kill_matrix.py -q -> 66 passed, twice (once at review entry, once for the F-203 re-derivation). Collect-only confirms 66 node ids."
+    - "Step 8f mutation check RUN (deferred in cycles 1 and 2): 10 mutants on tests/kill_matrix.py, 8 killed, 1 survived-and-explained (equivalent mutant), 1 survived = finding F-301."
+    - "Independent AST censuses with python -I over both AC-7 anchor targets (spawn-shaped Call nodes, child_dependent_linenos)."
+    - "Independent re-derivation of F-203: 549 kill-matrix-* temp dirs before a clean 66-test file run, 549 after."
+    - "Anchor drift check: `git diff ddb1731b HEAD -- tests/test_full_suite_lock.py` and `git diff b441ba00 HEAD -- tests/test_db_engine_lifecycle.py` are both EMPTY, so AC-7's `at <sha>` wording is still true of the files the tests read live."
+  lock_discipline: "The board's real lock meta/kanban/.full-suite.lock DOES NOT EXIST and was never created, deleted, written or overridden by this review. I did NO lock probing of my own, so I never needed to set NONOGRAM_FULL_SUITE_LOCK; the card's own G-2 tests plant on tmp paths through full_suite_lock's LOCK_PATH_VAR override under monkeypatch, which I read but did not alter."
+  mutation_discipline: "cp -p backup to the scratchpad before the first mutant; every mutant restored with `cp -p` from that backup (never git checkout/restore/stash); shasum -a 256 re-verified after EVERY mutant. Pre-review and post-review digest of tests/kill_matrix.py are identical: 2a20d4f99ff49dc7fef8e092a0edfeb4c8445a1902dc1ca96c6d6ac4b8a50d71 (backup: same digest). `git diff --stat` byte-identical before and after (3 files, 1565 insertions, 94 deletions). No mutation target was ever a path under /Users/omelnikova/PycharmProjects/PythonProject4 OTHER than the file under review itself (tests/kill_matrix.py), and the instrument was never pointed at a repo path as a mutation target by this review. nonogram_poc was never created, dropped, truncated or connected to."
+
+metrics:
+  diff:
+    files: 3
+    added: 2273
+    removed: 0
+    uncommitted_on_top: { added: 1565, removed: 94 }
+    note: "main has moved (CARD-258 merged as 4584caf4) so `git diff main --stat` is misleading (19 files); the state under review is `git diff main...HEAD` (+2273) plus `git diff` (+1565/-94)."
+  max_fan_in:
+    symbol: "tests.kill_matrix (whole module)"
+    callers: 1
+    detail: "grep over tests/ src/ scripts/ in both trees: only tests/test_kill_matrix.py imports it; tests/README.md documents it. CARD-259 is the declared second consumer (wave 52)."
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: ["tests/full_suite_lock.py", "tests/test_full_suite_lock.py", "tests/conftest.py", "tests/test_suite_profile.py"]
+  unmeasured:
+    hotspots: "no_eligible_fact — tests/kill_matrix.py and tests/test_kill_matrix.py have 0 prior commits (new in this card); tests/README.md has 11 commits/12mo with 2 fix-shaped, which is not a hotspot. The hotspots that matter here are INDIRECT and were measured: src/nonogram/db/session.py 17 commits/12mo, tests/test_db_engine_lifecycle.py 11, tests/test_full_suite_lock.py 5 — the files AC-7's anchors read live (feeds F-303)."
+    bus_factor: "tooling_failure — `git shortlog -sn -- <file>` returns no author rows in this worktree (single bot identity), so no dominant-author signal could be derived."
+    cochange_missing_verdict: "measured, and judged NOT a missing change: all four peers are outside the card's declared Touches (scope gate IN_SCOPE); tests/conftest.py is forbidden by G-3; the two names imported from full_suite_lock (lock_path, current_verdict) are its own public API; tests/test_suite_profile.py passed inside build gate 5's full green run with the new 66-test file present."
+
+system_contract:
+  rules_checked: 5
+  holds: 3
+  unchecked: 1
+  violated: 1
+  note: "Judged against the 5 rules the card's `## System contract` carries (orchestrator re-verified at cycle entry that the lens projects 10 and curation.md selects these 5). Nothing beyond the 5 was checked. History NOT inherited: cycle 1 had R1/R2/R3 all ✗; cycle 2 had R3 ✓, R1 ✗, R2 ✗. This cycle R2 moves to ✓ (its cycle-2 ground is closed the way R2's own escape hatch prescribes) and R1 stays ✗ on NEW and DIFFERENT grounds (cycle 2's F-201 ground is resolved; the new ground is three uncontrolled refusals, one of them proven by a surviving mutant)."
+  verdicts:
+    - "ADR-0038/R7 ✓ holds — re-derived, not inherited: `git diff --name-only` and `git diff main...HEAD --name-only` each list exactly tests/README.md, tests/kill_matrix.py, tests/test_kill_matrix.py (no pyproject.toml), and `grep -ciE 'playwright|chromium|browser'` over the two code files returns 0 and 0. Nothing moves pytest-playwright toward project.dependencies or the admin extra. Corroborated mechanically by test_g4_the_instrument_imports_stdlib_and_one_named_sibling, which holds `extra == {\"tests\", \"full_suite_lock\"}` against sys.stdlib_module_names (green in the 66-test run)."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: the diff adds no browser test and changes no skip path (same grep, 0 hits over both code files); G-1 keeps the instrument off the full suite, so nothing here bears on whether browser tests skip loudly with a named reason. A ✓ would require running the browser tier, which this review is instructed not to do. SAME typed reason as cycle 2, deliberately not upgraded on no new evidence."
+    - "ADR-0039/R1 ✗ violated — tests/kill_matrix.py:1341-1348 (_measure's off-key refusal) and its published claim at tests/README.md:523, plus tests/kill_matrix.py:564 and :541. R1: «any claim the guard makes about what it catches needs a control that can fail». PROVEN by mutation: mutant M10 replaces `off_key = sorted(set(records) - set(linenos))` with `off_key = []` — the refusal can then never fire — and the whole 66-test file still passes. An AST scan of tests/test_kill_matrix.py finds no `Mutant(name, ())` construction and no `Edit(occurrence<1)` construction either, so those two refusals have no control at all. Cycle 2's R1 ground (bound 2's false justification) IS resolved — see F-201 below. Findings F-301 (Important) and F-302 (Minor), root cause RC-1."
+    - "ADR-0039/R2 ✓ holds — cycle 2's ground (a shape the guard cannot analyse passing silently: exit 1 with no FAIL cell) is closed the way R2's own second clause prescribes, and I re-derived each half. The shape is now ANALYSED AND CARRIED rather than silently passed: KillMatrix.figure() carries `per mutant: <NAME> exit <N> with <M> reached and <K> FAIL` (kill_matrix.py:816-825) and table() inherits it as its header — mutant M2 (clause replaced by a constant) is KILLED by test_g1_a_kill_outside_the_matrix_domain_is_attributable_in_the_figure. Deny is applied at the one position where it cannot be wrong: _refuse_unless_clean's `reached == 0` (kill_matrix.py:1236-1245) at BOTH call sites (:1166, :1176) — mutant M1 (`if not reached and False`) is KILLED by test_g1_a_shipped_that_reached_nothing_is_not_a_baseline. The residue (which cause produced exit 1) is a named exemption under R3 — bound 8, written down in README and card — with its own both-sided controls. The sets the guards consult remain derived from enumerable authorities: child_dependent_linenos from the target's own AST with an unparsable callee counted as a spawn (mutants M6 `lineno > 0` and M8 `_SPAWN` matching nothing are both KILLED), G-4's baseline from sys.stdlib_module_names, G-5's argv heads from the module's own AST via _SPAWN. _RAN_EXIT_CODES = {0,1} is hand-written but deny-by-default with both sides controlled (mutant M3 widening it to {0..5} is KILLED), which is R2's explicit allowance; deriving it from pytest.ExitCode would require importing pytest into the instrument and would red G-4's own equality."
+    - "ADR-0039/R3 ✓ holds — every exemption the instrument grants carries a control for what it must NOT absorb, re-verified test by test in the 66-test run and mutation-confirmed where a mutant could reach it: G-4's one pinned sibling is held to an EQUALITY (`extra == {\"tests\",\"full_suite_lock\"}`) so a third party reds; G-2's own-tree exemption is controlled by a foreign lock plus a decoy under repo_root that must NOT refuse (test_g2_a_foreign_lock_refuses_the_start_and_repo_root_does_not_move_it) and by four lock states each asserted equal to full_suite_lock.current_verdict()'s own answer (test_g2_the_refusal_is_its_owners_verdict_and_not_a_second_opinion); G-3's two-path set is held to 7 spellings incl. a mis-cased DIRECTORY, plus a guard-defeating edit naming NEITHER banned literal; G-5's sys.executable is the only accepted non-literal argv[0] and anything else fails the enumeration; bound 1's unseen region has its own failing control (`through_a_helper == frozenset()`, killed by M6); bound 2's census is now a control (killed by M8). Cycle 2's single weakest instance — F-204, G-5's run-time-assembled-command bound with no demonstration — is CLOSED at test_kill_matrix.py:926-953, where both halves are run over `['sh','-c', tool + ' checkout ' + path]` and asserted to miss it."
+
+root_causes:
+  - id: RC-1
+    title: "Refusals were added to the instrument without the control ADR-0039/R1 requires — the one rule this card declares itself to be about"
+    finding_ids: [F-301, F-302]
+
+findings:
+  - id: F-301
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/kill_matrix.py
+    line: 1341
+    title: "The off-key refusal has no control that can fail — removing it leaves all 66 tests green"
+    description: |
+      `_measure` refuses a reading whose records name an assert `lineno` the matrix has no cell
+      for (tests/kill_matrix.py:1341-1348), and tests/README.md:523 publishes that refusal to a
+      consumer: "a reading that records an assert `lineno` the matrix has **no cell for** | the
+      file that ran is not the file the keys came from; each such record is a real execution
+      attributed to nothing". Nothing exercises it.
+
+      PROVEN, not inferred — mutant M10: `off_key = sorted(set(records) - set(linenos))` ->
+      `off_key = []`, so the refusal can never fire. `pytest tests/test_kill_matrix.py -q` ->
+      66 passed. The mutant SURVIVES. Corroborated statically: the refusal's own message
+      fragments ("recorded assert lineno", "attributed to nothing") appear nowhere in
+      tests/test_kill_matrix.py, and no test matches it with pytest.raises.
+
+      The near-miss makes the gap sharper, not softer.
+      `test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing`
+      (tests/test_kill_matrix.py:249-288) constructs EXACTLY the off-key condition — it writes a
+      line-deleting mutant past `apply_edit` and asserts `not set(records) & set(linenos)` — and
+      then routes around `_measure`, calling `runner._pytest(...)` and re-deriving the cells by
+      hand with `km.aggregate_any_red(...)`. So the "missed WITHOUT" half of R1's pair exists and
+      the "caught WITH" half does not.
+
+      ADR-0039/R1 is this card's own declared subject ("This card is about ADR-0039/R1", card
+      `## Worktree notes`) and its clause is literal: "A claim whose control cannot fail is
+      narrative, not coverage, and must be narrowed to what is measured or deleted." A refusal
+      that can be deleted without reddening anything is the strongest form of that defect, inside
+      the instrument built to detect exactly it.
+
+      ATTRIBUTION, mechanical: `grep -c off_key` is 0 in `git show HEAD:tests/kill_matrix.py` and
+      3 in the working tree, and the README row is absent from `git show HEAD:tests/README.md` —
+      so the refusal and its claim are NEW IN A FIX ROUND, and cycle 2's own report attributes
+      them to the CYCLE-1 fix (F-003's resolution, quoted there as "_measure adds the off-key
+      refusal `set(records) - set(linenos)` (kill_matrix.py:1243)"). It is NOT new in the
+      cycle-2 fix. Cycle 2 cited this mechanism approvingly as F-003's resolution without
+      checking whether it had a control.
+    suggestion: |
+      One change, either direction — R1 offers both:
+      (a) give it the control, which costs almost nothing because the fixture already exists:
+          in `test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing`, after the
+          existing `_pytest` block asserts the off-key shape, call
+          `runner._measure("SHIFTED", Pass.RECORDING, len(linenos), pristine)` on the same
+          shifted file inside `pytest.raises(MutantRefused, match="no cell for")`, and assert
+          the "missed WITHOUT" half stays as it is (the hand-aggregated all-NOT-REACHED reading)
+          so both sides of R1's pair are in one test; or
+      (b) delete the refusal and say in README's refusal table that
+          `_refuse_unless_topology_holds` owns that claim — but only after measuring that it
+          does, which (a) is cheaper than.
+      Do NOT also add a new predicate or a fifth cell outcome: the family's shape on this card is
+      position standing in for a cause, and this finding asks for a control, not a mechanism.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-302
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/kill_matrix.py
+    line: 564
+    title: "Two more refusals with no control: an empty-edit-set Mutant, and Edit(occurrence<1)"
+    description: |
+      Same root cause as F-301, lower stakes, and PRESENT AT HEAD rather than added by a fix
+      (`grep -c "edits nothing"` and `grep -c "must be 1-based"` are both 1 in
+      `git show HEAD:tests/kill_matrix.py` and 1 in the working tree) — so cycles 1 and 2 both
+      passed over it.
+
+      * tests/kill_matrix.py:564 — `Mutant.__post_init__` raises `MutantRefused("mutant {name!r}
+        edits nothing")`. An AST scan of tests/test_kill_matrix.py finds no `Mutant(name, ())`
+        construction, so this refusal is never exercised. It is not cosmetic: without it `_apply`
+        is a no-op and the mutant's column equals SHIPPED's, published as a survivor — which is
+        trap 5's own recorded shape. AC-5's controls cover the text-absent no-op
+        (`test_ac5_a_no_op_mutant_is_refused`) but not the empty-edit-set no-op.
+      * tests/kill_matrix.py:541 — `Edit.__post_init__` raises on `occurrence < 1`. No
+        `Edit(occurrence=0)` or negative construction exists in the test file. Trivial by itself.
+    suggestion: |
+      Fold into F-301's fix pass: `pytest.raises(MutantRefused, match="edits nothing")` on
+      `Mutant("EMPTY", ())`, and `pytest.raises(MutantRefused, match="1-based")` on
+      `Edit(path=..., old="x", new="y", occurrence=0)`. Two lines each, in bound 1's shape.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-303
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_kill_matrix.py
+    line: 1833
+    title: "AC-7 anchor 1 pins 130/41 against a live, actively-changing file with a bare assert and no drift message"
+    description: |
+      `assert _independent_assert_count(LOCK_GUARD_TEST) == 130` (:1833) and
+      `assert matrix.collected_tests == 41` pin figures against tests/test_full_suite_lock.py as
+      it is on disk, not at the `ddb1731b` the docstring names. The pin is correct today — I
+      checked: `git diff ddb1731b HEAD -- tests/test_full_suite_lock.py` is EMPTY, as is
+      `git diff b441ba00 HEAD -- tests/test_db_engine_lifecycle.py`.
+
+      The [history] signal is what makes it worth a line: that file has 5 commits in 12 months,
+      the three most recent of them adding exactly the kind of assert that moves a census
+      ("the census figure goes, the subsumed arms and the enumerated silence are declared",
+      f2236045). The first assert added there reds this card's anchor, and :1833 carries NO
+      message — so the next agent sees a bare `assert 131 == 130` and cannot tell an anchor that
+      drifted from an instrument that broke. Every control the cycle-3 fix added carries exactly
+      that message ("re-derive the bound rather than the expectation"); the anchor it defends
+      does not. Note anchor 2 is already immune by construction: `_four_arm_grid` derives its
+      mutants from the two texts, which is why it survived CARD-258's +69/-1 to session.py.
+    suggestion: |
+      Give :1833 and the `collected_tests == 41` assert the same message shape the new controls
+      use, naming the file and the sha: e.g. "tests/test_full_suite_lock.py moved since
+      ddb1731b — this is the anchor drifting, not the instrument; re-derive the figure from the
+      card's record rather than editing the expectation". No mechanism change.
+    confidence: high
+    source: history
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-304
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/kill_matrix.py
+    line: 795
+    title: "KillMatrix.figure()'s own docstring contradicts itself in one sentence (\"the grid is identical in all three\")"
+    description: |
+      New in the cycle-2 fix (part 2). The docstring reads: "A mutant's cells can be FAIL-free for
+      three different reasons, and the grid is identical in all three: nothing ran (`0 reached`),
+      the kill was expressed outside this matrix's domain ... (`exit 1` with arms reached and none
+      FAIL), or the arms genuinely survived (`exit 0`)."
+
+      The sentence refutes itself: it separates case 1 from case 2 BY THE REACHED COUNT, and the
+      reached count is derived from the cells (`denominator - len(not_reached)`), i.e. from the
+      grid. Case 1's column is all-NOT-REACHED; case 3's column equals SHIPPED's, which the new
+      `reached == 0` gate guarantees has at least one reached arm — so the two grids are not
+      identical. What is true, and what the card's own fix note says, is narrower: cases 2 and 3
+      are cell-for-cell identical, which is exactly what
+      `test_g1_a_kill_outside_the_matrix_domain_is_attributable_in_the_figure` demonstrates
+      (MESSAGE-ROT vs RAISE-WRONG-TYPE). The mechanism is sound and controlled (mutant M2 killed);
+      only the sentence overreaches.
+
+      Raised because this card's standard is its own ("Any sentence it prints is a claim"), and
+      because an overstated motivation is how F-201 started. It is NOT a repeat of F-201's
+      species: nothing is justified by this clause — it does not reject an alternative, and the
+      alternative it would have supported (carry the distinction in the figure) is what shipped.
+      This is the ONLY finding this cycle attributable to the cycle-2 fix, and it is non-gating.
+    suggestion: |
+      Narrow to what is measured: "...and the grid cannot say which: cases 2 and 3 are
+      cell-for-cell identical (demonstrated by
+      test_g1_a_kill_outside_the_matrix_domain_is_attributable_in_the_figure), and case 1's
+      column of NOT-REACHED is indistinguishable from the arms a targeted selection legitimately
+      never ran."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+previous_cycle:
+  cycle: 2
+  score: 7.5
+  resolved:
+    - "F-201 (Important) ✓ RESOLVED, and by the route the brief named. The false parenthetical is gone from tests/README.md; the bound (README:594-656) now rejects the fail-closed set on a ground DERIVED FROM THE CODE — it is a coarser POSITION rule, and since a targeted selection legitimately leaves most asserts NOT-REACHED (the premise _refuse_unless_clean's own docstring states) it would relabel every arm the selection never ran. I re-derived both halves of the replacement census myself with python -I: anchor 2's target has 202 Call nodes and ZERO matching km._SPAWN, `child_dependent_linenos` -> frozenset(), its one textual 'subprocess' is a comment; anchor 1's is non-empty. NO new mechanism was added, as claimed. The census is now a control that CAN FAIL — verified by mutation: M8 (_SPAWN rewritten to match nothing) KILLS test_ac3_the_rejected_fail_closed_set_would_relabel_nothing_on_either_anchor at :658. One mutant survived and is explained rather than filed: M9 (adding `setattr` to _SPAWN) leaves the test green, but that is an EQUIVALENT mutant — `\\bsetattr\\b` does not match `setattr_pattern.search` / `setattr_spelling`, the only setattr-ish callees in anchor 2, and the 32 textual `setattr(` live inside docstrings, so anchor 2 still has zero spawn-shaped calls and the control's expectation is genuinely unchanged."
+    - "F-202 (Important) ✓ RESOLVED, all three parts, and part 1 verified unable to false-positive. (1) `_refuse_unless_clean` gained exactly ONE condition, `reached == 0` computed as `denominator - len(not_reached)` (kill_matrix.py:1236), on BOTH call sites (:1166 shipped, :1184 between-mutants); no new exception class, no new cell outcome, and the refusal message carries matrix.figure() — hence the exit code it deliberately did not key on — which its test asserts. Mutant M1 KILLED. On false positives I constructed the two candidate 'legitimate' shapes myself: a node-id selection whose selected test owns no ast.Assert of its own, and a flag-off target all of whose arms execute only inside a child (bound 2's region). Both produce precisely the useless baseline the gate describes — every mutant compared against it survives every arm by construction, because the baseline comparison is cell-for-cell — so refusing them is honest, and 'a reading that reached no arm has no baseline to be' holds as written. (2) KillMatrix.figure() carries the per-mutant clause and table() inherits it as its header; demonstrated by two cell-for-cell identical mutants where the figure is the only difference; mutant M2 KILLED. (3) Part 3's bound MATCHES THE CODE: exit 1 is in _RAN_EXIT_CODES (:323), there is no predicate anywhere on `exit 1 ∧ no FAIL` (exit_code is read only by the gate at :1327 and the two f-strings at :755/:823), the cell vocabulary is still exactly PASS/FAIL/NOT-REACHED/BLIND, and nothing raises on that position. Bound 8 in README (:658-681) and card bound 8 say the same thing as the code."
+    - "F-203 (Minor) ✓ RESOLVED, and independently re-derived rather than taken: 549 machine-wide kill-matrix-* directories before a clean 66-test file run and 549 after. _discard_workdir is called from run()'s finally only after a verifying restore; the kept-on-failure half is controlled and names the directory in the exception. Mutant M5 (rmtree -> pass) KILLED by test_g5_a_finished_run_discards_its_temp_tree_and_a_failed_restore_keeps_it. The restraint of not deleting the pre-existing dirs is correct — another agent's gate could own one."
+    - "F-204 (Minor) ✓ RESOLVED. The run-time-assembled-command bound is demonstrated in bound 1's shape at tests/test_kill_matrix.py:926-953: both halves of the G-5 enumeration are run over `['sh','-c', tool + ' checkout ' + path]` and asserted to miss it (`heads == ['sh'] and named == []`), with a 'update the bound rather than the expectation' message. It can fail. Minor residual, not filed: the control re-spells the `(\\S*/)?git(\\s|$)` regex as a fourth literal copy instead of sharing one constant with the half it is demonstrating, so a change to the enumeration's pattern would not propagate into its own demonstration."
+    - "F-205 / F-206 (info -> DECOMPOSE) NOT re-raised as code findings, and I do not disagree with cycle 2's reasoning. Re-verified the load-bearing half: a pinned sibling import is inside G-4 as written because ADR-0006/R1 concerns pyproject's DECLARED runtime deps and pyproject.toml is untouched (`git diff --name-only` = the three files). G-4's own census is an equality against sys.stdlib_module_names plus `{tests, full_suite_lock}`, and the module docstring states both halves correctly ('no hashlib: the digest comes from the external shasum binary' and 'exactly one module from this tree's own tests/ directory'). Left where cycle 2 routed them."
+    - "F-006 (REFUTED in cycle 1) — confirmed on re-read and NOT re-proposed. _FORBIDDEN_PATHS is typed in the module, the README and the card as 'the set of sites that carry the guard today', never as derived; no derive-at-import or deny-by-default remedy appears anywhere in this report."
+    - "Prose-to-mechanism annotation — judged HONEST. The record labels both ratios 'as measured at f9718739' and states that the record never gives the method, instead of substituting a second unstated method whose own reconstruction disagreed (1.06 / 0.57). Under this card's discipline a figure whose method is unstated cannot be re-derived, so labelling it is the only move that does not manufacture a number. The remaining gap is the unstated method itself, which lives on the card record, outside this review's three-file scope — not filed."
+    - "Module docstring stale test name ✓ RESOLVED: it now names test_g4_the_instrument_imports_stdlib_and_one_named_sibling, which exists and passes; shutil is declared in the docstring's stdlib list and does not move G-4's equality."
+  still_present: []
+
+family:
+  streak_before: 1
+  sentence: "Each fix declares a boundary, and the next cycle finds a shape inside it."
+  attributable_to_cycle2_fix: ["F-304 (Minor, non-gating)"]
+  streak_after: 1
+  verdict: |
+    The streak does NOT reach 2 and the family trigger does NOT fire. Attribution was done
+    mechanically, with `git show HEAD:<file>` against the working tree, not by proximity:
+      * F-301's code and its README claim are ABSENT at HEAD f9718739 and present now, and
+        cycle 2's own report attributes them to the CYCLE-1 fix (F-003's resolution, which it
+        quoted approvingly without checking for a control). New in the cycle-1 fix, not the
+        cycle-2 fix.
+      * F-302's two refusals are PRESENT AT HEAD (original implementation), so they predate
+        every fix round.
+      * F-303 is original implementation (HEAD) plus a git-history signal.
+      * F-304 IS new in the cycle-2 fix — and it is Minor and non-gating, so it is not "a
+        gating finding attributable to the cycle-2 fix".
+    The honest shape of this cycle is therefore one cycle LATE rather than one more turn of the
+    family: cycle 3 found a shape inside a boundary the CYCLE-1 fix declared, which cycle 2
+    reviewed and endorsed. That is a review-coverage observation about cycle 2, not a new
+    instance of the fix-declares-boundary loop, and the orchestrator should classify it as such
+    rather than as streak 2.
+
+escalation_note: |
+  This is cycle 3 of 3 and F-301 (Important) stands, so the severity gate closes the success
+  path and the card cannot merge on this review. Per the cycle brief that means escalation
+  rather than another round — but NOT on the family trigger (see `family` above). The remedy is
+  one test, in a fixture that already exists, in the file the card already owns.
+
+mutation_check:
+  status: run
+  note: "Deferred by the cost ladder in cycles 1 and 2 (gating findings present both times); run here as instructed because no gating finding existed at the point the ladder reached Step 8f. 10 mutants on tests/kill_matrix.py, each restored and digest-verified before the next."
+  mutants:
+    - { id: M1,  target: "_refuse_unless_clean reached==0 (:1236)", mutation: "if not reached -> if not reached and False", verdict: killed, by: "test_g1_a_shipped_that_reached_nothing_is_not_a_baseline" }
+    - { id: M2,  target: "KillMatrix.figure per-mutant clause (:825)", mutation: "f\"per mutant: {per_mutant}\" -> f\"per mutant: omitted\"", verdict: killed, by: "test_g1_a_kill_outside_the_matrix_domain_is_attributable_in_the_figure" }
+    - { id: M3,  target: "_RAN_EXIT_CODES (:323)", mutation: "{0,1} -> {0,1,2,3,4,5}", verdict: killed, by: "test_g1_a_run_pytest_never_made_is_not_published_as_a_fail_free_matrix" }
+    - { id: M4,  target: "aggregate_any_red (:500)", mutation: "all(outcomes) -> outcomes[-1] (i.e. last-write-wins)", verdict: killed, by: "test_ac2_a_two_iteration_arm_aggregates_red_in_a_real_run + test_ac2_any_red_and_last_write_wins_disagree_where_it_matters[red-then-green]" }
+    - { id: M5,  target: "_discard_workdir (:1134)", mutation: "shutil.rmtree(...) -> pass", verdict: killed, by: "test_g5_a_finished_run_discards_its_temp_tree_and_a_failed_restore_keeps_it" }
+    - { id: M6,  target: "child_dependent_linenos intra-function bound", mutation: "lineno > first -> lineno > 0", verdict: killed, by: "test_ac3_child_dependent_arms_are_derived_from_the_target_ast" }
+    - { id: M7,  target: "_refuse_unless_topology_holds (:1294)", mutation: "if after == before -> if after is not None (always returns)", verdict: killed, by: "all three AC-1 topology tests (moved / swapped / merged)" }
+    - { id: M8,  target: "_SPAWN (:440)", mutation: "pattern rewritten to match nothing", verdict: killed, by: "test_ac3_the_rejected_fail_closed_set_would_relabel_nothing_on_either_anchor (anchor-1 half, :658)" }
+    - { id: M9,  target: "_SPAWN (:440)", mutation: "pattern widened with `setattr`", verdict: survived_equivalent, note: "NOT a coverage gap: \\bsetattr\\b does not match setattr_pattern.search / setattr_spelling, the only setattr-ish callees in anchor 2, and the 32 textual setattr( are inside docstrings — so anchor 2 still has zero spawn-shaped calls and the control's expectation is genuinely unchanged. Re-derived with python -I before classifying." }
+    - { id: M10, target: "_measure off-key refusal (:1341)", mutation: "off_key = sorted(set(records) - set(linenos)) -> off_key = []", verdict: SURVIVED, note: "whole file still 66 passed -> finding F-301" }
+  restore_verification: "shasum -a 256 of tests/kill_matrix.py after every mutant and at the end: 2a20d4f99ff49dc7fef8e092a0edfeb4c8445a1902dc1ca96c6d6ac4b8a50d71, identical to the cp -p backup taken before the first mutant. `git diff --stat` identical before and after. No git checkout/restore/stash was used at any point."

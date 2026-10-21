@@ -1,6 +1,6 @@
 # CARD-260: Commit the per-assertion kill instrument once, with all six of its known traps as controls
 
-**Status:** review
+**Status:** blocked
 **Priority:** P1
 **Category:** enabler
 **Complexity:** standard
@@ -15,9 +15,9 @@
 **Wave:** 51
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py, tests/README.md
-**Review score:** 7.5 (cycle 2/3)
+**Review score:** 8.5 (cycle 3/3)
 **Started:** 2026-10-20T16:52:59Z · **Closed:** — · **Actual:** — · **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — implementation: review cycles exhausted (3/3) at score 8.5 with one Important standing (F-301: the off-key refusal in `_measure` has no control that can fail). The family trigger did NOT fire — streak stays 1. Worktree kept.
 
 ## Why — the traps are known, and nothing in the tree remembers them
 
@@ -1280,3 +1280,125 @@ verify, and the exception then names the directory, because the backup is the on
   states the method. It **annotated them as "as measured at `f9718739`" and flagged the gap instead of
   inventing a number.** That is the right call: a figure whose method is unstated cannot be re-derived, and
   silently replacing it with a second unstated method would have been worse than leaving it labelled.
+
+### [Build gate 5 — PASSED, post cycle-2 fix] and an interop check main's movement made necessary
+
+Full suite, solo under the board lock: **8694 passed, 1 skipped, 0 failed, EXIT=0** in 1242.36s (20:42).
+Count reconciles: main(old base) 8629 + the card's **66** node IDs = 8695 = 8694 + 1 skipped.
+
+**⚠ But gate 5 certified a tree that is no longer what will ship, and I checked rather than assumed.**
+CARD-258 merged as `4584caf4` while this card was in its fix round, so `main` moved to `50fdb165` while
+this branch's merge-base stayed at `02e0f691`. What landed is **not** inert for this card:
+`tests/conftest.py` **+15/−1** (registering a new always-on plugin), a new
+`tests/helpers/undefined_table_report.py` (**735 lines**, loaded in *every* pytest session — including the
+**child pytests this instrument spawns**), and `src/nonogram/db/session.py` **+69/−1** — which is
+**AC-7 anchor 2's own mutation target**, whose 14 mutants are derived from that file's text.
+
+**Rebasing now would be wrong** (two rounds of fixes are uncommitted; the procedure commits on a passing
+cycle and `done` rebases the committed branch — my attempt aborted cleanly and the autostash restored
+everything, verified). So I tested the interaction **without** disturbing the card: a throwaway detached
+worktree at `main`, with this card's three in-flight files copied on top, `NONOGRAM_FULL_SUITE_LOCK`
+pointed at a nonexistent scratch path and **no `DATABASE_URL`** so no database was created.
+
+- `tests/test_kill_matrix.py` in the **both-cards** tree → **66 passed**.
+- **Both AC-7 anchors reproduce**: `test_ac7_the_lock_guard_file_reproduces_130_of_130_pass_and_reached`
+  and `test_ac7_the_four_arm_grid_of_card_257_reproduces` → **2 passed**. So anchor 2's 14 mutants still
+  apply to the **changed** `session.py`, which was the one genuine risk.
+- `git status` over `src/` and `tests/test_db_engine_lifecycle.py` in that tree afterwards: **empty** —
+  the instrument restored both mutation targets byte-identically even on the new file content.
+- Guard neighbours (`test_full_suite_lock`, `test_guard_integrity`, `test_suite_profile`, `test_naming`)
+  → **611 passed**.
+- Throwaway worktree removed; `PycharmProjects` holds only the repo and this card's worktree.
+
+**So cycle 3's evidence will survive the rebase**, and that is now measured rather than hoped. The
+merge gate at `done` remains the authority on the merged tree.
+
+### [Scope gate] cycle 3: IN_SCOPE
+
+`excess` = 0 — the three changed files are the card's `Touches` exactly, unchanged across three fix
+rounds. `comp_spread` skipped (no `## Architecture context`). `poached` empty. `guardrail_hits` skipped
+(G-1…G-6 are behavioral; none names a forbidden path). **[System contract]** re-checked at cycle entry:
+the lens still projects 10 and the card still carries the 5 `meta/kanban/curation.md` selects — no ids
+added, none removed.
+**[Round counter]** 2 prior `[Review N/3]` entries; cycle 3 makes **3**, against a fatigue threshold of
+2 × `max_cycles` = **6**. No fatigue escalation.
+
+### [Review 3/3] Score: 8.5 (7.5 → 8.5, Δ+1.0) — one Important stands, and cycle 3 is the last
+
+Report: `meta/review/20261021T131926Z-CARD-260-cycle3.yml` — 4 findings (1 high / 3 low), 5
+system-contract verdicts. **[Review sync]** 1 report → `meta/review/`.
+
+**Step 8h: 3 ✓ holds, 1 ⚠ unchecked, 1 ✗ violated.** ADR-0039/**R2 and R3 now ✓**, both having been
+violated in cycle 1 — and R2 is closed *the way R2's own second clause prescribes*: the shape is
+**analysed and carried** rather than silently passed, deny is applied at the one position that cannot be
+wrong (`reached == 0`), and the residue is a named R3 exemption. ADR-0038/R8 repeats cycle 2's
+`⚠ unchecked — no_eligible_fact` with the **same typed reason, deliberately not upgraded** without the
+browser tier. **ADR-0039/R1 ✗ — but on a new and different ground**: cycle 2's R1 violation (bound 2's
+false justification) is resolved; this is the off-key refusal.
+
+**All of cycle 2's findings resolved, each re-derived.** F-201 ✓ — the reviewer re-ran both census halves
+itself (anchor 2: 202 Call nodes, **0** matching `_SPAWN`) and confirmed the control **can fail** (M8 kills
+it). F-202 ✓ all three parts — and it tested the thing I most wanted tested: it **constructed the two
+candidate "legitimate" shapes** for part 1 (a node-id selection whose test owns no `ast.Assert`; a flag-off
+target whose arms run only in the child) and found both are *precisely the useless baseline the gate
+describes*, so **part 1 cannot false-positive**. Part 3's bound matches the code: exit 1 ∈
+`_RAN_EXIT_CODES`, no predicate on `exit 1 ∧ no FAIL` anywhere, cell vocabulary unchanged. F-203 ✓
+independently re-derived (**549 temp dirs before a clean run, 549 after**). F-204 ✓. F-205/F-206 not
+re-raised. The prose-to-mechanism annotation judged **honest handling** — "labelling a figure whose method
+is unstated beats substituting a second unstated method".
+
+**Mutation check RAN at last** — deferred twice by the cost ladder, executed here on stable code:
+**10 mutants, 8 killed, 1 survived-equivalent** (re-derived before being classified as equivalent, not
+assumed), **1 survived → F-301**. Restore verified by `shasum` after **every** mutant, pre/post digest of
+`kill_matrix.py` identical, `git diff --stat` byte-identical. *On a card whose entire subject is whether an
+assertion can fail, this is the check that had to run — and it is what found the gating finding.*
+
+**F-301 — Important — `tests/kill_matrix.py:1341` — the off-key refusal has no control that can fail.**
+**I verified this myself rather than taking it.** Forcing `off_key = []` so the refusal can never fire
+leaves **all 66 tests green** (restore verified byte-identical, `2a20d4f9…`). `tests/README.md:523`
+publishes it to a consumer as a refusal the instrument performs.
+**And the near-miss is what makes it sharp:** `test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing`
+constructs **exactly** the off-key condition (`assert not set(records) & set(linenos)`) and then **routes
+around `_measure`**, calling `_pytest` and re-aggregating by hand — so R1's "missed WITHOUT" half exists
+and the "caught WITH" half does not.
+*One correction to the finding's wording, checked:* it says the message fragments "appear nowhere in the
+test file", but `grep -c 'no cell for'` returns **1**. That occurrence is fixture **prose** —
+`OUT_OF_DOMAIN_TARGET`'s own docstring — not a `pytest.raises(match=…)`. The substance holds; the phrasing
+was loose, and the distinction is exactly the kind this card exists to police.
+
+### [Family] streak STAYS 1 — the trigger does NOT fire, and the attribution is mechanical
+
+**I re-derived the attribution myself:** `git show HEAD:tests/kill_matrix.py | grep -c off_key` → **0**;
+working tree → **3**. So F-301's code is new in a fix round — but in the **cycle-1** fix (it was F-003's
+"cheap second net", which my own cycle-1 brief asked for by name), **not** the cycle-2 fix. F-302 and
+F-303 are present at HEAD (original implementation). F-304 **is** new in the cycle-2 fix — and it is
+**Minor and non-gating**, so it is not "a gating finding attributable to the cycle-2 fix". The trigger
+requires both.
+
+**The reviewer's framing is better than mine and I am adopting it: this is _one cycle late, not one more
+turn of the family_.** Cycle 3 found a shape inside a boundary the **cycle-1** fix declared, which **cycle
+2 reviewed and endorsed without checking it had a control** — and so did I: my own `[Review 2/3]` note
+records "the off-key refusal … is in `_measure` as a second net" approvingly, as an existence claim, which
+is the precise error this family is about. That is a **review-coverage observation about cycle 2**, not a
+new instance of the loop, and it would have been wrong to bank it as streak 2.
+
+### [Review max/max] Score: 8.5 ⚠ max cycles reached — ESCALATED, changes NOT committed
+
+Severity gate closed by one standing Important at cycle 3 of 3. Per the procedure the fixes stay
+**uncommitted** and the worktree is **kept**; the owner decides.
+
+**Routed to station: implementation** (code defect — the requirement, the card and the slice are all
+sound; a control is missing). **Not** architect (no AC is unclear), **not** decompose (the scope held at
+exactly three files across three fix rounds), **not** the family trigger.
+
+**The remedy is one test, in a fixture that already exists, in a file the card already owns.** In
+`test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing`, after the existing `_pytest` block,
+call `runner._measure("SHIFTED", Pass.RECORDING, len(linenos), pristine)` inside
+`pytest.raises(MutantRefused, match="no cell for")` — the off-key condition is **already constructed
+there**. The alternative is to delete the refusal and let the topology check own the claim. Either closes
+F-301, and F-302 (two more uncontrolled refusals, both present at HEAD) folds into the same pass.
+
+**[Escalated]** 2026-10-21 — station: **implementation** · max cycles reached (3/3), score 8.5, one
+Important (F-301). Route: **add the one missing control, then `/forge:kanban review CARD-260`** — NOT
+`redo`. A clean-slate redo would discard three fix rounds that closed four Criticals and brought the card
+4.0 → 7.5 → 8.5, to replace one `pytest.raises` block in a fixture that already constructs the condition.

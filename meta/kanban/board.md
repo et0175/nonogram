@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-21 10:25 UTC_  ·  <!-- forge:run wave=51 mode=interactive concurrency=2 -->
+_Updated: 2026-10-21 13:26 UTC_  ·  <!-- forge:run wave=51 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -55,7 +55,7 @@ _Updated: 2026-10-21 10:25 UTC_  ·  <!-- forge:run wave=51 mode=interactive con
 | 48 | CARD-225 P1, CARD-247 P2, CARD-252 P1, CARD-253 P2 | ✅ done |
 | 49 | CARD-254 P2, CARD-255 P1 | ✅ done |
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
-| 51 | CARD-258 P1, CARD-260 P1 | ▶ active (CARD-260 review) |
+| 51 | CARD-258 P1, CARD-260 P1 | ▶ active ⚠ (CARD-260 blocked) |
 | 52 | CARD-259 P2 | ⏳ queued (→ CARD-260) |
 | unscheduled | CARD-206 P2, CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2 | ⏳ not yet dispatched to a wave |
 
@@ -95,12 +95,12 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 _(none)_
 
 ## Review
-- **CARD-260** P1 · Commit the per-assertion kill instrument once, with all six of its known traps as controls · score 7.5 (cycle 2/3)
-  `worktree: ../PythonProject4-card-260` · `branch: card/260-commit-the-kill-instrument`
-  `elapsed: 2.2d / 0.75d est ⚠ overdue`
+_(none)_
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
+- **CARD-260** ⚠ Commit the per-assertion kill instrument once, with all six of its known traps as controls  ← escalated — implementation: review cycles exhausted (3/3) at score 8.5 with one Important standing (F-301: the off-key refusal in `_measure` has no control that can fail). The family trigger did NOT fire — streak stay…
+  `worktree: ../PythonProject4-card-260` (kept) · → add the one missing control, then `/forge:kanban review CARD-260`
 
 ## Done
 _239 cards merged, waves 1–51 (plus 43 from before the `Wave:` field existed)._ Most recent:
