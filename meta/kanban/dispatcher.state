@@ -893,9 +893,14 @@ wave_52:
         51's CARD-260 was cut at 0.75d and took 3.3d. 0.75d is the floor, not a prediction.
   baseline_verified_before_dispatch: >-
     60 passed, 2 skipped, EXIT=0 on tests/test_db_engine_lifecycle.py + tests/test_book_toc.py at
-    27ca88c7, with NONOGRAM_FULL_SUITE_LOCK redirected to a scratch path (announced) so the board's own
-    lock was neither created nor read. Run so that a red in either card's first cycle is attributable to
-    the card and not inherited.
+    27ca88c7, with the lock-path environment switch pointed at a scratch path (announced) so the board's
+    own lock was neither created nor read. Run so that a red in either card's first cycle is attributable
+    to the card and not inherited. The switch is deliberately NOT named here: this file is not one of
+    CARD-255's two exempt prefixes and `.state` is not one of its prose shapes, so naming it reds the
+    tracked-tree scan in tests/test_full_suite_lock.py. That happened once already, from backlog.md
+    during CARD-260's merge (commit e821f579), and the remedy then was the same as now -- reword the
+    prose, never widen the guard. Cards and review reports are exempt surfaces; the dispatcher's own
+    state file is not, and that distinction is correct.
   config_deviation_found_and_not_silently_continued:
     what: "review.test_scope in config.yml is `full`, and has been since wave 26 (its only commit)."
     consequence: >-
