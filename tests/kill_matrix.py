@@ -49,29 +49,89 @@ The six traps, each an acceptance criterion with a control that can fail
 5. A **no-op mutant** whose ``old`` string is absent, and a mutant that hits a
    different occurrence than the caller meant. Both are refused.
 6. **Line-count-shifting** mutants: refused, because the numbering shifts and
-   every later assert then reports ``NOT-REACHED``.
+   every later assert then reports ``NOT-REACHED``. Equal line counts are not
+   the invariant, only the cheap half of it: the target's assert **topology**
+   (each node's ``lineno`` *and* what the assertion at it says) is re-derived
+   from disk after every mutant is applied, so a moved, swapped or merged
+   assert is refused rather than silently reported under another arm's cell.
+
+A reading that is not a run
+---------------------------
+pytest's exit code is part of the figure, and only ``0`` (all green) and ``1``
+(tests ran, some failed) are readings at all. ``2``/``3``/``4``/``5`` mean the
+run was interrupted, broke internally, was refused before collection (what the
+board's full-suite lock raises) or collected nothing — and the matrix those
+produce is all-``NOT-REACHED`` and FAIL-free, which is indistinguishable from a
+mutant every arm survived. Those are refused, not published.
+
+**What exit ``1`` does not say is which cause it was.** The matrix's domain is
+``ast.Assert`` nodes, so a failure expressed any other way — ``pytest.raises``,
+``pytest.fail``, a ``unittest`` assertion, an assert inside a helper, or an
+error before the first assert — is a real kill **no cell can account for**, and
+its reading is ``0 FAIL`` at exit ``1``. That is published, not refused: a
+refusal keyed on the position *exit 1 and no FAIL cell* cannot tell it from an
+unattributed failure, and :class:`UnmeasuredRun` propagates out of
+:meth:`Runner.run`, so one out-of-domain kill would destroy every other
+mutant's reading in the same run — refusing hardest exactly where the target is
+least assert-shaped. The distinction is **carried** instead: every mutant's own
+``exit_code`` and reached count are in :meth:`KillMatrix.figure`, so a reader
+separates ``0 reached, exit 1`` (nothing ran) from ``1 PASS, exit 1`` (a kill
+outside the domain) from ``1 PASS, exit 0`` (a true survivor) with no predicate
+that can be wrong about which cause it was. The one refusal is on **SHIPPED**:
+a reading that reached no arm is not a baseline whatever its exit code, because
+every mutant compared against it survives every arm by construction
+(:meth:`Runner._refuse_unless_clean`).
 
 Safety discipline
 -----------------
-* Refuses to start if ``meta/kanban/.full-suite.lock`` exists under the repo
-  root it is given, and never writes a lock anywhere.
+* Refuses to start while **another worktree** holds the board's full-suite
+  lock, at the path :mod:`tests.full_suite_lock` resolves (its
+  ``LOCK_PATH_VAR`` override, else the **main** checkout's
+  ``meta/kanban/.full-suite.lock`` — a linked worktree's own copy of that path
+  is not where any gate writes). The verdict is that module's
+  :func:`~tests.full_suite_lock.current_verdict`, not a second opinion
+  assembled here: identity is the worktree, so a lock this instrument's **own**
+  tree holds does not refuse — every full-suite gate holds one for its whole
+  duration, and a strict reading therefore cannot run inside the gate that
+  must certify it. It never writes a lock anywhere, and the ``repo_root`` it is
+  handed does not move this path.
 * Takes a targeted selection resolving to exactly one existing file; refuses an
   empty selection, a directory, anything that is not an existing file, and a
   selection spanning more than one file.
 * ``cp -p`` backups, every later edit's content read **from the backup**,
-  restore in a ``finally`` verified with ``diff -q`` **and** ``shasum -a 256``.
+  restore in a ``finally`` verified with ``diff -q`` **and** ``shasum -a 256``
+  — every registered path restored *before* any verification failure is
+  raised, and a ``shasum`` that could not run counted as one of those failures.
+  Each of those three is held by a **planted failure** rather than by this
+  sentence: a ``cp`` that reports success and copies nothing reds the
+  ``diff -q`` arm and the digest arm in separate tests, a ``PATH`` with no
+  ``shasum`` on it reds the third, and a removed backup reds the
+  restore-every-path rule (:meth:`Runner._verification_failures` names them).
   **No git command anywhere**, which ``test_kill_matrix.py`` enumerates from
-  this module's own AST.
+  this module's own AST. The whole temp tree — the backups, the generated
+  plugin and every ``records-*`` directory — is removed when :meth:`Runner.run`
+  returns, and **kept** when a restore did not verify: there the backup is the
+  only intact copy, and the exception names the directory.
 * Refuses an edit whose text names ``_refuse_unless_test_database`` or
-  ``nonogram_poc``, and an edit to ``tests/conftest.py`` or
-  ``tests/database_guard.py``. That is a path-and-text refusal, not an analysis
-  of what an edit would do: it is the set of sites that carry the guard today.
+  ``nonogram_poc``, and an edit that lands on ``tests/conftest.py`` or
+  ``tests/database_guard.py`` **by identity** — after ``realpath``, compared
+  ``casefold``-ed and cross-checked with ``samefile``, so a mis-cased spelling,
+  a mis-cased directory, a ``..`` or a symlink all lose. That is a
+  path-and-text refusal, not an analysis of what an edit would do: it is the
+  set of sites that carry the guard today, and the text half catches only an
+  edit that *names* one of two literals (see ``_FORBIDDEN_TEXT``).
 * Takes no timing measurements and reports none. The ``timeout=`` passed to
   ``subprocess.run`` is a bound on a hung child, not a measurement: nothing
   reads a clock and no figure here is a duration.
 
-Stdlib only (``ast``, ``pathlib``, ``subprocess``, ``hashlib``, ``json``,
-``os``, ``re``, ``sys``, ``tempfile``) — no new runtime dependency.
+Stdlib (``ast``, ``collections.abc``, ``dataclasses``, ``enum``, ``json``,
+``os``, ``pathlib``, ``re``, ``shutil``, ``subprocess``, ``sys``, ``tempfile``
+— every one of them, and no ``hashlib``: the digest comes from the external
+``shasum`` binary) plus exactly one module from this tree's own
+``tests/`` directory — :mod:`tests.full_suite_lock`, which **owns** the lock
+path above and is imported rather than re-derived from. No new runtime
+dependency; ``test_g4_the_instrument_imports_stdlib_and_one_named_sibling``
+holds that set.
 """
 
 from __future__ import annotations
@@ -81,12 +141,18 @@ import enum
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+
+try:  # imported as ``tests.kill_matrix`` by the suite ...
+    from tests import full_suite_lock
+except ImportError:  # pragma: no cover - ... and as bare ``kill_matrix`` by the
+    import full_suite_lock  # generated plugin, which puts ``tests/`` on sys.path
 
 __all__ = [
     "BLIND",
@@ -103,9 +169,12 @@ __all__ = [
     "Pass",
     "Runner",
     "SelectionRefused",
+    "UnmeasuredRun",
     "aggregate_any_red",
     "aggregate_last_write_wins",
     "assert_linenos",
+    "assert_shapes",
+    "board_lock_path",
     "collected_tests",
     "child_dependent_linenos",
 ]
@@ -127,8 +196,72 @@ _ENV_RERAISE = "KILL_MATRIX_RERAISE"
 
 #: Nothing this instrument edits may touch the database guard. Refused, not
 #: warned about: ``nonogram_poc`` is the live admin panel's database.
+#:
+#: **What these two literals cannot catch, stated plainly:** they catch an edit
+#: that *names* one of them, and nothing else. An edit that defeats the guard
+#: without naming either is easy to write and preserves the line count —
+#: ``'.endswith("_test")'`` -> ``'.endswith("")'`` on ``tests/conftest.py:287``
+#: is one, and it reaches the ``DROP SCHEMA public CASCADE`` at
+#: ``tests/conftest.py:505``. What closes that is the **path** half below, by
+#: identity: both halves of the guard live in exactly those two files, so such
+#: an edit is refused for *where it lands* rather than for what it says. The
+#: text half's own reach is an edit to a copy of the guard somewhere else in a
+#: tree, and any edit that re-introduces the live panel's database name.
 _FORBIDDEN_TEXT = ("_refuse_unless_test_database", "nonogram_poc")
 _FORBIDDEN_PATHS = (("tests", "conftest.py"), ("tests", "database_guard.py"))
+
+#: The same two files in *this* tree, by identity rather than by spelling —
+#: ``kill_matrix.py`` sits beside them, so no path arithmetic is needed.
+_GUARD_FILES = tuple(
+    Path(__file__).resolve().parent / forbidden[-1] for forbidden in _FORBIDDEN_PATHS
+)
+
+
+def _refuse_forbidden_path(path: Path) -> None:
+    """Refuse an edit that lands on either half of the database guard (G-3).
+
+    Three spellings of the same file all have to lose, because the window a
+    raw tuple compare opened is not hypothetical: the mutant sits on disk for
+    the length of that mutant's pytest subprocess, which is exactly when the
+    destructive fixtures would run. (The ``cp -p`` backup names the same inode,
+    so the file *is* restored afterwards — the hazard is the window, not a
+    persistent clobber.)
+
+    * ``..`` and symlinks — compared after ``os.path.realpath``, which resolves
+      both even when the tail does not exist.
+    * **case** — compared ``casefold``-ed, because this board's volume is
+      case-insensitive and ``os.path.normcase`` is the identity on posix, so
+      ``tests/CONFTEST.py`` named the same file and walked straight past a raw
+      tuple compare. Every part is folded, not only the file name:
+      ``TESTS/conftest.py`` is the same file too.
+    * **identity** — ``os.path.samefile`` against the two guard files in this
+      tree, which catches a spelling no suffix comparison can predict: a hard
+      link, or a symlinked directory anywhere above ``tests/``.
+
+    Fail-closed on a case-sensitive volume: a genuinely distinct
+    ``tests/CONFTEST.py`` would be refused there too. That direction is
+    deliberate — this is the refusal standing between a mutant and the live
+    panel's database, and a false refusal costs a rename.
+    """
+    resolved = Path(os.path.realpath(path))
+    folded = tuple(part.casefold() for part in resolved.parts)
+    for forbidden in _FORBIDDEN_PATHS:
+        want = tuple(part.casefold() for part in forbidden)
+        if folded[-len(want) :] == want:
+            raise MutantRefused(
+                f"refusing an edit to {'/'.join(forbidden)} (named here as "
+                f"{path}): it carries the database guard"
+            )
+    for guard in _GUARD_FILES:
+        try:
+            same = guard.exists() and os.path.samefile(resolved, guard)
+        except OSError:  # pragma: no cover - a path that cannot be stat'ed
+            continue
+        if same:
+            raise MutantRefused(
+                f"refusing an edit to {guard}, which is the same file as "
+                f"{path}: it carries the database guard"
+            )
 
 
 class Pass(enum.Enum):
@@ -147,7 +280,15 @@ class MutantRefused(Exception):
 
 
 class LeakedPatch(Exception):
-    """SHIPPED did not come back all-PASS, so an earlier patch is still on disk."""
+    """SHIPPED is not usable as a baseline, so no later reading is trustworthy.
+
+    Three shapes raise it, and the name is the first of them: a FAIL cell (an
+    earlier patch is still on disk), a cell that moved against SHIPPED's own
+    first reading (a leak that *removes* coverage), and a SHIPPED that reached
+    **no** arm at all (nothing to be a baseline of — see
+    :meth:`Runner._refuse_unless_clean`). Also raised by :meth:`Runner._restore`
+    when a restore did not verify, which is the same claim about the disk.
+    """
 
 
 class SelectionRefused(Exception):
@@ -155,7 +296,54 @@ class SelectionRefused(Exception):
 
 
 class LockHeld(Exception):
-    """The board's full-suite lock exists; another worktree owns the host."""
+    """Another worktree holds the board's full-suite lock; it owns the host.
+
+    Raised for a **foreign** holder only. A lock this instrument's own tree
+    holds is the one every full-suite gate writes before running the suite
+    this instrument's tests are part of, and is not this exception's subject.
+    """
+
+
+class UnmeasuredRun(Exception):
+    """pytest did not run the selection, so there is nothing to report.
+
+    Separate from :class:`MutantRefused` on purpose: nothing is wrong with the
+    mutant, and separate from :class:`SelectionRefused` because the selection
+    resolved. The run itself never happened, and the matrix it would produce is
+    all-``NOT-REACHED`` and FAIL-free — the shape a mutant every arm survived
+    also has.
+    """
+
+
+#: pytest exit codes that are a reading. ``0`` all green; ``1`` tests ran and
+#: some failed — which is what a killed mutant and the whole re-raising pass
+#: look like from outside. Everything else (``2`` interrupted, ``3`` internal
+#: error, ``4`` usage error — a conftest hook refusing the run before
+#: collection, which is what the board's full-suite lock raises — ``5`` nothing
+#: collected) means the selection did not run.
+#:
+#: Chosen over ``collected_tests``, which is **regex-scraped** from pytest's
+#: ``-q`` summary and would read ``None`` on a perfectly good run the day that
+#: summary's wording changes. It stays print-only for that reason.
+_RAN_EXIT_CODES = frozenset({0, 1})
+
+
+def board_lock_path() -> Path:
+    """The lock file the board's gates write, resolved by its **owner**.
+
+    Not re-derived here. :func:`tests.full_suite_lock.lock_path` honours that
+    module's :data:`~tests.full_suite_lock.LOCK_PATH_VAR` override (spelled
+    there, not copied here: a tree-wide scan in
+    ``test_nothing_in_the_tree_sets_either_of_the_guards_env_switches`` holds
+    the set of files allowed to name it, and this is not one of them) and
+    otherwise follows a linked worktree's
+    ``.git`` pointer back to the main checkout — which is where every gate
+    writes, whichever worktree it runs the suite in. Deriving this path from a
+    caller's ``repo_root`` instead gave the *worktree's own* copy of it, and a
+    per-worktree lock path is a guard that cannot see contention: the only
+    contention there is was written to a file the instrument never looked at.
+    """
+    return full_suite_lock.lock_path()
 
 
 # --------------------------------------------------------------------------
@@ -219,6 +407,31 @@ def assert_linenos(source: str, filename: str = "<target>") -> tuple[int, ...]:
     tree = ast.parse(source, filename=filename)
     return tuple(
         node.lineno for node in ast.walk(tree) if isinstance(node, ast.Assert)
+    )
+
+
+def assert_shapes(
+    source: str, filename: str = "<target>"
+) -> tuple[tuple[int, str], ...]:
+    """Every ``ast.Assert`` as ``(lineno, normalised source)``, sorted.
+
+    The matrix's key set **together with what each key means**, which is
+    strictly more than :func:`assert_linenos` carries. Two asserts swapped keep
+    the tuple of linenos identical while every cell now reports the other arm's
+    outcome — a misattribution that leaves no off-key record behind for anything
+    to notice. Two asserts merged onto one line keep the line count while
+    turning two nodes into one cell.
+
+    ``ast.unparse`` normalises the node, so re-indenting or re-wrapping an
+    assertion is not a change here, while a different assertion is.
+    """
+    tree = ast.parse(source, filename=filename)
+    return tuple(
+        sorted(
+            (node.lineno, ast.unparse(node))
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assert)
+        )
     )
 
 
@@ -340,13 +553,7 @@ class Edit:
                         "guard is never widened or bypassed, and the live panel's "
                         "database is never named here"
                     )
-        parts = self.path.parts
-        for forbidden in _FORBIDDEN_PATHS:
-            if parts[-len(forbidden) :] == forbidden:
-                raise MutantRefused(
-                    f"refusing an edit to {'/'.join(forbidden)}: it carries the "
-                    "database guard"
-                )
+        _refuse_forbidden_path(self.path)
 
 
 @dataclass(frozen=True)
@@ -386,6 +593,13 @@ def apply_edit(source: str, edit: Edit) -> str:
       ``lineno`` shifts, so the whole matrix below the edit reports
       ``NOT-REACHED`` and a shifted numbering is indistinguishable from a
       wholly unreached file (trap 6).
+
+    The line-count check is a *text* check and it is not the invariant the
+    matrix needs; it is only the half that can be seen before the edit is on
+    disk. The invariant — each assert still at its own lineno, still saying
+    what it said — is re-derived from the mutated file by
+    :meth:`Runner._refuse_unless_topology_holds`, which is what catches an
+    equal-line-count substitution that moves, swaps or merges an assert.
     """
     found = source.count(edit.old)
     if found == 0:
@@ -426,6 +640,14 @@ def _split_at_occurrence(source: str, old: str, occurrence: int):
 
 def _refuse_line_shift(source: str, mutated: str, edit: Edit) -> None:
     """Equal newline counts **and** equal ``splitlines()`` length, both checked.
+
+    **Necessary, not sufficient**, and the gap is not academic: an
+    equal-line-count substitution can still move an assert to another line, or
+    swap two of them, or put two on one line. This check cannot see any of
+    those — only :meth:`Runner._refuse_unless_topology_holds` can, by parsing
+    the file that is actually about to be measured. Keep them apart: this one
+    runs before anything is written, on text, for any edit to any file; that
+    one runs after ``_apply``, on the target's AST.
 
     Two checks rather than one because they do not see the same thing: a
     trailing newline added or removed at the end of the file moves
@@ -478,6 +700,13 @@ class Matrix:
     raw_cells: Mapping[int, str]
     collected_tests: int | None
     exit_code: int
+    #: Whether a pytest the target *spawned* was instrumented too. Carried and
+    #: printed because it is the second half of this figure's domain: with it
+    #: **off** no ``BLIND`` cell can exist, so a ``0 BLIND`` reading means
+    #: "the overlay never ran" rather than "no arm is blind", and an arm that
+    #: executes only inside the child records nothing here. A figure that does
+    #: not carry its domain is the defect this instrument exists to prevent.
+    child_instrumentation: bool
 
     def __post_init__(self) -> None:
         if not isinstance(self.pass_, Pass):
@@ -511,19 +740,25 @@ class Matrix:
         return self.of(BLIND)
 
     def figure(self) -> str:
-        """The only sentence this class prints, and it carries both.
+        """The only sentence this class prints, and it carries all of it.
 
-        Domain: which pass. Denominator: assertion nodes, named as such. There
-        is no shorter accessor that omits either, and no ``__str__`` that does.
+        Domain: which pass, **and** whether the child was instrumented — a
+        ``0 BLIND`` is ambiguous without the second. Denominator: assertion
+        nodes, named as such. Plus pytest's own exit code, because a reading
+        taken from a run that never happened is FAIL-free too. There is no
+        shorter accessor that omits any of them, and no ``__str__`` that does.
         """
         counts = ", ".join(
             f"{len(self.of(outcome))} {outcome}"
             for outcome in (PASS, FAIL, NOT_REACHED, BLIND)
         )
+        child = "on" if self.child_instrumentation else "off"
         return (
             f"{self.label} / {self.pass_.value} pass over {self.target.name}: "
             f"{counts} of {self.denominator} assertion nodes"
-            f" (collected tests: {self.collected_tests})"
+            f" (collected tests: {self.collected_tests};"
+            f" pytest exit {self.exit_code};"
+            f" child instrumentation {child})"
         )
 
     def table(self) -> str:
@@ -546,17 +781,55 @@ class KillMatrix:
     shipped: Matrix
     mutants: Mapping[str, Matrix]
     shipped_between: Mapping[str, Matrix]
+    #: The same second half of the domain :class:`Matrix` carries, so the
+    #: aggregate figure states it without having to reach into ``shipped``.
+    child_instrumentation: bool
 
     def cell(self, mutant: str, lineno: int) -> str:
         return self.mutants[mutant].cells[lineno]
 
     def figure(self) -> str:
-        """Carries the pass, the denominator and its domain, unconditionally."""
+        """Carries the pass, the denominator and its domain, unconditionally.
+
+        ``SHIPPED 0 FAIL`` is not a reassurance on its own — a run pytest
+        refused before collection has no FAILs either — so the sentence also
+        carries how many of SHIPPED's arms were reached, pytest's exit code and
+        its collected-test count, and whether the child was instrumented.
+
+        **And the same for every mutant, not only SHIPPED.** A mutant's cells
+        can be FAIL-free for three different reasons, and the grid is identical
+        for the **last two** of them -- the first is separated by the reached
+        count, which is derived from the cells: nothing ran (``0 reached``),
+        the kill was expressed
+        outside this matrix's domain of ``ast.Assert`` nodes and no cell can
+        account for it (``exit 1`` with arms reached and none FAIL), or the arms
+        genuinely survived (``exit 0``). Each mutant's own ``exit_code`` and
+        reached count are therefore in this sentence — the module's own rule
+        that a figure which does not carry its domain is the defect it exists to
+        prevent, applied to the aggregate a consumer actually reads.
+        :meth:`table` carries all of it too, because its header is this
+        sentence. Carried rather than decided: no predicate here can be wrong
+        about which of the three it was.
+        """
+        reached = self.denominator - len(self.shipped.not_reached)
+        child = "on" if self.child_instrumentation else "off"
+        per_mutant = (
+            "; ".join(
+                f"{name} exit {matrix.exit_code} with "
+                f"{self.denominator - len(matrix.not_reached)} reached and "
+                f"{len(matrix.failed)} FAIL"
+                for name, matrix in self.mutants.items()
+            )
+            or "none"
+        )
         return (
             f"{len(self.mutants)} mutants / {self.pass_.value} pass over "
             f"{self.target.name}: {self.denominator} assertion nodes "
             f"(ast.Assert node count, not a collected test count); "
-            f"SHIPPED {len(self.shipped.failed)} FAIL"
+            f"SHIPPED {len(self.shipped.failed)} FAIL of {reached} reached "
+            f"(pytest exit {self.shipped.exit_code}, collected tests "
+            f"{self.shipped.collected_tests}); child instrumentation {child}; "
+            f"per mutant: {per_mutant}"
         )
 
     def table(self) -> str:
@@ -645,9 +918,17 @@ def collected_tests(output: str) -> int | None:
 class Runner:
     """Measures one target file under a targeted selection.
 
-    Refuses to start while the board's real full-suite lock exists (G-2), never
-    writes one, and never runs the full suite: the selection must be non-empty
-    and every item must name an existing file (G-1).
+    Refuses to start while **another worktree** holds the board's real
+    full-suite lock (G-2) — at the path :func:`board_lock_path` resolves, which
+    ``repo_root`` does not move — never writes one, and never runs the full
+    suite: the selection must be non-empty and every item must name an existing
+    file (G-1). A lock its **own** tree holds does not refuse; see
+    :meth:`_refuse_if_lock_held` for why that is G-2 read correctly rather than
+    G-2 weakened.
+
+    ``repo_root`` is the pytest ``cwd`` and the base a relative selection
+    resolves against. Those two jobs only; it used to carry a third, the lock
+    path, and the three wanted different values (F-001).
 
     ``child_instrumentation`` decides whether a pytest the target *spawns*
     inherits the instrumentation. Default **off**, because turning it on
@@ -655,10 +936,19 @@ class Runner:
     pass's suppression crosses the process boundary and the arms
     :func:`child_dependent_linenos` names are reported ``BLIND``: the child
     swallows its own ``AssertionError``, reports a pass with exit 0, and the
-    parent's premise would otherwise record ``PASS`` by construction. With it
-    **off** the child is pristine, propagation is intact, and those arms are
-    measured for real — which is why the ``BLIND`` overlay is applied only when
-    it is on.
+    parent's premise would otherwise record ``PASS`` by construction.
+
+    With it **off** the child is pristine and propagation across the boundary
+    is intact, so the arms that *read* a child's outcome are measured for
+    real — and that is the whole of what default-off buys. **Declared bound:**
+    an arm that executes only *inside* the child writes no record at all, so it
+    is reported ``NOT-REACHED`` though it ran, and may have failed. With the
+    overlay off ``NOT-REACHED`` therefore means "no execution recorded in the
+    instrumented process", never "this arm did not run"; ``0 BLIND`` means the
+    overlay never ran, not that no arm is blind. Both figures state the flag so
+    neither reading can be quoted without it, and
+    ``test_ac3_the_flag_off_reading_on_a_child_spawning_target_is_the_bound``
+    measures the cell-for-cell difference the two settings produce.
     """
 
     selection: Sequence[str]
@@ -675,12 +965,43 @@ class Runner:
     # -- refusals ----------------------------------------------------------
 
     def _refuse_if_lock_held(self) -> None:
-        lock = self.repo_root / "meta" / "kanban" / ".full-suite.lock"
-        if lock.exists():
-            raise LockHeld(
-                f"{lock} exists: another worktree holds the board's full-suite "
-                "lock. This instrument refuses to start and never writes one"
-            )
+        """Refuse while a **foreign** worktree holds the board's lock (G-2).
+
+        The verdict is :func:`full_suite_lock.current_verdict`'s, taken whole
+        and not re-assembled here. Identity is the worktree, not a pid, and the
+        rule is that module's: *refuse a foreign lock, ignore its own*. An
+        own-tree lock was never the hazard G-2 guards — that hazard is two
+        *different* worktrees running heavy pytest at once, and a child pytest
+        this instrument spawns inside its own tree is already serialised by
+        being one process tree, which is why that child's own hook resolves the
+        same tree and lets it through. The composition F-001 closed stays
+        closed: a **foreign** lock still refuses the start, so this instrument
+        can still never begin a run whose child the hook would kill.
+
+        Checking *any* lock instead was F-001's fix overshooting, and it could
+        only be seen from inside a gate: every full-suite gate holds this exact
+        lock for its whole duration, so "stricter" meant the instrument could
+        not run inside the gate that must certify it (23 reds, one cause).
+
+        **The staleness window and the override come with the verdict, by
+        choice:** this code runs inside a pytest the owner's own
+        ``pytest_configure`` already admitted, so any extra strictness reds a
+        suite the board deliberately decided to run — a foreign lock past
+        :data:`~tests.full_suite_lock.STALE_SECONDS`, whose holder the board
+        presumes gone, or an announced override — while any laxity would start
+        a run whose child that same hook kills. One function, one answer, so
+        the two agree structurally rather than as two copies that happen to
+        match. Neither relaxation is silent: the owner's terminal-summary hook
+        announces a stale lock walked past and an override used.
+        """
+        allowed, said = full_suite_lock.current_verdict()
+        if allowed:
+            return
+        raise LockHeld(
+            f"{board_lock_path()} names another worktree, which holds the "
+            "board's full-suite lock. This instrument refuses to start and "
+            f"never writes one.\n\n{said}"
+        )
 
     def _resolve_selection(self) -> Path:
         """One target file, derived from the selection. Default-deny.
@@ -734,29 +1055,108 @@ class Runner:
         return registry
 
     def _restore(self, registry: Mapping[Path, Path]) -> None:
-        """Restore from the ``cp -p`` backup, verified two ways. No git, ever."""
+        """Restore from the ``cp -p`` backup, verified two ways. No git, ever.
+
+        **Every** registered path is restored before any failure is raised, and
+        the failures are then reported together. Raising from inside the loop
+        skipped every path after the first failure, and the outer ``finally``'s
+        second call failed at the same point — so the tail of the registry
+        stayed mutated. Registry order is insertion order, target first, so in
+        this card's own second anchor the file left edited would have been
+        ``src/nonogram/db/session.py``, a tracked source file, with G-5
+        forbidding a git restore.
+        """
+        failures: list[str] = []
         for path, backup in registry.items():
-            subprocess.run(["cp", "-p", str(backup), str(path)], check=True)
-            diff = subprocess.run(
-                ["diff", "-q", str(backup), str(path)], capture_output=True
+            try:
+                subprocess.run(["cp", "-p", str(backup), str(path)], check=True)
+            except (OSError, subprocess.CalledProcessError) as exc:
+                failures.append(f"cp -p could not restore {path}: {exc}")
+                continue
+            failures.extend(self._verification_failures(path, backup))
+        if failures:
+            raise LeakedPatch(
+                "; ".join(failures)
+                + ". Every registered path was restored before this was raised"
             )
-            if diff.returncode != 0:
-                raise LeakedPatch(f"diff -q says {path} is not its backup")
+
+    def _verification_failures(self, path: Path, backup: Path) -> list[str]:
+        """``diff -q`` **and** ``shasum -a 256``, neither of them skippable.
+
+        A verification that could not run is a failure, not a pass: ``shasum``
+        is an external binary, and where it is absent the ``check=True`` call
+        used to leave the restore loop through the same door as a real
+        mismatch, part-way through.
+
+        **Each of the three arms has its own control**, because until they did,
+        neutering *both* comparisons line-for-line (``!= 0 and 0``,
+        ``!= len(digests)``) left every test of this card green: a ``cp -p``
+        that put back the **wrong bytes** read as verified. The two calls being
+        *present* was all that was pinned — by the argv equality in
+        ``test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere`` —
+        and presence is not catching. The controls plant a ``cp`` that reports
+        success and copies nothing, which leaves a real mismatch for the
+        verification to find:
+        ``test_g5_a_restore_that_copied_nothing_is_caught_by_diff_q`` and
+        ``..._is_caught_by_shasum_256`` assert one finding each over that one
+        plant, ``..._fails_the_run_from_its_finally`` is the same plant through
+        :meth:`Runner.run`'s own ``finally``, and
+        ``test_g5_a_shasum_that_could_not_run_is_counted_as_a_failure`` narrows
+        ``PATH`` until the binary is gone, with the restore succeeding, so the
+        branch below is reached on its own terms.
+        """
+        said: list[str] = []
+        diff = subprocess.run(
+            ["diff", "-q", str(backup), str(path)], capture_output=True
+        )
+        if diff.returncode != 0:
+            said.append(f"diff -q says {path} is not its backup")
+        try:
             sums = subprocess.run(
                 ["shasum", "-a", "256", str(backup), str(path)],
                 capture_output=True,
                 text=True,
                 check=True,
             )
+        except (OSError, subprocess.CalledProcessError) as exc:
+            said.append(
+                f"shasum -a 256 could not verify {path} ({exc}): a verification "
+                "that did not run is not a verification"
+            )
+        else:
             digests = {line.split()[0] for line in sums.stdout.splitlines()}
             if len(digests) != 1:
-                raise LeakedPatch(f"shasum -a 256 says {path} is not its backup")
+                said.append(f"shasum -a 256 says {path} is not its backup")
+        return said
 
     @property
     def workdir(self) -> Path:
+        """This run's temp tree: the ``cp -p`` backups, the generated plugin
+        and one ``records-*`` directory per pytest invocation.
+
+        Created on first use and removed by :meth:`_discard_workdir` when
+        :meth:`run` returns, so a gate that calls this instrument repeatedly
+        does not accumulate one tree per :class:`Runner` and one ``records-*``
+        per reading in the machine-wide temp directory. **Declared bound:**
+        only :meth:`run` ends a run, so a :class:`Runner` whose helpers are
+        driven directly keeps its tree — the two tests that drive
+        :meth:`_pytest` and :meth:`_backup_registry` without a run point
+        ``_workdir`` at a directory pytest owns instead.
+        """
         if self._workdir is None:
             self._workdir = Path(tempfile.mkdtemp(prefix="kill-matrix-"))
         return self._workdir
+
+    def _discard_workdir(self) -> None:
+        """Remove this run's temp tree. Never called when a restore failed.
+
+        There the backup is the only intact copy of the file on disk, so the
+        tree is kept and :meth:`run` names the directory in the exception.
+        """
+        if self._workdir is None:
+            return
+        shutil.rmtree(self._workdir, ignore_errors=True)
+        self._workdir = None
 
     # -- running -----------------------------------------------------------
 
@@ -793,6 +1193,9 @@ class Runner:
             for mutant in mutants:
                 self._apply(mutant, registry)
                 try:
+                    self._refuse_unless_topology_holds(
+                        pristine, f"mutant {mutant.name}"
+                    )
                     measured[mutant.name] = self._measure(
                         mutant.name, pass_, denominator, pristine
                     )
@@ -810,9 +1213,18 @@ class Runner:
                 shipped=shipped,
                 mutants=measured,
                 shipped_between=between,
+                child_instrumentation=self.child_instrumentation,
             )
         finally:
-            self._restore(registry)
+            try:
+                self._restore(registry)
+            except LeakedPatch as exc:
+                raise LeakedPatch(
+                    f"{exc}. The cp -p backups are kept at {self.workdir} "
+                    "rather than discarded: a restore that did not verify is "
+                    "the one case where the backup is the only intact copy"
+                ) from exc
+            self._discard_workdir()
 
     def _refuse_unless_clean(
         self, matrix: Matrix, baseline: Matrix | None, when: str
@@ -823,17 +1235,37 @@ class Runner:
         caught in wave 50 was an earlier patch surviving into every later
         mutant.
 
-        Two conditions, because a targeted selection legitimately leaves most
-        of a file's asserts ``NOT-REACHED``: no cell may be ``FAIL``, and once
-        there is a baseline every cell must equal the baseline's cell for cell.
-        The second is what catches a leak that *removes* coverage instead of
-        reddening an arm.
+        Three conditions, because a targeted selection legitimately leaves most
+        of a file's asserts ``NOT-REACHED``: no cell may be ``FAIL``, at least
+        one cell must have been **reached**, and once there is a baseline every
+        cell must equal the baseline's cell for cell. The second is what catches
+        a leak that *removes* coverage instead of reddening an arm.
+
+        The reached condition is this gate's own job, not a new one: a SHIPPED
+        that accounted for nothing is not a baseline whatever pytest exited
+        with, and every mutant compared against it then "survives" every arm by
+        construction. It cannot false-positive — a reading that reached no arm
+        has no baseline to be — and the quantity is the one
+        :meth:`KillMatrix.figure` already prints as ``0 FAIL of 0 reached``. It
+        is deliberately *not* a rule about the exit code: ``exit 1`` with no
+        ``FAIL`` cell is also what a kill outside the matrix's domain looks like
+        (see the module docstring), and position cannot tell the two apart.
         """
         if matrix.failed:
             raise LeakedPatch(
                 f"SHIPPED is not FAIL-free {when}: {matrix.figure()} — "
                 f"FAIL {matrix.failed}. A leaked patch and a real kill look "
                 "identical, so no later reading from this run is trustworthy"
+            )
+        reached = matrix.denominator - len(matrix.not_reached)
+        if not reached:
+            raise LeakedPatch(
+                f"SHIPPED reached no assertion node {when}: {matrix.figure()} — "
+                "a reading that accounts for nothing is not a baseline, and "
+                "every mutant compared against it would survive every arm by "
+                "construction. pytest's exit code cannot stand in for this: "
+                "exit 1 with no FAIL cell is also a kill outside this matrix's "
+                "domain of ast.Assert nodes"
             )
         if baseline is None:
             return
@@ -849,6 +1281,52 @@ class Runner:
                 "real kill look identical, so no later reading from this run is "
                 "trustworthy"
             )
+
+    def _refuse_unless_topology_holds(self, pristine: str, when: str) -> None:
+        """The target's assert topology, re-derived from disk after ``_apply``.
+
+        The matrix's keys are derived **once**, from the pristine source, and
+        both ``cells`` and ``records`` are attributed through them. Until this
+        check existed nothing ever looked at the file that actually ran, and
+        three equal-line-count shapes went through:
+
+        * an assert **moved** — its cell reads ``NOT-REACHED`` while the arm
+          ran and failed, a genuine kill published as "never reached";
+        * two asserts **swapped** — the lineno tuple is identical, so there is
+          no off-key record anywhere and the misattribution is evidence-free:
+          each cell carries the other arm's outcome;
+        * two asserts **merged onto one line** — one cell for two nodes, plus a
+          ``NOT-REACHED`` for a node that no longer exists. ``run`` refuses
+          that collision on the pristine source and never re-checked it.
+
+        It is a **no-op for a mutant that edits anything but the target**: the
+        target is re-read either way, and a file nobody edited reproduces its
+        own shapes. Running it unconditionally rather than on
+        ``self.target in mutant.paths`` is deliberate — an edit that reaches
+        the target through another spelling of its path is still an edit to it.
+        """
+        mutated = self.target.read_text(encoding="utf-8")
+        try:
+            after = assert_shapes(mutated, str(self.target))
+        except SyntaxError as exc:
+            raise MutantRefused(
+                f"{when} left {self.target} unparsable ({exc}): the matrix has "
+                "no keys at all, and the blank reading that follows is "
+                "indistinguishable from a file that never ran"
+            ) from exc
+        before = assert_shapes(pristine, str(self.target))
+        if after == before:
+            return
+        gone = [shape for shape in before if shape not in after]
+        arrived = [shape for shape in after if shape not in before]
+        raise MutantRefused(
+            f"{when} moved the target's assert topology. The matrix is keyed on "
+            f"the pristine linenos, so {gone} would be reported NOT-REACHED "
+            f"while {arrived} ran under cells that are not theirs. Equal line "
+            "counts are not enough: an assert may not move to another line, "
+            "swap with another, or share a line. Substitute what the assertion "
+            "reads, not the assertion"
+        )
 
     def _apply(self, mutant: Mutant, registry: Mapping[Path, Path]) -> None:
         """Apply every edit, with each path's content read from its backup.
@@ -870,8 +1348,31 @@ class Runner:
         self, label: str, pass_: Pass, denominator: int, pristine: str
     ) -> Matrix:
         records, exit_code, output = self._pytest(pass_)
+        if exit_code not in _RAN_EXIT_CODES:
+            raise UnmeasuredRun(
+                f"{label}: pytest exited {exit_code}, which is not a reading. "
+                f"Only {sorted(_RAN_EXIT_CODES)} are — 0 all green, 1 tests ran "
+                "and some failed. 2 is interrupted, 3 an internal error, 4 a "
+                "usage error (a conftest hook refusing the run before "
+                "collection, which is what the board's full-suite lock raises), "
+                "5 nothing collected. The matrix this would publish is "
+                "all-NOT-REACHED and FAIL-free, which is exactly the shape of a "
+                "mutant every arm survived. Collected tests reported: "
+                f"{collected_tests(output)}.\n--- pytest tail ---\n"
+                f"{output[-2000:]}"
+            )
+        linenos = assert_linenos(pristine, str(self.target))
+        off_key = sorted(set(records) - set(linenos))
+        if off_key:
+            raise MutantRefused(
+                f"{label}: the run recorded assert lineno(s) {off_key} that the "
+                "matrix has no cell for, so the file that ran is not the file "
+                "the keys came from. Each such record is a real execution "
+                "attributed to nothing, and the cells it should have filled "
+                "read NOT-REACHED"
+            )
         raw: dict[int, str] = {}
-        for lineno in assert_linenos(pristine, str(self.target)):
+        for lineno in linenos:
             raw[lineno] = aggregate_any_red(records.get(lineno, []))
         cells = dict(raw)
         if pass_ is Pass.RECORDING and self.child_instrumentation:
@@ -888,6 +1389,7 @@ class Runner:
             raw_cells=raw,
             collected_tests=collected_tests(output),
             exit_code=exit_code,
+            child_instrumentation=self.child_instrumentation,
         )
 
     def _pytest(self, pass_: Pass):
@@ -911,6 +1413,15 @@ class Runner:
             _ENV_TARGET: str(self.target),
             _ENV_RECORD_DIR: str(record_dir),
             _ENV_RERAISE: "1" if pass_.reraise else "0",
+            # A mutant edit is often byte-identical in length to the pristine
+            # file and can land in the same mtime second as the reading before
+            # it, at which point the .pyc that reading wrote still validates
+            # and the next child imports a file that is no longer on disk.
+            # Observed once here, as a single cell reading PASS where its re-run
+            # read FAIL. No reading writes bytecode now, so no later reading can
+            # read one written in the same second; a .pyc from before the run
+            # predates every mutant's mtime and is invalidated normally.
+            "PYTHONDONTWRITEBYTECODE": "1",
             "PYTHONPATH": os.pathsep.join(
                 [str(plugin_dir), *filter(None, [os.environ.get("PYTHONPATH")])]
             ),

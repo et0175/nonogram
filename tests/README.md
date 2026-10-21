@@ -471,7 +471,7 @@ re-raises.
 
 | pass | what it buys | what it costs |
 | --- | --- | --- |
-| `Pass.RECORDING` | per-arm attribution — every arm measured, no short-circuit hides one | suppressed propagation: with `child_instrumentation=True`, an arm that reads a child pytest's outcome **cannot** record `FAIL`, so it is reported `BLIND` |
+| `Pass.RECORDING` | per-arm attribution — every arm measured, no short-circuit hides one | suppressed propagation: with `child_instrumentation=True`, an arm that reads a child pytest's outcome **cannot** record `FAIL`, so it is reported `BLIND`. With it **off** an arm that executes only *inside* the child writes no record at all and is reported `NOT-REACHED` though it ran — see the declared bounds |
 | `Pass.RERAISING` | true propagation and true cross-process semantics | stops at the first failing assert in a test, leaving later arms `NOT-REACHED` |
 
 Neither pass alone is the kill set. An instrumented-only kill is an
@@ -482,10 +482,16 @@ subsumed arm reds under the instrument too), only that the attribution needs the
 instrument.
 
 `pass_` is positional on `Runner.run()` with no default, `Matrix` refuses a
-`pass_` that is not a `Pass` member, and every figure interpolates both the pass
-and the denominator. The denominator is the `ast.Assert` node count, carried
+`pass_` that is not a `Pass` member, and every figure interpolates the pass, the
+denominator, **pytest's own exit code** and **whether the child was
+instrumented**. The denominator is the `ast.Assert` node count, carried
 separately from `collected_tests`, so a figure cannot quote one while meaning
-the other.
+the other. The last two are domain as much as the pass is: `SHIPPED 0 FAIL` is
+not a reassurance from a run pytest refused before collection, and `0 BLIND`
+means "the overlay never ran" when the flag is off rather than "no arm is
+blind". `test_ac6_every_figure_this_instrument_prints_carries_its_pass`
+enumerates the reporting surface from the module's AST and requires all four of
+them in every `figure()` and `table()`.
 
 ### Using it
 
@@ -511,12 +517,17 @@ do.
 | refused | because |
 | --- | --- |
 | a mutant that changes the **line count** | every assert below the edit shifts its `lineno` and reports `NOT-REACHED`; a green run with a blank matrix is indistinguishable from a file that never ran |
+| a mutant that moves the target's **assert topology** — re-derived from disk after the edit is applied, each node's `lineno` *and* what the assertion at it says | equal line counts are necessary and **not sufficient**: an equal-line-count substitution can move an assert (its cell reads `NOT-REACHED` while the arm ran and failed — a real kill published as "never reached"), swap two (the lineno tuple is identical, so the misattribution leaves no off-key record to notice and each cell carries the other arm's outcome), or merge two onto one line (one cell for two nodes). The keys are derived once, from the pristine source; this is what re-checks them against the file that actually runs. A no-op for a mutant that edits anything but the target |
+| a mutant that leaves the target **unparsable** | there are no keys at all, and the blank reading that follows is indistinguishable from a file that never ran |
+| a run whose pytest **exit code is not 0 or 1** | 2/3/4/5 mean interrupted, internal error, refused before collection (what the board's full-suite lock raises in the child) or nothing collected — and the matrix such a run produces is all-`NOT-REACHED` and FAIL-free, which is exactly the shape of a mutant every arm survived. `collected_tests` is deliberately *not* the precondition: it is regex-scraped from pytest's `-q` summary and would read `None` on a good run the day that wording changes, so it stays print-only |
+| a reading that records an assert `lineno` the matrix has **no cell for** | the file that ran is not the file the keys came from; each such record is a real execution attributed to nothing |
 | a mutant whose `old` is **absent** | it writes nothing, so every assert passes — indistinguishable from a surviving mutant |
 | a mutant whose `old` occurs a different number of times than `expect` | a by-text substitution on a repeated line mutates a different site and returns a false reading; name the `occurrence` |
-| a target with **two asserts on one line** | the matrix is keyed on a lineno and could only merge them into one cell |
+| a target with **two asserts on one line** — on the pristine source, and again on every mutant's own file through the topology check | the matrix is keyed on a lineno and could only merge them into one cell; computed once on the pristine source, it missed a line-count-preserving mutant that merged two asserts past it |
+| a **SHIPPED** reading that reached **no** assertion node — on the first reading and on every between-mutants re-run | a baseline that accounts for nothing is not a baseline, and every mutant compared against it then "survives" every arm by construction. This is the gate that already owns "SHIPPED must be trustworthy", on a quantity its own aggregate figure already prints (`0 FAIL of 0 reached`), and it cannot false-positive: a reading that reached no arm has no baseline to be. It is deliberately *not* a rule about the exit code — `exit 1` with no `FAIL` cell is also what a kill outside the matrix's domain looks like, and position cannot tell the two apart |
 | an **empty** selection, a directory, a path that is not a file, or a selection spanning two files | it never runs the full suite, and a selection it cannot resolve to one file is a failure, not a silent pass |
-| starting while `meta/kanban/.full-suite.lock` exists under the given repo root | another worktree owns the host; it also never writes a lock |
-| an edit naming `_refuse_unless_test_database` or `nonogram_poc`, or an edit to `tests/conftest.py` or `tests/database_guard.py` | the database guard is never widened or bypassed |
+| starting while **another worktree** holds the board's full-suite lock — the verdict is `tests/full_suite_lock.py`'s own `current_verdict()`, read from the path that module resolves (its override, else the **main** checkout's `meta/kanban/.full-suite.lock`), which the `repo_root` you pass does **not** move | that worktree owns the host; it also never writes a lock. Re-deriving the path from `repo_root` gave the *worktree's own* copy of it, which no gate writes — a per-worktree lock path is a guard that cannot see contention. `repo_root` is the pytest `cwd` and the base for a relative selection, and nothing else. A lock the instrument's **own** tree holds does not refuse: every full-suite gate holds exactly this file for its whole duration, so refusing on *any* lock means the instrument cannot run inside the gate that must certify it (measured once, as 23 reds with one cause) |
+| an edit naming `_refuse_unless_test_database` or `nonogram_poc`, or an edit that lands on `tests/conftest.py` or `tests/database_guard.py` **by identity** — after `realpath`, compared `casefold`-ed and cross-checked with `samefile`, so a mis-cased file, a mis-cased directory, a `..` and a symlink all lose | the database guard is never widened or bypassed. The path half does the work: the text half is two literals and catches only an edit that *names* one of them, while an edit that defeats the guard without naming either (dropping the `_test` suffix check that stands in front of `DROP SCHEMA public CASCADE`) preserves the line count and is refused for *where it lands*. Fail-closed on a case-sensitive volume, where a genuinely distinct `tests/CONFTEST.py` would be refused too |
 
 Aggregation across executions is **ANY-RED**: one RED anywhere is a kill. An
 assert inside a `for` loop runs once per iteration and an assert in a test that
@@ -524,16 +535,102 @@ also runs in a child process records once per pid, and last-write-wins loses
 those REDs — `aggregate_last_write_wins` is kept beside `aggregate_any_red` as
 the control that must disagree with it.
 
-`SHIPPED` is re-run and asserted FAIL-free **between** mutants, not only at the
-start, and compared to its own first reading cell for cell: a leaked patch and a
-real kill look identical.
+`SHIPPED` is re-run **between** mutants, not only at the start, and held to
+three conditions each time: FAIL-free, at least one arm **reached**, and equal
+to its own first reading cell for cell. A leaked patch and a real kill look
+identical, and so do a blank baseline and a mutant every arm survived.
 
 Restores are `cp -p` from backups, verified with `diff -q` **and**
-`shasum -a 256`, with every later edit's content read from the backup.
+`shasum -a 256`, with every later edit's content read from the backup. **Every
+registered path is restored before any verification failure is raised**, and the
+failures are reported together: raising from inside the loop skipped every path
+after the first one, and the re-run from the outer `finally` failed at the same
+point, so the tail of the registry stayed mutated — which for the second anchor
+is `src/nonogram/db/session.py`, a tracked source file. A `shasum` that could
+not run is one of those failures, not a pass.
+
+**Measured per arm, not asserted in prose.** "Verified two ways" used to have no
+control that can fail: the two comparisons were pinned only in that the `diff`
+and `shasum` *calls* must still be present (the argv equality below reds if
+either is deleted), and neutering both comparisons line-for-line
+(`if diff.returncode != 0 and 0:` and `if len(digests) != len(digests):`) left
+all 72 tests of the day green — a `cp -p` that restored the **wrong bytes** read
+as verified. The plant is a `cp` first on `PATH` that reports success and copies
+nothing, so the restore exits 0 over a pair that is genuinely unequal: one test
+asserts the `diff -q` finding, one asserts the `shasum -a 256` finding (the two
+cannot be separated by input, since both read bytes, so they are separated by
+which test names which message), and a third drives the same plant through
+`run()`'s own `finally` and asserts the kept tree. The third arm — `shasum`
+absent — is planted by narrowing `PATH` to a directory holding `cp` and `diff`
+and no `shasum`, where the restore itself *succeeds*: the only finding is the
+verification that did not run, and the absence of a `diff -q` finding is
+asserted beside it so that test stays on its own arm. Neutering either
+comparison alone reds exactly its own test.
+
+The whole temp tree — the
+backups, the generated plugin and one `records-*` directory per pytest
+invocation — is removed when `run()` returns, and **kept** when a restore did
+not verify, because there the backup is the only intact copy; the exception then
+names the directory it kept. **Declared bound:** only `run()` ends a run, so a
+`Runner` whose helpers are driven directly keeps its tree.
+
 **No git command anywhere** — `test_kill_matrix.py` enumerates that from this
-module's own AST rather than by reading it. It takes no timing measurements and
-reports none; `subprocess`'s `timeout=` is a bound on a hung child, not a
-measurement.
+module's own AST rather than by reading it: every *spawn-shaped* call (the
+module's own `_SPAWN` pattern, so `os.system` and `Popen` are inside it, and an
+import that would let a spawn be called under a bare name is refused) must pass
+an enumerable literal argv, and every string constant is matched
+command-shaped and anchored, `(\S*/)?git(\s|$)`, so `/usr/bin/git status` is
+inside it while prose about git is not. The argv heads are additionally held to
+an **equality** — `["cp", "diff", "shasum", "sys.executable"]` — the way the
+import allowance below is, so a spawn of any new name reds on the day it is
+added whether or not it is `git`. **Declared bound:** a command assembled
+at run time out of pieces that are not themselves `git` is outside both halves,
+which is why the argv heads are enumerated rather than grepped — and that bound
+is **demonstrated** rather than accepted: the same two halves are run over a
+source that assembles one (`['sh', '-c', tool + ' checkout ' + path]`) and
+asserted to miss it, so it reds if it ever becomes false.
+
+It takes no timing measurements and reports none; `subprocess`'s `timeout=` is
+a bound on a hung child, not a measurement.
+
+### Every census has a planted positive, because absence alone proves nothing
+
+All of the structural guardrails above read as "this predicate finds nothing in
+`kill_matrix.py`". An absence-assertion over a clean source has only half of
+what ADR-0039/R1 asks for: an inert predicate finds nothing there either, so the
+assert cannot fail and the claim is narrative. Measured on this very file —
+breaking the `"git"` substring, the git-command pattern or the clock-module set
+each left all 67 tests of the day green.
+
+So each census is **one callable** at the top of `test_kill_matrix.py`
+(`_aliased_spawn_imports`, `_spawn_argv_heads`, `_git_among`,
+`_git_command_strings`, `_timing_module_imports`, `_clock_names_in`,
+`_hard_coded_env_names`) and each is called **twice**: once on the instrument's
+own source, asserted to find nothing, and once on a small planted source that
+does contain the violation, asserted to find and name it. There is exactly one
+spelling of each predicate — `(\S*/)?git(\s|$)` lives in `GIT_COMMAND` and is
+shared by the census, by the two asserts that demonstrate its semantics and by
+the run-time-assembly bound — because a planted positive routed through a
+*copy* of the predicate is the same defect again: four copies of that pattern is
+how breaking the one actually in use stayed green.
+
+The planted sources are written out as text, and the expected findings as
+literals, rather than either being derived from the sets they exercise. A census
+filters by its own set, so both shortcuts shrink with it: delete a member and
+finding and expectation agree, and nothing reds. Spelt out, each hand-written
+set gets a **pair** of asserts that between them make any change to it red — a
+member deleted or replaced stops being found in a planted source that still
+uses it, and a member added reds the literal pin beside it, which is the
+instruction to plant the new member rather than to widen the expectation.
+
+`_spawn_argv_heads` is default-deny — a spawn with no argument list, an argv it
+cannot enumerate, or a non-literal `argv[0]` other than `sys.executable` raises
+rather than being skipped — and `test_g5_the_argv_census_fails_rather_than_skips`
+plants one source per refusal. That control is the one test here this instrument
+cannot measure: it plants assertion failures *inside* a helper of the test
+module on purpose, and the recording pass records them as `FAIL`, so it cannot
+sit inside a FAIL-free `SHIPPED` baseline. It is measured with plain pytest
+instead.
 
 ### Its two anchors
 
@@ -557,11 +654,93 @@ itself:
   under-marks, and it does **not** see an arm that reads a child's outcome
   through a helper's return value or a fixture.
 * The `BLIND` overlay is applied only when `child_instrumentation=True`. With it
-  off the child is pristine, propagation across the boundary is intact, and
-  those arms are measured for real.
+  off the child is pristine and propagation across the boundary is intact, so
+  the arms that **read** a child's outcome are measured for real — and that is
+  the whole of what default-off buys. An arm that executes only *inside* the
+  child writes no record, so it reads `NOT-REACHED` though it ran and may have
+  failed. With the overlay off, `NOT-REACHED` therefore means "no execution
+  recorded in the instrumented process", never "this arm did not run", and
+  `0 BLIND` means the overlay never ran. Both figures state the flag so neither
+  reading can be quoted without it, and
+  `test_ac3_the_flag_off_reading_on_a_child_spawning_target_is_the_bound`
+  measures the cell-for-cell difference the two settings produce on the same
+  mutant. (Why the bound is narrowed rather than the arms being reported as an
+  explicit unmeasurable state: the only set available is
+  `child_dependent_linenos`, a *position* rule for arms that read a spawn's
+  result, and the in-child arm sits above the spawn — it is not in that set.
+  The one fail-closed set that would contain it, "every `NOT-REACHED` arm in a
+  file that spawns anything", is a **coarser position rule**, and that is what
+  rejects it: a targeted selection legitimately leaves most of a file's asserts
+  `NOT-REACHED`, so the set would relabel every arm the selection never ran,
+  deciding a cell from position standing in for a cause the instrument cannot
+  observe. **What it would cost on the anchors is nothing, measured:** anchor
+  2's target `tests/test_db_engine_lifecycle.py` contains **no spawn-shaped
+  call at all** — `child_dependent_linenos` returns the empty set there and its
+  one textual "subprocess" is a comment — so the set's precondition is
+  unsatisfied and it would relabel *nothing* in that file, the three
+  `NAMES-BLIND` arms included; and anchor 1's target does spawn (7
+  child-dependent arms of 130 assertion nodes) but reproduces 130 of 130
+  reached, so it has no `NOT-REACHED` arm to relabel either. The anchors
+  neither support nor refute that set, and an earlier wording here claimed they
+  refuted it. Both halves of that census are held by
+  `test_ac3_the_rejected_fail_closed_set_would_relabel_nothing_on_either_anchor`,
+  which says "re-derive the bound rather than the expectation" if either
+  moves.)
 * One target file per run, so a matrix's domain is never ambiguous.
 * The database-guard refusal is a path-and-text refusal over the sites that
-  carry the guard today, not an analysis of what an edit would do.
+  carry the guard today, not an analysis of what an edit would do. The two
+  halves have different reach, which the module says plainly: the **path** half
+  is by identity and is what refuses a guard-defeating edit, while the **text**
+  half is two literals that catch only an edit which *names* one of them. Its
+  own reach is a copy of the guard elsewhere in a tree and any edit that
+  re-introduces the live panel's database name.
+* The lock refusal is **worktree identity**, and the whole verdict is the
+  owner's: a *foreign* holder refuses, a lock this instrument's own tree holds
+  does not, and the staleness window (`STALE_SECONDS`) and the override come
+  with `current_verdict()` rather than being overruled locally. The reason is
+  not leniency: this code runs inside a pytest that same hook already admitted,
+  so extra strictness reds a suite the board decided to run, while laxity would
+  start a run whose child the hook kills. The hazard is contention between
+  *different* trees — a child pytest spawned inside the instrument's own tree is
+  already serialised by being one process tree, and that child's own hook
+  resolves the same tree and lets it through, so the composition stays closed. A
+  stale lock walked past or an override used is announced by the owner's
+  terminal-summary hook, so neither relaxation is silent.
+* `tests/kill_matrix.py` imports stdlib plus exactly one module of this
+  directory — `tests/full_suite_lock.py`, which **owns** the lock path above —
+  and `test_g4_the_instrument_imports_stdlib_and_one_named_sibling` pins that
+  allowance, so a third-party import still reds. No new runtime dependency.
+* Children run with `PYTHONDONTWRITEBYTECODE=1`. A mutant edit is often
+  byte-identical in length to the pristine file and can land in the same mtime
+  second as the reading before it, at which point that reading's `.pyc` still
+  validates and the next child imports a file no longer on disk — observed once
+  here as a single cell reading `PASS` where its re-run read `FAIL`. No reading
+  writes bytecode now, so no later reading can read one written in the same
+  second.
+* **The matrix's domain is `ast.Assert` nodes, so a kill expressed any other
+  way is outside it.** A failure raised through `pytest.raises` or
+  `pytest.fail`, a `unittest` assertion, an assert inside a helper the target
+  calls, or an error before the first assert is a **real kill no cell can
+  account for**: the reading is `0 FAIL` at pytest exit `1`. `exit 1` with no
+  `FAIL` cell therefore means "pytest failed this selection for a reason
+  outside the matrix's domain", **never** "every arm survived". It is published
+  rather than refused, deliberately: a refusal keyed on that position cannot
+  tell an out-of-domain kill from a run that accounted for nothing, and
+  `UnmeasuredRun` propagates out of `run()`, so one out-of-domain kill would
+  destroy every other mutant's reading in the same run — refusing hardest
+  exactly where a target is least assert-shaped. What separates the three
+  readings is **carried, not inferred**: every mutant's own `exit_code` and
+  reached count are in `KillMatrix.figure()` (and so in `table()`'s header), so
+  `0 reached, exit 1` (nothing ran), `1 PASS, exit 1` (a kill outside the
+  domain) and `1 PASS, exit 0` (a true survivor) are distinguishable with no
+  predicate that can be wrong about the cause. The one refusal is on
+  **SHIPPED**, where there is nothing to be wrong about: a baseline that
+  reached no arm is not a baseline whatever its exit code. Measured both ways —
+  `test_g1_a_kill_outside_the_matrix_domain_is_attributable_in_the_figure` (two
+  mutants whose cells are identical, exit 0 against exit 1, the figure the only
+  place they differ) and
+  `test_g1_a_shipped_that_reached_nothing_is_not_a_baseline` (the blank
+  baseline planted, then refused).
 
 ## Troubleshooting
 
