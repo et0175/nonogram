@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 52 (dispatched 2026-10-21; queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
-**Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py
+**Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py, tests/test_kill_matrix.py, tests/README.md  _(corrected 2026-10-22 from three files — cycle-1 F-107; the last two were declared `SCOPE+` by the implementer)_
 **Review score:** 6.5 (cycle 1/3 — below the threshold of 8)
 **Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
@@ -58,13 +58,16 @@ untidy.
 
 ## Acceptance criteria
 
-- **AC-1** *Given* the single-sourced record, *then* each clause of CARD-252's record appears **once**,
-  and the other two sites carry a pointer. No clause is lost: split the retired copies and show every one
-  survives somewhere, as CARD-257's AC-1 did.
-- **AC-2** (the control) *Given* the three texts, *then* one test holds that all three agree on the
-  mechanism's parameters, **derived from the code**, with every membership test word-bounded and a
-  **per-name, per-text** kill matrix — three names × three texts, not one mutant that happens to pick a
-  name without the hazard.
+- **AC-1** *(amended 2026-10-22 — see `## Amendment`; the original said "the other two sites")* *Given*
+  the single-sourced record, *then* each clause of CARD-252's record appears **once**, and **every other
+  text that restates it carries a pointer** — where the set of such texts is **derived, not enumerated by
+  this card**. No clause is lost: split the retired copies and show every one survives somewhere, as
+  CARD-257's AC-1 did, and **ship the survival table** — a count without names is not evidence (cycle-1
+  F-102).
+- **AC-2** (the control) *(amended 2026-10-22)* *Given* the derived set of texts, *then* one test holds
+  that **every** text in it agrees on the mechanism's parameters, **derived from the code**, with every
+  membership test word-bounded and a **per-name, per-text** kill matrix over the whole derived set — not
+  one mutant that happens to pick a name without the hazard.
 - **AC-3** *Given* the cuts, *then* `tests/test_db_engine_lifecycle.py`'s per-assert kill matrices are
   unchanged for every arm, measured with the line-count-preserving instrument and **any-RED aggregation**.
 - **AC-4** (guard) *Given* all cuts, *then* the tree sweep is unchanged — 9 sites, 6 pairs, dict-equal,
@@ -85,9 +88,19 @@ untidy.
   do with the card. This is the wave-48 figure rule in its purest form: *a figure committed to a card is a
   claim, and its control is recomputation* — no mutant catches a stale number.
 
+- **AC-5** (new, 2026-10-22 — the amendment's own criterion) *Given* the tree, *then* the set of texts the
+  control holds is **derived from an authority the runtime can enumerate** and **defaults to deny**: a
+  docstring that carries CARD-252's signature and is neither the keeper nor a pointer is a **FAILURE**, and
+  a text the derivation cannot analyse is a failure too — never a silent pass. This is ADR-0039/R2
+  verbatim, applied to this card's own set. Its control is a **planted fifth text**: add a docstring
+  carrying the signature, and the test must red naming it; remove it, and the test must pass. A derivation
+  whose plant does not red is the defect this criterion exists to prevent.
+
 ## Guardrails
 
-- G-1: **No mechanism change.** Docstrings and comments only, plus the one extended control.
+- G-1: **No mechanism change.** Docstrings and comments only, plus the one extended control. *(The
+  2026-10-22 amendment widens "the one extended control" to include the derivation AC-5 requires. It is
+  still one control, and still the only mechanism this card adds.)*
 - G-2: No clause retired without a named surviving statement.
 - G-3: `nonogram_poc` is never created, dropped, connected to or truncated; `_refuse_unless_test_database`
   is neither widened nor bypassed.
@@ -559,3 +572,35 @@ elsewhere); **every word boundary**, AST-enumerated; **G-1, G-3, G-4 and G-5** a
 re-derivation, with ADR-0036/R4 measured at exactly 3 hits in `src/nonogram/**`, all of them
 `pdf_generator.py:321`'s declared U+2022 exemption. Scope gate **PASS** (F-107's stale `Touches` costs no
 contract rule: `tests/**` still selects ADR-0039, `src/nonogram/**` still selects ADR-0036/R4).
+
+---
+
+## Amendment 2026-10-22 — the set is derived, not enumerated (owner decision)
+
+**The card's premise was wrong by one text, and the fix is not to correct the count.**
+
+Review cycle 1 (6.5) found a **fourth** text restating CARD-252's record —
+`tests/test_db_engine_lifecycle.py`'s module docstring, lines 1–57 — which this card's own diff then
+contradicted by adding, at `src/nonogram/db/session.py:288`, *"This docstring is the only statement of
+that convention, of CARD-252's record above, and of the bound below."* The drift between keeper and
+fourth text was **already live and factual**: `session.py:250` says "Four consecutive **waves** of this
+board's build gates", the fourth text says "Four consecutive **build gates** on this board". A wave holds
+several gates; one is wrong; nothing in the tree says which.
+
+**Two routes were put to the owner: extend the hand-written set from three texts to four, or derive it.
+The owner chose to derive it.** The reason is the pattern rather than this instance: CARD-257's residue
+was found one file over, which is what created CARD-259; CARD-259's residue has now been found one file
+over again. That is three generations of the same discovery, and **a hand-list of four gets a fifth
+text.** Enumerating the sites is the defect; it is the same defect ADR-0039/R2 was written for, and
+ADR-0039 is in this card's contract.
+
+So AC-1 and AC-2 are amended to speak of a **derived** set, and **AC-5** is added to carry the derivation
+itself with a planted-fifth-text control. The title still says "three places" and is left alone
+deliberately: it records what the board believed when the card was cut, and the amendment is the
+correction. `Touches` is corrected to the five files the work actually spans (cycle-1 F-107); the scope
+gate was re-run and no contract rule changes — `tests/**` still selects ADR-0039, `src/nonogram/**` still
+selects ADR-0036/R4.
+
+**What this amendment does not do:** it does not license a rewrite of `reset_engine()`'s 135-line
+docstring. The implementer's declared bound stands — no AC asks the keeper to shrink, and relocating the
+record would create yet another text. Reducing the residue remains a different card.
