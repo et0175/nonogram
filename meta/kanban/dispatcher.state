@@ -1,9 +1,9 @@
-wave: 48
+wave: 52
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: [CARD-225, CARD-252]
+active: []
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -40,11 +40,11 @@ wave_44_complete:
   escalations: 0
   smoke_test: "SATISFIED by CARD-236's merge gate without a separate run: 7895 passed, 9 skipped, 0 failed in 784.64s, and `git diff 6b27c08 HEAD -- src/ tests/ migrations/ pyproject.toml` is empty, so main's code tree is byte-identical to the gated tree. Same reasoning as wave 43's."
   note: "3/3 merged, 0 escalations. The suite ENDED THE WAVE FASTER THAN IT STARTED -- 913s at CARD-243's gate to 784.64s at CARD-236's -- while gaining 52 tests (7843 -> 7895), because CARD-236 was a cost card. Two process defects dominated the wave and both are backlog items now: the shared nonogram_test database has no lock (db_session TRUNCATEs it per test, so concurrent cards corrupt each other -- it cost CARD-222 a whole fix attempt chasing a 48-skip regression that did not exist), and an architect amendment landing mid-card invalidated an exemption claim the card had written correctly against the pre-amendment rule."
-refill_deferred_resolved:
+wave_44_refill_deferred_resolved:
   freed_by: "CARD-222 merged 40a93dd"
   outcome: "Never refilled, and correctly so: CARD-236 merged 20 minutes later, which completed the wave. A refill would have started a card into a wave that was about to close, and into the DB hazard above."
 
-merged_this_wave:
+wave_44_merged:
   - id: CARD-222
     merge_commit: 40a93dd
     at: 2026-10-17T19:00:18Z
@@ -64,19 +64,19 @@ merged_this_wave:
     accuracy: 0.92x
     gate: "7895 passed, 9 skipped, 0 failed in 784.64s; code tree byte-identical to the gated commit 6b27c08"
     note: "The card's PREMISE was wrong and that is the deliverable: the trio's 117s is the first execve of a newly CREATED executable under Defender real-time protection, not subprocess spawning. Solo measurement at the merge gate settled AC-1/G-3: trio 140.79s -> 13.73s (10.25x), suite 924.53s -> 784.64s (-15.1%) while gaining 22 tests. Its own projected 1.64% share measured 3.20% -- optimistic by 2x, recorded rather than replaced. Nine mutants replayed against both test sets with a no-mutant control green on BOTH sides."
-refill_deferred:
+wave_44_refill_deferred:
   freed_by: "CARD-222 merged 40a93dd"
   slot: 1
   reason: "NOT refilled yet, deliberately. CARD-236 is at its own merge gate running a full suite, and this board's rule is that merges run sequentially and never alongside concurrent full suites. Starting a third agent now would also re-create the exact hazard that cost CARD-222 a fix attempt: conftest's db_session TRUNCATEs the shared nonogram_test before every test, so a new card's DB selections would corrupt the gate in flight. Refill once CARD-236 lands."
   eligible_when_refilled: "CARD-222's dependents whose conflict edges were only to it — CARD-206, CARD-207 (book_pdf_generator.py), CARD-208, CARD-209, CARD-215 (export/layout.py), CARD-220 (tests/**), plus CARD-223..CARD-227 and CARD-229..CARD-233 by dependency. Note CARD-227 and CARD-230 are now pre-dispatch clean (their contradictions and mis-cut ACs were settled this wave), while CARD-225 has newly inherited AC-370 as a blocking obligation."
 
-refilled:
+wave_44_refilled:
   - at: 2026-10-17T15:45:00Z
     freed_by: "CARD-243 merged 1280085 (0.2d against 1d)"
     started: CARD-216
     superseded: "abandoned 15:52Z on owner instruction before any work; replaced by CARD-236"
     reason: "priority order among the cards with no conflict edge to CARD-222 (CARD-216, CARD-236); both P2, lower card number wins. CARD-216 was passed over at dispatch for a reason that still applies and is briefed rather than ignored: it is a migration card, and this board's DB-mode tests skip green when no nonogram_test database exists, so its AC evidence can pass vacuously."
-conflict_edges:
+wave_44_conflict_edges:
   - pair: [CARD-222, CARD-243]
     reason: "none — verified disjoint: CARD-222 is src/nonogram/{admin,export} + its own test files; CARD-243 is tests/helpers + test_book_difficulty_dots.py + the ADR. No hotspot shared."
   # Serialized behind CARD-222, draining through slot refill as it merges:
@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-19T07:15:55Z
+last_updated: 2026-10-21T22:07:30Z   # run resume, 2026-10-21 (local 2026-10-22)
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -661,3 +661,173 @@ card_247_merged:
     one. That is the clearest evidence this wave produced that the fix was the right one.
   owner_decision_applied: "rename the editor's button, keep Clear for the brush (2026-10-19). New name Reset, chosen because the player already calls the identical control that, so one change removed the collision and ended an inconsistency CARD-246 left. Pinned, because nothing pinned the label before."
   still_open_for_the_owner: "the PLAYER's confirmation still reads 'Clear the board?' / 'Clear board' under a button called Reset, two controls from the Clear brush. Raised, deliberately left alone, recorded as a decision rather than an oversight."
+
+# ----------------------------------------------------------------------------------
+# Waves 49, 50 and 51 ran WITHOUT the dispatcher: each card was carried by
+# `start` / `review` / `done` on owner instruction, so no contemporaneous wave block
+# was ever written and the header above went on reading `wave: 48, active: [CARD-225,
+# CARD-252]` for three waves and six merged cards. The three blocks below are a
+# RECONSTRUCTION written at `run resume` on 2026-10-21T22:07:30Z from the cards'
+# own close-out records -- not a contemporaneous dispatcher log. Every figure in them
+# is citable to a card; nothing wave-level is asserted that the cards do not evidence.
+# ----------------------------------------------------------------------------------
+
+wave_49_complete:
+  at: 2026-10-20T08:30:01Z
+  reconstructed_at_resume: true
+  cards: [CARD-255, CARD-254]
+  merged: 2
+  escalations: 0
+  merges:
+    - id: CARD-255
+      merge_commit: 6fe67edf
+      review_score: "9.0 (cycle 3/3 -- certified, no open Important)"
+      actual: 0.33d
+      estimate: 0.5d
+      gate: "8631 passed, 1 skipped, EXIT=0, solo, on 006de3b9 (branch merged with main)"
+    - id: CARD-254
+      merge_commit: 9e8aad6d
+      review_score: "9.0 (cycle 3/3 -- certified, no open Important)"
+      actual: 0.41d
+      estimate: 0.5d
+      gate: "8622 passed, 1 skipped, EXIT=0, solo, on be173c90 (branch merged with main)"
+  smoke_test: >-
+    No separate run. Satisfied per this board's standing rule (waves 43-45) by the LAST card's merge
+    gate on a tree carrying the other card's merged code -- CARD-254's 8622-test gate ran with
+    CARD-255 already in main. Not independently re-verified at resume: the gated commits be173c90 and
+    006de3b9 are pre-rebase objects and the tree comparison was not made at the time. Recorded as a
+    bound on this reconstruction, not as a clean bill.
+  product: >-
+    The full-suite lock (CARD-255) and the retirement of CARD-252's over-wide private-globals guard
+    (CARD-254). Both scored 9.0 at 3/3 and both under estimate.
+
+wave_50_complete:
+  at: 2026-10-20T15:22:06Z
+  reconstructed_at_resume: true
+  cards: [CARD-257, CARD-256]
+  merged: 2
+  escalations: 0
+  merges:
+    - id: CARD-257
+      merge_commit: b441ba00
+      review_score: "9.0 (cycle 3/3 -- certified, no open Important)"
+      actual: 0.8d
+      estimate: 0.25d
+      accuracy: 3.2x over
+      gate: "8623 passed, 1 skipped, EXIT=0, solo, on d67ac802 (the card's three commits with main merged in)"
+    - id: CARD-256
+      merge_commit: ddb1731b
+      review_score: "9.0 (cycle 3/3 -- certified, no open Important)"
+      actual: 0.84d
+      estimate: 0.25d
+      accuracy: 3.4x over
+      gate: >-
+        8628 passed, 1 skipped, EXIT=0, solo, on 380885dc -- CARD-257's merged code was in that tree,
+        so this gate certifies the PAIR. Reconciles exactly: main 8623 after CARD-257 + the 5 tests
+        CARD-256 adds = 8628.
+  smoke_test: "SATISFIED by CARD-256's merge gate without a separate run -- see its `gate` above (it certified both cards' code together)."
+  estimate_lesson: >-
+    Both wave-50 cards were estimated 0.25d and both took ~0.8d -- better than 3x over, on cards whose
+    whole content was CUTTING prose to what it can evidence. This is the same miss wave 51 then
+    repeated at larger scale (CARD-260: 3.3d against 0.75d): on this board, work whose deliverable is
+    a CERTIFICATION is systematically under-estimated, because the estimate prices the edit and the
+    cost is the proof.
+  named_skip: >-
+    CARD-257's gate identified the board's one standing skip for the first time --
+    tests/test_book_pdf_memory.py:1288, a setrlimit(RLIMIT_AS) this kernel refuses, which answered
+    CARD-256's own F-004(b). The address-space half of CARD-256's AC-2 is therefore NOT run on this
+    machine.
+
+wave_51_complete:
+  at: 2026-10-21T19:03:11Z
+  reconstructed_at_resume: true
+  cards: [CARD-258, CARD-260]
+  merged: 2
+  escalations: 1
+  merges:
+    - id: CARD-258
+      merge_commit: 4584caf4
+      review_score: "9.0 (cycle 3/3)"
+      actual: 2.2d
+      estimate: 0.5d
+      accuracy: 4.4x over
+      gate: "8668 passed, 1 skipped, EXIT=0, on the REBASED tree c4ebba6c"
+    - id: CARD-260
+      merge_commit: 62f52ec6
+      review_score: "8.8 (round 5 -- re-entry cycle 2/3)"
+      actual: 3.3d
+      estimate: 0.75d
+      accuracy: 4.4x over
+      gate: >-
+        8718 passed, 27 SKIPPED, EXIT=0, solo, on f2d0231a. The 27 skips are a DECLARED BOUND, not a
+        clean bill: every other gate on this board since 2026-10-18 ran 1 skip with DATABASE_URL set
+        (CARD-258's own merge gate, and CARD-260's build gates 4 and 5 at 8690/1 and 8694/1), so this
+        gate exercised ~26 fewer tests than the one that certified its wave-mate. Accepted for this
+        card specifically -- a three-file test-only diff, G-3 verified by static enumeration, the
+        _refuse_unless_test_database selection 28 passed / 0 skipped, and zero skips in
+        test_kill_matrix.py itself. A full suite with Postgres reachable is owed and is in the backlog.
+  escalation:
+    id: CARD-260
+    at: "review 3/3"
+    reason: "one missing control, not one more turn of the family (commit 2a90968f)"
+    resolved: >-
+      Owner authorised rounds 4 and 5 (re-entry cycles 1/3 and 2/3). Round 4's remedy held and
+      refuted one of the orchestrator's own judgement calls; round 5 closed F-401 and its
+      replacement F-501 did not survive a skeptic (REFUTED, file restored byte-identical twice).
+      Merged on 8.8 with three open LOW findings carded to the backlog.
+  smoke_test: >-
+    SATISFIED by CARD-260's merge gate, VERIFIED at resume rather than assumed --
+    `git diff f2d0231a HEAD -- src/ tests/ migrations/ pyproject.toml` is EMPTY, so main's code tree
+    is byte-identical to the gated tree. Note the gated commit is NOT an ancestor of main
+    (f2d0231a was rebased to f68bceef and merged --no-ff as 62f52ec6); identity of CONTENT is the
+    claim, which is the same standard waves 43-45 used. Carries the 27-skip bound above.
+  the_waves_real_product: >-
+    The AC/EC/G VERIFICATION GATE found on its FIRST run what five review cycles at 4.0 -> 8.8 had
+    missed: CARD-260's G-5 claimed `cp -p` backups were "verified two ways" and neutering BOTH
+    comparisons left the suite green, so a restore that wrote the wrong bytes would have been
+    published as verified -- on the card whose entire subject is claims without controls. The review
+    loop had scored 8.8 with zero gating findings. A score says nothing about whether the criteria
+    were DEMONSTRATED. If one process change comes out of wave 51 it is that the gate must not be the
+    last station.
+  second_lesson: >-
+    Cycle 2 found BOTH card-text defects the gate later failed on and filed them `severity: info` --
+    a level nothing acts on -- so they sat through three more cycles and two fix rounds. Filed to the
+    backlog as a process item, not as a card defect.
+
+resume_2026_10_21:
+  at: 2026-10-21T22:07:30Z
+  invoked: "run resume"
+  mode: interactive
+  found: >-
+    Header read `wave: 48` with `active: [CARD-225, CARD-252]` -- four waves and six merged cards
+    stale, last_updated 2026-10-19T07:15:55Z. It had been flagged to the owner twice without being
+    edited, deliberately: clearing the dispatcher's own state is its command's job.
+  candidates_diagnosed: >-
+    Both candidates are `done` with merge commits on main (CARD-225 00b6ff0f, CARD-252 8cf7a54),
+    their worktrees are gone and their branches are deleted. The recovery matrix in cmd-run step 3
+    reads MISSING worktree -> "recreate worktree, restart implementation", which on a MERGED card
+    would be destructive -- the matrix presumes status in_progress/review. Neither card is a recovery
+    candidate; both were dropped from `active` and NOTHING was restarted.
+  fallback_scan: >-
+    Ran step 1's missing-file fallback as a cross-check even though the file existed. Across all 259
+    cards: 240 done, 18 ready, 1 blocked (CARD-210, owner decision 2026-10-13), ZERO in_progress and
+    ZERO review. No crashed agent, no orphaned worktree (`git worktree list` is main only), no board
+    lock, no full-suite lock. There was nothing to recover -- the state was stale, not interrupted.
+  escalated_untouched: "none -- `escalated: []`, and CARD-260's wave-51 escalation was resolved by owner-authorised rounds 4 and 5 before the merge."
+  stale_keys_neutralised: >-
+    Four top-level keys were WAVE-44 leftovers sitting under a later header and have been renamed
+    with a `wave_44_` prefix: merged_this_wave, refill_deferred, refill_deferred_resolved, refilled
+    and conflict_edges. `conflict_edges` was the hazard, not the untidiness: cmd-run step 6 tells a
+    resume to "take conflict_edges from dispatcher.state if the file survived", and every edge in
+    that set is predicted against CARD-222, merged in wave 44 -- this resume would have adopted a
+    seven-wave-old edge set as current. Renamed rather than deleted; the history is the record.
+  position_now: >-
+    Wave 51 complete and verified. Wave 52 is the current wave with ONE card, CARD-259 (P2,
+    tech-debt, trivial, 0.5d, TDD true, skill python-pro), status `ready`, both dependencies merged --
+    CARD-257 b441ba00 created the single source it points at, CARD-260 62f52ec6 committed the
+    instrument it is told to CONSUME rather than rebuild. No card is dispatched; `active: []`.
+  not_dispatched_here: >-
+    `run resume` step 6 says to continue as a normal run into the next wave, and mode is
+    `interactive`, which asks at the wave boundary. The recovery itself needed no decision and was
+    done; the wave-52 dispatch is a decision and is the owner's, consistent with this board's
+    practice of recording owner_decision at every wave boundary (see wave_45, wave_48).
