@@ -1,6 +1,6 @@
 # CARD-259: CARD-252's record is written in three places; single-source it and control the pointer
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -465,3 +465,30 @@ claimed from the first.
 8. No timing measurement was taken and none is reported anywhere above.
 9. `NONOGRAM_FULL_SUITE_LOCK` was redirected to `/tmp/card259-scratch.lock` for every run in this
    worktree; `meta/kanban/.full-suite.lock` was never read, created, modified or deleted.
+
+---
+
+### [Build gate — PASSED] impact-scoped, and the scope is a declared deviation
+
+`d85b48b0` in the worktree, impact set of eight files — the card's three, plus
+`test_kill_matrix.py` (edited as `SCOPE+`), `test_full_suite_lock.py` (the guard, because
+`tests/README.md` changed), `test_cli.py` (the structural import guard, because `src/` changed),
+`test_db_url_driver.py` and `test_db_connect_timeout.py`:
+
+**815 passed, 2 skipped, 0 failed, EXIT=0.**
+
+The 2 skips are this file's `db_required` tests with no reachable test database, which the agent
+declared rather than glossed: `TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema`'s
+AC-1/AC-2 are **not** evidenced by this gate.
+
+**The scope is a deviation from `config.yml`, and the reason is structural rather than a preference.**
+`review.test_scope` reads `full` and has since wave 26 — its only commit. A full-suite gate takes
+`meta/kanban/.full-suite.lock`, and CARD-255's guard makes `pytest_configure` **raise
+`pytest.UsageError` on a foreign holder** — so a full run taken here would have red every test run
+CARD-206's implementation agent made in its own worktree, for the whole ~16.5 minutes. With
+`max_concurrent: 2` and `test_scope: full`, those two settings cannot both be honoured while two cards
+are live: the first card to reach a gate breaks the other. `cmd-start-review` resolves this explicitly —
+impact-scoped runs do not take the lock, and the full suite still runs at the merge gate, which is one of
+the two backstops that make the narrowing safe. CARD-260's cycles ran impact-scoped for the same reason
+and recorded nothing; this gate records it. **Owner decision owed:** flip `test_scope` to `impact` (making
+the practice the policy), or lower `max_concurrent` to 1 so `full` is actually reachable.

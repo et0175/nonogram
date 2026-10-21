@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-21 22:18 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
+_Updated: 2026-10-21 22:51 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -56,7 +56,7 @@ _Updated: 2026-10-21 22:18 UTC_  ·  <!-- forge:run wave=52 mode=interactive con
 | 49 | CARD-254 P2, CARD-255 P1 | ✅ done |
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
-| 52 | CARD-206 P2, CARD-259 P2 | ▶ active (CARD-206 in_progress, CARD-259 in_progress) |
+| 52 | CARD-206 P2, CARD-259 P2 | ▶ active (CARD-206 in_progress, CARD-259 review) |
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -92,13 +92,12 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 ## In Progress
 - **CARD-206** P2 · The interior opens with a blank title / copyright page, ahead of the guide
   `worktree: ../PythonProject4-card-206` · `branch: card/206-interior-title-page`
-  `elapsed: 0.0d / 0.5d est`
-- **CARD-259** P2 · CARD-252's record is written in three places; single-source it and control the pointer
-  `worktree: ../PythonProject4-card-259` · `branch: card/259-single-source-the-record`
-  `elapsed: 0.0d / 0.75d est`
+  `elapsed: 0.1d / 0.5d est`
 
 ## Review
-_(none)_
+- **CARD-259** P2 · CARD-252's record is written in three places; single-source it and control the pointer
+  `worktree: ../PythonProject4-card-259` · `branch: card/259-single-source-the-record`
+  `elapsed: 0.1d / 0.75d est`
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
