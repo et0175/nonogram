@@ -1,0 +1,217 @@
+version: 1
+generated_at: "2026-10-21T14:19:13Z"
+target: "CARD-260 cycle 4 (round 4 overall, re-entry after cycle-3 escalation) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-260, branch card/260-commit-the-kill-instrument @ f9718739 + four uncommitted fix rounds, target main"
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/kill_matrix.py (full, 1433 lines, working-tree state)"
+    - "tests/test_kill_matrix.py (full, 2117 lines, working-tree state)"
+    - "tests/README.md (the instrument's section, lines ~490-560)"
+    - "meta/kanban/cards/CARD-260.md (all 1494 lines)"
+    - "meta/review/20261021T131926Z-CARD-260-cycle3.yml, 20261021T085747Z-CARD-260-cycle2.yml"
+    - "git show HEAD:tests/test_kill_matrix.py + HEAD:tests/kill_matrix.py (attribution)"
+    - "pyproject.toml (ADR-0038/R7 evidence)"
+  not_reached:
+    - "the browser tier (pytest-playwright/Chromium) — deliberately not run, ADR-0038/R8"
+    - "the full suite — build gate 6 carried, not re-established (procedure)"
+    - "the CARD-258 interop worktree — carried from the card's own measurement, judged sufficient"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 1602, removed: 95 }
+  max_fan_in: { symbol: "tests.kill_matrix (module)", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["tests/README.md"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — tests/kill_matrix.py and tests/test_kill_matrix.py are new in f9718739 (churn 1 each), so there is no 12-month co-change history to mine for them; tests/README.md's peers (tests/full_suite_lock.py, tests/conftest.py) are deliberately not touched by a card whose Touches is exactly these three files"
+
+system_contract:
+  rules_checked: 5
+  holds: 3
+  unchecked: 1
+  violated: 1
+  verdicts:
+    - "ADR-0038/R7 ✓ holds — re-derived: pytest-playwright appears in pyproject.toml exactly once, at line 35 inside `[project.optional-dependencies] dev = [\"pytest>=8.3\", \"pytest-playwright>=0.7\"]`; it is absent from `dependencies` (line 23) and from the `admin` extra (line 36ff). This diff touches no manifest at all — `git diff --stat` on the working tree is tests/README.md, tests/kill_matrix.py, tests/test_kill_matrix.py and nothing else. Reproduce: `grep -n playwright pyproject.toml` + `git diff --name-only`."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: a ✓ needs an actual browser-tier run (Chromium present vs absent, and the named skip reason visible in the summary), which this review must not run; nothing in the diff (three test-infrastructure files, no browser marker, no conftest hook) bears on browser-test loudness. Same typed reason as cycles 2 and 3, deliberately not upgraded."
+    - "ADR-0039/R1 ✗ violated — tests/test_kill_matrix.py:935, :944 (with :945/:949 as pseudo-controls) and :1840/:1843: the G-5 and G-6 structural censuses are absence-assertions over a clean source with no planted positive, so each can be silently disabled. Measured, not inferred — three mutants, 67 passed each: M5 `\"git\" in str(name)` -> `\"gxt\"`; M6 the strings-half regex -> a never-matching pattern; M7 G-6's `isdisjoint({time,timeit,datetime,resource,cProfile})` -> `isdisjoint({zzz_not_a_module})`. See F-401. NOTE: cycle 3's ground (the off-key refusal with no control) is CLOSED and mutation-confirmed — M1 (`off_key = []`) and M4 (its message text) each kill test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing, and M2/M3 each kill the new test_g1_the_two_construction_refusals_each_have_a_control. A full sweep of the instrument's 26 refusal sites finds every one mapped to a pytest.raises that asserts on its message."
+    - "ADR-0039/R2 ✓ holds — deny-default re-derived on the current tree, each position with a green named test in the 67-test run: `_resolve_selection` refuses empty / non-file / two-file selections (tests at :1327, :1329, :1337); `_RAN_EXIT_CODES = frozenset({0,1})` with everything else raising UnmeasuredRun (:1372, and cycle-3 mutant M3 widening the set was killed); the G-5 argv enumeration FAILS rather than skips on a non-enumerable argv or a non-literal argv[0] that is not sys.executable (asserts at :924, :927, :936); `_refuse_unless_clean`'s `reached == 0` deny at both call sites (:1468); the reporting surface enumerated from the module's own AST. The hand-written sets that remain (G-6's clock names, `_FORBIDDEN_TEXT`) are R2's explicit allowance only while both sides are controlled — the missing control is filed once, under R1 as F-401, not double-counted here."
+    - "ADR-0039/R3 ✓ holds — every exemption carries a control for what it must NOT absorb, all green in the 67-test run: G-4's one pinned sibling is an EQUALITY (`extra == {\"tests\", \"full_suite_lock\"}`, :1819) so a third party and a vanished sibling both red; G-2's own-tree exemption is controlled by a foreign lock plus a decoy under repo_root that must not refuse, and by four lock states each asserted equal to full_suite_lock.current_verdict()'s own answer; G-3's two-path set is held to seven spellings plus a guard-defeating edit naming neither banned literal, and that control carries its own validity self-check (:1752, `not [banned for banned in km._FORBIDDEN_TEXT if banned in defeat or banned in kept]`); bound 1's unseen region reds on `through_a_helper == frozenset()`; bound 2's two-anchor census is both-sided (anchor 2 empty AND anchor 1 non-empty, :674-:682 — cycle-3 mutant M8 killed it); bound 8 is measured both ways; G-5's run-time-assembled-command bound is demonstrated at :953-:988. The demonstration's reliance on a re-spelled copy of the pattern is a symptom of F-401's root cause and is filed there, not as a second violation."
+
+root_causes:
+  - id: RC-1
+    title: "The instrument's structural censuses assert absence over a clean source with no planted positive, so the guard's own 'caught WITH' half does not exist — ADR-0039/R1 on the guards rather than on the refusals"
+    finding_ids: [F-401]
+
+findings:
+  - id: F-401
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_kill_matrix.py
+    line: 935
+    title: "G-5's and G-6's censuses can each be silently disabled — three mutants survive, 67 passed each"
+    description: |
+      The card's refusal half is now clean (26/26 refusal sites in kill_matrix.py map to a
+      pytest.raises that asserts on the message; the four controls fix 4 added all red when their
+      mechanism is killed). The guard half is not. Three censuses assert only the ABSENCE of a
+      violation over a source that contains none, so disabling the predicate is indistinguishable
+      from the predicate holding. Measured on the current working tree, each mutant run against the
+      whole file:
+
+        M5  tests/test_kill_matrix.py:935  `"git" in str(name)` -> `"gxt" in str(name)`
+            -> 67 passed. The argv half's git detection is inert and nothing reds.
+        M6  tests/test_kill_matrix.py:942  `re.match(r"(\S*/)?git(\s|$)", node.value)`
+            -> a never-matching pattern -> 67 passed. The strings half is inert and nothing reds.
+        M7  tests/test_kill_matrix.py:1840 `imported.isdisjoint({time,timeit,datetime,resource,
+            cProfile})` -> `isdisjoint({zzz_not_a_module})` -> 67 passed. G-6's import census is
+            inert and nothing reds.
+
+      M6 is the measured consequence of the residual cycle 3 recorded and fix 4 deliberately left:
+      lines :945 and :949 read as the control for the pattern ("the widened pattern no longer
+      reaches an absolute path, which is the shape it was widened for") but assert over their own
+      re-spelled copies, so they cannot disagree with the pattern actually in use at :942. The
+      orchestrator's stated reason for leaving it — "sharing the constant would make the
+      demonstration depend on the thing it demonstrates" — is inverted: with a shared constant, M6
+      makes :945 red immediately, which is exactly a control that CAN fail. With four copies, M6
+      survives.
+
+      Two more sites of the same shape, not separately mutated: :901 `aliased == []` (the
+      bare-name-spawn import refusal) and :1843 `assert name not in source` over a hand-written
+      name tuple that can be emptied.
+
+      The guardrails themselves HOLD in substance — verified independently of the censuses, by my
+      own grep over tests/kill_matrix.py: no git invocation anywhere (the hits are prose and the
+      `.git` pointer in a docstring), and zero hits for time/timeit/datetime/resource/cProfile/
+      perf_counter/monotonic/process_time/elapsed. What is missing is the control that proves the
+      guards would catch a violation, which is what ADR-0039/R1 requires of a claim and what this
+      card exists to enforce.
+
+      ATTRIBUTION, mechanical: all three sites predate every fix round. `git show
+      HEAD:tests/test_kill_matrix.py` carries :592 (`assert not [name for name in commands if
+      "git" in str(name)]`), :599 (`re.match(r"git(\s|$)", node.value)`) and the whole G-6 census
+      at :929-:947. No fix round created the gap; the cycle-2 fix added a NEGATIVE demonstration
+      (both halves asserted to MISS an assembled command) beside it, which is adjacent but is not a
+      planted positive. This is therefore NOT a new instance of the family loop — see the verdict.
+    suggestion: |
+      One synthetic source per census, run through the same enumeration and asserted to be FLAGGED
+      — the shape the :953-:988 block already has, with the sign reversed. Concretely:
+        1. G-5 argv half: feed `subprocess.run(["git", "checkout", path])` through the same walk and
+           assert the git head is found; or, better and cheaper, hold `commands` to an EQUALITY the
+           way G-4 holds its import allowance (`sorted(set(commands)) == ["cp", "diff", "shasum",
+           "sys.executable"]`), which reds on a new spawn of any name and needs no git predicate.
+        2. G-5 strings half: hoist `(\S*/)?git(\s|$)` into one module-level constant used at :942,
+           :945, :949 and :981, and add a source containing `"git checkout x"` asserted to be
+           caught. Sharing the constant is what makes :945 a control (M6 proves it currently is not).
+        3. G-6: run the same import/name census over a synthetic source that does `import time` and
+           names `perf_counter`, and assert both halves flag it.
+      Each of the three must be verified by killing its mechanism and seeing the new control red —
+      the same discipline fix 4 applied to F-301/F-302.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-402
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_kill_matrix.py
+    line: 253
+    title: "The new F-302 control's justification clause is true but undemonstrated"
+    description: |
+      test_g1_the_two_construction_refusals_each_have_a_control's docstring claims "without it
+      `_apply` is a no-op and the mutant's column publishes as a survivor, which is trap 5's own
+      shape". I checked it rather than accepting it, two ways, and it is TRUE: `run()`
+      (kill_matrix.py:1140-1205) has no predicate anywhere that a mutant actually changed a file —
+      `_apply` iterates `mutant.edits`, `_refuse_unless_topology_holds` compares after==before and
+      returns, and `_refuse_unless_clean` only ever constrains SHIPPED — so an empty-edit mutant
+      would publish a column cell-for-cell equal to SHIPPED, i.e. an all-PASS survivor. Mutant M2
+      corroborates it from the other side: with `if not self.edits:` turned off, the ONLY test that
+      reds is this new one, so nothing else in the suite catches an edit-less mutant.
+      Filing it as Minor, explicitly NOT as an ADR-0039/R1 violation: the claim about what the
+      refusal CATCHES has a control that can fail (M2/M3 both red it), and the clause above is a
+      true statement about the downstream pipeline, derivable from ten lines of `run()`, not a claim
+      about the guard's reach. Worth a line only because this card's whole subject is the
+      difference, and a reader cannot tell a derived consequence from a measured one.
+    suggestion: |
+      Either leave it (it is true and cheap to re-derive) or, if the card wants parity with its own
+      standard, add the plant: construct the empty-edit mutant past the refusal
+      (`object.__setattr__`) and assert its column equals SHIPPED's cell for cell.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-403
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_kill_matrix.py
+    line: 302
+    title: "The F-301 control spawns a second child pytest outside `run()`'s lock refusal"
+    description: |
+      The new `runner._measure("SHIFTED", Pass.RECORDING, len(linenos), pristine)` re-enters pytest
+      in a child, so test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing now spawns
+      two children rather than one. G-2's refusal lives in `run()` (`_refuse_if_lock_held`,
+      kill_matrix.py:995) and is bypassed by driving the private helpers — which was already true of
+      the pre-existing `runner._pytest(...)` call above it, so this is a doubling, not a new shape,
+      and the child's cwd is the tmp fixture directory (`_runner` sets repo_root=target.parent), so
+      the repo conftest and the board-lock hook do not load in it. Noted rather than filed higher
+      because the card deliberately drives helpers directly in two tests and declares that bound in
+      `Runner.workdir`'s docstring; the test does point `_workdir` at a pytest-owned directory, so
+      the temp tree is still cleaned.
+    suggestion: |
+      No change required. If the card wants the bound stated, add the two helper-driving tests to
+      the `workdir` docstring's list (it currently says "the two tests that drive `_pytest` and
+      `_backup_registry`" and one of them now drives `_measure` as well).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verification:
+  tests_run: "pytest tests/test_kill_matrix.py -q — 67 collected, 67 passed, 0 failed. Both AC-7 anchors reproduce on this working tree (anchor 1: 130 of 130 PASS and reached, collected_tests == 41; anchor 2: the 14-mutant four-arm grid). The full suite was NOT re-run — build gate 6 (8695 passed / 1 skipped / 0 failed / EXIT=0) is carried per procedure."
+  fix_round_remedy:
+    F-301: "CLOSED and mutation-confirmed. The control is `pytest.raises(MutantRefused, match=\"no cell for\")` around `runner._measure(\"SHIFTED\", Pass.RECORDING, len(linenos), pristine)`, inside the existing try at test_kill_matrix.py:302, so the shifted file is on disk while the keys come from `pristine`. It is the REAL off-key branch, not an incidental exception: M1 (`off_key = []`) makes it fail with `Failed: DID NOT RAISE MutantRefused` at :302, and M4 (the branch's message `no cell for` -> `no slot for`) also reds it, so the match= is bound to that message. `no cell for` occurs exactly once in kill_matrix.py (:1347); UnmeasuredRun is a sibling class whose message does not match. The `finally` at :304 still restores the target (read, and confirmed by a clean `git diff --stat` after the run)."
+    F-302: "CLOSED and mutation-confirmed. M2 (`if not self.edits:` -> `if False:`) and M3 (`occurrence < 1` -> `if False:`) each red test_g1_the_two_construction_refusals_each_have_a_control and nothing else. The ordinary-path arm (`Mutant(\"ORDINARY\", (ok,)).edits == (ok,)`) means neither refusal can be satisfied by refusing always."
+    F-303: "CLOSED. The pin's value is unchanged at 130 (`_independent_assert_count(LOCK_GUARD_TEST) == 130`, tokenise-and-count route, green) and the message is ACCURATE rather than decorative: that file's assert count went 64 -> 102 -> 111 -> 129 -> 130 across its five commits (3711af2b, 346671ed, 9ef39c54, 28de78d9, f2236045), so 'a live file that keeps gaining census-moving asserts' is measured, and 're-derive the bound rather than the expectation' is the correct instruction for a pin of this kind."
+    F-304: "CLOSED and the narrowed sentence is true of the code. Case 1 (nothing ran) is separated by the reached count, which KillMatrix.figure() computes per mutant from the cells (`self.denominator - len(matrix.not_reached)`, kill_matrix.py:818-822) and which cycle-3 mutant M2 showed is load-bearing; cases 2 and 3 (out-of-domain kill at exit 1, genuine survival at exit 0) are demonstrated cell-for-cell identical by test_g1_a_kill_outside_the_matrix_domain_is_attributable_in_the_figure, and the 0-reached case by test_g1_a_shipped_that_reached_nothing_is_not_a_baseline. The claim is now narrower than the code's behaviour, which is the right direction."
+    g5_shared_constant_non_fix: "The orchestrator's reasoning does NOT hold, and it is measurable: with the regex shared, breaking it reds :945 (a control that can fail); with four copies, M6 breaks it and 67 tests pass. Rolled into F-401 rather than filed separately."
+  mutation_check:
+    ran: true
+    reason: "review.mutation_check: true, and the code cycle 3 certified has changed. Re-run on the current working tree rather than carried forward."
+    mutants: 7
+    killed: 4
+    survived: 3
+    detail:
+      - { id: M1, target: "tests/kill_matrix.py:1343 off-key refusal", mutation: "off_key = sorted(set(records) - set(linenos)) -> off_key = []", verdict: killed, by: "test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing (DID NOT RAISE at :302)" }
+      - { id: M2, target: "tests/kill_matrix.py:563 Mutant.__post_init__", mutation: "if not self.edits: -> if False:", verdict: killed, by: "test_g1_the_two_construction_refusals_each_have_a_control" }
+      - { id: M3, target: "tests/kill_matrix.py:538 Edit.__post_init__", mutation: "if self.occurrence is not None and self.occurrence < 1: -> if False:", verdict: killed, by: "test_g1_the_two_construction_refusals_each_have_a_control" }
+      - { id: M4, target: "tests/kill_matrix.py:1347 off-key message", mutation: "\"no cell for\" -> \"no slot for\"", verdict: killed, by: "test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing — proves the match= binds to this branch's message" }
+      - { id: M5, target: "tests/test_kill_matrix.py:935 G-5 argv git check", mutation: "\"git\" in str(name) -> \"gxt\" in str(name)", verdict: SURVIVED, note: "67 passed -> F-401" }
+      - { id: M6, target: "tests/test_kill_matrix.py:942 G-5 strings regex", mutation: "(\\S*/)?git(\\s|$) -> (?!x)x", verdict: SURVIVED, note: "67 passed; :945/:949 do not red because they hold their own copies -> F-401" }
+      - { id: M7, target: "tests/test_kill_matrix.py:1840 G-6 import census", mutation: "isdisjoint({time,timeit,datetime,resource,cProfile}) -> isdisjoint({zzz_not_a_module})", verdict: SURVIVED, note: "67 passed -> F-401" }
+  mutation_discipline: "cp -p backups of BOTH mutation targets into the scratchpad before the first mutant; every mutant restored with `cp -p` from that backup, never git checkout/restore/stash; shasum -a 256 re-verified after EVERY mutant. Pre- and post-review digests are identical — tests/kill_matrix.py 8dee34010bb62abe2f1c0a8bbba3f29a2ec17c4aa1d1b385013db154cef7136d (which also corroborates the orchestrator's own stated fix-4 digest), tests/test_kill_matrix.py c2113a33366aec99c10dbd08eaa602f83baf8a405817b8f2959b68a80cd9ed4a, tests/README.md 1686c5c2f82e1c3706108251b637b6cb58a60e45a9fa3a29b697785938b62c3f. `git diff --stat` byte-identical before and after (3 files, 1602 insertions, 95 deletions). The only files mutated were the two under review; the instrument was never pointed at any repo path as a mutation target. nonogram_poc was never created, dropped, truncated or connected to."
+  lock_discipline: "The board's real lock /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock DOES NOT EXIST and was never created, deleted, written or overridden by this review. I did no lock probing of my own, so I never needed to set NONOGRAM_FULL_SUITE_LOCK on a temp path; the card's own G-2 tests plant on tmp paths through full_suite_lock's own override under monkeypatch, which I read but did not alter."
+  family_question:
+    verdict: "The remedy did NOT introduce a new claim without a control. Streak stays 1; the family trigger does not fire."
+    evidence: "Fix 4's reach is mechanically bounded. mtimes: tests/README.md is 41 minutes OLDER than the two code files (and older than the cycle-3 review), so README was not touched by fix 4 at all. Within tests/kill_matrix.py the change is a single +2-line edit at or after line 795: every cycle-3 line reference below 795 has shifted by exactly +2 (off_key 1341 -> 1343, topology 1294 -> 1296) and every reference above it is unmoved (_RAN_EXIT_CODES :323, _SPAWN :440, aggregate_any_red :491/:500, _discard_workdir :1128/:1134 pre-795 unchanged) — consistent with F-304's docstring narrowing and nothing else. In tests/test_kill_matrix.py fix 4 added one test, one pytest.raises block with its comment, and one failure message. All four of its claims were re-derived here: three are mutation-confirmed (M1-M4) and the fourth (F-304's narrowing) is true of the code and backed by two existing tests. The one new prose clause it introduced (F-402) is TRUE, derivable, and sits beside a control that can fail. F-401, by contrast, is present verbatim at HEAD (`git show HEAD:tests/test_kill_matrix.py` :592, :599, :929-947), so it is original-implementation territory that four rounds of review never swept — a review-coverage fact about rounds 1-3, not a new turn of the loop."
+  interop_card_258: "Carried and judged sufficient. The card measured it in a throwaway worktree at the new main with this card's files on top: the file passed and both AC-7 anchors reproduced despite CARD-258 changing src/nonogram/db/session.py by +69/-1, which is anchor 2's own mutation target, and the instrument restored both targets byte-identically. The one standing obligation it does not retire is anchor 1's pin against a live file (64 -> 130 asserts over five commits), and F-303's new message is exactly the right handling of it."

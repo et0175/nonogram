@@ -1,6 +1,6 @@
 # CARD-260: Commit the per-assertion kill instrument once, with all six of its known traps as controls
 
-**Status:** blocked
+**Status:** review
 **Priority:** P1
 **Category:** enabler
 **Complexity:** standard
@@ -15,9 +15,9 @@
 **Wave:** 51
 **Depends on:** —
 **Touches:** tests/kill_matrix.py, tests/test_kill_matrix.py, tests/README.md
-**Review score:** 8.5 (cycle 3/3)
+**Review score:** 8.5 (round 4 — re-entry cycle 1/3)
 **Started:** 2026-10-20T16:52:59Z · **Closed:** — · **Actual:** — · **Merge commit:** —
-**Blocked by:** escalated — implementation: review cycles exhausted (3/3) at score 8.5 with one Important standing (F-301: the off-key refusal in `_measure` has no control that can fail). The family trigger did NOT fire — streak stays 1. Worktree kept.
+**Blocked by:** —
 
 ## Why — the traps are known, and nothing in the tree remembers them
 
@@ -260,7 +260,7 @@ too (F-011): it was computed once on the pristine source, and a line-count-prese
 two asserts onto one line reintroduced the shape past it. And **the generated plugin's env-var names are interpolated from the
 runner's constants**, with a test that reds if any name is hard-coded again.
 
-### Declared bounds, eight, six of them measured rather than asserted
+### Declared bounds, eight, seven of them measured rather than asserted
 
 Bounds 2 and 4 were **re-derived from the code after cycle 1's fixes**, not re-worded; 5 and 6 are new;
 **7 is re-derived from build-fix 1's code** and replaces the strict reading cycle 1 shipped. After cycle 2:
@@ -1402,3 +1402,171 @@ F-301, and F-302 (two more uncontrolled refusals, both present at HEAD) folds in
 Important (F-301). Route: **add the one missing control, then `/forge:kanban review CARD-260`** — NOT
 `redo`. A clean-slate redo would discard three fix rounds that closed four Criticals and brought the card
 4.0 → 7.5 → 8.5, to replace one `pytest.raises` block in a fixture that already constructs the condition.
+
+### [Fix 4 / escalation remedy] F-301 closed, owner chose "fix + re-review" — done inline by the orchestrator
+
+The remedy was four small edits in files the card already owns, each one's correctness **mechanically
+verifiable** (kill the mechanism, confirm the new control reds), so I made them inline rather than
+spawning a fix agent. `[Inline fallback] cycle-3 remedy`.
+
+```
+FIXED F-301 — test: test_ac1_the_planted_shifting_mutant_runs_green_and_reports_nothing
+FIXED F-302 — test: test_g1_the_two_construction_refusals_each_have_a_control
+FIXED F-303 — test: test_ac7_the_lock_guard_file_reproduces_130_of_130_pass_and_reached
+FIXED F-304 — test: n/a (docstring only — the sentence now claims what is demonstrated)
+DECLARATIONS F-301 — none about the mechanism: a control was ADDED, the refusal is unchanged. The card's
+  `### Declared bounds` heading re-derived six → seven measured.
+DECLARATIONS F-302 — none about the mechanism: two controls added for refusals present at HEAD.
+DECLARATIONS F-303 — a failure MESSAGE added (no mechanism change); the pin's value is unchanged at 130.
+DECLARATIONS F-304 — a claim's reach NARROWED: `KillMatrix.figure()`'s docstring now separates case 1 by
+  the reached count instead of asserting all three grids identical.
+```
+
+**Every new control was verified to fail without its mechanism — which is the entire point of the
+finding, so asserting it would have repeated the defect:**
+
+| kill | the control that must red | result |
+|---|---|---|
+| `off_key = []` (refusal can never fire) | `…planted_shifting_mutant…` | **1 failed** |
+| `if not self.edits:` → `if False:` | `…two_construction_refusals…` | **1 failed** |
+| `occurrence < 1` check → `if False:` | `…two_construction_refusals…` | **1 failed** |
+
+Whole file: **67 passed** (66 + the one new node; F-301's control went *inside* the existing test, where
+the off-key condition was already constructed). `tests/kill_matrix.py` restored byte-identical after all
+three kills (`8dee3401…` before and after), `cp -p` backups only, no `git checkout`/`restore`/`stash`.
+
+**F-301, precisely.** The test already built the off-key condition and then **routed around `_measure`**,
+so the refusal was never reached. The control now calls
+`runner._measure("SHIFTED", Pass.RECORDING, len(linenos), pristine)` inside
+`pytest.raises(MutantRefused, match="no cell for")` **in the same `try` block**, while the shifted file is
+still on disk — so the run records shifted linenos while the keys come from `pristine`, which is exactly
+the trigger. The `finally` that restores the target is untouched. The refusal's published claim at
+`tests/README.md:523` is now backed rather than asserted.
+
+**F-303** keeps the pin at 130 and gives it the message every other cycle-3 control carries: a drift now
+reads *"now has N assertion nodes, not 130 … re-derive the bound rather than the expectation"* instead of
+`assert 131 == 130`. The finding was right that the pin is correct today and that the bare assert was the
+defect.
+
+**One thing I did NOT do, deliberately:** F-204's observation that the new G-5 control re-spells
+`(\S*/)?git(\s|$)` as a fourth literal copy rather than sharing a constant. Sharing the constant would
+make the demonstration depend on the thing it demonstrates — a control that cannot disagree with its
+mechanism is the weaker shape, and this card has spent three cycles on exactly that class. Left as the
+reviewer filed it: an out-of-scope observation, not a fix.
+
+### [Review re-entry] round 4 — pre-flight done, reviewer HELD until build gate 6 is green
+
+Owner chose "fix + re-review" at the cycle-3 escalation; `Status` returned to `review` and `Blocked by`
+cleared (an escalated card returns to `review`, not `ready`). The cycle counter restarts at 1 for this
+invocation, so the honest figure is tracked separately below.
+
+- **[Scope gate] IN_SCOPE.** `excess` = 0 — still exactly the three files of `Touches`, unchanged across
+  **four** fix rounds. `comp_spread` skipped (no `## Architecture context`), `poached` empty,
+  `guardrail_hits` skipped (G-1…G-6 behavioral).
+- **[System contract]** re-checked at re-entry: lens projects **10**, card carries **5** — the set
+  `meta/kanban/curation.md` selects. No ids added, none removed.
+- **[Round counter]** 3 prior `[Review N/3]` entries, so this is **round 4** against a fatigue threshold
+  of 2 × `max_cycles` = **6**. Inside it, and stated rather than hidden by the counter reset: a re-entry
+  is not a free reset, and if this round finds another uncontrolled claim the structural answer stops
+  being "one more fix".
+- **[Reviewer held, deliberately]** Build gate 6 took the board lock at `2026-10-21T13:40:26Z` for a
+  ~20-minute full run. The test gate precedes the review cycle by procedure — **and spawning the reviewer
+  now would be actively harmful**: it runs targeted pytest, `tests/full_suite_lock.py` would refuse every
+  one of those runs as a foreign-lock `UsageError`, and it would read the refusals as reds. That is
+  precisely the hazard CARD-258 was built to diagnose and CARD-260's own F-001×F-005 composition
+  describes. Manufacturing it to start a reviewer four minutes earlier would be indefensible on this card
+  of all cards.
+- **What the diff under review now is:** `tests/README.md` +134/−17, `tests/kill_matrix.py` +541/−52,
+  `tests/test_kill_matrix.py` +927/−26 — four rounds, still uncommitted, which is why `done` was refused.
+- **The one claim this round must re-verify above all:** the refusal message `no cell for` now occurs
+  **twice** in the test file — once as fixture prose (`OUT_OF_DOMAIN_TARGET`'s docstring, which was the
+  misleading grep hit in cycle 3) and once as the new `pytest.raises(match=…)`. A reviewer that counts
+  occurrences rather than reading them would conclude the control existed all along. It did not.
+
+- **[Build gate 6 — PASSED, post escalation remedy]** Full suite, solo under the board lock:
+  **8695 passed, 1 skipped, 0 failed, EXIT=0** in 1000.41s (16:40). **Count reconciles exactly against the
+  pre-CARD-258 base this branch still sits on:** 8629 + the card's **67** node IDs = 8696 = 8695 + 1
+  skipped, and 67 is what the file reports standing alone (66 + the one node F-302's control adds).
+  *Note the base, deliberately:* this branch's merge-base is still `02e0f691`, so its 8629 is the old
+  main — `main` itself is now 8669 after CARD-258 landed its 40. The rebase belongs to `done`, and the
+  interop was already measured clean. Progression on this card: 8671 (gate 1, 1 red) → 8671 (gate 2
+  green) → 23 reds (gate 3, F-001's own fix) → 8691 (gate 4) → 8695 (gate 5) → **8696 (gate 6)**.
+  → review re-entry, round 4.
+
+### [Review 4 — re-entry] Score: 8.5 (unchanged) — the remedy HOLDS; one Important on a different guard class
+
+Report: `meta/review/20261021T141913Z-CARD-260-cycle4.yml` — 1 high / 2 low, 5 system-contract verdicts.
+**[Review sync]** 1 report → `meta/review/`. **Step 8h: 3 ✓ holds, 1 ⚠ unchecked (ADR-0038/R8, same
+typed reason a third time, deliberately not upgraded), 1 ✗ (ADR-0039/R1 — new ground).** **R2 and R3
+re-verified ✓ position by position**, not inherited.
+
+**The escalation remedy holds, and the reviewer took none of it on trust — which is what I asked for,
+since the remedy was mine.** F-301's control is bound to the **real** off-key branch: **M1**
+(`off_key = []`) reds it with `DID NOT RAISE MutantRefused`, and **M4** (that branch's message
+`no cell for` → `no slot for`) reds it too, so `match=` is tied to that message and not to a sibling
+refusal. `UnmeasuredRun`'s message cannot match. The `finally` still restores the target.
+**And the trap did not catch it:** it **read** the two `no cell for` occurrences rather than counting
+them — `:302` is the new `pytest.raises`, `:1421` is fixture prose — and confirmed the string occurs
+**zero** times at HEAD, so the control is genuinely new. F-302 closed (M2, M3 each red it and nothing
+else; the ordinary-path arm blocks refuse-always). F-303 closed, and **the message is measured, not
+decorative**: that file's assert count went **64 → 102 → 111 → 129 → 130** across its five commits, so
+"a live file that keeps gaining census-moving asserts" is accurate. F-304 closed and the narrowed sentence
+verified true of the code. **Beyond the four, it swept all 26 refusal sites in `kill_matrix.py` and every
+one maps to a `pytest.raises` asserting on its message — the refusal half of this card is now
+exhaustively controlled.**
+
+### ⚠ F-401 — and it refutes MY judgement call, measurably. I re-derived it and I was wrong.
+
+At cycle 3 I declined to fix the G-5 four-copy regex, arguing that sharing the constant *"would make the
+demonstration depend on the thing it demonstrates — a control that cannot disagree with its mechanism is
+the weaker shape."* **That reasoning is inverted, and the measurement is one command.** I broke the
+pattern **actually in use** at `:942` (`(\S*/)?git(\s|$)` → a never-matching pattern) and ran the file:
+
+```
+occurrences of the pattern literal: 4
+mutated the FIRST occurrence (the one in use)
+67 passed      <-- nothing red
+```
+
+With four copies, `:945`/`:949` assert over **their own** copies, so they cannot disagree with the one the
+census uses — the census can be silently disabled. **With the constant shared, breaking it would red
+`:945`: a control that CAN fail.** What I missed is that `:945`/`:949` do not demonstrate the census's
+behaviour; they demonstrate the *regex's own semantics* — so coupling them to the census's constant
+creates a coupling that **detects**, which is the opposite of the hazard I invoked. My cycle-3 note on
+this is wrong and is superseded here rather than quietly dropped.
+
+**F-401's full shape, and it is a class not a site:** three mutants survive, 67 passed each — **M5**
+(`"git" in str(name)` → `"gxt"`), **M6** (the strings-half pattern), **M7** (G-6's clock-module
+`isdisjoint` set → a non-existent module name). Each census asserts only the **absence** of a violation
+over a source containing none, so an inert predicate is indistinguishable from a holding one: R1's
+"caught WITH" half does not exist for any of them. Two more sites of the same shape are named and
+unmutated: `:901` (`aliased == []`) and `:1843`.
+**The guardrails themselves hold in substance** — the reviewer's own independent grep finds no git
+invocation in `kill_matrix.py` (prose and a `.git` docstring pointer only) and zero clock names. This is
+test-quality, not a product defect.
+
+### [Family] streak STAYS 1 — and the attribution was bounded by evidence, not by my record
+
+The reviewer did not trust the card's `[Fix N]` prose for attribution. It bounded fix 4's reach
+**physically**: `tests/README.md`'s mtime is **older than the cycle-3 review**, so fix 4 never touched it;
+and inside `kill_matrix.py` fix 4 is a single **+2-line** edit at line 795 — every cycle-3 line reference
+below 795 shifted by exactly +2 (off_key 1341→1343, topology 1294→1296) and every one above is unmoved
+(`_RAN_EXIT_CODES` :323, `_SPAWN` :440). That is F-304's docstring and nothing else. **F-401 is present
+verbatim at HEAD** (`git show HEAD:tests/test_kill_matrix.py` :592, :599, :929–947).
+
+So **the family trigger does not fire.** The honest reading, which I am adopting: **not "one more turn of
+the loop" but "the R1 sweep was never exhaustive"** — rounds 1–3 swept the *refusals* (now 26/26
+controlled) and never swept the *censuses*.
+
+### [Stalled check] ⚠ the stall signature IS present, and it is the owner's call
+
+Aggregate across rounds 3 → 4: **Δscore = 0** (8.5 → 8.5, below `min_improvement` 0.5) **and Δfindings = 0**
+(1 → 1). Both of the stalled check's conditions are met, which by the letter escalates. The re-entry reset
+the cycle counter to 1 and would have hidden this; the aggregate round counter is why it did not.
+**The reviewer's score is unchanged *by design*** — it says so: "the code got strictly stronger, and a new
+violation of the same mandatory rule replaced the one that closed."
+**What distinguishes this from a true stall:** the remaining work is **enumerated, not discovered** —
+five absence-assertion sites (`:901`, `:935`, `:942`, `:1840`, `:1843`), each closable by one planted
+positive and each verifiable by killing its mechanism, plus hoisting one regex into a shared constant.
+A stall is a loop that keeps finding unknowns; this is a finite list. **Round 4 of a 6-round fatigue
+threshold** — so a round 5 is affordable, and a round 6 would not be.
