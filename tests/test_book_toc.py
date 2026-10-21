@@ -64,6 +64,7 @@ from nonogram.admin.book_pdf_generator import (
     TOC_ENTRY_GAP_PT,
     TOC_ENTRY_PT,
     TOC_GROUP_GAP_PT,
+    TITLE_PAGE_COUNT,
     TOC_SOLUTIONS_LABEL,
     BookPDFGenerator,
     DividerPagePlan,
@@ -82,6 +83,7 @@ from nonogram.admin.book_pdf_generator import (
     type_px,
 )
 from tests.helpers.book_corpus import corpus_book, puzzle
+from tests.helpers.pdf_pages import same_page as _same_page
 
 # CARD-221 removed this file's ``_lettered_as_recorded()`` host gate, which
 # compared the baseline fixture's ``font_fingerprint`` against this machine's
@@ -366,8 +368,9 @@ class TestBookToc_PageNumbersMatchTheWalk:
         dividers = _divider_pages(generator, puzzles)
 
         by_label = {row.label: row.page for row in rows}
-        assert by_label[GUIDE_TITLE] == 1, (
-            "the guide opens the interior as right-hand page 1 (INV-013)"
+        assert by_label[GUIDE_TITLE] == 1 + TITLE_PAGE_COUNT, (
+            "the blank title page opens the interior and the guide follows it "
+            "(INV-013 as amended 2026-10-17, CARD-206)"
         )
         # Each range row against its own level's divider, read off the same
         # SectionPlan the pages were drawn from.
@@ -379,7 +382,11 @@ class TestBookToc_PageNumbersMatchTheWalk:
         # `first_answer_page - 1`, recomputed here from the walk's own terms
         # rather than read back out of the generator.
         solutions_divider = (
-            1 + GUIDE_PAGE_COUNT + decided.toc_page_count + len(decided.pages)
+            1
+            + TITLE_PAGE_COUNT
+            + GUIDE_PAGE_COUNT
+            + decided.toc_page_count
+            + len(decided.pages)
         )
         assert by_label[TOC_SOLUTIONS_LABEL] == solutions_divider
 
@@ -388,7 +395,8 @@ class TestBookToc_PageNumbersMatchTheWalk:
         that position is the page the row names".
 
         The walk is replayed page by page and each named position is checked
-        against what was actually yielded there: page 1 is a guide page, each
+        against what was actually yielded there: page 1 is the blank title
+        page and page ``1 + TITLE_PAGE_COUNT`` a guide page (CARD-206), each
         level's named page is that level's own divider, and the solutions
         row's page is the SOLUTIONS divider that opens the answer section.
         """
@@ -404,9 +412,19 @@ class TestBookToc_PageNumbersMatchTheWalk:
                 if isinstance(entry, DividerPagePlan)
                 else "puzzle"
             )
-        for number in range(1, GUIDE_PAGE_COUNT + 1):
+        for number in range(1, TITLE_PAGE_COUNT + 1):
+            kind_of[number] = "title"
+        for number in range(
+            1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1
+        ):
             kind_of[number] = "guide"
-        solutions = 1 + GUIDE_PAGE_COUNT + decided.toc_page_count + len(decided.pages)
+        solutions = (
+            1
+            + TITLE_PAGE_COUNT
+            + GUIDE_PAGE_COUNT
+            + decided.toc_page_count
+            + len(decided.pages)
+        )
         kind_of[solutions] = "divider:SOLUTIONS"
 
         assert kind_of[rows[0].page] == "guide"
@@ -422,7 +440,8 @@ class TestBookToc_PageNumbersMatchTheWalk:
         were not there — the mistake a hardcoded offset makes.
 
         The same book is measured against the walk's own
-        ``1 + GUIDE_PAGE_COUNT + toc_page_count`` opening position: every
+        ``1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count`` opening
+        position: every
         level row's page must be at least that, and the first level's exactly
         that (its divider is the puzzle section's first page).
         """
@@ -431,7 +450,9 @@ class TestBookToc_PageNumbersMatchTheWalk:
 
         rows = _rows_of(generator, puzzles, monkeypatch)
         decided = generator.section_plan(list(puzzles))
-        first_section_page = 1 + GUIDE_PAGE_COUNT + decided.toc_page_count
+        first_section_page = (
+            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + decided.toc_page_count
+        )
 
         ranges = [row for row in rows if row.label.startswith("Puzzles ")]
         assert ranges[0].page == first_section_page
@@ -1835,14 +1856,22 @@ class TestBookToc_EmptyBookHasNoTocPage:
         assert pages == []
         assert decided.toc_page_count == 0
 
-    def test_the_interior_of_an_empty_book_is_the_guide_alone(self) -> None:
-        """No TOC page, and therefore no page numbered for one."""
+    def test_the_interior_of_an_empty_book_is_the_title_page_and_the_guide(
+        self,
+    ) -> None:
+        """No TOC page, and therefore no page numbered for one.
+
+        CARD-206 adds the blank title page in front of the guide here as on
+        every other book, so the front matter is all an empty book's interior
+        holds — and the blank page is never its only page, which is what
+        ``TestBookExport_EmptyBookUnchanged`` (AC-6) asserts directly.
+        """
         generator = BookPDFGenerator(_book("card-205-ac7-interior"))
 
         stream = generator.interior_stream([])
 
-        assert stream.page_count == GUIDE_PAGE_COUNT
-        assert len(list(stream.pages)) == GUIDE_PAGE_COUNT
+        assert stream.page_count == TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+        assert len(list(stream.pages)) == TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
 
 
 # --------------------------------------------------------------------------
@@ -1880,9 +1909,14 @@ class TestBookToc_TheRowCountIsWhatTheCountFunctionPredicts:
         decided = generator.section_plan(list(puzzles))
         # `interior_stream`'s own arithmetic for the SOLUTIONS divider:
         # `first_answer_page - 1`, where `first_answer_page` is
-        # `1 + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1`.
+        # `1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count +
+        # len(section) + 1`.
         solutions_page = (
-            1 + GUIDE_PAGE_COUNT + decided.toc_page_count + len(decided.pages)
+            1
+            + TITLE_PAGE_COUNT
+            + GUIDE_PAGE_COUNT
+            + decided.toc_page_count
+            + len(decided.pages)
         )
         entries = structural_toc_entries(
             decided.pages, decided.payloads, solutions_page
@@ -2111,3 +2145,94 @@ class TestBookToc_TheErrorPathsRaiseAndNameTheProblem:
         assert "laid out on 1" in message, (
             f"the figure the book's own page numbers rest on must be named: {message}"
         )
+
+
+# --------------------------------------------------------------------------
+# CARD-206 AC-3 — every TOC row still points at the page it names
+# --------------------------------------------------------------------------
+
+
+class TestBookToc_PageNumbersSurviveTheTitlePage:
+    """CARD-206 AC-3 — after the title page shifts every position by one,
+    each TOC row's number is still the position of the page it names.
+
+    Checked against the **drawn pages**, not against a second arithmetic:
+    the interior is rendered, and the page at each row's own number is
+    compared to an independently built expected page — ``create_guide_page``
+    for the guide row, ``create_divider_page`` with the level's own word for
+    each range row, and the same with ``"SOLUTIONS"`` for the solutions row.
+    A row whose number drifted by one would land on the page before or after
+    the one it names, and both of those are a different drawing.
+
+    That is the difference from ``TestBookToc_PageNumbersMatchTheWalk``,
+    which compares the rows against the page **plan**: a shift applied
+    consistently to the plan and to the rows would satisfy the plan check and
+    still print a contents page that sends the reader one page wrong.
+    """
+
+    #: Three levels, four puzzles each: small enough to render in one go,
+    #: big enough that all three dividers and the solutions row exist and
+    #: the three dividers sit at three different positions.
+    PER_TIER = 4
+
+    @pytest.fixture
+    def rendered(self, monkeypatch) -> Tuple[List[TocEntry], List[object], BookPDFGenerator]:
+        puzzles = _puzzles(
+            easy=self.PER_TIER, medium=self.PER_TIER, hard=self.PER_TIER
+        )
+        generator = BookPDFGenerator(_book("card-206-ac3"))
+        rows = _rows_of(generator, puzzles, monkeypatch)
+        pages = list(generator.interior_stream(list(puzzles)).pages)
+        return rows, pages, generator
+
+    def test_the_guide_row_points_at_the_guides_first_page(self, rendered) -> None:
+        rows, pages, generator = rendered
+        guide_row = next(row for row in rows if row.label == GUIDE_TITLE)
+
+        assert guide_row.page == 1 + TITLE_PAGE_COUNT
+        expected = generator.create_guide_page(
+            3 * self.PER_TIER,
+            self.PER_TIER,
+            self.PER_TIER,
+            self.PER_TIER,
+            page_number=guide_row.page,
+        )
+        assert _same_page(pages[guide_row.page - 1], expected), (
+            f"the guide row sends the reader to page {guide_row.page}, which "
+            "is not the guide's first page"
+        )
+
+    def test_each_range_row_points_at_its_own_levels_divider(self, rendered) -> None:
+        rows, pages, generator = rendered
+        headings = [row for row in rows if row.is_heading and row.page is None]
+        ranges = [row for row in rows if row.label.startswith("Puzzles ")]
+
+        assert len(ranges) == 3 and len(headings) == 3
+        for heading, range_row in zip(headings, ranges):
+            expected = generator.create_divider_page(range_row.page, heading.label)
+            assert _same_page(pages[range_row.page - 1], expected), (
+                f"the {heading.label} range row sends the reader to page "
+                f"{range_row.page}, which is not that level's divider"
+            )
+
+    def test_the_solutions_row_points_at_the_solutions_divider(self, rendered) -> None:
+        rows, pages, generator = rendered
+        solutions = next(row for row in rows if row.label == TOC_SOLUTIONS_LABEL)
+
+        expected = generator.create_divider_page(solutions.page, "SOLUTIONS")
+        assert _same_page(pages[solutions.page - 1], expected)
+
+    def test_the_comparison_would_have_caught_a_one_page_drift(self, rendered) -> None:
+        """The control: the pages either side of a named one are *not* it.
+
+        Without this, every assertion above could pass on a book whose pages
+        were all the same drawing. It is the title page's own shift that this
+        rules out — a row still reading its pre-card number would land one
+        page earlier, and that page must be a different drawing.
+        """
+        rows, pages, generator = rendered
+        solutions = next(row for row in rows if row.label == TOC_SOLUTIONS_LABEL)
+        expected = generator.create_divider_page(solutions.page, "SOLUTIONS")
+
+        assert not _same_page(pages[solutions.page - 2], expected)
+        assert not _same_page(pages[solutions.page], expected)

@@ -92,6 +92,7 @@ from nonogram.admin.book_pdf_generator import (
 from nonogram.difficulty import Tier
 from nonogram.export.layout import ANSWER_TILE_GAP_MM, compute_packed_solved_layout
 
+from tests.helpers.book_corpus import GUIDE_INTERIOR_PAGES
 from tests.helpers.page_ink import drawing_of
 
 # --------------------------------------------------------------------------
@@ -218,8 +219,10 @@ def first_answer_page(book: Book, puzzles: Sequence[dict]) -> int:
     # the puzzle section, moving everything after it later again by that
     # many pages — read off ``section_plan``'s own answer rather than
     # re-derived, the same "ask the one seam, don't recompute" discipline
-    # this helper's own docstring already states.
-    return 4 + decided.toc_page_count + len(decided.pages)
+    # this helper's own docstring already states. CARD-206: the blank title /
+    # copyright page is reserved as interior page 1, one page earlier still
+    # than the guide — 5 + ..., not 4.
+    return 5 + decided.toc_page_count + len(decided.pages)
 
 
 def _interior(puzzles: Sequence[dict], book: Optional[Book] = None) -> List[Image.Image]:
@@ -265,7 +268,10 @@ class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
 
     def test_a_book_with_no_puzzles_has_no_answer_section_at_all(self) -> None:
         pages = _interior([])
-        assert len(pages) == 2, "the 2-page guide alone (CARD-201)"
+        assert len(pages) == 1 + 2, (
+            "the blank title page (CARD-206) and the 2-page guide (CARD-201) "
+            "alone"
+        )
 
 
 # --------------------------------------------------------------------------
@@ -443,14 +449,15 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
             assert page.tobytes() != not_a_divider.tobytes()
 
     def test_the_total_page_count_has_no_room_for_a_heading_page(self) -> None:
-        """2 guide (CARD-201) + 1 TOC (CARD-200) + 2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 12.
+        """1 title (CARD-206) + 2 guide (CARD-201) + 1 TOC (CARD-200) +
+        2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 13.
 
         A per-level heading page inside the answer section (the alternative
         CARD-198's own "What to implement" considered and rejected) would
-        make this 13 or 14 instead.
+        make this 14 or 15 instead.
         """
         book, puzzles, pages = self._book_and_pages()
-        assert len(pages) == 2 + 1 + 2 + 3 + 1 + 3 == 12
+        assert len(pages) == 1 + 2 + 1 + 2 + 3 + 1 + 3 == 13
 
 
 # --------------------------------------------------------------------------
@@ -540,10 +547,12 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
     ) -> None:
         """Puzzle and answer pages via :func:`drawing_of`; page 1 off its own ink.
 
-        Page 1 (the guide) and the SOLUTIONS/level divider pages carry no
+        The blank title page (interior page 1, CARD-206), the guide's two
+        pages and the SOLUTIONS/level divider pages carry no
         ruled grid for :func:`drawing_of` to measure, so each divider is
         skipped (``drawing_of`` itself raises on it — a page with no grid at
-        all, never a silently wrong measurement) and the guide's own two
+        all, never a silently wrong measurement), the title page carries no
+        ink at all and cannot be measured either, and the guide's own two
         pages' parity (CARD-201) is read the same independent way
         ``tests/test_book_pdf_memory.py``'s own parity test reads it: the
         leftmost ink column, which sits at the gutter margin on a right-hand
@@ -562,7 +571,14 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
 
         for number, page in enumerate(pages, start=1):
             right_hand = page_is_right_hand(number)
-            if number in (1, 2):
+            if number == 1:
+                # CARD-206's blank title page: no ink, so nothing to measure
+                # a side from. Asserted to be blank, which is the only thing
+                # it can say, and not counted as a parity measurement.
+                ink = np.asarray(page.convert("L")) < 128
+                assert not ink.any(), "interior page 1 is the blank title page"
+                continue
+            if number in GUIDE_INTERIOR_PAGES:
                 ink = np.asarray(page.convert("L")) < 128
                 leftmost = int(np.where(ink.any(axis=0))[0].min())
                 # Book 1: gutter 0.5in (150 px), outside 0.375in (112.5 px).
@@ -584,9 +600,10 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
             checked += 1
 
         # The guide's two pages, the two-up-free puzzle pages and the answer
-        # pages: everything but the two divider pages (Easy, SOLUTIONS) and
-        # the table of contents page(s) (CARD-200).
-        assert checked == len(pages) - 2 - decided.toc_page_count
+        # pages: everything but the two divider pages (Easy, SOLUTIONS), the
+        # table of contents page(s) (CARD-200) and the blank title page
+        # (CARD-206), which has no ink to measure a side from.
+        assert checked == len(pages) - 2 - decided.toc_page_count - 1
 
     def test_page_is_right_hand_itself_alternates_from_page_one(self) -> None:
         """The control: the declared parity is alternating, not constant."""
@@ -1059,7 +1076,13 @@ class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
         # real plan instead, which is what this test actually needs and
         # does not depend on any fixture's own bookkeeping.
         plan = BookPDFGenerator(corpus_book()).section_plan(baseline_puzzles())
-        before_answers = 1 + bpg.GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages)
+        before_answers = (
+            1
+            + bpg.TITLE_PAGE_COUNT
+            + bpg.GUIDE_PAGE_COUNT
+            + plan.toc_page_count
+            + len(plan.pages)
+        )
         assert now["page_count"] >= before_answers + 1, (
             "the fixture's own book should still open an answer section "
             "after this many front-matter/puzzle-section pages"

@@ -13,17 +13,22 @@
     AC-275  TestBookPdf_DrawingCentredOnLeftHandPage
     AC-276  TestBookPdf_ParityNeverMovesTopEdge
     AC-287  TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1
+            (re-measured 2026-10-17 for CARD-206: interior page 6, left-hand)
 
-Since CARD-128 the interior opens each non-empty level with a divider page, and
+Since CARD-128 the interior opens each non-empty level with a divider page,
 since CARD-200 a table-of-contents page (or pages) sits between the guide and
-that divider, so a one-level, small book (every book below is far under one
-TOC page's own capacity, so this is always exactly one page) runs the 2-page
-guide (CARD-201), the 1-page table of contents (CARD-200), divider page 4, and
-its puzzles from interior page 5 (AC-287 — before CARD-201 the guide was one
+that divider, and since CARD-206 the interior opens with a blank title /
+copyright page, so a one-level, small book (every book below is far under one
+TOC page's own capacity, so this is always exactly one page) runs the blank
+title page 1 (CARD-206), the 2-page
+guide (CARD-201), the 1-page table of contents (CARD-200), divider page 5, and
+its puzzles from interior page 6 (AC-287 — before CARD-201 the guide was one
 page and puzzles started at interior page 3; before CARD-200 the TOC did not
-exist and puzzles started at interior page 4 — each card's own front-matter
+exist and puzzles started at interior page 4; before CARD-206 they started at
+interior page 5 — each card's own front-matter
 addition shifts every later page by one, and flips its parity). Every page
-index below counts that page; what the dividers say and where they go is
+index below counts those pages through :data:`FIRST_PUZZLE_PAGE`; what the
+dividers say and where they go is
 ``tests/test_book_pdf_levels.py``'s.
 
 Every number asserted here is measured off the **page**, by
@@ -95,6 +100,18 @@ PX_PER_MM = 300 / 25.4
 #: Tolerances the ACs state: the cell to 0.05 mm, a placed edge to 0.1 mm.
 CELL_TOLERANCE_MM = 0.05
 EDGE_TOLERANCE_MM = 0.1
+
+#: A one-level small book's own front matter, in interior pages, written out
+#: here rather than derived from the generator's constants: page 1 the blank
+#: title / copyright page (CARD-206), pages 2-3 the guide (CARD-201's 2-page
+#: tutorial), page 4 the one-page table of contents (CARD-200 — every book in
+#: this file is far under one TOC page's capacity), page 5 the "Easy" divider
+#: (CARD-128). So the **first puzzle page is interior page 6**, which is an
+#: even, left-hand page (AC-287 as re-measured 2026-10-17), and the first
+#: right-hand puzzle page is interior page 7 — the page AC-274 is about.
+#: ``pages[n - 1]`` is interior page ``n``, so an index is one less.
+FIRST_PUZZLE_PAGE = 6
+DIVIDER_PAGE = FIRST_PUZZLE_PAGE - 1
 
 
 def _cm(millimetres: float) -> str:
@@ -274,8 +291,9 @@ class TestBookPdf_CellSizedForBookTrimNotA4:
 
     def test_the_page_draws_the_cell_the_book_trim_allows(self):
         book = _book()
-        # interior page 5: guide 1-2, TOC 3 (CARD-200), "Easy" divider 4
-        page = _interior(book, [_puzzle(*self.PUZZLE)])[4]
+        # interior page 6: title 1 (CARD-206), guide 2-3, TOC 4 (CARD-200),
+        # "Easy" divider 5
+        page = _interior(book, [_puzzle(*self.PUZZLE)])[FIRST_PUZZLE_PAGE - 1]
 
         drawn_mm = _mm(drawing_of(page).cell)
 
@@ -286,7 +304,7 @@ class TestBookPdf_CellSizedForBookTrimNotA4:
     def test_it_is_not_the_cell_the_a4_layout_used_to_give_it(self):
         """The defect this AC pins: 190.5 mm over 39 cells, not A4's 186 mm."""
         book = _book()
-        page = _interior(book, [_puzzle(*self.PUZZLE)])[4]
+        page = _interior(book, [_puzzle(*self.PUZZLE)])[FIRST_PUZZLE_PAGE - 1]
 
         a4_cell_mm = (210.0 - 2 * 12.0) / 39
         assert abs(a4_cell_mm - 4.7692) < 1e-3  # what the A4 sheet gave it
@@ -307,7 +325,7 @@ class TestBookPdf_CellFollowsStoredTrim:
     def test_a_six_by_nine_book_draws_the_smaller_cell(self, print_setup):
         width_mm, height_mm = SIX_BY_NINE_MM
         book = print_setup(width_mm, height_mm)
-        page = _interior(book, [_puzzle(*self.PUZZLE)])[4]
+        page = _interior(book, [_puzzle(*self.PUZZLE)])[FIRST_PUZZLE_PAGE - 1]
 
         drawn_mm = _mm(drawing_of(page).cell)
 
@@ -323,7 +341,7 @@ class TestBookPdf_CellFollowsStoredTrim:
         self, print_setup
     ):
         book = print_setup(BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM)
-        page = _interior(book, [_puzzle(*self.PUZZLE)])[4]
+        page = _interior(book, [_puzzle(*self.PUZZLE)])[FIRST_PUZZLE_PAGE - 1]
 
         drawn_mm = _mm(drawing_of(page).cell)
 
@@ -332,9 +350,9 @@ class TestBookPdf_CellFollowsStoredTrim:
     def test_changing_the_trim_is_what_changes_the_cell(self, print_setup):
         """The two halves side by side: one puzzle, two chosen trims."""
         puzzle = _puzzle(*self.PUZZLE)
-        six_by_nine = _mm(drawing_of(_interior(print_setup(*SIX_BY_NINE_MM), [puzzle])[4]).cell)
+        six_by_nine = _mm(drawing_of(_interior(print_setup(*SIX_BY_NINE_MM), [puzzle])[FIRST_PUZZLE_PAGE - 1]).cell)
         book_one = _mm(
-            drawing_of(_interior(print_setup(BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM), [puzzle])[4]).cell
+            drawing_of(_interior(print_setup(BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM), [puzzle])[FIRST_PUZZLE_PAGE - 1]).cell
         )
 
         assert book_one - six_by_nine > 1.0, (book_one, six_by_nine)
@@ -366,8 +384,9 @@ class TestBookPdf_PageSizeEqualsStoredTrim:
     #: the "Easy" divider that opens the book's one level (CARD-128), three
     #: puzzle pages (none of these three pairs) and the SOLUTIONS divider,
     #: then three answer pages — one full solved page per puzzle (CARD-198,
-    #: up from the packed key's one four-up page before that card).
-    PAGES = 2 + 1 + 1 + 3 + 1 + 3
+    #: up from the packed key's one four-up page before that card). The
+    #: leading ``1`` is CARD-206's blank title / copyright page.
+    PAGES = 1 + 2 + 1 + 1 + 3 + 1 + 3
 
     def test_every_interior_page_of_the_pdf_is_the_stored_trim(self, export):
         pages = pdf_pages(export.interior.getvalue())
@@ -407,7 +426,7 @@ class TestBookPdf_EmptyMarginsFallBackToBook1Profile:
         ],
     )
     def test_the_cell_is_the_one_the_con_018_margins_give(self, book):
-        page = _interior(book, [_puzzle(*self.PUZZLE)])[4]
+        page = _interior(book, [_puzzle(*self.PUZZLE)])[FIRST_PUZZLE_PAGE - 1]
 
         drawn_mm = _mm(drawing_of(page).cell)
 
@@ -430,8 +449,9 @@ class TestBookPdf_EmptyMarginsFallBackToBook1Profile:
         )
 
         letter_pt = (0.0, 0.0, 8.5 * 72.0, 11 * 72.0)
-        # 2 guide + 1 TOC (CARD-200) + 1 divider + 1 puzzle + 1 SOLUTIONS + 1 answer = 7.
-        assert pdf_page_boxes(export.interior.getvalue()) == [letter_pt] * 7
+        # 1 title (CARD-206) + 2 guide + 1 TOC (CARD-200) + 1 divider +
+        # 1 puzzle + 1 SOLUTIONS + 1 answer = 8.
+        assert pdf_page_boxes(export.interior.getvalue()) == [letter_pt] * 8
         assert pdf_page_boxes(export.cover.getvalue()) == [letter_pt]
 
 
@@ -446,7 +466,7 @@ class TestBookPdf_WideGridPrintsOnPortraitPage:
     def test_the_page_is_portrait_at_the_book_trim(self):
         pages = _interior(_book(), [_puzzle(30, 15, 5)])
 
-        page = pages[4]
+        page = pages[FIRST_PUZZLE_PAGE - 1]
         assert page.size == (2550, 3300)
         assert page.size[0] < page.size[1], "portrait"
 
@@ -460,7 +480,7 @@ class TestBookPdf_WideGridPrintsUprightNeverRotated:
     """AC-240 — 30 columns across the page and 15 rows down it."""
 
     def test_the_grid_is_drawn_unrotated(self):
-        page = _interior(_book(), [_puzzle(30, 15, 5)])[4]
+        page = _interior(_book(), [_puzzle(30, 15, 5)])[FIRST_PUZZLE_PAGE - 1]
 
         drawing = drawing_of(page)
 
@@ -468,7 +488,7 @@ class TestBookPdf_WideGridPrintsUprightNeverRotated:
 
     def test_the_measurement_would_have_seen_a_rotation(self):
         """The negative has teeth: a 15-wide x 30-tall puzzle reads the other way."""
-        page = _interior(_book(), [_puzzle(15, 30, 5)])[4]
+        page = _interior(_book(), [_puzzle(15, 30, 5)])[FIRST_PUZZLE_PAGE - 1]
 
         drawing = drawing_of(page)
 
@@ -498,7 +518,7 @@ class TestBookPdf_PuzzleTopEdgeFloatsWithTheSpare:
     def test_the_two_puzzle_pages_no_longer_start_at_the_same_top_edge(self):
         pages = _interior(_book(), [_puzzle(15, 15, 7), _puzzle(30, 30, 9)])
 
-        small, large = drawing_of(pages[4]), drawing_of(pages[5])
+        small, large = drawing_of(pages[FIRST_PUZZLE_PAGE - 1]), drawing_of(pages[FIRST_PUZZLE_PAGE])
 
         assert small.top != large.top
         assert small.cell != large.cell, "the two do print different cells"
@@ -506,7 +526,7 @@ class TestBookPdf_PuzzleTopEdgeFloatsWithTheSpare:
     def test_the_shallower_drawing_sits_10_71_mm_lower(self):
         pages = _interior(_book(), [_puzzle(15, 15, 7), _puzzle(30, 30, 9)])
 
-        small, large = drawing_of(pages[4]), drawing_of(pages[5])
+        small, large = drawing_of(pages[FIRST_PUZZLE_PAGE - 1]), drawing_of(pages[FIRST_PUZZLE_PAGE])
 
         # 0.42 x (190.5 - 165.0) mm, off the drawn ink of both pages.
         assert _mm(small.top - large.top) == pytest.approx(10.71, abs=0.1)
@@ -517,13 +537,14 @@ class TestBookPdf_PuzzleTopEdgeFloatsWithTheSpare:
 # --------------------------------------------------------------------------
 
 #: AC-274/AC-275's book: three 15x15 puzzles with 7-deep clue gutters, so the
-#: puzzle pages are interior pages 5, 6 and 7 (CARD-200: page 1-2 the 2-page
-#: guide, page 3 the 1-page table of contents, page 4 the "Easy" divider —
-#: before CARD-200 these were pages 4, 5 and 6; before CARD-201 they were
-#: pages 2, 3 and 4. Each card's own front-matter insertion moves every later
-#: page by one and flips its parity, so the puzzle that was left-hand under
-#: CARD-201's count (page 4) is right-hand under CARD-200's (page 5), and the
-#: one that was right-hand (page 5) is now left-hand (page 6)).
+#: puzzle pages are interior pages 6, 7 and 8 (:data:`FIRST_PUZZLE_PAGE` and
+#: the two after it — before CARD-206 these were pages 5, 6 and 7; before
+#: CARD-200 pages 4, 5 and 6; before CARD-201 pages 2, 3 and 4. Each card's
+#: own front-matter insertion moves every later page by one and flips its
+#: parity, so the **first** puzzle page — right-hand under CARD-200's count
+#: (page 5) — is left-hand again under CARD-206's (page 6), and AC-274's
+#: right-hand illustration moves on with it, to the second puzzle, interior
+#: page 7).
 _MIRRORED_PUZZLE = (15, 15, 7)
 
 
@@ -532,7 +553,17 @@ def _mirrored_pages():
 
 
 class TestBookPdf_DrawingCentredOnRightHandPage:
-    """AC-274 — on interior page 5 the drawing's left edge is 25.45 mm in.
+    """AC-274 — on interior page 7 the drawing's left edge is 25.45 mm in.
+
+    **CARD-206 moved which page this is.** The claim is about a *right-hand*
+    page, and the book's first puzzle page became a left-hand one when the
+    blank title page went in front of the front matter, so the right-hand
+    illustration is now the second puzzle, interior page 7
+    (:data:`FIRST_PUZZLE_PAGE` + 1). The figure it reads is unchanged: on the
+    amended profile the two side margins are equal, so a centred drawing's
+    left edge is the same number at either parity (see the identity recorded
+    in ``test_on_book_1_the_miscount_is_invisible_in_the_drawing``).
+
 
     **The number AC-274 states, and this class's own name, are correct again
     (CARD-224).** 15x15, depth 7: drawing width 22 x 7.5 mm = 165 mm; usable
@@ -543,14 +574,14 @@ class TestBookPdf_DrawingCentredOnRightHandPage:
     """
 
     def test_the_drawing_sits_25_45_mm_from_the_left_trim_edge(self):
-        page = _mirrored_pages()[4]  # interior page 5, right-hand
+        page = _mirrored_pages()[FIRST_PUZZLE_PAGE]  # interior page 7, right-hand
 
         left_mm = _mm(drawing_of(page).left)
 
         assert abs(left_mm - 25.45) < EDGE_TOLERANCE_MM, left_mm
 
     def test_that_is_the_usable_width_centred_with_the_gutter_on_the_left(self):
-        page = _mirrored_pages()[4]
+        page = _mirrored_pages()[FIRST_PUZZLE_PAGE]
 
         left_mm = _mm(drawing_of(page).left)
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
@@ -568,6 +599,11 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
     puzzle to the third, since the second puzzle is now the right-hand one —
     see `_MIRRORED_PUZZLE`'s own note).
 
+    **CARD-206** moved it back to the **first** puzzle page: the blank title
+    page flips every later page's parity, so interior page 6 — still the
+    left-hand illustration, still the same figure — is now
+    :data:`FIRST_PUZZLE_PAGE` itself rather than the page after it.
+
     **CARD-224:** the offset is the outside margin plus half the spare —
     12.7 + 12.75 = 25.45 mm on the amended profile, the same figure as the
     right-hand page's because that profile's two side margins are equal (the
@@ -579,14 +615,14 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
     """
 
     def test_the_drawing_sits_25_45_mm_from_the_left_trim_edge(self):
-        page = _mirrored_pages()[5]  # interior page 6, left-hand
+        page = _mirrored_pages()[FIRST_PUZZLE_PAGE - 1]  # interior page 6, left-hand (CARD-206)
 
         left_mm = _mm(drawing_of(page).left)
 
         assert abs(left_mm - 25.45) < EDGE_TOLERANCE_MM, left_mm
 
     def test_that_is_the_usable_width_centred_with_the_gutter_on_the_right(self):
-        page = _mirrored_pages()[5]
+        page = _mirrored_pages()[FIRST_PUZZLE_PAGE - 1]
 
         left_mm = _mm(drawing_of(page).left)
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
@@ -613,8 +649,8 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
         """
         pages = _mirrored_pages()
 
-        right_hand = drawing_of(pages[4]).left
-        left_hand = drawing_of(pages[5]).left
+        right_hand = drawing_of(pages[FIRST_PUZZLE_PAGE]).left
+        left_hand = drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left
 
         assert abs(_mm(right_hand - left_hand) - (GUTTER_MM - OUTSIDE_MM)) < EDGE_TOLERANCE_MM
 
@@ -657,15 +693,15 @@ class TestBookPdf_ParityNeverMovesTopEdge:
     def test_the_two_drawings_share_a_top_pixel_row(self):
         pages = _mirrored_pages()
 
-        right_hand = drawing_of(pages[4])
-        left_hand = drawing_of(pages[5])
+        right_hand = drawing_of(pages[FIRST_PUZZLE_PAGE])
+        left_hand = drawing_of(pages[FIRST_PUZZLE_PAGE - 1])
 
         # The premise: these two really are opposite parities, read off the
         # footer icon's end of the strip (see the class docstring).
-        odd_left, odd_right = self._footer_icon_ends(pages[4])
-        even_left, even_right = self._footer_icon_ends(pages[5])
+        odd_left, odd_right = self._footer_icon_ends(pages[FIRST_PUZZLE_PAGE])
+        even_left, even_right = self._footer_icon_ends(pages[FIRST_PUZZLE_PAGE - 1])
         assert odd_right > 4 * odd_left, (
-            "interior page 5 is right-hand, so its footer icon belongs at the "
+            "interior page 7 is right-hand, so its footer icon belongs at the "
             "right-hand end of the strip",
             odd_left,
             odd_right,
@@ -689,42 +725,46 @@ class TestBookPdf_ParityNeverMovesTopEdge:
     def test_they_are_the_same_drawing_at_the_same_cell(self):
         pages = _mirrored_pages()
 
-        right_hand = drawing_of(pages[4])
-        left_hand = drawing_of(pages[5])
+        right_hand = drawing_of(pages[FIRST_PUZZLE_PAGE])
+        left_hand = drawing_of(pages[FIRST_PUZZLE_PAGE - 1])
 
         assert (right_hand.columns, right_hand.rows) == (left_hand.columns, left_hand.rows)
         assert abs(right_hand.cell - left_hand.cell) <= 1
 
 
 class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
-    """AC-287 (FR-043, INV-013) — the first puzzle page is interior page 5, right-hand.
+    """AC-287 (FR-043, INV-013) — the first puzzle page is interior page 6, left-hand.
 
-    **CARD-200 note (SCOPE+): these numbers shifted by one again, and the
-    parity flipped a second time.** The interior now runs the 2-page guide
+    **CARD-206 note (SCOPE+): these numbers shifted by one again, and the
+    parity flipped a third time.** The interior now runs the blank title /
+    copyright page (CARD-206), the 2-page guide
     (CARD-201), the 1-page table of contents (CARD-200 — this book's one
     entry is far under a TOC page's own capacity), then the "Easy" divider
     (CARD-128), then the first puzzle — so that puzzle is interior page
-    **5**, an odd page, with the 12.7 mm gutter margin on its **left** (the
-    outside margin is on its right). Before this card (CARD-201 alone) this
-    same puzzle sat at interior page 4, an even page, outside margin on the
-    left — the opposite parity; before CARD-201 it was page 3, odd again.
+    **6**, an even page, with the 12.7 mm outside margin on its **left** (the
+    gutter margin is on its right). Before this card (CARD-200 + CARD-201)
+    this same puzzle sat at interior page 5, an odd page, gutter on the
+    left — the opposite parity; before CARD-200 it was page 4, even again,
+    and before CARD-201 page 3.
     The claim AC-287 itself makes (parity counts from interior page 1, not
     from a miscount that includes the cover) is unchanged; only which page
     number and which parity the first puzzle page actually has moved, which
     is exactly this card's own ripple (one extra front-matter page) and not a
-    defect in the parity rule — the same shape of ripple CARD-201's own note
-    here already described for its own one-page addition.
+    defect in the parity rule — the same shape of ripple CARD-200's and
+    CARD-201's own notes here already described for their own one-page
+    additions. The registry re-measured AC-287 to this reading on 2026-10-17.
 
     The usable area's left edge is asserted through the drawing's (CARD-224):
-    the drawing is centred in the usable area, so on this right-hand page its
-    left edge is the gutter margin plus *half* the spare. Between CARD-204 and
-    this card it was the gutter plus the whole spare.
+    the drawing is centred in the usable area, so on this left-hand page its
+    left edge is the outside margin plus *half* the spare. Between CARD-204 and
+    this card it was the outer margin plus the whole spare.
 
     **Where the miscount is caught (CARD-224 review cycle 1, F-002).** On
     CON-018 as amended both side margins are 0.5 in, so a centred drawing sits
     on the same pixel column at either parity and *every* left-edge comparison
     on Book 1 is an identity — including the one that is supposed to exclude
-    the miscounted, left-hand reading of this page. The exclusion is therefore
+    the miscounted, right-hand reading of this page (the reading a count that
+    forgot CARD-206's own title page would give it). The exclusion is therefore
     made on an **unequal-margin book** (:attr:`WIDE_GUTTER_MM` /
     :attr:`NARROW_OUTSIDE_MM`), exactly as
     :class:`TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage` and
@@ -759,44 +799,54 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
             [_puzzle(*_MIRRORED_PUZZLE, name=f"P{n}") for n in range(count)],
         )
 
-    def test_the_first_puzzle_page_is_right_hand(self):
-        """Interior page 5's drawing is at the right-hand position.
+    def test_the_first_puzzle_page_is_left_hand(self):
+        """Interior page 6's drawing is at the left-hand position.
 
         Asserted on both books: Book 1 for the figure AC-287 states, and the
-        unequal-margin book for the fact that it is the *right-hand* one
+        unequal-margin book for the fact that it is the *left-hand* one
         (CARD-224 review cycle 1, F-002 — on Book 1 the two positions are the
         same number).
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
-        left_mm = _mm(drawing_of(pages[4]).left)
-        expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
+        left_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
+        expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
 
         assert abs(left_mm - expected) < EDGE_TOLERANCE_MM, (left_mm, expected)
 
-        unequal_mm = _mm(drawing_of(self._unequal_pages()[4]).left)
+        unequal_mm = _mm(drawing_of(self._unequal_pages()[FIRST_PUZZLE_PAGE - 1]).left)
 
-        assert abs(unequal_mm - self._unequal_expected_left_mm(right_hand=True)) < (
+        assert abs(unequal_mm - self._unequal_expected_left_mm(right_hand=False)) < (
             EDGE_TOLERANCE_MM
         ), unequal_mm
 
-    def test_its_usable_area_starts_at_the_gutter_margin(self):
-        """12.7 mm from the left trim edge: 0.5 in, the gutter margin (CON-018).
+    def test_its_usable_area_starts_at_the_outside_margin(self):
+        """12.7 mm from the left trim edge: 0.5 in, the outside margin (CON-018).
+
+        A left-hand page carries the gutter on its **right**, so its usable
+        area starts at the outside margin. On CON-018 as amended both side
+        margins are 0.5 in, so the figure is the one this test has always
+        read; which margin it *is* changed with CARD-206's parity flip, and
+        that is what the name and the assertion below now say.
 
         CARD-224: the drawing's own left edge is the usable area's left edge
-        plus *half* this page's spare (centred). Under CARD-204's flush-right
+        plus *half* this page's spare (centred). Under CARD-204's flush-outer
         anchor it was that edge plus the whole spare.
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
-        left_mm = _mm(drawing_of(pages[4]).left)
+        left_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
         spare = (BOOK1_WIDTH_MM - GUTTER_MM - OUTSIDE_MM) - (7 + 15) * STANDARD_CELL_MM
 
-        assert abs(GUTTER_MM - 12.7) < 1e-9, "the profile's gutter margin is 0.5 in"
-        assert abs((left_mm - spare / 2) - GUTTER_MM) < EDGE_TOLERANCE_MM, left_mm
+        assert abs(OUTSIDE_MM - 12.7) < 1e-9, "the profile's outside margin is 0.5 in"
+        assert abs((left_mm - spare / 2) - OUTSIDE_MM) < EDGE_TOLERANCE_MM, left_mm
 
-    def test_it_is_not_the_left_hand_page_a_miscount_would_give_it(self):
-        """Counting the cover as page 1 would make this page 4, outside margin left.
+    def test_it_is_not_the_right_hand_page_a_miscount_would_give_it(self):
+        """Forgetting the title page would make this page 5, gutter margin left.
+
+        That is the miscount this card's own ripple creates, and it is the
+        same shape as the older one (counting the cover as interior page 1):
+        both put this drawing one page earlier, at the opposite parity.
 
         **Measured on an unequal-margin book** (CARD-224 review cycle 1,
         F-002): the gap between the right-hand and left-hand positions is
@@ -805,11 +855,11 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         moves this drawing nowhere and the exclusion this test exists to make
         is unmakeable there. On a 20 mm gutter against a 10 mm outside margin
         the two readings are 10 mm apart, and the drawing is asserted to be at
-        the right-hand one and **not** at the left-hand one.
+        the left-hand one and **not** at the right-hand one.
         """
         pages = self._unequal_pages()
 
-        left_mm = _mm(drawing_of(pages[4]).left)
+        left_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
         right_hand = self._unequal_expected_left_mm(right_hand=True)
         left_hand = self._unequal_expected_left_mm(right_hand=False)
 
@@ -819,12 +869,13 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
             right_hand,
             left_hand,
         )
-        assert abs(left_mm - right_hand) < EDGE_TOLERANCE_MM, (left_mm, right_hand)
-        assert abs(left_mm - left_hand) > EDGE_TOLERANCE_MM, (
-            "interior page 5 is right-hand; a count that included the cover "
-            "would put this drawing at the left-hand position instead",
+        assert abs(left_mm - left_hand) < EDGE_TOLERANCE_MM, (left_mm, left_hand)
+        assert abs(left_mm - right_hand) > EDGE_TOLERANCE_MM, (
+            "interior page 6 is left-hand; a count that forgot the title page "
+            "(or included the cover) would put this drawing at the right-hand "
+            "position instead",
             left_mm,
-            left_hand,
+            right_hand,
         )
 
     def test_on_book_1_the_miscount_is_invisible_in_the_drawing(self):
@@ -837,51 +888,54 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
-        left_mm = _mm(drawing_of(pages[4]).left)
+        left_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
         right_hand = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
         left_hand = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
 
         assert abs(GUTTER_MM - OUTSIDE_MM) < 1e-9, "both side margins are 0.5 in"
         assert right_hand == left_hand
-        assert abs(left_mm - right_hand) < EDGE_TOLERANCE_MM
+        assert abs(left_mm - left_hand) < EDGE_TOLERANCE_MM
 
     def test_the_divider_did_not_take_the_puzzle_pages_place(self):
-        """Interior page 4 is the level divider, and carries no drawing at all.
+        """Interior page 5 is the level divider, and carries no drawing at all.
 
-        Without it (and without the guide's own second page and the table of
+        Without it (and without the blank title page, the guide's own second
+        page and the table of
         contents) the first puzzle would be page 2 — the reading this AC
         replaced — so the pages that moved it are checked to be there.
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
-        divider = np.asarray(pages[3].convert("L")) < 128
+        divider = np.asarray(pages[DIVIDER_PAGE - 1].convert("L")) < 128
 
-        assert divider.any(), "interior page 4 is blank"
-        assert divider.sum() < pages[3].width * pages[3].height / 1000
+        assert divider.any(), "interior page 5 is blank"
+        assert divider.sum() < pages[DIVIDER_PAGE - 1].width * pages[DIVIDER_PAGE - 1].height / 1000
 
     def test_the_parities_alternate_from_there(self):
-        """Pages 5, 6, 7 are right, left, right — each page's own position.
+        """Pages 6, 7, 8 are left, right, left — each page's own position.
 
         **On the unequal-margin book** (CARD-224 review cycle 1, F-002), where
-        the alternation is a 10 mm move and not a zero one: pages 5 and 7 share
-        a left edge, page 6 sits 10 mm away from both. On the amended Book 1
+        the alternation is a 10 mm move and not a zero one: pages 6 and 8 share
+        a left edge, page 7 sits 10 mm away from both. On the amended Book 1
         profile all three numbers coincide, so the sequence there cannot tell
-        "right, left, right" from "right, right, right".
+        "left, right, left" from "left, left, left".
         """
         pages = self._unequal_pages(count=3)
 
-        lefts = [_mm(drawing_of(page).left) for page in pages[4:7]]
+        lefts = [_mm(drawing_of(page).left) for page in pages[FIRST_PUZZLE_PAGE - 1 : FIRST_PUZZLE_PAGE + 2]]
         expected = {
             hand: self._unequal_expected_left_mm(right_hand=hand) for hand in (True, False)
         }
 
         assert abs(expected[True] - expected[False]) == pytest.approx(10.0)
-        assert abs(lefts[0] - expected[True]) < EDGE_TOLERANCE_MM, lefts
-        assert abs(lefts[1] - expected[False]) < EDGE_TOLERANCE_MM, lefts
-        assert abs(lefts[2] - expected[True]) < EDGE_TOLERANCE_MM, lefts
+        assert abs(lefts[0] - expected[False]) < EDGE_TOLERANCE_MM, lefts
+        assert abs(lefts[1] - expected[True]) < EDGE_TOLERANCE_MM, lefts
+        assert abs(lefts[2] - expected[False]) < EDGE_TOLERANCE_MM, lefts
         assert abs(lefts[0] - lefts[2]) < EDGE_TOLERANCE_MM, lefts
         # EC-032's own formula, on a profile where it is not an identity.
+        # Since CARD-206 the first of the three is the left-hand page, so the
+        # right-hand reading is the second one's.
         assert abs(
-            lefts[0] - lefts[1] - (self.WIDE_GUTTER_MM - self.NARROW_OUTSIDE_MM)
+            lefts[1] - lefts[0] - (self.WIDE_GUTTER_MM - self.NARROW_OUTSIDE_MM)
         ) < EDGE_TOLERANCE_MM, lefts
 
 
@@ -961,23 +1015,24 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
             ],
         )
 
-        # Guide 1-2 (CARD-201), the 1-page TOC (CARD-200), the "Easy" divider
-        # 4, the two survivors 5 and 6, the SOLUTIONS divider 7, and the
+        # The blank title page 1 (CARD-206), guide 2-3 (CARD-201), the 1-page
+        # TOC (CARD-200), the "Easy" divider
+        # 5, the two survivors 6 and 7, the SOLUTIONS divider 8, and the
         # answer section: both survivors are 15x15 (qualifying, width<=15 and
         # height<=20) and the same tier, so CARD-202 packs them onto one
-        # shared answer page, 8 — not two full pages.
-        assert len(pages) == 8
-        first_mm = _mm(drawing_of(pages[4]).left)
-        second_mm = _mm(drawing_of(pages[5]).left)
+        # shared answer page, 9 — not two full pages.
+        assert len(pages) == 9
+        first_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
+        second_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE]).left)
 
-        # Interior page 5 is right-hand, page 6 left-hand (CARD-200: the TOC's
-        # own page flips the parity CARD-201's own version of this comment
-        # once stated).
+        # Interior page 6 is left-hand, page 7 right-hand (CARD-206: the title
+        # page flips the parity CARD-200's own version of this comment once
+        # stated).
         assert abs(first_mm - _expected_left_mm(
-            15, 7, STANDARD_CELL_MM, right_hand=True
+            15, 7, STANDARD_CELL_MM, right_hand=False
         )) < EDGE_TOLERANCE_MM, first_mm
         assert abs(second_mm - _expected_left_mm(
-            15, 7, STANDARD_CELL_MM, right_hand=False
+            15, 7, STANDARD_CELL_MM, right_hand=True
         )) < EDGE_TOLERANCE_MM, second_mm
 
     #: An **unequal**-margin book, for the one test below that needs the
@@ -992,11 +1047,11 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
     NARROW_OUTSIDE_MM = 10.0
 
     def test_the_second_survivor_did_not_inherit_the_dropped_page_parity(self):
-        """The failure this pins: the survivor left on page 7's margins.
+        """The failure this pins: the survivor left on page 8's margins.
 
-        Had the drop happened after page 6 was handed to the broken puzzle,
-        the second survivor would be interior page 7 — right-hand, the same
-        left edge as the first survivor — instead of page 6.
+        Had the drop happened after page 7 was handed to the broken puzzle,
+        the second survivor would be interior page 8 — left-hand, the same
+        left edge as the first survivor — instead of page 7.
 
         **CARD-224**: measured on an unequal-margin book (see
         :attr:`WIDE_GUTTER_MM`), because a centred drawing on the equal-margin
@@ -1014,8 +1069,8 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
             ],
         )
 
-        first_mm = _mm(drawing_of(pages[4]).left)
-        second_mm = _mm(drawing_of(pages[5]).left)
+        first_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1]).left)
+        second_mm = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE]).left)
         expected = {
             hand: _expected_left_mm(
                 15,
@@ -1029,11 +1084,13 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
         }
 
         assert abs(expected[True] - expected[False]) == pytest.approx(10.0)
-        assert abs(first_mm - expected[True]) < EDGE_TOLERANCE_MM, first_mm
-        assert abs(second_mm - expected[False]) < EDGE_TOLERANCE_MM, second_mm
+        assert abs(first_mm - expected[False]) < EDGE_TOLERANCE_MM, first_mm
+        assert abs(second_mm - expected[True]) < EDGE_TOLERANCE_MM, second_mm
         # EC-032's own formula, on the profile where it is not an identity.
+        # Since CARD-206 the first survivor is the **left-hand** page of the
+        # two, so the right-hand reading is the second one's.
         assert abs(
-            first_mm - second_mm - (self.WIDE_GUTTER_MM - self.NARROW_OUTSIDE_MM)
+            second_mm - first_mm - (self.WIDE_GUTTER_MM - self.NARROW_OUTSIDE_MM)
         ) < EDGE_TOLERANCE_MM
 
     def test_the_drop_leaves_a_trace_in_the_log(self, caplog):
@@ -1083,7 +1140,7 @@ class TestBookPdf_PagePlanGuardIsLive:
         with pytest.raises(RuntimeError) as raised:
             _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
-        assert "interior has 7 pages, its page plan says 8" in str(raised.value)
+        assert "interior has 8 pages, its page plan says 9" in str(raised.value)
 
     def test_a_walk_that_loses_a_puzzle_aborts_before_a_page_is_drawn(self, monkeypatch):
         """The half the page-count check cannot make (CARD-127 review F-002).

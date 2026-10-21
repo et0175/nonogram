@@ -298,7 +298,8 @@ def assert_the_interior_really_prints_that(shelf, order, context) -> None:
 
     The sweep decides a plan per step without drawing; this draws one book, so
     the plan the property is stated over is tied to pages that exist. The page
-    count is checked against this file's own arithmetic — guide page, the
+    count is checked against this file's own arithmetic — the blank title
+    page (CARD-206), the guide pages, the
     section's pages, the SOLUTIONS divider and the packed key's pages — and
     the pages are really built, which is where a plan that cannot be drawn
     would fail.
@@ -316,9 +317,12 @@ def assert_the_interior_really_prints_that(shelf, order, context) -> None:
     stream = BookPDFGenerator(None).interior_stream(_rows(shelf, order))
     pages = list(stream.pages)
 
-    # The 2-page guide (CARD-201), the table of contents (CARD-200), the
+    # The blank title page (CARD-206), the 2-page guide (CARD-201), the table
+    # of contents (CARD-200), the
     # section's pages, the SOLUTIONS divider, the packed key.
-    expected = 2 + toc_pages + dividers + puzzle_pages + 1 + stream.answer_page_count
+    expected = (
+        1 + 2 + toc_pages + dividers + puzzle_pages + 1 + stream.answer_page_count
+    )
     assert stream.page_count == expected, context
     assert len(pages) == expected, context
     assert {page.size for page in pages} == {pages[0].size}, context

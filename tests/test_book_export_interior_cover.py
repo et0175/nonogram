@@ -1,10 +1,21 @@
 """CARD-135 — the interior PDF holds no cover; the cover is its own file (FR-043).
 
-    AC-283 (INV-013)  TestBookExport_InteriorStartsAtGuidePage
+    AC-283 (INV-013)  TestBookExport_InteriorOpensWithABlankTitlePage
     AC-284 (INV-013)  TestBookExport_InteriorHoldsNoCoverPage
     AC-285            TestBookExport_CoverIsSeparateSinglePageFile
     AC-286 (INV-013)  TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover
     AC-289 (INV-013)  TestBookExport_EveryRouteSeparatesInteriorAndCover
+
+CARD-206's own two checks live here as well, named by its own ACs:
+
+    AC-2 (CARD-206)   TestBookExport_TitlePageCountedEverywhere
+    AC-6 (CARD-206)   TestBookExport_EmptyBookUnchanged
+
+**CARD-206 (2026-10-22): the interior opens with a blank title page.** AC-283
+was reworded with INV-013 on 2026-10-17 — interior page 1 is the book's
+title / copyright page, carrying no folio and no ink at all, and the guide
+follows on pages 2 and 3. ``TestBookExport_InteriorStartsAtGuidePage`` asserted
+the retired statement and is renamed to the registry's own planned name above.
 
 The book of AC-283 is a Book 1 profile book (8.5 x 11 in trim) holding three
 easy 20x20 puzzles, with a cover image uploaded through the Finalise screen —
@@ -51,8 +62,13 @@ def _interior_pages(puzzle_count, answer_pages, levels=1, toc_pages=1):
     for what it is now, not derived from a packing walk. A book with no
     puzzles has no divider, no TOC and no answer section at all.
 
-    The guide's own term is **2** (CARD-201's 2-page "how to solve" tutorial,
-    up from 1 before this card) in both branches. ``toc_pages`` (CARD-200)
+    The title page's own term is **1** (CARD-206: the blank title /
+    copyright page reserved as interior page 1) and the guide's own term is
+    **2** (CARD-201's 2-page "how to solve" tutorial,
+    up from 1 before that card) in both branches — both written out here as
+    literals, like every other term, so this helper stays a second,
+    independent statement of FR-043's make-up rather than a derivation from
+    the constants the generator counts with. ``toc_pages`` (CARD-200)
     defaults to **1**: every book this module writes is a Book 1 profile
     (8.5 x 11 in) book of 1, 3 or 7 puzzles, and a TOC page on that trim
     holds far more than 7 rows (measured against
@@ -63,8 +79,8 @@ def _interior_pages(puzzle_count, answer_pages, levels=1, toc_pages=1):
     already follows.
     """
     if puzzle_count == 0:
-        return 2
-    return 2 + toc_pages + levels + puzzle_count + 1 + answer_pages
+        return 1 + 2
+    return 1 + 2 + toc_pages + levels + puzzle_count + 1 + answer_pages
 
 
 #: This module's standard book: three easy 20x20s, one answer page each.
@@ -171,8 +187,27 @@ def _download(client, route, book_id, part):
 
 
 def _guide_page(puzzle_count, easy):
-    """The guide page this book must open with — three easy puzzles."""
+    """The guide page this book's **page 2** must hold — three easy puzzles.
+
+    ``create_guide_page``'s own default position is the guide's first page,
+    which since CARD-206 is interior page 2 (a verso), so this needs no
+    position of its own.
+    """
     return BookPDFGenerator().create_guide_page(puzzle_count, easy, 0, 0)
+
+
+def _ink_pixels(page):
+    """How many pixels of ``page`` are not pure white.
+
+    CARD-206's AC-283 is "no ink of any kind", so it is measured as ink and
+    not as "the page is not the guide": a folio, a rule or a one-word title
+    would each be a handful of dark pixels on an otherwise white sheet, and
+    a page comparison against a blank image would report them as "different"
+    without saying that the difference *is* ink.
+    """
+    import numpy as np
+
+    return int((np.asarray(page.convert("L")) < 255).sum())
 
 
 def _generated_title_cover():
@@ -188,22 +223,54 @@ def covered_book(admin_app):
     return client, book_id
 
 
-class TestBookExport_InteriorStartsAtGuidePage:
-    """AC-283 — the interior PDF's page 1 is the guide page."""
+class TestBookExport_InteriorOpensWithABlankTitlePage:
+    """AC-283 (CARD-206's AC-1) — page 1 is blank, page 2 is the guide's first.
 
-    def test_the_interiors_first_page_is_the_guide_page(self, covered_book):
+    Two claims, measured two different ways, because neither implies the
+    other: page 1 holds **no ink at all** (:func:`_ink_pixels`, a count over
+    the page's own pixels) and page 2 **is** the guide's first page (a page
+    comparison against ``create_guide_page``). A page that was blank but in
+    the wrong place would pass the first alone; a guide page on page 2 with
+    a folio printed on page 1 would pass the second alone.
+    """
+
+    def test_page_one_carries_no_ink_of_any_kind(self, covered_book):
         client, book_id = covered_book
         interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
 
-        assert same_page(interior[0], _guide_page(3, 3))
+        assert interior[0].size == TRIM_PX
+        assert _ink_pixels(interior[0]) == 0, (
+            "interior page 1 is the blank title page — no folio, no title, "
+            "no rule, no ink of any kind (AC-283)"
+        )
 
-    def test_the_interior_runs_guide_puzzles_divider_answers(self, covered_book):
-        """1 guide + the "Easy" divider + 3 puzzles + SOLUTIONS + 3 answers.
+    def test_the_ink_count_would_have_caught_a_folio(self, covered_book):
+        """The negative has teeth: the measurement does see a page's marks.
+
+        The control is the **divider** page, which is the least-inked page
+        the generator draws that is not the title page — one centred word and
+        a folio. If :func:`_ink_pixels` could not see that, it could not see
+        a folio on the title page either.
+        """
+        divider = BookPDFGenerator().create_divider_page(1, "SOLUTIONS")
+
+        assert _ink_pixels(divider) > 0
+
+    def test_the_interiors_second_page_is_the_guides_first_page(self, covered_book):
+        client, book_id = covered_book
+        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+
+        assert same_page(interior[1], _guide_page(3, 3))
+
+    def test_the_interior_runs_title_guide_puzzles_divider_answers(self, covered_book):
+        """1 title + 2 guide + TOC + the "Easy" divider + 3 puzzles +
+        SOLUTIONS + 3 answers.
 
         The answer section is three pages, one per puzzle (CARD-198) — FR-042
         packed it to one page for a while (CARD-134), before this card
         unpacked it again. What this AC is about is the *order* of the
-        sections and the cover's absence from them, and neither moved.
+        sections and the cover's absence from them; CARD-206 adds one page at
+        the front and moves nothing else.
         """
         client, book_id = covered_book
         data = _download(client, "finalise", book_id, "interior")
@@ -226,9 +293,10 @@ class TestBookExport_InteriorStartsAtGuidePage:
         )
 
         assert export.interior_page_count == pdf_page_count(export.interior.getvalue())
-        # The 2-page guide (CARD-201), the 1-page TOC (CARD-200), the "Easy"
-        # divider, the puzzle, SOLUTIONS, its answer.
-        assert export.interior_page_count == 7
+        # The blank title page (CARD-206), the 2-page guide (CARD-201), the
+        # 1-page TOC (CARD-200), the "Easy" divider, the puzzle, SOLUTIONS,
+        # its answer.
+        assert export.interior_page_count == 8
 
 
 class TestBookExport_InteriorHoldsNoCoverPage:
@@ -243,6 +311,22 @@ class TestBookExport_InteriorHoldsNoCoverPage:
         for number, page in enumerate(interior, start=1):
             assert not same_page(page, uploaded), f"interior page {number} is the cover"
             assert not same_page(page, title_cover), f"interior page {number} is a title cover"
+
+    def test_page_one_is_the_blank_title_page_and_not_the_cover(self, covered_book):
+        """CARD-206's AC-5, on the page the cover would have taken.
+
+        The book has an uploaded cover, so the one page an interior could
+        plausibly have grown a cover on is its new page 1. It is blank
+        instead, and the cover is still its own one-page file.
+        """
+        client, book_id = covered_book
+        interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
+        cover = pdf_pages(_download(client, "finalise", book_id, "cover"))
+
+        assert _ink_pixels(interior[0]) == 0
+        assert not same_page(interior[0], _cover_art().resize(TRIM_PX))
+        assert len(cover) == 1 and cover[0].size == TRIM_PX
+        assert same_page(cover[0], _cover_art().resize(TRIM_PX))
 
     def test_the_comparison_would_have_caught_the_old_file(self):
         """The negative has teeth: a cover page IS recognised as the cover."""
@@ -315,11 +399,12 @@ class TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover:
         assert pages[0].size == TRIM_PX
         assert same_page(pages[0], _generated_title_cover())
 
-    def test_the_interior_still_starts_at_the_guide_page(self, bare_book):
+    def test_the_interior_still_starts_at_the_blank_title_page(self, bare_book):
         client, book_id = bare_book
         interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
 
-        assert same_page(interior[0], _guide_page(3, 3))
+        assert _ink_pixels(interior[0]) == 0
+        assert same_page(interior[1], _guide_page(3, 3))
         assert not any(same_page(p, _generated_title_cover()) for p in interior)
 
     def test_a_removed_cover_falls_back_to_the_title_cover(self, admin_app):
@@ -342,12 +427,15 @@ class TestBookExport_EveryRouteSeparatesInteriorAndCover:
     """AC-289 — all three export routes yield the same interior + cover pair."""
 
     @pytest.mark.parametrize("route", ROUTES)
-    def test_each_route_yields_a_guide_first_interior_and_a_cover_file(self, covered_book, route):
+    def test_each_route_yields_a_title_page_first_interior_and_a_cover_file(
+        self, covered_book, route
+    ):
         client, book_id = covered_book
         interior = pdf_pages(_download(client, route, book_id, "interior"))
         cover = pdf_pages(_download(client, route, book_id, "cover"))
 
-        assert same_page(interior[0], _guide_page(3, 3))
+        assert _ink_pixels(interior[0]) == 0
+        assert same_page(interior[1], _guide_page(3, 3))
         assert len(interior) == STANDARD_BOOK_PAGES
         assert len(cover) == 1 and cover[0].size == TRIM_PX
         assert same_page(cover[0], _cover_art().resize(TRIM_PX))
@@ -376,7 +464,7 @@ class TestBookExport_EveryRouteSeparatesInteriorAndCover:
 
         assert response.status_code == 200
         assert "_interior.pdf" in response.headers["Content-Disposition"]
-        assert same_page(pdf_pages(response.get_data())[0], _guide_page(3, 3))
+        assert same_page(pdf_pages(response.get_data())[1], _guide_page(3, 3))
 
     @pytest.mark.parametrize("route", ("download-pdf", "generate-pdf"))
     def test_an_unknown_part_is_refused_not_guessed(self, covered_book, route):
@@ -479,7 +567,8 @@ class TestBookFinalise_LostCoverFileIsNotPassedOffAsUploaded:
         client, book_id = lost_cover
         interior = pdf_pages(_download(client, "finalise", book_id, "interior"))
 
-        assert same_page(interior[0], _guide_page(3, 3))
+        assert _ink_pixels(interior[0]) == 0
+        assert same_page(interior[1], _guide_page(3, 3))
 
     def test_once_the_screen_has_said_so_the_cover_is_the_title_cover(self, lost_cover):
         """After Finalise has shown the loss, screen and export agree again."""
@@ -594,7 +683,8 @@ class TestBookExport_RoutesRenderOnlyTheRequestedPart:
         monkeypatch.setattr(BookPDFGenerator, "create_cover_page", no_cover)
         interior = pdf_pages(_download(client, route, book_id, "interior"))
 
-        assert same_page(interior[0], _guide_page(3, 3))
+        assert _ink_pixels(interior[0]) == 0
+        assert same_page(interior[1], _guide_page(3, 3))
 
 
 class TestBookExport_GeneratePdfRecordsOnlyTheInterior:
@@ -672,17 +762,18 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         which would take every page-count assertion in this module down with
         it without naming the reason.
 
-        So it is measured, not assumed: the written interior is the 2-page
+        So it is measured, not assumed: the written interior is the blank
+        title page (CARD-206) + the 2-page
         guide (CARD-201) + the 1-page TOC (CARD-200, every book in this
         module is far under one TOC page's own capacity) + the one level's
         divider + puzzle pages + SOLUTIONS + key, so what is left after the
-        five fixed pages and the key's own term is the puzzle-page count,
+        **six** fixed pages and the key's own term is the puzzle-page count,
         and it is the puzzle count. These books are one tier throughout, so
         a pairing walk that paired anything at all would be seen here — and
         so would a second divider.
         """
         written = pdf_page_count(self._interior_of(puzzle_count).getvalue())
-        puzzle_pages = written - 5 - self._answer_pages(puzzle_count)
+        puzzle_pages = written - 6 - self._answer_pages(puzzle_count)
 
         assert puzzle_pages == puzzle_count
 
@@ -761,7 +852,8 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
 
         written = pdf_page_count(self._one_per_level_interior().getvalue())
 
-        # This module's own arithmetic first: guide, a divider per level, a
+        # This module's own arithmetic first: the title page, the guide, a
+        # divider per level, a
         # page per puzzle, SOLUTIONS, and an answer page per level.
         assert written == _interior_pages(3, 3, levels=3)
         assert interior_page_count(3) >= written
@@ -796,3 +888,314 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         # The one-argument bound the screen used to print is still a bound.
         assert interior_page_count(puzzle_count) >= pages
         assert pages == _interior_pages(puzzle_count, self._answer_pages(puzzle_count))
+
+
+# --------------------------------------------------------------------------
+# CARD-206 AC-2 — the title page is counted everywhere a page count is made
+# --------------------------------------------------------------------------
+
+
+class TestBookExport_TitlePageCountedEverywhere:
+    """CARD-206 AC-2 — the exported interior is one page longer than before,
+    and every figure that states a page count states that same number.
+
+    Three figures, three callers, one number: the written PDF's own page
+    count, ``book_pdf_generator.interior_page_count`` (what the Finalise
+    screen shows and ``interior_stream`` checks its own walk against) and
+    ``book_kdp.unpaired_interior_page_count`` (the sheet-free estimate KDP's
+    gutter band is read at when a book's stored print specification cannot be
+    laid out). The third matters most and is the easiest to miss: it is the
+    only one of the three that is never compared against a file in
+    production, so a title page counted in the generator and not there would
+    print a gutter margin for a book one page shorter than the one written.
+
+    **"Exactly one more than before this card" is asserted against a figure
+    written out here**, not against a saved artefact: the pre-card make-up
+    was guide + TOC + dividers + puzzle pages + SOLUTIONS + answer pages, and
+    :func:`_interior_pages` states it with the title page's own term added as
+    a separate ``1``, so the difference is readable in one line.
+    """
+
+    @staticmethod
+    def _rows(puzzle_count, tier="easy"):
+        """``puzzle_count`` easy 20x20 rows, as both callers take them.
+
+        Carries ``grid``/``clues_rows``/``clues_cols``, which is what
+        ``book_kdp.unpaired_interior_page_count`` measures an answer's extent
+        from (``book_kdp._grid_extent``), as well as what the generator draws.
+        """
+        grid = _rectangle(20, 20, 0, 0, 5, 5)
+        found = clues.compute_clues(grid)
+        return [
+            {
+                "grid": grid,
+                "clues_rows": [list(c) for c in found.rows],
+                "clues_cols": [list(c) for c in found.columns],
+                "width": 20,
+                "height": 20,
+                "difficulty_tier": tier,
+            }
+            for _ in range(puzzle_count)
+        ]
+
+    @pytest.mark.parametrize("puzzle_count", (1, 3, 7))
+    def test_every_figure_reports_the_interior_with_its_title_page(
+        self, puzzle_count
+    ):
+        from nonogram.admin.book_kdp import unpaired_interior_page_count
+        from nonogram.admin.book_pdf_generator import interior_page_count
+
+        rows = self._rows(puzzle_count)
+        written = pdf_page_count(
+            BookPDFGenerator().export_interior(list(rows)).getvalue()
+        )
+
+        # This module's own arithmetic, with the title page's term in it.
+        assert written == _interior_pages(puzzle_count, puzzle_count)
+        # **Exactly one more page than before this card.** The pre-card
+        # make-up of one of this module's easy books was 2 guide + 1 TOC +
+        # 1 divider + n puzzle pages + SOLUTIONS + n answer pages, i.e.
+        # `5 + 2n` — written out here as the figure it was, so the +1 is one
+        # readable term rather than a diff against a deleted helper.
+        assert written == (5 + 2 * puzzle_count) + 1
+        # The generator's own formula, given every term, and the sheet-free
+        # KDP estimate: nothing pairs or packs in a book of 20x20s, so all
+        # three figures are the same number rather than merely ordered.
+        assert (
+            interior_page_count(puzzle_count, puzzle_count, puzzle_count, 1, toc_pages=1)
+            == written
+        )
+        assert unpaired_interior_page_count(rows) == written
+
+    @pytest.mark.parametrize("title_pages", (2, 3))
+    def test_each_position_is_counted_from_the_constant_not_a_literal(
+        self, monkeypatch, title_pages
+    ):
+        """Reserve a second (and a third) front-matter page and *everything*
+        moves with it — which is what "derived from the constant" means.
+
+        This is the card's own most likely defect, caught behaviourally
+        rather than by reading: a position written as a literal ``3`` would
+        agree with ``TITLE_PAGE_COUNT == 1`` for ever and disagree the moment
+        the constant changes. So the constant is changed, and the written
+        interior is re-read: the front matter is ``title_pages`` blank pages,
+        the guide's first page follows them (and is still the guide's *first*
+        half, not its second — the half selection is counted from the same
+        constant), the puzzle section's own opening page moves by the same
+        amount, and all three page-count figures move with it too.
+
+        Monkeypatching the module global reaches every one of those positions
+        because each reads it when it is called. Two positions do not, and
+        are named here as the measured bound: ``puzzle_pages``' and
+        ``puzzle_section``'s **default** ``first_page`` arguments are bound
+        at import time, so this test cannot see them. Production never relies
+        on either — ``section_plan`` passes its own ``first_page`` — and
+        their value is read by the AST check in
+        ``TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage``
+        instead.
+        """
+        import numpy as np
+
+        from nonogram.admin import book_kdp
+        from nonogram.admin import book_pdf_generator as bpg
+
+        rows = self._rows(3)
+        monkeypatch.setattr(bpg, "TITLE_PAGE_COUNT", title_pages)
+        generator = bpg.BookPDFGenerator()
+        pages = list(generator.interior_stream(list(rows)).pages)
+
+        blank = [
+            number
+            for number, page in enumerate(pages, start=1)
+            if np.asarray(page.convert("L")).min() == 255
+        ]
+        assert blank == list(range(1, title_pages + 1)), (
+            "the reserved front-matter pages are the interior's first pages "
+            "and nothing after them is blank"
+        )
+        assert same_page(
+            pages[title_pages], generator.create_guide_page(3, 3, 0, 0, page_number=title_pages + 1)
+        ), "the guide's first half follows the reserved pages"
+        assert generator.section_plan(list(rows)).pages[0].page_number == (
+            title_pages + 2 + 1 + 1
+        ), "the puzzle section opens after the title pages, the guide and the TOC"
+        expected = len(pages)
+        assert expected == 12 - 1 + title_pages
+        assert (
+            bpg.interior_page_count(3, 3, 3, 1, toc_pages=1) == expected
+        ), "interior_page_count still counts a literal, not the constant"
+        assert (
+            book_kdp.unpaired_interior_page_count(rows) == expected
+        ), "the KDP estimate still counts a literal, not the constant"
+
+
+# --------------------------------------------------------------------------
+# CARD-206 AC-6 — a book with no drawable puzzle is unchanged
+# --------------------------------------------------------------------------
+
+
+class TestBookExport_EmptyBookUnchanged:
+    """CARD-206 AC-6 — the blank title page never becomes a book's only page.
+
+    What "unchanged" is, exactly, and what it is not. The empty book's
+    interior gains the title page like every other book's — that is the
+    amended INV-013, which says nothing about a book's membership — so its
+    page count moves from 2 to 3. What this AC forbids is the *shape*
+    changing: the blank page must not be the only page (the guide still
+    prints), no table of contents, divider, SOLUTIONS divider or answer page
+    may appear, and the route that refuses to export an empty book must
+    still refuse it with the same message.
+    """
+
+    @staticmethod
+    def _empty_interior():
+        return BookPDFGenerator().export_interior([])
+
+    def test_the_interior_is_the_title_page_and_the_guide_and_nothing_else(self):
+        from nonogram.admin.book_pdf_generator import interior_page_count
+
+        pages = pdf_pages(self._empty_interior().getvalue())
+
+        assert len(pages) == _interior_pages(0, 0) == 3
+        assert interior_page_count(0) == len(pages)
+        assert _ink_pixels(pages[0]) == 0
+        assert same_page(pages[1], BookPDFGenerator().create_guide_page(0, 0, 0, 0))
+        assert same_page(
+            pages[2], BookPDFGenerator().create_guide_page(0, 0, 0, 0, page_number=3)
+        )
+
+    def test_the_blank_page_is_not_the_only_page(self):
+        """The one thing AC-6 names outright."""
+        pages = pdf_pages(self._empty_interior().getvalue())
+        inked = [number for number, page in enumerate(pages, start=1)
+                 if _ink_pixels(page) > 0]
+
+        assert len(pages) > 1
+        assert inked, "an empty book's interior still prints the guide"
+
+    def test_the_generate_pdf_route_still_refuses_an_empty_book(self, admin_app):
+        client = admin_app.test_client()
+        book_id = admin_app.book_manager.create_book(
+            title=BOOK_TITLE,
+            description="No puzzles at all.",
+            theme="generic",
+            target_audience="adults",
+            size="21.59×27.94",
+        )
+
+        response = client.post(f"/book/{book_id}/generate-pdf?part=interior")
+
+        assert response.status_code == 302
+        assert response.mimetype != "application/pdf"
+        assert any(
+            "no puzzles" in message for message in _flashes(client)
+        ), "the empty-book refusal is unchanged"
+
+
+# --------------------------------------------------------------------------
+# CARD-206 AC-2, the structural half — enumerated, not read
+# --------------------------------------------------------------------------
+
+
+class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
+    """Every expression in the generator that counts the guide also counts the
+    title page, and no page offset in one of them is a literal.
+
+    The card's own most likely defect is a literal where a derivation belongs,
+    and reading 7,000 lines for one is how a wrong count gets reported. So the
+    module is parsed and the sites are enumerated: for every load of
+    ``GUIDE_PAGE_COUNT`` the **outermost enclosing expression** is taken (the
+    whole ``1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count`` term,
+    the whole ``range(...)`` call, the whole ``return`` arithmetic), and that
+    expression must also load ``TITLE_PAGE_COUNT``.
+
+    **Its bound, stated rather than implied.** This catches the shape the card
+    is at risk of — a position derived from the guide that forgot the page in
+    front of it — and it is blind to a position written as a bare literal with
+    no constant in it at all (a ``first_page = 4`` would satisfy it
+    vacuously). That second shape is what
+    ``TestBookExport_TitlePageCountedEverywhere``'s monkeypatch case measures
+    behaviourally, by moving the constant and re-reading the written file; the
+    two together are what cover the claim, and neither does alone.
+    """
+
+    MODULE = "src/nonogram/admin/book_pdf_generator.py"
+
+    @classmethod
+    def _counting_expressions(cls):
+        """``[(line, source of the expression)]`` for every guide-counting term.
+
+        The outermost enclosing expression of each ``GUIDE_PAGE_COUNT`` load:
+        walk up from the name while the parent is still an expression, so an
+        argument default, a ``range`` call and a long ``return`` arithmetic
+        each come back whole rather than as the one ``BinOp`` the name sits in.
+        """
+        import ast
+        from pathlib import Path
+
+        source = (Path(__file__).resolve().parents[1] / cls.MODULE).read_text(
+            encoding="utf-8"
+        )
+        tree = ast.parse(source)
+        parent = {}
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                parent[child] = node
+
+        found = []
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Name)
+                and node.id == "GUIDE_PAGE_COUNT"
+                and isinstance(node.ctx, ast.Load)
+            ):
+                continue
+            outermost = node
+            while isinstance(parent.get(outermost), ast.expr):
+                outermost = parent[outermost]
+            found.append((outermost.lineno, outermost, ast.get_source_segment(source, outermost)))
+        return found
+
+    def test_every_guide_counting_expression_counts_the_title_page(self):
+        import ast
+
+        sites = self._counting_expressions()
+        # The set is not empty, and it is not one site either: the positions
+        # the card had to move are the guide's own range, the TOC's page
+        # number, `section_plan`'s `first_page`, `first_answer_page`, the two
+        # walk defaults and `interior_page_count`'s formula.
+        assert len(sites) >= 6, [text for _, _, text in sites]
+        for line, node, text in sites:
+            names = {
+                inner.id for inner in ast.walk(node) if isinstance(inner, ast.Name)
+            }
+            assert "TITLE_PAGE_COUNT" in names, (
+                f"{self.MODULE}:{line} counts the guide without the title "
+                f"page in front of it: {text!r}"
+            )
+
+    def test_no_literal_page_offset_survives_in_one_of_them(self):
+        """The literal-``3`` check, done by enumeration rather than by grep.
+
+        Every integer constant in those same expressions is collected. The
+        only ones that may appear are ``1`` — the term that turns a count of
+        front-matter pages into the 1-based position of the page after them,
+        and the ``+ 1`` of the SOLUTIONS divider — and the ``0`` of
+        ``interior_page_count``'s own "no puzzles, no answer section" branch.
+        A ``2``, ``3`` or ``4`` among them would be a front-matter page count
+        spelled as a literal, which is exactly what this card must not ship.
+        """
+        import ast
+
+        sites = self._counting_expressions()
+        offenders = []
+        for line, node, text in sites:
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Constant) and isinstance(inner.value, int):
+                    if inner.value not in (0, 1):
+                        offenders.append((line, inner.value, text))
+
+        assert not offenders, (
+            "a page offset is written as a literal rather than counted from "
+            f"TITLE_PAGE_COUNT/GUIDE_PAGE_COUNT: {offenders}"
+        )

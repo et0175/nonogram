@@ -723,22 +723,25 @@ class TestBookProof_AnnotationIsProofOnly:
             "puzzle_name": "Proof",
             "difficulty_tier": "hard",
         }
-        # Interior page 5 is the first puzzle page (CARD-200: up from 4 —
-        # CARD-201's own 2-page guide, now followed by a 1-page table of
-        # contents): pages 1-2 are the guide, page 3 the TOC, page 4 the
+        # Interior page 6 is the first puzzle page (CARD-206: up from 5 —
+        # the blank title / copyright page is reserved as interior page 1):
+        # page 1 is the title page, pages 2-3 are the guide (CARD-201),
+        # page 4 the TOC (CARD-200), page 5 the
         # "Hard" divider that opens this book's one level (FR-043, CARD-128).
+        first_puzzle_page = 6
         generator = BookPDFGenerator(book)
-        page = generator.interior_pages([row])[4]
+        page = generator.interior_pages([row])[first_puzzle_page - 1]
         expected, _ = render_pages(
-            puzzle.payload("Puzzle 1 · Hard"), page_spec=book_page_spec(book, 5)
+            puzzle.payload("Puzzle 1 · Hard"),
+            page_spec=book_page_spec(book, first_puzzle_page),
         )
-        spec = book_page_spec(book, 5)
+        spec = book_page_spec(book, first_puzzle_page)
         layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
         draw = ImageDraw.Draw(expected)
         _draw_page_frame(
             draw,
             interior_frame(spec),
-            5,
+            first_puzzle_page,
             generator.dpi,
             size_label=grid_size_label(layout.columns, layout.rows),
             content_bottom=None if layout.page is None else layout.page.drawing_bottom,

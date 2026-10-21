@@ -61,7 +61,7 @@ from nonogram.admin.book_pdf_generator import (
     page_frame,
 )
 
-from tests.helpers.book_corpus import corpus_book
+from tests.helpers.book_corpus import GUIDE_INTERIOR_PAGES, corpus_book
 
 # --------------------------------------------------------------------------
 # What the acceptance criteria ask for, written out rather than imported
@@ -439,8 +439,11 @@ def book1_generator() -> BookPDFGenerator:
 
 @pytest.fixture(scope="module")
 def book1_frame(book1_generator) -> object:
-    """Interior page 1's trim and usable area, as COMP-007 reports it."""
-    return page_frame(book1_generator.page_spec(1))
+    """The guide's **first** page's trim and usable area, as COMP-007 reports
+    it — interior page ``GUIDE_INTERIOR_PAGES[0]``, which CARD-206 moved from
+    1 to 2 by reserving the blank title page in front of the guide. Parity
+    mirrors a page's side margins, so the number matters."""
+    return page_frame(book1_generator.page_spec(GUIDE_INTERIOR_PAGES[0]))
 
 
 @pytest.fixture(scope="module")
@@ -602,11 +605,16 @@ KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM = 12.5
 KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX = 150
 
 #: The last page the exemption was measured on. CARD-222 dropped the
-#: ``page_number == 1`` gate because page 2 of the 10 cm minimum trim now
-#: overflows too (measured: 56 px), and the exemption's two call sites draw
-#: pages 1 and 2 only. This holds the gate to that measurement, so a third
-#: page kind cannot arrive under it unmeasured.
-KNOWN_BARE_LEVEL_2_LAST_PAGE = 2
+#: ``page_number == 1`` gate because the guide's second page at the 10 cm
+#: minimum trim now overflows too (measured: 56 px), and the exemption's two
+#: call sites draw the guide's two pages only. This holds the gate to that
+#: measurement, so a third page kind cannot arrive under it unmeasured.
+#:
+#: **CARD-206 moved which interior positions those two pages are**: the guide
+#: now runs on interior pages 2 and 3 (:data:`GUIDE_INTERIOR_PAGES`), so the
+#: gate is the last of them rather than a literal 2. The *pages* it covers
+#: are the same two pages of the same tutorial; only their numbers moved.
+KNOWN_BARE_LEVEL_2_LAST_PAGE = GUIDE_INTERIOR_PAGES[-1]
 
 #: How many of the 48 corpus cases take the exemption, measured on CON-018's
 #: amended margins (CARD-222): **six**, by between 6 and 140 px. The
@@ -648,9 +656,11 @@ def assert_bottom_fits_or_is_the_known_bare_level_2_gap(
     case plus headroom, so a regression past the known gap still fails this
     assertion.
 
-    **The exception covered page 1 alone until CARD-222.** CON-018's amended
-    margins take 81 px of height off every page, and page **2** of the 10 cm
-    minimum trim now overflows too, by 56 px — the page-2 half of the same
+    **The exception covered the guide's first page alone until CARD-222.**
+    CON-018's amended
+    margins take 81 px of height off every page, and the guide's **second**
+    page of the 10 cm
+    minimum trim now overflows too, by 56 px — the second-page half of the same
     bare_level-2 gap, which this module's own
     ``test_the_whole_corpus_of_trims_and_counts_fits`` already records as
     "a real but separate, pre-existing gap in the fallback ladder's own
@@ -662,10 +672,10 @@ def assert_bottom_fits_or_is_the_known_bare_level_2_gap(
     """
     overflow = bottom - frame.bottom
     if height_cm < KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM:
-        # The exemption reaches pages 1 and 2 of a short trim and no further:
-        # those are the only pages the two call sites draw (measured, not
-        # assumed), so a third page kind arriving under this gate would be a
-        # widening nobody measured.
+        # The exemption reaches the guide's own two pages of a short trim and
+        # no further: those are the only pages the two call sites draw
+        # (measured, not assumed), so a third page kind arriving under this
+        # gate would be a widening nobody measured.
         assert page_number <= KNOWN_BARE_LEVEL_2_LAST_PAGE, (
             f"{where}: page {page_number} is asking for the bare_level-2 "
             f"exemption, which was measured on pages 1 and 2 of a short trim "
@@ -713,8 +723,12 @@ class TestGuidePage_TextFitsTheUsableFrame:
         parity (FR-043/ADR-0036), so page 2's `frame.left`/`frame.right`
         are genuinely different numbers from page 1's.
         """
-        for page_number in (1, 2):
-            frame = book1_frame if page_number == 1 else page_frame(book1_generator.page_spec(2))
+        for page_number in GUIDE_INTERIOR_PAGES:
+            frame = (
+                book1_frame
+                if page_number == GUIDE_INTERIOR_PAGES[0]
+                else page_frame(book1_generator.page_spec(page_number))
+            )
             page = book1_generator.create_guide_page(
                 999_999, 333_333, 333_333, 333_333, page_number=page_number
             )
@@ -744,7 +758,7 @@ class TestGuidePage_TextFitsTheUsableFrame:
         against a hard ceiling here, not silently waved through.
         """
         generator = BookPDFGenerator(book_on(MIN_TRIM_CM, MIN_TRIM_CM))
-        for page_number in (1, 2):
+        for page_number in GUIDE_INTERIOR_PAGES:
             frame = page_frame(generator.page_spec(page_number))
             page = generator.create_guide_page(
                 999_999, 333_333, 333_333, 333_333, page_number=page_number
@@ -824,7 +838,11 @@ class TestGuidePage_TextFitsTheUsableFrame:
             generator = BookPDFGenerator(
                 book_on(float(case["width_cm"]), float(case["height_cm"]))
             )
-            frame = page_frame(generator.page_spec(1))
+            # The default `page_number` is the guide's own first page, which
+            # CARD-206 moved to interior page 2 — and a page's side margins
+            # are mirrored by its parity, so the frame has to be read at that
+            # same number and not at 1.
+            frame = page_frame(generator.page_spec(GUIDE_INTERIOR_PAGES[0]))
             page = generator.create_guide_page(*case["counts"])
             left, top, right, bottom = ink_box(page)
             where = (
@@ -904,8 +922,10 @@ class TestGuidePage_TextFitsTheUsableFrame:
         so F-11's claim still covers it — it is checked below through its
         own ink (:func:`legend_ink_extent`) instead of through a band index.
         """
-        frame = page_frame(book1_generator.page_spec(2))
-        page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        frame = page_frame(book1_generator.page_spec(GUIDE_INTERIOR_PAGES[1]))
+        page = book1_generator.create_guide_page(
+            4, 2, 1, 1, page_number=GUIDE_INTERIOR_PAGES[1]
+        )
         bands = self.diagram_bands(page)
         assert len(bands) == 11, (
             f"page 2 draws {len(bands)} diagrams at Book 1's full fallback form, "
@@ -984,8 +1004,10 @@ class TestGuidePage_TextFitsTheUsableFrame:
         ``frame.right - 1``.
         """
         generator = BookPDFGenerator(book_on(width_cm, height_cm, book_id))
-        frame = page_frame(generator.page_spec(2))
-        page = generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        frame = page_frame(generator.page_spec(GUIDE_INTERIOR_PAGES[1]))
+        page = generator.create_guide_page(
+            4, 2, 1, 1, page_number=GUIDE_INTERIOR_PAGES[1]
+        )
         bands = self.diagram_bands(page)
         assert len(bands) == 2, (
             f"page 2 draws {len(bands)} diagrams at this trim's fallback form, "
@@ -1008,12 +1030,14 @@ class TestGuidePage_TextFitsTheUsableFrame:
         image). If this measurement could not tell the difference, the
         exact-equality assertions above would hold vacuously.
         """
-        spec = book1_generator.page_spec(2)
+        spec = book1_generator.page_spec(GUIDE_INTERIOR_PAGES[1])
         frame = page_frame(spec)
         pad = guide_icon_layout(spec).thick_rule
         assert pad > 0, "a zero-width pad would make this negative control meaningless"
 
-        page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        page = book1_generator.create_guide_page(
+            4, 2, 1, 1, page_number=GUIDE_INTERIOR_PAGES[1]
+        )
         bands = self.diagram_bands(page)
         assert len(bands) == 11
         top, bottom = bands[6]  # the pipeline, pinned above — the difficulty
@@ -1066,9 +1090,9 @@ class TestGuidePage_TextFitsTheUsableFrame:
         teeth against the real bug.
         """
         generator = BookPDFGenerator(book_on(MIN_TRIM_CM, 25.0, "card-201-f20-10cm-wide-25cm-tall"))
-        frame = page_frame(generator.page_spec(2))
+        frame = page_frame(generator.page_spec(GUIDE_INTERIOR_PAGES[1]))
         page = generator.create_guide_page(
-            999_999, 333_333, 333_333, 333_333, page_number=2
+            999_999, 333_333, 333_333, 333_333, page_number=GUIDE_INTERIOR_PAGES[1]
         )
         left, top, right, bottom = ink_box(page)
         assert right <= frame.right + FRAME_BLEED_PX, (
@@ -1101,7 +1125,7 @@ class TestGuidePage_TextFitsTheUsableFrame:
         from nonogram.admin.book_pdf_generator import GUIDE_BODY_PT as _GUIDE_BODY_PT
 
         generator = BookPDFGenerator(book_on(MIN_TRIM_CM, 25.0, "card-201-f20-direct"))
-        spec = generator.page_spec(2)
+        spec = generator.page_spec(GUIDE_INTERIOR_PAGES[1])
         frame = page_frame(spec)
         measure = frame.right - frame.left
         body_size = type_px(_GUIDE_BODY_PT, generator.dpi)

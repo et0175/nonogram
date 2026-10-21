@@ -818,9 +818,13 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
         label = (sheet, [str(p) for p in order])
 
         # The walk's own shape: one page per plan entry, positions running on
-        # from the guide page, and one or two puzzles on each.
+        # from the front matter, and one or two puzzles on each. The walk is
+        # called with no ``first_page``, so it starts at its own default: one
+        # past the blank title page (CARD-206) and the 2-page guide
+        # (CARD-201), i.e. interior page 4 — written out here rather than
+        # imported, like every other expectation in this file.
         assert [entry.numbers for entry in plan] == expected, label
-        assert [entry.page_number for entry in plan] == list(range(3, 3 + len(plan))), label
+        assert [entry.page_number for entry in plan] == list(range(4, 4 + len(plan))), label
         for entry in plan:
             assert 1 <= len(entry.numbers) <= 2, label
             assert entry.is_two_up == (len(entry.numbers) == 2), label
@@ -1045,20 +1049,22 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         interior = generator.interior_pages(rows)
         label = (sheet, [str(p) for p in order])
 
-        # The 2-page guide (CARD-201), the table of contents (CARD-200), a
+        # The blank title page (CARD-206), the 2-page guide (CARD-201), the
+        # table of contents (CARD-200), a
         # divider per non-empty level, the puzzle pages, the SOLUTIONS
         # divider, one answer page per puzzle (CARD-198).
         assert len(interior) == (
-            2 + toc_page_count + dividers + len(expected) + 1
+            1 + 2 + toc_page_count + dividers + len(expected) + 1
             + _expected_answer_pages(printed)
         ), label
 
-        # Which interior page each planned puzzle page landed on: pages 1-2
-        # are the guide (CARD-201), pages 3..(2+toc_page_count) are the table
+        # Which interior page each planned puzzle page landed on: page 1 is
+        # the blank title page (CARD-206), pages 2-3
+        # are the guide (CARD-201), pages 4..(3+toc_page_count) are the table
         # of contents (CARD-200), and each named level's run opens with a
         # divider page.
         numbers_of: list[int] = []
-        page_number = 3 + toc_page_count
+        page_number = 4 + toc_page_count
         opened: object = object()
         for group in expected:
             level = printed[group[0] - 1].tier_of_record
@@ -1265,7 +1271,7 @@ def test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber() -> N
         # This regime really does carry the digit count it is named for —
         # otherwise the case below proves nothing about the boundary it
         # claims to exercise.
-        max_page_number = 3 + len(early_order) - 1
+        max_page_number = 4 + len(early_order) - 1
         assert len(str(max_page_number)) == digits, (filler_count, max_page_number)
 
         # The pair lands on a different *actual* page number in the two

@@ -366,11 +366,22 @@ def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> in
     """The interior's page count with every puzzle on a page of its own.
 
     The page count :class:`~nonogram.admin.book_pdf_generator.InteriorStream`
-    reports as ``unpaired_page_count`` — the guide pages (CARD-201's 2-page
+    reports as ``unpaired_page_count`` — the blank title page (CARD-206,
+    :data:`~nonogram.admin.book_pdf_generator.TITLE_PAGE_COUNT`), the guide
+    pages (CARD-201's 2-page
     "how to solve" tutorial, :data:`~nonogram.admin.book_pdf_generator.GUIDE_PAGE_COUNT`),
     one divider per non-empty named level, one page per puzzle, the SOLUTIONS
     divider and one full solved answer page per puzzle (FR-042, CARD-198) —
     computed from the book's rows **without a sheet**.
+
+    **CARD-206's title page is counted here through
+    :func:`~nonogram.admin.book_pdf_generator.interior_page_count` and
+    nowhere else in this module.** This function states no front-matter term
+    of its own — it passes the puzzle, answer, divider and TOC terms and
+    lets that one formula add the title page and the guide — which is what
+    keeps the figure KDP's gutter band is read at equal to the exported
+    interior's own count (``TestBookExport_TitlePageCountedEverywhere``,
+    ``TestBookToc_KdpAgreesWithTheExportedCount``).
 
     It exists for one case, and it is the case the check would otherwise have
     no answer for: a book whose stored print specification cannot be laid out

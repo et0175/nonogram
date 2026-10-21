@@ -547,11 +547,42 @@ OUTSIDE_MM = 0.5 * 25.4
 #:   ``_packed_tile_layout`` — a formula FR-032's page-wide clause was never
 #:   about. ``interior_bytes`` 3354646 -> 3369797.
 #:
-#: All twenty files carry the reasoning; this constant names the current one
-#: (twenty since CARD-224's own recording joined the nineteen CARD-248 had
-#: brought the chain to; the stale counts this line used to carry,
+#: * ``book_baseline_card206.json`` — CARD-206 reserves the book's title /
+#:   copyright page as **interior page 1** (FR-043 and INV-013 as amended
+#:   2026-10-17, AC-283): a page carrying no folio and no ink at all, so the
+#:   guide follows as a facing spread on pages 2 (verso) and 3 (recto). The
+#:   book is fourteen pages, and ``changed_pages`` is **all fourteen** —
+#:   page 1 is new, and every page after it moves one place later *and flips
+#:   parity*, which moves its folio's digits and the bottom corner the folio
+#:   is drawn in (the outer one), along with the grid-size label and the QR
+#:   group that share that band. **So this recording has no control page**,
+#:   the first in the chain for which that is true; the "nothing above the
+#:   footer moved" half of the claim is carried by
+#:   ``TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged`` and
+#:   ``TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne``
+#:   instead, which call the same unedited drawing functions at each page's
+#:   pre-card position. ``interior_bytes`` 3369797 -> 3468586.
+#:
+#: All twenty-one files carry the reasoning; this constant names the current
+#: one (twenty-one since CARD-206's own recording joined the twenty CARD-224
+#: had brought the chain to; the stale counts this line used to carry,
 #: "thirteen" and "twelve", were both left behind by earlier cards).
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card224.json"
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card206.json"
+
+#: The guide's own two interior pages, written out rather than derived from
+#: the generator's own constants. Since CARD-206 reserved the blank title /
+#: copyright page as interior page 1 (FR-043, INV-013 as amended 2026-10-17)
+#: the guide follows it on pages **2 and 3** — a verso and a recto, which is
+#: what lets the two pages face each other.
+#:
+#: ``BookPDFGenerator.create_guide_page`` takes an interior position and
+#: counts which half of the tutorial to draw from ``TITLE_PAGE_COUNT``, so
+#: these are the two numbers a test hands it when it wants the guide's first
+#: and second page. Shared by the three files that letter, measure and
+#: compare those pages (``test_book_guide_page.py``,
+#: ``test_book_guide_page_type.py``, ``test_book_pdf_memory.py``), so a later
+#: front-matter card moves them in one place.
+GUIDE_INTERIOR_PAGES = (2, 3)
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until
@@ -561,11 +592,13 @@ BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_base
 #: grew the guide from one page to two, back up to twelve; CARD-200 then
 #: inserts a 1-page table of contents (this book's four puzzles fit Book 1's
 #: own trim's TOC capacity with room to spare) immediately after the guide,
-#: up to **thirteen**.
-BASELINE_PAGE_COUNT = 13
+#: up to **thirteen**; CARD-206 then reserves the blank title / copyright
+#: page as interior page 1, up to **fourteen**.
+BASELINE_PAGE_COUNT = 14
 
 #: How many puzzles the large corpus holds, and the interior that follows:
-#: 2 guide (CARD-201) + **1** TOC page + 3 level dividers + 150 puzzle pages
+#: 1 blank title page (CARD-206) + 2 guide (CARD-201) + **1** TOC page +
+#: 3 level dividers + 150 puzzle pages
 #: + SOLUTIONS + 150 answer pages (CARD-198: one per puzzle, where the
 #: packed key took 27).
 #:
@@ -581,7 +614,7 @@ BASELINE_PAGE_COUNT = 13
 CORPUS_PUZZLE_COUNT = 150
 CORPUS_TOC_PAGE_COUNT = 1
 CORPUS_PAGE_COUNT = (
-    2 + CORPUS_TOC_PAGE_COUNT + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
+    1 + 2 + CORPUS_TOC_PAGE_COUNT + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
 )
 
 

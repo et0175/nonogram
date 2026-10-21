@@ -1,0 +1,148 @@
+{
+  "card": "CARD-206",
+  "supersedes": "tests/fixtures/book_baseline_card224.json",
+  "recorded_from_commit": "card/206-interior-title-page, branched from main at 27ca88c7. Recorded against this card's own implementation on its worktree, after the blank title / copyright page was reserved as interior page 1 and every downstream position counted from TITLE_PAGE_COUNT, and before this file was written. The export is tests.helpers.book_corpus.export_of, the production export_interior call.",
+  "recorded_on": "2026-10-22 (CARD-206)",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1, as amended 2026-10-17)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages -- the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-206 reserves the book's title / copyright page as interior page 1 (FR-043 and INV-013 as amended 2026-10-17, AC-283): a page carrying no folio and no ink at all, so that the guide follows as a facing spread on pages 2 (verso) and 3 (recto). Every interior page after it therefore moves one place later AND flips parity, which is the intended consequence the card exists for, not a side effect: a page's folio is drawn in its bottom-OUTER corner and its grid-size label against its inner margin, so both of those marks change side as well as the folio's digits changing value. The baseline book is one page longer (14, from 13) and no page of it keeps its old digest.",
+  "warning": "This is evidence of what the book PDF looks like with the blank title / copyright page reserved as interior page 1. It must NEVER be regenerated to make a test pass: a page that stops matching this file is either a deliberate change \u2014 which earns its own successor fixture, with its own note \u2014 or a regression.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_dependent_pages": [],
+  "font_dependent_pages_note": "EMPTY, as CARD-221 left it and CARD-222/CARD-223 kept it: every reader-facing interior face is the packaged DejaVu Sans. CARD-248's two groups letter their invitation and their link in that same packaged face, at the same 10 pt the footer's grid-size label and folio already use (CON-020's floor).",
+  "interior_bytes": 3468586,
+  "page_count": 14,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "30fc0cd249871e535c903e950d1c5d90d71cdffb949373215d6e68b7c4a04987"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e381b6ec2714b2b4f11da54af860f91ab13b2ae6cccadce74d21c8c6a7fe207d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "87fd6516c02f0a73b4985e763d7dfbd3e47118bbf425de346b56222b799f2839"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bedf1bf85ace6f452388b3b2f74981d2588f9b4227f211e05d84486b0849122b"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "cd235d1495400116dfd5df49d65a52be2cbaf5f1a64b8d6356702f1981ca28a2"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b744c1c921517accec6c3824b78ad1c0d02c006eb820692e53eeeddf12f9b981"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "94bcc3473242325654bfee1c07e069c1c3353e442f44430547f275ab66863ba2"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "8490d603f643cf8acf7a35f80e30e32a93224220ad5272395b9861ed0d252a7b"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "07c7c1e59365f54b3e8f1e49ce51bf6c599124339c0045ed61e5bacb5c511d18"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b734e2f3cc9153130f77e7215a3f1abb68627342b230b0780dd3f51b3babc171"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "f901eb5704d37c9510f43cace7b29cea20e4c5ff0722437221c618d74a3f24fb"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "1f90140c0e8bce6c86b7600fe4144d40d0676df6208ef0ec4e7cac2827898365"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "db88a2c946f6127aabd141da344e7538e68d35e45eac1f11581d8046cff1077b"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b583359cb689b25ee98a91310fb467d9401fdbbc115cfe08e91c9c7157228054"
+    }
+  ],
+  "changed_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+  ],
+  "interior_bytes_note": "The black-and-white interior of this book: 3468586 bytes, where CARD-224's recording held 3369797 (+98789). Recorded because it is what the file does, not because it was predicted: one more page of pure white is most of the difference, and the rest is the JPEG encoder's.",
+  "changed_pages_note": "14 of 14 \u2014 every page, measured page by page against CARD-224's recording SHIFTED BY ONE (new page n against recorded page n-1) before this file was written. Page 1 is new: the blank title page, which CARD-224's book had no page of any kind at. Every other page carries the same drawing it did, and differs only in its footer: its folio reads one number higher and sits in the opposite bottom corner (the folio is drawn in the bottom-OUTER corner, which the parity flip moves), and the grid-size label and the QR group that share that band mirror with it. SO THIS RECORDING HAS NO CONTROL PAGE \u2014 the first card in this chain for which that is true, and it is stated rather than left to be noticed. The claim that nothing above the footer band moved is NOT carried by this file: it is carried by TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged and TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne, which build each page's reference by calling the SAME unedited drawing function at the position that page's content held before this card and compare the two above the footer band."
+}
