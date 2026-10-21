@@ -1,0 +1,445 @@
+version: 1
+generated_at: "2026-10-21T05:17:40Z"
+target: "card/260-commit-the-kill-instrument @ f9718739 (worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-260); diff main...HEAD = tests/README.md, tests/kill_matrix.py, tests/test_kill_matrix.py"
+overall_score: 4.0
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/kill_matrix.py
+    - tests/test_kill_matrix.py
+    - tests/README.md
+    - tests/full_suite_lock.py
+    - tests/database_guard.py
+    - tests/db_name.py
+    - meta/kanban/cards/CARD-260.md
+    - meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
+  not_reached:
+    - tests/conftest.py
+    - tests/test_full_suite_lock.py
+    - tests/test_db_engine_lifecycle.py
+    - src/nonogram/db/session.py
+    - meta/architecture/decisions/adr/0038-*.md
+  confidence: high
+metrics:
+  diff: { files: 3, added: 2273, removed: 0 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact - kill_matrix is a new leaf module; its only importer is its own test file (grep -rln kill_matrix over tests/ src/ scripts/ = tests/kill_matrix.py, tests/test_kill_matrix.py). The zero is true and says nothing about risk."
+    hotspots: "no_eligible_fact - two of the three files are new; tests/README.md has 12 commits/12mo, 2 fix-flavoured, which is not a hotspot by this board's standards."
+    cochange_missing: "no_eligible_fact - the only non-new file is tests/README.md, whose 12-month --name-only history contains no peer appearing with it; there is no co-change set to mine."
+    suite_cost: "not_applicable - G-6 and the orchestrator's brief forbid timing measurements on this machine; no duration was taken for any check in this review."
+
+system_contract:
+  rules_checked: 5
+  holds: 2
+  unchecked: 0
+  violated: 3
+  verdicts:
+    - "ADR-0038/R7 ✓ holds — repeatable scan: `git diff --name-only main...HEAD` returns exactly tests/README.md, tests/kill_matrix.py, tests/test_kill_matrix.py; pyproject.toml is untouched, and `git diff main...HEAD | grep -in 'playwright|chromium|dependencies'` is empty. No dependency declaration moved, so pytest-playwright stays in the dev-only extra. tests/test_kill_matrix.py:916 (test_g4_the_instrument_imports_stdlib_only) additionally holds the new module to sys.stdlib_module_names."
+    - "ADR-0038/R8 ✓ holds — the diff adds no browser test and no skip at all: `grep -n 'skip|xfail|importorskip' tests/test_kill_matrix.py` matches only two prose occurrences inside docstrings (:518 'Not a skipped restore', :561 'rather than being skipped') and no pytest.mark.skip / pytest.skip / importorskip. The 42 new tests cannot pass silently; they ran 42/42 in this review (`pytest tests/test_kill_matrix.py -q`)."
+    - "ADR-0039/R1 ✗ violated — tests/kill_matrix.py:677-691 + tests/test_kill_matrix.py:864 (G-2's refusal claims the board's lock but checks repo_root/meta/kanban/.full-suite.lock, which in the card's own AC-7 callers is the worktree, not where any gate writes; the control plants a lock in tmp_path and so cannot fail for the real path — F-001); tests/kill_matrix.py:427-440 (_refuse_line_shift claims to protect the matrix's numbering but only compares newline/splitlines counts, and an equal-line-count edit that MOVES an assert is accepted and silently misattributed — F-003, reproduced); tests/kill_matrix.py:652-670 (declared bound 2's justification 'those arms are measured for real' with child_instrumentation=False has no control at all — F-004, reproduced)."
+    - "ADR-0039/R2 ✗ violated — tests/kill_matrix.py:130-131,344-349: _FORBIDDEN_TEXT/_FORBIDDEN_PATHS are hand-written with no runtime-enumerable authority, and the path comparison silently PASSES an unrecognised spelling instead of defaulting to deny — reproduced: Edit(path=<tree>/tests/CONFTEST.py) is accepted on this case-insensitive filesystem and apply_edit+write_text clobbers the real tests/conftest.py (F-002). Second site: tests/kill_matrix.py:869-890 — a run in which pytest never collected (exit_code 4, collected_tests None) is a shape the instrument cannot analyse, yet it is reported as a complete 0-FAIL matrix instead of a FAILURE (F-005, reproduced)."
+    - "ADR-0039/R3 ✗ violated — declared bound 2 (BLIND overlay only when child_instrumentation=True, tests/kill_matrix.py:877) grants an exemption with no control for the exempted state and an undeclared class it absorbs: with the overlay off, an arm that executes inside the child reads NOT-REACHED though it ran and failed (F-004, reproduced). Declared bound 4 (the DB-guard path-and-text set) is not held to any equality against the sites that carry the guard today, and half the declared set — tests/database_guard.py — has no control: tests/test_kill_matrix.py:877-890 exercises only tests/conftest.py (F-006)."
+
+root_causes:
+  - id: RC-1
+    title: "The target's assert topology is validated once, on the pristine source, and never re-derived after a mutant is applied"
+    finding_ids: [F-003, F-011]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: tests/kill_matrix.py
+    line: 677
+    title: "G-2's lock refusal checks a path no gate ever writes when driven from a linked worktree"
+    description: |
+      `_refuse_if_lock_held` tests `self.repo_root / "meta" / "kanban" / ".full-suite.lock"`.
+      The board's real lock does not live there for a linked worktree: tests/full_suite_lock.py
+      `default_lock_path()` calls `main_repo_root()`, which follows a linked worktree's `.git`
+      pointer file back to the main checkout. Derived in this worktree:
+
+        this_worktree     = /Users/omelnikova/PycharmProjects/PythonProject4-card-260
+        default_lock_path = /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock
+        km checks         = /Users/omelnikova/PycharmProjects/PythonProject4-card-260/meta/kanban/.full-suite.lock
+        SAME?             = False
+
+      Both AC-7 callers pass `repo_root=REPO`, where `REPO = Path(tests/test_kill_matrix.py).parent.parent`
+      = the worktree (tests/test_kill_matrix.py:44, :968, :1203). So in the only configuration the
+      card ships, G-2 is inert: a full-suite gate holding the board's real lock does not stop this
+      instrument from mutating src/nonogram/db/session.py and spawning pytest — the exact host
+      contention CARD-255 exists to prevent. The instrument also ignores `NONOGRAM_FULL_SUITE_LOCK`,
+      the override the board (and this review's own brief) uses to relocate the lock, so the guard
+      cannot be pointed at the right file either. `repo_root` is simultaneously the pytest `cwd` and
+      the base for relative selections (FOUR_ARM at :981 is relative), so a caller cannot pass the
+      main repo root instead without breaking selection resolution — the two roles are conflated.
+      The control, tests/test_kill_matrix.py:864, plants the lock at `tmp_path/meta/kanban/` and
+      passes `repo_root=tmp_path`, so it can only ever exercise the relative join and can never fail
+      for the real path (ADR-0039/R1).
+    suggestion: |
+      Resolve the lock through the project's own authority instead of re-deriving the path: import
+      tests.full_suite_lock and call `lock_path()` (which honours NONOGRAM_FULL_SUITE_LOCK and
+      main_repo_root), or accept an explicit `lock_path` parameter defaulting to it. Then add a
+      control that can fail: assert the path the Runner would refuse on equals
+      `full_suite_lock.lock_path()`, which reds the day the two diverge again.
+    confidence: high
+    source: static
+    violates: G-2
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: critical
+    category: compliance
+    type: bug
+    file: tests/kill_matrix.py
+    line: 344
+    title: "G-3's path refusal compares raw path parts, so a mis-cased spelling clobbers the real tests/conftest.py"
+    description: |
+      `Edit.__post_init__` refuses a forbidden path with
+      `if parts[-len(forbidden):] == forbidden`, a case-sensitive tuple comparison against
+      `_FORBIDDEN_PATHS = (("tests","conftest.py"), ("tests","database_guard.py"))`. On this
+      macOS case-insensitive filesystem a mis-cased spelling names the same file and is accepted.
+      Reproduced in a sandbox tree containing a real tests/conftest.py:
+
+        refused : tests/conftest.py
+        ALLOWED : tests/CONFTEST.py
+        ALLOWED : tests/Conftest.py
+        refused : tests/database_guard.py
+        ALLOWED : tests/DATABASE_GUARD.py
+        exists via mis-cased path: True
+        -> apply_edit + write_text through tests/CONFTEST.py changed the real
+           tests/conftest.py from 'GUARD = 1' to 'GUARD = 0'
+
+      The text refusal does not cover for it: an edit that defeats the guard need not contain
+      `_refuse_unless_test_database` or `nonogram_poc` in `old`/`new` (e.g.
+      old='.endswith("_test")', new='.endswith("")'). tests/conftest.py is the file that carries
+      `_refuse_unless_test_database`, the one check standing between the session fixture's
+      `DROP SCHEMA public CASCADE` and the live panel's nonogram_poc (tests/db_name.py:30-40).
+      A symlink or a `..` spelling that resolves into the same file takes the same route.
+    suggestion: |
+      Compare resolved identities, not spellings: canonicalize with `Path(self.path).resolve()`
+      (and `os.path.normcase`) before the suffix comparison, and refuse when `os.path.samefile`
+      says the target is one of the guard files whenever they exist. Add the mis-cased and
+      symlinked spellings to tests/test_kill_matrix.py:877 as controls that fail without the fix.
+    confidence: high
+    source: static
+    violates: G-3
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: tests/kill_matrix.py
+    line: 427
+    title: "An equal-line-count edit that moves an assert is accepted, and a real kill is reported NOT-REACHED"
+    description: |
+      `_refuse_line_shift` only compares `count("\n")` and `len(splitlines())`. An edit that
+      preserves both while reordering lines moves an `ast.Assert`'s lineno, and the matrix —
+      whose cells are keyed on the PRISTINE linenos (tests/kill_matrix.py:772, :874) — then
+      attributes nothing to the moved node. Reproduced on a 1-assert target:
+
+        pristine assert linenos: (6,)
+        mutated  assert linenos: (5,)
+        apply_edit: accepted (no refusal)
+        SHIPPED : km_move.py:6 PASS
+        MUTANT  : km_move.py:6 NOT-REACHED
+        records : {5: (False,)}   <- the arm RAN and FAILED
+
+      So a kill is reported as "never ran", with exit_code 0 and no refusal. This is the
+      misattribution the card's own worktree notes call the worse of the two outcomes ("a
+      misattributed cell looks like a measurement"), and `_refuse_line_shift`'s docstring claims
+      to prevent exactly its consequence. The instrument already holds the evidence: lineno 5 is
+      in `records` and not in the denominator's key set.
+    suggestion: |
+      After `_apply`, re-derive `assert_linenos(target.read_text())` and raise MutantRefused
+      unless it equals the pristine tuple; equivalently/additionally refuse in `_measure` when
+      `set(records) - set(linenos)` is non-empty. One check closes F-003 and F-011. Plant a
+      reordering mutant as the control.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: tests/kill_matrix.py
+    line: 869
+    title: "A run in which nothing executed is reported as a complete, FAIL-free measurement"
+    description: |
+      `_measure` records `exit_code` and `collected_tests` on the Matrix (:889-890) and no
+      refusal ever consults either. `_refuse_unless_clean` (:815-847) demands only that no cell
+      is FAIL and, from the second reading on, that cells equal the baseline — both of which an
+      all-NOT-REACHED reading satisfies trivially. Reproduced with a non-empty, resolvable
+      selection whose node id does not exist:
+
+        SHIPPED / recording pass over km_simple_target.py: 0 PASS, 0 FAIL,
+        5 NOT-REACHED, 0 BLIND of 5 assertion nodes (collected tests: None)
+        exit_code = 4   collected_tests = None
+        KillMatrix figure: ... SHIPPED 0 FAIL
+        mutant MARK-ROT cells: all 5 NOT-REACHED
+
+      No refusal. Every mutant then reads "survived everywhere", and the baseline comparison
+      passes because the baseline is equally blank. Any cause of a non-run takes this route —
+      a collection error, a stale node id, an import failure, or the project's own
+      full_suite_lock hook refusing the child pytest. This is a fabricated measurement
+      presented as a reading, which is the defect class the card exists to prevent, and it is
+      ADR-0039/R2's deny-default inverted: a shape the instrument cannot analyse is a silent
+      pass.
+    suggestion: |
+      Make SHIPPED's liveness a precondition: in `_refuse_unless_clean` (or `_measure`), raise
+      when `exit_code` is not in {0, 1} (pytest's "tests ran" codes), when `collected_tests` is
+      None or 0, or when SHIPPED records no execution at all. Control: a selection naming a
+      non-existent node id must raise rather than return a blank matrix.
+    confidence: high
+    source: static
+    violates: ADR-0039/R2
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/kill_matrix.py
+    line: 877
+    title: "With child_instrumentation off (the default) an arm that ran and failed in the child reads NOT-REACHED, and no figure says the overlay was skipped"
+    description: |
+      The BLIND overlay is gated on `child_instrumentation` (:877), which defaults to False
+      (:666). Declared bound 2 justifies the default with "the child is pristine, propagation is
+      intact, and those arms are measured for real" (tests/kill_matrix.py:652-670, tests/README.md).
+      That is true for the PARENT's arm reading the child's returncode, and false for an arm whose
+      execution happens inside the child. Same target, same mutant, both passes recording:
+
+        child_instrumentation = False
+          ...: 0 PASS, 1 FAIL, 1 NOT-REACHED, 0 BLIND of 2 assertion nodes
+          km_child_target.py:11 NOT-REACHED      <- ran in the child and FAILED
+          km_child_target.py:20 FAIL
+        child_instrumentation = True
+          ...: 0 PASS, 1 FAIL, 0 NOT-REACHED, 1 BLIND of 2 assertion nodes
+          km_child_target.py:11 FAIL
+          km_child_target.py:20 BLIND
+
+      So the default reintroduces the exact conflation the instrument was built to remove — "a
+      surviving mutant and a never-reached assert look identical" — for in-child arms. Neither
+      `figure()` nor `table()` carries `child_instrumentation`, so a recording-pass figure's
+      "0 BLIND" is indistinguishable between "no blind arms" and "the blind-spot overlay did not
+      run": a figure that does not carry its domain, which is this card's own stated defect. No
+      test exercises the default on a child-spawning target — tests/test_kill_matrix.py:433 runs
+      both passes with `child_instrumentation=True` — so the exempted state has no control that
+      can fail (ADR-0039/R3).
+    suggestion: |
+      Carry `child_instrumentation` on Matrix/KillMatrix and interpolate it in `figure()`/
+      `table()`, so "0 BLIND" always states whether the overlay ran. Either report
+      child-dependent arms as an explicit "overlay-off / unmeasurable" state rather than
+      NOT-REACHED when the overlay is skipped, or narrow bound 2's wording to exclude arms that
+      execute in the child. Add the child_instrumentation=False reading of the child target as
+      the control.
+    confidence: high
+    source: static
+    violates: ADR-0039/R3
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: high
+    category: compliance
+    type: gap
+    file: tests/kill_matrix.py
+    line: 130
+    title: "The database-guard set is hand-written and never held to an equality against the sites that carry the guard today"
+    description: |
+      `_FORBIDDEN_TEXT`/`_FORBIDDEN_PATHS` (:130-131) are hand-enumerated, and the module and
+      tests/README.md both describe them as "the set of sites that carry the guard today" — a
+      claim about the current tree with nothing re-deriving it. The only control,
+      tests/test_kill_matrix.py:877-890, asserts three positive refusals and does not touch
+      tests/database_guard.py at all, so half the declared path set has no control. The set's
+      CONTENT is defensible today — the only code-carrying site of `_refuse_unless_test_database`
+      is tests/conftest.py:224, the other matches in tests/db_name.py (:29,:31,:101,:102,:176) are
+      prose — but nothing re-derives it, so nothing reds the day the guard moves to a third module
+      or a new one appears. ADR-0039/R3 requires the exemption to be "held to an equality
+      against the sites that exist today"; R1 requires a completeness test for a set a guard
+      consults. Neither exists.
+    suggestion: |
+      Do NOT flip the polarity or derive the set from a namespace projection — a prior dismissal
+      on this board (retro-signals review_false_positives, rule `adversarial`, keywords
+      derived-set / deny-by-default / guard-polarity, dismissed_count 1) records both standard
+      remedies measuring worse than the defect. Add the cheap equality instead: a test that greps
+      the tree for `_refuse_unless_test_database` and `nonogram_poc` in code (not prose) and
+      asserts the resulting site set equals `_FORBIDDEN_PATHS` plus named exemptions, so the set
+      cannot silently fall behind the tree. Cover tests/database_guard.py with its own refusal
+      control.
+    confidence: high
+    source: model
+    violates: ADR-0039/R2
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "A finding that a guard's set is hand-enumerated rather than derived from an enumerable authority, and that its default on an unrecognised input is a silent pass. The DIAGNOSIS holds; both standard remedies were measured worse than the defect."
+      dismissed_count: 1
+  - id: F-011
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/kill_matrix.py
+    line: 773
+    title: "The two-asserts-on-one-lineno refusal is computed on the pristine source and is bypassed by a mutant"
+    description: |
+      `run()` refuses a target with a repeated assert lineno (:773-782) using `pristine`, the
+      target as it was at run start, and never re-checks after `_apply`. A mutant that edits the
+      target and merges two asserts onto one line produces exactly the shape the card calls "a
+      quieter trap 2", with no refusal. Reproduced:
+
+        pristine linenos: (2, 3)
+        mutant: '    assert True\n    assert True\n' -> '    assert 1 == 2; assert True\n    pass\n'
+        NO SelectionRefused raised
+        km_merge.py:2 FAIL        <- two distinct ast.Assert nodes merged into this one cell
+        km_merge.py:3 NOT-REACHED <- a node that no longer exists at this line
+        records: {2: (False, True)}
+
+      Same root cause as F-003: the target's assert topology is a precondition checked once and
+      never re-derived under a mutant.
+    suggestion: |
+      The F-003 fix closes this too: after `_apply`, re-derive `assert_linenos` on the mutated
+      target and refuse unless it equals the pristine tuple (which also catches a new collision).
+      Add the merging mutant as the control.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_kill_matrix.py
+    line: 555
+    title: "G-5's no-git claim is wider than the enumeration's reach"
+    description: |
+      test_ac4_restoring_uses_cp_p_backups_and_no_git_command_anywhere claims "Every string
+      constant and every subprocess argument list in kill_matrix.py is walked; a git anywhere
+      among them is the finding." Its reach is narrower: argv enumeration covers only callees
+      whose unparse startswith "subprocess." (:567), so os.system / os.exec* / `from subprocess
+      import run` spawns are not enumerated at all; and the string-constant sweep anchors on
+      `re.match(r"git(\s|$)")` (:597), which misses "/usr/bin/git ..." and any f-string-composed
+      command. The realistic regression shapes ARE caught (a literal ["git", ...] argv lands in
+      `commands` and the substring check fires; `shell=True` with a str argv fails the
+      List/Tuple assert), so this is a narrowing, not an escape — but the docstring's claim
+      should match what it walks.
+    suggestion: |
+      Narrow the docstring to what is measured, or widen the enumeration: walk every ast.Call
+      whose unparse matches a spawn-shaped name (the module already has `_SPAWN` for exactly
+      this), and match the git sweep with `re.search(r"(^|/|\s)git(\s|$)")`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/kill_matrix.py
+    line: 736
+    title: "_restore aborts the whole restore loop on the first verification failure, leaving later registered paths mutated"
+    description: |
+      `_restore` iterates the registry and raises LeakedPatch from inside the loop on a diff or
+      shasum mismatch (:743, :752), so every path after the failing one is never restored. The
+      outer `finally` in `run()` (:812) calls `_restore` again and fails at the same point, so
+      the tail of the registry stays mutated. Registry order is insertion order — target first,
+      then mutant paths — so in the card's own anchor 2 the path left behind would be
+      src/nonogram/db/session.py, a tracked source file, with G-5 forbidding a git restore.
+      `shasum` is also an external binary (`check=True`, :747): where it is absent,
+      FileNotFoundError takes the same route. Related: tests/test_kill_matrix.py:1179 mutates the
+      real src/nonogram/db/session.py and tests/test_db_engine_lifecycle.py in the working tree on
+      every full-suite run; the `finally` and the two-way verification cover exceptions, but an
+      abnormal termination leaves them edited, and `tempfile.mkdtemp` workdirs (:755) are never
+      cleaned up.
+    suggestion: |
+      Restore every registered path first, collect the verification failures, and raise once
+      afterwards so no path is skipped. Guard the `shasum` invocation so a missing binary is a
+      named refusal rather than an exception mid-restore.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/kill_matrix.py
+    line: 73
+    title: "The module docstring names hashlib among the stdlib modules it uses; hashlib is never imported"
+    description: |
+      :73 reads 'Stdlib only (``ast``, ``pathlib``, ``subprocess``, ``hashlib``, ``json``, ...)'.
+      `grep -n hashlib tests/kill_matrix.py` matches that line only — the digest comes from the
+      external `shasum` binary (:747), not from hashlib. The card's G-4 repeats the same list.
+      Minor, but this card's own rule is that any sentence the instrument prints is a claim, and
+      test_g4_the_instrument_imports_stdlib_only checks the subset direction only, so nothing reds.
+    suggestion: "Drop hashlib from the docstring (and from G-4's list), or use hashlib for the digest instead of shelling out to shasum."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_kill_matrix.py
+    line: 152
+    title: "_independent_assert_count's 'another route' is the same route, copied"
+    description: |
+      The docstring claims "It shares no code with kill_matrix.assert_linenos, which is the point:
+      a figure's control is recomputation by another route." The body is `ast.parse` + `ast.walk` +
+      `isinstance(node, ast.Assert)` — character-for-character the algorithm of assert_linenos
+      (tests/kill_matrix.py:216-222), only summed instead of collected. It is a second
+      implementation but not a second route, so a shared misconception about what ast.Assert
+      enumerates (the exact failure a second route would catch) is invisible to it. CLAUDE.md's
+      test-style rule asks for the independent route.
+    suggestion: "Either count with a genuinely different mechanism (tokenize over NAME 'assert' at statement position, or a line-anchored regex over the dedented source) or narrow the docstring to 'a second implementation of the same walk'."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

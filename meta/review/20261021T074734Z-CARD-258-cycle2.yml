@@ -1,0 +1,392 @@
+version: 1
+generated_at: "2026-10-21T07:47:34Z"
+target: "CARD-258 cycle 2/3 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-258, branch card/258-the-ops-red-says-what-it-talked-to vs main. State reviewed = commit 8e40c0c0 PLUS the uncommitted cycle-1 fixes (+845/-46 across 3 files), i.e. the tree that will be committed."
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: full                        # cycle-1 discovery reset the mode; whole card diff reviewed
+
+coverage:
+  read:
+    - "src/nonogram/db/session.py (full)"
+    - "tests/conftest.py (diff + pytest_configure, db_required gate, _refusal_reason)"
+    - "tests/helpers/undefined_table_report.py (full, 716 lines)"
+    - "tests/test_admin_binding.py (full, 1827 lines)"
+    - "tests/db_name.py (full — the F-003 resolution path)"
+    - "tests/test_db_engine_lifecycle.py (_global_names_assigned_by, bound 9)"
+    - "pyproject.toml [tool.pytest.ini_options] + dev extra (ADR-0038/R7)"
+    - "meta/kanban/cards/CARD-258.md (all 13 bounds + all cycle-1 orchestrator notes)"
+    - "meta/architecture via system_rules.py --card CARD-258 (29 rules, severities, check refs)"
+  not_reached:
+    - "src/nonogram/admin/app.py beyond the two exemption sites at :6271/:6291"
+    - "src/nonogram/orchestrator.py beyond the exemption site at :1385"
+    - "the full suite (forbidden by the review prompt; build gate 2 carried)"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 2157, removed: 48 }   # 1312 committed + 845 uncommitted
+  max_fan_in: { symbol: "nonogram.db.session.reset_engine", callers: 17 }
+  fan_in_new_symbols:
+    "nonogram.db.session.reset_count": 2         # both in tests/helpers/undefined_table_report.py; 0 under src/ (G-1)
+    "undefined_table_report.register": 1         # tests/conftest.py:104
+  tests_cover_change: true
+  hotspots:
+    - "tests/conftest.py (18 commits/12mo, 8 fix-flavoured)"
+    - "src/nonogram/db/session.py (16 commits/12mo, 8 fix-flavoured)"
+  cochange_missing:
+    - "tests/helpers/book_corpus.py"     # 34 co-changes; unrelated domain (book corpora), correctly absent
+  bus_factor: "single author (Claude Code) on every touched file — repo-wide condition, not a card signal"
+  mutation_check: { mutants: 8, killed: 7, survived: 1, survivor: "M1 — docstring exemption (F-011)" }
+  unmeasured:
+    suite_timing: "not_applicable — the card forbids timing measurements and another agent shares this machine"
+    visual_baselines: "not_applicable — review.visual: off, backend/test-only diff"
+    e2e: "not_applicable — e2e.enabled: false, no browser surface touched"
+    audit_on_touch: "no_eligible_fact — meta/audit/ does not exist in this repo"
+    positioning_critical: "no_eligible_fact — meta/business/positioning.md does not exist"
+    impact_report: "no_eligible_fact — meta/impact/ does not exist"
+
+system_contract:
+  rules_checked: 10
+  holds: 9
+  unchecked: 0
+  violated: 1
+  verdicts:
+    - "ADR-0022/R1 ✓ holds — grid extent never reduced to a scalar. Re-derivable: `grep -nE '\\b(size|grid_size|extent|width|height)\\b'` over the four touched files returns nothing; the only signature added is `reset_count() -> int`, which is not a grid API, and no source mode is touched."
+    - "ADR-0036/R3 ✓ holds — the rule's own checker green on this head: `pytest -k 'test_the_books_own_pages_carry_no_undeclared_round_mark'` → 1 passed (run together with R4's test: `2 passed, 8666 deselected`). Diff adds no drawing call: `git diff main -- <four files> | grep -E '^\\+.*(ellipse|arc\\(|pieslice|circle|ImageDraw)'` is empty."
+    - "ADR-0036/R4 ✓ holds — the rule's own checker green on this head: `pytest -k 'test_no_module_types_a_round_mark_as_a_character'` → passed. Independently re-scanned src/nonogram/**: the only codepoints in U+25A0..U+25FF/U+2022/U+2219 are the three pre-existing U+2022 at src/nonogram/admin/pdf_generator.py:325-327 (the declared dingbat exemption, outside this diff — pdf_generator.py is not in the card's file set). The card's docstring additions to session.py introduce none."
+    - "ADR-0038/R6 ✓ holds — no solution grid reaches a browser from this diff. Re-derivable: `grep -niE 'solution|localstorage|play_state|render_template|jsonify|puzzle_player'` over the four touched files returns nothing; the diff adds one pytest plugin, one read-only int accessor and test code."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the card diff (`git diff main...HEAD --name-only | grep -c pyproject` → 0) and pytest-playwright remains only in the dev extra (pyproject.toml:35 `dev = [\"pytest>=8.3\", \"pytest-playwright>=0.7\"]`), absent from project.dependencies and from the admin extra."
+    - "ADR-0038/R8 ✓ holds — no browser test added or changed (`grep -nE 'browser|playwright|chromium'` over the four files hits only three prose occurrences of the word \"browser\" in docstrings), and the new plugin cannot silence a skip reason: its single hook is pytest_exception_interact, which _pytest.runner.check_interactive_exception excludes for Skipped/SkipTest/BdbQuit/wasxfail. Measured: `pytest -k 'byte_identical'` passes, i.e. the pass+skip selection is byte-identical with and without the plugin."
+    - "ADR-0039/R1 ✓ holds for every claim the guards make about what they CATCH, measured by mutation rather than read: M2 (deny-default branch removed) → 8 failed; M3 (the string arm's `.<name>` clause removed) → test_the_src_sweep_reds_on_every_shape_it_claims[dotted] failed; M4 (ast.Assign arm removed from _hook_bindings_in_source) → test_the_one_hook_guard_reds_on_a_hook_that_is_assigned_not_defined failed; M5 (a live `pytest_runtest_setup = _spy` added to the diagnostic) → test_the_plugin_implements_exactly_one_hook_and_it_is_the_failure_one failed. The one set with NO completeness test — the docstring set — is filed once under R3 rather than double-counted here (same root cause, RC-1)."
+    - "ADR-0039/R2 ✓ holds — both guard sets now come from an authority the runtime can enumerate, and the unanalysable shape is a failure. Hook set: `dir(diagnostic)` filtered on callable pytest_* (what pluggy itself does) — M5 proves it discriminates the assignment shape the cycle-1 guard missed. G-1 sweep: deny-default present and reachable end-to-end — on a replica of the real 60-file src tree, injecting `something_else()()` into admin/app.py or `fetch()()` into db/session.py both RED, and all four indirect reaches measured missed at cycle 1 (getattr / alias / globals()[…] / vars(…)[…]) now RED, 4 of 4. _libpq_name likewise enumerates names from psycopg2.extensions rather than tabulating them."
+    - "ADR-0039/R3 ✗ violated — tests/test_admin_binding.py:873-892 (_docstring_constants) and :955-962 (_RESET_COUNTER_INNOCENT). The docstring exemption the cycle-1 fix added to the G-1 sweep has no control that can fail. R3 requires 'caught with the exemption removed, missed with it in place'; measured by mutation, disabling it (`and id(node) not in docstrings` → `and True`) leaves the WHOLE of tests/test_admin_binding.py green (72 passed), and deleting the mechanism outright (`docstrings = set()`) also leaves 72 passed. Finding F-011. The unanalysable-call exemption beside it does satisfy R3's equality clause in both directions (verified on replicas: new key → RED; renamed inner callee → RED; sites removed → RED), with one residual it does not record as a bound (F-013)."
+    - "CON-021 ✓ holds — no interactive-play surface and no server-side play state in this diff. Re-derivable: the same grep as ADR-0038/R6 returns nothing; the only persistent state the card adds is an in-process integer counter (src/nonogram/db/session.py:22) that is never written to a database, file or response."
+
+root_causes:
+  - id: RC-1
+    title: "The G-1 sweep's two exemptions are under-declared: one has no failing control, the other has an unrecorded residual"
+    finding_ids: [F-011, F-013]
+  - id: RC-2
+    title: "Prose claims about a mechanism's own output were not re-derived against the mechanism"
+    finding_ids: [F-014, F-015]
+
+findings:
+  - id: F-001
+    severity: high
+    category: ops
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 895
+    title: "[cycle 1] G-1's AST sweep claims more than it catches"
+    description: |
+      RESOLVED. The sweep is now four kinds with a deny-default. Re-derived
+      independently rather than accepted: on a replica of the real 60-file
+      src tree, all four indirect reaches measured missed at cycle 1 are
+      caught — getattr("reset_count")() and globals()/vars() subscripts via
+      the `strings` arm AND the deny-default, the alias via `references`.
+      4 of 4, plus both direct shapes. The three unanalysable call sites
+      under src reproduce exactly on an independent sweep that does not
+      import the guard (app.py:6271, app.py:6291, orchestrator.py:1385), and
+      collapse to the 2 exemption keys the table declares. The exemption key
+      cannot be defeated by a rename: renaming _regrade_batch reds (both the
+      unexempt-key assert and the equality), and removing the sites reds the
+      equality. All three claim sites named at cycle 1 are narrowed
+      (test_admin_binding.py:1443-1466, session.py:356-388,
+      undefined_table_report.py:378-389). G-1's underlying property
+      re-verified: 13 textual mentions of reset_count under src, all in
+      session.py, none a call.
+    confidence: high
+    source: static
+    violates: ADR-0039/R2
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted working tree (cycle-1 fix)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: high
+    category: ops
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 1353
+    title: "[cycle 1] the one-hook guard cannot see an assigned hook"
+    description: |
+      RESOLVED, and the runtime arm is primary and demonstrably live. The
+      first assertion of the guard is now
+      `_hooks_pluggy_can_see(diagnostic) == {"pytest_exception_interact"}`,
+      which reads dir(module) filtered on callable pytest_* — the authority
+      pluggy itself consults. Verified by mutation on the production module
+      rather than on a synthetic one: adding `pytest_runtest_setup = _spy` to
+      tests/helpers/undefined_table_report.py reds
+      test_the_plugin_implements_exactly_one_hook_and_it_is_the_failure_one.
+      The AST arm is kept and extended to Assign/AnnAssign with a
+      deny-default on unnameable module-level targets (M4 kills it).
+      The byte-comparison blind spot is confirmed still real but no longer
+      load-bearing: under the same mutant both *_byte_identical tests stayed
+      GREEN while the guard red — so the guard, not the byte comparison, is
+      what now backs G-4 and bound 7. The residual is not declared at bound 7
+      (filed separately as F-015, minor).
+    confidence: high
+    source: static
+    violates: ADR-0039/R2
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted working tree (cycle-1 fix)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: high
+    category: ops
+    type: bug
+    file: tests/helpers/undefined_table_report.py
+    line: 610
+    title: "[cycle 1] MATCH/MISMATCH compared the wrong pair"
+    description: |
+      RESOLVED, and the revert claim re-derived rather than trusted. The
+      verdict now prints both pairs named: `vs-app-engine` from
+      _app_engine_dbname() → nonogram.db.session.engine.url.database, and
+      `vs-capture` from the capture connection. The discriminator IS the app
+      engine's binding and not a correlated neighbour: session.py:193-207
+      shows _init_engine reads os.getenv('DATABASE_URL') and passes
+      normalized_url(database_url) to create_engine, and normalized_url
+      preserves the database name (verified: normalized_url('…/foo_test')
+      .database == 'foo_test'). tests/db_name.py contains no occurrence of
+      'DATABASE_URL' at all, confirming the two resolutions are independent.
+      REVERT RE-DERIVED (mutant M6): restoring the old comparison
+      (`_same_database(failing_dbname, here[0])` in the vs-app-engine slot)
+      reds test_the_verdict_does_not_call_a_correctly_bound_connection_a_mismatch
+      with the finding's own symptom, and the three other verdict tests pass.
+      Both probes exist and both pass against the worktree's derived
+      database: vs-app-engine=MISMATCH for a connection elsewhere, and
+      vs-app-engine=MATCH / vs-capture=MISMATCH for the DATABASE_URL-divergent
+      configuration that produced the cycle-1 inversion.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted working tree (cycle-1 fix)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-011
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 873
+    title: "The docstring exemption the F-001 fix added has no control that can fail"
+    description: |
+      _docstring_constants (:873-892) grants the G-1 sweep's `strings` arm an
+      exemption — "Docstrings excluded" / "Prose is not a reach" — and
+      :955-962's _RESET_COUNTER_INNOCENT is positioned as its control
+      ("the innocent source is in none of them"). That control cannot fail.
+
+      Measured by mutation, twice, on the whole file:
+        * `and id(node) not in docstrings` → `and True`  ⇒ 72 passed
+        * `docstrings = _docstring_constants(tree)` → `docstrings = set()`
+          (the mechanism deleted outright) ⇒ 72 passed
+      No test in the card distinguishes the exemption's presence from its
+      absence, which is exactly the shape ADR-0039/R1 names as "narrative,
+      not coverage" and ADR-0039/R3 forbids: "Every exemption a guard grants
+      carries a control for what it must NOT absorb — caught with the
+      exemption removed, missed with it in place."
+
+      The stated justification is also measurably not the reason it is
+      needed. The arm matches only a string equal to "reset_count" or ending
+      in ".reset_count"; session.py's docstrings write the name inside
+      backticks within long strings and match neither. With the exclusion
+      disabled, test_nothing_in_src_calls_the_reset_counter still passes —
+      so the exemption absorbs nothing under src today, and the docstring in
+      _RESET_COUNTER_INNOCENT ("A docstring may say reset_count without
+      being a reach.") was never matched with or without it.
+
+      Scope and weight, stated plainly: this is a guard-discipline /
+      ADR-conformance defect, not a reach hole. Because _docstring_constants
+      only ever collects a bare string *expression statement in first
+      position*, every site it suppresses is dead prose, so it cannot hide a
+      real reach — G-1 holds and is independently verified. But the code is
+      new (added by the cycle-1 fix: `git show HEAD:tests/test_admin_binding.py
+      | grep -c _docstring_constants` → 0, working tree → 3), it is in the
+      same guard and the same ADR-0039 family as F-001, and the rule it
+      breaks is severity: mandatory.
+    suggestion: |
+      Either (a) give the exemption a control that fails, or (b) delete it.
+
+      (a) one source, measured sound before suggesting it: add a shape whose
+      docstring is EXACTLY the accessor name, and one whose docstring is a
+      dotted path ending in it, and assert both land in no kind:
+          '"""reset_count"""\n'
+          'def f():\n    """nonogram.db.session.reset_count"""\n'
+      Verified discriminating: with the exclusion in place both give
+      strings=[]; with it removed they give strings=['probe.py:1'] and
+      ['probe.py:2'] respectively. Today's _RESET_COUNTER_INNOCENT gives []
+      in both, which is the proof the present control is inert.
+
+      (b) delete _docstring_constants and the `id(node) not in docstrings`
+      clause: 72 passed either way, and the precedent is this card's own
+      warnings.catch_warnings() removal ("it deleted with zero test
+      failures (a dead mechanism)"). If (b), say so at bound 10 and at the
+      sweep's docstring, which currently both claim the exclusion.
+
+      Either way the sweep's docstring (:913-915) and bound 10 must stop
+      asserting an exemption that is not controlled.
+    confidence: high
+    source: static
+    violates: ADR-0039/R3
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null   # uncommitted working tree (cycle-2 fix)
+    dismissed_reason: null
+    fix_note: >-
+      cycle-3 fix: route (b) — _docstring_constants, the `and id(node) not in docstrings` clause, the docstrings local and the exemption sentence all deleted; the strings arm now has no carve-out. 72 passed, and over-excluding the arm still reds [dotted]/[getattr]/[globals]/[vars]. Bound 10 re-derived.
+    learned_pattern: null
+  - id: F-012
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/helpers/undefined_table_report.py
+    line: 121
+    title: "register() crashes the whole run with INTERNALERROR if the module is also loaded by -p <module>"
+    description: |
+      register() calls config.pluginmanager.register(sys.modules[__name__],
+      PLUGIN_NAME) unconditionally. pluggy refuses to register one plugin
+      object under a second name, so a run that loads the module by its
+      import path AND lets the conftest register it dies at configure time.
+      Reproduced on this tree:
+        pytest tests/test_admin_binding.py -p tests.helpers.undefined_table_report
+        → INTERNALERROR> ValueError: Plugin already registered under a
+          different name: undefined-table-report=<module
+          'tests.helpers.undefined_table_report' …>
+      Not reachable from any documented invocation: pyproject's addopts is
+      "-q", scripts/ and CLAUDE.md never pass -p <module>, and the probes run
+      with their own rootdir where this conftest is not loaded, so the -p
+      they pass cannot collide. The documented disable route is unaffected and
+      works: `-p no:undefined-table-report` returns None from register() and
+      reds only test_the_diagnostic_is_registered_in_this_very_run (verified).
+      Filed low because the trigger is self-inflicted; filed at all because
+      the module's whole contract is "never make a run worse", and a future
+      change to _probe_run's cwd would walk into it.
+    suggestion: |
+      One line at the head of register():
+          if config.pluginmanager.is_registered(sys.modules[__name__]):
+              return None
+      and name it in the docstring beside the -p no: note.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null   # uncommitted working tree (cycle-2 fix)
+    dismissed_reason: null
+    fix_note: >-
+      cycle-3 fix: register() returns None when this module is already registered; `pytest ... -p tests.helpers.undefined_table_report` no longer INTERNALERRORs (71 passed + the registration test's informative red), `-p no:undefined-table-report` unchanged. Docstring names both cases.
+    learned_pattern: null
+  - id: F-013
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 847
+    title: "The unanalysable-call exemption absorbs additional same-key sites with no record or count"
+    description: |
+      _UNANALYSABLE_CALL_EXEMPTIONS is keyed by (file, inner callee name) and
+      the equality is over the key SET, so multiplicity is not held. The two
+      sites at admin/app.py:6271 and :6291 collapse to one key, which the
+      card declares; what is not declared is that a THIRD f(...)(...) in that
+      file with the same inner callee is absorbed silently. Measured:
+      appending `def _extra_leak(): _regrade_batch()()` to a replica of
+      admin/app.py leaves the guard GREEN; the same append with a different
+      inner callee (`something_else()()`) reds twice.
+      The equality itself is sound in both directions and I verified it
+      rather than reading it — new key RED, renamed inner callee RED, sites
+      removed RED — so this is narrower than F-011: the exemption HAS a
+      failing control; what is missing is R3's third clause, "records whatever
+      it still cannot see as a measured bound". A reach hidden behind an
+      exempted key would still have to trip the `references` or `strings`
+      arm (the inner function would have to name or spell the accessor), so
+      no reach consequence is claimed.
+    suggestion: |
+      Make the exemption value the expected site COUNT instead of only a
+      reason (the precedent is already in this repo —
+      tests/test_db_engine_lifecycle.py's setattr allowance is "an equality
+      over counted sites, not a floor"), or record the multiplicity
+      absorption at bound 10 as a measured bound.
+    confidence: high
+    source: static
+    violates: ADR-0039/R3
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null   # uncommitted working tree (cycle-2 fix)
+    dismissed_reason: null
+    fix_note: >-
+      cycle-3 fix: _UNANALYSABLE_CALL_EXEMPTIONS values are now (site count, reason) and the sweep asserts dict(Counter(sites)) == {key: count}. A third _regrade_batch()() in app.py now reds (found 3 / expect 2); multiplicity has its own probe control. Bound 10 records the (file, inner callee) key residual.
+    learned_pattern: null
+  - id: F-014
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/db/session.py
+    line: 386
+    title: "A docstring quotes a grep whose output does not reproduce"
+    description: |
+      reset_count's docstring closes with "The direct evidence behind G-1
+      today is independent of all of it: ``grep -rn reset_count src/`` finds
+      only this definition." Run on this head, that grep returns 13 lines,
+      all in this same file: the private global (:22), the `global`
+      statement (:347), the increment (:353), the `def` (:356), the module
+      comment (:15) and eight docstring mentions. The PROPERTY the sentence
+      stands for — no call site under src — is true and independently
+      verified by an AST sweep that does not import the guard, but the
+      sentence as written names a command and misstates its output, in a
+      source docstring, which is the specific family ADR-0039's 2026-10-19
+      scope revision added src/nonogram/** for.
+      The same sentence appears at tests/test_admin_binding.py:1465-1466.
+    suggestion: |
+      Narrow to the claim that reproduces, e.g. "no call site under src names
+      it — `grep -rn 'reset_count' src/` returns only this module's own
+      definition, counter and prose."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null   # uncommitted working tree (cycle-2 fix)
+    dismissed_reason: null
+    fix_note: >-
+      cycle-3 fix: both sites stop quoting a command. session.py:386 and test_admin_binding.py's sweep docstring now state the claim that reproduces — every textual occurrence of the name under src is in db/session.py and none is a call.
+    learned_pattern: null
+  - id: F-015
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 1358
+    title: "The byte comparisons' insensitivity to a silent per-test hook is recorded only in the cycle-1 review narrative"
+    description: |
+      test_the_plugin_implements_exactly_one_hook_and_it_is_the_failure_one's
+      docstring opens "The byte comparisons above show this selection pays
+      nothing." A byte comparison shows output identity, not cost: measured
+      under mutant M5 (a live `pytest_runtest_setup = _spy` in the
+      diagnostic), test_an_ordinary_assertion_failure_is_byte_identical and
+      test_a_passing_run_with_a_skip_is_byte_identical BOTH stayed green
+      while the guard red. That is correct division of labour and the guard
+      is now the real control — but the residual lives only in the card's
+      [Adversarial] F-002 narrative (CARD-258.md:525-532), not at declared
+      bound 7, where this card's own declaration discipline puts residuals.
+    suggestion: |
+      Add one clause to bound 7 and to that docstring: the byte comparisons
+      hold output identity (AC-3/AC-4 as written); per-test cost is held by
+      the one-hook guard alone, and a hook that prints nothing is
+      byte-identical by construction.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null   # uncommitted working tree (cycle-2 fix)
+    dismissed_reason: null
+    fix_note: >-
+      cycle-3 fix: the one-hook guard's docstring now says the byte comparisons hold output identity only and that per-test cost is held by this guard alone; the residual is declared at bound 7.
+    learned_pattern: null

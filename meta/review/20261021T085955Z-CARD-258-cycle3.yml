@@ -1,0 +1,146 @@
+version: 1
+generated_at: "2026-10-21T08:59:55Z"
+target: "CARD-258 cycle 3/3 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-258, branch card/258-the-ops-red-says-what-it-talked-to vs main; combined state = commit 8e40c0c0 + uncommitted cycle-1/cycle-2 fixes (git diff: +966/-48 over 3 files)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/db/session.py"
+    - "tests/conftest.py"
+    - "tests/helpers/undefined_table_report.py"
+    - "tests/test_admin_binding.py"
+    - "meta/kanban/cards/CARD-258.md"
+    - "meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md"
+    - "tests/test_book_difficulty_dots.py (ADR-0036/R4 guard scope only)"
+  not_reached:
+    - "full suite (forbidden by the brief; build gate 5 carried: 8668 passed, 1 skipped, EXIT=0)"
+    - "tests/e2e/** (not touched by this diff)"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 1312, removed: 2, plus_uncommitted: "+966/-48 over 3 files" }
+  max_fan_in:
+    symbol: "nonogram.db.session.reset_count"
+    callers: 1
+    note: "one call site, tests/helpers/undefined_table_report.py::_engine_lines; zero under src/ (AST sweep + independent grep: 12 textual occurrences, all in session.py, none a call) — which is G-1"
+  tests_cover_change: true
+  hotspots:
+    - "tests/conftest.py (18 commits/12mo)"
+    - "src/nonogram/db/session.py (16 commits/12mo)"
+  cochange_missing:
+    - "tests/test_db_engine_lifecycle.py (7 co-changes) — absent from the diff BY DECLARATION: bound 9's honest repair (teaching _global_names_assigned_by about AugAssign) is explicitly deferred to a follow-up card as out of this card's four-file scope; file re-run green here at 93 passed with test_admin_auth.py"
+  mutation_check:
+    mutants: 7
+    killed: 7
+    survived: 0
+  unmeasured:
+    timing: "not_applicable — the card forbids timing measurements; durations quoted below come from pytest's own summary line and are not a measurement of the change"
+
+system_contract:
+  rules_checked: 10
+  holds: 10
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0022/R1 ✓ holds — no grid extent crosses any boundary in this diff: `git diff main...HEAD --name-only` + `git diff --name-only` list 4 files; the only src/ change adds `_reset_count: int` and `reset_count() -> int` (session.py:22, :356), neither a grid nor an extent; no source mode, request field or export field is touched."
+    - "ADR-0036/R3 ✓ holds — no drawing code in the diff (src/ change confined to session.py's counter + docstrings); the enforcing guard test_the_package_draws_a_round_mark_in_exactly_one_function (tests/test_book_difficulty_dots.py:1527) is green on this tree inside build gate 5 (8668 passed, EXIT=0)."
+    - "ADR-0036/R4 ✓ holds — re-derived independently rather than read: an AST scan of every string constant under src/ for U+25A0..U+25FF, U+2022, U+2219 returns 3 hits, all at src/nonogram/admin/pdf_generator.py:321, pre-existing since commit 1ceac072 (CARD-056) and named as a declared exemption at tests/test_book_difficulty_dots.py:784 ('three U+2022 bullets in a prose paragraph about the difficulty levels'). This diff adds zero such codepoints."
+    - "ADR-0038/R6 ✓ holds — no solution grid is shipped anywhere by this diff: no file under src/nonogram/admin/ or src/nonogram/web/ is in it, and the diagnostic's report lines carry database/engine/process/schema facts only (undefined_table_report.py:_capture_answers, :639-660) — no puzzle payload."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in this card's diff (`git diff main...HEAD --name-only` and `git diff --name-only` both omit it), so no dependency declaration moved; pytest-playwright's placement is unchanged."
+    - "ADR-0038/R8 ✓ holds — no browser test is added or changed (the new tests are subprocess pytest probes with their own rootdir, tests/test_admin_binding.py:743 `_probe_run`); no skip path is introduced that could pass silently — the two new skip-bearing shapes are db_required marks, and the AC-4 probe's skip is asserted by name."
+    - "ADR-0039/R1 ✓ holds — re-derived by mutation on this tree, not by reading: 7 mutants, 7 killed. M2 (strings arm matches nothing) → exactly the 4 shape controls [dotted][getattr][globals][vars] red; M3 (an exemption key removed) → test_nothing_in_src_calls_the_reset_counter red; M4 (a declared count 2→3) → same test red naming found/expect; M5 (the MRO walk matches nothing) → the register control red on the named AssertionError; M1 (the is_registered guard deleted) → the register control red on the exact `ValueError: Plugin already registered under a different name`; M6 (the control-flow re-raise removed) → test_no_guard_in_the_diagnostic_absorbs_control_flow red; M7 (`pytest_runtest_setup = _spy` added to the live module) → the one-hook guard red while BOTH byte-comparison tests stayed green. Claim-narrowing re-derived too: bound 8's 26 test functions / 40 node IDs / 93 assertion nodes reproduce exactly by `ast` and `--collect-only`."
+    - "ADR-0039/R2 ✓ holds — both guard sets come from authorities the runtime enumerates and every unanalysable shape is a failure: `_hooks_pluggy_can_see` reads `dir(module)` (pluggy's own resolution; M7 killed), `_hook_bindings_in_source` returns an `unanalysable` list asserted empty (test_the_one_hook_guard_reds_on_a_hook_that_is_assigned_not_defined's third arm), `_reset_counter_sites` deny-defaults on any callee it cannot name (M3 killed), `_plugin_manager_class` raises instead of defaulting to a pass (M5 killed, message: 'this guard cannot default to a pass'), and the detector's class arm is psycopg2.errors' own name."
+    - "ADR-0039/R3 ✓ holds (cycle 2's ✗ is RESOLVED) — the G-1 guard now grants exactly ONE exemption, `_UNANALYSABLE_CALL_EXEMPTIONS` (test_admin_binding.py:856), and it has a control that fails in both directions: removal → M3 reds; wrong multiplicity → M4 reds with `found 2 / expect 3`; the sweep's per-site (not per-key) reporting that the count depends on has its own control (`_RESET_COUNTER_UNANALYSABLE_TWICE`, asserted to yield two entries). The equality is over counted sites (`dict(Counter(...)) == declared`), not a floor. The residual is declared at bound 10 and matches the code exactly ((file, inner callee) key, so a third site REPLACING one of two is indistinguishable) and is narrowed honestly — such a site must still trip the `references` or `strings` arm to be a reach at all. The cycle-2 F-011 exemption is GONE, not re-propped: `grep -c _docstring_constants` → 0 across all three files, and the surviving sentence is the inverted one (test_admin_binding.py:901, 'No carve-out for prose'); the arm it used to carve out is still bound (M2)."
+    - "CON-021 ✓ holds — no play state is persisted by this diff: the one new piece of server-side state is `session._reset_count`, a process-local integer counting reset_engine() calls (session.py:22, :353), written nowhere and read only by the test-tree diagnostic; no localStorage, route or template is touched."
+
+root_causes:
+  - id: RC-1
+    title: "quoted counts in the new prose that no longer reproduce (the same class F-014 fixed, at two further sites)"
+    finding_ids: [F-016, F-017]
+
+findings:
+  - id: F-016
+    severity: low
+    category: ops
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 949
+    title: "Two different stated sizes for _RESET_COUNTER_SHAPES, and neither is 7"
+    description: |
+      `_RESET_COUNTER_SHAPES` (tests/test_admin_binding.py:951) holds **seven** entries
+      (direct, attribute, alias, getattr, globals, vars, dotted — confirmed by the
+      parametrisation, which collects 7 node IDs). Two sentences state its size and they
+      disagree with each other and with the dict:
+
+        * `:949` — "One source per shape the G-1 sweep claims to red on … Four of these
+          **five** were measured *missed*"
+        * `:1588` — "Four of these **six** were measured *missed* by the sweep as first
+          written"
+
+      The substantive half is correct and reproduces (the four named — getattr, alias,
+      globals, vars — were the cycle-1 0-of-4 measurement); only the denominators are
+      stale. Coverage is not affected: the parametrisation is derived from the dict
+      (`sorted(_RESET_COUNTER_SHAPES)`), so the claim is not load-bearing for what the
+      control covers — which is why this is Minor and not a family finding.
+
+      Attribution, checked rather than inferred: `git show HEAD:tests/test_admin_binding.py
+      | grep -c "Four of these"` → 0 and `_RESET_COUNTER_SHAPES` is absent from HEAD, so
+      both sentences are fix-cycle code; per the card's own [Fix 2] record the cycle-2
+      delta was the counted-sites assertion, the register guard/control and the docstring
+      deletions — the shapes table and these two sentences are cycle-1 code the cycle-2 fix
+      did not touch. **Not in the family** (it is not an exemption or a carve-out, and its
+      control cannot be said to be unable to fail — there is no claim of catching here),
+      and **not attributed to the cycle-2 fix**.
+    suggestion: |
+      Either drop both denominators ("four of these were measured missed", naming them, as
+      :1588 already does) or derive them — the file's own idiom at `_VALUE_LIMIT_PROBE` is
+      to read the number from the thing it describes rather than restate it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-017
+    severity: low
+    category: ops
+    type: gap
+    file: meta/kanban/cards/CARD-258.md
+    line: 427
+    title: "Bound 14's '(71 passed)' does not reproduce on the final tree — it is 72 passed, 1 failed"
+    description: |
+      Declared bound 14 states the F-012 residual as "one informative failure (71 passed)
+      instead of an aborted session". Measured on the tree under review:
+
+        pytest tests/test_admin_binding.py -p tests.helpers.undefined_table_report
+        → 1 failed, 72 passed  (the single red is
+          test_the_diagnostic_is_registered_in_this_very_run)
+
+      71+1 = 72 is the file's pre-cycle-2 size, so the number was taken before the fix
+      added its own control test (the file is 73 now, verified: `pytest
+      tests/test_admin_binding.py` → 73 passed). The *substance* of the residual
+      reproduces exactly — no INTERNALERROR, exactly one informative failure, and it is
+      the named test — and `register()`'s own docstring quotes no number at all, which is
+      the F-014 discipline applied correctly in the source. Only the card's figure is
+      stale. Noted because this card's declared bounds are the artefact the next reader
+      will trust, and a number that does not reproduce is the defect F-014 fixed one
+      station earlier.
+    suggestion: |
+      Change bound 14's "(71 passed)" to "(72 passed, 1 failed)" — or drop the figure, as
+      register()'s docstring already does, since it moves with every test added to the file.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "findings whose subject sits outside the card's declared file scope have been dismissed as card-scope/follow-up 3 times across projects"
+      dismissed_count: 3

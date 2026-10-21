@@ -1,0 +1,454 @@
+version: 1
+generated_at: "2026-10-21T05:12:23Z"
+target: "card/258-the-ops-red-says-what-it-talked-to @ 8e40c0c0 (worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-258) vs main"
+overall_score: 7.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/db/session.py"
+    - "tests/conftest.py"
+    - "tests/helpers/undefined_table_report.py"
+    - "tests/test_admin_binding.py"
+    - "tests/db_name.py (context)"
+    - "tests/test_db_engine_lifecycle.py (context, guard reach)"
+    - "tests/test_book_difficulty_dots.py (context, ADR-0036/R4 exemption)"
+    - "meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md"
+    - "pyproject.toml (pytest ini, deps)"
+    - "scripts/run_admin_tests.sh (DATABASE_URL/TEST_DATABASE_URL coupling)"
+  not_reached:
+    - "the build-gate runner's own environment (how DATABASE_URL/TEST_DATABASE_URL are exported for a gate run) -- not in the repo"
+    - "the full suite at this head (gate carried, not re-run)"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 1312, removed: 2 }
+  max_fan_in: { symbol: "nonogram.db.session.reset_count", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["tests/conftest.py", "src/nonogram/db/session.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact -- the 12-month co-change set over the three pre-existing touched files is exactly {tests/conftest.py, src/nonogram/db/session.py, tests/test_admin_binding.py}, all three present in this diff; tests/helpers/undefined_table_report.py is new and has no history"
+    suite_runtime: "not_applicable -- the card forbids timing measurements (other cards share this machine); no timing was taken"
+
+system_contract:
+  rules_checked: 10
+  holds: 7
+  unchecked: 1
+  violated: 2
+  verdicts:
+    - "ADR-0022/R1 ✓ holds — no grid-extent symbol in the diff; repeatable scan: `grep -n size src/nonogram/db/session.py` returns 0 lines, and the three test files add no public signature/request/export field carrying a scalar extent (no `size=`/`width`/`height` parameter in the diff)"
+    - "ADR-0036/R3 ✓ holds — the only src change is `_reset_count`/`reset_count()` at src/nonogram/db/session.py:15-16,341-372; no Pillow/ReportLab drawing call is added. Re-derive: `git diff main...HEAD -- src/` shows no `ellipse`/`arc`/`Draw(` symbol"
+    - "ADR-0036/R4 ✓ holds — scanned every file under src/nonogram for U+25A0..U+25FF, U+2022, U+2219: 3 hits, all three pre-existing U+2022 bullets at src/nonogram/admin/pdf_generator.py:325-327, which are the named, controlled exemption DINGBAT_EXEMPT_MODULES in tests/test_book_difficulty_dots.py:787. This diff adds none"
+    - "ADR-0038/R6 ✓ holds — no view, template, route or serialiser is touched; `git diff main...HEAD --name-only` is four files, none under src/nonogram/admin or src/nonogram/web"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the diff (`git diff main...HEAD --stat` lists 4 files, pyproject absent), so neither project.dependencies nor the admin extra changed; the new code imports only stdlib (os, sys, threading, ast, re, subprocess, textwrap, warnings) plus already-declared sqlalchemy/psycopg2"
+    - "ADR-0038/R8 ✓ holds — no browser test is added or retired; `grep -n browser tests/test_admin_binding.py` returns no marker and the new tests carry only `db_required`"
+    - "ADR-0039/R1 ✗ violated — tests/test_admin_binding.py:1057-1084 and :1012-1031 each make a claim wider than the control that backs it (see F-001, F-002); ADR-0039's own reach note names forge:review Step 8h as the enforcement for guards written after the rule, which these two are"
+    - "ADR-0039/R2 ✗ violated — both new AST guards silently pass on the call/def shapes they do not model instead of defaulting to deny, and neither records the unanalysable shapes as a named exemption (F-001: 0 of 4 indirect call shapes caught; F-002: a module-level assigned hook runs and is invisible — both demonstrated by execution)"
+    - "ADR-0039/R3 ⚠ unchecked — no_eligible_fact: neither new guard grants an exemption, so there is no exemption claim to hold a control against; the shapes they cannot see are filed under R2 (F-001/F-002) rather than as exemptions"
+    - "CON-021 ✓ holds — no play state, no localStorage, no player route in the diff; the four changed files are a db accessor, a pytest conftest hook registration, a test-tree diagnostic and a test file"
+  extra_checked:
+    - "G-1 (direct evidence, not via the guard): `grep -rn reset_count src/` returns only the definition, its docstring and the `global` statement in src/nonogram/db/session.py — no call site in src/"
+    - "G-3: pyproject.toml unchanged; no new runtime dependency"
+    - "G-4 (independently re-derived): pytest 9.1.1 `_pytest.runner.check_interactive_exception` returns False for Skipped/BdbQuit/unittest.SkipTest and for wasxfail, so pytest_exception_interact cannot fire on a pass, a skip or an xfail — AC-4's skip-profile structural argument is sound"
+    - "G-5: the five parametrisations at tests/test_admin_binding.py:303-308 are untouched; the diff's only edits outside the appended block are added imports at :30-40"
+    - "CLAUDE.md import-direction rule: the diff adds no import to any capability module; the new helper lives in tests/ where importing nonogram.db.session and tests.conftest is legal"
+
+root_causes:
+  - id: RC-1
+    title: "Both new AST guards enumerate one syntactic shape and pass silently on every other, while their docstrings claim exhaustiveness"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 1074
+    title: "G-1's sweep claims 'a call added anywhere under src reds this' but catches only the direct-callee shape"
+    description: |
+      `test_nothing_in_src_calls_the_reset_counter` walks every ast.Call under src/ and
+      reads the callee name as `func.attr` when it is an ast.Attribute, else
+      `getattr(func, "id", None)`. Every other callee shape yields None and is skipped
+      with no record.
+
+      Measured, not argued. Four indirect call shapes were run through the guard's exact
+      expression and 0 of 4 were caught:
+        getattr(session, "reset_count")()   -> missed
+        f = session.reset_count; f()        -> missed
+        globals()["reset_count"]()          -> missed
+        vars(session)["reset_count"]()      -> missed
+      (reproduce: the loop at tests/test_admin_binding.py:1074-1082 over that source.)
+
+      The claim the guard carries is wider than that reach in two places:
+      tests/test_admin_binding.py:1060-1061 ("a call added anywhere under it reds this —
+      including one written after this card") and src/nonogram/db/session.py:353-355
+      ("Nothing in ``src/`` calls it -- held by
+      ``test_nothing_in_src_calls_the_reset_counter``"). ADR-0039/R1 requires the claim be
+      narrowed to what is measured; ADR-0039/R2 requires a shape the guard cannot analyse
+      to be a FAILURE, not a silent pass, with the unanalysable sites named as exemptions
+      under R3. Neither is done, and the card's eight declared bounds do not mention it.
+
+      G-1 itself holds today by direct evidence (`grep -rn reset_count src/` finds no call
+      site) — this finding is about the guard that is supposed to keep holding it.
+    suggestion: |
+      Either (a) make the guard default to deny: collect every ast.Call whose callee name
+      cannot be resolved to a Name/Attribute and fail on a non-empty list of unanalysable
+      sites (an equality against the sites that exist today, per ADR-0039/R3), or (b)
+      narrow both claims to what is measured — "no direct `reset_count(...)` or
+      `<obj>.reset_count(...)` call exists under src/" — and declare the indirect shapes as
+      a measured bound in the card's Worktree notes. (a) is preferable: it is the shape
+      ADR-0039/R2 asks for and tests/full_suite_lock.py already cites that discipline.
+    confidence: high
+    source: static
+    violates: ADR-0039/R2
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 1023
+    title: "The one-hook guard reads only top-level `def`s, so an assigned hook — a live pytest hook — is invisible, and G-4 plus AC-4's bound 7 rest on it"
+    description: |
+      `test_the_plugin_implements_exactly_one_hook_and_it_is_the_failure_one` builds its
+      hook set from `tree.body` only, and only from ast.FunctionDef/AsyncFunctionDef whose
+      name starts with "pytest_". Two shapes escape it, and the first one is a real pytest
+      hook:
+
+        pytest_runtest_setup = _tax     # module-level assignment
+        class Inner:
+            def pytest_collection_modifyitems(...)   # nested def
+
+      Measured by execution, not inferred: a throwaway plugin whose only content is
+      `def _tax(item): print("ASSIGNED-HOOK-RAN")` followed by
+      `pytest_runtest_setup = _tax`, loaded with `-p`, printed ASSIGNED-HOOK-RAN once per
+      test under pytest 9.1.1 — pluggy resolves hookimpls by getattr over dir(module), so
+      an assignment is as live as a def. Run through the guard's own expression, the hook
+      set it reports for that module is {'pytest_exception_interact'} only.
+
+      Why this matters beyond the guard: the guard is the *general half* of two card
+      claims. G-4 ("the hook must not run per-test on the happy path") is held
+      structurally by this test (tests/test_admin_binding.py:1015-1021 says "A
+      ``pytest_runtest_setup`` added here ... would red this" — exactly the shape that
+      does not), and declared bound 7 rests AC-4's skip-profile half on "the plugin
+      implements one hook and it is not a collection or setup hook". The byte comparisons
+      cannot substitute: a per-test hook that queries and prints nothing is byte-identical
+      and invisible to both.
+
+      G-4 does hold for the code as written — the module has exactly one top-level
+      `pytest_` def and no assignments — and I independently re-derived that pytest never
+      calls pytest_exception_interact on a pass, a skip or an xfail
+      (`_pytest.runner.check_interactive_exception`, pytest 9.1.1). The finding is the
+      guard's reach, which is what has to keep holding G-4 after this card.
+    suggestion: |
+      Derive the hook set from the authority the runtime itself consults rather than from
+      the top level of the AST: iterate `dir(diagnostic)` for names starting with
+      "pytest_" whose attribute is callable (that is literally what pluggy does), and
+      assert the resulting set == {"pytest_exception_interact"}. That closes the assigned
+      and re-exported shapes in one line and satisfies ADR-0039/R2's "derived from an
+      authority the runtime can enumerate". Keep the AST check as a second arm if the
+      nested-def shape is wanted, or declare it as a measured bound.
+    confidence: high
+    source: static
+    violates: ADR-0039/R2
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: tests/helpers/undefined_table_report.py
+    line: 482
+    title: "The MATCH/MISMATCH verdict compares the failing connection against the fixtures' database, not the one the app was told to use — so MISMATCH does not mean what the card says it means"
+    description: |
+      `_capture_lines` resolves its database with
+      `db_name.resolve_test_database_url(os.environ, db_name.REPO_ROOT)`
+      (undefined_table_report.py:482). That function (tests/db_name.py:182-185) reads
+      TEST_DATABASE_URL, else derives the per-worktree name — it never reads
+      DATABASE_URL. The app engine the failure came out of is built from DATABASE_URL
+      (src/nonogram/db/session.py:199). The verdict at
+      undefined_table_report.py:553-557 then compares the failing connection's dbname
+      against `current_database()` on the *capture* connection and prints MATCH/MISMATCH.
+
+      The suite explicitly supports those two being different: tests/conftest.py:222
+      branches on exactly `database_url == resolved` and takes a different path when they
+      are not, and the five tests this card exists for
+      (tests/test_admin_binding.py:296-308) are NOT db_required and build their app from
+      the ambient DATABASE_URL with no monkeypatch (conftest.py:621 only sets it inside
+      the function-scoped `db_session` fixture). In any run where TEST_DATABASE_URL is
+      unset and DATABASE_URL names something other than the derived name, the verdict
+      prints MISMATCH on every occurrence while the failing connection sat exactly where
+      it was told to go — the inverse of the card's headline "a connection to the *wrong*
+      database is a one-line proof".
+
+      Mitigating, and why this is Important rather than Critical: the raw names are all on
+      the page — group-2 prints the app engine's URL, the verdict prints both dbnames, and
+      the capture line is labelled "[a connection opened here, not the failing one]". So a
+      careful reader is not misled; the *label* overclaims. And
+      scripts/run_admin_tests.sh:83 defaults TEST_DATABASE_URL to DATABASE_URL, so a gate
+      invoked through that script is unaffected (I could not read the build-gate runner
+      itself — see coverage.not_reached).
+
+      No control distinguishes the two causes of MISMATCH:
+      `test_a_connection_on_the_wrong_database_is_a_one_line_proof`
+      (tests/test_admin_binding.py:894-921) makes the *failing* side the odd one out, and
+      nothing exercises a capture that resolved elsewhere. The card's eight declared
+      bounds do not name this one.
+    suggestion: |
+      Cheapest honest fix: add the third name to the verdict and say which pair it
+      compares — e.g.
+      `group-4 verdict: failing-dbname=X app-engine-dbname=Y capture-dbname=Z
+      failing-vs-app=MATCH failing-vs-capture=MISMATCH [capture resolves
+      TEST_DATABASE_URL, not DATABASE_URL]`. The app-engine dbname is already in hand at
+      _engine_lines (`engine.url.database`). Alternatively prefer the app engine's own URL
+      for the capture when the refusal allows it, falling back to the resolved test URL
+      and labelling which was used. Either way add the missing control: a probe where
+      TEST_DATABASE_URL and DATABASE_URL name different databases, asserting the report
+      distinguishes "the connection was elsewhere" from "the capture was elsewhere".
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/db/session.py
+    line: 347
+    title: "`_reset_count += 1` is an AugAssign, invisible to CARD-252's derived globals guard — that guard's green is a blind spot, not a check"
+    description: |
+      `reset_engine` now declares four globals
+      (src/nonogram/db/session.py:341) and assigns `_reset_count` with `+=` at :347.
+      `tests/test_db_engine_lifecycle.py:197-226`'s `_global_names_assigned_by` collects
+      only `ast.Assign` targets, so `_reset_count` is in the `global` statement but not in
+      the derived `assigned` set. Measured by re-running that function's logic against the
+      current session.py:
+        guard as written      : _init_engine {SessionLocal,_engine_url,engine}
+                                reset_engine {SessionLocal,_engine_url,engine}  -> equal, green
+        with AugAssign added  : reset_engine {SessionLocal,_engine_url,_reset_count,engine} -> unequal, red
+      So `test_it_resets_exactly_the_globals_the_builder_creates` still reports agreement
+      only because of the AugAssign blind spot — the opposite of the bias its own docstring
+      claims ("A shape this function cannot analyse biases it to red rather than to a
+      pass", :208-211).
+
+      There is no functional defect: the guard's purpose is to catch a global the *builder*
+      sets and the reset leaves behind, and `_reset_count` is the reverse. The finding is
+      that the card's implementation record cites that file's greenness as evidence the src
+      change is safe, and for this global that green is uninformative.
+
+      Filed low-confidence and non-gating: the honest resolution (teaching the guard about
+      AugAssign and then narrowing its claim to builder-set globals) lands in
+      tests/test_db_engine_lifecycle.py, which is outside this card's four-file scope.
+    suggestion: |
+      In scope: declare it as a ninth bound on the card ("the new global is spelled with
+      `+=` and so sits outside CARD-252's derived globals equality; that guard's green does
+      not cover it"). Out of scope, for a follow-up card: have
+      `_global_names_assigned_by` collect ast.AugAssign/ast.AnnAssign targets too and
+      restate the equality as "every global the builder assigns is also cleared by the
+      reset" (a subset relation), which is what the guard actually means and which stays
+      green with a reset-only counter.
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/helpers/undefined_table_report.py
+    line: 238
+    title: "`except BaseException` in the guards converts a KeyboardInterrupt during the capture into a report line"
+    description: |
+      `_guarded` (:238), `pytest_exception_interact` (:126) and `_capture_lines` (:494) all
+      catch BaseException. That is right for AC-5's purpose, but it also absorbs
+      KeyboardInterrupt and SystemExit: a Ctrl-C landing while the capture waits on
+      `engine.connect()` (which carries CARD-097's connect deadline, so the window is up to
+      CONNECT_TIMEOUT_SECONDS per failing test) is turned into
+      "group-4 capture-connection: FAILED: builtins.KeyboardInterrupt" and the run carries
+      on. The comment "named, never swallowed" is true of the name and not of the control
+      flow.
+    suggestion: |
+      Re-raise the two control-flow exceptions before formatting:
+      `except (KeyboardInterrupt, SystemExit): raise` ahead of each
+      `except BaseException` clause. AC-5's property is unaffected — no diagnostic failure
+      is swallowed — and Ctrl-C keeps working during a slow capture.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/helpers/undefined_table_report.py
+    line: 97
+    title: "Three new limits and the cycle-termination claim have no control"
+    description: |
+      `_CHAIN_LIMIT = 32` (:97), `_VALUE_LIMIT = 240` (:101) and the 500-frame cap in
+      `_traceback_frames` (:421) are new thresholds with no boundary test anywhere in the
+      48 assertion nodes. `_one_line`'s truncation branch (`text[:limit - 3] + "..."`,
+      :618) is never reached by any test — every fabricated and provoked value is short.
+      `_chain`'s docstring asserts "Identity-compared, so a cycle terminates" (:193) and no
+      test constructs a cyclic `__context__`/`__cause__` to hold it. Step 8f's boundary rule
+      asks for the limit, limit-1 and limit+1; none of the three has any.
+    suggestion: |
+      Three cheap, database-free unit tests against the pure functions:
+      `_one_line("x" * 241)` ends in "..." and is exactly 240 chars while
+      `_one_line("x" * 240)` is untouched; `undefined_table_error` returns on a chain of
+      two exceptions whose `__context__` points at each other (terminates, no hang);
+      `_chain` over a 40-deep `__cause__` chain returns exactly 32 entries.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_binding.py
+    line: 709
+    title: "Every probe runs under default pytest options, so no test exercises the suite's own `addopts = \"-q\"`"
+    description: |
+      `_probe_run` writes its file into a temp directory that is its own rootdir — which is
+      the design, and the reason CARD-255's lock guard is not disturbed — so pyproject.toml:89's
+      `addopts = "-q"` never reaches any probe. AC-1's "the report carries the four groups"
+      and AC-3/AC-4's byte comparisons are therefore all measured under pytest's defaults,
+      not under the options the gate actually runs with.
+
+      Low risk, stated rather than asserted: the section is attached through
+      `longrepr.addsection` (:601-603), whose output is printed by the longrepr itself and
+      is independent of verbosity, and `report.sections` is only the fallback. So I expect
+      it to hold under `-q`; nothing in the suite measures it.
+    suggestion: |
+      Add `"-q"` to one probe's command (or a parametrisation over ("", "-q")) and assert
+      the four group labels are still present. One extra subprocess, and it closes the one
+      option the real run always carries and no probe ever has.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_admin_binding.py
+    line: 717
+    title: "Nine subprocess pytest runs are added with no `slow` marker, in a file that carries no module-level marker"
+    description: |
+      The new block spawns a child `python -m pytest` nine times (module fixture 2, MISMATCH
+      1, AC-3 2, AC-4 2, AC-5 1, G-2 refusal 1), each with `timeout=300`, and two of them
+      open TCP connections (127.0.0.1:1, and the real Postgres for the provoking probe).
+      Seven node IDs carry `db_required`; the four subprocess-only ones carry no marker at
+      all, and the file declares no module-level `pytestmark`. The project registers a
+      `slow` marker ("tests that take >5 seconds", tests/conftest.py:108) and nothing here
+      uses it, so a selection meant to be quick picks all nine up. No timing was taken (the
+      card forbids it) — this is the structural observation only.
+    suggestion: |
+      Mark the subprocess-driving tests `@pytest.mark.slow` (and consider `integration`),
+      so a fast selection can exclude them without excluding the detector/AST/registration
+      unit tests, which run in 0.72s for all 10 node IDs.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/helpers/undefined_table_report.py
+    line: 131
+    title: "`_attach` sits outside AC-5's guard"
+    description: |
+      `pytest_exception_interact` wraps `describe(...)` in try/except BaseException (:124-130)
+      but calls `_attach(report, ...)` at :131 outside it. If `addsection` or the
+      `report.sections` append raised, the exception would escape the hook into pytest's
+      reporting and mask the very failure AC-5 exists to protect. Probability is low —
+      `addsection` appends to a list on ExceptionChainRepr and the fallback is guarded by a
+      `is not None` check — but the asymmetry is free to remove.
+    suggestion: |
+      Move `_attach` inside the try, or wrap it in its own
+      `try/except BaseException: pass` so no path out of this hook can raise. AC-5's "named,
+      not swallowed" still holds: by then the lines are already built.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_admin_binding.py
+    line: 776
+    title: "Out of scope: 7 of the card's 21 node IDs are db_required and skip green without Postgres"
+    description: |
+      All of AC-1, the broken-transaction trap and the MISMATCH proof are `db_required`, and
+      tests/conftest.py:194-227 turns a missing or unreachable DATABASE_URL into
+      `pytest.skip`. In a DB-less environment the card's primary evidence is absent and the
+      summary reports only "skipped" — the standing property of this suite, not something
+      this card introduced (the carried build gate ran with a live database: 8649 passed,
+      1 skipped, and 8628 + 21 reconciles, so all 21 executed there). Noted so the next
+      reader of a green run knows which 7 claims that green covers.
+    suggestion: |
+      Nothing for this card. If it is ever worth closing, it is the same shape as
+      ADR-0038/R8 for browser tests — a named, loud skip reason per claim — and belongs in a
+      suite-profile card, not here.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: >-
+      standing property of the suite, not introduced by this card; the reviewer's own suggestion is "nothing for this card" and the repair belongs in a suite-profile card. Re-derived at the fix: the count is now 9 of 39 node IDs, not 7 of 21.
+    learned_pattern: null
