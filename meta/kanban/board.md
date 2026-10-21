@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-21 19:04 UTC_  ·  <!-- forge:run wave=51 mode=interactive concurrency=2 -->
+_Updated: 2026-10-21 22:18 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -56,8 +56,8 @@ _Updated: 2026-10-21 19:04 UTC_  ·  <!-- forge:run wave=51 mode=interactive con
 | 49 | CARD-254 P2, CARD-255 P1 | ✅ done |
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
-| 52 | CARD-259 P2 | ▶ active |
-| unscheduled | CARD-206 P2, CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2 | ⏳ not yet dispatched to a wave |
+| 52 | CARD-206 P2, CARD-259 P2 | ▶ active (CARD-206 in_progress, CARD-259 in_progress) |
+| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -72,8 +72,6 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _Full list: [meta/kanban/backlog.md](backlog.md)_
 
 ## Ready
-- **CARD-259** P2 · CARD-252's record is written in three places; single-source it and control the pointer  _(wave 52)_
-- **CARD-206** P2 · The interior opens with a blank title / copyright page, ahead of the guide  _(unscheduled, tier 1)_
 - **CARD-207** P2 · A book puzzle page's header splits — "Puzzle 37" flush left, "MEDIUM" flush right, a rule beneath  _(unscheduled, tier 1)_
 - **CARD-208** P2 · Printed clue numbers sit in ruled boxes, like the player's clue cells  _(unscheduled, tier 1)_
 - **CARD-209** P2 · Wide-but-short solutions pack 3 to a page, one column × three rows  _(unscheduled, tier 1)_
@@ -92,7 +90,12 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 3)_
 
 ## In Progress
-_(none)_
+- **CARD-206** P2 · The interior opens with a blank title / copyright page, ahead of the guide
+  `worktree: ../PythonProject4-card-206` · `branch: card/206-interior-title-page`
+  `elapsed: 0.0d / 0.5d est`
+- **CARD-259** P2 · CARD-252's record is written in three places; single-source it and control the pointer
+  `worktree: ../PythonProject4-card-259` · `branch: card/259-single-source-the-record`
+  `elapsed: 0.0d / 0.75d est`
 
 ## Review
 _(none)_

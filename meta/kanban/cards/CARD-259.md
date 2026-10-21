@@ -16,7 +16,7 @@
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py
 **Review score:** —
-**Started:** 2026-10-21T22:30:00Z · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
 ## Why — CARD-257 retired one doubling and the review found the next one behind it
@@ -135,7 +135,7 @@ _Dropped (19), each executed by the suite on every gate: ADR-0006/R1, ADR-0027/R
 
 - **[Env]** forge 2026.8.17. No `meta/.skills.yml`, so no `forge.min_version` to compare and no `models:`
   block — agents inherit the session model.
-- **[Dispatched]** wave 52, 2026-10-21T22:30:00Z, alongside CARD-206 on the owner's wave-boundary decision.
+- **[Dispatched]** wave 52, 2026-10-21T22:18:12Z, alongside CARD-206 on the owner's wave-boundary decision.
   Verified disjoint from it on every file, so the two run genuinely in parallel.
 - **[Estimate corrected at dispatch: 0.5d → 0.75d, `trivial` → `standard`]** Not a re-scoping — the owner's
   wave-50 estimation rule says *the claim-card floor is 0.75d, and a card whose subject is a claim or a

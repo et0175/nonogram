@@ -16,7 +16,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py
 **Review score:** —
-**Started:** 2026-10-21T22:30:00Z
+**Started:** 2026-10-21T22:18:12Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -174,7 +174,7 @@ _Dropped (28), each executed by the suite on every gate: ADR-0006/R1, ADR-0022/R
 - **[Env]** forge 2026.8.17. No `meta/.skills.yml` in this project, so there is no `forge.min_version` to
   compare against and no `models:` block — agents inherit the session model. The note is written because it
   is what makes a later diagnosis of this card's evidence possible at all.
-- **[Dispatched]** wave 52, 2026-10-21T22:30:00Z, alongside CARD-259 on the owner's wave-boundary decision. Verified
+- **[Dispatched]** wave 52, 2026-10-21T22:18:12Z, alongside CARD-259 on the owner's wave-boundary decision. Verified
   disjoint from it on every file (see `dispatcher.state → wave_52`), so the two run genuinely in parallel.
 - **[Do not take timing measurements]** another card shares this machine this wave.
 - **[System contract re-derived at dispatch]** The contract this card carried was assembled 2026-10-17

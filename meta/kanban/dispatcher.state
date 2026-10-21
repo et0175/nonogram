@@ -3,7 +3,7 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: []
+active: [CARD-206, CARD-259]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-21T22:07:30Z   # run resume, 2026-10-21 (local 2026-10-22)
+last_updated: 2026-10-21T22:18:12Z   # wave 52 dispatched (run resume -> wave boundary)
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -831,3 +831,84 @@ resume_2026_10_21:
     `interactive`, which asks at the wave boundary. The recovery itself needed no decision and was
     done; the wave-52 dispatch is a decision and is the owner's, consistent with this board's
     practice of recording owner_decision at every wave boundary (see wave_45, wave_48).
+
+wave_52:
+  dispatched: 2026-10-21T22:18:12Z
+  concurrency: 2
+  owner_instruction: "run resume (2026-10-21), then at the wave boundary: fill both slots -- CARD-206 + CARD-259"
+  cards: [CARD-206, CARD-259]
+  conflict_edges:
+    - pair: [CARD-206, CARD-259]
+      reason: >-
+        NONE -- intersection of their Touches sets is EMPTY, overlap 0.00 against max_overlap 0.30. Both
+        cards do touch a declared hotspot, but NOT THE SAME ONE, which is what the rule turns on: CARD-206
+        touches src/nonogram/admin/book_pdf_generator.py, CARD-259 touches src/nonogram/db/** via
+        src/nonogram/db/session.py. Different hotspots do not serialize. Checked rather than assumed,
+        because a glance at the hotspot list makes this pair look like it should serialize.
+  runtime_edge_checked: >-
+    CARD-259 touches tests/conftest.py and repeatedly exercises the engine-reset path, which is the shape
+    that cost wave 44 a fix attempt when two cards shared nonogram_test. It cannot recur here: CARD-244
+    gave each worktree its own derived database, and the two worktrees are separate checkouts, so a
+    conftest edit in one is invisible to the other. nonogram_poc is named untouchable in CARD-259's G-3.
+  owner_decision: >-
+    Asked at the wave boundary (mode: interactive) with four options. The owner chose to fill both slots
+    rather than run CARD-259 alone, which was the alternative the wave plan prescribed. Recorded because
+    the reason for asking is informative: waves 49-52 are SEVEN consecutive cards of ops/tech-debt/enabler
+    work, every one of them sourced from the previous card's own review or gate, and CARD-259 is the FOURTH
+    GENERATION of CARD-252 (252 -> 254 -> 257 -> 259). The last `feature` card merged was in wave 48 on
+    2026-10-19, while 11 interior-redesign cards have been unblocked since CARD-222 and none had been
+    dispatched. CARD-206 is the first of those. The owner's choice runs the product chain and the
+    tech-debt chain at once instead of choosing between them.
+  cross_card_family_blindness: >-
+    Worth naming as a gap in the machinery, not just as a wave observation: `review.family_regression: on`
+    detects a loop feeding on itself across the CYCLES OF ONE CARD. Nothing on this board detects the same
+    shape across CARDS. The 252 -> 254 -> 257 -> 259 chain is exactly that shape and it passed four
+    dispatches unflagged.
+  contracts_re_derived_at_dispatch: >-
+    Both cards' System contracts were derived here under meta/kanban/curation.md rather than inherited:
+    CARD-206 keeps 14 of 42, CARD-259 keeps 10 of 29. CARD-206's inherited contract was assembled
+    2026-10-17 under the superseded "ship 6-14 by judgement" convention and carried NO ADR-0039 -- the
+    third instance of the exact failure that convention was replaced for (CARD-250, CARD-251, and nearly
+    CARD-254/255). CARD-259 had no contract section at all, and its own notes asked for this derivation at
+    dispatch, naming the case-insensitive read. Both now satisfy curation.md's sanity check. The kept
+    counts match the two comparable cards of wave 48/49 exactly -- CARD-225 (book layout) kept 14, CARD-254
+    (a guard/prose card) kept 10 -- which is a consistency signal, not a coincidence.
+  two_card_defects_found_at_dispatch:
+    - card: CARD-259
+      what: "AC-4 pinned a STALE hash -- `bdb10905...` (dump length 9154)."
+      detail: >-
+        The value is correct for b441ba00, where the card was cut, and the card's own stated method
+        reproduces it there exactly -- which is what establishes the method and condemns the number.
+        CARD-258 then changed session.py's code, so at 4584caf4 and at main the docstring-stripped AST
+        dump is 9487 bytes hashing to `49978874...`. Asserted against main as written, AC-4 would have red
+        on the card's FIRST commit for a reason with nothing to do with the card. AC-4 now says to derive
+        the expected value from `git merge-base HEAD main` instead of trusting a literal. This is the
+        wave-48 figure rule in its purest form -- no mutant catches a stale number.
+    - card: CARD-259
+      what: "Cut 0.5d / `trivial` against the owner's own wave-50 estimation rule."
+      detail: >-
+        The rule is that a card whose subject is a claim or a measurement floors at 0.75d and may not be
+        `trivial`, whatever its diff size. This card's subject is a claim. Corrected to 0.75d / standard.
+        Evidence is now two waves deep: wave 50's two cards were cut at 0.25d and took ~0.8d each; wave
+        51's CARD-260 was cut at 0.75d and took 3.3d. 0.75d is the floor, not a prediction.
+  baseline_verified_before_dispatch: >-
+    60 passed, 2 skipped, EXIT=0 on tests/test_db_engine_lifecycle.py + tests/test_book_toc.py at
+    27ca88c7, with NONOGRAM_FULL_SUITE_LOCK redirected to a scratch path (announced) so the board's own
+    lock was neither created nor read. Run so that a red in either card's first cycle is attributable to
+    the card and not inherited.
+  config_deviation_found_and_not_silently_continued:
+    what: "review.test_scope in config.yml is `full`, and has been since wave 26 (its only commit)."
+    consequence: >-
+      CARD-260's review cycles ran IMPACT-SCOPED gates (e.g. "161 passed / 3 skipped"), which is not what
+      this project's config asks for. The narrowing may well be the right call -- the config's own comment
+      says to flip to `impact` "if the suite becomes the bottleneck", the backlog carries an item arguing
+      the merge gate should be the only full run, and the full suite is ~16.5 min which two parallel cards
+      must serialize on the lock. But the deviation was not recorded at the time and the config was not
+      changed, so the card's gate evidence and the project's declared gate policy disagree. Flagged for an
+      owner decision before wave 52's first build gate; the gates themselves are hours away, so nothing is
+      blocked by leaving it open now.
+  gate_discipline: >-
+    Unchanged from wave 48: gates run SOLO under a guard that refuses a contended start, two cards mean
+    two build gates and they serialise on meta/kanban/.full-suite.lock, and no gate runs while a review's
+    mutation pass is live (the CARD-250 defect). Do not read any gate duration from this window as a cost
+    trend -- two cards share this machine.
