@@ -1,5 +1,7 @@
 # Changelog
 
+## 2026-10-21
+- CARD-258 (ops): A failing `relation "puzzles" does not exist` now attaches the database, schema, engine, pool, process and backend pid the failing connection was actually bound to, with a verdict naming both comparisons separately (`vs-app-engine`, `vs-capture`) so the one-line proof cannot invert on a run where `DATABASE_URL` and the suite's expected database differ. Silent and free on a passing run, and its guards now claim only the shapes they measurably catch.
 ## 2026-10-16
 - CARD-238 (tech-debt): The suite-timing tests no longer assert on the gitignored live log, so a gate's verdict stops depending on whether that file happens to exist in the worktree — with an audit that derives the directory-listing surface from the standard library, so a guard's spelling set can no longer be silently incomplete. Also recovers the timing log's rate field for entries carrying a note after the rate bracket (66 of 84 to 84 of 84).
 

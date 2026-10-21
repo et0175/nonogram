@@ -5,6 +5,18 @@ two overlapping lists. They are now one, here. `board.md` shows only the top of
 this file. Duplicates are folded into one entry, and every item that became a
 card names its card._
 
+## Deferred during implementation
+- [ ] CARD-258 deferred (declared as its bound 9, not as a code comment — the mechanical deferral scan
+  found 0 hits): `tests/test_db_engine_lifecycle.py`'s `_global_names_assigned_by` collects only
+  `ast.Assign` targets, so `_reset_count` — declared `global` and assigned with `+=` — is silently dropped
+  by the intersection, and that function's own docstring claim that "a shape this function cannot analyse
+  biases it to red rather than to a pass" is **false** for `AugAssign`/`AnnAssign`. CARD-252's globals
+  equality therefore passes by silence, not by cover. Honest repair: collect `AugAssign`/`AnnAssign` too
+  and restate the equality as a subset relation ("every global the builder assigns is also cleared by the
+  reset"), which stays green with a reset-only counter. Out of CARD-258's four-file scope; flagged by its
+  cycle-3 reviewer as "worth confirming that follow-up card exists before the wave closes".
+  Site: tests/test_db_engine_lifecycle.py:197-230   @tech-debt
+
 ## Owner decisions (nothing moves until you answer)
 - [ ] CARD-147 F-007 (three cards old): should the baseline chain's fixtures get `superseded_by` back-pointers? Each fixture's `warning` ends "…and says so here", and its prohibition covers regenerating digests, which an additive key is not. Only card145 and card128 have one; card144, card149 and card146 don't. card146 matters most, because it's still live evidence (hardcoded as `PRE_CARD_BASELINE`)   @tech-debt
 - [ ] Per-directory READMEs: no directory under `src/` has one, so every book card skips the docs step, and `tests/README.md` is still titled "Admin Panel Test Suite - Wave 1" (about 20 waves stale, names no book test file). Either make "no per-directory READMEs" the convention and drop the step, or create them once and rewrite `tests/README.md`   @tech-debt
