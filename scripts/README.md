@@ -299,3 +299,48 @@ For detailed testing workflow and test plan, see:
 ## Questions?
 
 See `docs/TESTING_WORKFLOW.md` for the complete manual testing guide.
+
+---
+
+## `impact_set.py` — the cycle gate's test selection
+
+Not an admin-panel script. It lives here because it is tooling rather than
+product code; this file's title is still "Admin Panel Scripts", which is a known
+`meta/kanban/backlog.md` item about per-directory READMEs and not something this
+addition changes.
+
+`meta/kanban/config.yml` sets `review.test_scope: impact`. The forge skill's
+`python-pro` recipe narrows only with `pytest-testmon` installed and otherwise
+runs the **whole suite while reporting a scoped gate**; `cmd-start-review`
+prefers a harness `make test-impact` target over its own recipes, so this script
+plus the `Makefile` is what makes that config value mean something.
+
+```bash
+make impact-set                              # print the selection, run nothing
+make impact-set FILES="src/nonogram/x.py"    # for an explicit changed set
+make test-impact                             # select, then run
+make test-impact BASE=<rev>                  # against another revision
+```
+
+**Read `impact_set.py`'s module docstring before trusting a selection** — it
+states what the analysis can and cannot see. Three properties are worth knowing
+without opening it:
+
+- **It fails closed.** Anything it cannot analyse prints `FULL` and the Makefile
+  runs the whole suite. A selector that guesses narrow is worse than none,
+  because its output looks like evidence.
+- **The always-on set is derived, not listed.** 22 test files here read the
+  tracked tree (`git ls-files`, `git grep`, `rglob`) instead of importing what
+  they judge — about 2749 of 8745 collected tests — so any tracked change can
+  red one, and all of them run for every non-empty change. The set is found by
+  scanning for those idioms; a written-down list would go stale at the 23rd
+  scanning test, silently. `tests/test_impact_set.py` plants a scanner to prove
+  the derivation is live.
+- **Narrowing varies enormously, and the floor is high.** Measured:
+  `nonogram/db/session.py` selects 36 of 212 test files, `admin/book_kdp.py`
+  about 110, and `export/layout.py` 186 — because nearly everything imports
+  layout, transitively. The always-on 22 are in every one of those numbers.
+
+The full suite still runs at the merge gate. This is a per-cycle gate only, and
+it is not the definition of done.
+
