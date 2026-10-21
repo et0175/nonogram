@@ -1,0 +1,483 @@
+version: 1
+card: CARD-259
+cycle: 1
+generated_at: '2026-10-21T23:10:00Z'
+target: '27ca88c7..d85b48b0 (branch card/259-single-source-the-record, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-259)'
+overall_score: 6.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: 'forge 2026.8.17'
+
+coverage:
+  read:
+    - src/nonogram/db/session.py
+    - tests/conftest.py
+    - tests/test_db_engine_lifecycle.py
+    - tests/test_kill_matrix.py
+    - tests/README.md
+    - meta/kanban/cards/CARD-259.md
+  not_reached:
+    - 'tests/test_db_engine_lifecycle.py TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema AC-1/AC-2 (db_required; 2 skips, no reachable test database -- the implementer declared this)'
+    - 'the full suite (815 passed at the build gate) -- deliberately NOT run: CARD-206 is being implemented concurrently and a full run would take the board lock'
+    - 'meta/audit/, meta/business/positioning.md, meta/business/bets.md, .claude/fix-suppress.yaml, ~/.forge/retro-signals.yml (not consulted: no audit dir / no bet context on this card)'
+  confidence: high
+  checks_run:
+    - 'step-1b requirements/AC review: AC-1..AC-4, G-1..G-5 all examined against the diff'
+    - 'step-8h system contract: ADR-0036/R4 re-scanned independently; ADR-0039/R1,R2,R3 applied to every sentence the diff added or kept; ADR-0022/R1, ADR-0038/R6,R7,R8, CON-021, ADR-0036/R3 N/A (no grid API, no UI, no browser test, no round mark touched)'
+    - 'step-8f static test lint: ran (no tautologies, no sleeps, no integration work added to the unit tier, no unseeded generators)'
+    - 'figure re-derivation in an independent domain: see metrics.rederived_figures'
+    - 'targeted DIAGNOSIS mutants (4, all restored and verified byte-for-byte): M1 texts-reordered, M2 SessionLocal@conftest, M3 M1+M2, L1-GUARD backticked-engine@class-docstring'
+    - 'impact-set execution: tests/test_db_engine_lifecycle.py + tests/test_full_suite_lock.py + tests/test_cli.py -> exit 0 (2 skips); tests/test_kill_matrix.py -> exit 0, all passed, including test_ac7_the_four_arm_grid_of_card_257_reproduces'
+    - 'NONOGRAM_FULL_SUITE_LOCK was exported to /tmp/card259-review.lock for every pytest run; meta/kanban/.full-suite.lock was never read, created, modified or deleted'
+  checks_not_run:
+    - '8f-mutation (certification half): deferred(cost) -- gating findings present; certify on the stable cycle. The 4 mutants above are DIAGNOSIS (they establish findings about uncontrolled claims), not certification of the diff test suite.'
+    - '8g visual: not_applicable -- no Design context on this card, nothing renders'
+    - 'AC-1 44/44 clause survival: could not be reproduced -- the check is an uncommitted scratch script and no survival table was shipped (see F-102)'
+    - 'the 3 conftest kill-matrix cells as an instrumented measurement: structurally impossible (the instrument refuses tests/conftest.py by identity) -- 1 of the 3 reproduced in the plain domain instead'
+    - 'no timing measurement of any kind was taken and no duration is reported anywhere in this review'
+
+metrics:
+  diff: { files: 5, added: 140, removed: 89 }
+  max_fan_in:
+    symbol: 'nonogram.db.session.reset_engine'
+    callers: 1
+  tests_cover_change: true
+  hotspots:
+    - src/nonogram/db/session.py
+    - tests/test_db_engine_lifecycle.py
+  cochange_missing: []
+  rederived_figures:
+    - figure: 'AC-2 arm linenos at HEAD = 877 / 897 / 908 / 916'
+      domain: 'my own ast.parse of tests/test_db_engine_lifecycle.py, walking the FunctionDef for ast.Assert nodes -- not the committed literals'
+      verdict: reproduces
+    - figure: 'AC-2 arm linenos at the merge-base 27ca88c7 = 859 / 878 / 889 / 897'
+      domain: 'same, over git show 27ca88c7:tests/test_db_engine_lifecycle.py'
+      verdict: reproduces
+    - figure: 'NAMES_BLIND_OCCURRENCES = (818, 877, 935, 981, 1108); message count 5; whole-source-line count 4; arm occurrence 2 -> :877'
+      domain: 'my own line scan of the file at HEAD'
+      verdict: reproduces
+    - figure: 'conftest pointer text: SessionLocal 1, _engine_url 1, engine 6, setattr( 1, .<name> 1'
+      domain: 'my own word-bounded regex over ast.get_docstring(_rebuild_public_schema)'
+      verdict: reproduces
+    - figure: 'prod text (reset_engine docstring): whole-word engine 12, of which 2 backticked; setattr( 6'
+      domain: 'same, over ast.get_docstring(reset_engine)'
+      verdict: reproduces
+    - figure: 'guard text (class docstring): whole-word engine 2, of which 1 backticked (the card re-states this as reproduced at HEAD)'
+      domain: 'same, over ast.get_docstring(TestEngineLifecycle_TheResetIsAPublishedSeam), at HEAD and at 27ca88c7'
+      verdict: 'DOES NOT REPRODUCE at HEAD -- 1 of which 1. 2/1 is the merge-base value. See F-105.'
+    - figure: 'guard text: setattr( 4 (L-2)'
+      domain: 'same'
+      verdict: reproduces
+    - figure: 'AC-4 sweep: 6 pairs, 9 sites, dict-equal to _EXEMPT_HAND_SET_SITES, zero matches in any other file under tests/ including the two this card edited'
+      domain: 'a third implementation, written by me: re.finditer over setattr( with a manual scan to the next close-paren, plus a .<name> = pattern; no import of any helper from the test tree'
+      verdict: reproduces
+    - figure: 'ADR-0036/R4 (G-5): exactly 3 hits in src/nonogram/**, all pdf_generator.py:321, all U+2022 -- the declared exemption, unchanged'
+      domain: 'my own ast walk over every ast.Constant str in src/nonogram/**/*.py, docstrings included, against set(range(0x25A0,0x2600)) | {0x2022, 0x2219}'
+      verdict: reproduces
+    - figure: 'test_ac7 runs exactly 14 mutants (so the 3 conftest cells are in no committed control)'
+      domain: 'read of the assertion len(mutants) == 14 plus a full passing run of tests/test_kill_matrix.py'
+      verdict: reproduces
+  unmeasured:
+    cochange_missing: 'no_eligible_fact -- the three Touches files plus the two SCOPE+ files are the complete co-change set for this change class; the two SCOPE+ peers ARE in the diff, which is the co-change signal resolving clean rather than being unmeasured'
+    churn_defect_density: 'budget_truncated -- not mined; the diff is provably docstring-only on the two product-adjacent files (AST equality), so history weighting could not move a finding'
+    ac1_clause_survival: 'tooling_failure -- the 44/44 figure cannot be recomputed: the checking script is not committed and no survival table was shipped (F-102)'
+    conftest_kill_cells_instrumented: 'not_applicable -- the instrument refuses tests/conftest.py by identity (_refuse_forbidden_path/_FORBIDDEN_PATHS); G-3 forbids widening it'
+
+system_contract:
+  rules_checked: 10
+  holds: 2
+  unchecked: 5
+  violated: 3
+  verdicts:
+    - 'ADR-0036/R4 holds -- re-scanned independently over every str constant in src/nonogram/**: 3 hits, all pdf_generator.py:321 U+2022, the declared exemption; the diff rewrote docstrings in src/nonogram/db/session.py and introduced no new codepoint in range'
+    - 'ADR-0039/R2 holds -- every set this diff touches is still derived: names from _global_names_assigned_by (session.py AST), heads from _spelling_heads (the scan patterns), the pointer from the function object. Nothing hand-written was added.'
+    - 'ADR-0039/R1 VIOLATED (x3) -- three claims added or newly broadened by this diff have no control that can fail: F-101 (the only statement of CARD-252s record), F-103 (it is read first), F-104 (nine mutants). See findings.'
+    - 'ADR-0039/R3 unchecked -- check_ref_missing: no exemption was granted or altered by this diff; the one live exemption (_EXEMPT_HAND_SET_SITES, 6 pairs / 9 sites) was re-derived and is dict-equal, and pdf_generator.pys U+2022 exemption is unchanged'
+    - 'ADR-0036/R3 unchecked -- not_applicable: no round-mark drawing site touched'
+    - 'ADR-0022/R1 unchecked -- not_applicable: no grid extent, signature, request field or export field in this diff'
+    - 'ADR-0038/R6 unchecked -- not_applicable: no admin player, no solution shipped to a browser'
+    - 'ADR-0038/R7 unchecked -- not_applicable: no dependency or extra changed (G-4 holds: stdlib only)'
+    - 'ADR-0038/R8 unchecked -- not_applicable: no browser test touched'
+    - 'CON-021 unchecked -- not_applicable: no play surface, no play state, no persistence in this diff'
+
+root_causes:
+  - id: RC-1
+    title: 'CARD-252s record has a FOURTH text the card never counted, so both the uniqueness claim and the clause-survival evidence are scoped to three'
+    finding_ids: [F-101, F-102]
+  - id: RC-2
+    title: 'the conftest arm was added to the control with no committed control of its own, and the two properties credited with carrying its evidence are themselves uncontrolled'
+    finding_ids: [F-103, F-104]
+
+findings:
+  - id: F-101
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/db/session.py
+    line: 288
+    title: 'the diff broadens the uniqueness claim to CARD-252s record, and a fourth text restates that record with a drifted measurement'
+    evidence: >-
+      src/nonogram/db/session.py:288 asserts 'the only statement ... of CARD-252''s record above'; tests/test_db_engine_lifecycle.py:1-57 states that record again, with 'Four consecutive BUILD GATES on this board' where session.py:264 says 'Four consecutive WAVES of this board''s build gates'. grep over tests/ for __doc__ / ast.get_docstring shows no test reads that module docstring, so no state makes the claim red.
+    description: |-
+      The diff rewrites reset_engine()'s closing claim from '**This docstring is the only
+      statement of that convention and of the bound below**' to '**This docstring is the only
+      statement of that convention, of CARD-252's record above, and of the bound below.**'
+      That added clause is false on disk, and the drift it is supposed to prevent has already
+      happened.
+
+      tests/test_db_engine_lifecycle.py's MODULE docstring (lines 1-57) is a fourth text that
+      states CARD-252's record in substance and in places verbatim: the defect mechanism ('kept
+      it, pool and all, and connections opened before the DROP were handed back out after it'),
+      the withdrawn AC-3 ('**AC-3 -- a deterministic reproduction of that corruption -- is
+      withdrawn.**'), the precondition-not-the-race bound ('**So what is pinned here is the
+      hazard''s PRECONDITION, not the absence of the race.**'), the two gate signatures
+      (relation "puzzles" does not exist; uuid.UUID(hex=inf)), and the build-gate measurement.
+      The same paragraph of reset_engine()'s docstring sends the reader to that very file.
+
+      Measured drift, in my own domain (word-bounded regex over ast.get_docstring on both):
+        keeper, src/nonogram/db/session.py:264  -- 'Four consecutive WAVES of this board''s build gates reported failures that reproduced on no second run'
+        fourth text, tests/test_db_engine_lifecycle.py:15 -- 'Four consecutive BUILD GATES on this board reported failures that reproduced on no second run'
+      Four waves of gates and four gates are two different measurements of the same evidence,
+      live in two texts at once. This is the uncontrolled-doubling failure mode the card exists
+      to retire, inside the card's own subject.
+
+      ADR-0039/R1: what state would make a test red? None. Nothing in the repository reads that
+      module docstring -- grep for __doc__/ast.get_docstring across tests/ returns only
+      reset.__doc__ (:774), type(self).__doc__ (:879), _rebuild_public_schema.__doc__ (:881) and
+      app_session.reset_engine.__doc__ (:882). The new AC-2 control reads three texts and that is
+      not one of them, so a fifth copy tomorrow would also red nothing. AC-1 ('each clause of
+      CARD-252's record appears **once**') is therefore not met as stated.
+    suggestion: |-
+      Either (a) narrow the sentence to what is measured -- e.g. 'of the convention and of the
+      bound below, and of CARD-252's record except what tests/test_db_engine_lifecycle.py's
+      module docstring states about why the hazard could not be forced' -- and reconcile the two
+      'Four consecutive ...' sentences to one measurement; or (b) add the module docstring as a
+      fourth entry in the AC-2 control's `texts` tuple, which costs one line and makes the
+      uniqueness claim's scope the control's scope. (b) is cheaper and closes the drift. Do not
+      leave the unqualified 'only statement of CARD-252's record' standing.
+    confidence: high
+    source: static
+    violates: 'ADR-0039/R1'
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: high
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-259.md
+    line: 217
+    title: 'AC-1/G-2s 44/44 evidence does not exist -- the card points at a survival table it never shipped, and the one bound-carrying clause I could trace has the wrong named home'
+    evidence: >-
+      grep 'survival' meta/kanban/cards/CARD-259.md -> :154, :217, :225-229, :424, :452; no table anywhere. The retired phrase 'Four consecutive build gates on this board reported failures that reproduced on no second run' is absent from the named keeper and present verbatim in tests/test_db_engine_lifecycle.py:15.
+    description: |-
+      CARD-259.md:217 says '... plus two clauses that were there a third time and are now absorbed
+      into the keeper (see the survival table)'. There is no survival table in the card, in
+      meta/kanban/, or anywhere in the diff -- grep for 'survival' in CARD-259.md returns only
+      :154 (the inherited trap), :217 (this dangling reference), :225-229 (the prose claim) and
+      :424/:452 (the G-2 line and the honest bound). The card's own inherited trap at :154 is
+      'CARD-257 paid for this with a 41-clause survival diff; do the same', and CARD-257 did ship
+      its table. So G-2 ('No clause retired without a NAMED surviving statement') has a count and
+      no names: nothing records which of the 44 clauses was mapped to which surviving statement,
+      the checking script is scratch and uncommitted, and 44/44 cannot be recomputed by a
+      reviewer at all.
+
+      That matters here rather than being bookkeeping, because the one bound-carrying clause I
+      could trace by hand lands wrong. The conftest text the diff retires contained 'Four
+      consecutive build gates on this board reported failures that reproduced on no second run'.
+      That exact phrase does NOT occur in the named keeper -- src/nonogram/db/session.py says
+      'Four consecutive waves of this board''s build gates ...' -- and it DOES occur, verbatim, in
+      tests/test_db_engine_lifecycle.py's module docstring, which the card does not name as a
+      home for the record at all (see F-101). Whichever file that row named, the row is wrong:
+      named session.py and a phrase check could not have passed it; named the module docstring and
+      the card's 'stated once on reset_engine' is false for that clause. This is precisely the
+      hazard the implementer declared in honest bound 1 ('a row whose named home is wrong would
+      still pass if the phrase happened to occur there') -- and it bites on the one retired clause
+      that carries a number.
+    suggestion: |-
+      Ship the 44-row table in the card's Worktree notes as CARD-257 did -- clause text, retired
+      from, surviving statement at file:line -- and re-run the check with the phrase taken
+      verbatim from the retired text, so a drifted survivor (waves vs build gates) reds instead of
+      passing on a near-phrase. Reconcile the 'Four consecutive ...' row explicitly.
+    confidence: high
+    source: static
+    violates: 'G-2'
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 844
+    title: 'the new controls own docstring claims it is read first -- nothing reds if it is not, and reading it first is not what buys the attribution'
+    evidence: >-
+      MUTANT M1 (swap :881/:883, line-count preserved): AC-2 test PASSES, pytest exit 0. MUTANT M2 (conftest first) and M3 (conftest last), both with SessionLocal->ZZZZZZZZZZZZ at tests/conftest.py:499: identical output, exit 1, :897, "conftest.py's pointer at the call site does not name every global _init_engine() creates". SHIPPED green between mutants; restores diff -q clean and shasum equal to baseline.
+    description: |-
+      The AC-2 test's new paragraph (:840-847) says of the conftest text: 'It is read **first**, so
+      a mutant on that text reds on the loop's first iteration and names its own arm even in an
+      uninstrumented run'. The card's honest bound 2 then rests the whole conftest column on it:
+      'The conftest-first ordering is what makes that assert the arm under test, and that ordering
+      is a property of the control, not of the measurement.' Both halves fail under execution.
+
+      Half 1 -- no control. DIAGNOSIS MUTANT M1, line-count-preserving: swap :881 and :883 so the
+      conftest text is read LAST. Result: the AC-2 test PASSES, pytest exit 0. Nothing in the
+      suite reads the order of the `texts` tuple, so the sentence cannot be made red by any state
+      of the repository. ADR-0039/R1: narrow it or delete it.
+
+      Half 2 -- the ordering is not load-bearing anyway, so the claim is not just uncontrolled but
+      misattributed. DIAGNOSIS MUTANT M2 (conftest text read FIRST, whole-word SessionLocal
+      replaced by ZZZZZZZZZZZZ at tests/conftest.py:499, length-preserving) and M3 (the same
+      deletion with the tuple reordered so the conftest text is read LAST) produce byte-identical
+      evidence:
+        both: pytest exit 1, tests/test_db_engine_lifecycle.py:897,
+        both: 'AssertionError: conftest.py''s pointer at the call site does not name every global _init_engine() creates ...'
+      The attribution comes from the assertion message's {label}, which is interpolated per text,
+      not from the iteration order. So the one property the card credits for the conftest column's
+      attribution does nothing, and the property that actually does it (the label) is never named.
+      SHIPPED was re-run green between every mutant and all three files restored with diff -q
+      clean and shasum -a 256 equal to the pre-review baseline.
+    suggestion: |-
+      Delete the 'read **first**' sentence and say what is true and measured instead: 'each arm's
+      assertion message interpolates the text's own label, so even an uninstrumented run names
+      which of the three texts failed'. If the ordering is wanted as a property, give it a control
+      (assert texts[0][0].startswith('conftest')) -- but it buys nothing, so narrowing the prose is
+      the right fix. Correct honest bound 2 on the card to match.
+    confidence: high
+    source: inferred
+    violates: 'ADR-0039/R1'
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_db_engine_lifecycle.py
+    line: 856
+    title: 'nine mutants is stated as what the control reds under, but only six of the nine are inside any committed control and the other three never can be'
+    evidence: >-
+      tests/test_db_engine_lifecycle.py:856 says 'nine mutants'. tests/test_kill_matrix.py:2706 asserts len(mutants) == 14 (six DOC-NAME-DEL) and the whole file passes at HEAD, exit 0. The instrument's _refuse_forbidden_path/_FORBIDDEN_PATHS makes the three conftest cells unreachable by it. MUTANT M2 reproduced one of the three in the plain domain.
+    description: |-
+      The diff rewrites the control's mutant list from 'six mutants, one per name per text' to
+      'nine mutants, one per name per text'. Six of those nine have a committed control:
+      tests/test_kill_matrix.py::test_ac7_the_four_arm_grid_of_card_257_reproduces, which asserts
+      len(mutants) == 14 (6 DOC-NAME-DEL + 4 DOC-HEAD-DEL + NAMES-BLIND + POINTER-ROT +
+      POINTER-DEL-WORD + CONTROLS-RENAME-ONLY) and which I ran: the whole file passes at HEAD,
+      exit 0, and the two files it transiently mutates were digest-identical afterwards.
+
+      The remaining three -- the conftest column -- are in no committed control and structurally
+      cannot be: the instrument refuses an edit landing on tests/conftest.py by identity
+      (_refuse_forbidden_path / _FORBIDDEN_PATHS), and G-3 forbids widening that refusal. Their
+      only evidence is an uncommitted card-time plain run. I reproduced one of the three myself
+      (DIAGNOSIS MUTANT M2, SessionLocal@conftest: exit 1, :897, the conftest label) so the claim
+      is TRUE -- it is the standing control that is missing, not the fact.
+
+      ADR-0039/R1's remedy is to narrow the claim to what is measured, and the narrowing is cheap:
+      the sentence should say nine, six of them held by test_ac7 and three measurable only outside
+      the instrument, with the reason. As written, a reader of the control cannot tell which of its
+      nine advertised kills the suite would notice going away.
+    suggestion: |-
+      Narrow the docstring: 'nine mutants, one per name per text -- the six on the two docstrings
+      this repo can instrument are held by tests/test_kill_matrix.py::test_ac7; the three on
+      tests/conftest.py are measured only by an uninstrumented run, because the instrument refuses
+      that path by identity (G-3 forbids widening it)'. Alternatively commit a cheap non-instrument
+      control for the conftest column (a plain pytest invocation asserting exit 1 and the label) --
+      but the narrowed sentence alone discharges R1.
+    confidence: high
+    source: static
+    violates: 'ADR-0039/R1'
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-105
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-259.md
+    line: 395
+    title: 'the L-1 re-measurement reported as reproduced at HEAD is the merge-base figure -- this cards own cut closed L-1s guard half, and the mutant now kills'
+    evidence: >-
+      ast.get_docstring of TestEngineLifecycle_TheResetIsAPublishedSeam: whole-word 'engine' = 2 (1 backticked) at 27ca88c7, = 1 (1 backticked) at d85b48b0; the lost occurrence is the 'retires its engine' sentence this diff cut. MUTANT L1-GUARD (``engine``->``ZZZZZZ`` at :711): pytest exit 1 at :897, class-docstring arm, 'engine' missing from the set. Prod half (12/2) reproduces unchanged.
+    description: |-
+      The Worktree notes say: 'L-1 NAME-DEL-BACKTICKED[engine] -- re-measured, left declared, with
+      the reason. Reproduced exactly: the prod text holds whole-word engine **12** times of which
+      **2** are backticked, the guard text **2** of which **1** is -- so deleting only the
+      backticked ones leaves **10 prod / 1 guard**, which is CARD-257's recorded post-mutant figure
+      to the digit.'
+
+      Re-derived in my own domain (word-bounded regex over ast.get_docstring of the class, at both
+      revisions):
+        at 27ca88c7 (merge-base): whole-word engine = 2, backticked = 1
+        at d85b48b0 (HEAD):       whole-word engine = 1, backticked = 1
+      The second occurrence was the bare 'engine' in 'it leaves ``session.py`` silent about the
+      fact that something retires its engine' -- a sentence THIS DIFF cut (the replacement reads
+      'bought at the price of a module that stays silent'). So 2-of-which-1 is the merge-base
+      reading, reported as a re-measurement at HEAD.
+
+      The consequence is the opposite of what the record says. DIAGNOSIS MUTANT L1-GUARD, replacing
+      the one backticked ``engine`` at :711 with ``ZZZZZZ`` (length-preserving): pytest exit 1,
+      tests/test_db_engine_lifecycle.py:897, 'AssertionError: this class's docstring does not name
+      every global _init_engine() creates ... as a whole word', assert set missing 'engine'. The
+      mutant KILLS. L-1's guard column is closed at HEAD by this card's own cut -- which is good
+      news the record gets backwards, and it is still a figure in the card that does not reproduce.
+      The prod half (12 of which 2, leaving 10) does reproduce and L-1 remains genuinely open
+      there, so the stated reason for leaving it declared survives for prod only.
+      Restores verified: diff -q clean, shasum -a 256 equal to the pre-review baseline.
+    suggestion: |-
+      Correct the L-1 note: re-measure at HEAD (guard 1 of which 1), state that the guard column is
+      now a kill because this card removed the bare occurrence, and keep L-1 declared for the prod
+      text only, with the prod figure (12/2 -> 10) as the reason. A figure in a card is a claim and
+      its control is recomputation -- that is this card's own AC-4 rule applied to its own notes.
+    confidence: high
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/README.md
+    line: 652
+    title: 'the READMEs new sentence says the four addresses are re-derived whenever that file moves -- nothing re-derives them'
+    evidence: >-
+      tests/README.md:652 'are re-derived whenever that file moves'; tests/test_kill_matrix.py:2702-2703 is `arms = (PREAMBLE, NAMES, HEADS, POINTER); assert set(arms) <= linenos` over module-level literals 877/897/908/916 -- a membership check, not a derivation.
+    description: |-
+      The new README text reads: 'They live as literals in test_kill_matrix.py and are re-derived
+      whenever that file moves'. Nothing in the suite re-derives them. test_ac7's only check on
+      them is `assert set(arms) <= linenos` -- a membership test over the file's assert linenos,
+      which is satisfied by any four assert linenos (already filed against CARD-260 in
+      meta/kanban/backlog.md and not re-filed here). The re-derivation that happened was done by
+      hand, by this card, and committed as four new literals. The sentence's own continuation
+      admits the weakness ('the anchor's precondition ... is a membership test that would not by
+      itself tell a misattribution from a reading'), so the paragraph contradicts itself rather
+      than misleading outright -- but 'are re-derived' is the wrong tense for work a human does at
+      each card.
+    suggestion: 'Say "are re-derived by hand and re-committed whenever that file moves, because the anchor only checks that the four literals ARE assert linenos" -- one word, and the paragraph stops disagreeing with itself.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-107
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-259.md
+    line: 13
+    title: 'the cards Touches field still lists three files while five changed, and the System contract was projected with card_scope: touches'
+    evidence: >-
+      CARD-259.md:13 Touches lists 3 files; git diff --stat 27ca88c7..d85b48b0 lists 5. The System contract block (:100) records card_scope: touches. Re-checked that no rule was dropped: tests/** selects ADR-0039, src/nonogram/** selects ADR-0036/R4.
+    description: |-
+      Touches: reads 'tests/conftest.py, src/nonogram/db/session.py,
+      tests/test_db_engine_lifecycle.py'. The diff also changes tests/test_kill_matrix.py and
+      tests/README.md. Both are declared SCOPE+ in the Worktree notes with a real reason (CARD-260
+      anchors index test_db_engine_lifecycle.py by absolute lineno; README:644 recites the same
+      four addresses), and I agree with taking them in this commit -- leaving them is the stale-pin
+      failure AC-4 was cut from. The gap is bookkeeping with one real consequence: the System
+      contract was re-derived at dispatch with card_scope: touches over the three-file list, so the
+      projection was computed over a scope that excludes two changed files. I checked this cannot
+      have dropped a rule -- both extra files are under tests/**, which is already what selects
+      ADR-0039, and ADR-0036/R4 is selected by src/nonogram/** -- so the kept set of 10 is correct
+      as it stands. Scope gate verdict: PASS with the field stale.
+    suggestion: 'Add the two SCOPE+ files to the Touches field (or record explicitly that SCOPE+ files are deliberately kept out of it) so the next card_scope: touches projection on this file set is computed over what was actually touched.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-108
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_db_engine_lifecycle.py
+    line: 908
+    title: 'the heads arm is the one membership test the diff extends to a third text and it is still an unbounded substring test'
+    evidence: >-
+      AST enumeration of ast.Assert nodes containing an In/NotIn compare: tests/test_db_engine_lifecycle.py :775, :908, :1028; tests/conftest.py none. :908 is `{head for head in heads if head in shown} == set(heads)` with heads = _spelling_heads(sorted(names)[0]) = ('setattr(', '.SessionLocal'). Zero occurrences of an extending shape in any of the three texts.
+    description: |-
+      AST-enumerated every ast.Assert containing an In/NotIn compare in the diff's files:
+      test_db_engine_lifecycle.py has three (:775 'conftest' in doc, :908 head in shown, :1028 a
+      tuple-in-dict lookup) and conftest.py has none. The card's rule is 'word-bound every
+      membership test it ADDS', and by that letter the card complies: the only membership test it
+      adds is none -- the pointer arm it rewrote is now a word-bounded re.search (L-3 genuinely
+      closed; I confirmed the lookahead is on both sides), and the names arm was already bounded.
+      But :908 (`{head for head in heads if head in shown} == set(heads)`) is an unbounded
+      substring test that this diff newly applies to a third text, and heads is only built from
+      sorted(names)[0], i.e. ('setattr(', '.SessionLocal'). Hazard shape: '.SessionLocalFactory'
+      would satisfy '.SessionLocal'. Measured: zero such occurrences in any of the three texts, so
+      this is a bound, not a defect -- and :775's 'conftest' in doc has the same shape and predates
+      the card. Recorded because the card's stated discipline is per-name boundaries on text
+      checks, and the arm it just widened is the one that does not have them.
+    suggestion: 'Out of scope to fix here. If a later card touches the heads arm, bound it the way the pointer arm now is, and build heads from every name rather than sorted(names)[0].'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verdict:
+  risk_level: medium
+  review_lane: deep
+  merge: false
+  reason: >-
+    Three high findings, all in the ADR-0039/R1 family this board has lost fifteen consecutive
+    gating findings to, and all three in prose this diff wrote or newly broadened -- on a card whose
+    entire subject is retiring exactly such prose. The mechanism is provably untouched and every
+    other figure reproduces, so this is a prose-and-evidence cycle, not a correctness one.
+  key_concerns:
+    - 'F-101: the new "only statement of CARD-252''s record" claim is refuted by a fourth text in the same directory, which already carries a drifted measurement of the same evidence, and no control reads it.'
+    - 'F-102: AC-1/G-2 ship a count (44/44) with no names -- the referenced survival table does not exist and the check is uncommitted, and the one clause I traced by hand has the wrong home.'
+    - 'F-103: the control''s own docstring claims an ordering property that no state can make red, and that property is not what carries the evidence the card credits it with (proved by mutant).'
+  approve_conditions:
+    - 'F-101 closed: either add the module docstring to the AC-2 control''s texts tuple, or narrow the uniqueness sentence to what is measured -- and reconcile the two "Four consecutive ..." sentences to one measurement.'
+    - 'F-102 closed: the 44-row survival table shipped with a named surviving statement at file:line per clause, and the "Four consecutive ..." row reconciled.'
+    - 'F-103 closed: the "read first" sentence deleted or given a control, and honest bound 2 on the card corrected to credit the per-text label.'
+    - 'F-104 and F-105 closed (both cheap: narrow one sentence; re-measure one figure).'
+    - 'Step 8f''s certification half run on the stable cycle (it is deferred(cost) here by the skill''s cost ladder).'
+  claims_tested:
+    - claim: 'AC-1: 44/44 clauses survive'
+      verdict: BROKEN
+      detail: 'the evidence does not exist (no table, uncommitted check) and the one bound-carrying clause I traced by hand -- "Four consecutive build gates on this board ..." -- survives verbatim only in a text the card does not name as the keeper, while the named keeper states a different measurement. F-102, F-101.'
+    - claim: 'AC-2: the 3x3 kill matrix, with the conftest column measured by plain pytest only'
+      verdict: PARTLY BROKEN
+      detail: 'the cells are real -- I reproduced SessionLocal@conftest independently (exit 1, :897, the conftest label) -- but the argument that the conftest-first ordering is what makes the plain run adequate is false: M2 and M3 give byte-identical evidence with the text read first and last, because the attribution comes from the assertion message label. And 3 of the 9 cells are in no committed control. F-103, F-104.'
+    - claim: 'AC-2s extended control holds all three texts to parameters derived from the code'
+      verdict: HELD
+      detail: 'names from _global_names_assigned_by (session.py AST), heads from _spelling_heads (the scan patterns), pointer from the function object; no text reduced to a quoted literal. The third text is held to the same names arm and the same heads arm as the other two, and both arms kill on it (M2 for names; the card measured the heads cells and the counts reproduce: setattr( and .<name> occur exactly once each in that text).'
+    - claim: 'AC-4: the AST half is inert after merge, so the standing control is the tree sweep'
+      verdict: HELD
+      detail: 'the reasoning is correct (after merge, git merge-base HEAD main is main, so the file is compared to itself), and the sweep IS load-bearing: I re-derived 6 pairs / 9 sites in a third implementation, dict-equal, zero matches in any other file under tests/ including the two this card edited, and test_the_count_reds_on_a_new_file_a_new_name_and_a_tenth_site is its own failing control. Declaring the AST half card-time rather than committing an inert test is the right call, not a hole.'
+    - claim: 'word boundaries on every membership test the card adds'
+      verdict: HELD
+      detail: 'AST-enumerated every ast.Assert containing an In compare in the diff files. The card adds no membership test; the pointer arm it rewrote is a two-sided word-bounded re.search (L-3 genuinely closed), and the names arm was already bounded and kills per name (proved on the guard text by L1-GUARD and on the conftest text by M2). The pre-existing unbounded heads arm is recorded as F-108, not as a card failure.'

@@ -15,7 +15,7 @@
 **Wave:** 52 (dispatched 2026-10-21; queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py
-**Review score:** —
+**Review score:** 6.5 (cycle 1/3 — below the threshold of 8)
 **Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
@@ -492,3 +492,70 @@ impact-scoped runs do not take the lock, and the full suite still runs at the me
 the two backstops that make the narrowing safe. CARD-260's cycles ran impact-scoped for the same reason
 and recorded nothing; this gate records it. **Owner decision owed:** flip `test_scope` to `impact` (making
 the practice the policy), or lower `max_concurrent` to 1 so `full` is actually reachable.
+
+---
+
+### [Review 1/3] Score: 6.5 — below threshold 8. 0 Critical, **3 Important (all gating)**
+
+Report: `meta/review/20261021T231000Z-CARD-259-cycle1.yml` (validated by `yaml.safe_load`).
+Mutation check (Step 8f) ran its **diagnosis** half — four mutants, each establishing a finding — and
+emitted `deferred(cost)` for its certification half, correctly, because gating findings are present.
+No full suite (CARD-206 concurrent); every mutated file restored and verified `diff -q` clean and
+`shasum -a 256` equal.
+
+**[Family] The family regressed, and it regressed into the card's own subject.** Three of the five
+scoring findings are **ADR-0039/R1** — a claim with no control that can fail — on the card whose entire
+purpose is retiring exactly such claims. That is sixteen-plus consecutive in this family across four
+waves. `review.family_regression: on` fired; see the routing note below for why this is not simply
+"one more fix round".
+
+**F-101 (high) — there is a FOURTH text, and the diff's new sentence claims there are three.**
+Confirmed independently by the orchestrator before accepting the finding:
+
+- `src/nonogram/db/session.py:288` now reads *"**This docstring is the only statement of that
+  convention, of CARD-252's record above, and of the bound below.**"* The middle clause is new in this
+  diff and it is **false on disk**.
+- `tests/test_db_engine_lifecycle.py`'s **module docstring (lines 1–57)** is a fourth text restating
+  CARD-252's record: the defect mechanism ("kept it, pool and all, and connections opened before the
+  DROP were handed back out"), the withdrawn AC-3, the precondition-not-the-race bound, and both gate
+  signatures.
+- **The drift has already happened, and it is a disagreement about what was measured, not a wording
+  difference:** the keeper at `session.py:250` says *"Four consecutive **waves** of this board's build
+  gates reported failures that reproduced on no second run"*; the fourth text at
+  `test_db_engine_lifecycle.py:14` says *"Four consecutive **build gates** on this board"*. A wave
+  contains several gates. One of these is wrong and nothing in the tree can say which.
+- **Nothing reads the fourth text.** The extended control reads `reset.__doc__` (`:774`),
+  `type(self).__doc__` (`:879`), `_rebuild_public_schema.__doc__` (`:881`) and
+  `app_session.reset_engine.__doc__` (`:882`) — the three enumerated texts. A fifth copy in the module
+  docstring would red nothing.
+
+**F-102 (high) — AC-1's "44/44 clauses survive" cannot be recomputed.** The card says "(see the survival
+table)" and no survival table exists; the check was a scratch script. G-2 therefore ships a **count with
+no names**. It bites concretely: the retired conftest phrase *"Four consecutive build gates on this board
+reported failures that reproduced on no second run"* is **absent** from the named keeper and present
+**verbatim** in the module docstring — so whichever file that row named, the row is wrong. This is the
+implementer's own declared bound 1 landing on the one retired clause that carries a number, and the
+card's own trap at `:154` had said *"CARD-257 paid for this with a 41-clause survival diff; do the same."*
+
+**F-103 (high) — the control's docstring credits a property that does nothing.** It claims the conftest
+text "is read **first**, so a mutant on that text reds on the loop's first iteration and names its own
+arm". Both halves refuted by execution: swapping the read order line-count-preservingly leaves the AC-2
+test **passing at exit 0**, and conftest-first vs conftest-last produce **byte-identical** evidence. The
+attribution comes from the assertion's `{label}`, not from the order. So the property the card credits
+for the whole conftest column is inert, and the property that actually does the work is never named.
+
+**F-105 (medium) — a figure reported as "reproduced to the digit" was measured at the wrong revision.**
+L-1's guard-column figure is the **merge-base**'s: the guard text held 2 whole-word `engine` (1
+backticked) at `27ca88c7` and **1 of 1** at HEAD, because this diff cut the sentence that carried the
+other. The reviewer's mutant on it **kills**. So L-1's guard half is **closed** and the record says it
+survives. The prod half (12, of which 2 backticked → 10) does reproduce.
+
+**What HELD under attack** — recorded because a review that only lists failures is not a measurement:
+the extended control itself (all three enumerated texts held to parameters derived from the code, no text
+reduced to a quoted literal, both arms killing on the third text); **L-3 genuinely closed** by a
+two-sided lookahead; **AC-4 held**, including the judgement that its AST half is inert after merge, with
+the tree sweep re-derived in a **third** implementation (6 pairs, 9 sites, dict-equal, zero matches
+elsewhere); **every word boundary**, AST-enumerated; **G-1, G-3, G-4 and G-5** all under independent
+re-derivation, with ADR-0036/R4 measured at exactly 3 hits in `src/nonogram/**`, all of them
+`pdf_generator.py:321`'s declared U+2022 exemption. Scope gate **PASS** (F-107's stale `Touches` costs no
+contract rule: `tests/**` still selects ADR-0039, `src/nonogram/**` still selects ADR-0036/R4).
