@@ -30,7 +30,7 @@ layout block is therefore the most-read description of this system, and it names
 `src/nonogram/__init__.py`'s docstring as "the canonical map". **Neither map has a control.** No test
 under `tests/` reads `CLAUDE.md` at all — verified, the only occurrences are prose mentions.
 
-**Measured 2026-10-22, all five against the code on disk:**
+**Measured 2026-10-22 against the code on disk — the first two were corrected directly in `9c4e851a`, the rest are this card's:**
 
 | where | claim | reality |
 |---|---|---|
@@ -38,7 +38,11 @@ under `tests/` reads `CLAUDE.md` at all — verified, the only occurrences are p
 | `CLAUDE.md:51` | `export/ COMP-007 not yet built` | **fixed in `9c4e851a`** — 6 renderers, 5 test files |
 | `CLAUDE.md:45` | `cli.py COMP-001 the only inbound adapter` | **three** adapters: COMP-001, COMP-008 `web/`, COMP-009 `admin/` |
 | `CLAUDE.md:47` | `sourcing/ … random implemented; library/image are future work` | `sourcing/` holds `library.py`, `image.py`, `random_grid.py`, `templates/` |
-| `CLAUDE.md:45-51` | the block lists seven components | **COMP-008, COMP-009, COMP-010 are absent** — `web/`, `admin/`, `db/` |
+| `CLAUDE.md:45-51` | the block lists seven components | **COMP-008, COMP-009, COMP-010 and `analysis/` are absent** — `web/`, `admin/`, `db/`, `analysis/`, re-derived with `wc -l` as **29,225 of 46,127 lines, 63%** of the package |
+| `CLAUDE.md:56` | cites `sourcing/random_grid.py`'s **`validate_size`**/`validate_density` | **`validate_size` does not exist in `src/`.** The public validator is `validate_extent`; `random_grid.py:118` records that a one-integer public validator is *deliberately refused* under ADR-0022/R1 — "half an extent is not a thing the model validates". Three test docstrings still name the dead symbol |
+| `CLAUDE.md:58` | "stdlib + Pillow + NumPy … plus **`pytest` as a dev-only extra**" | first half exactly right (`pyproject.toml:23`); the parenthesis is not — `dev` also carries `pytest-playwright`, and there are **two further extras**, `admin` (Flask, Werkzeug, reportlab, gunicorn) and `db` (SQLAlchemy, alembic, psycopg2-binary). `pyproject.toml:42` already has the correct wording |
+| `CLAUDE.md:60` | "a cooperative timeout (hook points already present …, **not yet enforced**)" | **it is fully enforced** — `orchestrator.py:1793` fixes one `time.monotonic` deadline per request and passes it to the single `solver.solve` call at `:1859`; checked at every propagation fixed point (`propagate.py:983`, `:1129`) and every branch node (`search.py:1180`, `:1259`); `propagate.py:221` raises `SolverTimeout`, and the admin storage guard depends on it |
+| `CLAUDE.md:60` | "random mid-density grids at **40×40+**" | `limits.py` caps a side at **30**, so that size cannot be produced |
 | `src/nonogram/__init__.py:10-14` | COMP-003..COMP-007 each annotated `(later card)` | all five shipped |
 
 So roughly half the shipped system is missing from the layout a new session reads first, and the file
@@ -150,8 +154,17 @@ own review found it one file over again.
   documented in `tests/README.md` from line 453. Do not write another. Keep deletion mutants
   **line-count-preserving**, aggregate **any-RED**, target the occurrence inside the arm you mean,
   re-run SHIPPED between mutants, and **report the domain** of every per-assertion figure.
-- **[A related finding, deliberately not in this card's scope]** `forge:explain`'s structural inputs
-  are missing from this project: `contexts.yml`, `capabilities.yml`, `actors.yml` and
-  `external_systems.yml` do not exist under `meta/architecture/`, so the `docs/how-it-works/` build of
-  2026-10-22 derived its context and capabilities from the C4 pumls plus `requirements.yml` and
-  `trace.yml`, and wrote no actor-role perspectives. That belongs at the architect station, not here.
+- **[STRUCK — this note was wrong, and the error was the orchestrator's own]**
+  ~~`forge:explain`'s structural inputs are missing from this project: `contexts.yml`,
+  `capabilities.yml`, `actors.yml` and `external_systems.yml` do not exist under
+  `meta/architecture/`.~~ **All four exist**, at `meta/architecture/domain/`, alongside
+  `aggregates.yml`, `commands.yml`, `events.yml` and `policies.yml`. The orchestrator tested
+  `meta/architecture/<name>.yml` and never looked in a subdirectory, then reported the registries
+  absent and briefed a subagent on that premise. The subagent checked, found them, and wrote the docs
+  against ground truth — declining the brief's instruction to record the absence because putting a
+  known falsehood into authoritative documentation is what ADR-0039's grounding rule forbids. It was
+  right to refuse. Consequences of the error that are now corrected: `docs/how-it-works/` **does**
+  carry an actor-role perspective (`puzzle-creator.md`, from ACT-001 in `actors.yml`), and the project
+  has **seven** capabilities, not six — CAP-007 *Puzzle play* (FR-044, US-028, CON-021, ADR-0038) is
+  real, shipped code with its own L4 file. **Recorded rather than quietly deleted** because this is the
+  card's own subject in miniature: a claim about the repository, asserted without a control, wrong.

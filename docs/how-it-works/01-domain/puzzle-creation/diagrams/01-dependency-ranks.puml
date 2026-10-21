@@ -1,0 +1,83 @@
+@startuml
+' Derived from tests/test_cli.py:747-810 (the ast import guard's rank table) and
+' src/nonogram/__init__.py. NOT from the C4 diagram: the ranks are what the test
+' enforces, and the test is the authority on what the code may do.
+title ADR-0007 dependency ranks — an import must reach a STRICTLY deeper rank
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "rank 0 — adapters  (_ADAPTERS, tests/test_cli.py:747)" {
+  [COMP-001 cli.py] as CLI
+  [COMP-008 web/] as WEB
+  [COMP-009 admin/] as ADMIN
+}
+
+package "rank 1 — orchestrator" {
+  [COMP-002 orchestrator.py] as ORCH
+  [nonogram/__init__.py] as ROOT
+}
+
+package "rank 2 — capabilities (discovered from disk, not listed)" {
+  [COMP-003 sourcing/] as SRC
+  [COMP-004 clues.py] as CLUES
+  [COMP-005 solver/] as SOLVER
+  [COMP-006 difficulty.py] as DIFF
+  [COMP-007 export/] as EXPORT
+  [COMP-010 db/] as DB
+  [analysis/  (no COMP id)] as ANALYSIS
+}
+
+package "rank 3 — shared (_SHARED, tests/test_cli.py:749)" {
+  [errors.py] as ERRORS
+  [limits.py] as LIMITS
+}
+
+CLI --> ORCH
+WEB --> ORCH
+ADMIN --> ORCH
+
+ORCH --> SRC
+ORCH --> CLUES
+ORCH --> SOLVER
+ORCH --> DIFF
+ORCH --> EXPORT
+
+' Legal because admin/ is rank 0: ADR-0032/R1's storage guard re-derives clues
+' and asks the solver for a verdict AT the storage boundary, rather than
+' trusting whoever called it. Routing them through COMP-002 would erase that.
+ADMIN --> CLUES
+ADMIN --> SOLVER
+ADMIN --> DIFF
+ADMIN --> EXPORT
+ADMIN --> SRC
+ADMIN --> DB
+
+SRC ..> ERRORS
+SOLVER ..> ERRORS
+EXPORT ..> LIMITS
+ORCH ..> ERRORS
+
+' The single directed exemption: _LAUNCH_EDGE = ("cli", "web"),
+' tests/test_cli.py:760. ADR-0008 keeps one console entry point, so
+' `nonogram serve` lives in cli.py's argparse tree. The reverse is a violation.
+CLI -[#blue]-> WEB : _LAUNCH_EDGE\n(the only same-rank import)
+
+note right of SOLVER
+  The absence of arrows BETWEEN rank-2 boxes
+  is the architecture, not an omission:
+  2 <= 2 fails the guard's comparison
+  (tests/test_cli.py:885).
+
+  Hence solver/propagate.py:403 `mask_runs`
+  reimplements clues.encode_line natively and
+  is cross-checked from the test tree instead.
+end note
+
+note bottom
+  Enforced by an ast walk over src/nonogram/**/*.py,
+  not by a linter and not by convention:
+  tests/test_cli.py :: test_every_import_in_the_package_points_inward
+end note
+
+@enduml

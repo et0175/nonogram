@@ -1,0 +1,70 @@
+@startuml
+' Derived from src/nonogram/difficulty.py:316 (TIER_BANDS), :342 (RUNG_BANDS),
+' :200-226 (the four constants) and :464 (classify).
+' The two tables are deliberately NOT derived from each other (difficulty.py:342).
+title The two band tables — a rung boundary re-scales, a tier cutoff re-files
+
+skinparam defaultTextAlignment center
+
+rectangle "0..100 score scale (SCORE_MIN=0.0, SCORE_MAX=100.0)" {
+
+  rectangle "RUNG_BANDS — what score_difficulty reads\n(moving one of these RE-SCALES every score)" as R {
+    rectangle "simple_overlap\n[0, 33]" as R1 #E8F4E8
+    rectangle "line_dp\n(33, 66]" as R2 #FFF4D6
+    rectangle "probe_contradiction\n(66, 100]" as R3 #FFE0E0
+    R1 -[hidden]right- R2
+    R2 -[hidden]right- R3
+  }
+
+  rectangle "TIER_BANDS — what classify() reads\n(moving one of these RE-FILES scores that do not change)" as T {
+    rectangle "Tier.EASY\n[0, 33]" as T1 #E8F4E8
+    rectangle "Tier.MEDIUM\n(33, 90]\n= all of line_dp + the lower 70.6%\nof probe_contradiction" as T2 #FFF4D6
+    rectangle "Tier.HARD\n(90, 100]" as T3 #FFE0E0
+    T1 -[hidden]right- T2
+    T2 -[hidden]right- T3
+  }
+}
+
+R -[hidden]down- T
+
+note bottom of R
+  RUNG_OVERLAP_MAX_SCORE = 33.0
+  RUNG_LINE_DP_MAX_SCORE  = 66.0
+
+  score = band_low(rung) + share * band_width(rung)
+  rung  = the hardest rung that settled >= 1 cell
+  share = rung_cells[rung] / total_cells
+
+  Monotonicity is STRUCTURAL: share <= 1 so a rung
+  cannot pass its band's top, and a present rung has
+  share > 0 so it cannot reach its band's floor.
+end note
+
+note bottom of T
+  EASY_MAX_SCORE   = 33.0  (unchanged since ADR-0005)
+  MEDIUM_MAX_SCORE = 90.0  (66.0 -> 90.0, owner's decision
+                            2026-09-23, CARD-137)
+
+  33.0 still coincides with the top rung band, so
+  Easy means EXACTLY "the overlap rule finished it".
+
+  90.0 coincides with NOTHING on the ladder. At 66.0 it
+  did, and Medium then meant "topped out at line_dp" —
+  measured at 5 puzzles in 300 on production.
+
+  No stored grade moved: RUNG_BANDS was not touched.
+end note
+
+note right of R3
+  `guess` is NOT on this ladder.
+  A branching solve is reported as the
+  `guess` STRATEGY (solver.STRATEGY_GUESS),
+  appended exactly once, in
+  orchestrator.Puzzle.record_difficulty.
+
+  ADR-0025's Tier.GUESS was retired on
+  evidence: 0 assignments of 6,620, of 462,
+  and of 16 stored rows.
+end note
+
+@enduml

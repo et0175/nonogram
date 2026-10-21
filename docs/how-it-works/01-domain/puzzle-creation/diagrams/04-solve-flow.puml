@@ -1,0 +1,76 @@
+@startuml
+' Derived from src/nonogram/solver/search.py:7-56 (the solve's documented shape),
+' :295 (_SEARCH_ROUNDS) and :100 (the CON-005 re-encode backstop).
+' The ladder is THREE rungs (propagate.py:148), not the four the C4 puml names.
+title COMP-005 solve() — three stratified fixed points, then a restarting search
+
+start
+
+:seed `givens` into the board (CARD-214)\nBoard.assign BEFORE the first round;
+
+partition "level 1 — rung simple_overlap" {
+  :propagate_overlap() to a fixed point\nRungTagger(rung="simple_overlap");
+}
+partition "level 2 — rung line_dp" {
+  :propagate() to a fixed point, continuing\nfrom level 1's board\nRungTagger(rung="line_dp");
+  note right
+    Levels 1+2 together ARE line logic's
+    first fixed point (propagation is
+    confluent). line_logic_cells and
+    undecided_mask are read HERE.
+  end note
+}
+
+if (board fully decided?) then (yes)
+  :count = 1, the only solution reachable\nwithout lookahead;
+  stop
+else (no)
+endif
+
+partition "round 0 — plain descent, purely to detect MANY" {
+  :branch on the single most constrained cell\nnode_limit 400, no probing;
+  if (found 2 distinct solutions?) then (yes)
+    :count = MANY, with both witnesses\n(rung_tags empty — not a puzzle, no grade);
+    stop
+  else (no / cut off / 0 or 1)
+    :DISCARD this round's findings AND its counters whole\n(search.py:25 — "has proved nothing this solve keeps");
+  endif
+}
+
+partition "level 3 — rung probe_contradiction" {
+  :probe every unknown cell with both values;\n:force the survivor where one value contradicts,\nto a fixed point\nRungTagger(rung="probe_contradiction");
+  if (board fully decided?) then (yes)
+    :count = 1, branch_nodes == 0\n(no search node was ever expanded);
+    stop
+  else (no)
+  endif
+}
+
+partition "search — restarting, from the level-3 fixed point" {
+  repeat
+    :round (probe_width, node_limit) from _SEARCH_ROUNDS\n(0,400) (8,400) (16,1200) (32,3600) (64,10800)\nthen width fixed, limit *= 3 without bound;
+    :per node: probe the probe_width most constrained cells;\nforce what is forced; branch only if nothing is;
+    if (second distinct solution?) then (yes)
+      :count = MANY — stop instantly (AC-017);
+      stop
+    endif
+  repeat while (round hit its node limit?) is (yes — discard it whole, restart wider)
+  ->no — the round finished on its own terms;
+  :take the verdict (0 or 1);
+}
+
+:CON-005 backstop: re-encode every completed board\nwith propagate.mask_runs and compare against the input clues.\nA mismatch RAISES — it is a solver bug, not a puzzle outcome;
+
+stop
+
+note left
+  check_deadline(deadline) runs at EVERY
+  propagation fixed point (propagate.py:983, :1129)
+  and EVERY branch node (search.py:1180, :1259).
+  Past it: SolverTimeout, no verdict at all, so
+  confirm_uniqueness is never reached and INV-002
+  leaves the puzzle unexportable.
+  Stopping is between whole steps, never mid-deduction.
+end note
+
+@enduml

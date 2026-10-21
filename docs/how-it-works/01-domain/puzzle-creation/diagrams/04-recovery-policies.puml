@@ -1,0 +1,83 @@
+@startuml
+' Derived from src/nonogram/orchestrator.py:1591-2196 (generate's three branches),
+' :192/:224/:261/:287 (the bounds) and :796 (repair_candidate).
+title Recovery — which remedy a rejected candidate gets, by mode
+
+skinparam defaultTextAlignment left
+
+state "generate(request)" as G {
+
+  state "resolve name / tier / extent\ndraw seed, build Puzzle\ndeadline = monotonic() + 30.0s" as PRE
+  note right of PRE
+    All before the aggregate exists:
+    an unusable one of the three must
+    leave NOTHING behind (AC-045,
+    AC-021, AC-098), and a usable one
+    is fixed for the whole run.
+  end note
+
+  state "mode == image ?" as MODE <<choice>>
+
+  ' ---------------- random / library ----------------
+  state "POL-004 resample loop\nrun_bounded(puzzle.resample, bound 30)" as RESAMPLE {
+    state "POL-001 regenerate loop\nrun_bounded(puzzle.regenerate, bound 30)" as REGEN {
+      state "pending_repair set?" as PR <<choice>>
+      state "POL-006 repair (random mode only)\nflip 1 filled + 1 empty inside the\nwitness-disagreement set, else the\nundecided mask. Pure: no rng draw." as REPAIR
+      state "POL-001 redraw\nsource(*args, rng)" as REDRAW
+      state "judge_candidate:\nclues -> solve -> score" as JUDGE
+      state "unique?" as UQ <<choice>>
+      state "consecutive_repairs >= 5 ?" as K <<choice>>
+
+      PR --> REPAIR : yes
+      PR --> REDRAW : no
+      REPAIR --> JUDGE
+      REDRAW --> JUDGE
+      JUDGE --> UQ
+      UQ --> K : no
+      K --> REDRAW : yes — drop the lineage\n(MAX_CONSECUTIVE_REPAIRS)
+      K --> REPAIR : no — repair again
+    }
+    state "in requested tier?" as TIER <<choice>>
+    REGEN --> TIER : unique candidate, already scored
+    TIER --> REGEN : no — discard, resample
+  }
+
+  ' ---------------- image ----------------
+  state "convert ONCE\n(regenerate/resample stay at 0)" as CONV
+  state "POL-002 pixel nudge\nrun_bounded(puzzle.nudge, bound 5)\nnudge(converted, cells) — always the\nORIGINAL conversion, so attempt n\ndiffers by exactly n pixels" as NUDGE
+  state "POL-003: at the cap, stop altering\nthe image and report (AC-035)" as POL3
+
+  PRE --> MODE
+  MODE --> CONV : yes
+  MODE --> RESAMPLE : no
+  CONV --> NUDGE : not unique
+  NUDGE --> POL3 : bound exhausted
+
+  ' ---------------- the opt-in fourth remedy ----------------
+  state "reveal_given_cells set?\n(default False)" as REV <<choice>>
+  state "accept the run's FIRST sourced grid,\nUNALTERED, with cells of its answer\nrevealed (solver.choose_givens),\ncap = 5% of cells: 5@10x10, 20@20x20, 45@30x30.\nRe-verified by a fresh seeded solve." as REVEAL
+  state "POL-005 GenerationAbandoned\n/ GivenCellsCapExceeded" as ABANDON
+
+  POL3 --> REV
+  RESAMPLE --> REV : both bounds exhausted
+  REV --> REVEAL : yes
+  REV --> ABANDON : no — the abandonment stands
+  REVEAL --> ABANDON : cap exceeded —\npicture still unaltered
+}
+
+note bottom
+  ONE counter, two reactions: every repair AND every redraw advances
+  puzzle.regenerate, bounded at 30. MAX_CONSECUTIVE_REPAIRS = 5 bounds
+  nothing — it only decides how that single budget is SPLIT. Setting it
+  to 0 restores the pure-redraw loop exactly, down to the rng draws.
+
+  Neither loop's counter is reset between resample rounds, so at most
+  30 grids are EVER sourced per request, however the two rejection
+  causes divide them up.
+
+  Only a candidate the uniqueness check answered about is retried.
+  A SolverTimeout, a SizeOutOfRange or a wiring bug travels straight
+  out of run_bounded and ends the run.
+end note
+
+@enduml

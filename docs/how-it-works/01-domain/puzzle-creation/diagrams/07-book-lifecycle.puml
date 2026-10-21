@@ -1,0 +1,58 @@
+@startuml
+' Derived from src/nonogram/admin/book_manager.py:50 (BookStatus),
+' :2223 (set_book_status, the ONE transition method), :2180 (the readiness gate),
+' :488 (_draft_after_membership_change) and src/nonogram/db/models.py:142.
+title AGG-002 Book — five states, one transition method, one gate
+
+[*] --> draft : create\n(books.status default='draft')
+
+state draft {
+  state "general info · print spec (Book 1 profile, CON-018)\nplan (DEFAULT_PLAN = 150 at 40/40/20)\nselect puzzles by longest-side tab\narrange within a level" as work
+}
+
+state "the readiness gate\n_refuse_unless_the_planned_book(...)" as gate <<choice>>
+
+draft --> gate : set_book_status(anything but draft)
+gate --> ready_for_pdf : every plan cell within\nREADY_TOLERANCE_POINTS = 3 (inclusive)
+gate --> draft : ready_refusal names EVERY\noffending cell at once (AC-221)\nor NO_PLAN_REFUSAL
+
+ready_for_pdf --> pdf_generated
+pdf_generated --> ready_for_kdp
+ready_for_kdp --> published
+
+published --> [*] : terminal — set_book_status raises\nValueError("Cannot change status of published book")
+
+' INV-012, book_manager.py:488
+ready_for_pdf --> draft : membership change\n(_draft_after_membership_change)
+pdf_generated --> draft : membership change
+ready_for_kdp --> draft : membership change
+ready_for_pdf --> draft : save_plan (:773)
+
+note right of gate
+  Runs at the EXIT FROM DRAFT, not continuously
+  (book_manager.py:2237). INV-012's return-to-draft
+  is what pays for it again, so a KDP upload is never
+  built from a book that no longer matches its plan.
+
+  The comparison is integer-only, to avoid float drift:
+    abs(actual[c] - planned[c]) * 100
+        > READY_TOLERANCE_POINTS * plan.count
+end note
+
+note bottom
+  Also refused by set_book_status, before the gate:
+    - an unknown status                -> ValueError("Invalid status: ...")
+    - an empty selection, target != draft -> ValueError("Must have puzzles before advancing status")
+
+  INV-008: a change to a PUBLISHED book's membership needs explicit
+  confirmation — AddOutcome/RemoveOutcome carry a `confirmed` flag and
+  the route answers 409 (app.py:2875).
+
+  In DB mode the check and the write are NOT atomic: the row is read and
+  judged in one session and written in another. book_manager.py:2247
+  records that the exposure is the whole DB layer's rather than this
+  method's, and that it is accepted because the panel is a single-user
+  loopback tool (CON-015) served by gunicorn --workers 1.
+end note
+
+@enduml
