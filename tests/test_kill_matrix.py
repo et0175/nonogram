@@ -1574,10 +1574,10 @@ NAMES_BLIND_LINE = (
     '        assert names, "no module-level globals found in _init_engine '
     '(guard is blind)"'
 )
-NAMES_BLIND_OCCURRENCES = (818, 877, 935, 981, 1108)
-#: ``:877`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which is
-#: the whole point: a caller who did not name it would have mutated ``:818``,
-#: in a different test, and read the answer off the wrong arm.
+NAMES_BLIND_OCCURRENCES = (961, 1077, 1207, 1253, 1380)
+#: ``:1077`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which
+#: is the whole point: a caller who did not name it would have mutated
+#: ``:961``, in a different test, and read the answer off the wrong arm.
 NAMES_BLIND_ARM_OCCURRENCE = 2
 LIFECYCLE = REPO / "tests" / "test_db_engine_lifecycle.py"
 
@@ -1635,7 +1635,7 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
         if before != after
     ]
     assert moved == [lineno], moved
-    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 877
+    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 1077
 
 
 def test_ac5_an_occurrence_past_the_end_is_refused():
@@ -2475,11 +2475,11 @@ SESSION_PY = REPO / "src" / "nonogram" / "db" / "session.py"
 FOUR_ARM = (
     "tests/test_db_engine_lifecycle.py"
     "::TestEngineLifecycle_TheResetIsAPublishedSeam"
-    "::test_all_three_convention_texts_agree_on_the_mechanisms_parameters"
+    "::test_every_text_that_names_card_252_points_here_and_agrees_on_the_parameters"
 )
 #: CARD-257's four arms, restated from its cycle-3 record and re-derived from
 #: the unmodified parse below rather than trusted.
-PREAMBLE, NAMES, HEADS, POINTER = 877, 897, 908, 916
+PREAMBLE, NAMES, HEADS, POINTER = 1077, 1121, 1128, 1134
 WORD = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"
 
 
@@ -2673,15 +2673,26 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     """``tests/test_db_engine_lifecycle.py``: the second anchor, CARD-257's grid.
 
     The **grid** is CARD-257's, measured at ``b441ba00``. The **positions** are
-    not: CARD-259 cut CARD-252's record out of two of the three texts that test
-    reads, and the four arms moved from ``:859`` / ``:878`` / ``:889`` / ``:897``
-    to ``:877`` (preamble), ``:897`` (names), ``:908`` (heads) and ``:916``
-    (pointer). That is the anchor's own distinction: what reproduces is the grid
+    not, and they have now moved twice: from ``:859`` / ``:878`` / ``:889`` /
+    ``:897`` at ``b441ba00``, to ``:877`` / ``:897`` / ``:908`` / ``:916`` when
+    CARD-259 cut CARD-252's record out of the texts that test reads, to
+    ``:1077`` (preamble), ``:1121`` (names), ``:1128`` (heads) and ``:1134``
+    (pointer) when its fix round derived the set of texts instead of listing
+    them. That is the anchor's own distinction: what reproduces is the grid
     cell for cell, not an address. Re-derived from the unmodified parse here,
-    never reused from a previous reading -- and ``:897`` is now the names arm
-    where it used to be the pointer arm, which is exactly the overlapping-shift
-    misattribution this instrument refuses for a mutant, so the constants above
-    are updated in the same commit as the file they index.
+    never reused from a previous reading.
+
+    **The shift still overlaps, measured rather than assumed.** Of the four
+    previous addresses, three (``:877``, ``:897``, ``:908``) are not assert
+    linenos at HEAD, so a stale constant reads loudly; ``:916`` **is** one --
+    an unrelated assert in
+    :meth:`TestEngineLifecycle_TheResetIsAPublishedSeam.test_reset_engine_is_public_and_says_who_calls_it`
+    -- so one quarter of a stale reading would have been a silent
+    misattribution rather than a NOT-REACHED. That is the seventh shape this
+    instrument refuses for a *mutant* standing inside its own anchor, whose
+    precondition (``set(arms) <= linenos``) is a membership test and cannot
+    tell the two apart. Recorded, not routed around: the constants above are
+    updated in the same commit as the file they index.
 
     What must come back: six ``DOC-NAME-DEL`` cells RED at the names arm, four
     ``DOC-HEAD-DEL`` cells RED at the heads arm, ``NAMES-BLIND`` RED at the
@@ -2695,7 +2706,11 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     -- which is why ANY-RED is doing real work here and not only in a fixture.
     The mutant count stays 14 because this anchor scopes its edits to the two
     texts it can reach: the third lives in ``tests/conftest.py``, which the
-    instrument refuses to edit by identity.
+    instrument refuses to edit by identity. CARD-252's record is not restated
+    here; it is kept on :func:`nonogram.db.session.reset_engine`, and since
+    CARD-259 the set of texts that anchored test holds is derived off the disk
+    rather than listed, so the **three** texts above is a reading of today's
+    tree and not a constant.
     """
     source = LIFECYCLE.read_text(encoding="utf-8")
     linenos = set(km.assert_linenos(source, str(LIFECYCLE)))

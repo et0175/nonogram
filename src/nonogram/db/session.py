@@ -247,12 +247,19 @@ def reset_engine() -> None:
     connection to exist and goes red when this call — or only its
     ``dispose()`` — is removed.
 
-    **Not** pinned: that such a survivor corrupts anything. Four consecutive
-    waves of this board's build gates reported failures that reproduced on no
-    second run (``relation "puzzles" does not exist``; a ``UUID`` column
-    arriving as a float, so that ``uuid.UUID(hex=inf)`` called ``.replace`` on
-    it). Those failures are the **motive** for this function, not a measured
-    consequence of its absence. CARD-252 tried to reproduce the corruption
+    **Not** pinned: that such a survivor corrupts anything. The motive was
+    **one failing run in each of four consecutive waves -- 45, 46, 47 and
+    48 -- each failure reproducing on no second run**
+    (``relation "puzzles" does not exist``; a ``UUID`` column arriving as a
+    float, so that ``uuid.UUID(hex=inf)`` called ``.replace`` on it).
+    **Three** of those four runs were build gates (CARD-248's, CARD-251's and
+    CARD-247's); the fourth was wave 46's smoke test on its first run. So
+    neither "four build gates" nor "four waves of build gates" is the
+    measurement, and both of those sentences were on disk at once until
+    CARD-259 derived the figure from CARD-252's own cost table -- the one
+    authority either of them was ever written from -- rather than picking
+    between them. Those failures are the **motive** for this function, not a
+    measured consequence of its absence. CARD-252 tried to reproduce the corruption
     deterministically and **withdrew** that acceptance criterion (AC-3): 24/24
     queries through a connection that outlived a ``DROP SCHEMA`` returned
     correct values, ``pg_prepared_statements`` held 0 rows after 40
@@ -285,20 +292,30 @@ def reset_engine() -> None:
     which is a different question from retiring an engine after a schema
     rebuild. A third exception is a card, not a commit.
 
-    **This docstring is the only statement of that convention, of CARD-252's
-    record above, and of the bound below.**
-    ``TestEngineLifecycle_TheResetIsAPublishedSeam`` in
-    ``tests/test_db_engine_lifecycle.py`` lists the controls and points here
-    for the rest, and so does ``_rebuild_public_schema``'s step 3 in
-    ``tests/conftest.py``, instead of either repeating it in the same words — a
-    doubling that was itself a claim, with nothing to red when the copies
-    drifted, and which CARD-259 found still standing in the third text after
-    CARD-257 had retired the second.
-    ``test_all_three_convention_texts_agree_on_the_mechanisms_parameters`` is
-    what reds now: it holds all three texts to the mechanism's own parameters —
-    the globals :func:`_init_engine` creates and the two spellings that are
-    counted — read from this module's AST and from the scan's own patterns,
-    never quoted.
+    **This docstring is the keeper of that convention, of CARD-252's record
+    above, and of the bound below: every measured figure and declared bound of
+    them is stated here, and every other docstring in this repository that
+    names CARD-252 carries a pointer back here rather than restating one.**
+    That is enforced, not asserted, and the set it is enforced over is not a
+    list anybody maintains:
+    ``test_every_text_that_names_card_252_points_here_and_agrees_on_the_parameters``
+    in ``tests/test_db_engine_lifecycle.py`` enumerates **every** docstring
+    under ``src/nonogram/`` and ``tests/`` off the disk, keeps the ones that
+    name ``CARD-252`` as a whole word, and **fails**, naming the file and the
+    line, on any of them that is neither this docstring nor a pointer to it.
+    A file it cannot parse fails it too: a shape the derivation cannot analyse
+    is a failure, never a silent pass (ADR-0039/R2). The previous rule here
+    was a hand-written list of texts, and three cards in a row found that list
+    short by exactly one -- CARD-257's residue was one file over, and
+    CARD-259's was one file over again -- which is why the list is gone rather
+    than longer.
+    Of the texts that derivation finds, the ones that enumerate more than one
+    of this module's engine globals are additionally held to the mechanism's
+    own parameters -- the globals :func:`_init_engine` creates and the two
+    spellings that are counted -- read from this module's AST and from the
+    scan's own patterns, never quoted. A text that names exactly one of them
+    is read as prose rather than as an enumeration, and that threshold is the
+    declared bound of the names arm.
 
     That is a **convention, enforced at review**. The only mechanism behind it
     is a textual count in ``tests/test_db_engine_lifecycle.py``
