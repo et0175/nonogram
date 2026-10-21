@@ -48,7 +48,13 @@ What it is **not**
   reports the process's module-global engine beside that connection's dbname
   and leaves the two for a reader to compare. A failing connection from some
   other engine would be reported with ``dbname_matches_app_engine=no`` and
-  nothing further.
+  nothing further. Group 4's verdict compares the same two names once more
+  under the label ``vs-app-engine`` -- still a comparison of databases and
+  not a provenance of connections -- and keeps the capture connection's own
+  database on a separately labelled pair, because that one answers a
+  different question (whether ``schema-now`` describes the same database)
+  and is legitimately different whenever ``DATABASE_URL`` and
+  ``TEST_DATABASE_URL`` disagree.
 * It does not report the failing connection's ``search_path``. That needs a
   query, and the one connection that could answer it is the one that cannot be
   queried. The capture connection's ``search_path`` is reported as the capture
@@ -110,8 +116,25 @@ def register(config):
     """Register this module as a plugin named :data:`PLUGIN_NAME`.
 
     Returns ``None`` when the name is blocked (``-p no:...``), which is how
-    the diagnostic is shown absent without editing anything.
+    the diagnostic is shown absent without editing anything, and also when
+    this module is **already** registered -- which happens when a run loads
+    it by its import path (``-p tests.helpers.undefined_table_report``) and
+    then lets the conftest register it too. pluggy refuses one plugin object
+    under a second name, so without that check the run dies at configure
+    time with ``INTERNALERROR> ValueError: Plugin already registered under a
+    different name``. A diagnostic whose whole contract is "never make a run
+    worse" does not get to end one.
+
+    What the check restores is the run, not the registration: under
+    ``-p <import path>`` pytest has already registered this module under
+    *that* name, so ``hasplugin(PLUGIN_NAME)`` is false and
+    ``test_the_diagnostic_is_registered_in_this_very_run`` reds -- one
+    informative failure instead of an aborted session. No documented
+    invocation takes that path (``addopts`` is ``-q``; the probes run under
+    their own rootdir, where this conftest is not loaded).
     """
+    if config.pluginmanager.is_registered(sys.modules[__name__]):
+        return None
     return config.pluginmanager.register(sys.modules[__name__], PLUGIN_NAME)
 
 
@@ -123,12 +146,28 @@ def pytest_exception_interact(node, call, report):
         return
     try:
         lines = describe(error, excinfo)
+    except (KeyboardInterrupt, SystemExit):
+        # Control flow, not a diagnostic failure. The capture can wait on a
+        # connection for up to ``CONNECT_TIMEOUT_SECONDS``, and a Ctrl-C that
+        # lands in that window must stop the run rather than be formatted
+        # into a report line and carried on from.
+        raise
     except BaseException as failure:  # noqa: BLE001 - named, never swallowed
         # A diagnostic that masks the defect it was built for is worse than
         # none (AC-5). Nothing here may escape into pytest's reporting, and
         # nothing here may disappear either.
         lines = [f"the diagnostic itself failed: {_named(failure)}"]
-    _attach(report, "\n".join(lines))
+    try:
+        _attach(report, "\n".join(lines))
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException:  # noqa: BLE001 - the channel itself is gone
+        # :func:`_attach` is the only channel this hook has, so a failure
+        # *in* it cannot be named -- it can only be kept out of pytest's
+        # reporting, where it would mask the very failure AC-5 exists to
+        # protect. **Declared bound:** a report whose ``longrepr`` rejects
+        # both spellings carries no section and says nothing about why.
+        pass
 
 
 # --------------------------------------------------------------------------
@@ -233,8 +272,21 @@ def describe(error, excinfo=None) -> list[str]:
 
 
 def _guarded(group: str, build) -> list[str]:
+    """``build()``, or one line naming why it could not answer.
+
+    ``KeyboardInterrupt`` and ``SystemExit`` are re-raised ahead of the catch
+    rather than reported: they are the run being stopped, not a question the
+    diagnostic failed to answer, and turning a Ctrl-C into
+    ``group-N unavailable`` would make the run carry on past it. Every
+    :class:`BaseException` handler in this module is preceded by that
+    re-raise, and
+    ``test_no_guard_in_the_diagnostic_absorbs_control_flow``
+    holds that over the module's own AST rather than over this one site.
+    """
     try:
         return build()
+    except (KeyboardInterrupt, SystemExit):
+        raise
     except BaseException as failure:  # noqa: BLE001 - named, never swallowed
         return [f"{group} unavailable: {_named(failure)}"]
 
@@ -332,8 +384,17 @@ def _engine_lines(dbapi) -> list[str]:
     """Which engine object this process had, and how often it was retired.
 
     The reset count is :func:`nonogram.db.session.reset_count`, an additive
-    read-only accessor added by this card; nothing in ``src/`` calls it
-    (G-1, held by ``test_nothing_in_src_calls_the_reset_counter``).
+    read-only accessor added by this card. G-1 -- nothing in ``src/`` reaches
+    it -- is held by ``test_nothing_in_src_calls_the_reset_counter`` over the
+    AST of every file under ``src``, in the reach that test declares: no
+    call, no bare name or attribute reference, and no string spelling of the
+    name, plus a deny-default on the call sites whose callee it cannot name,
+    which are held to an equality over counted sites against a declared
+    exemption list -- so a second site under a key that already has one reds
+    rather than being absorbed. What that test does **not**
+    see is listed at it, and the call shapes that reach a function without
+    naming it anywhere (a name computed at runtime) are not among the shapes
+    it enumerates but are among the things its deny-default reds on.
     """
     from nonogram.db import session as app_session
 
@@ -462,6 +523,15 @@ def _capture_lines(dbapi) -> list[str]:
     connection is opened, so a ``TEST_DATABASE_URL`` naming anything but a
     ``*_test`` database is reported and not connected to (G-2).
 
+    **That derivation reads ``TEST_DATABASE_URL`` or the per-worktree name,
+    never ``DATABASE_URL``** -- which the app engine *is* built from -- so
+    this connection's own database is not evidence about where the failing
+    connection was bound. The two are different databases in any run where
+    those two variables disagree, a configuration ``scripts/README.md``
+    documents and the suite's refusal admits. Hence
+    :func:`_capture_answers` prints two separately labelled pairs rather than
+    one unlabelled verdict, and the binding one is ``vs-app-engine``.
+
     **A declared bound, not a closed one.** These imports are lazy, and a lazy
     import can emit a warning -- which pytest would record *outside* the
     section and which would therefore break the two byte comparisons that hold
@@ -491,6 +561,8 @@ def _capture_lines(dbapi) -> list[str]:
     try:
         with engine.connect() as connection:
             return _capture_answers(connection, text, shown, dbapi)
+    except (KeyboardInterrupt, SystemExit):
+        raise
     except BaseException as failure:  # noqa: BLE001 - named, never swallowed
         return _no_capture(shown, f"FAILED: {_named(failure)}")
     finally:
@@ -523,6 +595,7 @@ def _capture_answers(connection, text, shown: str, dbapi) -> list[str]:
     if dbapi is not None:
         failing_pid = dbapi.get_backend_pid()
         failing_dbname = dbapi.get_dsn_parameters().get("dbname")
+    app_dbname = _app_engine_dbname()
 
     if failing_pid is None:
         backend = (
@@ -550,11 +623,6 @@ def _capture_answers(connection, text, shown: str, dbapi) -> list[str]:
                 f"query={_one_line(row[4])} [the server's own view of it]"
             )
 
-    verdict = (
-        "unknown"
-        if failing_dbname is None
-        else ("MATCH" if failing_dbname == here[0] else "MISMATCH")
-    )
     return [
         (
             f"group-4 capture-connection: url={shown} "
@@ -571,9 +639,50 @@ def _capture_answers(connection, text, shown: str, dbapi) -> list[str]:
         backend,
         (
             f"group-4 verdict: failing-dbname={_one_line(failing_dbname)} "
-            f"capture-dbname={_one_line(here[0])} {verdict}"
+            f"app-engine-dbname={_one_line(app_dbname)} "
+            f"capture-dbname={_one_line(here[0])} "
+            f"vs-app-engine={_same_database(failing_dbname, app_dbname)} "
+            f"vs-capture={_same_database(failing_dbname, here[0])} "
+            f"[vs-app-engine is the binding verdict: the app engine is built "
+            f"from DATABASE_URL, so this is the pair that says whether the "
+            f"failing connection went where it was told. vs-capture only says "
+            f"whether schema-now above describes that same database -- the "
+            f"capture resolves TEST_DATABASE_URL or the derived name, never "
+            f"DATABASE_URL]"
         ),
     ]
+
+
+def _same_database(left, right) -> str:
+    """``MATCH``/``MISMATCH`` for two database names, ``unknown`` if either is absent.
+
+    Deliberately not a verdict about anything by itself: the caller names the
+    pair it is comparing, because this card's own review found a single
+    unlabelled ``MISMATCH`` being read as "the connection was on the wrong
+    database" when what it compared was the *capture's* database against the
+    failing one -- two names that are legitimately different whenever
+    ``DATABASE_URL`` and ``TEST_DATABASE_URL`` do not agree.
+    """
+    if left is None or right is None:
+        return "unknown"
+    return "MATCH" if left == right else "MISMATCH"
+
+
+def _app_engine_dbname():
+    """The database this process's module-global engine is bound to, or ``None``.
+
+    The same reading group 2 takes (``engine.url.database``), and the right
+    discriminator for "did the failing connection go where the app was told
+    to go": :func:`nonogram.db.session._init_engine` builds that engine from
+    ``DATABASE_URL``. The capture's own database is *not* that signal -- it
+    comes from :func:`tests.db_name.resolve_test_database_url`, which reads
+    ``TEST_DATABASE_URL`` or derives the per-worktree name and never looks at
+    ``DATABASE_URL``.
+    """
+    from nonogram.db import session as app_session
+
+    engine = app_session.engine
+    return None if engine is None else engine.url.database
 
 
 def _no_capture(shown: str, why: str) -> list[str]:

@@ -13,6 +13,12 @@ _engine_url = None  # DATABASE_URL the current engine/SessionLocal were built fo
 
 #: How many times :func:`reset_engine` has run in this process. Read through
 #: :func:`reset_count`; see that function for why it exists and who reads it.
+#:
+#: Incremented with ``+=``, which is an ``ast.AugAssign`` and therefore
+#: *outside* the ``ast.Assign`` sweep CARD-252's
+#: ``test_it_resets_exactly_the_globals_the_builder_creates`` derives its
+#: globals from: that test's agreement between builder and reset is silent
+#: about this name rather than covering it (CARD-258 declared bound 9).
 _reset_count = 0
 
 #: How long a connection attempt may take before it is an error (CARD-097).
@@ -350,10 +356,42 @@ def reset_engine() -> None:
 def reset_count() -> int:
     """How many times :func:`reset_engine` has run since this process started.
 
-    Read-only and additive (CARD-258 G-1). Nothing in ``src/`` calls it --
-    held by ``test_nothing_in_src_calls_the_reset_counter``, which enumerates
-    ``src`` by AST -- and a process that never calls it behaves exactly as it
-    did before this existed.
+    Read-only and additive (CARD-258 G-1): a process that never calls it
+    behaves exactly as it did before this existed.
+
+    What holds "nothing in ``src/`` reaches it", and how far
+    ------------------------------------------------------
+    ``test_nothing_in_src_calls_the_reset_counter`` parses every file under
+    ``src`` and reds on four shapes, each with its own control:
+
+    * a call whose callee it can name -- ``reset_count(...)`` or
+      ``<obj>.reset_count(...)``;
+    * a bare reference to the name or the attribute, which is the alias
+      spelling (``f = session.reset_count`` then ``f()``) and also a
+      re-export or a callback hand-off;
+    * the string ``"reset_count"``, or any string ending in
+      ``.reset_count``, which is the ``getattr`` / ``globals()[...]`` /
+      ``vars(...)[...]`` / dotted-path spelling;
+    * **and, by deny-default, any call site whose callee it cannot name at
+      all** -- that is a failure and not a silent pass (ADR-0039/R2), held to
+      an equality over **counted sites** against the three such sites that
+      exist today, each a named exemption with its reason and its site count,
+      so that a third site under an exempt key reds rather than being
+      absorbed (ADR-0039/R3).
+
+    It is still not a proof, and nothing here claims one: a name assembled at
+    runtime from pieces (``"reset_" + "count"``), or reached through a
+    ``sys.modules`` entry under a computed attribute name, is spelled nowhere
+    the parse can see it. The deny-default narrows that to shapes which also
+    do not *call* anything the sweep can name -- which is the honest bound,
+    not an exhaustive claim. The direct evidence behind G-1 today is
+    independent of all of it: every textual occurrence of the name under
+    ``src`` is in this module -- the private counter it reads, the ``global``
+    statement and the increment in :func:`reset_engine`, this ``def``, and
+    this module's own comments and docstrings -- and not one of them is a
+    call. (The number of occurrences moves whenever this prose is edited, so
+    it is not quoted; what reproduces is that they are all here and none is
+    a call.)
 
     Who reads it, and why. ``tests/helpers/undefined_table_report.py`` is the
     one reader: on a ``relation "puzzles" does not exist`` failure it records
