@@ -18,14 +18,47 @@ max_concurrent_override: 2
 # the rebase step (7-region semantic conflict with main over _ADAPTER_COUNT; see its
 # card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
 # at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
-active: [CARD-262, CARD-270]
-escalated:
-  - id: CARD-264
-    reason: "merge BLOCKED: branch and main both build _ADAPTER_COUNT in 7 conflicting regions; main's bound was measured over 32 committed forms (CARD-261 cycle 2) and taking the branch's narrower numeral-only pattern would regress a deny-side guard silently -- all tests stay green. The boundary is additionally CARD-265's declared subject (Touches: tests/test_cli.py), so one mechanism is held by three cards."
-    station: decompose
-    route: "owner decision, 3 options on the card: (1) fold the guard into CARD-265 and narrow this card to its other six files [recommended -- those merge clean] (2) rebase keeping main's guard wholesale (3) /kanban redo CARD-264"
-    at: 2026-10-22T17:05:00Z
-    evidence: "git merge-tree --write-tree main card/264-... -> exit 1 (tests/test_cli.py, meta/kanban/cards/CARD-261.md); the same dry run on CARD-262 -> exit 0, so main is not stale. Branch unmodified: no rebase, no merge, no commit. Cycle-1 report synced to meta/review/20261022T114447Z-CARD-264-cycle1.yml."
+active: []
+escalated: []
+merged_wave_54:
+  - id: CARD-270
+    merge_commit: 64da37f6
+    at: 2026-10-22T20:00:42Z
+    review_score: "8.4 (c1, 1 important) -> 9.6 (c2) PASSES"
+    cycles: "2/3 -- one left unspent deliberately, so the two carried minors are not an uncertified last-mile edit"
+    actual: 0.3d
+    estimate: 0.5d
+    gate: "full suite 8883 executed, 8856 passed, 27 skipped, 0 failed, 0 error, exit 0; +19 vs CARD-262's gate is exactly this card's additions"
+    closes: "The owner's reported ink-on-ink defect in the PLAYER. The same class in the GUIDE STRIP is CARD-275; the zoom-drag flake seen once is CARD-277."
+  - id: CARD-262
+    merge_commit: faea50a5
+    at: 2026-10-22T19:36:32Z
+    review_score: "5.7 (c1) -> 5.2 (c2, stalled, escalated) -> owner route: DECLARE -> AC/EC/G gate PASSED"
+    cycles: "3/3 spent; no review cycle remained to certify the final fix, stated on the card rather than discovered"
+    actual: 1.4d
+    estimate: 1d
+    gate: "full suite 8864 executed, 8837 passed, 27 skipped, 0 failed, 0 error, exit 0 (27 skips are the standing DB-mode skips, no nonogram_test database)"
+    closes: "The door axis is DECLARED, not closed: the guard's polarity inverted (760 of 816 refuse with nothing exempted) and the remaining one-step-anchor hole is a named exemption with 7 plants asserted SILENT, so closing it reds the table. Follow-up CARD-276 carries the transitive fixed point, three declared residues, six unfired matrix cells and two prose defects."
+# CARD-262's escalation CLOSED 2026-10-22 by owner decision: DECLARE the door axis, land the card.
+# Not "close it" -- the transitive fixed point becomes a follow-up card with a fresh cycle budget.
+# Re-entered at cycle 3/3 (the last), doing: the one-step-anchor class as a fifth CALLEE_EXEMPTIONS
+# member with its own cost step, cycle 2's seven plants + the W1xW9 cross asserted SILENT in
+# MEASURED_BLIND_SPOTS, both docstrings narrowed with the originals left visible, the arms' CROSS
+# asserted (the complement the card never asserted and which is false), both depth caps made to fail
+# closed with the measured control pair, and the three claim defects F-502/F-505/F-506 fixed.
+# NOTE FOR THE RECORD: cycle 3 is the last, so no review cycle remains to certify this fix. The fix
+# agent's own kill-instrument run is the certification of record and was briefed as such; whatever
+# ships uncertified must be named on the card. This is the wave-48 rule applied deliberately rather
+# than discovered afterwards.
+# CARD-264's escalation CLOSED 2026-10-22 by owner decision (option 1 of the three on its card):
+# fold the _ADAPTER_COUNT guard into CARD-265, narrow CARD-264 to its other six files. Merge commit
+# 4f7263fb resolved tests/test_cli.py to main's version, verified BYTE-IDENTICAL, so main's measured
+# guard is untouched. CARD-264 is back at Status: review and is FIRST IN LINE for the next free slot
+# (cycle 1 already passed at 8.3) -- deliberately NOT added to `active`, because the cap is 2 and
+# CARD-262 + CARD-270 hold both slots. Its build gate is owed: impact-set answers FULL on the narrowed
+# diff, and a full suite must not run beside two live pipelines.
+# Queue for the next free slots, in order: CARD-264 (review cycle on the narrowed diff + AC/EC/G gate),
+# then CARD-271, CARD-267, CARD-269, CARD-268 (the owner's bugs-first order).
 merged_wave_45:
   - id: CARD-248
     merge_commit: 1256982

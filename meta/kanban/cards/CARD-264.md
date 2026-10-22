@@ -1,6 +1,6 @@
 # CARD-264: CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -14,13 +14,13 @@
 **Idea:** —
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
-**Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_cli.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md
+**Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
 **Review score:** 8.3 (cycle 1, PASS) → polish `d5da18ff` → AC/EC/G gate pending
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — decompose: its branch and main both build `_ADAPTER_COUNT`, in 7 conflicting regions, and the boundary is CARD-265's declared subject
+**Blocked by:** —  <!-- unblocked 2026-10-22: narrowed per the owner's decision; awaiting a free slot, cap is 2 -->
 
 ## Why — three false claims in the file every agent brief is built from, and one has already spread
 
@@ -1102,3 +1102,87 @@ anyway; what it could not see is that main had already absorbed the mechanism.
 **Nothing on this branch was modified.** No rebase, no merge, no commit, no `git add`. The dry run wrote
 only to `/tmp`. Cycle-1's review report has been synced into the main repo's `meta/review/` so the
 evidence survives a later `redo`/`abandon`.
+
+
+---
+
+### [Narrowed] 2026-10-22 — the owner chose option 1, and the merge is done
+
+**Decision: fold the `_ADAPTER_COUNT` guard into CARD-265, narrow this card to its other six files.**
+Status returns to `review`; the escalation is closed. The card is **not** in `dispatcher.state -> active`
+— the cap of 2 is held by CARD-262 and CARD-270, so this card takes the next free slot rather than
+breaching it. It is the furthest along of anything queued (cycle 1 already passed at 8.3), so it is first
+in line.
+
+**The merge, and what it proves.** Merge commit `4f7263fb` on `card/264-claude-md-outside-the-map`.
+Both predicted conflicts resolved to **main's** version:
+
+- `tests/test_cli.py` — and the resolution is **verified byte-identical to `main:tests/test_cli.py`**, not
+  asserted. This is the whole narrowing: this card's 369-added/8-removed lines and nine new test
+  functions there leave with the question. main keeps CARD-261's measured guard untouched.
+- `meta/kanban/cards/CARD-261.md` — `meta/` is never authored from a worktree, so main is authoritative
+  there by procedure.
+
+**The scope after narrowing, derived from the diff rather than described:**
+
+```
+$ git diff --numstat main..HEAD
+3	3	CLAUDE.md
+30	13	docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md
+856	0	tests/test_guard_integrity.py
+1	1	tests/test_sourcing_image.py
+5	2	tests/test_timeout.py
+375	4	tests/test_web_server.py
+```
+
+`tests/test_cli.py` is **absent from the diff entirely**. Of those six, main had touched only `CLAUDE.md`
+since the merge-base (1/11, CARD-261 retiring the layout block) and it auto-merged — which is why the
+narrowing made the whole merge decidable instead of a judgement call.
+
+**One correction to the escalation note above, recorded rather than edited into it.** That note said
+taking this branch's pattern "would regress a deny-side guard silently". That is true, and it was the
+right reason to refuse to resolve seven semantic regions from a merge driver — but it is **half** the
+measurement. CARD-265's item 1 had already measured the other half: main's one-word gap **misses**
+`"three distinct inbound adapters"`, a real count with two adjectives, which this branch's two-word gap
+catches. **Neither bound dominates; the regression runs both ways.** The full two-way table now lives on
+CARD-265, which is where the question went. The fold is therefore better-founded than the escalation
+knew: CARD-265's own card already held both revisions of this pattern, measured, with this branch's
+revision as its `feb3e6b5` column.
+
+**Nothing of this card's own work was discarded.** The nine folded tests are recoverable at
+`git show d5da18ff:tests/test_cli.py` (the commit before the merge), the branch is kept, and CARD-265
+records them by name with the caveat that each must be re-measured against whichever bound that card
+settles on.
+
+**What remains for this card**, unchanged by the narrowing: the three false `CLAUDE.md` claims and the
+dead symbol one of them fed into a live guard — `tests/test_guard_integrity.py` (+856) is the standing
+check, with the `tests/test_web_server.py` (+375) sweep and its `MEASURED_AST_SWEEP_MISSES` /
+`MEASURED_PROSE_CITATIONS` bounds. Cycle 1 passed this at **8.3**, and the polish commit `d5da18ff`
+**has never been reviewed** (it was applied after cycle 1). Two cycles of the budget remain, so the
+right next step is a review cycle over the narrowed diff that reads the polish commit, followed by the
+AC/EC/G gate — not the AC gate alone. The board's own rule: "the reviewer told me to" is not "a reviewer
+saw the result."
+
+
+### [Build gate] NOT RUN on the narrowed branch — deferred deliberately, and the reason is the cap
+
+`make impact-set BASE=$(git merge-base HEAD main)` on the narrowed branch answers **`FULL`**, not a file
+list. So the "impact" gate here *is* the full suite (~16.5 min), and the owner's cap of 2 exists for
+exactly one stated reason: *merges run sequentially and never with concurrent full suites*. Two card
+pipelines were running pytest at the time (CARD-262's review, CARD-270's implementation), so the run was
+**started and then stopped** rather than left to contend with them.
+
+Stated plainly: **this branch currently has no gate result.** The gate runs at the start of this card's
+review cycle, when it takes a free slot — which is the right place for it anyway.
+
+Cleanup verified after the stop, not assumed: `NONOGRAM_FULL_SUITE_LOCK` was pointed at
+`/tmp/card264-narrowed.lock` throughout, and after the stop **neither that path nor the board's
+`meta/kanban/.full-suite.lock` exists**; `git status --porcelain` in the worktree is empty; and the only
+pytest left running was CARD-270's own scoped run. So no sibling was ever exposed to a foreign lock
+holder (CARD-255's guard) and nothing was left half-written.
+
+Worth carrying into whoever runs that gate: **why does a diff of one doc, one CLAUDE.md edit and four
+test files answer `FULL`?** If the impact script falls back to full because `CLAUDE.md` is a repo-wide
+fact, that is correct but worth a line in `tests/README.md`; if it falls back for a reason nobody
+intended, that is a finding about the harness and belongs on its own card. Do not paper over it by
+hand-picking test files — a narrowed gate chosen by a human is not an impact set.

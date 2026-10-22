@@ -187,6 +187,14 @@ ALONE_PROBES = (
     "tests/test_puzzle_solver_marking.py::"
     "TestSolverMarking_ControlsStayHiddenWithoutABoard::"
     "test_a_refused_payload_shows_no_controls",
+    # CARD-270's file postdates ALONE_RECORD, so it is sampled here instead
+    # (see test_the_record_reaches_every_file_in_the_family). This is its
+    # test that leaves the most behind on a page: a viewport its pixel
+    # readings are computed from, and two injected <style> elements that
+    # override the board's own rules and that no navigation undoes.
+    "tests/test_puzzle_solver_fifth_rule.py::"
+    "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
+    "test_the_rules_against_paper_are_untouched",
 )
 
 #: Wall clock each child pytest below is allowed. The dearest of them is an
@@ -882,6 +890,150 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "through the structural locator AC-2's relation uses; the menu item, "
         "trigger text and Brush: name are CARD-247's test (cycle 1, F-003)",
     ),
+    # CARD-270 — the first card to add a whole FILE to the family. A filled
+    # cell's ink and every major rule are both --grid-ink, so runs of filled
+    # cells merged into one blob across the every-fifth rules, the outer frame
+    # and the clue gutters; the fix is an inset --player-thin hairline on the
+    # filled cell. The file is listed in PAGE_ISOLATION like the others.
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_every_filled_cell_carries_the_inset_hairline": (
+        "CARD-270",
+        "AC-1's mechanism arm: every filled cell's computed box-shadow is one "
+        "inset --player-thin hairline --player-rule wide, which is the "
+        "regression net the pixel samples alone could not be",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_a_light_band_reads_across_the_fifth_rule[desktop-x]": (
+        "CARD-270",
+        "AC-1's pixel arm on the column axis at 1440x900: a light band reads "
+        "between two filled cells across a .major-right fifth rule, with the "
+        "same scanline read with the hairline suppressed as its control",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_a_light_band_reads_across_the_fifth_rule[desktop-y]": (
+        "CARD-270",
+        "AC-1's pixel arm on the row axis at 1440x900: the same reading across "
+        "a .major-below fifth rule, which is a separate border property and so "
+        "a separate way the fix could be half-applied",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_a_light_band_reads_across_the_fifth_rule[phone-x]": (
+        "CARD-270",
+        "the same FIGURES at 390x844, where the cell is 14.39 px — the size "
+        "the card's Standards section names, and the only place a hairline "
+        "that rounds away would show (CARD-270 review 1, F-002: the band "
+        "figures used to be desktop-only)",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_a_light_band_reads_across_the_fifth_rule[phone-y]": (
+        "CARD-270",
+        "the row axis at 390x844: the phone viewport is where the @media "
+        "floor and CARD-193's mirrored gutter change the layout, so each axis "
+        "is measured there separately",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_an_ordinary_rule_reads_the_same_way[desktop-x]": (
+        "CARD-270",
+        "the card claims the division reads UNIFORMLY, so an ordinary thin "
+        "rule between two filled cells is sampled on the column axis too",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_an_ordinary_rule_reads_the_same_way[desktop-y]": (
+        "CARD-270",
+        "the same uniformity claim on the row axis, where the thin rule is "
+        "the cell's border-bottom rather than its border-right",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_an_ordinary_rule_reads_the_same_way[phone-x]": (
+        "CARD-270",
+        "the uniformity figure at 390x844 on the column axis: three "
+        "contiguous --player-thin px is a different number from the major "
+        "rule's 1/2/1, so it is its own way the hairline could collapse at "
+        "the phone cell size",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_an_ordinary_rule_reads_the_same_way[phone-y]": (
+        "CARD-270",
+        "the uniformity figure at 390x844 on the row axis",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_EdgesAndGuttersToo::"
+    "test_leaving_a_filled_cell_at_the_boards_edge_the_first_pixel_is_the_hairline"
+    "[desktop]": (
+        "CARD-270",
+        "AC-2 at 1440x900: the defect class is any ink rule beside an ink "
+        "fill, so the board's whole outer ring is swept — the outer frame and "
+        "the clue gutters' edges are the other two places it bit",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_EdgesAndGuttersToo::"
+    "test_leaving_a_filled_cell_at_the_boards_edge_the_first_pixel_is_the_hairline"
+    "[phone]": (
+        "CARD-270",
+        "AC-2 at 390x844, where the 14 px cell floor and CARD-193's mirrored "
+        "gutter put different rules on the ring's four sides",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_EdgesAndGuttersToo::"
+    "test_the_sampled_edges_really_include_a_clue_gutter": (
+        "CARD-270",
+        "AC-2 is only about gutters while a gutter is flush against the grid; "
+        "this measures that off the live boxes so the sweep above cannot "
+        "quietly narrow to the frame alone",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
+    "test_the_hairline_takes_no_part_in_layout[desktop]": (
+        "CARD-270",
+        "AC-3 at 1440x900: every cell measures the px --player-cell resolves "
+        "to, which is the no-layout-shift claim measured rather than quoted "
+        "from the box-shadow spec (its second arm, box-by-box against the "
+        "hairline forced off, is the narrative one — MOVES-LAYOUT survives it "
+        "and the first arm kills it)",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
+    "test_the_hairline_takes_no_part_in_layout[phone]": (
+        "CARD-270",
+        "AC-3 at 390x844, the viewport whose cells are smallest and where a "
+        "stray px of layout would show first",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
+    "test_the_rules_against_paper_are_untouched": (
+        "CARD-270",
+        "AC-3: a BLANK board is pixel-for-pixel what it was under a control "
+        "that suppresses box-shadow on EVERY .player-cell and not only the "
+        "filled ones, so a hairline reaching a cell that is not filled reds "
+        "it (measured with the REACHES-BLANK and BROADEN-UNKNOWN mutants; "
+        "scoped to the filled state the comparison was equal by "
+        "construction — CARD-270 review 1, F-001), and the major rules "
+        "against paper are the weight they were",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
+    "test_no_other_cell_state_gains_a_shadow": (
+        "CARD-270",
+        "AC-3: only the filled state has a box-shadow, and the empty dot and "
+        "the '?' glyph still take their colour and size from their tokens",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
+    "test_a_hinted_filled_cell_still_wears_the_hints_own_ring": (
+        "CARD-270",
+        "the edge of the claim: .is-hinted sets a box-shadow at the same "
+        "specificity, so a cell that is filled AND hinted must still show "
+        "CARD-183's paper ring and not this card's hairline",
+    ),
 }
 
 
@@ -1397,10 +1549,49 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
             "removed": [new],
         }
 
-    def test_the_twelve_files_are_still_twelve(self) -> None:
+    def test_the_family_on_disk_is_the_family_the_registry_names(self) -> None:
+        """The file set on disk is pinned to the registries — by its **set**,
+        twice, through two doors that do not share a data structure.
+
+        It used to be pinned to a hand-written 12 as well. CARD-270 added the
+        thirteenth file and that literal is exactly the kind of snapshot
+        ``ADDED_SINCE_BEFORE`` exists instead of (CARD-213's ``assert
+        len(ids) == 422``, in this same class), so it is gone.
+
+        What replaced it was, for one cycle, ``len(files) ==
+        len(PAGE_ISOLATION)`` beside the set equality — and a count taken
+        beside the set equality it is derived from carries nothing:
+        :func:`_family_files` globs one directory, so its basenames are
+        distinct and the count is implied by the set. Every state that failed
+        the count failed the set equality first, and the test's name
+        advertised a derivation it did not have (CARD-270 review 1, F-003). It
+        is gone too.
+
+        The second door is a different registry: the node-id registries, whose
+        keys name files as a side effect of naming tests. Every family file on
+        disk must appear in CARD-217's measured artefact, in
+        ``ADDED_SINCE_BEFORE``, or as a rename target in
+        ``RENAMED_SINCE_BEFORE`` — and no other file may. That reds on states
+        the ``PAGE_ISOLATION`` equality cannot see, the sharpest being a file
+        given a ``PAGE_ISOLATION`` entry but no test registration at all
+        (measured: the ``PAGE_ISOLATION`` arm stays green there).
+        """
         files = _family_files()
-        assert len(files) == 12, files
         assert {path.split("/")[-1] for path in files} == set(PAGE_ISOLATION)
+
+        named_by_node_ids = (
+            {node.split("::")[0] for node in _family_node_ids(BEFORE_ARTEFACT)}
+            | {node.split("::")[0] for node in ADDED_SINCE_BEFORE}
+            | {new.split("::")[0] for _card, new, _why in RENAMED_SINCE_BEFORE.values()}
+        )
+        assert named_by_node_ids == set(files), {
+            "on disk, named by no test registry": sorted(
+                set(files) - named_by_node_ids
+            ),
+            "named by a test registry, not on disk": sorted(
+                named_by_node_ids - set(files)
+            ),
+        }
 
 
 # ==========================================================================
@@ -1597,15 +1788,39 @@ class TestBrowserFixtures_EveryTestPassesAlone:
         assert sorted(node for node in wanted if verdicts[node] != "PASSED") == []
 
     def test_the_record_reaches_every_file_in_the_family(self) -> None:
-        """Every one of the twelve is represented, so no file is unsampled."""
+        """Every family file is sampled alone — so no file is unsampled.
+
+        Two ways to be sampled, and a file may not pick: by
+        :data:`ALONE_RECORD`, CARD-235's out-of-band run over the family **as
+        it then stood**; or, for a file that did not exist then, by an entry
+        in :data:`ALONE_PROBES`, where ``test_the_riskiest_tests_pass_alone``
+        really runs one of its tests alone in a child pytest every time this
+        file runs. Backdating a record is not a thing this board does.
+
+        "Did not exist then" is not a name written in here: it is a file with
+        no node id in the measured artefact. A file that *was* measured and
+        has since dropped out of the record still fails, as it always did —
+        the exemption cannot be claimed by going missing.
+        """
         record = ALONE_RECORD.read_text(encoding="utf-8")
         seen = {
             line.partition(" ")[2].strip().split("::")[0]
             for line in record.splitlines()
             if line.startswith("PASSED ")
         }
+        measured = {node.split("::")[0] for node in _family_node_ids(BEFORE_ARTEFACT)}
+        probed = {node.split("::")[0] for node in ALONE_PROBES}
 
-        assert set(_family_files()) <= seen, sorted(set(_family_files()) - seen)
+        assert measured & set(_family_files()) <= seen, sorted(
+            (measured & set(_family_files())) - seen)
+        unsampled = [
+            path for path in _family_files()
+            if path not in seen and path not in probed
+        ]
+        assert unsampled == [], (
+            f"{unsampled} postdate the alone-record and name no ALONE_PROBES "
+            f"test, so nothing ever runs them alone"
+        )
 
 
 # ==========================================================================
