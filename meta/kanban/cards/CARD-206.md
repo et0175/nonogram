@@ -15,7 +15,7 @@
 **Wave:** 52
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
-**Review score:** —
+**Review score:** 7.5 (cycle 1/3 — below the threshold of 8)
 **Started:** 2026-10-21T22:18:12Z
 **Closed:** —
 **Actual:** —
@@ -544,3 +544,92 @@ blinds the scope gate.
 **Attempt 2 (`12de4ac2`): 5907 passed, 16 skipped, 0 failed. EXIT=0.** Same 109-file selection,
 re-derived rather than reused. The 16 skips are `db_required`/browser, green. Build-fix attempts used:
 **1 of 2**. Clear for review.
+
+---
+
+### [Review 1/3] Score: 7.5 — 0 Critical, **2 Important (gating)**, 4 Minor. Both gating fixes are one-liners
+
+Report: `meta/review/20261022T002400Z-CARD-206-cycle1.yml` (validated by `yaml.safe_load`, 14/14
+system-contract verdict lines). Step 8f's certification half: `deferred(cost)` — two Important open, so
+it runs on the stable cycle. No full suite (CARD-259 live). Five pytest subsets, all exit 0.
+
+**F-102 (high) — the card predicted this bug by name, and it shipped.** The card says *"a literal `3`
+anywhere is the bug this card is most likely to ship."* Confirmed by the orchestrator:
+`src/nonogram/admin/book_pdf_generator.py` computes `first_answer_page` **twice** —
+
+```
+:6696   first_answer_page = 3 + len(section)                                    # bare literal
+:6747   first_answer_page = (1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+                             + toc_page_count + len(section) + 1)               # the one the card fixed
+```
+
+Nine statements apart, same name. **The site is pre-existing** (`27ca88c7:6625`), so the defect is not
+new — **what is new is the claim.** `TITLE_PAGE_COUNT`'s own docstring says *"**Every** front-matter
+position after it counts from here rather than from a literal"*, and this site is recorded nowhere.
+That is ADR-0039/R3: an exemption is a claim, held to an equality against the sites that exist today.
+
+**Neither control can see it, and the honest bound that said otherwise is refuted.** The AST guard only
+visits expressions containing a `GUIDE_PAGE_COUNT` load, and this expression has neither constant —
+which is honest bound 1, verbatim. But the bound also claimed that shape "is covered behaviourally by
+the monkeypatch test", and it is not: the reviewer measured that the value reaches no byte of output
+(`page_frame(page_spec(n))` is parity-invariant in size at 2196×2994, and
+`_degrade_infeasible_packed_pages` returns the identical plan for `page_spec(1..15)`), so nothing
+behavioural can red on it. It is a latent, not a live defect — and a latent whose claim says it cannot
+exist.
+
+**F-101 (high) — one quantity, three figures, and the card's own correction is also wrong.**
+`tests/property/test_book_export_interior.py:941-942` states the parities as **20.4500 / 30.4500 mm,
+10.0000 mm apart**, measured "through `_expected_drawing_left_mm`". Run that method on the named input
+and it returns **10.0000 / 20.0000** — which is exactly `PARITY_OUTSIDE_MM` and `PARITY_GUTTER_MM`, the
+file's own constants. The reviewer swept all 12 cases and both `is_lower` values: the pair is
+10.0000/20.0000 for nine cases, 16.7000/26.7000 for two, 12.9500/22.9500 for one, and
+**20.4500/30.4500 occurs nowhere**. And 85 lines down, `:1026` **still says the right-hand spec is
+"5.0 mm away"** — the exact wrong figure the card claims it caught and corrected.
+
+The *difference* — 10.0000 mm apart — is right and reproduces everywhere, which is why nothing reds:
+the live asserts are `> 4.0` and `< 0.1`, so they pass under any of the three readings. This is the
+wave-48 figure rule in its sharpest form yet on this board: the card presents the pair as a
+**re-derivation** that caught an error, and the re-derivation is itself wrong while the error it caught
+is still on disk.
+
+**F-103/F-104 (minor) — and the orchestrator relayed this false claim to the owner.** The card's render
+description and the new fixture's `changed_pages_note` both say page 6's folio is bottom-**left**.
+Measured on the artefact: it is **centred** (columns 1264–1284, centre 1275) on page 6 *and* page 7, and
+**does not mirror at all** — only the QR group and the grid-size label do. The orchestrator repeated
+"folio and QR bottom left" in its report to the owner on the implementer's word, without measuring.
+F-105: `tests/test_book_pdf_memory.py:3043`'s failure message still names `page_number - 1` while the
+reference is built at `- 2`. F-106: `:1067`'s `assert page_is_right_hand(before_this_card)` is a
+constant assertion; the premise is carried by its two live neighbours instead.
+
+**What HELD, measured rather than assumed:**
+- **Claim 1 otherwise holds.** The reviewer enumerated the module by AST — every page-ish assignment
+  with an int constant, every page-ish kwarg literal, every page-ish parameter default, across
+  `book_pdf_generator.py`, `book_kdp.py`, `book_page_spec.py` — and found **exactly one** surviving
+  site. Everything the brief listed is derived, including both walk defaults and
+  `book_kdp.unpaired_interior_page_count`, which states no front-matter term of its own and delegates.
+- **The declared surviving mutant M11 is real, and G-3 is intact.** Reverting `create_guide_page`'s half
+  to raw parity is **killed by 20 assertion nodes** in `tests/test_book_guide_page.py` — *domain:
+  CARD-260's instrument, RECORDING pass over that file, 70 `ast.Assert` nodes, child instrumentation
+  off, SHIPPED 0 FAIL of 70 reached, ANY-RED* — and **survives all 59 reached nodes** of
+  `test_book_export_interior_cover.py`, exactly as declared. The guide's content selection does have a
+  live failing control; the card re-pointed a pre-existing file without weakening it.
+- **The shifted baselines hold** (the name/shift mismatch is owned in writing, the odd/even parity split
+  is the right design, both keep live `test_the_comparison_has_teeth` controls) — only the failure
+  message was left behind.
+- **The re-tuned corpora hold, and nothing was relaxed:** filtering both files' diffs to lines
+  containing `assert` yields exactly two changed assertions, both page-number shifts.
+- **Every other figure reproduced**, several in a second domain: 0→3, 1→8, 3→12, 7→20 (cross-checked
+  against an independently written formula *and* `unpaired_interior_page_count`); baseline 14 pages and
+  **3,468,586 bytes** exactly; the wide-gutter left edge 9.991 mm via `page_ink.drawing_of` **and** an
+  independent raw-column scan at 9.821 mm, the same edge less the 2 px frame rule; page 1 at **0
+  non-white pixels across four artefacts**.
+- **The renders confirm the card's substance.** Page 2 is the guide's first half, folio bottom left — a
+  verso. Pages 2 and 3 **genuinely face**. The TOC's rows read 2 / 5 / 9 against real pages title 1,
+  guide 2–3, TOC 4, Easy divider 5, puzzles 6–8, SOLUTIONS 9, answers 10–12 — AC-3 on paper. Page 6 is
+  a verso with the drawing against the outside margin, and page 7 its exact mirror.
+- **ADR-0036/R3 and R4 checked independently** rather than via the named tests: exactly one `.ellipse(`
+  in `src/nonogram`, and an AST walk of every string literal finds the forbidden codepoints only at the
+  declared `pdf_generator.py:321` exemption. **G-1..G-5 all hold**, G-3 by mutant rather than assertion.
+- **The orchestrator's build-gate repair `12de4ac2` reviewed and sound** — its class claim re-derived
+  (`_interior_page_count` at `:1089/:1094/:1122/:1132`, `:1101` the only absolute pin), the delta
+  assertion untouched, green.

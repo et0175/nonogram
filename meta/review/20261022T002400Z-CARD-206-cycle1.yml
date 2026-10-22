@@ -1,0 +1,450 @@
+version: 1
+card: CARD-206
+cycle: 1
+generated_at: '2026-10-22T00:24:00Z'
+target: 'card/206-interior-title-page @ 12de4ac2 (27ca88c7..HEAD, 28 files, +2165/-653)'
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: 'forge 2026.8.17'
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py
+    - src/nonogram/admin/book_kdp.py
+    - tests/test_book_export_interior_cover.py
+    - tests/property/test_book_export_interior.py
+    - tests/test_book_pdf_memory.py
+    - tests/test_book_finalise_gutter.py
+    - tests/test_book_interior_face.py
+    - tests/test_book_toc.py
+    - tests/test_puzzle_edit_routes.py (the orchestrator repair only)
+    - tests/fixtures/book_baseline_card206.json
+    - tests/helpers/book_corpus.py
+    - /Users/omelnikova/Documents/nonogram-reviews/CARD-206/ (both PDFs, all 7 PNGs)
+  ran:
+    - >-
+      pytest subset A -- tests/test_book_finalise_gutter.py, tests/test_book_interior_face.py,
+      tests/test_book_page_numbers.py, tests/test_book_toc.py,
+      tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py
+      -- exit 0, 285 passed.
+    - >-
+      pytest subset B -- tests/test_book_pdf_memory.py, tests/test_book_guide_page.py,
+      tests/test_book_pdf.py, tests/test_book_pdf_levels.py, tests/property/test_book_pairing.py,
+      tests/test_book_guide_page_type.py -- exit 0, 188 passed, 1 skipped.
+    - >-
+      pytest subset C (system-contract checks) -- tests/test_book_difficulty_dots.py,
+      tests/test_guard_integrity.py, tests/test_layout_page_spec.py, tests/test_export_a4_golden.py,
+      tests/property/test_cli_exports_byte_identity.py -- exit 0, 170 passed.
+    - >-
+      pytest subset D -- tests/test_book_solved_page.py, tests/test_book_puzzle_frame.py (co-change
+      peers absent from the diff) -- exit 0, 149 passed.
+    - 'tests/test_puzzle_edit_routes.py::TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove -- exit 0, 10 passed.'
+    - >-
+      tests/kill_matrix.py, RECORDING pass, one mutant M11 (create_guide_page half selection reverted
+      to raw parity), two target files. Restore of src/nonogram/admin/book_pdf_generator.py verified
+      byte-for-byte by shasum -a 256 after each run.
+  not_reached:
+    - 'the full suite (forbidden by the review brief; CARD-259 is live on this machine)'
+    - 'tests/test_book_arrange_page_breaks.py, tests/test_book_cell_size.py, tests/test_book_proof_pages.py, tests/test_book_pdf_ink_mode.py, tests/test_book_solved_answer_key.py, tests/test_book_pdf_two_up.py, tests/test_book_pdf_band.py, tests/test_book_level_order.py, tests/property/test_book_order.py, tests/property/test_book_pdf_geometry.py -- all SCOPE+ page-position shifts, green on the orchestrator build gate (5907 passed) but not re-run here'
+    - 'meta/architecture/** registry edits (none owed by this card; EC-034 naming routed to the architect station)'
+  environment:
+    - 'NONOGRAM_FULL_SUITE_LOCK=/tmp/card206-review.lock was exported for every pytest and kill_matrix run; meta/kanban/.full-suite.lock was never read, written, created or deleted.'
+    - 'No timing measurement was taken and no duration is reported anywhere in this report.'
+    - 'Nothing was committed, staged, stashed, checked out or restored through git.'
+    - 'Interpreter: /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python, cwd the CARD-206 worktree. No file outside that worktree was ever a mutation target.'
+  confidence: high
+
+metrics:
+  diff: { files: 28, added: 2165, removed: 653 }
+  max_fan_in: { symbol: 'book_pdf_generator.interior_page_count', callers: 144 }
+  other_fan_in:
+    - { symbol: 'book_pdf_generator.TITLE_PAGE_COUNT', callers: 28, note: 'src + tests, new in this card' }
+    - { symbol: 'BookPDFGenerator.create_title_page', callers: 5, note: 'new; production call site is interior_stream.produce()' }
+  tests_cover_change: true
+  hotspots:
+    - 'src/nonogram/admin/book_pdf_generator.py -- 79 commits in 12 months, 43 of them fix/bug/hotfix (54% defect density); declared conflict hotspot'
+    - 'tests/helpers/book_corpus.py -- declared conflict hotspot since cf79eea3'
+  cochange_missing:
+    - 'src/nonogram/export/layout.py (17/60 co-change) -- correctly absent: G-2 forbids editing it (CARD-204 owns it)'
+    - 'src/nonogram/admin/app.py (13/60 co-change) -- absent and no code change is owed; one stale docstring noted out-of-scope (F-106)'
+  unmeasured:
+    mutation_certification: 'budget_truncated -- cost-ladder deferral: two Important findings are open, so Step 8f''s certification half was not run. One diagnosis mutant (M11) was run under explicit instruction because it bears on guardrail G-3.'
+
+system_contract:
+  rules_checked: 14
+  holds: 8
+  unchecked: 4
+  violated: 2
+  verdicts:
+    - 'ADR-0022/R1 ✓ holds — the only new public signature in the diff is BookPDFGenerator.create_title_page(page_number: int = 1); it takes no extent at all, and no changed signature, request field or export field reduces a grid to a scalar size (AST scan of the two changed src files for new/changed defs).'
+    - 'ADR-0033/R1 ✓ holds — the diff writes no puzzle field: src changes are confined to page-position arithmetic, docstrings and the new blank-page factory (git diff 27ca88c7..HEAD -- src/, read in full).'
+    - 'ADR-0036/R2 ✓ holds — create_title_page (book_pdf_generator.py:4678) calls page_frame(self.page_spec(page_number)) and returns Image.new("RGB", (frame.width, frame.height), "white"); it fits no cell and places no grid line. No other geometry call was added.'
+    - 'ADR-0037/R1 ✓ holds — read off the render: interior-book1.pdf page 6 prints the band "Puzzle 1 · Easy" and no picture title; the card edits no band code.'
+    - 'ADR-0036/R1 ✓ holds — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green in subset C (tests/test_layout_page_spec.py + tests/test_export_a4_golden.py, pytest exit 0 on this head).'
+    - 'ADR-0036/R3 ✓ holds — test_the_books_own_pages_carry_no_undeclared_round_mark green in subset C, and an independent grep for .ellipse|.arc|.pieslice|.circle over src/nonogram returns exactly one site, book_pdf_generator.py:1790.'
+    - 'ADR-0036/R4 ✓ holds — test_no_module_types_a_round_mark_as_a_character green in subset C, and an independent AST walk over every string Constant in src/nonogram/**/*.py finds U+25A0..U+25FF / U+2022 / U+2219 only at src/nonogram/admin/pdf_generator.py:321 (U+2022), the declared dingbat exemption, in a file this card does not touch.'
+    - 'ADR-0039/R2 ✓ holds — the new guard''s set is derived, not hand-written: TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage._counting_expressions parses src/nonogram/admin/book_pdf_generator.py with ast at run time and enumerates every GUIDE_PAGE_COUNT load. test_the_guard_sets_are_derived_and_not_hand_written green in subset C.'
+    - 'ADR-0039/R1 ✗ violated — tests/property/test_book_export_interior.py:941 (PARITY_GUTTER_MM docstring) and :1024 (the AC-4 test docstring) each state a measured figure that no control can fail on, and the first does not reproduce by its own stated method on its own stated input. See F-101.'
+    - 'ADR-0039/R3 ✗ violated — the AST guard''s declared exemption ("blind to a bare literal with no constant in it at all ... covered behaviourally by the monkeypatch test") is an exemption with no control that can fail and no equality against the sites that exist today; src/nonogram/admin/book_pdf_generator.py:6696 is exactly such a site and is recorded nowhere. See F-102.'
+    - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact: the diff touches no player, no browser payload and no solution-shipping path.'
+    - 'ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject.toml is not in the diff.'
+    - 'ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser test is added, changed or skipped by this diff.'
+    - 'CON-021 ⚠ unchecked — no_eligible_fact: the diff adds no surface, no play state and no persistence; it inserts one blank page into a PDF.'
+
+guardrails:
+  - 'G-1 ✓ holds — TestBookExport_EveryRouteSeparatesInteriorAndCover green in subset A, extended to assert page 1 is blank on every route; verified on the render too (interior-book1.pdf page 1 carries 0 non-white pixels and the cover is a separate file).'
+  - 'G-2 ✓ holds — src/nonogram/export/layout.py is absent from git diff --name-only 27ca88c7..HEAD; no geometry function body changed (the src diff is positions, docstrings and the new blank-page factory). Re-measured on paper: interior-book1.pdf pages 6/7/8 all draw at 12.700 mm on both sides (equal margins), interior-widegutter.pdf page 6 at 9.991 mm left / 19.643 mm right and page 7 mirrored at 19.981 / 9.652 -- a pure parity translation, no size change.'
+  - 'G-3 ✓ holds, and it is measured rather than asserted — mutant M11 (create_guide_page reverted to raw parity, page_one = page_number % 2 == 1) is killed by 20 assertion nodes in tests/test_book_guide_page.py. DOMAIN: kill_matrix RECORDING pass over tests/test_book_guide_page.py, 70 ast.Assert nodes, pytest exit 0, child instrumentation off, SHIPPED 0 FAIL of 70 reached, aggregate ANY-RED. The same mutant survives all 59 reached assertion nodes of tests/test_book_export_interior_cover.py (DOMAIN: same instrument, same pass, that file), which is exactly what the implementer declared. The guide''s content selection therefore does have a live control; it is a pre-existing file this card re-pointed without weakening.'
+  - 'G-4 ✓ holds — 0 non-white pixels on interior page 1 of both rendered PDFs and both page-1 PNGs. No imprint, ISBN, author line or owner-editable text anywhere in the diff.'
+  - 'G-5 ✓ holds — TestCliExports_ByteIdenticalAfterBookGeometry and PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry green in subset C (pytest exit 0 on this head); no CLI or web export path is in the diff.'
+
+figures_rederived:
+  - figure: 'interior page counts 0 -> 3, 1 -> 8, 3 -> 12, 7 -> 20'
+    verdict: reproduced
+    domain: >-
+      BookPDFGenerator().export_interior(rows).getvalue() read back with
+      tests.helpers.pdf_pages.pdf_page_count, cross-checked in two further domains: a formula the
+      reviewer wrote independently (1 title + 2 guide + toc + divider + n + SOLUTIONS + n answers)
+      and book_kdp.unpaired_interior_page_count(rows). All four agree for every n.
+  - figure: 'baseline book 14 pages, 3,468,586 bytes'
+    verdict: reproduced exactly
+    domain: 'tests.helpers.book_corpus.export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()) -> pdf_page_count = 14 and len(data) = 3468586; equal to book_corpus.BASELINE_PAGE_COUNT and to tests/fixtures/book_baseline_card206.json page_count.'
+  - figure: 'PARITY_GUTTER_MM parities 20.4500 mm / 30.4500 mm'
+    verdict: DID NOT REPRODUCE
+    domain: >-
+      _expected_drawing_left_mm(puzzles[0], 6 and 5, gutter_mm=20.0, outside_mm=10.0) on the
+      corpus the docstring names (random.Random(PARITY_SEED=206), case 0) returns 10.0000 and
+      20.0000. Swept all 12 cases and both is_lower values: the pair is 10.0000/20.0000 for nine
+      cases, 16.7000/26.7000 for two and 12.9500/22.9500 for one. 20.4500/30.4500 occurs nowhere.
+      See F-101.
+  - figure: 'the two parities are 10.0000 mm apart'
+    verdict: reproduced
+    domain: 'the same sweep: the delta is exactly 10.0000 mm for all 12 cases. Independently confirmed on paper -- interior-widegutter.pdf page 6 drawing left 9.991 mm vs page 7 drawing left 19.981 mm.'
+  - figure: 'wide-gutter first puzzle page left edge 9.991 mm against a 10.0 mm outside margin'
+    verdict: reproduced, and corroborated in a second domain
+    domain: >-
+      tests.helpers.page_ink.drawing_of on page 6 of
+      /Users/omelnikova/Documents/nonogram-reviews/CARD-206/interior-widegutter.pdf gives
+      left = 118 px = 9.991 mm at 300 dpi. Independent raw-pixel domain: the leftmost dark column of
+      the grid block (page cropped to rows 13%..86%, no helper involved) is 116 px = 9.821 mm, i.e.
+      the same edge less the frame rule''s own 2 px.
+  - figure: 'AC-288 retuned corpus 39 easy + 43 medium = 150 pages'
+    verdict: reproduced arithmetically and green live
+    domain: >-
+      the stated identity 7 + 2E + M + (M+1)/2 = 7 + (4E + 3M + 1)/2 gives 150 for (39, 43) and 151
+      for the pre-card (41, 41); CK1_OVER_CORPUS (39, 44) gives 151. tests/test_book_finalise_gutter.py
+      green in subset A, and the diff of that file contains no relaxed assertion -- only constant
+      shifts (git diff filtered to lines containing "assert" shows two changed assertions, both
+      page-number shifts).
+  - figure: 'SPILLING_PUZZLES 71 / SPILLING_PUZZLE_PAGES 70 on the 150/151 band edge'
+    verdict: reproduced arithmetically and green live
+    domain: 'fixed(9) + 2*71 - 1 pair = 150 at one TOC page, 151 at two; tests/test_book_interior_face.py green in subset A with no assertion relaxed.'
+  - figure: 'interior page 1 carries 0 non-white pixels'
+    verdict: reproduced on four artefacts
+    domain: 'numpy count of pixels < 255 over page 1 of interior-book1.pdf, page 1 of interior-widegutter.pdf, book1-page1-blank-title.png and widegutter-page1-blank-title.png -- 0 in all four.'
+
+renders:
+  - 'page 1 (both books) -- blank, trim-sized (2550x3300 at 300 dpi in the PDFs, 1275x1650 in the PNGs), 0 non-white pixels. AC-1 confirmed on paper.'
+  - 'page 2 -- the guide''s FIRST half ("How to Solve Nonograms", the basic rule, the three cell states, "start with certainty"), folio "2" in the bottom LEFT corner (dark footer-band columns 153-172 of 2550). A verso. Confirms the half-selection fix as well as the position.'
+  - 'spread-guide-pages-2-and-3.png -- pages 2 and 3 genuinely face each other: 2 is the verso with its folio bottom-left, 3 the recto ("When the Puzzle Gets Harder") with its folio bottom-right (columns 2376-2395). CARD-229''s premise holds.'
+  - 'page 4 (TOC) -- rows read "How to Solve Nonograms .... 2", "Easy / Puzzles 1-3 .... 5", "Solutions .... 9", and the book''s real pages are title 1, guide 2-3, TOC 4, Easy divider 5, puzzles 6-8, SOLUTIONS 9, answers 10-12. Every TOC row points at the page it names. AC-3 confirmed on paper.'
+  - 'page 6 -- the first puzzle page, a verso. The drawing is against the outside margin with the gutter on its right (wide-gutter book: 9.991 mm left vs 19.643 mm right; page 7 is the exact mirror). AC-4 confirmed on paper.'
+  - 'spread-divider-5-and-puzzle-6.png -- the "Easy" divider on 5 and the first puzzle on 6, as the card says. Note for the reader: 5 is a recto and 6 a verso, so these two pages do NOT in fact face each other in the bound book (4|5 and 6|7 are the spreads). The image is labelled "spread-" but the card does not claim they face, so this is a note, not a finding.'
+  - 'CONTRADICTION: the card describes page 6 as having "folio 6 and the QR icon at the bottom left". The QR icon is bottom-left; the FOLIO is centred -- dark columns 1264-1284 of a 2550 px page (centre 1275) -- on page 6 AND on page 7. On a puzzle page the folio does not mirror with parity at all; only the QR group and the grid-size label do. See F-103/F-104.'
+
+root_causes:
+  - id: RC-1
+    title: 'a page-position claim is stated more broadly than any control can check'
+    finding_ids: [F-101, F-102]
+  - id: RC-2
+    title: 'the footer band''s parity behaviour is described as uniform, but a puzzle page''s folio is centred and does not mirror'
+    finding_ids: [F-103, F-104]
+
+findings:
+  - id: F-101
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_export_interior.py
+    line: 941
+    title: 'PARITY_GUTTER_MM states a measured figure that does not reproduce by its own method'
+    description: |-
+      The docstring of PARITY_GUTTER_MM (:941) says: "Measured on this corpus's own first case
+      through :func:`_expected_drawing_left_mm`: 20.4500 mm on the left-hand page against
+      30.4500 mm on the right-hand one, 10.0000 mm apart." The card's Worktree notes repeat the
+      same pair under "Figures re-derived from the production path, at the end".
+
+      Run exactly that method on exactly that input and the answer is different. With
+      rng = random.Random(PARITY_SEED) and the corpus's own first case (tier, then
+      rng.randint(1,3), then _unpairable_puzzle -- the test's own order),
+      _expected_drawing_left_mm(puzzles[0], 6, gutter_mm=20.0, outside_mm=10.0) = 10.0000 and
+      the same call at page 5 = 20.0000. Sweeping all 12 cases and both is_lower values, the
+      pair is 10.0000/20.0000 for nine cases, 16.7000/26.7000 for two (cases 5 and 10) and
+      12.9500/22.9500 for one (case 7). 20.4500/30.4500 occurs nowhere in the corpus. The
+      "10.0000 mm apart" half IS correct and reproduces for every case.
+
+      A second, inconsistent figure survives one docstring away, and it is the one the card
+      claims it caught: test_PropertyTest_BookExport_ParityCountsFromTheTitlePage's own
+      docstring (:1024) still says "the right-hand spec is 5.0 mm away". The card's Worktree
+      notes say "the first draft of PARITY_GUTTER_MM's docstring said the two parities were
+      5.0 mm apart ... The docstring now states 10.0 mm and names the function it was measured
+      through" -- true of PARITY_GUTTER_MM, false of the test it documents. Three figures for
+      one quantity (5.0 apart, 10.0 apart, and an absolute pair implying neither) now sit within
+      85 lines of each other.
+
+      WHAT WOULD MAKE THIS RED, AND WHETHER THAT STATE EXISTS: no test fails, and none can.
+      The test's own assertions are live measurements with a > 4.0 separation floor and a
+      < 0.1 mm tolerance, so they pass on the true 10.0 mm separation and would pass on the
+      claimed one too. That is the violation: ADR-0039/R1 says a claim needs a control that can
+      fail, and these figures have none. The refutation is reproducible in one command, which is
+      what makes the finding refutable rather than a worry.
+    suggestion: |-
+      Either re-measure and restate -- the corpus's first case is 10.0000 mm (left-hand) against
+      20.0000 mm (right-hand), and the corpus maximum is 16.7000/26.7000 -- or narrow both
+      docstrings to the only quantity the test actually controls, the 10.0000 mm separation, and
+      fix ":1024"'s "5.0 mm away" to 10.0 mm. If the absolute pair is worth keeping, derive it in
+      the test (an assert on _expected_drawing_left_mm's value for case 0) so the number has a
+      control that can fail.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 6696
+    title: 'a bare page-position literal survives in interior_stream, in the exact blind spot the card declared covered'
+    description: |-
+      interior_stream computes first_answer_page twice. The second, at :6747, is the derived one
+      this card fixed. The first, at :6696, is still
+
+          first_answer_page = 3 + len(section)
+
+      and is passed straight to self.page_spec(first_answer_page) for
+      _degrade_infeasible_packed_pages. This is the literal 3 the card's own "What to implement"
+      names as "the bug this card is most likely to ship", in the same function as the position it
+      did fix, nine statements earlier.
+
+      NEITHER DECLARED CONTROL CAN SEE IT, and the two were declared to cover each other.
+      TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage enumerates only the
+      outermost expressions containing a GUIDE_PAGE_COUNT load; this expression contains neither
+      constant, so it is not in the enumerated set at all -- the declared honest bound, verbatim.
+      The bound then says that shape "is covered behaviourally by
+      test_each_position_is_counted_from_the_constant_not_a_literal". It is not: that test moves
+      TITLE_PAGE_COUNT and re-reads the written interior, and this value reaches no byte of the
+      output, so the monkeypatch case is green whatever it is. I enumerated the module myself by
+      AST (every assignment to a page-ish name whose value holds an int Constant, every page-ish
+      keyword argument with a literal, every page-ish parameter default, across
+      book_pdf_generator.py, book_kdp.py and book_page_spec.py): this is the only surviving site.
+      Every other position the card names -- produce()'s title and guide ranges, the TOC page
+      number, section_plan's first_page, the real first_answer_page, structural_toc_entries' guide
+      row, interior_page_count's formula, puzzle_pages'/puzzle_section's defaults, and
+      book_kdp.unpaired_interior_page_count (which states no front-matter term of its own and
+      delegates to interior_page_count) -- is derived from the constant. Claim 1 of the review
+      brief therefore holds everywhere except here.
+
+      WHAT WOULD MAKE THIS RED, AND WHETHER THAT STATE EXISTS: it is not red today, and I
+      measured that rather than assumed it. page_frame(page_spec(n)) is parity-invariant in size
+      (2196 x 2994 px on both parities of the wide-gutter book; only the origin moves), and
+      _degrade_infeasible_packed_pages returns the identical plan for every page_spec(1..15) on
+      the baseline corpus. So the value is inert and the site is pre-existing (it reads
+      "3 + len(section)" at the merge base too, 27ca88c7:6625). What is NEW in this card is the
+      claim: TITLE_PAGE_COUNT's own docstring says "Every front-matter position after it counts
+      from here rather than from a literal", and the card's Worktree notes say "every downstream
+      position counts from the constant". Both are false of :6696, and the declared exemption that
+      is supposed to bound them carries no control that can fail and no equality against the sites
+      that exist today -- which is ADR-0039/R3's exact prohibition. The latent risk is real but
+      second-order: the day the degrade pass becomes position- or parity-sensitive, or
+      TITLE_PAGE_COUNT moves again, nothing in the suite reds.
+    suggestion: |-
+      Cheapest correct fix: derive it like its sibling --
+      first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
+      -- or, better, hoist the single derived assignment at :6747 above the degrade pass and delete
+      the duplicate, so the function has one first_answer_page rather than two with different
+      values. If the representative-spec reading is worth keeping, rename the local
+      (representative_page) so it stops reading as a page position, and record it as a named
+      exemption with its own control under ADR-0039/R3. Either way, narrow the "every position"
+      wording in TITLE_PAGE_COUNT's docstring and in the card to what the two guards actually
+      measure.
+    confidence: high
+    source: static
+    violates: ADR-0039/R3
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-206.md
+    line: 281
+    title: 'the render description says the first puzzle page''s folio is bottom-left; the render shows it centred'
+    description: |-
+      The Renders section says of book1-page6-first-puzzle.png and widegutter-page6-first-puzzle.png:
+      "interior page 6, the first puzzle page: folio '6' and the QR icon at the bottom left, the
+      drawing against the outside margin with the gutter on its right."
+
+      Measured off the rendered pages themselves (dark-pixel column clusters in the bottom 14% of
+      each page of interior-book1.pdf, 2550 px wide, centre 1275):
+
+        page 6 (verso): QR icon 150-386, QR text 427-968, FOLIO 1264-1284, grid label 2244-2395
+        page 7 (recto): grid label 153-304, FOLIO 1264-1283, QR text 1581-2123, QR icon 2164-2400
+
+      The folio sits at the page centre on both parities and does not move. Only the QR group and
+      the grid-size label mirror. The QR half of the card's sentence is right; the folio half is
+      not. By contrast the guide page (2), the TOC (4), the dividers (5, 9) and the answer pages
+      (10-12) DO carry an outer-corner folio, which is presumably where the description came from.
+
+      WHAT WOULD MAKE THIS RED: nothing -- it is prose in the evidence record, not an assertion.
+      The underlying AC-4 claim (drawing against the outside margin, parity flipped) is correct
+      and independently verified at 9.991 mm. This is filed because the brief asks for renders
+      that contradict the card, and because the same mis-description recurs in the new fixture
+      (F-104).
+    suggestion: 'Correct the Renders bullet to "the QR icon at the bottom left and the grid-size label at the inner margin; the folio is centred on a puzzle page and does not mirror".'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/fixtures/book_baseline_card206.json
+    line: 1
+    title: 'the new baseline''s changed_pages_note gives a reason that is false for the three puzzle pages'
+    description: |-
+      changed_pages_note reads: "Every other page carries the same drawing it did, and differs only
+      in its footer: its folio reads one number higher and sits in the opposite bottom corner (the
+      folio is drawn in the bottom-OUTER corner, which the parity flip moves), and the grid-size
+      label and the QR group that share that band mirror with it."
+
+      On a puzzle page the folio is centred and does not move at all (F-103's measurement: columns
+      1264-1284 of 2550 on both page 6 and page 7). The note's parenthetical is therefore false for
+      the three puzzle pages of the baseline book, and for the two-up page. The note's CONCLUSION
+      -- that every page differs and the recording has no control page -- is still correct: those
+      pages differ because the folio DIGIT changes and because the grid-size label and the QR group
+      do mirror. Only the stated mechanism is wrong, and the same sentence appears in
+      TestBookPdfMemory_NonDrawingPagesAreByteIdentical's own LIVE_OFFSET comment
+      (tests/test_book_pdf_memory.py, "because a page's folio sits in its bottom outer corner, the
+      shift also mirrors every footer mark").
+
+      WHAT WOULD MAKE THIS RED: nothing. This is the explanatory half of a fixture whose
+      assertions (now[n-1+LIVE_OFFSET] != recorded[n-1]) are live and do pass. The note matters
+      because it is the only record of WHY this baseline has no control page, and a later card will
+      read it rather than re-measure.
+    suggestion: 'Reword to: the folio digit changes on every page, the folio POSITION mirrors on the guide, TOC, divider and answer pages (bottom-outer) but is centred and fixed on puzzle pages, and the grid-size label and QR group mirror on every page that has them. Same correction in the LIVE_OFFSET comment.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-105
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_book_pdf_memory.py
+    line: 3043
+    title: 'the shifted-content failure message names a page number the comparison no longer uses'
+    description: |-
+      TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne._reference now computes
+      old_number = entry.page_number - plan.toc_page_count - TITLE_PAGE_COUNT, i.e. page_number - 2
+      on the baseline book. The class docstring says so explicitly and explains why (an odd shift
+      would mirror the footer marks and break the whole-page comparison) -- that reasoning is sound
+      and the parity split between this class and ContentAboveTheFooterBandIsUnchanged is the right
+      design.
+
+      But the failure message the test prints was not moved with it:
+
+          f"interior page {entry.page_number} does not match the content "
+          f"its pre-CARD-201 position ({entry.page_number - 1}) held"
+
+      The reference is built at page_number - 2, not page_number - 1, and it is CARD-201's own
+      shipped layout, not the pre-CARD-201 one. The class NAME ("ShiftedByOne") is wrong for the
+      same reason; the docstring owns that in writing ("this class's reference is one page later
+      than its name says"), so the name alone is a disclosed debt rather than a defect. The
+      message is not disclosed anywhere and is the one line a future card reads when this class
+      reds.
+
+      WHAT WOULD MAKE THIS RED: nothing until the class fails, which is exactly when the wrong
+      number is read. On the substantive question the brief asks -- is the shifted comparison still
+      comparing what its name claims? -- the answer is no, but it is still comparing something
+      meaningful and falsifiable: two same-parity positions of unedited drawing functions, with
+      test_the_comparison_has_teeth as its live control (green in subset B).
+    suggestion: 'Interpolate the number actually used -- f"its earlier position ({entry.page_number - plan.toc_page_count - TITLE_PAGE_COUNT}) held" -- and say "CARD-201''s shipped layout" rather than "pre-CARD-201". Renaming the class is optional and would churn three docstrings that cross-reference it.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_export_interior.py
+    line: 1067
+    title: 'AC-4''s "was right-hand before this card" clause is asserted as a constant'
+    description: |-
+      test_PropertyTest_BookExport_ParityCountsFromTheTitlePage sets before_this_card = 5 (from the
+      written-out first_puzzle_page = 6) and then asserts, inside the per-case loop:
+
+          assert page_is_right_hand(before_this_card), label
+
+      page_is_right_hand is a pure function of an integer and 5 is a literal, so this arm passes
+      for all 12 cases regardless of anything the book does. It is a tautological assertion in
+      Step 8f's sense: it cannot distinguish a book whose first puzzle page was right-hand before
+      the card from one that was not.
+
+      The AC's premise is nonetheless carried, by the two arms beside it:
+      decided.pages[0].page_number == first_puzzle_page - 1 (the divider really is on 5, so the
+      first puzzle really is on 6) and len(decided.pages) == 1 + len(puzzles) (nothing paired, so
+      the page measured is a single-puzzle page). Both are live and both can fail. So the clause is
+      covered -- but by its neighbours, not by the assertion that reads as its statement.
+
+      On the brief's question "is 12 enough": the corpus is seeded, the floor is asserted
+      (seen["measured"] == PARITY_CASES >= 12) and all three tiers are required to appear, which is
+      this project's declared convention. 12 is thin against the project's own ~100-1000 guidance,
+      but every case here exercises the same single structural path (1 divider, n unpairable
+      puzzles, 1 TOC page), so extra cases buy little; the useful widening would be a book with a
+      second level, where the first puzzle page moves.
+    suggestion: 'Either drop the constant assert, or replace it with the fact it is standing in for -- e.g. assert page_is_right_hand(decided.pages[0].page_number) (the divider on 5 is the recto the first puzzle used to be) -- so the arm reads a value the book produced.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope_observations:
+  - 'src/nonogram/admin/app.py:851 -- the PageCounts docstring still enumerates the interior as "the guide page, the level dividers, the one- and two-up puzzle pages, the SOLUTIONS divider and the packed answer-key pages". It already omitted the TOC (CARD-200) and the 2-page guide (CARD-201) before this card; CARD-206 makes it one term staler. app.py is a co-change peer (13 of this file''s last 60 commits) absent from the diff -- correctly so, since no code change is owed. Doc only.'
+  - 'TestBookPdfMemory_NonDrawingPagesAreByteIdentical''s live byte-identity comparisons now rest on CARD-206''s own forward baseline read at the live index, which is close to self-matching for this card. The teeth are in the != assertions against the CARD-222/221/205/200 recordings, which do fire. The implementer declares this in the class docstring and in the card. Accepted as a declared bound, not filed.'
+  - 'spread-divider-5-and-puzzle-6.png places a recto (5) left of a verso (6); those two pages do not face each other in the bound book. The card does not claim they do -- unlike the guide spread, where it does and where the claim checks out -- so this is a naming note only.'
+  - 'The orchestrator''s build-gate repair (12de4ac2) is sound and I re-derived its class claim: _interior_page_count is used at tests/test_puzzle_edit_routes.py:1089, 1094, 1122 and 1132; 1089/1094 feed both the delta and the pin at :1101, and 1122/1132 feed a delta. :1101 is indeed the only absolute pin on an interior count in that file. The test passes on this head (exit 0, 10 passed) and the delta assertion above it (after - before == announced == 1) is untouched, so the pin moved without the claim moving. No finding.'
+  - 'Confirmed agreement with the scope gate: 3a3dfc8f is 27 files, all 6 declared paths hit, no unpredicted src/ file touched, src/nonogram/export/layout.py absent. I did not re-measure the twelve-sibling table and have no disagreement with it.'
+  - 'EC-034''s stale check name and AC-274/AC-275''s pre-CARD-200/201 page numbers: agreed, architect station, not this card. Not scored.'
