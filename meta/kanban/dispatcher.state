@@ -18,8 +18,15 @@ max_concurrent_override: 2
 # the rebase step (7-region semantic conflict with main over _ADAPTER_COUNT; see its
 # card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
 # at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
-active: [CARD-262, CARD-270]
-escalated: []
+active: [CARD-270]
+escalated:
+  - id: CARD-262
+    reason: "⚠ improvement stalled — Δscore -0.5 (5.7 -> 5.2), Δcrit+imp -1 (2 -> 3). Cycle 2 found the door axis STILL open: fix 1 replaced default-allow with a ONE-STEP syntactic anchor, so appending one assignment buys silence on any shape the arms refuse. The plainest counterexample crosses the card's OWN rows W1 and W9. The card asserts per arm that each catches what the other misses, but never the complement -- no shape escapes BOTH -- and the complement is false."
+    station: implementation
+    route: "owner decision, 3 routes on the card: (1) /kanban redo CARD-262 carrying the family sentence as a Prior-attempt constraint [the stalled check's default] (2) DECLARE the axis as a fifth CALLEE_EXEMPTIONS member with cost + MEASURED_BLIND_SPOTS + narrowed docstrings [lands the card] (3) continue into cycle 3/3 with the reviewer's transitive-fixed-point prescription [no cycle left to certify the fix]"
+    at: 2026-10-22T18:40:00Z
+    evidence: "meta/review/20261022T173000Z-CARD-262-cycle2.yml (30 keys, yaml.safe_load verified). STALLED CHECK is a conjunction and both arms are true, so this escalation is mandatory. The family-regression counter did NOT fire and must not be read as having fired: within-card streak is 1 (cycle 1 = implementation's, cycle 2 = fix 1's). But the family itself has gated FOUR times across the slice chain (CARD-206 c2, c3, CARD-262 c1, c2), each time moving exactly one level of indirection. src/ diff still empty -- no production risk, this is entirely about what the guard sees."
+    slot: "freed slot left EMPTY deliberately: every queued wave card overlaps CARD-270 on admin.css/tokens.css above max_overlap (271: 0.50, 267: 0.50, 269: 0.75, 268: 0.75) and CARD-264's gate needs a FULL suite, which must not run beside a live sibling."
 # CARD-264's escalation CLOSED 2026-10-22 by owner decision (option 1 of the three on its card):
 # fold the _ADAPTER_COUNT guard into CARD-265, narrow CARD-264 to its other six files. Merge commit
 # 4f7263fb resolved tests/test_cli.py to main's version, verified BYTE-IDENTICAL, so main's measured

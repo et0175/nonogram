@@ -1,6 +1,6 @@
 # CARD-262: The page-position guard's door axis is open; close it or name every exemption with a control
 
-**Status:** in_progress
+**Status:** blocked
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -15,12 +15,12 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py, src/nonogram/admin/book_pdf_generator.py
-**Review score:** 5.7 (cycle 1) → fix 1 `b88621d8` (axis closed, 13/13 plants refuse) → cycle 2 pending
+**Review score:** 5.7 (cycle 1) → fix 1 `b88621d8` → **5.2 (cycle 2) — ⚠ improvement stalled, escalated**
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — implementation: ⚠ improvement stalled (Δscore −0.5, Δcrit+imp −1); the door axis is still open, one level of indirection further in
 
 ## Why — the same claim was made and broken three times, each by the fix for the last
 
@@ -1184,3 +1184,103 @@ main's 41 commits touch **neither** of this card's files — not
 review base is sound, the guard's `816`-call and `inside == 17` equalities are measured against the same
 generator text they were derived from, and the rebase belongs where the procedure puts it: the `done`
 merge gate, with the full suite. Rebasing now would have risked the worktree's note state for no signal.
+
+
+---
+
+### [Review 2/3] 5.2 — the door axis is STILL open, and the hole moved exactly one level of indirection
+
+Report: `meta/review/20261022T173000Z-CARD-262-cycle2.yml` (30 keys, `yaml.safe_load` verified).
+Arithmetic: `10 − 3.0 (F-501 Critical) − 1.0 (F-502) − 1.0 (F-503) − 0.5 (minor cluster) + 0.7 credit = 5.2`.
+One Critical, two Important → **does not pass** (gate is ≥ 8 with zero of each).
+
+**F-501 (Critical).** Fix 1 inverted the polarity for real — 760 of 816 calls refuse with nothing
+exempted, measured before the shape was chosen — but what replaced default-allow is a **one-step
+syntactic anchor**, not a derivation of identity. `"anchored"` means only that *some* binding occurrence
+of that one name holds a syntactic `Name`/`Attribute`; the walk never follows the alias. So appending
+one assignment buys silence on any shape the arms refuse. The plainest counterexample is **this card's
+own row W1 crossed with its own row W9**, no scaffolding:
+
+```python
+_x = getattr(self, "page_" + "spec"); _d = _x
+_d(3 + len(section))
+first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+```
+
+W1 alone refuses. W9 alone refuses. **Their cross is silent** — `refusals == 0`, `len(sites) == 23`,
+vocabulary identical, `_bare_literals == []`, all 20 guard-class tests green. Non-vacuity was executed,
+not argued: six runnable plants called a recording `page_spec` with **5**, and against the real
+production function the aliased form returns a `PageSpec` byte-equal to `book_page_spec(None, 5)`,
+`parity=ODD`. With `callee_exemptions=()` the module yields 761 refusals and **not one names the planted
+callee** — so the pass is not an exemption: it is ungated, unnamed and uncosted.
+
+**The card asserts the wrong half.** It proves per arm that *"each arm catches a shape the other
+misses"* (17 rows / 2 rows, both re-derived and correct). It never asserts the **complement** — that no
+shape escapes **both** — and the complement is false, derivable by crossing two rows of its own table.
+
+**F-502 (Important).** None of the four exemption classes' must-not-absorb controls can fail on its own
+class: each is refused by an *earlier* mechanism, so the control certifies that mechanism, not the
+exemption. Measured by two non-no-op line-count-preserving mutants (MB, MC) where the must-not-absorb
+test **passed** while the cost test went red. MD — deleting fix 1's own own-instance surface rule —
+reds two tests, which is both credit for that rule and the proof of the mis-attribution.
+
+**F-503 (Important).** Two hard-coded recursion caps fail **open** with no control (`depth > 4 → False`
+and `depth > 4 → True`). Five aliases of `self` plus a `setattr`-installed door is silent; the same
+plant with four aliases refuses. That is a caught-WITH / missed-WITHOUT pair for the cap itself, and
+nothing in the suite contains it. The right pattern is already in this walk 500 lines earlier: the
+vocabulary fixed point **raises** when its bound is reached.
+
+Minors: `test_the_declared_blind_spots_are_still_exactly_these` names a completeness it cannot check
+(F-504); `IDIOMS_NO_ARM_BRANCHES_ON` is **inert** — `isdisjoint` passes for any value including `()`
+(F-505); the *"second, independent walk"* is the **same expression** as the one it checks, confirmed by
+unparsing both (F-506) — the 816 figure is right, the independence claim is not; and bare "cycle N"
+references are ambiguous between this card's cycles and CARD-206's (F-507).
+
+**Contract:** ADR-0039/R2 **VIOLATED** (three ungated passes; seven measured shapes reach the real door
+silently, none a named R3 exemption). R1 and R3 **PARTIAL**. The other 11 rules hold. G-1..G-6 all hold —
+`src/` diff still empty, so there is still no production risk here; this is entirely about what the
+guard sees.
+
+**Credit where it is due (+0.7, more than cycle 1's +0.5):** the polarity genuinely inverted; the cost
+was measured *before* the shape was chosen with 760 published as the headline rather than buried; all
+ten committed figures reproduce, two by genuinely independent methods of the reviewer's own; the owed
+per-assertion attribution was produced with the **committed** instrument, domain stated in full, and the
+eight still-owed mutants **named** rather than inferred; five of cycle 1's six minors are closed as
+behaviour rather than prose; and both falsified SEMANTICS clauses are still visible beside the pre-code
+block. The reviewer also declared a **no-op mutant against itself** (ME) rather than booking it as a
+survivor — the exact trap this board committed an instrument for.
+
+### [Review 2/3] ⚠ improvement stalled — Δscore: -0.5, Δcrit+imp: -1
+
+**This escalation is mandatory, not a judgement.** The STALLED CHECK is a conjunction and both arms are
+true: (a) `score_improvement = 5.2 − 5.7 = −0.5`, which is `< min_improvement` (0.5); (b)
+`findings_reduction = 2 − 3 = −1`, which is `<= 0`. The loop neither gained score nor shed gating
+findings. Changes are NOT committed (cycle 2 produced no commit; the branch is still `b88621d8`).
+
+**Two triggers, and only one of them was the reviewer's to evaluate.** The reviewer's report asks that
+the family counter not escalate, and it is **right**: the within-card family-regression streak is 1, not
+2 (cycle 1's findings were the implementation's, cycle 2's Critical is fix 1's), and that detector needs
+≥ 2. But the family counter and the stalled check are **independent** triggers, and the stalled check is
+the orchestrator's. It fires.
+
+**What makes this more than a stalled number — the reviewer's own structural reading.** The family
+*"the guard keeps claiming a reach it has not measured"* has now gated **four times** across the slice
+chain — CARD-206 cycle 2, CARD-206 cycle 3, CARD-262 cycle 1, CARD-262 cycle 2 — and each time the hole
+moved exactly **one level of indirection**: a list of shapes → a storage → a quantifier over an empty
+set → one step of alias resolution. A fix judged on the instance will produce the next instance. The
+next attempt has to resolve the **level**: anchoring as a **fixed point** over the table the arm already
+builds, with cycles and the bound **REFUSED rather than capped**, and the refusal cost re-measured the
+way 760 → 0 was measured — or the axis **declared** as a fifth `CALLEE_EXEMPTIONS` member with its own
+cost step, the plants in `MEASURED_BLIND_SPOTS` asserted silent, and both docstrings narrowed to
+*"closed on callees whose own binding this walk can anchor in one step"*.
+
+**Slot handling.** This card leaves `dispatcher.state → active`. The freed slot stays **empty** rather
+than being filled, and that is the procedure's instruction, not an omission: every queued wave card
+overlaps CARD-270 on `admin.css`/`tokens.css` above `max_overlap` (CARD-271 0.50, CARD-267 0.50,
+CARD-269 0.75, CARD-268 0.75), and CARD-264's gate needs a **full** suite, which must not run beside a
+live sibling. *"If every remaining wave card is conflict-skipped, run with fewer than max_concurrent
+slots — serialization is the point, do not force-start."*
+
+**Worktree and branch are KEPT.** Three commits, a passing impact gate, and two review reports, both
+synced into the main repo. Nothing was committed by this cycle and the target file is byte-identical
+after all of the reviewer's mutation (`881bc2e2…` before and after, `git diff HEAD -- tests/` empty).
