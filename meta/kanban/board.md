@@ -90,6 +90,11 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 2)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
+- **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(unscheduled, quick — owner decision 2026-10-22)_
+- **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(unscheduled, quick — owner decision 2026-10-22)_
+- **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(unscheduled, quick — owner decision 2026-10-22)_
+- **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions  _(unscheduled, quick — owner bug report 2026-10-22)_
+- **CARD-271** P2 · Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides  _(unscheduled, quick — owner bug report 2026-10-22)_
 
 ## In Progress
 - **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
