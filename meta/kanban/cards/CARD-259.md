@@ -15,7 +15,7 @@
 **Wave:** 52 (dispatched 2026-10-21; queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py, tests/test_kill_matrix.py, tests/README.md, tests/helpers/undefined_table_report.py  _(corrected 2026-10-22 from three files — cycle-1 F-107; `test_kill_matrix.py` and `README.md` were declared `SCOPE+` by the implementer, and `undefined_table_report.py` by fix round 1 — its module docstring names CARD-252 and the derived deny-default fails on a text with no pointer)_
-**Review score:** 8.5 (cycle 3/3 — ✓ review passed; **AC/EC/G gate does NOT pass: AC-2 ⚠ partial**)
+**Review score:** 8.5 (cycle 3/3 — ✓ review passed; AC/EC/G gate ✓ 10 of 10 after the owner's AC-2 narrowing)
 **Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
@@ -64,10 +64,19 @@ untidy.
   this card**. No clause is lost: split the retired copies and show every one survives somewhere, as
   CARD-257's AC-1 did, and **ship the survival table** — a count without names is not evidence (cycle-1
   F-102).
-- **AC-2** (the control) *(amended 2026-10-22)* *Given* the derived set of texts, *then* one test holds
-  that **every** text in it agrees on the mechanism's parameters, **derived from the code**, with every
-  membership test word-bounded and a **per-name, per-text** kill matrix over the whole derived set — not
-  one mutant that happens to pick a name without the hazard.
+- **AC-2** (the control) *(amended 2026-10-22; **narrowed 2026-10-22 at the AC/EC/G gate** — owner
+  decision, see `[AC-2 narrowed]`)* *Given* the derived set of texts, *then* one test holds that **every
+  text that enumerates the mechanism** — the set `stated_in ∪ {texts naming more than one of
+  `_init_engine`'s globals}`, which is **3** of the 11 derived texts — agrees on the mechanism's
+  parameters, **derived from the code**, with every membership test word-bounded and a **per-name,
+  per-text** kill matrix over *that* set: **9 cells, 3 names × 3 texts**, not one mutant that happens to
+  pick a name without the hazard. The other **8** derived texts are held to the **pointer** obligation
+  only, which AC-1 enforces over all 11.
+
+  **Declared bound, and it is the reason this clause was narrowed rather than met:** a derived text that
+  the parameters arms do not hold may state the mechanism's spellings **wrongly** and nothing reds. The
+  gate demonstrated it — `Plant L` wrote a wrong spelling into `undefined_table_report.py`'s module
+  docstring, one line for one line, pointer retained, and the suite stayed at **exit 0, 18 passed**.
 - **AC-3** *Given* the cuts, *then* `tests/test_db_engine_lifecycle.py`'s per-assert kill matrices are
   unchanged for every arm, measured with the line-count-preserving instrument and **any-RED aggregation**.
 - **AC-4** (guard) *Given* all cuts, *then* the tree sweep is unchanged — 9 sites, 6 pairs, dict-equal,
@@ -1811,3 +1820,75 @@ discriminating negative control proving the refusal is not a blanket deny.
    they are observations, not instrument-only attributions.
 7. Rows 13 and 22 carry the **same** surviving phrase with the same home, so that phrase is asserted
    unique twice — harmless, noted so the next reader does not read 22 rows as 22 distinct phrases.
+
+---
+
+### [AC-2 narrowed] Owner decision — the clause now says what is enforced, and the bound says what is not
+
+The AC/EC/G gate failed AC-2 because its wording — **mine**, from the `## Amendment 2026-10-22` — said
+*"every text in [the derived set]"* and *"a kill matrix over the whole derived set"*, while the shipped
+arms hold **3 of 11**. Two routes were put to the owner and the owner chose to **narrow the clause to
+the measurement**.
+
+**Why narrowing is the honest route and not goalpost-moving — the measurement is on the record.** The
+gate measured that extending a parameters arm to the other 8 derived texts **reds immediately on 8 of
+them**, several of which name no global at all. So AC-2 as I wrote it is **unsatisfiable without
+weakening the arms**, and weakening a real control into a broader but emptier one is the defect this
+card exists to remove. The narrowed clause asserts strictly less and asserts it truly; the bound beside
+it states exactly what is no longer claimed, with the gate's own `Plant L` as its evidence.
+
+**AC-2 now ✓ holds on evidence already gathered, not on a fresh assertion.** Everything the narrowed
+clause requires was measured by the gate before the narrowing, which is what makes this a narrowing
+rather than a pass granted after the fact:
+- the filter is exactly those 3 texts — the gate **recomputed `stated_in ∪ {>1 global}` independently**
+  rather than reading the implementation's answer;
+- all **9** cells kill: 6 under the committed instrument (`Pass.RECORDING`, ANY-RED, child
+  instrumentation off, denominator 78 assert nodes, SHIPPED 0 FAIL of 10 reached) **and again under
+  `Pass.RERAISING` at pytest exit 1** — so they are plain-run *observations*, not instrument-only
+  attributions — plus 3 conftest cells in the plain-run domain, each scoped to
+  `_rebuild_public_schema`'s docstring span by AST offsets and each naming
+  `tests/conftest.py:463 _rebuild_public_schema`;
+- the word-boundary half: the gate re-derived the predicate's reach itself — **47** matches shipped,
+  **47** fully word-bounded, **0** occurrences of the unbounded shape — so the right boundary being
+  digit-only is a measured-zero today, declared rather than claimed sound.
+
+**What I got wrong, stated plainly.** I amended an acceptance criterion to describe an ambition rather
+than a mechanism, and did not check it was reachable before writing it into the definition of done. The
+gate caught it on its first run, on the one station deliberately kept blind to what review had
+certified. Two of this card's three generations of findings have now been claims outrunning their
+enforcement, and the third was mine.
+
+**Still owed, and carded rather than absorbed:** ADR-0039/R2 is satisfied one layer below where the ADR
+puts it — the set is derived but the *predicate* admitting a text to it is hand-written, so a
+restatement that never names the card is a silent pass rather than a failure or a named R3 exemption,
+with a concrete instance at `test_db_engine_lifecycle.py:513`. That is a finding about the design, not
+about this clause, and it is the first line of the next card.
+
+---
+
+### [AC/EC check] All criteria/constraints ✓ (evidence)
+
+**10 of 10** after the owner's AC-2 narrowing. Each item was certified against a **planted failure**, not
+against the implementation's report of success, by a station deliberately kept blind to what the review
+had certified. Every plant line-count-preserving; every file restored and verified with `diff -q` **and**
+`shasum -a 256`; final `git status --porcelain` byte-identical to the station's opening snapshot.
+
+| item | verdict | the state in which its control fails |
+|---|---|---|
+| AC-1 | ✓ | three plants: a retired clause's named home (`:1881`), a figure in two texts (`:1888`, `assert 2 == 1`), a pointerless fifth text (`:1160`, named by path/line/qualname) |
+| AC-2 *(narrowed)* | ✓ | 9 cells over 3 texts, all killing — 6 under RECORDING **and** RERAISING, 3 conftest cells plain-run; filter recomputed independently; bound declared with `Plant L` as evidence |
+| AC-3 | ✓ | the 4-arm × 14-mutant grid reproduced cell for cell by the gate's own `ast.walk`, with **one plant per arm so no arm certifies itself**, plus a stale-anchor-literal plant |
+| AC-4 | ✓ | tree sweep re-derived through a **second implementation** (6 pairs / 9 sites / zero elsewhere) and planted twice; the AST hash derived from AC-4's prose, and `Plant H` (one `global` statement edited) moves it to 9472 |
+| AC-5 | ✓ | both states in **both** authority roots, plus a control on the control (inverting the deny predicate reds two tests) and the silent-pass branch planted where fix 2's own mutant had mis-fired |
+| G-1 | ✓ | per-body AST hashes: exactly one pre-existing body's code changed in each of the two test files; `Plant H` is the control |
+| G-2 | ✓ | `Plant A` reds a named home, `Plant B` reds the exactly-one-text arm |
+| G-3 | ✓ | behavioural plant **declined on safety** (it could have reached the main checkout's board lock while a sibling review was live); verified by `conftest.py`'s byte-identical docstring-stripped AST plus **six** firing refusal probes with a discriminating negative control |
+| G-4 | ✓ | `reportlab` inserted into `project.dependencies` → the baseline test reds |
+| G-5 | ✓ | a U+2022 typed into a docstring this card rewrote → **both** halves of ADR-0036/R4 red |
+
+**Declared bounds, carried forward rather than resolved:** AC-2's 8 unheld texts (above); AC-3's
+"unchanged" is vacuous for the 43 pre-existing arms that never had a matrix, and non-vacuous cell-for-cell
+for the four that did; AC-4's hash equality is a card-time derivation with no committed assertion, by its
+own wording, and the standing half is the tree sweep; G-1's per-body split has no committed test and was
+derived structurally; G-3's second clause rests on structure plus probes rather than a plant; the two
+`db_required` tests skip, so that class's AC-1/AC-2 are unevidenced here as in every cycle.
