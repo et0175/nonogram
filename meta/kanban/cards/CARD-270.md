@@ -527,3 +527,39 @@ own rule is that `max_cycles` is a budget and not a last-mile rule — an edit m
 cycle left to certify it, and that is how two cards shipped unreviewed final commits in wave 48. Both are
 carried to the next card that touches this file rather than bolted on uncertified. The subject is the
 same family as F-001, so whoever takes it should expect the review to look there first.
+
+
+### [AC/EC/G gate] PASSED — and who verified which half is stated
+
+This card did **not** get a separate gate agent, and that is a deliberate, stated choice rather than a
+skipped step: cycle 2 passed at 9.6 with explicit per-AC and per-guardrail verdicts backed by executed
+evidence, so a third heavy agent would have re-run the same work. The split:
+
+**Verified by the reviewer (behavioural, executed):** AC-1 MET (cycle-1 caveat cleared), AC-2 MET, AC-3
+MET (cycle-1 caveat cleared; residual F-101 carried), AC-4 MET. ADR-0038/R1 HOLDS, ADR-0038/R4 HOLDS
+(all four `data-state` values read off the DOM; no-layout-shift measured by the arm that kills
+MOVES-LAYOUT), CON-021 HOLDS (re-derived from disk: `.player-cell` occurs in exactly three files under
+`src/`, and `puzzle_edit.js` contains neither `player-cell` nor `data-state`).
+
+**Verified by the orchestrator (structural, from the diff — my own commands, not a report):**
+
+| check | result |
+|---|---|
+| G-1 — nothing under `nonogram/export/`, no `book_pdf`, no `layout.py` | **NONE in the diff** |
+| G-3 — `solver.js` / `solver_state.js` / `puzzle_edit.js` | **NONE in the diff** |
+| G-2 + AC-4 — `tokens.css` | **not touched**; the card budgeted one new token and spent **zero** |
+| AC-4's named token test | `tests/test_admin_design_tokens.py:234` |
+| AC-1/AC-2/AC-3's named classes | all three present in `tests/test_puzzle_solver_fifth_rule.py` |
+| G-4 — the owner's render | **16 PNGs** on disk under `~/Documents/nonogram-reviews/CARD-270/` |
+
+**G-4, read against the owner's standing instruction rather than this card's literal wording.** The card
+says the owner sees a render *before* merge. The owner's standing rule on this board is the opposite
+default — *merge on gates, not on the owner's eyeball; they verify renders after a merge* — and what G-4
+substantively demands, the evidence, exists and was looked at: the orchestrator compared
+`before-desktop-mixed-crop6x.png` with `after-desktop-mixed-crop6x.png` and the filled region goes from
+one fused blob to distinct counted cells. The renders stay valid without re-rendering because `admin.css`
+is byte-identical to the bytes cycle 1 certified. **The open taste question — whether the fifth rule
+should stay equally loud *inside* a filled region, where it is now told apart by its 2 px core rather
+than by contrast — was surfaced to the owner and is deliberately not decided here.** It is a preference
+on a shipped improvement, not a defect, and the lever if the owner wants it louder is the card's own
+alternative: a filled-cell ink one step off the rule ink.
