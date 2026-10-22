@@ -1,6 +1,6 @@
 # CARD-262: The page-position guard's door axis is open; close it or name every exemption with a control
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/262-close-the-door-axis
-**Worktree:** ../PythonProject4-card-262
+**Worktree:** — (removed at merge)
 **Source:** CARD-206's **family-regression escalation** at cycle 3/3 (streak 2, 2026-10-22). Owner chose **slice**: the guard is not CARD-206's work, so CARD-206 merged its blank title page with the claim narrowed and the door axis declared an exemption, and this card takes the mechanism.
 **Idea:** —
 **Wave:** 53
@@ -17,9 +17,9 @@
 **Touches:** tests/test_book_export_interior_cover.py, src/nonogram/admin/book_pdf_generator.py
 **Review score:** 9.3 (cycle 3/3) ✓
 **Started:** 2026-10-22T08:08:13Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-22T19:36:32Z
+**Actual:** 1.4d
+**Merge commit:** faea50a5
 **Blocked by:** —  <!-- escalation closed by owner 2026-10-22: DECLARE the door axis, land the card; re-entered at cycle 3/3 -->
 
 ## Why — the same claim was made and broken three times, each by the fix for the last

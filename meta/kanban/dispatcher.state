@@ -18,8 +18,18 @@ max_concurrent_override: 2
 # the rebase step (7-region semantic conflict with main over _ADAPTER_COUNT; see its
 # card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
 # at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
-active: [CARD-270, CARD-262]
+active: [CARD-270]
 escalated: []
+merged_wave_54:
+  - id: CARD-262
+    merge_commit: faea50a5
+    at: 2026-10-22T19:36:32Z
+    review_score: "5.7 (c1) -> 5.2 (c2, stalled, escalated) -> owner route: DECLARE -> AC/EC/G gate PASSED"
+    cycles: "3/3 spent; no review cycle remained to certify the final fix, stated on the card rather than discovered"
+    actual: 1.4d
+    estimate: 1d
+    gate: "full suite 8864 executed, 8837 passed, 27 skipped, 0 failed, 0 error, exit 0 (27 skips are the standing DB-mode skips, no nonogram_test database)"
+    closes: "The door axis is DECLARED, not closed: the guard's polarity inverted (760 of 816 refuse with nothing exempted) and the remaining one-step-anchor hole is a named exemption with 7 plants asserted SILENT, so closing it reds the table. Follow-up CARD-276 carries the transitive fixed point, three declared residues, six unfired matrix cells and two prose defects."
 # CARD-262's escalation CLOSED 2026-10-22 by owner decision: DECLARE the door axis, land the card.
 # Not "close it" -- the transitive fixed point becomes a follow-up card with a fresh cycle budget.
 # Re-entered at cycle 3/3 (the last), doing: the one-step-anchor class as a fifth CALLEE_EXEMPTIONS
