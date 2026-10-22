@@ -2256,8 +2256,14 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     #: the STORED recordings, not an index into this book's own export.**
     #: That card reserves the blank title / copyright page as interior page 1,
     #: so the page CARD-222 recorded as *n* is exported as *n +
-    #: TITLE_PAGE_COUNT* now — and because a page's folio sits in its bottom
-    #: **outer** corner, the shift also mirrors every footer mark. Every one
+    #: TITLE_PAGE_COUNT* now — and because the marks that share a page's
+    #: footer band sit against its **outer** and **inner** edges, the shift
+    #: mirrors them as well as changing the folio's digits. (Measured on the
+    #: render, review cycle 1 F-103/F-104: on a page that carries the frame
+    #: the folio itself is **centred** and does not move — it is the QR group
+    #: and the grid-size label that change sides. On the guide, TOC, divider
+    #: and answer pages, which carry no frame, the folio is the outer-corner
+    #: mark and does mirror.) Every one
     #: of this class's live pages therefore differs from CARD-222's recording,
     #: and the forward reference each group owes its byte-identity to is
     #: CARD-206's own (:meth:`card206_baseline`), read at the live index. The
@@ -2985,11 +2991,14 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
         **CARD-206 (SCOPE+) moves which historical position this is, and
         says why.** This class compares a **whole page**, footer included, so
         it only works between two positions of the *same parity*: a page's
-        folio sits in its bottom-OUTER corner and its grid-size label against
-        its inner margin, so an odd shift mirrors both and
-        :func:`_ink_bbox_crop` then normalises two crops of different widths
-        (measured while making this change: 1186 px against 1191 px on the
-        two-up page). Before this card the shift was ``1 + toc_page_count``
+        grid-size label sits against its inner margin and its QR group in the
+        footer's outer corner (CARD-223), so an odd shift puts both of them on
+        the other side of the page — a difference this comparison is not about
+        and should not be asked to absorb. (A pixel figure for two crops "of
+        different widths" stood here and is gone: review cycle 1's F-101 class
+        sweep re-derived it and it reproduced in no domain. The measurement is
+        in CARD-206's fix-round-1 notes, where a figure no assertion reads
+        belongs.) Before this card the shift was ``1 + toc_page_count``
         = 2, even by luck. Subtracting CARD-206's own ``TITLE_PAGE_COUNT``
         as well as CARD-201's "-1" would make it 3 — odd — so what is
         subtracted here is ``toc_page_count + TITLE_PAGE_COUNT`` = 2 instead:
@@ -3038,20 +3047,29 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
         for entry in plan.pages:
             new_page = exported[entry.page_number - 1]
             reference = self._reference(generator, plan, entry)
+            # The number interpolated is the one `_reference` actually built
+            # at, and the layout it names is the one that position belongs to
+            # (review cycle 1, F-105): this message said "pre-CARD-201" and
+            # `page_number - 1` while the reference has been two pages back,
+            # on CARD-201's own shipped layout, since this card re-pointed it.
+            old_number = entry.page_number - plan.toc_page_count - TITLE_PAGE_COUNT
             assert _matches_shifted_content(_ink_bbox_crop(new_page), _ink_bbox_crop(reference)), (
                 f"interior page {entry.page_number} does not match the content "
-                f"its pre-CARD-201 position ({entry.page_number - 1}) held"
+                f"its position under CARD-201's shipped layout ({old_number}) "
+                "held"
             )
             checked += 1
         assert checked == len(plan.pages) >= 5, checked
 
     def test_the_solutions_divider_matches_its_pre_card_content(self, generator, plan, exported):
-        # first_answer_page = 1 + GUIDE_PAGE_COUNT + toc_page_count +
-        # len(section) + 1 (book_pdf_generator.interior_stream); this
+        # first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT +
+        # toc_page_count + len(section) + 1 (book_pdf_generator.interior_stream,
+        # which since review cycle 1's F-102 computes it exactly once); this
         # divider is one page before it. CARD-200 (SCOPE+): `toc_page_count`
-        # is this card's own new term; subtracted again (along with
-        # CARD-201's own "-1") to still land the reference on the
-        # pre-CARD-201 position.
+        # is that card's own new term, and CARD-206's TITLE_PAGE_COUNT is
+        # this one's; both are subtracted again below to land the reference
+        # on CARD-201's own shipped layout, the same even shift this class's
+        # `_reference` uses and for the same parity reason.
         new_number = 1 + TITLE_PAGE_COUNT + 2 + plan.toc_page_count + len(plan.pages)
         reference = generator.create_divider_page(new_number - plan.toc_page_count - TITLE_PAGE_COUNT, "SOLUTIONS")
         assert _matches_shifted_content(

@@ -936,12 +936,22 @@ PARITY_SEED = 206
 #: its puzzle **10.0 mm** further right than the same puzzle on a left-hand
 #: page: parity moves the usable area sideways and never changes its size, so
 #: FR-032's centring leaves each side the same spare and the whole
-#: ``gutter - outside`` difference lands on the drawing's left edge. Measured
-#: on this corpus's own first case through
-#: :func:`_expected_drawing_left_mm`: 20.4500 mm on the left-hand page
-#: against 30.4500 mm on the right-hand one, 10.0000 mm apart — a hundred
-#: times the 0.1 mm tolerance below, and the test asserts the two really are
-#: that far apart before it reads either of them.
+#: ``gutter - outside`` difference lands on the drawing's left edge.
+#:
+#: **One figure, and it is the difference** (review cycle 1, F-101). Measured
+#: through :func:`_expected_drawing_left_mm` on every case of this corpus and
+#: both ``is_lower`` values, the two parities are exactly
+#: ``PARITY_GUTTER_MM - PARITY_OUTSIDE_MM`` = **10.0000 mm** apart — a hundred
+#: times the 0.1 mm tolerance below, and
+#: :func:`test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` asserts
+#: that separation *exactly*, per case, before it reads either edge. No
+#: absolute pair is stated here, because none describes the corpus: a page's
+#: drawing starts at that page's own side margin plus half the drawing's own
+#: spare, and the spare varies with the puzzle, so the absolute edge moves
+#: from case to case while the difference does not. The first draft of this
+#: docstring stated an absolute pair that reproduces on no case of the corpus
+#: at all; what it got right was the difference, and the difference is the
+#: quantity the parity clause actually turns on.
 PARITY_GUTTER_MM = 20.0
 PARITY_OUTSIDE_MM = 10.0
 
@@ -1015,17 +1025,26 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
       (6, not 5) — the title page is really in front of it;
     * its parity is the parity of that new position: page 6 is a **verso**,
       where page 5 was a recto. Asserted through
-      :func:`~nonogram.admin.book_pdf_generator.page_is_right_hand` on both
-      numbers, so "parity is still the 1-based interior position" is the
-      statement being checked and not an assumption behind it;
+      :func:`~nonogram.admin.book_pdf_generator.page_is_right_hand` on the
+      position this test goes on to measure the ink of, so "parity is still
+      the 1-based interior position" is the statement being checked and not
+      an assumption behind it — and a change to that function reds here.
+      That page 5 was the *recto* it displaced is carried by its
+      neighbours rather than by a constant of its own (review cycle 1,
+      F-106): the divider really is on 5 (``decided.pages[0].page_number``),
+      the section really is one divider and one page per puzzle, and the two
+      positions really are opposite hands — which is what the separation
+      clause below measures, since the two specs differ by the whole
+      ``gutter - outside`` only when they are;
     * **its margins are the left-hand spec**, measured off the page's own ink
       (``drawings_of``) against this module's own independent millimetre
       model. The books here store unequal side margins
       (:data:`PARITY_GUTTER_MM` / :data:`PARITY_OUTSIDE_MM`) precisely so
       that this clause has something to measure: the right-hand spec is
-      5.0 mm away, and the test asserts the measurement is **not** that one
-      as well as that it is this one, so a page that kept its old hand fails
-      here rather than passing within a tolerance.
+      ``PARITY_GUTTER_MM - PARITY_OUTSIDE_MM`` = 10.0 mm away, asserted
+      exactly, per case — and the test asserts the measurement is **not** that
+      one as well as that it is this one, so a page that kept its old hand
+      fails here rather than passing within a tolerance.
 
     The corpus is built by hand with a seeded ``random.Random``
     (:data:`PARITY_SEED`) and its size is asserted below, so it cannot
@@ -1064,7 +1083,12 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
         page = pages[first_puzzle_page - 1]
 
         # Clause 1 and 2: the position moved, and with it the hand.
-        assert page_is_right_hand(before_this_card), label
+        # `page_is_right_hand(before_this_card)` used to be asserted here too
+        # (review cycle 1, F-106). It is a pure function of the literal 5, so
+        # it passed for every case whatever the book did -- a claim with no
+        # control. What it stood for is measured by the two assertions above
+        # (the divider really is on 5) and by the separation assertion below
+        # (5 and 6 really are opposite hands).
         assert not page_is_right_hand(first_puzzle_page), (
             f"{label}: interior page {first_puzzle_page} must be a left-hand "
             "page — parity counts from the title page"
@@ -1088,9 +1112,24 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
             gutter_mm=PARITY_GUTTER_MM,
             outside_mm=PARITY_OUTSIDE_MM,
         )
-        assert abs(right_hand_mm - left_hand_mm) > 4.0, (
-            f"{label}: this corpus's two parities are {right_hand_mm:.3f} mm "
-            f"and {left_hand_mm:.3f} mm apart — too close to tell apart, so "
+        # The separation is not a floor any more but the figure itself
+        # (review cycle 1, F-101): parity moves the usable area sideways by
+        # the whole `gutter - outside` and never changes its size, so the two
+        # specs put the same drawing exactly that far apart -- and only if
+        # they are opposite hands. A floor of `> 4.0` passed on three
+        # different readings of this quantity, which is how a docstring
+        # figure that reproduces on no case of the corpus survived a cycle.
+        separation_mm = PARITY_GUTTER_MM - PARITY_OUTSIDE_MM
+        assert abs(abs(right_hand_mm - left_hand_mm) - separation_mm) < 1e-6, (
+            f"{label}: this corpus's two parities put the drawing at "
+            f"{right_hand_mm:.4f} mm and {left_hand_mm:.4f} mm, "
+            f"{abs(right_hand_mm - left_hand_mm):.4f} mm apart — the whole "
+            f"gutter-less-outside difference is {separation_mm:.4f} mm, and "
+            "anything else means the two pages are not opposite hands or the "
+            "drawing is no longer centred in its usable width"
+        )
+        assert separation_mm > 4.0, (
+            "the corpus's two side margins are too close to tell apart, so "
             "the clause below would pass on either hand"
         )
         assert abs(measured_mm - left_hand_mm) < 0.1, (

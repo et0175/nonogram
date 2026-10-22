@@ -1109,14 +1109,42 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
     the whole ``range(...)`` call, the whole ``return`` arithmetic), and that
     expression must also load ``TITLE_PAGE_COUNT``.
 
-    **Its bound, stated rather than implied.** This catches the shape the card
-    is at risk of — a position derived from the guide that forgot the page in
-    front of it — and it is blind to a position written as a bare literal with
-    no constant in it at all (a ``first_page = 4`` would satisfy it
-    vacuously). That second shape is what
-    ``TestBookExport_TitlePageCountedEverywhere``'s monkeypatch case measures
-    behaviourally, by moving the constant and re-reading the written file; the
-    two together are what cover the claim, and neither does alone.
+    **The bare-literal shape, and why it needed a second enumeration**
+    (review cycle 1, F-102). The walk above visits only the expressions that
+    load ``GUIDE_PAGE_COUNT``, so a position written as a bare literal with
+    no constant in it at all — a ``first_page = 4`` — satisfies it vacuously.
+    Cycle 1 declared that shape "covered behaviourally by
+    ``TestBookExport_TitlePageCountedEverywhere``'s monkeypatch case", and
+    the reviewer refuted it: that case moves ``TITLE_PAGE_COUNT`` and re-reads
+    the written interior, so it can only see a position that reaches a byte of
+    output. ``interior_stream``'s own ``first_answer_page = 3 + len(section)``
+    did not — it built a spec that was read for its *size* — and it had
+    survived CARD-200's TOC and this card's title page unnoticed.
+
+    So the bound is not declared any more; it is closed.
+    :meth:`_page_position_sites` enumerates **every page position in the
+    module**, derived rather than listed: the seed is the one geometry door
+    every position must reach (:meth:`BookPDFGenerator.page_spec`, ADR-0036/R2's
+    "one door"), the vocabulary of position names is grown from it to a fixed
+    point — a parameter that a door is given is a position, an argument passed
+    to such a parameter is one, a name bound from one is one — and every
+    binding of a vocabulary name (assignment, ``for`` target, walrus, parameter
+    default) and every non-name expression handed to a door is a site. A site
+    may hold the integer constants ``0`` and ``1`` (the term that turns a count
+    of front-matter pages into the 1-based position after them) and nothing
+    else, so ``3 + len(section)`` is a failure and
+    ``1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + …`` is not.
+
+    **What this still cannot see, measured rather than assumed.** A position
+    that arrives as an attribute of a plan object (``plan.page_number``) is a
+    site with no literal in it — where that attribute was *set* is a site in
+    its own right, but only if it was set in this module. A position computed
+    in another module and passed in is outside the enumeration entirely
+    (``book_kdp`` states no front-matter term of its own: it delegates to
+    :func:`interior_page_count`). And a wrong position spelled ``0`` or ``1``
+    is allowed by construction. The monkeypatch case still covers what it
+    covered — every position that reaches a byte of output — and the two now
+    overlap rather than lean on each other.
     """
 
     MODULE = "src/nonogram/admin/book_pdf_generator.py"
@@ -1198,4 +1226,285 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         assert not offenders, (
             "a page offset is written as a literal rather than counted from "
             f"TITLE_PAGE_COUNT/GUIDE_PAGE_COUNT: {offenders}"
+        )
+
+    # ----------------------------------------------------------------------
+    # CARD-206 review F-102 — every page position, not only the guide-derived
+    # ones, and the set derived from the module's one geometry door
+    # ----------------------------------------------------------------------
+
+    #: The seed of the derivation below: the module's one door onto page
+    #: geometry (ADR-0036/R2, :meth:`BookPDFGenerator.page_spec`'s own
+    #: docstring, "the one door onto the book's geometry"). Every interior
+    #: page position in this module is a value that reaches it, directly or
+    #: through a parameter — which is what makes a *derived* set possible at
+    #: all, and what the control below removes to show the catch depends on it.
+    GEOMETRY_DOORS = ("page_spec", "book_page_spec")
+
+    #: The only integer constants a page-position expression may hold: the
+    #: ``1`` that turns a count of front-matter pages into the 1-based
+    #: position after them (and the ``- 1`` of the SOLUTIONS divider), and the
+    #: ``0`` of an empty count. A ``2``, ``3`` or ``4`` is a front-matter page
+    #: count spelled as a literal.
+    POSITION_LITERALS = (0, 1)
+
+    @classmethod
+    def _page_position_sites(cls, source=None, doors=None):
+        """``([(line, kind, name, text, literals)], vocabulary)`` for ``source``.
+
+        ``source`` defaults to the module's own text; a caller may pass one of
+        its own, which is how the planted-literal control below measures this
+        analyser without touching a file on disk.
+        """
+        import ast
+        from pathlib import Path
+
+        if source is None:
+            source = (Path(__file__).resolve().parents[1] / cls.MODULE).read_text(
+                encoding="utf-8"
+            )
+        doors = cls.GEOMETRY_DOORS if doors is None else tuple(doors)
+        tree = ast.parse(source)
+
+        def called(call):
+            if isinstance(call.func, ast.Attribute):
+                return call.func.attr
+            if isinstance(call.func, ast.Name):
+                return call.func.id
+            return None
+
+        def positional(node):
+            args = node.args.posonlyargs + node.args.args
+            return args[1:] if args and args[0].arg in ("self", "cls") else args
+
+        defs = {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                defs.setdefault(node.name, []).append(node)
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+
+        vocabulary = set()
+        sites = []
+        seen = set()
+
+        def feed(expr, kind, name):
+            """A name is a position; anything else is a site to be read."""
+            if isinstance(expr, ast.Name):
+                vocabulary.add(expr.id)
+            elif id(expr) not in seen:
+                seen.add(id(expr))
+                sites.append((expr, kind, name))
+
+        for call in calls:
+            if called(call) in doors and call.args:
+                feed(call.args[0], "door argument", called(call))
+
+        # Grow to a fixed point: a parameter a position is passed to is itself
+        # a position, so its default and every argument its callers give it are
+        # sites too. Bounded rather than `while True` — the vocabulary only
+        # grows and the module's call graph is shallow, and a bound that is
+        # reached is reported rather than silently truncating the set.
+        rounds = 0
+        for rounds in range(1, 17):
+            before = (len(vocabulary), len(sites))
+            for call in calls:
+                for keyword in call.keywords:
+                    if keyword.arg in vocabulary:
+                        feed(keyword.value, "keyword", f"{called(call)}({keyword.arg})")
+            # And backwards: a name a position is *copied from* is a position
+            # too. That is how ``puzzle_pages``' ``first_page`` is one — it
+            # reaches the door only through ``page_number = first_page``.
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Name):
+                    continue
+                if any(
+                    isinstance(target, ast.Name) and target.id in vocabulary
+                    for target in node.targets
+                ):
+                    vocabulary.add(node.value.id)
+            for name, nodes in defs.items():
+                for node in nodes:
+                    args = node.args
+                    slots = positional(node)
+                    offset = len(args.posonlyargs + args.args) - len(slots)
+                    pairs = list(
+                        zip(
+                            args.posonlyargs + args.args,
+                            [None] * (len(args.posonlyargs + args.args) - len(args.defaults))
+                            + list(args.defaults),
+                        )
+                    ) + list(zip(args.kwonlyargs, args.kw_defaults))
+                    for argument, default in pairs:
+                        if default is not None and argument.arg in vocabulary:
+                            feed(default, "parameter default", f"{name}({argument.arg})")
+                    for call in calls:
+                        if called(call) != name:
+                            continue
+                        for index, given in enumerate(call.args):
+                            slot = index + offset
+                            everything = args.posonlyargs + args.args
+                            if slot < len(everything) and everything[slot].arg in vocabulary:
+                                feed(given, "argument", f"{name}({everything[slot].arg})")
+            if (len(vocabulary), len(sites)) == before:
+                break
+        else:  # pragma: no cover - the bound is a tripwire, not a path
+            raise AssertionError(
+                "the page-position vocabulary was still growing after "
+                f"{rounds} rounds, so this enumeration is truncated and the "
+                "set it reports is not the module's"
+            )
+
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                named = [
+                    target.id
+                    for target in targets
+                    if isinstance(target, ast.Name) and target.id in vocabulary
+                ]
+                if named and node.value is not None and id(node.value) not in seen:
+                    seen.add(id(node.value))
+                    sites.append((node.value, "assignment", ",".join(named)))
+            elif isinstance(node, (ast.For, ast.AsyncFor)):
+                target = node.target
+                elements = (
+                    [target] if isinstance(target, ast.Name) else list(getattr(target, "elts", []))
+                )
+                named = [
+                    element.id
+                    for element in elements
+                    if isinstance(element, ast.Name) and element.id in vocabulary
+                ]
+                if named and id(node.iter) not in seen:
+                    seen.add(id(node.iter))
+                    sites.append((node.iter, "loop", ",".join(named)))
+            elif isinstance(node, ast.NamedExpr):
+                if isinstance(node.target, ast.Name) and node.target.id in vocabulary:
+                    if id(node.value) not in seen:
+                        seen.add(id(node.value))
+                        sites.append((node.value, "walrus", node.target.id))
+
+        found = []
+        for expr, kind, name in sites:
+            literals = sorted(
+                {
+                    inner.value
+                    for inner in ast.walk(expr)
+                    if isinstance(inner, ast.Constant)
+                    and isinstance(inner.value, int)
+                    and not isinstance(inner.value, bool)
+                }
+            )
+            found.append(
+                (expr.lineno, kind, name, ast.get_source_segment(source, expr), literals)
+            )
+        return sorted(found), sorted(vocabulary)
+
+    @classmethod
+    def _bare_literals(cls, sites):
+        return [
+            (line, kind, name, text, [v for v in literals if v not in cls.POSITION_LITERALS])
+            for line, kind, name, text, literals in sites
+            if any(v not in cls.POSITION_LITERALS for v in literals)
+        ]
+
+    #: A module shaped like ``interior_stream``'s own prelude, used by the
+    #: control below: the defect F-102 found, and the derivation that replaced
+    #: it, in a source this test owns. The two differ in that one assignment
+    #: and nothing else, so the analyser's two answers differ in the literal
+    #: and nothing else — which the control asserts rather than assumes, by
+    #: comparing the vocabularies the two sources produce.
+    PLANTED_LITERAL = '''
+TITLE_PAGE_COUNT = 1
+GUIDE_PAGE_COUNT = 2
+
+
+class Generator:
+    def page_spec(self, page_number):
+        return (page_number,)
+
+    def plan(self, section, toc_page_count):
+        first_answer_page = 3 + len(section)
+        return self.page_spec(first_answer_page)
+'''
+
+    DERIVED_INSTEAD = PLANTED_LITERAL.replace(
+        "first_answer_page = 3 + len(section)",
+        "first_answer_page = (\n"
+        "            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count\n"
+        "            + len(section) + 1\n"
+        "        )",
+    )
+
+    def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
+        """The set is grown from ``page_spec``, and it is not empty or tiny.
+
+        Non-vacuity first, because an enumeration that found nothing would
+        make the literal check below pass by construction — which is the
+        failure mode this card's own review found in the narrower guard. The
+        floor is deliberately below the set this module holds today, so an
+        ordinary edit does not move it and a derivation that collapsed to
+        nothing cannot hide. The count itself is not asserted: it is a figure
+        no control could fail on, and every page position it covers is
+        checked by the test below whatever the total is.
+        """
+        sites, vocabulary = self._page_position_sites()
+
+        assert len(sites) >= 18, sites
+        assert len(vocabulary) >= 4, vocabulary
+        for name in ("page_number", "first_answer_page", "first_page"):
+            assert name in vocabulary, (
+                f"{name} is bound to a page position in {self.MODULE} and the "
+                f"derivation did not reach it: {vocabulary}"
+            )
+        # ADR-0039/R1's own shape: the catch depends on the set member. Take
+        # the door away and the derivation has no seed, so it reports nothing
+        # at all -- which is what makes "derived from the door" a measurement
+        # rather than a sentence about the code above.
+        without, no_vocabulary = self._page_position_sites(doors=())
+        assert (without, no_vocabulary) == ([], []), (
+            "the enumeration still finds page positions with no geometry "
+            "door in its seed set, so it is not derived from the door"
+        )
+
+    def test_no_page_position_in_the_module_is_written_as_a_bare_literal(self):
+        """F-102: the literal check over **every** position, not only the
+        guide-derived ones.
+
+        ``interior_stream``'s ``first_answer_page = 3 + len(section)`` is the
+        site this was written for: it loads neither constant, so the
+        guide-counting walk above never visited it, and it reached no byte of
+        output, so the monkeypatch case could not see it either.
+        """
+        sites, _ = self._page_position_sites()
+
+        assert self._bare_literals(sites) == [], (
+            "an interior page position is written with a literal page count "
+            "in it rather than counted from TITLE_PAGE_COUNT/"
+            f"GUIDE_PAGE_COUNT: {self._bare_literals(sites)}"
+        )
+
+    def test_a_planted_bare_literal_is_caught_and_the_derivation_is_not(self):
+        """The control for the test above, in both states (ADR-0039/R3).
+
+        A guard whose subject has been removed from the file can no longer
+        fail on it, so what it catches has to be measured on a source that
+        still holds the defect. Both sources are this test's own: one with
+        F-102's literal in it, one with the derivation that replaced it.
+        """
+        planted, planted_vocabulary = self._page_position_sites(self.PLANTED_LITERAL)
+        derived, derived_vocabulary = self._page_position_sites(self.DERIVED_INSTEAD)
+
+        assert "first_answer_page" in planted_vocabulary, planted_vocabulary
+        assert planted_vocabulary == derived_vocabulary, (
+            "the two sources differ in more than the literal, so the "
+            "comparison below would not be about the literal"
+        )
+        caught = self._bare_literals(planted)
+        assert [(kind, name, bad) for _, kind, name, _, bad in caught] == [
+            ("assignment", "first_answer_page", [3])
+        ], caught
+        assert self._bare_literals(derived) == [], (
+            "the derived form is reported as a bare literal, so this guard "
+            "would red on the fix as well as on the defect"
         )

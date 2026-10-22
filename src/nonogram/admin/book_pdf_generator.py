@@ -538,7 +538,7 @@ GUIDE_TITLE = "How to Solve Nonograms"
 #: page in the page plan so counts and parity are right, print nothing on
 #: it"), so the copyright text is set into the exported PDF afterwards.
 #:
-#: Every front-matter position after it counts from here rather than from a
+#: The front-matter positions after it count from here rather than from a
 #: literal, which is the whole reason it is a named constant and not a bare
 #: ``1`` in :meth:`BookPDFGenerator.interior_stream`: the guide's own two
 #: pages, the TOC's, :meth:`BookPDFGenerator.section_plan`'s ``first_page``,
@@ -546,6 +546,16 @@ GUIDE_TITLE = "How to Solve Nonograms"
 #: through that same formula —
 #: :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`, which is
 #: the figure KDP's gutter band is read at.
+#:
+#: **That sentence is a claim, and this is the control it is held to**
+#: (CARD-206 review F-102): ``TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage``
+#: derives this module's page positions from the one geometry door they all
+#: reach — :meth:`BookPDFGenerator.page_spec` — and fails on any integer
+#: literal other than ``0`` or ``1`` in one of them. What that reaches, and
+#: what it still cannot see, is the test's own to state; before the fix it
+#: reached only the expressions that load :data:`GUIDE_PAGE_COUNT`, and a
+#: bare ``3 + len(section)`` sat nine statements from the position it was
+#: supposed to be a duplicate of.
 TITLE_PAGE_COUNT = 1
 
 #: How many interior pages the guide occupies (FR-041, CARD-201): a term of
@@ -6684,16 +6694,30 @@ class BookPDFGenerator:
         answer_plan = plan_small_answer_pages(answers)
 
         # Every page of the section — dividers included — sits between the
-        # guide page and the SOLUTIONS divider, so both of those positions
+        # TOC (CARD-200: `toc_page_count` pages, after the blank title page and
+        # the guide) and the SOLUTIONS divider, so both of those positions
         # count the section's length and not its puzzle pages alone. Computed
         # here (rather than after the degrade pass below) because it depends
-        # only on `section`, never on `answer_plan` — any page_spec built from
-        # it measures the *same* usable size any other interior page position
-        # would (`book_page_spec`'s own docstring: parity moves the margins,
-        # never the usable size), which is exactly what lets one representative
-        # spec answer the degrade pass's feasibility check for every page
-        # position the plan could still land on.
-        first_answer_page = 3 + len(section)
+        # only on `section` and `toc_page_count`, never on `answer_plan` — any
+        # page_spec built from it measures the *same* usable size any other
+        # interior page position would (`book_page_spec`'s own docstring:
+        # parity moves the margins, never the usable size), which is exactly
+        # what lets one representative spec answer the degrade pass's
+        # feasibility check for every page position the plan could still land
+        # on.
+        #
+        # CARD-206 review F-102: ONE assignment, read twice. This method used
+        # to compute `first_answer_page` twice, nine statements apart, and the
+        # first of the two was `3 + len(section)` — a front-matter page count
+        # spelled as a bare literal and left behind by CARD-200's TOC and this
+        # card's own title page, so that the two assignments disagreed (3
+        # against 6 at today's constants). It was inert, because the degrade
+        # pass reads only the spec's usable size and never its position, and
+        # it was still the literal this card's plan named as the bug it was
+        # most likely to ship.
+        first_answer_page = (
+            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
+        )
 
         # Review F-1 (CARD-202, fix cycle 1): `plan_small_answer_pages` above
         # is pure and extent-only (its own module docstring: no tile measured,
@@ -6740,13 +6764,6 @@ class BookPDFGenerator:
             raise RuntimeError(
                 f"the answer-section plan prints {answer_numbers}, not puzzles 1..{count}"
             )
-        # Every page of the section — dividers included — sits between the
-        # TOC (CARD-200: `toc_page_count` pages, after the guide) and the
-        # SOLUTIONS divider, so both of those positions count the section's
-        # length and not its puzzle pages alone.
-        first_answer_page = (
-            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
-        )
 
         # CARD-200/CARD-205: the TOC's own rows, decided here (not inside
         # `produce()` below) for the same reason every other page-count-bearing
