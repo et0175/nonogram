@@ -765,3 +765,27 @@ mutant, and the reported figures are the **second** firing against the exact com
    cannot be shown. I hit the same wall at the fix-1 gate from the other direction, by truncating the
    summary line with my own `tail`.
 5. F-107 and the `_ADAPTERS` prose untouched, nothing renamed — correct, they are CARD-264's, now live.
+
+### [Build gate, fix 2] PASSED at `335c641e` — exit 0, 185 files, 8053 collected
+
+Same impact-scoped selection as both earlier gates (the selector returns `FULL` for this change set, so
+the two modellable paths are handed to it and it chooses 185 of 212). Board lock **not** taken; the lock
+was redirected to a scratch path, and the script refuses to report a gate on a selection under 100 files
+— a guard I added after my own zsh bug made a run of **nothing** exit 0 at the fix-1 gate.
+
+**The collected count cross-checks the fix round for the second round running.** 8053 against fix 1's
+8048 — a delta of **+5** — and `tests/test_cli.py` collects **135**, against 130 at `feb3e6b5`. Both
+figures are exactly what the fixer claimed, derived by a different instrument.
+
+**An unresolved tooling fact, stated as unresolved.** The pass/skip summary line appeared in the first
+gate's output (`8009 passed, 16 skipped` at `604cc542`) and has **not** appeared in either later run,
+including one where my filter explicitly matched `passed`. The fix-2 fixer hit the same thing from its
+own side and concluded this repo's `-q` output prints no pass-count line; I have a counterexample, so
+neither statement is safe. `pyproject.toml:89` sets `addopts = "-q"` and `tests/conftest.py:155` imports
+`pytest_terminal_summary` from `tests/full_suite_lock.py` under its own name, which is the only custom
+summary hook in the tree — but I have not established that it is the cause and will not claim it.
+
+**What that means for every gate figure on this board, which is the part that matters:** a pass count
+cannot be relied on, so the defensible figures are **pytest's exit code** plus a separate
+`--collect-only` pass, which executes nothing. Both gates on this card are reported that way. Recorded in
+`meta/kanban/backlog.md` as an `@ops` item rather than chased here.
