@@ -2161,8 +2161,20 @@ class TestBookToc_PageNumbersSurviveTheTitlePage:
     compared to an independently built expected page — ``create_guide_page``
     for the guide row, ``create_divider_page`` with the level's own word for
     each range row, and the same with ``"SOLUTIONS"`` for the solutions row.
-    A row whose number drifted by one would land on the page before or after
-    the one it names, and both of those are a different drawing.
+    A drifted **divider** or **solutions** row lands on the page before or
+    after the one it names, and both of those are a different drawing — so for
+    those two row kinds the drawn comparison is what catches the drift
+    (measured: moving ``section_plan``'s ``first_page`` reds the range-row
+    comparison, and moving ``first_answer_page`` reds the solutions one).
+
+    **It does NOT catch a drift of the guide row, and that is this method's
+    bound** (AC/EC/G gate, 2026-10-22). ``expected`` is built at *the row's
+    own* number, and the guide's two pages are one method parameterised by
+    that same number, so a drifted row builds a drifted expectation and the
+    two agree. Measured: with the guide row moved to
+    ``2 + TITLE_PAGE_COUNT``, the drawn-page comparison **passes** and only
+    the constant equality above it reds. The guide row's control is therefore
+    that equality, not this comparison.
 
     That is the difference from ``TestBookToc_PageNumbersMatchTheWalk``,
     which compares the rows against the page **plan**: a shift applied
