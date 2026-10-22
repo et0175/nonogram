@@ -1654,3 +1654,46 @@ test, so this card's M-1 scoping control survives the rename.
 
 **Disclosed by the gate:** one `ls` stat of main's `.full-suite.lock` path at the end (result: no such
 file). A stat, nothing read, written or created.
+
+### [Merge gate, attempt 1] FAILED — **and the failure was mine, not the card's**
+
+`PYTEST_EXIT=1`: **5 failed, 8844 passed, 1 skipped** at `ff4374f6`, all five in
+`tests/test_admin_binding.py::TestAdminPanel_RefusesRequestsThatDidNotAddressThisMachine::test_a_request_addressed_to_this_machine_is_served`.
+
+**I set `DATABASE_URL` for this gate and that is what broke it.** My reasoning was that CARD-259's merge
+gate ran with it set and bought DB-mode coverage, so doing the same here was better. It was not: the five
+tests fail **whenever a Postgres URL is configured**, and CARD-261 touches `CLAUDE.md`, a docstring in
+`src/nonogram/__init__.py` and `tests/test_cli.py` — none of which can reach the admin panel's host
+binding.
+
+**Isolated in one command rather than reasoned about.** I ran the same five tests in CARD-262's worktree,
+which is branched from **pre-CARD-261 main**:
+
+| configuration | result |
+|---|---|
+| `DATABASE_URL` **unset** | **5 passed** |
+| `DATABASE_URL=postgresql://localhost/nonogram_test` | **5 failed** |
+
+So the card is exonerated by a tree that does not contain it, which is the only form of exoneration worth
+having here.
+
+**And the actual cause is worth more than the exoneration: `nonogram_test` is migrated but STALE.**
+
+```
+E  psycopg2.errors.UndefinedColumn: column puzzles.manually_edited_at does not exist
+```
+
+The database exists and is reachable (`select 1` → 1) and has **7 tables** including `alembic_version`,
+so my first guess — an empty database — was wrong. Its `alembic_version` is simply **behind the models**:
+`puzzles.manually_edited_at` is declared in `src/nonogram/db/models.py` and absent from the table. The
+request the test makes reaches a query over `puzzles`, and the query fails.
+
+**Why this matters beyond this gate.** The project's own instruction file says the suite is
+`./.venv/bin/python -m pytest` with no `DATABASE_URL`, and in that configuration the DB-mode tests skip
+and these five pass. So the board's gates have been measuring the **no-database** configuration —
+while the owner's live admin panel runs on Postgres. Pointing `DATABASE_URL` at the test database today
+does not buy coverage; it **fails hard** on a schema drift. Recorded as a backlog item. I have **not**
+run `alembic upgrade head` against it: it is a database mutation nobody asked for, in the middle of a
+merge, and the merge does not need it.
+
+**Gate re-run in the project's default configuration** (no `DATABASE_URL`), same commit, same held lock.
