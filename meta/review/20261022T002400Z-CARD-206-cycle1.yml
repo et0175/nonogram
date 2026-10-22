@@ -211,8 +211,27 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 1 — card/206-interior-title-page'
+    fix_note: |-
+      tests/property/test_book_export_interior.py:941 now states one figure, the one that reproduces:
+      the two parities are exactly PARITY_GUTTER_MM - PARITY_OUTSIDE_MM = 10.0000 mm apart, measured
+      through _expected_drawing_left_mm over all 12 cases and both is_lower values (maximum deviation
+      from 10.0: 0.0). No absolute pair is stated, because none describes the corpus (10.0/20.0 for
+      nine cases, 16.7/26.7 for two, 12.95/22.95 for one -- a drawing's left edge is that page's own
+      side margin plus half the drawing's own spare, and the spare varies with the puzzle). The AC-4
+      docstring's "5.0 mm away" is now "PARITY_GUTTER_MM - PARITY_OUTSIDE_MM = 10.0 mm away". The
+      figure has a control now: the separation assertion was tightened from a "> 4.0" floor to an
+      exact equality against gutter - outside, per case. MUTANT MODEL_DRIFT
+      (_expected_drawing_left_mm's right-hand margin, gutter_mm -> gutter_mm + 5.0) kills exactly that
+      assertion and nothing else. DOMAIN: tests/kill_matrix.py RECORDING pass over
+      tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage,
+      52 ast.Assert nodes, SHIPPED 0 FAIL of 11 reached (pytest exit 0, 1 collected test), child
+      instrumentation off, aggregate ANY-RED; MODEL_DRIFT exit 0, 11 reached, 1 FAIL at :1122. The old
+      floor survives that same mutant, which is why it could not red on three readings of one
+      quantity. Class sweep: every other figure in the diff was re-derived (see the card's fix-round
+      notes); one more, "1186 px against 1191 px" in tests/test_book_pdf_memory.py, reproduces in no
+      domain and was deleted rather than restated.
     dismissed_reason: null
     learned_pattern: null
 
@@ -279,8 +298,37 @@ findings:
     source: static
     violates: ADR-0039/R3
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 1 — card/206-interior-title-page'
+    fix_note: |-
+      TWO halves, and the route taken was WIDEN THE GUARD. (1) The literal is gone: interior_stream
+      computed first_answer_page twice and now computes it once, derived -- 1 + TITLE_PAGE_COUNT +
+      GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1 -- hoisted to where the bare "3 +
+      len(section)" was, with the duplicate nine statements later deleted. What the degrade pass needs
+      was measured rather than copied: page_spec(n) differs across interior positions 1..20 in exactly
+      one field (parity), the usable area is one value (190.500 x 253.492 mm) and page_frame one size
+      (2550 x 3300 px) for every n, and _degrade_infeasible_packed_pages returns an identical plan on
+      both parities for a feasible 2-up, a 4-up that splits into singles and a 2-up that falls back to
+      singles, and over page_spec(1..20) on two real books. The probe therefore needs a placed spec,
+      not a position, and the real first answer page is one. (2) The claim now has a control.
+      _page_position_sites derives the module's page positions from the one geometry door they must
+      all reach (page_spec/book_page_spec, ADR-0036/R2), grows the vocabulary to a fixed point through
+      parameters, arguments and copies, and reports every binding of a position name plus every
+      expression handed to a door: 6 names, 25 sites, 0 offenders. CONTROLS: (a) with the door removed
+      from the seed set the enumeration reports nothing at all -- ADR-0039/R1's caught-with /
+      missed-without, asserted in the test itself; (b) a planted bare literal in a source the test
+      owns is reported as exactly [('assignment', 'first_answer_page', [3])] while its derived form is
+      not; (c) on the real file, MUTANT PLANTED_LITERAL (the derived assignment reverted to "3 +
+      len(section)", line-count preserving) is killed by exactly one assertion node -- the
+      new literal check, test_no_page_position_in_the_module_is_written_as_a_bare_literal's own
+      assert, at :1479 when the mutant was run and :1481 after two docstring lines were added to the
+      file in the same round. DOMAIN: tests/kill_matrix.py RECORDING pass over
+      tests/test_book_export_interior_cover.py, 126 ast.Assert nodes, SHIPPED 0 FAIL of 125 reached
+      (pytest exit 0, 72 collected tests), child instrumentation off, aggregate ANY-RED;
+      PLANTED_LITERAL exit 0, 125 reached, 1 FAIL. No other assertion in that file sees it, which
+      reproduces the cycle-1 refutation. TITLE_PAGE_COUNT's docstring now names that control instead
+      of claiming an unenforced universal, and the class docstring states what the enumeration still
+      cannot see: a position carried in from another module, and a wrong position spelled 0 or 1.
     dismissed_reason: null
     learned_pattern: null
 
@@ -317,8 +365,17 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 1 — card/206-interior-title-page'
+    fix_note: |-
+      The card's Renders bullet now says what the pixels say: the QR icon at the bottom left and the
+      grid-size label at the inner margin, with the folio CENTRED and not mirroring. Measured on
+      interior-book1.pdf (dark-column clusters in the bottom 14% of each 2550 px page): folio
+      1264-1284 on page 6 and 1264-1283 on page 7, page centre 1275, against QR 150-386 / 427-968 and
+      label 2244-2395 on page 6 and their mirror images on page 7; confirmed by eye on a crop of the
+      band. The mechanism is named rather than reasoned: a page that carries the interior frame gives
+      its outer corner to the QR icon, so _draw_folio is called with centred_x and sets the number on
+      the trim's own centre (CARD-222/CARD-223).
     dismissed_reason: null
     learned_pattern: null
 
@@ -354,8 +411,18 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 1 — card/206-interior-title-page'
+    fix_note: |-
+      tests/fixtures/book_baseline_card206.json's changed_pages_note and why_a_new_baseline now carry
+      the measured mechanism: the folio DIGIT changes on every page; the folio POSITION is centred and
+      fixed on a framed page (the three puzzle pages and the two-up page) and bottom-outer, mirroring,
+      on the guide, contents, divider and answer pages; the QR group and the grid-size label mirror
+      wherever they appear. The note's conclusion -- that this recording has no control page -- is
+      unchanged. The same correction was made in TestBookPdfMemory_NonDrawingPagesAreByteIdentical's
+      LIVE_OFFSET comment, in
+      TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne._reference's docstring, and
+      in the card's own honest-bounds bullet.
     dismissed_reason: null
     learned_pattern: null
 
@@ -396,8 +463,15 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 1 — card/206-interior-title-page'
+    fix_note: |-
+      The failure message interpolates the number the reference is actually built at --
+      entry.page_number - plan.toc_page_count - TITLE_PAGE_COUNT, computed on the line above and used
+      in both places -- and names CARD-201's shipped layout rather than the pre-CARD-201 one. A stale
+      sibling in the same class (test_the_solutions_divider_matches_its_pre_card_content's
+      first_answer_page comment, which omitted TITLE_PAGE_COUNT) was corrected with it. The class name
+      is left alone, as the finding suggests.
     dismissed_reason: null
     learned_pattern: null
 
@@ -436,8 +510,16 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'fix round 1 — card/206-interior-title-page'
+    fix_note: |-
+      The constant assertion is deleted rather than replaced: page_is_right_hand(before_this_card) is
+      a pure function of the literal 5 and could not distinguish any book from any other, and the
+      obvious replacement would have read a value the assertion above it already pins. The docstring
+      now names the live assertions that carry the premise instead: decided.pages[0].page_number ==
+      first_puzzle_page - 1, len(decided.pages) == 1 + len(puzzles), and F-101's tightened separation
+      assertion, which holds only if the two positions are opposite hands. Nothing was added -- a
+      claim was removed and three controls that were already live were named.
     dismissed_reason: null
     learned_pattern: null
 

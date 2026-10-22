@@ -15,7 +15,7 @@
 **Wave:** 52
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
-**Review score:** 7.5 (cycle 1/3 — below the threshold of 8)
+**Review score:** 7.5 (cycle 1/3 — fix round 1 applied, re-review pending)
 **Started:** 2026-10-21T22:18:12Z
 **Closed:** —
 **Actual:** —
@@ -244,15 +244,16 @@ not papered over.
 - **The baseline book**, through `tests.helpers.book_corpus.export_of` + `pdf_page_count`:
   **14 pages**, **3,468,586 bytes** (CARD-224's recording held 13 and 3,369,797). Both are what
   `tests/fixtures/book_baseline_card206.json` records and what `BASELINE_PAGE_COUNT` states.
-- **AC-4's own two expectations**, through
-  `tests/property/test_book_export_interior._expected_drawing_left_mm` on that corpus's first
-  case: left-hand **20.4500 mm**, right-hand **30.4500 mm**, **10.0000 mm** apart.
-  **This re-derivation caught a wrong figure before commit:** the first draft of
-  `PARITY_GUTTER_MM`'s docstring said the two parities were "5.0 mm apart … half the 10.0 mm
-  difference each side, since FR-032 centres the drawing". That is wrong — parity moves the
-  usable area sideways and never changes its size, so centring leaves each side the same spare
-  and the **whole** `gutter - outside` lands on the left edge. The docstring now states
-  10.0 mm and names the function it was measured through.
+- **AC-4's parity separation**, through
+  `tests/property/test_book_export_interior._expected_drawing_left_mm` — **corrected in fix
+  round 1, review F-101.** The figure this bullet used to carry (left-hand 20.4500 mm,
+  right-hand 30.4500 mm) reproduces on **no** case of the corpus: swept over all 12 cases and
+  both `is_lower` values the pair is 10.0000/20.0000 for nine cases, 16.7000/26.7000 for two
+  (5 and 10) and 12.9500/22.9500 for one (7), because a drawing's left edge is that page's own
+  side margin **plus half the drawing's own spare**, and the spare varies with the puzzle.
+  What reproduces everywhere, bit-exactly, is the **difference**: `gutter - outside` =
+  **10.0000 mm**, on all 24 (case, `is_lower`) readings, maximum deviation 0.0. That is the
+  quantity the docstring now states and the one the test now asserts exactly.
 - **The rendered first puzzle page**, through `tests.helpers.page_ink.drawing_of` on the
   wide-gutter render: left edge **9.991 mm** — the 10.0 mm *outside* margin, i.e. the left-hand
   spec, with the gutter on the right (AC-4's own clause, seen on paper).
@@ -279,30 +280,45 @@ Written to `/Users/omelnikova/Documents/nonogram-reviews/CARD-206/`:
 - `book1-page2-guide-first.png`, `widegutter-page2-guide-first.png` — interior page 2, the
   guide's first page, folio "2" at the bottom **left** (a verso).
 - `book1-page6-first-puzzle.png`, `widegutter-page6-first-puzzle.png` — interior page 6, the
-  first puzzle page: folio "6" and the QR icon at the bottom **left**, the drawing against the
-  outside margin with the gutter on its right.
+  first puzzle page: the QR icon at the bottom **left** and the grid-size label at the **inner**
+  margin, the drawing against the outside margin with the gutter on its right. **Corrected in
+  fix round 1, review F-103:** the folio on a puzzle page is **centred** and does *not* mirror —
+  measured on `interior-book1.pdf`, dark-column clusters in the bottom 14% of each 2550 px page,
+  folio at columns 1264–1284 on page 6 **and** 1264–1283 on page 7 (page centre 1275), against
+  the QR group at 150–968 / grid label at 2244–2395 on 6 and their mirror images on 7. Read off
+  the pixels and confirmed by eye on a crop of the band. The mechanism is CARD-222/CARD-223's:
+  a page that carries the interior frame gives its outer corner to the QR icon, so `_draw_folio`
+  is called with `centred_x` and sets the number on the trim's own centre.
 - `spread-guide-pages-2-and-3.png` — pages 2 and 3 side by side: the guide really does face
   itself now (AC-368's premise, which is what CARD-229 depends on).
 - `spread-divider-5-and-puzzle-6.png` — the "Easy" divider on 5 and the first puzzle page on 6.
 
 ### Honest bounds
 
-- **The AST guard's reach.** `TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage`
+- **The AST guard's reach — ~~blind to a bare literal~~ CLOSED in fix round 1 (review F-102).**
+  The guide-counting half is unchanged: `TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage`
   enumerates every expression that loads `GUIDE_PAGE_COUNT` (7 sites) and requires each to load
-  `TITLE_PAGE_COUNT` too, and that no integer constant in one of them is other than 0 or 1. It
-  catches a guide-derived position that forgot the page in front of it. It is **blind** to a
-  position written as a bare literal with no constant in it at all — `first_page = 4` would
-  satisfy it vacuously. That second shape is covered behaviourally by
-  `test_each_position_is_counted_from_the_constant_not_a_literal` (M3 is exactly it). Stated in
-  the test's own docstring.
+  `TITLE_PAGE_COUNT` too, and that no integer constant in one of them is other than 0 or 1. The
+  bound this bullet used to declare — blind to a position written as a bare literal with no
+  constant in it at all — was *wrong about its own cover*: it said that shape was "covered
+  behaviourally by `test_each_position_is_counted_from_the_constant_not_a_literal`", and the
+  reviewer refuted it (a position that reaches no byte of output is invisible to a monkeypatch
+  that re-reads the written file). It is no longer declared; it is closed. `_page_position_sites`
+  now derives the module's page positions from the one geometry door they must all reach
+  (`page_spec`) and fails on any literal other than 0 or 1 in one of them. What it still cannot
+  see is stated in the class docstring, and is a different set: a position carried in from
+  another module, and a wrong position spelled 0 or 1.
 - **What the monkeypatch case cannot see.** `puzzle_pages`' and `puzzle_section`'s **default**
   `first_page` arguments are bound at import time, so moving `TITLE_PAGE_COUNT` at run time does
   not reach them. Production never relies on either (`section_plan` passes its own
   `first_page`); their value is read by the AST guard instead. Stated in the test's docstring.
 - **`book_baseline_card206.json` has no control page** — the first recording in that chain for
   which that is true. Every page differs from CARD-224's recording shifted by one, because every
-  page's folio reads one number higher and moves to the opposite bottom corner (the folio sits
-  in the bottom *outer* corner, and the grid-size label and QR group mirror with it). The
+  page's folio reads one number higher and because the marks against the page's edges change
+  sides with the parity flip (**corrected in fix round 1, review F-104:** on a framed page — the
+  three puzzle pages and the two-up page — the folio is *centred* and does not move at all; what
+  mirrors there is the QR group and the grid-size label. On the guide, contents, divider and
+  answer pages the folio is itself the bottom-outer mark and does mirror). The
   "nothing above the footer moved" half of the claim is therefore **not** carried by that file:
   it is carried by `TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged`, which this card
   re-points at the pre-CARD-206 position (an odd shift, so the footer band is cropped and the
@@ -633,3 +649,243 @@ constant assertion; the premise is carried by its two live neighbours instead.
 - **The orchestrator's build-gate repair `12de4ac2` reviewed and sound** — its class claim re-derived
   (`_interior_page_count` at `:1089/:1094/:1122/:1132`, `:1101` the only absolute pin), the delta
   assertion untouched, green.
+
+---
+
+### [Fix round 1] Review cycle 1's six findings — two gating, all six closed
+
+Both gating findings were claim-versus-control mismatches, the family that escalated a sibling card
+this session by *adding a sentence* in each of two fix rounds. So the rule this round worked to was:
+**prefer deleting or narrowing a claim; add one only with a mechanism that can fail and the mutant
+to prove it, in the same commit.** Two claims were deleted outright, one figure was deleted because
+it reproduces nowhere, one assertion was tightened rather than added, and the one genuinely new
+mechanism — the widened AST guard — ships with three controls, one of them a mutant on the real file.
+
+- **F-102: route taken = WIDEN THE GUARD** (the ADR-0039/R2 shape), not "narrow the claim and name an
+  exemption". Both halves, with the measurement each rests on:
+
+  *The derived value, and how what the probe needs was determined.* `interior_stream` computed
+  `first_answer_page` twice; it computes it once now —
+  `1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1` — hoisted to where the
+  bare `3 + len(section)` was, with the duplicate nine statements later deleted. The value was **not**
+  copied from `:6747` on faith: the degrade pass's own contract says it wants *a* placed spec, and that
+  was measured. `page_spec(n)` over interior positions 1..20 differs in exactly **one** dataclass field,
+  `parity`; the usable area is a single value (**190.500 × 253.492 mm**) and `page_frame` a single size
+  (**2550 × 3300 px**) for every one of them; and `_degrade_infeasible_packed_pages` returns an
+  identical plan on ODD and EVEN for a feasible 2-up, a 4-up that splits into singles and a 2-up that
+  falls back to singles, and over `page_spec(1..20)` on the baseline book and on a nine-easy book. The
+  probe needs a spec, not a position — so the honest fix is one assignment whose name is true for both
+  readers, rather than a second derivation beside the first.
+
+  *The guard.* `_page_position_sites` derives the module's page positions from the one geometry door
+  they must all reach (`page_spec`/`book_page_spec`, ADR-0036/R2's "one door"): the vocabulary grows to
+  a fixed point through parameters, arguments and copies, and every binding of a position name
+  (assignment, `for` target, walrus, parameter default) and every expression handed to a door is a site.
+  **Measured today: 6 names, 25 sites, 0 offenders** — against the old guard's 7 guide-counting
+  expressions. What it newly reaches includes the title-page loop's `range(1, TITLE_PAGE_COUNT + 1)`,
+  the TOC page's `TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1 + index`, the SOLUTIONS divider's
+  `first_answer_page - 1` and both walk defaults.
+
+  *The planted-literal control, in both states.* With the derived assignment reverted to
+  `3 + len(section)` (line-count preserving, `cp -p` backup, restore verified), **exactly one assertion
+  node reds** — `test_no_page_position_in_the_module_is_written_as_a_bare_literal`'s own assert,
+  `tests/test_book_export_interior_cover.py:1479` at the time of the run (`:1481` after two
+  docstring lines were added to that file later in the round) — *DOMAIN:
+  `tests/kill_matrix.py` RECORDING pass over that file, 126 `ast.Assert` nodes, SHIPPED 0 FAIL of 125
+  reached (pytest exit 0, 72 collected tests), child instrumentation off, aggregate ANY-RED;
+  PLANTED_LITERAL exit 0, 125 reached, 1 FAIL.* Removed, SHIPPED is FAIL-free — so the guard reds on
+  the defect and passes on the fix, and nothing else in that file can tell the difference, which is
+  cycle 1's refutation reproduced rather than taken on trust. Two further controls live in the test:
+  the enumeration run with **no door in its seed set reports nothing at all** (ADR-0039/R1's
+  caught-with / missed-without, over the set member itself), and a planted literal in a source the test
+  owns is reported as exactly `[('assignment', 'first_answer_page', [3])]` while its derived twin is not.
+
+  *The claim.* `TITLE_PAGE_COUNT`'s docstring no longer asserts an unenforced universal: it names the
+  control it is held to. The class docstring stops declaring the bare-literal bound (it is closed) and
+  states the two things the enumeration genuinely cannot see — a position computed in another module,
+  and a wrong position spelled `0` or `1`.
+
+- **F-101: one quantity, one figure, and the figure now has a control.** Re-derived through
+  `tests/property/test_book_export_interior._expected_drawing_left_mm` — the function the docstring
+  names — over all 12 cases and both `is_lower` values, 24 readings:
+
+  | reading | cases |
+  | --- | --- |
+  | 10.0000 / 20.0000 mm | 0, 1, 2, 3, 4, 6, 8, 9, 11 |
+  | 16.7000 / 26.7000 mm | 5, 10 |
+  | 12.9500 / 22.9500 mm | 7 |
+  | **difference, every case** | **10.0000 mm, maximum deviation 0.0** |
+
+  `20.4500 / 30.4500` occurs nowhere, which is what the review measured and this re-derivation confirms
+  independently. **What the docstring says now is the difference and only the difference**, because no
+  absolute pair describes the corpus: a drawing's left edge is that page's own side margin *plus half
+  the drawing's own spare*, and the spare varies with the puzzle. The difference is `gutter - outside`
+  by construction and reproduces bit-exactly. **It is no longer a figure with no control:** the
+  separation assertion was tightened from a `> 4.0` floor to an exact equality against
+  `PARITY_GUTTER_MM - PARITY_OUTSIDE_MM`, per case. MUTANT **MODEL_DRIFT** (`_expected_drawing_left_mm`'s
+  right-hand margin `gutter_mm` → `gutter_mm + 5.0`) kills **exactly that assertion and nothing else** —
+  *DOMAIN: `tests/kill_matrix.py` RECORDING pass over
+  `tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage`,
+  52 `ast.Assert` nodes, SHIPPED 0 FAIL of 11 reached (pytest exit 0, 1 collected test), child
+  instrumentation off, aggregate ANY-RED; MODEL_DRIFT exit 0, 11 reached, 1 FAIL at `:1122`.* The old
+  `> 4.0` floor **survives** that mutant — which is precisely why one quantity could carry three
+  readings for a whole cycle. `:1026`'s "5.0 mm away" is gone.
+
+- **F-101's class sweep — every figure in this card's diff, with its door.** Reproduced through the
+  production path: interior page counts **0→3, 1→8, 3→12, 7→20** (`export_interior` read back with
+  `pdf_pages.pdf_page_count`, equal to `interior_page_count` and to `book_kdp.unpaired_interior_page_count`
+  for every n); the baseline book at **14 pages / 3,468,586 bytes** (`book_corpus.export_of`, equal to
+  `BASELINE_PAGE_COUNT` and to the fixture's own `page_count`); AC-288's **39 + 43 = 150** and **39 + 44
+  = 151** (`7 + 2E + M + (M+1)/2`); the band edge at **71 puzzles / 70 pages = 150**; the parity
+  difference above. Figures that carry their own live assertion, and so are controlled by recomputation
+  rather than by prose: **25.45 mm** (`test_the_drawing_sits_25_45_mm_from_the_left_trim_edge`),
+  **12.7 mm**, **287 pages** (`AC179_PAGES`, asserted against the panel's own counts three ways),
+  **150 px** (`KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX`), **0 non-white pixels** on page 1. **One more figure
+  failed the sweep and was deleted:** `tests/test_book_pdf_memory.py`'s "measured while making this
+  change: 1186 px against 1191 px on the two-up page". On this class's own book and corpus the
+  ink-bbox crop is **(2251, 2948) at both parities and at both shifts** — the same width, not two — so
+  the parenthetical was removed rather than restated, and the sentence narrowed to the part that is
+  true (an odd shift puts the mirrored footer marks on the other side of the page). The *design* that
+  sentence explains — the even shift, and its `test_the_comparison_has_teeth` control — was certified in
+  cycle 1 and is untouched.
+
+- **F-103 / F-104: the folio, measured off the artefact.** Method: dark-pixel column clusters in the
+  bottom 14% of each page of `interior-book1.pdf` (2550 px wide, page centre 1275), then a visual check
+  on a crop of the band at 85.5–90% page height. **Page 6 (verso):** QR icon 150–386, QR text 427–968,
+  **folio 1264–1284**, grid label 2244–2395. **Page 7 (recto):** grid label 153–304, **folio 1264–1283**,
+  QR text 1581–2123, QR icon 2164–2400. The folio sits at the page centre on both parities and **does
+  not mirror at all**; the QR group and the grid-size label do. The crop confirms it by eye: "6" and "7"
+  centred, "25 x 25" at the inner margin, QR in the outer corner. The pages that carry **no** frame do
+  put the folio in the bottom-outer corner and do mirror it — guide page 2 at 153–172, contents 4 at
+  152–173, dividers 5 and 9 at 2376–2395, answer page 10 at 155–200. Mechanism, from the code rather
+  than inferred: `_draw_folio`'s own docstring — a framed page gives its outer corner to the QR icon
+  (CARD-223), so the folio is drawn at `centred_x`, the trim's own centre (CARD-222). Corrected in the
+  card's Renders bullet, in the card's honest-bounds bullet, in the fixture's `changed_pages_note` and
+  `why_a_new_baseline`, in the `LIVE_OFFSET` comment and in `_reference`'s docstring.
+
+- **F-105:** the shifted-content failure message interpolates
+  `entry.page_number - plan.toc_page_count - TITLE_PAGE_COUNT` — the number the reference is actually
+  built at, computed once on the line above and used in both places — and names **CARD-201's shipped
+  layout** rather than the pre-CARD-201 one. A stale sibling comment in the same class (the SOLUTIONS
+  divider's `first_answer_page` formula, which omitted `TITLE_PAGE_COUNT`) went with it. The class name
+  is left alone, as the finding suggests.
+
+- **F-106:** the constant assertion is **deleted**, not replaced. `page_is_right_hand(before_this_card)`
+  is a pure function of the literal `5`; the obvious replacement — the same call on
+  `decided.pages[0].page_number` — would have read a value the assertion two lines above already pins,
+  so it would have been a second claim about the same fact rather than a control. The docstring now
+  names the three live assertions that carry the premise instead, including F-101's tightened
+  separation assertion, which can only hold if the two positions are opposite hands.
+
+**Claims I wanted to write and did not, because nothing enforces them.** (1) The sweep's own
+distribution — nine cases at 10.0/20.0, two at 16.7/26.7, one at 12.95/22.95 — is in this note and
+*not* in `PARITY_GUTTER_MM`'s docstring: it is a property of one seeded corpus that no assertion reads,
+and the next card to add a case would make it quietly false. (2) The widened guard's own size (6 names,
+25 sites) is in this note and not in the test: the test asserts a floor well under it, because the
+count is a figure no control could fail on. (3) "Parity never changes a page's usable size" is restated
+nowhere new — the existing `_packed_page_is_feasible` and `book_page_spec` docstrings already say it,
+and this round's contribution is the measurement above, not another sentence.
+
+**Environment.** Every pytest and `kill_matrix` run in this round was made with
+`NONOGRAM_FULL_SUITE_LOCK=/tmp/card206-fix1.lock`; `meta/kanban/.full-suite.lock` was never read,
+written, created or deleted. The full suite was **not** run (CARD-259's fix round is live in the
+sibling worktree). No timing measurement was taken and no duration is reported. Every mutation target
+was a file inside this worktree, backed up with `cp -p` and restored by the instrument with `diff -q`
+and `shasum -a 256` verification.
+
+---
+
+### [Fix 1] All six closed, none dismissed — and it took the harder route on F-102
+
+Commit `91a51395`, 5 files, +438/−55. Agent's own impact run: 2074 passed, 5 skipped, 0 failed over 35
+files, plus a 290-passed confirmation re-run over the edited files. The orchestrator's independent
+109-file gate is recorded separately below.
+
+**F-102 — route taken: WIDEN THE GUARD, not narrow the claim.** Of the two routes offered, this is the
+one that makes the card's universal claim *enforced* rather than retracted.
+
+- **The duplicate is gone.** `interior_stream` now computes `first_answer_page` **once** — the derived
+  expression hoisted to where the bare `3 + len(section)` sat, the later duplicate deleted. Verified:
+  one assignment at `:6718`, zero occurrences of the literal form.
+- **The probe's requirement was measured, not assumed.** `page_spec(n)` over positions 1..20 differs in
+  **exactly one dataclass field — `parity`**; usable area is one value (190.500 × 253.492 mm) and
+  `page_frame` one size (2550 × 3300 px) for every n. `_degrade_infeasible_packed_pages` returns an
+  identical plan on odd and even for all three of its branches, and over `page_spec(1..20)` on two
+  books. So the probe needs **a placed spec, not a position** — which is why one honest assignment
+  serving both readers is the right shape, rather than a second derivation beside the first. That is
+  the question I told the fix to answer rather than copy `:6747` on faith, and it answered it.
+- **The guard now derives its sites from the geometry door.** New `_page_position_sites` grows a
+  vocabulary to a fixed point from `page_spec`/`book_page_spec` (ADR-0036/R2) through parameters,
+  arguments and copies; sites are every binding of a position name plus every expression handed to a
+  door. **6 names, 25 sites, 0 offenders**, where the old guard saw 7 guide-counting expressions.
+  Newly reached: the title-page loop's `range(1, TITLE_PAGE_COUNT + 1)`, the TOC's
+  `TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1 + index`, `first_answer_page - 1`, and both walk defaults.
+- **The planted-literal control, in both states.** Reverting the derived assignment to
+  `3 + len(section)` line-count-preservingly reds **exactly one assertion node** — the guard's own.
+  *Domain: `tests/kill_matrix.py` RECORDING pass over `test_book_export_interior_cover.py`, 126
+  `ast.Assert` nodes, SHIPPED 0 FAIL of 125 reached at pytest exit 0, child instrumentation off,
+  ANY-RED; planted 125 reached, 1 FAIL.* No other assertion in that file sees it, which **reproduces
+  cycle 1's refutation** of the old honest bound rather than arguing with it.
+- **Two further controls make it ADR-0039/R1-shaped:** the enumeration with **no door in its seed set
+  reports nothing at all** (caught-with / missed-without), and a planted literal in a source the test
+  owns is reported as exactly `[('assignment','first_answer_page',[3])]` while its derived twin is not.
+- `TITLE_PAGE_COUNT`'s docstring now names that control instead of asserting an unenforced universal,
+  and the class docstring states what remains unseeable: a position from another module, and a wrong
+  position spelled `0` or `1`.
+
+**F-101 — the figure now has a control, and the decision about what to state is the right one.**
+Re-derived through `_expected_drawing_left_mm` over all 12 cases × both `is_lower`: **10.0000/20.0000
+for nine cases, 16.7000/26.7000 for two, 12.9500/22.9500 for one** — and `20.4500/30.4500` nowhere.
+The **difference is 10.0000 mm on all 24 readings, maximum deviation 0.0**. So the docstring states
+**only the difference**, because no absolute pair describes the corpus — a left edge is that page's own
+margin plus half the drawing's own spare, which varies by case. `:1026`'s stale "5.0 mm away" deleted.
+
+The assertion was **tightened from a `> 4.0` floor to an exact equality** — `:1123` now holds
+`abs(abs(right_hand_mm - left_hand_mm) - separation_mm) < 1e-6` against
+`PARITY_GUTTER_MM - PARITY_OUTSIDE_MM`, per case. Mutant `MODEL_DRIFT` (the `left_margin` right-hand
+branch `gutter_mm → gutter_mm + 5.0`) kills **exactly that assertion and nothing else**; *domain:
+RECORDING pass over the one parity test, 52 `ast.Assert` nodes, SHIPPED 0 FAIL of 11 reached, ANY-RED;
+mutant 11 reached, 1 FAIL at `:1122`.* **The old floor survives that mutant** — which is precisely how
+one quantity carried three readings for a whole cycle.
+
+*Orchestrator note, since I raised it and was wrong:* `:1131`'s surviving `assert separation_mm > 4.0`
+is **not** a reintroduced constant assertion. It is a precondition guard on the corpus's own
+parameters — it reds if a future edit to `PARITY_GUTTER_MM`/`PARITY_OUTSIDE_MM` makes the two hands
+indistinguishable, which is what its message claims — and the tightened equality above it is the
+control for the measurement. Unlike F-106's deleted assert, it is falsifiable by an edit to the thing
+it guards. Recorded because I checked it on suspicion and the suspicion did not survive the code.
+
+**The class sweep found a SEVENTH bad figure, and deleted it rather than restating it.**
+`tests/test_book_pdf_memory.py`'s "1186 px against 1191 px on the two-up page": measured, the ink-bbox
+crop is **(2251, 2948) at both parities and both shifts**. The parenthetical is gone and the sentence
+narrowed to what is true; the *design* it explained (even shift plus `test_the_comparison_has_teeth`)
+was certified in cycle 1 and left untouched. Everything else reproduced: page counts 0→3, 1→8, 3→12,
+7→20 with all three figures agreeing; baseline **14 pages / 3,468,586 bytes**; AC-288's 39+43 = 150 and
++1 medium = 151; the band edge's 71 puzzles / 70 pages = 150.
+
+**F-103/F-104 — the folio was measured, with the method, and the mechanism explained from code.**
+Dark-column clusters in the bottom 14% of the rendered interior, then a visual check on a band crop:
+page 6 QR 150–386 / 427–968, **folio 1264–1284**, label 2244–2395; page 7 label 153–304, **folio
+1264–1283**, QR 1581–2400. The folio is **centred and does not mirror**; only the QR group and the
+grid-size label do. And the reason, from the code rather than from the pixels: a **framed** page gives
+its outer corner to the QR, so `_draw_folio` is called with `centred_x` (CARD-222/223) — while
+**unframed** pages do carry an outer-corner folio (guide 2 at 153–172, TOC 4 at 152–173, dividers 5/9
+at 2376–2395, answer 10 at 155–200). Corrected in the card's Renders bullet and honest bounds, the
+fixture's `changed_pages_note` and `why_a_new_baseline`, the `LIVE_OFFSET` comment and `_reference`'s
+docstring — five texts for one measurement, which is the doubling this board keeps paying for.
+
+**F-105** — the message now interpolates the real expression and names CARD-201's shipped layout; a
+stale sibling comment (the SOLUTIONS-divider formula missing `TITLE_PAGE_COUNT`) was fixed with it.
+**F-106** — the constant assertion **deleted, not replaced**, because the obvious replacement would
+have re-read a value the assert two lines above already pins; the docstring names the three live
+controls that carry the premise instead.
+
+**Fixture integrity checked, and it answers whether new renders were owed:** only `why_a_new_baseline`
+and `changed_pages_note` changed in `book_baseline_card206.json`; `pages`, `interior_bytes` and
+`page_count` are byte-identical against HEAD by JSON comparison, and the memory suite's digest
+comparisons are green. So the hoist changed no exported byte and **no new renders were owed**.
+
+**Claims it wanted to write and did not:** the 9/2/1 case distribution and the guard's own size (6
+names, 25 sites) are in these notes rather than in docstrings, because no assertion reads either.
+"Parity never changes a page's usable size" was not restated anywhere new — the existing docstrings
+already say it and this round added the measurement instead of another sentence.
