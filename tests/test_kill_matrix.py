@@ -1590,7 +1590,8 @@ def test_ac5_the_five_occurrence_case_from_the_wild_must_be_targeted_explicitly(
         "the fixture moved: this card's AC-5 is the five-occurrence case"
     )
     assert source.count(NAMES_BLIND_LINE) == 4, (
-        "the whole line occurs four times -- :816 asserts `built`, not `names`"
+        "the whole line occurs four times -- the fifth occurrence of the "
+        "message asserts `built`, not `names`, so it is not this line"
     )
 
     with pytest.raises(MutantRefused) as refusal:
