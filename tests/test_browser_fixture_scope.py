@@ -905,33 +905,65 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     ),
     f"{FAMILY_PREFIX}_fifth_rule.py::"
     "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
-    "test_a_light_band_reads_across_the_fifth_rule[x]": (
+    "test_a_light_band_reads_across_the_fifth_rule[desktop-x]": (
         "CARD-270",
-        "AC-1's pixel arm on the column axis: a light band reads between two "
-        "filled cells across a .major-right fifth rule, with the same "
-        "scanline read with the hairline suppressed as its control",
+        "AC-1's pixel arm on the column axis at 1440x900: a light band reads "
+        "between two filled cells across a .major-right fifth rule, with the "
+        "same scanline read with the hairline suppressed as its control",
     ),
     f"{FAMILY_PREFIX}_fifth_rule.py::"
     "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
-    "test_a_light_band_reads_across_the_fifth_rule[y]": (
+    "test_a_light_band_reads_across_the_fifth_rule[desktop-y]": (
         "CARD-270",
-        "AC-1's pixel arm on the row axis: the same reading across a "
-        ".major-below fifth rule, which is a separate border property and so "
+        "AC-1's pixel arm on the row axis at 1440x900: the same reading across "
+        "a .major-below fifth rule, which is a separate border property and so "
         "a separate way the fix could be half-applied",
     ),
     f"{FAMILY_PREFIX}_fifth_rule.py::"
     "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
-    "test_an_ordinary_rule_reads_the_same_way[x]": (
+    "test_a_light_band_reads_across_the_fifth_rule[phone-x]": (
+        "CARD-270",
+        "the same FIGURES at 390x844, where the cell is 14.39 px — the size "
+        "the card's Standards section names, and the only place a hairline "
+        "that rounds away would show (CARD-270 review 1, F-002: the band "
+        "figures used to be desktop-only)",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_a_light_band_reads_across_the_fifth_rule[phone-y]": (
+        "CARD-270",
+        "the row axis at 390x844: the phone viewport is where the @media "
+        "floor and CARD-193's mirrored gutter change the layout, so each axis "
+        "is measured there separately",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_an_ordinary_rule_reads_the_same_way[desktop-x]": (
         "CARD-270",
         "the card claims the division reads UNIFORMLY, so an ordinary thin "
         "rule between two filled cells is sampled on the column axis too",
     ),
     f"{FAMILY_PREFIX}_fifth_rule.py::"
     "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
-    "test_an_ordinary_rule_reads_the_same_way[y]": (
+    "test_an_ordinary_rule_reads_the_same_way[desktop-y]": (
         "CARD-270",
         "the same uniformity claim on the row axis, where the thin rule is "
         "the cell's border-bottom rather than its border-right",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_an_ordinary_rule_reads_the_same_way[phone-x]": (
+        "CARD-270",
+        "the uniformity figure at 390x844 on the column axis: three "
+        "contiguous --player-thin px is a different number from the major "
+        "rule's 1/2/1, so it is its own way the hairline could collapse at "
+        "the phone cell size",
+    ),
+    f"{FAMILY_PREFIX}_fifth_rule.py::"
+    "TestSolverFifthRule_FilledCellsDivideAcrossMajorRules::"
+    "test_an_ordinary_rule_reads_the_same_way[phone-y]": (
+        "CARD-270",
+        "the uniformity figure at 390x844 on the row axis",
     ),
     f"{FAMILY_PREFIX}_fifth_rule.py::"
     "TestSolverFifthRule_EdgesAndGuttersToo::"
@@ -962,9 +994,11 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
     "test_the_hairline_takes_no_part_in_layout[desktop]": (
         "CARD-270",
-        "AC-3 at 1440x900: every box on the board is identical with the "
-        "hairline shipped and forced off, which is the no-layout-shift claim "
-        "measured rather than quoted from the box-shadow spec",
+        "AC-3 at 1440x900: every cell measures the px --player-cell resolves "
+        "to, which is the no-layout-shift claim measured rather than quoted "
+        "from the box-shadow spec (its second arm, box-by-box against the "
+        "hairline forced off, is the narrative one — MOVES-LAYOUT survives it "
+        "and the first arm kills it)",
     ),
     f"{FAMILY_PREFIX}_fifth_rule.py::"
     "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
@@ -977,9 +1011,13 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
     "test_the_rules_against_paper_are_untouched": (
         "CARD-270",
-        "AC-3: a BLANK board is pixel-for-pixel what it was, so the hairline "
-        "reaches no cell that is not filled and the major rules against paper "
-        "are the weight they were",
+        "AC-3: a BLANK board is pixel-for-pixel what it was under a control "
+        "that suppresses box-shadow on EVERY .player-cell and not only the "
+        "filled ones, so a hairline reaching a cell that is not filled reds "
+        "it (measured with the REACHES-BLANK and BROADEN-UNKNOWN mutants; "
+        "scoped to the filled state the comparison was equal by "
+        "construction — CARD-270 review 1, F-001), and the major rules "
+        "against paper are the weight they were",
     ),
     f"{FAMILY_PREFIX}_fifth_rule.py::"
     "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
@@ -1512,16 +1550,48 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
         }
 
     def test_the_family_on_disk_is_the_family_the_registry_names(self) -> None:
-        """The file set is pinned to :data:`PAGE_ISOLATION` and to nothing
-        else. It used to be pinned to a hand-written 12 as well — CARD-270
-        added the thirteenth file and that literal is exactly the kind of
-        snapshot ``ADDED_SINCE_BEFORE`` exists instead of (CARD-213's
-        ``assert len(ids) == 422``, in this same class). The count is derived
-        from the registry now, so adding a file still has to be recorded on
-        purpose, in one place rather than two that can disagree."""
+        """The file set on disk is pinned to the registries — by its **set**,
+        twice, through two doors that do not share a data structure.
+
+        It used to be pinned to a hand-written 12 as well. CARD-270 added the
+        thirteenth file and that literal is exactly the kind of snapshot
+        ``ADDED_SINCE_BEFORE`` exists instead of (CARD-213's ``assert
+        len(ids) == 422``, in this same class), so it is gone.
+
+        What replaced it was, for one cycle, ``len(files) ==
+        len(PAGE_ISOLATION)`` beside the set equality — and a count taken
+        beside the set equality it is derived from carries nothing:
+        :func:`_family_files` globs one directory, so its basenames are
+        distinct and the count is implied by the set. Every state that failed
+        the count failed the set equality first, and the test's name
+        advertised a derivation it did not have (CARD-270 review 1, F-003). It
+        is gone too.
+
+        The second door is a different registry: the node-id registries, whose
+        keys name files as a side effect of naming tests. Every family file on
+        disk must appear in CARD-217's measured artefact, in
+        ``ADDED_SINCE_BEFORE``, or as a rename target in
+        ``RENAMED_SINCE_BEFORE`` — and no other file may. That reds on states
+        the ``PAGE_ISOLATION`` equality cannot see, the sharpest being a file
+        given a ``PAGE_ISOLATION`` entry but no test registration at all
+        (measured: the ``PAGE_ISOLATION`` arm stays green there).
+        """
         files = _family_files()
-        assert len(files) == len(PAGE_ISOLATION), files
         assert {path.split("/")[-1] for path in files} == set(PAGE_ISOLATION)
+
+        named_by_node_ids = (
+            {node.split("::")[0] for node in _family_node_ids(BEFORE_ARTEFACT)}
+            | {node.split("::")[0] for node in ADDED_SINCE_BEFORE}
+            | {new.split("::")[0] for _card, new, _why in RENAMED_SINCE_BEFORE.values()}
+        )
+        assert named_by_node_ids == set(files), {
+            "on disk, named by no test registry": sorted(
+                set(files) - named_by_node_ids
+            ),
+            "named by a test registry, not on disk": sorted(
+                named_by_node_ids - set(files)
+            ),
+        }
 
 
 # ==========================================================================

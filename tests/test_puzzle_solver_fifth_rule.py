@@ -70,6 +70,12 @@ assert any(not cell for row in GRID for cell in row), (
 DESKTOP = (1440, 900)
 PHONE = (390, 844)
 
+#: The two viewports every pixel figure in this file is measured at, as one
+#: list so a test cannot be parametrized on a subset of them by accident.
+#: Desktop cells are 24.88 CSS px, phone cells 14.39 — the phone number the
+#: card's Standards section asks about by name.
+_VIEWPORTS = [(DESKTOP, "desktop"), (PHONE, "phone")]
+
 #: How far two colours may differ per channel and still count as the same
 #: one. The board renders these rules without antialiasing (every sampled
 #: pixel measured so far is exact), so this is slack, not a fudge factor.
@@ -154,13 +160,28 @@ _GEOMETRY = """() => {
   return { w: t.width, h: t.height, cells };
 }"""
 
-#: Suppresses the shipped mechanism without editing the stylesheet: the
-#: control every pixel reading is compared against.
+#: Suppresses *any* cell hairline without editing the stylesheet: the control
+#: every pixel reading is compared against.
+#:
+#: The selector is deliberately **wider** than the shipped rule's
+#: (``.player-cell``, not ``.player-cell[data-state="filled"]``), and that is
+#: load-bearing rather than tidiness. Scoped to the filled state it could not
+#: suppress a hairline that had broadened onto some *other* state, so a
+#: comparison of "shipped" against "suppressed" on a board with no filled cell
+#: was equal by construction — the mutation sat in both readings and the
+#: blank-board arm of :func:`test_the_rules_against_paper_are_untouched` could
+#: not fail in the direction its own message named (CARD-270 review 1, F-001,
+#: proved with the REACHES-BLANK and BROADEN-UNKNOWN mutants). Unscoped, the
+#: control subtracts every ``box-shadow`` any cell has, whatever put it there,
+#: so the comparison reds on a hairline that reaches a cell this card's rule
+#: does not select. Under the shipped stylesheet it is exactly as strong as
+#: the narrow form on every board the file samples: the three other callers
+#: mark every cell filled, so the two selectors match the same 400 cells.
 _SHADOW_OFF = """() => {
   const style = document.createElement('style');
   style.id = 'card270-shadow-off';
   style.textContent =
-    '.player-cell[data-state="filled"] { box-shadow: none !important; }';
+    '.player-cell { box-shadow: none !important; }';
   document.head.append(style);
 }"""
 
@@ -224,6 +245,33 @@ def _board(page):
 
 def _is(pixel, reference) -> bool:
     return max(abs(a - b) for a, b in zip(pixel, reference)) <= _TOLERANCE
+
+
+def _differing(one, other) -> int:
+    """How many pixels of two same-sized images are **visibly** different.
+
+    Byte identity is the right test for "nothing moved" (one changed pixel is
+    a change), but it is the wrong test for "something moved": two renderings
+    of the *same* computed style can differ by a pixel or two of ±1 at the
+    board's outer edge, and a control that only asks "did the bytes differ"
+    is bought by that noise. Measured, on a blank board under this card's
+    REACHES-BLANK mutant: 32 pixels at the board's left and right extremes,
+    each differing by at most 1 per channel, between two renderings whose
+    computed ``box-shadow`` is the same string on all 400 cells. So a
+    difference is counted only past :data:`_TOLERANCE`, the same window every
+    colour reading in this file uses.
+    """
+    from PIL import ImageChops
+
+    assert one.size == other.size, (one.size, other.size)
+    # ``tobytes`` rather than ``getdata``: both images are RGB, so this is
+    # three bytes per pixel, and it is not on Pillow's deprecation list.
+    channels = ImageChops.difference(one, other).tobytes()
+    assert len(channels) == 3 * one.size[0] * one.size[1], len(channels)
+    return sum(
+        1 for at in range(0, len(channels), 3)
+        if max(channels[at:at + 3]) > _TOLERANCE
+    )
 
 
 def _centre(cell):
@@ -345,23 +393,35 @@ class TestSolverFifthRule_FilledCellsDivideAcrossMajorRules:
         assert tokens["rule"] > 0 and tokens["major"] == 2 * tokens["rule"], tokens
 
     @pytest.mark.parametrize("axis", ["x", "y"])
-    def test_a_light_band_reads_across_the_fifth_rule(self, browser_page, live, axis) -> None:
-        """DOMAIN of every figure below: Chromium, viewport 1440x900, device
-        pixel ratio 1 (asserted), page zoom 100 % and ``--player-zoom`` 1
-        (asserted), a 20 x 20 board with every cell marked filled, sampled
-        along the single scanline joining the centres of the two cells either
-        side of one fifth-line major rule. No claim is made about any other
-        viewport, zoom level or device pixel ratio.
+    @pytest.mark.parametrize("viewport,name", _VIEWPORTS, ids=["desktop", "phone"])
+    def test_a_light_band_reads_across_the_fifth_rule(
+        self, browser_page, live, viewport, name, axis
+    ) -> None:
+        """DOMAIN of every figure below: Chromium, the **named** viewport
+        (1440x900 desktop or 390x844 phone), device pixel ratio 1 (asserted),
+        page zoom 100 % and ``--player-zoom`` 1 (asserted), a 20 x 20 board
+        with every cell marked filled, sampled along the single scanline
+        joining the centres of the two cells either side of one fifth-line
+        major rule. No claim is made about any other viewport, zoom level or
+        device pixel ratio.
+
+        Both viewports are sampled because the card's Standards section names
+        the phone cell explicitly ("state what it measures at 14 px"), and the
+        figures are the only thing that can say a hairline did not round away
+        there: 24.88 px cells at desktop, 14.39 px at phone, and the band
+        widths below are read off the tokens at the viewport under test rather
+        than hard-coded, so this arm reds on a hairline that collapses at one
+        size and not the other (CARD-270 review 1, F-002).
 
         Shipped: leaving either fill, the first pixel that is not ink is
         ``--player-thin``; the rule's own ink core between the two hairlines is
         still ``--player-rule-major`` wide.
 
-        Control: the same scanline with ``box-shadow: none`` forced on filled
-        cells finds NO ``--player-thin`` pixel at all — the defect, reproduced,
+        Control: the same scanline with ``box-shadow: none`` forced on every
+        cell finds NO ``--player-thin`` pixel at all — the defect, reproduced,
         which is what makes the reading above attributable to the hairline.
         """
-        tokens = _open_filled(browser_page, live, DESKTOP)
+        tokens = _open_filled(browser_page, live, viewport)
         assert tokens["dpr"] == 1, tokens["dpr"]
         assert tokens["zoom"] == 1, tokens["zoom"]
         image, geometry = _board(browser_page)
@@ -371,13 +431,13 @@ class TestSolverFifthRule_FilledCellsDivideAcrossMajorRules:
         assert _is(pixels[0], tokens["ink"]), pixels[:4]
         assert _is(pixels[-1], tokens["ink"]), pixels[-4:]
         assert _runs(pixels, tokens["thin"]) == [tokens["rule"], tokens["rule"]], (
-            f"{axis}: the two fills are not separated by two {tokens['rule']}px "
-            f"--player-thin hairlines: {pixels}"
+            f"{name}/{axis}: the two fills are not separated by two "
+            f"{tokens['rule']}px --player-thin hairlines: {pixels}"
         )
         # The major rule's ink core, between the two hairlines, is untouched.
         light = [i for i, p in enumerate(pixels) if _is(p, tokens["thin"])]
         assert light[-1] - light[0] - 1 == tokens["major"], (
-            f"{axis}: the ink between the hairlines is "
+            f"{name}/{axis}: the ink between the hairlines is "
             f"{light[-1] - light[0] - 1}px, not --player-rule-major: {pixels}"
         )
 
@@ -385,18 +445,23 @@ class TestSolverFifthRule_FilledCellsDivideAcrossMajorRules:
         without, geometry = _board(browser_page)
         first, second = _pair_across(geometry, axis)
         assert _runs(_between(without, first, second, axis), tokens["thin"]) == [], (
-            f"{axis}: a --player-thin band reads across the major rule with the "
-            f"hairline suppressed, so the band above is not the hairline's"
+            f"{name}/{axis}: a --player-thin band reads across the major rule "
+            f"with the hairline suppressed, so the band above is not the "
+            f"hairline's"
         )
 
     @pytest.mark.parametrize("axis", ["x", "y"])
-    def test_an_ordinary_rule_reads_the_same_way(self, browser_page, live, axis) -> None:
-        """Same domain as above. The card's claim is that the division reads
-        *uniformly* — across a thin rule as well as a major one — so the thin
-        rule is sampled too: between two filled cells it is one contiguous
-        light band of hairline + rule + hairline, and leaving either fill the
-        first non-ink pixel is ``--player-thin``."""
-        tokens = _open_filled(browser_page, live, DESKTOP)
+    @pytest.mark.parametrize("viewport,name", _VIEWPORTS, ids=["desktop", "phone"])
+    def test_an_ordinary_rule_reads_the_same_way(
+        self, browser_page, live, viewport, name, axis
+    ) -> None:
+        """Same domain as above, at both viewports for the same reason. The
+        card's claim is that the division reads *uniformly* — across a thin
+        rule as well as a major one — so the thin rule is sampled too: between
+        two filled cells it is one contiguous light band of hairline + rule +
+        hairline, and leaving either fill the first non-ink pixel is
+        ``--player-thin``."""
+        tokens = _open_filled(browser_page, live, viewport)
         assert tokens["dpr"] == 1, tokens["dpr"]
         image, geometry = _board(browser_page)
         first, second = _pair_plain(geometry, axis)
@@ -406,7 +471,7 @@ class TestSolverFifthRule_FilledCellsDivideAcrossMajorRules:
         assert _first_unlike(pixels, tokens["ink"]) is not None, pixels
         assert _is(_first_unlike(pixels, tokens["ink"]), tokens["thin"]), pixels
         assert _runs(pixels, tokens["thin"]) == [3 * tokens["rule"]], (
-            f"{axis}: an ordinary rule between two filled cells is not "
+            f"{name}/{axis}: an ordinary rule between two filled cells is not "
             f"hairline + rule + hairline: {pixels}"
         )
 
@@ -422,8 +487,7 @@ class TestSolverFifthRule_EdgesAndGuttersToo:
     outer frame and the clue gutters' edges — the other two places the rule is
     ``--grid-ink`` and so was ink on ink."""
 
-    @pytest.mark.parametrize("viewport,name", [(DESKTOP, "desktop"), (PHONE, "phone")],
-                             ids=["desktop", "phone"])
+    @pytest.mark.parametrize("viewport,name", _VIEWPORTS, ids=["desktop", "phone"])
     def test_leaving_a_filled_cell_at_the_boards_edge_the_first_pixel_is_the_hairline(
         self, browser_page, live, viewport, name
     ) -> None:
@@ -528,8 +592,7 @@ class TestSolverFifthRule_GeometryAndOtherMarksUnchanged:
     """AC-3. The cell geometry, the rules against paper, the empty dot, the
     "?" mark and the hint's own ring are what they were."""
 
-    @pytest.mark.parametrize("viewport,name", [(DESKTOP, "desktop"), (PHONE, "phone")],
-                             ids=["desktop", "phone"])
+    @pytest.mark.parametrize("viewport,name", _VIEWPORTS, ids=["desktop", "phone"])
     def test_the_hairline_takes_no_part_in_layout(
         self, browser_page, live, viewport, name
     ) -> None:
@@ -590,10 +653,29 @@ class TestSolverFifthRule_GeometryAndOtherMarksUnchanged:
         100 %, a 20 x 20 board left BLANK (every cell undecided), compared as
         whole ``.player-board`` element screenshots.
 
-        A blank board must be pixel-for-pixel what it was: the hairline is on
-        filled cells only, so forcing it off changes nothing there. The ink
-        core of a fifth-line major rule is still ``--player-rule-major`` px
-        wide against paper.
+        A blank board must be pixel-for-pixel what it was, and it must stay
+        that way under a control that can actually subtract something: the
+        comparison is against ``_SHADOW_OFF``, which suppresses ``box-shadow``
+        on **every** ``.player-cell`` and not only on the filled ones. So the
+        two readings differ the moment any cell on a board with no filled cell
+        carries a hairline — whichever rule put it there. The ink core of a
+        fifth-line major rule is still ``--player-rule-major`` px wide against
+        paper.
+
+        *Why the control is wider than the shipped rule.* Scoped to
+        ``[data-state="filled"]`` this arm could not fail: a hairline that had
+        broadened onto a non-filled state is by definition not the rule such a
+        control turns off, so the mutation sat in both readings and the
+        comparison was equal by construction. Measured, with the hairline
+        moved onto ``.player-cell`` (REACHES-BLANK) and with a second rule
+        added for ``[data-state="unknown"]`` (BROADEN-UNKNOWN): with the narrow
+        control both mutants left this arm PASS; with the wide one both red it
+        (CARD-270 review 1, F-001).
+
+        The premise is asserted over the whole board, not sampled: all 400
+        cells read ``data-state="unknown"``. Were a future change to open the
+        board with cells already decided, this arm would stop being the
+        blank-board claim it is named for, and it fails rather than drifting.
 
         Note what this does NOT assert, because the pixels will not carry it:
         a rule at a fractional offset is antialiased, and ``--player-thin`` is
@@ -601,14 +683,39 @@ class TestSolverFifthRule_GeometryAndOtherMarksUnchanged:
         edge blends to. "No ``--player-thin`` pixel on a blank board" is
         therefore not a statement the sampler can make, and it is not made.
 
-        Control: forcing the hairline onto EVERY cell instead must make the
-        same comparison differ — otherwise this is comparing nothing.
+        Control: forcing the hairline onto EVERY cell instead must change at
+        least one pixel **per cell** by more than ``_TOLERANCE`` — otherwise
+        this is comparing nothing. Byte inequality is deliberately not the
+        test here, although it is the right test for the arm above: under
+        REACHES-BLANK the board already carries the hairline everywhere, and
+        forcing it on again still changed 32 pixels by ±1 at the board's left
+        and right extremes (measured; the computed ``box-shadow`` is the same
+        string on all 400 cells in both renderings). A control a rounding
+        artefact can satisfy is not a control, so this one counts visibly
+        changed pixels and reds under both mutants as well.
         """
         browser_page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
         _open(browser_page, live, live.store(GRID))
         browser_page.evaluate(_SWATCHES)
         tokens = _tokens(browser_page)
         assert tokens["dpr"] == 1, tokens["dpr"]
+
+        #: The arm's premise, over the board rather than spot-checked: every
+        #: cell is undecided, so "blank" is measured and not assumed.
+        states = browser_page.evaluate(
+            """() => {
+              const tally = {};
+              for (const td of document.querySelectorAll('td.player-cell')) {
+                tally[td.dataset.state] = (tally[td.dataset.state] ?? 0) + 1;
+              }
+              return tally;
+            }"""
+        )
+        assert states == {"unknown": SIDE * SIDE}, (
+            f"the board this arm calls BLANK carries {states}, so the "
+            f"comparison below is not the blank-board claim"
+        )
+
         shipped, geometry = _board(browser_page)
 
         for axis in ("x", "y"):
@@ -620,8 +727,8 @@ class TestSolverFifthRule_GeometryAndOtherMarksUnchanged:
         browser_page.evaluate(_SHADOW_OFF)
         without, _ = _board(browser_page)
         assert shipped.tobytes() == without.tobytes(), (
-            "a blank board is not what it was with the filled cell's hairline "
-            "forced off, so the hairline is reaching cells that are not filled"
+            "a blank board is not what it was with EVERY cell's box-shadow "
+            "forced off, so a hairline is reaching cells that are not filled"
         )
 
         browser_page.evaluate(
@@ -634,9 +741,14 @@ class TestSolverFifthRule_GeometryAndOtherMarksUnchanged:
             }"""
         )
         everywhere, _ = _board(browser_page)
-        assert shipped.tobytes() != everywhere.tobytes(), (
-            "a hairline forced onto every cell changes no pixel of a blank "
-            "board, so the comparison above would not have seen one either"
+        #: One pixel per cell is the floor a hairline on 400 cells cannot miss,
+        #: and it is two orders of magnitude above the ±1 edge noise two
+        #: renderings of the SAME computed style were measured to produce.
+        changed = _differing(shipped, everywhere)
+        assert changed >= SIDE * SIDE, (
+            f"a hairline forced onto every cell changes only {changed} pixels "
+            f"of a blank board by more than {_TOLERANCE} per channel, so the "
+            f"comparison above would not have seen one either"
         )
 
     def test_no_other_cell_state_gains_a_shadow(self, browser_page, live) -> None:
