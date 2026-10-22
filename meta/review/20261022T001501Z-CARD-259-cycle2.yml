@@ -1,0 +1,580 @@
+version: 1
+card: CARD-259
+cycle: 2
+generated_at: '2026-10-22T00:15:01Z'
+target: 'd85b48b0..84fd9ded (fix round 1) over 27ca88c7..84fd9ded (branch card/259-single-source-the-record, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-259)'
+overall_score: 7.0
+risk_level: medium
+review_lane: deep
+reviewer: 'forge:review'
+reviewer_version: 'forge 2026.8.17'
+
+verdict: >-
+  Below threshold 8, and exactly at the min_improvement floor (6.5 + 0.5 = 7.0, so the loop
+  is converging but has not converged). Two Important (gating) findings, both introduced by
+  fix round 1, both in the ADR-0039/R1 family that gated cycle 1, and one of them standing
+  inside the control fix round 1 itself wrote. family_regression FIRES on that combination;
+  the routing decision is the orchestrator's, and this report says plainly that the
+  combination escalates rather than buying a third fix round. The derivation AC-5 asked for
+  is real, works, and was verified twice independently -- that is a large, genuine
+  improvement -- but the card's central narrative claim (CARD-252's record is stated once)
+  is still false on disk in two sentences this round added, and AC-2's control is measurably
+  weaker than the hand-written version it replaced.
+
+coverage:
+  read:
+    - src/nonogram/db/session.py
+    - tests/test_db_engine_lifecycle.py
+    - tests/conftest.py
+    - tests/test_kill_matrix.py
+    - tests/README.md
+    - tests/helpers/undefined_table_report.py
+    - meta/kanban/cards/CARD-259.md
+    - meta/kanban/cards/CARD-252.md
+    - meta/kanban/cards/CARD-251.md
+    - meta/kanban/cards/CARD-248.md
+    - meta/review/20261021T231000Z-CARD-259-cycle1.yml
+  not_reached:
+    - 'the full suite -- deliberately NOT run (CARD-206 is live in its own worktree with its own review; a full run would take meta/kanban/.full-suite.lock and red it). NONOGRAM_FULL_SUITE_LOCK was exported to /tmp/card259-review2.lock for every pytest run in this review; meta/kanban/.full-suite.lock was never read, created, modified or deleted.'
+    - 'tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema AC-1/AC-2 (db_required; 2 skips, no reachable test database) -- the implementer declared this and it still holds'
+    - 'tests/test_kill_matrix.py was NOT re-run in this cycle (it transiently mutates both anchored files; the orchestrator gated it at 84fd9ded: 3326 passed, 16 skipped, 0 failed). Its four arm literals and NAMES_BLIND_OCCURRENCES were instead re-derived statically from a fresh ast.parse -- see metrics.rederived_figures.'
+    - 'no timing measurement was taken and none is reported anywhere in this report'
+  confidence: high
+  checks_run:
+    - 'step-1b: AC-1, AC-2 (amended), AC-3, AC-4, AC-5 (new) and G-1..G-5 re-derived against the fix delta'
+    - 'step-8h system contract: ADR-0039/R1, R2, R3 applied to every claim this round added; ADR-0036/R4 re-scanned independently; ADR-0022/R1, ADR-0038/R6,R7,R8, CON-021, ADR-0036/R3 N/A'
+    - 'step-8f static test lint: ran (no tautologies, no sleeps, no integration work moved into the unit tier, no unseeded generators; the one self-referential shape found is F-207 and it is reported)'
+    - 'step-8f mutation check: DIAGNOSIS half ran (3 mutants, each establishing or refuting a finding); CERTIFICATION half deferred(cost) -- gating findings present; certify on the stable cycle. A card cannot merge on a review whose certification was deferred, and cycle 1 deferred it too, so the passing cycle still owes it.'
+    - 'step-8g: N/A -- no UI, no template, no stylesheet in the diff'
+    - 'figure re-derivation in an independent domain: see metrics.rederived_figures'
+  mutants_run:
+    - 'ROLE-SLIP-TWO[conftest]: whole-word SessionLocal and _engine_url Z-filled on tests/conftest.py:499 (inside _rebuild_public_schema docstring span, line-count-preserving). Plain pytest over tests/test_db_engine_lifecycle.py: EXIT=0, SURVIVED. Domain: plain run (the committed instrument refuses this path by identity). Restored: shasum equal 13152427f87e..., diff -q clean.'
+    - 'ROLE-SLIP-ONE[conftest]: the same line, SessionLocal alone Z-filled. Plain pytest: EXIT=1 at :1121 naming tests/conftest.py:463 _rebuild_public_schema. KILLED. This is the contrast that attributes the survivor above to the >1 role threshold and not to anything else. Restored: shasum equal, diff -q clean.'
+    - 'PARSE-DENY-CONTINUE: the SyntaxError branch of _card_252_record_texts (tests/test_db_engine_lifecycle.py:448-453) replaced by `continue` padded with comment lines (line count preserved). Plain pytest over TestCard259_TheDerivedSetOfTextsDeniesByDefault: EXIT=1, test_a_file_the_derivation_cannot_analyse_is_a_failure FAILED with "an unparseable file passed silently, which is the whole shape ADR-0039/R2 forbids". KILLED. Restored: shasum equal aaf2302fb571..., diff -q clean.'
+    - 'SHIPPED baseline re-run before and after every mutant: tests/test_db_engine_lifecycle.py 18 passed, 2 skipped, EXIT=0. End-of-review whole-diff check: git diff HEAD -- tests/ src/ is empty.'
+
+metrics:
+  diff:
+    files: 5
+    added: 833
+    removed: 106
+  tests_cover_change: true
+  hotspots:
+    - tests/test_db_engine_lifecycle.py
+  rederived_figures:
+    derived_set_size: 'RE-DERIVED: 11 signature-carrying texts under src/nonogram/ and tests/ at 84fd9ded. Matches the claim. Domain: my own independent ast walk, not the committed helper.'
+    role_split: 'RE-DERIVED: 3 texts name more than one global (src/nonogram/db/session.py:211 reset_engine; tests/conftest.py:463 _rebuild_public_schema; tests/test_db_engine_lifecycle.py:839 TestEngineLifecycle_TheResetIsAPublishedSeam), 2 name exactly one (tests/helpers/undefined_table_report.py:1 and tests/test_db_engine_lifecycle.py:1, both <module>), 6 name none. The 3 ARE the 3 the hand-written tuple held. Matches the claim exactly. Domain: independent ast walk.'
+    pointer_occurrences_per_text: 'RE-DERIVED: word-bounded nonogram.db.session.reset_engine per derived text -- keeper 0 (it is the keeper), conftest 2, undefined_table_report 1, lifecycle module 2, DbCoverage class 1, guard class 2, test_conftest_names_the_seam 1, agreement 2, label control 1, count control 1, test_ac7 1. So POINTER-DEL-ONE surviving on the lifecycle module docstring is CORRECT and POINTER-DEL-ALL is the mutant that measures the mechanism. Domain: independent ast walk.'
+    survival_table_rows: 'RE-DERIVED: 21 rows, and all 21 pass the exactly-one-text check (not only the figure/bound ones). Domain: independent re-implementation of the row check over an independent ast walk of the derived set.'
+    survival_table_kinds: 'RE-DERIVED and DISAGREES: 9 bound / 3 figure / 9 narration = 12 figure-or-bound rows. The card and the cycle-1 fix_note say 10 bound / 3 figure / 8 narration and "all 13 figure/bound rows". See F-204. Domain: ast.literal_eval of the shipped constant.'
+    clause_split_coverage: 'RE-DERIVED: the removed docstring lines of the conftest step-3 text split into 16 clauses and the guard class docstring into 5 -- 21, and every one has a row. No clause carrying a bound was dropped. But 5 of the 21 rows have home == retired_from (see F-207), and the text fix round 1 actually retired a clause FROM (the lifecycle module docstring) is outside the stated method and has no row of its own. Domain: git diff -U0 27ca88c7..84fd9ded plus a hand split by the constant comment''s own stated method.'
+    waves_45_to_48: 'RE-DERIVED and CONFIRMED against meta/kanban/cards/CARD-252.md:30-39 -- "Measured cost, four consecutive waves" with a four-row table: wave 45 CARD-248 build gate (EXIT=1, 1 failed, then green on the same commit); wave 46 the wave smoke test, first run (5 failed, FATAL: database ... does not exist); wave 47 CARD-251 build gate (5 failed, relation "puzzles" does not exist); wave 48 CARD-247 build gate (6 failed, incl. uuid.UUID(hex=<float>)). Three build gates, one smoke test. Corroborated at CARD-251.md:645-651 (the wave-46 smoke test''s first run dying on FATAL: database ... does not exist; "same commit, same database, red then green") and CARD-248.md:355-361 (uuid.UUID(hex=inf) -> AttributeError on a float). "Each failure reproducing on no second run" is CARD-252''s own wording for all four (CARD-252.md:385, :399, :938 call them "four waves of irreproducible gate failures"). The keeper''s resolved figure is right and both retired sentences were wrong, as claimed.'
+    arm_addresses: 'RE-DERIVED from a fresh ast.parse: preamble :1077, names :1121, heads :1128, pointer :1134; keeper arm :1090, keeper-in-texts :1104, deny arm :1145. NAMES_BLIND_OCCURRENCES (961, 1077, 1207, 1253, 1380), arm occurrence 2 -> :1077, message count 5, whole-source-line count 4. Every literal in tests/test_kill_matrix.py matches. Domain: static ast, not the instrument.'
+    l1_l2_figures: 'RE-DERIVED at 84fd9ded per text: whole-word engine / of which backticked -- prod 13/2, guard 1/1, conftest 6/2; setattr( 6 prod / 4 guard / 1 conftest. Every figure in the fix round''s L-1/L-2 table reproduces to the digit, including the 12 -> 13 move on the prod text and L-1''s guard half being CLOSED at 1 of 1. Domain: independent word-bounded regex over ast.get_docstring.'
+    adr_0036_r4: 'RE-DERIVED: independent ast scan of every str Constant under src/nonogram/** against set(range(0x25A0,0x2600)) | {0x2022, 0x2219} -- exactly 3 hits, all src/nonogram/admin/pdf_generator.py:321, all U+2022, the declared exemption. G-5 holds.'
+    g1_ast_equality: 'NOT re-derived -- accepted from the orchestrator (session.py 9487 / 49978874aa80a43a851d2146473dcf342b18c8884d8b854fb2366ba1477fbf49 and conftest.py 33624 / 4cfa0b4bf43b12fa1f071aca340e1e0aecf950f9a34bdb9bf53902f4c03535a4, both equal to merge-base 27ca88c7). I agree with the reading and with the narrowing of the FULL selector verdict on it: a docstring-only change to conftest.py cannot alter a test''s behaviour, the premise is recomputed rather than judged, and the merge gate still runs the full suite. The cost the orchestrator named -- the selector''s own fail-closed refusal leaving this card''s evidence chain -- is the right thing to have recorded, and I would not have called it differently.'
+  unmeasured:
+    max_fan_in: 'no_eligible_fact -- the diff is docstrings plus one test-side control; reset_engine has exactly one caller and that is itself a committed assertion'
+
+system_contract:
+  rules_checked: 10
+  holds: 7
+  unchecked: 0
+  violated: 3
+  verdicts:
+    - 'ADR-0039/R1 x holds-NOT -- F-201: two sentences this round added claim CARD-252''s record is restated nowhere / that no other docstring restates a measured figure or declared bound. Both are false on disk and neither has a control that can fail; the derivation enforces pointer-PRESENCE, never non-restatement.'
+    - 'ADR-0039/R1 x holds-NOT -- F-202: the names arm''s claim over the derived set has a control the subject escapes by rewording, measured.'
+    - 'ADR-0039/R1 x holds-NOT -- F-203: the declared residue bound ("zero today by inspection") is a claim whose own measurement is wrong.'
+    - 'ADR-0039/R2 ✓ holds -- the set IS derived from the file system plus ast, denies by default, names path:lineno qualname, fails on an unparseable file and on a root that is not a directory. Verified independently: the committed plant tests read correctly, the orchestrator''s limits.py plant red naming limits.py:1 <module>, and my own PARSE-DENY-CONTINUE mutant reds the unparseable-file arm. The predicate (one hand-written token) is a declared bound, and F-203 is about the measurement of that bound, not about R2 itself.'
+    - 'ADR-0039/R3 ✓ holds -- no new exemption is granted; tests/helpers/undefined_table_report.py took a pointer sentence rather than an exemption, which is the cheaper and the controlled remedy.'
+    - 'ADR-0036/R4 ✓ holds -- re-scanned independently, 3 hits, all the declared pdf_generator.py:321 exemption.'
+    - 'ADR-0036/R3 ✓ holds -- carried(cycle 1, delta-clean): no drawing site touched.'
+    - 'ADR-0022/R1 ✓ holds -- N/A by scope: no grid API, no request field, no export field in the delta.'
+    - 'ADR-0038/R6 ✓ holds -- N/A by scope: no player, no solution shipped to a browser.'
+    - 'ADR-0038/R7, ADR-0038/R8, CON-021 ✓ hold -- N/A by scope: no browser test, no dependency, no play surface in the delta.'
+
+root_causes:
+  - id: RC-1
+    title: 'the derivation enforces pointer-presence, not non-restatement -- so every "stated once" claim in the tree is still uncontrolled'
+    findings: ['F-201', 'F-203', 'F-207']
+    note: >-
+      AC-1 has two halves -- each clause appears once, AND every other text that restates it
+      carries a pointer -- and only the second half was mechanised. The exactly-one-text check
+      on the survival table''s figure/bound rows is the only thing that bites on a doubled
+      statement, and it bites only on the 12 phrases the table names. Everything else about
+      single-sourcing is narrative again, which is the shape cycle 1 gated on.
+  - id: RC-2
+    title: 'the role of a text is derived from the text itself, so the subject of the check decides whether it is checked'
+    findings: ['F-202']
+
+findings:
+  - id: F-201
+    title: 'fix round 1 closed one false uniqueness claim by writing two more, and the derivation cannot fail on either'
+    severity: high
+    category: GAP
+    confidence: high
+    source: static
+    violates: 'ADR-0039/R1'
+    attribution: 'introduced by fix 1 (84fd9ded) -- both sentences are new in this round; the restatements they are false about are pre-existing at 27ca88c7'
+    file: tests/test_db_engine_lifecycle.py
+    line: 710
+    evidence: |
+      ATTRIBUTION: INTRODUCED BY FIX 1. Checked at both commits, not by impression.
+      `git diff 27ca88c7..84fd9ded -- tests/test_db_engine_lifecycle.py` contains exactly one
+      added line carrying the phrase "restated in no docstring"; it is absent at d85b48b0 and
+      at 27ca88c7.
+
+      Site 1 (new in 84fd9ded), tests/test_db_engine_lifecycle.py:710-713, in
+      `TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish`''s docstring:
+      "... recorded on CARD-252, whose record is kept on
+      :func:`nonogram.db.session.reset_engine` and **restated in no docstring, this one
+      included**."
+
+      Site 2 (new in 84fd9ded), src/nonogram/db/session.py:294-297, the keeper''s own closing
+      paragraph -- the narrowed replacement for the sentence cycle-1 F-101 killed:
+      "every measured figure and declared bound of them is stated here, and every other
+      docstring in this repository that names CARD-252 carries a pointer back here rather than
+      restating one."
+
+      Both are false on disk, and the counterexample is the same text cycle-1 F-101 itemised.
+      tests/test_db_engine_lifecycle.py''s module docstring (lines 1-57) still restates FOUR of
+      CARD-252''s record items; fix round 1 removed only the fifth (the waves/gates figure):
+
+        * the defect mechanism -- module :13-15 "so a process that had already built the global
+          engine for that URL kept it, pool and all, and connections opened before the DROP were
+          handed back out after it" vs keeper :245-249 "cache keeps whatever engine the process
+          had already built for that URL, pool and all, so a connection opened *before* the
+          ``DROP SCHEMA`` is still in the pool *after* it, ready to be handed back out";
+        * both gate signatures -- module :20-23 "The signatures were ``relation \"puzzles\" does
+          not exist`` and a ``UUID`` column arriving as the float ``inf`` so that
+          ``uuid.UUID(hex=inf)`` called ``.replace`` on it" vs keeper :253-255, the same two
+          signatures inside the motive sentence. These are a measured detail of the record, which
+          is what Site 2''s "measured figure" clause is about;
+        * AC-3''s withdrawal -- module :26 "**AC-3 ... is withdrawn.**" vs keeper :262
+          "**withdrew** that acceptance criterion (AC-3)". Survival-table row 14 types this
+          clause as `bound`, which is what Site 2''s "declared bound" clause is about;
+        * the precondition-not-the-race bound -- module :33 "**So what is pinned here is the
+          hazard''s PRECONDITION, not the absence of the race.**" vs keeper :277 "What the
+          function therefore removes is the hazard''s **precondition**." Survival-table row 12
+          types this as `bound` too.
+
+      NOTHING REDS ON ANY OF IT, and that is the gating half. The derived deny-default asks only
+      that a signature-carrying docstring hold the word-bounded dotted path
+      (`_texts_not_pointing_at_the_keeper`, :503-516). The module docstring carries it twice
+      (re-derived), so it is clean by construction however much of the record it restates. The
+      exactly-one-text check that could bite applies only to the 12 figure/bound rows of
+      `_CARD_252_CLAUSE_SURVIVAL`, i.e. to 12 named phrases -- and rows 12 and 14 pass only
+      because the check is phrase-literal while the module docstring states the same two bounds
+      in different words. The number-token class sweep the card reports ("only one token denotes
+      the same measurement in two texts") enumerates NUMBER tokens, so it is structurally blind
+      to a doubled signature string and to a doubled bound; its conclusion does not reach them.
+
+      So this is cycle-1 F-101 in narrowed form -- a uniqueness claim with a counterexample on
+      disk and no control that can fail -- reintroduced by the fix for F-101, in a text the fix
+      wrote, plus one brand-new instance at Site 1 that is unqualified ("no docstring, this one
+      included") and therefore false on its face.
+
+      FIX: either (a) narrow both sentences to what the mechanism actually enforces -- every
+      other docstring naming the card carries a pointer, and the 12 phrases the survival table
+      names stand in exactly one text -- and delete the unqualified Site 1 clause; or (b) make
+      the stronger claim measurable by holding every derived text to carrying none of an
+      enumerated set of record phrases (the survival table already supplies that set), so a
+      restatement reds. (a) is the cheap, honest closure; (b) is a card.
+    status: open
+
+  - id: F-202
+    title: 'the >1 role threshold lets a text reword itself out of the names arm; the same mutant killed before this round and survives now'
+    severity: high
+    category: BUG
+    confidence: high
+    source: static
+    violates: 'ADR-0039/R1'
+    attribution: 'introduced by fix 1 (84fd9ded) -- at d85b48b0 the three texts were a hand-written tuple held unconditionally; the role predicate that creates the escape is new in this round'
+    file: tests/test_db_engine_lifecycle.py
+    line: 1113
+    evidence: |
+      ATTRIBUTION: INTRODUCED BY FIX 1, and it is a measured regression, not a new claim.
+      Read at both commits. At d85b48b0, tests/test_db_engine_lifecycle.py:880-884 built
+      `texts` as a literal 3-tuple (conftest pointer, reset_engine docstring, the class
+      docstring) and the names arm ran over all three unconditionally. At 84fd9ded, :1105-1109
+      builds it by predicate: `if len(_names_shown_in(doc, names)) > 1`. A text that names 1 or
+      0 globals leaves the set and is held to nothing but the pointer.
+
+      MEASURED, plain-run domain (the committed instrument refuses tests/conftest.py by
+      identity, `_refuse_forbidden_path` -- which I did not widen; G-3), cp -p backup in the
+      scratchpad, restore in a trap, restore verified `shasum -a 256` equal AND `diff -q` clean,
+      SHIPPED re-run (18 passed, 2 skipped, EXIT=0) before and after each:
+
+        * ROLE-SLIP-ONE[conftest] -- tests/conftest.py:499, whole-word `SessionLocal` Z-filled
+          (line count preserved, 12 chars for 12). Plain pytest over the whole lifecycle file:
+          EXIT=1 at :1121, "…/tests/conftest.py:463 _rebuild_public_schema does not name every
+          global _init_engine() creates (['SessionLocal', '_engine_url', 'engine']) as a whole
+          word". KILLED.
+        * ROLE-SLIP-TWO[conftest] -- the same single line, `SessionLocal` AND `_engine_url` both
+          Z-filled. The text now names 1 global, drops out of `texts`, and the names and heads
+          arms never see it. Plain pytest: EXIT=0. SURVIVED.
+
+      The same two-name deletion at d85b48b0 could not have survived: the tuple held that text
+      whatever it said, so `_names_shown_in(text, names) == set(names)` would have failed on
+      {'engine'} != {'SessionLocal','_engine_url','engine'}.
+
+      WHY THE SHIPPED MATRIX CANNOT SEE IT. AC-2 asks for "a per-name, per-text kill matrix",
+      and the shipped matrix is exactly one name per text (DOC-NAME-DEL[name@text], nine cells).
+      One name deleted leaves two named, which still clears the threshold -- so every cell in the
+      matrix is on the side of the threshold where the arm still applies. The shape that defeats
+      the arm is the one shape the matrix''s own design excludes.
+
+      THE GUARD TEXT IS COVERED AND THE CONFTEXT TEXT IS NOT, which is worth stating because it
+      is accidental rather than designed: survival-table rows 18 and 20 pin the guard class
+      docstring''s three-name sentence by phrase, so a two-name deletion there reds via the
+      table. No survival row holds the conftest text''s enumeration (its only row, 16, is
+      narration about "before concluding this call fixed anything"), so the conftest text has no
+      second control at all.
+
+      AND THE PROSE INVITES THE WRONG INFERENCE. The guard class docstring at :851-853 says
+      "…holds this docstring to naming each of them as a whole word -- reword one of the three
+      away and that control reds, per name." True for one. The declared bound at :1008-1012
+      says a text naming exactly one is "read as prose", but nowhere does the round say that the
+      control it replaced held these texts unconditionally and this one does not. A declared
+      bound that is silent about being a regression is the part that gates.
+
+      FIX: derive the convention-stating role from something other than the text under test.
+      Both members besides the keeper are already derivable without reading their prose -- the
+      call site is `tests/conftest.py`''s AST call to `session.reset_engine`
+      (`test_conftest_names_the_seam_at_its_call_site` already derives it) and the guard is the
+      class that owns the agreement method. Hold THOSE to the names arm by identity and keep the
+      `>1` predicate only as an additional sweep. Short of that: add the two-name cell to the
+      matrix, declare the escape as a measured bound, and correct the "reword one away" sentence.
+    status: open
+
+  - id: F-203
+    title: 'the measured residue bound "zero today by inspection" is wrong -- a third marker-carrying docstring restates two of the record''s declared bounds and never names the card'
+    severity: medium
+    category: GAP
+    confidence: high
+    source: static
+    violates: 'ADR-0039/R1'
+    attribution: 'the claim is introduced by fix 1 (84fd9ded, tests/test_db_engine_lifecycle.py:408-414 and the card''s honest bound 1); the text it is wrong about is pre-existing -- byte-identical at 27ca88c7'
+    file: tests/test_db_engine_lifecycle.py
+    line: 408
+    evidence: |
+      ATTRIBUTION: CLAIM FIX-INDUCED, SUBJECT PRE-EXISTING. The comment on
+      `_CARD_252_SIGNATURE` (:404-414) is new in 84fd9ded. The docstring it is wrong about,
+      `TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema` (:522-561), is
+      byte-identical between 27ca88c7 and 84fd9ded (diffed the whole class block; IDENTICAL).
+
+      THE CLAIM: ":404-414 … Measured on 2026-10-22: two docstrings under the roots above carry
+      a marker of the record without naming the card, and neither restates a figure or a bound
+      of it" -- naming `test_no_server_side_prepared_statement_is_ever_created` and
+      tests/test_web_server.py''s cross-origin test. Honest bound 1 on the card draws the
+      conclusion: "the residue is zero today by inspection".
+
+      RE-MEASURED, independent ast walk of every module/class/function docstring under
+      src/nonogram/ and tests/ that does NOT carry the signature, against ten markers of the
+      record (no-second-run, four-consecutive, pg_prepared_statements, OID 2950, 24/24, the
+      stale-engine/pool/handed-back-out shape, reset_engine(), not-load-bearing,
+      precondition-not-the-race, hand-set). FIVE marker-carrying docstrings, not two:
+
+        tests/test_db_engine_lifecycle.py:305  _hand_set_spellings            (hand-set)
+        tests/test_db_engine_lifecycle.py:364  _hand_set_sites_in             (hand-set)
+        tests/test_db_engine_lifecycle.py:1198 test_no_test_file_outside_...  (hand-set)
+        tests/test_db_engine_lifecycle.py:522  TestEngineLifecycle_TheRebuildLeavesNoEngine...
+        tests/test_db_engine_lifecycle.py:677  test_no_server_side_prepared_statement_...
+        tests/test_db_engine_lifecycle.py:1840 test_every_retired_clause_...  (four-consecutive)
+        tests/test_web_server.py:1858          test_every_cross_origin_...    (not-load-bearing)
+
+      Three of those are the convention''s own helper docstrings and are fine. One, :1840, quotes
+      the RETIRED wording ("Four consecutive build gates on this board") explicitly as the wrong
+      phrase, which is narration, not a restatement. But :522 is a real counterexample, and it
+      restates two clauses the survival table itself types as `bound`:
+
+        * ":526-527  The precondition is *forced*, not hoped for, which is what makes this a
+          control rather than a description." -- the precondition-not-the-race bound.
+        * ":540-543  Scope of the claim: this says the fixture leaves no engine, pool or backend
+          process predating the schema. It does **not** say that such a survivor would have
+          corrupted a query -- see this module''s docstring, and AC-3''s withdrawal." -- that is
+          survival-table row 12 (`bound`, "**Not** pinned: that such a survivor corrupts
+          anything") and row 14 (`bound`, AC-3''s withdrawal), restated.
+
+      It names CARD-252 nowhere, so it is outside the derivation entirely, carries no pointer
+      (it points at "this module''s docstring", a chain, not the keeper), and the figure/bound
+      row-unique check passes only because it compares literal phrases and this text uses its
+      own words. So the bound whose exactly-one check the round calls "the mechanism that
+      single-sources a measurement" is in fact stated in THREE texts, two of which the mechanism
+      cannot see or does not compare.
+
+      This is the finding the brief asked to be re-measured, and it lands: "zero today by
+      inspection" is not zero. It does not break ADR-0039/R2 (the SET is derived; the predicate
+      is a declared bound) -- it breaks the measurement of the declared bound, which on this
+      board is a claim like any other.
+
+      FIX: correct the measurement to what it is (one residue text, named, with its two restated
+      bound clauses) and either add a pointer sentence to :522 or widen the signature predicate
+      to a derived marker set. Re-measuring with a wider marker set than two phrases is the
+      cheap part; the sentence that says "zero" has to go either way.
+    status: open
+
+  - id: F-204
+    title: 'the survival table''s kind counts do not recompute: 9 bound / 3 figure / 9 narration, not 10 / 3 / 8, and 12 figure-or-bound rows, not 13'
+    severity: low
+    category: BUG
+    confidence: high
+    source: static
+    attribution: 'introduced by fix 1 (84fd9ded) -- the figure is new in this round, written beside the table that closed cycle-1 F-102'
+    file: meta/kanban/cards/CARD-259.md
+    line: 773
+    evidence: |
+      ATTRIBUTION: INTRODUCED BY FIX 1. The sentence does not exist before 84fd9ded.
+
+      THE CLAIM, twice. CARD-259.md''s F-102 section: "Rows checked hardest first, as the brief
+      asked: of the 21, **10** are `bound`, **3** are `figure`, **8** are `narration`. All 13
+      figure/bound rows hold the exactly-one-text check." The cycle-1 YAML''s F-102 `fix_note`
+      repeats "The 13 figure/bound rows carry a SECOND check".
+
+      RE-COMPUTED by `ast.literal_eval` of the shipped `_CARD_252_CLAUSE_SURVIVAL`
+      (tests/test_db_engine_lifecycle.py:1519-1660): 21 rows, Counter = {bound: 9, narration: 9,
+      figure: 3}. figure+bound = 12. Rows typed `bound` are 1, 2, 3, 7, 11, 12, 14, 18, 20.
+
+      The table itself is sound -- I re-implemented the row check independently and all 21 rows
+      pass the exactly-one-text test, including the 9 narration rows that are not required to.
+      So no row is wrong; the count beside them is, in two of three buckets, and "all 13" names
+      a row that does not exist.
+
+      This matters only because of what it is beside: cycle-1 F-102 was a count whose script was
+      never committed. The replacement ships the names, which was the right remedy, and then
+      re-introduces an uncheckable count in the prose around it. The constant''s own comment
+      states the recompute method and holds a floor (>= 21), which is the part that is right.
+
+      FIX: correct the two sentences to 9 / 3 / 9 and 12, or drop the per-kind count and say "the
+      figure and bound rows", which is what the mechanism actually keys on.
+    status: open
+
+  - id: F-205
+    title: 'honest bound 7 is wrong: the deny-default DOES have a silent-pass path, and the committed test kills it'
+    severity: low
+    category: BUG
+    confidence: high
+    source: static
+    attribution: 'introduced by fix 1 (84fd9ded) -- the bound and the PARSE-DENY-DEL reading are both new in this round'
+    file: meta/kanban/cards/CARD-259.md
+    line: 966
+    evidence: |
+      ATTRIBUTION: INTRODUCED BY FIX 1. The mutant, its reading and the bound are all new.
+
+      THE CLAIM. The round reports `PARSE-DENY-DEL` (the `raise AssertionError(…) from exc`
+      deleted line-count-preservingly from the SyntaxError branch) killing by `UnboundLocalError`
+      at :454 rather than by a silent pass, and concludes: "the honest reading is that the
+      deny-default has **no silent-pass path to delete** -- control cannot fall through it" --
+      restated as honest bound 7, "PARSE-DENY-DEL kills by UnboundLocalError, not by the silent
+      pass it was aimed at".
+
+      MEASURED, and the conclusion is wrong. The silent-pass path is one statement away, and it
+      is the shape CARD-260''s trap 5 is about: a mutant must delete the mechanism AS THE
+      MECHANISM WORKS, and deleting a `raise` out of a branch whose next statement needs the
+      binding it skipped is not a silent-skip mutant -- it is a different bug.
+
+      PARSE-DENY-CONTINUE, plain-run domain, cp -p backup, restore in a trap, restore verified
+      `shasum -a 256` equal (aaf2302fb571…) AND `diff -q` clean:
+      tests/test_db_engine_lifecycle.py:448-453, the six-line raise replaced by
+      `continue  # MUTANT: deny-default replaced by a silent skip` plus five `#` lines (line
+      count preserved, 1898 lines before and after). Plain pytest over
+      `TestCard259_TheDerivedSetOfTextsDeniesByDefault`: EXIT=1,
+      `test_a_file_the_derivation_cannot_analyse_is_a_failure` FAILED with its own
+      else-branch message, "an unparseable file passed silently, which is the whole shape
+      ADR-0039/R2 forbids". KILLED, by exactly the assertion it was written for.
+
+      So the deny-default''s control is two-sided after all: the committed test reds when the
+      mechanism is replaced by a skip, which is the ADR-0039/R1 shape (caught WITH, missed
+      WITHOUT). That is a point in the implementation''s favour and against its own declared
+      bound -- a bound stated as measured, which measured differently. The mechanism is fine; the
+      reading of it is the defect, and on this board a wrong bound is a claim.
+
+      FIX: replace honest bound 7 and the PARSE-DENY-DEL paragraph with the substitution mutant
+      and its reading. The `UnboundLocalError` reading should stay recorded as the mis-shaped
+      mutant it was, not as the measurement.
+    status: open
+
+  - id: F-206
+    title: 'the signature regex is not word-bounded on the right, and the comment beside it says every arm means the same thing by "word"'
+    severity: low
+    category: RISK
+    confidence: high
+    source: static
+    attribution: 'introduced by fix 1 (84fd9ded) -- both the regex and the comment are new in this round'
+    file: tests/test_db_engine_lifecycle.py
+    line: 415
+    evidence: |
+      ATTRIBUTION: INTRODUCED BY FIX 1.
+
+      tests/test_db_engine_lifecycle.py:415 `_CARD_252_SIGNATURE =
+      re.compile(r"(?<![A-Za-z0-9_])CARD-252(?![0-9])")` -- the right assertion excludes digits
+      only. :417-419, immediately below: `_WORD_BOUNDED =
+      r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"`, with the comment "One whole-word match, left and
+      right. **Used for the globals, for the pointer and for the signature above**, so "word"
+      means the same thing in every arm."
+
+      It is not used for the signature. The signature uses a different right boundary, so
+      `CARD-252a`, `CARD-252_old` and `CARD-252x` are signature matches while nothing else in
+      the file would call them whole words. The asymmetry is defensible on its own terms
+      (`(?![0-9])` is what stops `CARD-2521` from matching, and a letter cannot follow a card id
+      in practice), but the comment asserting identity is false, and cycle 1''s whole gating
+      family is sentences asserting what the mechanism does not do.
+
+      Blast radius today: zero, measured -- the 11-text derived set is identical under
+      `_WORD_BOUNDED.format("CARD-252")`. This is a Minor on the sentence, not on the regex.
+
+      FIX: one word -- say the signature carries its own right boundary and why -- or use
+      `_WORD_BOUNDED` for it and keep a digit-exclusion note.
+    status: open
+
+  - id: F-207
+    title: '5 of the 21 survival rows have home == retired_from, so they measure a reword in place rather than a retirement, and the text this round actually retired from has no row'
+    severity: low
+    category: GAP
+    confidence: medium
+    source: static
+    attribution: 'introduced by fix 1 (84fd9ded) -- the table and its stated method are new in this round'
+    file: tests/test_db_engine_lifecycle.py
+    line: 1519
+    evidence: |
+      ATTRIBUTION: INTRODUCED BY FIX 1.
+
+      RE-DERIVED by the constant comment''s own method (`git diff -U0 27ca88c7..84fd9ded --
+      tests/conftest.py tests/test_db_engine_lifecycle.py`, removed docstring lines of the two
+      retired texts, split at sentence boundaries then at `;` and em-dash clauses): the conftest
+      step-3 text yields 16 clauses and the guard class docstring 5. That is 21, every one has a
+      row, and NO clause carrying a bound was dropped -- the brief''s specific worry does not
+      land. Two observations that do:
+
+      (a) Rows 17-21 all have `retired_from = "guard"` and `home =
+      tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam` -- the
+      same text they are recorded as retired from. Read against the HEAD file, those five
+      clauses were not retired at all; they were reflowed and reworded in place (the guard
+      docstring still carries the STRUCTURE note, the alternative-sketch sentence, the
+      four-lines sentence, the only-place sentence and the in-the-same-words sentence). Two of
+      the five are typed `bound`. The check still holds something real -- the reworded statement
+      is present -- but a survival row whose home is its own source cannot demonstrate that a
+      retired clause survived somewhere, and the table presents all 21 as that.
+
+      (b) The method covers "the two retired texts" by construction, and the text fix round 1
+      actually cut a clause out of is a THIRD one: the lifecycle module docstring, whose
+      "Four consecutive build gates … reported failures that reproduced on no second run,
+      including <both signatures>" sentence is gone from :14-18. It has no row of its own; it is
+      covered only by phrase coincidence with row 13, whose `retired_from` is `conftest` and
+      whose clause text is the conftest wording. Substantively the figure has a named home and
+      G-2 is met; procedurally the method is scoped to the two texts the card was cut about and
+      not to the text the amendment added, so a reader recomputing it will not reach 21 from the
+      round''s actual retirements.
+
+      FIX: split `retired_from`/`home` coincidences out as a `reworded` kind, or state in the
+      comment that five rows are rewordings in place; and extend the stated method to the third
+      text so the count is reproducible from what this round did rather than from what the card
+      was cut about.
+    status: open
+
+cycle1_findings_closure:
+  summary: >-
+    Six of the eight are genuinely closed. F-101 is closed in its mechanism and NOT closed in
+    its defect -- the narrowed claim is still false on disk and the round added a second,
+    unqualified instance of the same shape (F-201). F-102 is closed in substance and shipped a
+    wrong count beside the fix (F-204). Every other fix_note I could re-derive, re-derived.
+  F-101: >-
+    PARTIALLY CLOSED -- the mechanism is real, the claim is not. CLOSED: the "only statement"
+    sentence is gone; the derived, deny-by-default set exists, enumerates 11 texts (I
+    re-derived 11 independently), names path:lineno qualname, and fails -- the committed plant
+    tests read correctly, the orchestrator''s src/nonogram/limits.py plant red naming
+    limits.py:1 <module>, and the derivation found tests/helpers/undefined_table_report.py,
+    which no reader had enumerated. The waves/gates drift IS resolved and the resolved figure IS
+    correct against CARD-252.md:30-39, CARD-251.md:645-651 and CARD-248.md:355-361 (I verified
+    all three). NOT CLOSED: the defect F-101 named was a uniqueness claim with a counterexample
+    on disk and no control; the narrowed replacement at session.py:294-297 is still false (both
+    gate signatures, AC-3''s withdrawal and the precondition bound are restated in the module
+    docstring) and the round added tests/test_db_engine_lifecycle.py:710-713, which claims the
+    record is "restated in no docstring, this one included". See F-201.
+  F-102: >-
+    CLOSED in substance. 44/44 is withdrawn, which is the right call for a number nobody can
+    recompute. The 21-row table ships with named homes, a stated split method and a >= 21 floor;
+    I re-derived the 21 clauses from the diff by the stated method and every one has a row, no
+    bound-carrying clause was dropped, and all 21 rows (not only the 12 figure/bound ones) pass
+    the exactly-one-text check under an independent re-implementation. Row 13 reconciles the
+    clause F-102 named. Two residues: the kind counts beside the table do not recompute (F-204)
+    and five rows are rewordings in place (F-207).
+  F-103: >-
+    CLOSED. The "is read **first**" sentence is deleted and the refutation recorded in its
+    place. The property that carries the uninstrumented reading -- each arm interpolating the
+    text''s own `label`, now `path:lineno qualname` -- is named and has a control that reads the
+    agreement''s own AST (:1152-1197); I read that control and it does walk the per-text loop''s
+    asserts and require `label` among each message''s FormattedValue ids. My own
+    ROLE-SLIP-ONE[conftest] mutant confirms the property in the plain-run domain: the failure
+    named `…/tests/conftest.py:463 _rebuild_public_schema` with no instrument present.
+  F-104: >-
+    CLOSED. The "nine mutants" sentence is narrowed to six held by test_ac7 and three held by
+    nothing, with the structural reason (the instrument refuses tests/conftest.py by identity;
+    G-3 forbids widening that) and the domain stated in the docstring rather than only on the
+    card. I re-measured one of the three cells myself, in the same plain domain, and it
+    reproduces: exit 1 at :1121 naming tests/conftest.py:463 _rebuild_public_schema.
+  F-105: >-
+    CLOSED. Every figure in the replacement table reproduces to the digit at 84fd9ded under an
+    independent word-bounded regex over `ast.get_docstring`: prod 13 whole-word `engine` of
+    which 2 backticked, guard 1 of which 1, conftest 6 of which 2; `setattr(` 6 / 4 / 1. So
+    L-1''s guard half is CLOSED as the round says, L-1''s prod half genuinely survives with 11
+    left, and the 12 -> 13 move on the prod text is real.
+  F-106: >-
+    CLOSED. tests/README.md:655-665 says the four addresses "are **re-derived by hand and
+    re-committed** at each card that moves that file -- nothing in the suite re-derives them,
+    because the anchor''s only check on them is `set(arms) <= linenos`", and carries the third
+    move with the overlap measured. I re-derived all four addresses and the five
+    NAMES_BLIND_OCCURRENCES from a fresh ast.parse: every literal in tests/test_kill_matrix.py
+    matches.
+  F-107: >-
+    CLOSED. `Touches` lists six files and `git diff --stat 27ca88c7..84fd9ded` changes exactly
+    those six. Scope gate PASS. tests/helpers/undefined_table_report.py is CARD-258''s
+    pre-existing file and the pointer sentence it took is the derivation working, not scope
+    creep -- I agree with the orchestrator.
+  F-108: >-
+    CLOSED in the closable half, declared in the other, as reported. `_head_shown_in`
+    (:498-511) derives the right boundary from the head (`head[-1].isalnum() or == "_"`), both
+    directions have committed arms in
+    `test_an_identifier_extending_a_spelling_head_does_not_satisfy_it` (:1874-1897), and the
+    planted-control framing is correct because the shape occurs in no text the arm holds. The
+    `sorted(names)[0]` half stays declared and I agree it is a different card.
+
+family_regression:
+  fired: true
+  family: 'ADR-0039/R1 -- a claim with no control that can fail'
+  judgement: >-
+    Both of this cycle''s gating findings are attributable to fix round 1 and both are the same
+    family as all three of cycle 1''s gating findings. F-201''s two sentences are new in
+    84fd9ded and are the same defect cycle-1 F-101 named, one of them written while closing
+    F-101. F-202 stands INSIDE the control fix round 1 wrote -- it is a property of the role
+    predicate at tests/test_db_engine_lifecycle.py:1105-1109, which did not exist before this
+    round -- and it is the "two of those sat inside a control the previous fix had just written"
+    pattern verbatim. Same file, same function family
+    (test_every_text_that_names_card_252_points_here_and_agrees_on_the_parameters and the
+    docstrings that describe it). So the escalation condition is met on both halves, and this
+    is not a third fix round''s worth of work: the card has now produced two generations of
+    false single-sourcing claims while building a mechanism that is, on measurement, correct.
+    The thing to change is not the next sentence; it is that the mechanism enforces
+    pointer-presence while every sentence around it claims non-restatement. Either the claims
+    come down to what is enforced (cheap, closes F-201 and F-203 together) or the enforcement
+    comes up to the claims (a card). Recommending the first as this card''s scope and the second
+    as the follow-on, and flagging the card for the owner rather than for a third automatic
+    cycle.
+
+attacks:
+  landed:
+    - 'attack 1 (the predicate''s residue) -- LANDED. "Zero today by inspection" is wrong; see F-203. The residue text is pre-existing and restates two clauses the table itself types as bound.'
+    - 'attack 4 (the survival table) -- LANDED IN PART. The 21 rows are the right 21 and no bound-carrying clause was dropped (re-derived). But the kind counts beside them do not recompute (F-204) and five rows are rewordings in place with no retirement to survive (F-207).'
+  held:
+    - 'attack 2 (does the role derivation derive the roles) -- HELD on the first half, LANDED on the second. The 3 ARE the 3 and the 2 ARE the 2, re-derived independently and matching the claim exactly. But a text CAN slip into the pointer-only class by naming one global where it named two, measured: F-202.'
+    - 'attack 3 (the deny-default''s own controls) -- HELD, with one correction. POINTER-DEL-ONE surviving is a real reading, not a mutant that proves nothing: the lifecycle module docstring carries the pointer exactly twice (re-derived per text), so one deletion leaves a pointer and POINTER-DEL-ALL is the mutant that measures the mechanism. The instrumented-SHIPPED limit on test_a_file_the_derivation_cannot_analyse_is_a_failure is real and structural -- its subject is a raised AssertionError. The correction is PARSE-DENY-DEL: the deny-default does NOT lack a control, and it does not lack a silent-pass path either; PARSE-DENY-CONTINUE kills the committed test at exit 1 with the exact message it was written for (F-205).'
+    - 'attack 5 (the resolved figure) -- HELD. Verified against CARD-252.md:30-39''s own four-row cost table and corroborated at CARD-251.md:645-651 and CARD-248.md:355-361. Four waves 45/46/47/48, one failing run each, three build gates (CARD-248''s, CARD-251''s, CARD-247''s) and wave 46''s smoke test on its first run. "Reproducing on no second run" is CARD-252''s own wording for all four (CARD-252.md:385, :399, :938). Both retired sentences were indeed wrong, in the two ways the round says. The class sweep''s claim is true for NUMBER tokens, which is what it enumerated -- but it is structurally blind to a doubled signature string or bound, and both are doubled; that blindness is part of F-201, not a defect of the sweep.'
+
+mutation_check: 'deferred(cost) -- gating findings present; certify on the stable cycle. The DIAGNOSIS half ran (3 mutants: ROLE-SLIP-TWO survived, ROLE-SLIP-ONE killed, PARSE-DENY-CONTINUE killed). Cycle 1 also deferred the certification half, so the passing cycle still owes it and this card cannot merge on a review whose certification was deferred.'
+visual_check: 'N/A -- no UI in the diff'
+
+safety:
+  database: 'nonogram_poc was never created, dropped, connected to or truncated, and is not named anywhere in my work. _refuse_unless_test_database was neither widened nor bypassed. The committed instrument''s refusal to edit tests/conftest.py was not widened either -- which is why F-202''s two cells are a plain-run reading.'
+  lock: 'NONOGRAM_FULL_SUITE_LOCK=/tmp/card259-review2.lock exported for every pytest run. meta/kanban/.full-suite.lock was never read, created, modified or deleted. No full suite was run.'
+  mutations: 'All three mutants line-count-preserving, cp -p backup in the session scratchpad, restore in a trap, restore verified by shasum -a 256 AND diff -q. Final whole-diff check: git diff HEAD -- tests/ src/ empty; tests/conftest.py 13152427f87e7ecbda961c25a02a8c074771da7893b6804d5d122504b451fd4f and tests/test_db_engine_lifecycle.py aaf2302fb57111bad77c9230174cae7eb8b10cd9b6e0b728bc5d09411f78626b, both equal to their pre-mutation values. No mutation target was outside this worktree. Nothing was committed, staged, checked out, restored, stashed, reset or cleaned.'
+  timing: 'no timing measurement taken; no duration reported'

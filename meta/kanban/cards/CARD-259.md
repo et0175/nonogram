@@ -15,7 +15,7 @@
 **Wave:** 52 (dispatched 2026-10-21; queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py, tests/test_kill_matrix.py, tests/README.md, tests/helpers/undefined_table_report.py  _(corrected 2026-10-22 from three files — cycle-1 F-107; `test_kill_matrix.py` and `README.md` were declared `SCOPE+` by the implementer, and `undefined_table_report.py` by fix round 1 — its module docstring names CARD-252 and the derived deny-default fails on a text with no pointer)_
-**Review score:** 6.5 (cycle 1/3 — fix round 1 applied, re-review pending)
+**Review score:** 7.0 (cycle 2/3 — ESCALATED: family regression)
 **Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
@@ -1169,3 +1169,83 @@ legitimate is that the premise is *derived* rather than judged: the AST digests 
 asserted. What it costs is that the selector's own refusal no longer appears in this card's evidence
 chain — hence this note. The full suite still runs at the merge gate, which is the backstop that makes
 any narrowing safe, and `conftest.py` will be inside it.
+
+---
+
+### [Review 2/3] Score: 7.0 — converging by the minimum, and **[Family] FIRES**
+
+Report: `meta/review/20261022T001501Z-CARD-259-cycle2.yml`. 7 findings: 2 high (gating), 1 medium,
+4 low. **Every one attributed pre-existing vs fix-induced**, which is what the detector runs on.
+6.5 → 7.0 meets `min_improvement: 0.5` **exactly**; the threshold is 8.
+
+**Both gating findings are fix-induced and both are ADR-0039/R1** — the same family as all three of
+cycle 1's gating findings. One of them stands *inside the control fix 1 itself wrote*. That is the
+"six consecutive gating findings created by the previous fix, two of them inside a control the fix had
+just written" pattern, verbatim, in the same file and function family. `review.family_regression: on`
+therefore escalates rather than granting a third automatic cycle.
+
+**F-202 (high) — the derivation is WEAKER than the hand-list it replaced, and this is the result of the
+round.** Reproduced independently by the orchestrator on `tests/conftest.py`, plain-run domain, the
+instrument's `conftest.py` refusal left untouched, Z-fills length-preserving, file restored
+byte-identical (`13152427f87e…`, `diff -q` clean):
+
+| mutant | outcome |
+|---|---|
+| SHIPPED | exit 0 |
+| `SessionLocal` Z-filled (one name) | **exit 1 — killed** |
+| `SessionLocal` **and** `_engine_url` Z-filled (two names) | **exit 0 — SURVIVED** |
+
+**Deleting more makes the mutant survive.** The role predicate holds a text to the names/heads arms
+only when it names **more than one** of `_init_engine`'s globals, so rewording two of the three away
+drops the text out of the held set entirely and the arms never see it. At `d85b48b0` the hand-written
+tuple held those three texts unconditionally and the same mutant would have killed. The shipped AC-2
+matrix is **one name per text**, so every cell sits on the side of the threshold where the arm still
+applies — the escape is invisible to it. And `:851-853` tells the reader "reword one of the three away
+and that control reds, per name": true for one, silently false for two.
+
+**This is the honest counterweight to the amendment, and it bears on the owner's decision.** Deriving
+the set found **seven texts a hand-list of four would have missed** — a real and large win, including
+CARD-258's `undefined_table_report.py`, which no reader had enumerated. Deriving it also introduced an
+escape the hand-list did not have. Both are true. "Derived beats hand-written" is not unconditional:
+a derived set is only as strong as its predicate, and this predicate is gameable by the very edit the
+control exists to catch. ADR-0039/R2 says the set must be derived from an authority the runtime can
+enumerate — it does not say the *role* assignment may be a threshold over that set.
+
+**F-201 (high) — fix 1 closed a false uniqueness claim by writing two more.** `session.py:294-297` now
+says every other docstring "carries a pointer back here rather than restating one", and
+`test_db_engine_lifecycle.py:710-713` says the record is "restated in no docstring, this one included".
+Both false on disk: the lifecycle **module docstring** still restates four of the five items cycle-1
+F-101 itemised — the defect mechanism, **both gate signatures**, AC-3's withdrawal and the
+precondition-not-the-race bound. Fix 1 removed only the waves/gates figure. Nothing reds, because the
+deny-default asks for pointer **presence** and that docstring carries the pointer twice; the number-token
+class sweep is structurally blind to a doubled signature string or a reworded bound.
+
+**F-203 (medium) — the declared residue bound is wrong.** "Zero today by inspection" was re-measured as
+**five** marker-carrying docstrings with no `CARD-252` token, one of them a real counterexample:
+`TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema` (`:522`, pre-existing and
+byte-identical at the merge-base) restates the precondition bound and two `bound` rows. So the bound
+this round calls single-sourced stands in **three** texts.
+
+**The root cause is one sentence, and it is the whole escalation:** *the mechanism enforces
+pointer-presence while every sentence around it claims non-restatement.*
+
+**What held under attack**, recorded because a review that lists only failures is not a measurement:
+the role **split** is exactly as claimed (11 texts, 3 held to the parameters arms, 2 naming one global,
+re-derived independently — "the 3 are the 3"); the **survival table is sound** (16 conftest + 5 guard =
+21, every clause has a row, no bound-carrying clause dropped, and all 21 rows pass the exactly-one-text
+check under an independent re-implementation); the **resolved figure is right** and both retired
+sentences were wrong exactly as claimed; `POINTER-DEL-ONE` surviving is a **real reading** (that text
+carries the pointer exactly twice); and six of cycle 1's eight findings are **genuinely closed**, each
+re-derived.
+
+**The reviewer also corrected fix 1's own honest bound, in the conservative direction.** Fix 1 reported
+that `PARSE-DENY-DEL` "kills by `UnboundLocalError`, not by the silent pass it aimed at — the
+deny-default has no silent-pass path to delete". Wrong: replacing the raise with a padded `continue`
+(1898 lines both sides) reds the committed test with its own message, *"an unparseable file passed
+silently, which is the whole shape ADR-0039/R2 forbids"*. The deny-default **does** have a two-sided
+control and a deletable silent-pass path; fix 1's mutant was mis-shaped — CARD-260's trap 5 landing on
+the card that imports CARD-260's instrument.
+
+**Step 8f's certification half is `deferred(cost)` for the second cycle running.** Cycle 1 deferred it
+on gating findings and so did cycle 2, so **the passing cycle still owes it** and this card cannot
+merge on a deferred certification.
