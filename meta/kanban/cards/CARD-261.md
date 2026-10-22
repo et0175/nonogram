@@ -337,3 +337,34 @@ survived in its transcript's `command` field; a `Write` call would have been jus
 card edited in place with several small edits might not have been. **The durable fix is not to be more
 careful — it is to stop copying main → worktree once an agent is live**, and to pull notes before any
 orchestrator edit to the same card.
+
+---
+
+### [Build gate] PASSED: 8009 passed, 16 skipped, 0 failed, EXIT=0 — impact-scoped, with the override declared
+
+185-file selection at `604cc542`. The 16 skips are `db_required`/browser, green. Run while CARD-262's
+implementation was live in the sibling worktree, so the board lock was **not** taken — the redirect went
+to a scratch path.
+
+**The selector returned `FULL`, and narrowing it was derived rather than judged.** `CLAUDE.md` sits at
+the repository root, outside `scripts/impact_set.py`'s `KNOWN_ROOTS`, so the selector cannot model it and
+**fails closed** — correct behaviour, but a full suite takes the lock and would have red the sibling's
+agent. The narrowing rests on a measurement, not a preference: **exactly one test file reads
+`CLAUDE.md`** — `tests/test_cli.py`, which is in the changed set on its own merits, so selecting on it
+covers the `CLAUDE.md` change completely. Every other test that mentions the file only names it in prose
+(checked across all 40 files that mention it). The two modellable paths were handed to the selector
+instead, and it chose 185 files.
+
+**A gap in the selector this card exposes, worth feeding back.** A root-level file should be modelled by
+**which tests read it**, not by a root prefix — `CLAUDE.md`, `README.md` and their kind will hit this
+every time. The irony is load-bearing: before this card **nothing read `CLAUDE.md` at all**, and
+CARD-261 is precisely what turns it into a real import edge. So the selector's blind spot and this card's
+subject are the same defect, one level apart. Recorded in `meta/kanban/backlog.md` rather than fixed
+here.
+
+**And a figure the selection itself establishes:** 185 of 212 test files, because
+`src/nonogram/__init__.py` is the **package root** — every test importing anything under `nonogram`
+reaches it transitively. For a change to that file, impact scoping buys almost nothing *by construction*.
+That is the mirror of `export/layout.py` at 186 files and `db/session.py` at 36: narrowing works for leaf
+modules and collapses toward the full suite for roots and hubs. The reliable win here was never speed —
+it was that 185 files ran **without taking the lock**, which is what let the sibling card keep working.
