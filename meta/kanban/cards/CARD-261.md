@@ -15,7 +15,7 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** CLAUDE.md, src/nonogram/__init__.py, tests/test_cli.py
-**Review score:** 7.5 (cycle 1) → fix 1 `feb3e6b5` → cycle 2 running
+**Review score:** 7.5 (cycle 1) → 7.8 (cycle 2, FAIL — +0.3 against min_improvement 0.5)
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
@@ -557,3 +557,121 @@ count above comes from a separate `--collect-only` pass, which executes nothing.
 
 Two pre-existing warnings surfaced again and are already on the backlog: `dog_in_house.py:6`'s invalid
 escape sequence (`"\,"`), and `datetime.utcnow()` at `tests/test_image_batch_size_fix.py:395`.
+
+---
+
+### [Review cycle 2] 7.8 — FAIL, and the trigger is `min_improvement`, not the finding
+
+Report: `meta/review/20261022T094719Z-CARD-261-cycle2.yml`. **Six of cycle 1's seven findings are
+genuinely closed** — F-102, F-103, F-104, F-105, F-106 and F-101(b) all verified closed, and every
+default-deny plant aimed at the new controls reds naming the offender. One Important remains.
+
+**Read the two scores before reacting to the gap, because they are not on the same scale.** Cycle 1 was
+`10 − 1 − 1 − 0.5 = 7.5`. Cycle 2 is `8.7 baseline − 0.6 − 0.15 − 0.15 = 7.8`. The reviewer re-based from
+10 to **8.7**, so the +0.3 is partly an artefact of a changed denominator rather than a measure of how
+much the card improved. The `min_improvement: 0.5` breach is real against the recorded numbers and I am
+treating it as real — but a card that closed six of seven findings did not improve by three tenths of
+anything, and the honest statement is that **the scales differ**.
+
+**I-1 (Important) — one root cause, two executed symptoms, and it is in the control fix 1 added.**
+The reach of a reader and the strength of its corpus are pinned by **quantity** instead of by the cases
+that carry the claim. That is the interesting part: *everywhere else* this card pins the claim-bearing
+artefact literally — `_ADAPTERS`, `_WITHOUT_A_COMPONENT_ID`, `_LAUNCH_EDGE` — and the one control added
+this round did not get that treatment.
+
+- **(a) the `>= 10` floor is padable.** `TestComponentMap_WhatTheClaudeMdReaderAbsorbs` claims *"the
+  extent cannot now change in either direction … without a red."* The reviewer replaced three of the five
+  known-miss cases — **including `(False, "`cli.py` is the only inbound adapter.")`, this card's own
+  six-week defect and the only committed artefact telling a reader that F-101's wording still evades** —
+  with near-duplicate must-catch rows, tuple still length 10. **Exit 0, no message.** The half of the
+  corpus that *is* the class's purpose shrank 5 → 2 under a floor written so it could not silently shrink.
+  The positive control holds: widening `_COMPONENT_ID` to `(?:COMP|CAP)-\d` reds two tests naming
+  `['sourcing covers CAP-001 and nothing else.']`, reproducing the fixer's plant J exactly.
+- **(b) `_adapter_counts` misses F-101's own wording.** Planted as prose: *"Both inbound adapters import
+  the orchestrator; `cli.py` is the only inbound adapter that parses argv."* → exit 0 across both
+  `test_cli.py` and `test_guard_integrity.py`. And the control's **own docstring** opens *"The retired
+  block's worst error was 'the only inbound adapter'"* — a shape its regex cannot match. A 32-form sweep:
+  caught are numerals, words, emphasis, split emphasis, fenced, `two adapters:`; **missed** are `both`,
+  `the only`, `the sole`, `a pair of`, `a trio of`, enumerations, `three inbound entry points`,
+  `eleven`, three-words-distance and hyphenated adjectives. It also **false-positives** on the deny side:
+  *"See section 3 about inbound adapters."* reds, as does *"the four tests cover adapters"*.
+
+Remedy, per the reviewer: **~30 lines in one file** — pin the must-catch/known-miss split and the specific
+counterexample strings, give `_adapter_counts` its own CASES corpus, correct two docstrings.
+
+### Three corrections to things I wrote, all three mine
+
+**1. My brief's premise about the relocated count was wrong.** I told cycle 2 that the "two pipeline
+adapters" count had *moved* from `CLAUDE.md` into the canonical map, and asked it to judge whether the
+defect relocated. It did not: `git show fac4896f:src/nonogram/__init__.py` already said *"the two adapters
+import `orchestrator`"* and *"There are exactly two adapters (ADR-0019)"*. The card's edit **inserted the
+word "pipeline"**, narrowing a claim that was already there; `CLAUDE.md`'s count was removed and not
+re-sited. The count *is* uncontrolled — filed as **M-1**, and it is the only row in the fixer's own table
+whose control column says "none" — but on the question I actually asked, *is it worse or better for the
+reader*, the answer is **strictly better**: scoped, true today, and three lines from held rows. The
+fixer's argument was sound on the evidence and my framing was not.
+
+**2. My gate-breadth justification rested on a false measurement.** I recorded that **exactly one** test
+file reads `CLAUDE.md`. There are **two**: `tests/test_guard_integrity.py:80` binds
+`GUIDANCE = REPO_ROOT / "CLAUDE.md"` and reads it at `:2840` (the interpreter-floor test, regex-scanning
+`python(\d+)\.(\d+)\s+-m\s+venv`). I have verified this on main myself. 42 files under `tests/` mention
+the file; **40** are prose citations — which is the read-versus-mention distinction my claim needed and
+did not draw. **The conclusion survives**: that second reader scans the Commands section near line 10,
+nowhere near the single hunk at line 42, it was inside the 185-file gate selection, and the reviewer ran
+it green both at HEAD and under its plant. The puml/`capabilities.yml` half of the claim is true.
+
+**3. Two smaller figures.** `import re` **was** added — at `604cc542`, not fix round 1 — so the fixer's
+"no new import at all" is true of fix round 1 only, and G-3 still holds (stdlib, test file). And the
+`CLAUDE.md` hunk header is `@@ -42,11 +42 @@`, not `@@ -42 +42 @@`.
+
+### What cycle 2 verified independently, and these are the ones worth keeping
+
+- **The five-row CAP coincidence is not luck.** One convention — lead the description with the CAP id —
+  applied to exactly the five capability modules, with both artefacts following it. Loose set is
+  `["admin"]` alone. Re-derived twice, by eye over the puml and via an isolated `_c4_components`.
+- **The ten defect kinds are ten behaviours, not ten names.** All ten fire, **all 90 ordered pairs are
+  separable** (86 on ten fabricated inputs, the last four on two built for them), all ten have a
+  *committed* case, and every committed assertion is tight — `==` on the whole dict, or a subscript that
+  `KeyError`s.
+- **M1/M2 fire separately**, with disjoint offender sets. Cycle 1's fused-arm question is settled by
+  observation rather than by a matrix.
+- **M14 is a no-op and M3 is not, measured by output rather than argued.** M3 turns 0 unanalysable lines
+  into **22**; M14's 13 tuples are cell-for-cell identical. `_ROW_IDS` verified anchored
+  (`.match("    continuation")` is `None`) with `continue` on non-match, while `_MAP_ROW`'s non-match is
+  **deny**. That is the asymmetry, demonstrated.
+- **AC-4 is exact and needs no amendment**, and the reviewer improved the argument: `1028 0` against
+  `fac4896f` *proves* no pre-card line was removed, so the 14 lines need no individual check. Eleven
+  layering symbols byte-identical by AST source-segment comparison.
+- **The AC-5 amendment is accepted** — with the observation that adopting it **turns I-1 and M-1 into AC
+  violations rather than declared bounds**, which is an argument for adopting it *and* fixing them in the
+  same round rather than either alone.
+- Two new default-deny shapes also red: a line-wrapped `Component(clues,…)`, and a `Component(solver,…)`
+  made non-line-leading so `_COMPONENT_MACRO` cannot see it — caught downstream by the floor plus
+  *"in the package, neither exempt nor paired"*.
+
+### Certification — deferred a second time, with a hard stop
+
+`8f-mutation: deferred(cost) -- gating finding present; certify on the stable cycle`
+
+Justified by I-1 and not nominally: the remedy edits the `CASES` tuple and two tests **inside the five
+`TestComponentMap_*` classes**, which is the exact selection the 16-mutant matrix was computed over, and
+`CASES` is the literal data several arms read. The reviewer **refuses to propose a third deferral** —
+cycle 3 must run it regardless of findings, because the cost argument only holds while the selection is
+still moving. Four of sixteen cells were verified independently (M1, M2, M3, M14, all hold); the other
+twelve were not re-fired and the domain is recorded cell-for-cell for cycle 3.
+
+### Guardrails and scope
+
+G-1/G-2/G-4/G-5/G-6 met, G-3 met with the import correction above. G-4 verified **both** directions:
+one hunk, and CARD-264's `:46`/`:48`/`:50` defects present and untouched. **Scope gate: large but
+in-scope, no escalation** — four paths, exactly the card's `Touches` plus the card file, zero components
+changed behaviourally, `__version__` unchanged. It overlaps 2 of CARD-264's 5 paths, pre-declared
+because CARD-264 came out of this card's own cycle 1, and non-colliding in content.
+
+### F-107 sequencing — the reviewer's input, and it sharpens the case
+
+**Urgent, not blocking.** The *value* in `_ADAPTERS` is right and matches the map; the prose around it
+lies in all three places. The newly-enabled failure mode is the one I had not thought of: a reader who
+follows this card's new pointer, finds a set of three under prose saying two, and concludes `admin` is
+the erosion — **removing a correct entry**. That is worse than the stale count it replaced, and it is
+reachable *only* because of this card. Land AC-7 with or immediately after CARD-261.
