@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 15:30 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 15:50 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -99,7 +99,7 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2)_
 - **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
   `worktree: ../PythonProject4-card-264` · `branch: card/264-claude-md-outside-the-map`
-  `base: feb3e6b5 (CARD-261's tip, not main)` · `contract: 5 of 10` · `impl d40e9d4a (7 ACs met, 14/14 mutants)` · `gate running`
+  `base: feb3e6b5` · `contract: 5 of 10` · `impl d40e9d4a` · `gate PASSED` · `cycle 1: 8.3 PASS` · `polish round running`
 - **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
   `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
   `impl 8bc7671f + 060190c6 (zero src/ change)` → `cycle 1: 5.7 CRITICAL, axis not closed` · owner route **default-deny, cost measured first** · `fix 1 running`
