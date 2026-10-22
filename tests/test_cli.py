@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 import shutil
 import subprocess
 import sys
@@ -1080,6 +1081,266 @@ def test_package_root_imports_no_submodule() -> None:
     assert not _package_imports("nonogram", _MODULES["nonogram"])
     assert nonogram.__version__
 
+
+# --------------------------------------------------------------------------
+# The component map (CARD-261)
+# --------------------------------------------------------------------------
+
+
+_CLAUDE_MD = Path(__file__).resolve().parents[1] / "CLAUDE.md"
+
+# A row of the canonical map: a module or package name, then whitespace, then
+# whatever the row says about it. ``errors.py`` and ``sourcing/`` are both rows;
+# a continuation line of a row is indented past the name column and so cannot
+# match.
+_MAP_ROW = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\.py|/)\s+\S")
+
+# The same row shape as CLAUDE.md's retired layout block wrote it, plus any
+# line naming a component id at all. CARD-261 moved every row to
+# ``src/nonogram/__init__.py``; these two patterns are what notices a copy
+# coming back.
+_CLAUDE_MD_ROW = re.compile(r"^\s*[A-Za-z_][A-Za-z0-9_]*(?:\.py|/)\s{2,}\S")
+_COMPONENT_ID = re.compile(r"COMP-\d")
+
+
+def _component_modules(modules: dict[str, Path]) -> set[str]:
+    """The component names the import walk enumerates.
+
+    Derived from :data:`_MODULES` -- the same on-disk walk ADR-0007's layering
+    guard runs -- rather than hand-written, so the authority for "what
+    components exist" is the package itself (ADR-0039/R2). ``nonogram`` itself
+    belongs to no component and drops out.
+    """
+    return {
+        component
+        for module in modules
+        if (component := _component(module)) is not None
+    }
+
+
+def _canonical_map(doc: str) -> tuple[list[str], list[str]]:
+    """Parse the canonical map out of ``src/nonogram/__init__.py``'s docstring.
+
+    Returns ``(row names in order, lines the parser could not analyse)``. A map
+    row is a line indented exactly four spaces -- the literal blocks the
+    docstring introduces with ``::`` -- whose first token is a module or
+    package name. Prose sits at indent zero and a row's continuation lines sit
+    past the name column, so neither is mistaken for a row.
+
+    Default-deny (ADR-0039/R2): a four-space-indented line that is *not* a row
+    is returned as unanalysable, and :func:`_map_defects` turns that into a
+    failure. A map written in a shape this parser cannot read is never a silent
+    pass.
+    """
+    rows: list[str] = []
+    unanalysable: list[str] = []
+    for line in doc.splitlines():
+        if not line.startswith("    "):
+            continue
+        body = line[4:]
+        if not body or body[0].isspace():
+            continue
+        match = _MAP_ROW.match(body)
+        if match is None:
+            unanalysable.append(body.rstrip())
+        else:
+            rows.append(match.group(1))
+    return rows, unanalysable
+
+
+def _claude_md_rows(text: str) -> list[str]:
+    """Component-map rows CLAUDE.md states in its own right, as ``line: text``.
+
+    AC-3 shipped the shape in which CLAUDE.md carries none: it points at
+    ``src/nonogram/__init__.py``, which it already named as canonical, so there
+    is exactly one place a row can drift from. This is what reds if a second
+    copy is pasted back in.
+    """
+    return [
+        f"{number}: {line.strip()}"
+        for number, line in enumerate(text.splitlines(), start=1)
+        if _CLAUDE_MD_ROW.match(line) or _COMPONENT_ID.search(line)
+    ]
+
+
+def _map_defects(
+    components: set[str],
+    rows: list[str],
+    unanalysable: tuple[str, ...] | list[str] = (),
+) -> dict[str, list[str]]:
+    """Every way a component map and the package it describes can disagree.
+
+    Takes the enumerated component set and the parsed rows rather than reading
+    the disk itself, so the rule can be exercised against a fabricated package
+    and a fabricated map below and cannot pass vacuously --
+    :func:`_outward_imports` is written the same way and for the same reason.
+
+    Default-deny in both directions. A component the walk found and no row
+    names is a defect; a row naming something the walk did not find is a
+    defect; a component named twice is a defect; and a line the parser could
+    not analyse is a defect rather than a skipped line. Each is keyed by what
+    went wrong and valued with the offending *names*, so a failure says which
+    module or which row.
+
+    The bound, stated rather than implied (AC-5): this holds the **row set**
+    and nothing else. It cannot judge a row's **description** -- whether
+    "scores 0..100 from the solver's rung tags" is an accurate account of
+    ``difficulty.py`` is not a property any enumeration decides, and no test in
+    this file claims it. A row may therefore be present, unique, and describe
+    its module wrongly, and this control will pass. Reviewing descriptions
+    stays a human job.
+    """
+    defects: dict[str, list[str]] = {}
+    listed = set(rows)
+    if missing := sorted(components - listed):
+        defects["in the package, absent from the map"] = missing
+    if dead := sorted(listed - components):
+        defects["named by a row, absent from the package"] = dead
+    if duplicated := sorted(name for name in listed if rows.count(name) > 1):
+        defects["listed by more than one row"] = duplicated
+    if unanalysable:
+        defects["a map line the parser cannot analyse"] = sorted(unanalysable)
+    return defects
+
+
+class TestComponentMap_EveryComponentIsListedExactlyOnce:
+    """AC-1. The canonical map and the package agree, name for name.
+
+    The authority is the import walk above, not a list in this file.
+    """
+
+    def test_the_docstring_map_parses_into_rows(self) -> None:
+        """Guard the guard: a parser that read nothing would pass AC-1 only by
+        reporting every component missing -- but a parser that returned rows
+        for *everything* would pass it vacuously. So the row count is pinned
+        non-trivially before the comparison below is believed.
+        """
+        rows, unanalysable = _canonical_map(nonogram.__doc__ or "")
+
+        assert not unanalysable, f"unanalysable map lines: {unanalysable}"
+        assert len(rows) >= 10, rows
+
+    def test_every_component_the_walk_finds_appears_exactly_once(self) -> None:
+        rows, unanalysable = _canonical_map(nonogram.__doc__ or "")
+
+        assert not _map_defects(_component_modules(_MODULES), rows, unanalysable), (
+            "the canonical map in src/nonogram/__init__.py disagrees with the "
+            "package the import walk enumerates: "
+            f"{_map_defects(_component_modules(_MODULES), rows, unanalysable)}"
+        )
+
+
+class TestComponentMap_APlantedModuleAndAPlantedRowBothRed:
+    """AC-2. The control defaults to deny, and the plants prove it.
+
+    A derivation whose plant does not red is the defect this class exists to
+    prevent, so each direction is shown against a fabricated package and a
+    fabricated map -- and each failure is shown *naming* the offender, because
+    a control that reds without saying what is wrong sends the next reader back
+    to the diff.
+    """
+
+    def test_a_planted_module_absent_from_the_map_reds_naming_it(self) -> None:
+        rows, _ = _canonical_map(nonogram.__doc__ or "")
+        planted = _component_modules(_MODULES) | {"planted_component"}
+
+        defects = _map_defects(planted, rows)
+
+        assert defects == {"in the package, absent from the map": ["planted_component"]}
+
+    def test_removing_the_planted_module_passes(self) -> None:
+        rows, unanalysable = _canonical_map(nonogram.__doc__ or "")
+
+        assert not _map_defects(_component_modules(_MODULES), rows, unanalysable)
+
+    def test_a_planted_row_naming_nothing_reds_naming_the_row(self) -> None:
+        rows, _ = _canonical_map(nonogram.__doc__ or "")
+
+        defects = _map_defects(
+            _component_modules(_MODULES), [*rows, "planted_row"]
+        )
+
+        assert defects == {"named by a row, absent from the package": ["planted_row"]}
+
+    def test_a_second_row_for_one_component_reds_naming_it(self) -> None:
+        rows, _ = _canonical_map(nonogram.__doc__ or "")
+
+        defects = _map_defects(_component_modules(_MODULES), [*rows, "solver"])
+
+        assert defects == {"listed by more than one row": ["solver"]}
+
+    def test_a_line_the_parser_cannot_analyse_is_a_failure(self) -> None:
+        """Not a silent pass (ADR-0039/R2)."""
+        rows, _ = _canonical_map(nonogram.__doc__ or "")
+
+        defects = _map_defects(
+            _component_modules(_MODULES), rows, ["COMP-011  a row with no name"]
+        )
+
+        assert defects == {
+            "a map line the parser cannot analyse": ["COMP-011  a row with no name"]
+        }
+
+    def test_the_parser_reports_a_row_it_cannot_read(self) -> None:
+        """The plant one layer down: the unanalysable channel the test above
+        feeds by hand is reachable from a real docstring, so a map rewritten in
+        an unreadable shape reds instead of parsing to nothing.
+        """
+        rows, unanalysable = _canonical_map(
+            "Layout::\n\n    COMP-012 no name here\n"
+        )
+
+        assert rows == []
+        assert unanalysable == ["COMP-012 no name here"]
+
+
+class TestComponentMap_ThereIsOneRowPerComponentAcrossBothFiles:
+    """AC-3. One row per component in the whole repository, not one per file.
+
+    The shape that shipped: CLAUDE.md's layout block carries no row of its own
+    and points at ``src/nonogram/__init__.py``, which CLAUDE.md already named
+    as canonical. Two copies of one statement is the defect (CARD-257,
+    CARD-259), and a copy inside the file every session loads is the copy that
+    drifted for 51 waves.
+
+    Bound, stated rather than implied: this notices a row written in the
+    tabular shape the retired block used, or any line naming a ``COMP-NNN``
+    id. A component map restated as running prose with no ids would evade it.
+    """
+
+    def test_claude_md_states_no_component_row_of_its_own(self) -> None:
+        rows = _claude_md_rows(_CLAUDE_MD.read_text(encoding="utf-8"))
+
+        assert not rows, (
+            "CLAUDE.md carries component-map rows again -- AC-3 keeps the map "
+            f"in src/nonogram/__init__.py alone: {rows}"
+        )
+
+    def test_a_planted_row_in_claude_md_reds_naming_it(self) -> None:
+        """The plant for the direction above. The real file is read by the test
+        before this one; this feeds the same reader a fabricated CLAUDE.md, so
+        the green is not a reader that matches nothing.
+        """
+        planted = (
+            "## Architecture\n"
+            "\n"
+            "```\n"
+            "cli.py           COMP-001  the only inbound adapter\n"
+            "```\n"
+        )
+
+        assert _claude_md_rows(planted) == [
+            "4: cli.py           COMP-001  the only inbound adapter"
+        ]
+
+    def test_claude_md_points_at_the_canonical_map(self) -> None:
+        """Dropping the rows is only half of AC-3: a reader of CLAUDE.md has to
+        be told where the map went, or the instruction file simply stops
+        describing the package.
+        """
+        text = _CLAUDE_MD.read_text(encoding="utf-8")
+
+        assert "src/nonogram/__init__.py" in text
 
 # --------------------------------------------------------------------------
 # The installed console entry point (ADR-0008)

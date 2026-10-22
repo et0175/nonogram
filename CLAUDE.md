@@ -39,17 +39,7 @@ There is no lint/format/type-check tooling configured yet (no ruff/mypy in `pypr
 
 This is a CLI tool that generates uniquely-solvable black-and-white nonogram puzzles. The spec is `meta/architecture/requirements.yml` — the FR/NFR registry with acceptance criteria, each naming the test that verifies it — and `docs/GENERATION_ALGORITHM.md` describes the generation pipeline as the code actually implements it. The rest of the formal architecture (ADRs, domain model, C4 diagrams) lives under `meta/architecture/`, and delivery is tracked as kanban cards under `meta/kanban/cards/` — a card's `## Worktree notes` section is often the best source of *why* a piece of code looks the way it does.
 
-**Layered pipeline, one bounded context (CTX-001), one dependency direction.** Package layout (`src/nonogram/__init__.py` docstring is the canonical map):
-
-```
-cli.py           COMP-001  the only inbound adapter (argparse) — parsing only, no domain validation
-orchestrator.py  COMP-002  owns the Puzzle aggregate; drives the capability modules below
-sourcing/         COMP-003  sources a solution grid (random implemented; library/image are future work)
-clues.py          COMP-004  pure run-length-encoding of a grid into row/column clues
-solver/           COMP-005  hand-rolled constraint-propagation + backtracking uniqueness solver
-difficulty.py     COMP-006  scores 0..100 from the solver's rung tags, then the Easy/Medium/Hard bands
-export/           COMP-007  PNG/SVG/JSON/CSV/PDF renderers, plus `layout.py`'s shared page geometry
-```
+**Layered pipeline, one bounded context (CTX-001), one dependency direction.** The component map — which module carries which COMP id, and what each one does — is `src/nonogram/__init__.py`'s docstring, and only that. This file used to repeat it, and the copy drifted (CARD-261: both copies had, in different places); the rows were retired to the one place they can be checked, and `tests/test_cli.py`'s `TestComponentMap_*` classes now hold that docstring to the modules the import walk described below enumerates on disk — a component with no row and a row with no module each fail the suite, and a row pasted back into this file fails it too. One thing the retired block got wrong is worth repeating here because a brief is acted on: there are **three** inbound adapters (`cli.py`, `web/` and `admin/`), not one.
 
 `cli` imports `orchestrator`; `orchestrator` imports the capability modules; **capability modules never import `cli`, the orchestrator, or each other laterally** — their only shared dependencies are `errors.py` (a flat, import-free exception hierarchy) and `limits.py` (the supported grid size range, `MIN_SIZE`/`MAX_SIZE`, also import-free — use it instead of writing 10 or 30). This is not just convention: `tests/test_cli.py` contains a structural guard that walks `src/nonogram/**/*.py` on disk with `ast` and fails the suite on any lateral or inward-pointing import, so it automatically covers new capability modules as they're added. When two capabilities need to share logic, reimplement it natively in each rather than importing across — see `solver/propagate.py`'s `mask_runs` for the precedent (it deliberately reimplements one clue-encoding check rather than importing `clues.py`, and is cross-checked against `clues.encode_line` from the test tree instead, where the import is legal).
 
