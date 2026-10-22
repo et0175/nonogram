@@ -889,3 +889,13 @@ comparisons are green. So the hoist changed no exported byte and **no new render
 names, 25 sites) are in these notes rather than in docstrings, because no assertion reads either.
 "Parity never changes a page's usable size" was not restated anywhere new — the existing docstrings
 already say it and this round added the measurement instead of another sentence.
+
+---
+
+### [Build gate — fix 1] PASSED: 5910 passed, 16 skipped, 0 failed, EXIT=0
+
+Same 109-file selection as the pre-fix gate, re-derived rather than reused, at `91a51395`. **5907 →
+5910**: the three added tests are the widened guard's own controls — the bare-literal scan, the
+no-door-in-the-seed-set control, and the planted-literal-versus-derived-twin discrimination. The 16
+skips are `db_required`/browser, green. Build-fix attempts remain **1 of 2** (the earlier repair);
+this round needed none.
