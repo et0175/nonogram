@@ -15,7 +15,7 @@
 **Wave:** 52
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
-**Review score:** 7.5 (cycle 1/3 — fix round 1 applied, re-review pending)
+**Review score:** 8.6 (cycle 2/3 — above threshold but **1 Important gates**; cycle 3 required)
 **Started:** 2026-10-21T22:18:12Z
 **Closed:** —
 **Actual:** —
@@ -899,3 +899,98 @@ Same 109-file selection as the pre-fix gate, re-derived rather than reused, at `
 no-door-in-the-seed-set control, and the planted-literal-versus-derived-twin discrimination. The 16
 skips are `db_required`/browser, green. Build-fix attempts remain **1 of 2** (the earlier repair);
 this round needed none.
+
+---
+
+### [Review 2/3] Score: 8.6 — above the threshold, but **1 Important gates.** Certification ran. **Not escalated.**
+
+Report: `meta/review/20261022T013915Z-CARD-206-cycle2.yml`. 1 high (gating), 3 low. 7.5 → 8.6. The
+score clears `min_score: 8`; the **loop's success condition does not**, because it requires zero
+surviving critical/important. Cycle 3 is required.
+
+**[Family] The detector does NOT escalate, and I checked the arithmetic this time.** The reviewer
+reported it as firing "unambiguously". Its *observation* is correct and important — cycle 1's gating
+F-102 was a universal about page positions whose declared blind spot did not describe the real one, and
+fix 1 closed that defect and then **reproduced its shape in the mechanism it built to close it**. But
+`cmd-start-review.md:1596-1629` needs `family_regression_streak >= 2`, and the streak increments once
+per cycle whose gating findings are fix-attributed: cycle 1's two were attributed to the implementation
+(no prior fix existed), cycle 2's one is attributed to fix 1 — **streak 1**. One more such cycle would
+escalate; this one does not. The reviewer's own recommendation agrees, for a different and good reason:
+the sibling card escalated after *adding* a sentence in each of two rounds, whereas this round deleted
+two claims, deleted a figure, tightened an assertion, and added one mechanism with three controls, two
+of them certified here by mutant.
+
+**F-201 (high, gating) — the widened guard fails OPEN, and the bound that should say so is wrong.**
+This is ADR-0039/R2's **second** clause, which cycle 1 never reached: *a shape it cannot analyse is a
+FAILURE, never a silent pass.* Cycle 1 checked only the first clause ("derived, not hand-written"),
+which still holds.
+
+The reviewer re-derived the reported triple exactly — **6 names, 25 sites, 0 offenders**, old walk still
+7 expressions — then attacked the fixed point by planting nine line-count-preserving shapes into the
+real module's own text (in memory; nothing on disk mutated), each hiding the literal `3`:
+
+```
+CAUGHT   V0  bare literal (the proven control)      ESCAPED  V1  list container + subscript
+ESCAPED  V2  dict container                         ESCAPED  V3  tuple-unpack assignment
+ESCAPED  V4  augmented assignment (+= 3)            ESCAPED  V5  functools.partial onto the door
+CAUGHT   V6  keyword-only call into the door        ESCAPED  V7  comprehension target
+ESCAPED  V8  attribute assigned in this module      ESCAPED  V9  starred call
+```
+
+**8 of 9 escape, with 0 offenders reported.** The causes are mechanical missing branches: `Assign` with
+a Tuple target is skipped (Name-only), `AugAssign` is not in the site walk, an `ast.comprehension`
+target is not either, and a value reached through `Subscript`/`Starred`/`Attribute`/`partial` never
+becomes a `Name` and so never enters the vocabulary. Also ADR-0039/R3: the test asserts **floors**
+(`>= 18`, `>= 4`) against a real 25 and 6, with no equality and no failing control for any bound.
+
+And **one sentence of the declared bound is false.** It says *"where that attribute was set is a site in
+its own right, but only if it was set in this module"* — V8 is `self.page_number = 3 + len(section)`,
+set in this module, and it is **not** a site. The paragraph is headed "measured rather than assumed" and
+measures nothing.
+
+**No live defect**: the module has 0 offenders and all 25 sites are derived. What gates is that the
+card's universal claim is over-broad **again**, in the mechanism built to make it true.
+
+**What held, and two of them are better than fix 1 claimed:**
+- **The parity equality holds on all 24 readings**, not only the common nine — 10.0/20.0 on nine cases,
+  16.7/26.7 on two, 12.95/22.95 on one, distinct differences `{10.0}`, maximum deviation **0.0**. The
+  figure is correct and narrow.
+- **Bound (a) is honest and now has a number the card did not have:** an AST census finds **23**
+  `page_spec`/`book_page_spec` calls across **5** modules, 18 of them inside the generator itself, and
+  of the remaining five only `book_proof.py:767` passes a non-trivial position — `enumerate(PROOF_PUZZLES,
+  start=1)`, a standalone proof document with no front matter. **No module outside the generator computes
+  a front-matter-relative interior position today.**
+- **The five-texts problem is resolved:** all six sites agree and none says bottom-left for a framed
+  page. The two remaining "bottom left" strings are correct (one is the verbatim cycle-1 record, one is
+  about unframed page 2), and the four "opposite bottom corner" assertion messages are all about
+  unframed pages. The reviewer notes the structural point still stands: **one measurement, six prose
+  homes, zero assertions reading any of them.**
+- **Fix 1's src change strictly strengthened the card**, which neither I nor fix 1 had noticed:
+  `first_answer_page` is now live in the exported output (`:6976`, `:6978`), so the behavioural
+  monkeypatch case **can** now see it — cycle 1 had measured that it could not.
+- All six of cycle 1's findings genuinely closed, each re-derived from code rather than from the
+  `fix_note`. The reviewer **agrees with my reading of `:1131`** (not a reintroduced constant assertion)
+  and adds that it is now logically *subsumed* by the exact equality above it — redundant, not wrong,
+  deliberately not filed.
+
+**Certification ran** — the deferred half, with the instrument, RECORDING pass, ANY-RED, child
+instrumentation off, SHIPPED re-run and equal cell-for-cell between mutants. Baselines: 126 assert
+nodes over the cover file (0 FAIL of 125 reached) and 52 over the parity test (0 FAIL of 11 reached).
+Seven mutants: the literal-for-constant, the nearly-white page (**killed at 8 nodes**, including AC-1's
+no-ink and AC-5), the planted literal (**exactly 1 node** — the guard's own), the seed-independence
+control, the exemption's must-not-absorb control, the model-drift mutant reproducing fix 1's claim
+independently, and a parity-blind production mutant.
+
+**One domain caveat the reviewer surfaced rather than hid:** the literal-for-constant mutant read
+**exit 1 with 119 reached and 0 FAIL** — a kill *outside* the assert matrix's domain, which is exactly
+the ambiguity `tests/README.md` names. Re-run as plain pytest under a verified restore, the kill is
+production's own page-count guard raising `RuntimeError: interior has 12 pages, its page plan says 14`.
+Recorded in both domains rather than quoting a blank matrix.
+
+**F-202 (low)** — the parity equality is an identity of the test's *own* model, so a parity-blinded
+production mutant leaves it alone and is caught by the two ink arms instead. **F-203 (low)** —
+`GEOMETRY_DOORS`' second member is **inert**: `book_page_spec(book, page_number=1)`'s `args[0]` is the
+book, and `doors=("book_page_spec",)` alone yields **0 names / 2 sites**, so the door-removal control
+cannot distinguish a member that carries everything from one that carries nothing. **F-204 (low,
+pre-existing)** — four sites spell `GUIDE_PAGE_COUNT` as a bare `2` while the comment above writes the
+constant.

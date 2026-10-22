@@ -1683,3 +1683,38 @@ it complied.**
 The reviewer independently reproduced G-1's digests and **agrees with the fail-closed narrowing
 override**: the premise is recomputed rather than judged, and the merge gate's full suite remains the
 backstop. Scope gate PASS — the changed files are exactly the six in `Touches`.
+
+---
+
+### [Correction — the escalation was taken one cycle early, by me]
+
+The `[Review 2/3]` note above says `family_regression` fired and that the config therefore escalated
+rather than granting a third automatic cycle. **The detector's own arithmetic does not support that**,
+and I should have checked it before putting the decision to the owner.
+
+`cmd-start-review.md:1596-1629` increments `family_regression_streak` by **one per cycle** whose gating
+findings are attributed to the previous fix, comparing the family against the previous cycle's
+regressions — or, on the first occurrence, against the previous fix's own DECLARATIONS. **Escalation
+requires `streak >= 2`.** Measured from the reports:
+
+| cycle | gating findings | attribution | streak |
+|---|---|---|---|
+| 1 | 3 | none — it reviewed the implementation, so no prior fix exists and a regression is impossible | 0 |
+| 2 | 2 | both `introduced by fix 1` | **1** |
+| 3 | 0 | — | 0 |
+
+So the streak reached **1**. The reviewer's observation was right — the family did recur, in the same
+place, inside the control the fix had just written — but "the family recurred once" and "the loop is
+regenerating defects" are different claims, and the detector exists to distinguish them. I asserted the
+second on evidence for the first.
+
+**What this does and does not change.** It does not change cycle 3's verdict, which stands on its own
+measurements (8.5, zero gating, certification complete, independently re-derived). It does not
+invalidate the owner's decision: the procedure's own escalation menu offers **`continue` — one more
+cycle, if you judge it genuinely is one finding away** as one of four routes, and that is in substance
+what the owner chose, with a constraint added. And the constraint is what worked: the round forbidden
+from adding a claim added none, which is now measured.
+
+**What it cost:** one owner decision that the procedure did not require, and a card note that overstated
+a detector's verdict. Recorded because a wrong trigger that produces a good outcome is still a wrong
+trigger, and the next card to hit streak 1 should get a cycle, not a question.

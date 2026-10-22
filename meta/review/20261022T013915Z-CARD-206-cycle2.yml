@@ -1,0 +1,553 @@
+version: 1
+card: CARD-206
+cycle: 2
+generated_at: '2026-10-22T01:39:15Z'
+target: 'card/206-interior-title-page @ 91a51395 (27ca88c7..HEAD, 28 files, +2566/-671; fix delta 91a51395 = 5 files, +438/-55)'
+overall_score: 8.6
+risk_level: medium
+review_lane: deep
+reviewer: 'forge:review'
+reviewer_version: 'forge 2026.8.17'
+mode: 'confirmation (differential re-review of the fix delta) + deferred certification'
+
+verdict_summary: >-
+  The score clears the 8 threshold and the improvement over cycle 1 (7.5 -> 8.6) clears
+  min_improvement. All six of cycle 1''s findings are genuinely closed, verified against the code
+  rather than the fix agent''s claim. Step 8f''s deferred certification RAN this cycle: seven
+  line-count-preserving mutants, all with the outcome the card predicts, SHIPPED re-run and equal
+  cell-for-cell between every one. BUT one NEW Important finding (F-201) is open, introduced by fix
+  round 1 and of the same family as cycle 1''s gating F-102, so the severity gate blocks the merge
+  and a cycle 3 is required. family_regression FIRES.
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py
+    - src/nonogram/admin/book_page_spec.py
+    - src/nonogram/admin/book_proof.py
+    - src/nonogram/admin/book_kdp.py
+    - tests/test_book_export_interior_cover.py
+    - tests/property/test_book_export_interior.py
+    - tests/test_book_pdf_memory.py
+    - tests/fixtures/book_baseline_card206.json
+    - tests/kill_matrix.py
+    - tests/README.md (the kill_matrix section, from line 453)
+    - meta/kanban/cards/CARD-206.md (in full)
+    - meta/review/20261022T002400Z-CARD-206-cycle1.yml (in full)
+    - '/Users/omelnikova/Documents/nonogram-reviews/CARD-206/ (both PDFs, all 7 PNGs; 2 read as images, all re-measured numerically)'
+  ran:
+    - >-
+      kill_matrix group A -- RECORDING pass over tests/test_book_export_interior_cover.py,
+      5 mutants (C1..C5). 126 ast.Assert nodes; SHIPPED 0 FAIL of 125 reached, pytest exit 0,
+      72 collected tests, child instrumentation off, aggregate ANY-RED. SHIPPED re-run between
+      every mutant: FAIL-free, exit 0, equal to its first reading cell for cell in all 5 cases.
+    - >-
+      kill_matrix group B -- RECORDING pass over
+      tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage,
+      2 mutants (C6, C7). 52 ast.Assert nodes; SHIPPED 0 FAIL of 11 reached, pytest exit 0,
+      1 collected test, child instrumentation off, aggregate ANY-RED. SHIPPED re-run between
+      mutants: equal cell for cell both times.
+    - >-
+      One manual mutant run outside kill_matrix (C1 only), because C1 read exit 1 with 0 FAIL
+      cells -- a kill outside the assert matrix''s domain, which the instrument''s README names as
+      ambiguous. cp -p backup, shasum -a 256 before and after, trap-restored, restore verified
+      byte-for-byte and by digest.
+    - 'pytest tests/test_book_toc.py tests/test_book_page_numbers.py tests/test_book_finalise_gutter.py tests/test_book_interior_face.py -- 213 passed, exit 0.'
+    - 'pytest tests/test_book_pdf_memory.py tests/test_book_guide_page.py tests/property/test_book_export_interior.py -- 106 passed, 1 skipped, exit 0.'
+    - 'pytest tests/test_guard_integrity.py tests/test_layout_page_spec.py tests/test_export_a4_golden.py tests/property/test_cli_exports_byte_identity.py tests/test_book_difficulty_dots.py -- 458 passed, exit 0 (the G-5 / ADR-0036 tripwires).'
+    - >-
+      Independent re-derivations as standalone scripts over the worktree''s own sources: the guard''s
+      (names, sites, offenders) triple; 13 planted page-position shapes against a toy module and 9
+      against the real module''s own text (in memory, no file on disk mutated); the 24-reading parity
+      sweep; an AST census of every page_spec/book_page_spec call in src/nonogram; an AST census of
+      forbidden codepoints in book_pdf_generator.py string constants.
+  not_reached:
+    - 'the full suite (forbidden by the review brief; CARD-259 is live in the sibling worktree)'
+    - 'tests/test_book_pdf.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_two_up.py, tests/test_book_pdf_band.py, tests/test_book_arrange_page_breaks.py, tests/test_book_cell_size.py, tests/test_book_proof_pages.py, tests/test_book_pdf_ink_mode.py, tests/test_book_solved_answer_key.py, tests/test_book_level_order.py, tests/property/test_book_order.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_pairing.py -- SCOPE+ page-position shifts, untouched by the fix delta, green on the orchestrator''s 109-file build gate at this head (5910 passed) but not re-run here.'
+    - 'tests/test_puzzle_edit_routes.py -- the orchestrator repair, reviewed sound in cycle 1, delta-clean.'
+    - 'meta/architecture/** -- no registry edit is owed by this card; EC-034''s stale check name stays routed to the architect station.'
+  environment:
+    - 'NONOGRAM_FULL_SUITE_LOCK=/tmp/card206-review2.lock was exported for every pytest and every kill_matrix run in this review. meta/kanban/.full-suite.lock was never read, written, created or deleted; pytest printed the redirection on every run.'
+    - 'No timing measurement was taken and no duration is reported anywhere in this report.'
+    - 'Nothing was committed, staged, stashed, checked out, restored or cleaned through git. Final `git status --short` is identical to the status at the start of the review: one modified file (meta/kanban/cards/CARD-206.md, modified before this review began) and one untracked file (the cycle-1 report).'
+    - 'Every mutation target was a file inside the CARD-206 worktree. src/nonogram/export/layout.py was never a target (G-2). No edit named _refuse_unless_test_database or nonogram_poc; no database was created, dropped, truncated or connected to.'
+    - 'Interpreter: /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python, cwd the CARD-206 worktree.'
+  confidence: high
+
+metrics:
+  diff: { files: 28, added: 2566, removed: 671 }
+  fix_delta: { files: 5, added: 438, removed: 55 }
+  tests_cover_change: true
+  hotspots:
+    - 'src/nonogram/admin/book_pdf_generator.py -- declared conflict hotspot, high defect density (cycle 1: 79 commits/12 months, 54% fix-shaped)'
+    - 'tests/helpers/book_corpus.py -- declared conflict hotspot; not in the fix delta'
+  cochange_missing:
+    - 'src/nonogram/export/layout.py -- correctly absent from all 28 files (G-2 forbids editing it)'
+  unmeasured:
+    full_suite: 'budget_truncated -- the brief forbids a full-suite run while CARD-259 is live; subsets were run instead and the orchestrator''s 109-file gate at this head is relied on.'
+    owner_visual_signoff: 'no_eligible_fact -- the paper judgement is the owner''s; the renders were re-read and re-measured here, not signed off.'
+
+certification:
+  status: ran
+  note: >-
+    Cycle 1 emitted `8f-mutation: deferred(cost)`. This cycle had no gating finding at the point the
+    cost ladder reaches Step 8f, so the deferral''s release condition was met and the certification
+    ran. Instrument: the committed tests/kill_matrix.py (tests/README.md from line 453). No second
+    instrument was written. Aggregation ANY-RED throughout; RECORDING pass throughout; child
+    instrumentation off throughout; every mutant line-count-preserving; SHIPPED re-run between
+    mutants and equal to its first reading cell for cell every time.
+  shipped_baselines:
+    - 'group A -- tests/test_book_export_interior_cover.py: 126 ast.Assert nodes, SHIPPED 0 FAIL of 125 reached, pytest exit 0, 72 collected tests, child instrumentation off, aggregate ANY-RED.'
+    - 'group B -- tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage: 52 ast.Assert nodes, SHIPPED 0 FAIL of 11 reached, pytest exit 0, 1 collected test, child instrumentation off, aggregate ANY-RED.'
+  mutants:
+    - id: C1_LITERAL_FOR_CONSTANT
+      owns: 'TITLE_PAGE_COUNT and the positions derived from it'
+      line: 'src/nonogram/admin/book_pdf_generator.py:6892'
+      mutant: '`for title_page_number in range(1, TITLE_PAGE_COUNT + 1):` -> `for title_page_number in range(1, 1 + 1):` -- the card''s own named defect, a derived position respelled as the literal it equals today. Value-preserving at TITLE_PAGE_COUNT == 1, so nothing can see it except a test that moves the constant.'
+      outcome: 'KILLED -- by TestBookExport_TitlePageCountedEverywhere::test_each_position_is_counted_from_the_constant_not_a_literal, both parametrizations [2] and [3].'
+      domain: >-
+        TWO domains, because the first is ambiguous by the instrument''s own declaration.
+        (a) kill_matrix RECORDING pass over tests/test_book_export_interior_cover.py, 126 ast.Assert
+        nodes, child instrumentation off, ANY-RED: the mutant read pytest exit 1 with 119 reached and
+        0 FAIL -- a kill OUTSIDE the assert matrix''s domain, which tests/README.md names explicitly
+        ("exit 1 with no FAIL cell is also what a kill outside the matrix''s domain looks like").
+        (b) So it was re-run as a plain pytest with a cp -p backup, shasum -a 256 before and after,
+        a trap-restored original and a verified restore (digest d8b9ece88324101554caf25697e5acb152fb608c237f3c00dcd294d09607ded9,
+        line count 7216 -> 7216): the kill is production''s own page-count guard raising
+        `RuntimeError: interior has 12 pages, its page plan says 14` at book_pdf_generator.py:2869,
+        reported FAILED for [2] and [3]. It is not an ast.Assert node, which is exactly why the
+        matrix was blank. Recorded in both domains rather than quoting the blank one.
+    - id: C2_NEARLY_WHITE
+      owns: 'AC-1''s no-ink assertion'
+      line: 'src/nonogram/admin/book_pdf_generator.py:4712 (create_title_page)'
+      mutant: '`Image.new("RGB", (frame.width, frame.height), "white")` -> `... (254, 254, 254))` -- a page that is nearly white rather than white.'
+      outcome: >-
+        KILLED at 8 assertion nodes: :242 (AC-1''s own
+        test_page_one_carries_no_ink_of_any_kind -- `_ink_pixels(interior[0]) == 0`), :326 (AC-5''s
+        test_page_one_is_the_blank_title_page_and_not_the_cover), :406, :437, :570, :686, :1012,
+        :1061. The ink count is a count and not a "nearly white" tolerance, and AC-1 and AC-5 both
+        rest on it independently.
+      domain: 'kill_matrix RECORDING pass over tests/test_book_export_interior_cover.py, 126 ast.Assert nodes, SHIPPED 0 FAIL of 125 reached at pytest exit 0 (72 collected), mutant exit 0 with 125 reached and 8 FAIL, child instrumentation off, aggregate ANY-RED.'
+    - id: C3_PLANTED_LITERAL
+      owns: 'the widened page-position guard, on the real file (F-102''s own site)'
+      line: 'src/nonogram/admin/book_pdf_generator.py:6718-6720 (the one derived first_answer_page)'
+      mutant: 'the three-line derived assignment reverted to the three-line `first_answer_page = (\n            3 + len(section)\n        )` -- line-count preserving, the exact defect cycle 1 found.'
+      outcome: 'KILLED at EXACTLY one assertion node, :1481 -- test_no_page_position_in_the_module_is_written_as_a_bare_literal''s own assert. No other assertion in that file sees it. This re-derives fix round 1''s claim independently rather than accepting it.'
+      domain: 'kill_matrix RECORDING pass over tests/test_book_export_interior_cover.py, 126 ast.Assert nodes, SHIPPED 0 FAIL of 125 reached at pytest exit 0 (72 collected), mutant exit 0 with 125 reached and 1 FAIL, child instrumentation off, aggregate ANY-RED.'
+    - id: C4_SEED_INDEPENDENT
+      owns: 'the guard''s control 1 -- "the set is derived from the one geometry door"'
+      line: 'tests/test_book_export_interior_cover.py:1286 (`vocabulary = set()` inside _page_position_sites)'
+      mutant: '`vocabulary = set()` -> `vocabulary = {"page_number"}` -- the enumeration gets a position name that does not come from the door, so it no longer depends on the seed set.'
+      outcome: 'KILLED at EXACTLY one assertion node, :1465 -- the door-removal control `assert (without, no_vocabulary) == ([], [])`. ADR-0039/R1''s caught-with / missed-without shape over the set member itself, and it can fail.'
+      domain: 'kill_matrix RECORDING pass over tests/test_book_export_interior_cover.py, 126 ast.Assert nodes, SHIPPED 0 FAIL of 125 reached at pytest exit 0 (72 collected), mutant exit 0 with 125 reached and 1 FAIL, child instrumentation off, aggregate ANY-RED.'
+    - id: C5_EXEMPTION_ABSORBS_3
+      owns: 'the guard''s controls 2 and 3 -- what the POSITION_LITERALS exemption must NOT absorb'
+      line: 'tests/test_book_export_interior_cover.py:1249 (`POSITION_LITERALS = (0, 1)`)'
+      mutant: '`POSITION_LITERALS = (0, 1)` -> `(0, 1, 3)` -- the exemption widened to swallow the very literal F-102 was about.'
+      outcome: 'KILLED at EXACTLY one assertion node, :1504 -- test_a_planted_bare_literal_is_caught_and_the_derivation_is_not''s equality against `[("assignment", "first_answer_page", [3])]`. The exemption therefore has a control for what it must not absorb.'
+      domain: 'kill_matrix RECORDING pass over tests/test_book_export_interior_cover.py, 126 ast.Assert nodes, SHIPPED 0 FAIL of 125 reached at pytest exit 0 (72 collected), mutant exit 0 with 125 reached and 1 FAIL, child instrumentation off, aggregate ANY-RED.'
+    - id: C7_MODEL_DRIFT
+      owns: 'the parity separation equality'
+      line: 'tests/property/test_book_export_interior.py:1123 (`assert abs(abs(right_hand_mm - left_hand_mm) - separation_mm) < 1e-6`)'
+      mutant: 'the test''s own model, `_expected_drawing_left_mm`: `left_margin = gutter_mm if page_number % 2 else outside_mm` -> `gutter_mm + 5.0 if ... else outside_mm`.'
+      outcome: 'KILLED at EXACTLY one assertion node, :1123. The tightened equality can fail, and nothing else in that test sees this mutant -- including the surviving `separation_mm > 4.0` floor at :1131, which is why one quantity carried three readings for a whole cycle. Reproduces fix round 1''s claim independently.'
+      domain: 'kill_matrix RECORDING pass over tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage, 52 ast.Assert nodes, SHIPPED 0 FAIL of 11 reached at pytest exit 0 (1 collected test), mutant exit 0 with 11 reached and 1 FAIL, child instrumentation off, aggregate ANY-RED.'
+    - id: C6_PARITY_BLIND
+      owns: 'the parity separation equality, measured against PRODUCTION rather than against the model'
+      line: 'src/nonogram/admin/book_page_spec.py:381 (`return PageParity.ODD if page_number % 2 else PageParity.EVEN`)'
+      mutant: '-> `return PageParity.ODD if page_number >= 1 else PageParity.EVEN`: no interior page is ever EVEN, so parity stops moving the side margins altogether. Production, inside the worktree, and NOT src/nonogram/export/layout.py (G-2).'
+      outcome: >-
+        :1123 SURVIVED. The kill is at :1135 and :1140 -- the two arms that read the page''s own ink
+        (`abs(measured_mm - left_hand_mm) < 0.1` and `abs(measured_mm - right_hand_mm) > 1.0`). So
+        AC-4''s parity clause IS measured against production, by those two arms; the tightened
+        equality at :1123 is not -- it is an algebraic identity of the test''s own model. This is
+        F-202''s evidence, and it is the reason F-202 is Minor rather than Important: the property as
+        a whole has teeth against production, only the figure''s own assertion does not.
+      domain: 'kill_matrix RECORDING pass over tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage, 52 ast.Assert nodes, SHIPPED 0 FAIL of 11 reached at pytest exit 0 (1 collected test), mutant exit 0 with 11 reached and 2 FAIL, child instrumentation off, aggregate ANY-RED.'
+  restores: >-
+    kill_matrix restores every registered path from a cp -p backup and verifies with diff -q AND
+    shasum -a 256 before any verification failure is raised; all seven runs returned cleanly and its
+    temp tree was removed. The one manual mutant (C1, domain b) was restored under a shell trap with
+    an explicit shasum -a 256 equality and a diff -q, both verified. The working tree after the
+    review is byte-identical to the working tree before it (git status --short unchanged, git diff
+    confined to meta/kanban/cards/CARD-206.md, which was already modified when this review began).
+
+acceptance_criteria:
+  - 'AC-1 ✓ holds, certified -- C2_NEARLY_WHITE reds the no-ink assert at tests/test_book_export_interior_cover.py:242 (and 7 more). Independently re-measured: 0 non-white pixels on page 1 of interior-book1.pdf, page 1 of interior-widegutter.pdf, book1-page1-blank-title.png and widegutter-page1-blank-title.png.'
+  - 'AC-2 ✓ holds, certified -- C1_LITERAL_FOR_CONSTANT is killed by test_each_position_is_counted_from_the_constant_not_a_literal[2] and [3]. So a derived front-matter position respelled as a bare 1 does NOT survive, which narrows the class docstring''s "a wrong position spelled 0 or 1" bound for every position that reaches output.'
+  - 'AC-3 ✓ holds -- carried(cycle 1, delta-clean): tests/test_book_toc.py is not in the fix delta. Re-run anyway and green (213 passed with its subset). The TOC rows were read off the render in cycle 1 (2 / 5 / 9 against title 1, guide 2-3, TOC 4, Easy 5, puzzles 6-8, SOLUTIONS 9).'
+  - 'AC-4 ✓ holds, certified -- C6_PARITY_BLIND (production: parity stops moving the margins) reds :1135 and :1140. Re-measured on paper: interior-widegutter.pdf page 6 draws against the outside margin with the gutter on its right, page 7 its mirror.'
+  - 'AC-5 ✓ holds, certified -- C2_NEARLY_WHITE reds :326, TestBookExport_InteriorHoldsNoCoverPage::test_page_one_is_the_blank_title_page_and_not_the_cover.'
+  - 'AC-6 ✓ holds -- TestBookExport_EmptyBookUnchanged is inside group A''s SHIPPED reading (72 collected tests, 0 FAIL of 125 reached, exit 0) and in every between-mutant re-run.'
+
+guardrails:
+  - 'G-1 ✓ holds -- TestBookExport_EveryRouteSeparatesInteriorAndCover is in group A''s green SHIPPED reading; page 1 is asserted blank on every route.'
+  - 'G-2 ✓ holds -- src/nonogram/export/layout.py is absent from all 28 files of 27ca88c7..91a51395 (git diff --name-only, counted: 0). No mutation target of this review was that file either.'
+  - 'G-3 ✓ holds -- tests/test_book_guide_page.py green (106 passed, 1 skipped with its subset). The declared surviving mutant M11 and its 20-node kill in that file were certified in cycle 1 and are delta-clean: carried(cycle 1, delta-clean).'
+  - 'G-4 ✓ holds -- 0 non-white pixels on interior page 1 across four artefacts, re-measured this cycle. No imprint, ISBN, author line or owner-editable text anywhere in the diff.'
+  - 'G-5 ✓ holds -- TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, TestCliExports_ByteIdenticalAfterBookGeometry and PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry all green (458 passed in the contract subset, exit 0). None of the three tripwires was edited.'
+
+system_contract:
+  rules_checked: 14
+  holds: 8
+  unchecked: 4
+  violated: 2
+  verdicts:
+    - 'ADR-0022/R1 ✓ holds — the fix delta changes no signature at all in src/ (the whole src diff 3a3dfc8f..91a51395 is comments plus one hoisted assignment); no public signature, request field or export field reduces a grid''s extent to a scalar.'
+    - 'ADR-0033/R1 ✓ holds — the fix delta writes no puzzle field; its src change is one page-position assignment and prose.'
+    - 'ADR-0036/R2 ✓ holds — create_title_page still calls page_frame(self.page_spec(page_number)) and fits nothing; the hoisted first_answer_page feeds self.page_spec(first_answer_page), the same one door. An AST census of every page_spec/book_page_spec call in src/nonogram finds 23 calls in 5 modules and no geometry computed outside COMP-007.'
+    - 'ADR-0037/R1 ✓ holds — read off the render again: interior-widegutter.pdf page 6 prints the band "Puzzle 1 · Easy" and no picture title.'
+    - 'ADR-0036/R1 ✓ holds — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green (contract subset, exit 0).'
+    - 'ADR-0036/R3 ✓ holds — test_the_books_own_pages_carry_no_undeclared_round_mark green in the contract subset; delta-clean (the fix delta adds no drawing call).'
+    - 'ADR-0036/R4 ✓ holds — re-derived independently on this head rather than via the named test: an AST walk over every string Constant in src/nonogram/admin/book_pdf_generator.py (the only src file the fix delta touched) finds no codepoint in U+25A0..U+25FF, U+2022 or U+2219. test_no_module_types_a_round_mark_as_a_character green in the contract subset.'
+    - 'ADR-0039/R1 ✓ holds — cycle 1''s violation is closed on both halves. The parity figure now has a control that can fail (C7_MODEL_DRIFT kills :1123 and nothing else), and the guard has the caught-with / missed-without shape over its own set member (C4_SEED_INDEPENDENT kills the door-removal control; C5_EXEMPTION_ABSORBS_3 kills the planted-literal control). One residual, filed as F-203 rather than as a violation: GEOMETRY_DOORS'' second member book_page_spec has no such control, because removing it changes nothing a position depends on.'
+    - 'ADR-0039/R2 ✗ violated — on the rule''s SECOND clause, which cycle 1 did not reach (it checked only "derived, not hand-written", and that half still holds). "Where no such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE, never a silent pass." _page_position_sites silently passes on every page-position shape its vocabulary does not reach. Measured on the real module''s own text, 8 of 9 line-count-preserving planted literals escape with 0 offenders reported. See F-201.'
+    - 'ADR-0039/R3 ✗ violated — the exemption''s "must not absorb" control exists now (C5, certified), but the rule''s other two clauses do not hold. The guard is NOT held to an equality against the sites that exist today (the test asserts floors, len(sites) >= 18 and len(vocabulary) >= 4, against a real 25 and 6; the fix notes state the reason as "the count is a figure no control could fail on", which is the opposite of what an equality is for). And what it still cannot see is NOT recorded as a measured bound with its own failing control: the class docstring''s three sentences have no control at all, and one of them is false by measurement. See F-201.'
+    - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact: the fix delta touches no player, no browser payload and no solution-shipping path. carried(cycle 1, delta-clean).'
+    - 'ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject.toml is in neither the fix delta nor the card diff. carried(cycle 1, delta-clean).'
+    - 'ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser test is added, changed or skipped. carried(cycle 1, delta-clean).'
+    - 'CON-021 ⚠ unchecked — no_eligible_fact: the diff adds no surface, no play state and no persistence. carried(cycle 1, delta-clean).'
+
+cycle1_findings_closure:
+  verdict: 'all six genuinely closed, none dismissed, every closure re-derived from the code rather than from the fix_note'
+  detail:
+    - 'F-101 CLOSED. The absolute pair is gone from PARITY_GUTTER_MM''s docstring, which now states only the difference. The stale "5.0 mm away" at the AC-4 docstring is gone (grep for "5.0 mm" over tests/property/test_book_export_interior.py: zero hits). The figure reproduces: I swept all 12 cases and both is_lower values through _expected_drawing_left_mm -- 24 readings, three distinct absolute pairs (10.0/20.0 on nine cases 0,1,2,3,4,6,8,9,11; 16.7/26.7 on cases 5 and 10; 12.95/22.95 on case 7), difference exactly 10.0 on all 24, maximum deviation from 10.0 = 0.0, and the <1e-6 equality holds on every one of the 24 including the two 16.7 cases and the one 12.95 case. The assertion was tightened and C7 certifies it can fail. Residual filed as F-202 (Minor).'
+    - 'F-102 CLOSED on both halves. The duplicate is gone: one assignment at :6718-6720, and the two prose occurrences of "3 + len(section)" in src are the comment and the docstring that record the removed defect (I checked both; no code occurrence). Hoisting it also made the value LIVE -- it now feeds create_divider_page(first_answer_page - 1) and page_number = first_answer_page + index as well as the degrade probe -- so cycle 1''s "reaches no byte of output" is no longer true of this site, which is a real strengthening the fix note understates. The guard is genuinely widened: I re-derived its triple independently and got 6 names / 25 sites / 0 offenders, exactly as reported. Residual filed as F-201 (Important).'
+    - 'F-103 CLOSED. The card''s Renders bullet now says the QR icon is bottom-left, the grid-size label at the inner margin, and the folio centred and not mirroring. Re-measured on interior-book1.pdf: page 6 folio 1264-1284, page 7 folio 1264-1283, page centre 1275; QR 150-386/427-968 and label 2244-2395 on page 6, mirrored on page 7. Confirmed by eye on widegutter-page6-first-puzzle.png.'
+    - 'F-104 CLOSED. The fixture''s changed_pages_note and why_a_new_baseline both carry the measured mechanism (centred on a framed page, bottom-outer and mirroring on the unframed ones) and the conclusion (no control page) is unchanged.'
+    - 'F-105 CLOSED. The message interpolates old_number = entry.page_number - plan.toc_page_count - TITLE_PAGE_COUNT, computed on the line above and used in both places, and names "CARD-201''s shipped layout". The stale sibling comment (the SOLUTIONS-divider formula) was corrected with it.'
+    - 'F-106 CLOSED. The constant assertion is deleted; the docstring names the three live assertions that carry the premise. The surviving `assert separation_mm > 4.0` at :1131 is NOT a reintroduced constant assertion -- I agree with the orchestrator. It is falsifiable by an edit to PARITY_GUTTER_MM/PARITY_OUTSIDE_MM, which is what its message claims, and C7 confirms it is a separate arm from the equality (the mutant kills :1123 and leaves :1131 alone). One note: it is now logically subsumed by :1123, since an exact equality to 10.0 implies > 4.0. Redundant, not wrong -- not filed.'
+
+five_texts_check:
+  verdict: 'all six sites agree with the measurement; none still says bottom-left for a framed page'
+  sites:
+    - 'the card''s Renders bullet (meta/kanban/cards/CARD-206.md:285-291) -- corrected, carries the pixel columns and the mechanism.'
+    - 'the card''s honest-bounds bullet (:317-321) -- corrected.'
+    - 'tests/fixtures/book_baseline_card206.json changed_pages_note -- corrected, with the measurement and the framed/unframed split.'
+    - 'tests/fixtures/book_baseline_card206.json why_a_new_baseline -- corrected; it now names the grid-size label and the QR group as the marks that change side.'
+    - 'tests/test_book_pdf_memory.py:2256-2266, the LIVE_OFFSET comment -- corrected.'
+    - 'tests/test_book_pdf_memory.py:2991-2999, _reference''s docstring -- corrected; the folio is no longer named as a mirroring mark and the "1186 px against 1191 px" figure is deleted rather than restated.'
+  residual: >-
+    The two remaining "bottom left" strings in the card (:615, :642) are correct: :615 is the verbatim
+    record of cycle 1''s finding and :642 is about interior page 2, the guide''s first page, which is
+    unframed and really does carry a bottom-left folio. The four "opposite bottom corner" / "folio''s
+    corner" assertion messages in tests/test_book_pdf_memory.py (:2529, :2579, :2587, :2699, :2706)
+    are about the TOC page, the dividers and the answer pages -- all unframed, all correct.
+    STILL TRUE, AND SAID AGAIN: one measurement lives in six texts with no control over their
+    agreement. Nothing in the suite would red if one of them drifted. The fix round corrected all six
+    by hand and the board should expect to pay for that again.
+
+renders:
+  - 'page 1 (both books, both PNGs) -- 0 non-white pixels, trim-sized (2550x3300 in the PDFs, 1275x1650 in the PNGs). AC-1 on paper, re-measured.'
+  - 'spread-guide-pages-2-and-3.png read as an image -- page 2 is the guide''s FIRST half ("How to Solve Nonograms", the basic rule, the three cell states, "Start with certainty") with the folio "2" bottom-left; page 3 is the second half ("When the Puzzle Gets Harder") with "3" bottom-right. They genuinely face. CARD-229''s premise holds.'
+  - 'widegutter-page6-first-puzzle.png read as an image -- the folio "6" is CENTRED, the grid-size label "25 x 25" is at the inner (right) margin, the QR icon and its two lines are in the bottom-left (outer) corner, and the drawing sits against the outside margin with the wider gutter on its right. Exactly what the corrected text says, and the band reads "Puzzle 1 · Easy" with no picture title (ADR-0037/R1).'
+  - 'folio columns re-measured numerically on interior-book1.pdf (dark-column clusters in the bottom 14%, page width 2550, centre 1275): p2 153-172, p4 152-173, p5 2376-2395, p6 150-386 / 427-968 / 1264-1284 / 2244-2395, p7 153-304 / 1264-1283 / 1581-2123 / 2164-2400, p9 2376-2396, p10 155-200. Every figure the fix round published reproduces to the pixel.'
+  - 'NO NEW RENDER IS OWED. I agree with the orchestrator and checked it: the fix delta''s only src change is a hoisted assignment whose value was already what the later duplicate computed, and tests/fixtures/book_baseline_card206.json differs only in why_a_new_baseline and changed_pages_note. No exported byte moved, so the cycle-1 artefacts describe this head.'
+  - 'No render contradicts the corrected text. Cycle 1''s one CONTRADICTION line is resolved.'
+
+figures_rederived:
+  - figure: 'the widened guard: 6 names, 25 sites, 0 offenders'
+    verdict: reproduced exactly
+    domain: 'TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage._page_position_sites() called directly on the worktree''s own book_pdf_generator.py. Names: first_answer_page, first_page, guide_page_number, page_number, puzzle_page, title_page_number. 25 sites, every one of them derived; _bare_literals(sites) == []. The old guide-counting walk still reports 7 expressions, as cycle 1 recorded.'
+  - figure: 'the parity separation, 10.0000 mm on all 24 readings'
+    verdict: reproduced exactly, and the three absolute pairs reproduced too
+    domain: '_expected_drawing_left_mm over random.Random(PARITY_SEED=206)''s own 12 cases x both is_lower values: 10.0/20.0 on nine cases (0,1,2,3,4,6,8,9,11), 16.7/26.7 on two (5, 10), 12.95/22.95 on one (7). Distinct differences across all 24 readings: {10.0}. Maximum deviation from 10.0: 0.0. The test''s <1e-6 equality holds on every case, including the two 16.7 cases and the one 12.95 case -- it is not true of only the common nine.'
+  - figure: 'how many modules can hand a position to a geometry door (honest bound (a))'
+    verdict: 'newly derived -- the bound is real and narrow, and now has a number'
+    domain: >-
+      AST census of every call to page_spec/book_page_spec over src/nonogram/**: 23 calls in 5
+      modules. 18 are in book_pdf_generator.py itself. The other 5 are app.py:4190/4264/4283 and
+      book_manager.py:1126 (book_page_spec(book), no position at all, so the default 1), book_kdp.py:588
+      (book_page_spec(stand_in, 1)) and book_proof.py:767 (page_spec(position), where position is
+      enumerate(PROOF_PUZZLES, start=1) -- a standalone two-page proof document with no front matter,
+      so it legitimately carries no TITLE_PAGE_COUNT term). NO module outside book_pdf_generator.py
+      computes a front-matter-relative interior position today. The bound is honest.
+  - figure: 'the card diff, 28 files'
+    verdict: reproduced
+    domain: 'git diff --stat 27ca88c7 91a51395: 28 files, +2566/-671. src/nonogram/export/layout.py absent (G-2).'
+  - figure: 'the literal is gone from interior_stream'
+    verdict: reproduced, and the orchestrator''s wording sharpened
+    domain: 'one first_answer_page assignment at :6718-6720; grep "3 + len(section)" over src/nonogram/admin/book_pdf_generator.py returns 2 hits, BOTH prose (a comment at :6711 and TITLE_PAGE_COUNT''s docstring at :557) recording the removed defect. Zero code occurrences, which is what the orchestrator meant.'
+
+root_causes:
+  - id: RC-1
+    title: 'a page-position / geometry claim is stated more broadly than the mechanism that checks it'
+    finding_ids: [F-201, F-202, F-203]
+
+findings:
+  - id: F-201
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_export_interior_cover.py
+    line: 1125
+    title: 'the widened guard fails open on every page-position shape its vocabulary cannot reach, and the bound that is supposed to say so is unmeasured and partly false'
+    attribution: 'INTRODUCED BY FIX 1 (91a51395). _page_position_sites, GEOMETRY_DOORS, POSITION_LITERALS and the class docstring''s "What this still cannot see" paragraph are all new in that commit; none of them exists at 3a3dfc8f.'
+    description: |-
+      The class docstring says :meth:`_page_position_sites` "enumerates **every page position in the
+      module**, derived rather than listed", and TITLE_PAGE_COUNT's docstring now delegates its own
+      claim to it ("That sentence is a claim, and this is the control it is held to"). The
+      enumeration is a name-based fixed point seeded from the geometry door: a value handed to a
+      door becomes a vocabulary NAME, and only bindings of a vocabulary name are read as sites. A
+      position whose value never passes through a bare Name therefore never enters the vocabulary,
+      and a binding shape the site walk does not handle is never read.
+
+      MEASURED, on the real module's own text, with the real vocabulary present. I took
+      book_pdf_generator.py as it stands, replaced the three-line derived first_answer_page
+      assignment with nine different line-count-preserving shapes that each hide the literal 3, and
+      ran the analyser on the result (in memory; no file on disk was mutated for this). Base
+      reading: 6 names, 25 sites, 0 offenders.
+
+        CAUGHT  V0  bare literal (the proven control)        -> 1 offender
+        ESCAPED V1  list container + subscript               -> 0 offenders
+        ESCAPED V2  dict container                           -> 0 offenders
+        ESCAPED V3  tuple-unpack assignment                  -> 0 offenders
+        ESCAPED V4  augmented assignment (+= 3)              -> 0 offenders
+        ESCAPED V5  functools.partial onto the door          -> 0 offenders
+        CAUGHT  V6  keyword-only call into the door          -> 1 offender
+        ESCAPED V7  comprehension target into the door       -> 0 offenders
+        ESCAPED V8  attribute assigned in this module        -> 0 offenders
+        ESCAPED V9  starred call into the door               -> 0 offenders
+
+      Eight of nine escape with the guard reporting 0 offenders. The causes are mechanical and each
+      is a missing branch: ast.Assign with a Tuple target is skipped (the walk requires
+      isinstance(target, ast.Name)), ast.AugAssign is not in the site walk at all, an
+      ast.comprehension target is not in it either, and a value reached through a Subscript, a
+      Starred, an Attribute or a partial never becomes a Name so never enters the vocabulary.
+
+      AND THE DECLARED BOUND IS WRONG ABOUT ITS OWN COVER -- which is, verbatim, what cycle 1's
+      F-102 was. The docstring's "What this still cannot see, **measured rather than assumed**"
+      paragraph names three things: an attribute of a plan object, a position computed in another
+      module, and a wrong position spelled 0 or 1. None of the eight shapes above is any of them.
+      Worse, one of the three sentences is false as written: "where that attribute was *set* is a
+      site in its own right, but only if it was set in this module" -- V8 measures the opposite.
+      `self.page_number = 3 + len(section)` IS set in this module and is NOT a site, because the
+      Assign walk only reads Name targets. (It happens to be true of the way this module actually
+      sets such attributes today, through keyword construction, which the keyword loop does reach --
+      but that is not what the sentence says.)
+
+      AND the paragraph is headed "measured rather than assumed" while nothing measures it: there is
+      no control for any of the three bounds, and no equality. The test asserts floors --
+      `len(sites) >= 18` and `len(vocabulary) >= 4` against a real 25 and 6. The fix-round notes give
+      the reason as "the count is a figure no control could fail on", which inverts what an equality
+      is for: an equality against the sites that exist today is precisely a control that can fail,
+      and it is what ADR-0039/R3 asks for by name.
+
+      WHAT WOULD MAKE THIS RED, AND WHETHER THAT STATE EXISTS: nothing, and no. The module has zero
+      offenders today -- I re-derived all 25 sites and every one is derived from the constants -- so
+      there is NO live defect and this is not a correctness finding. Two things make it gating
+      anyway. (1) It breaks two rules of this card's own kept System contract: ADR-0039/R2's
+      "a shape it cannot analyse is a FAILURE, never a silent pass" (eight silent passes, measured),
+      and ADR-0039/R3's equality and measured-bound clauses. (2) It is the SAME FAMILY as cycle 1's
+      gating F-102, in the same place: a universal claim about page positions whose declared blind
+      spot does not describe the mechanism's real blind spot. Cycle 1 refuted a declared bound by
+      measurement; fix 1 replaced it with another declared bound that measurement refutes.
+
+      What is genuinely better, and should not be lost in the fix: the mechanism now catches the
+      shape F-102 actually found (C3_PLANTED_LITERAL kills exactly one assertion node, re-derived
+      here), it has two controls that can fail (C4, C5, both certified), and hoisting the assignment
+      made first_answer_page LIVE in the exported output, so the behavioural monkeypatch case can
+      now see it too (C1, certified). The claim is what outran the mechanism, not the other way
+      round.
+    suggestion: |-
+      Three routes, any one of which closes it; prefer the cheapest that makes the claim true.
+      (a) NARROW THE CLAIM to what the analyser reaches -- "every page position bound to a name in
+      this module", not "every page position in the module" -- and replace the three-sentence
+      paragraph with the measured list above, each shape named, and at least one of them with a
+      failing control (the V-series above are ready-made, and they run with no file on disk mutated:
+      _page_position_sites takes a source string).
+      (b) FAIL CLOSED, which is what ADR-0039/R2 actually asks: make an expression handed to a door
+      that the analyser cannot resolve to a vocabulary binding a FAILURE unless it is a named
+      exemption with its own control. `plan.page_number` at :5401 would be the first exemption.
+      (c) Hold the set to an EQUALITY (6 names, 25 sites) rather than to floors, so the day a site
+      appears or disappears the guard says so. "A figure no control could fail on" is not a reason
+      against an equality; it is the thing an equality fixes.
+      Whatever route is taken: delete or correct the "where that attribute was set is a site in its
+      own right" sentence, which is false by measurement, and drop "measured rather than assumed"
+      from a paragraph that measures nothing.
+    confidence: high
+    source: static
+    violates: ADR-0039/R2
+    also_violates: ADR-0039/R3
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-202
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_book_export_interior.py
+    line: 1123
+    title: 'F-101''s replacement equality is an algebraic identity of the test''s own model and survives a production parity failure'
+    attribution: 'INTRODUCED BY FIX 1 (91a51395) -- it is the assertion that replaced F-101''s uncontrolled figure, tightened from a `> 4.0` floor.'
+    description: |-
+      The tightened assertion is
+
+          separation_mm = PARITY_GUTTER_MM - PARITY_OUTSIDE_MM
+          assert abs(abs(right_hand_mm - left_hand_mm) - separation_mm) < 1e-6
+
+      and both right_hand_mm and left_hand_mm come from _expected_drawing_left_mm, the test module's
+      own millimetre model, whose body is
+
+          left_margin = gutter_mm if page_number % 2 else outside_mm
+          return left_margin + max(spare, 0.0) / 2
+
+      with `spare` independent of parity. The difference of the two readings is therefore
+      gutter_mm - outside_mm identically, for any puzzle, any cell and any spare -- so the assertion
+      is an algebraic identity of the model and holds for every input. "Asserted exactly, per case"
+      is literally true and the per-case variation is illusory: the same identity 12 times.
+
+      MEASURED, not reasoned. C6_PARITY_BLIND (production: book_page_spec._parity made to return ODD
+      for every page, so parity stops moving the side margins at all) kills :1135 and :1140 -- the
+      two arms that read the page's own ink -- and :1123 SURVIVES. C7_MODEL_DRIFT (an edit to the
+      model itself) kills :1123 and nothing else. So the equality's domain is the model, while the
+      docstring frames the quantity as a property of production geometry ("parity moves the usable
+      area sideways by the whole gutter - outside ... so the two specs put the same drawing exactly
+      that far apart").
+
+      WHY THIS IS MINOR AND NOT A REPEAT OF F-101: the figure is now correct and reproduces (24/24
+      readings, deviation 0.0), the assertion CAN fail (C7), and the parity claim against production
+      is genuinely carried -- by :1135 and :1140, which C6 kills. Nothing is unmeasured; one
+      assertion's domain is narrower than the sentence beside it suggests.
+    suggestion: |-
+      One line of prose, not a new mechanism: say in the docstring that the separation assertion
+      pins the MODEL (and is what would red if _expected_drawing_left_mm or the two PARITY constants
+      drifted), and that the production parity claim is carried by the two ink arms below it. If a
+      production-side control for the separation is wanted, the cheap one already exists in the
+      render evidence -- page 6 at 9.991 mm against page 7 at 19.981 mm on interior-widegutter.pdf.
+      Do not add a sentence without the mutant that proves it, which is the rule fix 1 worked to.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-203
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_export_interior_cover.py
+    line: 1242
+    title: 'GEOMETRY_DOORS'' second member is inert: book_page_spec''s first argument is the book, not the position'
+    attribution: 'INTRODUCED BY FIX 1 (91a51395) -- GEOMETRY_DOORS is new in that commit.'
+    description: |-
+      The seed loop reads a door call's FIRST positional argument:
+
+          if called(call) in doors and call.args:
+              feed(call.args[0], "door argument", called(call))
+
+      but the signature is `book_page_spec(book: object, page_number: int = 1)` -- args[0] is the
+      BOOK. So in this module the member contributes no position at all: its two call sites feed
+      `None` (:3163) and `self.book` (:4043) into the site list as "door argument" sites, and the
+      real position at :4043 (args[1]) is never seeded by the door.
+
+      MEASURED by running the derivation with each member alone:
+
+          doors=("page_spec", "book_page_spec")  -> 6 names, 25 sites
+          doors=("page_spec",)                   -> 6 names, 23 sites
+          doors=("book_page_spec",)              -> 0 names,  2 sites
+          doors=()                               -> 0 names,  0 sites
+
+      So book_page_spec adds two non-position sites and nothing else. The door-removal control
+      asserts only that the EMPTY seed set yields nothing; it cannot distinguish a member that
+      carries the whole set from one that carries none. ADR-0039/R1 asks for exactly that
+      distinction per set member -- "caught WITH the set member present, missed WITHOUT it" -- and
+      book_page_spec has no such control because there is nothing it catches.
+
+      WHAT WOULD MAKE THIS RED: nothing. It costs no coverage today, because page_spec is the method
+      every position in this module reaches. It matters if a later card routes a position straight to
+      book_page_spec, which the docstring's own wording invites ("the one geometry door they must all
+      reach ... page_spec/book_page_spec"): that position would be invisible, and the set would look
+      as if it covered it.
+    suggestion: |-
+      Either seed the position slot per door (args[1] for book_page_spec, args[0] for page_spec,
+      plus the page_number keyword, which the vocabulary already reaches by accident), or drop
+      book_page_spec from the set and say in the comment that page_spec is the module's only door --
+      which is what the class docstring already says in the singular. Whichever is chosen, give the
+      member a control that can fail, per ADR-0039/R1.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-204
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 3073
+    title: 'four page-position expressions spell GUIDE_PAGE_COUNT as a bare literal 2 while the comment above them names the constant'
+    attribution: >-
+      PRE-EXISTING, not introduced by this card and not by fix 1. At the merge base 27ca88c7 these
+      lines read `1 + 2 + plan.toc_page_count + len(plan.pages)`; the implementation commit 3a3dfc8f
+      edited each one to insert TITLE_PAGE_COUNT and left the 2 as it found it. Noted because the
+      card's own named defect is a page count spelled as a literal, and because the line now carries
+      one named constant beside one unnamed one.
+    description: |-
+      tests/test_book_pdf_memory.py:3073, :3095, :3469 and :3480 all read
+
+          1 + TITLE_PAGE_COUNT + 2 + plan.toc_page_count + len(plan.pages)
+
+      while the comment immediately above the first of them writes the same formula as
+      `1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + ...`. The file already imports
+      TITLE_PAGE_COUNT, so importing GUIDE_PAGE_COUNT beside it is free.
+
+      This is outside the widened guard's reach by design -- it enumerates src/nonogram/admin/
+      book_pdf_generator.py, not the test tree -- so no control sees it, and none is claimed to.
+      It is filed as the one place in this card's own diff where the shape the card exists to
+      remove still appears.
+
+      WHAT WOULD MAKE THIS RED: nothing. The value is right at today's constants and the four tests
+      pass; they would silently disagree with production the day CARD-201's guide changes length.
+    suggestion: 'Import GUIDE_PAGE_COUNT into tests/test_book_pdf_memory.py and replace the four literal 2s with it, so the expression reads as the formula its own comment writes.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+family_regression:
+  fires: true
+  statement: >-
+    UNAMBIGUOUSLY, YES. Cycle 1's two gating findings were (F-101) a figure whose control could not
+    fail on what it claimed and (F-102) a universal claim about page positions whose declared blind
+    spot did not describe the mechanism's real blind spot. Fix 1 closed both defects and then
+    reproduced the second one in the mechanism it built to close it: F-201 is a new universal
+    ("enumerates every page position in the module") with a new declared blind spot that does not
+    describe the real one -- eight measured counterexamples in the module's own context, and one of
+    the three declared bound sentences false by measurement. F-202 is a narrower echo of the first:
+    the replacement figure is correct and controlled, but its control's domain is the test's own
+    model rather than the production property the sentence beside it describes.
+  what_fix_1_did_NOT_do: >-
+    Said plainly, because it is evidence and not an absence of findings. Fix 1 introduced no
+    correctness defect, no AC regression, no guardrail breach, no relaxed assertion and no new
+    unreproducible figure. Its src change is one hoisted assignment that I re-derived as correct and
+    that strictly STRENGTHENS the card (the value is now live in the exported output, so the
+    behavioural case can see it, which cycle 1 had measured it could not). Its one deleted figure
+    ("1186 px against 1191 px") was deleted rather than restated. Every figure it published
+    reproduced here to the digit, including the ones nobody asked it to re-derive.
+  escalation_opinion: >-
+    NOT an escalation recommendation. The sibling card escalated after a fix round ADDED a sentence
+    in each of two rounds; this round deleted two claims, deleted a figure, tightened an assertion
+    and added exactly one mechanism -- with three controls, two of them certified here by mutant.
+    The recurrence is in the one sentence that describes the new mechanism's reach, and it is a
+    docstring edit plus (optionally) one equality to fix. Cycle 3 should be enough.
+
+out_of_scope_observations:
+  - 'tests/property/test_book_export_interior.py:1131 -- `assert separation_mm > 4.0` is now logically subsumed by the exact equality two lines above it (an equality to 10.0 implies > 4.0). It is still falsifiable by an edit to the two PARITY constants and its message claims exactly that, so it is redundant rather than wrong. I agree with the orchestrator that it is not a reintroduced constant assertion and have not re-filed it.'
+  - 'The scope gate''s verdict (27 files against 6 declared, twelve ready siblings, CARD-218/CARD-219 at 100%/89% real overlap) was run and resolved by the orchestrator and is not re-run here. I read it and have no disagreement.'
+  - 'EC-034''s stale check name and AC-274/AC-275''s pre-CARD-200/201 page numbers: agreed, architect station, not this card. Not scored.'
+  - 'The six-text folio problem is not a defect of this card -- all six agree now -- but it is this board''s recurring shape and nothing controls their agreement. Worth a backlog item rather than a finding: one measurement, six prose homes, zero assertions reading any of them.'
+  - 'src/nonogram/admin/app.py:851''s PageCounts docstring is one term staler again (cycle 1''s out-of-scope note). Unchanged by the fix delta; still doc-only.'
