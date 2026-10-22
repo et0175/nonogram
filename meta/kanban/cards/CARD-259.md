@@ -15,7 +15,7 @@
 **Wave:** 52 (dispatched 2026-10-21; queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py, tests/test_kill_matrix.py, tests/README.md, tests/helpers/undefined_table_report.py  _(corrected 2026-10-22 from three files — cycle-1 F-107; `test_kill_matrix.py` and `README.md` were declared `SCOPE+` by the implementer, and `undefined_table_report.py` by fix round 1 — its module docstring names CARD-252 and the derived deny-default fails on a text with no pointer)_
-**Review score:** 8.5 (cycle 3/3 — ✓ threshold reached, 0 Critical, 0 Important, certification complete)
+**Review score:** 8.5 (cycle 3/3 — ✓ review passed; **AC/EC/G gate does NOT pass: AC-2 ⚠ partial**)
 **Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
@@ -905,7 +905,7 @@ membership precondition. Recorded in the anchor's docstring and in `tests/README
 ### Kill matrix over my OWN additions — the pass and the domain of every figure
 
 **Domain A — CARD-260's committed instrument**, `Pass.RECORDING`, ANY-RED, child instrumentation **off**,
-denominator **76 `ast.Assert` nodes** (not a collected-test count), SHIPPED re-run between mutants, every
+denominator **76 `ast.Assert` nodes** *(stale at final HEAD: the AC/EC/G gate re-derived **78**, and the instrument prints 78 itself — the figure was true when fix 1 wrote it and fix 2 added nodes without restating it)* (not a collected-test count), SHIPPED re-run between mutants, every
 file restored and verified with `shasum -a 256` **and** `diff -q`:
 
 - selection = the agreement test (7 arms): SHIPPED **0 FAIL of 7 reached**, pytest exit 0. Eight mutants,
@@ -1718,3 +1718,96 @@ from adding a claim added none, which is now measured.
 **What it cost:** one owner decision that the procedure did not require, and a card note that overstated
 a detector's verdict. Recorded because a wrong trigger that produces a good outcome is still a wrong
 trigger, and the next card to hit streak 1 should get a cycle, not a question.
+
+---
+
+### [AC/EC/G gate — DOES NOT PASS] 9 of 10 ✓ holds, **AC-2 ⚠ partial** — and the defect is the orchestrator's wording
+
+Run blind: the gate was given the ACs, the guardrails and the traps, and **deliberately not told what the
+review had certified**, because on CARD-260 that independence is what found a guardrail with no control
+after five clean cycles. Every item was planted against; every plant was line-count-preserving and
+restored byte-for-byte (`diff -q` **and** `shasum -a 256` per file, final `git status --porcelain`
+byte-identical to the opening snapshot). Lock redirected to a scratch path on every run; no full suite;
+the main checkout and the CARD-206 worktree never touched.
+
+**AC-2 ⚠ partial — and I wrote the clause that fails.** The amended AC-2 reads *"one test holds that
+**every** text in [the derived set] agrees on the mechanism's parameters … with a **per-name, per-text**
+kill matrix **over the whole derived set**"*. That wording is mine, from the `## Amendment 2026-10-22`,
+and I never checked it was achievable. Measured:
+
+- the derived set is **11 texts**; the parameters arms hold **3** of them (`session.py:211 reset_engine`,
+  `tests/conftest.py:463 _rebuild_public_schema`, `test_db_engine_lifecycle.py:829` — the gate recomputed
+  the `stated_in ∪ {texts naming >1 global}` filter itself);
+- the matrix is **9 cells over 3 texts**, and all 9 kill — 6 under the instrument *and* again under
+  `Pass.RERAISING` at pytest exit 1, so they are plain-run observations rather than instrument-only
+  attributions, which is **stronger** than the card claims;
+- **Plant L is the finding**: a *wrong* statement of the mechanism's spellings written into a derived
+  text that the arms do not hold (`undefined_table_report.py`'s module docstring, pointer retained,
+  one line for one line) left the suite at **exit 0, 18 passed**. Nothing reds.
+
+So "every text agrees" is **true but unenforced for 8 of 11**. The implementation's own docstring
+declares the narrower trigger; the AC's wording was never brought down to it. This is the AC-vs-body
+mismatch this station exists to catch, and it is the third instance in two days of the same shape — the
+card's own subject, CARD-206's F-201, and now an AC I amended.
+
+**The route is measured, not chosen by taste.** Extending a parameters arm to the other 8 texts **reds
+immediately on 8 of them** — several name no global at all — so the AC as I wrote it is unsatisfiable
+without weakening the arms. Narrowing it to name the `stated_in ∪ {>1 global}` filter, and the matrix as
+9 cells over 3 texts, is the honest route. It is a **card edit, not a code edit**. AC-1's pointer
+obligation **is** enforced over all 11; the asymmetry is AC-2's alone.
+
+**The other nine items ✓ hold, each against a planted failure.** Highlights: AC-1 red on three separate
+plants (a retired clause's named home, a figure appearing in two texts, a pointerless fifth text naming
+path/line/qualname); AC-3's four-arm × 14-mutant grid reproduced **cell for cell** by the gate's own
+`ast.walk` rather than the instrument's helper, with **one plant per arm so no arm certifies itself**
+plus a stale-anchor-literal plant; AC-4's tree sweep re-derived through a **second implementation**
+(6 pairs, 9 sites, zero elsewhere) and planted twice, and the AST hash derived through the gate's own
+function from AC-4's prose — including the `b441ba00` stale-pin story reproducing exactly, which is what
+establishes the method rather than the number; AC-5 shown in **both states in both authority roots**,
+with a control on the control (inverting the deny predicate reds two tests) and the silent-pass branch
+planted line-count-preservingly where fix 2's own mutant had mis-fired; G-4 planted by inserting
+`reportlab` into `project.dependencies`; G-5 planted by typing a U+2022 into a docstring this card
+rewrote, firing **both** halves of ADR-0036/R4.
+
+**G-3's behavioural plant was DECLINED, and that is the right answer.** The gate refused to widen
+`_refuse_unless_test_database`, and refused any plant on the lock-path resolution — because a
+lock-writing plant combined with a test's `monkeypatch.delenv` could resolve to the **main checkout's**
+board lock, where a sibling card's review was live. It verified structurally instead (`conftest.py`'s
+docstring-stripped AST byte-identical, so no statement in that file changed at all; the guard files
+absent from the card's diff) and then ran **six positive-control probes** that fire the refusal without
+weakening it — including a mis-cased path and a `..` traversal, both resolved and refused — with a
+discriminating negative control proving the refusal is not a blanket deny.
+
+**What the gate found that nobody had claimed:**
+1. **ADR-0039/R2 is satisfied one layer below where the ADR puts it.** The *set* is derived; the
+   *predicate* that admits a text to it (`CARD-252` as a token) is hand-written, so a docstring that
+   restates the record without naming the card is a **silent pass** — neither a FAILURE nor a named
+   R3 exemption, which is what R2 requires for a shape it cannot analyse. The gate read the concrete
+   instance rather than inheriting it: `test_db_engine_lifecycle.py:513` restates row 12's `bound` and
+   the precondition bound, names the card nowhere, carries no pointer. The card records the instance;
+   it does not record that this is R2's shape at the predicate layer.
+2. **The uniqueness arm matches verbatim up to whitespace**, so a *reworded* duplicate of a measurement
+   is invisible — and the one duplicate in the tree is precisely a reword. "Appears exactly once" means
+   "once verbatim, among the 11 texts that name CARD-252".
+3. **The survival table's documented recompute method cannot reproduce the table.** It names two files;
+   **`session.py` also lost 19 docstring lines**, and `retired_from` has no value for the keeper. The
+   gate recomputed those 19 into 7 sentences and checked each: 3 survive verbatim, 1 is a reflow
+   fragment, 1 is the four-gates figure reworded into the keeper (covered by rows 13 and 22), 2 are the
+   deliberately deleted false claims. **Nothing is lost** — a reproducibility defect in the method, not
+   a G-2 breach, but a reader following it would miss a third file.
+4. **A stale address survives inside a LIVE assert message**, in a file the card declared it swept:
+   `tests/test_kill_matrix.py:1593` still reads *"the whole line occurs four times -- :816 asserts
+   `built`, not `names`"*. Verified by the orchestrator: **`:816` is not an assert lineno at HEAD**;
+   `:950` is, and it is exactly the `assert built, …` line the message describes. `:816` is the
+   merge-base-era value, **two generations stale**. Fix 2's sweep corrected the same figure in two
+   docstrings and the module comment six lines above — and missed this one because it is in an assert
+   *message*. Same class as the stale pin AC-4 was cut from, inside the card's own `Touches`.
+5. **A card figure that no longer reads true of HEAD**: fix 1's matrix section says the denominator is
+   76 assert nodes; at final HEAD it is **78** (re-derived; the instrument prints 78 itself). Annotated
+   above rather than silently overwritten.
+6. **Two understatements in the card's own favour**, both re-measured: fix 2's `PARSE-DENY-DEL` gap is
+   **closable** — the gate produced the intended silent-pass state line-count-preservingly and the
+   committed control red with its own message; and the 6 name cells kill under `Pass.RERAISING` too, so
+   they are observations, not instrument-only attributions.
+7. Rows 13 and 22 carry the **same** surviving phrase with the same home, so that phrase is asserted
+   unique twice — harmless, noted so the next reader does not read 22 rows as 22 distinct phrases.

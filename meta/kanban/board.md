@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 01:42 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 01:51 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -97,7 +97,7 @@ _(none)_
 - **CARD-206** P2 · The interior opens with a blank title / copyright page, ahead of the guide · score 8.6 (cycle 2/3 — above threshold but **1 Important gates**; cycle 3 required)
   `worktree: ../PythonProject4-card-206` · `branch: card/206-interior-title-page`
   `elapsed: 0.4d / 0.5d est`
-- **CARD-259** P2 · CARD-252's record is written in three places; single-source it and control the pointer · score 8.5 (cycle 3/3 — ✓ threshold reached, 0 Critical, 0 Important, certification complete)
+- **CARD-259** P2 · CARD-252's record is written in three places; single-source it and control the pointer · score 8.5 (cycle 3/3 — ✓ review passed; **AC/EC/G gate does NOT pass: AC-2 ⚠ partial**)
   `worktree: ../PythonProject4-card-259` · `branch: card/259-single-source-the-record`
   `elapsed: 0.4d / 0.75d est`
 
