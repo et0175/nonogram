@@ -536,3 +536,24 @@ Keep it: `pyproject.toml`'s `pythonpath = ["src"]` makes **pytest** correct insi
 every ad-hoc `python -c "import nonogram"` **wrong there** — it reads main. Any structural probe from a
 card worktree must go through pytest, or put the worktree's `src` first with `python -I`. A figure that
 disagrees with a worktree's own tree by exactly the pre-card value is this, not a real disagreement.
+
+### [Build gate, fix 1] PASSED at `feb3e6b5` — exit 0, 185 files, 8048 collected
+
+Impact-scoped exactly as the first gate was: the selector returns `FULL` for this change set (`CLAUDE.md`
+sits outside `KNOWN_ROOTS`), so the two modellable paths — `src/nonogram/__init__.py` and
+`tests/test_cli.py` — were handed to it and it chose **185 of 212** test files. Board lock **not** taken;
+`NONOGRAM_FULL_SUITE_LOCK` pointed at a scratch path and pytest announced the redirect itself in the run
+output, which is the evidence that CARD-255's guard read the scratch file and not the board's.
+
+**The collected count cross-checks the fix round independently.** 8048 now against the first gate's
+**8025** (8009 passed + 16 skipped) at `604cc542` — a delta of **+23**, which is exactly the +23 tests
+the fixer claims for `tests/test_cli.py` (107 → 130). Two different instruments, same figure.
+
+**What this gate does not establish, stated rather than implied.** `PYTEST_EXIT=0` means nothing failed.
+The passed/skipped split is **lost** — my `tail -15` truncated the summary line and kept the warnings
+block instead, so I can report 0 failed and 8048 collected but not the pass/skip breakdown without
+re-running. I am not re-running a 185-file selection for a figure the exit code already settles; the
+count above comes from a separate `--collect-only` pass, which executes nothing.
+
+Two pre-existing warnings surfaced again and are already on the backlog: `dog_in_house.py:6`'s invalid
+escape sequence (`"\,"`), and `datetime.utcnow()` at `tests/test_image_batch_size_fix.py:395`.
