@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_fifth_rule.py, tests/test_admin_design_tokens.py
-**Review score:** —
+**Review score:** — (implementation landed `4f41bbb4`; cycle 1 running)
 **Started:** 2026-10-22T17:20:00Z
 **Closed:** —
 **Actual:** —
@@ -167,3 +167,125 @@ written, never as passing before they exist:
 - **[Conflict note]** Touches overlap CARD-267/268/269 on `admin.css` and
   `tokens.css`; the dispatcher serializes same-wave overlaps. This card has
   no JS footprint, so it composes with any of them in either order.
+
+### Implementation (2026-10-22)
+
+- **Shipped mechanism — one declaration, no new token.** `admin.css:589` is
+  now `.player-cell[data-state="filled"] { background: var(--grid-ink);
+  box-shadow: inset 0 0 0 var(--player-rule) var(--player-thin); }`.
+  `tokens.css` is **untouched** — `--player-thin` and `--player-rule` already
+  said the right thing, so the card added no token after all.
+- **Measured (re-derived against the shipped file; Chromium, dpr 1, zoom
+  100 %).** Desktop 1440x900, 20x20 board: cell **24.88 CSS px**. Phone
+  390x844: cell **14.39 CSS px**. The hairline renders as **1 device px at
+  both** — it does NOT round to 0 at the phone cell size, which is the number
+  the card asked for explicitly. Between two filled cells the scanline reads
+  thin 1 / ink 2 / thin 1 across a fifth-line major rule (the rule's ink core
+  is untouched) and 3 contiguous thin px across an ordinary rule.
+- **Honest bound, for the owner's eye.** Between two *filled* cells a major
+  rule now reads as a 4 px band with a 2 px dark core, against a 3 px all-grey
+  band for an ordinary rule. The heavy rule is still distinguishable there,
+  but by its core rather than by contrast — less emphatic than against paper,
+  where nothing changed at all. If the fifth lines should stay as loud
+  *inside* a black region, the card's alternative (a filled-cell ink one step
+  off the rule ink) is the lever.
+- **A new FILE in the browser family, and the registries that costs.**
+  `tests/test_puzzle_solver_fifth_rule.py` is the thirteenth
+  `tests/test_puzzle_solver_*.py` file and the first whole file any card has
+  added since CARD-217 measured the family, so CARD-235's guards had to be fed
+  on purpose: a `PAGE_ISOLATION` entry (`test_puzzle_solver_page.py`),
+  thirteen `ADDED_SINCE_BEFORE` entries and one `ALONE_PROBES` entry
+  (`test_browser_fixture_scope.py`). Two guards also changed shape, and both
+  changes are narrowings rather than waivers:
+  - `test_the_twelve_files_are_still_twelve` carried a hand-written `== 12`
+    beside the registry it also checks. It is now
+    `test_the_family_on_disk_is_the_family_the_registry_names` and derives the
+    count from `PAGE_ISOLATION` — the lesson CARD-213's `assert len(ids) ==
+    422` already taught one class up in the same file.
+  - `test_the_record_reaches_every_file_in_the_family` required every family
+    file to appear in CARD-235's out-of-band alone-record. A file added later
+    cannot, and backdating a record is not a thing this board does, so it now
+    requires the record **or** an `ALONE_PROBES` entry that really runs one of
+    the file's tests alone. "Added later" is derived from the measured
+    artefact, not hard-coded, so a file that drops out of the record still
+    fails.
+- **No JS, no state, no export.** `git diff --name-only` names neither
+  `solver.js` nor `solver_state.js` nor anything under `src/nonogram/export/`;
+  the CON-019 tripwires ran unedited and green.
+- **Renders for G-4** (desktop and 390 px, before and after, full board plus a
+  6x crop of the corner through the first fifth rules):
+  `/Users/omelnikova/Documents/nonogram-reviews/CARD-270/`.
+
+
+---
+
+### [Implementation landed] `4f41bbb4` — one CSS declaration, and `tokens.css` was not needed at all
+
+Verified by the orchestrator rather than taken on report: `git diff --numstat main...HEAD` is five files —
+`admin.css` (+15/−1), `tests/test_puzzle_solver_fifth_rule.py` (new, 745), `test_admin_design_tokens.py`
+(+78), `test_browser_fixture_scope.py` (+150/−5), `test_puzzle_solver_page.py` (+6). **G-1 and G-3 hold
+structurally:** `git diff --name-only main...HEAD` names no `solver.js`, no `solver_state.js` and nothing
+under `src/nonogram/export/`.
+
+The fix is one declaration added to the **existing** filled-cell rule (not a new rule after it — `.is-hinted`
+has equal specificity and has to stay later in the file to keep winning):
+
+```css
+.player-cell[data-state="filled"] { background: var(--grid-ink); box-shadow: inset 0 0 0 var(--player-rule) var(--player-thin); }
+```
+
+The card budgeted "at most one new token"; the answer was **zero** — `--player-thin` and `--player-rule`
+already said the right thing, so `tokens.css` is untouched.
+
+**The phone number the card asked for, answered:** the hairline is **1 device px at both 1440×900 (24.88 px
+cells) and 390×844 (14.39 px cells)** — it does **not** round to 0 at the phone size. Across a fifth-line
+major rule the band reads thin 1 / ink 2 / thin 1; across an ordinary rule, 3 contiguous thin px. Domain
+stated: Chromium, dpr 1, zoom 100 %, `--player-zoom` 1, 20×20 board, one named scanline between two cell
+centres, PIL over a `scale="css"` screenshot.
+
+**Gate:** `make test-impact` → **2813 passed, 11 skipped, 0 failed**, exit 0, lock redirected to
+`/tmp/card270-impl.lock` throughout, full suite never run. Beyond the impact set, because G-1/G-3 demand
+it: the other eleven `test_puzzle_solver_*.py` files + `test_puzzle_editor_ui.py` → **491 passed unedited**;
+the CON-019 tripwires → **66 passed, unedited**, and neither appears in the diff.
+
+**Owner's render is on disk — 16 PNGs in `~/Documents/nonogram-reviews/CARD-270/`**, before/after ×
+desktop/phone × all-filled/mixed, each with a 6× magnified crop through the first two fifth rules on both
+axes. The orchestrator looked at `before-desktop-mixed-crop6x.png` against
+`after-desktop-mixed-crop6x.png`: before, the filled region is one blob with no divisions; after, it reads
+as distinct cells. **The fix does what the owner asked for.**
+
+### [Open for the owner, and the implementer was right to raise it]
+
+Inside a **black** region the fifth rule now reads as a 4 px band with a 2 px dark core against a 3 px
+all-grey band for an ordinary rule — so it is distinguishable **by its core rather than by contrast**, and
+on the render it is genuinely harder to pick out there than it is against paper, where nothing changed.
+Before this card it was not distinguishable inside a black region *at all* (there were no divisions), so
+this is strictly better and not a regression. But if the fifth lines must stay equally loud **inside** a
+filled region, the lever is the card's own alternative: a filled-cell ink one step off the rule ink, i.e.
+two tokens where there is now one. That is an owner's-taste call on a real render, not a defect, and it is
+deliberately **not** being fixed on spec.
+
+### [Flagged by the implementer as a judgement call — review must rule on it]
+
+`tests/test_puzzle_solver_fifth_rule.py` is the **thirteenth** file in the browser family and the first
+whole file added since CARD-235 measured it, so three CARD-235 guards red on it by design. They were **fed**
+(a `PAGE_ISOLATION` entry, thirteen `ADDED_SINCE_BEFORE` entries each with card + reason, one `ALONE_PROBES`
+entry) rather than loosened — but two guards also changed **shape**, and the implementer reads G-3 ("existing
+player tests run unedited") as covering the player tests' assertions, not the fixture-scope registries that
+exist to be updated when the family changes. The player tests did run unedited (491 passed). **Review owns
+this call**, and both shape changes are narrowings to check on their merits:
+`test_the_twelve_files_are_still_twelve` had a hand-written `== 12` beside the registry it also checks (the
+CARD-213 snapshot anti-pattern) and now derives the count; `test_the_record_reaches_every_file_in_the_family`
+demanded every family file appear in an out-of-band record a later file cannot be in, and now accepts the
+record **or** an `ALONE_PROBES` entry, with "postdates the record" derived from the artefact so a file that
+drops out still fails.
+
+### [Two findings the kill instrument produced against the implementer's own work]
+
+Both acted on rather than reported: `test_the_hairline_takes_no_part_in_layout` originally compared the board
+against itself with `box-shadow: none` forced, and the MOVES-LAYOUT mutant **survived it** — forcing
+`box-shadow: none` cannot undo a `min-width`, so the mutation sat in both readings and the arm was narrative.
+It now measures every cell against the px `--player-cell` resolves to, which MOVES-LAYOUT kills, and the old
+comparison is kept as a second arm whose docstring **says that arm alone would be narrative and names the
+mutant that survives it**. And under the hairline-removing mutants, one test's in-test control arms report
+NOT-REACHED because the test dies on an `IndexError` at an earlier arm — recorded rather than papered over.
