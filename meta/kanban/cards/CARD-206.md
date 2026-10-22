@@ -1352,3 +1352,12 @@ complete over the grammar (*"it is not and nothing could enforce it"* — the do
 incompleteness is a refusal instead); the per-door unique-site diffs, because the test asserts the
 difference is non-empty, which is the part a control can fail on; and cycle 2's 23-calls/5-modules
 measurement, because no assertion reads it.
+
+---
+
+### [Build gate — fix 2] PASSED: 5914 passed, 16 skipped, 0 failed, EXIT=0
+
+Same 109-file selection, re-derived at `eb5cbd5d` rather than reused. **5910 → 5914**: the four added
+tests are fix 2's own controls — the sixteen-row shape table, the per-door site control, the exemption's
+two states, and the exemption-cost equality. The 16 skips are `db_required`/browser, green. Build-fix
+attempts remain **1 of 2**, from the original page-count-pin repair; neither fix round needed one.
