@@ -1152,20 +1152,37 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
        wrote a branch for — a ``match``/``case`` capture, a lambda parameter
        default, a module function's return value. One declared exemption,
        :data:`EXEMPTION`, removable with ``follow_terms``.
-    2. **DOOR** — which calls are geometry doors (ADR-0036/R2). **Closed**
-       (CARD-262; it was SILENT, and cycle 3's F-301 measured four shapes
-       reaching the real door with nothing reported). *A call whose callee's
-       identity this walk cannot derive is a refusal.* Two closures, and no
-       branch for any idiom: the **callee-identity** closure requires every
-       ``ast.Call``'s callee to be a name or attribute whose every binding
-       occurrence **in its own storage** holds a syntactic name or attribute
-       — which closes a door whose name is never spelled at all, whether it
-       is parked in a local or on an attribute — and the
-       **door-spelling** closure refuses a :data:`GEOMETRY_DOORS` name held
-       in any ``(class, field)`` pair outside :data:`DOOR_SPELLINGS_READ` —
-       which closes a door reached by spelling its name as data. Each arm is
-       removable on its own (``door_arms``) and each catches a shape the
-       other misses.
+    2. **DOOR** — which calls are geometry doors (ADR-0036/R2). **Closed on
+       every callee this module's own text binds**, with four named
+       exemptions, each with a control. *A call whose callee's identity this
+       walk cannot derive is a refusal*, and the arm **defaults to deny**
+       (ADR-0039/R2). That polarity is the whole of it: the first version
+       defaulted to ALLOW — a *positive* table of the bindings it had proved
+       opaque, so "every binding occurrence holds a name or attribute" was
+       vacuously true of a callee with **no binding occurrence at all** — and
+       CARD-262 cycle 1's F-401 measured eight shapes reaching the real door
+       through exactly that hole, the plainest of them (``_d =
+       book_page_spec``) with no dynamic access in it whatsoever. Two
+       closures, and no branch for any idiom (the control for that claim is
+       :meth:`test_no_door_axis_arm_branches_on_a_dynamic_access_idiom`):
+       the **callee-identity** closure reads every construct in the grammar
+       that binds a name — the :data:`BINDERS_READ` store contexts,
+       ``def``/``class``/``import``, parameters, and the constructs that hold
+       their name as a *string* (``except ... as``, ``match ... as``,
+       ``global``) — and refuses any callee it cannot anchor from them,
+       including an attribute of this module's own instance that the class
+       never spells, which is what a ``setattr`` or ``__set_name__`` install
+       leaves behind; and the **door-spelling** closure refuses a
+       :data:`GEOMETRY_DOORS` name held in any ``(class, field)`` pair
+       outside :data:`DOOR_SPELLINGS_READ`, and a door **imported under
+       another name**. Each arm is removable on its own (``door_arms``) and
+       each catches a shape the other misses, as an equality per arm
+       (:data:`SILENT_WITHOUT_ONE_ARM`). The exemptions are
+       :data:`CALLEE_EXEMPTIONS`, each removable through
+       ``callee_exemptions``, each with its own step of the measured refusal
+       cost (760 → 0 on this module) and its own must-not-absorb control.
+       What this axis does **not** close is a door that reaches a callee
+       through a parameter or a ``*args`` forwarder: that is axis 5.
     3. **MODULE** — which text the walk reads at all. **Declared, not
        closed:** it parses one module, so a position computed elsewhere and
        passed in is outside the enumeration rather than refused by it.
@@ -1416,7 +1433,12 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
 
     @classmethod
     def _page_positions(
-        cls, source=None, doors=None, follow_terms=False, door_arms=None
+        cls,
+        source=None,
+        doors=None,
+        follow_terms=False,
+        door_arms=None,
+        callee_exemptions=None,
     ):
         """``([(line, kind, name, text, literals)], vocabulary, refusals)``.
 
@@ -1432,13 +1454,18 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         contexts
         rather than from a list of statement kinds, so every shape a
         **position** can flow through that this walk does not read appends a
-        refusal below instead of passing. On the door axis, every ``ast.Call``
-        must have a callee this walk can anchor and no :data:`GEOMETRY_DOORS`
-        name may be spelled where it cannot read it, so a door whose identity
-        is not derivable is refused rather than dropped (CARD-262; cycle 3's
-        F-301 measured four such doors passing silently). ``follow_terms``
-        removes the one :data:`EXEMPTION`; ``door_arms`` removes either
-        door-axis closure, which is how each arm's own control measures it.
+        refusal below instead of passing. On the door axis the default is
+        **deny**: every ``ast.Call`` is refused unless this walk can
+        positively anchor its callee from the constructs in this module's own
+        text that bind a name, and no :data:`GEOMETRY_DOORS` name may be
+        spelled, or imported under another name, where it cannot read it. A
+        callee with no binding occurrence at all is therefore refused rather
+        than anchored by default, which is cycle 1's F-401 (CARD-262; cycle
+        3's F-301 before it). ``follow_terms`` removes the one
+        :data:`EXEMPTION`; ``door_arms`` removes either door-axis closure and
+        ``callee_exemptions`` removes any of the four named
+        :data:`CALLEE_EXEMPTIONS`, which is how each arm's and each
+        exemption's own control measures it.
 
         Three axes stay open by declaration rather than closure, each with
         its own control: the **module** axis (this walk reads one module's
@@ -1703,9 +1730,42 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
 
         # A door handed around rather than called: a `functools.partial` of it,
         # or any other reference, carries the position somewhere this walk
-        # cannot see the call.
+        # cannot see the call. Keyed on the node class of the *reference* and
+        # no longer on `ast.Attribute` alone -- cycle 1's F-401, half 2: the
+        # method door `self.page_spec` had this arm and the **imported** door
+        # `book_page_spec` had none, so `_d = book_page_spec` (two real lines
+        # with no dynamic access in them at all) was silent. A door's own
+        # `def` or `import` statement is not a reference: a FunctionDef's name
+        # and an `alias` hold their name as a *string*, so neither is an
+        # `ast.Name` and neither reaches here.
+        #
+        # Which doors the `ast.Name` branch applies to is DERIVED from the
+        # module's own text rather than written down: a door reachable as a
+        # bare name is one this module binds at module level -- an import or a
+        # module-level `def` -- while a door that is a *method* is reachable
+        # only as an attribute. The distinction is not cosmetic and it is not
+        # a hedge: this module holds ten local variables spelled `page_spec`
+        # that carry a PageSpec rather than the door (`page_spec =
+        # self._puzzle_page_spec(...)`, then `compute_layout(..., page_spec)`),
+        # and keying the branch on the door TABLE instead of on the module's
+        # own bindings made all ten refusals -- measured, which is how this
+        # was chosen rather than reasoned.
+        module_level = {
+            node.name
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
         for node in ast.walk(tree):
-            if not isinstance(node, ast.Attribute) or node.attr not in doors:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    module_level.add(alias.asname or alias.name.split(".")[0])
+        name_doors = tuple(door for door in doors if door in module_level)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr in doors:
+                spelled = node.attr
+            elif isinstance(node, ast.Name) and node.id in name_doors:
+                spelled = node.id
+            else:
                 continue
             above = parent.get(node)
             if isinstance(above, ast.Call) and above.func is node:
@@ -1714,88 +1774,446 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                 (
                     node.lineno,
                     "a geometry door referenced without being called",
-                    node.attr,
+                    spelled,
                     segment(above),
                 )
             )
 
         # ------------------------------------------------------------------
-        # The DOOR axis (CARD-262, the SEMANTICS block's axis 2): a call
-        # whose callee's identity this walk cannot derive is a REFUSAL. Two
-        # closures over the grammar, not a list of dynamic-access idioms --
-        # neither arm names `getattr`, `setattr`, `methodcaller`,
-        # `attrgetter` or `vars`, and each catches a shape the other misses.
+        # The DOOR axis (CARD-262, the SEMANTICS block's axis 2): a call whose
+        # callee's identity this walk cannot derive is a REFUSAL. Two closures
+        # over the grammar, and no arm *branches* on a dynamic-access idiom --
+        # no string constant and no comparison in either closure is
+        # `getattr`, `setattr`, `methodcaller`, `attrgetter` or `vars`; the
+        # only `getattr` below is Python's own reflection on AST nodes, and
+        # each arm catches a shape the other misses.
+        #
+        # **Default deny** (ADR-0039/R2, and cycle 1's F-401). The first
+        # version of this arm built a *positive* table of the bindings it had
+        # proved opaque and refused a callee only if it was in that table, so
+        # a callee with **no binding occurrence at all** -- an attribute
+        # installed by `setattr`, a `match`/`case` capture, an `except ... as`
+        # name, a plain alias of an imported door -- was anchored by default,
+        # and eight shapes that reach the real geometry door went silent. The
+        # hole was the *quantifier*: "every binding occurrence holds a name or
+        # attribute" is vacuously true of zero occurrences. So the polarity is
+        # inverted: a callee is refused UNLESS this walk can positively anchor
+        # it. The classes it cannot anchor on this module are the named
+        # ADR-0039/R3 exemptions in :data:`CALLEE_EXEMPTIONS`, each removable
+        # on its own (``callee_exemptions``) so that each one's cost is an
+        # equality and not a sentence -- the raw inversion costs 760
+        # refusals on this module's 816 calls, and the four classes take that
+        # to 0.
         # ------------------------------------------------------------------
         if "callee identity" in arms:
-            # A callee name is *anchored* when every binding occurrence of it
-            # in this module holds a value that is itself a syntactic name or
-            # attribute -- in which case a door could only have reached it by
-            # being spelled, which the arm above and the arm below then see.
-            # A name bound anywhere to an arbitrary expression is NOT
-            # anchored, and a call through it may be a geometry door this
-            # walk never looked at. The binder table is the same
-            # :data:`BINDERS_READ` the position axis uses, so the two axes
-            # share one authority rather than two hand-written lists.
-            # Keyed on (storage, spelling), and the two storages are kept
-            # APART: `text = f"..."` and `draw.text(...)` share a spelling and
+            exempt = (
+                cls.CALLEE_EXEMPTIONS
+                if callee_exemptions is None
+                else tuple(callee_exemptions)
+            )
+            # Every construct in the grammar that binds a name, keyed on
+            # (storage, spelling) -- the two storages stay APART, because
+            # `text = f"..."` and `draw.text(...)` share a spelling and
             # nothing else, and conflating them cost 51 refusals on a module
-            # with no defect in it -- measured, which is how the separation
-            # was chosen rather than reasoned. A local and an attribute of the
-            # same name are different places a door can be parked.
-            opaque = {}
+            # with no defect in it. The status is what this walk can say about
+            # the value bound there, and a construct it cannot read is
+            # RECORDED as unreadable rather than skipped: that silent `continue`
+            # is what F-401 was.
+            bound = {}
+
+            def binding(key, status, line, value, text):
+                bound.setdefault(key, []).append((status, line, value, text))
+
             for node in ast.walk(tree):
-                if isinstance(node, ast.Name):
-                    storage, spelling = "a local name", node.id
-                elif isinstance(node, ast.Attribute):
-                    storage, spelling = "an attribute", node.attr
-                else:
-                    continue
-                if isinstance(getattr(node, "ctx", None), ast.Load):
-                    continue
-                cursor = node
-                while isinstance(
-                    parent.get(cursor), (ast.Tuple, ast.List, ast.Starred)
+                if isinstance(node, (ast.Name, ast.Attribute)):
+                    # `ast.Store`, not "not Load": a `del x` *unbinds*, so it
+                    # cannot park a door there. Measured -- as refusals the
+                    # module's six `del page` statements would have cost
+                    # `page.convert(...)` and `page.save(...)`.
+                    if not isinstance(getattr(node, "ctx", None), ast.Store):
+                        continue
+                    key = (
+                        ("a local name", node.id)
+                        if isinstance(node, ast.Name)
+                        else ("an attribute", node.attr)
+                    )
+                    cursor = node
+                    while isinstance(
+                        parent.get(cursor), (ast.Tuple, ast.List, ast.Starred)
+                    ):
+                        cursor = parent[cursor]
+                    binder = parent.get(cursor)
+                    shape = type(binder).__name__
+                    if shape not in cls.BINDERS_READ:
+                        binding(
+                            key,
+                            f"bound in a {shape}, which this walk does not read",
+                            node.lineno,
+                            None,
+                            segment(binder),
+                        )
+                        continue
+                    value = getattr(binder, cls.BINDERS_READ[shape], None)
+                    # An annotation-only `AnnAssign` (`field: int`) binds
+                    # nothing at run time, so it cannot carry a door.
+                    if value is None:
+                        continue
+                    binding(
+                        key,
+                        (
+                            "anchored"
+                            if isinstance(value, (ast.Name, ast.Attribute))
+                            else "bound to an expression"
+                        ),
+                        node.lineno,
+                        value,
+                        segment(binder),
+                    )
+                elif isinstance(
+                    node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
                 ):
-                    cursor = parent[cursor]
-                binder = parent.get(cursor)
-                shape = type(binder).__name__
-                if shape not in cls.BINDERS_READ:
-                    continue
-                bound = getattr(binder, cls.BINDERS_READ[shape], None)
-                # An annotation-only `AnnAssign` (`field: int`) binds nothing
-                # at run time, so it cannot carry a door.
-                if bound is None or isinstance(bound, (ast.Name, ast.Attribute)):
-                    continue
-                opaque.setdefault(
-                    (storage, spelling), (node.lineno, segment(binder))
+                    binding(
+                        ("a local name", node.name),
+                        "defined in this module's own text",
+                        node.lineno,
+                        None,
+                        f"{'class' if isinstance(node, ast.ClassDef) else 'def'} "
+                        f"{node.name}",
+                    )
+                elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                    for alias in node.names:
+                        binding(
+                            (
+                                "a local name",
+                                alias.asname or alias.name.split(".")[0],
+                            ),
+                            "imported by this module's own text",
+                            node.lineno,
+                            None,
+                            segment(node),
+                        )
+                elif isinstance(node, ast.arg):
+                    binding(
+                        ("a local name", node.arg),
+                        "a parameter, whose callers are the call-graph axis",
+                        node.lineno,
+                        None,
+                        node.arg,
+                    )
+                else:
+                    # The binding constructs that hold their name as a STRING
+                    # and so have no store node for the loop above to find at
+                    # all -- which is how five of F-401's eight plants reached
+                    # the door. Read by (class, field) rather than one branch
+                    # each, so a construct this walk does not read is a
+                    # refusal rather than a silent pass.
+                    for field, classes in (
+                        ("name", (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)),
+                        ("rest", (ast.MatchMapping,)),
+                    ):
+                        spelled = (
+                            getattr(node, field, None)
+                            if isinstance(node, classes)
+                            else None
+                        )
+                        if spelled:
+                            binding(
+                                ("a local name", spelled),
+                                f"bound in {type(node).__name__}.{field}, which "
+                                "this walk does not read",
+                                getattr(node, "lineno", 0),
+                                None,
+                                segment(node),
+                            )
+                    if isinstance(node, (ast.Global, ast.Nonlocal)):
+                        for spelled in node.names:
+                            binding(
+                                ("a local name", spelled),
+                                f"declared {type(node).__name__.lower()}, so this "
+                                "walk does not read where it is bound",
+                                node.lineno,
+                                None,
+                                segment(node),
+                            )
+
+            # The surface of each class in this module, which is the authority
+            # for an attribute callee on this module's OWN instance: the names
+            # that class spells as a `def`, in its body, or as a `self.x`
+            # store. An attribute this module's own class never spells cannot
+            # be anchored by anything this walk can read -- it is an attribute
+            # installed from outside the text (`setattr`, `__set_name__`, a
+            # metaclass), which is F-401's P1/P5/P8.
+            surface = {}
+            for holder in [
+                node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
+            ]:
+                spelled = set()
+                for node in ast.walk(holder):
+                    if isinstance(
+                        node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                    ):
+                        spelled.add(node.name)
+                    elif isinstance(node, ast.Attribute) and isinstance(
+                        getattr(node, "ctx", None), ast.Store
+                    ):
+                        if isinstance(node.value, ast.Name) and node.value.id in (
+                            "self",
+                            "cls",
+                        ):
+                            spelled.add(node.attr)
+                    elif (
+                        isinstance(node, ast.Name)
+                        and isinstance(getattr(node, "ctx", None), ast.Store)
+                        and isinstance(
+                            parent.get(parent.get(node)), ast.ClassDef
+                        )
+                    ):
+                        spelled.add(node.id)
+                surface[holder] = spelled
+
+            def enclosing_class(node):
+                cursor = parent.get(node)
+                while cursor is not None and not isinstance(cursor, ast.ClassDef):
+                    cursor = parent.get(cursor)
+                return cursor
+
+            def own_instance(node, depth=0):
+                """Whether this receiver is an instance of a class in *this*
+                module's text, so that this module's own class surface is the
+                authority for its attributes. `self`, `cls`, and a local ANY
+                binding of which is one of them (`_o = self`).
+
+                `any`, not `all`, and that is the fail-closed direction: a
+                local bound to `self` in one branch and to an external object
+                in another would otherwise fall into the exemption class and
+                take `_o._door(...)` with it. It costs this module nothing
+                (asserted: the shipped arm's refusal count is 0)."""
+                if depth > 4 or not isinstance(node, ast.Name):
+                    return False
+                if node.id in ("self", "cls"):
+                    return True
+                return any(
+                    status == "anchored" and own_instance(value, depth + 1)
+                    for status, _, value, _ in bound.get(("a local name", node.id), ())
                 )
+
+            def unreadable(key):
+                return [
+                    (line, status, text)
+                    for status, line, _, text in bound.get(key, ())
+                    if status not in ("anchored", "bound to an expression")
+                    and not status.startswith(
+                        ("a parameter", "defined in", "imported by")
+                    )
+                ]
+
+            def opaque(key):
+                return [
+                    (line, status, text)
+                    for status, line, _, text in bound.get(key, ())
+                    if status == "bound to an expression"
+                ]
+
+            def statuses(key):
+                return {status for status, _, _, _ in bound.get(key, ())}
+
+            def nearest(found, line):
+                """Every site, the one nearest the call first (F-405: the
+                first site in `ast.walk` order named an unrelated binding
+                2,500 lines from the defect and pointed the reader at it)."""
+                return sorted(found, key=lambda site: (abs(site[0] - line), site[0]))
+
+            def receiver_seen(node, depth=0):
+                """Whether this walk can see every construct that binds this
+                receiver. A receiver bound where the walk cannot read it may
+                hold anything, including a door."""
+                if depth > 4:
+                    return True
+                if isinstance(node, ast.Name):
+                    key = ("a local name", node.id)
+                    if node.id in ("self", "cls"):
+                        return True
+                    if not bound.get(key):
+                        return node.id in frozenset(dir(builtins))
+                    return not unreadable(key)
+                if isinstance(node, ast.Attribute):
+                    return receiver_seen(node.value, depth + 1)
+                # A call, a constant, a subscript: an object this module never
+                # named, whose attributes are the exemption's own class.
+                return True
+
             for call in calls:
-                if not isinstance(call.func, (ast.Name, ast.Attribute)):
+                func = call.func
+                if not isinstance(func, (ast.Name, ast.Attribute)):
                     refusals.append(
                         (
                             call.lineno,
                             "a call whose callee is a "
-                            f"{type(call.func).__name__}, so this walk cannot "
+                            f"{type(func).__name__}, so this walk cannot "
                             "tell whether it is a geometry door",
-                            type(call.func).__name__,
+                            type(func).__name__,
                             segment(call),
                         )
                     )
                     continue
-                if isinstance(call.func, ast.Name):
-                    key = ("a local name", call.func.id)
-                else:
-                    key = ("an attribute", call.func.attr)
-                if key in opaque:
-                    where, text = opaque[key]
+                key = (
+                    ("a local name", func.id)
+                    if isinstance(func, ast.Name)
+                    else ("an attribute", func.attr)
+                )
+                blind = nearest(unreadable(key), call.lineno)
+                if blind:
+                    line, status, text = blind[0]
+                    refusals.append(
+                        (
+                            call.lineno,
+                            f"a callee this walk cannot anchor: {key[0]} "
+                            f"{status} at line {line}"
+                            + (
+                                f" (and {len(blind) - 1} more: "
+                                f"{[site[0] for site in blind[1:]]})"
+                                if len(blind) > 1
+                                else ""
+                            ),
+                            key[1],
+                            text,
+                        )
+                    )
+                    continue
+                found = nearest(opaque(key), call.lineno)
+                if found:
+                    line, _, text = found[0]
                     refusals.append(
                         (
                             call.lineno,
                             f"a callee this walk cannot anchor: {key[0]} bound "
-                            f"to an expression at line {where}, so this walk "
-                            "cannot tell whether it is a geometry door",
+                            f"to an expression at line {line}"
+                            + (
+                                f" (and {len(found) - 1} more: "
+                                f"{[site[0] for site in found[1:]]})"
+                                if len(found) > 1
+                                else ""
+                            )
+                            + ", so this walk cannot tell whether it is a "
+                            "geometry door",
                             key[1],
                             text,
+                        )
+                    )
+                    continue
+                if isinstance(func, ast.Name):
+                    # A binding occurrence that holds a syntactic name or
+                    # attribute: a door could only have reached it by being
+                    # SPELLED, which the door-spelling arm then sees (W9's
+                    # chained alias is exactly that division of labour).
+                    if "anchored" in statuses(key):
+                        continue
+                    if any(
+                        status.startswith("a parameter") for status in statuses(key)
+                    ):
+                        if "parameters" not in exempt:
+                            refusals.append(
+                                (
+                                    call.lineno,
+                                    "a callee bound as a parameter, whose "
+                                    "callers this walk does not read",
+                                    key[1],
+                                    segment(call),
+                                )
+                            )
+                        continue
+                    if statuses(key) & {
+                        "defined in this module's own text",
+                        "imported by this module's own text",
+                    }:
+                        if "definitions and imports" not in exempt:
+                            refusals.append(
+                                (
+                                    call.lineno,
+                                    "a callee bound by a definition or an "
+                                    "import in this module's own text",
+                                    key[1],
+                                    segment(call),
+                                )
+                            )
+                        continue
+                    if not bound.get(key):
+                        if func.id in frozenset(dir(builtins)):
+                            if "builtins" not in exempt:
+                                refusals.append(
+                                    (
+                                        call.lineno,
+                                        "a callee that is a builtin and is "
+                                        "bound nowhere in this module",
+                                        key[1],
+                                        segment(call),
+                                    )
+                                )
+                            continue
+                        refusals.append(
+                            (
+                                call.lineno,
+                                "a callee with no binding occurrence anywhere "
+                                "in this module, so this walk cannot tell "
+                                "whether it is a geometry door",
+                                key[1],
+                                segment(call),
+                            )
+                        )
+                    continue
+                # The RECEIVER is checked before the attribute is anchored,
+                # and the order is load-bearing: `except _Hold as _e:
+                # _e.door(...)` reaches the real door while `_Hold.__init__`
+                # spells `self.door = door`, so the attribute looks anchored
+                # while the receiver is bound by a construct this walk cannot
+                # read at all. Anchoring the attribute first made that plant
+                # silent -- measured, not reasoned.
+                if not receiver_seen(func.value):
+                    refusals.append(
+                        (
+                            call.lineno,
+                            "a callee whose receiver this walk cannot see "
+                            "bound, so this walk cannot tell whether the "
+                            "attribute is a geometry door",
+                            key[1],
+                            segment(func.value),
+                        )
+                    )
+                    continue
+                if "anchored" in statuses(key):
+                    continue
+                if own_instance(func.value):
+                    holder = enclosing_class(call)
+                    if holder is None or key[1] not in surface.get(holder, ()):
+                        refusals.append(
+                            (
+                                call.lineno,
+                                "an attribute of this module's own instance "
+                                "that "
+                                + (
+                                    f"{holder.name} never spells"
+                                    if holder is not None
+                                    else "no class of this module spells"
+                                )
+                                + ", so it was installed from outside this "
+                                "text and may be a geometry door",
+                                key[1],
+                                segment(call),
+                            )
+                        )
+                    continue
+                if (
+                    "an attribute of a receiver this module does not define"
+                    not in exempt
+                ):
+                    refusals.append(
+                        (
+                            call.lineno,
+                            "an attribute of a receiver this module does not "
+                            "define, whose attribute surface this walk cannot "
+                            "enumerate",
+                            key[1],
+                            segment(call),
                         )
                     )
         if "door spelling" in arms:
@@ -1830,6 +2248,27 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                                     segment(node),
                                 )
                             )
+            # A door IMPORTED UNDER ANOTHER NAME. `alias.name` holds the door
+            # and `alias.asname` holds the name the call site uses, so the
+            # door is spelled in a field this walk reads while nothing at the
+            # call site names it (cycle 1's Q2 -- and ("alias", "asname") was
+            # in :data:`DOOR_SPELLINGS_READ`, so this table whitelisted the
+            # exact field through which the rename launders the door past both
+            # arms; it is gone from that table too).
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                    continue
+                for alias in node.names:
+                    if alias.asname and alias.name.split(".")[-1] in doors:
+                        refusals.append(
+                            (
+                                node.lineno,
+                                "a geometry door imported under another name, "
+                                "so nothing at the call site spells it",
+                                alias.asname,
+                                segment(node),
+                            )
+                        )
 
         module_integers = {}
         for node in tree.body:
@@ -2354,13 +2793,17 @@ class Generator:
     #: element of a module-level tuple, a ``methodcaller`` argument -- is a
     #: refusal. No entry here names a builtin, so the closure is over the
     #: grammar rather than over the shapes that came to mind.
+    #: ``("alias", "asname")`` is deliberately **absent** (cycle 1's F-401 /
+    #: Q2): it used to be here, which whitelisted the one field an
+    #: `import ... as` rename needs to carry a door past both arms. A door
+    #: *renamed* by an import is refused by the arm's own `alias` clause, and
+    #: a door's name standing in an `asname` is refused by this table.
     DOOR_SPELLINGS_READ = (
         ("Attribute", "attr"),
         ("Name", "id"),
         ("FunctionDef", "name"),
         ("AsyncFunctionDef", "name"),
         ("alias", "name"),
-        ("alias", "asname"),
         ("arg", "arg"),
         ("keyword", "arg"),
     )
@@ -2369,6 +2812,42 @@ class Generator:
     #: ADR-0039/R1's "caught WITH, missed WITHOUT" can be measured per arm
     #: (:meth:`test_each_door_axis_arm_catches_a_shape_the_other_misses`).
     DOOR_ARMS = ("callee identity", "door spelling")
+
+    #: The callee-identity arm defaults to **deny** (ADR-0039/R2), so the
+    #: callee shapes it cannot anchor from this module's own text are named
+    #: ADR-0039/R3 **exemptions** rather than silent passes. Each is
+    #: removable on its own through ``callee_exemptions``, which is what
+    #: makes its cost an equality
+    #: (:meth:`test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`)
+    #: and what gives each one a control for what it must **not** absorb
+    #: (:meth:`test_no_callee_exemption_absorbs_a_door_it_must_not`).
+    CALLEE_EXEMPTIONS = (
+        "builtins",
+        "definitions and imports",
+        "parameters",
+        "an attribute of a receiver this module does not define",
+    )
+
+    #: The **refusal cost** of default deny on this module, measured before
+    #: the shape was chosen (cycle 1's Critical asked for exactly this
+    #: sequence, and the 51 -> 0 measurement is its precedent): the raw
+    #: inversion, then the remainder after each exemption class is added, in
+    #: this order. **760** distinct refusals with no exemption at all, on a
+    #: module of 816 calls with no defect in it, and the four classes take
+    #: that to **0** -- which is what says which classes are load-bearing
+    #: rather than decorative. The figure counts distinct refusal entries,
+    #: which is what the walk returns (identical `(line, shape, name, text)`
+    #: tuples are one entry), not calls. Asserted as a sequence of
+    #: equalities, so a class that stops being needed (its step no longer
+    #: drops) and a class that starts absorbing more than it did both red
+    #: here.
+    CALLEE_EXEMPTION_COST = (
+        ((), 760),
+        (("builtins",), 509),
+        (("builtins", "definitions and imports"), 203),
+        (("builtins", "definitions and imports", "parameters"), 201),
+        (CALLEE_EXEMPTIONS, 0),
+    )
 
     #: Shapes that reach the real geometry door, with the outcome this walk
     #: must produce. **A regression net over the door shapes measured so
@@ -2532,18 +3011,129 @@ class Generator:
             "",
             ("refusal",),
         ),
+        # W18-W29 are the THIRD author's plants: cycle 1's review, whose
+        # eight silent rows (W18-W25) were this card's Critical -- the axis it
+        # was sliced out to close was open on every callee with no binding
+        # occurrence at all, because the arm's `opaque` table was POSITIVE and
+        # "every binding occurrence holds a name or attribute" is vacuously
+        # true of none. The plainest of them, W18, uses no dynamic access
+        # whatsoever. W26-W29 were already refused in cycle 1 and are here as
+        # that fix's regression controls: each must keep refusing, and each
+        # refuses for a reason the inverted arm did not change.
+        (
+            "W18 a plain local alias of the imported door (cycle 1's Q1)",
+            """        _d = book_page_spec
+        _d(None, 3 + len(section))
+        #""",
+            "",
+            ("refusal",),
+        ),
+        (
+            "W19 the imported door renamed by its own import (cycle 1's Q2)",
+            """        _bps(None, 3 + len(section))
+        #
+        #""",
+            "\nfrom nonogram.admin.book_page_spec import book_page_spec as _bps\n",
+            ("refusal",),
+        ),
+        (
+            "W20 a module-level rebind of the imported door (cycle 1's Q3)",
+            """        _bps2(None, 3 + len(section))
+        #
+        #""",
+            "\n_bps2 = book_page_spec\n",
+            ("refusal",),
+        ),
+        (
+            "W21 a setattr-installed attribute door (cycle 1's P1)",
+            """        setattr(self, "_door", getattr(self, "page_" + _S))
+        self._door(3 + len(section))
+        #""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
+        (
+            "W22 a match/case capture of an opaque door (cycle 1's P2)",
+            """        match [getattr(self, "page_" + _S)]:
+            case [_d]:
+                _d(3 + len(section))""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
+        (
+            "W23 a setattr-installed door on the colliding spelling text (cycle 1's P5)",
+            """        setattr(self, "text", getattr(self, "page_" + _S))
+        self.text(3 + len(section))
+        #""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
+        (
+            "W24 a door carried by an except ... as name (cycle 1's P9)",
+            """        try:
+            raise _Hold(getattr(self, "page_" + _S))
+        except _Hold as _e: _e.door(3 + len(section))""",
+            '\n_S = "spec"\n\n\nclass _Hold(Exception):\n'
+            "    def __init__(self, door):\n        self.door = door\n",
+            ("refusal",),
+        ),
+        (
+            "W25 __set_name__ installing the door with setattr (cycle 1's P8)",
+            """        self._door(3 + len(section))
+        #
+        #""",
+            '\n_S = "spec"\n\n\nclass _Install:\n'
+            "    def __set_name__(self, owner, name):\n"
+            '        setattr(owner, "_door", getattr(owner, "page_" + _S))\n',
+            ("refusal",),
+        ),
+        (
+            "W26 a door on the class through self.__class__ (cycle 1's P3)",
+            """        self.__class__._door = getattr(self, "page_" + _S)
+        self.__class__._door(3 + len(section))
+        #""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
+        (
+            "W27 an opaque door in a local named text (cycle 1's P4)",
+            """        text = getattr(self, "page_" + _S)
+        text(3 + len(section))
+        #""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
+        (
+            "W28 a type()-built class attribute door (cycle 1's P6)",
+            """        _Dyn = type("_Dyn", (), {"d": None})
+        _Dyn.d = getattr(self, "page_" + _S)
+        _Dyn.d(3 + len(section))""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
+        (
+            "W29 __set_name__ with a spelled store (cycle 1's P7)",
+            """        self._door(3 + len(section))
+        #
+        #""",
+            '\n_S = "spec"\n\n\nclass _Install2:\n'
+            "    def __set_name__(self, owner, name):\n"
+            '        owner._door = getattr(owner, "page_" + _S)\n',
+            ("refusal",),
+        ),
     )
 
     #: The rows of :data:`DOOR_SHAPES` that fall **silent** when both
-    #: door-axis closures are removed -- 14 of 18, measured. This is the
+    #: door-axis closures are removed -- 24 of 30, measured. This is the
     #: "missed WITHOUT" half of ADR-0039/R1 for the door axis as a whole, and
     #: it is an equality rather than a floor so it reds in both directions:
     #: a row that stops falling silent means an arm is carrying it for a
     #: reason this card did not measure, and a new silent row means the
-    #: closures lost one. The four rows NOT here -- W4, W6, W11, W17 -- were
-    #: already refused before this card by the "door referenced without being
-    #: called" and the callee-shape arms, which is why they are in the table:
-    #: a regression in *them* reds too.
+    #: closures lost one. The six rows NOT here -- W4, W6, W11, W17, W18, W20
+    #: -- are caught by the PRE-EXISTING, non-removable "door referenced
+    #: without being called" arm, and the last two of those are cycle 1's Q1
+    #: and Q3, which that arm only catches because it now has an `ast.Name`
+    #: branch as well as an `ast.Attribute` one (F-401, half 2).
     SILENT_WITHOUT_THE_DOOR_ARMS = (
         "W0 getattr with a literal door name (F-301's own plant)",
         "W1 getattr with an assembled name",
@@ -2559,6 +3149,91 @@ class Generator:
         "W14 a __call__ object on an attribute, wrapping the door",
         "W15 an opaque door bound by a for target",
         "W16 an opaque door bound by a walrus callee",
+        "W19 the imported door renamed by its own import (cycle 1's Q2)",
+        "W21 a setattr-installed attribute door (cycle 1's P1)",
+        "W22 a match/case capture of an opaque door (cycle 1's P2)",
+        "W23 a setattr-installed door on the colliding spelling text (cycle 1's P5)",
+        "W24 a door carried by an except ... as name (cycle 1's P9)",
+        "W25 __set_name__ installing the door with setattr (cycle 1's P8)",
+        "W26 a door on the class through self.__class__ (cycle 1's P3)",
+        "W27 an opaque door in a local named text (cycle 1's P4)",
+        "W28 a type()-built class attribute door (cycle 1's P6)",
+        "W29 __set_name__ with a spelled store (cycle 1's P7)",
+    )
+
+    #: The rows each arm carries ON ITS OWN, measured by removing the other
+    #: one: an EQUALITY per arm rather than cycle 1's `assert silent`, which
+    #: was a floor the callee arm could have fallen from seventeen rows to one
+    #: without reddening (F-403). The division of labour is not symmetric and
+    #: it is not decoration: the callee-identity arm carries every door whose
+    #: name is never spelled -- assembled at run time, installed by `setattr`,
+    #: captured by `match`/`case` or by `except ... as` -- and the
+    #: door-spelling arm carries the two where the name IS spelled but the
+    #: callee is anchorable: W9's chained alias, and W19's `import ... as`
+    #: rename, which is refused by the arm's own `alias` clause.
+    SILENT_WITHOUT_ONE_ARM = {
+        "callee identity": (
+            "W1 getattr with an assembled name",
+            "W5 the immediate call of a getattr result",
+            "W8 a vars() lookup with an assembled name",
+            "W12 an attribute-stored getattr door, name never spelled",
+            "W13 an attribute-stored door laundered through a helper",
+            "W14 a __call__ object on an attribute, wrapping the door",
+            "W15 an opaque door bound by a for target",
+            "W16 an opaque door bound by a walrus callee",
+            "W21 a setattr-installed attribute door (cycle 1's P1)",
+            "W22 a match/case capture of an opaque door (cycle 1's P2)",
+            "W23 a setattr-installed door on the colliding spelling text (cycle 1's P5)",
+            "W24 a door carried by an except ... as name (cycle 1's P9)",
+            "W25 __set_name__ installing the door with setattr (cycle 1's P8)",
+            "W26 a door on the class through self.__class__ (cycle 1's P3)",
+            "W27 an opaque door in a local named text (cycle 1's P4)",
+            "W28 a type()-built class attribute door (cycle 1's P6)",
+            "W29 __set_name__ with a spelled store (cycle 1's P7)",
+        ),
+        "door spelling": (
+            "W9 a chained alias of a getattr door",
+            "W19 the imported door renamed by its own import (cycle 1's Q2)",
+        ),
+    }
+
+    #: The labels of :data:`DOOR_SHAPES`, spelled a second time so the table
+    #: can be held to its own labels (F-407, and CARD-206's F-302 before it):
+    #: every other assertion over the table reads each row's label on BOTH
+    #: sides of its equality, so a row renamed -- or silently replaced by a
+    #: different shape under the same name -- was invisible. Written once from
+    #: the table and pinned here thereafter; a renamed row now reds.
+    DOOR_SHAPE_LABELS = (
+        "W0 getattr with a literal door name (F-301's own plant)",
+        'W1 getattr with an assembled name',
+        'W2 a door through a local string variable',
+        'W3 operator.methodcaller',
+        'W4 a local alias of the door (refused before this card)',
+        'W5 the immediate call of a getattr result',
+        'W6 a door out of a dict of callables (refused before this card)',
+        'W7 operator.attrgetter',
+        'W8 a vars() lookup with an assembled name',
+        'W9 a chained alias of a getattr door',
+        'W10 a door name taken from a module-level tuple',
+        'W11 a conditional door expression (refused before this card)',
+        'W12 an attribute-stored getattr door, name never spelled',
+        'W13 an attribute-stored door laundered through a helper',
+        'W14 a __call__ object on an attribute, wrapping the door',
+        'W15 an opaque door bound by a for target',
+        'W16 an opaque door bound by a walrus callee',
+        'W17 a door in a dict on self, subscript callee',
+        "W18 a plain local alias of the imported door (cycle 1's Q1)",
+        "W19 the imported door renamed by its own import (cycle 1's Q2)",
+        "W20 a module-level rebind of the imported door (cycle 1's Q3)",
+        "W21 a setattr-installed attribute door (cycle 1's P1)",
+        "W22 a match/case capture of an opaque door (cycle 1's P2)",
+        "W23 a setattr-installed door on the colliding spelling text (cycle 1's P5)",
+        "W24 a door carried by an except ... as name (cycle 1's P9)",
+        "W25 __set_name__ installing the door with setattr (cycle 1's P8)",
+        "W26 a door on the class through self.__class__ (cycle 1's P3)",
+        "W27 an opaque door in a local named text (cycle 1's P4)",
+        "W28 a type()-built class attribute door (cycle 1's P6)",
+        "W29 __set_name__ with a spelled store (cycle 1's P7)",
     )
 
     @classmethod
@@ -2602,6 +3277,13 @@ class Generator:
         memory and never imported, so no row can be killed by production
         raising ``NameError`` for an unimported ``operator``.
         """
+        assert tuple(
+            label for label, _, _, _ in self.DOOR_SHAPES
+        ) == self.DOOR_SHAPE_LABELS, (
+            "a row of DOOR_SHAPES was renamed, or replaced under its own "
+            "label: the equality below reads each row's label on both sides, "
+            "so nothing in it holds the table to its own labels (F-407)"
+        )
         measured = [
             (label, self._outcome(self._plant(body, extra)))
             for label, body, extra, _ in self.DOOR_SHAPES
@@ -2612,6 +3294,17 @@ class Generator:
         ], (
             "a planted geometry-door shape came back with an outcome this "
             f"table does not declare; an empty tuple is a silent pass: {measured}"
+        )
+        # A second node measured under the SHIPPED default, because every
+        # other door-axis assertion passes `door_arms=` explicitly and is
+        # therefore insensitive to :data:`DOOR_ARMS` -- cycle 1's per-arm
+        # attribution found that removing either arm reds exactly ONE node,
+        # which made the "caught WITH the arms" half of this axis rest on a
+        # single assertion (F-403).
+        refusing = [label for label, outcome in measured if "refusal" in outcome]
+        assert len(refusing) == len(self.DOOR_SHAPES), (
+            "a row of DOOR_SHAPES is no longer refused under the shipped "
+            f"DOOR_ARMS: {sorted(set(self.DOOR_SHAPE_LABELS) - set(refusing))}"
         )
 
     def test_each_door_axis_arm_catches_a_shape_the_other_misses(self):
@@ -2627,6 +3320,9 @@ class Generator:
         are silent again -- which is the "missed WITHOUT" direction stated as
         a reproduction of the finding rather than as a sentence.
         """
+        assert tuple(self.SILENT_WITHOUT_ONE_ARM) == self.DOOR_ARMS, (
+            "an arm with no measured per-arm list of its own"
+        )
         for arm in self.DOOR_ARMS:
             rest = tuple(a for a in self.DOOR_ARMS if a != arm)
             silent = [
@@ -2634,10 +3330,14 @@ class Generator:
                 for label, body, extra, _ in self.DOOR_SHAPES
                 if self._outcome(self._plant(body, extra), door_arms=rest) == ()
             ]
-            assert silent, (
-                f"removing the {arm!r} arm leaves every row of DOOR_SHAPES "
-                "still caught, so that arm carries no shape of its own and "
-                "the door axis claims a reach one of its arms does not hold"
+            # An EQUALITY and not `assert silent` (F-403): a floor here let the
+            # callee arm degrade from the eight rows it carries to one while
+            # this control stayed green, which is the floor-where-the-rule-is-
+            # an-equality shape AC-5 forbids three lines away.
+            assert silent == list(self.SILENT_WITHOUT_ONE_ARM[arm]), (
+                f"removing the {arm!r} arm no longer leaves exactly the rows "
+                "this card measured silent, so that arm's reach has moved and "
+                f"the per-arm claim is out of date: {silent}"
             )
 
         reproduced = [
@@ -2656,7 +3356,7 @@ class Generator:
             for label, _, _, _ in self.DOOR_SHAPES
             if label not in self.SILENT_WITHOUT_THE_DOOR_ARMS
         ]
-        assert len(kept) == 4, kept
+        assert len(kept) == 6, kept
 
     def test_the_door_axis_arms_reach_every_call_and_refuse_none_of_them(self):
         """The door closure's quantifier and its cost on this module, both
@@ -2684,13 +3384,21 @@ class Generator:
             for node in calls
             if isinstance(node.func, (ast.Name, ast.Attribute))
         ]
-        # The denominator, as an equality: `len(anchored) == len(calls)`
-        # alone would be satisfied by a module with no calls at all, so the
-        # count the closure quantifies over is pinned too.
-        assert len(calls) == 816, (
-            f"this module holds {len(calls)} calls, not 816, so the door "
-            "closure's denominator moved and the figure in the card's notes "
-            "needs re-measuring"
+        # The denominator is a LOWER BOUND and deliberately not an equality
+        # (cycle 1's F-404, accepted). `len(anchored) == len(calls)` alone
+        # would be satisfied by a module with no calls at all -- but that
+        # degenerate case is already caught four other ways in this class (the
+        # 23-site equality, the six-name vocabulary, the seven guide
+        # expressions and the module-axis census), while an equality on 816
+        # reds on any call added anywhere in 7,000 lines of production code,
+        # door call or not. The equality that belongs to this axis is
+        # `inside == 17` in
+        # :meth:`test_the_module_axis_bound_is_measured_rather_than_declared`,
+        # and that one stays an equality.
+        assert len(calls) > 500, (
+            f"this module holds {len(calls)} calls, so the door closure's "
+            "quantifier is being measured over something far smaller than "
+            "this module and the figures in the card's notes need re-measuring"
         )
         assert len(anchored) == len(calls), (
             f"{len(calls) - len(anchored)} of this module's {len(calls)} calls "
@@ -2707,6 +3415,206 @@ class Generator:
             "they may only add refusals"
         )
         assert bare_refusals == [], bare_refusals
+
+    #: One plant per member of :data:`CALLEE_EXEMPTIONS`, each **inside**
+    #: that class and each a shape the class must **not** absorb -- an
+    #: exemption is a claim (ADR-0039/R3), so it carries a control for what it
+    #: may not take in as well as a cost. The other direction, that a class is
+    #: still *needed*, is the strict drop asserted in
+    #: :meth:`test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`.
+    #: Every one of these reaches the real geometry door.
+    CALLEE_EXEMPTION_CONTROLS = (
+        (
+            "builtins: a builtin name this module rebinds to an opaque door",
+            """        vars = getattr(self, "page_" + _S)
+        vars(3 + len(section))
+        #""",
+            '\n_S = "spec"\n',
+        ),
+        (
+            "definitions and imports: the door imported under another name",
+            """        _bps(None, 3 + len(section))
+        #
+        #""",
+            "\nfrom nonogram.admin.book_page_spec import book_page_spec as _bps\n",
+        ),
+        (
+            "parameters: a name this module binds as a parameter and opaquely",
+            """        payload = getattr(self, "page_" + _S)
+        payload(3 + len(section))
+        #""",
+            '\n_S = "spec"\n',
+        ),
+        (
+            "an attribute of a receiver this module does not define: an "
+            "attribute of this module's OWN instance, installed by setattr",
+            """        setattr(self, "_door", getattr(self, "page_" + _S))
+        self._door(3 + len(section))
+        #""",
+            '\n_S = "spec"\n',
+        ),
+    )
+
+    def test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost(
+        self,
+    ):
+        """ADR-0039/R2's *"the guard defaults to deny"*, with the price of it
+        measured on this module (cycle 1's F-401, and AC-4).
+
+        The first version of this arm was default-ALLOW: a positive table of
+        the bindings it had proved opaque, so a callee with no binding
+        occurrence at all was anchored by default and eight shapes that reach
+        the real geometry door were silent. Inverting the polarity is not free
+        and the cost is not a sentence: **760** of this module's 816 calls
+        refuse with no exemption in place, on a module with no defect in it.
+        What makes that affordable is four named exemption classes, and what
+        makes each of them a claim rather than a hedge is this sequence --
+        each class removable on its own, its own step in the cost asserted.
+
+        Both directions red. A class that stops being needed no longer drops
+        the count, which the strict-drop assertion catches; a class that
+        starts absorbing more than it did moves its own step.
+        """
+        measured = [
+            (
+                exemptions,
+                len(self._page_positions(callee_exemptions=exemptions)[2]),
+            )
+            for exemptions, _ in self.CALLEE_EXEMPTION_COST
+        ]
+
+        assert measured == [tuple(row) for row in self.CALLEE_EXEMPTION_COST], (
+            "the refusal cost of default deny on this module is no longer the "
+            f"sequence this card measured: {measured}"
+        )
+        assert measured[-1] == (self.CALLEE_EXEMPTIONS, 0), (
+            "the shipped arm refuses a call in a module with no defect in it, "
+            f"so it is not shippable as it stands: {measured[-1]}"
+        )
+        drops = [
+            after[1] - before[1] for before, after in zip(measured, measured[1:])
+        ]
+        assert all(drop < 0 for drop in drops), (
+            "an exemption class that costs this module nothing is a class "
+            "that is no longer needed, and an unneeded exemption is deleted "
+            f"rather than kept: {drops}"
+        )
+
+    def test_no_callee_exemption_absorbs_a_door_it_must_not(self):
+        """ADR-0039/R3 per exemption class: *caught with the exemption in
+        place*.
+
+        Each class is keyed on what this module's own text says about a
+        callee, so each has a shape that falls **inside** it and must still
+        refuse -- a builtin name the module rebinds, the door imported under
+        another name, a name bound both as a parameter and to an expression,
+        and an attribute of this module's own instance installed from outside
+        its text. The last of those is cycle 1's P1, the plant that measured
+        the Critical, and it is the reason this class could not simply be
+        "attribute callees".
+        """
+        assert tuple(
+            label.split(":")[0] for label, _, _ in self.CALLEE_EXEMPTION_CONTROLS
+        ) == self.CALLEE_EXEMPTIONS, (
+            "an exemption class with no control of its own, which is the "
+            "ADR-0039/R1 defect this board has now filed three times"
+        )
+
+        measured = [
+            (label, self._outcome(self._plant(body, extra)))
+            for label, body, extra in self.CALLEE_EXEMPTION_CONTROLS
+        ]
+
+        assert measured == [
+            (label, ("refusal",)) for label, _, _ in self.CALLEE_EXEMPTION_CONTROLS
+        ], (
+            "an exemption class absorbed a shape it must not, so the class is "
+            f"wider than the claim made for it: {measured}"
+        )
+
+    #: The dynamic-access idioms no arm of this walk may **branch** on.
+    IDIOMS_NO_ARM_BRANCHES_ON = (
+        "getattr",
+        "setattr",
+        "methodcaller",
+        "attrgetter",
+        "vars",
+    )
+
+    def test_no_door_axis_arm_branches_on_a_dynamic_access_idiom(self):
+        """What makes these closures different from CARD-206's three
+        whack-a-mole attempts, as a control rather than as prose.
+
+        Cycle 1's F-408: the claim as it was written -- *"the executable arm
+        code names none of getattr/setattr/methodcaller/attrgetter/vars"* --
+        is false on a literal grep, because ``getattr`` occurs ten times in
+        this walk as Python's **own** reflection on AST nodes
+        (``getattr(node, "ctx", None)``, ``getattr(binder,
+        cls.BINDERS_READ[shape])``) and two comments name the idioms. The
+        substantive and checkable claim is the one asserted here: no arm
+        branches on the **analysed module's text** naming an idiom, so no
+        string constant anywhere in this walk is one of those names and no
+        behaviour of it can depend on finding one.
+        """
+        import ast
+        from pathlib import Path
+
+        tree = ast.parse(Path(__file__).resolve().read_text(encoding="utf-8"))
+        walks = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+            and node.name in ("_page_positions", "_door_position_slots")
+        ]
+        assert len(walks) == 2, [node.name for node in walks]
+
+        constants = {
+            node.value
+            for walk in walks
+            for node in ast.walk(walk)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        }
+
+        assert constants.isdisjoint(self.IDIOMS_NO_ARM_BRANCHES_ON), (
+            "an arm of this walk names a dynamic-access idiom as a string "
+            "constant, which makes it a branch on an idiom rather than a "
+            "closure over the grammar: "
+            f"{sorted(constants.intersection(self.IDIOMS_NO_ARM_BRANCHES_ON))}"
+        )
+
+    def test_a_refusal_names_the_binding_the_plant_made(self):
+        """A refusal that misnames its site trains readers to ignore it
+        (cycle 1's F-405).
+
+        The arm used to keep the FIRST opaque binding found in `ast.walk`
+        order, so a door parked in a local named `text` reported the module's
+        own unrelated `text = str(page_number)` 4,500 lines away. Every
+        binding for the key is reported now, nearest the call first.
+        """
+        from pathlib import Path
+
+        source = (Path(__file__).resolve().parents[1] / self.MODULE).read_text(
+            encoding="utf-8"
+        )
+        planted = source[: source.index(self.DERIVED_POSITION)].count("\n") + 1
+        body = (
+            '        text = getattr(self, "page_" + _S)\n'
+            "        text(3 + len(section))\n        #"
+        )
+
+        _, _, refusals = self._page_positions(
+            self._plant(body, '\n_S = "spec"\n')
+        )
+
+        named = [shape for _, shape, name, _ in refusals if name == "text"]
+        assert named, (
+            f"the planted door in a local named `text` is silent: {refusals}"
+        )
+        assert f"at line {planted}" in named[0], (
+            "the refusal for the planted door names a binding other than the "
+            f"plant's own at line {planted}, which points the reader away "
+            f"from the defect: {named}"
+        )
 
     #: One tiny module per member of :data:`BINDERS_READ`, each binding a
     #: page position in that one shape with the literal ``3`` in it. The
@@ -2863,6 +3771,15 @@ class Generator:
         ),
     )
 
+    #: The labels of :data:`MEASURED_BLIND_SPOTS`, spelled a second time for
+    #: the same reason as :data:`DOOR_SHAPE_LABELS` (F-407).
+    BLIND_SPOT_LABELS = (
+        'the VALUE axis: the count spelled in ones',
+        'the VALUE axis: an annotated module constant',
+        'the CALL-GRAPH axis: an alias of a non-door position method',
+        'the CALL-GRAPH axis: a parameter used as a callee',
+    )
+
     def test_the_declared_blind_spots_are_still_exactly_these(self):
         """The two DECLARED axes' control, in both directions (AC-4).
 
@@ -2879,6 +3796,12 @@ class Generator:
         blind spot parked in them as expected is the shape ADR-0039/R2
         forbids. A bound lives in its own table, with its own assertion.
         """
+        assert tuple(
+            label for label, _, _, _ in self.MEASURED_BLIND_SPOTS
+        ) == self.BLIND_SPOT_LABELS, (
+            "a declared blind spot was renamed or replaced under its own "
+            "label, which both sides of the equality below read (F-407)"
+        )
         measured = [
             (label, self._outcome(self._plant(body, extra)))
             for label, body, extra, _ in self.MEASURED_BLIND_SPOTS
@@ -2986,6 +3909,14 @@ class Generator:
                 if given and not trivial:
                     with_position.append((where, node.lineno))
 
+        # 17 is settled, and the reconciliation is recorded here so no later
+        # card re-opens it: the counting rule is one `ast.Call` whose callee
+        # names a door, with nothing in a comment, a docstring or a string
+        # literal counted. The generator holds 17 such CALLS plus exactly one
+        # door DEFINITION -- `def page_spec` at `book_pdf_generator.py:4036` --
+        # and 17 + 1 = 18 is CARD-206 cycle 2's figure, which counted door-name
+        # occurrences in callee-ish position. Under the stated rule 17 is
+        # right; cycle 1's review re-derived both independently.
         assert inside == 17, inside
         assert len(outside) == 6, outside
         assert tuple(with_position) == self.OUTSIDE_CALLERS_WITH_A_POSITION, (
