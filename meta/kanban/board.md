@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 04:41 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 04:55 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -57,7 +57,7 @@ _Updated: 2026-10-22 04:41 UTC_  ·  <!-- forge:run wave=52 mode=interactive con
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ▶ active (CARD-206 review, CARD-259 review) |
-| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-261 P2 | ⏳ not yet dispatched to a wave |
+| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-261 P2, CARD-262 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -84,6 +84,7 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-232** P2 · Solutions become fixed tiles, four to a page in a 2x2 grid, each with its clues  _(unscheduled, tier 1)_
 - **CARD-249** P2 · The editor page says which puzzle it is editing  _(unscheduled, tier 1)_
 - **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates  _(unscheduled, tier 1)_
+- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control  _(unscheduled, tier 1)_
 - **CARD-218** P2 · Each book renders once per module, not once per test  _(unscheduled, tier 2)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-229** P2 · "How to Solve" becomes a facing spread on pages 2 and 3, in the puzzle pages' own frame  _(unscheduled, tier 2)_
@@ -94,7 +95,7 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 _(none)_
 
 ## Review
-- **CARD-206** P2 · The interior opens with a blank title / copyright page, ahead of the guide · score 8.5 (cycle 3/3 — **ESCALATED: family regression, streak 2**; 1 Important open, cycle budget exhausted)
+- **CARD-206** P2 · The interior opens with a blank title / copyright page, ahead of the guide · score 8.5 (cycle 3/3 — escalated on family regression; **resolved by SLICE**, owner decision — the guard is CARD-262's)
   `worktree: ../PythonProject4-card-206` · `branch: card/206-interior-title-page`
   `elapsed: 0.8d / 0.5d est ⚠ overdue`
 - **CARD-259** P2 · CARD-252's record is written in three places; single-source it and control the pointer · score 8.5 (cycle 3/3 — ✓ review passed; AC/EC/G gate ✓ 10 of 10 after the owner's AC-2 narrowing)

@@ -15,7 +15,7 @@
 **Wave:** 52
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
-**Review score:** 8.5 (cycle 3/3 — **ESCALATED: family regression, streak 2**; 1 Important open, cycle budget exhausted)
+**Review score:** 8.5 (cycle 3/3 — escalated on family regression; **resolved by SLICE**, owner decision — the guard is CARD-262's)
 **Started:** 2026-10-21T22:18:12Z
 **Closed:** —
 **Actual:** —
@@ -1455,3 +1455,49 @@ reviewer filed as a new finding rather than a reopened one, and said so plainly.
 for each; **the only exceptions are the two "fails closed" universals (F-301) and one clause of the
 F-202 replacement (F-302)** — both claims about *what the mechanism catches*, which is this card's
 family exactly.
+
+---
+
+### [Escalation resolved — SLICE] The guard is CARD-262's; this card keeps the title page
+
+Owner decision at the streak-2 escalation, from four routes (design / term / slice / override). **Slice.**
+
+**The reasoning, which the measurements support.** CARD-206's deliverable is a blank interior title
+page, and it works: **0 refusals, 0 offenders, 23 derived sites**, every page number right, AC-1..AC-6
+and G-1..G-5 holding, the renders confirming the substance. The universal page-position guard was never
+this card's work — it arrived as **fix 1's answer to a finding** and grew into a mechanism with sixteen
+planted shapes, six refusal classes, three equalities and an exemption. That is a card's worth of
+mechanism inside a card about one page, and it is the thing that regenerated a defect three times. So
+it leaves, as **CARD-262** (`ready`, P2, `Complexity: architectural`, 1d), carrying the family sentence
+as its subject.
+
+**What was edited here, and it ships UNCERTIFIED — commit `3dd1d11d`.** Three prose changes, no
+mechanism:
+1. The class docstring's *"**And it fails closed**"* universal now says it fails closed **on the
+   position axis and not on the door axis**, and names the door case as a **declared ADR-0039/R3
+   exemption** with its measurement — four shapes reaching the real geometry door with nothing
+   reported.
+2. The method docstring's *"every shape a position can flow through"* is scoped to positions and says
+   plainly that the door axis is not closed.
+3. **F-302** closed: the clause claiming the equality "reds on a drift … in the two PARITY constants"
+   was false — both sides read those constants — and is replaced by the measurement
+   (`PARITY_OUTSIDE_MM` 10.0 → 15.0 gives 0 FAIL of the 11 arms the test reaches).
+
+**The board's rule on a last-mile edit, applied rather than skirted:** `max_cycles` is exhausted, so no
+review cycle has seen this edit, and the card says so. **What the merge gate alone establishes is that
+nothing is broken by it — not that its new sentences are controlled.** The honest mitigation is that
+the edit only *removes* claims and adds a declared exemption carrying its own measurement, so there is
+strictly less to control than before: the two universals that gated are gone. `tests/test_book_export_interior_cover.py`
++ `tests/property/test_book_export_interior.py`: **79 passed, exit 0.**
+
+**F-303 and F-304.** F-303 (two of `BINDERS_READ`'s eight members — `AsyncFor`, `NamedExpr` — with no
+control anywhere) goes to **CARD-262**: it is a defect of the guard, not of the title page, and it is
+the third appearance of that exact shape on this board. **F-304** — the fix-2 certification table on
+this card quotes **pre-trim** line numbers, every Group-A address above `:1233` being uniformly **+17**.
+The counts and labels are all correct, and A4's ten cells map exactly under the offset, which is what
+proves it is an offset rather than a misreading. Recorded here rather than rewritten, because the table
+is a record of what fix 2 measured at the time it measured it.
+
+**Still owed on this card:** the **AC/EC/G verification gate**, which has not run, and then the merge
+gate. CARD-259's gate found a defect in its tenth item after three clean review cycles, so this card's
+gate is not a formality.
