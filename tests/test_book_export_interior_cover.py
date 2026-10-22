@@ -2534,6 +2534,33 @@ class Generator:
         ),
     )
 
+    #: The rows of :data:`DOOR_SHAPES` that fall **silent** when both
+    #: door-axis closures are removed -- 14 of 18, measured. This is the
+    #: "missed WITHOUT" half of ADR-0039/R1 for the door axis as a whole, and
+    #: it is an equality rather than a floor so it reds in both directions:
+    #: a row that stops falling silent means an arm is carrying it for a
+    #: reason this card did not measure, and a new silent row means the
+    #: closures lost one. The four rows NOT here -- W4, W6, W11, W17 -- were
+    #: already refused before this card by the "door referenced without being
+    #: called" and the callee-shape arms, which is why they are in the table:
+    #: a regression in *them* reds too.
+    SILENT_WITHOUT_THE_DOOR_ARMS = (
+        "W0 getattr with a literal door name (F-301's own plant)",
+        "W1 getattr with an assembled name",
+        "W2 a door through a local string variable",
+        "W3 operator.methodcaller",
+        "W5 the immediate call of a getattr result",
+        "W7 operator.attrgetter",
+        "W8 a vars() lookup with an assembled name",
+        "W9 a chained alias of a getattr door",
+        "W10 a door name taken from a module-level tuple",
+        "W12 an attribute-stored getattr door, name never spelled",
+        "W13 an attribute-stored door laundered through a helper",
+        "W14 a __call__ object on an attribute, wrapping the door",
+        "W15 an opaque door bound by a for target",
+        "W16 an opaque door bound by a walrus callee",
+    )
+
     @classmethod
     def _plant(cls, body, extra=""):
         """The module's own text with ``body`` in place of its one derived
@@ -2618,10 +2645,18 @@ class Generator:
             for label, body, extra, _ in self.DOOR_SHAPES
             if self._outcome(self._plant(body, extra), door_arms=()) == ()
         ]
-        assert reproduced[:4] == [label for label, _, _, _ in self.DOOR_SHAPES[:4]], (
-            "with both door-axis arms removed, cycle 3's four F-301 shapes "
-            f"are no longer the silent ones: {reproduced}"
+        assert reproduced == list(self.SILENT_WITHOUT_THE_DOOR_ARMS), (
+            "with both door-axis arms removed, the rows that fall silent are "
+            "no longer the ones this card measured, so either an arm is "
+            "carrying a row it did not before or a row has changed shape: "
+            f"{reproduced}"
         )
+        kept = [
+            label
+            for label, _, _, _ in self.DOOR_SHAPES
+            if label not in self.SILENT_WITHOUT_THE_DOOR_ARMS
+        ]
+        assert len(kept) == 4, kept
 
     def test_the_door_axis_arms_reach_every_call_and_refuse_none_of_them(self):
         """The door closure's quantifier and its cost on this module, both
