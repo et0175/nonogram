@@ -1102,6 +1102,76 @@ _MAP_ROW = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\.py|/)\s+\S")
 _CLAUDE_MD_ROW = re.compile(r"^\s*[A-Za-z_][A-Za-z0-9_]*(?:\.py|/)\s{2,}\S")
 _COMPONENT_ID = re.compile(r"COMP-\d")
 
+# A count of adapters, in words or digits, up to two words before the noun:
+# "three inbound adapters", "2 adapters", "the two pipeline adapters".
+_ADAPTER_COUNT = re.compile(
+    r"\b(?:no|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"(?:\w+\s+){0,2}adapters?\b",
+    re.IGNORECASE,
+)
+
+# The id authority (ADR-0039/R2). The C4 component diagram pairs each COMP id
+# with its module, and -- for the five capability modules -- with its CAP id:
+#
+#   Component(clues, "COMP-004 Clue Derivation", "Python — clues.py",
+#             "CAP-002: run-length encodes every row and column ...")
+#
+# The separator is an em dash (U+2014) and ``_PUML_MODULE`` matches that and not
+# a hyphen: a hyphen there is a shape this parser cannot analyse, so it is
+# denied and named rather than guessed at.
+#
+# Nine of the ten are written with ``Component(`` and ``db/`` with
+# ``ComponentDb(``, so the macro is matched by *prefix*: a parser that knew only
+# ``Component(`` would miss COMP-010 and report the id column green with one
+# tenth of it unread.
+_PUML = (
+    Path(__file__).resolve().parents[1]
+    / "meta"
+    / "architecture"
+    / "c4"
+    / "components-CTX-001.puml"
+)
+
+# The second authority, used for a CAP id's *existence* -- a cross-check on the
+# diagram rather than a restatement of it.
+_CAPABILITIES = (
+    Path(__file__).resolve().parents[1]
+    / "meta"
+    / "architecture"
+    / "domain"
+    / "capabilities.yml"
+)
+
+_COMPONENT_MACRO = re.compile(r"^\s*Component\w*\(")
+_COMPONENT_DECL = re.compile(
+    r'^\s*Component\w*\(\s*[^,]+,\s*"(COMP-\d+)[^"]*",\s*"([^"]*)",\s*"(.*)"\s*\)\s*$'
+)
+# The technology argument reads ``Python — web/ (stdlib http.server)``: the
+# module is the first token after the em dash, and the trailing parenthetical
+# is not part of it.
+_PUML_MODULE = re.compile(r"^Python\s+—\s+([A-Za-z_][A-Za-z0-9_]*)(?:\.py|/)")
+# A capability is paired with its component by *leading* the description.
+_PUML_CAPABILITY = re.compile(r"^(CAP-\d+):")
+_CAP_ID = re.compile(r"CAP-\d+")
+_CAP_ID_DECL = re.compile(r"^\s*-\s+id:\s*(CAP-\d+)\s*$")
+
+# A map row's three structured columns: the name, then the COMP id and the CAP
+# id where the row carries them. What follows is the English description, which
+# no control in this file reads.
+_ROW_IDS = re.compile(
+    r"^(?P<name>[A-Za-z_][A-Za-z0-9_]*)(?:\.py|/)\s+"
+    r"(?:(?P<component>COMP-\d+)\s+)?(?:(?P<capability>CAP-\d+)\s+)?\S"
+)
+
+# The modules the import walk enumerates that the C4 diagram pairs with no COMP
+# id at all. A named exemption under ADR-0039/R3, not a skipped case: the
+# exemption is itself a claim, so ``_id_defects`` holds this set in *both*
+# directions -- a module that gains a diagram entry while the map still shows
+# no id reds, and so does one that gains an id in the map while the diagram
+# still pairs it with none. The absences themselves are asserted by
+# ``test_the_three_modules_with_no_component_id_are_named_not_skipped``.
+_WITHOUT_A_COMPONENT_ID = frozenset({"analysis", "errors", "limits"})
+
 
 def _component_modules(modules: dict[str, Path]) -> set[str]:
     """The component names the import walk enumerates.
@@ -1122,10 +1192,12 @@ def _canonical_map(doc: str) -> tuple[list[str], list[str]]:
     """Parse the canonical map out of ``src/nonogram/__init__.py``'s docstring.
 
     Returns ``(row names in order, lines the parser could not analyse)``. A map
-    row is a line indented exactly four spaces -- the literal blocks the
-    docstring introduces with ``::`` -- whose first token is a module or
-    package name. Prose sits at indent zero and a row's continuation lines sit
-    past the name column, so neither is mistaken for a row.
+    row is a line indented exactly four spaces whose first token is a module or
+    package name. The indent is the whole rule: this parser never looks for
+    ``::``, so its reach is *every* four-space-indented line in the docstring,
+    inside one of the literal blocks or not. Prose sits at indent zero and a
+    row's continuation lines sit past the name column, so neither is mistaken
+    for a row.
 
     Default-deny (ADR-0039/R2): a four-space-indented line that is *not* a row
     is returned as unanalysable, and :func:`_map_defects` turns that into a
@@ -1155,11 +1227,49 @@ def _claude_md_rows(text: str) -> list[str]:
     ``src/nonogram/__init__.py``, which it already named as canonical, so there
     is exactly one place a row can drift from. This is what reds if a second
     copy is pasted back in.
+
+    Two disjuncts, and the second is deliberately wider than "a row". A
+    ``COMP-NNN`` id is searched for *anywhere* in *any* line of the whole file
+    -- running prose and fenced code blocks included, with no scoping to the
+    layout block -- because an id in this file is the first column of a second
+    copy, and the cheapest moment to refuse one is before the rest of the row
+    arrives. The cost is a false positive: a future card that wants to name a
+    single component id in a sentence must edit this guard deliberately, which
+    is the intent. Both the breadth and its limit are pinned by
+    ``TestComponentMap_WhatTheClaudeMdReaderAbsorbs`` rather than asserted
+    here, so the extent of the hole cannot drift in either direction without a
+    red.
     """
     return [
         f"{number}: {line.strip()}"
         for number, line in enumerate(text.splitlines(), start=1)
         if _CLAUDE_MD_ROW.match(line) or _COMPONENT_ID.search(line)
+    ]
+
+
+def _adapter_counts(text: str) -> list[str]:
+    """Every place CLAUDE.md states a *count* of adapters, as ``line: text``.
+
+    F-101(a). The retired layout block's worst error was its adapter count,
+    and a corrected count kept inline is still a second copy of a fact the
+    canonical map holds and ``_ADAPTERS`` closes -- prose with no ids, which is
+    precisely the shape ``_claude_md_rows`` is known to miss. Rather than
+    widen that reader to all prose, this denies the one shape of it that
+    matters here.
+
+    Markdown emphasis and code quoting are stripped before the search, because
+    the shipped clause wrote the number as ``**three**``: a reader that only
+    saw bare words would have passed the exact line this function exists to
+    refuse. Deny-side, so the cost is a false positive -- a future sentence
+    that happens to put a number two words from "adapter" must reword or edit
+    this guard -- and ``test_the_reader_finds_a_count_when_there_is_one`` pins
+    both the match and the near miss.
+    """
+    plain = text.replace("*", "").replace("`", "")
+    return [
+        f"{number}: {line.strip()}"
+        for number, line in enumerate(plain.splitlines(), start=1)
+        if _ADAPTER_COUNT.search(line)
     ]
 
 
@@ -1183,12 +1293,18 @@ def _map_defects(
     module or which row.
 
     The bound, stated rather than implied (AC-5): this holds the **row set**
-    and nothing else. It cannot judge a row's **description** -- whether
-    "scores 0..100 from the solver's rung tags" is an accurate account of
-    ``difficulty.py`` is not a property any enumeration decides, and no test in
-    this file claims it. A row may therefore be present, unique, and describe
-    its module wrongly, and this control will pass. Reviewing descriptions
-    stays a human job.
+    and nothing else -- the first column, as a set of names. It does not read
+    the **COMP-id and CAP-id columns**, which are held separately and against
+    their own authority by :func:`_id_defects`; naming them here because cycle
+    1 found them folded into the word "description" and silently unheld. And it
+    cannot judge a row's **English description** -- whether "scores 0..100 from
+    the solver's rung tags" is an accurate account of ``difficulty.py`` is not a
+    property any enumeration in this repository decides, and no test in this
+    file claims it. A row may therefore be present, unique, correctly
+    identified, and describe its module wrongly, and both controls will pass.
+    Reviewing the English stays a human job; that is the one hole left, and
+    ``test_a_wrong_description_is_the_one_hole_that_stays_open`` asserts it
+    *is* a hole rather than leaving a reader to find out by experiment.
     """
     defects: dict[str, list[str]] = {}
     listed = set(rows)
@@ -1200,6 +1316,202 @@ def _map_defects(
         defects["listed by more than one row"] = duplicated
     if unanalysable:
         defects["a map line the parser cannot analyse"] = sorted(unanalysable)
+    return defects
+
+
+def _c4_components(text: str) -> tuple[dict[str, tuple[str, str | None]], list[str]]:
+    """Pair every component id with its module, from the C4 component diagram.
+
+    Returns ``({module name: (COMP id, CAP id or None)}, declarations the
+    parser could not analyse)``. This is the authority ADR-0039/R2 asks a
+    guard's set to be derived from: the canonical map's id columns are checked
+    against the model the project already keeps -- the same file
+    ``meta/architecture/trace.yml`` and the C4 diagrams key on -- and not
+    against a list of ids written in this file, which would be one more copy
+    to drift (G-2).
+
+    The CAP id is read from the description only where it *leads* it, which is
+    the convention the diagram writes the five capability modules with. That is
+    a narrower reach than "mentions a CAP id anywhere", and deliberately so: a
+    description that names another capability in passing is making a reference,
+    not a pairing. The declared cost of the narrowness is exactly one component
+    today -- ``admin/``, whose description names CAP-006 mid-sentence, so this
+    parser reads it as carrying none -- and
+    ``test_the_capability_pairing_reads_only_a_leading_cap_id`` pins that set to
+    one name, so a second component picking up the looser habit reds here
+    instead of quietly dropping out of the CAP column's coverage.
+
+    Default-deny (ADR-0039/R2). Every line whose first token is a
+    ``Component*(`` macro must yield a COMP id *and* a module, or it is
+    returned as unanalysable and :func:`_id_defects` turns that into a failure
+    naming the line. Two declarations for one module are unanalysable too,
+    because the dict would otherwise keep the last silently. The cost, declared
+    as bound 3 of this card already declares its own: a macro added in a shape
+    this parser cannot read -- an external-system component with no COMP id, a
+    hyphen where the em dash is -- reds this file rather than passing silently,
+    and the remedy the failure points at is to shape it as a declaration or to
+    widen this parser on purpose.
+    """
+    pairs: dict[str, tuple[str, str | None]] = {}
+    unanalysable: list[str] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if _COMPONENT_MACRO.match(line) is None:
+            continue
+        declaration = _COMPONENT_DECL.match(line)
+        if declaration is None:
+            unanalysable.append(f"{number}: {line.strip()[:72]}")
+            continue
+        component_id, technology, description = declaration.groups()
+        module = _PUML_MODULE.match(technology)
+        if module is None:
+            unanalysable.append(f"{number}: cannot read a module from {technology!r}")
+            continue
+        if module.group(1) in pairs:
+            unanalysable.append(f"{number}: a second declaration for {module.group(1)}")
+            continue
+        capability = _PUML_CAPABILITY.match(description)
+        pairs[module.group(1)] = (
+            component_id,
+            capability.group(1) if capability is not None else None,
+        )
+    return pairs, unanalysable
+
+
+def _capability_ids(text: str) -> set[str]:
+    """Every capability id ``meta/architecture/domain/capabilities.yml`` lists.
+
+    Existence, and nothing else. That file keys each CAP id to events,
+    commands, aggregates, stories and requirements -- never to a component or a
+    module -- so this is a second, independent authority for *is this a
+    capability at all*, which is what kills an invented id such as ``CAP-009``
+    even when it is paired with the right module. The pairing itself comes from
+    the C4 diagram, and ``test_the_capability_registry_pairs_no_module``
+    asserts that this file is not a second source for it.
+    """
+    return {
+        match.group(1)
+        for line in text.splitlines()
+        if (match := _CAP_ID_DECL.match(line)) is not None
+    }
+
+
+def _map_row_ids(doc: str) -> list[tuple[str, str | None, str | None]]:
+    """The canonical map's structured columns, row by row, in docstring order.
+
+    ``(module name, COMP id or None, CAP id or None)``. Written beside
+    :func:`_canonical_map` rather than folded into it so that function's
+    signature, its callers and the mutants aimed at it stay as they shipped.
+
+    Row selection is the same rule :func:`_canonical_map` applies -- a line
+    indented exactly four spaces whose body does not itself start with
+    whitespace -- and a line this pattern cannot read is skipped here rather
+    than denied, because :func:`_canonical_map` has already returned that same
+    line through its unanalysable channel and :func:`_map_defects` fails the
+    suite on it. The two patterns accepting the same lines is not an assumption:
+    ``test_the_two_row_readers_accept_exactly_the_same_lines`` pins it, so the
+    skip above cannot become a silent pass if either pattern is narrowed.
+    """
+    rows: list[tuple[str, str | None, str | None]] = []
+    for line in doc.splitlines():
+        if not line.startswith("    "):
+            continue
+        body = line[4:]
+        if not body or body[0].isspace():
+            continue
+        match = _ROW_IDS.match(body)
+        if match is None:
+            continue
+        rows.append(
+            (
+                match.group("name"),
+                match.group("component"),
+                match.group("capability"),
+            )
+        )
+    return rows
+
+
+def _id_defects(
+    components: set[str],
+    authority: dict[str, tuple[str, str | None]],
+    capability_ids: set[str],
+    rows: list[tuple[str, str | None, str | None]],
+    unanalysable: tuple[str, ...] | list[str] = (),
+    exempt: frozenset[str] = _WITHOUT_A_COMPONENT_ID,
+) -> dict[str, list[str]]:
+    """Every way the canonical map's **id columns** and their authority disagree.
+
+    :func:`_map_defects` holds the map's first column -- the set of names.
+    This holds the two that follow it. Cycle 1 of this card found them unheld
+    and demonstrated it: a wrong COMP id, a ``CAP-009`` belonging to nothing,
+    and two rows claiming ``COMP-005`` while ``COMP-004`` vanished from the map
+    entirely, all three green. A COMP id is not an English description -- it is
+    a structured identifier with an authority -- so folding it into AC-5's
+    description bound was the defect, not the authority's absence.
+
+    Takes the enumerated sets rather than reading the disk, for the reason
+    :func:`_map_defects` and :func:`_outward_imports` are written that way: the
+    rule can then be exercised against a fabricated authority and a fabricated
+    map and cannot pass vacuously.
+
+    Ten defect kinds, each keyed by what went wrong and valued with the
+    offending *names*. Four need no authority at all and hold unconditionally:
+    an id claimed by two rows, an id no diagram enumerates, an id the diagram
+    enumerates that no row carries, and a CAP id the capability registry does
+    not list. Four compare the map's pairing against the diagram's in both
+    directions. Two hold the ADR-0039/R3 exemption set itself, so a module
+    moving in or out of "has no COMP id" is a red rather than a drift.
+
+    The bound, stated rather than implied. A CAP id is paired here only where
+    the diagram *leads* a description with it, and ``admin/``'s CAP-006 is
+    named mid-sentence instead -- a hole of exactly one component, pinned to
+    one component by ``test_the_capability_pairing_reads_only_a_leading_cap_id``
+    rather than described. Beyond the ids, a row's English description stays
+    unheld by anything (AC-5), and
+    ``test_a_wrong_description_is_the_one_hole_that_stays_open`` asserts that it
+    *is* a hole rather than leaving the next reader to find out by experiment.
+    """
+    defects: dict[str, list[str]] = {}
+    if unanalysable:
+        defects["a Component declaration the parser cannot analyse"] = sorted(
+            unanalysable
+        )
+
+    claimed = [component for _, component, _ in rows if component is not None]
+    if duplicated := sorted({name for name in claimed if claimed.count(name) > 1}):
+        defects["a COMP id claimed by more than one row"] = duplicated
+
+    enumerated = {component for component, _ in authority.values()}
+    if invented := sorted(set(claimed) - enumerated):
+        defects["a COMP id the component diagram does not enumerate"] = invented
+    if unclaimed := sorted(enumerated - set(claimed)):
+        defects["a COMP id the diagram enumerates and no row carries"] = unclaimed
+
+    if mispaired := sorted(
+        f"{name}: the map says {component or '-'}/{capability or '-'}, the "
+        f"diagram says {authority[name][0]}/{authority[name][1] or '-'}"
+        for name, component, capability in rows
+        if name in authority and (component, capability) != authority[name]
+    ):
+        defects["a row whose ids are not the diagram's"] = mispaired
+
+    if unpaired := sorted(components - exempt - set(authority)):
+        defects["in the package, neither exempt nor paired by the diagram"] = unpaired
+    if foreign := sorted(set(authority) - components):
+        defects["paired by the diagram, absent from the package"] = foreign
+
+    if stale := sorted(exempt & set(authority)):
+        defects["exempted from a COMP id, but the diagram now pairs it"] = stale
+    if labelled := sorted(
+        name for name, component, _ in rows if name in exempt and component is not None
+    ):
+        defects["exempted from a COMP id, but the map now carries one"] = labelled
+
+    if unknown := sorted(
+        {capability for _, _, capability in rows if capability is not None}
+        - capability_ids
+    ):
+        defects["a CAP id the capability registry does not enumerate"] = unknown
     return defects
 
 
@@ -1305,15 +1617,26 @@ class TestComponentMap_ThereIsOneRowPerComponentAcrossBothFiles:
 
     Bound, stated rather than implied: this notices a row written in the
     tabular shape the retired block used, or any line naming a ``COMP-NNN``
-    id. A component map restated as running prose with no ids would evade it.
+    id. A component map restated as running **prose with no ids** would evade
+    it -- and because a declared bound is a claim (ADR-0039/R3), that hole is
+    not left as a sentence here.
+    ``TestComponentMap_WhatTheClaudeMdReaderAbsorbs`` measures it: every shape
+    this reader must catch and every shape it is known to miss is a committed
+    case, so a reader can tell prose-that-reds from prose-that-evades without
+    running the experiment, and the extent of the hole cannot change in either
+    direction without a red.
     """
 
-    def test_claude_md_states_no_component_row_of_its_own(self) -> None:
+    def test_claude_md_carries_no_component_row_and_names_no_component_id(
+        self,
+    ) -> None:
         rows = _claude_md_rows(_CLAUDE_MD.read_text(encoding="utf-8"))
 
         assert not rows, (
-            "CLAUDE.md carries component-map rows again -- AC-3 keeps the map "
-            f"in src/nonogram/__init__.py alone: {rows}"
+            "CLAUDE.md carries a component-map row again, or names a COMP-NNN "
+            "id -- AC-3 keeps the map in src/nonogram/__init__.py alone, and "
+            "the id ban is wider than the row ban on purpose (see "
+            f"_claude_md_rows): {rows}"
         )
 
     def test_a_planted_row_in_claude_md_reds_naming_it(self) -> None:
@@ -1341,6 +1664,450 @@ class TestComponentMap_ThereIsOneRowPerComponentAcrossBothFiles:
         text = _CLAUDE_MD.read_text(encoding="utf-8")
 
         assert "src/nonogram/__init__.py" in text
+
+
+class TestComponentMap_TheIdColumnsAreHeldToTheC4Diagram:
+    """F-102. The map's COMP id is the diagram's; its CAP id is a capability.
+
+    Cycle 1 of this card showed the two id columns unheld and demonstrated it
+    rather than arguing it: a wrong COMP id, a ``CAP-009`` belonging to
+    nothing, and two rows claiming ``COMP-005`` while ``COMP-004`` vanished
+    from the map entirely -- all three green, because :func:`_map_defects`
+    reads only a row's first column. AC-5's bound said "description", and a
+    structured identifier with an authority is not a description.
+
+    The authority is ``meta/architecture/c4/components-CTX-001.puml``
+    (ADR-0039/R2), cross-checked for CAP-id existence against
+    ``meta/architecture/domain/capabilities.yml``. What stays unheld after this
+    class is the English prose of a row, and the last test here asserts that it
+    *is* unheld instead of leaving the next reader to discover it by plant.
+    """
+
+    def test_the_diagram_parses_into_component_id_pairs(self) -> None:
+        """Guard the guard. A parser that read nothing would pass the
+        comparison below by reporting every id unclaimed; a parser that read
+        only ``Component(`` would pass it with one tenth of the column unread,
+        because ``db/`` is declared with ``ComponentDb(``. Both readings are
+        pinned here before the comparison is believed.
+        """
+        authority, unanalysable = _c4_components(_PUML.read_text(encoding="utf-8"))
+
+        assert not unanalysable, f"unanalysable Component declarations: {unanalysable}"
+        assert len(authority) >= 10, authority
+        assert authority["db"] == ("COMP-010", None), (
+            "the ComponentDb( arm is unreached -- a Component(-only parser "
+            f"misses COMP-010 and says so by omission: {authority.get('db')}"
+        )
+        assert authority["sourcing"] == ("COMP-003", "CAP-001"), authority["sourcing"]
+
+    def test_the_map_and_the_diagram_agree_on_every_id(self) -> None:
+        authority, unanalysable = _c4_components(_PUML.read_text(encoding="utf-8"))
+        capabilities = _capability_ids(_CAPABILITIES.read_text(encoding="utf-8"))
+        rows = _map_row_ids(nonogram.__doc__ or "")
+
+        defects = _id_defects(
+            _component_modules(_MODULES), authority, capabilities, rows, unanalysable
+        )
+
+        assert not defects, (
+            "the canonical map's id columns disagree with "
+            f"meta/architecture/c4/components-CTX-001.puml: {defects}"
+        )
+
+    def test_a_wrong_component_id_reds_naming_the_row(self) -> None:
+        """Cycle 1's plant C, as a committed case: one row carrying another
+        component's COMP id and an invented CAP id.
+        """
+        authority = {"solver": ("COMP-005", "CAP-003"), "clues": ("COMP-004", "CAP-002")}
+        planted = [("solver", "COMP-004", "CAP-009"), ("clues", "COMP-004", "CAP-002")]
+
+        defects = _id_defects(
+            {"solver", "clues"}, authority, {"CAP-002", "CAP-003"}, planted
+        )
+
+        assert defects == {
+            "a COMP id claimed by more than one row": ["COMP-004"],
+            "a COMP id the diagram enumerates and no row carries": ["COMP-005"],
+            "a row whose ids are not the diagram's": [
+                "solver: the map says COMP-004/CAP-009, the diagram says "
+                "COMP-005/CAP-003"
+            ],
+            "a CAP id the capability registry does not enumerate": ["CAP-009"],
+        }
+
+    def test_two_rows_claiming_one_id_red_naming_it_and_the_vanished_one(self) -> None:
+        """Cycle 1's plant D. This arm needs no authority at all -- "two rows
+        claim one id" and "an id vanished from the map" are uniqueness and a
+        bijection over the column itself -- which is why it is asserted
+        separately from the pairing comparison above.
+        """
+        authority = {"clues": ("COMP-004", "CAP-002"), "solver": ("COMP-005", "CAP-003")}
+        planted = [("clues", "COMP-005", "CAP-002"), ("solver", "COMP-005", "CAP-003")]
+
+        defects = _id_defects(
+            {"clues", "solver"}, authority, {"CAP-002", "CAP-003"}, planted
+        )
+
+        assert defects == {
+            "a COMP id claimed by more than one row": ["COMP-005"],
+            "a COMP id the diagram enumerates and no row carries": ["COMP-004"],
+            "a row whose ids are not the diagram's": [
+                "clues: the map says COMP-005/CAP-002, the diagram says "
+                "COMP-004/CAP-002"
+            ],
+        }
+
+    def test_a_cap_id_the_registry_does_not_enumerate_reds_naming_it(self) -> None:
+        """The existence arm on its own. The map and the diagram agree here, so
+        the only thing refusing ``CAP-009`` is the capability registry -- which
+        is what makes it a second, independent authority rather than a
+        restatement of the first.
+        """
+        defects = _id_defects(
+            {"solver"},
+            {"solver": ("COMP-005", "CAP-009")},
+            {"CAP-001", "CAP-002", "CAP-003"},
+            [("solver", "COMP-005", "CAP-009")],
+        )
+
+        assert defects == {
+            "a CAP id the capability registry does not enumerate": ["CAP-009"]
+        }
+
+    @pytest.mark.parametrize(
+        ("declaration", "offender"),
+        [
+            pytest.param(
+                'Component_Ext(printer, "A Printer", "paper", "no id")',
+                '1: Component_Ext(printer, "A Printer", "paper", "no id")',
+                id="a macro whose label is not a COMP id",
+            ),
+            pytest.param(
+                'Component(cli, "COMP-001 CLI", "Python - cli.py", "Thin.")',
+                "1: cannot read a module from 'Python - cli.py'",
+                id="a hyphen where the em dash is",
+            ),
+            pytest.param(
+                'Component(cli, "COMP-001 CLI", "Python — cli.py", "Thin.")\n'
+                'Component(two, "COMP-099 Again", "Python — cli.py", "Thin.")',
+                "2: a second declaration for cli",
+                id="two declarations for one module",
+            ),
+        ],
+    )
+    def test_a_declaration_the_parser_cannot_analyse_is_a_failure(
+        self, declaration: str, offender: str
+    ) -> None:
+        """Default-deny, not a silent pass (ADR-0039/R2), and the failure names
+        the line. Three shapes, because each reaches the deny by a different
+        route: the label, the technology argument, and a module the dict would
+        otherwise overwrite without a word.
+        """
+        _, unanalysable = _c4_components(declaration)
+
+        assert unanalysable == [offender]
+        assert _id_defects({"cli"}, {}, set(), [], unanalysable)[
+            "a Component declaration the parser cannot analyse"
+        ] == [offender]
+
+    def test_the_three_modules_with_no_component_id_are_named_not_skipped(self) -> None:
+        """The ADR-0039/R3 exemption, asserted rather than assumed. ``errors``,
+        ``limits`` and ``analysis`` carry a row and no COMP id because the C4
+        diagram pairs them with none. All four facts are checked here, so the
+        exemption cannot quietly stop being true: the set is the three names,
+        each is really in the package, the diagram really pairs none of them,
+        and the map really labels none of them.
+        """
+        authority, _ = _c4_components(_PUML.read_text(encoding="utf-8"))
+        components = _component_modules(_MODULES)
+        rows = _map_row_ids(nonogram.__doc__ or "")
+
+        assert _WITHOUT_A_COMPONENT_ID == {"analysis", "errors", "limits"}
+        assert _WITHOUT_A_COMPONENT_ID <= components, sorted(
+            _WITHOUT_A_COMPONENT_ID - components
+        )
+        assert not _WITHOUT_A_COMPONENT_ID & set(authority), (
+            "a module exempted from the id column is now paired by the C4 "
+            f"diagram: {sorted(_WITHOUT_A_COMPONENT_ID & set(authority))}"
+        )
+        assert not [
+            name
+            for name, component, _ in rows
+            if name in _WITHOUT_A_COMPONENT_ID and component is not None
+        ]
+
+    def test_an_exempt_module_the_diagram_starts_pairing_reds(self) -> None:
+        """One direction of the exemption's own control: the diagram gains an
+        entry for ``errors`` and the map still shows no id for it.
+        """
+        defects = _id_defects(
+            {"errors"}, {"errors": ("COMP-011", None)}, set(), [("errors", None, None)]
+        )
+
+        assert defects == {
+            "a COMP id the diagram enumerates and no row carries": ["COMP-011"],
+            "a row whose ids are not the diagram's": [
+                "errors: the map says -/-, the diagram says COMP-011/-"
+            ],
+            "exempted from a COMP id, but the diagram now pairs it": ["errors"],
+        }
+
+    def test_an_exempt_module_the_map_starts_labelling_reds(self) -> None:
+        """The other direction: the map gains an id for ``errors`` that no
+        authority backs.
+        """
+        defects = _id_defects(
+            {"errors"}, {}, set(), [("errors", "COMP-011", None)]
+        )
+
+        assert defects == {
+            "a COMP id the component diagram does not enumerate": ["COMP-011"],
+            "exempted from a COMP id, but the map now carries one": ["errors"],
+        }
+
+    def test_a_component_with_neither_a_diagram_entry_nor_an_exemption_reds(
+        self,
+    ) -> None:
+        """The default-deny for a component the package gains. Its row keeps
+        :func:`_map_defects` green, so without this arm a new directory could
+        join the package with no id and no decision recorded either way.
+        """
+        defects = _id_defects({"planted"}, {}, set(), [("planted", None, None)])
+
+        assert defects == {
+            "in the package, neither exempt nor paired by the diagram": ["planted"]
+        }
+
+    def test_a_module_the_diagram_pairs_and_the_package_lacks_reds(self) -> None:
+        defects = _id_defects(
+            {"cli"}, {"retired": ("COMP-099", None)}, set(), [("cli", None, None)]
+        )
+
+        assert defects["paired by the diagram, absent from the package"] == ["retired"]
+
+    def test_the_two_row_readers_accept_exactly_the_same_lines(self) -> None:
+        """:func:`_map_row_ids` skips a line it cannot read instead of denying
+        it, which is only safe while :func:`_canonical_map` denies that same
+        line. This is what makes the skip a hand-off rather than a hole.
+        """
+        doc = nonogram.__doc__ or ""
+        rows, unanalysable = _canonical_map(doc)
+
+        assert not unanalysable
+        assert len(rows) >= 10, rows
+        assert [name for name, _, _ in _map_row_ids(doc)] == rows
+
+    def test_the_capability_pairing_reads_only_a_leading_cap_id(self) -> None:
+        """The declared narrowness of the CAP column, measured at one.
+
+        :func:`_c4_components` pairs a capability with a component only where
+        the description *leads* with it. ``admin/`` names CAP-006 mid-sentence,
+        so it is read as carrying none -- and the canonical map's ``admin/``
+        row carries none either, so the two agree. That hole is one component
+        wide today, and this pins it there: a second component picking up the
+        looser habit reds, rather than dropping silently out of the column.
+        """
+        loose: list[str] = []
+        for line in _PUML.read_text(encoding="utf-8").splitlines():
+            declaration = _COMPONENT_DECL.match(line)
+            if declaration is None:
+                continue
+            module = _PUML_MODULE.match(declaration.group(2))
+            if module is None:
+                continue
+            description = declaration.group(3)
+            if _PUML_CAPABILITY.match(description) is None and _CAP_ID.search(
+                description
+            ):
+                loose.append(module.group(1))
+
+        assert sorted(loose) == ["admin"], (
+            "the C4 diagram names a capability mid-description for a component "
+            "this parser therefore reads as carrying none; widen "
+            f"_PUML_CAPABILITY or shape the description: {sorted(loose)}"
+        )
+
+    def test_the_capability_registry_pairs_no_module(self) -> None:
+        """Why the pairing authority is the C4 diagram and not this file.
+
+        ``capabilities.yml`` keys each CAP id to events, commands, aggregates,
+        stories and requirements -- never to a component or a module. Asserted,
+        not assumed, because if it ever did pair them there would be two
+        authorities for one fact and the next reader would have to guess which
+        this control followed.
+        """
+        text = _CAPABILITIES.read_text(encoding="utf-8")
+        data = [
+            line for line in text.splitlines() if not line.lstrip().startswith("#")
+        ]
+
+        assert _capability_ids(text) == {f"CAP-00{n}" for n in range(1, 8)}
+        assert not [line for line in data if _COMPONENT_ID.search(line)], (
+            "capabilities.yml now names a component id outside a comment -- it "
+            "may have become a second authority for the CAP-to-module pairing"
+        )
+        assert not [
+            line
+            for line in data
+            if re.match(r"^\s+(components?|modules?):", line)
+        ]
+
+    def test_a_wrong_description_is_the_one_hole_that_stays_open(self) -> None:
+        """AC-5's bound, now that the id columns are held: what is left is the
+        English. The row below is the literal defect this card was raised for
+        -- ``difficulty.py`` described as unbuilt -- and both controls pass on
+        it. Asserting the hole is what makes it a measured exemption
+        (ADR-0039/R3) rather than a sentence in a docstring; a later card that
+        closes it will red here and remove this test deliberately.
+        """
+        lie = (
+            "Map::\n"
+            "\n"
+            "    difficulty.py    COMP-006  CAP-004  not yet built (later card)\n"
+        )
+        rows, unanalysable = _canonical_map(lie)
+
+        assert not _map_defects({"difficulty"}, rows, unanalysable)
+        assert not _id_defects(
+            {"difficulty"},
+            {"difficulty": ("COMP-006", "CAP-004")},
+            {"CAP-004"},
+            _map_row_ids(lie),
+        )
+
+
+class TestComponentMap_WhatTheClaudeMdReaderAbsorbs:
+    """F-101. The extent of :func:`_claude_md_rows`' reach, measured.
+
+    AC-3's class above declares a bound in prose -- "a component map restated
+    as running prose with no ids would evade it" -- and ADR-0039/R3 says an
+    exemption is a claim that carries a control for what it must **not**
+    absorb. Cycle 1 took that docstring at its word, appended a prose
+    restatement of the map to CLAUDE.md carrying four of the exact falsehoods
+    this card was raised for, and watched the whole file stay green. The hole
+    was real; what was missing was a way to know its edges without running
+    that experiment.
+
+    So every shape this reader must catch and every shape it is known to miss
+    is a committed case below, and the edge between them is asserted directly:
+    prose evades only while it carries no component id. The extent cannot now
+    change in either direction -- a narrowing that lets a tabular row through,
+    or a widening that starts catching ordinary sentences -- without a red.
+    """
+
+    # (expected to be flagged, the line fed to the reader). Two of the False
+    # cases are deliberately FALSE statements about this package rather than
+    # true ones: they are the drift this card was raised for, kept here as
+    # counterexamples, not as a copy of the map (G-2).
+    CASES = (
+        (True, "cli.py           COMP-001  inbound adapter (argparse)"),
+        (True, "    export/          COMP-007  the renderers"),
+        (True, "conftest.py      # shared fixtures"),
+        (True, "The solver (COMP-005) is the correctness-critical component."),
+        (True, "# COMP-009 runs as its own process"),
+        (False, "docs/GENERATION_ALGORITHM.md   the generation pipeline"),
+        (False, "tests/README.md    the suite guide"),
+        (False, "`cli.py` is the only inbound adapter."),
+        (False, "`difficulty.py` is not yet built."),
+        (False, "sourcing covers CAP-001 and nothing else."),
+    )
+
+    def test_every_case_reads_the_way_this_class_says_it_does(self) -> None:
+        """One assertion per case, so a case that flips is named rather than
+        hidden behind a count, plus a floor on the corpus so it cannot silently
+        shrink to the cases that happen to pass.
+        """
+        assert len(self.CASES) >= 10, self.CASES
+
+        wrong = [
+            line
+            for flagged, line in self.CASES
+            if bool(_claude_md_rows(line)) is not flagged
+        ]
+
+        assert not wrong, (
+            "_claude_md_rows' reach has changed; these lines no longer read the "
+            f"way TestComponentMap_WhatTheClaudeMdReaderAbsorbs says: {wrong}"
+        )
+
+    def test_each_disjunct_carries_a_case_the_other_does_not(self) -> None:
+        """The reader is two patterns, and the cycle-1 kill matrix fused them
+        into one arm, so whether each carries its own weight was unestablished.
+        A line only the row pattern catches and a line only the id pattern
+        catches settle it.
+        """
+        row_only = "conftest.py      # shared fixtures"
+        id_only = "The solver (COMP-005) is the correctness-critical component."
+
+        assert _CLAUDE_MD_ROW.match(row_only) is not None
+        assert _COMPONENT_ID.search(row_only) is None
+        assert _CLAUDE_MD_ROW.match(id_only) is None
+        assert _COMPONENT_ID.search(id_only) is not None
+        assert _claude_md_rows(row_only) and _claude_md_rows(id_only)
+
+    def test_prose_with_no_ids_is_the_declared_hole_and_an_id_closes_it(self) -> None:
+        """The hole, and its edge. The paragraph below is cycle 1's plant: a
+        component map as running prose, every clause of it false of this
+        package today and true of CLAUDE.md at some point in the past. The
+        reader misses it, which is the declared bound. Adding a single
+        component id to the same paragraph is caught -- so the hole is exactly
+        "prose carrying no id", not "prose".
+        """
+        prose = (
+            "The pipeline runs one way. `cli.py` is the only inbound adapter.\n"
+            "Grid sourcing does random mode; library and image are future work.\n"
+            "`difficulty.py` is not yet built, and neither is `export/`.\n"
+        )
+
+        assert _claude_md_rows(prose) == [], (
+            "the declared hole has closed -- _claude_md_rows now catches prose "
+            "with no ids, so AC-3's bound and this class must be rewritten: "
+            f"{_claude_md_rows(prose)}"
+        )
+        assert _claude_md_rows(prose.replace("`cli.py` is", "`cli.py` (COMP-001) is"))
+
+    def test_claude_md_states_no_count_of_adapters(self) -> None:
+        """F-101(a). A *corrected* count is still a second copy.
+
+        The retired block's worst error was "the only inbound adapter", and
+        cycle 1 kept the correction inline as "there are three inbound
+        adapters". Nothing could red on it: it is prose with no ids, which is
+        the hole the test above measures. A count in this file is therefore the
+        one shape of the hole that must not be allowed to sit in it -- so this
+        denies the shape instead of relying on the reader.
+        """
+        counts = _adapter_counts(_CLAUDE_MD.read_text(encoding="utf-8"))
+
+        assert not counts, (
+            "CLAUDE.md states a count of adapters again. A corrected count is "
+            "still an uncontrolled copy of the canonical map's adapter rows "
+            "(F-101): point at src/nonogram/__init__.py and at "
+            f"tests/test_cli.py's _ADAPTERS instead. {counts}"
+        )
+
+    def test_the_reader_finds_a_count_when_there_is_one(self) -> None:
+        """The plant for the direction above, in both spellings the file uses
+        -- markdown emphasis around the number, and a bare digit -- so the
+        green above is not a reader that matches nothing.
+        """
+        assert _adapter_counts("there are **three** inbound adapters, not one") == [
+            "1: there are three inbound adapters, not one"
+        ]
+        assert _adapter_counts("ADR-0019 closes the set at 2 adapters") == [
+            "1: ADR-0019 closes the set at 2 adapters"
+        ]
+        assert _adapter_counts("which modules are adapters is the map's business") == []
+
+    def test_claude_md_points_at_the_adapter_allowlist(self) -> None:
+        """Dropping the count is half of F-101(a): a reader who came to
+        CLAUDE.md for the adapter set has to be sent somewhere that reds when
+        it changes, which is the canonical map and ``_ADAPTERS``.
+        """
+        text = _CLAUDE_MD.read_text(encoding="utf-8")
+
+        assert "src/nonogram/__init__.py" in text
+        assert "_ADAPTERS" in text
+
 
 # --------------------------------------------------------------------------
 # The installed console entry point (ADR-0008)

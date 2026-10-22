@@ -4,8 +4,11 @@ This docstring is the canonical component map, and since CARD-261 the only one:
 CLAUDE.md points here instead of keeping a second copy. ``tests/test_cli.py``'s
 ``TestComponentMap_*`` classes hold the row set below to the modules ADR-0007's
 import walk enumerates on disk, in both directions — a component with no row
-and a row with no module each fail the suite. What they do not hold is a row's
-*description*; that stays a human reading.
+and a row with no module each fail the suite — and hold each row's COMP id and
+CAP id to ``meta/architecture/c4/components-CTX-001.puml``, so a wrong id, an
+id two rows claim, and an id no model enumerates each fail it too. What they do
+not hold is a row's English *description*; that stays a human reading, and the
+suite asserts that it is a hole rather than implying otherwise.
 
 The pipeline (ADR-0007, layered pipeline package; one bounded context,
 CTX-001)::
