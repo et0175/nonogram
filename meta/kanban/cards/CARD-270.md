@@ -563,3 +563,141 @@ should stay equally loud *inside* a filled region, where it is now told apart by
 than by contrast — was surfaced to the owner and is deliberately not decided here.** It is a preference
 on a shipped improvement, not a defect, and the lever if the owner wants it louder is the card's own
 alternative: a filled-cell ink one step off the rule ink.
+
+
+---
+
+### Fix cycle 1 (2026-10-22, review `20261022T190000Z`, score 8.4, F-001 gating)
+
+**Note on this section.** A concurrent agent wrote a first version of it into
+this worktree copy at 20:34 while this fix round was mid-verification, reading
+the round's uncommitted edits as an interrupted earlier attempt. Its narrative
+parts were right; several of its *figures* (a `BLANK-GONE` mutant, assert
+`:806`, "34 reached", "6 collected tests", a diff hash, a 14.01 s wall clock)
+are not from any run this round made, so they are replaced below by the ones
+that were measured. No test file was touched by that agent — `tests/` carries
+only this round's edits, verified by marker and mtime.
+
+- **The stylesheet is untouched.** `src/nonogram/admin/static/admin.css` is
+  absent from this round's diff and byte-identical at sha256
+  `8e77bdeb02182cb38faa49b462ec636378044fb1e168b81c67dd72b772759ca6` —
+  re-hashed by hand after every mutant run. `git status --porcelain -- src/`
+  is empty. Everything in this round is test code, as the review's verdict
+  required.
+
+- **F-001 (Important, gating) — fixed as the reviewer prescribed, and the
+  prescription verified rather than taken.** `_SHADOW_OFF` is widened from
+  `.player-cell[data-state="filled"]` to `.player-cell`. Checked on its other
+  three callers before widening: all three go through `_open_filled`, which
+  marks every cell filled and asserts `count == 400`, so the two selectors
+  match the same 400 cells there and the widening is a no-op for them; no
+  caller sets a hint, so `.is-hinted`'s own `box-shadow` is not in play.
+  Beyond the prescription:
+  - the arm's premise is now asserted **over the board** (all 400 cells read
+    `data-state="unknown"`), not spot-checked — the review's `secondary`;
+  - the "comparing nothing" control counts **visibly** changed pixels
+    (`_differing`, more than `_TOLERANCE` per channel) instead of byte
+    inequality. Measured reason: under REACHES-BLANK, forcing the hairline on
+    again still changed **32 pixels by at most ±1 per channel**, at the
+    board's left and right extremes, between two renderings whose computed
+    `box-shadow` is the same string on all 400 cells. Byte inequality was
+    bought by rounding noise. Under SHIPPED the same comparison changes
+    **36 320** pixels past tolerance against a floor of 400 — a 90x margin.
+
+- **F-001, the two-state demonstration** (instrument: the committed
+  `tests/kill_matrix.py`; target `tests/test_puzzle_solver_fifth_rule.py`;
+  selection the AC-3 class, **5 collected tests**; both mutants
+  line-count-preserving; `cp -p` backups and restores are the instrument's,
+  re-hashed by hand after each run). Denominators are **ast.Assert node
+  counts**, not collected-test counts.
+  - BEFORE (47 nodes; SHIPPED 0 FAIL of 26 reached, exit 0): REACHES-BLANK and
+    BROADEN-UNKNOWN each leave **`:622` PASS** while `:637` and `:691` FAIL —
+    in **both** passes. Both mutants are therefore non-no-op, and the arm that
+    names the direction does not fail in it.
+  - AFTER (50 nodes; SHIPPED 0 FAIL of 29 reached, exit 0): the same arm,
+    renumbered **`:729`**, **FAILS** under both mutants in **both** passes.
+    Recording pass (per-arm attribution, suppressed propagation; its exit code
+    is not a kill signal): each mutant exit 0, 29 reached, **3 FAIL** —
+    `:729`, `:748` (the hardened control), `:803`. Re-raising pass (true
+    propagation, no attribution past the first failure): each mutant exit 1,
+    19 reached, 2 FAIL — `:729`, `:803`, with `:748` **NOT-REACHED** because
+    `:729` short-circuits ahead of it. The new premise assert `:714` is PASS
+    under both, correctly: those mutants leave the board blank.
+
+- **F-002 (Minor) — fixed, and the two new cases proved non-redundant.** Both
+  band-figure tests are parametrized on viewport (`_VIEWPORTS`): desktop
+  1440x900 and phone 390x844, both axes. Four `ADDED_SINCE_BEFORE` keys were
+  renamed `[x]`/`[y]` to `[desktop-x]`/`[desktop-y]` and four new entries
+  added. All four phone cases pass on the shipped stylesheet, so the figures
+  the review measured at 14.39 px cells are now **asserted** and not only
+  reported. The load-bearing check, because "it passes at phone" says nothing
+  on its own: **PHONE-NO-HAIRLINE**, a phone-only suppression added inside
+  `admin.css:633`'s `@media (max-width: 820px)` block, run twice with disjoint
+  selections (the matrix aggregates ANY-RED on a lineno, so one matrix could
+  not have told the two apart) — the **4 desktop cases: exit 0, 0 FAIL, all
+  green**; the **4 phone cases: exit 1, FAIL `:433` and `:473`**. A phone-only
+  regression is invisible to the old arms and caught only by the new ones.
+
+- **F-003 (Minor) — fixed.** The subsumed `len(files) == len(PAGE_ISOLATION)`
+  is gone, so the test's name no longer advertises a derivation it lacks. In
+  its place is a genuinely independent second door: the **node-id** registries
+  (`BEFORE_ARTEFACT` ∪ `ADDED_SINCE_BEFORE` ∪ `RENAMED_SINCE_BEFORE` targets)
+  reduced to file names and compared to the file set on disk. Directions
+  measured by the reviewer's own method — the guard module's globals patched
+  in-process, the method called directly, restored in a `finally`, nothing on
+  disk created, edited or deleted, SHIPPED re-run green after the last
+  restore: SHIPPED **GREEN**; **G1**, a 14th file on disk *with* a
+  `PAGE_ISOLATION` entry but no test registration → the `PAGE_ISOLATION` arm
+  stays green and the **node-id door REDS** (this is the state the old count
+  could not see either, and it is what the docstring's "measured" claim
+  points at); **G2**, a 14th file with no entry anywhere → RED on the
+  `PAGE_ISOLATION` arm (the pre-existing direction); **G3**, a node-id
+  registry naming a family file not on disk → node-id door REDS; **G4**, this
+  card's own `ADDED_SINCE_BEFORE` entries struck → node-id door REDS.
+
+- **F-004 (Minor) — deliberately not fixed.** The guide strip's ink-on-ink
+  class (`admin.css:343` against `:346`) is outside this card's Design context
+  (`.player-cell[data-state="filled"]` only) and now carries its own card,
+  `CARD-275`.
+
+- **The kill instrument over this round's own additions** (same instrument,
+  same target, recording pass, all mutants line-count-preserving; `admin.css`
+  and `solver_state.js` both re-hashed by hand afterwards and both unchanged —
+  `1d2d25ee…0975` for `solver_state.js`):
+  - **NO-HAIRLINE** (the shipped declaration deleted outright), AC-1 class, 9
+    collected tests: exit 1, FAIL `:433` and `:473`. **Known bound,
+    preserved:** `:439` and `:447` report NOT-REACHED because `light[-1]`
+    raises `IndexError` on an empty list at `:439` before they run — recorded
+    by the implementer, confirmed by the reviewer, and reproduced here
+    unchanged.
+  - **PHONE-NO-HAIRLINE**: see F-002 above.
+  - **BOARD-NOT-BLANK** (`solver_state.js`'s `.fill(UNKNOWN)` → `.fill("maybe")`,
+    i.e. the blank-board mechanism the new premise assert names, deleted),
+    blank-board arm alone: exit 0, **FAIL `:714` only** — `:729` and `:748`
+    both PASS, which is the point: nothing except the new premise assert
+    notices that the arm's premise stopped holding.
+
+- **Gate.** `make test-impact PY=<main checkout's venv python>
+  BASE=$(git merge-base HEAD main)` → **2817 passed, 11 skipped, exit 0**
+  (2813 before this round; +4 is exactly the two new phone cases on the two
+  band tests). The CON-019 byte-identity tripwires
+  (`tests/test_export_a4_golden.py`, `tests/property/test_cli_exports_byte_identity.py`)
+  → **66 passed**, unedited and absent from the diff. The eleven sibling
+  `tests/test_puzzle_solver_*.py` files plus `tests/test_puzzle_editor_ui.py`
+  → **491 passed**, unedited, matching the implementation round exactly.
+  `NONOGRAM_FULL_SUITE_LOCK=/tmp/card270-fix1.lock` exported on every pytest,
+  `kill_matrix` and probe invocation; the full suite was never run;
+  `PYTHONPATH` pointed at this worktree's `src` throughout, so no run resolved
+  the main checkout's stylesheet.
+
+- **One flake observed and chased down, not mine.** On the first run of the
+  eleven-sibling set, `test_puzzle_solver_zoom.py`'s
+  `test_a_mouse_drag_at_200_percent_still_marks_along_the_dragged_line` and
+  `test_marks_zoom_and_circles_survive_crossing_both_ways` failed (the drag
+  marked 225 cells instead of 5). Chased: the same selection at HEAD with this
+  round's edits stashed → **491 passed**; the same selection with the edits
+  restored, re-run → **491 passed**; the zoom file alone → **25 passed**; the
+  twelve-file set including `test_puzzle_solver_page.py` → **558 passed**.
+  Neither edited file is in that selection or imported by it. Recorded as a
+  pre-existing order/timing flake in a file this card does not touch, not
+  diagnosed further.
