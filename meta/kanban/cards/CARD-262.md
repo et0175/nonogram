@@ -1,6 +1,6 @@
 # CARD-262: The page-position guard's door axis is open; close it or name every exemption with a control
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/262-close-the-door-axis
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-262
 **Source:** CARD-206's **family-regression escalation** at cycle 3/3 (streak 2, 2026-10-22). Owner chose **slice**: the guard is not CARD-206's work, so CARD-206 merged its blank title page with the claim narrowed and the door axis declared an exemption, and this card takes the mechanism.
 **Idea:** —
-**Wave:** —
+**Wave:** 53
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py, src/nonogram/admin/book_pdf_generator.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -78,6 +78,46 @@ The orchestrator reproduced the first independently, line-count-preserving, file
 - **Components:** COMP-009 (`book_pdf_generator.py`) and its test guard. No requirement's verifying test changes.
 - **ADR:** **ADR-0039/R1–R3** are the whole subject — a claim needs a control that can fail; a guard's set is derived from an authority the runtime can enumerate and **a shape it cannot analyse is a FAILURE, never a silent pass**; every exemption carries a control for what it must not absorb. ADR-0036/R2 (geometry reached only through COMP-007's layout functions) is why a "door" is the right authority at all.
 - **Trace:** `meta/architecture/trace.yml` — not updated by this card.
+
+## System contract
+
+_Derived at dispatch (2026-10-22) by `system_rules.py --card CARD-262 --root meta/architecture`
+(`card_scope: touches`), curated under `meta/kanban/curation.md`: **projection 41 → kept 14, dropped
+27**. A projection — fix the source artifact, never this list._
+
+**Derivation:** keep every `check.kind: review-lens` rule (nothing executes them, so a reviewer is the
+only enforcement), plus every `kind: test` rule belonging to an ADR whose text declares a reach limit —
+the idiom *"reach, stated rather than implied"*, matched **in the ADR files and case-insensitively**,
+because the lens output carries no comment text and ADR-0039 writes it in capitals. That selects
+**ADR-0036, ADR-0037, ADR-0039**. The remaining 27 `kind: test` rules are dropped: the suite executes
+them on every gate.
+
+**Sanity check (curation.md's own):** `Touches` includes `tests/** and src/nonogram/**`, so ADR-0039 must be kept — it is
+(ADR-0039/R1, ADR-0039/R2, ADR-0039/R3).
+
+**ADR-0036/R2 is the rule this card's authority rests on** — *book page geometry is computed only by COMP-007's layout functions with the book's PageSpec* — because that is what makes a geometry **door** the right thing to derive page positions from at all. And ADR-0039/R2's second clause is the card's gating subject: *a shape it cannot analyse is a FAILURE, never a silent pass.*
+
+**Review-lens — nothing executes these; the reviewer is the control** (8):
+
+- **ADR-0022/R1** — Grid extent crosses module boundaries as a (width, height) pair. No public function signature, request field, or export field reduces a grid's extent to a single scalar "size", and no source mode constructs a grid from one integer.
+- **ADR-0033/R1** — Book assembly references puzzles by id and never changes a puzzle's grid, clues, difficulty tier or strategies; the only puzzle field it may write is the book-membership mirror (puzzles.book_id).
+- **ADR-0036/R2** — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin panel does not fit cells or place grid lines itself.
+- **ADR-0037/R1** — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only.
+- **ADR-0038/R6** — Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution grid to the browser. A public or reader-facing player must not send the solution before the puzzle is solved, and any public phase reopens this ADR (CON-021).
+- **ADR-0038/R7** — Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in pyproject.toml. It is never added to project.dependencies or to the admin extra.
+- **ADR-0038/R8** — Browser tests run locally, against Chromium installed by `playwright install chromium`. When Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible in the run summary. They never pass silently. Once a CI pipeline exists, it installs Chromium (playwright install chromium) before running them; until then there is no CI, and that is a known gap, not a met clause.
+- **CON-021** — Interactive play exists only as the admin panel's puzzle player (TERM-037, FR-044), served behind the door that guards every other admin page (CON-015, CON-016). No other surface — the CLI, the web UI, or any public or hosted page — offers an interactive or playable puzzle. Play state is never persisted on the server: no progress, marks, error count, score or solve time is written to a database, file or server, no network request is made per mark, and no user account exists for playing (CON-017). The one place play state may be kept is the browser's own localStorage, per puzzle, so that a puzzle reopened in that browser resumes where it was; it never leaves that browser. The admin player ships the puzzle's solution grid to the browser to compute the error count and the solved state; this is permitted for the admin panel only, and a public or reader-facing player must not send a puzzle's solution to the browser before the puzzle is solved.
+
+**Reach-limited — the ADR states its checks do not reach code written later** (6):
+
+- **ADR-0036/R1** — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. — check: `TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden`
+- **ADR-0036/R3** — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same difficulty glyph, and four slightly different dots cannot be fixed once a book is on paper. — check: `test_the_books_own_pages_carry_no_undeclared_round_mark`
+- **ADR-0036/R4** — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: the cheapest way to print a difficulty dot is to append a bullet to a header string, and that route bypasses the one drawing site and CON-020's type floor at once. — check: `test_no_module_types_a_round_mark_as_a_character`
+- **ADR-0039/R1** — A set a guard consults needs a completeness test written before the set, and any claim the guard makes about what it catches needs a control that can fail: caught WITH the set member present, missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage, and must be narrowed to what is measured or deleted. — check: `test_the_control_for_each_spelling_depends_on_the_set`
+- **ADR-0039/R2** — A guard's set is derived from an authority the runtime can enumerate, not hand-written. Where no such authority exists, the guard defaults to deny: a shape it cannot analyse is a FAILURE, never a silent pass, and the unanalysable sites become named exemptions under ADR-0039/R3. — check: `test_the_guard_sets_are_derived_and_not_hand_written`
+- **ADR-0039/R3** — An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT absorb — caught with the exemption removed, missed with it in place — is held to an equality against the sites that exist today, and records whatever it still cannot see as a measured bound with its own failing control. — check: `test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw`
+
+_Dropped (27), each executed by the suite on every gate: ADR-0006/R1, ADR-0022/R3, ADR-0022/R4, ADR-0027/R2, ADR-0032/R1, ADR-0032/R2, ADR-0038/R3, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-020, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013._
 
 ## Worktree notes
 
