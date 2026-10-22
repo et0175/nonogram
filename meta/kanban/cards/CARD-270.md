@@ -452,3 +452,78 @@ pipeline's cycle 1 scored **8.4** and found F-001, a real Important that the fix
 closed. **A 9.7 would have landed this card with the tautological assert still in it.** Copied to the
 session scratchpad under `foreign-session-artifacts/` so it survives, and left out of the card's
 evidence chain.
+
+
+---
+
+### [Review 2/3] 9.6 — PASSES. All three cycle-1 findings CLOSED, and the rounding-noise catch confirmed
+
+Report: `meta/review/20261022T213000Z-CARD-270-cycle2.yml` (28 keys, `yaml.safe_load` verified).
+`10 − 0.3 (F-101 Minor) − 0.1 (F-102 Minor) = 9.6`. Zero Critical, zero Important → **the gate is met and
+no third cycle is needed.** The foreign `…175719Z-CARD-270-cycle2.yml` was not read, not reconciled with,
+and did not anchor this number — the reviewer confirmed that explicitly.
+
+**F-001 CLOSED**, four readings. `_SHADOW_OFF` is `.player-cell` now; `:729` (the renumbered `:622`)
+**reds** under both REACHES-BLANK and BROADEN-UNKNOWN in the recording pass and in the re-raising pass,
+where cycle 1 measured it PASS. The safety argument was confirmed structurally **and** measured: four
+callers, three preceded by `_open_filled`, and on an all-filled board the narrow and wide controls give a
+**byte-identical** board screenshot at both viewports.
+
+**The rounding-noise catch is confirmed exactly, and it is the best work in the round.** Reproduced
+through the reviewer's own histogram code, never calling `_differing`: under REACHES-BLANK the **old**
+byte-inequality control would have said PASS on **32 pixels at delta exactly 1** — 16 at x=227 and 16 at
+x=725 — while the computed `box-shadow` is the identical string on all 400 cells in both readings. The
+new form reds. Shipped headroom is **36 320 px at delta 64 against a 400 floor (90.8×)**. A control that
+looked green really was measuring rounding noise. One nuance the reviewer added: merely *adding* the
+everywhere-rule finds the two renderings byte-identical — the ±1 noise is produced by the style
+add/remove cycle, i.e. by what the assert actually compares, so only the test's own sequence measures it.
+And the docstring's "at the board's left and right extremes" was checked rather than assumed: 227.80 and
+725.30 are the grid's outer frame columns, the same sense `admin.css`'s own comment uses.
+
+**F-002 CLOSED** — PHONE-NO-HAIRLINE against two disjoint selections: 4 desktop nodes exit 0 / 0 FAIL, 4
+phone nodes exit 1 with `:433`/`:473` FAIL. A phone-only regression was genuinely invisible to the old
+arms. The 4-vs-2 deviation from the brief is **accepted**: `:473` is a different test with its own control
+and its own figure, the mutant reds both independently, and the cost was measured (the file is in none of
+the slowest eight of a 126-test run).
+
+**F-003 CLOSED** — the new node-id door reds on three directions arm 1 cannot see (**G1**: a 14th file
+*with* a `PAGE_ISOLATION` entry but in no node-id registry — the justification, and it holds; G3; G4),
+while G2 shows arm 1 was not weakened. A strictly stronger second door, not a renaming, and cycle 1's
+waiver door (D9) is untouched.
+
+**All six rewritten claim texts were checked against a mutant and all six are true** — including the
+sixth, the registry reason at the layout arm: MOVES-LAYOUT reds `:639` and `:814` while `:649` passes,
+exactly as the rewritten reason now says.
+
+**Q1 ruled, measured not reasoned:** `:748` does **not** need viewport parametrizing — at 390×844 the same
+comparison changes **19 560 px** past tolerance against the 400 floor (48.9× headroom), every differing
+pixel at delta 64. There is no cell size in the card's range at which 400 becomes tight.
+
+**An instrument bug the reviewer caught on itself:** its first PHONE-REACHES-BLANK probe printed MUTATED
+== the shipped hash (the mutant was missing from its wrapper's edit table and zsh had no `set -e`). It
+discarded the reading as a no-op, fixed the wrapper and re-fired — the "no-op ≡ survivor" rule firing on
+the reviewer's own instrument, which is exactly where it is cheapest.
+
+**Deliberate non-action, stated:** cycle 1's nine other `admin.css` mutants were **not** re-fired, because
+`admin.css` is absent from the fix commit and byte-identical to the bytes cycle 1 certified. NO-HAIRLINE
+and MOVES-LAYOUT *were* re-fired, because renumbering could have cost a kill and because one rewritten
+claim names MOVES-LAYOUT.
+
+### [Carried forward, not fixed] two minors, and why they are not being fixed on the way out
+
+**F-101** — both arms protecting *"no non-filled cell carries a hairline"* are **desktop-only**, so
+F-001's own defect scoped to a media query survives this card's whole file: PHONE-REACHES-BLANK gives
+50 PASS / 0 FAIL of 50 nodes, exit 0, and was proved non-no-op out of band (a blank phone board's computed
+`box-shadow` goes from `{'none': 400}` to the inset string on all 400 cells). Minor rather than Important
+because the claim *does* have a control that can fail at desktop and each test declares its domain
+honestly; what over-reaches is one file-docstring sentence. Cheapest fix, per the reviewer: parametrize
+`test_no_other_cell_state_gains_a_shadow` on `_VIEWPORTS` — computed styles only, one page load.
+
+**F-102** — the `_VIEWPORTS` comment claims a test *"cannot be parametrized on a subset of them by
+accident"*. Nothing enforces it, and `:697`/`:758` are desktop-only without using it. One word.
+
+**Why neither is fixed here:** the card has met its gate and two of three cycles are spent. This board's
+own rule is that `max_cycles` is a budget and not a last-mile rule — an edit made on the way out has no
+cycle left to certify it, and that is how two cards shipped unreviewed final commits in wave 48. Both are
+carried to the next card that touches this file rather than bolted on uncertified. The subject is the
+same family as F-001, so whoever takes it should expect the review to look there first.
