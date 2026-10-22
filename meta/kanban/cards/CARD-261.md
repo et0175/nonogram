@@ -15,7 +15,7 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** CLAUDE.md, src/nonogram/__init__.py, tests/test_cli.py
-**Review score:** 7.5 (cycle 1) → 7.8 (cycle 2, FAIL — +0.3 against min_improvement 0.5)
+**Review score:** 7.5 (c1) → 7.8 (c2) → fix 2 `335c641e` → **cycle 3 (final, max_cycles 3)**
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
@@ -675,3 +675,93 @@ lies in all three places. The newly-enabled failure mode is the one I had not th
 follows this card's new pointer, finds a set of three under prose saying two, and concludes `admin` is
 the erosion — **removing a correct entry**. That is worse than the stale count it replaced, and it is
 reachable *only* because of this card. Land AC-7 with or immediately after CARD-261.
+
+---
+
+### [Fix round 2] `335c641e` — and the certification finally ran
+
+Two paths, explicit pathspecs: `tests/test_cli.py` (+321/−12) and the card (+340/−5). **`CLAUDE.md` and
+`src/` are untouched this round** — `git diff --stat feb3e6b5 HEAD -- CLAUDE.md src/` is empty, so G-4
+holds **by construction** rather than by inspection. I verified the diff shape myself: since `feb3e6b5`
+only `tests/test_cli.py` and the card changed.
+
+**I-1(a) — the floor is gone and the corpus is pinned by value.** The total `>= 10` floor is replaced by
+per-side floors (≥ 5 must-catch, ≥ 5 known-miss) **plus a by-value pin**, with the
+`` (False, "`cli.py` is the only inbound adapter.") `` row asserted **first** so its deletion names that
+sentence rather than a count. The acceptance test of the round, both states: the reviewer's padding
+attack is **GREEN exit 0** against the file at `feb3e6b5` and **RED exit 1** after, with the message
+*"the known-miss case carrying F-101's own wording has been removed from CASES … It is not
+interchangeable with another case"*.
+
+**And a detail worth keeping, because it is the difference between a message and a diagnosis.** The first
+ordering fired the floor arm first, so the padding attack would have failed with `assert 4 >= 5` — a true
+red that tells the reader nothing about *which* sentence went missing. Reordered so the sentence-naming
+arm runs first. The matrix shows them as two independent cells, which is the evidence that the reorder
+did not collapse one into the other.
+
+**I-1(b) — `_adapter_counts` both widened and narrowed.** Widened on what a quantity is (numerals, number
+words, and words implying one: `both`, `only`, `sole`, `a pair/trio/couple/handful of`, plus
+`zero/eleven/twelve`) and **narrowed** on distance — the gap to the noun goes from two words to **one**.
+The narrowing is what closes all three measured false positives, which is the part I would not have
+predicted: the fix for *"See section 3 about inbound adapters"* is a tighter window, not a smarter
+pattern. Validated against cycle 2's own 32-form sweep **before** editing: all 19 must-catch forms
+caught, all 12 must-not-match clean. The planted prose that defeated it last round now reds naming
+line 40, where it was green at `feb3e6b5` across both `test_cli.py` and `test_guard_integrity.py`.
+
+**AC-5 adopted in the amended form**, with `amendment_verdict: ACCEPT` recorded and the superseded wording
+kept beside it. The clause's two previously unhonoured places — M-1 and the CASES corpus — are now both
+*asserted*, which is what the amendment demanded and the reason cycle 2 argued for doing it in the same
+round.
+
+**M-1 — both halves, and the reason the number gets no control is a measurement.** The *scoping* now has
+a control derived from the package walk; the *number* is asserted to be a hole, with cycle 2's Plant A
+committed as an arm. Why: measured with the worktree's `src` first on `sys.path`, **all three adapters
+import the orchestrator** — so the walk says three, the C4 diagram pairs all three with a COMP id, and
+the only statement that two of them are *the pipeline's* is ADR-0019's prose. A number restated from a
+literal in the test file is not a control (ADR-0039/R2), and a parser over an ADR's prose would be a new
+authority on a card already `LARGE_BUT_IN_SCOPE` under `escalation: continue`. **And the hole test can
+itself fail** — rewording the count past its planter (`the two pipeline adapters` → `the 2 …`) reds with
+*"the lie was not planted … so this test has stopped measuring anything"*. A bound that notices when it
+stops measuring is the strongest form of the shape on this board.
+
+### Certification — RUN, not deferred a third time
+
+**20 mutants, 19 killed**, M14 the no-op cycle 2 proved by output (cited, not re-derived). Cycle 2's 16
+cells all **re-fired cell for cell**, plus four new ones over this round's arms: the padding attack on
+`CASES` (**two** independent FAIL cells, `:2191` the by-value pin and `:2201` the floor), `_ADAPTER_COUNT`
+narrowed to numerals, the gap widened back to two words, and the scoping sentence removed from the
+canonical map.
+
+**Domain, in full:** **155 `ast.Assert` nodes** in `tests/test_cli.py` — an assert-node count, **not** a
+collected-test count (138 at `feb3e6b5`); selection the five `TestComponentMap_*` classes, unrenamed;
+**39 collected tests** (34 before); **72 arms reached**; SHIPPED **0 FAIL of 72 reached at pytest exit 0**,
+re-run between mutants and held cell-for-cell; child instrumentation **off**, so `0 BLIND` means the
+overlay never ran; every mutant line-count preserving; ANY-RED across both passes.
+
+**The sibling card's trap reproduced here fifteen times.** Under the recording pass **16 of 20 mutants
+exited 0, and 15 of those carry FAIL cells** — a test-level reading would have published **fifteen kills
+as survivors**, including all four new ones. Every verdict is an arm-level attribution cross-read against
+the re-raising pass (exit 1 on all 19). That is now measured on two cards independently, which makes it a
+property of this instrument rather than an anecdote: **pytest's exit code is not a kill signal here.**
+
+**Nothing left un-refired**, and the one wrinkle was disclosed: the matrix was fired twice because a
+blank-line reflow after the first firing shifted linenos by 2–3. Verdicts were identical mutant for
+mutant, and the reported figures are the **second** firing against the exact committed bytes.
+
+### Bounds stated as incomplete, which is the right handling
+
+1. **The number in "There are exactly two adapters (ADR-0019)" still has no authority** — asserted as a
+   hole, not closed. Closing it needs an enumerable set for "ADR-0019's adapters"; the repo states it
+   only in prose.
+2. **A floor or by-value pin cannot be certified by weakening its own assertion** — the instrument
+   refuses an edit that moves the target's assert topology, so those arms are certified by mutating the
+   *artefact* they pin. Stated as a bound of the certification rather than left to be inferred, which is
+   the distinction this board keeps asking for.
+3. The forms `_adapter_counts` still misses are **deliberately open** — enumerations, "three inbound
+   entry points", more than one intervening adjective, hyphenated adjectives, "adapters x2" — all
+   committed as `False` cases and named in both docstrings.
+4. **No pass-count figure is quoted** for the scoped runs, because this repo's `-q` output prints no
+   pass-count line: pytest's exit code and `--collect-only` figures are reported instead of a number that
+   cannot be shown. I hit the same wall at the fix-1 gate from the other direction, by truncating the
+   summary line with my own `tail`.
+5. F-107 and the `_ADAPTERS` prose untouched, nothing renamed — correct, they are CARD-264's, now live.
