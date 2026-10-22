@@ -1,9 +1,16 @@
-wave: 52
+wave: 54
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: []
+# 2026-10-22: THREE cards are active against this cap of 2, on the owner's explicit
+# "dispatch 264" while wave 53's two cards were still in fix rounds. Recorded as an
+# authorised breach rather than left to be inferred from the active list. The cap's
+# stated purpose -- merges run sequentially and never with concurrent full suites -- is
+# intact: no full-suite run is permitted in any of the three worktrees, each redirects
+# its suite lock to a scratch path, and no merge is pending. The cap returns to 2 when
+# wave 53 lands.
+active: [CARD-261, CARD-262, CARD-264]
 escalated: []
 merged_wave_45:
   - id: CARD-248
