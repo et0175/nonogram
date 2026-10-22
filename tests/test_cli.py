@@ -949,6 +949,25 @@ _COUNT_CLAIM = re.compile(
     re.IGNORECASE,
 )
 
+#: What :data:`_COUNT_CLAIM` is measured **not** to see, declared rather than
+#: implied (ADR-0039/R3, and the shape :data:`MEASURED_CLAIM_MISSES` in
+#: ``tests/test_guard_integrity.py`` uses for the same reason). Each family
+#: below was measured against the live pattern and is held on the miss side by
+#: ``test_the_rule_names_the_paraphrases_it_cannot_see``, so the declaration is
+#: executable rather than a sentence in a docstring. The pattern is a
+#: *cardinal-before-the-noun* rule; it is deliberately not widened into a
+#: general English count detector, because the deny side costs a false positive
+#: on every sentence that happens to put a number near the word "names".
+MEASURED_COUNT_CLAIM_MISSES = (
+    'a count whose noun is outside "adapters|names" ("closed at two modules",'
+    ' "closed at two entries")',
+    'a count folded into a hyphenated compound ("the two-adapter allowlist")',
+    'a count written as a quantifier rather than a cardinal ("a pair of names",'
+    ' "both adapter names", "a couple of adapter names")',
+    'a count placed after its noun ("the adapter names number two")',
+    "a count separated from its noun by three or more words",
+)
+
 
 class TestAdapterAllowlist_NoProseClaimsAStaleCount:
     """AC-7 (CARD-264): the prose around :data:`_ADAPTERS`, held to the set.
@@ -989,7 +1008,7 @@ class TestAdapterAllowlist_NoProseClaimsAStaleCount:
         return [match.group(0).strip() for match in _COUNT_CLAIM.finditer(plain)]
 
     @staticmethod
-    def _allowlist_prose() -> dict[str, str]:
+    def _allowlist_prose(source: str | None = None) -> dict[str, str]:
         """The three places this module writes prose about :data:`_ADAPTERS`.
 
         Located from the code: the assignment is found by ast and the comment
@@ -1000,8 +1019,24 @@ class TestAdapterAllowlist_NoProseClaimsAStaleCount:
         Each of the three is required to exist (ADR-0039/R2): a comment block
         that has gone, or a second test pinning the set, is a FAILURE rather
         than a quietly smaller sweep.
+
+        **Located by the assertion, but still required to be a test.** A
+        control that finds its subject dynamically can have its subject
+        *substituted*: extracting ``assert _ADAPTERS == {...}`` into a
+        neutrally-named top-level helper makes the helper "the function that
+        pins it", and the real test's name then goes unjudged -- which put the
+        count back into the loudest name in this file with nothing reding
+        (review cycle 1, F-1). Requiring the carrier to be a ``test_*``
+        function closes that without re-introducing the name dependency: a
+        legitimate rename to another ``test_*`` name is still legal, which is
+        the case the by-name rule would have broken.
+
+        ``source`` defaults to this file and is a parameter so the rule can be
+        run against a fabricated module that cannot be satisfied by this file's
+        own live arms -- the distinction CARD-261's cycle 3 measured.
         """
-        source = Path(__file__).resolve().read_text(encoding="utf-8")
+        if source is None:
+            source = Path(__file__).resolve().read_text(encoding="utf-8")
         lines = source.splitlines()
         tree = ast.parse(source)
 
@@ -1035,6 +1070,12 @@ class TestAdapterAllowlist_NoProseClaimsAStaleCount:
             )
         ]
         assert len(pinning) == 1, [node.name for node in pinning]
+        assert pinning[0].name.startswith("test_"), (
+            "the assertion that pins _ADAPTERS lives in "
+            f"{pinning[0].name!r}, which pytest never names. The count claim "
+            "this class denies travels in the name of the *test*, so the "
+            "assertion has to stay in one"
+        )
 
         return {
             "the comment above _ADAPTERS": "\n".join(reversed(comment)),
@@ -1121,6 +1162,119 @@ class TestAdapterAllowlist_NoProseClaimsAStaleCount:
 
         assert len(_ADAPTERS) == len(literal.elts)
         assert len(_ADAPTERS) == len({ast.literal_eval(name) for name in literal.elts})
+
+    @staticmethod
+    def _fabricated_module(carrier: str, first_line: str) -> str:
+        """A module shaped like this one's allowlist region, and nothing else.
+
+        Fabricated rather than planted on this file on purpose: a
+        hole-assertion built on the real artefact can be satisfied by that
+        artefact's own live arms, while one built on a fabricated input cannot
+        (CARD-261's cycle 3 measured the distinction). No edit to this file can
+        make the module below stop carrying the shape it is testing.
+        """
+        return (
+            "# The set below is closed and grows only by a deliberate edit.\n"
+            '_ADAPTERS = frozenset({"cli", "web", "admin"})\n'
+            "\n\n"
+            f"def {carrier}() -> None:\n"
+            f'    """{first_line}"""\n'
+            '    assert _ADAPTERS == {"cli", "web", "admin"}\n'
+        )
+
+    def test_the_pin_has_to_live_in_a_test_and_not_in_a_helper(self) -> None:
+        """Review cycle 1, F-1: a control that locates its subject dynamically
+        can have its subject **substituted**.
+
+        Extracting the pin into a neutrally-named top-level helper made the
+        helper "the function that pins it", so the real test's name went
+        unjudged and
+        ``test_the_adapter_allowlist_is_closed_at_the_two_known_adapters``
+        could be restored verbatim with nothing reding. Requiring the carrier
+        to be a ``test_*`` function denies that relocation, and
+        :meth:`test_a_legitimate_rename_keeps_the_subject_and_the_name_judged`
+        is the other state -- it does not cost the rename the by-name rule
+        would have broken.
+        """
+        helper = self._fabricated_module(
+            "_pin_the_adapter_allowlist", "Pin the allowlist, for the test below."
+        )
+
+        with pytest.raises(AssertionError, match="_pin_the_adapter_allowlist"):
+            self._allowlist_prose(helper)
+
+    def test_a_legitimate_rename_keeps_the_subject_and_the_name_judged(self) -> None:
+        """F-1's other state, both halves on the same fabricated module.
+
+        A ``test_*`` carrier is accepted however it is named, so a count-free
+        rename stays legal -- the case a by-name rule would have retired the
+        control over. And the name it finds is what gets judged, so the count
+        returning to that name is caught, in the two places it would travel.
+        """
+        renamed = self._fabricated_module(
+            "test_the_rank_admits_only_what_an_explicit_edit_admits",
+            "The rank admits only what an explicit edit admits.",
+        )
+
+        prose = self._allowlist_prose(renamed)
+
+        assert len(prose) == 3, prose
+        assert prose["the name of the test that pins it"] == (
+            "test_the_rank_admits_only_what_an_explicit_edit_admits"
+        )
+        assert {
+            where: found
+            for where, text in prose.items()
+            if (found := self._count_claims(text))
+        } == {}, prose
+
+        restored = self._fabricated_module(
+            "test_the_adapter_allowlist_is_closed_at_the_two_known_adapters",
+            "ADR-0019's allowlist is two names, and staying two names is the rule.",
+        )
+
+        claims = {
+            where: found
+            for where, text in self._allowlist_prose(restored).items()
+            if (found := self._count_claims(text))
+        }
+
+        assert set(claims) == {
+            "the name of the test that pins it",
+            "that test's first line",
+        }, claims
+
+    def test_the_rule_names_the_paraphrases_it_cannot_see(self) -> None:
+        """ADR-0039/R3's last clause for :data:`_COUNT_CLAIM`.
+
+        The declaration in :data:`MEASURED_COUNT_CLAIM_MISSES` is held
+        **executably**, one case per family, so it cannot drift from the
+        pattern: a widening that silently covered one of these would red here
+        and the declaration would have to be edited with it. The caught column
+        below is the other state, and includes the correct count stated
+        plainly -- this rule denies counts, not only wrong ones.
+        """
+        assert MEASURED_COUNT_CLAIM_MISSES
+
+        for missed in (
+            "the allowlist is closed at two modules",
+            "the allowlist is closed at two entries",
+            "the two-adapter allowlist is closed",
+            "the allowlist is a pair of names",
+            "the allowlist holds both adapter names and no more",
+            "closed at a couple of adapter names",
+            "the adapter names number two",
+            "closed at two very well known names",
+        ):
+            assert self._count_claims(missed) == [], missed
+
+        for caught in (
+            "so this set is closed at two names",
+            "test_the_adapter_allowlist_is_closed_at_the_two_known_adapters",
+            "the allowlist is closed at 2 names",
+            "the allowlist is three names",
+        ):
+            assert self._count_claims(caught), caught
 
 
 def test_the_shared_layer_is_closed_at_errors_and_limits() -> None:

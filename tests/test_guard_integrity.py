@@ -2918,9 +2918,22 @@ MEASURED_KEYWORD_SPANS = ("choices=", "type=")
 MEASURED_CLAIM_MISSES = (
     "a claim written without backticks, anywhere in the file",
     "a claim in a paragraph whose lead-in is not in GUARDED_PARAGRAPHS",
+    "a false type-or-literal claim: a span that parses and whose every name"
+    " resolves in dir(builtins) is accepted for its *shape*, and is never"
+    " compared against the annotations in the code (review cycle 1, F-6)",
 )
 
 _BACKTICK_SPAN = re.compile(r"`([^`\n]+)`")
+
+#: A fenced code block opener. ``_BACKTICK_SPAN`` cannot match across the
+#: triple backticks and the newlines, so a claim written inside a fence that
+#: sits directly under a guarded paragraph -- no blank line, so still the same
+#: block -- was read by nothing (review cycle 1, F-5). CLAUDE.md already
+#: carries four fences, so the shape is live in this very file, which is why
+#: the fence is **denied** rather than added to :data:`MEASURED_CLAIM_MISSES`:
+#: a declared miss that the file is one blank line away from reaching is a
+#: worse trade than a deny-side rule whose cost is rewording one paragraph.
+_FENCE = re.compile(r"^[ \t]*```.*$", re.MULTILINE)
 _IDENTIFIER_CHAIN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _PATH_SUFFIXES = (".py", ".toml", ".md", ".yml", ".cfg", ".txt")
 
@@ -2943,10 +2956,21 @@ def _guarded_paragraphs(text: str) -> tuple[dict[str, tuple[int, str]], list[str
 
 
 def _claims(paragraph: str, first_line: int) -> list[tuple[int, str]]:
-    """Every backtick-quoted span in ``paragraph``, as ``(line, span)``."""
+    """Every backtick-quoted span in ``paragraph``, as ``(line, span)``.
+
+    A fence opener is emitted as a span of its own so that
+    :func:`_classify` denies it as unanalysable: the alternative is reading
+    the fenced region with a regex that provably cannot see into it, which is
+    the vacuous arm this card is about (F-5). Document order is preserved by
+    sorting on match position rather than on ``(line, span)``, so the
+    fabricated single-defect cases below keep their one-to-one mapping.
+    """
+    spans = [
+        (match.start(), match.group(1)) for match in _BACKTICK_SPAN.finditer(paragraph)
+    ] + [(match.start(), match.group(0).strip()) for match in _FENCE.finditer(paragraph)]
     return [
-        (first_line + paragraph[: match.start()].count("\n"), match.group(1))
-        for match in _BACKTICK_SPAN.finditer(paragraph)
+        (first_line + paragraph[:start].count("\n"), span)
+        for start, span in sorted(spans)
     ]
 
 
@@ -2988,12 +3012,22 @@ def _src_symbols() -> tuple[dict[str, set[str]], set[str], list[str]]:
 
 
 def _repo_paths() -> set[str]:
-    """Every file under the trees CLAUDE.md's guarded paragraphs can name."""
+    """Every file under the trees CLAUDE.md's guarded paragraphs can name.
+
+    ``__pycache__`` is excluded (review cycle 1, F-11). The walk used to glob
+    ``*`` outright, so the set's size moved with whatever had been run, and
+    the card's own census figure was non-reproducible by construction. The
+    effect on the rule was nil -- a ``.pyc`` can satisfy neither a span ending
+    in one of :data:`_PATH_SUFFIXES` nor a ``dir/`` span -- but a figure that
+    cannot be reproduced is a figure a later reader cannot check, which is
+    this card's subject. Held by
+    ``test_the_path_authority_counts_no_bytecode``.
+    """
     paths = {
         str(path.relative_to(REPO_ROOT).as_posix())
         for tree in ("src", "tests", "docs")
         for path in (REPO_ROOT / tree).rglob("*")
-        if path.is_file()
+        if path.is_file() and "__pycache__" not in path.parts
     }
     paths.update(
         path.name for path in REPO_ROOT.iterdir() if path.is_file()
@@ -3250,6 +3284,75 @@ class TestClaudeMd_EverySymbolItNamesExists:
         assert _claim_defects(_claims(unquoted, 1), symbols, modules, paths, distributions) == []
         assert _claim_defects(_claims(quoted, 1), symbols, modules, paths, distributions)
 
+        # The third declared miss, demonstrated the same way (F-6): a span
+        # that parses and resolves in dir(builtins) is accepted for its shape,
+        # so a *false* boundary type passes -- while a dead symbol smuggled
+        # inside a builtin-shaped subscript is still denied, because that
+        # branch is tight about names and blind about truth.
+        false_type = "clues cross the boundary as `dict[str, frozenset[bytes]]`"
+        assert _claim_defects(
+            _claims(false_type, 1), symbols, modules, paths, distributions
+        ) == []
+        assert _claim_defects(
+            _claims("`list[validate_size]`", 1), symbols, modules, paths, distributions
+        )
+
+    def test_a_fence_inside_a_guarded_paragraph_is_denied(self) -> None:
+        """F-5, closed rather than declared: a fenced block that sits directly
+        under a guarded paragraph is part of the same block, and the span
+        regex provably cannot see into it.
+
+        Caught WITH the fence and missed WITHOUT, on a fabricated paragraph:
+        the dead symbol inside the fence is invisible to the span reader, so
+        the fence itself is what reds. The second half is the other state --
+        the same paragraph without the fence is clean, so this is a rule about
+        fences and not a rule that cannot pass.
+        """
+        symbols, modules, paths, distributions = self._authorities()
+        fenced = (
+            "**The dependency baseline is closed.** as shipped\n"
+            "```python\n"
+            "validate_size(30)\n"
+            "```\n"
+        )
+
+        defects = _claim_defects(
+            _claims(fenced, 46), symbols, modules, paths, distributions
+        )
+
+        assert len(defects) == 2, defects
+        assert defects[0].startswith("CLAUDE.md:47: ````python`"), defects
+        assert defects[1].startswith("CLAUDE.md:49: `````"), defects
+        assert all(
+            "is a shape this rule cannot read, so it is denied" in defect
+            for defect in defects
+        ), defects
+        assert _claim_defects(
+            _claims("**The dependency baseline is closed.** as shipped\n", 46),
+            symbols,
+            modules,
+            paths,
+            distributions,
+        ) == []
+
+    def test_the_path_authority_counts_no_bytecode(self) -> None:
+        """F-11: the path census is reproducible, so a figure quoted from it
+        can be checked by a later reader.
+
+        The walk globs ``*``, so it used to count ``__pycache__/*.pyc`` and
+        the size moved with whatever had been run. Harmless to the rule -- the
+        set is consulted only for membership, and the second half below is why
+        a ``.pyc`` could never have satisfied a span anyway -- but a census
+        figure nobody can reproduce is exactly the kind of claim this card
+        exists to deny.
+        """
+        paths = _repo_paths()
+        assert paths, "the path walk found nothing"
+
+        assert [path for path in paths if "__pycache__" in path] == []
+        assert [path for path in paths if path.endswith(".pyc")] == []
+        assert _repo_paths() == paths
+
 
 class TestClaudeMd_APlantedDeadSymbolReds:
     """AC-2 (CARD-264): the control, caught WITH the defect and missed WITHOUT.
@@ -3342,13 +3445,15 @@ class TestClaudeMd_TheDependencyClaimMatchesPyproject:
 
     **The shape that shipped is "do not restate".** CLAUDE.md's paragraph
     said "stdlib + Pillow + NumPy as runtime dependencies (plus ``pytest`` as
-    a dev-only extra)" while pyproject.toml carries **three** extras -- ``dev``
-    (pytest and pytest-playwright), ``admin`` (Flask, Werkzeug, reportlab,
-    gunicorn) and ``db`` (SQLAlchemy, alembic, psycopg2-binary). A corrected
-    list would be a second copy of a table that has grown three times, which
-    is the disease CARD-261 treated in the component map, so the paragraph now
-    names the runtime baseline ADR-0006/R1 is about and points at
-    pyproject.toml for the extras instead of enumerating them.
+    a dev-only extra)" while pyproject.toml carries three extras, enumerated
+    there and deliberately not repeated here: naming their members in this
+    docstring would be the same second copy AC-3 removed from CLAUDE.md, one
+    file over, and nothing reads a docstring (review cycle 1, F-10, and G-3).
+    A corrected list in CLAUDE.md would have been a second copy of a table
+    that has grown more than once, which is the disease CARD-261 treated in
+    the component map, so the paragraph now names the runtime baseline
+    ADR-0006/R1 is about and points at pyproject.toml for the extras instead
+    of enumerating them.
 
     Both halves are controlled, from pyproject.toml itself (G-3): the runtime
     distributions it declares must each be named, and no distribution that
@@ -3390,8 +3495,8 @@ class TestClaudeMd_TheDependencyClaimMatchesPyproject:
             pytest.param(
                 "`pyproject.toml` declares Pillow + NumPy; the `dev`, `admin` and"
                 " `db` extras are outside the baseline",
-                "restates pyproject.toml's extras by name: ['admin', 'db', 'dev']",
-                id="a-restatement-of-the-extras-table",
+                "restates pyproject.toml's extras by name",
+                id="a-restatement-of-three-extras-named-literally",
             ),
             pytest.param(
                 "runtime dependencies are exactly Pillow and NumPy",
@@ -3406,6 +3511,30 @@ class TestClaudeMd_TheDependencyClaimMatchesPyproject:
         defects = _dependency_claim_defects(paragraph, runtime, extras)
 
         assert any(fragment in defect for defect in defects), defects
+
+    def test_the_restatement_rule_covers_every_extra_pyproject_declares(
+        self,
+    ) -> None:
+        """The parametrized case above names three extras in a *fabricated*
+        paragraph, which is defensible but would not notice a fourth. This one
+        builds its paragraph from pyproject.toml's own keys, so the day an
+        extra is added the rule is already covering it and no list here has to
+        be edited (G-3)."""
+        runtime, extras = _declared_distributions()
+        assert extras, "pyproject.toml declares no extras"
+
+        for extra in sorted(extras):
+            paragraph = (
+                "`pyproject.toml` declares Pillow + NumPy as the runtime "
+                f"baseline; the `{extra}` extra sits outside it"
+            )
+
+            defects = _dependency_claim_defects(paragraph, runtime, extras)
+
+            assert any(
+                f"restates pyproject.toml's extras by name: ['{extra}']" in defect
+                for defect in defects
+            ), (extra, defects)
 
     def test_the_rule_reds_when_the_authority_moves_under_it(self) -> None:
         """Caught WITH the authority, missed WITHOUT: the same shipped
@@ -3441,14 +3570,45 @@ class TestClaudeMd_TheTimeoutClaimNamesItsTest:
 
     _VOCABULARY = ("timeout", "deadline")
 
+    #: What this rule is measured **not** to see, declared rather than implied
+    #: (ADR-0039/R3, review cycle 1, F-8). Held executably by
+    #: ``test_the_rule_names_what_its_two_words_cannot_reach``, so a widening
+    #: of either bound has to edit this tuple with it. Both are deliberate:
+    #: the vocabulary is two words because a wider one would select sentences
+    #: about export deadlines and process timeouts and turn an exact pin at
+    #: one into noise; and the sentence split is the stdlib-simple one, so a
+    #: clause welded onto the citation-bearing sentence is a sentence this
+    #: rule reads as already cited -- which is weaker than it sounds, since
+    #: the clause then sits inside the sentence that does carry the citation.
+    MEASURED_TIMEOUT_CLAIM_MISSES = (
+        'a claim phrased without "timeout" or "deadline" ("the solver also'
+        ' gives up on its own after a while")',
+        "a second claim joined to the cited sentence by a colon or a comma,"
+        " which the sentence split does not break on (an em-dash or a full"
+        " stop does, and reds)",
+    )
+
+    @classmethod
+    def _timeout_sentences(cls, body: str) -> list[str]:
+        """The sentences of ``body`` that speak about the solver's deadline.
+
+        Takes the body rather than reading CLAUDE.md, so both the vocabulary
+        bound and the sentence split can be exercised against fabricated
+        paragraphs that this file cannot satisfy by being edited.
+        """
+        return [
+            sentence
+            for sentence in re.split(r"(?<=[.;])\s+", body)
+            if any(word in sentence.lower() for word in cls._VOCABULARY)
+        ]
+
     def _sentences(self) -> list[str]:
         found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
         assert not missing, missing
         return [
             sentence
-            for line, body in found.values()
-            for sentence in re.split(r"(?<=[.;])\s+", body)
-            if any(word in sentence.lower() for word in self._VOCABULARY)
+            for _line, body in found.values()
+            for sentence in self._timeout_sentences(body)
         ]
 
     def test_the_claim_is_one_sentence_and_it_names_an_existing_test(self) -> None:
@@ -3467,6 +3627,38 @@ class TestClaudeMd_TheTimeoutClaimNamesItsTest:
         )
         missing = [path for path in cited if path not in paths]
         assert missing == [], missing
+
+    def test_the_rule_names_what_its_two_words_cannot_reach(self) -> None:
+        """ADR-0039/R3's last clause for AC-6: both bounds declared and held.
+
+        AC-6 reads "no claim about the solver's timeout survives that no test
+        pins", and the *selection* is narrower than that sentence: two words,
+        and a sentence split that does not break on a colon or a comma. Each
+        declared family gets a fabricated body on the miss side, and the four
+        shapes that **do** red get one on the caught side, so the declaration
+        states the reach rather than being a sentence beside it.
+        """
+        assert self.MEASURED_TIMEOUT_CLAIM_MISSES
+        cited = (
+            "The solver checks one cooperative deadline per request, pinned by"
+            " `tests/test_timeout.py`."
+        )
+        assert len(self._timeout_sentences(cited)) == 1
+
+        for missed in (
+            f"{cited} The solver also gives up on its own after a while.",
+            f"{cited} A time budget is also applied inside the exporter.",
+            f"{cited[:-1]}: a second budget applies inside the exporter too.",
+            f"{cited[:-1]}, and a second budget applies inside the exporter.",
+        ):
+            assert len(self._timeout_sentences(missed)) == 1, missed
+
+        for caught in (
+            f"{cited} A second deadline applies inside the exporter.",
+            f"{cited} \u2014 and the exporter has a deadline of its own.",
+            f"{cited} The exporter enforces its own timeout.",
+        ):
+            assert len(self._timeout_sentences(caught)) == 2, caught
 
     def test_no_guarded_paragraph_says_the_mechanism_is_unenforced(self) -> None:
         """The specific stale shape, denied by value. Deny-side, so the cost is

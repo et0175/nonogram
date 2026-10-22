@@ -29,8 +29,8 @@ edit to that line, reviewed as the architectural change admitting an adapter
 is."**
 
 ```python
-_ADAPTERS = frozenset({"cli", "web", "admin"})   # tests/test_cli.py:747
-_LAUNCH_EDGE = ("cli", "web")                    # :760 — the only same-rank import
+_ADAPTERS = frozenset({"cli", "web", "admin"})   # tests/test_cli.py
+_LAUNCH_EDGE = ("cli", "web")                    # the only same-rank import
 ```
 
 > **The guard's prose contradicted its own code until CARD-264.** The comment
