@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-22T07:37:15Z   # wave 52 complete; both cards merged
+last_updated: 2026-10-22T07:52:00Z   # run resume at the wave-52/53 boundary
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -999,3 +999,42 @@ wave_52_complete:
     so the predictor would score them parallel-safe against a card like this. tests/helpers/book_corpus.py
     was added to conflict.hotspots and CARD-206's own Touches corrected, which covers the pairs that
     DECLARE it -- the residue is in backlog.md as an @ops item. All twelve now need a rebase.
+
+resume_2026_10_22:
+  at: 2026-10-22T07:52:00Z
+  invoked: "run resume"
+  mode: interactive
+  found: "nothing to recover -- `active: []`, `escalated: []`, and wave 52 closed cleanly minutes earlier."
+  fallback_scan: >-
+    Ran step 1's missing-file fallback as a cross-check even though the state was current. Across all 261
+    cards: 242 done, 18 ready, 1 blocked (CARD-210, owner decision 2026-10-13), **zero in_progress and
+    zero review**. No worktree but the main checkout, no board lock, no escalation outstanding.
+  position_now: "wave 52 complete; wave 53 is the next wave and nothing is dispatched."
+  dispatchable: 14
+  held_by_dependencies:
+    - "CARD-218, CARD-219 -> CARD-207, CARD-208, CARD-209"
+    - "CARD-230 -> CARD-229"
+    - "CARD-233 -> CARD-232"
+  the_queue_is_structurally_SERIAL_and_this_is_the_finding: >-
+    **9 of the 14 dispatchable cards touch `src/nonogram/admin/book_pdf_generator.py`** -- CARD-207, 208,
+    209, 226, 227, 229, 231, 232 and 262 -- which is a declared hotspot, so they mutually serialize and
+    **at most ONE can be in flight at a time**. 44 conflict edges among the 14; only 47 of the 91 possible
+    pairs can run concurrently, and every one of those pairs is "one book card plus one non-book card".
+    The non-book five are CARD-215, 216, 220, 249 and 261. Secondary clusters: `export/layout.py` binds
+    six (208, 209, 215, 226, 227, 232), `app.py` binds three (216, 229, 249), and
+    `tests/helpers/book_corpus.py` -- added to the hotspot list this session -- binds six (209, 226, 227,
+    229, 231, 232).
+    **Consequence for the owner's concurrency cap of 2: it buys nothing on this queue unless one slot is
+    deliberately spent on a non-book card.** Two book cards can never run together. That is a property of
+    the print chain, not of the predictor, and it is the honest reason waves 44-48 kept serializing.
+  stale_premise_warning: >-
+    CARD-218 and CARD-219 are held by CARD-207/208/209, and both were cut BEFORE CARD-206 rewrote the
+    interior page map. CARD-219's `Touches` is 8 files, **all 8 edited by CARD-206**; CARD-218's is 8 of
+    9. Their bodies cite page numbers and counts that moved by one. They should be re-read against main
+    before dispatch, not merely rebased -- the same class as CARD-259's AC-4, which shipped a hash pinned
+    at a revision that had already moved.
+  not_dispatched_here: >-
+    `run resume` step 6 continues into the next wave, and mode is `interactive`, which asks at the
+    boundary. The recovery needed no decision and there was none to make; the wave-53 dispatch is a
+    decision and is the owner's, consistent with this board's practice of recording an owner_decision at
+    every wave boundary (wave_45, wave_48, wave_52).
