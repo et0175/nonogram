@@ -1,6 +1,6 @@
 # CARD-262: The page-position guard's door axis is open; close it or name every exemption with a control
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -15,12 +15,12 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py, src/nonogram/admin/book_pdf_generator.py
-**Review score:** 5.7 (cycle 1) → fix 1 `b88621d8` → **5.2 (cycle 2) — ⚠ improvement stalled, escalated**
+**Review score:** 9.3 (cycle 3/3) ✓
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — implementation: ⚠ improvement stalled (Δscore −0.5, Δcrit+imp −1); the door axis is still open, one level of indirection further in
+**Blocked by:** —  <!-- escalation closed by owner 2026-10-22: DECLARE the door axis, land the card; re-entered at cycle 3/3 -->
 
 ## Why — the same claim was made and broken three times, each by the fix for the last
 
@@ -120,6 +120,52 @@ them on every gate.
 _Dropped (27), each executed by the suite on every gate: ADR-0006/R1, ADR-0022/R3, ADR-0022/R4, ADR-0027/R2, ADR-0032/R1, ADR-0032/R2, ADR-0038/R3, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-020, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013._
 
 ## Worktree notes
+
+- [AC/EC check] All criteria/constraints ✓ (evidence): 11 items (5 AC + 6 G; no EC section) / 11
+  demonstrated. Full guard file green in the worktree (90 tests, pytest exit 0); CON-019 tripwires green
+  (66 tests, exit 0, both files absent from the diff); src/ diff vs merge-base EMPTY; diff additive
+  (+2666/−51, zero tests removed or renamed, 51→65). AC-3 demonstrated under the owner's declare-mandate
+  re-scope — under the original absolute reading the W1×W9 cross is neither read nor refused but a named,
+  controlled SILENT declaration; the owner explicitly withdrew closure of that residue. AC-1's
+  "before the first code commit" half unverifiable from git (meta/ never committed, by procedure) — stated,
+  not assumed. G-3/G-6: no DB, no timings, greps over added lines clean.
+- [Review 3/3] Score: 9.3 — crit: 0, imp: 0, minor: 2 (declared residues; bridge-vs-refire ratio) ✓
+  threshold reached + no critical/important. Judged against the owner's DECLARE mandate: every cycle-2
+  gating finding and all five mandate items verified resolved against the committed bytes; every
+  recomputable figure recomputed and matching; N17 and N10 re-fired RED on the committed bytes at their
+  claimed cells. Step 8h: 14 rules checked, 14 ✓ (kept 14 of projection 41, lens re-derived). ACs 1-5 ✓,
+  G-1..G-6 ✓ per the report.
+- [Review sync] 1 report → meta/review/ (20261022T180452Z-CARD-262-cycle3.yml)
+- [8h spot-check] fresh holds re-derived inline from disk: src/ diff vs merge-base EMPTY (ADR-0036/R1/R3/R4,
+  G-1), diff is exactly tests/test_book_export_interior_cover.py, worktree file sha 55311d7b == committed,
+  tests/ clean. ADR-0039/R1-R3 rest on the review's own executed re-fires (N17 :3850, N10 :4036).
+- [F-601 remediation] the interrupted post-commit re-fire script left mutant N17 live on the worktree file
+  (mtime postdates the commit; neither fix session's doing). The cycle-3 review caught it, restored the
+  committed bytes (sha verified), preserved the found state as evidence in the session scratchpad;
+  /tmp/card262-orch-verify.py deleted by the orchestrator so it cannot re-run against moved bytes.
+  Instrument-discipline lesson: a re-fire script's restore must be crash-safe (write-backup-first), not
+  finally-clause-safe.
+- [Approve conditions carried to done] merge ac479658 as-is; re-verify the file sha at the done gate
+  (done 2026-10-22: verified, see above); cut the owner-mandated follow-up card (transitive fixed-point
+  anchoring) carrying the three declared residues — at done.
+
+
+- [Fix 2 / cycle 3, 2026-10-22] COMPLETE — commit ac479658 on card/262-close-the-door-axis. Process
+  disclosure: the commit was made by the PRIOR session's fix agent, which was still alive at the OS level
+  when this session dispatched a recovery agent; the recovery agent's 23 F-507 qualifications were swept
+  into that commit, both sessions re-ran the guard class green on the merged bytes (23 passed, twice), and
+  the near-race is disclosed in full in the worktree card copy. Lesson for the dispatcher recorded in the
+  run report: verify liveness (live pytest/git processes in the worktree) before dispatching recovery.
+- [Fix 2] all cycle-2 gating findings and all five owner mandate items FIXED with named tests (F-501..F-507,
+  F-303, mandate 1..5 — see worktree card for the full FIXED/DECLARATIONS record). Kill matrix: 12/12
+  mutants ANY-RED over 184 ast.Assert nodes (assert-node domain, recording pass, line-count-preserving);
+  one no-op mutant corrected (N12→N12b); one real survivor found and CLOSED (N15 — two-traversal agreement
+  assertion, re-fired RED). Matrix ran on pre-qualification bytes; bridged to the committed file by
+  blanked-constant AST equality + identical assert-lineno tuple + re-derived figures (caveat on card).
+- [Fix 2] declarations: 11 updated, 2 none
+- [Build gate] PASSED (impact: test_book_export_interior_cover.py, pytest exit 0, 0 FAILED/ERROR lines;
+  prior live-agent impact gate: 2744 passed / 11 skipped / 0 failed, exit 0)
+
 
 - **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`, reading the ADR files **case-insensitively** for the reach-limit idiom. Sanity check: `Touches` includes `tests/**` and `src/nonogram/**`, so ADR-0039 must be in the kept set — if it is not, the derivation is broken, not the scope.
 - **[Why this is `architectural` and estimated 1d, not `trivial`]** The diff will be small. Three attempts have already been small. The owner's wave-50 rule floors a claim card at 0.75d and forbids `trivial`; this one is cut at **1d** and `architectural` because its deliverable is a **decided semantics**, and because `Complexity: architectural` is what makes the pipeline read the ADRs in full and demand a declared failure matrix before code — the exact discipline whose absence escalated CARD-206.
@@ -1284,3 +1330,55 @@ slots — serialization is the point, do not force-start."*
 **Worktree and branch are KEPT.** Three commits, a passing impact gate, and two review reports, both
 synced into the main repo. Nothing was committed by this cycle and the target file is byte-identical
 after all of the reviewer's mutation (`881bc2e2…` before and after, `git diff HEAD -- tests/` empty).
+
+
+---
+
+### [Concurrent-session contention] 2026-10-22 — a second orchestrator was driving these same cards
+
+Recorded because two of this card's agents independently reported it, and because it changes how one
+artefact must be read.
+
+**What was established, from the OS and from git rather than from reports.** A second Claude Code session
+(shell snapshot `ipm4et`; this session's is `nbfuhi`) was running the same wave-54 cards in the **same
+worktrees**. Observed live: a process polling `PythonProject4-card-262/meta/kanban/cards/CARD-262.md`'s
+mtime every 15 s, and a pytest run in `PythonProject4-card-270` under a `card270-review2.lock` this
+session never created. A memory entry written by a third session id (`d14443a2`, 17:47) describes that
+session dispatching recovery agents into **these two worktrees** on the same assumption this session
+made. All of those processes have since exited on their own; the machine was verified quiet (no shells,
+no pytest, nothing anchored in the repo) before work resumed.
+
+**Two measured contaminations, both reported by the agents themselves rather than discovered later:**
+
+1. **CARD-262's target file was edited after its fix agent certified it.** 23 comment/docstring sites
+   gained card-id qualifications (F-507, the one minor that agent had deliberately declined). The agent
+   disclosed the hash mismatch rather than hiding it: the matrix ran against `f6d113ed…`, the commit
+   holds `55311d7b…`.
+2. **CARD-270's worktree card copy was written into mid-verification**, with figures from no run this
+   session's agents made (a `BLANK-GONE` mutant, `:806`, "34 reached", a diff hash `ec0122bf…`). The fix
+   agent replaced that section with measured figures and said so.
+
+**The orchestrator's independent check, because an author-certified claim about bytes nobody re-fired at
+is exactly what this board does not accept.** Three load-bearing mutants were re-fired against CARD-262's
+**committed** bytes: `SHIPPED` exit 0; the cost-step mutant **RED**; the depth-bound mutant **RED**,
+naming `test_the_receiver_resolution_bound_is_reported_rather_than_capped`; the file restored
+**byte-identical** to `55311d7b…`. A third mutant self-skipped on a too-naive anchor (8 occurrences, not
+1) — an instrument limitation, **not a survivor**, and said so rather than counted as a kill. So the
+certification does transfer to the shipped bytes for the two mechanisms tested, and the residue is
+narrower than the agent's disclosure left it.
+
+**CARD-270's branch was rebased by the other session at 21:12** onto `0626b7fe` (this session's CARD-275
+commit). Verified rather than assumed: `git diff base..tip -- src/ tests/` is **byte-for-byte identical**
+across the rewrite (1262 lines both sides), the card's scope against main is unchanged at five files, and
+`admin.css` is absent from the fix commit. No work was lost; only the commit hashes moved
+(`4f41bbb4`→`a363da7e`, `fc035f7d`→`83278340`).
+
+**One artefact is preserved but NOT used as evidence.** The other session left
+`meta/review/20261022T175719Z-CARD-270-cycle2.yml` in CARD-270's worktree — a review of this card scoring
+**9.7**, timestamped **17:57**, i.e. **nine minutes after the implementation commit and an hour before
+this pipeline's cycle 1**. It is a different pipeline's artefact over bytes this session cannot
+reconstruct, and its cycle numbering collides with this one's. Decisive reason to exclude it: this
+pipeline's cycle 1 scored **8.4** and found F-001, a real Important that the fix round then confirmed and
+closed. **A 9.7 would have landed this card with the tautological assert still in it.** Copied to the
+session scratchpad under `foreign-session-artifacts/` so it survives, and left out of the card's
+evidence chain.
