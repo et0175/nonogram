@@ -98,6 +98,7 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(wave 54 queue, quick — owner decision 2026-10-22)_
+- **CARD-276** P2 · Close the door axis for real — anchoring as a fixed point, and the residue CARD-262 declared  _(unscheduled, `architectural` — **blocked on CARD-262 merging**; carries the transitive fixed point, three declared residues, six unfired matrix cells and two prose defects the AC/EC/G gate found)_
 - **CARD-275** P2 · The guide strip's frame vanishes against filled cells — the same ink-on-ink class, in the second place it lives  _(unscheduled — CARD-270 review F-004, carded on the owner's instruction; **merge CARD-270 first**, it reads the grey that card's pixel assertions depend on)_
 - **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2 — **now owns the folded `_ADAPTER_COUNT` question** (owner decision 2026-10-22); estimate 0.25d → 0.75d; its item 1 already measured BOTH rival bounds and neither dominates)_
 - **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
@@ -106,19 +107,15 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-274** P3 · admin/app.py splits into route modules — the blueprint refactor  _(unscheduled — after CARD-273)_
 
 ## In Progress
-- **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
-  `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions` · `base: 51128cf5 (main)`
-  `implementation 4f41bbb4` · `gate 2813/11/0` · `renders on disk (16 PNGs)` · `cycle 1: 8.4 — 0 critical, 1 important` → `fix 1 running`
-  `admin.css needs NO change — the reviewer calls the fix "correct, minimal and load-bearing"`
-  `G-3 ruled SATISFIED: the fixture-scope reshapes red in both directions, and the waiver door is shut`
-  `gating F-001: the blank-board arm is a tautology — _SHADOW_OFF disables a rule a blank board cannot match`
-- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
-  `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
-  `5.7 (c1) → fix 1 b88621d8 → 5.2 (c2) ⚠ stalled → escalated → owner: DECLARE the axis` · `cycle 3/3 running`
-  `the transitive fixed point becomes a follow-up card; this round declares the bound and lands`
+_(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 
 ## Review
-_(none)_
+- **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
+  `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions`
+  `cycle 1: 8.4 (1 Important) → fix fc035f7d → cycle 2: 9.7 ✓ PASSES (0 crit / 0 imp; mutation certification clean)` · `AC/EC/G gate running`
+- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
+  `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
+  `5.7 (c1) → 5.2 (c2) → owner: DECLARE the axis → fix ac479658 → cycle 3: 9.3 ✓ PASSES (0 crit / 0 imp; N17+N10 re-fired on committed bytes)` · `AC/EC/G gate running` · `F-601 worktree contamination caught & remediated by the review`
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…

@@ -1382,3 +1382,76 @@ pipeline's cycle 1 scored **8.4** and found F-001, a real Important that the fix
 closed. **A 9.7 would have landed this card with the tautological assert still in it.** Copied to the
 session scratchpad under `foreign-session-artifacts/` so it survives, and left out of the card's
 evidence chain.
+
+
+---
+
+### [AC/EC/G gate] PASSED — **MERGE**, and every verdict is the gate's own executed evidence
+
+The last check before merge, run with no review cycle after it. Its evidence is its own, not the card's:
+guard class **23 passed**; CON-019 tripwires **66 passed** unedited and absent from the diff; an
+independent re-derivation driver (`python -I`, importing the module and calling the analyser directly)
+reproduced **every** committed figure exactly — 23 sites / 6 names / 0 refusals / 0 bare literals, **816
+calls by the NodeVisitor and 816 by the flattening walk** with 0 non-syntactic callees, the cost sequence
+**760 / 509 / 203 / 201 / 0 / 0**, 7 guide expressions, the idiom authority **265 names vs 101 constants
+with an empty intersection**, 184 assert nodes / 70 in the guard class, 30 `DOOR_SHAPES` rows, 11
+blind-spot rows, 5 exemption classes.
+
+**Five line-count-preserving mutants against the COMMITTED bytes, all RED**, sha re-verified identical
+after each:
+
+| mutant | mechanism deleted | result |
+|---|---|---|
+| A | the `ONE_STEP_ANCHOR` gate in the `ast.Name` branch (= fix 1's ungated pass restored) | **RED** `:4631` + `:3967`; R1b/R1/R5/R7 lose their refusal, R2/R3/R4 keep theirs — **both** gate copies load-bearing, each with its own measured rows |
+| B | `generic_visit` in the new `NodeVisitor` (the round's own found survivor) | **RED** `:3666` — "585 calls vs 816" |
+| C | the refusing `else` → `elif 0:` | **RED** `:4140` |
+| D | `receiver_seen`'s raise → `return True` (fails open again) | **RED** `:4075` |
+| E | `CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` emptied | **RED** `:3866` — the replacement for the deleted strict-drop rule is load-bearing |
+
+**AC-1..AC-5 and G-1..G-6: all DEMONSTRATED**, with two honest qualifications the gate insisted on
+rather than smoothing. **AC-3** is met under the owner's declare mandate and **not** under its original
+absolute reading: the gate executed all 11 `MEASURED_BLIND_SPOTS` rows and every one returned `()`, so
+"a shape neither implementer nor reviewer enumerated is read or refused" is **false** for the
+one-step-anchor class — it is declared instead, which is exactly what the owner withdrew closure of.
+**AC-4**'s letter is unmet for the two structurally open axes: `_page_positions` exposes `doors=`,
+`follow_terms=`, `door_arms=` and `callee_exemptions=` and **no lever for the value or call-graph axis**,
+so those four rows assert silence only, with no "caught with the exemption removed" reading. The test
+docstring states that asymmetry rather than papering it over.
+
+**AC-5 executed in both directions and none of the three has become a floor:** sites 23 → **22** on
+removal / **24** on addition; guide-counting 7 → **6** / **8**; the vocabulary is an exact tuple equality
+where a planted position name enters it (addition reds) and `doors=()` yields `([], [])` (removal reds).
+**G-1** holds structurally — `git diff --name-only main...HEAD -- src/` is empty and the door arms are
+refusal-only, so sites and vocabulary are byte-identical with `door_arms=()`.
+
+**G-5's one disclosed relaxation, compensated and verified:** the single assertion deleted this round is
+`assert all(drop < 0 for drop in drops)`, replaced by two narrower equalities — the zero-cost-class list
+**and** "a zero-cost class must absorb a blind-spot row" — and mutant E shows the replacement reds.
+Everything else moved stricter.
+
+**Four additions to the uncertified list, which the fix agent's own nine missed**, plus one correction:
+
+1. *(correction)* Item 8 is overstated — F-507's comment/docstring sites **are** closed in the committed
+   file by the concurrent session's edits; what remains is only the twice-pinned **label** strings, one
+   of which the gate confirmed survives.
+2. **A claim pointing at a control that does not exist**: the `CALLEE_EXEMPTIONS` docstring at test-file
+   **line 2985** still names `test_no_callee_exemption_absorbs_a_door_it_must_not`, a test **this round
+   deleted**. Cosmetic, but it is literally this card's own family.
+3. **Four of the eleven blind-spot rows have no second reading at all** (the two VALUE, the two
+   CALL-GRAPH) — no lever exists for those axes.
+4. **The MODULE axis's control is a census equality**, so it reds when the census moves, not when the
+   walk's reach moves. Weaker than the exemption classes' controls, and said so.
+5. **`_page_positions`' docstring still opens** *"The walk fails closed on the door axis and on the
+   position axis's binding occurrences"*, with the full one-step narrowing arriving 15 lines later —
+   residual prose in the exact family that gated this card four times.
+
+**Bridge to the committed bytes, stated exactly:** fired against `55311d7b…` are SHIPPED, N17, N10 (the
+orchestrator's) plus the gate's A, B, C, D, E. **Still unfired there: N8, N12b, N13, N14, N16, N18** —
+six cells resting on the blanked-constant AST equality and the identical assert-lineno tuple, not on a
+re-run. That is the honest width of the gap the concurrent session opened, and it is now measured rather
+than estimated.
+
+**Verdict: MERGE as-is.** The three failure modes that would have blocked it — a floor dressed as an
+equality, a declaration with no falsifiable control, an arm loosened to make a broader claim true — are
+all absent. Conditions carried into `done`: re-verify the file sha at the merge gate, and cut the
+follow-up card (**CARD-276**).
