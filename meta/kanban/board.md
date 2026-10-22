@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 18:40 UTC_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 19:00 UTC_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -57,8 +57,8 @@ _Updated: 2026-10-22 18:40 UTC_  ·  <!-- forge:run wave=54 mode=interactive con
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
-| 53 | CARD-261 P2, CARD-262 P2 | ▶ active ⚠ (CARD-261 **done** `ac63e17a`; CARD-262 **escalated** at cycle 2/3 — improvement stalled) |
-| 54 | CARD-264 P2, CARD-270 P2, (queued: CARD-264 re-entry, CARD-271, CARD-267, CARD-269, CARD-268) | ▶ active ⚠ (CARD-264 narrowed and unblocked, guard folded to CARD-265; **CARD-262 escalated — improvement stalled**; CARD-270 the only card running, and the second slot is deliberately empty — everything queued conflicts with it or needs a full suite) |
+| 53 | CARD-261 P2, CARD-262 P2 | ▶ active (CARD-261 **done** `ac63e17a`; CARD-262 escalated at cycle 2/3 then re-entered — declaring the axis in cycle 3/3) |
+| 54 | CARD-264 P2, CARD-270 P2, (queued: CARD-264 re-entry, CARD-271, CARD-267, CARD-269, CARD-268) | ▶ active (CARD-264 narrowed, guard folded to CARD-265; CARD-262 escalated at cycle 2 then **re-entered on the owner's declare-the-axis route**; both slots full — CARD-270 in review, CARD-262 in its last fix cycle) |
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -104,13 +104,17 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 ## In Progress
 - **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
   `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions` · `base: 51128cf5 (main)`
-  `started 2026-10-22, took the slot CARD-264's escalation freed` · `implementation running`
+  `implementation landed 4f41bbb4` · `gate 2813 passed / 11 skipped / 0 failed` · `renders on disk (16 PNGs)` · `cycle 1 running`
+  `review must rule on one flagged judgement call: the CARD-235 fixture-scope registry edits vs G-3`
+- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
+  `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
+  `5.7 (c1) → fix 1 b88621d8 → 5.2 (c2) ⚠ stalled → escalated → owner: DECLARE the axis` · `cycle 3/3 running`
+  `the transitive fixed point becomes a follow-up card; this round declares the bound and lands`
 
 ## Review
 _(none)_
 
 ## Blocked
-- **CARD-262** 🔒 The page-position guard's door axis is open; close it or name every exemption with a control  ← **escalated 2026-10-22, station: implementation — `⚠ improvement stalled`.** Cycle 2 scored **5.2** against cycle 1's 5.7 (Δscore −0.5, Δcrit+imp −1), so both arms of the STALLED CHECK are true and the escalation is mandatory. The door axis is **still open**: fix 1 replaced default-allow with a **one-step** syntactic anchor, so appending one assignment buys silence on any shape the arms refuse — the plainest counterexample crosses the card's **own** rows W1 and W9. The card proves each arm catches what the other misses but never the **complement**, and the complement is false. The family *"the guard keeps claiming a reach it has not measured"* has gated **four times** across the slice chain, moving one level of indirection each time. `src/` diff still empty — no production risk. Worktree kept, 3 commits, both reports synced. Owner picks: (1) `/kanban redo CARD-262` with the family sentence as a Prior-attempt constraint _(the stalled check's default)_ · (2) **declare** the axis as a fifth `CALLEE_EXEMPTIONS` member with cost, blind spots and narrowed docstrings _(lands the card)_ · (3) spend cycle 3/3 on the transitive fixed point _(leaves no cycle to certify the fix)_.
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
 - **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/for…
 
