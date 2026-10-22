@@ -98,6 +98,7 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(wave 54 queue, quick — owner decision 2026-10-22)_
+- **CARD-275** P2 · The guide strip's frame vanishes against filled cells — the same ink-on-ink class, in the second place it lives  _(unscheduled — CARD-270 review F-004, carded on the owner's instruction; **merge CARD-270 first**, it reads the grey that card's pixel assertions depend on)_
 - **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2 — **now owns the folded `_ADAPTER_COUNT` question** (owner decision 2026-10-22); estimate 0.25d → 0.75d; its item 1 already measured BOTH rival bounds and neither dominates)_
 - **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
 - **CARD-272** P2 · The import guard gains the composite-capability rank (ADR-0040)  _(unscheduled — after CARD-265; delta carded 2026-10-22)_
