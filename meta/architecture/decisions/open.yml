@@ -288,6 +288,36 @@
 #       library present (~/.forge/decision-patterns.yml absent), so no
 #       prior_pattern fields.
 
+# updated_at: 2026-10-22 (inline surfacing by forge:architect during an
+#   architecture review the owner requested — "should we split modules?".
+#   Outcome of the review: no bounded-context or deployment split (ADR-0033's
+#   exit criteria — second owner, separate deployment, cross-book reuse — have
+#   not arrived); the admin/app.py blueprint split is a pure refactor needing
+#   no DEC. ONE decision surfaced: DEC-043, where a carved-out book-production
+#   package sits in ADR-0007's rank table. blocks: [decompose], not
+#   [synthesis] — c4/ exists and the DEC-025 precedent in this header applies;
+#   resolving it makes c4/components-CTX-001.puml and trace.yml STALE (CAP-006
+#   moves from COMP-009 to a new component), so a synthesis pass follows the
+#   implementation card. Facts verified on this date, recorded so the
+#   adr-writer and the implementation card inherit them checked rather than
+#   re-deriving them:
+#     * admin/ is ~25k of the repo's ~46k source lines; book production
+#       (the 8 admin/book_*.py modules plus print_specs.py, which book_manager
+#       and book_page_spec import) is 13,840 lines of that — figure corrected
+#       2026-10-22 at decompose from this note's original "10 modules, ~13k".
+#     * book_*.py import clues, difficulty, export (layout/pdf/png), db
+#       (book_manager.py, book_membership.py — deferred imports of
+#       nonogram.db only), errors, limits — and each other. NO book module
+#       imports the orchestrator, flask, or any adapter.
+#     * The guard's ranks (tests/test_cli.py): adapter=0 {cli, web, admin},
+#       orchestrator=1, capability=2 (the fallthrough — db/ lands here too),
+#       shared=3 {errors, limits}; rule: rank(imported) > rank(importer),
+#       one pinned exemption _LAUNCH_EDGE = (cli, web).
+#     * ADR-0033/R1's scope glob is src/nonogram/admin/book_*.py — whichever
+#       alternative wins except the status quo, that ADR needs a History
+#       amendment re-pointing the glob at the new location (the rule's
+#       substance is untouched).
+
 open:
   # ANNOTATED 2026-09-13 (CARD-076), NOT resolved. ADR-0025 added a fourth
   # difficulty tier (`guess`), so the `<difficulty>` component of both the
@@ -384,3 +414,15 @@ open:
   # Entry removed from open.yml per this project's convention (the validator errors on a
   # DEC present in both files); the question, alternatives and resolution live in
   # decisions/resolved.yml and in ADR-0039's Context/Alternatives sections.
+
+  # ---------------------------------------------------------------------------
+  # 2026-10-22 architecture review (DEC-043). See the header note for the
+  # verified facts this entry builds on.
+  # ---------------------------------------------------------------------------
+  # DEC-043 resolved 2026-10-22 by ADR-0040 (composite_capability_rank —
+  # src/nonogram/book/ at a new composite-capability rank between the
+  # orchestrator and the capabilities; Migration: rewrite; ADR-0007 revised
+  # alongside, ADR-0033/R1 scope glob widened). Entry removed per this
+  # project's convention (the validator errors on a DEC present in both
+  # files); question, alternatives and resolution live in
+  # decisions/resolved.yml and in ADR-0040's Context/Alternatives sections.

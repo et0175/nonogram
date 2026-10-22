@@ -199,3 +199,13 @@ resolved:
     resolved_by: ADR-0039
     resolution_label: three_rules_with_executing_checks
     date: 2026-10-17
+  - id: DEC-043
+    question: >
+      Book production (CAP-006, admin/book_*.py, ~13k lines) lives inside the
+      admin adapter where the import guard checks nothing it imports; carving
+      it out into src/nonogram/book/ requires deciding where that package sits
+      in ADR-0007's rank table, since book code imports clues, difficulty,
+      export and db — forbidden lateral traffic for a capability-rank sibling.
+    resolved_by: ADR-0040
+    resolution_label: composite_capability_rank
+    date: 2026-10-22
