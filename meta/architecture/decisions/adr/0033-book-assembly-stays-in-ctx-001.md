@@ -56,6 +56,7 @@ Book becomes the sole owner of membership (its own `book_puzzles` table), `puzzl
 ## History
 
 - 2026-09-22: Created — Book assembly kept in CTX-001 as its second aggregate; the one-book-per-puzzle rule left open as a product question.
+- 2026-10-22: Scope amendment, decision unchanged — ADR-0040 (DEC-043) carves book production out of the admin adapter into src/nonogram/book/ at a composite-capability rank; R1's scope glob widens to cover both the old and new locations for the duration of that migration. The context boundary this ADR decided (CAP-006 stays in CTX-001) is untouched.
 
 ## Rules
 
@@ -65,7 +66,7 @@ Book becomes the sole owner of membership (its own `book_puzzles` table), `puzzl
     Book assembly references puzzles by id and never changes a puzzle's grid,
     clues, difficulty tier or strategies; the only puzzle field it may write
     is the book-membership mirror (puzzles.book_id).
-  scope: {code: ["src/nonogram/admin/book_*.py"]}
+  scope: {code: ["src/nonogram/admin/book_*.py", "src/nonogram/book/**"]}
   check: {kind: review-lens}
   severity: mandatory
 ```

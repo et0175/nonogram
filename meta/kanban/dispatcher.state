@@ -1,10 +1,45 @@
-wave: 52
+wave: 54
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: []
+# 2026-10-22: THREE cards are active against this cap of 2, on the owner's explicit
+# "dispatch 264" while wave 53's two cards were still in fix rounds. Recorded as an
+# authorised breach rather than left to be inferred from the active list. The cap's
+# stated purpose -- merges run sequentially and never with concurrent full suites -- is
+# intact: no full-suite run is permitted in any of the three worktrees, each redirects
+# its suite lock to a scratch path, and no merge is pending. The cap returns to 2 when
+# wave 53 lands.
+#
+# 2026-10-22, later (run resume, owner's "commit the cards and run the wave"): the
+# breach is OVER and the cap is honoured again at 2. Both slots were held by STALLED
+# pipelines -- no agent was running for either card in the resuming session -- so the
+# run began with `run resume` rather than by starting new cards. CARD-264 escalated at
+# the rebase step (7-region semantic conflict with main over _ADAPTER_COUNT; see its
+# card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
+# at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
+active: [CARD-270, CARD-262]
 escalated: []
+# CARD-262's escalation CLOSED 2026-10-22 by owner decision: DECLARE the door axis, land the card.
+# Not "close it" -- the transitive fixed point becomes a follow-up card with a fresh cycle budget.
+# Re-entered at cycle 3/3 (the last), doing: the one-step-anchor class as a fifth CALLEE_EXEMPTIONS
+# member with its own cost step, cycle 2's seven plants + the W1xW9 cross asserted SILENT in
+# MEASURED_BLIND_SPOTS, both docstrings narrowed with the originals left visible, the arms' CROSS
+# asserted (the complement the card never asserted and which is false), both depth caps made to fail
+# closed with the measured control pair, and the three claim defects F-502/F-505/F-506 fixed.
+# NOTE FOR THE RECORD: cycle 3 is the last, so no review cycle remains to certify this fix. The fix
+# agent's own kill-instrument run is the certification of record and was briefed as such; whatever
+# ships uncertified must be named on the card. This is the wave-48 rule applied deliberately rather
+# than discovered afterwards.
+# CARD-264's escalation CLOSED 2026-10-22 by owner decision (option 1 of the three on its card):
+# fold the _ADAPTER_COUNT guard into CARD-265, narrow CARD-264 to its other six files. Merge commit
+# 4f7263fb resolved tests/test_cli.py to main's version, verified BYTE-IDENTICAL, so main's measured
+# guard is untouched. CARD-264 is back at Status: review and is FIRST IN LINE for the next free slot
+# (cycle 1 already passed at 8.3) -- deliberately NOT added to `active`, because the cap is 2 and
+# CARD-262 + CARD-270 hold both slots. Its build gate is owed: impact-set answers FULL on the narrowed
+# diff, and a full suite must not run beside two live pipelines.
+# Queue for the next free slots, in order: CARD-264 (review cycle on the narrowed diff + AC/EC/G gate),
+# then CARD-271, CARD-267, CARD-269, CARD-268 (the owner's bugs-first order).
 merged_wave_45:
   - id: CARD-248
     merge_commit: 1256982
@@ -1038,3 +1073,42 @@ resume_2026_10_22:
     boundary. The recovery needed no decision and there was none to make; the wave-53 dispatch is a
     decision and is the owner's, consistent with this board's practice of recording an owner_decision at
     every wave boundary (wave_45, wave_48, wave_52).
+
+wave_54:
+  dispatched: 2026-10-22
+  cards: [CARD-264]
+  concurrency_note: >
+    Three worktrees are live at once (CARD-261 fix 2, CARD-262 fix 1, CARD-264 implementation),
+    which is above the usual two but below dispatcher.max_concurrent. It is safe only because no
+    full-suite run is permitted in any of them: every agent redirects the lock to a scratch path
+    and scopes its runs, so CARD-255's guard cannot red a sibling.
+  base: >
+    CARD-264's worktree is cut from feb3e6b5 -- CARD-261's fix-1 commit -- not from main. CARD-261
+    rewrites CLAUDE.md's layout block and moves every line below it, so a main-based worktree would
+    have had the implementation write controls against a file about to change underneath it in the
+    same two paths. A rebase onto main is owed after CARD-261 merges, before CARD-264's gate.
+  conflict_edges: >
+    CARD-264 shares CLAUDE.md and tests/test_cli.py with CARD-261 -- 2 of 5 paths, which is 0.4
+    against dispatcher.max_overlap 0.3 and would normally serialize. Dispatched concurrently anyway
+    because the two cards collide in NEITHER path by construction: G-4 on CARD-261 and G-1 on
+    CARD-264 were written as mirror images so every line of CLAUDE.md has exactly one owner, and
+    CARD-261's cycle 2 verified the out-of-block defects present and byte-identical from the other
+    side. This is a deliberate override of the overlap score on measured evidence, not a miss.
+  contract: projection 10, kept 5, dropped 5 (ADR-0038/R7-R8 review-lens; ADR-0039/R1-R3 reach-limited)
+
+card_261_done:
+  merge_commit: ac63e17a
+  tested_tree: ff4374f6
+  at: 2026-10-22
+  gates: >-
+    Run in BOTH configurations, sequentially, which is a first on this board: the project
+    default (no database variable) gave 8823 passed / 27 skipped / 0 failed, and the
+    DB-mode run against a freshly migrated nonogram_test gave 8849 passed / 1 skipped / 0
+    failed. The two reconcile to the test -- 21 tests pass only with a database configured,
+    and 21 plus the 5 that needed the migration equals the 26-skip difference -- so nothing
+    moved between the runs except the database being present. That reconciliation is also
+    the first measurement of how much the project-default gate cannot see: twenty-six tests.
+  concurrency: >-
+    The owner's cap of 2 is restored by this merge; two cards remain active. The merge ran
+    with no other full suite on the machine, and the DB-mode gate refuses to start if it
+    finds one, so the cap's stated purpose is enforced by the script rather than remembered.

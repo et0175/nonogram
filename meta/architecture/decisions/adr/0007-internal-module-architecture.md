@@ -1,10 +1,10 @@
 # ADR-0007: Internal module architecture within the single Puzzle Creation context
 
-**Status:** Accepted
+**Status:** Accepted (revised 2026-10-22)
 **Date:** 2026-08-27
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
-**Migration:** —
+**Revised:** 2026-10-22
+**Migration:** rewrite
 **Pattern:** —
 **API-Posture:** —
 
@@ -19,6 +19,18 @@ Several constraints bear directly on this choice. CON-005 makes solver correctne
 We adopt the layered pipeline package: one installable package with a module per capability seam — `sourcing/`, `clues.py`, `solver/`, `difficulty.py`, `export/` — plus a thin pipeline orchestrator that owns the Puzzle aggregate and drives the generation policies (POL-001 through POL-005: regenerate, pixel-nudge, resample, and related retry loops), and a `cli.py` adapter that only parses arguments and calls the orchestrator. Dependencies point inward only: `cli.py` depends on the orchestrator, the orchestrator depends on the capability modules, and capability modules never import `cli.py` or each other laterally — a capability module's only outward-facing contact is the orchestrator that composes it into a run.
 
 This satisfies CTX-001's framing of the three seams as internal module boundaries rather than context boundaries: each module maps 1:1 onto one CAP-XXX, which keeps trace.yml and future kanban card cutting mechanical instead of requiring a separate mapping layer. It also gives INV-002 and INV-003 a single home — the orchestrator — which is exactly where invariants that span multiple capabilities (the export gate, the retry/nudge counter) need to live, rather than being scattered across call sites in each module. Because the orchestrator is the only thing composing capabilities together, the solver stays a pure function of clues with no I/O, so CON-005's mandatory correctness property and EC-001's property test can target it directly.
+
+Revision 2026-10-22 (ADR-0040 / DEC-043): the layering gains a fourth tier, the
+**composite-capability rank**, between the orchestrator and the capability
+modules. A composite composes capabilities the way the orchestrator composes
+the pipeline: it may import capability-rank and shared-rank modules, never an
+adapter, the orchestrator, or a sibling composite, and only adapters may
+import it. The first and so far only resident is `src/nonogram/book/`
+(CAP-006, book production), carved out of the admin adapter — the move itself,
+its rationale and its alternatives are ADR-0040's record, not this one's. The
+inward-only direction, the one-module-per-capability property and the
+orchestrator's sole ownership of AGG-001 and POL-001..005 are all unchanged;
+the guard in `tests/test_cli.py` enforces the extended table.
 
 ## Alternatives considered
 
@@ -58,4 +70,5 @@ Everything in one flat module, or a handful of files with no declared layering, 
 ## History
 
 - 2026-08-27: Created — adopted the layered pipeline package (one module per capability plus a thin orchestrator and cli.py adapter) over the strategy/plugin-registry and single-module-script alternatives.
+- 2026-10-22: Revised — resolves DEC-043 jointly with ADR-0040. Previous decision: three-tier rank table (adapter / orchestrator / capability, plus shared). Reason: book production (CAP-006, ~13k lines) had accreted at adapter rank where the guard checks nothing it imports; the table gains a composite-capability rank between orchestrator and capabilities. Migration: rewrite (the relocation of admin/book_*.py into src/nonogram/book/ is planned work).
 - 2026-09-11: Shared layer widened (CARD-063), no decision change. `nonogram/limits.py` — the supported grid size range, `MIN_SIZE`/`MAX_SIZE` — joins `errors.py` as the innermost shared module: constants only, imports nothing, importable from every layer. It was needed because a capability module may not import another: `difficulty.py` had kept its own copy of the range rather than import `sourcing/random_grid.py`. The import guard's `_SHARED` set (`tests/test_cli.py`) now names both modules and is pinned literally, so the shared layer cannot grow quietly.
