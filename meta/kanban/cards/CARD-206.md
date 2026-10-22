@@ -1,6 +1,6 @@
 # CARD-206: The interior opens with a blank title / copyright page, ahead of the guide
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false (config default; this card is a geometry/position change with an existing suite)
 **Branch:** card/206-interior-title-page
-**Worktree:** ../PythonProject4-card-206
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 ("# Book structure — The generator should construct the PDF in this order: Front matter ├─ Title / copyright page ├─ How to Solve Nonograms ├─ Table of Contents [generated]"); owner decision 2026-10-13 via AskUserQuestion — the page is **reserved blank** (a template page), not populated: "Leave it blank (template page) — reserve the page in the page plan so counts and parity are right, print nothing on it; you add the copyright text in the PDF afterwards."
 **Idea:** —
 **Wave:** 52
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
 **Review score:** 8.5 (cycle 3/3 — escalated, resolved by SLICE; AC/EC/G gate ✓ 11 of 11 after the G-3 correction)
 **Started:** 2026-10-21T22:18:12Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-22T07:37:15Z
+**Actual:** 0.39d (9.3h; 3 review cycles, 2 fix rounds, 1 escalation resolved by slice, 1 AC/EC/G gate, 2 build-gate attempts)
+**Merge commit:** `3addf01b`
 **Blocked by:** —
 
 ## What to implement
@@ -1591,3 +1591,43 @@ collects anything — which is a defect class worth a standing check, not anothe
 **Declined, correctly:** no plant on `layout.py` (G-2 forbids editing it, so the historical-range
 control stands in), none on the three byte-identity tripwires (a production file on the same path stood
 in), and no database plant at all.
+
+---
+
+### [Merge gate — PASSED] 8810 passed, 1 skipped, 0 failed, EXIT=0 — the three-way tree holds
+
+`cac8fffc` (the branch rebased onto main with CARD-259 merged), **solo**, lock taken and released,
+`DATABASE_URL` **set** against a derived database guarded twice before any server was touched (must end
+in `_test`, must not contain `nonogram_poc`). **1 skip** — the single `setrlimit(RLIMIT_AS)` the kernel
+refuses — so this ran at the board's documented gate condition, not CARD-260's unset one.
+
+**This was the first full suite to run three things in one tree:** CARD-206's 28-file diff, CARD-259's
+merged derived-set work, and the `scripts/impact_set.py` harness with its Makefile. I flagged that
+interaction two cards ago and expected it here; it arrived one card early, on CARD-259's gate, where it
+found a real defect in the harness. Here it held: **8810 passed against CARD-259's 8785**, the +25 being
+this card's own new tests.
+
+**Merge:** `git merge --no-ff` → **`3addf01b`** (`feat:` from `Category: feature`), 28 files,
++3209/−671. Target-unmoved guard verified (`git rev-parse main` equalled `git merge-base main
+<branch>`), and the merged tree is **byte-identical to the gated commit** across `src/`, `tests/`,
+`migrations/`, `pyproject.toml`, `Makefile` and `scripts/`.
+
+**Build-gate attempts used: 1 of 2**, from the interior-page-count pin repaired before review cycle 1.
+Neither fix round needed one.
+
+**The rebase collision was cleaner than CARD-259's and still verified rather than assumed:** all three
+review YAMLs *and* the card copy were byte-identical to main's, so nothing was at risk; backed up to the
+scratchpad before removal regardless.
+
+**One orchestrator error on the way, caught before it could run.** The gate script was first derived
+from CARD-259's by substituting `card_259` → `card_206`. The worktree path uses **hyphens**
+(`-card-259`), not underscores, so the substitution missed it and left the script pointed at a worktree
+that had already been removed. It would have failed loudly rather than silently — but that is not the
+same as correct, so the patch was discarded and the script rewritten with an explicit existence check on
+the worktree path. Recorded because it is the same shape as the defects this card's own gates kept
+finding: a textual transform that looks right and quietly covers the wrong thing.
+
+**Actual 0.39d against 0.5d — 0.78x, under estimate.** Worth stating plainly against the board's recent
+record: this is the second card in a row to come in under, after five waves of 3x–4x overruns. But the
+estimate was never the interesting number here — the card's cost was a guard it did not own, which is
+now CARD-262 and was removed from this card's scope rather than from its history.

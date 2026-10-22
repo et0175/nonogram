@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-22
+- CARD-206 (feature): The book's interior now opens with a blank title / copyright page — no folio, no ink of any kind — with every downstream page position derived from a constant rather than a literal. The front matter reads title (1) → How to Solve (2–3) → contents (4) → EASY divider (5) → first puzzle page 6, a left-hand page. Inserting the page flips the parity of everything after it, which moves each puzzle page's gutter side; that is what makes the guide's two pages genuinely face each other, confirmed on the rendered artefact. The copyright text is set into the exported PDF afterwards (owner decision 2026-10-13: the page is reserved blank).
 - CARD-259 (tech-debt): The record of why `reset_engine()` exists is stated once, and the set of texts that restate it is **derived from the filesystem and the AST rather than enumerated** — a docstring carrying the card's signature that is neither the keeper nor a pointer is a FAILURE, named by path, line and qualname. The card was titled "three places"; review found a fourth; the derivation finds **eleven**, including a file from another card that nobody had enumerated. The agreement arms hold the three texts that enumerate the mechanism, with the other eight held to the pointer alone and that asymmetry stated as a bound rather than claimed away.
 
 ## 2026-10-21

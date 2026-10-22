@@ -3,7 +3,7 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: [CARD-206, CARD-259]
+active: []
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-21T22:18:12Z   # wave 52 dispatched (run resume -> wave boundary)
+last_updated: 2026-10-22T07:37:15Z   # wave 52 complete; both cards merged
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -938,3 +938,64 @@ wave_52_phases:
       owed: flip test_scope to `impact` and make the practice the policy, or lower max_concurrent to 1 so
       `full` is actually reachable.
     findings_filed_about_another_card: 3
+
+wave_52_complete:
+  at: 2026-10-22T07:37:15Z
+  cards: [CARD-259, CARD-206]
+  merged: 2
+  escalations: 2
+  merges:
+    - id: CARD-259
+      merge_commit: 5f18e2f5
+      review_score: "8.5 (cycle 3/3)"
+      actual: 0.35d
+      estimate: 0.75d
+      accuracy: 0.46x
+      gate: >-
+        8785 passed, 1 skipped, 0 failed, EXIT=0, DATABASE_URL SET. Its FIRST run was RED on the
+        orchestrator's own impact-set harness -- a hard-coded .venv interpreter, where a card worktree has
+        no .venv and a merge gate always runs from one. Fixed on main (1c370193) with sys.executable plus
+        a control over the whole class, then re-gated.
+    - id: CARD-206
+      merge_commit: 3addf01b
+      review_score: "8.5 (cycle 3/3)"
+      actual: 0.39d
+      estimate: 0.5d
+      accuracy: 0.78x
+      gate: "8810 passed, 1 skipped, 0 failed, EXIT=0, DATABASE_URL SET -- the first full suite with both cards and the impact-set harness in one tree"
+  escalations_detail:
+    - id: CARD-206
+      trigger: "family_regression, streak 2 -- GENUINE"
+      family: "the page-position guard keeps claiming a reach it has not measured"
+      resolution: "owner chose SLICE; the guard left as CARD-262 and the card merged its title page with the claim narrowed"
+    - id: CARD-259
+      trigger: "family_regression asserted at streak 1 -- the orchestrator's error"
+      resolution: >-
+        The detector needs streak >= 2 and it was 1 (cycle 1's findings were the implementation's, so a
+        regression was impossible). The escalation was taken one cycle early. The owner's chosen route
+        was `continue` plus a deletions-only constraint, which is one of the procedure's own four routes,
+        and the card then converged. Corrected on the card; cost was one owner decision the procedure did
+        not require.
+  gate_condition_restored: >-
+    Both merge gates ran with DATABASE_URL SET against per-worktree derived databases, each name guarded
+    twice before any server was touched (must end in `_test`, must not contain `nonogram_poc`). 1 skip
+    each, not 27. This RETIRES the declared bound CARD-260 merged under, where the condition was unset
+    and the gate exercised ~26 fewer tests than the one that certified CARD-258.
+  the_waves_lesson: >-
+    Both cards produced the same shape from opposite directions and it is worth promoting at the
+    retrospective: CARD-259's mechanism outran its claims, CARD-206's claims outran its mechanism. The
+    board's own ADR-0039/R1 covers both, but what actually caught them was neither review nor the author
+    -- it was the AC/EC/G gate run BLIND of the review's verdicts, which failed both cards after they had
+    passed review (CARD-259's AC-2 on wording the orchestrator wrote; CARD-206's G-3 on a test name that
+    collects nothing, pytest exit 5, the identical mistake already recorded at CARD-221.md:227).
+  estimate_turn: >-
+    Two cards in a row came in UNDER (0.46x, 0.78x) after five waves of 3x-4x overruns. The owner's
+    wave-50 claim-card floor forced CARD-259 off trivial/0.5d at dispatch and the work then cost less
+    than the floor -- the first evidence the floor is a floor rather than a new bias in the other
+    direction.
+  queue_note: >-
+    CARD-206's real diff was 28 files against 7 declared, and it overlaps the Touches of 12 ready cards,
+    two of them at 100% and 89% (CARD-219, CARD-218). Those two touch no declared hotspot of their own,
+    so the predictor would score them parallel-safe against a card like this. tests/helpers/book_corpus.py
+    was added to conflict.hotspots and CARD-206's own Touches corrected, which covers the pairs that
+    DECLARE it -- the residue is in backlog.md as an @ops item. All twelve now need a rebase.
