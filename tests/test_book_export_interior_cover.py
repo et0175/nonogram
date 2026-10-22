@@ -1122,29 +1122,34 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
     survived CARD-200's TOC and this card's title page unnoticed.
 
     So the bound is not declared any more; it is closed.
-    :meth:`_page_position_sites` enumerates **every page position in the
-    module**, derived rather than listed: the seed is the one geometry door
-    every position must reach (:meth:`BookPDFGenerator.page_spec`, ADR-0036/R2's
-    "one door"), the vocabulary of position names is grown from it to a fixed
-    point — a parameter that a door is given is a position, an argument passed
-    to such a parameter is one, a name bound from one is one — and every
-    binding of a vocabulary name (assignment, ``for`` target, walrus, parameter
-    default) and every non-name expression handed to a door is a site. A site
-    may hold the integer constants ``0`` and ``1`` (the term that turns a count
-    of front-matter pages into the 1-based position after them) and nothing
+    :meth:`_page_positions` enumerates the module's page positions, derived
+    rather than listed: the seed is the geometry door every position must
+    reach (:meth:`BookPDFGenerator.page_spec`, ADR-0036/R2's "one door"), the
+    vocabulary of position names is grown from it to a fixed point, and every
+    binding occurrence of a vocabulary name is a site. A site may hold the
+    integer constants ``0`` and ``1`` (the term that turns a count of
+    front-matter pages into the 1-based position after them) and nothing
     else, so ``3 + len(section)`` is a failure and
     ``1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + …`` is not.
 
-    **What this still cannot see, measured rather than assumed.** A position
-    that arrives as an attribute of a plan object (``plan.page_number``) is a
-    site with no literal in it — where that attribute was *set* is a site in
-    its own right, but only if it was set in this module. A position computed
-    in another module and passed in is outside the enumeration entirely
-    (``book_kdp`` states no front-matter term of its own: it delegates to
-    :func:`interior_page_count`). And a wrong position spelled ``0`` or ``1``
-    is allowed by construction. The monkeypatch case still covers what it
-    covered — every position that reaches a byte of output — and the two now
-    overlap rather than lean on each other.
+    **And it fails closed** (ADR-0039/R2; review cycle 2's F-201 measured
+    eight shapes passing the first version of this walk silently). What the
+    walk reads is data rather than prose — :data:`BINDERS_READ`,
+    :data:`STRING_FIELDS_READ`, :data:`GEOMETRY_DOORS`,
+    :data:`FRONT_MATTER_CONSTANTS` — and a shape a position flows through
+    that none of them names is a **refusal**, which reds naming the line and
+    the shape. The set is held to an equality rather than a floor;
+    :data:`PLANTED_SHAPES` is the measured table of what the walk reads and
+    what it refuses; and the one shape still allowed silently is
+    :data:`EXEMPTION`, whose control and whose cost on this module are both
+    asserted.
+
+    Two things are outside the enumeration rather than refused by it: a
+    position computed in **another module** and passed in (``book_kdp`` states
+    no front-matter term of its own — it delegates to
+    :func:`interior_page_count`), and a wrong position spelled ``0`` or ``1``.
+    The monkeypatch case covers every position that reaches a byte of output,
+    and the two overlap rather than lean on each other.
     """
 
     MODULE = "src/nonogram/admin/book_pdf_generator.py"
@@ -1188,11 +1193,13 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         import ast
 
         sites = self._counting_expressions()
-        # The set is not empty, and it is not one site either: the positions
+        # An equality, not a floor (ADR-0039/R3; review cycle 2, F-201 filed
+        # the two floors below this one and this is the third): the positions
         # the card had to move are the guide's own range, the TOC's page
         # number, `section_plan`'s `first_page`, `first_answer_page`, the two
-        # walk defaults and `interior_page_count`'s formula.
-        assert len(sites) >= 6, [text for _, _, text in sites]
+        # walk defaults and `interior_page_count`'s formula — seven, so one
+        # appearing or vanishing reds here instead of drifting under a floor.
+        assert len(sites) == 7, [text for _, _, text in sites]
         for line, node, text in sites:
             names = {
                 inner.id for inner in ast.walk(node) if isinstance(inner, ast.Name)
@@ -1227,19 +1234,26 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             "a page offset is written as a literal rather than counted from "
             f"TITLE_PAGE_COUNT/GUIDE_PAGE_COUNT: {offenders}"
         )
-
     # ----------------------------------------------------------------------
-    # CARD-206 review F-102 — every page position, not only the guide-derived
-    # ones, and the set derived from the module's one geometry door
+    # CARD-206 review F-102 / F-201 — every page position the walk can
+    # follow, and a loud refusal for every shape it cannot
     # ----------------------------------------------------------------------
 
-    #: The seed of the derivation below: the module's one door onto page
-    #: geometry (ADR-0036/R2, :meth:`BookPDFGenerator.page_spec`'s own
-    #: docstring, "the one door onto the book's geometry"). Every interior
-    #: page position in this module is a value that reaches it, directly or
-    #: through a parameter — which is what makes a *derived* set possible at
-    #: all, and what the control below removes to show the catch depends on it.
+    #: The seed of the derivation below: the module's door onto page geometry
+    #: (ADR-0036/R2, :meth:`BookPDFGenerator.page_spec`'s own docstring, "the
+    #: one door onto the book's geometry"). Every interior page position in
+    #: this module is a value that reaches it, directly or through a
+    #: parameter — which is what makes a *derived* set possible at all, and
+    #: what :meth:`test_each_geometry_door_carries_a_site_of_its_own` removes
+    #: one member at a time to show the catch depends on each of them.
     GEOMETRY_DOORS = ("page_spec", "book_page_spec")
+
+    #: The parameter that carries an interior page position through a door.
+    #: Each door is seeded at the index of *this* parameter in that door's own
+    #: signature, read from the signature rather than written here (review
+    #: cycle 2, F-203: a hard-wired ``args[0]`` fed ``book_page_spec`` its
+    #: *book*). A door whose signature has no such parameter is a refusal.
+    POSITION_PARAMETER = "page_number"
 
     #: The only integer constants a page-position expression may hold: the
     #: ``1`` that turns a count of front-matter pages into the 1-based
@@ -1248,15 +1262,125 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
     #: count spelled as a literal.
     POSITION_LITERALS = (0, 1)
 
+    #: The two module-level integer names a position may be counted from. Any
+    #: *other* module-level name bound to an integer literal is read as that
+    #: literal wherever it appears in a position, so a front-matter count
+    #: hidden behind a name of its own is still reported (shape V15 below).
+    FRONT_MATTER_CONSTANTS = ("TITLE_PAGE_COUNT", "GUIDE_PAGE_COUNT")
+
+    #: The ``(node class, field)`` pairs that may hold a position name as a
+    #: bare string and that the walk reads. Any other one that holds a
+    #: position name is a refusal — which is what closes the walk over the
+    #: grammar instead of over the shapes that came to mind. V10 and V11
+    #: below measure two of those refusals firing.
+    STRING_FIELDS_READ = (
+        ("Name", "id"),
+        ("Attribute", "attr"),
+        ("keyword", "arg"),
+        ("arg", "arg"),
+    )
+
+    #: The binder shapes the walk reads, and the field of each holding the
+    #: expression a position bound there is computed from. A binding of a
+    #: position in any other shape is a refusal.
+    BINDERS_READ = {
+        "Assign": "value",
+        "AnnAssign": "value",
+        "AugAssign": "value",
+        "For": "iter",
+        "AsyncFor": "iter",
+        "comprehension": "iter",
+        "NamedExpr": "value",
+        "withitem": "context_expr",
+    }
+
+    #: The guard's one exemption (ADR-0039/R3), and the only shape allowed
+    #: silently rather than read or refused: a term of a position expression
+    #: that is itself a **non-position** name or attribute is read for the
+    #: literals written in the expression and not followed into its own
+    #: bindings. ``follow_terms=True`` removes it; its control is
+    #: :meth:`test_the_one_exemption_does_not_absorb_what_it_must_not` and its
+    #: cost is the equality in
+    #: :meth:`test_the_exemptions_cost_on_this_module_is_the_measured_one`.
+    EXEMPTION = "a non-position term of a position expression is not followed"
+
     @classmethod
-    def _page_position_sites(cls, source=None, doors=None):
-        """``([(line, kind, name, text, literals)], vocabulary)`` for ``source``.
+    def _door_position_slots(cls, tree, doors, source):
+        """``({door: slot}, refusals)``, each slot read off the door's own
+        signature rather than written down (F-203)."""
+        import ast
+        from pathlib import Path
+
+        local = {
+            node.name: node
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        imported = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                for alias in node.names:
+                    imported[alias.asname or alias.name] = node.module
+
+        slots, refusals = {}, []
+        for door in doors:
+            names = None
+            if door in local:
+                arguments = local[door].args
+                names = [
+                    argument.arg
+                    for argument in arguments.posonlyargs + arguments.args
+                ]
+                if names and names[0] in ("self", "cls"):
+                    names = names[1:]
+            elif door in imported:
+                where = (
+                    Path(__file__).resolve().parents[1]
+                    / "src"
+                    / (imported[door].replace(".", "/") + ".py")
+                )
+                if where.exists():
+                    for node in ast.walk(ast.parse(where.read_text(encoding="utf-8"))):
+                        if (
+                            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            and node.name == door
+                        ):
+                            arguments = node.args
+                            names = [
+                                argument.arg
+                                for argument in arguments.posonlyargs + arguments.args
+                            ]
+                            break
+            if names is None or cls.POSITION_PARAMETER not in names:
+                refusals.append(
+                    (
+                        0,
+                        "a geometry door with no "
+                        f"{cls.POSITION_PARAMETER} parameter to seed from",
+                        door,
+                        repr(names),
+                    )
+                )
+                continue
+            slots[door] = names.index(cls.POSITION_PARAMETER)
+        return slots, refusals
+
+    @classmethod
+    def _page_positions(cls, source=None, doors=None, follow_terms=False):
+        """``([(line, kind, name, text, literals)], vocabulary, refusals)``.
 
         ``source`` defaults to the module's own text; a caller may pass one of
-        its own, which is how the planted-literal control below measures this
-        analyser without touching a file on disk.
+        its own — which is how every control below measures this analyser
+        without a file on disk being mutated.
+
+        The walk **fails closed** (ADR-0039/R2): binding occurrences come from
+        the module's own store contexts rather than from a list of statement
+        kinds, and every shape a position can flow through that this walk does
+        not read appends a refusal below instead of passing.
+        ``follow_terms`` removes the one :data:`EXEMPTION`.
         """
         import ast
+        import builtins
         from pathlib import Path
 
         if source is None:
@@ -1265,6 +1389,15 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             )
         doors = cls.GEOMETRY_DOORS if doors is None else tuple(doors)
         tree = ast.parse(source)
+        parent = {}
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                parent[child] = node
+
+        slots, refusals = cls._door_position_slots(tree, doors, source)
+
+        def segment(node):
+            return "" if node is None else (ast.get_source_segment(source, node) or "")
 
         def called(call):
             if isinstance(call.func, ast.Attribute):
@@ -1277,27 +1410,64 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             args = node.args.posonlyargs + node.args.args
             return args[1:] if args and args[0].arg in ("self", "cls") else args
 
+        def resolve(expr):
+            """The position names ``expr``'s value flows from, or ``None``
+            when ``expr`` is an expression to be read rather than a reference
+            to follow. Following an attribute by its own name and a subscript
+            or star by its base is what makes a container, a star-call and a
+            plan attribute analysable instead of opaque."""
+            if isinstance(expr, ast.Name):
+                return {expr.id}
+            if isinstance(expr, ast.Attribute):
+                return {expr.attr}
+            if isinstance(expr, (ast.Subscript, ast.Starred)):
+                return resolve(expr.value)
+            return None
+
         defs = {}
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 defs.setdefault(node.name, []).append(node)
         calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
 
-        vocabulary = set()
-        sites = []
-        seen = set()
+        vocabulary, sites, seen = set(), [], set()
 
         def feed(expr, kind, name):
-            """A name is a position; anything else is a site to be read."""
-            if isinstance(expr, ast.Name):
-                vocabulary.add(expr.id)
+            names = resolve(expr)
+            if names:
+                vocabulary.update(names)
             elif id(expr) not in seen:
                 seen.add(id(expr))
                 sites.append((expr, kind, name))
 
         for call in calls:
-            if called(call) in doors and call.args:
-                feed(call.args[0], "door argument", called(call))
+            door = called(call)
+            if door not in slots:
+                continue
+            slot = slots[door]
+            given = [
+                keyword.value
+                for keyword in call.keywords
+                if keyword.arg == cls.POSITION_PARAMETER
+            ]
+            if slot < len(call.args):
+                given.append(call.args[slot])
+            given.extend(
+                argument.value
+                for argument in call.args[: slot + 1]
+                if isinstance(argument, ast.Starred)
+            )
+            if not given:
+                refusals.append(
+                    (
+                        call.lineno,
+                        "a geometry door called with nothing in its position slot",
+                        door,
+                        segment(call),
+                    )
+                )
+            for expr in given:
+                feed(expr, "door argument", door)
 
         # Grow to a fixed point: a parameter a position is passed to is itself
         # a position, so its default and every argument its callers give it are
@@ -1315,18 +1485,25 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             # too. That is how ``puzzle_pages``' ``first_page`` is one — it
             # reaches the door only through ``page_number = first_page``.
             for node in ast.walk(tree):
-                if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Name):
+                if not isinstance(node, ast.Assign):
+                    continue
+                copied = resolve(node.value)
+                if not copied:
                     continue
                 if any(
-                    isinstance(target, ast.Name) and target.id in vocabulary
+                    (isinstance(target, ast.Name) and target.id in vocabulary)
+                    or (
+                        isinstance(target, ast.Attribute)
+                        and target.attr in vocabulary
+                    )
                     for target in node.targets
                 ):
-                    vocabulary.add(node.value.id)
+                    vocabulary.update(copied)
             for name, nodes in defs.items():
                 for node in nodes:
                     args = node.args
-                    slots = positional(node)
-                    offset = len(args.posonlyargs + args.args) - len(slots)
+                    slots_here = positional(node)
+                    offset = len(args.posonlyargs + args.args) - len(slots_here)
                     pairs = list(
                         zip(
                             args.posonlyargs + args.args,
@@ -1354,51 +1531,193 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                 "set it reports is not the module's"
             )
 
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.Assign, ast.AnnAssign)):
-                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                named = [
-                    target.id
-                    for target in targets
-                    if isinstance(target, ast.Name) and target.id in vocabulary
-                ]
-                if named and node.value is not None and id(node.value) not in seen:
-                    seen.add(id(node.value))
-                    sites.append((node.value, "assignment", ",".join(named)))
-            elif isinstance(node, (ast.For, ast.AsyncFor)):
-                target = node.target
-                elements = (
-                    [target] if isinstance(target, ast.Name) else list(getattr(target, "elts", []))
-                )
-                named = [
-                    element.id
-                    for element in elements
-                    if isinstance(element, ast.Name) and element.id in vocabulary
-                ]
-                if named and id(node.iter) not in seen:
-                    seen.add(id(node.iter))
-                    sites.append((node.iter, "loop", ",".join(named)))
-            elif isinstance(node, ast.NamedExpr):
-                if isinstance(node.target, ast.Name) and node.target.id in vocabulary:
-                    if id(node.value) not in seen:
-                        seen.add(id(node.value))
-                        sites.append((node.value, "walrus", node.target.id))
+        # Every *binding occurrence* of a position name, found from the
+        # module's own store contexts rather than from a list of statement
+        # kinds: a binder this walk does not read is a refusal, so a shape
+        # nobody thought of reds instead of passing (V10, V12, V13 below).
+        def bound_name(node):
+            if isinstance(node, ast.Name):
+                return node.id
+            if isinstance(node, ast.Attribute):
+                return node.attr
+            if isinstance(node, ast.Subscript):
+                return bound_name(node.value)
+            return None
 
+        kinds = {
+            "Assign": "assignment",
+            "AnnAssign": "assignment",
+            "AugAssign": "augmented",
+            "For": "loop",
+            "AsyncFor": "loop",
+            "comprehension": "comprehension",
+            "NamedExpr": "walrus",
+            "withitem": "with",
+        }
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Name, ast.Attribute, ast.Subscript)):
+                continue
+            if isinstance(getattr(node, "ctx", None), ast.Load):
+                continue
+            name = bound_name(node)
+            if name not in vocabulary:
+                continue
+            cursor = node
+            while isinstance(parent.get(cursor), (ast.Tuple, ast.List, ast.Starred)):
+                cursor = parent[cursor]
+            binder = parent.get(cursor)
+            shape = type(binder).__name__
+            if shape not in cls.BINDERS_READ:
+                refusals.append(
+                    (
+                        node.lineno,
+                        f"a position bound in a {shape}, which this walk does "
+                        "not read",
+                        name,
+                        segment(binder),
+                    )
+                )
+                continue
+            value = getattr(binder, cls.BINDERS_READ[shape])
+            if value is None or id(value) in seen:
+                continue
+            seen.add(id(value))
+            sites.append((value, kinds[shape], name))
+
+        # A position name held as a bare string anywhere this walk does not
+        # read it — `MatchAs.name`, `alias.asname`, `Global.names`.
+        for node in ast.walk(tree):
+            held_in = type(node).__name__
+            for field in getattr(node, "_fields", ()):
+                value = getattr(node, field, None)
+                if isinstance(value, str):
+                    held = [value]
+                elif isinstance(value, list):
+                    held = [item for item in value if isinstance(item, str)]
+                else:
+                    held = []
+                for text in held:
+                    if text in vocabulary and (
+                        held_in,
+                        field,
+                    ) not in cls.STRING_FIELDS_READ:
+                        refusals.append(
+                            (
+                                getattr(node, "lineno", 0),
+                                f"a position name held in {held_in}.{field}, "
+                                "which this walk does not read",
+                                text,
+                                segment(node),
+                            )
+                        )
+
+        # A position that is a parameter of something that is not a `def`, so
+        # neither its default nor its callers' arguments were read.
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.arg) or node.arg not in vocabulary:
+                continue
+            holder = parent.get(parent.get(node))
+            while holder is not None and not isinstance(
+                holder, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+            ):
+                holder = parent.get(holder)
+            if not isinstance(holder, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                refusals.append(
+                    (
+                        node.lineno,
+                        "a position as a parameter of a "
+                        f"{type(holder).__name__}, whose callers this walk "
+                        "does not read",
+                        node.arg,
+                        segment(holder),
+                    )
+                )
+
+        # A door handed around rather than called: a `functools.partial` of it,
+        # or any other reference, carries the position somewhere this walk
+        # cannot see the call.
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Attribute) or node.attr not in doors:
+                continue
+            above = parent.get(node)
+            if isinstance(above, ast.Call) and above.func is node:
+                continue
+            refusals.append(
+                (
+                    node.lineno,
+                    "a geometry door referenced without being called",
+                    node.attr,
+                    segment(above),
+                )
+            )
+
+        module_integers = {}
+        for node in tree.body:
+            if (
+                isinstance(node, ast.Assign)
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, int)
+                and not isinstance(node.value.value, bool)
+            ):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        module_integers[target.id] = node.value.value
+
+        names_of = frozenset(dir(builtins))
         found = []
         for expr, kind, name in sites:
-            literals = sorted(
-                {
-                    inner.value
-                    for inner in ast.walk(expr)
-                    if isinstance(inner, ast.Constant)
-                    and isinstance(inner.value, int)
-                    and not isinstance(inner.value, bool)
-                }
-            )
+            literals = set()
+            for inner in ast.walk(expr):
+                if isinstance(inner, ast.Call) and called(inner) not in names_of:
+                    refusals.append(
+                        (
+                            inner.lineno,
+                            "a position computed through a call this walk "
+                            "cannot follow",
+                            name,
+                            segment(inner),
+                        )
+                    )
+            for inner in ast.walk(expr):
+                if isinstance(inner, ast.Constant):
+                    if isinstance(inner.value, bool):
+                        continue
+                    if isinstance(inner.value, int):
+                        literals.add(inner.value)
+                    elif isinstance(inner.value, str) and inner.value.strip().isdigit():
+                        literals.add(int(inner.value.strip()))
+                elif isinstance(inner, ast.Name) and isinstance(inner.ctx, ast.Load):
+                    if (
+                        inner.id in module_integers
+                        and inner.id not in cls.FRONT_MATTER_CONSTANTS
+                    ):
+                        literals.add(module_integers[inner.id])
+                    elif (
+                        follow_terms
+                        and inner.id not in vocabulary
+                        and inner.id not in cls.FRONT_MATTER_CONSTANTS
+                        and inner.id not in names_of
+                    ):
+                        literals.add(("not followed", inner.id))
+                elif isinstance(inner, ast.Attribute) and isinstance(
+                    inner.ctx, ast.Load
+                ):
+                    if follow_terms and inner.attr not in vocabulary:
+                        literals.add(("not followed", "." + inner.attr))
             found.append(
-                (expr.lineno, kind, name, ast.get_source_segment(source, expr), literals)
+                (
+                    expr.lineno,
+                    kind,
+                    name,
+                    ast.get_source_segment(source, expr),
+                    sorted(literals, key=repr),
+                )
             )
-        return sorted(found), sorted(vocabulary)
+        return (
+            sorted(found),
+            sorted(vocabulary),
+            sorted({(line, shape, name, text) for line, shape, name, text in refusals}),
+        )
 
     @classmethod
     def _bare_literals(cls, sites):
@@ -1407,6 +1726,152 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             for line, kind, name, text, literals in sites
             if any(v not in cls.POSITION_LITERALS for v in literals)
         ]
+
+    #: The module's own derived ``first_answer_page``, which every planted
+    #: shape below replaces line-count-preservingly in a copy of the module's
+    #: text held in memory. It must occur exactly once, so an edit to it reds
+    #: rather than quietly planting nothing.
+    DERIVED_POSITION = """        first_answer_page = (
+            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
+        )"""
+
+    #: Review cycle 2, F-201's own nine shapes (V0–V9) and six more, each
+    #: hiding the literal ``3`` in a page position, with the outcome this walk
+    #: must produce: ``"offender"`` when it reads the literal, ``"refusal"``
+    #: when it cannot follow the shape and says so. Eight of V1–V9 passed
+    #: **silently** before this round. V10–V15 are shapes this walk has no
+    #: branch for, and are here because the closures rather than a branch are
+    #: what must catch them.
+    PLANTED_SHAPES = (
+        (
+            "V0 bare literal (the proven control)",
+            """        first_answer_page = (
+            3 + len(section)
+        )""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V1 list container + subscript",
+            """        _slots = [3 + len(section)]
+        first_answer_page = _slots[0]
+        #""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V2 dict container",
+            """        _slots = {"answers": 3 + len(section)}
+        first_answer_page = _slots["answers"]
+        #""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V3 tuple-unpack assignment",
+            """        first_answer_page, _spare = 3 + len(section), 0
+        #
+        #""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V4 augmented assignment (+= 3)",
+            """        first_answer_page = len(section)
+        first_answer_page += 3
+        #""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V5 functools.partial onto the door",
+            """        _door = functools.partial(self.page_spec)
+        _door(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+            ("refusal",),
+        ),
+        (
+            "V6 keyword-only call into the door",
+            """        self.page_spec(page_number=3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+        #""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V7 comprehension target",
+            """        _specs = [p for first_answer_page in [3 + len(section)]
+                  for p in [first_answer_page]]
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V8 attribute assigned in this module",
+            """        self.page_number = 3 + len(section)
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+        #""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V9 starred call into the door",
+            """        _args = [3 + len(section)]
+        self.page_spec(*_args)
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+            ("offender",),
+        ),
+        (
+            "V10 match-case capture",
+            """        match 3 + len(section):
+            case int() as first_answer_page:
+                pass""",
+            "",
+            ("refusal",),
+        ),
+        (
+            "V11 import-as rebinding",
+            """        import os as first_answer_page
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 3
+        #""",
+            "",
+            ("offender", "refusal"),
+        ),
+        (
+            "V12 with-as target",
+            """        with _positions(3 + len(section)) as first_answer_page:
+            pass
+        #""",
+            "\n\ndef _positions(n):\n    return n\n",
+            ("offender", "refusal"),
+        ),
+        (
+            "V13 lambda parameter default",
+            """        _f = lambda first_answer_page=3 + len(section): first_answer_page
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+        #""",
+            "",
+            ("refusal",),
+        ),
+        (
+            "V14 return value of a module function",
+            """        first_answer_page = _hidden_position(section)
+        #
+        #""",
+            "\n\ndef _hidden_position(section):\n    return 3 + len(section)\n",
+            ("refusal",),
+        ),
+        (
+            "V15 page count behind a module-level name",
+            """        first_answer_page = (
+            _HIDDEN_FRONT_MATTER + len(section)
+        )""",
+            "\n\n_HIDDEN_FRONT_MATTER = 3\n",
+            ("offender",),
+        ),
+    )
 
     #: A module shaped like ``interior_stream``'s own prelude, used by the
     #: control below: the defect F-102 found, and the derivation that replaced
@@ -1436,36 +1901,91 @@ class Generator:
         "        )",
     )
 
+    #: The one shape :data:`EXEMPTION` absorbs, and what it must not be read
+    #: as covering: a front-matter count reached through a local name the
+    #: walk does not follow. A source this test owns, so the control can
+    #: measure both states of the exemption.
+    EXEMPTED_TERM = '''
+TITLE_PAGE_COUNT = 1
+GUIDE_PAGE_COUNT = 2
+
+
+class Generator:
+    def page_spec(self, page_number=1):
+        return (page_number,)
+
+    def plan(self, section, toc_page_count):
+        hidden = 3
+        first_answer_page = hidden + len(section)
+        return self.page_spec(first_answer_page)
+'''
+
+    #: The set this module holds today, as an equality rather than a floor
+    #: (ADR-0039/R3): a site appearing or vanishing reds here and says which.
+    #: ``book_page_spec``'s seed is counted in it now that its slot is read
+    #: from its signature (F-203).
+    POSITION_NAMES = (
+        "first_answer_page",
+        "first_page",
+        "guide_page_number",
+        "page_number",
+        "puzzle_page",
+        "title_page_number",
+    )
+    POSITION_SITE_COUNT = 23
+
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
-        """The set is grown from ``page_spec``, and it is not empty or tiny.
+        """The set is grown from the doors, and held to an equality.
 
-        Non-vacuity first, because an enumeration that found nothing would
-        make the literal check below pass by construction — which is the
-        failure mode this card's own review found in the narrower guard. The
-        floor is deliberately below the set this module holds today, so an
-        ordinary edit does not move it and a derivation that collapsed to
-        nothing cannot hide. The count itself is not asserted: it is a figure
-        no control could fail on, and every page position it covers is
-        checked by the test below whatever the total is.
+        An enumeration that found nothing would make the literal check below
+        pass by construction, which is the failure the narrower guard had.
+        The count and the names are asserted exactly, so the day a position
+        is added to or removed from the module this reds and names it.
         """
-        sites, vocabulary = self._page_position_sites()
+        sites, vocabulary, refusals = self._page_positions()
 
-        assert len(sites) >= 18, sites
-        assert len(vocabulary) >= 4, vocabulary
-        for name in ("page_number", "first_answer_page", "first_page"):
-            assert name in vocabulary, (
-                f"{name} is bound to a page position in {self.MODULE} and the "
-                f"derivation did not reach it: {vocabulary}"
-            )
+        assert refusals == [], refusals
+        assert tuple(vocabulary) == self.POSITION_NAMES, vocabulary
+        assert len(sites) == self.POSITION_SITE_COUNT, (
+            f"the module holds {len(sites)} page-position sites, not "
+            f"{self.POSITION_SITE_COUNT}: a position was added or removed, so "
+            "this equality and the figure in the card's notes both need "
+            f"re-measuring. {[(line, kind, name) for line, kind, name, _, _ in sites]}"
+        )
         # ADR-0039/R1's own shape: the catch depends on the set member. Take
-        # the door away and the derivation has no seed, so it reports nothing
+        # the doors away and the derivation has no seed, so it reports nothing
         # at all -- which is what makes "derived from the door" a measurement
         # rather than a sentence about the code above.
-        without, no_vocabulary = self._page_position_sites(doors=())
-        assert (without, no_vocabulary) == ([], []), (
+        without, no_vocabulary, no_refusals = self._page_positions(doors=())
+        assert (without, no_vocabulary, no_refusals) == ([], [], []), (
             "the enumeration still finds page positions with no geometry "
             "door in its seed set, so it is not derived from the door"
         )
+
+    def test_each_geometry_door_carries_a_site_of_its_own(self):
+        """ADR-0039/R1, per member: every door catches something no other
+        door does — caught with it in the set, missed without it.
+
+        Review cycle 2, F-203: ``book_page_spec``'s slot used to be
+        ``args[0]``, which is its *book*, so the member contributed no
+        position at all and this control could not have existed. Its slot is
+        read from its signature now.
+        """
+        full = {
+            (line, kind, name)
+            for line, kind, name, _, _ in self._page_positions()[0]
+        }
+        for door in self.GEOMETRY_DOORS:
+            rest = tuple(d for d in self.GEOMETRY_DOORS if d != door)
+            without = {
+                (line, kind, name)
+                for line, kind, name, _, _ in self._page_positions(doors=rest)[0]
+            }
+            assert full - without, (
+                f"removing {door!r} from GEOMETRY_DOORS changes nothing this "
+                "enumeration reports, so that member is inert and the set "
+                "claims a reach one of its members does not carry"
+            )
 
     def test_no_page_position_in_the_module_is_written_as_a_bare_literal(self):
         """F-102: the literal check over **every** position, not only the
@@ -1476,12 +1996,51 @@ class Generator:
         guide-counting walk above never visited it, and it reached no byte of
         output, so the monkeypatch case could not see it either.
         """
-        sites, _ = self._page_position_sites()
+        sites, _, _ = self._page_positions()
 
         assert self._bare_literals(sites) == [], (
             "an interior page position is written with a literal page count "
             "in it rather than counted from TITLE_PAGE_COUNT/"
             f"GUIDE_PAGE_COUNT: {self._bare_literals(sites)}"
+        )
+
+    def test_every_planted_position_shape_is_caught_or_refused(self):
+        """F-201: the shape table, re-run against the module's own text.
+
+        Eight of F-201's nine shapes passed silently. Each is planted here
+        line-count-preservingly into a copy of the module's source held in
+        memory — nothing on disk is mutated — and each must come back either
+        as a literal this walk read or as a refusal it named. A shape that
+        comes back clean is a silent pass, which is what ADR-0039/R2 forbids.
+        """
+        from pathlib import Path
+
+        source = (Path(__file__).resolve().parents[1] / self.MODULE).read_text(
+            encoding="utf-8"
+        )
+        assert source.count(self.DERIVED_POSITION) == 1, (
+            "DERIVED_POSITION no longer occurs exactly once in "
+            f"{self.MODULE}, so these shapes would plant nothing and pass "
+            "vacuously"
+        )
+
+        measured = []
+        for label, body, extra, _ in self.PLANTED_SHAPES:
+            assert len(body.splitlines()) == 3, label
+            planted = source.replace(self.DERIVED_POSITION, body) + extra
+            sites, _, refusals = self._page_positions(planted)
+            outcome = []
+            if self._bare_literals(sites):
+                outcome.append("offender")
+            if refusals:
+                outcome.append("refusal")
+            measured.append((label, tuple(outcome)))
+
+        assert measured == [
+            (label, outcome) for label, _, _, outcome in self.PLANTED_SHAPES
+        ], (
+            "a planted page-position shape came back with an outcome this "
+            f"table does not declare; an empty tuple is a silent pass: {measured}"
         )
 
     def test_a_planted_bare_literal_is_caught_and_the_derivation_is_not(self):
@@ -1492,8 +2051,8 @@ class Generator:
         still holds the defect. Both sources are this test's own: one with
         F-102's literal in it, one with the derivation that replaced it.
         """
-        planted, planted_vocabulary = self._page_position_sites(self.PLANTED_LITERAL)
-        derived, derived_vocabulary = self._page_position_sites(self.DERIVED_INSTEAD)
+        planted, planted_vocabulary, _ = self._page_positions(self.PLANTED_LITERAL)
+        derived, derived_vocabulary, _ = self._page_positions(self.DERIVED_INSTEAD)
 
         assert "first_answer_page" in planted_vocabulary, planted_vocabulary
         assert planted_vocabulary == derived_vocabulary, (
@@ -1508,3 +2067,53 @@ class Generator:
             "the derived form is reported as a bare literal, so this guard "
             "would red on the fix as well as on the defect"
         )
+
+    def test_the_one_exemption_does_not_absorb_what_it_must_not(self):
+        """:data:`EXEMPTION`'s control, in both states (ADR-0039/R3).
+
+        The exemption is that a non-position term of a position expression is
+        read for the literals written in it and not followed into its own
+        bindings. What it must **not** be read as covering is a front-matter
+        count that is right there in the module behind such a term, and that
+        is what this plants: with the exemption removed the walk reports it,
+        with the exemption in place it does not.
+        """
+        kept, _, _ = self._page_positions(self.EXEMPTED_TERM)
+        removed, _, _ = self._page_positions(self.EXEMPTED_TERM, follow_terms=True)
+
+        assert self._bare_literals(kept) == [], (
+            "the exemption no longer absorbs a non-position term, so its "
+            "measured cost on the module is out of date too"
+        )
+        assert [
+            (kind, name, bad) for _, kind, name, _, bad in self._bare_literals(removed)
+        ] == [
+            (
+                "assignment",
+                "first_answer_page",
+                [("not followed", "hidden"), ("not followed", "section")],
+            )
+        ], self._bare_literals(removed)
+
+    def test_the_exemptions_cost_on_this_module_is_the_measured_one(self):
+        """What the exemption costs here, as a number rather than a sentence.
+
+        Removing it reds on the module itself — five of its sites hold a term
+        this walk does not follow — which is the measurement the exemption
+        rests on, and it is asserted rather than written down so that it
+        cannot go stale while the docstring keeps claiming it.
+        """
+        exempted = self._bare_literals(self._page_positions(follow_terms=True)[0])
+        terms = sorted(
+            {
+                item[1]
+                for _, _, _, _, bad in exempted
+                for item in bad
+                # A bare integer here would be a literal the walk read, not a
+                # term it declined to follow; it belongs to the test above.
+                if isinstance(item, tuple)
+            }
+        )
+
+        assert len(exempted) == 5, exempted
+        assert terms == ["index", "pages", "section", "toc_page_count"], terms

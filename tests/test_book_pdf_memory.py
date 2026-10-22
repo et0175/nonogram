@@ -3070,7 +3070,7 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
         # this one's; both are subtracted again below to land the reference
         # on CARD-201's own shipped layout, the same even shift this class's
         # `_reference` uses and for the same parity reason.
-        new_number = 1 + TITLE_PAGE_COUNT + 2 + plan.toc_page_count + len(plan.pages)
+        new_number = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages)
         reference = generator.create_divider_page(new_number - plan.toc_page_count - TITLE_PAGE_COUNT, "SOLUTIONS")
         assert _matches_shifted_content(
             _ink_bbox_crop(exported[new_number - 1]), _ink_bbox_crop(reference)
@@ -3092,7 +3092,7 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
         """
         # CARD-200 (SCOPE+): `plan.toc_page_count` is this card's own new
         # term in `first_answer_page`'s own arithmetic.
-        first_answer_page = 1 + TITLE_PAGE_COUNT + 2 + plan.toc_page_count + len(plan.pages) + 1
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages) + 1
         titles = generator.custom_titles()
         payloads = list(zip(plan.ids, plan.payloads))
 
@@ -3466,7 +3466,7 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
     def test_the_solutions_divider_matches_above_the_footer(
         self, generator, plan, exported, cutoff
     ):
-        new_number = 1 + TITLE_PAGE_COUNT + 2 + plan.toc_page_count + len(plan.pages)
+        new_number = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages)
         old_number = new_number - TITLE_PAGE_COUNT
         reference = generator.create_divider_page(old_number, "SOLUTIONS")
         assert _matches_shifted_content(
@@ -3477,7 +3477,7 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
     def test_every_answer_page_matches_above_the_footer(
         self, generator, plan, exported, cutoff
     ):
-        first_answer_page = 1 + TITLE_PAGE_COUNT + 2 + plan.toc_page_count + len(plan.pages) + 1
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages) + 1
         titles = generator.custom_titles()
         payloads = list(zip(plan.ids, plan.payloads))
 

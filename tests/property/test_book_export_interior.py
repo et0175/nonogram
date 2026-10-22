@@ -1113,12 +1113,16 @@ def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
             outside_mm=PARITY_OUTSIDE_MM,
         )
         # The separation is not a floor any more but the figure itself
-        # (review cycle 1, F-101): parity moves the usable area sideways by
-        # the whole `gutter - outside` and never changes its size, so the two
-        # specs put the same drawing exactly that far apart -- and only if
-        # they are opposite hands. A floor of `> 4.0` passed on three
-        # different readings of this quantity, which is how a docstring
-        # figure that reproduces on no case of the corpus survived a cycle.
+        # (review cycle 1, F-101). What this assertion pins is the module's
+        # own millimetre model, and only that: both readings come from
+        # `_expected_drawing_left_mm`, whose two branches differ by
+        # `gutter - outside` whatever the puzzle, so it reds on a drift in
+        # that function or in the two PARITY constants and not on a
+        # production parity failure (review cycle 2, F-202). The production
+        # claim -- that the exported page draws where its hand says -- is
+        # carried by the two ink arms below, which read the page's own
+        # drawing: a production mutant that stops parity moving the margins
+        # reds those two and leaves this one alone.
         separation_mm = PARITY_GUTTER_MM - PARITY_OUTSIDE_MM
         assert abs(abs(right_hand_mm - left_hand_mm) - separation_mm) < 1e-6, (
             f"{label}: this corpus's two parities put the drawing at "
