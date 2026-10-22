@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 12:05 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 12:30 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -94,10 +94,10 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 ## In Progress
 - **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates
   `worktree: ../PythonProject4-card-261` · `branch: card/261-control-the-component-map`
-  `build gate: PASSED (8009/16/0, impact-scoped)` · `review cycle 1: 7.5 / 10` · `fix round 1 running`
+  `cycle 1: 7.5 / 10` · `fix 1: feb3e6b5 (+1285/-22, 130 tests in test_cli.py)` · `cycle 2 + gate running`
 - **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
   `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
-  `implementation in flight, uncommitted; resumed for its hand-back`
+  `8bc7671f committed; matrix re-firing, notes pending`
 
 ## Review
 _(none)_

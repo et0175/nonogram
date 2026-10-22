@@ -15,7 +15,7 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** CLAUDE.md, src/nonogram/__init__.py, tests/test_cli.py
-**Review score:** 7.5 (cycle 1, min_score 8 — not a pass)
+**Review score:** 7.5 (cycle 1) → fix 1 `feb3e6b5` → cycle 2 running
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
@@ -436,3 +436,103 @@ fuses `_CLAUDE_MD_ROW` and `_COMPONENT_ID` into a **single arm** ("the CLAUDE.md
 patterns"), so whether the two patterns are **independently** controlled is *not established* by the
 reported figures. It also named two further arms worth adding: `_canonical_map`'s
 `if not body or body[0].isspace(): continue` and `_component_modules`' walrus `is not None` guard.
+
+---
+
+### [Fix round 1] `feb3e6b5` — both gating findings closed, and the fixer corrected my brief on the way
+
+Four files, explicit pathspecs, `+1285/−22`. `tests/test_cli.py` 107 → **130** tests; `TestComponentMap_*`
+11 → **34** across five classes. Nine on-disk plants shown red→green; 16 mutants, 15 killed, 1 **proved**
+behaviour-equivalent. Review cycle 2 dispatched; build gate running impact-scoped at `feb3e6b5` with the
+board lock redirected to a scratch path, because CARD-262 is live in the sibling worktree.
+
+**F-101, both halves.** `CLAUDE.md:42` states no count and names no module; it points at the canonical
+map and at `_ADAPTERS`. The control that holds it, `test_claude_md_states_no_count_of_adapters`, **strips
+markdown emphasis first** — and that detail is the interesting one: the shipped clause wrote `**three**`,
+so a reader of bare words would have passed the exact line the control exists to refuse. Written before
+the `CLAUDE.md` edit, it red on the shipped file quoting the clause verbatim. The bound itself is now a
+committed table — `TestComponentMap_WhatTheClaudeMdReaderAbsorbs`, 5 must-catch and 5 known-miss asserted
+one-for-one with a `len(CASES) >= 10` floor — plus the hole's **edge**: cycle 1's prose plant is missed,
+the same paragraph with one `COMP-001` added is caught. Widening `_claude_md_rows` reds **three** tests,
+one of which says *"the declared hole has closed … AC-3's bound and this class must be rewritten"*.
+
+**F-102.** `_c4_components` parses the C4 authority by macro **prefix**, so `ComponentDb(`/`db/` is not
+missed, and default-denies any declaration it cannot analyse. `_id_defects` carries ten kinds — four
+needing no authority at all (id claimed twice, id no row carries, id no diagram enumerates, CAP id not in
+the registry), four pairing comparisons, and two that hold the R3 exemption set **in both directions**.
+Cycle 1's plant C now reds on **four** keys at once, plant D on three including `['COMP-004']` vanished,
+and an em-dash→hyphen swap in the puml reds as `unanalysable Component declarations`.
+
+**My brief was wrong about the CAP authority, and the fixer held it instead of exempting it.** I measured
+`capabilities.yml` as pairing nothing with a module — true, and now asserted as a control. But I had
+already read the puml lines where the **fourth** argument leads with the capability id
+(`Component(sourcing, "COMP-003 …", "Python — sourcing/", "CAP-001: produces a …")`) and I did not see
+it: the pairing was in my own grep output. It covers exactly `sourcing`/`clues`/`solver`/`difficulty`/
+`export` — exactly the five map rows that carry a CAP id — with the residual hole measured at **one**
+(`admin/` names CAP-006 mid-sentence, so parser and map agree on carrying none), pinned by
+`test_the_capability_pairing_reads_only_a_leading_cap_id`. Cycle 2 is re-deriving it, because a
+five-row agreement that is really a coincidence would be a control resting on luck.
+
+**Every other figure of mine reproduced exactly:** 13 walk components; 10 COMP ids across `Component(`×9
+plus `ComponentDb(`×1 at `:102`; module in the third argument with the trailing parenthetical excluded;
+`errors`/`limits`/`analysis` id-less at 10 of 13; CAP-001..007; `_ADAPTERS` at `:748`; and both
+denominators, 46,289 against 46,260, numerator 29,358 at both commits.
+
+**The three arms cycle 1 could not settle all fired, separately.** `_CLAUDE_MD_ROW` alone (3/2 FAIL) and
+`_COMPONENT_ID` alone (4/3 FAIL) each kill independently, so the fused-arm question is answered.
+**Domain, as required:** 138 `ast.Assert` nodes in `tests/test_cli.py` — an assert-node count, not a
+collected-test count; selection the five `TestComponentMap_*` classes; 34 collected tests; 55 arms
+reached; SHIPPED 0 FAIL of 55 reached at exit 0; child instrumentation off; ANY-RED over both passes;
+re-run at the final committed state and cell-for-cell identical.
+
+**The one mutant that did not kill is proved a no-op, not a survivor** — and the proof is the kind this
+board has been asking for. `_map_row_ids`' `isspace` guard is unreachable because `_ROW_IDS` is anchored
+and the non-match path is `continue`: 13 rows with the guard, the identical 13 tuples without it. The
+**asymmetry** is the load-bearing part — `_canonical_map`'s non-match path is *deny*, so the same guard
+there does matter, and M3 killed 4/4.
+
+**The bound it declared rather than closed, which is cycle 2's first target.** The canonical map now
+carries a **"two pipeline adapters"** count with **no control** — no artifact pairs a component with
+"is a pipeline adapter". The fixer's argument is that this count sits beside held rows and beside
+`_ADAPTERS` where CLAUDE.md's sat alone. That may be right, but F-101 *was* an uncontrolled count in a
+file agents read, and an uncontrolled count in `src/nonogram/__init__.py` is still one. Cycle 2 is asked
+to decide whether the defect moved or closed, by planting a wrong count rather than by reasoning.
+
+**AC-4 survives a second fix round.** `grep -c '^-[^-]'` against `fac4896f` → **0**; `--numstat` →
+`1028 0`. Against `604cc542` it is `781 14`, and each of the 14 removed lines was checked individually as
+absent from `fac4896f` — the fixer worked under the constraint of rewriting only lines *this card*
+introduced. Cycle 2 re-derives it.
+
+**AC-5 is met as written but outgrown**, and the fixer proposed amended wording rather than leaving it
+to be noticed at the gate: substitute "English description" for "description", state that the COMP/CAP
+columns are now held against the puml, and require the remaining hole to be *asserted* rather than
+declared. The shipped artefact already satisfies the amended form. Cycle 2 judges the wording.
+
+### Two decisions of mine, recorded
+
+**F-107 stays on CARD-264** — routed there at `529d9543` as AC-7, after I measured it wider than cycle 1
+filed it: three stale "two" claims, not one (the test's name, its docstring's first line, and the module
+comment above `_ADAPTERS` which now reads as a prohibition on a decision that already landed). The
+sequencing is the thing to watch: **CARD-261 is what creates the reachable pointer**, because F-101(a)
+sends a `CLAUDE.md` reader straight to `_ADAPTERS` and that reader lands on a test whose name lies.
+CARD-264 should go out in the next wave rather than sit unscheduled.
+
+**A bug of mine in the gate script, worth recording because it is the third of its family this week.**
+My first run reported `selected 6324 files` and `PYTEST_EXIT=4`. `SEL=${(f)"$(...)"}` assigns a **scalar**
+in zsh, so `${#SEL}` counted characters and `"${SEL[@]}"` passed the whole listing as one argument —
+pytest's usage error, not a test failure. Fixed by making it an array, `SEL=( ${(f)"$(...)"} )`. The
+family: zsh does not word-split unquoted expansions, and every tool I write that pipes a file list into
+`pytest` has to say so explicitly. The gate was re-run; the first run tested **nothing** and must not be
+read as evidence of anything.
+
+### The disclosure the fixer volunteered, which is a trap worth keeping
+
+An early ad-hoc probe of its own ran `import nonogram` without the worktree's `src` on `sys.path` and
+silently resolved to the **editable install's** copy in the main checkout, reporting **11** rows — the
+*pre-card* map. No write, no test run there; it then verified through pytest that the worktree's own
+`__init__.py` is loaded with 13 rows, and redid the affected proof. It flagged this itself.
+
+Keep it: `pyproject.toml`'s `pythonpath = ["src"]` makes **pytest** correct inside a worktree, and makes
+every ad-hoc `python -c "import nonogram"` **wrong there** — it reads main. Any structural probe from a
+card worktree must go through pytest, or put the worktree's `src` first with `python -I`. A figure that
+disagrees with a worktree's own tree by exactly the pre-card value is this, not a real disagreement.
