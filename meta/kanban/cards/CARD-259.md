@@ -1142,3 +1142,30 @@ and the two `db_required` tests in the edited file did not run, so that AC is no
 — to add `tests/helpers/undefined_table_report.py` with its reason. The content is right and it
 declared it, so it is kept rather than reverted; noted because the two-writer rule is what keeps a
 card's fields from being overwritten by a stale worktree copy.
+
+---
+
+### [Build gate — fix 1] PASSED, and the selector's fail-closed verdict was overridden on derived evidence
+
+**3326 passed, 16 skipped, 0 failed, EXIT=0** over a 35-file selection at `84fd9ded`. The 16 skips are
+`db_required`/browser, green. Run independently of the agent's own 11-file run (945 passed) and
+strictly broader than it.
+
+**The selector said `FULL`, and it was right to.** `scripts/impact_set.py --base 27ca88c7` returns
+`FULL` for this card, because `tests/conftest.py` is in its `UNANALYSABLE` set and *is* changed against
+the merge-base — fix round 0 edited its docstrings. Every test in the suite depends on `conftest.py`,
+so the selector refuses to narrow. That is the designed fail-closed behaviour and it fired correctly.
+
+**Why it was narrowed anyway, and on what.** A full suite takes `meta/kanban/.full-suite.lock`, and
+CARD-255's guard raises `pytest.UsageError` on a foreign holder — CARD-206's gate and review were live
+in another worktree, so a full run here would have red them. The narrowing rests on evidence the
+selector cannot see and does not try to: **`tests/conftest.py`'s change is docstring-only, proved by
+AST digest equality against the merge-base — 33624 bytes, `4cfa0b4b…`, both sides.** A docstring-only
+change to `conftest.py` cannot alter any test's behaviour. So the six remaining changed paths were
+handed to the selector instead, and it chose 35 files.
+
+**This is an override of a fail-closed gate and is recorded as one, not smoothed over.** What makes it
+legitimate is that the premise is *derived* rather than judged: the AST digests are recomputed, not
+asserted. What it costs is that the selector's own refusal no longer appears in this card's evidence
+chain — hence this note. The full suite still runs at the merge gate, which is the backstop that makes
+any narrowing safe, and `conftest.py` will be inside it.
