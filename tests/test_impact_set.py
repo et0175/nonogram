@@ -30,8 +30,10 @@ that bound itself, and the full merge-gate suite is what covers it.
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -337,6 +339,50 @@ def test_the_real_suite_has_scanning_tests_and_the_lock_guard_is_one():
     assert Path("tests/test_full_suite_lock.py") in scanners
 
 
+def test_no_test_executes_a_hard_coded_venv_interpreter():
+    """The control for CARD-259's merge-gate red, which was in this file.
+
+    A card **worktree has no ``.venv``** — only the main checkout does — and a
+    merge gate always runs from a worktree. So a test that spawns
+    ``REPO/.venv/bin/python`` passes everywhere it is usually run and raises in
+    the one place that decides whether a card merges. That is what happened:
+    ``test_the_selector_runs_as_a_script_and_prints_paths`` hard-coded it, every
+    impact-scoped gate missed it because the file did not yet exist in the
+    worktree, and the full-suite merge gate caught it at 1 failed of 8784.
+
+    This closes the class rather than that instance: a ``.venv`` path may be
+    *written* (a docstring telling a human what to run, a parsed log sample, a
+    fake ``activate`` a shell-script test builds in its own tmp root — all of
+    which exist in this suite today and are fine) but never **executed**. The
+    discriminator is whether the string reaches a process-spawning call.
+    """
+    spawners = ("subprocess.run", "subprocess.Popen", "subprocess.check_output",
+                "subprocess.check_call", "os.execv", "os.spawnv")
+    offenders = []
+    for path in sorted((REPO / "tests").rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if ".venv" not in text:
+            continue
+        for node in ast.walk(ast.parse(text)):
+            if not isinstance(node, ast.Call):
+                continue
+            called = ast.unparse(node.func)
+            if not any(called.endswith(s.split(".")[-1]) and s.split(".")[0] in called
+                       for s in spawners):
+                continue
+            if ".venv" in ast.unparse(node):
+                offenders.append(
+                    (path.relative_to(REPO).as_posix(), node.lineno, called)
+                )
+    assert offenders == [], (
+        "a test spawns a hard-coded .venv interpreter, which raises in every "
+        "card worktree and so in every merge gate; use sys.executable:\n"
+        + "\n".join(f"  {f}:{n} {c}(...)" for f, n, c in offenders)
+    )
+
+
 def test_this_selector_cannot_narrow_the_run_that_would_catch_its_own_breakage():
     assert "scripts/impact_set.py" in impact.UNANALYSABLE
     assert "Makefile" in impact.UNANALYSABLE
@@ -373,9 +419,17 @@ def test_a_new_untracked_test_file_is_in_the_changed_set(tmp_path: Path):
 
 
 def test_the_selector_runs_as_a_script_and_prints_paths():
-    """The Makefile calls it as a subprocess, so that path is a control too."""
+    """The Makefile calls it as a subprocess, so that path is a control too.
+
+    The interpreter is ``sys.executable``, not ``REPO/.venv/bin/python``.
+    That distinction is the whole of CARD-259's merge-gate red: a card
+    **worktree has no ``.venv``** (only the main checkout does), so the
+    hard-coded path raised in every worktree while passing in the main
+    checkout — and a merge gate always runs from a worktree. The running
+    interpreter is by definition the one that can import this suite.
+    """
     out = subprocess.run(
-        [str(REPO / ".venv" / "bin" / "python"), str(SELECTOR), "meta/kanban/board.md"],
+        [sys.executable, str(SELECTOR), "meta/kanban/board.md"],
         capture_output=True,
         text=True,
         cwd=REPO,
