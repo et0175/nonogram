@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** FR-044 **AC-312..315 and EC-037** define the error counter as continuously displayed, and a further AC pins its DOM order relative to the hint and progress counters. This card changes that behaviour, so the requirement must change first — `/forge:architect` delta on `requirements.yml`, then `decompose`. Implementing against a live AC the code contradicts would red this card's own AC/EC gate, correctly.
+**Blocked by:** FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/forge:architect` delta on `requirements.yml`, then `decompose`. A drafted delta is in `## Proposed FR-044 delta` below. **EC-037 needs no change.**
 
 ## Why — a visible error count is a free hint, and it is the strongest one
 
@@ -157,3 +157,154 @@ game, not just stingier.
   (`solver_state.js:556` says so: *"CARD-183, IDEA-074; FR-044 extension, no AC id yet"*). That gap is
   worth closing in the same delta: hints have been shipping since CARD-183 without a requirement behind
   them.
+
+---
+
+## Proposed FR-044 delta (drafted 2026-10-22, for `/forge:architect`)
+
+**Read first, because it narrows the change:** the coupling is **not** where the card first said it was.
+`AC-312..315` state the count's **arithmetic** — *"the error count reads 1"*, *"it reads 0 — undecided
+cells never count"* — and AC-315 is already phrased *"when the error count **is read**"*. None of them
+asserts continuous display. What breaks when the counter is hidden is their **verifying test**:
+`TestSolverProgress_LiveErrorCount` is a browser test whose helper does
+
+```python
+counter = page.locator("[data-player-errors]")
+assert counter.is_visible()          # tests/test_puzzle_solver_progress.py:143
+return int(counter.text_content())
+```
+
+so the value is verified *through the visible DOM*. And the AC that actually pins presence is **AC-354**,
+not AC-312..315. **EC-037 is pure arithmetic over any board and any matching solution, verified by
+`PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition` — it is unaffected and must not be
+touched.**
+
+### 1. AC-312..315 — `then` gains the request; statements otherwise unchanged
+
+The arithmetic is right and should not move. Only make the read explicit, so the AC is satisfiable by a
+count that exists on request:
+
+```yaml
+# .functional[43].acceptance[16]  (AC-312)  -- then:
+then: the error count, when requested, reads 1
+# likewise acceptance[17] (AC-313): ... when requested, reads 1
+# likewise acceptance[18] (AC-314): the error count, when requested, reads 0 — the count is the
+#          current number of wrong marks, not a running total
+# acceptance[19] (AC-315) needs NO text change: it already says "when the error count is read"
+```
+
+And re-point all four `test:` fields from `TestSolverProgress_LiveErrorCount` to
+`TestSolverProgress_ErrorCountOnRequest` — **renaming the class rather than keeping a name whose word
+"Live" would then be false.** (This board has twice shipped a test name describing a retired statement:
+EC-034's name on CARD-206, and CARD-221's `TestBookGuidePageType_*`, which named nothing at all.)
+
+### 2. AC-354 — splits in two, because it currently conflates the row with the counter
+
+Today: *"'Progress: 0%' follows the error counter, then the hint counter, in DOM order, on the error
+counter's row at desktop width; the page has no horizontal scroll at 390 px."*
+
+```yaml
+# AC-354 (amended) -- the row without the error counter
+given: the player page at desktop width and at 390 px
+when: the counter row is read
+then: '"Progress: N%" precedes the hint counter in DOM order on one row at desktop width, and the
+  page has no horizontal scroll at 390 px'
+kind: happy
+test: TestSolverPercent_SitsNextToTheCounters
+
+# AC-3NN (NEW) -- the requested count's placement and announcement
+given: the player page with at least one wrong mark
+when: the error count is requested
+then: the count appears in the counter row and is announced once to assistive technology; it is
+  absent from the DOM until requested, and requesting it does not move the progress or hint counters
+kind: happy
+test: TestSolverProgress_TheRequestedCountIsPlacedAndAnnounced
+```
+
+**The announcement half is the part that is easy to lose.** The counter today sits in a `role=status`
+`aria-atomic="true"` region updated on every stroke, and `puzzle_solve.html:148-150` records a
+*deliberate* split between DOM order (Errors, Hints, Progress) and visual order (Progress, Errors,
+Hints). An on-demand value that silently drops the live region leaves a screen-reader user **worse
+served than today** — so the new AC must assert the announcement, not only the placement.
+
+### 3. Hints need a requirement at all — the real gap
+
+`src/nonogram/admin/static/solver_state.js:556` says it outright: *"Hints (CARD-183, IDEA-074; FR-044
+extension, **no AC id yet**)"*. Hints have shipped since CARD-183 with **nothing in the registry behind
+them**, which is why this card has nowhere to attach a rung. Close that in the same delta — four ACs for
+the shipped behaviour plus two for the new rung, so the new work extends a specified feature rather than
+an unspecified one:
+
+```yaml
+# Shipped since CARD-183, specified here for the first time:
+- id: AC-3NN   # a hint reveals one cell
+  given: a board with at least one undecided cell
+  when: a hint is taken
+  then: exactly one undecided cell is set to its solution state and no other cell changes
+  kind: happy
+  test: TestPlayerHints_RevealsExactlyOneCell
+- id: AC-3NN   # a hint is one undo step
+  given: a board on which a hint has just been taken
+  when: undo is used once
+  then: the revealed cell returns to undecided and the hint count falls by one
+  kind: boundary
+  test: TestPlayerHints_IsOneUndoStep
+- id: AC-3NN   # a hint prefers a deducible cell
+  given: a board on which at least one undecided cell is forced by its row's or column's clue from
+    the marks already correct on the board
+  when: a hint is taken
+  then: the revealed cell is one of those, not an arbitrary undecided cell
+  kind: happy
+  test: TestPlayerHints_PrefersADeducibleCell
+- id: AC-3NN   # the ledger survives a reload
+  given: a saved game carrying hints
+  when: it is replayed
+  then: the hint count reconstructed from the saved strokes equals the count before the reload
+  kind: boundary
+  test: TestPlayerHints_TheLedgerSurvivesAReplay
+
+# New, this card's subject:
+- id: AC-3NN   # rung 0 is the error report
+  given: a board with at least one wrong mark
+  when: a hint is taken
+  then: the response reports the errors and no cell changes state
+  kind: happy
+  test: TestPlayerHints_RungZeroIsTheErrorReport
+- id: AC-3NN   # rung 0 escalates and its locality claim is true of the board
+  given: a board with at least one wrong mark
+  when: hints are taken repeatedly
+  then: the report advances from a count to a named region to a cell, and the named region provably
+    contains at least one wrong mark
+  kind: happy
+  test: TestPlayerHints_TheErrorRungEscalates
+```
+
+**The last `then` is worded the way it is on purpose.** *"The named region provably contains at least one
+wrong mark"* makes the claim checkable **against the board** rather than against the message the step
+produced. A message that merely describes its own input is the uncontrolled claim ADR-0039/R1 exists
+for, and three cards this week — CARD-206, CARD-259 and CARD-262 — were gated on exactly that shape.
+
+### 4. One EC worth adding, because the accounting has no invariant
+
+```yaml
+- id: EC-0NN
+  statement: For any sequence of player actions, the hint count displayed equals the number of hints
+    reconstructable from the saved strokes — including hints that reveal no cell
+  kind: consistency
+  instances: [the four shipped hint ACs and the two new ones]
+  test: PropertyTest_PlayerHints_TheLedgerMatchesTheReplay
+```
+
+This is the invariant the current design cannot satisfy: `hintCount` counts strokes marked `hint: true`
+(`solver_state.js:664`), and an error report **is not a stroke**, so it would be silently uncounted. The
+EC forces the choice to be made — either the saved shape grows a field, which is a storage-format change
+with CARD-186 and CARD-246 already reading saved games, or non-revealing hints are defined as uncounted
+and the displayed count says so.
+
+### What is NOT in this delta
+
+Nothing about the richer deduction hints (rung-ordered, technique-named, line-level). Those need the
+solver's per-cell `rung_tags` in the player's payload, and the line-level variant raises a question this
+delta should not answer by accident: whether a future **public** player gets hints at all, given
+ADR-0038/R6 and CON-021 confine the solution to the admin player. That is a separate decision, and it is
+in `meta/kanban/backlog.md`.
