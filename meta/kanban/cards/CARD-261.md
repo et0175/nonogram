@@ -15,7 +15,7 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** CLAUDE.md, src/nonogram/__init__.py, tests/test_cli.py
-**Review score:** —
+**Review score:** 7.5 (cycle 1, min_score 8 — not a pass)
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
@@ -368,3 +368,71 @@ reaches it transitively. For a change to that file, impact scoping buys almost n
 That is the mirror of `export/layout.py` at 186 files and `db/session.py` at 36: narrowing works for leaf
 modules and collapses toward the full suite for roots and hubs. The reliable win here was never speed —
 it was that 185 files ran **without taking the lock**, which is what let the sibling card keep working.
+
+---
+
+### [Review cycle 1] 7.5 / 10 — min_score 8, not a pass. Two Important, four scored minors, one pre-existing at zero
+
+Report: `meta/review/20261022T085642Z-CARD-261-cycle1.yml` (synced out of the worktree; the reviewer
+wrote nothing but that file, and never touched the card). Arithmetic:
+`10 − 1 (F-101) − 1 (F-102) − 0.5 (four minors, clustered two-and-two) = 7.5`. Risk: medium.
+Certification `deferred(cost)` — correctly, and for the right reason: the minimal fix for **either**
+gating finding adds a test to the `TestComponentMap_*` classes, which is exactly the selection the
+six-mutant matrix was computed over, so certifying now certifies a selection about to change.
+
+**Both gating findings are this card's own subject turned on its own output.** Neither is a code
+defect; both are control-coverage defects, which the reviewer notes is the only class of defect a card
+like this can have.
+
+| id | sev | the defect |
+|---|---|---|
+| **F-101** | important | the control forbids the row **shape**, not component **content** — and the shipped CLAUDE.md carries an uncontrolled component claim: *"there are **three** inbound adapters (`cli.py`, `web/` and `admin/`), not one"*. ADR-0039/R1 + R3; AC-3's own purpose ("exactly one place a row can drift from") is not reached for the adapter count |
+| **F-102** | important | the canonical map's **COMP-id / CAP-id columns are unheld**, an enumerable authority exists (`meta/architecture/c4/components-CTX-001.puml:93/:100/:102`), and the declared bound absorbs them under the word *"descriptions"*. ADR-0039/R2 (authority exists, unused) + R3 (exemption absorbs an enumerable column silently) |
+| F-103 | minor | `_canonical_map`'s docstring attributes the four-space rule to the `::` literal blocks; the parser claims every four-space-indented line in the whole docstring |
+| F-104 | minor | the 63% figure's denominator is the **pre-card** tree — 46,260, not 46,289 at `604cc542`; the 29-line gap *is* this card's own `+55/−26` |
+| F-105 | minor | CLAUDE.md's new sentence drops a word: *"both copies had, in different places"* does not parse |
+| F-106 | minor | `_claude_md_rows` denies **any** CLAUDE.md line containing `COMP-<digit>` — prose or fenced code block — wider than the test's name and message claim |
+| F-107 | minor, scored 0 | pre-existing, outside the diff: `test_the_adapter_allowlist_is_closed_at_the_two_known_adapters` asserts **three** names |
+
+**The three things I asked it to attack, and what it found.** All three were *executed*, not argued.
+
+1. **Bound 2's prose-evasion is real.** It appended a full prose restatement of the map to `CLAUDE.md`
+   carrying four of the exact falsehoods this card measured — *"cli.py is the only inbound adapter"*,
+   *"library and image modes still future work"*, *"difficulty.py is not yet built"*, *"export/ is not
+   yet built either"* — with no rows and no COMP ids. **11 passed; the whole file green.** The drift
+   this card exists to prevent walked straight back into the file every session loads, with zero
+   signal. Restored, `shasum -a 256 -c` and `diff -q` both clean.
+2. **Bound 3 is default-deny, not brittle.** Two plants of four-space-indented non-rows
+   (`nonogram generate …`, `$ nonogram serve`) each produced **3 failures naming the offending line**.
+   ADR-0039/R2's words are satisfied. The only defect there is F-103, one clause.
+3. **AC-3's decision is sound, and it checked all three legs rather than accepting them.** It read
+   `fac4896f`'s two copies and confirmed the drift was in both and in different places; and it
+   **measured** the "a held copy carries descriptions no enumeration can hold" leg instead of reasoning
+   it — putting `not yet built (later card)` back on `difficulty.py`'s row left all 11 tests green.
+   But **the one inline clause it kept is not justified**: it is the beginning of the second copy the
+   decision was meant to avoid, and it is the very condition that leg ruled out.
+
+**The row-present-but-wrong class the brief predicted — three plants, all green.** A wrong COMP id
+plus a CAP id belonging to nothing; `clues.py` relabelled `COMP-005` so **two rows claim one id and
+COMP-004 vanishes from the map**; and the declared AC-5 description bound. Same single mechanism.
+
+**AC-4 holds and the no-rottable-figure claim holds.** `git diff -U0 | grep -c '^-[^-]'` → **0**,
+`--numstat` → `261 0`; `import re` is a pure insertion, so `_ADAPTERS`/`_SHARED`/`_LAUNCH_EDGE`/
+`_rank`/`_outward_imports`/`_MODULES`/`_component` are byte-identical. A grep for every rottable
+figure across both shipped files returns **zero hits** — the author's claim is correct.
+
+**Figures: eleven of twelve reproduce by an independent method; one does not** (F-104's denominator).
+Two corrections to the implementation's own notes, both mine to carry forward: `_ADAPTERS` is at
+`tests/test_cli.py:748`, not `:747`; and the reviewer re-derived `validate_size` at **0** occurrences
+in `src/`, `validate_extent` at `random_grid.py:131` — which is CARD-264's premise, now independently
+confirmed.
+
+**G-4's boundary respected in both directions.** The CLAUDE.md diff is one hunk, `@@ -39,17 +39,7 @@`,
+entirely inside the layout block; all three out-of-block defects verified **still present** on disk and
+correctly left for CARD-264. In-block, `grep -c "later card" src/nonogram/__init__.py` → **0**.
+
+**One thing the reviewer could not establish, which the next cycle must.** The reported kill matrix
+fuses `_CLAUDE_MD_ROW` and `_COMPONENT_ID` into a **single arm** ("the CLAUDE.md row reader's two
+patterns"), so whether the two patterns are **independently** controlled is *not established* by the
+reported figures. It also named two further arms worth adding: `_canonical_map`'s
+`if not body or body[0].isspace(): continue` and `_component_modules`' walrus `is not None` guard.
