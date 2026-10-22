@@ -15,7 +15,7 @@
 **Wave:** 52
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
-**Review score:** 8.5 (cycle 3/3 — escalated on family regression; **resolved by SLICE**, owner decision — the guard is CARD-262's)
+**Review score:** 8.5 (cycle 3/3 — escalated, resolved by SLICE; AC/EC/G gate ✓ 11 of 11 after the G-3 correction)
 **Started:** 2026-10-21T22:18:12Z
 **Closed:** —
 **Actual:** —
@@ -115,7 +115,10 @@ took for FR-042/INV-011.
 - G-2: Puzzle-page and answer-page geometry is untouched — only positions
   shift. Do not edit `src/nonogram/export/layout.py` (owned by CARD-204).
 - G-3: The guide's own content and page count are unchanged (CARD-201's 2-page
-  tutorial; test: `TestBookGuidePage_*`).
+  tutorial; test: `TestGuidePage_*` — **corrected 2026-10-22 at the AC/EC/G gate**; the
+  guardrail originally wrote `TestBookGuidePage_*`, which collects **nothing** (pytest
+  exit 5) and existed nowhere in the tree, so the control it named read green by running
+  no tests).
 - G-4: Out of scope — no imprint/ISBN field, no author line, no owner-editable
   copyright text (explicit owner decision 2026-10-13; the page stays blank).
 - G-5: CLI and web-UI exports stay byte-identical (CON-019) — this is a book
@@ -406,9 +409,22 @@ SCOPE+ in these same files.
 - **G-1** green: `TestBookExport_EveryRouteSeparatesInteriorAndCover` passes, extended to assert
   page 1 is blank on every route.
 - **G-2** held: no geometry function was edited, and `src/nonogram/export/layout.py` is untouched
-  (CARD-204 owns it). The "only positions shift" claim is measured by
-  `TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged`, re-pointed at the pre-CARD-206
-  position for exactly this purpose.
+  (CARD-204 owns it) — verified structurally, the file's blob being byte-identical to the
+  merge-base's. **The attribution of the "only positions shift" claim was WRONG and is corrected
+  here (AC/EC/G gate, 2026-10-22).** It is **not** measured by
+  `TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged` or by
+  `…EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`: both build their "before" reference by
+  calling the **live** drawing functions at a different page number, so a geometry change moves
+  **both sides of the comparison equally** and `_ink_bbox_crop` cancels the rest. Measured — the
+  band's type 4 pt smaller on every puzzle and two-up page leaves both classes at **10 passed,
+  exit 0**, while `TestBookPdfMemory_PagesAreUnchanged` reds (*"interior page 6 is not the page it
+  was"*). Those two classes can see a *different puzzle* (their own `test_the_comparison_has_teeth`)
+  and a *parity-dependent* change; they are structurally blind to a parity-independent one.
+  **The control that fires is the stored pixel baseline `tests/fixtures/book_baseline_card206.json`
+  — and because this card recorded it, that is a FORWARD tripwire.** So G-2's behavioural half is
+  **true but enforced by diff reading, not by a test that can fail**: the only `src/` functions the
+  diff touches are `create_guide_page`'s half-selector, the new `create_title_page`, and position
+  arithmetic. Declared rather than claimed sound.
 - **G-3** held: `create_guide_page`'s content and `GUIDE_PAGE_COUNT` are unchanged; the whole
   `TestGuidePage_*` family is green.
 - **G-4** held: the page is blank. No imprint, ISBN, author line or owner-editable text.
@@ -1501,3 +1517,77 @@ is a record of what fix 2 measured at the time it measured it.
 **Still owed on this card:** the **AC/EC/G verification gate**, which has not run, and then the merge
 gate. CARD-259's gate found a defect in its tenth item after three clean review cycles, so this card's
 gate is not a formality.
+
+---
+
+### [AC/EC check] All criteria/constraints ✓ (evidence)
+
+**11 of 11**, after the G-3 correction below. Run **blind** — the gate was given the criteria, the
+guardrails and the traps, and deliberately **not** told what three review cycles had certified; it
+confirms it did not open the review YAMLs. Each item certified against a **planted failure**: 23 plants
+in all, 17 driven through the committed instrument and 6 through its own harness. Every plant
+line-count-preserving; every file restored and verified with `shasum -a 256` **and** `diff -q`; the
+final `git status --porcelain` is the station's opening state. Closing green run over the nine files the
+items name: **436 passed, 1 skipped, 0 failed, exit 0.**
+
+| item | ✓ | the state in which its control fails |
+|---|---|---|
+| AC-1 | ✓ | **one black pixel** at (1275, 1650) surviving a DCT round trip reds the no-ink arm — so "no ink of any kind" is measured at single-pixel resolution, not as a near-white tolerance; and a separate plant swapping the guide's halves reds clause 2 |
+| AC-2 | ✓ | the KDP figure made one short reds both its own arm and the monkeypatch case's — the third figure, the one the gutter band is read at and which no file comparison reaches, has its own control |
+| AC-3 | ✓ | three plants, one per row kind: `section_plan`'s `first_page`, `first_answer_page`, and the guide row's constant |
+| AC-4 | ✓ | on a **wide-gutter** book (trap 1), three separable plants — the section opening a page early, `page_is_right_hand` inverted, and the **spec's own parity** inverted, the last reddening the two ink arms while leaving the parity arm alone, which proves clause 3 is a production reading and not a restatement |
+| AC-5 | ✓ | three plants — the generated title cover as page 1, the **uploaded** cover served as the interior, and the interior served as the cover file |
+| AC-6 | ✓ | the blank page made the **only** page of an empty book reds `len(pages) > 1` and "an empty book's interior still prints the guide" — the exact thing AC-6 names; plus a separate plant on the refusal's own flash text |
+| G-1 | ✓ | `_export_part`'s branch forced always-true reds five arms across all three routes |
+| G-2 | ✓ | structurally, `layout.py`'s blob byte-identical to the merge-base with a **historical-range control** proving the check can report a hit; behaviourally, the band's type 4 pt smaller reds the stored baseline — see the corrected attribution below |
+| **G-3** | **✓ after correction** | the two tutorial halves swapped, and `GUIDE_PAGE_COUNT` 2 → 3; **both red the real `TestGuidePage_*` family** |
+| G-4 | ✓ | an ISBN drawn on the title page reds four arms — any imprint is ink, and ink is measured at one pixel |
+| G-5 | ✓ | a font-size change in `src/nonogram/export/svg.py` — production, on the shared CLI path, **not** one of the three tripwires — reds the golden byte-identity with both digests printed |
+
+**G-3's named control was a green no-op, and that is why the gate failed before this correction.** The
+guardrail wrote `` `TestBookGuidePage_*` ``. Verified by the orchestrator: that selector gives **pytest
+exit 5 — no tests collected** — and the string exists **nowhere** under `tests/` or `src/`. The real
+family is `TestGuidePage_*` (exit 0). A control that reads green by running nothing is exactly the shape
+this station exists to catch, and the guardrail's own prose note three hundred lines below already used
+the correct spelling, so the defect was confined to the one line. **Corrected at `:118`.**
+
+**It is also a repeat.** `meta/kanban/cards/CARD-221.md:227` records `` `TestBookGuidePageType_*` ``
+as *"**did not exist** — corrected above to the four real `TestGuidePage_*` classes"*. Same prefix, same
+two test files, one card later. A card naming a test by hand has no control over whether the name
+collects anything — which is a defect class worth a standing check, not another correction.
+
+**Two prose corrections the gate asked for, both applied, both narrowings:**
+1. **G-2's attribution was wrong** — corrected in the guardrail note above. The two before/after classes
+   build their reference by calling the **live** drawing functions at a different page number, so a
+   geometry change moves both sides equally. Measured: the 4 pt plant leaves both at **10 passed, exit
+   0** while the stored baseline reds. G-2's behavioural half is therefore **true but enforced by diff
+   reading**, and the control that fires is a **forward** tripwire this card recorded itself.
+2. **AC-3's method claim** (commit `b5f414bf`, `tests/test_book_toc.py`) — the drawn-page comparison
+   catches a drifted divider or solutions row and **not** a drifted guide row, because `expected` is
+   built at the row's own number and the guide's two pages are one method parameterised by it. Narrowed
+   to the two row kinds it is true of, with the guide row's real control named. **Ships uncertified**, as
+   `3dd1d11d` did, and for the same reason.
+
+**What the gate found beyond the eleven, kept because it is the station's real output:**
+- **G-1's route-agreement test cannot see a defect in the path all three routes share.** Under the
+  `_export_part` plant, `test_the_three_routes_export_the_same_pair` is **all PASS** while the per-route
+  test reds — three routes funnelling through one function makes agreement unfalsifiable for a defect in
+  that function. Not a card claim, but a reader could take it for independent coverage.
+- **The uncertified door-axis exemption from the slice is honest and narrow**, tested rather than read:
+  the position axis fails closed (a planted bare literal reds three guard tests), the door axis does not
+  (a `getattr` door with a bare literal passes all nine, exactly as declared), **and a local alias of the
+  door — whose `Call.func` *is* a syntactic name — is refused rather than silent**, so the exemption is
+  confined to the shape it names and does not quietly cover name-resolution misses too.
+- **AC-2's three figures agree structurally, not independently** — two of them call the third.
+  `book_kdp.py:547` states no front-matter term of its own, which the card's own docstring says and the
+  gate confirmed by reading.
+- Every figure re-derived through a **different door** than the card's: the page counts through four
+  independent doors; "exactly one more than before this card" by planting `TITLE_PAGE_COUNT = 0` and
+  reproducing the pre-card book exactly (divider 4, first puzzle **5**, right-hand); the parity
+  separation from **raw production ink** at 9.9907 mm rather than through the test's helper; and the
+  framed-page folio at 1264–1284 with **trap 2 confirmed both ways** — on the unframed guide pages the
+  folio *does* mirror, 153–172 against 2376–2395.
+
+**Declined, correctly:** no plant on `layout.py` (G-2 forbids editing it, so the historical-range
+control stands in), none on the three byte-identity tripwires (a production file on the same path stood
+in), and no database plant at all.

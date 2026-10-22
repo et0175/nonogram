@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 04:55 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 05:39 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -95,12 +95,12 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 _(none)_
 
 ## Review
-- **CARD-206** P2 · The interior opens with a blank title / copyright page, ahead of the guide · score 8.5 (cycle 3/3 — escalated on family regression; **resolved by SLICE**, owner decision — the guard is CARD-262's)
+- **CARD-206** P2 · The interior opens with a blank title / copyright page, ahead of the guide · score 8.5 (cycle 3/3 — escalated, resolved by SLICE; AC/EC/G gate ✓ 11 of 11 after the G-3 correction)
   `worktree: ../PythonProject4-card-206` · `branch: card/206-interior-title-page`
-  `elapsed: 0.8d / 0.5d est ⚠ overdue`
+  `elapsed: 0.9d / 0.5d est ⚠ overdue`
 - **CARD-259** P2 · CARD-252's record is written in three places; single-source it and control the pointer · score 8.5 (cycle 3/3 — ✓ review passed; AC/EC/G gate ✓ 10 of 10 after the owner's AC-2 narrowing)
   `worktree: ../PythonProject4-card-259` · `branch: card/259-single-source-the-record`
-  `elapsed: 0.8d / 0.75d est`
+  `elapsed: 0.9d / 0.75d est`
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
