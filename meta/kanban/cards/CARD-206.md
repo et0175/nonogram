@@ -15,7 +15,7 @@
 **Wave:** 52
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
-**Review score:** 8.6 (cycle 2/3 — above threshold but **1 Important gates**; cycle 3 required)
+**Review score:** 8.6 (cycle 2/3 — fix round 2 applied, cycle 3 pending)
 **Started:** 2026-10-21T22:18:12Z
 **Closed:** —
 **Actual:** —
@@ -994,3 +994,361 @@ book, and `doors=("book_page_spec",)` alone yields **0 names / 2 sites**, so the
 cannot distinguish a member that carries everything from one that carries nothing. **F-204 (low,
 pre-existing)** — four sites spell `GUIDE_PAGE_COUNT` as a bare `2` while the comment above writes the
 constant.
+
+---
+
+### [Fix round 2] Review cycle 2's four findings — one gating, all four closed; the guard now fails closed
+
+_Commit `eb5cbd5d`, 3 files, +735/−122. Test files only — no `src/` change, so no exported byte moved._
+
+The rule this round worked to, from the sibling card's escalation: **prefer deleting or narrowing a
+claim over adding one, and any claim added ships with its failing control in the same commit.** The
+one genuinely new mechanism is a refusal, and it is asserted rather than described.
+
+**All four closed, none dismissed.**
+
+- **F-201**: the page-position walk now **fails closed** — binding occurrences derived from the
+  module's own store contexts, a `(node, field)` string closure over the grammar, six loud refusal
+  classes, equalities in place of all three floors, and one named exemption with its own control —
+  *proved by* mutant **A3_TUPLE_UNPACK_SHAPE** (F-201's V3, which reported 0 offenders in cycle 2)
+  now reddening `:2018` on disk, by **A2_SITE_ADDED** reddening the site-count equality and nothing
+  else of 134 nodes, by **A4_DOOR_SLOT_REVERTED** reddening 10 nodes, and by the sixteen-row shape
+  table in which **nothing escapes silently**.
+- **F-202**: the separation comment narrowed to say it pins the test's **own model**, with the
+  production parity claim re-credited to the two ink arms — *proved by* **B1_PARITY_BLIND**
+  (production `_parity` always ODD) reddening `:1139` and `:1144` while `:1127` survives, and
+  **B2_MODEL_DRIFT** reddening `:1127` alone.
+- **F-203**: each door's position slot is now the index of `page_number` in **that door's own
+  signature** (`book_page_spec` → slot 1, the book is slot 0), a door without such a parameter is a
+  refusal, and `test_each_geometry_door_carries_a_site_of_its_own` asserts per member that the full
+  set reports a site the set without it does not — *proved by* the per-member measurement
+  (`("page_spec",)` loses `:3163`; `("book_page_spec",)` loses the five `door argument` sites) and
+  by mutant **A4**.
+- **F-204**: the four literal `2`s at `tests/test_book_pdf_memory.py:3073, :3095, :3469, :3480` are
+  `GUIDE_PAGE_COUNT` — *proved by* the 129-file impact run staying green with the constant
+  substituted (the value is identical at today's constants, which is exactly why it was invisible).
+
+**F-201 (high, gating) — route taken: FAIL CLOSED, not eight more branches.**
+
+Why not branches: the finding says it in one line — adding a branch per escaping shape makes V1–V9
+caught and leaves V10 silent, which is the same defect one iteration later and the second instance of
+the family. So the walk was rebuilt around two closures that have no "shape I thought of" in them:
+
+- **The binding closure.** Sites are no longer produced from a list of statement kinds. Every
+  *binding occurrence* of a position name is found from the module's own store contexts
+  (`ast.Name`/`ast.Attribute`/`ast.Subscript` with a non-`Load` ctx, decomposed through `Tuple`/
+  `List`/`Starred` targets), and the binder it sits in is looked up in `BINDERS_READ`. A binder that
+  is not in that table is a **refusal** naming the line and the shape, not a pass.
+- **The string closure.** Every node in the tree is scanned for a field holding a position name as a
+  bare string; the `(node class, field)` pairs the walk reads are `STRING_FIELDS_READ`
+  (`Name.id`, `Attribute.attr`, `keyword.arg`, `arg.arg`) and **everything else is a refusal**. That
+  is what catches `MatchAs.name`, `alias.asname`, `Global.names`, `ExceptHandler.name` and anything
+  else the grammar grows, without one of them being written down as a branch.
+
+Four more refusals close the remaining ways a value can leave a position without a binding:
+a geometry door **referenced without being called** (a `functools.partial` of it), a door **called
+with nothing in its position slot**, a position **computed through a call the walk cannot follow**,
+and a position that is a **parameter of something that is not a `def`** (a lambda).
+
+And three reductions of refusal noise, each of which also closes one of F-201's shapes rather than
+being added for comfort: an `Attribute` load is followed by its own name and an attribute **store**
+of a position name is a site (so V8 is caught and the sentence that F-201 measured false is now
+true); a `Subscript`/`Starred` is followed to its base, so a container and a star-call are
+analysable instead of opaque; and a module-level name bound to an integer literal is read as that
+literal unless it is one of the two declared `FRONT_MATTER_CONSTANTS`.
+**The nine-shape table, re-run — and six more.** Every shape is planted line-count-preservingly
+into a copy of `book_pdf_generator.py`'s own text held **in memory** (nothing on disk is mutated for
+this), each hiding the literal `3` in a page position. It is
+`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage.PLANTED_SHAPES`, and
+`test_every_planted_position_shape_is_caught_or_refused` asserts the outcomes as an exact table, so
+an empty outcome — a silent pass — reds.
+
+| shape | cycle 2 | now | how |
+| --- | --- | --- | --- |
+| V0 bare literal (the proven control) | CAUGHT | **CAUGHT** | offender `assignment/first_answer_page [3]` |
+| V1 list container + subscript | ESCAPED | **CAUGHT** | subscript followed to its base; `_slots = [3 + len(section)]` is the site |
+| V2 dict container | ESCAPED | **CAUGHT** | same, `assignment/_slots [3]` |
+| V3 tuple-unpack assignment | ESCAPED | **CAUGHT** | binding closure, target decomposed through `Tuple` |
+| V4 augmented assignment (`+= 3`) | ESCAPED | **CAUGHT** | `AugAssign` is a binder in `BINDERS_READ` |
+| V5 `functools.partial` onto the door | ESCAPED | **REFUSED** | "a geometry door referenced without being called" |
+| V6 keyword-only call into the door | CAUGHT | **CAUGHT** | offender `door argument/page_spec [3]` |
+| V7 comprehension target | ESCAPED | **CAUGHT** | `ast.comprehension` is a binder; site is its `iter` |
+| V8 attribute assigned in this module | ESCAPED | **CAUGHT** | attribute store of a position name is a site — which is what makes F-201's false sentence true |
+| V9 starred call into the door | ESCAPED | **CAUGHT** | star followed to its base; `_args = [...]` is the site |
+| V10 `match`/`case` capture | — | **REFUSED** | "a position name held in `MatchAs.name`" |
+| V11 `import os as first_answer_page` | — | **CAUGHT + REFUSED** | offender on the next line **and** "held in `alias.asname`" |
+| V12 `with … as` target | — | **CAUGHT + REFUSED** | `withitem` is a binder; the call it wraps is also refused |
+| V13 lambda parameter default | — | **REFUSED** | "a position as a parameter of a `Lambda`" |
+| V14 return value of a module function | — | **REFUSED** | "a position computed through a call this walk cannot follow" |
+| V15 page count behind a module-level name | — | **CAUGHT** | `_HIDDEN_FRONT_MATTER = 3` read as its literal |
+
+**Nothing escapes silently. Eight of V1–V9 did before this round; zero do now.** V10–V15 are shapes
+the walk has no branch for and are caught by the closures, which is the point: V10, V13 and V14 are
+each a shape I did not design a branch for, and each reds.
+**What the walk follows and what it refuses, derived rather than remembered.** Neither list is prose
+in a docstring: both are class data the walk reads, and the refusals are what the walk emits when a
+shape is in neither.
+
+- **Followed — binders** (`BINDERS_READ`, with the field each site is taken from): `Assign.value`,
+  `AnnAssign.value`, `AugAssign.value`, `For.iter`, `AsyncFor.iter`, `comprehension.iter`,
+  `NamedExpr.value`, `withitem.context_expr`. Binding occurrences are found from the module's own
+  store contexts (`Name`/`Attribute`/`Subscript` with a non-`Load` ctx, decomposed through
+  `Tuple`/`List`/`Starred`), **not** from this list — so the list is what is *read*, and anything
+  else a store sits in is refused.
+- **Followed — references**: a `Name` by its id, an `Attribute` by its own attr (so `plan.page_number`
+  is analysed rather than exempted — the exemption F-201 predicted would be needed is not),
+  a `Subscript` and a `Starred` by their base.
+- **Followed — string fields** (`STRING_FIELDS_READ`): `Name.id`, `Attribute.attr`, `keyword.arg`,
+  `arg.arg`. Measured: removing `arg.arg` from that set produces **14 refusals** on this module, so
+  the set member is not decorative.
+- **Refused, loudly, with file, line, shape and source segment** — six classes:
+  1. a position bound in a binder `BINDERS_READ` does not name (V3/V4/V7/V12 would be here if the
+     binder were missing; V10's `MatchAs` reaches class 2);
+  2. a position name held as a bare string in a `(node, field)` pair `STRING_FIELDS_READ` does not
+     name — `MatchAs.name`, `alias.asname`, `Global.names`, `ExceptHandler.name` (V10, V11);
+  3. a geometry door **referenced without being called** (V5);
+  4. a geometry door **called with nothing in its position slot**;
+  5. a position **computed through a call the walk cannot follow** (anything that is not a builtin,
+     V14);
+  6. a position that is a **parameter of something that is not a `def`** (V13), and a door whose own
+     signature has no `page_number` parameter to seed a slot from.
+
+  On the module as it stands: **0 refusals.** The reviewer's predicted first exemption
+  (`plan.page_number` at `:5401`) is not one — attributes are followed.
+
+**The equalities that replaced the floors (ADR-0039/R3), and what reds.** `>= 18` sites and `>= 4`
+names are gone, and so is the third floor in the same class that neither cycle filed (`>= 6`
+guide-counting expressions):
+
+| was | is | what reds |
+| --- | --- | --- |
+| `len(sites) >= 18` | `len(sites) == 23` (`POSITION_SITE_COUNT`) | a site appearing or vanishing — measured: mutant **A2_SITE_ADDED** |
+| `len(vocabulary) >= 4` | `tuple(vocabulary) == POSITION_NAMES` (6 names, by name) | a position name appearing, vanishing or being renamed |
+| `len(sites) >= 6` (guide-counting) | `== 7` | the same, on the older half of the guard |
+| — | `refusals == []` | any shape the walk cannot follow |
+| — | `_bare_literals(sites) == []` | a page count spelled as a literal anywhere in a position |
+**The one exemption that remains, and its control in both states.** `EXEMPTION`: a term of a
+position expression that is itself a **non-position** name or attribute (a local count, a parameter,
+an attribute of a plan) is read for the literals written in the expression and **not** followed into
+its own bindings. It is the only shape still allowed silently, and it is a parameter of the analyser
+(`follow_terms`), not a comment:
+
+- **Cost, measured and asserted, not declared**
+  (`test_the_exemptions_cost_on_this_module_is_the_measured_one`): removing it reds on **5 of the
+  module's 23 sites**, over exactly the four terms `index`, `pages`, `section`, `toc_page_count`.
+  That is why it exists, and the figure is an equality so it cannot go stale behind the docstring.
+- **Control, in both states** (`test_the_one_exemption_does_not_absorb_what_it_must_not`): a source
+  the test owns puts the front-matter count behind a local — `hidden = 3; first_answer_page = hidden
+  + len(section)`. With the exemption **removed** the walk reports
+  `('assignment', 'first_answer_page', [('not followed', 'hidden'), ('not followed', 'section')])`;
+  with it **in place** it reports nothing. Caught without, missed with — ADR-0039/R3's shape, on the
+  exemption itself.
+
+**F-203 — the second door now carries what it claims, and each member has a control that reds.**
+`GEOMETRY_DOORS`' position slot is no longer a hard-wired `args[0]`; `POSITION_PARAMETER =
+"page_number"` and each door's slot is the **index of that parameter in that door's own signature**,
+read from the signature — the local `FunctionDef` for `page_spec` (slot 0 after `self`), and for
+`book_page_spec` the `ImportFrom` in the module's own text resolved to
+`src/nonogram/admin/book_page_spec.py` and parsed (slot **1**, because `args[0]` is the book). A door
+whose signature has no such parameter is a **refusal**, so the set cannot hold an inert member
+silently again.
+
+Measured, per member:
+
+| doors | names | sites | what the full set has that this does not |
+| --- | --- | --- | --- |
+| `("page_spec", "book_page_spec")` | 6 | **23** | — |
+| `("page_spec",)` | 6 | 22 | `:3163 door argument book_page_spec` |
+| `("book_page_spec",)` | 6 | 23 | the five `door argument page_spec` sites at `:4022 :4074 :6449 :6826 :6867` (reached, but as indirect `argument` sites rather than door arguments) |
+| `()` | 0 | 0 | everything |
+
+`test_each_geometry_door_carries_a_site_of_its_own` asserts, **per member**, that the full set
+reports a site the set without that member does not. Mutant **A4_DOOR_SLOT_REVERTED**
+(`POSITION_PARAMETER` → `"no_such_parameter"`) reds it, together with the two equalities and the
+refusal assertion.
+
+**F-202 — one narrowed sentence, no new mechanism.** The comment above
+`tests/property/test_book_export_interior.py`'s separation assertion used to frame the quantity as a
+property of production geometry. It now says what that assertion pins and what it does not: the
+module's **own millimetre model**, both readings coming from `_expected_drawing_left_mm`, whose two
+branches differ by `gutter - outside` whatever the puzzle — so it reds on a drift in that function or
+in the two `PARITY_*` constants and **not** on a production parity failure. The production claim is
+credited to the two ink arms below it, which read the page's own drawing.
+
+**F-204 — the four literal `2`s are the constant.** `tests/test_book_pdf_memory.py:3073, :3095,
+:3469, :3480` now read `1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + …`, the
+formula the comment above the first of them already wrote. `GUIDE_PAGE_COUNT` was already imported in
+that file (`:159`), so nothing else changed.
+**Certification, with the instrument — `tests/kill_matrix.py`, RECORDING pass, aggregate ANY-RED,
+child instrumentation off, SHIPPED re-run between mutants.** Two groups, six mutants, every target a
+file inside this worktree, every restore the instrument's own `cp -p` + `diff -q` + `shasum -a 256`
+and confirmed afterwards by `git diff --stat` reading the same three files.
+
+*Group A — DOMAIN: RECORDING pass over `tests/test_book_export_interior_cover.py`, **134
+`ast.Assert` nodes**, SHIPPED **0 FAIL of 133 reached** (pytest exit 0, 76 collected tests).* One
+node (`:621`) is NOT-REACHED on SHIPPED and on every mutant alike — a pre-existing unreached arm,
+not moved by this round.
+
+| mutant | what it changes | FAIL (exit 0, 133 reached) |
+| --- | --- | --- |
+| **A1_PLANTED_LITERAL** | production: the derived `first_answer_page` back to `3 + len(section)` | **4** — `:2018` the module's bare-literal check, `:1202` the guide-counting equality, `:2038` + `:2056` the shape table announcing its plant no longer applies |
+| **A2_SITE_ADDED** | production: one extra `page_number = first_answer_page` on the same three lines | **1, exactly `:1966`** — the site-count equality, and nothing else in 134 nodes sees it. **This is the teeth the floor did not have.** |
+| **A3_TUPLE_UNPACK_SHAPE** | production: F-201's **V3**, the shape fix 1's walk reported **0 offenders** for | **4** — `:2018` (the offender assertion), `:1202`, `:2038`, `:2056`. The silent shape now reds on disk, not only in memory. |
+| **A4_DOOR_SLOT_REVERTED** | test: `POSITION_PARAMETER` → `"no_such_parameter"`, so no door can be seeded | **10** — `:1964` refusals, `:1965` the names, `:1966` the count, `:2001` the per-door control, `:2056` the table, `:2074`/`:2080` the planted-literal control, `:2105` the exemption control, `:2135`/`:2136` the exemption's cost |
+
+*Group B — DOMAIN: RECORDING pass over
+`tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage`,
+**52 `ast.Assert` nodes**, SHIPPED **0 FAIL of 11 reached** (pytest exit 0, 1 collected test).*
+
+| mutant | what it changes | FAIL (exit 0, 11 reached) |
+| --- | --- | --- |
+| **B1_PARITY_BLIND** | production `book_page_spec._parity` → `ODD` for every page | **2** — `:1139` and `:1144`, the two **ink arms**. `:1127` (the separation equality) **survives**, and so does `:1135`. |
+| **B2_MODEL_DRIFT** | the test's own model, `gutter_mm` → `gutter_mm + 5.0` on the right-hand branch | **1** — `:1127` and nothing else |
+
+So F-202's reading reproduces independently: the separation equality's domain is the model, the
+production parity claim is carried by `:1139`/`:1144`, and the narrowed comment now says exactly
+that. No mutant killed outside the assert matrix's domain this round (every reading is exit 0 with a
+FAIL cell, so there is no second domain to record).
+**Net prose change, measured.** Comment and docstring lines in the three edited files, HEAD against
+this round (distinct lines, so a re-indent is not counted twice):
+**+149 / −50, net +99** — all of it in `tests/test_book_export_interior_cover.py` (+139/−44) and
+`tests/property/test_book_export_interior.py` (+10/−6); `tests/test_book_pdf_memory.py` is
+prose-neutral. The split in the cover file: **+64/−6 `#:` attribute documentation** (every line of
+it documenting a class datum the tests read — `BINDERS_READ`, `STRING_FIELDS_READ`,
+`POSITION_PARAMETER`, `FRONT_MATTER_CONSTANTS`, `EXEMPTION`, `PLANTED_SHAPES`, `POSITION_NAMES`),
+**+72/−33 docstrings**, **+30/−5 inline comments**. One trimming pass was made after the first
+measurement (+116 → +99) specifically to delete prose that restated what a test already asserts.
+
+So prose is **up**, and the round's own rule asks why. The answer is that the new mechanism is a
+refusal and `PLANTED_SHAPES` is a sixteen-row table of measured outcomes, both of which are data the
+tests read rather than claims about the code — and that every sentence added names one of them or a
+test that reds. What was deleted is the part that had no control:
+
+- **Deleted:** the universal "enumerates **every page position in the module**"; the whole paragraph
+  headed "What this still cannot see, **measured rather than assumed**" — including the sentence
+  F-201 measured **false** ("where that attribute was *set* is a site in its own right, but only if
+  it was set in this module"), which V8 now makes true and which is gone anyway; and the comment
+  "The count itself is not asserted: it is a figure no control could fail on", the reasoning F-201
+  inverted.
+- **Narrowed:** the class docstring's reach paragraph points at the data and the tests rather than
+  describing a reach; the bound it still declares is two items, both outside the enumeration by
+  construction. The F-202 comment was narrowed from a production claim to a model claim with the
+  production claim re-credited to the two ink arms.
+
+**Claims I wanted to write and did not.** (1) "The walk is complete over the grammar" — it is not,
+nothing could enforce it, and what *is* enforced is that an incompleteness is a refusal; so that is
+what the docstring says instead. (2) The per-door site diffs (which sites each member uniquely
+contributes) are in this note and not in the test: the test asserts the difference is **non-empty**
+per member, which is the part a control can fail on, and naming the five sites would be a figure
+that moves with any edit to the module. (3) "No module outside the generator computes a
+front-matter-relative interior position" — cycle 2 measured it (23 calls, 5 modules, `book_proof.py:767`
+the only non-trivial one) and it stays in the orchestrator's own `[Review 2/3]` note and the card's
+`### Honest bounds`, not in a docstring, because no assertion reads it.
+**Impact run.** The 129 test files under `tests/` and `tests/property/` whose names carry `book`,
+`admin`, `pdf`, `export`, `layout`, `card_` or `cli`, plus `tests/test_guard_integrity.py`,
+`tests/test_suite_profile.py` and `tests/test_kill_matrix.py` (the instrument's own tests, because
+this round used it): **4,830 passed, 12 skipped, 0 failed, 0 errors, pytest exit 0**, in one run
+after the last change. The 12 skips are `db_required`/browser. The full suite was deliberately **not**
+run; the orchestrator's own 109-file gate is the gate.
+
+**No render is owed, and this is checkable rather than asserted.** Fix round 2 changes **test files
+only** — `git diff --name-only 91a51395..` is three paths, all under `tests/`, and
+`src/nonogram/**` and `tests/fixtures/book_baseline_card206.json` are untouched. So no exported byte
+can have moved and the cycle-1 artefacts under
+`/Users/omelnikova/Documents/nonogram-reviews/CARD-206/` still describe this head. G-2 holds for the
+same reason (`src/nonogram/export/layout.py` is not in the diff), and the three CON-019 byte-identity
+tripwires were neither edited nor red.
+
+**Environment.** Every pytest and `kill_matrix` run in this round was made with
+`NONOGRAM_FULL_SUITE_LOCK=/tmp/card206-fix2.lock`; `meta/kanban/.full-suite.lock` was never read,
+written, created or deleted. No timing measurement was taken and no duration is reported. Every
+mutation target was a file inside this worktree; the instrument's `cp -p` backup, `diff -q` +
+`shasum -a 256` verification and `finally` restore did the mutating, and after each group
+`git diff --stat` read the same three test files and a clean `src/`.
+
+**Family, for the next cycle's arithmetic.** This round added **no** claim without a control in the
+same commit, deleted two claims and one false sentence, replaced three floors with equalities, and
+the one new mechanism (the refusal) ships with six measured refusal classes, a sixteen-row shape
+table, a per-member door control, an exemption control in both states and an exemption-cost
+equality — four of them fired by mutants A1–A4 above. If cycle 3 finds a gating finding of F-102's
+family again, the streak reaches 2 and the card escalates; nothing in this round repeats the shape,
+because the claim the mechanism makes is now narrower than the mechanism.
+
+---
+
+### [Fix 2] All four closed — and it chose closures over branches, which is the right answer
+
+Commit `eb5cbd5d`, 3 files, +735/−122, **test files only**: `src/nonogram/**` and
+`tests/fixtures/book_baseline_card206.json` untouched, so no exported byte moved and **no render is
+owed**. Agent's own impact run: **4,830 passed, 12 skipped, 0 failed** over 129 files.
+
+**F-201 — it did not add eight branches, which is what I asked for and the harder path.** The two causes
+of the fail-open were structural, so both were replaced by closures that contain no "shape I thought
+of":
+- **Binding closure** — sites come from the module's own store contexts (`Name`/`Attribute`/`Subscript`
+  with non-`Load` ctx, decomposed through `Tuple`/`List`/`Starred`), and the binder they sit in is
+  looked up in `BINDERS_READ`. **A binder not in that table is a refusal.**
+- **String closure** — every node is scanned for a field holding a position name as a bare string, and
+  only the four `(class, field)` pairs in `STRING_FIELDS_READ` are read. **Everything else is a
+  refusal** — which is how `MatchAs.name`, `alias.asname`, `Global.names` and `ExceptHandler.name` are
+  covered without any of them being a branch.
+
+**Six refusal classes**, each reddening with line, shape and source segment, and `refusals == []` is now
+asserted. That is ADR-0039/R2's second clause satisfied where the ADR puts it.
+
+**The nine shapes re-run, plus six the agent invented — and I verified a seventeenth it did not.**
+8 of the 9 that escaped silently in cycle 2 are now CAUGHT, V5 is REFUSED, and **nothing escapes
+silently at all**. Three of its own six (a `match`/`case` capture, a lambda parameter default, a module
+function's return value) are shapes it wrote **no branch for** and the closures catch — which is the
+whole point of the design.
+
+**My independent check, because a table of shapes the author chose is not evidence that the closure
+generalises.** I planted `setattr(self, "page_number", 3 + len(section))` — a position name hidden in a
+**string constant** argument, a shape absent from all sixteen rows and from `STRING_FIELDS_READ`. Result:
+**exit 1**, two tests red (`test_the_page_position_set_is_derived_from_the_one_geometry_door` and
+`test_every_planted_position_shape_is_caught_or_refused`), line count preserved at 7216, file restored
+byte-identical (`d8b9ece8…`, `diff -q` clean). **The closure holds on a shape nobody designed for.**
+
+**The floors became equalities (ADR-0039/R3)** — `len(sites) == 23`, `tuple(vocabulary) ==
+POSITION_NAMES` by name, and `== 7` on the older guide-counting half, **a third floor neither cycle had
+filed**. Mutant `A2_SITE_ADDED` (one extra position binding in production, line-count-preserving) reds
+**exactly one node of 134** — the site-count equality and nothing else. *That is the teeth the floor did
+not have*, demonstrated rather than asserted.
+
+**F-203 — the inert door now carries what it claims.** Each door's slot is the **index of
+`page_number` in that door's own signature**, read from the local `FunctionDef` for `page_spec` and, for
+`book_page_spec`, from the module's own `ImportFrom` resolved and parsed — **slot 1**, because `args[0]`
+is the book. A door without that parameter is a refusal, and a per-member control asserts each door
+contributes a site the set without it does not: `("page_spec",)` alone misses `:3163`,
+`("book_page_spec",)` alone misses five sites, `()` misses everything.
+
+**The one remaining exemption has its cost asserted, not declared:** a non-position term of a position
+expression is read for its written literals and not followed into its own bindings. Removing it
+(`follow_terms=True`) reds **5 of the 23 sites** over exactly `index`, `pages`, `section`,
+`toc_page_count` — and its control is a test-owned source where the hidden term is **caught with the
+exemption removed and missed with it in place**, which is ADR-0039/R3's shape.
+
+**F-202** narrowed in one sentence: the separation equality pins the test's **own millimetre model**,
+and the production claim is re-credited to the two ink arms. Confirmed by mutant `B1_PARITY_BLIND` —
+blinding production's parity reds the two ink arms and leaves the equality alone, while `B2_MODEL_DRIFT`
+reds the equality alone. **F-204** — the four bare `2`s now read `GUIDE_PAGE_COUNT`.
+
+**Prose went UP, and the agent said so plainly rather than burying it: +149/−50, net +99.** It also made
+a trimming pass specifically to cut prose restating what a test already asserts (+116 → +99). Its
+argument, which I accept but flag for cycle 3: the new mechanism *is* a refusal plus a sixteen-row
+measured table, both of which are **data the tests read**, and every added claim ships with its control
+in the same commit (the shape table, the per-door control, the exemption's two states, the
+exemption-cost equality, and mutants A1–A4). It **deleted** the universal "enumerates every page
+position in the module", the entire "measured rather than assumed" paragraph including the sentence
+cycle 2 measured false, and "the count itself is not asserted".
+
+This is the correct distinction from the sibling card, and worth recording as such: CARD-259's
+deletions-only rule applied because *that* card needed no new mechanism — its defect was purely claims
+outrunning enforcement. Here new mechanism was required, so the rule becomes "every added claim ships
+with its failing control", which is the same principle with the applicable part kept.
+
+**Three claims it wanted to write and did not**, all in notes rather than docstrings: that the walk is
+complete over the grammar (*"it is not and nothing could enforce it"* — the docstring says an
+incompleteness is a refusal instead); the per-door unique-site diffs, because the test asserts the
+difference is non-empty, which is the part a control can fail on; and cycle 2's 23-calls/5-modules
+measurement, because no assertion reads it.

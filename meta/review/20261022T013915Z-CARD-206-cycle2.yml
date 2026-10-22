@@ -369,8 +369,8 @@ findings:
     violates: ADR-0039/R2
     also_violates: ADR-0039/R3
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'eb5cbd5d'
     dismissed_reason: null
     learned_pattern: null
 
@@ -422,8 +422,8 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'eb5cbd5d'
     dismissed_reason: null
     learned_pattern: null
 
@@ -474,8 +474,8 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'eb5cbd5d'
     dismissed_reason: null
     learned_pattern: null
 
@@ -513,8 +513,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 'eb5cbd5d'
     dismissed_reason: null
     learned_pattern: null
 
