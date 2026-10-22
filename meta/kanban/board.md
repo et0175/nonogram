@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 19:00 UTC_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 (decompose: CARD-272..CARD-274 added)_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -100,12 +100,17 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2 — **now owns the folded `_ADAPTER_COUNT` question** (owner decision 2026-10-22); estimate 0.25d → 0.75d; its item 1 already measured BOTH rival bounds and neither dominates)_
 - **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
+- **CARD-272** P2 · The import guard gains the composite-capability rank (ADR-0040)  _(unscheduled — after CARD-265; delta carded 2026-10-22)_
+- **CARD-273** P2 · Book production moves to src/nonogram/book/ — the ADR-0040 rewrite  _(unscheduled — after CARD-272 and the book wave drains; 17 deps)_
+- **CARD-274** P3 · admin/app.py splits into route modules — the blueprint refactor  _(unscheduled — after CARD-273)_
 
 ## In Progress
 - **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
   `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions` · `base: 51128cf5 (main)`
-  `implementation landed 4f41bbb4` · `gate 2813 passed / 11 skipped / 0 failed` · `renders on disk (16 PNGs)` · `cycle 1 running`
-  `review must rule on one flagged judgement call: the CARD-235 fixture-scope registry edits vs G-3`
+  `implementation 4f41bbb4` · `gate 2813/11/0` · `renders on disk (16 PNGs)` · `cycle 1: 8.4 — 0 critical, 1 important` → `fix 1 running`
+  `admin.css needs NO change — the reviewer calls the fix "correct, minimal and load-bearing"`
+  `G-3 ruled SATISFIED: the fixture-scope reshapes red in both directions, and the waiver door is shut`
+  `gating F-001: the blank-board arm is a tautology — _SHADOW_OFF disables a rule a blank board cannot match`
 - **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
   `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
   `5.7 (c1) → fix 1 b88621d8 → 5.2 (c2) ⚠ stalled → escalated → owner: DECLARE the axis` · `cycle 3/3 running`

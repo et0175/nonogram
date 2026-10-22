@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_fifth_rule.py, tests/test_admin_design_tokens.py
-**Review score:** — (implementation landed `4f41bbb4`; cycle 1 running)
+**Review score:** 8.4 (cycle 1 — 0 critical, 1 important) → fix 1 running
 **Started:** 2026-10-22T17:20:00Z
 **Closed:** —
 **Actual:** —
@@ -289,3 +289,73 @@ It now measures every cell against the px `--player-cell` resolves to, which MOV
 comparison is kept as a second arm whose docstring **says that arm alone would be narrative and names the
 mutant that survives it**. And under the hairline-removing mutants, one test's in-test control arms report
 NOT-REACHED because the test dies on an `IndexError` at an earlier arm — recorded rather than papered over.
+
+
+---
+
+### [Review 1/3] 8.4 — the CSS is right; the one gating finding is a tautological assert in the tests
+
+Report: `meta/review/20261022T190000Z-CARD-270-cycle1.yml` (25 keys, `yaml.safe_load` verified).
+Arithmetic: `10 − 1.0 (F-001 Important) − 0.3 (F-002) − 0.2 (F-003) − 0.1 (F-004) = 8.4`.
+Zero Critical. The numeric gate is cleared; the **one Important** is what holds the card.
+
+**`src/nonogram/admin/static/admin.css` needs no change.** The reviewer's verdict in its own words: the
+fix is *"correct, minimal and load-bearing"*. Everything gating is in the test code.
+
+**F-001 (Important, ADR-0039/R1).** `tests/test_puzzle_solver_fifth_rule.py:622` asserts the shipped
+blank board renders byte-identically to the same board with `_SHADOW_OFF` injected. But `_SHADOW_OFF` is
+`.player-cell[data-state="filled"] { box-shadow: none !important; }`, and a **blank** board has no filled
+cell — so the rule it disables matches nothing and the two renderings are equal **by construction**. The
+arm's own message says *"the hairline is reaching cells that are not filled"*, and that is exactly the
+direction it cannot fail in: any broadening of the hairline onto a non-filled cell is by definition not
+the rule `_SHADOW_OFF` turns off, so the mutation sits in **both** readings.
+
+Confirmed by execution twice, with both mutants proved non-no-op by killing other arms in the same
+reading: `REACHES-BLANK` (hairline moved onto `.player-cell`) and `BROADEN-UNKNOWN` (a second rule for
+`[data-state="unknown"]`) each leave `:622` **PASS** while `:637` and `:691` red. So the defect is caught
+— by other arms — and what is wrong is a **false claim in a committed docstring and a committed registry
+reason**, plus a dead assert. Important, not Critical, for exactly that reason.
+
+The fix is one selector: widen `_SHADOW_OFF` at `:163` to `.player-cell`. Under SHIPPED a blank board
+still has no shadow anywhere, so `:622` stays green; under either mutant `without` loses hairlines
+`shipped` has and `:622` **reds**. Safe for the other three users of `_SHADOW_OFF` — in each, every cell
+is already filled.
+
+**G-3: SATISFIED — the implementer's reading was right, and the ruling is measured, not read.** Not one
+assertion in any player test changed (the `test_puzzle_solver_page.py` diff is six lines inside a data
+dict; `test_browser_fixture_scope.py` is outside `FAMILY_PREFIX` and is not a player test at all). Both
+reshaped guards red in **both** directions, driven by patching the module's own globals: a 14th file with
+no entry, a struck entry, an entry naming a missing file, a deleted file with its entry kept, a measured
+file dropping out of the record, a struck `ALONE_PROBES` entry, and a 14th file neither recorded nor
+probed — all RED; only the intended exemption is GREEN. **The decisive one:** a file that *was* measured
+and drops out of the record **cannot** buy the new "postdates the record" exemption by adding an
+`ALONE_PROBES` entry, because `measured & family <= seen` is unconditional and fires anyway. That was the
+exact door that would have made this a waiver dressed as a narrowing, and it is shut.
+
+**Figures re-derived through a genuinely independent door** — cell side from `getComputedStyle` *and* the
+border box *and* `(right of col 19 − left of col 0)/20`, pixels from a `scale="device"` full-page
+screenshot with exact nearest-reference classification and no tolerance window. Cells **24.8750** and
+**14.3906** px (three derivations agreeing exactly); hairline **1 device px at dpr 1 at both viewports**,
+2 px at dpr 2, 3 px at dpr 3, **never 0**; thin 1 / ink 2 / thin 1 across a major rule and 3 contiguous
+thin across an ordinary one, at both viewports and both axes.
+
+**And the defect was reproduced from outside this card's test code entirely.** The reviewer's probe
+first run accidentally resolved the main checkout's editable install — i.e. the **pre-fix** stylesheet —
+and measured **0 thin px** across a major rule (a pure ink blob) at both viewports and both axes.
+Repointing `PYTHONPATH` at the worktree gave 1/2/1. So the owner's reported defect and this card's fix
+are both confirmed without using any of the card's own assertions. That is the strongest evidence in the
+hand-back.
+
+Minors: **F-002** — AC-1's band *figures* are asserted at desktop only, although the card's Standards
+section names the 14 px cell explicitly (the figures do hold at phone; the reviewer measured them).
+**F-003** — the "derived count" the renamed guard advertises is logically subsumed by the set equality on
+the next line, so it adds nothing; a naming-vs-mechanism mismatch, not a hole. **F-004** — the **guide
+strip** has the same ink-on-ink class (`admin.css:343` 2 px `--grid-ink` frame against `:346`'s ink fill)
+and is correctly outside this card's declared scope; recorded so the class audit is complete, and it
+wants its own card.
+
+**Everything inside the player is covered**, audited by the reviewer rather than assumed: `:530`/`:531`
+(fifth rules + right/bottom frame) and `:525`/`:527`/`:549`/`:552` (all four gutter edges, CARD-193's
+mirrored ones included) are swept by AC-2's ring at both viewports; `:523` and `:945` are never adjacent
+to a fill; and the **editor board is unaffected** — `puzzle_edit.js` uses neither `.player-cell` nor
+`data-state`.
