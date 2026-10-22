@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P2
 **Category:** tech-debt
-**Estimate:** 0.75d
+**Estimate:** 1d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
@@ -115,6 +115,37 @@ only its *input*.
   source still reds the original guard, so repairing the set did not weaken what it already caught.
 - **AC-6** *Given* the whole change, *then* no claim about the solver's timeout survives that no test
   pins. Either the clause is gone or the test that enforces it is named in the same sentence.
+- **AC-7** *Given* `tests/test_cli.py`'s adapter allowlist, *then* no prose around it claims a
+  count that disagrees with `_ADAPTERS`, and the test's **name** states the rule rather than a
+  number — held by a control that reads `len(_ADAPTERS)` rather than restating it.
+  (test: `TestAdapterAllowlist_NoProseClaimsAStaleCount`)
+
+## Routed in from CARD-261's review cycle 1 — F-107, measured wider than it was filed
+
+The reviewer filed one minor at zero (pre-existing, outside the diff):
+`test_the_adapter_allowlist_is_closed_at_the_two_known_adapters` asserts **three** names. I went and
+looked, because CARD-261's F-101 fix points a reader straight at `_ADAPTERS`, and a reader following
+that pointer lands here. It is **three** stale "two" claims in one place, not one:
+
+| where | the claim | reality |
+|---|---|---|
+| `tests/test_cli.py:904` | the test's **name** says `_at_the_two_known_adapters` | the set holds **three** |
+| `tests/test_cli.py:905` | the docstring's first line: *"ADR-0019's allowlist is two names, and staying two names is the rule"* | three names since `admin` joined |
+| `tests/test_cli.py:743-744` | the module comment above `_ADAPTERS`: *"this set is closed at two names and is deliberately not a pattern — a third adapter is a decision, not a rename"* | the third adapter **was** that decision, and it landed; the sentence now reads as a prohibition on something already done |
+
+**The assertion itself is correct and the control works** — `assert _ADAPTERS == {"cli", "web", "admin"}`
+(`:914`) plus the rank check pins the set literally, which is exactly what it should do. Only the prose
+lies. That is this card's whole subject in one function: a claim with no control, in a file agents read,
+sitting **on top of** a control that does its job. The honest fix is to make the prose state the *rule*
+("the set is closed and grows only by a deliberate edit to this line") instead of a *count*, and to let
+the only number in the vicinity be the one the assertion holds.
+
+**Why it is routed here and not fixed on CARD-261.** CARD-261's G-4 confines it to the layout block and
+to the component map; this is neither. CARD-264 already carries `tests/test_cli.py` in its `Touches` and
+already exists to fix claims-without-controls in agent-read prose. Rename the test if you judge the name
+worth the churn — say which you chose and why. It is the **fifth** appearance of this shape on the board
+in a week, after CARD-206's empty `GEOMETRY_DOORS` member, CARD-262's uncontrolled `AsyncFor`/`NamedExpr`,
+this card's dead `validate_size` token, and CARD-261's two gating findings.
 
 ## Guardrails
 
