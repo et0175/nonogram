@@ -1186,3 +1186,55 @@ test files answer `FULL`?** If the impact script falls back to full because `CLA
 fact, that is correct but worth a line in `tests/README.md`; if it falls back for a reason nobody
 intended, that is a finding about the harness and belongs on its own card. Do not paper over it by
 hand-picking test files — a narrowed gate chosen by a human is not an impact set.
+
+---
+
+### [Re-entry] 2026-10-23 — the owner's "start CARD-264"; the slot CARD-270's merge freed
+
+`Status` was already `review`, so this is a **review-cycle re-entry, not an implementation
+start**: nothing in the worktree is re-run, cycle 1's 8.3 stands, and the thing that has never
+been looked at is the polish commit `d5da18ff`. Two cycles of the three-cycle budget remain.
+`dispatcher.state -> active` now holds this card alone against the cap of 2 — the second slot is
+left deliberately empty, because this card's gate **is** the full suite and it takes the board's
+real lock for the duration.
+
+**The owed rebase, taken a second time and clean this time.** Merge `99782837` brings wave 54's
+two merged cards (`faea50a5` CARD-262, `64da37f6` CARD-270) onto the branch. The overlap was
+**measured, not predicted**: `git diff --name-only <merge-base>..main` names 25 paths and
+**none of them is one of this card's six** — main's code side is `admin.css` plus four player and
+book test files, this card's is `CLAUDE.md`, one docs page and four test files.
+`git merge-tree --write-tree` returned **exit 0 before the merge was run**, so unlike the first
+rebase — seven semantic regions, escalated rather than resolved from a merge driver — this one
+needed no judgement at all. `git diff --numstat main...HEAD` after the merge is byte-for-byte the
+same six-file, 1270-line diff as before it.
+
+### [Build gate] the `FULL` question the card left for whoever ran this gate — answered, and it is one path
+
+The card asked: *why does a diff of one doc, one `CLAUDE.md` edit and four test files answer
+`FULL`?* Measured on the merged branch, by elimination rather than by reading the script:
+
+| selection | answer |
+|---|---|
+| all six changed files | `FULL` |
+| the five that live under `KNOWN_ROOTS` (`CLAUDE.md` dropped) | **24 files**, a real selection |
+| `CLAUDE.md` alone | `FULL` |
+
+So the fallback has exactly one cause, and it is the **intended** branch:
+`scripts/impact_set.py`'s `KNOWN_ROOTS` is `("src/", "tests/", "meta/", "docs/", "scripts/",
+"migrations/")` and `select()` returns `FULL` for any changed path matching none of them —
+*"I do not know what this is"* and *"this affects nothing"* are different answers and only one of
+them is safe. A repo-root file is the first kind.
+
+**No new card is owed, because the finding already exists and is sharper than this.**
+`meta/kanban/backlog.md:338` carries it as an `@ops` item, filed at CARD-261's build gate, with
+the readers already enumerated — `tests/test_cli.py` and `tests/test_guard_integrity.py:80` read
+`CLAUDE.md`, while 40 of the 42 test files that mention it only cite it in prose — and with the
+bound the fix must keep: the fallback stays `FULL`, never a guess. Today's measurement adds one
+thing to it: the fallback is reachable from a **single** path in a six-path diff, so the cost of
+the gap is the whole suite rather than a proportional widening. The sibling item at `:340` (the
+`PY` default is `./.venv/bin/python`, which no worktree has) was hit again here and worked around
+the same way, `PY=` pointing at main's interpreter as an interpreter only.
+
+This is the answer the card asked to be carried, and it is the benign half of the fork it named:
+the script falls back because `CLAUDE.md` is a repo-wide fact it cannot model, which is correct.
+Nothing was hand-picked — the gate runs the full suite, which is what `FULL` means.

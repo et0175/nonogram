@@ -58,7 +58,7 @@ _Updated: 2026-10-22 (decompose: CARD-272..CARD-274 added)_  ·  <!-- forge:run 
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
 | 53 | CARD-261 P2, CARD-262 P2 | ✅ done (CARD-261 `ac63e17a`; CARD-262 `faea50a5` — escalated at cycle 2/3, re-entered on the owner's declare route, landed) |
-| 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 (narrowed, queued) | ▶ active (both merged; **no card in flight** — CARD-264 is first into the next slot, then CARD-271, CARD-267, CARD-269, CARD-268) |
+| 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 ▶ in review | ▶ active (two merged; **CARD-264 in flight** since 2026-10-23 on the owner's "start CARD-264" — rebased clean onto main as `99782837`, full-suite gate running under the board lock, then review cycle 2/3 over the narrowed diff. Queue behind it: CARD-271, CARD-267, CARD-269, CARD-268) |
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -90,10 +90,6 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 2)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
-- **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(unscheduled, quick — owner decision 2026-10-22)_
-- **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(unscheduled, quick — owner decision 2026-10-22)_
-- **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(unscheduled, quick — owner decision 2026-10-22)_
-- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard  _(wave 54, **narrowed and unblocked** 2026-10-22 — **first into the next free slot**; cycle 1 passed 8.3, `tests/test_cli.py` folded to CARD-265, merge `4f7263fb`, build gate owed because impact-set answers FULL)_
 - **CARD-271** P2 · Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides  _(wave 54 queue, quick — owner bug report 2026-10-22)_
 - **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(wave 54 queue, quick — owner decision 2026-10-22)_
@@ -111,18 +107,10 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 
 ## Review
-_(none — both wave-54 cards merged; the next free slot goes to CARD-264)_
-
-## Review
-- **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
-  `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions`
-  `cycle 1: 8.4 (1 Important) → fix fc035f7d → cycle 2: 9.7 ✓ PASSES (0 crit / 0 imp; mutation certification clean)` · `AC/EC/G gate running`
-- **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
-  `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions`
-  `cycle 1: 8.4 (1 Important) → fix fc035f7d → cycle 2: 9.7 ✓ PASSES (0 crit / 0 imp; mutation certification clean)` · `AC/EC/G gate running`
-- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
-  `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
-  `5.7 (c1) → 5.2 (c2) → owner: DECLARE the axis → fix ac479658 → cycle 3: 9.3 ✓ PASSES (0 crit / 0 imp; N17+N10 re-fired on committed bytes)` · `AC/EC/G gate running` · `F-601 worktree contamination caught & remediated by the review`
+- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
+  `worktree: ../PythonProject4-card-264` · `branch: card/264-claude-md-outside-the-map` · `head: 99782837`
+  `cycle 1: 8.3 ✓ PASS (12 plants) → polish d5da18ff (NEVER reviewed) → narrowed: tests/test_cli.py folded to CARD-265 → rebased onto main`
+  `build gate: FULL suite running (impact_set = FULL, one cause: CLAUDE.md is outside KNOWN_ROOTS) · then review cycle 2/3 over the narrowed diff, then the AC/EC/G gate`
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…

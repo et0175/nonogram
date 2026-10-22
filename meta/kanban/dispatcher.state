@@ -18,7 +18,22 @@ max_concurrent_override: 2
 # the rebase step (7-region semantic conflict with main over _ADAPTER_COUNT; see its
 # card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
 # at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
-active: []
+#
+# 2026-10-23, owner's "start CARD-264": the card takes the slot that CARD-270's merge
+# freed. 1 active against a cap of 2, so the second slot stays deliberately empty --
+# this card's build gate IS the full suite (impact_set.py answers FULL on the narrowed
+# diff), it holds the board's real lock for the duration, and the cap's stated purpose
+# is that a full suite never runs beside a live pipeline. The owed rebase was taken
+# first: merge 99782837 brought wave 54's two merged cards in, clean and with ZERO file
+# overlap measured (main's 25 changed paths intersect none of this card's six), unlike
+# the first rebase which carried a seven-region semantic conflict and was escalated.
+active:
+  - id: CARD-264
+    phase: review
+    review_cycle: 2
+    at: 2026-10-23
+    branch_head: 99782837
+    note: "Re-entered at the review cycle, not at implementation: Status was already `review`, cycle 1 passed at 8.3, and the polish commit d5da18ff has NEVER been reviewed. Two cycles of the budget remain. The gate owed since the narrowing runs first."
 escalated: []
 merged_wave_54:
   - id: CARD-270
