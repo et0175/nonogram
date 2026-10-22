@@ -1,0 +1,745 @@
+"""CARD-270 — a filled cell carries its own division, across every ink rule.
+
+The defect (owner, 2026-10-22: *"Regions around wider lines (5x cell number)
+don't have gray cell divisions around black cells"*). A filled cell's fill is
+``--grid-ink`` and so is every MAJOR rule: the every-fifth
+``.major-right``/``.major-below`` the player counts by, the board's outer
+frame, and the clue gutters' edges. Ink on ink — a run of filled cells
+crossing any of those merged into one blob. The thin dividers are
+``--player-thin``, so the same run read fine across an ordinary border; the
+defect class is *any ink rule between two ink fills*.
+
+The fix is one declaration in ``admin.css``: ``.player-cell[data-state=
+"filled"]`` draws an inset ``--player-thin`` hairline ``--player-rule`` wide
+just inside its own box. It is neighbour-independent, so the division reads
+the same across a thin rule, a major rule, the frame and a gutter edge.
+
+**What is asserted here, and in which domain.** Two kinds of check, and they
+are not interchangeable:
+
+* the **mechanism** assertions (computed ``box-shadow``, computed border
+  widths/colours, bounding boxes) are the regression net — they hold for any
+  rendering of this stylesheet;
+* the **pixel** assertions are one sample each, in a *declared* domain:
+  Chromium, ``device_scale_factor`` 1 (asserted), page zoom 100 % and
+  ``--player-zoom`` 1 (never set by this file), the viewport named by the test
+  (1440x900 desktop, 390x844 phone), a 20x20 board whose cells are all marked
+  filled, sampled along one named scanline. They claim nothing about other
+  viewports, zoom levels or device pixel ratios, and they exist for exactly
+  one reason: a computed style can agree with the mechanism while no visible
+  band is produced.
+
+Each pixel test carries its own control — the same scanline read with the
+hairline suppressed (an injected ``box-shadow: none``), which must find **no**
+light band across a major rule. That is the defect reproduced in-test, so a
+green band reading is attributable to the shipped declaration and not to
+something else on the board.
+
+Browser tests (``@pytest.mark.browser``, pytest-playwright + Chromium,
+ADR-0038/R7) refuse LOUDLY when the browser is absent — the ``browser_type``
+and ``browser_page`` fixtures of ``tests/test_puzzle_solver_page.py``
+``pytest.fail`` with the install instruction rather than skipping, because a
+silent green skip is this repo's known failure mode.
+"""
+
+from __future__ import annotations
+
+import io
+
+import pytest
+
+from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
+    _open,
+    _unique_grid,
+    browser_page,
+    browser_type,
+    live,
+)
+
+#: The board every pixel test marks up: 20 x 20, uniquely solvable, and it
+#: has at least one empty cell — so marking EVERY cell filled is never the
+#: solution, which keeps the solved flash (it animates ``background``) and the
+#: success frame out of every screenshot. Asserted, not assumed.
+SIDE = 20
+GRID = _unique_grid(SIDE, SIDE, seed=270)
+assert any(not cell for row in GRID for cell in row), (
+    "GRID has no empty cell, so an all-filled board would be SOLVED and the "
+    "solved flash would animate the pixels these tests sample"
+)
+
+DESKTOP = (1440, 900)
+PHONE = (390, 844)
+
+#: How far two colours may differ per channel and still count as the same
+#: one. The board renders these rules without antialiasing (every sampled
+#: pixel measured so far is exact), so this is slack, not a fudge factor.
+_TOLERANCE = 8
+
+
+# --------------------------------------------------------------------------
+# Driving the page
+# --------------------------------------------------------------------------
+
+_FILL_ALL = """() => {
+  const { width, height } = window.puzzlePlayer.payload;
+  const cells = new Array(width * height).fill('filled');
+  window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells: Object.freeze(cells) }));
+}"""
+
+_SET_BOARD = """(cells) => {
+  const { width, height } = window.puzzlePlayer.payload;
+  window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells: Object.freeze(cells) }));
+}"""
+
+#: Two 8 x 8 swatches pinned to the viewport's top-left corner, painted with
+#: the two tokens this card is about. The reference colours are read back out
+#: of a screenshot rather than parsed from a computed style, so a colour-space
+#: serialisation (``color-mix()`` computes to ``color(srgb ...)``) can never
+#: silently become the thing under test.
+_SWATCHES = """() => {
+  // The VALUE is read off .player-stage, which is where --player-rule and
+  // --player-thin are declared: `background: var(--player-thin)` on a body
+  // child resolves to nothing at all (the property is not in scope there),
+  // and the swatch would then show whatever is behind it. _tokens() asserts
+  // the four come back distinct, so that failure can never pass as a colour.
+  const stage = getComputedStyle(document.querySelector('.player-stage'));
+  for (const [prop, x] of [['--grid-ink', 0], ['--player-thin', 8],
+                           ['--grid-paper', 16]]) {
+    const d = document.createElement('div');
+    d.setAttribute('data-card270-swatch', prop);
+    d.style.cssText = 'position: fixed; left: ' + x + 'px; top: 0; width: 8px;'
+      + ' height: 8px; z-index: 2147483647;';
+    d.style.background = stage.getPropertyValue(prop).trim();
+    document.body.append(d);
+  }
+}"""
+
+#: The two rule widths, in px, read off probes inside ``.player-stage`` (the
+#: element the two custom properties are declared on), plus the two facts the
+#: pixel domain rests on.
+_RULE_WIDTHS = """() => {
+  const stage = document.querySelector('.player-stage');
+  const probe = (prop) => {
+    const d = document.createElement('div');
+    d.style.cssText = 'position: absolute; height: 0; width: var(' + prop + ');';
+    stage.append(d);
+    const px = parseFloat(getComputedStyle(d).width);
+    d.remove();
+    return px;
+  };
+  return {
+    rule: probe('--player-rule'),
+    major: probe('--player-rule-major'),
+    dpr: window.devicePixelRatio,
+    zoom: parseFloat(getComputedStyle(
+      document.querySelector('.player-board')).getPropertyValue('--player-zoom')),
+  };
+}"""
+
+#: Every cell's box, in coordinates relative to the TABLE's own box — which is
+#: what an element screenshot of ``.player-board`` is in. Read after the
+#: screenshot, in one evaluate, so a scroll between the two cannot shift them.
+_GEOMETRY = """() => {
+  const table = document.querySelector('.player-board');
+  const t = table.getBoundingClientRect();
+  const cells = {};
+  for (const td of document.querySelectorAll('td.player-cell')) {
+    const r = td.getBoundingClientRect();
+    cells[td.dataset.row + ',' + td.dataset.col] = {
+      x: r.left - t.left, y: r.top - t.top, w: r.width, h: r.height,
+      majorRight: td.classList.contains('major-right'),
+      majorBelow: td.classList.contains('major-below'),
+    };
+  }
+  return { w: t.width, h: t.height, cells };
+}"""
+
+#: Suppresses the shipped mechanism without editing the stylesheet: the
+#: control every pixel reading is compared against.
+_SHADOW_OFF = """() => {
+  const style = document.createElement('style');
+  style.id = 'card270-shadow-off';
+  style.textContent =
+    '.player-cell[data-state="filled"] { box-shadow: none !important; }';
+  document.head.append(style);
+}"""
+
+_BOXES = """() => {
+  const out = [];
+  for (const el of document.querySelectorAll(
+      '.player-board, td.player-cell, th.player-clue, th.player-corner')) {
+    const r = el.getBoundingClientRect();
+    out.push([el.className, el.dataset.row ?? '', el.dataset.col ?? '',
+              el.dataset.line ?? '', Math.round(r.left * 100), Math.round(r.top * 100),
+              Math.round(r.width * 100), Math.round(r.height * 100)]);
+  }
+  return out;
+}"""
+
+
+def _image(png: bytes):
+    from PIL import Image
+
+    return Image.open(io.BytesIO(png)).convert("RGB")
+
+
+def _open_filled(page, live, viewport):
+    """A 20 x 20 board at ``viewport`` with every cell marked filled."""
+    page.set_viewport_size({"width": viewport[0], "height": viewport[1]})
+    _open(page, live, live.store(GRID))
+    page.evaluate(_FILL_ALL)
+    page.evaluate(_SWATCHES)
+    assert page.locator(".player-board.is-solved").count() == 0, (
+        "the all-filled board reads as SOLVED, so the solved flash is "
+        "animating the pixels this test samples"
+    )
+    return _tokens(page)
+
+
+def _tokens(page) -> dict:
+    """The reference colours (out of a screenshot) and the two rule widths."""
+    shot = _image(page.screenshot(scale="css"))
+    widths = page.evaluate(_RULE_WIDTHS)
+    colours = {
+        "ink": shot.getpixel((4, 4)),
+        "thin": shot.getpixel((12, 4)),
+        "paper": shot.getpixel((20, 4)),
+    }
+    # A swatch that failed to paint shows what is behind it, and two reference
+    # colours that are secretly the same turn every reading below into a
+    # tautology. This is the control for that: the four tokens are visibly
+    # different colours, so they must come back visibly different.
+    assert len(set(colours.values())) == 3, colours
+    for name, colour in colours.items():
+        others = [c for n, c in colours.items() if n != name]
+        assert not any(_is(colour, other) for other in others), colours
+    return {**colours, **widths}
+
+
+def _board(page):
+    """An element screenshot of the table, and the cell boxes inside it."""
+    png = page.locator(".player-board").screenshot(scale="css")
+    return _image(png), page.evaluate(_GEOMETRY)
+
+
+def _is(pixel, reference) -> bool:
+    return max(abs(a - b) for a, b in zip(pixel, reference)) <= _TOLERANCE
+
+
+def _centre(cell):
+    return cell["x"] + cell["w"] / 2, cell["y"] + cell["h"] / 2
+
+
+def _scan(image, start, end) -> list[tuple[int, int, int]]:
+    """The pixels along a horizontal or vertical segment, both ends included."""
+    x0, y0 = round(start[0]), round(start[1])
+    x1, y1 = round(end[0]), round(end[1])
+    assert x0 == x1 or y0 == y1, "a scan is horizontal or vertical"
+    width, height = image.size
+    if y0 == y1:
+        step = 1 if x1 >= x0 else -1
+        points = [(x, y0) for x in range(x0, x1 + step, step)]
+    else:
+        step = 1 if y1 >= y0 else -1
+        points = [(x0, y) for y in range(y0, y1 + step, step)]
+    return [image.getpixel(p) for p in points if 0 <= p[0] < width and 0 <= p[1] < height]
+
+
+def _runs(pixels, reference) -> list[int]:
+    """The lengths of the maximal runs of ``reference``-coloured pixels."""
+    lengths, current = [], 0
+    for pixel in pixels:
+        if _is(pixel, reference):
+            current += 1
+        elif current:
+            lengths.append(current)
+            current = 0
+    if current:
+        lengths.append(current)
+    return lengths
+
+
+def _first_unlike(pixels, reference):
+    """The first pixel of ``pixels`` that is not ``reference``, or None."""
+    return next((p for p in pixels if not _is(p, reference)), None)
+
+
+def _pair_across(geometry, axis):
+    """Two adjacent cells either side of a fifth-line major rule on ``axis``.
+
+    Read off the DOM (``.major-right`` / ``.major-below``, which ``solver.js``
+    assigns) rather than from a hard-coded column index, so the sample follows
+    the board the renderer actually drew.
+    """
+    key = "majorRight" if axis == "x" else "majorBelow"
+    for name, cell in geometry["cells"].items():
+        row, col = (int(n) for n in name.split(","))
+        if not cell[key]:
+            continue
+        nxt = (f"{row},{col + 1}" if axis == "x" else f"{row + 1},{col}")
+        if nxt in geometry["cells"] and 5 <= row < SIDE - 5 and 5 <= col < SIDE - 5:
+            return cell, geometry["cells"][nxt]
+    raise AssertionError(f"no .{key} cell with a neighbour on the {axis} axis")
+
+
+def _pair_plain(geometry, axis):
+    """Two adjacent cells either side of an ORDINARY (thin) rule."""
+    key = "majorRight" if axis == "x" else "majorBelow"
+    for name, cell in geometry["cells"].items():
+        row, col = (int(n) for n in name.split(","))
+        if cell[key]:
+            continue
+        nxt = (f"{row},{col + 1}" if axis == "x" else f"{row + 1},{col}")
+        if nxt in geometry["cells"] and 5 <= row < SIDE - 5 and 5 <= col < SIDE - 5:
+            return cell, geometry["cells"][nxt]
+    raise AssertionError(f"no ordinary rule on the {axis} axis")
+
+
+def _between(image, first, second, axis):
+    """The scanline from the first cell's centre to the second's."""
+    a, b = _centre(first), _centre(second)
+    return _scan(image, a, (b[0], a[1]) if axis == "x" else (a[0], b[1]))
+
+
+# ==========================================================================
+# AC-1 — filled cells divide across the every-fifth major rules
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverFifthRule_FilledCellsDivideAcrossMajorRules:
+    """AC-1. Two adjacent filled cells either side of a fifth-line major rule,
+    on both axes, are visually separated.
+
+    The mechanism assertion is the regression net; the pixel sample is the one
+    check that the mechanism actually produces a visible band, and it states
+    its domain in the method's own docstring.
+    """
+
+    def test_every_filled_cell_carries_the_inset_hairline(self, browser_page, live) -> None:
+        """The mechanism, on every filled cell of the board: one inset
+        ``box-shadow``, ``--player-thin``-coloured, ``--player-rule`` wide, no
+        offset and no blur. Read as a computed style, so it holds for any
+        rendering of this stylesheet and not only for the sampled viewport."""
+        tokens = _open_filled(browser_page, live, DESKTOP)
+        look = browser_page.evaluate(
+            """() => {
+              const stage = document.querySelector('.player-stage');
+              const probe = document.createElement('div');
+              probe.style.cssText = 'position: absolute; height: 0;'
+                + ' width: var(--player-rule); background-color: var(--player-thin);';
+              stage.append(probe);
+              const s = getComputedStyle(probe);
+              const want = s.backgroundColor + ' 0px 0px 0px ' + s.width + ' inset';
+              probe.remove();
+              const got = new Set([...document.querySelectorAll(
+                'td.player-cell[data-state="filled"]')].map(
+                  (td) => getComputedStyle(td).boxShadow));
+              return { want, got: [...got],
+                       count: document.querySelectorAll(
+                         'td.player-cell[data-state="filled"]').length };
+            }"""
+        )
+        assert look["count"] == SIDE * SIDE, look["count"]
+        assert look["got"] == [look["want"]], look
+        assert tokens["rule"] > 0 and tokens["major"] == 2 * tokens["rule"], tokens
+
+    @pytest.mark.parametrize("axis", ["x", "y"])
+    def test_a_light_band_reads_across_the_fifth_rule(self, browser_page, live, axis) -> None:
+        """DOMAIN of every figure below: Chromium, viewport 1440x900, device
+        pixel ratio 1 (asserted), page zoom 100 % and ``--player-zoom`` 1
+        (asserted), a 20 x 20 board with every cell marked filled, sampled
+        along the single scanline joining the centres of the two cells either
+        side of one fifth-line major rule. No claim is made about any other
+        viewport, zoom level or device pixel ratio.
+
+        Shipped: leaving either fill, the first pixel that is not ink is
+        ``--player-thin``; the rule's own ink core between the two hairlines is
+        still ``--player-rule-major`` wide.
+
+        Control: the same scanline with ``box-shadow: none`` forced on filled
+        cells finds NO ``--player-thin`` pixel at all — the defect, reproduced,
+        which is what makes the reading above attributable to the hairline.
+        """
+        tokens = _open_filled(browser_page, live, DESKTOP)
+        assert tokens["dpr"] == 1, tokens["dpr"]
+        assert tokens["zoom"] == 1, tokens["zoom"]
+        image, geometry = _board(browser_page)
+        first, second = _pair_across(geometry, axis)
+        pixels = _between(image, first, second, axis)
+
+        assert _is(pixels[0], tokens["ink"]), pixels[:4]
+        assert _is(pixels[-1], tokens["ink"]), pixels[-4:]
+        assert _runs(pixels, tokens["thin"]) == [tokens["rule"], tokens["rule"]], (
+            f"{axis}: the two fills are not separated by two {tokens['rule']}px "
+            f"--player-thin hairlines: {pixels}"
+        )
+        # The major rule's ink core, between the two hairlines, is untouched.
+        light = [i for i, p in enumerate(pixels) if _is(p, tokens["thin"])]
+        assert light[-1] - light[0] - 1 == tokens["major"], (
+            f"{axis}: the ink between the hairlines is "
+            f"{light[-1] - light[0] - 1}px, not --player-rule-major: {pixels}"
+        )
+
+        browser_page.evaluate(_SHADOW_OFF)
+        without, geometry = _board(browser_page)
+        first, second = _pair_across(geometry, axis)
+        assert _runs(_between(without, first, second, axis), tokens["thin"]) == [], (
+            f"{axis}: a --player-thin band reads across the major rule with the "
+            f"hairline suppressed, so the band above is not the hairline's"
+        )
+
+    @pytest.mark.parametrize("axis", ["x", "y"])
+    def test_an_ordinary_rule_reads_the_same_way(self, browser_page, live, axis) -> None:
+        """Same domain as above. The card's claim is that the division reads
+        *uniformly* — across a thin rule as well as a major one — so the thin
+        rule is sampled too: between two filled cells it is one contiguous
+        light band of hairline + rule + hairline, and leaving either fill the
+        first non-ink pixel is ``--player-thin``."""
+        tokens = _open_filled(browser_page, live, DESKTOP)
+        assert tokens["dpr"] == 1, tokens["dpr"]
+        image, geometry = _board(browser_page)
+        first, second = _pair_plain(geometry, axis)
+        pixels = _between(image, first, second, axis)
+
+        assert _is(pixels[0], tokens["ink"]) and _is(pixels[-1], tokens["ink"]), pixels
+        assert _first_unlike(pixels, tokens["ink"]) is not None, pixels
+        assert _is(_first_unlike(pixels, tokens["ink"]), tokens["thin"]), pixels
+        assert _runs(pixels, tokens["thin"]) == [3 * tokens["rule"]], (
+            f"{axis}: an ordinary rule between two filled cells is not "
+            f"hairline + rule + hairline: {pixels}"
+        )
+
+
+# ==========================================================================
+# AC-2 — the frame and the clue gutters too
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverFifthRule_EdgesAndGuttersToo:
+    """AC-2. The same division reads where a filled cell meets the board's
+    outer frame and the clue gutters' edges — the other two places the rule is
+    ``--grid-ink`` and so was ink on ink."""
+
+    @pytest.mark.parametrize("viewport,name", [(DESKTOP, "desktop"), (PHONE, "phone")],
+                             ids=["desktop", "phone"])
+    def test_leaving_a_filled_cell_at_the_boards_edge_the_first_pixel_is_the_hairline(
+        self, browser_page, live, viewport, name
+    ) -> None:
+        """DOMAIN: Chromium, the named viewport, device pixel ratio 1
+        (asserted), zoom 100 %, a 20 x 20 all-filled board. Sampled: from each
+        edge cell's centre outward, perpendicular to that edge, as far as the
+        cell's own border box plus the major rule beyond it.
+
+        Shipped: for every cell on the board's outer ring, on all four sides,
+        the first pixel that is not ink is ``--player-thin``. That covers the
+        clue-gutter edges (the gutter draws a ``--grid-ink`` major rule against
+        the cell) and the outer frame, whichever the layout put on that side.
+
+        Control: with the hairline suppressed, at least one of those edges
+        reports a first-non-ink pixel that is NOT ``--player-thin`` — the
+        defect, reproduced.
+        """
+        tokens = _open_filled(browser_page, live, viewport)
+        assert tokens["dpr"] == 1, tokens["dpr"]
+        image, geometry = _board(browser_page)
+
+        #: The board's outer ring: every cell that has at least one side on
+        #: the frame, with the side(s) that are on it.
+        ring = [(0, col, "top") for col in range(SIDE)]
+        ring += [(SIDE - 1, col, "bottom") for col in range(SIDE)]
+        ring += [(row, 0, "left") for row in range(SIDE)]
+        ring += [(row, SIDE - 1, "right") for row in range(SIDE)]
+
+        def _edges(img, geo):
+            out = {}
+            for row, col, side in ring:
+                cell = geo["cells"][f"{row},{col}"]
+                cx, cy = _centre(cell)
+                reach = cell["w"] / 2 + tokens["major"] + 1
+                end = {
+                    "left": (cx - reach, cy), "right": (cx + reach, cy),
+                    "top": (cx, cy - reach), "bottom": (cx, cy + reach),
+                }[side]
+                pixels = _scan(img, (cx, cy), end)
+                out[(row, col, side)] = (pixels[0], _first_unlike(pixels, tokens["ink"]))
+            return out
+
+        edges = _edges(image, geometry)
+        assert len(edges) == 4 * SIDE, len(edges)
+        wrong = [
+            f"{where}: starts {start}, first non-ink {found}"
+            for where, (start, found) in sorted(edges.items())
+            if not _is(start, tokens["ink"]) or found is None or not _is(found, tokens["thin"])
+        ]
+        assert wrong == [], f"{name}: {wrong[:6]}"
+
+        browser_page.evaluate(_SHADOW_OFF)
+        without, geometry = _board(browser_page)
+        broken = [
+            where
+            for where, (_start, found) in _edges(without, geometry).items()
+            if found is None or not _is(found, tokens["thin"])
+        ]
+        assert broken != [], (
+            f"{name}: every board edge still reads a --player-thin division with "
+            f"the hairline suppressed, so this test is not measuring the hairline"
+        )
+
+    def test_the_sampled_edges_really_include_a_clue_gutter(self, browser_page, live) -> None:
+        """The edge sweep above is only AC-2 if a clue gutter really sits
+        against one of the edges it walks. A row gutter has to be flush
+        against the first or last cell COLUMN and a column gutter against the
+        first or last cell ROW, measured off the live boxes — so a layout that
+        stopped drawing a gutter beside the grid fails here instead of quietly
+        narrowing the sweep to the frame alone."""
+        _open_filled(browser_page, live, DESKTOP)
+        flush = browser_page.evaluate(
+            """() => {
+              const cell = (r, c) => document.querySelector(
+                'td.player-cell[data-row="' + r + '"][data-col="' + c + '"]'
+                ).getBoundingClientRect();
+              const near = (a, b) => Math.abs(a - b) <= 3;
+              const first = cell(0, 0), last = cell(19, 19);
+              const out = { row: false, col: false };
+              for (const box of document.querySelectorAll('th.player-clue')) {
+                const r = box.getBoundingClientRect();
+                if (box.classList.contains('is-row')) {
+                  if (near(r.right, first.left) || near(r.left, last.right)) out.row = true;
+                } else if (near(r.bottom, first.top) || near(r.top, last.bottom)) {
+                  out.col = true;
+                }
+              }
+              return out;
+            }"""
+        )
+        assert flush["row"], "no row-clue gutter is flush against the grid's side"
+        assert flush["col"], "no column-clue gutter is flush against the grid's top or bottom"
+
+
+# ==========================================================================
+# AC-3 — nothing else moves
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverFifthRule_GeometryAndOtherMarksUnchanged:
+    """AC-3. The cell geometry, the rules against paper, the empty dot, the
+    "?" mark and the hint's own ring are what they were."""
+
+    @pytest.mark.parametrize("viewport,name", [(DESKTOP, "desktop"), (PHONE, "phone")],
+                             ids=["desktop", "phone"])
+    def test_the_hairline_takes_no_part_in_layout(
+        self, browser_page, live, viewport, name
+    ) -> None:
+        """Two arms, and the first is the one that can see a mechanism that
+        *does* move layout.
+
+        1. Every cell on a board whose cells are all FILLED is still exactly
+           ``--player-cell`` wide and tall — the size a probe inside the board
+           resolves that token to — and all 400 agree. Measured against the
+           token rather than against the board's other state, so a mechanism
+           that widened filled cells (a padding, a min-width, a border) is
+           caught whether or not it is a ``box-shadow``.
+        2. Every box on the board — the table, every cell, every clue box and
+           corner — is identical with the hairline shipped and with it forced
+           off, to a hundredth of a px.
+
+        Arm 2 alone would be narrative: forcing ``box-shadow: none`` can only
+        undo a ``box-shadow``, so a layout-moving replacement sits in BOTH
+        readings and the comparison reports no difference (measured: the
+        MOVES-LAYOUT mutant survives arm 2 and is killed by arm 1).
+        """
+        _open_filled(browser_page, live, viewport)
+        measured = browser_page.evaluate(
+            """() => {
+              const table = document.querySelector('.player-board');
+              const probe = document.createElement('div');
+              probe.style.cssText =
+                'position: absolute; height: 0; width: var(--player-cell);';
+              table.querySelector('td.player-cell').append(probe);
+              const token = parseFloat(getComputedStyle(probe).width);
+              probe.remove();
+              const sizes = new Set();
+              for (const td of document.querySelectorAll('td.player-cell')) {
+                const r = td.getBoundingClientRect();
+                sizes.add(r.width.toFixed(2) + 'x' + r.height.toFixed(2));
+              }
+              return { token, sizes: [...sizes],
+                       cells: document.querySelectorAll('td.player-cell').length };
+            }"""
+        )
+        assert measured["cells"] == SIDE * SIDE, measured
+        assert measured["token"] > 0, measured
+        want = f"{measured['token']:.2f}x{measured['token']:.2f}"
+        assert measured["sizes"] == [want], (
+            f"{name}: a filled board's cells are {measured['sizes']}, not the "
+            f"{want} --player-cell resolves to — something moved the geometry"
+        )
+
+        shipped = browser_page.evaluate(_BOXES)
+        browser_page.evaluate(_SHADOW_OFF)
+        without = browser_page.evaluate(_BOXES)
+
+        assert len(shipped) > SIDE * SIDE, len(shipped)
+        assert shipped == without, f"{name}: the hairline moved the board's layout"
+
+    def test_the_rules_against_paper_are_untouched(self, browser_page, live) -> None:
+        """DOMAIN: Chromium, 1440x900, device pixel ratio 1 (asserted), zoom
+        100 %, a 20 x 20 board left BLANK (every cell undecided), compared as
+        whole ``.player-board`` element screenshots.
+
+        A blank board must be pixel-for-pixel what it was: the hairline is on
+        filled cells only, so forcing it off changes nothing there. The ink
+        core of a fifth-line major rule is still ``--player-rule-major`` px
+        wide against paper.
+
+        Note what this does NOT assert, because the pixels will not carry it:
+        a rule at a fractional offset is antialiased, and ``--player-thin`` is
+        28 % ink over paper — which is *exactly* the colour a 28 %-covered ink
+        edge blends to. "No ``--player-thin`` pixel on a blank board" is
+        therefore not a statement the sampler can make, and it is not made.
+
+        Control: forcing the hairline onto EVERY cell instead must make the
+        same comparison differ — otherwise this is comparing nothing.
+        """
+        browser_page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        _open(browser_page, live, live.store(GRID))
+        browser_page.evaluate(_SWATCHES)
+        tokens = _tokens(browser_page)
+        assert tokens["dpr"] == 1, tokens["dpr"]
+        shipped, geometry = _board(browser_page)
+
+        for axis in ("x", "y"):
+            first, second = _pair_across(geometry, axis)
+            pixels = _between(shipped, first, second, axis)
+            assert _is(pixels[0], tokens["paper"]), (axis, pixels[:4])
+            assert _runs(pixels, tokens["ink"]) == [tokens["major"]], (axis, pixels)
+
+        browser_page.evaluate(_SHADOW_OFF)
+        without, _ = _board(browser_page)
+        assert shipped.tobytes() == without.tobytes(), (
+            "a blank board is not what it was with the filled cell's hairline "
+            "forced off, so the hairline is reaching cells that are not filled"
+        )
+
+        browser_page.evaluate(
+            """() => {
+              document.getElementById('card270-shadow-off').remove();
+              const style = document.createElement('style');
+              style.textContent = '.player-cell { box-shadow: inset 0 0 0'
+                + ' var(--player-rule) var(--player-thin) !important; }';
+              document.head.append(style);
+            }"""
+        )
+        everywhere, _ = _board(browser_page)
+        assert shipped.tobytes() != everywhere.tobytes(), (
+            "a hairline forced onto every cell changes no pixel of a blank "
+            "board, so the comparison above would not have seen one either"
+        )
+
+    def test_no_other_cell_state_gains_a_shadow(self, browser_page, live) -> None:
+        """A board carrying all four cell states: only the filled one has a
+        ``box-shadow``. The empty dot and the "?" glyph still take their
+        colours from their own tokens and their size from the cell."""
+        browser_page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        _open(browser_page, live, live.store(GRID))
+        #: Four cells away from every fifth line (the major lines are after
+        #: columns/rows 4, 9 and 14), so each one's content box is the cell
+        #: minus one --player-rule on each of two sides and the percentage
+        #: geometry below has one denominator.
+        where = {"unknown": (6, 6), "filled": (6, 7), "empty": (7, 6), "maybe": (7, 7)}
+        cells = ["unknown"] * (SIDE * SIDE)
+        for state, (row, col) in where.items():
+            cells[row * SIDE + col] = state
+        browser_page.evaluate(_SET_BOARD, cells)
+        look = browser_page.evaluate(
+            """(where) => {
+              const stage = document.querySelector('.player-stage');
+              const probe = document.createElement('div');
+              probe.style.cssText = 'position: absolute; height: 0; width: 0;'
+                + ' color: var(--color-accent); background-color: var(--color-text-secondary);';
+              stage.append(probe);
+              const p = getComputedStyle(probe);
+              const tokens = { accent: p.color, secondary: p.backgroundColor };
+              probe.remove();
+              const out = { tokens, shadow: {}, state: {}, dot: null, glyph: null };
+              for (const [state, [row, col]] of Object.entries(where)) {
+                const td = document.querySelector(
+                  'td.player-cell[data-row="' + row + '"][data-col="' + col + '"]');
+                out.state[state] = td.dataset.state;
+                out.shadow[state] = getComputedStyle(td).boxShadow;
+                const after = getComputedStyle(td, '::after');
+                const inner = td.clientWidth;
+                if (state === 'empty') {
+                  out.dot = { w: after.width, h: after.height,
+                              colour: after.backgroundColor,
+                              radius: after.borderRadius, inner };
+                }
+                if (state === 'maybe') {
+                  out.glyph = { colour: after.color, size: after.fontSize,
+                                weight: after.fontWeight,
+                                cell: td.getBoundingClientRect().width };
+                }
+              }
+              return out;
+            }""",
+            where,
+        )
+        assert look["state"] == {state: state for state in where}, look["state"]
+        assert [state for state, shadow in look["shadow"].items() if shadow == "none"] == [
+            "unknown", "empty", "maybe",
+        ], look["shadow"]
+        assert look["shadow"]["filled"] != "none"
+        assert look["dot"]["colour"] == look["tokens"]["secondary"], look["dot"]
+        assert look["dot"]["radius"] == "50%", look["dot"]
+        for side in ("w", "h"):
+            assert abs(float(look["dot"][side].rstrip("px"))
+                       - 0.28 * look["dot"]["inner"]) < 0.5, look["dot"]
+        assert look["glyph"]["colour"] == look["tokens"]["accent"], look["glyph"]
+        assert look["glyph"]["weight"] == "600", look["glyph"]
+        assert abs(float(look["glyph"]["size"].rstrip("px"))
+                   - max(12.0, 0.6 * look["glyph"]["cell"])) < 0.5, look["glyph"]
+
+    def test_a_hinted_filled_cell_still_wears_the_hints_own_ring(
+        self, browser_page, live
+    ) -> None:
+        """The edge of this card's claim. ``.is-hinted`` sets a ``box-shadow``
+        of its own and has the same specificity as the filled rule, so the one
+        that comes LATER in ``admin.css`` wins outright — a ``box-shadow`` is
+        replaced, never merged. This drives Hint until a cell that is both
+        filled and hinted exists and asserts that cell shows CARD-183's paper
+        ring, not this card's hairline: the hint's look is unchanged, and a
+        filled cell is the only case where the two rules can collide."""
+        browser_page.set_viewport_size({"width": DESKTOP[0], "height": DESKTOP[1]})
+        _open(browser_page, live, live.store(GRID))
+        hint = browser_page.locator('[data-player-action="hint"]')
+        for _ in range(12):
+            hint.click()
+            hinted = browser_page.locator('td.player-cell.is-hinted[data-state="filled"]')
+            if hinted.count():
+                break
+        else:
+            pytest.fail("12 hints revealed no FILLED cell, so the collision is untested")
+
+        look = hinted.first.evaluate(
+            """async (td) => {
+              await Promise.all(td.getAnimations().map((a) => a.finished));
+              const stage = document.querySelector('.player-stage');
+              const probe = document.createElement('div');
+              probe.style.cssText = 'position: absolute; height: 0;'
+                + ' width: var(--player-rule-major);'
+                + ' background-color: var(--grid-paper); color: var(--player-thin);';
+              stage.append(probe);
+              const p = getComputedStyle(probe);
+              const paper = p.backgroundColor, thin = p.color;
+              const major = parseFloat(p.width);
+              probe.remove();
+              return { shadow: getComputedStyle(td).boxShadow,
+                       want: paper + ' 0px 0px 0px ' + (2 * major) + 'px inset',
+                       thin };
+            }"""
+        )
+        assert look["shadow"] == look["want"], look
+        assert look["thin"] not in look["shadow"], look

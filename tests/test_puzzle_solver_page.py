@@ -596,6 +596,12 @@ PAGE_ISOLATION: dict[str, tuple[str, str]] = {
         "sets the viewport 29 times across its cases; a viewport left behind "
         "silently changes which layout the next test's board chooses",
     ),
+    "test_puzzle_solver_fifth_rule.py": (
+        "own-page",
+        "sets the viewport for its desktop and phone samples, and injects "
+        "<style> elements that force the filled cell's hairline off (and onto "
+        "every cell) which stay in the document for anything sharing the page",
+    ),
     "test_puzzle_solver_hint.py": (
         "own-page",
         "sets the viewport and installs a page listener to watch for console "

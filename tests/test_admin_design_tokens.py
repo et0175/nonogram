@@ -222,6 +222,84 @@ def test_the_stylesheet_uses_tokens_not_literals() -> None:
     assert literals == [], f"admin.css must reference tokens, not hex values: {literals}"
 
 
+#: ``inset`` is a box-shadow KEYWORD, not a value: it has to be named, the
+#: way :data:`_KEYWORD_VALUES` names a layout keyword, or striking the tokens
+#: out of ``inset 0 0 0 var(--a) var(--b)`` leaves letters behind and a clean
+#: rule reports itself. Stripping it is all this does — everything after it
+#: still faces the same token-only predicate, so ``inset 0 0 0 1px red`` is
+#: still reported.
+_SHADOW_KEYWORD = re.compile(r"^inset\s+")
+
+
+def test_the_filled_cell_division_comes_from_tokens() -> None:
+    """CARD-270 G-2 / AC-4 — the one rule that card adds a value to.
+
+    A filled cell's fill and every MAJOR rule on the board are both
+    ``--grid-ink``, so a run of filled cells merged into one blob across the
+    every-fifth rules, the outer frame and the clue gutters. The fix is an
+    inset ``box-shadow`` hairline on ``.player-cell[data-state="filled"]``,
+    and the hairline's colour and width are exactly the kind of value a card
+    reaches for a literal to write: a bare ``#ccc`` would be caught by the
+    whole-file hex sweep above, but ``rgb()``, a named colour and a bare
+    ``1px`` would not.
+
+    So this pins that one rule the way
+    :func:`test_the_region_toggles_pressed_look_comes_from_tokens` pins the
+    Region toggle's: the rule is collected by name (a renamed, reformatted or
+    deleted rule is a red test, not a smaller sweep), it must still declare an
+    inner division, and every value it declares has to be a token or a
+    token-only ``calc()``/``color-mix()``.
+
+    The predicate is a branch nothing executes while the rule is clean
+    (ADR-0039/R1), so the control at the end drives it over the rule broken on
+    purpose — one break per way a literal can get into THIS rule.
+    """
+    css = (_STATIC / "admin.css").read_text()
+    rules_only = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    found = re.findall(
+        r'(?m)^(\.player-cell\[data-state="filled"\])\s*\{([^}]*)\}', rules_only)
+
+    assert len(found) == 1, (
+        f"admin.css declares {len(found)} top-level rules for a filled player "
+        f"cell; this check pins exactly one, so a second one could override "
+        f"its division with a literal unseen"
+    )
+    selector, body = found[0]
+    values = _declared_values(f"{selector} {{{body}}}")
+    assert values, selector
+    assert any(_SHADOW_KEYWORD.match(value) for value in values), (
+        f"{selector} declares no inset division ({values}); CARD-270's fix is "
+        f"that hairline, and without it filled cells merge across every "
+        f"--grid-ink rule again"
+    )
+    offenders = _untokenised([_SHADOW_KEYWORD.sub("", value) for value in values])
+    assert offenders == [], (
+        f"{selector}: {offenders} are not design tokens (or token-only "
+        f"calc()/color-mix()); a colour or a length here belongs in tokens.css"
+    )
+
+    # The control. Each is a literal reaching into this rule in a form the
+    # whole-file hex sweep would NOT catch; the predicate has to report every
+    # one, or it is pinning nothing.
+    broken = {
+        "a colour function": "inset 0 0 0 var(--player-rule) rgb(191, 192, 193)",
+        "a named colour": "inset 0 0 0 var(--player-rule) silver",
+        "a bare length": "inset 0 0 0 1px var(--player-thin)",
+        "a literal inside the mix": "inset 0 0 0 var(--player-rule) "
+                                    "color-mix(in srgb, #1c2333 28%, var(--grid-paper))",
+        "a bare length inside the calc": "inset 0 0 0 calc(1px + var(--border-width)) "
+                                         "var(--player-thin)",
+        "an inch length, whose unit is also a keyword":
+            "inset 0 0 0 calc(1in + var(--border-width)) var(--player-thin)",
+        "a literal fill": "#1c2333",
+    }
+    for label, value in broken.items():
+        assert _untokenised([_SHADOW_KEYWORD.sub("", value)]) != [], (
+            f"{label}: {value!r} passed the token predicate, so the rule it is "
+            f"supposed to enforce is narrative"
+        )
+
+
 def test_the_region_toggles_pressed_look_comes_from_tokens() -> None:
     """CARD-211 G-4 — the Region toggle is the player toolbar's only
     accent-filled control, so its own rules are the one place a card could
