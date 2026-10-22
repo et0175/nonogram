@@ -1,0 +1,590 @@
+card: CARD-259
+cycle: 3
+reviewer: forge:review (code reviewer, cycle 3 of 3 -- the last cycle)
+reviewer_version: forge 2026.8.17
+generated_at: '2026-10-22T01:21:16+00:00'
+target:
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-259
+  branch: card/259-single-source-the-record
+  head: beb3a527
+  merge_base: 27ca88c7
+  commits:
+  - d85b48b0 (implementation)
+  - 84fd9ded (fix 1)
+  - 3502ecaa (fix 2)
+  - beb3a527 (fix 2, sixth reword row)
+review_lane: confirmation (differential re-review of the fix-2 delta) + the deferred certification half of Step
+  8f, which this cycle OWED and RAN
+overall_score: 8.5
+risk_level: low
+verdict: 'PASSES. 8.5 clears min_score 8 and improves on cycle 2 (7.0) by 1.5, far above min_improvement 0.5.
+  0 Critical, 0 Important, 0 Medium, 3 Low -- no gating findings. Step 8f''s certification half, deferred on cycles
+  1 and 2, RAN this cycle and every line the brief named is certified with a mutant that reds it and, where the
+  mechanism admits one, with the matching missed-WITHOUT counterfactual. family_regression does NOT fire: fix
+  2 introduced no ADR-0039/R1 finding, and the owner''s deletions-only route is the reason -- it is the first
+  of three rounds that did not create the next cycle''s gating finding. All seven of cycle 2''s findings are genuinely
+  closed, each re-derived rather than accepted on report, including the escalation''s root finding F-202 (the
+  two-name slip is now killed where it survived at exit 0 before). The three Low findings are a stale figure in
+  a card note, an uncontrolled disjunct that carries no claim, and a pre-existing over-reach in one keeper sentence
+  that is true on today''s tree. None of them is a reason to hold the card, and there is no fourth cycle to hold
+  it for.'
+certification:
+  status: RAN -- not deferred. Cycles 1 and 2 both emitted deferred(cost) on gating findings; this is the stable
+    cycle they were deferred to, and it is the last.
+  instrument: tests/kill_matrix.py, the committed instrument (CARD-260). No second instrument was written. Documented
+    in tests/README.md from line 453.
+  aggregation: ANY-RED over every execution. The two loop arms (:1136, :1143) run three times per run, once per
+    held text, so each cell is one outcome among three.
+  shipped_discipline: SHIPPED re-run between every mutant and held FAIL-free with at least one arm reached; every
+    mutant line-count-preserving; every repeated target addressed by explicit 1-based occurrence; all files restored
+    by cp -p and verified with shasum -a 256 AND diff -q, plus a whole-worktree git status check after each batch.
+  domains:
+    A: 'committed instrument, Pass.RECORDING, child instrumentation OFF, ANY-RED, denominator 78 ast.Assert NODES
+      in tests/test_db_engine_lifecycle.py (an assert-node count, NOT a collected-test count: the agreement selection
+      collects 1 test and the survival selection 1). Because the recording pass suppresses the raise, a RECORDING
+      cell is an ATTRIBUTION, not an observation.'
+    B: plain pytest, no instrument, selection tests/test_db_engine_lifecycle.py (SHIPPED 19 passed, 2 skipped,
+      exit 0). This is the only domain available for anything landing on tests/conftest.py, which the instrument
+      refuses BY IDENTITY because that file carries the database guard. That refusal was NOT widened (G-3). A
+      plain run gives one first-failing assert and no per-arm matrix, so these cells are attributed by the arm's
+      own interpolated label (path:lineno qualname) -- the weaker attribution and the stronger observation.
+  certified_lines:
+  - line: tests/test_db_engine_lifecycle.py:413 _card_252_record_texts -- the signature predicate
+    arm: :1073 keeper (and :1107 floor)
+    mutant: 'DERIVE-SIG-DEL: _CARD_252_SIGNATURE CARD-252 -> CARD-999, 1 occurrence, line count preserved'
+    outcome: keeper :1073 FAIL, floor :1107 FAIL; arms below NOT-REACHED (the keeper index raises past the suppressed
+      assert)
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:434 _card_252_record_texts -- the file-system enumeration
+    arm: :1073 keeper (and :1107 floor)
+    mutant: 'DERIVE-ENUM-DEL: rglob("*.py") -> rglob("*.qy"), occurrence=2 (the one inside _card_252_record_texts;
+      occurrence 1 at :384 belongs to the 9-site sweep)'
+    outcome: keeper :1073 FAIL, floor :1107 FAIL
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:1101-1104 stated_in -- the guard leg, derived off type(self).__name__
+    arm: :1107 floor
+    mutant: 'STATED-IN-GUARD-STALE: type(self).__name__ -> type(self).__name__+"X"'
+    outcome: floor :1107 FAIL ALONE, all eight other arms PASS. The floor is what makes a stale identity spelling
+      loud instead of a silent drop.
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:830 the guard class docstring -- its membership of the derived set
+    arm: :1107 floor
+    mutant: 'SIG-DEL[guard]: the guard docstring''s single CARD-252 -> ZZZZ-999 (occurrence inside the 830-898
+      span, verified as the only one there)'
+    outcome: floor :1107 FAIL ALONE. A guard text that stops carrying the signature reds loudly; it does not drop
+      out quietly.
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:1101-1104 stated_in -- the conftest leg, derived off conftest's own
+      AST call through a receiver conftest binds
+    arm: :1096 callers
+    mutant: 'RECEIVER-BLIND: receivers = _session_aliases_in(conftest_tree) | set(_SESSION_MODULE_PATHS) -> set(),
+      line count preserved'
+    outcome: 'callers :1096 FAIL ALONE. The brief''s question -- what if conftest stopped calling session.reset_engine
+      through a receiver it binds -- answers LOUD RED, not silent drop, and the answer is two-deep: :1096 fires
+      if the call vanishes, :1107 fires if the calling function''s docstring stops naming the card (SIG-DEL[conftest]
+      below).'
+    domain: A
+  - line: tests/conftest.py:464 _rebuild_public_schema -- the conftest leg of stated_in, measured on the real
+      file
+    arm: :1107 floor
+    mutant: 'SIG-DEL[conftest]: both whole-word CARD-252 Z-filled inside the docstring span, 2 occurrences, line
+      count preserved'
+    outcome: exit 1, killed at the floor, message "the derivation does not reach /…/tests/conftest.py::_rebuild_public_schema"
+    domain: B
+  - line: tests/test_db_engine_lifecycle.py:495 _texts_not_pointing_at_the_keeper -- the deny-default (AC-5)
+    arm: :1160 deny
+    mutant: 'PLANT-FIFTH-TEXT[src/nonogram/limits.py]: one line of that module docstring substituted so it carries
+      CARD-252 and no pointer -- a plant in the REAL tree, under the OTHER authority root, restored byte-identical'
+    outcome: 'deny :1160 FAIL. Paired counterfactual DENY-MECH-DEL+PLANT (the pointer test disabled line-count-preservingly,
+      the same plant in place): deny :1160 PASS -- caught WITH, missed WITHOUT, which is ADR-0039/R1 satisfied
+      two-sided. DENY-MECH-DEL with no plant: all arms PASS.'
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:1136 the names arm
+    arm: :1136
+    mutant: NAME-DEL[SessionLocal@guard] (1 occurrence, Z-fill of equal length); NAME-DEL-ALL[SessionLocal@prod]
+      (BOTH whole-word occurrences in reset_engine's docstring span, at session.py:288 and :364)
+    outcome: 'both FAIL at :1136, nothing else. Recorded honestly: my FIRST prod mutant deleted only one of the
+      two occurrences and SURVIVED all nine arms -- a mis-shaped mutant of exactly the kind trap 5 names (a mutant
+      must delete the thing as the text shows it), my error and not a finding; the properly shaped mutant kills.'
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:1143 the heads arm
+    arm: :1143
+    mutant: 'SPELL-HEAD-RENAME: _hand_set_spellings'' first pattern rf''setattr\( -> rf''setXttr\(, so _spelling_heads
+      derives a head no text shows'
+    outcome: heads :1143 FAIL, nothing else
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:1149 the pointer arm
+    arm: :1149
+    mutant: 'POINTER-DEL-WORD[guard]: both whole-word nonogram.db.session.reset_engine inside the guard docstring
+      span (file occurrences 9 then 8, applied descending) -> nonogram.db.session.ZZZZZ_ZZZZZZ, equal length'
+    outcome: pointer :1149 FAIL and deny :1160 FAIL (the guard text itself stops pointing). Nothing else.
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:1888 the survival table's exactly-one-text check
+    arm: :1888 row-unique (with :1881 row-present beside it)
+    mutant: 'TABLE-DEL[figure row 13]: waves -> gates in the keeper''s surviving phrase at session.py:251. TABLE-UNIQ[figure
+      row 13]: row 13''s phrase pasted into tests/helpers/undefined_table_report.py''s module docstring, one line
+      substituted, line count preserved'
+    outcome: TABLE-DEL reds BOTH :1881 and :1888. TABLE-UNIQ reds :1888 ALONE with :1881 PASS. Neither arm subsumes
+      the other -- the card's claim reproduces cell for cell at the new addresses.
+    domain: A
+  - line: tests/test_db_engine_lifecycle.py:1113-1118 texts -- the identity half of the union (F-202's mechanism)
+    arm: :1136 names
+    mutant: ROLE-SLIP-ONE / ROLE-SLIP-TWO / ROLE-IDENTITY-DEL (alone, and with the two-name slip), whole-word
+      Z-fill inside conftest's docstring span, line count preserved
+    outcome: 'SHIPPED exit 0; one name exit 1 KILLED; TWO names exit 1 KILLED (exit 0 -- survived -- before fix
+      2); ROLE-IDENTITY-DEL alone exit 0; ROLE-IDENTITY-DEL + two-name slip exit 0 SURVIVED. So the identity half
+      is load-bearing, measured: caught WITH, missed WITHOUT.'
+    domain: B
+  - line: tests/test_kill_matrix.py:2669 test_ac7_the_four_arm_grid_of_card_257_reproduces -- the committed AC-3
+      control
+    arm: its own 14-mutant grid
+    mutant: the committed grid, run as shipped
+    outcome: 'PASS. Run with the whole lifecycle file: 19 passed, 2 skipped, exit 0. The four arms are asserts
+      at :1060/:1136/:1143/:1149 and none of the four previous addresses (:1077, :1121, :1128, :1134) is an assert
+      lineno at HEAD, so the fix-2 claim that a stale constant would read loudly rather than misattribute REPRODUCES.'
+    domain: A (inside the committed test)
+  not_certified:
+  - 'TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema''s AC-1/AC-2: the 2 db_required tests SKIP
+    (no reachable test database), so nothing in this cycle evidences them. Declared on the card and declared here.'
+  - 'The survival table''s shrink floor (assert len(rows) >= 22 at :1873) was not mutated: removing a row is not
+    line-count-preserving in a tuple-of-tuples literal, and a no-op mutant and a surviving mutant look identical.
+    The floor is read-and-verified (22 rows, floor 22), not certified by a mutant.'
+  - 'The three conftest cells of AC-2''s name matrix have no per-arm matrix in any domain and structurally cannot:
+    the instrument refuses that path by identity and G-3 forbids widening the refusal.'
+findings:
+- id: F-301
+  title: 'a figure in fix 2''s own ''unchanged by this round'' note is stale: L-1''s prod half reads 11 where
+    recomputation at beb3a527 gives 10'
+  severity: low
+  category: BUG
+  confidence: high
+  source: static+measured
+  attribution: introduced by fix 2 (3502ecaa/beb3a527) -- fix 2's own deletions removed one whole-word `engine`
+    from the keeper docstring and the note it wrote asserts the figure is unchanged
+  file: meta/kanban/cards/CARD-259.md
+  line: '1477'
+  evidence: "CARD-259.md:1477, inside '### Still open, each with a measured reason, UNCHANGED BY THIS ROUND':\
+    \ \"L-1's **prod** half (11 whole-word `engine` left after the backticked deletion)\".\n\nRE-DERIVED at beb3a527\
+    \ by an independent AST walk (ast.get_docstring on each of the three texts, word-bounded regex per name, backticked\
+    \ counted as the literal ``engine``):\n  prod (session.py::reset_engine): whole-word engine 12, of which 2\
+    \ backticked -> 10 left\n  guard (TestEngineLifecycle_TheResetIsAPublishedSeam): 1, of which 1 backticked\
+    \ -> 0 left\n  conftest (_rebuild_public_schema): 6, of which 2 backticked -> 4 left\nFix 1 measured the prod\
+    \ text at 13 (2) and recorded 11 left. Fix 2 then shortened reset_engine's docstring by 4 lines (159 -> 155,\
+    \ which I reproduce) and one whole-word `engine` went with the prose, so the figure moved 13 -> 12 and the\
+    \ residue 11 -> 10 in the very round whose note says 'unchanged'.\n\nWHAT IS NOT WRONG: the LATENT is genuinely\
+    \ unchanged -- 10 > 0, so deleting the two backticked occurrences still leaves the names arm PASS and L-1's\
+    \ prod half still survives. The qualitative claim holds; only the number is stale. Nothing in shipped code\
+    \ carries the figure (the only shipped sentence is qualitative: 'hold the names in double backticks, which\
+    \ the scan does not count'), so no mutant could have caught it -- which is the wave-48 figure rule exactly:\
+    \ a figure committed to a card is a claim and its control is recomputation.\n\nSECOND INSTANCE, same root\
+    \ cause: meta/review/20261021T231000Z-CARD-259-cycle1.yml's F-102 fix_note still reads 'a floor (>= 21)' and\
+    \ 'reds row-present :1854 AND row-unique :1861'. At beb3a527 the floor is >= 22 and the two arms are :1881\
+    \ and :1888 (I measured both by a fresh parse and both mutants land there). The cycle-2 YAML's F-204 fix_note\
+    \ does reconcile the 21 -> 22 row count with its revision named, so this is residual drift in an edited archive,\
+    \ not a contradiction.\n\nWHY LOW AND NOT GATING: card-note and review-archive text only, no shipped claim,\
+    \ no mechanism, the qualitative bound still true, and the correct figures are recorded here. No sentence needs\
+    \ to be added to fix it -- changing 11 to 10 is a narrowing, which even fix 2's rule would have allowed."
+  status: open
+  recommendation: replace 11 with 10 at CARD-259.md:1477 (and drop 'unchanged by this round' for that one figure,
+    or say 12 (2) -> 10 with the revision named). Optionally refresh the cycle-1 YAML's F-102 fix_note arm literals
+    to :1881/:1888 and its floor to >= 22. A one-token edit either way; not a merge blocker.
+- id: F-302
+  title: the `>1` sweep half of the texts union has no control that can fail on this tree -- SWEEP-DEL leaves
+    every arm PASS
+  severity: low
+  category: DESIGN
+  confidence: high
+  source: mutation
+  attribution: introduced by fix 2 for the UNION STRUCTURE (before 3502ecaa the predicate was the `>1` sweep alone
+    and it was the only thing selecting the held texts); the disjunct itself is fix-1 code that fix 2 retained
+    rather than deleted
+  file: tests/test_db_engine_lifecycle.py
+  line: '1117'
+  evidence: "texts = tuple((label, doc) for label, path, qualname, doc in derived if (path, qualname) in stated_in\
+    \ or len(_names_shown_in(doc, names)) > 1)  -- :1113-1118.\n\nMEASURED, committed instrument, Pass.RECORDING,\
+    \ ANY-RED, denominator 78 assert nodes, SHIPPED all 9 arms PASS and re-run between mutants:\n  SWEEP-DEL \
+    \ (`or len(_names_shown_in(doc, names)) > 1` -> `or False and len(...) > 1`, 1 line): ALL NINE ARMS PASS.\n\
+    \  STATED-IN-IDENTITY-DEL (`if (path, qualname) in stated_in` -> `if False and ...`, 1 line): ALL NINE ARMS\
+    \ PASS.\nSo on today's tree NEITHER half of the union reds anything by itself, because they select the SAME\
+    \ THREE TEXTS. Independently re-derived by my own AST walk: the `>1` sweep holds exactly session.py::reset_engine,\
+    \ tests/conftest.py::_rebuild_public_schema and TestEngineLifecycle_TheResetIsAPublishedSeam -- identical\
+    \ to stated_in. The identity half earns its keep only against a mutant (ROLE-IDENTITY-DEL + two-name slip\
+    \ SURVIVES at exit 0, which is the caught-WITH/missed-WITHOUT pair that closes F-202); the sweep half earns\
+    \ its keep against nothing measurable here.\n\nWHY THIS IS *NOT* ADR-0039/R1, which is the whole reason it\
+    \ is Low and not gating. ADR-0039/R1 asks for a control behind a CLAIM a guard makes. Fix 2 DELETED the claim\
+    \ that rode on this disjunct: session.py's keeper used to say 'the ones that enumerate more than one of this\
+    \ module's engine globals are additionally held ... and that threshold is the declared bound of the names\
+    \ arm' and now says only 'some are additionally held'. I grepped the five HEAD files: no shipped sentence\
+    \ anywhere attributes a catch to the threshold. The nearest thing to a claim, test_a_planted_partial_enumeration_fails_the_names_arm's\
+    \ docstring ('a text naming two of three is a partial enumeration and fails'), has a planted control in its\
+    \ own body over _names_shown_in and is true of the disjunct. So this is dead weight with no claim on it, and\
+    \ it is fail-SAFE dead weight: the disjunct can only widen the held set, never narrow it.\n\nWHAT IT COSTS,\
+    \ and this is the real finding: a reader at :1117 cannot tell which half is load-bearing, and neither half\
+    \ has a comment -- the prose rule forbade the sentence that would have said so. That makes the one line most\
+    \ likely to be deleted by a future tidying card the one line that IS load-bearing (:1116), and nothing on\
+    \ the tree would red.\n"
+  status: open
+  recommendation: 'next card, when prose is allowed again: either delete the `>1` disjunct (it selects a subset
+    of stated_in today, so deleting it is measured green) or keep it and give it a planted text in TestCard259_TheDerivedSetOfTextsDeniesByDefault
+    that is held by the sweep and NOT by stated_in -- which is the control it lacks. Either way write the sentence
+    beside stated_in that fix 2 recorded as the declared cost of its route; it is the same sentence.'
+- id: F-303
+  title: the keeper's enforced claim says 'every other docstring in this repository' while the derivation's authority
+    is two roots
+  severity: low
+  category: DOC
+  confidence: high
+  source: static+measured
+  attribution: pre-existing in this card's own history -- the clause is new in fix 1 (84fd9ded) and fix 2 only
+    DELETED words from it ('every measured figure and declared bound of them is stated here' and 'rather than
+    restating one' both came out). Not introduced by fix 2.
+  file: src/nonogram/db/session.py
+  line: '295'
+  evidence: 'session.py:294-296: ''**This docstring is the keeper of that convention, of CARD-252''s record above,
+    and of the bound below: every other docstring in this repository that names CARD-252 carries a pointer back
+    here.**'' followed by ''That is enforced, not asserted''.
+
+
+    The enforcement reaches _CARD_252_AUTHORITY_ROOTS = (src/nonogram, tests) -- two roots, not the repository.
+    The reach limit IS declared, but at the constant (:396-399: ''a docstring outside these two roots is invisible
+    to it; measured at **zero** such docstrings in this repository on 2026-10-22'') and not at the sentence that
+    makes the claim.
+
+
+    MEASURED AT beb3a527, independently: over every *.py in the worktree outside those two roots and outside .venv,
+    docstrings naming whole-word CARD-252 = 0; files mentioning CARD-252 at all = 0. So the claim is TRUE today
+    and the gap between claim and enforcement is exactly the declared residue, which is why this is Low and not
+    the same shape as cycle-1 F-101 or cycle-2 F-201 (both of which were FALSE ON DISK when written).
+
+
+    The deny arm it rides on is certified two-sided this cycle (PLANT-FIFTH-TEXT[limits.py] reds :1160; DENY-MECH-DEL+PLANT
+    misses it), so the claim''s control exists -- it is the claim''s SCOPE that is wider than the control''s,
+    by an amount measured at zero.'
+  status: open
+  recommendation: 'one narrowing, no new sentence: ''every other docstring under src/nonogram/ and tests/ that
+    names CARD-252''. Fix 2''s own rule would have permitted it. Not a merge blocker: the over-reach is measured
+    at zero occurrences.'
+cycle2_closure:
+  summary: All SEVEN are genuinely closed. Each was re-derived from the code at beb3a527 rather than accepted
+    on the fix report, and none was closed by a restatement. None was dismissed in the fix round and none should
+    have been.
+  F-201: 'CLOSED. Both false uniqueness sentences are narrowed to pointer presence, which is what the mechanism
+    enforces: session.py dropped "every measured figure and declared bound of them is stated here" and "rather
+    than restating one"; test_db_engine_lifecycle.py''s DbCoverage docstring dropped "and restated in no docstring,
+    this one included". I re-ran the sweep grep myself over the five HEAD files (restat|only statement|only place|stated
+    once|appears once|does not repeat|no docstring|single source|nowhere): every surviving hit is either the mechanism''s
+    own description, a plant''s text, a control''s own assert message (which fails when false), a declared reach
+    bound, or the ONE kept site. No shipped sentence now claims non-restatement. The restatements themselves are
+    left on disk deliberately, which is the right call -- cutting a reader''s explanation of the defect out of
+    the file that tests it would have been the worse trade.'
+  F-202: 'CLOSED, and I reproduce the kill independently. Plain-run domain, Z-fill of equal length inside conftest''s
+    docstring span, line count preserved, cp -p backup, restore verified by shasum -a 256 and diff -q (c67bb6e6fac6
+    both sides): SHIPPED exit 0; one name exit 1; TWO NAMES exit 1 -- killed, where cycle 2 measured exit 0. Three
+    names exit 1. The floor has its own kill (SIG-DEL[conftest] exit 1 at :1107). And the fix is load-bearing
+    rather than merely present: ROLE-IDENTITY-DEL alone leaves SHIPPED green, ROLE-IDENTITY-DEL + the two-name
+    slip SURVIVES at exit 0. Caught WITH, missed WITHOUT.'
+  F-203: 'CLOSED as declared residue, and the declaration is honest and adequately narrow. The figure is DELETED
+    rather than corrected, for the best possible reason -- it is a function of the marker set (2 / 7 / 20 / 61
+    under four readings of the same ten markers), so no figure is reproducible and none is stated. The substantive
+    half I verified myself: TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema''s class docstring
+    is BYTE-IDENTICAL to the merge-base (so pre-existing, not created here), names CARD-252 nowhere, carries no
+    nonogram.db.session.reset_engine pointer, and restates the forced-precondition bound plus survival rows 12
+    ("**Not** pinned: that such a survivor corrupts anything") and 14 ("**withdrew** that acceptance criterion
+    (AC-3)") in its own words -- which is why the exactly-one-text check, which compares verbatim phrases, cannot
+    see it. That is declared bound 3 ("the arms hold parameters, never meaning") landing exactly where the card
+    says it lands. It softens slightly in the card''s favour: the text does point the reader at the module docstring,
+    which points at the keeper, so it is a two-hop pointer rather than nothing.'
+  F-204: 'CLOSED. Re-derived by ast.literal_eval of the shipped constant at beb3a527: 22 rows, Counter{bound:
+    9, narration: 9, figure: 4}, figure-or-bound 13, bound rows 1 2 3 7 11 12 14 18 20, figure rows 5 6 13 22.
+    The card''s F-204 bullet states 9/3/9 and 12 with the revision 84fd9ded named, and the cycle-2 fix_note reconciles
+    the 21 -> 22 transition explicitly, so the figures are revision-scoped rather than stale. (The cycle-1 YAML''s
+    older ">= 21" / ":1854/:1861" literals are F-301''s second instance.)'
+  F-205: CLOSED. Honest bound 7 is deleted and the list renumbered; the PARSE-DENY-DEL paragraph keeps only its
+    measurement and loses the wrong conclusion; the [Fix 1] summary loses 'because the deny-default has no silent-pass
+    path to delete'. No replacement sentence was written -- the reviewer's PARSE-DENY-CONTINUE reading stands
+    in the cycle-2 report, which is the right place for it. The deny-default's silent-pass path is still there
+    and still raises (_card_252_record_texts' SyntaxError branch, with its committed two-state control in test_a_file_the_derivation_cannot_analyse_is_a_failure).
+  F-206: 'CLOSED, and the blast radius reproduces. The false clause is deleted from _WORD_BOUNDED''s comment,
+    which now reads only "One whole-word match, left and right. Used for the globals and for the pointer." The
+    regex is unchanged, which is the right call. My own measurement over every *.py in the worktree: 47 occurrences
+    of CARD-252, followed by a letter or underscore 0 times and by a digit 0 times. So the asymmetric right boundary
+    ((?![0-9])) selects the identical set, and deleting the comment clause rather than changing the regex changes
+    nothing observable -- established, not assumed.'
+  F-207: 'CLOSED, and the fix found more than the review did. Re-derived from the shipped constant: SIX reword-in-place
+    rows (16 conftest-reworded, 17-21 guard-reworded), not five. TWO of the six are typed bound -- rows 18 and
+    20 -- so a fourth `reworded` kind WOULD have taken the exactly-one-text check off them, exactly as the card
+    says; carrying the reword in retired_from instead is the right call and the reason is correct. Row 22 is present,
+    typed figure, home src/nonogram/db/session.py::reset_engine, and the floor moved 21 -> 22 (assert len(rows)
+    >= 22 at :1873). No bound-carrying clause lost its check: all 13 figure/bound rows pass row-unique, and I
+    certified that arm with two mutants.'
+family_regression:
+  fired: false
+  family: ADR-0039/R1 -- a claim with no control that can fail
+  judgement: 'STATED UNAMBIGUOUSLY: fix 2 did NOT introduce a third round of fix-induced ADR-0039/R1 findings.
+    There is no third round, and the owner''s deletions-only route is the reason.
+
+
+    Checked by reading the code at the commits, not by impression. I enumerated every ADDED line in git diff 84fd9ded..beb3a527
+    over src/ and tests/ and classified each: (a) F-202''s authorised mechanism (callers / stated_in / the floor
+    assert and their three assert messages) -- certified two-sided this cycle; (b) survival-table DATA (row 22,
+    six `-reworded` labels) -- checked by the committed test, which I certified; (c) anchor LITERALS (:1060/:1136/:1143/:1149,
+    NAMES_BLIND_OCCURRENCES) -- re-derived from a fresh parse and correct, and I confirmed none of the four previous
+    addresses is an assert lineno at HEAD; (d) NARROWINGS of existing claims; (e) three claim-shaped sentences,
+    each of which I traced to an enforcement I then certified: session.py''s "every other docstring ... carries
+    a pointer back here" (deny arm :1160, certified caught-WITH/missed-WITHOUT), the guard''s "holds this docstring
+    to naming each of them as a whole word" (names arm :1136, certified), and test_a_planted_partial_enumeration_fails_the_names_arm''s
+    "a text naming two of three is a partial enumeration and fails" (planted control in its own body).
+
+
+    Not one added sentence in the fix-2 delta is a claim without a control that can fail. The ONE finding this
+    cycle attributes to fix 2 (F-301) is a stale FIGURE in a card note -- the wave-48 figure family, whose control
+    is recomputation and which I performed -- not ADR-0039/R1, and not in shipped code at all.
+
+
+    This is the evidence the owner asked for, and it matters as much as a finding would have: two fix rounds out
+    of two had each created the next cycle''s gating finding BY ADDING A CLAIM, and the round that was forbidden
+    from adding a claim created none. The route worked, mechanically and for the stated reason. The price is also
+    exactly as predicted -- see comprehensibility below -- and it is the cheaper half of the trade.'
+  cost_of_the_route: 'The three sentences the fix agent wanted and did not write are the declared cost and are
+    NOT re-filed as defects. Judgement on each:
+
+    1. The sentence beside stated_in. The MECHANISM is comprehensible without it: the three legs are named by
+    the asserts that guard them -- :1073 says the keeper is the function object''s live docstring, :1096 says
+    the conftest text is held to nothing unless conftest calls the seam through a visible receiver, :1107 says
+    a stated_in entry the derivation does not reach means the arms below would not see that text. The three messages
+    together are a working explanation. What is NOT recoverable from the code is the DECISION -- why the role
+    is no longer read off the text under test -- and that genuinely lives only on the card and in the cycle-2
+    report. So: comprehensible as a mechanism, not as a decision. I accept that trade on a card that escalated
+    for adding claims, and F-302 names the one place it actually bites (:1116 vs :1117, where a reader cannot
+    tell which disjunct carries the kill).
+
+    2. The pointer sentence in :522. Its absence is the honest residue, correctly scoped: the text is byte-identical
+    to the merge-base, so this card neither created nor worsened it, and it restates two bound rows in its own
+    words rather than verbatim, which is the declared bound the card already carries. One sentence would close
+    it; it is the right first line of the next card.
+
+    3. The marker-set note. Deleting the figure and leaving the bound qualitative is strictly better than either
+    stating an unreproducible number or adding a sentence to explain it. No cost.'
+attacks:
+  1_is_the_identity_derivation_gameable: 'HELD. The split is exactly as claimed -- I re-derived it independently
+    (own ast walk, not the committed helper): 11 signature-carrying texts, 3 naming more than one global, 2 naming
+    exactly one (tests/helpers/undefined_table_report.py:1 and tests/test_db_engine_lifecycle.py:1, both carrying
+    the pointer), 6 naming none. The 3 are the 3, and they are identical to stated_in. On gameability: every route
+    I could find reds LOUDLY rather than dropping silently, and the floor is not the only thing holding it. conftest
+    stops calling the seam through a receiver it binds -> :1096 FAIL (RECEIVER-BLIND, measured). conftest''s calling
+    function stops naming the card -> :1107 FAIL (SIG-DEL[conftest], measured, plain run, named by path and qualname).
+    The guard class''s docstring stops naming the card -> :1107 FAIL (SIG-DEL[guard], measured). A stale identity
+    SPELLING -> :1107 FAIL (STATED-IN-GUARD-STALE, measured). The guard class RENAMED -> correctly silent, because
+    stated_in reads type(self).__name__ and the test travels with its class; the entry tracks the rename and the
+    docstring goes with it. The keeper''s docstring stops naming the card -> :1073 FAIL. The floor assert does
+    the job the card credits it with, and I certified it with two separate mutants.'
+  2_is_the_union_honest_or_belt_and_braces: LANDED, as a measurement rather than a defect. SWEEP-DEL leaves all
+    nine arms PASS, and so does STATED-IN-IDENTITY-DEL -- the two halves select the same three texts, so NEITHER
+    is load-bearing against the shipped tree, and only the identity half is load-bearing against the two-name
+    slip. The sweep half therefore contributes nothing measurable here. It is not a claim with no control, because
+    fix 2 narrowed the sentence that used to make that claim down to "some are additionally held" and I verified
+    no other shipped sentence attributes a catch to the threshold. Filed as F-302 (low) with both measurements
+    and the two ways to close it.
+  3_the_survival_table_at_22_rows: 'HELD, every figure. 22 rows; kinds 9 bound / 4 figure / 9 narration; 13 figure-or-bound;
+    bound rows 1 2 3 7 11 12 14 18 20; figure rows 5 6 13 22; six reword-in-place rows (16 conftest-reworded,
+    17-21 guard-reworded) of which rows 18 and 20 are typed bound -- so the decision to carry the reword in retired_from
+    rather than as a fourth kind is right for exactly the stated reason, and no bound-carrying clause lost its
+    exactly-one-text check. Floor raised to >= 22. Homes: 16 on session.py::reset_engine, 5 on TestEngineLifecycle_TheResetIsAPublishedSeam,
+    1 on conftest.py::_rebuild_public_schema. The exactly-one-text arm is certified with two mutants that red
+    different arms. Domain: ast.literal_eval of the shipped module-level constant at beb3a527, read from the file''s
+    AST rather than by import.'
+  4_the_claim_sweeps_one_kept_site: 'HELD, and the reasoning is right in all three of its parts. (i) It is a claim
+    about that docstring''s own text, not about the record. (ii) It is MEASURED TRUE: of the 22 sentences of TestEngineLifecycle_TheResetIsAPublishedSeam''s
+    docstring (whitespace-flattened, split at sentence boundaries), exactly ONE names all three of SessionLocal
+    / _engine_url / engine as whole words -- the "assign ``None`` to ``engine``, ``SessionLocal`` and ``_engine_url``
+    from inside ``conftest.py``" sentence, which is the one the kept claim refers to. (iii) It IS survival row
+    20''s surviving phrase, verbatim up to whitespace, typed `bound`, so deleting it would red both :1881 (row-present)
+    and :1888 (row-unique) -- G-2''s committed check, as the card says. Also confirmed pre-existing: the clause
+    is present at the merge-base 27ca88c7 (line-wrapped at :713), so it is CARD-257 F-004''s sentence and not
+    this card''s. Residual, noted not filed: the claim is self-referential and a future rewording that added a
+    second all-three sentence would falsify it silently -- pre-existing, one sentence, and narrowing it is a job
+    for the card that is allowed to touch prose.'
+figures_rederived:
+  note: Every figure below was recomputed in this cycle. The DOMAIN is stated for each because they are not the
+    same.
+  items:
+  - 'session.py docstring-stripped AST: 9487 bytes / 49978874aa80a43a851d2146473dcf342b18c8884d8b854fb2366ba1477fbf49,
+    EQUAL to merge-base 27ca88c7. Domain: my own implementation (ast.parse -> drop the leading string Expr of
+    every Module/ClassDef/FunctionDef/AsyncFunctionDef, Pass for a body that empties -> ast.dump -> sha256), run
+    against git show of the merge-base. Agrees with the orchestrator.'
+  - 'conftest.py docstring-stripped AST: 33624 / 4cfa0b4bf43b12fa1f071aca340e1e0aecf950f9a34bdb9bf53902f4c03535a4,
+    EQUAL to merge-base. Same domain. So src/ and conftest changed by DOCSTRING TEXT ONLY, proved by recomputation.
+    G-1 holds.'
+  - 'role split: 11 signature-carrying texts / 3 held by >1 / 2 naming exactly one / 6 naming none. Domain: my
+    own ast walk over every *.py under src/nonogram and tests, whole-word CARD-252, globals re-derived from _init_engine''s
+    own ast.Global nodes. Unchanged from 84fd9ded as the card claims, and identical to stated_in.'
+  - 'survival table: 22 rows / 9 bound / 4 figure / 9 narration / 13 figure-or-bound / floor >= 22 / 6 reword
+    rows of which 2 bound. Domain: ast.literal_eval of the shipped constant at beb3a527.'
+  - 'the kept claim site: 1 of 22 sentences of the guard docstring names all three globals as whole words. Domain:
+    whitespace-flattened sentence split + per-name word-bounded regex.'
+  - 'L-1: prod whole-word engine 12 (2 backticked) -> 10 left; guard 1 (1) -> 0 left; conftest 6 (2) -> 4 left.
+    Domain: ast.get_docstring per text + word-bounded regex at beb3a527. The guard half is CLOSED as the card
+    says; the prod half survives as the card says; the prod NUMBER is stale -- F-301.'
+  - 'L-2: setattr( occurrences 6 prod / 4 guard / 1 conftest. Domain: literal count inside each docstring. Reproduces
+    the card exactly; the latent is unchanged.'
+  - 'prose ledger: docstring line totals 628 -> 602, delta -26. Domain: ast docstring Expr lineno..end_lineno
+    per text, over git show of 84fd9ded and beb3a527. The card tables 626 -> 600 = -26: EVERY PER-ROW DELTA reproduces
+    exactly and only the two absolute totals differ by 2 (a delimiter-line counting convention on two module docstrings),
+    so the -26 claim and therefore the net -41 prose claim hold.'
+  - 'arm addresses: :1060 preamble, :1136 names, :1143 heads, :1149 pointer -- all four are ast.Assert linenos
+    at HEAD; none of :1077, :1121, :1128, :1134 is. Domain: km.assert_linenos over the shipped file, 78 assert
+    nodes total. The fix-2 claim that a stale constant would read LOUDLY rather than misattribute reproduces.'
+  - 'F-206 blast radius: 47 CARD-252 occurrences across every *.py in the worktree; followed by a letter or underscore
+    0 times; by a digit 0 times. Domain: regex over file text (not docstrings only), .venv excluded.'
+  - 'out-of-root residue: 0 docstrings naming CARD-252 in any *.py outside src/nonogram and tests, and 0 files
+    mentioning it at all. Domain: ast walk over the whole worktree. This is what makes F-303 true-today rather
+    than false-on-disk.'
+  - 'G-5 ADR-0036/R4: exactly 3 hits over every ast.Constant str under src/nonogram/**, docstrings included, against
+    set(range(0x25A0,0x2600)) | {0x2022, 0x2219} -- all three at src/nonogram/admin/pdf_generator.py:321, all
+    U+2022, the declared exemption. No clean-sweep claim is made and none is true.'
+  - 'scope: the changed-file set against the merge-base is exactly the six files Touches lists. Scope gate PASS.'
+system_contract:
+  ADR-0039/R1: PASS. Every claim in the fix-2 delta traces to an enforcement, and the three the card leans on
+    hardest are certified two-sided this cycle (deny-default caught-WITH/missed-WITHOUT; identity half caught-WITH/missed-WITHOUT).
+    F-302 records the one mechanism with no control, and notes that it carries no claim.
+  ADR-0039/R2: PASS. The set is derived from the file system plus ast, denies by default on an unparseable file
+    and on a root that is not a directory (both with committed two-state controls), and the signature predicate's
+    non-derivation is declared at the constant rather than claimed sound. The planted fifth text reds in the real
+    tree under the other authority root and stops reding when removed.
+  ADR-0039/R3: PASS. The exemption set _EXEMPT_HAND_SET_SITES is held to a dict equality (9 sites / 6 pairs) by
+    the standing tree sweep, unchanged by this card.
+  ADR-0036/R3: N/A to this diff (no drawing site touched).
+  ADR-0036/R4: 'PASS, re-derived: 3 hits, all the declared pdf_generator.py:321 exemption.'
+  ADR-0022/R1: N/A -- carried(cycle 2, delta-clean); no grid extent in the fix-2 delta.
+  ADR-0038/R6: N/A -- carried(cycle 2, delta-clean).
+  ADR-0038/R7: N/A -- carried(cycle 2, delta-clean).
+  ADR-0038/R8: N/A -- carried(cycle 2, delta-clean).
+  CON-021: N/A -- carried(cycle 2, delta-clean).
+guardrails:
+  G-1: PASS, re-derived. session.py and conftest.py docstring-only, proved by AST digest equality to the merge-base
+    (9487/49978874, 33624/4cfa0b4b). The test-side mechanism is F-202's role derivation, which fix 2's route authorises
+    explicitly as its one exception, plus the survival table AC-1 orders and the derivation AC-5 orders -- all
+    declared on the card rather than widened silently.
+  G-2: 'PASS in substance. 22 rows, named homes, the committed check green, the floor raised with the table, and
+    I certified both of its arms. One observation that is NOT a finding: fix 2 deleted a declared-bound sentence
+    from the KEEPER ("A text that names exactly one of them is read as prose rather than as an enumeration, and
+    that threshold is the declared bound of the names arm"), and the survival table''s declared method reaches
+    only tests/conftest.py and tests/test_db_engine_lifecycle.py, so no row covers it. The bound is NOT lost:
+    it is stated with a control at tests/test_db_engine_lifecycle.py:1826 ("the declared bound: one name is prose,
+    not an enumeration") and that statement PRE-DATES fix 2 (present at 84fd9ded), so the clause was retired to
+    a named surviving statement that already existed. The card''s wording "this round retires no clause of its
+    own" is loose about that one sentence; the guardrail holds.'
+  G-3: PASS. nonogram_poc never created, dropped, connected to or truncated, and not named in the diff. _refuse_unless_test_database
+    untouched. I did NOT widen the kill instrument's refusal to edit tests/conftest.py -- which is why five of
+    my mutants are plain-run readings, and the refusal fired against me once (an unqualified occurrence on a thrice-repeated
+    line), correctly.
+  G-4: PASS. stdlib only in the diff; my own scripts are scratch and uncommitted.
+  G-5: 'PASS, re-derived: 3 hits, all pdf_generator.py:321, all U+2022, the declared exemption.'
+acceptance_criteria:
+  AC-1 (amended): MET. The set is derived, not enumerated; the survival table ships with 22 named rows, a stated
+    recompute method, a floor and a committed check whose two arms I certified.
+  AC-2 (amended): 'MET. One test holds every text in the derived set to parameters derived from the code, every
+    membership test word-bounded (I confirmed the three arms red individually: :1136, :1143, :1149), with a per-name
+    per-text matrix. The three conftest cells remain plain-run only and the reason is structural and declared.'
+  AC-3: MET. test_ac7_the_four_arm_grid_of_card_257_reproduces passes with its 14 mutants, line-count-preserving,
+    ANY-RED; the grid reproduces and only the addresses moved.
+  AC-4: 'MET. Both AST digests equal the merge-base, re-derived by my own implementation. The declared bound stands:
+    the AST half is a card-time guard (inert after merge) and the standing half is the tree sweep.'
+  AC-5 (new): MET and certified. The authority is the file system plus ast; deny-default on a signature-carrying
+    text with no pointer, on an unparseable file and on a non-directory root; the real-tree plant reds :1160 naming
+    the plant, and the matching DENY-MECH-DEL+PLANT counterfactual misses it.
+coverage:
+  read:
+  - meta/kanban/cards/CARD-259.md (all 1599 lines)
+  - meta/review/20261021T231000Z-CARD-259-cycle1.yml
+  - meta/review/20261022T001501Z-CARD-259-cycle2.yml
+  - /Users/omelnikova/MyProjects/forge_1/forge/skills/review/SKILL.md (cost ladder, deferral rule, Step 8f)
+  - src/nonogram/db/session.py
+  - tests/test_db_engine_lifecycle.py
+  - tests/conftest.py
+  - tests/test_kill_matrix.py
+  - tests/helpers/undefined_table_report.py
+  - tests/README.md (the kill_matrix section from line 453)
+  - git diff 84fd9ded..beb3a527 (every added line classified)
+  - git show 27ca88c7 of session.py, conftest.py and test_db_engine_lifecycle.py
+  not_reached:
+  - the FULL SUITE -- deliberately NOT run. CARD-206's fix round is live in /Users/omelnikova/PycharmProjects/PythonProject4-card-206;
+    a full run takes meta/kanban/.full-suite.lock and CARD-255's guard would raise pytest.UsageError in that agent's
+    every run. I ran subsets only.
+  - 'the 2 db_required tests of TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema: SKIPPED, no reachable
+    test database. Their AC-1/AC-2 are not evidenced by this cycle, as on all three previous gates.'
+  - 'a per-arm matrix for anything landing on tests/conftest.py: structurally unavailable (the instrument refuses
+    that path by identity; G-3 forbids widening it).'
+  - the shrink floor at :1873 as a mutant (not line-count-preservingly mutable).
+  - no timing measurement was taken and none is reported anywhere in this report.
+  checks_run:
+  - 'step-1b: AC-1, AC-2, AC-3, AC-4, AC-5 and G-1..G-5 re-derived against the fix-2 delta'
+  - 'step-8f static half: the fix-2 delta adds no tautological assertion; the new mechanism''s three asserts each
+    have a negative state demonstrated; no sleep, no network, no new global mutable state'
+  - 'step-8f CERTIFICATION half: RAN (see certification block) -- 20 mutants in all, 15 in the instrumented domain
+    over two selections, 5 plain-run'
+  - 'step-8g: N/A (no UI)'
+  - 'step-8h system contract: ADR-0039/R1, R2, R3 and ADR-0036/R4 applied; the five review-lens rules carried
+    as delta-clean'
+  - 'family regression: every added line of the fix-2 delta classified and attributed'
+  - 'scope gate: changed files == Touches, exactly six'
+  - 'cycle-2 closure: all seven re-derived from the code, none accepted on report'
+  mutants_run:
+  - 'INSTRUMENTED (Pass.RECORDING, ANY-RED, 78 assert nodes, SHIPPED re-run between mutants): DERIVE-SIG-DEL,
+    DERIVE-ENUM-DEL, STATED-IN-GUARD-STALE, SIG-DEL[guard], RECEIVER-BLIND, STATED-IN-IDENTITY-DEL, SWEEP-DEL,
+    NAME-DEL[SessionLocal@guard], NAME-DEL[SessionLocal@prod] (mis-shaped, survived, recorded), NAME-DEL-ALL[SessionLocal@prod],
+    SPELL-HEAD-RENAME, POINTER-DEL-WORD[guard], PLANT-FIFTH-TEXT[src/nonogram/limits.py], DENY-MECH-DEL, DENY-MECH-DEL+PLANT,
+    TABLE-DEL[figure row 13], TABLE-UNIQ[figure row 13]'
+  - 'PLAIN RUN (conftest and the identity counterfactual): ROLE-SLIP-ONE, ROLE-SLIP-TWO, ROLE-SLIP-THREE-equivalent
+    omitted, SIG-DEL[conftest], ROLE-IDENTITY-DEL alone, ROLE-IDENTITY-DEL+ROLE-SLIP-TWO'
+  - 'COMMITTED: tests/test_kill_matrix.py::test_ac7_the_four_arm_grid_of_card_257_reproduces (its own 14 mutants)
+    -- PASS'
+  confidence: high
+safety:
+  full_suite_lock: NONOGRAM_FULL_SUITE_LOCK was exported to /tmp/card259-review3.lock before every pytest run
+    in this cycle, and pytest confirmed it on stderr ("reading the lock from /tmp/card259-review3.lock, not the
+    board's own ..."). meta/kanban/.full-suite.lock was never read, created, modified or deleted. No full suite
+    was run.
+  database: nonogram_poc was never created, dropped, connected to or truncated and is not named in anything I
+    ran. _refuse_unless_test_database was neither widened nor bypassed. The kill instrument's refusal to edit
+    tests/conftest.py was NOT widened; it fired against one of my own mutants and I complied by using an explicit
+    occurrence.
+  mutation_hygiene: 'Every mutant line-count-preserving and verified so before each run. Every file cp -p backed
+    up to a tempfile.mkdtemp(), restored in a finally, and the restore verified with shasum -a 256 AND diff -q
+    plus a git status check of the whole worktree after every batch. Final state: tests/test_db_engine_lifecycle.py
+    587a7aed, tests/conftest.py c67bb6e6, src/nonogram/db/session.py 77a7865d, tests/helpers/undefined_table_report.py
+    c0a3a837, tests/test_kill_matrix.py c15fe108, tests/kill_matrix.py 4279dc5d -- all equal to the pre-review
+    reading, and git status shows only the pre-existing card edit and the two untracked review YAMLs.'
+  no_commits: Nothing was committed, added, checked out, restored, stashed, reset or cleaned. No timing measurement
+    was taken and none is reported.
+  digest_timing: No digest of src/nonogram/db/session.py or tests/test_db_engine_lifecycle.py was taken while
+    tests/test_kill_matrix.py was running; every reading was taken after the run exited (fix 1's F-2).
+metrics:
+  score: 8.5
+  previous_score: 7.0
+  improvement: 1.5
+  min_score: 8
+  min_improvement: 0.5
+  clears_threshold: true
+  converged: true
+  findings_by_severity:
+    critical: 0
+    important: 0
+    medium: 0
+    low: 3
+  gating_findings: 0
+  score_rationale: 'Up from 7.0 for four reasons, each measured rather than judged: the escalation''s root finding
+    is closed with the kill reproduced independently and the fix shown load-bearing by its own counterfactual;
+    all seven cycle-2 findings are genuinely closed; the certification this card has owed for two cycles RAN and
+    every named line is certified, with a missed-WITHOUT counterfactual wherever the mechanism admits one; and
+    the family does not fire. Held back from 9 by three things: a figure fix 2 declared unchanged and changed
+    (F-301), a disjunct that reds nothing and says nothing about which half carries the kill (F-302), and two
+    acceptance criteria of the edited file that no cycle of this card has ever evidenced because the test database
+    is unreachable.'
+root_causes:
+- the one recurring cause across all three cycles is a FIGURE restated instead of recomputed (cycle 1 F-102/F-105,
+  cycle 2 F-204, cycle 3 F-301). It is now the only one left, it is confined to card notes, and its control --
+  recomputation by the reviewer -- worked all three times.
+- 'the secondary cause, now closed: a claim stated more widely than the mechanism enforces (cycle 1 F-101, cycle
+  2 F-201). Fix 2 closed it by bringing the claims down rather than the mechanism up, and the sweep over HEAD
+  finds no survivor.'

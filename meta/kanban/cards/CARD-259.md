@@ -15,7 +15,7 @@
 **Wave:** 52 (dispatched 2026-10-21; queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py, tests/test_kill_matrix.py, tests/README.md, tests/helpers/undefined_table_report.py  _(corrected 2026-10-22 from three files — cycle-1 F-107; `test_kill_matrix.py` and `README.md` were declared `SCOPE+` by the implementer, and `undefined_table_report.py` by fix round 1 — its module docstring names CARD-252 and the derived deny-default fails on a text with no pointer)_
-**Review score:** 7.0 (cycle 2/3 — escalated; fix round 2 applied under the owner's deletions-only route, cycle 3 pending)
+**Review score:** 8.5 (cycle 3/3 — ✓ threshold reached, 0 Critical, 0 Important, certification complete)
 **Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
@@ -1128,7 +1128,7 @@ lineno at this HEAD** (an unrelated one in `test_reset_engine_is_public_and_says
 quarter of a stale reading would have been a silent misattribution, which is CARD-260's seventh shape
 appearing for the second time in two days.
 
-**Still open, each with a measured reason:** L-1's prod half (11 occurrences left after the backticked
+**Still open, each with a measured reason:** L-1's prod half (**10** occurrences left after the backticked
 deletion) and L-2 (`setattr(` 6 prod / 4 guard); F-108's other half (`heads` is still built from
 `sorted(names)[0]` alone — a different control and a different card); `reset_engine()`'s docstring is
 **longer** after this round, and the amendment says explicitly that the residue is not this card's;
@@ -1597,3 +1597,89 @@ reason: the selector returns `FULL` because `tests/conftest.py` is changed again
 the narrowing rests on the recomputed AST-digest equality (33624 / `4cfa0b4b…`) proving that change is
 docstring-only. CARD-206's fix round was live in the sibling worktree, so a lock-taking full run would
 have red it. The full suite comes at the merge gate.
+
+---
+
+### [Review 3/3] Score: 8.5 — ✓ passes. 0 Critical, 0 Important, 0 Medium, 3 Low. **Certification ran.**
+
+Report: `meta/review/20261022T012116Z-CARD-259-cycle3.yml` (590 lines, `yaml.safe_load` validated).
+7.0 → **8.5**, an improvement of 1.5 against `min_improvement: 0.5`, and no gating findings. The loop's
+success condition — score ≥ 8 **and** zero surviving critical/important — is met.
+
+**[Family] It does NOT fire, and this is the answer to the question the escalation asked.** The
+reviewer enumerated **every added line** of `git diff 84fd9ded..beb3a527` across `src/` and `tests/`
+and classified each: the authorised F-202 mechanism, survival-table data, re-derived anchor literals,
+narrowings, and **exactly three claim-shaped sentences — each traced to an enforcement the reviewer
+then certified** (`:1160`'s deny arm, `:1136`'s names arm, and a planted control in the test's own
+body). Not one added sentence is a claim without a control that can fail.
+
+So: two fix rounds out of two each created the next cycle's gating finding **by adding a claim**, and
+the round forbidden from adding one created **none**. The owner's deletions-only route worked
+mechanically and for exactly the stated reason. That is worth recording as a method, not just as this
+card's outcome.
+
+**Certification — complete, after two deferrals.** 20 mutants (15 instrumented across two selections,
+5 plain-run), plus the committed anchor's own 14. *Domain A: the committed instrument, `Pass.RECORDING`,
+child instrumentation off, ANY-RED, denominator **78 `ast.Assert` nodes** — an assert-node count, not a
+collected-test count, each selection collecting one test; SHIPPED all-PASS and re-run between every
+mutant, all line-count-preserving, repeated targets addressed by explicit `occurrence`. Domain B: plain
+`pytest`, the only domain available for anything landing on `tests/conftest.py`.* Highlights:
+
+| target | mutant | outcome |
+|---|---|---|
+| the signature | `CARD-252` → `CARD-999` | keeper `:1073` **and** floor `:1107` FAIL |
+| the enumeration | `rglob("*.py")` → `"*.qy"` | `:1073` + `:1107` FAIL |
+| `stated_in`'s guard leg | stale `type(self).__name__` | **floor `:1107` alone** |
+| `stated_in`'s conftest leg | `receivers` → `set()` | **`:1096` alone** |
+| the deny-default (AC-5) | plant a fifth text | `:1160` FAIL; **paired with the mechanism deleted → PASS** |
+| the identity half (F-202) | two-name slip | **exit 1 killed**, and identity-del + slip **survives** |
+
+**Two-sided (caught-with / missed-without) established for the deny-default and the identity half** —
+which is the ADR-0039/R1 shape, not merely a red.
+
+**The reviewer reported a mis-shaped mutant of its own rather than rewriting it:** its first
+`NAME-DEL[SessionLocal@prod]` deleted 1 of 2 occurrences and **survived** — CARD-260's trap 5, its own
+error, declared; the properly shaped mutant kills. That is the standard this board asks for and rarely
+gets.
+
+**All seven of cycle 2's findings are genuinely closed**, each re-derived from the code at `beb3a527`
+rather than accepted on report — including F-203's `:522`, verified **byte-identical to the merge-base**
+and restating the bound *in its own words*, which is precisely why a verbatim exactly-one-text check
+cannot see it. The reviewer also noted the declaration **softens in the card's favour**: `:522` points
+at the module docstring, which points at the keeper — a two-hop pointer.
+
+**The one attack that landed, and it is a measurement rather than a defect.** F-302: the union
+`identity ∪ >1-sweep` is **redundant** — deleting the sweep half leaves all nine arms PASS, and so does
+deleting the identity half, because the two select the same three texts. It is **not** ADR-0039/R1,
+because fix 2 deleted the claim that rode on the threshold and no shipped sentence attributes a catch
+to it. It is dead weight, not an uncontrolled claim. The cost is real though: a reader cannot tell that
+`:1116` carries the kill and `:1117` carries nothing, **so the line most likely to be tidied away is
+the load-bearing one.** That is the sharpest consequence of the forbidden sentence.
+
+**Two stale figures in the record, both found by the reviewer and both corrected here** — the same class
+as the bookkeeping errors CARD-260 left behind:
+- Fix 2's own "still open" note read L-1's prod half as **11**. Recomputed by the orchestrator
+  independently: the keeper's docstring holds **12** whole-word `engine` of which **2** are backticked,
+  so the figure is **10**. Fix 2's own −4-line keeper trim took one `engine` with it, so the figure
+  moved *in the round that declared it unchanged*. The latent itself is genuinely unchanged (10 > 0,
+  names arm still PASS) and no shipped text carries the figure. Corrected on the card.
+- The cycle-1 YAML's F-102 `fix_note` still said `21` rows, a `>= 21` floor and arms `:1854/:1861`,
+  where HEAD is 22, `>= 22` and `:1881/:1888`. Reconciled in place, with both readings kept so the note
+  still says what was true when it was written.
+
+**The honest answer on comprehensibility, which the owner should weigh:** the reviewer judges the
+mechanism comprehensible without the three forbidden sentences — each of `stated_in`'s three legs is
+explained by the assert that guards it — but the **decision** is not. Why the role is no longer read
+off the text under test exists only on this card and in the cycle-2 report. F-302 is exactly where that
+bites. The route bought convergence; this is its price, and it is one sentence.
+
+**Declared not certified:** the two `db_required` tests skip (no reachable test database), so that
+class's AC-1/AC-2 are unevidenced by this cycle as by every previous one; the shrink floor is not
+line-count-preservingly mutable and was read-and-verified instead; and the three conftest name cells
+have no per-arm matrix in any domain and structurally cannot, because the instrument refuses that file
+by identity and G-3 forbids widening the refusal. **The reviewer's own mutant tripped that refusal and
+it complied.**
+
+The reviewer independently reproduced G-1's digests and **agrees with the fail-closed narrowing
+override**: the premise is recomputed rather than judged, and the merge gate's full suite remains the
+backstop. Scope gate PASS — the changed files are exactly the six in `Touches`.
