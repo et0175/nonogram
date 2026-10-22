@@ -1697,3 +1697,19 @@ run `alembic upgrade head` against it: it is a database mutation nobody asked fo
 merge, and the merge does not need it.
 
 **Gate re-run in the project's default configuration** (no `DATABASE_URL`), same commit, same held lock.
+
+### [Environment fixed, owner's instruction] `nonogram_test` migrated 015 → 016
+
+Not part of the card, recorded here because it is what unblocked the gate's DB-mode configuration. The
+missing revision is `016_puzzle_manually_edited_at.py` (CARD-245): **one nullable `DateTime` column on
+`puzzles`, no backfill, a clean single-column downgrade** — read in full before applying, because a
+database mutation is not a step to take on the strength of its filename.
+
+Verified after, four ways: `alembic current` → **`016 (head)`**; `information_schema` →
+`manually_edited_at | timestamp without time zone | YES`; the five failing tests with `DATABASE_URL` set
+→ **5 passed**; the whole `tests/test_admin_binding.py` with it set → **73 passed**.
+`nonogram_poc` was never connected to, named as a target, or touched.
+
+**So the gate can now run the configuration production actually uses**, which no gate on this board has
+done. Both are being run, sequentially: the project-default suite (no `DATABASE_URL`, comparable with
+every earlier gate) and then a DB-mode suite — the first measurement of that path here, whatever it says.
