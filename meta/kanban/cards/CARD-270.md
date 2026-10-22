@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/270-fifth-rule-divisions
-**Worktree:** ../PythonProject4-card-270
+**Worktree:** — (removed at merge)
 **Source:** quick — owner bug report 2026-10-22: "Regions around wider lines (5x cell number) don't have gray cell divisions around black cells"; no handoff increment
 **Idea:** —
 **Wave:** 54
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_fifth_rule.py, tests/test_admin_design_tokens.py
 **Review score:** 9.7 (cycle 2/3) ✓
 **Started:** 2026-10-22T17:20:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-22T20:00:42Z
+**Actual:** 0.3d
+**Merge commit:** 64da37f6
 **Blocked by:** —
 
 ## The defect, with its mechanism verified in the code

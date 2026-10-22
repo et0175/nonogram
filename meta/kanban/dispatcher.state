@@ -18,9 +18,18 @@ max_concurrent_override: 2
 # the rebase step (7-region semantic conflict with main over _ADAPTER_COUNT; see its
 # card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
 # at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
-active: [CARD-270]
+active: []
 escalated: []
 merged_wave_54:
+  - id: CARD-270
+    merge_commit: 64da37f6
+    at: 2026-10-22T20:00:42Z
+    review_score: "8.4 (c1, 1 important) -> 9.6 (c2) PASSES"
+    cycles: "2/3 -- one left unspent deliberately, so the two carried minors are not an uncertified last-mile edit"
+    actual: 0.3d
+    estimate: 0.5d
+    gate: "full suite 8883 executed, 8856 passed, 27 skipped, 0 failed, 0 error, exit 0; +19 vs CARD-262's gate is exactly this card's additions"
+    closes: "The owner's reported ink-on-ink defect in the PLAYER. The same class in the GUIDE STRIP is CARD-275; the zoom-drag flake seen once is CARD-277."
   - id: CARD-262
     merge_commit: faea50a5
     at: 2026-10-22T19:36:32Z

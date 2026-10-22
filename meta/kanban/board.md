@@ -58,7 +58,7 @@ _Updated: 2026-10-22 (decompose: CARD-272..CARD-274 added)_  ·  <!-- forge:run 
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
 | 53 | CARD-261 P2, CARD-262 P2 | ✅ done (CARD-261 `ac63e17a`; CARD-262 `faea50a5` — escalated at cycle 2/3, re-entered on the owner's declare route, landed) |
-| 54 | CARD-264 P2, CARD-270 P2, (queued: CARD-264 re-entry, CARD-271, CARD-267, CARD-269, CARD-268) | ▶ active (CARD-264 narrowed, guard folded to CARD-265; CARD-262 escalated at cycle 2 then **re-entered on the owner's declare-the-axis route**; both slots full — CARD-270 in review, CARD-262 in its last fix cycle) |
+| 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 (narrowed, queued) | ▶ active (both merged; **no card in flight** — CARD-264 is first into the next slot, then CARD-271, CARD-267, CARD-269, CARD-268) |
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -111,6 +111,9 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 
 ## Review
+_(none — both wave-54 cards merged; the next free slot goes to CARD-264)_
+
+## Review
 - **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
   `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions`
   `cycle 1: 8.4 (1 Important) → fix fc035f7d → cycle 2: 9.7 ✓ PASSES (0 crit / 0 imp; mutation certification clean)` · `AC/EC/G gate running`
@@ -126,8 +129,9 @@ _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 - **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/for…
 
 ## Done
-_243 cards merged, waves 1–54 (plus 43 from before the `Wave:` field existed)._ Most recent:
+_244 cards merged, waves 1–54 (plus 43 from before the `Wave:` field existed)._ Most recent:
 
+- **CARD-270** A filled cell draws its own division, so runs stop merging across every ink rule  _(wave 54, 8.4 → **9.6** cycle 2/3; merge `64da37f6`, gate 8856 passed / 27 skipped / 0 failed — the owner's reported defect, fixed by one CSS declaration)_
 - **CARD-262** The page-position guard's door axis, **declared** rather than claimed closed  _(wave 53, 5.7 → 5.2 ⚠ stalled → escalated → owner chose DECLARE → AC/EC/G gate PASSED; merge `faea50a5`, gate 8837 passed / 27 skipped / 0 failed)_
 - **CARD-260** Commit the per-assertion kill instrument once, with all six of its known traps as controls  _(wave 51, score 8.8 (round 5 — re-entry cycle 2/3))_
 - **CARD-259** CARD-252's record is written in three places; single-source it and control the pointer  _(wave 52, score 8.5 (cycle 3/3 — ✓ review passed; AC/EC/G gate ✓ 10 of 10 after the owner's AC-2 narrowing))_
