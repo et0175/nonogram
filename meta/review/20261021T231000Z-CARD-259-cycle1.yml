@@ -160,9 +160,11 @@ findings:
     source: static
     violates: 'ADR-0039/R1'
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: '84fd9ded (fix round 1)'
     dismissed_reason: null
+    fix_note: >-
+      src/nonogram/db/session.py no longer claims ''the only statement''. The uniqueness claim is narrowed to every MEASURED FIGURE and DECLARED BOUND, and it is enforced by a derivation rather than asserted: _card_252_record_texts() enumerates every docstring under src/nonogram/ and tests/ off the disk, keeps the ones naming CARD-252 as a whole word, and FAILS naming path:lineno:qualname on any that is neither the keeper (derived from the function object) nor a word-bounded pointer to it; an unparseable file or a missing root fails it too (AC-5, ADR-0039/R2). Mutants that DELETE the mechanism: DERIVE-DEL[signature], DERIVE-DEL[enumeration] and DERIVE-DEL[keeper-signature] each red the keeper arm :1090; POINTER-DEL[undefined_table_report], POINTER-DEL-ALL[lifecycle module docstring] and POINTER-DEL[test_ac7] each red the deny arm :1145; PLANT-FIFTH-TEXT[tests/db_name.py] reds :1145 naming the plant, and removing it passes. Declared survivor recorded: deleting ONE of the module docstring''s two pointer occurrences correctly leaves the arm PASS (the L-2 shape). The drifted figure is re-derived from meta/kanban/cards/CARD-252.md:30-39 (its ''Measured cost, four consecutive waves'' table): one failing run in each of waves 45, 46, 47, 48, three of them build gates and the fourth wave 46''s smoke test on its first run -- so BOTH shipped sentences were wrong. Stated once, in the keeper, with the derivation named; the module docstring now points there. Class swept: every number token in all 11 derived texts was AST-enumerated and grouped; this is the only token denoting the same measurement in two texts.
     learned_pattern: null
 
   - id: F-102
@@ -207,9 +209,11 @@ findings:
     source: static
     violates: 'G-2'
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: '84fd9ded (fix round 1)'
     dismissed_reason: null
+    fix_note: >-
+      The 44/44 figure is WITHDRAWN as unreproducible (its script was never committed) and replaced by _CARD_252_CLAUSE_SURVIVAL in tests/test_db_engine_lifecycle.py: 21 committed rows (retired_from, clause, home, surviving_phrase, kind), checked by TestCard259_TheDerivedSetOfTextsDeniesByDefault::test_every_retired_clause_has_a_named_surviving_statement, with the clause-splitting method written into the constant''s own comment so the next card can recompute it, and a floor (>= 21) so the table cannot silently shrink. Phrases are compared whitespace-flattened (a line-wrap is not a drift -- that is what gave the predecessor 41/44). The 13 figure/bound rows carry a SECOND check: the phrase must occur in EXACTLY ONE text of the derived set, which is the mechanism that single-sources a measurement. The row F-102 named is reconciled: retired ''Four consecutive build gates on this board ...'' -> home src/nonogram/db/session.py::reset_engine, surviving phrase ''one failing run in each of four consecutive waves -- 45, 46, 47 and 48'', kind figure. Mutants: TABLE-DEL[figure row 13] reds row-present :1854 AND row-unique :1861; TABLE-UNIQ[figure row 13] (the phrase pasted into a second derived text) reds row-unique :1861 alone -- neither arm subsumes the other.
     learned_pattern: null
 
   - id: F-103
@@ -255,9 +259,11 @@ findings:
     source: inferred
     violates: 'ADR-0039/R1'
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: '84fd9ded (fix round 1)'
     dismissed_reason: null
+    fix_note: >-
+      The ''read first'' sentence is DELETED, with the cycle-1 refutation recorded in its place. The property that actually carries the uninstrumented reading is named: each arm''s message interpolates the failing text''s own label, now path:lineno qualname. That property has a control that can fail -- test_each_arm_of_the_agreement_names_the_text_it_failed_on reads the agreement''s own AST and reds if an arm''s message stops interpolating {label}. Mutants LABEL-DEL[names arm] and LABEL-DEL[heads arm] (f-string -> plain string, line count preserved): plain pytest exit 1, ''the arm at :1121 [resp. :1128] does not interpolate the text''s own label''. DOMAIN: plain run only -- the instrument REFUSES both by its topology check, because they alter what an assert in its own target file reads. Honest bound 2 on the card is rewritten to credit the label. CLASS SWEPT over every new causal claim, and two of my own were wrong and are corrected: (1) ''zero extending occurrences in any derived text'' was false -- there is exactly one, the illustrative .SessionLocalFactory in that very docstring, in a text held to no heads arm; reworded to the measured truth; (2) ''each failure green on a re-run of the same commit'' is wave 45''s wording only, narrowed to the record''s own ''reproducing on no second run''.
     learned_pattern: null
 
   - id: F-104
@@ -299,9 +305,11 @@ findings:
     source: static
     violates: 'ADR-0039/R1'
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: '84fd9ded (fix round 1)'
     dismissed_reason: null
+    fix_note: >-
+      The sentence now says: one mutant per name per text over the texts the names arm holds (three names over three texts today, so nine), of which the SIX on src/nonogram/db/session.py and tests/test_db_engine_lifecycle.py are held by tests/test_kill_matrix.py::test_ac7_the_four_arm_grid_of_card_257_reproduces, and the THREE on tests/conftest.py are held by no committed control and structurally cannot be, because the instrument refuses an edit landing on that path by identity (it carries the database guard) and G-3 forbids widening that refusal; those three are a card-time plain-pytest reading, asserted nowhere. The three cells were re-measured at this HEAD: SessionLocal (2 occurrences), _engine_url (1), engine (6 whole-word inside that docstring''s span) -- all three exit 1 at :1121 with the message naming .../tests/conftest.py:463 _rebuild_public_schema, cp -p backup in tempfile.mkdtemp(), restore asserted byte-for-byte, SHIPPED re-run exit 0 after each.
     learned_pattern: null
 
   - id: F-105
@@ -347,9 +355,11 @@ findings:
     source: inferred
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: '84fd9ded (fix round 1)'
     dismissed_reason: null
+    fix_note: >-
+      Confirmed and the record corrected. Re-measured over three revisions in one script (word-bounded regex over ast.get_docstring): guard text whole-word engine = 2 (1 backticked) at 27ca88c7, 1 (1) at d85b48b0, 1 (1) at this HEAD -- so 2-of-which-1 was the MERGE-BASE reading. L-1''s guard half is therefore CLOSED: deleting the single backticked ``engine`` leaves zero and the names arm reds. L-1''s prod half genuinely survives and that is why it stays declared -- and its figure MOVED in this round, 12 whole-word (2 backticked) at both earlier revisions to 13 (2) at this HEAD, because the keeper edit added one occurrence; recorded because a figure is a claim. Class swept: L-2 re-measured (setattr( 6 prod / 4 guard / 1 conftest, so the two docstrings survive a first-occurrence deletion and the conftest text does not), L-3 re-measured (0 extending identifiers under src/ or tests/), AC-4''s two AST digests re-derived at the merge-base and at HEAD, and the four arm addresses plus NAMES_BLIND_OCCURRENCES re-derived TWICE from a fresh parse in this round. Every figure now names the revision it was measured at.
     learned_pattern: null
 
   - id: F-106
@@ -377,9 +387,11 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: '84fd9ded (fix round 1)'
     dismissed_reason: null
+    fix_note: >-
+      tests/README.md now reads ''are re-derived by hand and re-committed at each card that moves that file -- nothing in the suite re-derives them, because the anchor''s only check on them is set(arms) <= linenos, which says the four literals ARE assert linenos and not that they are THOSE four arms''. It also carries the third move of the addresses with its overlap measured at this HEAD: of the four previous addresses, :877, :897 and :908 are not assert linenos here (a stale constant reads loudly) but :916 IS -- an unrelated assert in test_reset_engine_is_public_and_says_who_calls_it -- so a quarter of a stale reading would have been a silent misattribution.
     learned_pattern: null
 
   - id: F-107
@@ -408,9 +420,11 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: '84fd9ded (fix round 1)'
     dismissed_reason: null
+    fix_note: >-
+      Closed by the orchestrator before this round; fix round 1 adds the sixth file it touched, tests/helpers/undefined_table_report.py (SCOPE+, prose only: its module docstring names CARD-252 and had no pointer, so the derived deny-default fails on it). No contract rule changes -- tests/** still selects ADR-0039 and src/nonogram/** still selects ADR-0036/R4.
     learned_pattern: null
 
   - id: F-108
@@ -441,10 +455,23 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: '84fd9ded (fix round 1)'
     dismissed_reason: null
+    fix_note: >-
+      Closed in the half that was closable and declared in the other. _head_shown_in now applies a right word boundary derived from the head rather than decided per head (a boundary iff the head ends in an identifier character), so .SessionLocalFactory no longer satisfies .SessionLocal while setattr( keeps no boundary because ( cannot continue an identifier. Both directions have committed arms (head-bound :1883, head-call :1887) in test_an_identifier_extending_a_spelling_head_does_not_satisfy_it, and HEAD-BOUND-DEL (the lookahead deleted) reds :1883 -- a planted control, because the shape occurs in no text the arm holds and a deletion mutant would otherwise red nothing. DECLARED, not closed: heads is still built from sorted(names)[0] alone, so no text is asked to show a .<other name> = spelling; building it from every name is a different control and a different card. Measured at HEAD: zero extending occurrences in the three texts the heads arm holds, exactly one in the derived set (the illustrative spelling in the arm''s own docstring, in a text held to no heads arm).
     learned_pattern: null
+
+fix_rounds:
+  - round: 1
+    commit: '84fd9ded'
+    at: '2026-10-22'
+    disposition: 'F-101..F-108 all fixed; none dismissed. AC-5 implemented as a derived, deny-by-default set (authority = the file system + ast over src/nonogram/ and tests/; signature = whole-word CARD-252; keeper derived from the function object), with a planted-fifth-text control in both states (committed and synthetic in TestCard259_TheDerivedSetOfTextsDeniesByDefault, and in the real tree as PLANT-FIFTH-TEXT[tests/db_name.py]: deny arm FAIL naming tests/db_name.py:1 <module> with the plant, exit 0 without it).'
+    waves_vs_gates: 'resolved from meta/kanban/cards/CARD-252.md:30-39 -- four consecutive WAVES (45, 46, 47, 48), one failing run each, three of them build gates and the fourth wave 46''s smoke test on its first run. Both shipped sentences were wrong; the keeper now states the derived figure once.'
+    survival_table: 'tests/test_db_engine_lifecycle.py::_CARD_252_CLAUSE_SURVIVAL (21 rows) + test_every_retired_clause_has_a_named_surviving_statement. 44/44 withdrawn as unreproducible.'
+    own_additions_mutated: 'domain A (CARD-260 instrument, Pass.RECORDING, ANY-RED, child instrumentation off, 76 ast.Assert denominator, SHIPPED re-run between mutants): 13 mutants over two selections, SHIPPED 0 FAIL of 7 and of 19 reached at pytest exit 0, every mutant killing the arm named. Domain B (plain pytest, what the instrument refuses by identity or by topology): 3 conftest name cells, 2 LABEL-DEL, PARSE-DENY-DEL, PLANT-FIFTH-TEXT. One declared survivor and one mutant that killed by UnboundLocalError rather than as intended, both recorded unrewritten.'
+    ast_digests_reverified: 'src/nonogram/db/session.py 9487 / 49978874aa80a43a851d2146473dcf342b18c8884d8b854fb2366ba1477fbf49 and tests/conftest.py 33624 / 4cfa0b4bf43b12fa1f071aca340e1e0aecf950f9a34bdb9bf53902f4c03535a4, both equal to the merge-base 27ca88c7 -- so both files are docstring-only in this round (conftest.py was not edited at all).'
+    lock: 'NONOGRAM_FULL_SUITE_LOCK exported to /tmp/card259-fix.lock for every pytest run; meta/kanban/.full-suite.lock never read, created, modified or deleted.'
 
 verdict:
   risk_level: medium

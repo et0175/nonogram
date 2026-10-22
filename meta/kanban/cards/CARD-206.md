@@ -500,3 +500,47 @@ measurement and the twelve-sibling table. A later cycle re-running the gate will
 
 **Residual, unchanged by this edit:** a card that touches the corpus *undeclared* is still invisible to
 the hotspot rule. That is a property of predicting footprints, not of this card.
+
+---
+
+### [Build gate] RED on attempt 1, GREEN on attempt 2 — and the red was invisible to the implementer
+
+**Attempt 1 (`3a3dfc8f`): 1 failed, 5906 passed, 16 skipped. EXIT=1.**
+
+```
+tests/test_puzzle_edit_routes.py:1101
+assert (before, after) == (7, 8)      ->   assert (8, 9) == (7, 8)
+```
+
+An **absolute** pin on the interior page count, placed by an earlier card precisely so the interior
+count and the puzzle count "cannot be confused for each other again". This card inserts one interior
+page, so both figures move by one. The test's actual claim — `after - before == announced`, with
+`announced == 1` — held unchanged through the shift, which is exactly the distinction the pin exists to
+keep visible.
+
+**The implementation agent could not have seen it, and reported truthfully.** It ran a hand-chosen
+"123-file book/admin/pdf/export/layout neighbourhood" and recorded *4,120 outcomes, 0 failures* — true
+of what it ran. `tests/test_puzzle_edit_routes.py` is not in that neighbourhood by name, is not in the
+card's `Touches`, and reaches the changed modules only through the **src→src import graph**. It was
+selected by `scripts/impact_set.py`, whose transitive reverse-reachability over that graph was added
+the same day specifically to close a fail-open hole. Without it this gate would have been green and
+the defect would have travelled to the merge gate or to main. *"The implementer ran tests"* and
+*"the card's tests pass"* are different statements, and this is a clean instance — the board's own
+backlog already argues implementation agents should not be asked to self-certify breadth.
+
+**Repair, attempt 1 of 2 (`12de4ac2`).** The expected value is derived, not guessed: the card adds
+exactly one interior page and the gate observed `(8, 9)` directly. The **class** was measured rather
+than the site fixed — `_interior_page_count` appears four times in that file, three in deltas (safe)
+and `:1101` the only absolute pin; a scan of every test file this card did not touch found no other
+absolute pin on an interior count, the remaining candidates being `> 0` bounds or
+`metadata.page_count`, a puzzles-per-page figure this card does not move, all of which passed.
+The pin still can fail: reverting it to `(7, 8)` reds exactly that test, verified with the file
+restored byte-identical.
+
+`SCOPE+ tests/test_puzzle_edit_routes.py` — one pin and its comment, no mechanism. Deliberately **not**
+added to `Touches`: it is not a conflict hotspot, and widening a declaration past what dispatch needs
+blinds the scope gate.
+
+**Attempt 2 (`12de4ac2`): 5907 passed, 16 skipped, 0 failed. EXIT=0.** Same 109-file selection,
+re-derived rather than reused. The 16 skips are `db_required`/browser, green. Build-fix attempts used:
+**1 of 2**. Clear for review.

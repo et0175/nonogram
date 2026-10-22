@@ -14,8 +14,8 @@
 **Idea:** —
 **Wave:** 52 (dispatched 2026-10-21; queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
-**Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py, tests/test_kill_matrix.py, tests/README.md  _(corrected 2026-10-22 from three files — cycle-1 F-107; the last two were declared `SCOPE+` by the implementer)_
-**Review score:** 6.5 (cycle 1/3 — below the threshold of 8)
+**Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py, tests/test_kill_matrix.py, tests/README.md, tests/helpers/undefined_table_report.py  _(corrected 2026-10-22 from three files — cycle-1 F-107; `test_kill_matrix.py` and `README.md` were declared `SCOPE+` by the implementer, and `undefined_table_report.py` by fix round 1 — its module docstring names CARD-252 and the derived deny-default fails on a text with no pointer)_
+**Review score:** 6.5 (cycle 1/3 — fix round 1 applied, re-review pending)
 **Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
 **Blocked by:** —
 
@@ -604,3 +604,541 @@ selects ADR-0036/R4.
 **What this amendment does not do:** it does not license a rewrite of `reset_engine()`'s 135-line
 docstring. The implementer's declared bound stands — no AC asks the keeper to shrink, and relocating the
 record would create yet another text. Reducing the residue remains a different card.
+
+---
+
+## Worktree notes (fix round 1, 2026-10-22 — answering review cycle 1)
+
+### The owner's amendment, implemented: the set is DERIVED and it denies by default (AC-5)
+
+**The authority** is the file system plus `ast`: every `*.py` under `src/nonogram/` and `tests/`,
+enumerated with `Path.rglob` and parsed, and **every** module, class and function docstring collected.
+No file is listed. `_CARD_252_AUTHORITY_ROOTS` and `_card_252_record_texts()` in
+`tests/test_db_engine_lifecycle.py` are the whole derivation.
+
+**The signature** is the whole-word token `CARD-252` — the record's own card id. A docstring that carries
+it must be either the **keeper** or a **pointer**; anything else is a FAILURE naming its path, line and
+qualified name.
+
+**The keeper** is derived from the function object, not from a path spelling: `(file, qualname)` of
+`app_session.reset_engine`, cross-checked against its live `__doc__` (flattened, because CPython dedents
+a docstring at compile time while the AST keeps the literal's indentation — the two are the same prose
+and never the same bytes).
+
+**The roles, and which arm holds which text, both derived:**
+
+| role | derived predicate | arms applied | texts at HEAD |
+| --- | --- | --- | --- |
+| keeper | `(path, qualname)` of the function object | names, heads | 1 |
+| convention-stating | names **more than one** of `_global_names_assigned_by("_init_engine")` as a whole word | names, heads, pointer | 3 (incl. the keeper) |
+| pointer-only | names at most one | pointer | 8 |
+
+The `>1` threshold *is* the discriminator and it is a **declared bound**: a text naming exactly one global
+is read as prose. Measured at HEAD: **3** texts enumerate more than one (the keeper, `conftest.py`'s
+pointer, the guard class docstring — the same three the hand-written tuple held, now arrived at by
+derivation), **2** name exactly one (both module docstrings, both carrying the pointer), **11** carry the
+signature in all.
+
+**What the derivation can see:** every docstring under those two roots, including ones written later,
+including a module docstring (which is what cycle 1 found it blind to), and including a file it cannot
+parse — which it **fails** on rather than skipping. A root that is not a directory fails it too.
+
+**What it cannot see, stated rather than claimed sound:**
+1. **A restatement that never names `CARD-252`.** The signature is one hand-written token; ADR-0039/R2
+   asks the *set* to be derived, and it is, but the predicate is not. Measured bound: of every docstring
+   under the roots that does **not** name the card, **2** carry a marker of the record
+   (`pg_prepared_statements`, "not load-bearing"), and **neither restates a figure or a bound of it** —
+   `test_no_server_side_prepared_statement_is_ever_created` *measures* the `pg_prepared_statements` zero
+   in its own body rather than quoting it, and `tests/test_web_server.py:1858` uses the words "not
+   load-bearing" about CORS. So the residue is zero today **by inspection, not by construction**, and a
+   fifth text that avoids the token is invisible. That residue is unbounded in principle.
+2. **Anything that is not a docstring under those two roots.** Running code, comments, Markdown, and any
+   `*.py` elsewhere in the repo. Measured: **zero** docstrings naming `CARD-252` in any `*.py` outside
+   `src/nonogram/` and `tests/`.
+3. **Prose agreement.** The arms hold parameters (the globals, the spelling heads, the pointer), never
+   meaning. Two texts can satisfy every arm and still disagree — which is exactly how the waves/gates
+   drift survived cycle 1, and why the survival table's `figure`/`bound` rows carry a separate
+   single-occurrence check.
+
+**The planted-fifth-text control, in both states.** Committed, synthetic, in
+`TestCard259_TheDerivedSetOfTextsDeniesByDefault` (planted into a `tmp_path` tree, never into this
+repository): a docstring carrying the signature and no pointer is found and named; the *same* docstring
+with the pointer added is clean; an identifier that merely extends the dotted path does **not** satisfy
+it; an unparseable file and a missing root both fail. And in the **real tree**, as a mutant:
+
+- **planted** — `PLANT-FIFTH-TEXT[tests/db_name.py]`, one line substituted in its module docstring
+  (`"""CARD-244 —` → `"""CARD-244, CARD-252 —`, line count preserved): the deny arm at `:1145` reads
+  **FAIL** under the instrument, and a plain `pytest` exits **1** with
+  `AssertionError: a docstring names CARD-252 and is neither the keeper nor a pointer to
+  nonogram.db.session.reset_engine ... /…/tests/db_name.py:1 <module>` — **it names the plant**.
+- **removed** — `cp -p` restore, `shasum -a 256` equal (`b024c046…`) and `diff -q` clean: the same
+  selection exits **0**.
+
+### F-101 — closed, both halves
+
+**The false uniqueness claim.** `src/nonogram/db/session.py`'s closing paragraph no longer says "the only
+statement". It says the keeper holds every **measured figure and declared bound** of the convention and of
+CARD-252's record, that every other docstring naming the card carries a pointer back, and that this is
+**enforced** — naming the derivation, its authority, its deny-default and the fact that the previous rule
+was a hand-written list three cards running found short by one. The claim's control is the derivation
+itself plus the plant above.
+
+**Mutants (DELETING the mechanism the claim names, line-count-preserving, instrument, `Pass.RECORDING`,
+ANY-RED, SHIPPED re-run between mutants, all restored and verified):**
+
+| mutant | what it deletes | result |
+| --- | --- | --- |
+| `DERIVE-DEL[signature]` | the signature regex (`CARD-252` → `ZZZZ-999`) | keeper arm `:1090` **FAIL** |
+| `DERIVE-DEL[enumeration]` | the file sweep (`rglob("*.py")` → `"*.qy"`) | keeper arm `:1090` **FAIL** |
+| `DERIVE-DEL[keeper-signature]` | the card id in `session.py` (9 occurrences) | keeper arm `:1090` **FAIL** |
+| `DERIVE-DEL[names-threshold]` | the `>1` role predicate (`> 99`) | keeper-in-texts `:1104` **FAIL**, names/heads NOT-REACHED |
+| `POINTER-DEL[undefined_table_report]` | that text's only pointer | deny arm `:1145` **FAIL** |
+| `POINTER-DEL-ALL[lifecycle module docstring]` | **both** of its pointer occurrences | deny arm `:1145` **FAIL** |
+| `POINTER-DEL[test_ac7]` | that text's only pointer | deny arm `:1145` **FAIL** |
+| `PLANT-FIFTH-TEXT[db_name.py]` | nothing — **adds** a fifth text | deny arm `:1145` **FAIL**, naming it |
+
+**A surviving mutant, recorded rather than hidden:** `POINTER-DEL[lifecycle module docstring]` deleting
+**one** of that text's two pointer occurrences leaves the deny arm **PASS**, correctly — the text still
+carries a pointer. It is the L-2 shape (a mutant must delete the thing as the text shows it, and that text
+shows it twice); `POINTER-DEL-ALL` is the mutant that measures the mechanism, and it kills.
+
+**The drifted figure, re-derived from the record rather than chosen between the two strings.**
+`meta/kanban/cards/CARD-252.md:30-39` — *"Measured cost, **four consecutive waves**, each a full ~16-minute
+suite re-run plus a fresh diagnosis"* — with a four-row table: wave **45** CARD-248's build gate; wave
+**46** *the wave smoke test, first run*; wave **47** CARD-251's build gate; wave **48** CARD-247's build
+gate. Corroborated independently by `CARD-251.md:612-651` ("the wave-46 smoke test's first run dying on
+`FATAL: database … does not exist`") and `CARD-248.md:359` (`uuid.UUID(hex=inf)`).
+`meta/kanban/suite-timing.log` does not exist in this worktree and was not used.
+
+**So both shipped sentences were wrong, in different ways** — "four consecutive **waves of this board's
+build gates**" over-attributes all four runs to build gates, and "four consecutive **build gates** on this
+board" gets the unit wrong as well. The keeper now states the derived figure once: **one failing run in
+each of four consecutive waves — 45, 46, 47 and 48 — each failure reproducing on no second run; three of
+those four runs were build gates, the fourth was wave 46's smoke test on its first run**, with the
+derivation named in the sentence. The module docstring no longer restates it and sends the reader to the
+keeper instead.
+
+**The class — every figure the derived texts share.** AST-enumerated every number token (digits and
+`zero`…`twelve`, word-bounded) in all **11** derived texts and grouped by token. Only **one** token denotes
+the same measurement in two texts, and it is this one. Everything else that co-occurs is coincidental
+(`3` as a step number and as `AC-3`; `two` as "two exceptions" and "two spellings"; `nine` as nine helpers
+and nine mutants). Each of the keeper's own numeric claims was additionally re-derived against
+`CARD-252.md`: `24/24` (`:257`), `pg_prepared_statements` 0 after 40 executions (`:264-265`), OID `2950`
+(`:274`) — all reproduce; "nine helpers, ~180 lines of machinery and eleven controls" reproduces against
+`CARD-254.md:25`.
+
+### F-102 — closed: the survival table ships, and 44 is withdrawn
+
+**44/44 could not be reproduced** (the script was never committed), so that figure is **withdrawn** rather
+than restated. In its place: `_CARD_252_CLAUSE_SURVIVAL` in `tests/test_db_engine_lifecycle.py` — **21
+rows**, each `(retired_from, clause, home, surviving_phrase, kind)`, checked by
+`TestCard259_TheDerivedSetOfTextsDeniesByDefault::test_every_retired_clause_has_a_named_surviving_statement`.
+
+- **How to recompute it** (written into the constant's own comment): `git diff -U0 <merge-base>..HEAD --
+  tests/conftest.py tests/test_db_engine_lifecycle.py`, take the removed docstring lines of the two retired
+  texts, join them, split at sentence boundaries and then at `;` and at em-dash-introduced independent
+  clauses. That split yields **21** clauses; the count is a product of a stated method, not a remembered
+  number, and the test holds a **floor** (`>= 21`) so the table cannot silently shrink.
+- **Phrases are compared whitespace-flattened**, which is what broke the predecessor's first run (41/44
+  from three wrong line-wraps): a line-wrap is not a drift.
+- **`figure` and `bound` rows carry a second check**: the surviving phrase must occur in **exactly one**
+  text of the derived set. That is the mechanism that single-sources a measurement, and it is the row that
+  caught cycle 1's drift.
+- **The reconciled row** (row 13) is the one F-102 named: retired `"Four consecutive build gates on this
+  board reported failures that reproduced on no second run, and they are the motive for the card"`, home
+  `src/nonogram/db/session.py::reset_engine`, surviving phrase `"one failing run in each of four
+  consecutive waves -- 45, 46, 47 and 48"`, kind `figure`. The old phrase is now in **no** text as a
+  measurement.
+- **Rows checked hardest first, as the brief asked:** of the 21, **10** are `bound`, **3** are `figure`,
+  **8** are `narration`. All 13 figure/bound rows hold the exactly-one-text check.
+
+**Mutants:** `TABLE-DEL[figure row 13]` (`waves` → `gates` in the keeper) reds **two** arms —
+`row-present :1861` **and** `row-unique :1868`. `TABLE-UNIQ[figure row 13]` (the same phrase pasted into
+`undefined_table_report.py`'s module docstring, one line, line count preserved) reds `row-unique :1868`
+alone, with `row-present` still PASS — the two arms are independent and neither subsumes the other.
+
+### F-103 — closed: the inert claim is cut, and the real property has a control
+
+The "`It is read **first**`" sentence is **deleted**, with the refutation recorded in its place (swapping
+the read order leaves the test passing at exit 0; first-versus-last give byte-identical evidence). The
+property that actually carries the uninstrumented reading is now named: **each arm's message interpolates
+the failing text's own `label`** — now `path:lineno qualname`, so a plain run names the file *and* the
+line. Its control is
+`TestEngineLifecycle_TheResetIsAPublishedSeam::test_each_arm_of_the_agreement_names_the_text_it_failed_on`,
+which reads the agreement's own AST and reds if an arm's message stops interpolating `label`.
+
+**Mutants** — `LABEL-DEL[names arm]` and `LABEL-DEL[heads arm]`, each turning that arm's f-string message
+into a plain string (line count preserved): plain `pytest` **exit 1**, `AssertionError: the arm at :1121
+[resp. :1128] does not interpolate the text's own label into its message`, reported at the control's
+own assert `:1193`. **Domain: plain run only** —
+the instrument *refuses* both, because they alter the text of an assert **in its own target file** and its
+topology check reads what each assertion says (`MutantRefused: … moved the target's assert topology …
+Substitute what the assertion reads, not the assertion`). That refusal is correct and is a structural
+limit on measuring a control whose subject is its own file's assert text.
+
+**The class — every "because X" clause in the new prose.** Swept each new causal claim for a state that
+makes it red, and **two of my own were wrong and are corrected**:
+1. *"Measured: **zero** extending occurrences in any derived text"* (the F-108 bound) — **false.** There
+   is exactly **one**: the illustrative ```.SessionLocalFactory``` in that very docstring. Re-measured and
+   reworded to what is true: zero in the **three** texts the heads arm holds, one in the derived set, in a
+   text that enumerates no global and so is not held to that arm.
+2. *"each failure green on a re-run of the same commit"* — that is wave 45's wording in CARD-252's table,
+   not all four rows'. Narrowed to the record's own phrase, "each failure reproducing on no second run".
+
+Claims that survived the sweep, each with the state that reds it: the keeper-is-live-docstring claim
+(`DERIVE-DEL[keeper-signature]`), the role predicate (`DERIVE-DEL[names-threshold]`), the word boundary on
+the names arm (`NAMES-WB-DEL` → `partial!=all :1797` FAIL), the right boundary on the dotted spelling head
+(`HEAD-BOUND-DEL` → `head-bound :1890` FAIL), the deny-default itself (`DENY-MECH-DEL` → **two** arms,
+`plant-named :1739` and `extending :1777`, FAIL), the "`(` cannot continue an identifier" claim about
+`setattr(` (the `head-call :1894` arm), and the unparseable-file deny (`PARSE-DENY-DEL`, below).
+
+### F-104 — closed (medium)
+
+The "nine mutants" sentence is narrowed to what is committed and what is not: one mutant per name per text
+over the texts the names arm holds (three names over three texts today, so nine), of which the **six** on
+`src/nonogram/db/session.py` and on `tests/test_db_engine_lifecycle.py` are held by
+`tests/test_kill_matrix.py::test_ac7_the_four_arm_grid_of_card_257_reproduces`, and the **three** on
+`tests/conftest.py` are held by **no** committed control and structurally cannot be — the instrument
+refuses an edit landing on that path **by identity** because it carries the database guard, and G-3 forbids
+widening that refusal. The sentence says so, says those three are a card-time plain-`pytest` reading, and
+says they are asserted nowhere. The three cells' **domain** is stated in the docstring, not only here.
+
+**The three conftest cells, re-measured at this HEAD** (plain `pytest`, `cp -p` backup in
+`tempfile.mkdtemp()`, restore in `finally`, equality asserted byte-for-byte, SHIPPED re-run exit 0 after
+each): `DOC-NAME-DEL[SessionLocal@conftest]` 2 occurrences replaced, `DOC-NAME-DEL[_engine_url@conftest]`
+1, `DOC-NAME-DEL[engine@conftest]` 6 whole-word occurrences inside that docstring's span. All three:
+exit **1** at `:1121` (the names arm), message naming
+`…/tests/conftest.py:463 _rebuild_public_schema`. **Honest bound, unchanged from cycle 1:** a plain run
+gives one first-failing assert, not a per-arm matrix, so these three cells are attributed by the arm's own
+`label` — which is now the property the prose credits, and which has its own control.
+
+### F-105 — closed (medium): the figure was the merge-base's, and the mutant kills
+
+Re-measured in one script over three revisions (word-bounded regex over `ast.get_docstring`, per text):
+
+| text | `27ca88c7` | `d85b48b0` | this HEAD |
+| --- | --- | --- | --- |
+| prod — whole-word `engine` (of which backticked) | 12 (2) | 12 (2) | **13 (2)** |
+| guard — whole-word `engine` (of which backticked) | 2 (1) | **1 (1)** | **1 (1)** |
+| conftest — whole-word `engine` (of which backticked) | 7 (1) | 6 (2) | 6 (2) |
+| prod / guard / conftest — `setattr(` | 6 / 4 / 0 | 6 / 4 / 1 | 6 / 4 / 1 |
+
+So cycle 1 is right: **2 of which 1 is the merge-base reading**, and the guard text has held **1 of 1**
+since `d85b48b0` — the bare occurrence went with the sentence that diff reworded. **L-1's guard half is
+therefore CLOSED**, not surviving: deleting the single backticked ```engine``` leaves **zero** and the
+names arm reds. The record said the opposite and is corrected. **L-1's prod half genuinely survives**
+(13 whole-word, 2 backticked → 11 left), and that is the reason it stays declared. The prod figure moved
+12 → 13 in this fix round (my keeper edit added one occurrence) — recorded because a figure is a claim.
+
+**The class — every figure in the implementer's notes, re-measured at this HEAD with the revision named.**
+L-1 above. L-2: `setattr(` 6 prod / 4 guard / **1** conftest, so deleting the first leaves 5/3 and the
+heads arm stays PASS for the two docstrings while a single deletion in the conftest text *does* red —
+unchanged, still declared. L-3: **0** identifiers extending the dotted pointer path anywhere under `src/`
+or `tests/`, bound reproduced, and the two-sided lookahead is retained and now also has a committed plant
+(`test_a_text_that_extends_the_pointer_does_not_satisfy_it`). AC-4's AST digests: below. The four arm
+addresses and `NAMES_BLIND_OCCURRENCES`: re-derived twice in this round from a fresh parse, below.
+
+### F-106 — closed (low)
+
+`tests/README.md` now says the four addresses "are **re-derived by hand and re-committed** at each card
+that moves that file — nothing in the suite re-derives them, because the anchor's only check on them is
+`set(arms) <= linenos`", and carries the third move with its overlap measurement.
+
+### F-107 — fixed by the orchestrator; `Touches` lists five files. One more is added by this round:
+`tests/helpers/undefined_table_report.py` (**`SCOPE+`**) — its module docstring names CARD-252 and had no
+pointer, so the derived deny-default fails on it. One sentence added, no mechanism; it is the cheapest
+remedy and the alternative (a named ADR-0039/R3 exemption with its own control) costs more than the
+sentence it would excuse.
+
+### F-108 — closed in the half that was closable, and the other half declared
+
+The dotted spelling head is now matched with a **right word boundary**, derived from the head rather than
+decided per head (`_head_shown_in`: a boundary iff the head ends in an identifier character), so
+`.SessionLocalFactory` no longer satisfies `.SessionLocal`; `setattr(` gets none, because `(` cannot
+continue an identifier. Both directions have arms (`head-bound :1890`, `head-call :1894`) and
+`HEAD-BOUND-DEL` kills the first. **Declared, not closed:** `heads` is still built from
+`sorted(names)[0]` alone, so no text is asked to show a `.<other name> =` spelling. Building it from every
+name is a different control and a different card.
+
+### AC-3 / AC-4 — re-verified at this HEAD, nothing trusted from the previous round
+
+**AC-4, derived.** `git merge-base HEAD main` = `27ca88c7`. Docstring-stripped AST (`ast.parse` → drop the
+leading string `Expr` of every `Module`/`ClassDef`/`FunctionDef`/`AsyncFunctionDef`, `Pass` for a body
+that empties → `ast.dump` → SHA-256), implemented independently of any committed helper:
+
+| file | merge-base `27ca88c7` | this worktree | equal |
+| --- | --- | --- | --- |
+| `src/nonogram/db/session.py` | 9487 / `49978874aa80a43a851d2146473dcf342b18c8884d8b854fb2366ba1477fbf49` | 9487 / `49978874…` | **yes** |
+| `tests/conftest.py` | 33624 / `4cfa0b4bf43b12fa1f071aca340e1e0aecf950f9a34bdb9bf53902f4c03535a4` | 33624 / `4cfa0b4b…` | **yes** |
+
+Both reproduce the two values the orchestrator verified independently, so both files' edits in this round
+are **docstring-only**, proved rather than asserted. `tests/conftest.py` was in fact not edited at all in
+this round. The declared bound stands: a merge-base comparison is inert after merge, so this is a
+card-time guard and the standing half is the tree sweep.
+
+**AC-3, with the addresses re-derived twice.** The agreement's four arms moved twice in this round (once
+when the control was rewritten, once when two false bound claims were corrected inside its docstring), and
+were re-derived from a fresh `ast.parse` **both** times, never adjusted by arithmetic:
+
+| arm | `b441ba00` | `d85b48b0` | this HEAD |
+| --- | --- | --- | --- |
+| preamble | `:859` | `:877` | **`:1077`** |
+| names | `:878` | `:897` | **`:1121`** |
+| heads | `:889` | `:908` | **`:1128`** |
+| pointer | `:897` | `:916` | **`:1134`** |
+
+`NAMES_BLIND_OCCURRENCES` `(818, 877, 935, 981, 1108)` → **`(961, 1077, 1207, 1253, 1380)`**;
+`NAMES_BLIND_ARM_OCCURRENCE` unchanged at **2** (→ `:1077`); the message count **5** and the whole-source-line
+count **4** both unchanged; the `:1070`-era literal in `test_ac5_an_explicit_occurrence_hits_exactly_that_lineno`
+updated with them. `test_ac7_the_four_arm_grid_of_card_257_reproduces` **passes**: 14 mutants, six
+`DOC-NAME-DEL` RED at the names arm, four `DOC-HEAD-DEL` RED at the heads arm, `NAMES-BLIND` RED at the
+preamble with the three arms below it NOT-REACHED, `POINTER-ROT` and `POINTER-DEL-WORD` RED at the pointer
+arm, `CONTROLS-RENAME-ONLY` PASS, SHIPPED all-PASS. **The grid reproduces cell for cell; only the
+addresses moved.**
+
+**The overlap, measured at this HEAD rather than assumed:** of the four `d85b48b0` addresses, `:877`,
+`:897` and `:908` are **not** assert linenos here (a stale constant reads loudly) but **`:916` is** — an
+unrelated assert in `test_reset_engine_is_public_and_says_who_calls_it`. So a quarter of a stale reading
+would have been a silent **misattribution**, which is the seventh shape standing inside the anchor's own
+membership precondition. Recorded in the anchor's docstring and in `tests/README.md`, not routed around.
+
+### Kill matrix over my OWN additions — the pass and the domain of every figure
+
+**Domain A — CARD-260's committed instrument**, `Pass.RECORDING`, ANY-RED, child instrumentation **off**,
+denominator **76 `ast.Assert` nodes** (not a collected-test count), SHIPPED re-run between mutants, every
+file restored and verified with `shasum -a 256` **and** `diff -q`:
+
+- selection = the agreement test (7 arms): SHIPPED **0 FAIL of 7 reached**, pytest exit 0. Eight mutants,
+  each killing exactly the arm named in the F-101 table above; one declared survivor
+  (`POINTER-DEL[lifecycle module docstring]`, single-occurrence), superseded by `POINTER-DEL-ALL`.
+- selection = five of the six AC-5 tests (16 arms): SHIPPED **0 FAIL of 19 reached**, pytest exit 0. Five
+  mutants, `DENY-MECH-DEL` 2 FAIL / exit 1, `HEAD-BOUND-DEL` 1 FAIL, `NAMES-WB-DEL` 1 FAIL,
+  `TABLE-DEL` 2 FAIL, `TABLE-UNIQ` 1 FAIL.
+
+**Why five of six.** `test_a_file_the_derivation_cannot_analyse_is_a_failure` deliberately drives
+`_card_252_record_texts` into its own `assert Path(root).is_dir()` and into its `SyntaxError` branch, so a
+matrix over the whole class reads a `FAIL` cell at `:439` in **SHIPPED** and the instrument refuses the run
+outright (`LeakedPatch: SHIPPED is not FAIL-free before any mutant`). That refusal is correct — a test
+whose subject is a raised `AssertionError` cannot be inside an instrumented SHIPPED baseline — and it is a
+**structural limit**, recorded rather than worked around.
+
+**Domain B — plain `pytest`, no instrument** (what the instrument refuses, by identity or by topology).
+`cp -p` backup in `tempfile.mkdtemp()`, restore in `finally`, restore asserted byte-for-byte, SHIPPED
+re-run exit 0 after each: the three `DOC-NAME-DEL[…@conftest]` cells (refused by identity), both
+`LABEL-DEL` mutants (refused by topology), `PLANT-FIFTH-TEXT` (also measured in domain A), and
+`PARSE-DENY-DEL`.
+
+**`PARSE-DENY-DEL`, reported as measured and not as intended.** Deleting the `raise AssertionError(…)
+from exc` from the `SyntaxError` branch line-count-preservingly leaves `tree` unbound at the next
+statement, so the committed test reds with `UnboundLocalError` at `:454` rather than with the silent-pass
+it was aimed at: plain `pytest` **exit 1**. The honest reading is that the deny-default has **no
+silent-pass path to delete** — control cannot fall through it — and the committed test reds either way. It
+is not a demonstration that a silent skip would be caught, and it is not reported as one.
+
+**Rule 2 applied, and what it cost:** every mutant above deletes a mechanism the new prose names, not
+something the diff added for the mutant's benefit. Two of them (`POINTER-DEL` single-occurrence,
+`PARSE-DENY-DEL`) did not land the way the claim predicted, and both readings are above rather than
+rewritten.
+
+### Guardrails
+
+- **G-1 no mechanism change.** `session.py`: docstrings only, proved by the AST equality above.
+  `conftest.py`: untouched this round (AST equality re-verified anyway). `test_db_engine_lifecycle.py`:
+  docstrings, plus **the one control** — now carrying the derivation AC-5 requires, which the amendment
+  explicitly widened G-1 to include, plus `TestCard259_TheDerivedSetOfTextsDeniesByDefault` (that
+  derivation's own plant) and the survival table AC-1 orders shipped. `test_kill_matrix.py`: five
+  literals, one selection string and prose. `tests/helpers/undefined_table_report.py` and
+  `tests/README.md`: prose only. **Declared reading of G-1:** AC-1's "ship the survival table" and AC-5's
+  derivation are both new test-side mechanism. I read G-1's "one extended control" as the amendment reads
+  it — the ACs the owner wrote are what G-1 is widened by — and state it here rather than widening it
+  silently. Nothing in `src/` changed except docstring text.
+- **G-2 no clause retired without a named surviving statement.** 21 rows, named homes, a committed check,
+  a demonstrated failing state, and a floor so the table cannot shrink. 44/44 withdrawn as
+  unreproducible.
+- **G-3.** `nonogram_poc` is not named anywhere in this diff and was never created, dropped, connected to
+  or truncated. `_refuse_unless_test_database` is untouched. The instrument's own refusal to edit
+  `tests/conftest.py` is untouched, and is **why** three cells and two mutants are plain-run readings.
+- **G-4.** stdlib only (`ast`, `re`, `pathlib`, `shutil`, `subprocess`, `tempfile`). No new dependency; no
+  scratch script is committed.
+- **G-5 ADR-0036/R4.** Independent AST scan of every `ast.Constant` `str` under `src/nonogram/**`,
+  docstrings included, against `set(range(0x25A0, 0x2600)) | {0x2022, 0x2219}`: **3** hits, all
+  `src/nonogram/admin/pdf_generator.py:321`, all U+2022 — the declared exemption, unchanged. A clean-scan
+  claim over the whole tree would be false and is not made.
+
+### Green set — impact-scoped, not the full suite (CARD-206 is live)
+
+`NONOGRAM_FULL_SUITE_LOCK` was exported to `/tmp/card259-fix.lock` for **every** pytest run in this round;
+`meta/kanban/.full-suite.lock` was never read, created, modified or deleted.
+
+### Honest bounds, collected
+
+1. The signature is one hand-written token. A restatement that never names `CARD-252` is invisible;
+   measured residue zero today **by inspection** (2 marker hits, both dismissed with reasons), unbounded
+   in principle.
+2. The derivation reads **docstrings** under **two roots** only. Comments, running code, Markdown and any
+   `*.py` elsewhere are out of reach; measured at zero today.
+3. The arms hold **parameters**, never meaning. Two texts can satisfy every arm and still disagree; the
+   `figure`/`bound` rows' exactly-one-text check is the only thing that bites on a drifted measurement,
+   and it bites only on the phrases the table names.
+4. The survival table's clause column is **a mechanical split of the diff's removed lines**, stated so it
+   can be recomputed. A different split gives a different row count; **21** is this method's count, and
+   44 is withdrawn rather than reconciled.
+5. The three `conftest` cells and the two `LABEL-DEL` mutants are **plain-run** readings: one
+   first-failing assert, not a per-arm matrix. The arm's own `label` is what attributes them, and that
+   property now has a control.
+6. `test_a_file_the_derivation_cannot_analyse_is_a_failure` cannot be inside an instrumented SHIPPED
+   baseline at all (its subject is a raised `AssertionError`), so its arms are measured only by a plain
+   run.
+7. `PARSE-DENY-DEL` kills by `UnboundLocalError`, not by the silent pass it was aimed at.
+8. `heads` is still derived from `sorted(names)[0]` only (F-108's other half).
+9. L-1's **prod** half and L-2 remain open, each with a measured reason.
+10. AC-4's AST half is a card-time proof, inert as a committed test; the standing half is the tree sweep.
+11. The two `db_required` tests in the edited file did not run (no reachable test database); they skip
+    green, so `TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema`'s AC-1/AC-2 are **not**
+    evidence from this round.
+12. `reset_engine()`'s docstring is **longer** after this round, not shorter. The card's declared residue
+    ("135 lines for a 6-line body") is untouched and the amendment says so explicitly.
+13. No timing measurement was taken and none is reported anywhere above.
+
+### Every mutant above was re-measured at the FINAL HEAD, not re-labelled
+
+The two false bound claims F-103's class sweep caught were corrected **inside the agreement's own
+docstring**, which moved all four arms by **+7** (preamble `:1070` → `:1077`, names `:1114` → `:1121`,
+heads `:1121` → `:1128`, pointer `:1127` → `:1134`) and the AC-5 class's arms with them. The first
+reading of every mutant was taken at the pre-correction addresses. Rather than add 7 to each cell — which
+is the misattribution this board gates on — **the whole matrix was re-run against the final file**, with
+every arm lineno re-derived from a fresh `ast.parse` by matching the assertion's own source segment
+instead of being written down (`km_final.py`). The cells above are that second reading; the first is
+discarded. `NAMES_BLIND_OCCURRENCES` and the four `test_kill_matrix.py` literals were likewise re-derived
+after the correction, not adjusted.
+
+### [Build gate — fix round 1, impact-scoped] 945 passed, 16 skipped, 0 failed, EXIT=0
+
+Eleven files: the card's six, plus `tests/test_full_suite_lock.py` (the guard, because `tests/README.md`
+changed), `tests/test_cli.py` (the structural import guard, because `src/` changed),
+`tests/test_db_url_driver.py`, `tests/test_db_connect_timeout.py`, `tests/test_guard_integrity.py`,
+`tests/test_suite_profile.py` (the structural censuses over the whole test tree, because this round adds a
+class and a module-level constant), `tests/test_admin_binding.py` (because
+`tests/helpers/undefined_table_report.py` changed), `tests/test_card_156_db_fixture.py` and
+`tests/test_db_isolation.py`. The 16 skips are `db_required` and browser tests with no reachable test
+database; they skip **green**.
+
+**Not the full suite, and the reason is unchanged from the previous gate:** CARD-206 is being implemented
+concurrently in its own worktree and was observed running a ~110-file selection during this round. A full
+run here takes `meta/kanban/.full-suite.lock` and CARD-255's guard would raise `pytest.UsageError` in that
+agent's every run. The owner decision owed on `review.test_scope` (wave-26 `full` versus the practice) is
+recorded on the previous gate and is not re-opened here.
+
+### Findings — one line each, with the mutant that proves it. Commit `84fd9ded`.
+
+- **F-101** (high, fixed) — the "only statement" claim narrowed to every *measured figure and declared
+  bound* and moved from assertion to **enforcement** by a derived, deny-by-default set; the
+  waves-vs-gates drift resolved from `CARD-252.md`'s own cost table and stated once in the keeper —
+  `DERIVE-DEL[signature]`, `DERIVE-DEL[enumeration]`, `DERIVE-DEL[keeper-signature]` each red the keeper
+  arm `:1090`; `POINTER-DEL[undefined_table_report]`, `POINTER-DEL-ALL[lifecycle module docstring]`,
+  `POINTER-DEL[test_ac7]` and `PLANT-FIFTH-TEXT[tests/db_name.py]` each red the deny arm `:1145`.
+- **F-102** (high, fixed) — 44/44 withdrawn as unreproducible; a committed 21-row survival table with
+  named homes, a stated split method and a shrink floor, plus an exactly-one-text check on every figure
+  and bound row — `TABLE-DEL[figure row 13]` reds `row-present :1861` **and** `row-unique :1868`;
+  `TABLE-UNIQ[figure row 13]` reds `row-unique :1868` alone.
+- **F-103** (high, fixed) — the inert "read **first**" sentence deleted, the per-text `label` named as the
+  property that carries the uninstrumented reading, and that property given an AST-reading control —
+  `LABEL-DEL[names arm]` and `LABEL-DEL[heads arm]`, plain `pytest` exit 1 at `:1193` naming `:1121` and
+  `:1128` respectively (plain domain only: the instrument refuses both by its topology check).
+- **F-104** (medium, fixed) — "nine mutants" narrowed to six held by `test_ac7` and three held by nothing
+  and structurally unholdable, with the reason and the domain in the docstring — the three re-measured at
+  this HEAD by plain `pytest`: exit 1 at `:1121` naming `tests/conftest.py:463 _rebuild_public_schema`,
+  with 2 / 1 / 6 occurrences deleted.
+- **F-105** (medium, fixed) — confirmed: 2-of-which-1 was the merge-base reading; **L-1's guard half is
+  CLOSED** (1 of 1 at HEAD, the mutant kills) and the record is corrected; L-1's prod half survives and
+  its figure moved 12 → **13** in this round — re-measured over `27ca88c7`, `d85b48b0` and this HEAD in
+  one script.
+- **F-106** (low, fixed) — `tests/README.md` now says the four addresses are re-derived **by hand and
+  re-committed**, with the third move and its measured overlap (`:916` is still an assert lineno; `:877`,
+  `:897`, `:908` are not).
+- **F-107** (low, fixed) — closed by the orchestrator; this round adds the sixth file,
+  `tests/helpers/undefined_table_report.py` (`SCOPE+`, one prose sentence, because the derived
+  deny-default fails on it).
+- **F-108** (low, fixed in the closable half, declared in the other) — a right word boundary on the dotted
+  spelling head, derived from the head rather than chosen per head — `HEAD-BOUND-DEL` reds `head-bound
+  :1890`, with `head-call :1894` holding the other direction; `heads` is still built from
+  `sorted(names)[0]` alone and that stays declared.
+
+**None dismissed.** `meta/review/20261021T231000Z-CARD-259-cycle1.yml` carries `status: fixed`,
+`fixed_in: '84fd9ded (fix round 1)'` and a `fix_note` for all eight, plus a `fix_rounds:` block; it
+validates under `yaml.safe_load`.
+
+---
+
+### [Fix 1] All eight findings fixed. The derivation found texts five through eleven
+
+Commit `84fd9ded` (parent `d85b48b0`), 5 files, +833/−106. Build gate the agent ran: 945 passed,
+16 skipped, 0 failed over 11 files. The orchestrator's own re-gate is separate, below.
+
+**The owner's choice to derive rather than extend is now measured, and the margin is large.** The card
+was titled *three* places. Cycle 1 found a **fourth**. The derived set finds **eleven**
+signature-carrying texts at HEAD — three held to the mechanism's parameters (the same three the
+hand-written tuple held, now *arrived at* rather than listed), the rest required to carry a pointer.
+Extending the hand-list to four would have missed seven.
+
+One of those is the clearest possible demonstration: **`tests/helpers/undefined_table_report.py` is
+CARD-258's file**, its module docstring names CARD-252 twice (`:10-11`), and nothing in this card's
+scope, cycle 1's review or the orchestrator's reading had enumerated it. The deny-default failed on it
+and the fix added one sentence — *"CARD-252's own record … is kept on `reset_engine()`; this module
+restates none of it."* A sixth text, found by the mechanism rather than by a reader.
+
+**AC-5 verified independently by the orchestrator, not accepted on report.** The agent's plant was
+`tests/db_name.py`; I planted a different file under the *other* authority root —
+`src/nonogram/limits.py`, whose module docstring is unrelated to the database — adding `CARD-252` to
+it line-count-preservingly. Result: `test_every_text_that_names_card_252_points_here_and_agrees_on_the_parameters`
+**FAILED, naming `limits.py:1 <module>`** by path, lineno and qualname. Restored byte-identical,
+`shasum -a 256` equal and `diff -q` clean. The derivation is measured, not declared.
+
+**The resolved figure, and both shipped sentences were wrong.** Derived from `CARD-252.md:30-39` and
+its four-row table, corroborated by `CARD-251.md:612-651` and `CARD-248.md:359`: *one failing run in
+each of four consecutive waves — 45, 46, 47, 48 — each reproducing on no second run; **three** were
+build gates and the fourth was wave 46's **smoke test** on its first run.* So `session.py`'s "four
+consecutive **waves** of build gates" over-attributed all four runs, and the module docstring's "four
+consecutive **build gates**" had the unit wrong. Stated once now, in the keeper, with the derivation
+named. Class swept: every number token in all 11 derived texts was AST-enumerated and grouped, and
+this is the **only** token denoting one measurement in two texts.
+
+**G-1 declared rather than widened silently.** AC-1 orders a survival table and AC-5 a derivation; both
+are new test-side mechanism. The agent read G-1's "the one extended control" as the amendment reads it
+— the owner's ACs are what widened it — and said so on the card instead of quietly broadening the
+guardrail. `src/` changed by docstring text only, proved by AST equality (9487 / `49978874…`), and
+`tests/conftest.py` was not touched at all this round (33624 / `4cfa0b4b…`). Both re-verified by the
+orchestrator against the merge-base.
+
+**Three honest readings reported unrewritten**, which is the standard this card exists to raise:
+`POINTER-DEL-ONE` on the module docstring **survives**, correctly, because that text carries the
+pointer twice (the L-2 shape) — `POINTER-DEL-ALL` is the mutant that measures the mechanism, and it
+kills; `PARSE-DENY-DEL` kills by `UnboundLocalError` rather than by the silent pass it aimed at,
+because the deny-default has no silent-pass path to delete; and
+`test_a_file_the_derivation_cannot_analyse_is_a_failure` **cannot** sit in an instrumented SHIPPED
+baseline at all, since its subject is a raised `AssertionError` — a structural limit of the instrument,
+recorded rather than worked around.
+
+**The agent corrected two of its own new claims** under F-103's class sweep: "zero extending
+occurrences in any derived text" was false (there is exactly one, the illustrative
+```.SessionLocalFactory``` in that very docstring), and "each failure green on a re-run of the same
+commit" was wave 45's wording only, narrowed to the record's own phrase.
+
+**Every mutant was re-measured at the final HEAD rather than re-labelled.** The two prose corrections
+moved all four anchor arms by +7, and instead of adding 7 to each cell the whole matrix was re-run with
+each arm's lineno re-derived from a fresh parse by matching the assertion's own source segment. The
+anchors moved `:877/:897/:908/:916` → `:1077/:1121/:1128/:1134`, and **`:916` is still an assert
+lineno at this HEAD** (an unrelated one in `test_reset_engine_is_public_and_says_who_calls_it`) — so a
+quarter of a stale reading would have been a silent misattribution, which is CARD-260's seventh shape
+appearing for the second time in two days.
+
+**Still open, each with a measured reason:** L-1's prod half (11 occurrences left after the backticked
+deletion) and L-2 (`setattr(` 6 prod / 4 guard); F-108's other half (`heads` is still built from
+`sorted(names)[0]` alone — a different control and a different card); `reset_engine()`'s docstring is
+**longer** after this round, and the amendment says explicitly that the residue is not this card's;
+and the two `db_required` tests in the edited file did not run, so that AC is not evidenced here.
+
+**One ownership crossing, recorded.** The agent edited the `Touches` header field — orchestrator-owned
+— to add `tests/helpers/undefined_table_report.py` with its reason. The content is right and it
+declared it, so it is kept rather than reverted; noted because the two-writer rule is what keeps a
+card's fields from being overwritten by a stale worktree copy.
