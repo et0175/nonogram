@@ -1638,7 +1638,7 @@ _CARD_252_CLAUSE_SURVIVAL = (
         "narration",
     ),
     (
-        "conftest",
+        "conftest-reworded",
         "read it before concluding this call fixed them.",
         "tests/conftest.py::_rebuild_public_schema",
         "before concluding this call fixed anything",
