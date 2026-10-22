@@ -15,7 +15,7 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py, src/nonogram/admin/book_pdf_generator.py
-**Review score:** — (implementation landed; cycle 1 pending)
+**Review score:** 5.7 (cycle 1, min_score 8 — Critical; the axis is not closed)
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
@@ -572,3 +572,121 @@ notes **one way** into `main` instead. It honoured the rule, left the notes in t
 told me about the conflict rather than picking one silently. The notes above are that one-way sync
 (the worktree copy was a pure 332-line append to main's 130 — first 130 lines byte-identical, verified
 before copying).
+
+---
+
+### [Review cycle 1] 5.7 — **Critical: the door axis is not closed**, and the plainest counterexample uses no dynamic access at all
+
+Report: `meta/review/20261022T100644Z-CARD-262-cycle1.yml`. One Critical, one Important, six minors.
+Arithmetic: `10 − 3.0 (F-401) − 1.0 (F-402) − 0.5 (floor cluster) − 0.3 (prose cluster) + 0.5 credit for
+measurement discipline = 5.7`. The **+0.5 credit** is unusual and deserved — the owed attribution was
+declared rather than papered over, the falsified clause was left visible, the 816 figure came from a
+second independent walk, and every reproducible figure reproduced.
+
+**F-401 (Critical).** The third plant author wrote eight line-count-preserving plants; **all eight reach
+the real geometry door with a bare literal and are completely silent.** The plainest one uses no dynamic
+access whatsoever:
+
+```python
+_d = book_page_spec
+_d(None, 3 + len(section))          # outcome=()  refusals=0
+```
+
+With that planted the whole guard reads `refusals == []`, `len(sites) == 23`, vocabulary identical,
+`_bare_literals == []`, `_outcome() == ()` — **every assertion green**. That is CARD-206's F-301 reading
+verbatim, on the card that was sliced out to close it. And it is **not vacuous**: run against the real
+production function, `_d(None, 3 + len(section))` returns a `PageSpec` byte-equal to
+`book_page_spec(None, 5)` with `parity=ODD`, and four of the plants were compiled and executed against a
+module whose `page_spec` records its argument — all four called the real door with 5.
+
+**Two fail-open defaults, one axis — and this is the part that matters architecturally:**
+
+1. `opaque` is a **positive** table. The arm skips any binder not in `BINDERS_READ` with a silent
+   `continue` — where the *position* axis appends a refusal — and refuses only `if key in opaque`. So a
+   callee name with **no** binding occurrence is anchored **by default**, and the corrected clause
+   *"every binding occurrence **in its own storage** holds a syntactic Name or Attribute"* is
+   **vacuously true** for zero occurrences. The storage fix moved the hole one *quantifier* over, not
+   one storage over.
+2. The pre-existing "door referenced without being called" arm is keyed `isinstance(node, ast.Attribute)`
+   with no `ast.Name` branch — so the **imported** door `book_page_spec` has no such arm while the
+   **method** door does. That is the same `isinstance` keying F-301 was originally filed against.
+
+**Silent:** `_d = book_page_spec` · `import … as _bps` (and `("alias","asname")` is *explicitly
+whitelisted* in `DOOR_SPELLINGS_READ`) · `_bps2 = book_page_spec` · `setattr(self,"_door",getattr(self,"page_"+_S))`
+· a `match`/`case` capture · the same on the named collision spelling `text` · `except … as` ·
+`__set_name__` + `setattr`. **Refused (the controls):** `_d = self.page_spec` · `self.__class__._door = getattr(…)`
+· `text = getattr(…)` · a `type()`-built class attribute · `__set_name__` with a *spelled* store.
+
+**So the prediction in my brief was falsified in the direction that counts.** I told the reviewer that a
+storage-axis plant should be *refused* and that silence should appear only on the value and call-graph
+axes. A storage-axis plant went silent → Critical, exactly as the brief specified it would be.
+
+**ADR-0039/R2 is VIOLATED, and that is a rule reading rather than a judgement.** R2: *"a guard's set is
+derived from an authority the runtime can enumerate… Where no such authority exists, the guard defaults
+to deny: a shape it cannot analyse is a FAILURE, never a silent pass, and the unanalysable sites become
+named exemptions under ADR-0039/R3."* A positive table is default-allow. The contract verdict is R2
+violated, R1 and R3 **partial**, the other 11 rules hold.
+
+### The eight attacks, answered — and three of them settle open questions
+
+- **The owed per-arm attribution was produced**, not deferred. `Pass.RECORDING`, selection the three
+  door-axis nodeids. **Domain in full:** 154 `ast.Assert` nodes (assert-node count, *not* collected
+  tests), 3 collected tests, **11 arms reached**, child instrumentation off, SHIPPED 0 FAIL of 11 reached
+  at exit 0 re-run between mutants and equal cell-for-cell, ANY-RED. Removing **either** arm reds exactly
+  **one** node, `:2610`. **And it caught the trap in the act: pytest exited 0 on both mutants while the
+  matrix recorded a FAIL** — a test-level reading of that very run would have published both as
+  survivors. Fourteen mutants remain owed and it says so, keeping *deferred* and *owed* apart explicitly.
+- **17 vs 18 is settled, and it reconciles in one line.** Counting rule stated first: a door call is one
+  `ast.Call` whose callee names a door, nothing in a comment, docstring or string literal. **17 is
+  right.** The +1 in CARD-206's figure is neither a comment nor a literal — it is the
+  **`def page_spec` at `book_pdf_generator.py:4036`**. 17 calls + 1 definition = CARD-206's 18. So
+  `inside == 17` is pinned to the correct number, and the backlog item I wrote about this delta can be
+  closed by this reconciliation rather than by a re-count.
+- **W3's claim holds and is the cleanest evidence in the hand-back.** `import operator` is **absent**
+  from the planted text, the module is only `ast.parse`d, and both refusals are the guard's own, one per
+  arm; with `door_arms=()` → 0 refusals. Not the vacuity shape.
+- **`(storage, spelling)` creates no hole of its own.** A colliding spelling buys silence for an
+  *attribute* but not for a *local* — and the attribute case is silent for F-401's reason, not the
+  keying's. The separation is sound in the direction measured.
+- **M14's "a scoped negative is unsound here" is sound and was applied consistently** — audited for
+  selective use, none found; every figure in the notes is a positive or an in-process measurement.
+- **`len(calls) == 816` is the wrong instrument** (F-404): the degenerate "no calls" case it guards is
+  already caught four other ways, and it reds on any call added anywhere in ~7,000 lines. `inside == 17`
+  **is** the right equality — keep it. The 14-of-18 figure is a label-list equality plus `len(kept)==4`,
+  **not a floor**, and AC-5 was verified in both directions against the module (removal → 22 sites,
+  addition → 25), which is stronger than the card's own M9/M10.
+- **2-of-16 is a bound, not a gesture** — by *mechanism* it is 2 of ~4 value and 2 of 3 call-graph, with
+  three uncovered mechanisms measured and behaving exactly as declared. But **`__set_name__`/metaclass/
+  `type()` are reachable** with the harness's own `extra`, *contra* the card's note; a genuine
+  in-class-body install stays unchecked.
+- **F-407 extends M16 into the shipped code:** CARD-206's F-302 label-invariance shape is live in the
+  **shipped** assertions, not only in the author's mutant.
+
+**Gates reproduce.** G-1 zero `src/` change verified (`git diff -- src/` empty; one file, 904/43). The
+system contract was derived independently and **reproduces exactly** — projection 41 → kept **14**,
+dropped 27, with the case-insensitive idiom grep over the ADR *files* selecting ADR-0036/0037/0039 and
+ADR-0039/R1–R3 present, so the sanity check passes; **14 of 14 verdict lines given**. CON-019 tripwires
+unedited, 66 passed. Impact gate reproduces at 24 files (23 + the reviewer's probe) → 2740 passed, which
+is the implementation's 2737 plus three probe tests. **Scope gate: no escalation** — one file, one
+component, zero overlap with CARD-261's `Touches`; "small", not "large but in-scope".
+
+**AC-1's "before" cannot be verified from git**, because `meta/` is uncommitted by procedure. The
+reviewer stated that rather than scoring it, which is the right call.
+
+### Where this leaves the card
+
+This is the **third occasion the same family has gated across the slice chain** — CARD-206 cycle 2,
+CARD-206 cycle 3 at streak 2 (which produced this card), and now CARD-262 cycle 1. To be precise about
+the counter, because I mis-escalated a card earlier this week by misreading it: the `family_regression`
+streak *within* CARD-262 is **0**, since cycle 1's findings are attributed to the implementation and not
+to a previous fix. The signal is not the config counter — it is that **the slice route has not resolved
+the family**, which is a different and more serious thing.
+
+The reviewer's framing of the decision is the right one: **axis 2 is CLOSED or DECLARED, and those are
+the only honest options.** Inverting the arm to default-deny is a genuine closure but will refuse
+parameters, builtins and imported functions, so its cost must be *measured* on this module first — the
+51→0 work is the precedent for how. If DECLARED instead, the silent class needs a named ADR-0039/R3
+exemption whose control asserts the three plainest plants **silent** in `MEASURED_BLIND_SPOTS`, and both
+docstrings' *"Closed"* must become *"closed on callees with a spelled binding occurrence"*. Either way
+**the `ast.Name` branch belongs in the referenced-without-called arm** — `_d = book_page_spec` is a
+two-line real-world shape, not an exotic one.
