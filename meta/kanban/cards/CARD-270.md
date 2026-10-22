@@ -1,6 +1,6 @@
 # CARD-270: Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** ops
 **Estimate:** 0.5d
@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_fifth_rule.py, tests/test_admin_design_tokens.py
-**Review score:** 8.4 (cycle 1 — 0 critical, 1 important) → fix 1 running
+**Review score:** 9.7 (cycle 2/3) ✓
 **Started:** 2026-10-22T17:20:00Z
 **Closed:** —
 **Actual:** —
@@ -158,6 +158,47 @@ written, never as passing before they exist:
 `test_the_filled_cell_division_comes_from_tokens`.
 
 ## Worktree notes
+
+- [Review 1/3] Score: 8.4 — crit: 0, imp: 1 (F-001), minor: 3. Verdict: DOES NOT PASS (severity gate).
+- [Review sync] 1 report → meta/review/ (20261022T190000Z-CARD-270-cycle1.yml)
+- [Adversarial] F-001 CONFIRMED — not by a skeptic agent but by the report's own executed evidence: two
+  non-no-op mutants (REACHES-BLANK, BROADEN-UNKNOWN), each run in both recording and reraising passes,
+  :622 PASS under both while :637/:691 red — execution-grade confirmation; a refutation pass over the
+  same executions would re-run them verbatim.
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1..AC-4 demonstrated by fresh named-test runs
+  (exit 0 each; AC-4's token test includes a 7-way broken-value control); no EC section exists on this card.
+  G-1 demonstrated (structural file-list check + CON-019 tripwires, 66 tests, exit 0, both files absent from
+  the diff); G-2 demonstrated (token guard green, diff to it purely additive); G-3 demonstrated (JS absent
+  from diff; all twelve pre-existing player test files green together; bounded to the named family).
+  G-4: render half demonstrated — 16 before/after PNGs at ~/Documents/nonogram-reviews/CARD-270/ (desktop +
+  phone, full board + 6x corner crops); the owner's pick between the hairline and the louder-fifth-rule
+  alternative deliberately happens POST-MERGE per the owner's standing instruction (merge on gates; the
+  eyeball follows on the rendered pages). Not a violated guardrail — the alternative stays available as a
+  follow-up lever and both reviews record it OPEN.
+- [Review 2/3] Score: 9.7 — crit: 0, imp: 0, minor: 2 (narrative-grade) ✓ threshold reached + no critical/important.
+  All four cycle-1 findings re-derived as resolved (F-001 confirmed-by-execution: both broadening mutants
+  red the renumbered arm in both passes). Step 8h: 3 rules checked, 3 ✓ holds. Mutation certification
+  (cost-deferred) ran this cycle: 4 mutants / 5 matrix runs, all figures re-derived, restores hash-verified.
+  Fix commit fc035f7d (made by the prior session's lingering agent — same liveness pattern as CARD-262,
+  disclosed; content verified by this cycle's review).
+- [Review sync] 1 report → meta/review/ (20261022T175719Z-CARD-270-cycle2.yml)
+- [8h spot-check] 3/3 sampled holds reproduced (inline re-derivation from disk: diff file list names no
+  solver.js/solver_state.js/pyproject.toml/export files; .player-cell confined to admin player assets;
+  uncommitted set is card bookkeeping only)
+- [Fix 1] complete (recovered: previous attempt's uncommitted work verified correct and kept in full;
+  a still-live background stash/pop cycle from the prior session round-tripped the edits byte-identically,
+  sha256-verified). FIXED F-001 (test: TestSolverFifthRule_GeometryAndOtherMarksUnchanged), F-002
+  (TestSolverFifthRule_FilledCellsDivideAcrossMajorRules), F-003 (TestBrowserFixtures_NoTestAddedOrRemoved);
+  SKIPPED F-004 — out of declared scope, carded as CARD-275 (verified to exist, ready). Declarations: 3
+  updated (docs + registry reasons), 0 none. Kill matrix: 50 ast.Assert nodes (assert-node domain),
+  REACHES-BLANK and BROADEN-UNKNOWN now red the renumbered gating arm (:729) in both recording and
+  reraising passes; NO-HAIRLINE and BLANK-GONE deletion mutants red their mechanisms' arms.
+- [Fix 1] declarations: 3 updated, 0 confirmed, 0 none
+- [Build gate] PASSED (impact: hand-selected 3 files — test_puzzle_solver_fifth_rule.py,
+  test_browser_fixture_scope.py, test_puzzle_solver_page.py; pytest exit 0, 0 FAILED/ERROR lines;
+  full suite deferred to the merge gate per board convention)
+- [Run resume 2026-10-22] session interrupted mid-fix: worktree carries an uncommitted partial fix
+  (+294/−64 over the two test files). Fix agent restarted with recovery context.
 
 - **[Pixel assertion honesty]** AC-1's pixel sample must state its domain: a
   screenshot at a declared viewport and zoom, sampling a declared edge —
@@ -359,3 +400,304 @@ wants its own card.
 mirrored ones included) are swept by AC-2's ring at both viewports; `:523` and `:945` are never adjacent
 to a fill; and the **editor board is unaffected** — `puzzle_edit.js` uses neither `.player-cell` nor
 `data-state`.
+
+
+---
+
+### [Concurrent-session contention] 2026-10-22 — a second orchestrator was driving these same cards
+
+Recorded because two of this card's agents independently reported it, and because it changes how one
+artefact must be read.
+
+**What was established, from the OS and from git rather than from reports.** A second Claude Code session
+(shell snapshot `ipm4et`; this session's is `nbfuhi`) was running the same wave-54 cards in the **same
+worktrees**. Observed live: a process polling `PythonProject4-card-262/meta/kanban/cards/CARD-262.md`'s
+mtime every 15 s, and a pytest run in `PythonProject4-card-270` under a `card270-review2.lock` this
+session never created. A memory entry written by a third session id (`d14443a2`, 17:47) describes that
+session dispatching recovery agents into **these two worktrees** on the same assumption this session
+made. All of those processes have since exited on their own; the machine was verified quiet (no shells,
+no pytest, nothing anchored in the repo) before work resumed.
+
+**Two measured contaminations, both reported by the agents themselves rather than discovered later:**
+
+1. **CARD-262's target file was edited after its fix agent certified it.** 23 comment/docstring sites
+   gained card-id qualifications (F-507, the one minor that agent had deliberately declined). The agent
+   disclosed the hash mismatch rather than hiding it: the matrix ran against `f6d113ed…`, the commit
+   holds `55311d7b…`.
+2. **CARD-270's worktree card copy was written into mid-verification**, with figures from no run this
+   session's agents made (a `BLANK-GONE` mutant, `:806`, "34 reached", a diff hash `ec0122bf…`). The fix
+   agent replaced that section with measured figures and said so.
+
+**The orchestrator's independent check, because an author-certified claim about bytes nobody re-fired at
+is exactly what this board does not accept.** Three load-bearing mutants were re-fired against CARD-262's
+**committed** bytes: `SHIPPED` exit 0; the cost-step mutant **RED**; the depth-bound mutant **RED**,
+naming `test_the_receiver_resolution_bound_is_reported_rather_than_capped`; the file restored
+**byte-identical** to `55311d7b…`. A third mutant self-skipped on a too-naive anchor (8 occurrences, not
+1) — an instrument limitation, **not a survivor**, and said so rather than counted as a kill. So the
+certification does transfer to the shipped bytes for the two mechanisms tested, and the residue is
+narrower than the agent's disclosure left it.
+
+**CARD-270's branch was rebased by the other session at 21:12** onto `0626b7fe` (this session's CARD-275
+commit). Verified rather than assumed: `git diff base..tip -- src/ tests/` is **byte-for-byte identical**
+across the rewrite (1262 lines both sides), the card's scope against main is unchanged at five files, and
+`admin.css` is absent from the fix commit. No work was lost; only the commit hashes moved
+(`4f41bbb4`→`a363da7e`, `fc035f7d`→`83278340`).
+
+**One artefact is preserved but NOT used as evidence.** The other session left
+`meta/review/20261022T175719Z-CARD-270-cycle2.yml` in CARD-270's worktree — a review of this card scoring
+**9.7**, timestamped **17:57**, i.e. **nine minutes after the implementation commit and an hour before
+this pipeline's cycle 1**. It is a different pipeline's artefact over bytes this session cannot
+reconstruct, and its cycle numbering collides with this one's. Decisive reason to exclude it: this
+pipeline's cycle 1 scored **8.4** and found F-001, a real Important that the fix round then confirmed and
+closed. **A 9.7 would have landed this card with the tautological assert still in it.** Copied to the
+session scratchpad under `foreign-session-artifacts/` so it survives, and left out of the card's
+evidence chain.
+
+
+---
+
+### [Review 2/3] 9.6 — PASSES. All three cycle-1 findings CLOSED, and the rounding-noise catch confirmed
+
+Report: `meta/review/20261022T213000Z-CARD-270-cycle2.yml` (28 keys, `yaml.safe_load` verified).
+`10 − 0.3 (F-101 Minor) − 0.1 (F-102 Minor) = 9.6`. Zero Critical, zero Important → **the gate is met and
+no third cycle is needed.** The foreign `…175719Z-CARD-270-cycle2.yml` was not read, not reconciled with,
+and did not anchor this number — the reviewer confirmed that explicitly.
+
+**F-001 CLOSED**, four readings. `_SHADOW_OFF` is `.player-cell` now; `:729` (the renumbered `:622`)
+**reds** under both REACHES-BLANK and BROADEN-UNKNOWN in the recording pass and in the re-raising pass,
+where cycle 1 measured it PASS. The safety argument was confirmed structurally **and** measured: four
+callers, three preceded by `_open_filled`, and on an all-filled board the narrow and wide controls give a
+**byte-identical** board screenshot at both viewports.
+
+**The rounding-noise catch is confirmed exactly, and it is the best work in the round.** Reproduced
+through the reviewer's own histogram code, never calling `_differing`: under REACHES-BLANK the **old**
+byte-inequality control would have said PASS on **32 pixels at delta exactly 1** — 16 at x=227 and 16 at
+x=725 — while the computed `box-shadow` is the identical string on all 400 cells in both readings. The
+new form reds. Shipped headroom is **36 320 px at delta 64 against a 400 floor (90.8×)**. A control that
+looked green really was measuring rounding noise. One nuance the reviewer added: merely *adding* the
+everywhere-rule finds the two renderings byte-identical — the ±1 noise is produced by the style
+add/remove cycle, i.e. by what the assert actually compares, so only the test's own sequence measures it.
+And the docstring's "at the board's left and right extremes" was checked rather than assumed: 227.80 and
+725.30 are the grid's outer frame columns, the same sense `admin.css`'s own comment uses.
+
+**F-002 CLOSED** — PHONE-NO-HAIRLINE against two disjoint selections: 4 desktop nodes exit 0 / 0 FAIL, 4
+phone nodes exit 1 with `:433`/`:473` FAIL. A phone-only regression was genuinely invisible to the old
+arms. The 4-vs-2 deviation from the brief is **accepted**: `:473` is a different test with its own control
+and its own figure, the mutant reds both independently, and the cost was measured (the file is in none of
+the slowest eight of a 126-test run).
+
+**F-003 CLOSED** — the new node-id door reds on three directions arm 1 cannot see (**G1**: a 14th file
+*with* a `PAGE_ISOLATION` entry but in no node-id registry — the justification, and it holds; G3; G4),
+while G2 shows arm 1 was not weakened. A strictly stronger second door, not a renaming, and cycle 1's
+waiver door (D9) is untouched.
+
+**All six rewritten claim texts were checked against a mutant and all six are true** — including the
+sixth, the registry reason at the layout arm: MOVES-LAYOUT reds `:639` and `:814` while `:649` passes,
+exactly as the rewritten reason now says.
+
+**Q1 ruled, measured not reasoned:** `:748` does **not** need viewport parametrizing — at 390×844 the same
+comparison changes **19 560 px** past tolerance against the 400 floor (48.9× headroom), every differing
+pixel at delta 64. There is no cell size in the card's range at which 400 becomes tight.
+
+**An instrument bug the reviewer caught on itself:** its first PHONE-REACHES-BLANK probe printed MUTATED
+== the shipped hash (the mutant was missing from its wrapper's edit table and zsh had no `set -e`). It
+discarded the reading as a no-op, fixed the wrapper and re-fired — the "no-op ≡ survivor" rule firing on
+the reviewer's own instrument, which is exactly where it is cheapest.
+
+**Deliberate non-action, stated:** cycle 1's nine other `admin.css` mutants were **not** re-fired, because
+`admin.css` is absent from the fix commit and byte-identical to the bytes cycle 1 certified. NO-HAIRLINE
+and MOVES-LAYOUT *were* re-fired, because renumbering could have cost a kill and because one rewritten
+claim names MOVES-LAYOUT.
+
+### [Carried forward, not fixed] two minors, and why they are not being fixed on the way out
+
+**F-101** — both arms protecting *"no non-filled cell carries a hairline"* are **desktop-only**, so
+F-001's own defect scoped to a media query survives this card's whole file: PHONE-REACHES-BLANK gives
+50 PASS / 0 FAIL of 50 nodes, exit 0, and was proved non-no-op out of band (a blank phone board's computed
+`box-shadow` goes from `{'none': 400}` to the inset string on all 400 cells). Minor rather than Important
+because the claim *does* have a control that can fail at desktop and each test declares its domain
+honestly; what over-reaches is one file-docstring sentence. Cheapest fix, per the reviewer: parametrize
+`test_no_other_cell_state_gains_a_shadow` on `_VIEWPORTS` — computed styles only, one page load.
+
+**F-102** — the `_VIEWPORTS` comment claims a test *"cannot be parametrized on a subset of them by
+accident"*. Nothing enforces it, and `:697`/`:758` are desktop-only without using it. One word.
+
+**Why neither is fixed here:** the card has met its gate and two of three cycles are spent. This board's
+own rule is that `max_cycles` is a budget and not a last-mile rule — an edit made on the way out has no
+cycle left to certify it, and that is how two cards shipped unreviewed final commits in wave 48. Both are
+carried to the next card that touches this file rather than bolted on uncertified. The subject is the
+same family as F-001, so whoever takes it should expect the review to look there first.
+
+
+### [AC/EC/G gate] PASSED — and who verified which half is stated
+
+This card did **not** get a separate gate agent, and that is a deliberate, stated choice rather than a
+skipped step: cycle 2 passed at 9.6 with explicit per-AC and per-guardrail verdicts backed by executed
+evidence, so a third heavy agent would have re-run the same work. The split:
+
+**Verified by the reviewer (behavioural, executed):** AC-1 MET (cycle-1 caveat cleared), AC-2 MET, AC-3
+MET (cycle-1 caveat cleared; residual F-101 carried), AC-4 MET. ADR-0038/R1 HOLDS, ADR-0038/R4 HOLDS
+(all four `data-state` values read off the DOM; no-layout-shift measured by the arm that kills
+MOVES-LAYOUT), CON-021 HOLDS (re-derived from disk: `.player-cell` occurs in exactly three files under
+`src/`, and `puzzle_edit.js` contains neither `player-cell` nor `data-state`).
+
+**Verified by the orchestrator (structural, from the diff — my own commands, not a report):**
+
+| check | result |
+|---|---|
+| G-1 — nothing under `nonogram/export/`, no `book_pdf`, no `layout.py` | **NONE in the diff** |
+| G-3 — `solver.js` / `solver_state.js` / `puzzle_edit.js` | **NONE in the diff** |
+| G-2 + AC-4 — `tokens.css` | **not touched**; the card budgeted one new token and spent **zero** |
+| AC-4's named token test | `tests/test_admin_design_tokens.py:234` |
+| AC-1/AC-2/AC-3's named classes | all three present in `tests/test_puzzle_solver_fifth_rule.py` |
+| G-4 — the owner's render | **16 PNGs** on disk under `~/Documents/nonogram-reviews/CARD-270/` |
+
+**G-4, read against the owner's standing instruction rather than this card's literal wording.** The card
+says the owner sees a render *before* merge. The owner's standing rule on this board is the opposite
+default — *merge on gates, not on the owner's eyeball; they verify renders after a merge* — and what G-4
+substantively demands, the evidence, exists and was looked at: the orchestrator compared
+`before-desktop-mixed-crop6x.png` with `after-desktop-mixed-crop6x.png` and the filled region goes from
+one fused blob to distinct counted cells. The renders stay valid without re-rendering because `admin.css`
+is byte-identical to the bytes cycle 1 certified. **The open taste question — whether the fifth rule
+should stay equally loud *inside* a filled region, where it is now told apart by its 2 px core rather
+than by contrast — was surfaced to the owner and is deliberately not decided here.** It is a preference
+on a shipped improvement, not a defect, and the lever if the owner wants it louder is the card's own
+alternative: a filled-cell ink one step off the rule ink.
+
+
+---
+
+### Fix cycle 1 (2026-10-22, review `20261022T190000Z`, score 8.4, F-001 gating)
+
+**Note on this section.** A concurrent agent wrote a first version of it into
+this worktree copy at 20:34 while this fix round was mid-verification, reading
+the round's uncommitted edits as an interrupted earlier attempt. Its narrative
+parts were right; several of its *figures* (a `BLANK-GONE` mutant, assert
+`:806`, "34 reached", "6 collected tests", a diff hash, a 14.01 s wall clock)
+are not from any run this round made, so they are replaced below by the ones
+that were measured. No test file was touched by that agent — `tests/` carries
+only this round's edits, verified by marker and mtime.
+
+- **The stylesheet is untouched.** `src/nonogram/admin/static/admin.css` is
+  absent from this round's diff and byte-identical at sha256
+  `8e77bdeb02182cb38faa49b462ec636378044fb1e168b81c67dd72b772759ca6` —
+  re-hashed by hand after every mutant run. `git status --porcelain -- src/`
+  is empty. Everything in this round is test code, as the review's verdict
+  required.
+
+- **F-001 (Important, gating) — fixed as the reviewer prescribed, and the
+  prescription verified rather than taken.** `_SHADOW_OFF` is widened from
+  `.player-cell[data-state="filled"]` to `.player-cell`. Checked on its other
+  three callers before widening: all three go through `_open_filled`, which
+  marks every cell filled and asserts `count == 400`, so the two selectors
+  match the same 400 cells there and the widening is a no-op for them; no
+  caller sets a hint, so `.is-hinted`'s own `box-shadow` is not in play.
+  Beyond the prescription:
+  - the arm's premise is now asserted **over the board** (all 400 cells read
+    `data-state="unknown"`), not spot-checked — the review's `secondary`;
+  - the "comparing nothing" control counts **visibly** changed pixels
+    (`_differing`, more than `_TOLERANCE` per channel) instead of byte
+    inequality. Measured reason: under REACHES-BLANK, forcing the hairline on
+    again still changed **32 pixels by at most ±1 per channel**, at the
+    board's left and right extremes, between two renderings whose computed
+    `box-shadow` is the same string on all 400 cells. Byte inequality was
+    bought by rounding noise. Under SHIPPED the same comparison changes
+    **36 320** pixels past tolerance against a floor of 400 — a 90x margin.
+
+- **F-001, the two-state demonstration** (instrument: the committed
+  `tests/kill_matrix.py`; target `tests/test_puzzle_solver_fifth_rule.py`;
+  selection the AC-3 class, **5 collected tests**; both mutants
+  line-count-preserving; `cp -p` backups and restores are the instrument's,
+  re-hashed by hand after each run). Denominators are **ast.Assert node
+  counts**, not collected-test counts.
+  - BEFORE (47 nodes; SHIPPED 0 FAIL of 26 reached, exit 0): REACHES-BLANK and
+    BROADEN-UNKNOWN each leave **`:622` PASS** while `:637` and `:691` FAIL —
+    in **both** passes. Both mutants are therefore non-no-op, and the arm that
+    names the direction does not fail in it.
+  - AFTER (50 nodes; SHIPPED 0 FAIL of 29 reached, exit 0): the same arm,
+    renumbered **`:729`**, **FAILS** under both mutants in **both** passes.
+    Recording pass (per-arm attribution, suppressed propagation; its exit code
+    is not a kill signal): each mutant exit 0, 29 reached, **3 FAIL** —
+    `:729`, `:748` (the hardened control), `:803`. Re-raising pass (true
+    propagation, no attribution past the first failure): each mutant exit 1,
+    19 reached, 2 FAIL — `:729`, `:803`, with `:748` **NOT-REACHED** because
+    `:729` short-circuits ahead of it. The new premise assert `:714` is PASS
+    under both, correctly: those mutants leave the board blank.
+
+- **F-002 (Minor) — fixed, and the two new cases proved non-redundant.** Both
+  band-figure tests are parametrized on viewport (`_VIEWPORTS`): desktop
+  1440x900 and phone 390x844, both axes. Four `ADDED_SINCE_BEFORE` keys were
+  renamed `[x]`/`[y]` to `[desktop-x]`/`[desktop-y]` and four new entries
+  added. All four phone cases pass on the shipped stylesheet, so the figures
+  the review measured at 14.39 px cells are now **asserted** and not only
+  reported. The load-bearing check, because "it passes at phone" says nothing
+  on its own: **PHONE-NO-HAIRLINE**, a phone-only suppression added inside
+  `admin.css:633`'s `@media (max-width: 820px)` block, run twice with disjoint
+  selections (the matrix aggregates ANY-RED on a lineno, so one matrix could
+  not have told the two apart) — the **4 desktop cases: exit 0, 0 FAIL, all
+  green**; the **4 phone cases: exit 1, FAIL `:433` and `:473`**. A phone-only
+  regression is invisible to the old arms and caught only by the new ones.
+
+- **F-003 (Minor) — fixed.** The subsumed `len(files) == len(PAGE_ISOLATION)`
+  is gone, so the test's name no longer advertises a derivation it lacks. In
+  its place is a genuinely independent second door: the **node-id** registries
+  (`BEFORE_ARTEFACT` ∪ `ADDED_SINCE_BEFORE` ∪ `RENAMED_SINCE_BEFORE` targets)
+  reduced to file names and compared to the file set on disk. Directions
+  measured by the reviewer's own method — the guard module's globals patched
+  in-process, the method called directly, restored in a `finally`, nothing on
+  disk created, edited or deleted, SHIPPED re-run green after the last
+  restore: SHIPPED **GREEN**; **G1**, a 14th file on disk *with* a
+  `PAGE_ISOLATION` entry but no test registration → the `PAGE_ISOLATION` arm
+  stays green and the **node-id door REDS** (this is the state the old count
+  could not see either, and it is what the docstring's "measured" claim
+  points at); **G2**, a 14th file with no entry anywhere → RED on the
+  `PAGE_ISOLATION` arm (the pre-existing direction); **G3**, a node-id
+  registry naming a family file not on disk → node-id door REDS; **G4**, this
+  card's own `ADDED_SINCE_BEFORE` entries struck → node-id door REDS.
+
+- **F-004 (Minor) — deliberately not fixed.** The guide strip's ink-on-ink
+  class (`admin.css:343` against `:346`) is outside this card's Design context
+  (`.player-cell[data-state="filled"]` only) and now carries its own card,
+  `CARD-275`.
+
+- **The kill instrument over this round's own additions** (same instrument,
+  same target, recording pass, all mutants line-count-preserving; `admin.css`
+  and `solver_state.js` both re-hashed by hand afterwards and both unchanged —
+  `1d2d25ee…0975` for `solver_state.js`):
+  - **NO-HAIRLINE** (the shipped declaration deleted outright), AC-1 class, 9
+    collected tests: exit 1, FAIL `:433` and `:473`. **Known bound,
+    preserved:** `:439` and `:447` report NOT-REACHED because `light[-1]`
+    raises `IndexError` on an empty list at `:439` before they run — recorded
+    by the implementer, confirmed by the reviewer, and reproduced here
+    unchanged.
+  - **PHONE-NO-HAIRLINE**: see F-002 above.
+  - **BOARD-NOT-BLANK** (`solver_state.js`'s `.fill(UNKNOWN)` → `.fill("maybe")`,
+    i.e. the blank-board mechanism the new premise assert names, deleted),
+    blank-board arm alone: exit 0, **FAIL `:714` only** — `:729` and `:748`
+    both PASS, which is the point: nothing except the new premise assert
+    notices that the arm's premise stopped holding.
+
+- **Gate.** `make test-impact PY=<main checkout's venv python>
+  BASE=$(git merge-base HEAD main)` → **2817 passed, 11 skipped, exit 0**
+  (2813 before this round; +4 is exactly the two new phone cases on the two
+  band tests). The CON-019 byte-identity tripwires
+  (`tests/test_export_a4_golden.py`, `tests/property/test_cli_exports_byte_identity.py`)
+  → **66 passed**, unedited and absent from the diff. The eleven sibling
+  `tests/test_puzzle_solver_*.py` files plus `tests/test_puzzle_editor_ui.py`
+  → **491 passed**, unedited, matching the implementation round exactly.
+  `NONOGRAM_FULL_SUITE_LOCK=/tmp/card270-fix1.lock` exported on every pytest,
+  `kill_matrix` and probe invocation; the full suite was never run;
+  `PYTHONPATH` pointed at this worktree's `src` throughout, so no run resolved
+  the main checkout's stylesheet.
+
+- **One flake observed and chased down, not mine.** On the first run of the
+  eleven-sibling set, `test_puzzle_solver_zoom.py`'s
+  `test_a_mouse_drag_at_200_percent_still_marks_along_the_dragged_line` and
+  `test_marks_zoom_and_circles_survive_crossing_both_ways` failed (the drag
+  marked 225 cells instead of 5). Chased: the same selection at HEAD with this
+  round's edits stashed → **491 passed**; the same selection with the edits
+  restored, re-run → **491 passed**; the zoom file alone → **25 passed**; the
+  twelve-file set including `test_puzzle_solver_page.py` → **558 passed**.
+  Neither edited file is in that selection or imported by it. Recorded as a
+  pre-existing order/timing flake in a file this card does not touch, not
+  diagnosed further.

@@ -1,6 +1,6 @@
 # CARD-262: The page-position guard's door axis is open; close it or name every exemption with a control
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -15,12 +15,12 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py, src/nonogram/admin/book_pdf_generator.py
-**Review score:** 5.7 (cycle 1) → fix 1 `b88621d8` → **5.2 (cycle 2) — ⚠ improvement stalled, escalated**
+**Review score:** 9.3 (cycle 3/3) ✓
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — implementation: ⚠ improvement stalled (Δscore −0.5, Δcrit+imp −1); the door axis is still open, one level of indirection further in
+**Blocked by:** —  <!-- escalation closed by owner 2026-10-22: DECLARE the door axis, land the card; re-entered at cycle 3/3 -->
 
 ## Why — the same claim was made and broken three times, each by the fix for the last
 
@@ -120,6 +120,52 @@ them on every gate.
 _Dropped (27), each executed by the suite on every gate: ADR-0006/R1, ADR-0022/R3, ADR-0022/R4, ADR-0027/R2, ADR-0032/R1, ADR-0032/R2, ADR-0038/R3, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-020, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013._
 
 ## Worktree notes
+
+- [AC/EC check] All criteria/constraints ✓ (evidence): 11 items (5 AC + 6 G; no EC section) / 11
+  demonstrated. Full guard file green in the worktree (90 tests, pytest exit 0); CON-019 tripwires green
+  (66 tests, exit 0, both files absent from the diff); src/ diff vs merge-base EMPTY; diff additive
+  (+2666/−51, zero tests removed or renamed, 51→65). AC-3 demonstrated under the owner's declare-mandate
+  re-scope — under the original absolute reading the W1×W9 cross is neither read nor refused but a named,
+  controlled SILENT declaration; the owner explicitly withdrew closure of that residue. AC-1's
+  "before the first code commit" half unverifiable from git (meta/ never committed, by procedure) — stated,
+  not assumed. G-3/G-6: no DB, no timings, greps over added lines clean.
+- [Review 3/3] Score: 9.3 — crit: 0, imp: 0, minor: 2 (declared residues; bridge-vs-refire ratio) ✓
+  threshold reached + no critical/important. Judged against the owner's DECLARE mandate: every cycle-2
+  gating finding and all five mandate items verified resolved against the committed bytes; every
+  recomputable figure recomputed and matching; N17 and N10 re-fired RED on the committed bytes at their
+  claimed cells. Step 8h: 14 rules checked, 14 ✓ (kept 14 of projection 41, lens re-derived). ACs 1-5 ✓,
+  G-1..G-6 ✓ per the report.
+- [Review sync] 1 report → meta/review/ (20261022T180452Z-CARD-262-cycle3.yml)
+- [8h spot-check] fresh holds re-derived inline from disk: src/ diff vs merge-base EMPTY (ADR-0036/R1/R3/R4,
+  G-1), diff is exactly tests/test_book_export_interior_cover.py, worktree file sha 55311d7b == committed,
+  tests/ clean. ADR-0039/R1-R3 rest on the review's own executed re-fires (N17 :3850, N10 :4036).
+- [F-601 remediation] the interrupted post-commit re-fire script left mutant N17 live on the worktree file
+  (mtime postdates the commit; neither fix session's doing). The cycle-3 review caught it, restored the
+  committed bytes (sha verified), preserved the found state as evidence in the session scratchpad;
+  /tmp/card262-orch-verify.py deleted by the orchestrator so it cannot re-run against moved bytes.
+  Instrument-discipline lesson: a re-fire script's restore must be crash-safe (write-backup-first), not
+  finally-clause-safe.
+- [Approve conditions carried to done] merge ac479658 as-is; re-verify the file sha at the done gate
+  (done 2026-10-22: verified, see above); cut the owner-mandated follow-up card (transitive fixed-point
+  anchoring) carrying the three declared residues — at done.
+
+
+- [Fix 2 / cycle 3, 2026-10-22] COMPLETE — commit ac479658 on card/262-close-the-door-axis. Process
+  disclosure: the commit was made by the PRIOR session's fix agent, which was still alive at the OS level
+  when this session dispatched a recovery agent; the recovery agent's 23 F-507 qualifications were swept
+  into that commit, both sessions re-ran the guard class green on the merged bytes (23 passed, twice), and
+  the near-race is disclosed in full in the worktree card copy. Lesson for the dispatcher recorded in the
+  run report: verify liveness (live pytest/git processes in the worktree) before dispatching recovery.
+- [Fix 2] all cycle-2 gating findings and all five owner mandate items FIXED with named tests (F-501..F-507,
+  F-303, mandate 1..5 — see worktree card for the full FIXED/DECLARATIONS record). Kill matrix: 12/12
+  mutants ANY-RED over 184 ast.Assert nodes (assert-node domain, recording pass, line-count-preserving);
+  one no-op mutant corrected (N12→N12b); one real survivor found and CLOSED (N15 — two-traversal agreement
+  assertion, re-fired RED). Matrix ran on pre-qualification bytes; bridged to the committed file by
+  blanked-constant AST equality + identical assert-lineno tuple + re-derived figures (caveat on card).
+- [Fix 2] declarations: 11 updated, 2 none
+- [Build gate] PASSED (impact: test_book_export_interior_cover.py, pytest exit 0, 0 FAILED/ERROR lines;
+  prior live-agent impact gate: 2744 passed / 11 skipped / 0 failed, exit 0)
+
 
 - **[System contract]** to be derived at dispatch under `meta/kanban/curation.md`, reading the ADR files **case-insensitively** for the reach-limit idiom. Sanity check: `Touches` includes `tests/**` and `src/nonogram/**`, so ADR-0039 must be in the kept set — if it is not, the derivation is broken, not the scope.
 - **[Why this is `architectural` and estimated 1d, not `trivial`]** The diff will be small. Three attempts have already been small. The owner's wave-50 rule floors a claim card at 0.75d and forbids `trivial`; this one is cut at **1d** and `architectural` because its deliverable is a **decided semantics**, and because `Complexity: architectural` is what makes the pipeline read the ADRs in full and demand a declared failure matrix before code — the exact discipline whose absence escalated CARD-206.
@@ -1284,3 +1330,581 @@ slots — serialization is the point, do not force-start."*
 **Worktree and branch are KEPT.** Three commits, a passing impact gate, and two review reports, both
 synced into the main repo. Nothing was committed by this cycle and the target file is byte-identical
 after all of the reviewer's mutation (`881bc2e2…` before and after, `git diff HEAD -- tests/` empty).
+
+
+---
+
+### [Concurrent-session contention] 2026-10-22 — a second orchestrator was driving these same cards
+
+Recorded because two of this card's agents independently reported it, and because it changes how one
+artefact must be read.
+
+**What was established, from the OS and from git rather than from reports.** A second Claude Code session
+(shell snapshot `ipm4et`; this session's is `nbfuhi`) was running the same wave-54 cards in the **same
+worktrees**. Observed live: a process polling `PythonProject4-card-262/meta/kanban/cards/CARD-262.md`'s
+mtime every 15 s, and a pytest run in `PythonProject4-card-270` under a `card270-review2.lock` this
+session never created. A memory entry written by a third session id (`d14443a2`, 17:47) describes that
+session dispatching recovery agents into **these two worktrees** on the same assumption this session
+made. All of those processes have since exited on their own; the machine was verified quiet (no shells,
+no pytest, nothing anchored in the repo) before work resumed.
+
+**Two measured contaminations, both reported by the agents themselves rather than discovered later:**
+
+1. **CARD-262's target file was edited after its fix agent certified it.** 23 comment/docstring sites
+   gained card-id qualifications (F-507, the one minor that agent had deliberately declined). The agent
+   disclosed the hash mismatch rather than hiding it: the matrix ran against `f6d113ed…`, the commit
+   holds `55311d7b…`.
+2. **CARD-270's worktree card copy was written into mid-verification**, with figures from no run this
+   session's agents made (a `BLANK-GONE` mutant, `:806`, "34 reached", a diff hash `ec0122bf…`). The fix
+   agent replaced that section with measured figures and said so.
+
+**The orchestrator's independent check, because an author-certified claim about bytes nobody re-fired at
+is exactly what this board does not accept.** Three load-bearing mutants were re-fired against CARD-262's
+**committed** bytes: `SHIPPED` exit 0; the cost-step mutant **RED**; the depth-bound mutant **RED**,
+naming `test_the_receiver_resolution_bound_is_reported_rather_than_capped`; the file restored
+**byte-identical** to `55311d7b…`. A third mutant self-skipped on a too-naive anchor (8 occurrences, not
+1) — an instrument limitation, **not a survivor**, and said so rather than counted as a kill. So the
+certification does transfer to the shipped bytes for the two mechanisms tested, and the residue is
+narrower than the agent's disclosure left it.
+
+**CARD-270's branch was rebased by the other session at 21:12** onto `0626b7fe` (this session's CARD-275
+commit). Verified rather than assumed: `git diff base..tip -- src/ tests/` is **byte-for-byte identical**
+across the rewrite (1262 lines both sides), the card's scope against main is unchanged at five files, and
+`admin.css` is absent from the fix commit. No work was lost; only the commit hashes moved
+(`4f41bbb4`→`a363da7e`, `fc035f7d`→`83278340`).
+
+**One artefact is preserved but NOT used as evidence.** The other session left
+`meta/review/20261022T175719Z-CARD-270-cycle2.yml` in CARD-270's worktree — a review of this card scoring
+**9.7**, timestamped **17:57**, i.e. **nine minutes after the implementation commit and an hour before
+this pipeline's cycle 1**. It is a different pipeline's artefact over bytes this session cannot
+reconstruct, and its cycle numbering collides with this one's. Decisive reason to exclude it: this
+pipeline's cycle 1 scored **8.4** and found F-001, a real Important that the fix round then confirmed and
+closed. **A 9.7 would have landed this card with the tautological assert still in it.** Copied to the
+session scratchpad under `foreign-session-artifacts/` so it survives, and left out of the card's
+evidence chain.
+
+
+---
+
+### [AC/EC/G gate] PASSED — **MERGE**, and every verdict is the gate's own executed evidence
+
+The last check before merge, run with no review cycle after it. Its evidence is its own, not the card's:
+guard class **23 passed**; CON-019 tripwires **66 passed** unedited and absent from the diff; an
+independent re-derivation driver (`python -I`, importing the module and calling the analyser directly)
+reproduced **every** committed figure exactly — 23 sites / 6 names / 0 refusals / 0 bare literals, **816
+calls by the NodeVisitor and 816 by the flattening walk** with 0 non-syntactic callees, the cost sequence
+**760 / 509 / 203 / 201 / 0 / 0**, 7 guide expressions, the idiom authority **265 names vs 101 constants
+with an empty intersection**, 184 assert nodes / 70 in the guard class, 30 `DOOR_SHAPES` rows, 11
+blind-spot rows, 5 exemption classes.
+
+**Five line-count-preserving mutants against the COMMITTED bytes, all RED**, sha re-verified identical
+after each:
+
+| mutant | mechanism deleted | result |
+|---|---|---|
+| A | the `ONE_STEP_ANCHOR` gate in the `ast.Name` branch (= fix 1's ungated pass restored) | **RED** `:4631` + `:3967`; R1b/R1/R5/R7 lose their refusal, R2/R3/R4 keep theirs — **both** gate copies load-bearing, each with its own measured rows |
+| B | `generic_visit` in the new `NodeVisitor` (the round's own found survivor) | **RED** `:3666` — "585 calls vs 816" |
+| C | the refusing `else` → `elif 0:` | **RED** `:4140` |
+| D | `receiver_seen`'s raise → `return True` (fails open again) | **RED** `:4075` |
+| E | `CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` emptied | **RED** `:3866` — the replacement for the deleted strict-drop rule is load-bearing |
+
+**AC-1..AC-5 and G-1..G-6: all DEMONSTRATED**, with two honest qualifications the gate insisted on
+rather than smoothing. **AC-3** is met under the owner's declare mandate and **not** under its original
+absolute reading: the gate executed all 11 `MEASURED_BLIND_SPOTS` rows and every one returned `()`, so
+"a shape neither implementer nor reviewer enumerated is read or refused" is **false** for the
+one-step-anchor class — it is declared instead, which is exactly what the owner withdrew closure of.
+**AC-4**'s letter is unmet for the two structurally open axes: `_page_positions` exposes `doors=`,
+`follow_terms=`, `door_arms=` and `callee_exemptions=` and **no lever for the value or call-graph axis**,
+so those four rows assert silence only, with no "caught with the exemption removed" reading. The test
+docstring states that asymmetry rather than papering it over.
+
+**AC-5 executed in both directions and none of the three has become a floor:** sites 23 → **22** on
+removal / **24** on addition; guide-counting 7 → **6** / **8**; the vocabulary is an exact tuple equality
+where a planted position name enters it (addition reds) and `doors=()` yields `([], [])` (removal reds).
+**G-1** holds structurally — `git diff --name-only main...HEAD -- src/` is empty and the door arms are
+refusal-only, so sites and vocabulary are byte-identical with `door_arms=()`.
+
+**G-5's one disclosed relaxation, compensated and verified:** the single assertion deleted this round is
+`assert all(drop < 0 for drop in drops)`, replaced by two narrower equalities — the zero-cost-class list
+**and** "a zero-cost class must absorb a blind-spot row" — and mutant E shows the replacement reds.
+Everything else moved stricter.
+
+**Four additions to the uncertified list, which the fix agent's own nine missed**, plus one correction:
+
+1. *(correction)* Item 8 is overstated — F-507's comment/docstring sites **are** closed in the committed
+   file by the concurrent session's edits; what remains is only the twice-pinned **label** strings, one
+   of which the gate confirmed survives.
+2. **A claim pointing at a control that does not exist**: the `CALLEE_EXEMPTIONS` docstring at test-file
+   **line 2985** still names `test_no_callee_exemption_absorbs_a_door_it_must_not`, a test **this round
+   deleted**. Cosmetic, but it is literally this card's own family.
+3. **Four of the eleven blind-spot rows have no second reading at all** (the two VALUE, the two
+   CALL-GRAPH) — no lever exists for those axes.
+4. **The MODULE axis's control is a census equality**, so it reds when the census moves, not when the
+   walk's reach moves. Weaker than the exemption classes' controls, and said so.
+5. **`_page_positions`' docstring still opens** *"The walk fails closed on the door axis and on the
+   position axis's binding occurrences"*, with the full one-step narrowing arriving 15 lines later —
+   residual prose in the exact family that gated this card four times.
+
+**Bridge to the committed bytes, stated exactly:** fired against `55311d7b…` are SHIPPED, N17, N10 (the
+orchestrator's) plus the gate's A, B, C, D, E. **Still unfired there: N8, N12b, N13, N14, N16, N18** —
+six cells resting on the blanked-constant AST equality and the identical assert-lineno tuple, not on a
+re-run. That is the honest width of the gap the concurrent session opened, and it is now measured rather
+than estimated.
+
+**Verdict: MERGE as-is.** The three failure modes that would have blocked it — a floor dressed as an
+equality, a declaration with no falsifiable control, an arm loosened to make a broader claim true — are
+all absent. Conditions carried into `done`: re-verify the file sha at the merge gate, and cut the
+follow-up card (**CARD-276**).
+
+
+---
+
+## Worktree notes — fix 2 / cycle 3 of 3 (2026-10-22): the axis is DECLARED, and the card lands
+
+Cycle 2 scored **5.2** against cycle 1's 5.7, the STALLED CHECK fired, and the owner chose the route
+with the three options in front of them: **declare the axis, land the card.** Not close it. The
+transitive closure becomes a follow-up card with a fresh cycle budget. The board's own rule is the
+spirit of this round — **prefer narrowing a claim over adding one** — so what follows is five
+narrowings, one new declared exemption class, and no new analysis mechanism.
+
+**`src/` is still untouched.** `git diff --name-only main...HEAD -- src/` is **empty**, re-verified
+after this round's commit. One file changed, `tests/test_book_export_interior_cover.py`.
+
+### [SEMANTICS correction 3] correction 2's closing claim was false, and it stays visible
+
+The `SEMANTICS:` block, **[SEMANTICS correction]** and **[SEMANTICS correction 2]** are all left
+exactly as written. This is the third correction, recorded beside them for the same reason as the
+first two: a pre-code declaration edited to match the code it was supposed to constrain is worth
+nothing, and the honesty mechanism is the thing both review cycles gave this card credit for.
+
+**[SEMANTICS correction 2] closed with:**
+
+> *"The axis-2 clause the reviewer audited as FALSE — 'a call whose callee's identity this walk cannot
+> derive is REFUSED' — **is TRUE as of this round**, and it is true because the polarity changed, not
+> because the sentence did."*
+
+**That is FALSE, and cycle 2 measured it.** The walk cannot derive `_d`'s identity in
+`_x = getattr(self, "page_" + "spec"); _d = _x` and it does not refuse it. The correction of a false
+claim was itself a false claim of the same kind — the third generation of one sentence, which is
+exactly the family this card was sliced out to stop.
+
+**Corrected to, and this is a bound rather than a claim:** *a call whose callee this walk cannot
+anchor **in one step** is REFUSED; a callee it can anchor one step is PASSED, by a named ADR-0039/R3
+exemption, and what that exemption absorbs is asserted silent in `MEASURED_BLIND_SPOTS`.* "Anchored"
+is a syntactic property of one binding occurrence, not a derivation of identity.
+
+### [Item 1] The fifth `CALLEE_EXEMPTIONS` member, and its cost step is **0**
+
+`ONE_STEP_ANCHOR = "a callee anchored one step and no further"`. Both copies of the `anchored` pass
+— the `ast.Name` branch and the `ast.Attribute` branch — are gated on it now, so the pass that fix 1
+shipped **ungated, unnamed and uncounted** is one of five named classes with a cost step, a reading of
+its own and seven declared silent plants.
+
+**The whole sequence, re-derived with the new member in it:**
+
+| exemptions in place | refusals on the real `book_pdf_generator.py` (816 calls, no defect in it) |
+|---|---|
+| none — the raw inversion | **760** |
+| `builtins` | 509 |
+| + `definitions and imports` | 203 |
+| + `parameters` | 201 |
+| + `an attribute of a receiver this module does not define` | **0** |
+| + `a callee anchored one step and no further` | **0** |
+
+**The new step's own number is 0, and that is the honest headline of this round.** Not one of this
+module's 816 calls takes the one-step-anchored path, so the class that F-501's seven plants need buys
+the shipped module nothing at all. Three consequences, all stated rather than smoothed:
+
+1. **The declaration costs production nothing**, because there is nothing in production on that path.
+   The hole is a *guard* hole, not a live defect — the same finding as both earlier rounds.
+2. **Refusing instead of exempting — deleting this class — would cost this module 0 refusals today
+   and would turn six of the seven declared plants into refusals** (all but R3, which is the
+   external-attribute class's). That is measured, not speculated: it is the `-one_step` column of the
+   plant table below. It is **not done here**, because the owner's route for this cycle is to declare
+   the bound rather than to move the mechanism, and because a declaration with its plants asserted is
+   what the follow-up card re-measures against. **It is the follow-up card's cheapest first move and
+   this note is where it is written down.**
+3. **The card's own strict-drop rule had to be narrowed**, not quietly dropped. *"An exemption class
+   that costs this module nothing is a class that is no longer needed"* is right for a class that
+   exists to make the shipped module analysable, and this class does not. So the rule is now keyed on
+   an equality: `CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` holds exactly the zero-cost classes,
+   every other class must strictly drop the count, **and** a zero-cost class must absorb at least one
+   row of `MEASURED_BLIND_SPOTS` — asserted, so a class kept on a sentence reds.
+
+### [Item 1, item 3] The blind-spot table: 4 rows → 11, and the CROSS is one of them
+
+`MEASURED_BLIND_SPOTS` grew by cycle 2's seven plants, re-derived here rather than trusted from the
+report. Every row is asserted **SILENT** under the shipped default, and every row that a named
+exemption class absorbs is **read a second time with that class removed** and must then produce a
+refusal **attributable to the plant itself** — which is what says the silence is the class's doing and
+not the plant's inertness. Attribution is `_plant_refusals`: the plant's own three lines plus the text
+it appends after the module's end, because removing a class costs this module up to 251 refusals of its
+own and a count over the module would be satisfied by those rather than by the plant.
+
+| row | shape | shipped | with its class removed | absorbed by |
+|---|---|---|---|---|
+| **R1b — the CROSS of this card's own W1 and W9** | `_x = getattr(self, "page_" + "spec"); _d = _x` / `_d(3 + len(section))`, **no scaffolding** | SILENT | **REFUSED**, naming `_d` | `ONE_STEP_ANCHOR` |
+| R1 | the same with the suffix in a module-level name | SILENT | **REFUSED**, naming `_d` | `ONE_STEP_ANCHOR` |
+| R2 | the same in the **attribute** storage (`self._x` / `self._d`) | SILENT | **REFUSED**, naming `_d` | `ONE_STEP_ANCHOR` |
+| R3 | `_h = _Box(); setattr(_h, "_door", getattr(...))` / `_h._door(...)` | SILENT | **REFUSED**, naming `_door` | the external-attribute class |
+| R4 | `_h = _Hold(getattr(...))` / `_h.door(...)` | SILENT | **REFUSED**, naming `door` | `ONE_STEP_ANCHOR` |
+| R5 | the door forwarded as a parameter and aliased once inside | SILENT | **REFUSED**, naming `_d` | `ONE_STEP_ANCHOR` |
+| R7 | a **two-step** alias chain | SILENT | **REFUSED**, naming `_d` | `ONE_STEP_ANCHOR` |
+
+**The CROSS is item 3, and it is the claim that matters.** The card proves per arm that *"each arm
+catches a shape the other misses"* (17 rows / 2 rows, both correct). It never asserted the
+**complement** — that no shape escapes **both** — and the complement is **false**: W1 alone refuses
+(the opaque branch), W9 alone refuses (the door-spelling arm), and their cross is silent. So the
+complement is asserted in the only form that is true: **a declared blind-spot row**, not a passing
+claim. The class docstring's per-arm paragraph now says so in as many words.
+
+**Non-vacuity, executed and not argued.** All nine plants of this round (the seven above plus the two
+depth plants below) were compiled and run in a minimal module whose `page_spec` **records its
+argument**: **all nine called the real door with 5**, i.e. `3 + len(section)` for a two-element
+section. Cycle 2 executed six; this round executed nine, including R1b, which cycle 2 reported from
+the analyser alone.
+
+### [Item 4] Both depth caps fail CLOSED, and `receiver_seen` gets the control it never had
+
+`own_instance`'s `depth > 4 → return False` and `receiver_seen`'s `depth > 4 → return True`: two
+hand-written constants, opposite polarities, both failing **open**, neither with a control. The
+pattern this walk already uses 500 lines earlier is the right one — the vocabulary fixed point
+**raises** when its own bound is reached — so both resolvers raise a `DepthBoundReached` the call loop
+turns into a refusal, and the bound is a named class constant (`RECEIVER_RESOLUTION_DEPTH = 4`) rather
+than a magic number inside two functions.
+
+**Cost on this module: 0 refusals, asserted.** Reporting the bound rather than capping it was free.
+
+**The control pairs, two of them, because the five-alias plant exercises only `own_instance`:**
+
+| plant | before this round | now |
+|---|---|---|
+| five aliases of `self` + `setattr(_e, "_door", getattr(...))` + `_e._door(...)` | **SILENT** | **REFUSED** — "did not resolve within 4 steps (own_instance)" |
+| the same with **four** aliases (inside the bound) | refused | refused — the own-instance surface rule |
+| the five-alias plant with the bound **raised past it** | — | refused — the own-instance surface rule |
+| a receiver chain **five** attributes deep (`self.a.b.c.d.e._door(...)`) | silent | **REFUSED** — "did not resolve within 4 steps (receiver_seen)" |
+| the same chain **four** deep | silent | silent — the external-attribute class, which is the right class for an attribute of an object this module never defined |
+
+The third row is the reading that makes "fails closed" mean something: at **no** bound is the
+five-alias plant silent — it moves from the bound's refusal to the surface rule's. The `receiver_seen`
+pair measures that resolver's bound and is **not** claimed to reach a door; the five-alias pair is the
+one that does (executed, recorded 5).
+
+### [Item 5, F-502] Each class is read twice on its own branch, and the old controls are re-labelled
+
+Cycle 2's measurement stands and is reproduced here by reading each refusal's own shape string: **all
+four** of fix 1's "must-not-absorb" controls are refused by a mechanism that runs **before** the
+class's branch, so each certified that mechanism and not the class.
+
+| fix 1's control for | is actually refused by |
+|---|---|
+| `builtins` | the **opaque** branch ("a local name bound to an expression") |
+| `definitions and imports` | the **door-spelling** arm ("a geometry door imported under another name") |
+| `parameters` | the **opaque** branch |
+| the external-attribute class | the **own-instance surface** rule |
+
+Rather than delete four door-reaching regression rows, the claim is **narrowed to what they
+measure**: the table is `CALLEE_SHAPES_REFUSED_BEFORE_ANY_EXEMPTION`, each row carries the mechanism
+this card measured as responsible, and the assertion is that the shape refuses **and** that the
+refusal names that mechanism. Deleting any of the four mechanisms reds it by name.
+
+The per-class reading ADR-0039/R3 asks for is new: `CALLEE_EXEMPTION_REACH`, one plant per class,
+each chosen so that **nothing earlier refuses it**, each read **twice** — silent with every class in
+place, and with that one class removed the plant's own refusal appears and names exactly the callee
+in the row.
+
+| class | plant's callee | silent with the class | with the class removed | reaches a real door |
+|---|---|---|---|---|
+| `builtins` | `vars` | yes | refuses `vars` | no — and it cannot: `set(GEOMETRY_DOORS).isdisjoint(dir(builtins))` is **asserted**, so a door cannot hide behind a builtin spelling with no binding occurrence here |
+| `definitions and imports` | `interior_page_count` | yes | refuses `interior_page_count` | no — a door *behind* a module definition is the CALL-GRAPH axis, declared |
+| `parameters` | `_cb` | yes | refuses `_cb` | no — a parameter's callers are the CALL-GRAPH axis, and R5 shows the class's asserted cost of 2 understating its reach |
+| the external-attribute class | `_door` | yes | refuses `_door` | **yes** — R3, executed, recorded 5 |
+| `ONE_STEP_ANCHOR` | `_d` | yes | refuses `_d` | **yes** — R1b, the cross, executed, recorded 5 |
+
+Where no door-reaching control exists because a prior mechanism dominates, that is **said** (three of
+five rows) rather than papered over, and the cost step carries the class — which is what cycle 2's
+`smallest_honest_fix_direction` asked for.
+
+### [Item 5, F-504/F-505/F-506] three claim defects, closed as behaviour
+
+- **F-504.** `test_the_declared_blind_spots_are_still_exactly_these` →
+  **`test_the_declared_blind_spots_are_still_silent`**. The test asserts that the listed shapes **are**
+  silent, which is one real falsifiable direction; it cannot assert that nothing else is, and
+  *"exactly these"* said it could — with seven counterexamples live at the time. The name claims only
+  what the assertions do.
+- **F-505.** `IDIOMS_NO_ARM_BRANCHES_ON` was **inert**: `constants.isdisjoint(...)` passes for any
+  value of the tuple, `()` included, so no member had a control in either direction and a sixth idiom
+  was unconstrained — the fourth appearance of that shape on this board. The authority is **derived**
+  now: `dir(builtins) | dir(operator)`, **265 names**, measured; the two walks hold **101** string
+  constants; the intersection is **empty**. The empty set cannot satisfy the claim any more, because
+  the authority's size (`> 200`), its coverage of the five idioms CARD-206's three attempts branched on
+  and the constant count (`> 50`) are all asserted before the disjointness.
+- **F-506.** The *"second, independent walk"* was the analyser's own expression character for
+  character. The figure was right; the independence claim was not. It is an `ast.NodeVisitor` subclass
+  now — type dispatch through `visit_Call` and recursion through `generic_visit` rather than a
+  flattened `ast.walk` — and it reaches the same **816 calls / 0 non-syntactic callees**. Both
+  figures re-derived through it.
+
+### [The arm's last exit] cycle 2's `ME` was a no-op because the fall-through was a second silent pass
+
+Cycle 2 declared `ME` a **mutant defect** rather than a survivor: disabling the one-step-anchored pass
+changed nothing, because an anchored callee fell through every later branch to the arm's final bare
+`continue` — the same silent pass. Gating the `anchored` branch alone would therefore have been a
+no-op too. So the `ast.Name` branch is an `if`/`elif` chain ending in an **`else` that refuses**: a
+status added to `binding()` without a branch of its own is a failure rather than a pass, which is
+ADR-0039/R2's default deny applied to this walk's own future edits. Its cost is **0 with every
+exemption removed** (the chain is exhaustive over the statuses this walk records today), asserted both
+ways.
+
+**Stated as a bound:** that `else` is certified **structurally, not behaviourally**. No shape on this
+module reaches it, so its mutant (`elif 0:`) is a behavioural no-op and is reported as one; what reds
+is the assertion that reads this file's own text and requires the chain's last exit to append a
+refusal. A behavioural control for it would need a new `binding()` status, which is a mechanism this
+round deliberately does not add.
+
+### [Mutants] the kill instrument over THIS round's own additions, and it is the certification of record
+
+**This was the last review cycle, so no reviewer will certify what is above. This run is the
+certification of record and it is reported as such.** Six consecutive gating findings on this board
+were created by the fix for the previous one, two of them inside a control the previous fix had just
+written, so every mutant below **deletes a mechanism this round's claims name** — not one of them
+breaks only what this round added for show.
+
+**Domain, in full, for every figure:** the committed `tests/kill_matrix.py` (no second instrument was
+written); `Pass.RECORDING`; denominator **184 `ast.Assert` nodes** in
+`tests/test_book_export_interior_cover.py` — an **assert-node count, not a collected-test count**
+(the guard class holds **23** collected tests and **70** of those assert nodes); **child
+instrumentation off**; aggregation **ANY-RED**; `SHIPPED` re-run by the instrument **between** mutants
+and FAIL-free each time; every mutant **line-count-preserving**; the target restored by the
+instrument's own `cp -p` + `finally`, and verified by hand afterwards (below).
+
+**And the trap once more, in every batch: pytest exited 0 on every mutant while the matrix recorded
+1–5 FAIL cells.** A test-level reading of these runs would have published all of them as survivors.
+Every figure below is the matrix. No exit code is quoted as a kill signal in either direction.
+
+| mutant | the mechanism it deletes | FAIL cells | the nodes, by what the assertion is |
+|---|---|---|---|
+| `N7_ONE_STEP_GATE_NAME_BRANCH_NEUTERED` | the new gate in the `ast.Name` branch | **3** | `:3967` (each class read twice on its own branch), `:4604` (the blind spots are silent), `:4631` (each absorbed row refuses with its class removed) |
+| `N8_ONE_STEP_GATE_ATTRIBUTE_BRANCH_NEUTERED` | the same gate in the `ast.Attribute` branch | **2** | `:4604`, `:4631` |
+| `N12b_THE_FIFTH_CLASS_REMOVED_FROM_THE_EXEMPTION_LIST` | the class's membership of `CALLEE_EXEMPTIONS` | **5** | `:3866` (the zero-cost classes equality), `:3941` (every class has a reading), `:3967`, `:4591` (every absorbing class is a real one), `:4604` |
+| `N17_THE_FIFTH_CLASS_COST_STEP_MOVED` | `(CALLEE_EXEMPTIONS[:4], 0)` -> `1` | **1** | `:3850` (the cost sequence) -- one node, which is what a mutant on a measured constant should red |
+| `N13_THE_CROSS_ROW_NO_LONGER_SILENT` | the cross row's silence (`_d = _x` -> `_d = _x()`) | **1** | `:4604` |
+| `N16_PLANT_ATTRIBUTION_WIDENED` | `_plant_refusals`' attribution window | **1** | `:3967` |
+| `N10_OWN_INSTANCE_CAP_FAILS_OPEN_AGAIN` | `own_instance`'s raise -> `return False` | **1** | `:4036` (the five-alias plant refuses on the bound) |
+| `N11_RECEIVER_SEEN_CAP_FAILS_OPEN_AGAIN` | `receiver_seen`'s raise -> `return True` | **1** | `:4075` (the five-deep receiver chain) |
+| `N9_FALL_THROUGH_SILENT_AGAIN` | the refusing `else` (`else:` -> `elif 0:`) | **1** | `:4140` (the chain's last exit appends a refusal) |
+| `N14_IDIOM_AUTHORITY_EMPTIED` | the derived authority (`set() | set()`) | **2** | `:4214` (the authority holds the five idioms), `:4220` (its size) -- and this is the F-505 fix demonstrated: the assertion it replaced passed for `()` |
+| `N15_NODE_VISITOR_STOPS_RECURSING` | the visitor's `generic_visit` recursion | **1** | `:3666` (the two traversals agree) -- **0 FAIL before this round added that assertion**; see below |
+| `N18_OWN_INSTANCE_SURFACE_RULE_DELETED` | the own-instance surface rule | **1** | `:3913` (each shape refuses by the mechanism it is attributed to) |
+
+**12 mutants, 12 ANY-RED, every kill attributed to named assertion nodes.** Per-batch `SHIPPED`
+readings: 0 FAIL of 9 / 7 / 2 / 10 / 5 / 6 / 3 / 14 reached, pytest exit 0 each time.
+
+**One declared MUTANT DEFECT, not a survivor.** `N12_THE_FIFTH_EXEMPTION_CLASS_RENAMED` (the class's
+string value changed) came back **0 FAIL of 10 reached** and is reported as a **no-op**, with the
+proof rather than the reading: the renamed value has exactly one literal occurrence -- the constant's
+own definition -- and every consumer (the two gates, `CALLEE_EXEMPTIONS`,
+`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING`, the reach table, six blind-spot rows) reaches it
+through the symbol `ONE_STEP_ANCHOR`. A consistent rename of a value used only through its name
+cannot change behaviour, so the mutant tests nothing. That is cycle 1's `M16` and cycle 2's `ME`
+shape a third time, and this board's rule is explicit that a no-op and a survivor are
+indistinguishable unless the mutant is shown to have changed something. Corrected to `N12b` -- remove
+the class from the exemption list, which is the correspondence that actually carries the declaration
+-- and it reds **5** nodes. (Cycle 1's `N5` red 4 on the same idea because the four original classes
+are *string literals* matched against literals inside the walk; this class is a symbol, which is why
+renaming it is inert here.)
+
+### [The instrument found a SURVIVOR in a control this round had just written, and that is the point]
+
+`N15_NODE_VISITOR_STOPS_RECURSING` deleted the `generic_visit` recursion from the new
+`ast.NodeVisitor` — so no call nested inside another call's arguments is counted at all — and
+**survived: 0 FAIL cells of 5 reached.** Both surviving assertions are a floor (`len(calls) > 500`)
+and a partition (`anchored == calls`), and neither can notice a traversal that stopped traversing;
+cycle 1's F-404 had removed the `== 816` equality for good reasons that still hold. So the F-506
+remedy as first written made the second traversal **decoration**.
+
+Closed, in the shape that keeps F-404's reason intact: the two traversals must **agree**
+(`len(calls) == len(flattened)`), which reds on a traversal that stops traversing and moves *with*
+production rather than against it when a call is added. Re-fired after the fix: **RED**. This is the
+sixth-consecutive-finding trap caught in the act, by the fix's own instrument, on the fix's own
+addition — which is exactly what this board committed `kill_matrix.py` for, and the reason the brief
+insists the instrument runs over the round's own work.
+
+### [Gates] and the guardrails, verified rather than assumed
+
+- **G-1 (no production behaviour change): HOLDS, structurally.**
+  `git diff --name-only main...HEAD -- src/` → **empty**, re-checked after this round's commit. The
+  whole diff of this round is one file, `tests/test_book_export_interior_cover.py`. The declaration
+  costs production nothing because it changes only what the guard sees — which is this card's whole
+  subject, for the third round running.
+- **G-2:** `src/nonogram/export/layout.py` untouched (inside that empty `src/` diff);
+  `tests/test_export_a4_golden.py` and `tests/property/test_cli_exports_byte_identity.py` are absent
+  from the diff and ran inside the gate below, unedited.
+- **G-3:** no database created, dropped, connected to or truncated; `_refuse_unless_test_database`
+  untouched and not widened; no `DATABASE_URL` set in this worktree. `kill_matrix`'s own `Edit`
+  validator refuses an edit that names either guard, and no edit of this round went near
+  `tests/conftest.py` or `tests/database_guard.py`.
+- **G-4:** no new dependency; stdlib `ast`, `builtins` and `operator` only — `operator` is imported
+  **inside** the one test that derives the idiom authority from it, and it is in the stdlib.
+- **G-5 (no arm weakened):** every behaviour change of this round is **stricter**. With the shipped
+  exemptions in place the walk's behaviour on all 30 `DOOR_SHAPES` rows, the 23 sites, the six-name
+  vocabulary and the seven guide expressions is byte-for-byte what fix 1 shipped; the two depth caps
+  now **refuse** where they used to return `False`/`True`; the arm's last exit now **refuses** where
+  it used to `continue`; and the gated `anchored` pass refuses whenever its class is removed. The
+  position-axis closure is untouched. No arm was loosened to make a broader claim true — the claims
+  were narrowed instead, which is G-5 read the way the card asks for it.
+- **G-6:** no timing measurement was taken and no duration is reported anywhere in these notes.
+- **The full suite was NOT run.** CARD-270 is live in a sibling worktree. **Every** pytest and
+  script invocation of this round carried `NONOGRAM_FULL_SUITE_LOCK=/tmp/card262-fix3.lock` and the
+  runner echoed the override line confirming it. The board's own `meta/kanban/.full-suite.lock` was
+  never created, written, or read as authority — and this round did not read it at all, which is the
+  one place fix 1 slipped and disclosed.
+- **Restoration:** the target's SHA-256 after the whole matrix run equals the reference taken before
+  it, `diff -q` reports them identical, and `git status --porcelain` shows only the two files this
+  round is meant to change — the test file (committed) and this card copy (never staged, by the
+  kanban procedure).
+
+### [What ships UNCERTIFIED, because this was the last review cycle]
+
+There is no review cycle left to certify any of this. **This round's own kill-instrument run is the
+certification of record**, and these are the things it does not cover:
+
+1. **Everything above is author-certified only.** Cycles 1 and 2 each found a Critical in the round
+   before them, and both were found by a *third* party's plants. Nothing of this round has been read
+   by anyone but its author. The strongest claim available is that every mechanism this round's
+   claims name was deleted and measured, and that one of those deletions (`N15`) **survived** and
+   was closed — so the instrument was capable of contradicting the author on this round's own work,
+   and did.
+2. **The fifth exemption class is the owner's route, not a resolution of the family.** The family
+   *"the guard keeps claiming a reach it has not measured"* has gated four times, each time one
+   level of indirection further in. This round does not resolve the level: it names it, prices it at
+   0, and asserts its seven silent shapes. A follow-up card has to resolve it with anchoring as a
+   **fixed point** over the table the arm already builds, with cycles and the bound REFUSED rather
+   than capped — and the refusal cost re-measured on this module the way 760 → 0 was.
+3. **The one-step-anchor class's cost step is 0, which by the card's own narrowed rule makes it a
+   deletable exemption.** Refusing instead of exempting is measured at **0 refusals on this module**
+   and would close six of the seven declared plants. It is not taken here because it is a mechanism
+   change on a declare-and-land cycle, and it ships as the follow-up card's cheapest first move
+   rather than as a decision this round made for the owner.
+4. **The arm's final `else` is certified structurally, not behaviourally** — no shape on this module
+   reaches it, so its mutant is a behavioural no-op and is reported as one.
+5. **Per-assertion attribution for eight of cycle 1's mutants** (`M4`, `M5`, `M7`, `M9`–`M14`,
+   `M16b`) is **still owed**, exactly as fix 1 left it. They target position-axis code neither round
+   touched, and nothing here infers their cells.
+6. **A genuine in-class-body `__set_name__`/metaclass install** is still unchecked (F-406). W25/W29
+   and this round's R3 approximate it at module level.
+7. **That the `SEMANTICS:` block predates the code** is still unverifiable from git, because `meta/`
+   carries no commit by procedure. Nothing here claims the "before" as evidence; what is evidence is
+   that **three** falsified clauses now stand visible beside their corrections.
+8. **F-507 (bare "cycle N" references) is NOT closed**, deliberately. This round qualified the
+   thirteen references it added itself, so it did not make the defect worse — but the ~20
+   pre-existing sites include several inside `DOOR_SHAPES` labels that are pinned a second time in
+   `DOOR_SHAPE_LABELS` (F-407's own mechanism), so each is a two-sided edit. On a cycle with no
+   review left to catch a slip, twenty cosmetic edits across a pinned table were not worth the risk.
+   It is a known, stated gap, not an oversight.
+9. **The `parameters` exemption's asserted cost of 2 understates its reach**, measured: R5 shows a
+   door forwarded as a parameter never reaching that class's branch at all, because the one-step
+   anchor passes it first. The cost figure is right for what it counts and is not a measure of the
+   class's reach, and that distinction is now written on the table rather than left to be rediscovered.
+
+### [Figures, each re-derived against the committed file and its door named]
+
+- **816 calls in the generator, 0 of them with a non-syntactic callee** — re-derived through the new
+  `ast.NodeVisitor` subclass (type dispatch, not `ast.walk`), and the two traversals are asserted to
+  agree. Door: this test's own two traversals.
+- **The refusal-cost sequence 760 / 509 / 203 / 201 / 0 / 0**, per-class steps **builtins 251,
+  definitions and imports 306, parameters 2, the external attribute surface 201, the one-step anchor
+  0** — re-derived through the analyser with `callee_exemptions=` subsets and asserted as equalities.
+  Door: the walk itself, with the subsets.
+- **23 position sites, 6 position names, 7 guide-counting expressions, `refusals == []`,
+  `_bare_literals == []`** — unchanged by this round and re-measured green. Door: the guard's own
+  analyser.
+- **The derived idiom authority: 265 names** (`dir(builtins) | dir(operator)`), holding all five
+  idioms; **101 string constants** in the two walks; **intersection empty**. Door: `ast` over this
+  file's own text plus the runtime's own `dir`.
+- **`set(GEOMETRY_DOORS).isdisjoint(dir(builtins))`** — asserted, and it is what makes the `builtins`
+  class's reach sound rather than argued.
+- **11 declared blind spots, 5 exemption classes, 5 reach rows, 30 `DOOR_SHAPES` rows, 23 collected
+  tests in the guard class, 184 `ast.Assert` nodes in the file (70 in the guard class)** — each
+  counted off the committed file.
+- **9 of 9 plants reach the real door with 5** — executed against a recording `page_spec`, not
+  reasoned.
+- **The target's SHA-256 `f6d113ed…`** before the matrix and after it, `diff -q` clean.
+
+### [The gate] cycle 3's fix, impact scope, PASSED
+
+- **Scope:** impact, **23 test files**, derived as `make impact-set BASE=$(git merge-base HEAD main)`
+  (`BASE=fac4896f`).
+- **Result:** **2744 passed, 11 skipped, 0 failed, exit 0.** Not vacuous — 2744 tests executed. Cycle
+  2's gate was 2741; the +3 is exactly this round's three net new tests in the guard class (one
+  replaced the mis-attributed must-not-absorb test, four were added).
+- **Interpreter:** the main checkout's `.venv/bin/python` passed as `PY=`; this worktree has no
+  `.venv` and the Makefile default gives `Error 127` here. (Third round in a row this has needed
+  saying; `tests/README.md` still does not.)
+- **Full-suite lock:** redirected to `/tmp/card262-fix3.lock` through `NONOGRAM_FULL_SUITE_LOCK`, and
+  the runner echoed the override line confirming it. The board's own `meta/kanban/.full-suite.lock`
+  was not created, written or read.
+- The guard class alone: **23 passed, exit 0**, taken before the matrix run.
+
+### [Disclosure] the committed bytes are NOT the bytes the kill matrix ran against, and here is the difference
+
+Reported because this is the last cycle and nobody else will look. Between the matrix run and the
+commit, **23 comment and docstring sites in the target were edited by something that was not me** —
+every one of them qualifying a bare *"cycle N"* with its card id, which is **F-507**, the one minor
+this round had deliberately declined (the reason is in the uncertified list below: ~20 sites, several
+inside labels pinned twice). The qualifications are correct — F-102/F-201/F-203 are CARD-206's cycles,
+F-401/F-404/F-405/Q1/Q2 are CARD-262 cycle 1's, F-301 is CARD-206 cycle 3's — so **F-507 is closed in
+the committed file, by an edit this round did not make and cannot take credit for.**
+
+**What was measured about it rather than assumed:**
+
+- `shasum -a 256`: the matrix ran against **`f6d113ed…`**; the commit `ac479658` holds
+  **`55311d7b…`**. Both are stated rather than one being quoted as the other.
+- **The two files' ASTs are identical once every string constant is blanked** — so the only
+  differences are inside docstring text and in comments, which never reach the AST. No executable
+  line, no table row, no assertion changed.
+- **Line count identical** (4749), and the **`ast.Assert` lineno tuple is identical**, so every cell
+  key in the matrix above (`:3967`, `:4604`, …) still names the same assertion in the committed file.
+  That is what keeps the attribution valid across the edit rather than merely plausible.
+- **Every figure re-derived against the committed bytes**: 816 calls / 0 non-syntactic, the cost
+  sequence 760/509/203/201/0/0, 23 sites / 6 names / 0 refusals, and **101** string constants in the
+  two walks with an **empty** intersection against the 265-name derived authority (the one figure the
+  prose edit could plausibly have moved, since a docstring *is* a string constant — it did not).
+- **The guard class was re-run on the committed bytes**: **23 passed, exit 0**.
+
+What remains true and is the honest bound: the mutant table was produced on `f6d113ed…`, and no
+mutant was re-fired against `55311d7b…`. The evidence that the two are equivalent for every claim
+above is the blanked-constant AST equality plus the identical assert linenos, not a re-run of the
+twelve mutants.
+
+### [Cycle 3 recovery note] the "something that was not me" above was the orchestrator's recovery agent
+
+The orchestrator dispatched a recovery agent against this cycle believing the fix-2 session had been
+interrupted mid-work. It had not: both sessions ran concurrently in this worktree, and the committed
+file is the merge of the two. The 23 comment/docstring qualifications the disclosure above measured
+are the recovery session's F-507 edits, made before `ac479658` was committed and swept in by it —
+which is why `shasum` disagrees with the matrix reference while the blanked-constant ASTs, the line
+count and the assert-lineno tuple do not. The two sessions' readings cross-check: the recovery
+session independently re-derived against the committed bytes the **184 `ast.Assert` nodes**, the
+guard class's **23 collected tests / 70 asserts**, the **5** exemption classes, **30** `DOOR_SHAPES`
+rows and **11** blind-spot rows, verified **all 14 assertion linenos the matrix table names are
+assert nodes in the committed file** (`:3666 :3850 :3866 :3913 :3941 :3967 :4036 :4075 :4140 :4214
+:4220 :4591 :4604 :4631`), and re-ran the guard class on the merged bytes green (exit 0) — a second,
+independent run beside the one above.
+
+Sequencing supersedes two lines of the notes above, stated rather than edited away:
+**item 8 of "[What ships UNCERTIFIED]"** ("F-507 is NOT closed") — the docstring/comment sites ARE
+closed in the committed file; what stays open, still deliberately, is only the `DOOR_SHAPES` /
+`SILENT_WITHOUT_ONE_ARM` **label strings**, each pinned twice by F-407's own mechanism and so a
+multi-sided edit neither session risked on the last cycle. And the disclosure's "edited by something
+that was not me" now has a name and a motive on the record.
+
+The recovery session's own additions are those comments and docstrings only — no assertion and no
+mechanism — so the kill instrument has no executable domain over them: a deletion mutant on a comment
+is a no-op by construction, and a no-op is a mutant defect, not a survivor; stated rather than a
+blank matrix quoted. A prepared single-mutant re-fire of `N10` against the committed bytes was NOT
+run, because the fix-2 session held a live pytest on this file at hand-back time and a disk mutation
+would have raced it; the re-fire script is the follow-up card's one-command first check. Locks: every
+recovery-session pytest carried `NONOGRAM_FULL_SUITE_LOCK=/tmp/card262-fix3.lock`; the board's
+`meta/kanban/.full-suite.lock` was neither read nor written, no database was touched, and nothing
+under `src/` changed.
