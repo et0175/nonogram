@@ -83,7 +83,13 @@ from nonogram.admin.book_pdf_generator import (
     wrap_words,
 )
 
-from tests.helpers.book_corpus import corpus_book, export_of, page_digest, puzzle
+from tests.helpers.book_corpus import (
+    GUIDE_INTERIOR_PAGES,
+    corpus_book,
+    export_of,
+    page_digest,
+    puzzle,
+)
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages
 
@@ -740,24 +746,27 @@ class TestGuidePage_TitledHowToSolveNonograms:
     changed, which this class never looks at.
     """
 
-    def test_the_exported_interior_page_1_is_titled_how_to_solve_nonograms(self, new_pages):
-        mask = dark(new_pages[0])
+    def test_the_exported_interior_page_2_is_titled_how_to_solve_nonograms(self, new_pages):
+        """CARD-206: the guide's first page is interior page **2** — page 1 is
+        the blank title / copyright page — so the index moved, not the claim.
+        """
+        mask = dark(new_pages[GUIDE_INTERIOR_PAGES[0] - 1])
         title = type_bands(mask)[0]
         assert occurrences(mask[title[0] - 5 : title[1] + 6], probe(NEW_TITLE, face(TITLE_PX))) == 1, (
-            "the first line of interior page 1 is not the title "
+            "the first line of the guide's first page is not the title "
             f"{NEW_TITLE!r} set at {TITLE_PX} px"
         )
 
-    def test_the_old_title_appears_nowhere_on_page_1(self, new_pages):
-        mask = dark(new_pages[0])
+    def test_the_old_title_appears_nowhere_on_the_guides_first_page(self, new_pages):
+        mask = dark(new_pages[GUIDE_INTERIOR_PAGES[0] - 1])
         for size in (TITLE_PX, BODY_PX):
             assert occurrences(mask, probe(OLD_TITLE, face(size))) == 0, (
-                f"{OLD_TITLE!r} is printed on interior page 1 at {size} px"
+                f"{OLD_TITLE!r} is printed on the guide's first page at {size} px"
             )
 
     def test_the_search_finds_the_old_title_on_the_old_page(self, old_pages):
         """The search above can see a title: it finds the old one where it was."""
-        mask = dark(old_pages[0])
+        mask = dark(old_pages[GUIDE_INTERIOR_PAGES[0] - 1])
         assert occurrences(mask, probe(OLD_TITLE, face(TITLE_PX))) == 1
         assert occurrences(mask, probe(NEW_TITLE, face(TITLE_PX))) == 0
 
@@ -769,9 +778,15 @@ class TestGuidePage_TitledHowToSolveNonograms:
 
 def old_style_total(puzzle_count: int, dividers: int = None, pages: int = None, answers: int = None) -> int:
     """``interior_page_count``'s own formula with the pre-CARD-201 leading
-    term (1 guide page, not 2) — written out as the independent "before"
+    term (1 guide page, not 2) and **no front matter in front of it** —
+    written out as the independent "before"
     this AC's "+1" claim is checked against, not derived from the function
     under test.
+
+    CARD-206's blank title page is a separate ``+ 1`` at each call site, the
+    same way CARD-200's table of contents already is: this helper is the
+    pre-CARD-201 baseline and stays that, so each later front-matter card's
+    own term stays visible as its own term.
     """
     d = min(3, puzzle_count) if dividers is None else dividers
     p = puzzle_count if pages is None else pages
@@ -798,26 +813,37 @@ class TestGuidePage_IsTwoPages:
         # page" claim from the table of contents' own term, added to the
         # same formula by a later card — this test is about the guide's
         # delta alone, not the TOC's.
+        # The second `+ 1` is CARD-206's blank title page — this AC's claim
+        # is the guide's own "+1", so the title page's term is written beside
+        # it rather than folded into `old_style_total`.
         assert interior_page_count(
             count, pages, answers, dividers, toc_pages=0
-        ) == old_style_total(count, dividers, pages, answers) + 1
+        ) == old_style_total(count, dividers, pages, answers) + 1 + 1
 
     def test_the_exported_interior_opens_with_both_guide_pages_then_the_first_puzzle_or_divider(self):
+        """CARD-206: the guide's two pages are interior 2 and 3, and the page
+        after them (4, the contents) carries neither guide title."""
         book_puzzles = [puzzle("card201-1", 10, 10, 3, "easy", "Picture 1")]
         export = export_of(BookPDFGenerator(corpus_book("card-201-ac1")), book_puzzles)
         pages = pdf_pages(export)
         assert len(pages) == interior_page_count(1)
 
-        page_1, page_2, page_3 = dark(pages[0]), dark(pages[1]), dark(pages[2])
+        first, second = GUIDE_INTERIOR_PAGES
+        page_1, page_2, page_3 = (
+            dark(pages[first - 1]),
+            dark(pages[second - 1]),
+            dark(pages[second]),
+        )
         assert occurrences(page_1, probe(NEW_TITLE, face(TITLE_PX))) == 1, (
-            "interior page 1 is not titled the guide's own title"
+            f"interior page {first} is not titled the guide's own title"
         )
         assert occurrences(page_2, probe(TITLE_2, face(TITLE_PX))) == 1, (
-            "interior page 2 is not titled the guide's own page-2 title"
+            f"interior page {second} is not titled the guide's own page-2 title"
         )
         assert occurrences(page_3, probe(NEW_TITLE, face(TITLE_PX))) == 0
         assert occurrences(page_3, probe(TITLE_2, face(TITLE_PX))) == 0, (
-            "interior page 3 still carries a guide title: the guide is more than 2 pages"
+            f"interior page {second + 1} still carries a guide title: the "
+            "guide is more than 2 pages"
         )
 
 
@@ -848,7 +874,7 @@ class TestGuidePage_PageOneCarriesTheBasicTechniques:
     @staticmethod
     @pytest.fixture(scope="class")
     def page_mask(generator) -> np.ndarray:
-        return dark(generator.create_guide_page(4, 2, 1, 1, page_number=1))
+        return dark(generator.create_guide_page(4, 2, 1, 1, page_number=2))
 
     @staticmethod
     @pytest.fixture(scope="class")
@@ -979,7 +1005,7 @@ class TestGuidePage_CellStateHeadingsSurviveBareLevel2:
     @pytest.fixture(scope="class")
     def page_mask(generator) -> np.ndarray:
         return dark(
-            generator.create_guide_page(999_999, 333_333, 333_333, 333_333, page_number=1)
+            generator.create_guide_page(999_999, 333_333, 333_333, 333_333, page_number=2)
         )
 
     def test_bare_level_2_really_drops_the_cell_state_pictures_here(self, spec, page_mask):
@@ -1046,7 +1072,7 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyLegend:
     @staticmethod
     @pytest.fixture(scope="class")
     def page_mask(generator) -> np.ndarray:
-        return dark(generator.create_guide_page(4, 2, 1, 1, page_number=2))
+        return dark(generator.create_guide_page(4, 2, 1, 1, page_number=3))
 
     @staticmethod
     @pytest.fixture(scope="class")
@@ -1404,9 +1430,9 @@ class TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim:
     @pytest.mark.parametrize(
         ("generator_factory", "page_numbers"),
         [
-            (lambda: BookPDFGenerator(corpus_book("card-201-ac4-book1")), (1, 2)),
-            (lambda: BookPDFGenerator(six_by_nine_book()), (1, 2)),
-            (lambda: BookPDFGenerator(ten_cm_wide_book(20.0)), (1, 2)),
+            (lambda: BookPDFGenerator(corpus_book("card-201-ac4-book1")), GUIDE_INTERIOR_PAGES),
+            (lambda: BookPDFGenerator(six_by_nine_book()), GUIDE_INTERIOR_PAGES),
+            (lambda: BookPDFGenerator(ten_cm_wide_book(20.0)), GUIDE_INTERIOR_PAGES),
         ],
         ids=["book1", "6x9", "10cm-wide"],
     )
@@ -1581,7 +1607,9 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
         # above now uses.
         assert (
             pdf_page_count(export)
-            == old_style_total(6, dividers=3, pages=6, answers=6) + 1 + 1
+            # the guide's second page (CARD-201), the table of contents
+            # (CARD-200) and the blank title page (CARD-206) — one term each.
+            == old_style_total(6, dividers=3, pages=6, answers=6) + 1 + 1 + 1
         )
         assert pdf_page_count(export) == interior_page_count(6, 6, 6, 3)
 
@@ -1737,7 +1765,7 @@ class TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample:
     def test_the_shipped_guide_page_draws_these_same_four_steps_pixel_identical_on_page_2(
         self, generator, step_images
     ):
-        page = generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        page = generator.create_guide_page(4, 2, 1, 1, page_number=3)
         mask = dark(page)
         drawn = drawn_bands(mask)
         assert len(drawn) >= 4, f"page 2 draws only {len(drawn)} diagrams; the recap is missing"

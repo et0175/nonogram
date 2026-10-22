@@ -530,10 +530,42 @@ DIVIDER_PT = 14.4
 #: capitalisation is its own design, not a wording instruction.
 GUIDE_TITLE = "How to Solve Nonograms"
 
-#: How many interior pages the guide occupies (FR-041, CARD-201): the
-#: leading term of :func:`interior_page_count`'s formula, named rather than
-#: a bare ``2`` in that function's return statement. ``1`` until CARD-201's
+#: How many interior pages the book's title / copyright page occupies
+#: (FR-043, INV-013 as amended 2026-10-17, AC-283, CARD-206): one, and it is
+#: interior page 1 — a right-hand page carrying **no folio and no ink at
+#: all**. The page is *reserved* by the page plan rather than populated
+#: (owner decision 2026-10-13: "leave it blank (template page) — reserve the
+#: page in the page plan so counts and parity are right, print nothing on
+#: it"), so the copyright text is set into the exported PDF afterwards.
+#:
+#: The front-matter positions after it count from here rather than from a
+#: literal, which is the whole reason it is a named constant and not a bare
+#: ``1`` in :meth:`BookPDFGenerator.interior_stream`: the guide's own two
+#: pages, the TOC's, :meth:`BookPDFGenerator.section_plan`'s ``first_page``,
+#: the SOLUTIONS divider, :func:`interior_page_count`'s formula and —
+#: through that same formula —
+#: :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`, which is
+#: the figure KDP's gutter band is read at.
+#:
+#: **That sentence is a claim, and this is the control it is held to**
+#: (CARD-206 review F-102): ``TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage``
+#: derives this module's page positions from the one geometry door they all
+#: reach — :meth:`BookPDFGenerator.page_spec` — and fails on any integer
+#: literal other than ``0`` or ``1`` in one of them. What that reaches, and
+#: what it still cannot see, is the test's own to state; before the fix it
+#: reached only the expressions that load :data:`GUIDE_PAGE_COUNT`, and a
+#: bare ``3 + len(section)`` sat nine statements from the position it was
+#: supposed to be a duplicate of.
+TITLE_PAGE_COUNT = 1
+
+#: How many interior pages the guide occupies (FR-041, CARD-201): a term of
+#: :func:`interior_page_count`'s formula, named rather than a bare ``2`` in
+#: that function's return statement. ``1`` until CARD-201's
 #: "full 1-2 page tutorial" (FR-041's own deferred clause) landed as 2 pages.
+#:
+#: It is no longer the formula's *leading* term: since CARD-206 the guide
+#: follows :data:`TITLE_PAGE_COUNT`, on interior pages 2 (a verso) and 3
+#: (a recto), which is what lets the two pages face each other.
 GUIDE_PAGE_COUNT = 2
 
 #: The footer folio's own type, in points (CARD-200, G-4): CON-020's 10 pt
@@ -3086,8 +3118,9 @@ def _clipped_to(text: str, font: Any, measure: int) -> str:
 def page_is_right_hand(page_number: int) -> bool:
     """Whether interior page ``page_number`` (1-based) is a right-hand page.
 
-    Parity counts from the interior's page 1, the guide page, which is
-    right-hand: odd pages are right-hand, even pages left-hand (FR-043).
+    Parity counts from the interior's page 1 — since CARD-206 the blank
+    title page (:data:`TITLE_PAGE_COUNT`), which is right-hand: odd pages are
+    right-hand, even pages left-hand (FR-043).
     """
     if page_number < 1:
         raise ValueError(f"interior pages are numbered from 1, got {page_number}")
@@ -3370,10 +3403,11 @@ def structural_toc_entries(
 
     The rows, in order:
 
-    * :data:`GUIDE_TITLE` against interior page ``1``. The guide opens the
-      interior (INV-013: no cover page, the guide is right-hand page 1) and
-      runs :data:`GUIDE_PAGE_COUNT` pages, so its *first* page is the one a
-      reader is sent to.
+    * :data:`GUIDE_TITLE` against interior page ``1 + TITLE_PAGE_COUNT``.
+      The blank title page opens the interior (INV-013 as amended: no cover
+      page, page 1 is the title page) and the guide follows it for
+      :data:`GUIDE_PAGE_COUNT` pages, so its *first* page — a verso — is the
+      one a reader is sent to.
     * per named non-empty level, a heading row carrying the level's own
       :attr:`~nonogram.difficulty.Tier.label` and **no page number** — the
       same string :attr:`DividerPagePlan.text` prints on the divider itself
@@ -3419,13 +3453,15 @@ def structural_toc_entries(
             f"{[divider.level.value for divider in dividers]} do not match the "
             f"book's own level runs {[level.value for level, _, _ in runs]}"
         )
-    # Interior page 1 is the guide's own first page (INV-013: the interior
-    # holds no cover page and opens on the guide). A literal, deliberately:
-    # the day something is printed *before* the guide, this is the one term
-    # here that has to move, and a constant folded into `GUIDE_PAGE_COUNT`
-    # would hide that — `interior_stream`'s own `GUIDE_PAGE_COUNT + 1 + index`
-    # for the TOC pages and `section_plan`'s `first_page` are its siblings.
-    entries: List[TocEntry] = [TocEntry(GUIDE_TITLE, 1)]
+    # The guide's own first page, counted from the front matter before it
+    # (INV-013 as amended: the interior holds no cover page and opens on the
+    # blank title page, `TITLE_PAGE_COUNT`). CARD-206 is the day the comment
+    # that used to stand here anticipated — something is now printed *before*
+    # the guide — so the term is derived from the constant rather than left a
+    # literal; `interior_stream`'s own `TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT +
+    # 1 + index` for the TOC pages and `section_plan`'s `first_page` are its
+    # siblings and count from the same two constants.
+    entries: List[TocEntry] = [TocEntry(GUIDE_TITLE, 1 + TITLE_PAGE_COUNT)]
     for divider, (level, start, end) in zip(dividers, runs):
         # `_level_runs` cuts half-open slices of `payloads`, and puzzle
         # numbers are 1-based positions in that same list (`interior_stream`'s
@@ -3449,7 +3485,9 @@ def interior_page_count(
 ) -> int:
     """The interior's page count for ``puzzle_count`` rendered puzzles.
 
-    The page plan :meth:`BookPDFGenerator.interior` builds — :data:`GUIDE_PAGE_COUNT`
+    The page plan :meth:`BookPDFGenerator.interior` builds —
+    :data:`TITLE_PAGE_COUNT` blank title page (CARD-206: interior page 1,
+    reserved and unprinted), :data:`GUIDE_PAGE_COUNT`
     guide pages (CARD-201: the 2-page "how to solve" tutorial, FR-041's own
     deferred clause), the table of contents (CARD-200, only when there are
     puzzles to list), one divider per non-empty level, the puzzle pages, then
@@ -3565,7 +3603,12 @@ def interior_page_count(
     if toc < 0:
         raise ValueError(f"TOC page count cannot be negative, got {toc}")
     return (
-        GUIDE_PAGE_COUNT + toc + dividers + pages + (answers + 1 if puzzle_count else 0)
+        TITLE_PAGE_COUNT
+        + GUIDE_PAGE_COUNT
+        + toc
+        + dividers
+        + pages
+        + (answers + 1 if puzzle_count else 0)
     )
 
 
@@ -3993,8 +4036,9 @@ class BookPDFGenerator:
     def page_spec(self, page_number: int = 1) -> PageSpec:
         """The book's sheet for interior page ``page_number`` (1-based).
 
-        The one door onto the book's geometry (CARD-115). Page 1 is the guide
-        page and is right-hand; each page's parity is its position (FR-043).
+        The one door onto the book's geometry (CARD-115). Page 1 is the blank
+        title page (:data:`TITLE_PAGE_COUNT`) and is right-hand; each page's
+        parity is its position (FR-043).
         """
         return book_page_spec(self.book, page_number)
 
@@ -4190,7 +4234,7 @@ class BookPDFGenerator:
         easy_count: int,
         medium_count: int,
         hard_count: int,
-        page_number: int = 1,
+        page_number: int = 1 + TITLE_PAGE_COUNT,
     ) -> Image.Image:
         """One page of the 2-page "how to solve" tutorial (FR-041, CARD-201).
 
@@ -4200,17 +4244,22 @@ class BookPDFGenerator:
             medium_count: Number of medium puzzles
             hard_count: Number of hard puzzles
             page_number: Its 1-based position in the interior, **and** which
-                half of the tutorial it draws: odd (1) draws page 1 (the
-                title :data:`GUIDE_TITLE`, the basic rule, the three cell
-                states, "start with certainty" and the original worked
-                example); even (2) draws page 2 (:data:`GUIDE2_TITLE`, the
-                harder techniques, the difficulty-label box and the closing).
-                The two always coincide — the guide is always interior pages
-                1 and 2 — so this one parameter carries both meanings rather
-                than adding a second that could disagree with it (a STRUCTURE
-                decision recorded in this card's Worktree notes). The page's
-                margins are mirrored by this same position like any other
-                page's (FR-043).
+                half of the tutorial it draws — the half being its position
+                *within the guide*, ``page_number - TITLE_PAGE_COUNT``: the
+                first guide page (interior 2) draws page 1 of the tutorial
+                (the title :data:`GUIDE_TITLE`, the basic rule, the three
+                cell states, "start with certainty" and the original worked
+                example); the second (interior 3) draws page 2
+                (:data:`GUIDE2_TITLE`, the harder techniques, the
+                difficulty-label box and the closing). Still one parameter
+                rather than two that could disagree (a STRUCTURE decision
+                recorded in CARD-201's Worktree notes) — but since CARD-206
+                the interior position and the tutorial's own half no longer
+                coincide, so the half is **counted from**
+                :data:`TITLE_PAGE_COUNT` rather than read off the position's
+                raw parity. The page's margins are mirrored by the position
+                itself like any other page's (FR-043), which is why the
+                guide's first page is now a verso.
 
         Three counts, one per tier, since CARD-098 retired ADR-0025's fourth;
         printed on page 2, beside the difficulty-label box they give meaning
@@ -4257,7 +4306,7 @@ class BookPDFGenerator:
         frame = page_frame(spec)
         guide = Image.new("RGB", (frame.width, frame.height), "white")
         draw = ImageDraw.Draw(guide)
-        page_one = page_number % 2 == 1
+        page_one = (page_number - TITLE_PAGE_COUNT) % 2 == 1
 
         # The page's type, stated in points and converted once against the
         # resolution this page is drawn at (CARD-149, AC-236/AC-238). Pillow
@@ -4636,6 +4685,32 @@ class BookPDFGenerator:
         )
         return guide
 
+    def create_title_page(self, page_number: int = 1) -> Image.Image:
+        """The book's title / copyright page: the trim, and nothing on it.
+
+        Interior page 1 (:data:`TITLE_PAGE_COUNT`, FR-043/INV-013 as amended
+        2026-10-17), and the only interior page that carries **no ink of any
+        kind** — no folio, no title, no rule. The page is reserved by the page
+        plan and left blank on purpose (owner decision 2026-10-13); the
+        copyright text is set into the exported PDF afterwards.
+
+        No folio, deliberately, and not for want of room: a title page
+        carries no page number in any printed book, and this one carries
+        nothing at all — so unlike :meth:`create_divider_page`, which draws
+        its own word and *then* a folio, this method draws neither. That is
+        what AC-283 asserts, and what
+        ``TestBookExport_InteriorOpensWithABlankTitlePage`` measures by
+        finding no non-white pixel on the page.
+
+        Its sheet is taken from its own position like every other interior
+        page's (:meth:`page_spec`) rather than assumed, so the page is the
+        book's trim and the page that follows it is a verso (FR-043).
+        ``page_number`` exists for that reading alone; the page has no ink
+        for a parity to mirror.
+        """
+        frame = page_frame(self.page_spec(page_number))
+        return Image.new("RGB", (frame.width, frame.height), "white")
+
     def create_divider_page(self, page_number: int, text: str = "SOLUTIONS") -> Image.Image:
         """A divider page: one word on the book's trim, one page (TERM-031).
 
@@ -4871,7 +4946,8 @@ class BookPDFGenerator:
         """Export a book as its two files: the interior PDF and the cover file.
 
         The one entry point every export route goes through (FR-043, INV-013).
-        The interior holds no cover page — its pages 1-2 are the guide
+        The interior holds no cover page — its page 1 is the blank title
+        page (``TITLE_PAGE_COUNT``, CARD-206) and its pages 2-3 are the guide
         (CARD-201's 2-page tutorial, ``GUIDE_PAGE_COUNT``) — and
         the cover file is a single page at the book's page size holding the
         uploaded ``cover_image`` when one is given, otherwise the generated
@@ -5964,7 +6040,7 @@ class BookPDFGenerator:
     def puzzle_pages(
         self,
         payloads: List[ExportPayload],
-        first_page: int = 1 + GUIDE_PAGE_COUNT,
+        first_page: int = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT,
         ids: Optional[List[Any]] = None,
         first_number: int = 1,
         cell_sizes: Optional[Dict[GridSize, float]] = None,
@@ -6038,8 +6114,10 @@ class BookPDFGenerator:
             payloads: The drawable puzzles in print order. A payload's
                 ``difficulty`` is the row's stored tier text, and its clue sets
                 are what the pair is fitted from.
-            first_page: The interior position of the first puzzle page. Pages
-                1..:data:`GUIDE_PAGE_COUNT` are the guide (CARD-201's 2-page
+            first_page: The interior position of the first puzzle page. Page
+                1 is the blank title page (:data:`TITLE_PAGE_COUNT`,
+                CARD-206) and the :data:`GUIDE_PAGE_COUNT` pages after it are
+                the guide (CARD-201's 2-page
                 tutorial), so the default is one past it — which is what it
                 is for a book with no levels to divide; with CARD-128's
                 dividers :meth:`puzzle_section` passes the page after each
@@ -6120,7 +6198,7 @@ class BookPDFGenerator:
     def puzzle_section(
         self,
         payloads: List[ExportPayload],
-        first_page: int = 1 + GUIDE_PAGE_COUNT,
+        first_page: int = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT,
         ids: Optional[List[Any]] = None,
         cell_sizes: Optional[Dict[GridSize, float]] = None,
     ) -> List[SectionPage]:
@@ -6185,9 +6263,10 @@ class BookPDFGenerator:
         Args:
             payloads: The drawable puzzles in print order.
             first_page: The interior position of the section's first page,
-                which is the first level's divider. Pages
-                1..:data:`GUIDE_PAGE_COUNT` are the guide (CARD-201), so the
-                default is one past it.
+                which is the first level's divider. Page 1 is the blank title
+                page (:data:`TITLE_PAGE_COUNT`, CARD-206) and the
+                :data:`GUIDE_PAGE_COUNT` pages after it are the guide
+                (CARD-201), so the default is one past it.
             ids: The puzzle ids, parallel to ``payloads``, for the messages
                 :meth:`puzzle_pages` raises. Each level's walk is handed its
                 own slice, so a failure still names the row it happened to.
@@ -6371,7 +6450,7 @@ class BookPDFGenerator:
         toc_page_count = measured_toc_page_count(
             toc_entry_count, page_frame(spec), self.dpi
         )
-        first_page = 1 + GUIDE_PAGE_COUNT + toc_page_count
+        first_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count
         # CARD-225 (NFR-008 as amended): the cell each grid size prints at,
         # settled here, once, over the **whole** book — this is the only place
         # that knows every printable member at once, and the figure has to be
@@ -6422,9 +6501,11 @@ class BookPDFGenerator:
     def interior(self, puzzles: List[dict]) -> Interior:
         """Every page of the interior, in print order, and what pairing saved.
 
-        ``pages[n - 1]`` is interior page ``n``: pages 1..:data:`GUIDE_PAGE_COUNT`
-        are the guide, the 2-page "how to solve" tutorial (CARD-201), page 1
-        a right-hand page (:func:`page_is_right_hand`), followed by the
+        ``pages[n - 1]`` is interior page ``n``: page 1 is the blank title
+        page (:data:`TITLE_PAGE_COUNT`, CARD-206), a right-hand page
+        (:func:`page_is_right_hand`), the :data:`GUIDE_PAGE_COUNT` pages
+        after it are the guide, the 2-page "how to solve" tutorial
+        (CARD-201), followed by the
         puzzle section — a divider page opening each non-empty level and
         that level's puzzle pages (:meth:`puzzle_section`, FR-041) — then the
         SOLUTIONS divider and the answer pages. The list's length is the
@@ -6613,16 +6694,30 @@ class BookPDFGenerator:
         answer_plan = plan_small_answer_pages(answers)
 
         # Every page of the section — dividers included — sits between the
-        # guide page and the SOLUTIONS divider, so both of those positions
+        # TOC (CARD-200: `toc_page_count` pages, after the blank title page and
+        # the guide) and the SOLUTIONS divider, so both of those positions
         # count the section's length and not its puzzle pages alone. Computed
         # here (rather than after the degrade pass below) because it depends
-        # only on `section`, never on `answer_plan` — any page_spec built from
-        # it measures the *same* usable size any other interior page position
-        # would (`book_page_spec`'s own docstring: parity moves the margins,
-        # never the usable size), which is exactly what lets one representative
-        # spec answer the degrade pass's feasibility check for every page
-        # position the plan could still land on.
-        first_answer_page = 3 + len(section)
+        # only on `section` and `toc_page_count`, never on `answer_plan` — any
+        # page_spec built from it measures the *same* usable size any other
+        # interior page position would (`book_page_spec`'s own docstring:
+        # parity moves the margins, never the usable size), which is exactly
+        # what lets one representative spec answer the degrade pass's
+        # feasibility check for every page position the plan could still land
+        # on.
+        #
+        # CARD-206 review F-102: ONE assignment, read twice. This method used
+        # to compute `first_answer_page` twice, nine statements apart, and the
+        # first of the two was `3 + len(section)` — a front-matter page count
+        # spelled as a bare literal and left behind by CARD-200's TOC and this
+        # card's own title page, so that the two assignments disagreed (3
+        # against 6 at today's constants). It was inert, because the degrade
+        # pass reads only the spec's usable size and never its position, and
+        # it was still the literal this card's plan named as the bug it was
+        # most likely to ship.
+        first_answer_page = (
+            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
+        )
 
         # Review F-1 (CARD-202, fix cycle 1): `plan_small_answer_pages` above
         # is pure and extent-only (its own module docstring: no tile measured,
@@ -6669,11 +6764,6 @@ class BookPDFGenerator:
             raise RuntimeError(
                 f"the answer-section plan prints {answer_numbers}, not puzzles 1..{count}"
             )
-        # Every page of the section — dividers included — sits between the
-        # TOC (CARD-200: `toc_page_count` pages, after the guide) and the
-        # SOLUTIONS divider, so both of those positions count the section's
-        # length and not its puzzle pages alone.
-        first_answer_page = 1 + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
 
         # CARD-200/CARD-205: the TOC's own rows, decided here (not inside
         # `produce()` below) for the same reason every other page-count-bearing
@@ -6795,12 +6885,24 @@ class BookPDFGenerator:
             drawing it wrapped — never something a consumer threw back in
             while the walk was suspended at that yield.
             """
+            # CARD-206: the blank title / copyright page opens the interior
+            # (TITLE_PAGE_COUNT, AC-283). Yielded as an expression, so this
+            # frame never holds it while the next page is built — the same
+            # rule every page kind below keeps.
+            for title_page_number in range(1, TITLE_PAGE_COUNT + 1):
+                yield self.create_title_page(title_page_number)
+
             # CARD-201: the guide is GUIDE_PAGE_COUNT pages, not one — two
             # calls to the same method (page_number selects which half, see
             # create_guide_page's own docstring), each yielded and released
             # exactly as every other page is (CARD-145/CARD-198's "no page
             # outlives the yield that hands it on", restated above).
-            for guide_page_number in range(1, GUIDE_PAGE_COUNT + 1):
+            # CARD-206: it starts one page later, after the title page, so
+            # its first page is a verso (interior page 2) and the two halves
+            # face each other.
+            for guide_page_number in range(
+                1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1
+            ):
                 page = self.create_guide_page(
                     len(puzzles),
                     counts[Tier.EASY],
@@ -6822,7 +6924,7 @@ class BookPDFGenerator:
                 start = index * toc_entries_per_page
                 page = self.create_toc_page(
                     toc_entries[start : start + toc_entries_per_page],
-                    GUIDE_PAGE_COUNT + 1 + index,
+                    TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1 + index,
                 )
                 yield page
                 del page
@@ -6866,11 +6968,11 @@ class BookPDFGenerator:
             # one page, CARD-202) — the walk above is what decided which.
             if not payloads:
                 return
-            # CARD-201: the guide grew by GUIDE_PAGE_COUNT pages, not one, so
+            # CARD-201: the guide grew by GUIDE_PAGE_COUNT pages, not one,
+            # and CARD-206 put TITLE_PAGE_COUNT page(s) in front of it, so
             # the SOLUTIONS divider (immediately before the answer section)
-            # moved with it — one page before `first_answer_page`, by
-            # construction, which already accounts for GUIDE_PAGE_COUNT
-            # above.
+            # moved with both — one page before `first_answer_page`, by
+            # construction, which already accounts for both constants above.
             yield self.create_divider_page(first_answer_page - 1)
             for index, entry in enumerate(answer_plan):
                 page_number = first_answer_page + index

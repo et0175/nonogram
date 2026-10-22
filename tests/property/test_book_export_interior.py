@@ -1,6 +1,15 @@
 """EC-034 (INV-013), interior/cover half — CARD-135, extended by CARD-129.
 
-    EC-034  PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
+    EC-034            PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
+    AC-4 (CARD-206)   PropertyTest_BookExport_ParityCountsFromTheTitlePage
+
+EC-034's check keeps the name the registry gives it
+(``meta/architecture/requirements.yml``, ``trace.yml``) even though its
+statement was amended on 2026-10-17: "ParityFromGuidePage" is now read as
+"parity counted from interior page 1", which is the page the guide used to
+occupy and since CARD-206 is the blank title page. Renaming the check would
+leave both registry files pointing at a symbol that does not exist, and a card
+does not edit the registry.
 
 For any book — any member count, tiers, grid extents, title, with or without an
 uploaded cover — and on every export route (the generator's ``export_book``,
@@ -9,14 +18,17 @@ the Finalise download, ``POST /book/<id>/download-pdf`` and
 
 * the interior PDF holds no cover page — no interior page is the cover file's
   page;
-* its page 1 is the guide page — the page parity counts from (FR-043);
+* its page 1 is the **blank title page** — no ink of any kind, and the page
+  parity counts from (FR-043, INV-013 as amended 2026-10-17, CARD-206) — with
+  the guide following on pages 2 and 3;
 * **each page's parity is its 1-based position in the interior** (CARD-116's
   half, added here): every page is the book's trim, and on every page that
   carries a drawing — the puzzle pages and the answer pages alike — the
   drawing sits where a page of that parity puts it, gutter margin on the
   binding side;
-* its page count is today's content without the cover — guide, puzzles,
-  SOLUTIONS divider and answers — and equals the count the export reports;
+* its page count is today's content without the cover — title page, guide,
+  puzzles, SOLUTIONS divider and answers — and equals the count the export
+  reports;
 * **the page count finalise reads equals the interior PDF's page count**, and
   the cover never changes it (CARD-129's half, added here): the figure the
   Finalise screen reports — the one KDP's gutter table is read at, and the one
@@ -50,7 +62,9 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin import image_manager as image_manager_module
 import nonogram.admin.book_manager as book_manager_module
+from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
+    TITLE_PAGE_COUNT,
     BookPDFGenerator,
     _folio_reserve_px,
     page_is_right_hand,
@@ -183,7 +197,15 @@ def _puzzle_page_plan(puzzles):
     return plan
 
 
-def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, *, is_lower=False):
+def _expected_drawing_left_mm(
+    puzzle,
+    page_number,
+    cell_mm=None,
+    *,
+    is_lower=False,
+    gutter_mm=GUTTER_MM,
+    outside_mm=OUTSIDE_MM,
+):
     """Where interior page ``page_number`` puts this puzzle's left edge
     (FR-032, as CARD-224 restores it).
 
@@ -193,6 +215,17 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, *, is_lower=Fal
     usable area and never the alignment. ``cell_mm`` overrides the cell with
     the pair's shared one when the puzzle is a slot of a two-up page (FR-040);
     a slot is centred across that same usable width either way.
+
+    ``gutter_mm``/``outside_mm`` default to CON-018's Book 1 profile, whose
+    two side margins are **equal** since the 2026-10-17 amendment — which is
+    why a page's parity moves no ink at all on a Book 1 book, and why
+    :func:`test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` passes
+    its own unequal pair instead (CARD-206 AC-4: a parity change has to be
+    measurable before "the margins are the left-hand spec" can be asserted).
+    The trim, top and bottom are the profile's either way —
+    :func:`~nonogram.admin.book_page_spec.book_page_spec` takes those from
+    the profile and never from a stored column — so only the two side
+    margins, and through them the usable width, vary here.
 
     **History.** Between CARD-204 and CARD-224 the drawing was flush with the
     *outer* margin, mirrored by parity, and the lower slot of a two-up page
@@ -208,13 +241,14 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, *, is_lower=Fal
     (CARD-224 G-1: FR-040's pairing verdict does not move).
     """
     across = _across(puzzle)
+    usable_width_mm = 8.5 * 25.4 - gutter_mm - outside_mm
     cell = (
-        min(STANDARD_CELL_MM, USABLE_WIDTH_MM / across, USABLE_HEIGHT_MM / _down(puzzle))
+        min(STANDARD_CELL_MM, usable_width_mm / across, USABLE_HEIGHT_MM / _down(puzzle))
         if cell_mm is None
         else cell_mm
     )
-    spare = USABLE_WIDTH_MM - across * cell
-    left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
+    spare = usable_width_mm - across * cell
+    left_margin = gutter_mm if page_number % 2 else outside_mm
     return left_margin + max(spare, 0.0) / 2
 
 
@@ -390,7 +424,8 @@ def _as_the_interior_prints_them(case):
 def _section_plan(puzzles, toc_pages=1):
     """The puzzle section: ``(page number, the puzzles on it)`` per page.
 
-    Interior pages 1-2 are the guide (CARD-201's 2-page tutorial), then
+    Interior page 1 is the blank title page (CARD-206), interior pages 2-3
+    are the guide (CARD-201's 2-page tutorial), then
     ``toc_pages`` pages of table of contents (CARD-200 — this module's own
     cases never hold enough puzzles to need more than the default one), and
     then each non-empty **named** level opens with a divider page of its own
@@ -402,7 +437,7 @@ def _section_plan(puzzles, toc_pages=1):
     Returns the puzzle pages only; the dividers are counted by their absence
     from the numbering (:func:`_divider_pages`).
     """
-    pages, page_number = [], 3 + toc_pages
+    pages, page_number = [], 4 + toc_pages
     index = 0
     while index < len(puzzles):
         level = _LEVEL.get(str(puzzles[index]["difficulty_tier"]).lower())
@@ -616,7 +651,8 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         )
         assert same_page(cover_page, expected_cover), label
 
-        # Today's content with the cover gone: the 2-page guide (CARD-201),
+        # Today's content with the cover gone: the blank title page
+        # (CARD-206), the 2-page guide (CARD-201),
         # the pages the puzzles take (two-up pairing can make them fewer than
         # the puzzles, FR-040), divider, and the answer section — one full
         # solved page per large answer (CARD-198) or 2-or-4 small answers
@@ -638,7 +674,12 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         dividers = _divider_pages(printed)
         expected_answers = _expected_answer_pages(printed)
         expected_count = (
-            2 + expected_toc + dividers + len(plan) + (expected_answers + 1 if n else 0)
+            1
+            + 2
+            + expected_toc
+            + dividers
+            + len(plan)
+            + (expected_answers + 1 if n else 0)
         )
         assert len(interior) == expected_count, label
         assert pdf_page_count(interior_bytes) == expected_count, label
@@ -669,7 +710,9 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             # so it is part of the unpaired baseline too (the same
             # `toc_pages=toc_page_count` passed to every one of
             # `interior_stream`'s own `interior_page_count` calls).
-            assert unpaired == 2 + expected_toc + dividers + n + (n + 1 if n else 0), label
+            assert (
+                unpaired == 1 + 2 + expected_toc + dividers + n + (n + 1 if n else 0)
+            ), label
             assert unpaired >= page_count, label
             seen["finalise count"] += 1
             seen[
@@ -680,8 +723,15 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             if unpaired > page_count:
                 seen["finalise count with a shared page"] += 1
 
-        # Page 1 is the guide page, and no interior page is the cover.
-        assert same_page(interior[0], _expected_guide(case["puzzles"])), label
+        # Page 1 is the blank title page, page 2 the guide's first page, and
+        # no interior page is the cover. The blank page is measured as ink
+        # rather than compared against a white image: "no ink of any kind"
+        # (AC-283) is a statement about marks, and a page comparison would
+        # report a lone folio as "different" without saying it was ink.
+        assert np.asarray(interior[0].convert("L")).min() == 255, (
+            f"{label}: interior page 1 carries ink — it is the blank title page"
+        )
+        assert same_page(interior[1], _expected_guide(case["puzzles"])), label
         for page_number, page in enumerate(interior, start=1):
             assert not same_page(page, cover_page), f"{label}: page {page_number} is the cover"
             assert page.size == TRIM_PX, f"{label}: page {page_number} is not the trim"
@@ -754,8 +804,9 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # (``expected_toc``, already computed above for ``expected_count``) —
         # one more front-matter section between the guide and the puzzle
         # section, the same term every other page position in this test
-        # already carries.
-        answer_page_number = 4 + expected_toc + dividers + len(plan)
+        # already carries. CARD-206's blank title page shifts it one further
+        # (5, not 4), which is the same +1 again.
+        answer_page_number = 5 + expected_toc + dividers + len(plan)
         for kind, group in _answer_section_plan(printed):
             page = interior[answer_page_number - 1]
             right_hand = page_is_right_hand(answer_page_number)
@@ -862,3 +913,246 @@ def test_page_numbers_start_at_one():
     """There is no interior page 0 — the cover is not a page of the interior."""
     with pytest.raises(ValueError):
         page_is_right_hand(0)
+
+
+# --------------------------------------------------------------------------
+# CARD-206 AC-4 — parity is counted from the title page, and the first puzzle
+# page changed hands because of it
+# --------------------------------------------------------------------------
+
+#: The corpus for the parity property below, and the seed it is drawn with.
+#: Asserted as a floor inside the test (CLAUDE.md: no ``hypothesis``, so the
+#: corpus cannot be allowed to shrink silently).
+PARITY_CASES = 12
+PARITY_SEED = 206
+
+#: The two side margins this property's books store, in millimetres. CON-018's
+#: Book 1 profile has them **equal** (0.5 in each since the 2026-10-17
+#: amendment), which makes a page's parity move no ink at all on a Book 1
+#: book: "its margins are the left-hand spec" is then an unmeasurable claim.
+#: These two are deliberately unequal and well apart — 20.0 mm of gutter
+#: against 10.0 mm of outside, both far above
+#: ``book_page_spec.MIN_SIDE_MARGIN_MM`` (6.35) — so a right-hand page draws
+#: its puzzle **10.0 mm** further right than the same puzzle on a left-hand
+#: page: parity moves the usable area sideways and never changes its size, so
+#: FR-032's centring leaves each side the same spare and the whole
+#: ``gutter - outside`` difference lands on the drawing's left edge.
+#:
+#: **One figure, and it is the difference** (review cycle 1, F-101). Measured
+#: through :func:`_expected_drawing_left_mm` on every case of this corpus and
+#: both ``is_lower`` values, the two parities are exactly
+#: ``PARITY_GUTTER_MM - PARITY_OUTSIDE_MM`` = **10.0000 mm** apart — a hundred
+#: times the 0.1 mm tolerance below, and
+#: :func:`test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` asserts
+#: that separation *exactly*, per case, before it reads either edge. No
+#: absolute pair is stated here, because none describes the corpus: a page's
+#: drawing starts at that page's own side margin plus half the drawing's own
+#: spare, and the spare varies with the puzzle, so the absolute edge moves
+#: from case to case while the difference does not. The first draft of this
+#: docstring stated an absolute pair that reproduces on no case of the corpus
+#: at all; what it got right was the difference, and the difference is the
+#: quantity the parity clause actually turns on.
+PARITY_GUTTER_MM = 20.0
+PARITY_OUTSIDE_MM = 10.0
+
+
+def _parity_book(book_id):
+    """A Book 1 trim with :data:`PARITY_GUTTER_MM`/:data:`PARITY_OUTSIDE_MM`.
+
+    Only the two side margins differ from CON-018's profile; the trim, the
+    top and the bottom are the profile's either way, because
+    ``book_page_spec`` takes those from the profile and never from a stored
+    column. So :func:`_expected_drawing_left_mm`'s other terms are this
+    module's own Book 1 constants, unchanged.
+    """
+    return Book(
+        book_id=book_id,
+        metadata=BookMetadata(
+            title="Parity Pictures",
+            description="CARD-206's own parity corpus.",
+            theme="generic",
+            target_audience="adults",
+            size="",
+            page_count=0,
+        ),
+        trim_width_cm="21.59",
+        trim_height_cm="27.94",
+        gutter_margin_cm=f"{PARITY_GUTTER_MM / 10:.2f}",
+        outside_margin_cm=f"{PARITY_OUTSIDE_MM / 10:.2f}",
+    )
+
+
+def _unpairable_puzzle(rng, tier):
+    """One puzzle too tall for two of its kind to share a page (FR-040).
+
+    21..30 cells down before its column clues are added, so two of them need
+    well over the ``(h1 + 1) + (h2 + 1) <= 236.35 / 7`` a pair has room for
+    (:func:`_random_puzzle`'s own note). The corpus asserts this rather than
+    trusting it: a page carrying two drawings fails
+    :func:`test_PropertyTest_BookExport_ParityCountsFromTheTitlePage` by name.
+    """
+    width, height = rng.randint(21, 30), rng.randint(21, 30)
+    left, top = rng.randrange(width), rng.randrange(height)
+    right, bottom = rng.randint(left + 1, width), rng.randint(top + 1, height)
+    grid = [
+        [left <= x < right and top <= y < bottom for x in range(width)]
+        for y in range(height)
+    ]
+    found = clues.compute_clues(grid)
+    return {
+        "grid": grid,
+        "clues_rows": [list(c) for c in found.rows],
+        "clues_cols": [list(c) for c in found.columns],
+        "width": width,
+        "height": height,
+        "difficulty_tier": tier,
+    }
+
+
+def test_PropertyTest_BookExport_ParityCountsFromTheTitlePage():
+    """CARD-206 AC-4 — the first puzzle page changed hands, and its margins
+    changed with it.
+
+    For every book of this corpus the front matter is the blank title page,
+    the guide's two pages and a one-page contents, and the puzzle section
+    opens with its single level's divider — so the first puzzle page is
+    interior page **6**, written out here rather than asked of the generator.
+    Before this card the same book's front matter was one page shorter and
+    that page was interior **5**, an odd, right-hand page. The property has
+    three clauses, and each one can fail on its own:
+
+    * the page the first puzzle lands on is one further in than it was
+      (6, not 5) — the title page is really in front of it;
+    * its parity is the parity of that new position: page 6 is a **verso**,
+      where page 5 was a recto. Asserted through
+      :func:`~nonogram.admin.book_pdf_generator.page_is_right_hand` on the
+      position this test goes on to measure the ink of, so "parity is still
+      the 1-based interior position" is the statement being checked and not
+      an assumption behind it — and a change to that function reds here.
+      That page 5 was the *recto* it displaced is carried by its
+      neighbours rather than by a constant of its own (review cycle 1,
+      F-106): the divider really is on 5 (``decided.pages[0].page_number``),
+      the section really is one divider and one page per puzzle, and the two
+      positions really are opposite hands — which is what the separation
+      clause below measures, since the two specs differ by the whole
+      ``gutter - outside`` only when they are;
+    * **its margins are the left-hand spec**, measured off the page's own ink
+      (``drawings_of``) against this module's own independent millimetre
+      model. The books here store unequal side margins
+      (:data:`PARITY_GUTTER_MM` / :data:`PARITY_OUTSIDE_MM`) precisely so
+      that this clause has something to measure: the right-hand spec is
+      ``PARITY_GUTTER_MM - PARITY_OUTSIDE_MM`` = 10.0 mm away, asserted
+      exactly, per case — and the test asserts the measurement is **not** that
+      one as well as that it is this one, so a page that kept its old hand
+      fails here rather than passing within a tolerance.
+
+    The corpus is built by hand with a seeded ``random.Random``
+    (:data:`PARITY_SEED`) and its size is asserted below, so it cannot
+    silently shrink.
+    """
+    rng = random.Random(PARITY_SEED)
+    seen = Counter()
+
+    # Interior page 6: 1 title page + 2 guide pages + 1 contents page + 1
+    # level divider, then the first puzzle page. Written out, not derived —
+    # the figure AC-287 was re-measured to on 2026-10-17.
+    first_puzzle_page = 6
+    before_this_card = first_puzzle_page - 1
+
+    for index in range(PARITY_CASES):
+        tier = rng.choice(["easy", "medium", "hard"])
+        puzzles = [
+            _unpairable_puzzle(rng, tier) for _ in range(rng.randint(1, 3))
+        ]
+        label = f"case {index} ({tier}, {len(puzzles)} puzzles)"
+        generator = BookPDFGenerator(_parity_book(f"card-206-parity-{index}"))
+
+        # The front matter really is the four pages the figure above counts:
+        # one contents page and one divider, so the first puzzle page is the
+        # page this test goes on to measure and not some later one.
+        decided = generator.section_plan(list(puzzles))
+        assert decided.toc_page_count == 1, label
+        assert decided.pages[0].page_number == first_puzzle_page - 1, label
+        assert len(decided.pages) == 1 + len(puzzles), (
+            f"{label}: the section is one divider and one page per puzzle, "
+            f"not {len(decided.pages)} pages — a pair would make this test "
+            f"measure a two-up page"
+        )
+
+        pages = list(generator.interior_stream(list(puzzles)).pages)
+        page = pages[first_puzzle_page - 1]
+
+        # Clause 1 and 2: the position moved, and with it the hand.
+        # `page_is_right_hand(before_this_card)` used to be asserted here too
+        # (review cycle 1, F-106). It is a pure function of the literal 5, so
+        # it passed for every case whatever the book did -- a claim with no
+        # control. What it stood for is measured by the two assertions above
+        # (the divider really is on 5) and by the separation assertion below
+        # (5 and 6 really are opposite hands).
+        assert not page_is_right_hand(first_puzzle_page), (
+            f"{label}: interior page {first_puzzle_page} must be a left-hand "
+            "page — parity counts from the title page"
+        )
+
+        # Clause 3: the ink is where a left-hand page puts it.
+        drawings = drawings_of(page)
+        assert len(drawings) == 1, (
+            f"{label}: the first puzzle page holds {len(drawings)} drawing(s)"
+        )
+        measured_mm = drawings[0].left / PX_PER_MM
+        left_hand_mm = _expected_drawing_left_mm(
+            puzzles[0],
+            first_puzzle_page,
+            gutter_mm=PARITY_GUTTER_MM,
+            outside_mm=PARITY_OUTSIDE_MM,
+        )
+        right_hand_mm = _expected_drawing_left_mm(
+            puzzles[0],
+            before_this_card,
+            gutter_mm=PARITY_GUTTER_MM,
+            outside_mm=PARITY_OUTSIDE_MM,
+        )
+        # The separation is not a floor any more but the figure itself
+        # (review cycle 1, F-101). What this assertion pins is the module's
+        # own millimetre model, and only that: both readings come from
+        # `_expected_drawing_left_mm`, whose two branches differ by
+        # `gutter - outside` whatever the puzzle, so it reds on a drift in
+        # that function and not on a production parity failure (review cycle
+        # 2, F-202). It is **invariant to the two PARITY constants** -- both
+        # sides of the equality read them, so moving one reds nothing here
+        # (measured, cycle 3's F-302: `PARITY_OUTSIDE_MM` 10.0 -> 15.0 gives
+        # 0 FAIL of the 11 arms this test reaches). The production
+        # claim -- that the exported page draws where its hand says -- is
+        # carried by the two ink arms below, which read the page's own
+        # drawing: a production mutant that stops parity moving the margins
+        # reds those two and leaves this one alone.
+        separation_mm = PARITY_GUTTER_MM - PARITY_OUTSIDE_MM
+        assert abs(abs(right_hand_mm - left_hand_mm) - separation_mm) < 1e-6, (
+            f"{label}: this corpus's two parities put the drawing at "
+            f"{right_hand_mm:.4f} mm and {left_hand_mm:.4f} mm, "
+            f"{abs(right_hand_mm - left_hand_mm):.4f} mm apart — the whole "
+            f"gutter-less-outside difference is {separation_mm:.4f} mm, and "
+            "anything else means the two pages are not opposite hands or the "
+            "drawing is no longer centred in its usable width"
+        )
+        assert separation_mm > 4.0, (
+            "the corpus's two side margins are too close to tell apart, so "
+            "the clause below would pass on either hand"
+        )
+        assert abs(measured_mm - left_hand_mm) < 0.1, (
+            f"{label}: interior page {first_puzzle_page} draws its puzzle at "
+            f"{measured_mm:.3f} mm, not the left-hand spec's "
+            f"{left_hand_mm:.3f} mm"
+        )
+        assert abs(measured_mm - right_hand_mm) > 1.0, (
+            f"{label}: interior page {first_puzzle_page} drew its puzzle at "
+            f"the right-hand spec's {right_hand_mm:.3f} mm — it kept the "
+            "hand it had before the title page was inserted"
+        )
+        seen[tier] += 1
+        seen["measured"] += 1
+
+    assert seen["measured"] == PARITY_CASES >= 12, seen
+    # All three tiers are in the corpus, so the divider the position counts
+    # is not always the same level's.
+    assert set(seen) >= {"easy", "medium", "hard", "measured"}, seen

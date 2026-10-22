@@ -831,10 +831,12 @@ SINGLE_PUZZLE = dict(columns=20, rows=20, row_depth=8, column_depth=8)
 #: than trusted by :func:`_book_pages`. CARD-200 (SCOPE+): a 1-page table of
 #: contents now sits between the guide and the puzzle section (this book's
 #: three puzzles fit Book 1's own TOC capacity on one page), so every page
-#: number here is one more than before.
-TWO_UP_PAGE = 5
-SINGLE_PAGE = 6
-INTERIOR_PAGES = 9
+#: number here is one more than before. CARD-206 (SCOPE+): the blank title /
+#: copyright page is reserved as interior page 1, so every page number here
+#: is one more again.
+TWO_UP_PAGE = 6
+SINGLE_PAGE = 7
+INTERIOR_PAGES = 10
 
 
 def _book() -> Book:

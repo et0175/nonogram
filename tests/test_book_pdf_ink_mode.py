@@ -356,7 +356,19 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
             ), f"page {number} gained a grey level the RGB page did not have"
             assert int((grey == 0).sum()) == int((rgb[:, :, 0] == 0).sum())
             assert int((grey == 255).sum()) == int((rgb[:, :, 0] == 255).sum())
-            assert int((grey == 0).sum()) > 0, f"page {number} carries no pure black"
+            # CARD-206: interior page 1 is the blank title / copyright page
+            # and carries no ink at all, so it has no pure black to compare.
+            # The non-vacuity claim is made on every *other* page and the
+            # title page's blankness is asserted outright, rather than the
+            # claim being loosened to "some page carries black".
+            if number == 1:
+                assert int((grey == 255).sum()) == grey.size, (
+                    "interior page 1 is the blank title page (CARD-206)"
+                )
+            else:
+                assert int((grey == 0).sum()) > 0, (
+                    f"page {number} carries no pure black"
+                )
             checked += 1
             return result
 
@@ -364,11 +376,11 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         monkeypatch.setattr(BookPDFGenerator, "_write_page", write_page_and_compare)
         export_of(generator, baseline_puzzles())
 
-        # CARD-200: BASELINE_PAGE_COUNT is now 13 (the guide's own twelve,
-        # plus the one-page table of contents inserted after it) — the
+        # CARD-206: BASELINE_PAGE_COUNT is now 14 (CARD-200's thirteen, plus
+        # the blank title / copyright page reserved as interior page 1) — the
         # literal beside it is kept, as before, so the corpus's own length
         # cannot silently drift even if the import is ever swapped out.
-        assert checked == BASELINE_PAGE_COUNT == 13, f"only {checked} pages compared"
+        assert checked == BASELINE_PAGE_COUNT == 14, f"only {checked} pages compared"
 
     def test_the_two_files_hold_the_same_marks_page_for_page(self, baseline_exports):
         """And the same after the encode: the two files decode to one ink.
@@ -1079,7 +1091,18 @@ class TestBookInk_InkPositionsDoNotDependOnTheMode:
                 assert np.array_equal(
                     grey_levels(g["image"]), grey_levels(c["image"])
                 ), f"{label} page {number}: a grey level moved with the mode"
-                assert int(grey_ink.sum()) > 0, f"{label} page {number} has no ink"
+                # CARD-206: interior page 1 is the blank title / copyright
+                # page — no ink on either mode's copy of it, which is itself
+                # the thing to assert here; every other page must carry ink,
+                # or the equality above would be comparing two empty masks.
+                if number == 1:
+                    assert int(grey_ink.sum()) == 0, (
+                        f"{label} page 1 is the blank title page (CARD-206)"
+                    )
+                else:
+                    assert int(grey_ink.sum()) > 0, (
+                        f"{label} page {number} has no ink"
+                    )
                 pages += 1
             books += 1
 

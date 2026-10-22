@@ -246,17 +246,32 @@ def corpus(*runs) -> list[dict]:
 #: by two across an even count — so the split moves to 41 + 41: 2 guide + 1
 #: TOC + 2 dividers + 41 easy puzzle pages + 21 medium puzzle pages (20
 #: pairs, 1 alone) + the SOLUTIONS divider + 82 answer pages = 150.
-AC288_CORPUS = ((alone, "easy", 41), (pairs_up, "medium", 41))
+#:
+#: **CARD-206 note (retuned a fourth time, same discipline).** The blank
+#: title / copyright page is reserved as interior page 1, so the 41 + 41
+#: split came to 151 and the boundary this test is *about* is still 150
+#: exactly. The constraint is unchanged — the medium tier's count must stay
+#: **odd**, so that CK-1's one extra medium puzzle pairs with the lone one
+#: and adds an answer page and no puzzle page, i.e. exactly +1 — and with
+#: ``E`` easy ``alone``s and ``M`` (odd) paired mediums the total is
+#: ``7 + 2E + M + (M + 1) / 2``, so 150 needs ``4E + 3M == 285``: the only
+#: odd-``M`` solution near this corpus is **39 + 43**. That is
+#: 1 title + 2 guide + 1 TOC + 2 dividers + 39 easy puzzle pages + 22 medium
+#: puzzle pages (21 pairs, 1 alone) + the SOLUTIONS divider + 82 answer
+#: pages (39 + 43, the same 82 as before) = 150. Recomputed and still
+#: checked against the generator's own live page plan below, never asserted
+#: from this arithmetic alone.
+AC288_CORPUS = ((alone, "easy", 39), (pairs_up, "medium", 43))
 AC288_PAGES = 150
 
 #: CK-1's other side: the same book with one more (pairing) medium puzzle,
 #: which is exactly one page longer — see :data:`AC288_CORPUS`'s note. The
-#: medium tier's 41 (odd, one alone) becomes 42 (even, all paired): the same
-#: 21 puzzle pages either way, and one more answer page. Still a six-row,
+#: medium tier's 43 (odd, one alone) becomes 44 (even, all paired): the same
+#: 22 puzzle pages either way, and one more answer page. Still a six-row,
 #: one-page TOC (CARD-205) — the structural list does not grow with the
 #: puzzle count at all, so no corpus of this shape can cross a TOC page
 #: boundary a second time.
-CK1_OVER_CORPUS = ((alone, "easy", 41), (pairs_up, "medium", 42))
+CK1_OVER_CORPUS = ((alone, "easy", 39), (pairs_up, "medium", 44))
 CK1_OVER_PAGES = 151
 
 #: AC-179's book: 2 guide + 2 dividers + 140 pages + 1 + 140 answer pages
@@ -264,17 +279,21 @@ CK1_OVER_PAGES = 151
 #: this card) + a 1-page table of contents (**CARD-205**: six structural
 #: rows — the guide, two level headings with their ranges, the solutions —
 #: where CARD-200's per-puzzle listing took 4 pages for these 140 entries)
-#: = 286. Still inside KDP's 151-300 band, same as the 180 pages this
+#: = 286, and **287 since CARD-206** reserved the blank title page. Still
+#: inside KDP's 151-300 band, same as the 180 pages this
 #: corpus produced before CARD-198 — the corpus itself is unchanged; only
-#: what one page per puzzle, unpacked, plus the TOC, adds up to is bigger.
+#: what one page per puzzle, unpacked, plus the TOC and the title page, adds
+#: up to is bigger.
 AC179_CORPUS = ((alone, "easy", 70), (alone, "medium", 70))
-AC179_PAGES = 286
+AC179_PAGES = 287
 
 #: AC-271's book: 150 puzzles, each now with its own full answer page
 #: (CARD-198: one per puzzle, where this book packed 30 before this card),
 #: behind 127 interior pages — 2 guide + a **1-page** TOC (CARD-205: six
 #: structural rows, where CARD-200's ceil(150 / 43) took 4) + 2 dividers +
-#: 121 puzzle pages (29 of them shared) + the SOLUTIONS divider. 277
+#: 121 puzzle pages (29 of them shared) + the SOLUTIONS divider — and, since
+#: **CARD-206**, the blank title page in front of all of it, so 128 rather
+#: than 127. 278
 #: interior pages in all.
 AC271_CORPUS = (
     (alone_six_up, "easy", 90),
@@ -284,8 +303,8 @@ AC271_CORPUS = (
 AC271_PUZZLES = 150
 AC271_ANSWER_PAGES = 150
 AC271_TOC_PAGES = 1
-AC271_PAGES_BEFORE_THE_KEY = 127
-AC271_PAGES = 277
+AC271_PAGES_BEFORE_THE_KEY = 128
+AC271_PAGES = 278
 
 #: CARD-199 AC-5's book: inside the new 301-500 band. **CARD-198 note:** 200
 #: medium `alone`s (down from 277 before this card, which would now land at
@@ -294,9 +313,10 @@ AC271_PAGES = 277
 #: guide, "Medium" and its range, the solutions — where CARD-200's
 #: ceil(200 / 43) took 5) + 1 level divider + 200 puzzle pages + the
 #: SOLUTIONS divider + 200 answer pages (CARD-198: one per puzzle, where
-#: this book packed 50 before this card) = 405.
+#: this book packed 50 before this card) = 405, and **406 since CARD-206**
+#: reserved the blank title page. Still inside the 301-500 band.
 AC199_NEW_BAND_CORPUS = ((alone, "medium", 200),)
-AC199_NEW_BAND_PAGES = 405
+AC199_NEW_BAND_PAGES = 406
 
 #: CARD-199 AC-6's book, unchanged by CARD-198 (the corpus, not the count):
 #: 241 medium `alone`s. **CARD-198 note:** this book was pre-computed by
@@ -311,10 +331,11 @@ AC199_NEW_BAND_PAGES = 405
 #: changed, recomputed against the real page plan rather than reused from
 #: the earlier estimate. CARD-200 added a 6-page TOC (ceil(241 / 43)) for
 #: 492; **CARD-205** replaces it with the four-row structural list, one
-#: page: 487. Still inside the 301-500 band and still over the *old*
+#: page: 487; **CARD-206** adds the blank title page: 488. Still inside the
+#: 301-500 band and still over the *old*
 #: 300-page ceiling, which is all this test's claim rests on.
 AC199_CARD198_CORPUS = ((alone, "medium", 241),)
-AC199_CARD198_PAGES = 487
+AC199_CARD198_PAGES = 488
 
 #: CARD-198's own AC-8 book: a book that *was* inside the old 300-page
 #: ceiling, purely because of the answer section's old packing, and crosses
@@ -335,12 +356,17 @@ AC199_CARD198_PAGES = 487
 #:   module's own ``test_the_scenario_really_has_that_many_pages`` has
 #:   always measured against the real plan rather than trusted): 681.
 #:   **CARD-205** replaces that TOC with the four-row structural list for
-#:   this one-level book, one page: 671 — still far over the 590-page
+#:   this one-level book, one page: 671; **CARD-206** adds the blank title
+#:   page: 672 — still far over the 590-page
 #:   ceiling this test is about, and still over it for the answer section's
 #:   own reason rather than the TOC's.
+#:
+#: :data:`AC8_OLD_PACKED_PAGES` is a reconstruction of the *pre*-CARD-198
+#: book (no TOC, no title page, the packed key) and is left as it was: it is
+#: not a figure this interior produces.
 AC8_CORPUS = ((pairs_up_six, "easy", 444),)
 AC8_OLD_PACKED_PAGES = 299
-AC8_PAGES = 671
+AC8_PAGES = 672
 
 
 # --------------------------------------------------------------------------
@@ -816,8 +842,9 @@ class TestBookFinalise_PageCountIncludesAnswerKeyPages:
         assert f'data-answer-page-count="{AC271_ANSWER_PAGES}"' in shown
         # 305 before CARD-200; +4 for this book's own 4-page TOC (150
         # entries) until CARD-205 replaced the per-puzzle listing with the
-        # six-row structural one, which is a single page: +1, so 306.
-        assert 'data-unpaired-page-count="306"' in shown
+        # six-row structural one, which is a single page: +1, so 306; and
+        # +1 again for CARD-206's blank title page, so 307.
+        assert 'data-unpaired-page-count="307"' in shown
 
 
 # --------------------------------------------------------------------------
@@ -1147,7 +1174,8 @@ class TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking:
         unpaired_answer_pages_if_still_packed = AC271_ANSWER_PAGES  # i.e. 150, not 30
         assert (
             counts.unpaired_page_count
-            == 2
+            == 1  # CARD-206: the blank title page, unaffected by pairing
+            + 2
             + AC271_TOC_PAGES  # CARD-200: the TOC's own term, unaffected by pairing
             + 2
             + AC271_PUZZLES
@@ -1180,14 +1208,16 @@ class TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking:
 #: A three-puzzle book of :func:`alone` easy 22x22s, which never pair.
 SMALL_CORPUS = ((alone, "easy", 3),)
 
-#: Its interior, counted by hand rather than by the code under test: 1 guide
-#: page + 1 easy divider + 3 single puzzle pages + the SOLUTIONS divider + 3
+#: Its interior, counted by hand rather than by the code under test: 1 blank
+#: title page (CARD-206) + 2 guide
+#: pages (CARD-201) + 1 easy divider + 3 single puzzle pages + the SOLUTIONS
+#: divider + 3
 #: full solved answer pages (CARD-198: one per puzzle, where this book took
 #: one packed four-up page before this card) + a 1-page table of contents
 #: (CARD-200: 3 entries, far under one TOC page's own capacity). Pairing
 #: nothing, this is both its exact count on a legal sheet and its sheet-free
 #: bound on an illegal one.
-SMALL_PAGES = 11
+SMALL_PAGES = 12
 
 #: The sheet builder's reason for refusing AC-179's 0.60 cm, written out here.
 REASON_060 = "book gutter_margin_cm is 0.6 cm, below the 0.635 cm minimum side margin"

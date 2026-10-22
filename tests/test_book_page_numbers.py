@@ -1,5 +1,14 @@
 """CARD-200 — every interior page carries its own page number; the cover never does.
 
+**CARD-206 narrows "every" by exactly one page, and names it.** The interior's
+page 1 is the blank title / copyright page
+(``book_pdf_generator.TITLE_PAGE_COUNT``, AC-283): a title page carries no
+folio in any printed book, and this one carries no ink at all. AC-1's claim
+below is therefore *every interior page but the title page*, and the
+title page's own folio-lessness is asserted here as part of the same set
+equality rather than left to the card's own test alone — so a folio that
+reappeared on page 1 fails this file too.
+
     AC-1  TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber
     AC-2  TestBookPageNumbers_CoverIsNeverNumbered
     AC-3  TestBookPageNumbers_FoliosMatchInteriorStreamsOwnArithmetic
@@ -47,7 +56,9 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     FOLIO_PT,
     FOLIO_RESERVE_DIGITS,
+    GUIDE_PAGE_COUNT,
     SIZE_LABEL_SEPARATOR,
+    TITLE_PAGE_COUNT,
     BookPDFGenerator,
     PuzzlePagePlan,
     _band_font,
@@ -233,11 +244,19 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
     def test_every_page_of_a_book_holding_one_of_every_kind_is_numbered(
         self, monkeypatch
     ) -> None:
-        """The baseline book: guide x2, TOC, 3 dividers incl. SOLUTIONS, a
+        """The baseline book: the blank title page, guide x2, TOC, 3 dividers
+        incl. SOLUTIONS, a
         two-up page, a single-puzzle page, a packed-2-up answer page, a
         packed-alone answer page and a full answer page — one of every kind
         this module can draw (``tests/helpers/book_corpus.py``'s own
         docstring).
+
+        **CARD-206: the title page is the one page with no folio**, and the
+        set equality below says so exactly — ``1..TITLE_PAGE_COUNT`` carry
+        none and every page after them carries exactly one. Stated as a
+        difference of two sets rather than as "all but the first", so a card
+        that reserved a second front-matter page would have to restate it
+        here instead of quietly widening a bound.
 
         **CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
         reserve"): the two-up page is no longer an exception.** Fix 1/Fix 2
@@ -258,9 +277,11 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         calls, drawn = _spy_interior(generator, baseline_puzzles(), monkeypatch)
         folios = _folios(calls)
 
-        assert set(folios) == set(range(1, drawn + 1)), (
-            "every interior page should carry exactly one folio; missing or "
-            f"extra pages: {set(range(1, drawn + 1)) ^ set(folios)}"
+        title_pages = set(range(1, TITLE_PAGE_COUNT + 1))
+        assert set(folios) == set(range(1, drawn + 1)) - title_pages, (
+            "every interior page but the blank title page should carry "
+            "exactly one folio; missing or extra pages: "
+            f"{(set(range(1, drawn + 1)) - title_pages) ^ set(folios)}"
         )
         for page, text in folios.items():
             assert text == str(page), (
@@ -307,7 +328,9 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
             "(F-1's own defect shape) and must omit its folio rather than "
             "draw it over the grid"
         )
-        # The omission is specific to pages with no measurable room, and the
+        # The omission is specific to pages with no measurable room — plus
+        # CARD-206's own blank title page, which has no ink for a folio to
+        # collide with and draws none by design (TITLE_PAGE_COUNT) — and the
         # set is now stated exactly rather than bounded (CARD-221): **both**
         # guide pages (at this 10 cm trim not one of the five fallback forms
         # fits the sheet at all — the loop exhausts them and draws the last,
@@ -320,8 +343,19 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         # never gets folios" bug — the TOC page and both dividers print
         # theirs, asserted below.
         missing = set(range(1, drawn + 1)) - set(folios)
-        assert missing == {1, 2, blank_puzzle_page, answer_page}, (
-            "the min-trim book's folio-less pages are exactly its two guide "
+        guide_pages = {
+            number
+            for number in range(
+                1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1
+            )
+        }
+        assert missing == (
+            set(range(1, TITLE_PAGE_COUNT + 1))
+            | guide_pages
+            | {blank_puzzle_page, answer_page}
+        ), (
+            "the min-trim book's folio-less pages are exactly its blank title "
+            "page, its two guide "
             "pages, its page-fit-bound blank puzzle page and its answer "
             f"page, and this book drew none on {sorted(missing)}"
         )
@@ -403,7 +437,9 @@ class TestBookPageNumbers_FoliosMatchInteriorStreamsOwnArithmetic:
         section = decided.pages
         from nonogram.admin.book_pdf_generator import GUIDE_PAGE_COUNT
 
-        solutions_page = 2 + decided.toc_page_count + len(section)
+        solutions_page = (
+            TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + decided.toc_page_count + len(section)
+        )
         first_answer_page = solutions_page + 1
 
         calls, drawn = _spy_interior(generator, puzzles, monkeypatch)
@@ -543,7 +579,10 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
             "the structural TOC is one page; if this book needed another, "
             "the offset this test reads below is the wrong one"
         )
-        assert decided.pages[0].page_number == 1 + GUIDE_PAGE_COUNT + 1, (
+        assert (
+            decided.pages[0].page_number
+            == 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1
+        ), (
             "the TOC must still sit between the guide and the puzzle "
             "section, or there is no insertion left to check parity across"
         )

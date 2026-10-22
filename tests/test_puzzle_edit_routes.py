@@ -1095,10 +1095,17 @@ class TestBookedEdit_ASplitPairIsAnnouncedBeforeApprove:
 
         assert announced == 1
         assert after - before == announced
-        # And the figures the answer no longer quotes: the book is 7 pages
-        # before and 8 after, while its PUZZLE pages go 1 to 2. Pinned so the
+        # And the figures the answer no longer quotes: the book is 8 pages
+        # before and 9 after, while its PUZZLE pages go 1 to 2. Pinned so the
         # two counts cannot be confused for each other again.
-        assert (before, after) == (7, 8)
+        #
+        # CARD-206 moved this pin by one, from (7, 8): the interior now opens
+        # with the blank title / copyright page, so every interior page number
+        # after it counts one higher. The PUZZLE-page figures are untouched,
+        # which is exactly the distinction this pin exists to keep visible —
+        # it is on the INTERIOR count, and the delta assertion above (this
+        # test's actual claim) held unchanged at 1 across that shift.
+        assert (before, after) == (8, 9)
 
     def test_a_replacement_that_lets_a_pair_fit_makes_the_book_shorter(
         self, admin_app, books

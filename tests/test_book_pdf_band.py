@@ -266,7 +266,8 @@ def print_plan(puzzles: Sequence[dict]) -> dict[int, tuple[int, int]]:
     This module's own reading of the printed book: the rows grouped easy, then
     medium, then hard — a **stable** sort on the level alone, so the order
     inside a level is the one the book was handed in — numbered 1..n over the
-    puzzles, and laid out from interior page 4 (CARD-201: the guide is 2
+    puzzles, and laid out from interior page 5 (CARD-206: the blank title
+    page is interior page 1, up from 4 before it; CARD-201: the guide is 2
     pages, not 1; CARD-200: a 1-page table of contents follows it — this
     module's own books never hold more than :data:`MIN_POSITION` + 1 puzzles,
     far under Book 1's own TOC capacity, so the TOC is always exactly one
@@ -276,7 +277,7 @@ def print_plan(puzzles: Sequence[dict]) -> dict[int, tuple[int, int]]:
     """
     order = sorted(range(len(puzzles)), key=lambda index: level_rank(puzzles[index]["difficulty_tier"]))
     plan: dict[int, tuple[int, int]] = {}
-    page = 4
+    page = 5
     opened: object = None
     for number, index in enumerate(order, start=1):
         rank = level_rank(puzzles[index]["difficulty_tier"])
@@ -1003,22 +1004,24 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
 ONCE_TIERS = ("easy", "easy", "medium", "medium", "hard")
 
 #: This module's reading of that book's interior (FR-041, FR-040, FR-042,
-#: CARD-198, CARD-201, CARD-200): 1-2 the guide (CARD-201's 2-page tutorial,
-#: up from one page before that card); 3 the table of contents (CARD-200:
-#: this 5-puzzle book's TOC always fits one page on Book 1's own trim); 4
-#: Easy divider; 5 Puzzles 1-2 two-up; 6 Medium divider; 7 Puzzles 3-4
-#: two-up; 8 Hard divider; 9 Puzzle 5 alone; 10 SOLUTIONS divider; 11-13
+#: CARD-198, CARD-201, CARD-200, CARD-206): 1 the blank title / copyright
+#: page (CARD-206); 2-3 the guide (CARD-201's 2-page tutorial,
+#: up from one page before that card); 4 the table of contents (CARD-200:
+#: this 5-puzzle book's TOC always fits one page on Book 1's own trim); 5
+#: Easy divider; 6 Puzzles 1-2 two-up; 7 Medium divider; 8 Puzzles 3-4
+#: two-up; 9 Hard divider; 10 Puzzle 5 alone; 11 SOLUTIONS divider; 12-14
 #: CARD-202's own packed answer section — puzzles 1-2 (both Easy, both
-#: qualify) share packed page 11, 3-4 (both Medium, both qualify) share
-#: packed page 12, and 5 (Hard, alone in its level, still qualifies) packs
-#: alone onto page 13. ``print_plan`` above models only books that never
+#: qualify) share packed page 12, 3-4 (both Medium, both qualify) share
+#: packed page 13, and 5 (Hard, alone in its level, still qualifies) packs
+#: alone onto page 14. ``print_plan`` above models only books that never
 #: pair, so the pages are written out here instead.
-ONCE_PAGE_COUNT = 13
-ONCE_BAND_PAGES = {1: 5, 2: 5, 3: 7, 4: 7, 5: 9}
-HARD_ALONE_PAGE = 9
-TWO_UP_PAGE = 5
+ONCE_PAGE_COUNT = 14
+ONCE_BAND_PAGES = {1: 6, 2: 6, 3: 8, 4: 8, 5: 10}
+HARD_ALONE_PAGE = 10
+TWO_UP_PAGE = 6
 
-#: Page 10 is the SOLUTIONS divider (CARD-200: up from 9 before the TOC was
+#: Page 11 is the SOLUTIONS divider (CARD-206: up from 10, the blank title
+#: page's own; CARD-200: up from 9 before the TOC was
 #: inserted; CARD-201: up from 8 before that, before the guide grew to two
 #: pages). Unlike the puzzle section's band pages, a puzzle's *answer* page
 #: is no longer simply "solutions + its number" (CARD-198's one-per-puzzle
@@ -1026,8 +1029,8 @@ TWO_UP_PAGE = 5
 #: this is this card's own recomputation, read off
 #: :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages` for this
 #: exact book rather than re-derived by a second arithmetic rule here.
-ONCE_SOLUTIONS_PAGE = 10
-ANSWER_PAGE_OF = {1: 11, 2: 11, 3: 12, 4: 12, 5: 13}
+ONCE_SOLUTIONS_PAGE = 11
+ANSWER_PAGE_OF = {1: 12, 2: 12, 3: 13, 4: 13, 5: 14}
 HARD_ANSWER_PAGE = ANSWER_PAGE_OF[5]
 
 #: The band's type size: 5 mm at 300 DPI (COMP-007's header size), in pixels.

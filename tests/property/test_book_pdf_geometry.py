@@ -384,8 +384,9 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         # real plan for this case rather than assumed to be any fixed number.
         toc_page_count = generator.section_plan([puzzle]).toc_page_count
         pages = generator.interior_pages([puzzle])
-        assert len(pages) == 5 + toc_page_count, (
-            "2-page guide (CARD-201), the TOC (CARD-200), puzzle, divider, answer"
+        assert len(pages) == 6 + toc_page_count, (
+            "the blank title page (CARD-206), the 2-page guide (CARD-201), "
+            "the TOC (CARD-200), puzzle, divider, answer"
         )
 
         # Every page of the book is the trim, at 300 DPI — not only the puzzle's.
@@ -396,7 +397,7 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
 
         # interior page 3 + toc_page_count, the puzzle (CARD-201 guide, then
         # CARD-200's TOC, then the puzzle page)
-        drawing = drawing_of(pages[2 + toc_page_count])
+        drawing = drawing_of(pages[3 + toc_page_count])
         assert (drawing.columns, drawing.rows) == (columns, rows)
 
         # The cell is FR-030's, never above the standard cell.
@@ -406,8 +407,9 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
 
         # The whole drawing lies inside the usable area, below the band.
         # CARD-201: the puzzle is interior page 3, not 2; CARD-200 then adds
-        # its own TOC pages in front of it.
-        page_number = 3 + toc_page_count
+        # its own TOC pages in front of it; CARD-206 adds the blank title
+        # page in front of all of it, so the term is 4, not 3.
+        page_number = 4 + toc_page_count
         usable_left = sheet.left_margin_mm(page_number) * PX_PER_MM
         usable_right = (sheet.left_margin_mm(page_number) + sheet.usable_width_mm) * PX_PER_MM
         usable_bottom = (sheet.height_mm - BOTTOM_MM) * PX_PER_MM
@@ -492,7 +494,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
         for index, puzzle in enumerate(puzzles):
             # interior page 3 + index (CARD-201's guide), shifted by
             # CARD-200's TOC pages in front of the puzzle section.
-            page = pages[2 + toc_page_count + index]
+            page = pages[3 + toc_page_count + index]
             columns, rows, across, down = _extent(puzzle)
 
             assert page.size[0] < page.size[1], (sheet, "portrait")
@@ -619,17 +621,18 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         generator = BookPDFGenerator(sheet.book)
         toc_page_count = generator.section_plan(book_rows).toc_page_count
         pages = generator.interior_pages(book_rows)
-        assert len(pages) == 11 + toc_page_count, (
-            "2-page guide, the TOC, two level dividers, three puzzles, "
-            "SOLUTIONS, three answers"
+        assert len(pages) == 12 + toc_page_count, (
+            "the blank title page, the 2-page guide, the TOC, two level "
+            "dividers, three puzzles, SOLUTIONS, three answers"
         )
 
         # Pre-CARD-200 positions 6, 7, 9, 10 (medium copy, ungraded copy,
-        # easy answer, medium answer), each shifted by the TOC's own length.
-        medium_page = 6 + toc_page_count
-        ungraded_page = 7 + toc_page_count
-        easy_answer_page = 9 + toc_page_count
-        medium_answer_page = 10 + toc_page_count
+        # easy answer, medium answer), each shifted by the TOC's own length
+        # and by CARD-206's own blank title page.
+        medium_page = 7 + toc_page_count
+        ungraded_page = 8 + toc_page_count
+        easy_answer_page = 10 + toc_page_count
+        medium_answer_page = 11 + toc_page_count
         page_numbers = (medium_page, ungraded_page, easy_answer_page, medium_answer_page)
 
         # (interior page number, the page) for every page carrying the drawing.
@@ -797,7 +800,8 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     two_up_tops: set[int] = set()
     single_tops: set[int] = set()
     index = 0
-    page_number = 4 + toc_page_count  # guide 1-2, the TOC, the "Easy" divider
+    # title 1 (CARD-206), guide 2-3, the TOC, the "Easy" divider
+    page_number = 5 + toc_page_count
     while index < len(puzzles):
         page = pages[page_number - 1]
         assert page.size[0] < page.size[1], (page_number, "portrait")

@@ -100,10 +100,11 @@ USABLE_HEIGHT_MM = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - BAND_MM
 #: Device pixels per millimetre at the 300 DPI every book page is drawn at.
 PX_PER_MM = 300 / 25.4
 
-#: Interior page 1 of the **puzzle** section on a one-level book: 1-2 the
-#: guide (CARD-201), 3 the table of contents (CARD-200), 4 the level divider
+#: Interior page 1 of the **puzzle** section on a one-level book: 1 the blank
+#: title / copyright page (CARD-206), 2-3 the
+#: guide (CARD-201), 4 the table of contents (CARD-200), 5 the level divider
 #: (CARD-128). Spelled out here as ``tests/test_book_pdf.py`` spells it out.
-FIRST_PUZZLE_PAGE = 5
+FIRST_PUZZLE_PAGE = 6
 
 
 def _own_fit_mm(columns: int, rows: int, row_gutter: int, column_gutter: int) -> float:
@@ -299,8 +300,13 @@ class TestBookCellSize_SameGridSizeSameCell:
         pages = _interior(puzzles)
         # Two levels, so two dividers: easy's divider at 4, its two pages at
         # 5-6, hard's divider at 7, its page at 8.
-        easy = [_mm(drawing_of(pages[index]).cell) for index in (4, 5)]
-        hard = _mm(drawing_of(pages[7]).cell)
+        easy = [
+            _mm(drawing_of(pages[FIRST_PUZZLE_PAGE - 1 + index]).cell)
+            for index in (0, 1)
+        ]
+        # The hard level's own divider sits between the two levels, so its
+        # single puzzle page is two past the easy level's last one.
+        hard = _mm(drawing_of(pages[FIRST_PUZZLE_PAGE + 2]).cell)
 
         assert max(easy + [hard]) - min(easy + [hard]) <= _one_pixel_mm(20), (
             easy,

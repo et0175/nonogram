@@ -397,7 +397,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
     #: the arithmetic under test is the shipped arithmetic.
     SPILLING_LEVELS = 4
 
-    #: 72 puzzles on 70 puzzle pages (two two-up pairs) and 72 answer pages,
+    #: 71 puzzles on 70 puzzle pages (one two-up pair) and 71 answer pages,
     #: with :data:`SPILLING_LEVELS` dividers — chosen so the interior lands
     #: **exactly on KDP's 150/151 band edge**: with one TOC page it is 150
     #: pages and the gutter minimum is 0.9525 cm, with two it is 151 and the
@@ -414,7 +414,17 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
     #: case's claim was an artifact of the mismatch. Measured again with
     #: ``level_dividers`` taken from :data:`SPILLING_LEVELS` and one more
     #: pair: 150 against 151, the edge, self-consistent, same claim.
-    SPILLING_PUZZLES = 72
+    #:
+    #: **Re-tuned by CARD-206**, exactly as the assertion below instructs a
+    #: later card to do rather than relaxing it: the blank title / copyright
+    #: page is a new front-matter term, so the 72/70 book became 151 against
+    #: 152 — inside one band either way, the shape fix cycle 5 already
+    #: rejected. With the title page the total is
+    #: ``9 + puzzle_pages + answers`` at one TOC page, so 150 needs
+    #: ``2 * puzzles - pairs == 141`` and therefore an **odd** number of
+    #: pairs: 71 puzzles on 70 pages (one pair) is 150 against 151, back on
+    #: the edge, still self-consistent, same claim.
+    SPILLING_PUZZLES = 71
     SPILLING_PUZZLE_PAGES = 70
 
     def test_a_toc_that_spills_on_one_face_but_not_the_other_still_agrees(self) -> None:
@@ -566,7 +576,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
             )
             if with_host != without
         ]
-        assert moved == [1, 2, 3, 4, 6, 8, 10], (
+        assert moved == [2, 3, 4, 5, 7, 9, 11], (
             "with the pre-card host lookup restored, the pages that differ "
             "between a host with Arial and one without must be exactly the "
             "seven that lettered through it — the two guide pages, the table "
