@@ -1,6 +1,6 @@
 # CARD-264: CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/264-claude-md-outside-the-map
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-264
 **Source:** CARD-261's implementation hand-back, 2026-10-22: it re-derived all three defects as real and **left them in place deliberately**, because G-4 confined that card to the layout block. Reported rather than absorbed, which is why they are a card and not a silent fix.
 **Idea:** —
-**Wave:** 54 (next — see the sequencing note)
+**Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_cli.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -216,3 +216,59 @@ because of CARD-261.** The reviewer's reading, which is the sharpest argument on
 places. A reader who follows CARD-261's new pointer, finds a set of three under prose saying two, and
 concludes `admin` is the erosion will **remove a correct entry** — strictly worse than the stale count it
 replaced. The window is one wave long by design; do not widen this card to shorten it.
+
+## [System contract] derived at dispatch 2026-10-22 — projection 10, kept **5**, dropped **5**
+
+Derived with `system_rules.py --card CARD-264 --root meta/architecture` and curated under
+`meta/kanban/curation.md`: keep every `check.kind: review-lens` rule, keep every `kind: test` rule whose
+ADR declares a reach limit, drop the remaining `kind: test` rules because the suite executes them on
+every gate. The idiom grep ran **case-insensitively over the ADR files** and selected ADR-0036, ADR-0037
+and ADR-0039 — ADR-0039 writes it in capitals, which is why the case-insensitive read matters.
+
+**Sanity check passes:** this card's `Touches` includes `tests/**`, so ADR-0039 must be in the kept set,
+and R1–R3 are all present. The projection is unusually small (10, where recent book cards saw 41–58)
+because this card touches no `src/` file at all — four test files and `CLAUDE.md`.
+
+**Kept (5):**
+
+| rule | kind | why kept |
+|---|---|---|
+| ADR-0038/R7 | review-lens | `pytest-playwright` is declared only in a dev-only extra, never in `project.dependencies` or the admin extra — **directly relevant**, since AC-3 is about how `CLAUDE.md` describes the extras |
+| ADR-0038/R8 | review-lens | browser tests fail or skip **loudly** with a named reason, never silently |
+| ADR-0039/R1 | test, reach-limited | a claim needs a control that can fail; caught WITH the set member, missed WITHOUT it — **this card's AC-4/AC-5 are exactly this shape** |
+| ADR-0039/R2 | test, reach-limited | a guard's set is derived from an authority the runtime can enumerate; where none exists it defaults to deny — **AC-1 and AC-4 both turn on it** |
+| ADR-0039/R3 | test, reach-limited | an exemption is a claim and carries a control for what it must NOT absorb |
+
+**Dropped (5), all `kind: test` with a named executing control:** CON-005
+(`PropertyTest_Solver_NeverFalsePositiveUniqueness`), CON-009
+(`TestWebServer_BindsLoopbackOnlyByDefault`), CON-010
+(`PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest`), CON-011
+(`PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30`), CON-012
+(`PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore`).
+
+**One of the dropped rules deserves a word, because this card edits the file that enforces it.** CON-009
+and CON-010 are the web adapter's loopback and cross-origin controls, and they live in
+`tests/test_web_server.py` — the file whose domain-validation guard this card repairs. They are dropped
+because the suite executes them, not because they are irrelevant: **G-2 exists to keep them intact**, and
+a repair to the forbidden-token set that happened to weaken them would red those two named tests. That is
+the right division — the contract tells the reviewer what nothing executes, and the gate holds the rest.
+
+## [Dispatch note] based on **CARD-261's tip**, not on `main`, and the rebase is owed
+
+The worktree is cut from `feb3e6b5` — CARD-261's fix-1 commit — rather than from `main`. The reason is
+this card's own first `## Worktree notes` entry: CARD-261 rewrites `CLAUDE.md`'s layout block and moves
+every line number below it, and the orchestrator was already caught out by exactly that while drafting.
+Cutting from `main` would have had the implementation read `:56`/`:58`/`:60` and write controls against a
+file about to change underneath it in the same two paths. Cut from `feb3e6b5` the three defects sit at
+**`:46`/`:48`/`:50`**, which is what the card's table predicted, and the implementation sees the real
+post-CARD-261 file.
+
+**The two cards share two paths and collide in neither**, which is by construction: G-4 on CARD-261 and
+G-1 here were written as mirror images so every line of `CLAUDE.md` has exactly one owner. CARD-261 owns
+the layout block (its diff is one hunk) and the `TestComponentMap_*` classes; this card owns `:46`/`:48`/
+`:50` and the adapter-allowlist region. CARD-261's cycle 2 verified the out-of-block defects present and
+byte-identical, from the other side.
+
+**Owed:** a rebase onto `main` after CARD-261 merges, before this card's own gate, so the tree tested is
+the tree merged. CARD-261 still has fix 2 in flight and a cycle 3 to run, so this base will fall behind;
+the regions are disjoint, so the rebase should be clean, but it is not optional.
