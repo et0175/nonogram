@@ -180,7 +180,10 @@ findings:
       the stronger claim measurable by holding every derived text to carrying none of an
       enumerated set of record phrases (the survival table already supplies that set), so a
       restatement reds. (a) is the cheap, honest closure; (b) is a card.
-    status: open
+    status: fixed
+    fixed_in: 'fix round 2'
+    fix_note: >-
+      Both sentences are gone, narrowed to what the mechanism enforces -- pointer PRESENCE, never non-restatement. src/nonogram/db/session.py:294-297 now reads "every other docstring in this repository that names CARD-252 carries a pointer back here", with "every measured figure and declared bound of them is stated here" and "rather than restating one" DELETED. tests/test_db_engine_lifecycle.py:710-713's "and restated in no docstring, this one included" is DELETED. The class was then swept, by grep over the HEAD files and over `git diff 27ca88c7..84fd9ded`, not from memory: 12 sites carry a non-restatement / uniqueness / "stated once" / "does not repeat" claim, 11 narrowed or deleted and 1 left (the guard's "That sentence is the only place this docstring names all three globals", which is survival-table row 20's own surviving phrase, is a claim about that docstring's own text rather than about the record, and is measured true -- exactly one sentence of that docstring names all three globals). No replacement sentence explains the mechanism anywhere; the pointer each text must carry is retained in every narrowed text, and the arms stay green. Net prose change over every docstring touched: -33 lines.
 
   - id: F-202
     title: 'the >1 role threshold lets a text reword itself out of the names arm; the same mutant killed before this round and survives now'
@@ -245,7 +248,10 @@ findings:
       class that owns the agreement method. Hold THOSE to the names arm by identity and keep the
       `>1` predicate only as an additional sweep. Short of that: add the two-name cell to the
       matrix, declare the escape as a measured bound, and correct the "reword one away" sentence.
-    status: open
+    status: fixed
+    fixed_in: 'fix round 2'
+    fix_note: >-
+      FIXED by a mechanism change (the one authorised by this round's route), not by prose. The role is no longer read off the text under test. tests/test_db_engine_lifecycle.py's agreement now derives `stated_in` by IDENTITY -- (SESSION_SOURCE, pointer.__name__) off the function object, (CONFTEST_SOURCE, <the function whose body holds the AST call to session.reset_engine through a receiver conftest.py itself binds>) off conftest's own parse, and (this file, type(self).__name__) off the class that owns the agreement -- and holds `texts` to `(path, qualname) in stated_in or len(_names_shown_in(doc, names)) > 1`, keeping the >1 predicate as an additional sweep. A floor assert reds if the derivation does not reach a text in `stated_in` at all. THE THREE MUTANTS, plain-run domain (the committed instrument refuses tests/conftest.py by identity; that refusal was NOT widened -- G-3), whole-word Z-fill of equal length inside _rebuild_public_schema's docstring span, line count preserved, cp -p backup, restore in a finally, restore verified by shasum -a 256 AND diff -q, SHIPPED (18 passed, 2 skipped, exit 0) re-run between every mutant: ROLE-SLIP-ONE (SessionLocal, 1 occurrence) exit 1 KILLED at the names arm :1136; ROLE-SLIP-TWO (SessionLocal + _engine_url, 1 + 1) exit 1 KILLED at :1136 -- THIS IS THE FINDING, it survived at exit 0 before; ROLE-SLIP-THREE (all three, 1 + 1 + 6) exit 1 KILLED at :1136. Each failure names tests/conftest.py:463 _rebuild_public_schema. COUNTERFACTUAL, same domain, two files mutated at once: delete the identity half of the predicate line-count-preservingly (ROLE-IDENTITY-DEL) and SHIPPED stays green at exit 0, but ROLE-SLIP-TWO then SURVIVES at exit 0 again -- caught WITH the identity half, missed WITHOUT it, which is the ADR-0039/R1 shape the predicate previously lacked. The floor has its own mutant: SIG-DEL[conftest] (whole-word CARD-252 Z-filled, 2 occurrences) reds at :1107 naming tests/conftest.py::_rebuild_public_schema. ROLE SPLIT, re-measured by an independent ast walk: BEFORE 11 texts / 3 held to the parameters arms / 2 naming exactly one global / 6 pointer-only. AFTER: IDENTICAL -- 11 / 3 / 2 / 6; the identity set is exactly the three texts the >1 predicate held today, so no text changes role and the new predicate reds nothing new. A >= 1 threshold was MEASURED AND REJECTED: it pulls both module docstrings (tests/helpers/undefined_table_report.py:1 and tests/test_db_engine_lifecycle.py:1) into the names AND heads arms, and each would red on both -- they name `engine` once in ordinary prose and show neither spelling head, so a >= 1 threshold reds two legitimately pointer-only texts. The prose that invited the wrong inference is narrowed: the guard's ":851-853" sentence keeps "holds this docstring to naming each of them as a whole word" and DROPS "-- reword one of the three away and that control reds, per name"; the agreement's "The parameters" paragraph drops its predicate description, its declared bound and its measured split (15 -> 9 lines); session.py's paragraph describing the >1 threshold drops it (7 -> 4 lines). No sentence anywhere explains the new predicate.
 
   - id: F-203
     title: 'the measured residue bound "zero today by inspection" is wrong -- a third marker-carrying docstring restates two of the record''s declared bounds and never names the card'
@@ -312,7 +318,10 @@ findings:
       bound clauses) and either add a pointer sentence to :522 or widen the signature predicate
       to a derived marker set. Re-measuring with a wider marker set than two phrases is the
       cheap part; the sentence that says "zero" has to go either way.
-    status: open
+    status: fixed
+    fixed_in: 'fix round 2'
+    fix_note: >-
+      FIXED by deletion, which is the route this round's rule leaves: the figure is gone and the bound is qualitative. The _CARD_252_SIGNATURE comment now reads "a docstring that restates the record without ever naming the card is outside the derivation's reach, and that residue is not measured here" (8 comment lines -> 2); honest bound 1 on the card drops "measured residue zero today by inspection (2 marker hits...)". RE-MEASURED, independent ast walk over every module/class/function docstring under src/nonogram/ and tests/ that does NOT carry the signature: the count is entirely a function of the marker set, which is why no figure is reproducible here and why the figure is deleted rather than corrected -- 2 under fix 1's two phrases, 7 under the reviewer's ten markers read as the reviewer read them, 20 under the same ten markers with "precondition" as a bare word, 61 with "load-bearing" as a bare phrase. The substantive half of the finding is confirmed and not disputed: tests/test_db_engine_lifecycle.py:522 TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema names CARD-252 nowhere, carries no pointer to the keeper, and restates the precondition bound (:526-527) and survival rows 12 and 14's bound clauses (:540-543) in its own words, so it is outside the derivation entirely and the row-unique check cannot see it. No pointer sentence was added to :522 and the signature predicate was not widened: the first is a new claim sentence (forbidden this round) and the second is a mechanism change outside the one F-202 authorises. Recorded on the card as what the next card has to take.
 
   - id: F-204
     title: 'the survival table''s kind counts do not recompute: 9 bound / 3 figure / 9 narration, not 10 / 3 / 8, and 12 figure-or-bound rows, not 13'
@@ -347,7 +356,10 @@ findings:
 
       FIX: correct the two sentences to 9 / 3 / 9 and 12, or drop the per-kind count and say "the
       figure and bound rows", which is what the mechanism actually keys on.
-    status: open
+    status: fixed
+    fixed_in: 'fix round 2'
+    fix_note: >-
+      FIXED: the counts are corrected to the recomputation, in both places that carried them. meta/kanban/cards/CARD-259.md's F-102 section now reads "of the 21, 9 are bound, 3 are figure, 9 are narration. All 12 figure/bound rows hold the exactly-one-text check", and meta/review/20261021T231000Z-CARD-259-cycle1.yml's F-102 fix_note now reads "The 12 figure/bound rows carry a SECOND check". Re-derived independently by ast.literal_eval of the shipped constant at 84fd9ded: 21 rows, Counter {bound: 9, narration: 9, figure: 3}, figure+bound = 12, bound rows 1, 2, 3, 7, 11, 12, 14, 18, 20 -- the reviewer's reading reproduces exactly. (F-207 then adds a 22nd row, typed figure, so the table AT THIS COMMIT is 22 rows / 9 bound / 4 figure / 9 narration / 13 figure-or-bound; the corrected sentences describe fix round 1's table, which is what they are about, and the new row is recorded in the fix-round-2 notes.) No count was added anywhere; the per-kind figure was corrected, not re-derived into new prose.
 
   - id: F-205
     title: 'honest bound 7 is wrong: the deny-default DOES have a silent-pass path, and the committed test kills it'
@@ -392,7 +404,10 @@ findings:
       FIX: replace honest bound 7 and the PARSE-DENY-DEL paragraph with the substitution mutant
       and its reading. The `UnboundLocalError` reading should stay recorded as the mis-shaped
       mutant it was, not as the measurement.
-    status: open
+    status: fixed
+    fixed_in: 'fix round 2'
+    fix_note: >-
+      FIXED by deletion. Honest bound 7 ("PARSE-DENY-DEL kills by UnboundLocalError, not by the silent pass it was aimed at") is DELETED from the card's collected bounds and the list renumbered; the PARSE-DENY-DEL paragraph loses its conclusion ("the honest reading is that the deny-default has no silent-pass path to delete -- control cannot fall through it -- and the committed test reds either way"), keeping only the measurement it actually took; and the [Fix 1] summary loses "because the deny-default has no silent-pass path to delete". No replacement describing the control was written: the reviewer's PARSE-DENY-CONTINUE reading stands in the cycle-2 report and in the [Review 2/3] note, where it is already recorded, and the deleted bound was the only thing that contradicted it.
 
   - id: F-206
     title: 'the signature regex is not word-bounded on the right, and the comment beside it says every arm means the same thing by "word"'
@@ -425,7 +440,10 @@ findings:
 
       FIX: one word -- say the signature carries its own right boundary and why -- or use
       `_WORD_BOUNDED` for it and keep a digit-exclusion note.
-    status: open
+    status: fixed
+    fixed_in: 'fix round 2'
+    fix_note: >-
+      FIXED by deletion, the cheapest correct route: the false clause is gone from the comment rather than the regex being changed, because the regex is defensible on its own terms and changing it is mechanism. The _WORD_BOUNDED comment now reads "One whole-word match, left and right. Used for the globals and for the pointer." -- "and for the signature above, so 'word' means the same thing in every arm" DELETED. MEASURED, as asked: across every *.py in this worktree, `CARD-252` is followed by a letter or underscore ZERO times and by a digit ZERO times, so the looser right boundary has never matched something it should not; and the derived set is identical under either boundary -- 11 texts, the same 11 by (path, qualname), under re.compile(r"(?<![A-Za-z0-9_])CARD-252(?![0-9])") and under _WORD_BOUNDED.format("CARD-252"). Blast radius zero, measured rather than argued.
 
   - id: F-207
     title: '5 of the 21 survival rows have home == retired_from, so they measure a reword in place rather than a retirement, and the text this round actually retired from has no row'
@@ -470,7 +488,10 @@ findings:
       comment that five rows are rewordings in place; and extend the stated method to the third
       text so the count is reproducible from what this round did rather than from what the card
       was cut about.
-    status: open
+    status: fixed
+    fixed_in: 'fix round 2'
+    fix_note: >-
+      FIXED as table data, with no prose added. (a) The rows whose home is the text they were retired from now say so in the data: their retired_from reads `conftest-reworded` / `guard-reworded`. The reviewer counted five (rows 17-21); re-measured against the two retired texts' own homes there are SIX -- row 16 (retired_from conftest, home tests/conftest.py::_rebuild_public_schema, clause "read it before concluding this call fixed them.", kind narration) is a sixth reword in place that the report did not name. Relabelling retired_from rather than introducing a `reworded` kind is deliberate and measured: two of the six are typed `bound` (rows 18 and 20) and a fourth kind would have taken the exactly-one-text check off them, so the fix would have cost a control. kind stays the measurement axis; retired_from carries the reword. (b) The text fix round 1 actually retired a clause FROM now has its own row, row 22: retired_from "module", clause "Four consecutive build gates on this board reported failures that reproduced on no second run, including ``relation \"puzzles\" does not exist`` and a ``UUID`` column arriving as the float ``inf`` so that ``uuid.UUID(hex=inf)`` called ``.replace`` on it." (the sentence this round's predecessor cut from tests/test_db_engine_lifecycle.py:14-18, read off `git diff -U0 27ca88c7..84fd9ded`), home src/nonogram/db/session.py::reset_engine, surviving phrase "one failing run in each of four consecutive waves -- 45, 46, 47 and 48", kind figure. The shrink floor moves 21 -> 22 with it. The constant's comment is narrowed, not extended: "take the removed docstring lines of those two texts" loses "of those two texts", so the stated method reaches every removed docstring line of the two files it already names -- the third text included -- and the retired_from bullet is narrowed to "which retired text the clause comes from, and ``-reworded`` where that text is also the clause's home today". The table check passes at 22 rows, every row's phrase present in its named home, and all 13 figure/bound rows still exactly-one-text.
 
 cycle1_findings_closure:
   summary: >-
