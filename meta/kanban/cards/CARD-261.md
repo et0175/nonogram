@@ -15,7 +15,7 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** CLAUDE.md, src/nonogram/__init__.py, tests/test_cli.py
-**Review score:** 7.5 (c1) → 7.8 (c2) → fix 2 `335c641e` → **cycle 3 (final, max_cycles 3)**
+**Review score:** 7.5 (c1) → 7.8 (c2) → **8.5 (c3, PASS with 7 bounds)**
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
@@ -789,3 +789,126 @@ summary hook in the tree — but I have not established that it is the cause and
 cannot be relied on, so the defensible figures are **pytest's exit code** plus a separate
 `--collect-only` pass, which executes nothing. Both gates on this card are reported that way. Recorded in
 `meta/kanban/backlog.md` as an `@ops` item rather than chased here.
+
+---
+
+### [Review cycle 3] **8.5 — PASS with seven bounds.** Not an escalation
+
+Report: `meta/review/20261022T111323Z-CARD-261-cycle3.yml`. `10 − 1.0 (I-1) − 0.15 (M-1) − 0.15 (M-2)
+− 0.15 (M-3) = 8.5`, on **cycle 1's basis**, stated rather than re-based.
+
+**The scoring question is answered, and the answer is uncomfortable in both directions.** Cycle 2's
+re-base was not a denominator change at all — it was a different *kind* of number, an absolute artefact
+judgement minus penalties versus penalty-only subtraction. The proof that they are incommensurable:
+cycle 2's own 0.9 of deductions placed on cycle 1's basis gives **9.1**, which is plainly not what it
+meant by 7.8. So the two cannot be reconciled arithmetically, and cycle 3 re-derived cycle 2 onto cycle
+1's basis instead: **≈8.45**.
+
+Which means **my suspicion was right and it cuts against me as well as for me.** The real cycle-1→2
+improvement was ≈**+0.95**, not +0.3, and **cycle 2 probably should have passed** — the escalation I ran
+on the `min_improvement` breach was triggered by an artefact of a changed scoring convention. And the
+corollary the reviewer stated rather than buried: on one consistent basis **this round's improvement is
+only ≈+0.05**, because `feb3e6b5` was already worth ~8.45. It scored the artefact, not the delta, which
+is the right call — but the fix round the owner authorised bought about a twentieth of a point.
+
+**And the pass straddles the bar by convention, not by evidence.** A reviewer re-basing the way cycle 2
+did would score this artefact ≈9.0, land at **7.95**, and fail it. Cycle 3 passes it because the basis is
+cycle 1's and because it weights its Important at 1.0 — *"a regression against the previous round, not a
+standing gap"*. That is disclosed on the card so the owner is not told a cleaner story than the evidence
+supports.
+
+**I-1(a) and I-1(b) are closed, by execution.** The paraphrase attack I asked for
+(`"cli.py is our sole inbound adapter."`) **reds** — the pin is to the **string**, and the failure
+message answers the question in its own words: *"It is not interchangeable with another case."* Reversing
+`CASES` reds nothing that should not. Both sides are pinned by value. And cycle 2's Plant G verbatim now
+reds naming line 40.
+
+### The one Important: the narrowing was a two-way regression, proved by one plant against two revisions
+
+My priority-2 instinct was right, and the shape is worse than "it might have lost a catch" — it lost one
+*and* gained a false positive:
+
+| plant in `CLAUDE.md` | `feb3e6b5` | `335c641e` |
+|---|---|---|
+| `"three distinct inbound adapters"` — a real count, two adjectives | **RED** | **GREEN exit 0** |
+| `"Only the adapters import the orchestrator"` — states no count | **GREEN** | **RED**, *"CLAUDE.md states a count of adapters again"* |
+
+A 44-form sweep at the new boundary found **eight** forms missed-or-falsely-caught that are in no
+committed case and declared nowhere: a two-gap-word class of five, a parenthetical, a comma, a line
+break, plus the new false positive. The inline comment at `:1119` declares the cost with a **three**-word
+example for a bound that shipped at **two**, and the class docstring's *"every shape … is a committed
+case below"* is false for all eight. And the FP class the narrowing was *justified by closing* is
+narrowed rather than closed — `"ADR-0019 section 2 adapters discussion"` still reds.
+
+**Net reach is still better than `feb3e6b5`** — about eight new catch forms including this card's own
+defect, three FPs closed — which is why it is a bound and not an escalation. **~4 lines to close.**
+
+### The self-checking bound: half real, and the reviewer defeated the other half
+
+The planter self-check **is real** — reword `two` → `2` and it reds with *"the lie was not planted … so
+this test has stopped measuring anything"*, verified.
+
+**Then it was defeated, by closing the hole the way a later card actually would.** A new test reading the
+count out of the docstring and holding it to a walk-derived figure left
+`test_the_maps_adapter_count_is_the_other_hole_that_stays_open` **GREEN at exit 0**, and a third plant
+proved that closure genuine. The measured reason: the planted lie touches exactly three lines, **all at
+indent 0**, and `_canonical_map(doc) == _canonical_map(lie)` is **True** — so the two defect arms are
+*provably duplicates* of live arms and cannot fail for the stated reason. A **live planter wrapped around
+two dead arms.** By contrast `test_a_wrong_description_is_the_one_hole_that_stays_open` uses a fabricated
+map and **is** a real hole-assertion. That distinction is the most portable thing this cycle produced.
+
+### Two methodological results worth more than any single arm
+
+**The two new cells are independent — and the matrix could not have shown it.** `:2191` and `:2201` were
+settled by **neutering each arm alone** under the padding attack: floor neutered → red at `:2191` naming
+the sentence; pin neutered → red at `:2201` with `assert 4 >= 5`. Disjoint semantics. But M17 makes both
+conditions true at once, so *"two cells on one mutant"* is equally consistent with **one mechanism
+counted twice**. The fixer's claim was right and **its evidence was insufficient** — exactly the
+distinction this card exists to enforce, applied to the card's own certification.
+
+**The recording-pass trap is now a property, on three independent measurements across two cards.** Both
+of cycle 3's recording-pass mutants exited **0** while carrying FAIL cells. The mechanism is in the
+instrument's own contract: `Pass.RECORDING`'s handler does not re-raise, so a failing arm records FAIL
+and the test completes. **Pytest's recording-pass exit code is not a kill signal.** Draft wording for
+`tests/README.md` is in the report, to land on the next card touching that file.
+
+**The artefact-mutation substitution is sound — mutating the artefact is the *better* experiment — with a
+residual the fixer did not name:** M17 reaches only **2 of the 12** pin arms, and the padding plant is
+precisely the attack artefact-mutation alone would never find.
+
+### Residual minors
+
+- **M-2: the pin list pins the wrong five.** Two of five known-miss slots are still padable, and the
+  unpinned `"sourcing covers CAP-001 and nothing else."` is the **only** corpus detector of the COMP/CAP
+  widening. Padded out, that widening still reds — via a neighbour whose message **misattributes the
+  cause to `capabilities.yml`**. Exit 1 rather than exit 0, hence Minor. **One line to close.**
+- **M-3: three figures do not reproduce.** `:2194` is **not an assert lineno** (the cell is `:2191`);
+  "five strings by value" on the adapter corpus is **six**; "removes one line" is **twelve**.
+
+### Gates and guardrails — all met
+
+G-4 cost one command: `git diff --numstat feb3e6b5 335c641e` returns exactly two paths, neither
+`CLAUDE.md` nor anything under `src/`; CARD-264's defects present and unedited at `:46`/`:48`/`:50`.
+**AC-4 is `1337 0` against `fac4896f`** — zero deletions, which is the proof itself — and all **12**
+lines removed this round were checked individually against `fac4896f` by fixed-string match and are all
+card-introduced. Eleven layering symbols byte-identical by AST; `_ADAPTERS` at `:748`. ADR-0036/R4: three
+hits, all U+2022 in `pdf_generator.py`, the declared exemption. All six guardrails MET.
+
+**AC-5 bound by bound:** three of five satisfy the amended clause cleanly (English descriptions;
+`admin`'s CAP pairing, held by an **equality**; the `CLAUDE.md` prose, both directions). The **forms**
+bound is asserted for its committed subset and **overclaims**. The **number** is asserted only
+nominally. AC-5 is MET as written, with bounds 4 and 5 on a weaker footing.
+
+**Scope gate: `LARGE_BUT_IN_SCOPE` unchanged, no escalation.** Zero components touched behaviourally.
+CARD-264's overlap is unchanged and slightly **better**, since this round's `CLAUDE.md` diff is empty.
+
+### Sequencing — and one thing that got cheaper
+
+**CARD-261 is safe to merge ahead of CARD-264**, and this round adds a *second* place that reds if
+`_ADAPTERS` changes, which makes CARD-264's rename cheaper than it was when AC-7 was written. But land
+AC-7 **next**, not later: the pointer this card creates leaves a window in which a reader could act on
+the lying name and remove a correct entry.
+
+**The reviewer also ruled out the cause I had guessed for the missing summary line.** It reproduced the
+absence in a green **and** a red run and ruled the `full_suite_lock` hook **out** — it only calls
+`write_line`. So the backlog item stands with one candidate eliminated and no cause claimed.
