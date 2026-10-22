@@ -585,3 +585,35 @@ U+2022 / U+2219 sweep over all seven changed files is clean.
 Separately confirmed, and correctly judged: `src/nonogram/__init__.py`'s *"There are exactly two
 adapters"* is **not** a defect — the preceding sentence qualifies it as the *pipeline's* adapters, and
 that file is CARD-261's. Which matches what CARD-261's cycle 3 concluded from the other side.
+
+### [Build gate] PASSED at `d40e9d4a` — exit 0, 23 files, 2752 collected
+
+**The selection is 23 files, not 185, and the contrast is informative.** CARD-261's gate selected 185 of
+212 because it changed `src/nonogram/__init__.py`, the **package root**, which every test importing
+anything under `nonogram` reaches transitively. This card changes **no `src/` file at all**, so the
+selection collapses to the always-on tree-scanning set (22 files) plus the changed test files — 23 after
+dedup. That is impact scoping working as designed rather than failing: narrowing buys almost nothing for
+a root and almost everything for a card that touches only tests.
+
+**All five changed test files are in the selection — verified by name, not assumed.** `test_cli.py`,
+`test_guard_integrity.py`, `test_sourcing_image.py`, `test_timeout.py`, `test_web_server.py`. That
+matters more than usual here, because `tests/test_web_server.py` carries CON-009 and CON-010 (the
+loopback and cross-origin controls that G-2 exists to protect), and the implementation also ran them on
+their own: **6 passed**.
+
+**`CLAUDE.md` was handled separately and the coverage argument is now measured rather than asserted.**
+The selector cannot model a repository-root file (it sits outside `KNOWN_ROOTS`, so it fails closed to
+`FULL` — the known gap already on the backlog). The two files that **read** `CLAUDE.md` are
+`tests/test_cli.py` and `tests/test_guard_integrity.py:80`, and both are in the selection on their own
+merits as changed files, so the `CLAUDE.md` change is covered completely. Note this is the corrected
+figure: I previously recorded *one* reader and was wrong — `test_guard_integrity.py` binds `GUIDANCE` and
+reads it at `:2840`.
+
+**Figures reported the defensible way:** pytest's **exit code 0** plus a separate `--collect-only` pass
+at **2752** tests, which executes nothing. No pass count is quoted, because this repo's `-q` output does
+not reliably print one — it appeared at one gate on this board and not at two later ones, and CARD-261's
+cycle 3 ruled out the `full_suite_lock` hook as the cause. Board lock not taken; pytest announced the
+scratch-path redirect itself in the output.
+
+One pre-existing warning surfaced again and is already on the backlog: `datetime.utcnow()` at
+`admin/image_manager.py:588`.
