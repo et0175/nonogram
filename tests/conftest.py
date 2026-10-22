@@ -482,29 +482,22 @@ def _rebuild_public_schema(engine, database_url: str):
        imports the models a second time as ``src.nonogram``.
     3. :func:`nonogram.db.session.reset_engine` — **last**, so that retiring
        the engine is the final thing this routine does and no engine
-       predating the new schema can exist when the fixture yields.
-       Deliberate, but not load-bearing, and the earlier reading of G-3 here
-       was wrong: ``reset_engine()`` builds nothing, so putting it before
-       step 2 cannot point a fresh engine at a half-built schema. Measured —
-       moved ahead of the Alembic subprocess, ``tests/test_db_engine_lifecycle.py``
-       stays green (CARD-252's own refutation, re-measured as cycle-1 review
-       mutant R7). The half-built-schema hazard belongs to the card's original
-       sketch, which rebuilt eagerly.
+       predating the new schema can exist when the fixture yields. That
+       position is deliberate and **not** load-bearing.
 
-    Step 3 is the fix CARD-252 exists for. ``session.py`` keeps a module-global
-    engine and rebuilds it only when ``DATABASE_URL`` changes, so a process
-    that had already built one for this URL kept it, pool and all, across the
-    ``DROP SCHEMA`` above — leaving a connection older than the schema in the
-    pool, ready to be handed back out. ``tests/test_db_engine_lifecycle.py``
-    pins that this function leaves no such engine behind.
+    Why step 3 exists, why its position is not load-bearing, how that was
+    measured, and what it does and does **not** pin, are CARD-252's record.
+    They are on :func:`nonogram.db.session.reset_engine` (CARD-259): a
+    fixture's reader needs the order, not a refutation, a re-measurement and a
+    review mutant's name. Read that
+    function, and the module docstring of ``tests/test_db_engine_lifecycle.py``
+    it sends you to, before concluding this call fixed anything.
 
-    It does **not** pin that such a connection corrupts a query. Four
-    consecutive build gates on this board reported failures that reproduced on
-    no second run, and they are the motive for the card; the deterministic
-    reproduction was attempted and CARD-252's AC-3 was **withdrawn** for being
-    unforceable on psycopg2, so those gate failures stay unexplained. The test
-    module's docstring says exactly what the control does and does not
-    demonstrate — read it before concluding this call fixed them.
+    That same statement carries the convention this call site stands on: a
+    test retires the engine by calling that function, never by hand-setting
+    ``engine``, ``SessionLocal`` or ``_engine_url`` — neither through a
+    ``setattr(...)`` call nor as a ``.<name> =`` assignment — together with
+    the bound on what little enforces it.
     """
     import subprocess
     import sys

@@ -641,11 +641,22 @@ itself:
 * `tests/test_full_suite_lock.py` at `ddb1731b` — **130 of 130 PASS and
   reached**, zero `NOT-REACHED`, with `41` as the *collected test* count and
   never the denominator.
-* `tests/test_db_engine_lifecycle.py` at `b441ba00` — CARD-257's four-arm grid
-  at `:859` / `:878` / `:889` / `:897`: six `DOC-NAME-DEL` cells RED at `:878`,
-  four `DOC-HEAD-DEL` cells RED at `:889`, `NAMES-BLIND` RED at `:859` with the
-  three arms below it `NOT-REACHED`, `POINTER-ROT` and `POINTER-DEL-WORD` RED at
-  `:897`, `CONTROLS-RENAME-ONLY` `PASS`, SHIPPED all-PASS.
+* `tests/test_db_engine_lifecycle.py` — CARD-257's four-arm grid, measured at
+  `b441ba00`: six `DOC-NAME-DEL` cells RED at the **names** arm, four
+  `DOC-HEAD-DEL` cells RED at the **heads** arm, `NAMES-BLIND` RED at the
+  **preamble** with the three arms below it `NOT-REACHED`, `POINTER-ROT` and
+  `POINTER-DEL-WORD` RED at the **pointer** arm, `CONTROLS-RENAME-ONLY` `PASS`,
+  SHIPPED all-PASS. What the anchor reproduces is that **grid**, not an
+  address: the four addresses are `:1060` / `:1136` / `:1143` / `:1149` at
+  HEAD. They live as literals in
+  `test_kill_matrix.py` and are **re-derived by hand and re-committed** at
+  each card that moves that file — nothing in the suite re-derives them,
+  because the anchor's only check on them is `set(arms) <= linenos`, which
+  says the four literals *are* assert linenos and not that they are *those
+  four arms*. That matters because a shift can **overlap**: measured at the
+  second of the moves, `:897` had become the names arm where it used to be
+  the pointer arm. A membership test
+  cannot tell a misattribution from a reading.
 
 ### Declared bounds
 
