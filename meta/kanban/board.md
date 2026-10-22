@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 17:30 UTC_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 18:05 UTC_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -58,7 +58,7 @@ _Updated: 2026-10-22 17:30 UTC_  ·  <!-- forge:run wave=54 mode=interactive con
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
 | 53 | CARD-261 P2, CARD-262 P2 | ▶ active (CARD-261 **done** `ac63e17a`; CARD-262 in cycle 2) |
-| 54 | CARD-264 P2, CARD-270 P2, (queued: CARD-271, CARD-267, CARD-269, CARD-268) | ▶ active ⚠ (CARD-264 **escalated** at its rebase — 7-region `_ADAPTER_COUNT` conflict with main; CARD-270 took the freed slot) |
+| 54 | CARD-264 P2, CARD-270 P2, (queued: CARD-264 re-entry, CARD-271, CARD-267, CARD-269, CARD-268) | ▶ active (CARD-264 escalated at its rebase then **narrowed and unblocked** the same day — the `_ADAPTER_COUNT` guard folded to CARD-265; CARD-270 holds the slot it freed) |
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -93,11 +93,12 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(unscheduled, quick — owner decision 2026-10-22)_
 - **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(unscheduled, quick — owner decision 2026-10-22)_
 - **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(unscheduled, quick — owner decision 2026-10-22)_
-- **CARD-271** P2 · Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides  _(wave 54 queue, quick — owner bug report 2026-10-22; next into a free slot)_
+- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard  _(wave 54, **narrowed and unblocked** 2026-10-22 — **first into the next free slot**; cycle 1 passed 8.3, `tests/test_cli.py` folded to CARD-265, merge `4f7263fb`, build gate owed because impact-set answers FULL)_
+- **CARD-271** P2 · Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides  _(wave 54 queue, quick — owner bug report 2026-10-22)_
 - **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(wave 54 queue, quick — owner decision 2026-10-22)_
-- **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2 — **now carries CARD-264's escalated guard question**, see below)_
+- **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2 — **now owns the folded `_ADAPTER_COUNT` question** (owner decision 2026-10-22); estimate 0.25d → 0.75d; its item 1 already measured BOTH rival bounds and neither dominates)_
 - **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
 
 ## In Progress
@@ -109,12 +110,6 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
   `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions` · `base: 51128cf5 (main)`
   `started 2026-10-22, took the slot CARD-264's escalation freed` · `implementation running`
-
-## Review
-_(none)_
-
-## Blocked
-- **CARD-264** 🔒 CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard  ← **escalated 2026-10-22 at the rebase step, station: decompose.** `git merge-tree` against main is exit 1 in **7 semantic regions**, all one mechanism: its branch and main both build `_ADAPTER_COUNT`. main's version (CARD-261 cycle 2, merged) admits number-*implying* words (`both`, `only`, `sole`, `a pair of`) with a one-word gap **measured over 32 committed forms**; the branch's is numeral-only with a two-word gap, which cannot match the literal F-101 defect the guard exists for. Taking the branch's side would regress a deny-side guard **silently** — a narrower pattern reds on nothing, so every test stays green. And the boundary is **CARD-265's declared subject** (`Touches: tests/test_cli.py`), so one mechanism is held by three cards. Branch and worktree KEPT, three good commits on them, nothing modified. Owner picks: (1) fold the guard into CARD-265 and narrow this card to its other six files, which merge clean _(recommended)_ · (2) rebase keeping main's guard wholesale · (3) `/kanban redo CARD-264`.
 
 ## Review
 _(none)_

@@ -3,7 +3,7 @@
 **Status:** ready
 **Priority:** P2
 **Category:** tech-debt
-**Estimate:** 0.25d
+**Estimate:** 0.75d  <!-- was 0.25d; raised by the CARD-264 fold, and the claim-card floor is 0.75d -->
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
@@ -14,6 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-261 (it edits the controls that card shipped)
+**Inherits:** CARD-264's `_ADAPTER_COUNT` work, folded here by owner decision 2026-10-22 — see "Folded in" below
 **Touches:** tests/test_cli.py, tests/README.md
 **Review score:** —
 **Started:** —
@@ -168,3 +169,75 @@ it. Draft wording is in `meta/review/20261022T111323Z-CARD-261-cycle3.yml`.
 - **[Gate figures]** This repo's `-q` output does not reliably print a pass-count line — it appeared at
   one gate and not at two later ones, and CARD-261's cycle 3 ruled out the `full_suite_lock` hook as the
   cause. Quote **pytest's exit code** plus a separate `--collect-only` pass, never a pass count.
+
+
+---
+
+## Folded in from CARD-264 (owner decision, 2026-10-22) — and it closes this card's item 1 from the other side
+
+CARD-264 escalated at its rebase: its branch and main both built `_ADAPTER_COUNT`, in seven conflicting
+regions of `tests/test_cli.py`. The owner chose to **fold the guard question here and narrow CARD-264 to
+its other six files**. CARD-264's merge commit `4f7263fb` resolved `tests/test_cli.py` to main's version,
+**byte-identical, verified** — so nothing of main's guard was weakened, and this card now holds the whole
+question with nothing competing for it.
+
+**The fold is not an arbitrary home: CARD-264's branch revision IS the `feb3e6b5` column of item 1's own
+table.** That is the useful discovery, and it resolves the fold cleanly rather than leaving two rival
+patterns to be argued about later:
+
+| | CARD-264's branch (`feb3e6b5` lineage) | main today (CARD-261 fix 2) |
+|---|---|---|
+| quantity words | numerals and number words only | **plus** number-*implying* words: `both`, `only`, `sole`, `a pair of` |
+| gap to the noun | **two** words | **one** word |
+| `"three distinct inbound adapters"` (a real count) | **RED** — caught | **GREEN** — missed |
+| `"the only inbound adapter"` (the literal F-101 defect) | **missed** — no numeral to match | **RED** — caught |
+| `"Only the adapters import the orchestrator"` (no count) | GREEN — correct | **RED** — false positive |
+
+**So the regression runs in BOTH directions, and that is a correction to the escalation note.** The
+escalation said taking the branch's side "would regress a deny-side guard silently", which is true and
+was the right reason not to resolve a merge conflict by hand — but it is only half the measurement. This
+card's item 1 had already measured the other half: main's narrower gap **misses** `"three distinct
+inbound adapters"`, a real count with two adjectives. Neither bound dominates. Recorded here rather than
+edited into the escalation note, per the board's own rule about corrections.
+
+**What this card inherits, concretely.** CARD-264 wrote **nine** test functions/classes in
+`tests/test_cli.py`, confirmed by name against main as **none of them present there**:
+
+```
+test_the_adapter_allowlist_is_closed_and_grows_only_by_a_deliberate_edit   (a rename of
+    test_the_adapter_allowlist_is_closed_at_the_two_known_adapters -- the old name stated a count
+    the assertion had already outgrown: `admin` was admitted, the pin did its job, the prose did not move)
+TestAdapterAllowlist_NoProseClaimsAStaleCount, with seven methods:
+    test_no_prose_around_the_allowlist_claims_a_count
+    test_each_claim_this_card_removed_is_still_caught
+    test_the_rule_passes_prose_that_states_the_rule_instead
+    test_the_pinned_literal_holds_as_many_names_as_the_set_does
+    test_the_pin_has_to_live_in_a_test_and_not_in_a_helper
+    test_a_legitimate_rename_keeps_the_subject_and_the_name_judged
+    test_the_rule_names_the_paraphrases_it_cannot_see
+```
+
+They are **available to adopt, not mandated** — they were written against the branch's pattern, so each
+has to be re-measured against whichever bound this card settles on, and any that cannot red under the
+settled pattern is a claim without a control and must be narrowed or dropped. They are recoverable from
+`card/264-claude-md-outside-the-map` at `d5da18ff` (the commit before the narrowing merge):
+`git show d5da18ff:tests/test_cli.py`. The branch is kept, so nothing has to be reconstructed.
+
+**The corpus floor this card may not shrink.** main's `ADAPTER_COUNT_CASES` holds the **32 forms**
+CARD-261's cycle 2 swept. Whatever bound this card settles on, that corpus is a floor: a settled pattern
+that passes by removing cases is the ADR-0039/R1 defect, not a fix. Item 1's own 44-form sweep found
+**eight** forms missed-or-falsely-caught that are in no committed case — those eight plus the five rows
+of the table above are the minimum the settled bound must be measured against, in **both** directions
+(caught when it should be, silent when it should be).
+
+**Two additions to this card's acceptance, from the fold:**
+
+- The settled `_ADAPTER_COUNT` is **one** pattern, not two. If both bounds are genuinely needed (a wide
+  gap for real counts, a narrow one against cross-references), that is a two-arm guard and **each arm
+  needs its own removable parameter and its own control** — caught with the arm, missed without it — the
+  same shape CARD-262's `door_arms=` uses. A single pattern tuned to split the difference, with no
+  control showing which half does the work, does not meet this.
+- The eight declared-nowhere forms get a **measured bound with a failing control** (ADR-0039/R3), not a
+  sentence. `MEASURED_BLIND_SPOTS` in `tests/test_book_export_interior_cover.py` is the in-repo
+  precedent: a table asserting the shapes **are** silent, so closing a hole reds and the declaration is
+  re-measured instead of standing while the code moves underneath it.

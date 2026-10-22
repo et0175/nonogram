@@ -19,13 +19,16 @@ max_concurrent_override: 2
 # card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
 # at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
 active: [CARD-262, CARD-270]
-escalated:
-  - id: CARD-264
-    reason: "merge BLOCKED: branch and main both build _ADAPTER_COUNT in 7 conflicting regions; main's bound was measured over 32 committed forms (CARD-261 cycle 2) and taking the branch's narrower numeral-only pattern would regress a deny-side guard silently -- all tests stay green. The boundary is additionally CARD-265's declared subject (Touches: tests/test_cli.py), so one mechanism is held by three cards."
-    station: decompose
-    route: "owner decision, 3 options on the card: (1) fold the guard into CARD-265 and narrow this card to its other six files [recommended -- those merge clean] (2) rebase keeping main's guard wholesale (3) /kanban redo CARD-264"
-    at: 2026-10-22T17:05:00Z
-    evidence: "git merge-tree --write-tree main card/264-... -> exit 1 (tests/test_cli.py, meta/kanban/cards/CARD-261.md); the same dry run on CARD-262 -> exit 0, so main is not stale. Branch unmodified: no rebase, no merge, no commit. Cycle-1 report synced to meta/review/20261022T114447Z-CARD-264-cycle1.yml."
+escalated: []
+# CARD-264's escalation CLOSED 2026-10-22 by owner decision (option 1 of the three on its card):
+# fold the _ADAPTER_COUNT guard into CARD-265, narrow CARD-264 to its other six files. Merge commit
+# 4f7263fb resolved tests/test_cli.py to main's version, verified BYTE-IDENTICAL, so main's measured
+# guard is untouched. CARD-264 is back at Status: review and is FIRST IN LINE for the next free slot
+# (cycle 1 already passed at 8.3) -- deliberately NOT added to `active`, because the cap is 2 and
+# CARD-262 + CARD-270 hold both slots. Its build gate is owed: impact-set answers FULL on the narrowed
+# diff, and a full suite must not run beside two live pipelines.
+# Queue for the next free slots, in order: CARD-264 (review cycle on the narrowed diff + AC/EC/G gate),
+# then CARD-271, CARD-267, CARD-269, CARD-268 (the owner's bugs-first order).
 merged_wave_45:
   - id: CARD-248
     merge_commit: 1256982
