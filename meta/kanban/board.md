@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 15:05 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 15:30 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -94,7 +94,7 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 ## In Progress
 - **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates
   `worktree: ../PythonProject4-card-261` · `branch: card/261-control-the-component-map`
-  `7.5` → `7.8` → `fix 2 335c641e (certification RUN: 20 mutants, 19 killed)` · **cycle 3 = final (max_cycles 3)** running
+  `7.5` → `7.8` → **8.5 PASS** · `AC/EC/G gate: PASSED` · **merge-ready, holding for the full-suite window**
 - **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
 - **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2)_
 - **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard

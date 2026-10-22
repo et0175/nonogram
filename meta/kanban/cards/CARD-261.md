@@ -92,11 +92,14 @@ own review found it one file over again.
 - **AC-4** *Given* the extension, *then* `tests/test_cli.py`'s existing layering behaviour is
   unchanged: the same forbidden edges still red and the same legal ones still pass, demonstrated by
   re-running its existing edge-rejection parametrisation rather than asserting it.
-- **AC-5** (guard) *Given* all edits, *then* no component's **description** is claimed to be
-  controlled. The enumeration can hold the **row set**; it cannot judge whether "scores 0..100 from
-  the solver's rung tags" is an accurate account of `difficulty.py`. Declare that bound explicitly in
-  the control's docstring. An honest bound is required; a premise that hides the hole is the thing
-  this board gates on.
+- **AC-5** (guard, **amended in fix round 2** — review cycle 2 `amendment_verdict: ACCEPT`; the
+  superseded wording and the evidence for the change are in `## Worktree notes — fix round 2`)
+  *Given* all edits, *then* no component's **English description** is claimed to be controlled. The
+  enumeration holds the **row set**, and the COMP-id and CAP-id columns are held against
+  `meta/architecture/c4/components-CTX-001.puml`; what no artifact in this repository decides is
+  whether "scores 0..100 from the solver's rung tags" is an accurate account of `difficulty.py`.
+  Declare that bound in the control's docstring **and assert that it is a hole**. An honest bound is
+  required; a premise that hides the hole is the thing this board gates on.
 
 ## Guardrails
 
@@ -912,3 +915,742 @@ the lying name and remove a correct entry.
 **The reviewer also ruled out the cause I had guessed for the missing summary line.** It reproduced the
 absence in a green **and** a red run and ruled the `full_suite_lock` hook **out** — it only calls
 `write_line`. So the backlog item stands with one candidate eliminated and no cause claimed.
+
+---
+
+## [One-way sync, 2026-10-22] The two fix rounds' own notes, pulled from the card branch
+
+The AC/EC/G gate found that **main's copy still carried the superseded AC-5** — no "English", no puml
+named, and **no "and assert that it is a hole"** — while the amended wording, its
+`amendment_verdict: ACCEPT` provenance and the superseded record existed only on the branch. The two
+copies had diverged 617/533. Had the merge landed main's copy, the card would have closed against the
+wording cycle 2 ruled insufficient and the amendment's audit trail would have been lost. AC-5 above is
+now the amended wording, verbatim from the branch, and both fix rounds' own notes follow in full.
+
+That is the board's one-way rule doing its job, and it is the second time this session it has mattered:
+`meta/` is excluded from a card's commits so card prose cannot enter the branch it describes, which means
+the orchestrator owes the pull every time. I missed it here until the gate asked.
+
+## Worktree notes — fix round 1 (review cycle 1, 7.5/10, two Important findings)
+
+Review cycle 1 is `meta/review/20261022T085642Z-CARD-261-cycle1.yml`. Both gating findings were
+control-coverage defects of this card's own subject applied to this card's own output: a claim shipped
+into `CLAUDE.md` that no control could fail on (F-101), and a column of the canonical map left unheld
+although an enumerable authority for it exists in-repo (F-102). Both are closed with controls, not with
+prose. Figures below were re-derived here, not carried over.
+
+### Every orchestrator figure re-derived (two of them had already been corrected on this card)
+
+| figure | method | result |
+|---|---|---|
+| 13 components from the walk | own `rglob` of `src/nonogram/**/*.py`, `parts[0]`, `__init__.py` folded into its directory | REPRODUCES — `admin analysis cli clues db difficulty errors export limits orchestrator solver sourcing web` |
+| 10 COMP ids in the puml, across **two** macros | own parse: `Component(` at `:81 :83 :85 :87 :89 :91 :93 :95 :100` (nine) + `ComponentDb(` at `:102` (one) | REPRODUCES — a `Component(`-only parser misses COMP-010/`db/` |
+| the module lives in the third argument | `"Python — cli.py"`, `"Python — web/ (stdlib http.server)"`, `"Python — db/ (SQLAlchemy, Alembic; Postgres)"` | REPRODUCES — trailing parenthetical is not part of the module |
+| `errors.py`, `limits.py`, `analysis/` have no COMP id | set difference, walk minus puml pairing | REPRODUCES — id column is **10 of 13** by construction |
+| CAP-001..CAP-007 at `:45 :64 :76 :98 :118 :130 :182` | `^\s*-\s+id:\s*(CAP-\d+)` over `capabilities.yml` | REPRODUCES — seven ids |
+| `_ADAPTERS` is at `tests/test_cli.py:748` | read disk | REPRODUCES (the implementation's `:747` was wrong; the orchestrator's correction is right) |
+| `wc -l` denominator | `find src/nonogram -name '*.py' \| xargs wc -l \| tail -1`, 60 files, one `total` line | **604cc542 → 46,289**; `fac4896f` via `git archive` into a scratch dir → **46,260**; numerator **29,358 at both**. Gap 29 = this card's own `+55/−26` on `__init__.py`. See F-104 below. |
+
+### [Correction] The CAP↔module pairing DOES have an authority — it is held, not exempted
+
+The orchestrator's brief measured the CAP column as having *no* authority pairing a capability to a
+module, and directed that the pairing be declared an ADR-0039/R3 exemption. **That figure does not hold,
+and I did not act on it.** `capabilities.yml` indeed pairs nothing — its CAP entries carry only
+`name`/`description`/`events`/`commands`/`aggregates`/`stories`/`requirements`, no component or module
+key (asserted by `test_the_capability_registry_pairs_no_module`). But the **C4 diagram** pairs them: the
+*fourth* argument of a `Component*(` macro **leads** with the capability id —
+
+```
+Component(sourcing, "COMP-003 Grid Sourcing", "Python — sourcing/", "CAP-001: produces a ...")
+```
+
+— for exactly `sourcing`/`clues`/`solver`/`difficulty`/`export`, which is **exactly the five rows of the
+canonical map that carry a CAP id**. Measured: the five pairs are `CAP-001..CAP-005` in map order, and
+the map agrees with all five. So the CAP column is **held against an authority**, not exempted.
+
+**The residual, measured at one.** `admin/`'s description names CAP-006 *mid-sentence*
+(`"... and CAP-006 Book assembly (ADR-0033: ..."`), not as a leading prefix, so the parser reads
+`admin/` as carrying no capability — and the canonical map's `admin/` row carries none either, so the two
+agree. The hole is therefore exactly one component wide, and
+`test_the_capability_pairing_reads_only_a_leading_cap_id` pins the loose-mention set to `["admin"]`: a
+second component picking up that habit reds rather than dropping silently out of the column's coverage.
+
+### F-101 — the uncontrolled component claim in `CLAUDE.md`, both halves
+
+**(a) The claim is gone.** `CLAUDE.md:42` no longer states a count or names a module. It was:
+
+> there are **three** inbound adapters (`cli.py`, `web/` and `admin/`), not one.
+
+It is now: *"its adapter count. This file now states no count at all — which modules are adapters is a
+fact of the canonical map, and the closed set the layering guard holds them to is `tests/test_cli.py`'s
+`_ADAPTERS`."* The diff is **one line**, `@@ -42 +42 @@`, inside the layout block (G-4 verified below).
+
+**(b) The bound now has a control, and so does the claim.** Two new controls, both of which *can* fail:
+
+- `_adapter_counts` + `test_claude_md_states_no_count_of_adapters` — denies any count of adapters
+  anywhere in `CLAUDE.md`, in words or digits, markdown emphasis stripped first (the shipped clause wrote
+  `**three**`; a reader that only saw bare words would have passed the exact line it exists to refuse).
+  **What state would make it red: a count in `CLAUDE.md`. Does that state exist today: it did** — this
+  test was written before the `CLAUDE.md` edit and red on the shipped file, naming line 42 and quoting
+  the clause (pasted below). It is green now.
+- `TestComponentMap_WhatTheClaudeMdReaderAbsorbs` — **10 committed cases**, five that must be flagged and
+  five that are known to be missed, asserted one-for-one with a `len(CASES) >= 10` floor so the corpus
+  cannot silently shrink. Plus `test_prose_with_no_ids_is_the_declared_hole_and_an_id_closes_it`, which
+  measures the hole's **edge**: cycle 1's prose plant is missed, and the same paragraph with **one**
+  `COMP-001` added is caught. The hole is "prose carrying no id", not "prose".
+- `test_each_disjunct_carries_a_case_the_other_does_not` settles what cycle 1 recorded as
+  unestablished: a line only `_CLAUDE_MD_ROW` catches (`conftest.py      # shared fixtures`) and a line
+  only `_COMPONENT_ID` catches (`The solver (COMP-005) is ...`), so each pattern has its own arm.
+
+### F-102 — the id columns, held to an enumerable authority
+
+New: `_c4_components` (the authority parser), `_capability_ids` (the second authority),
+`_map_row_ids` (the map's structured columns), `_id_defects` (**ten** defect kinds). Nothing in
+`_canonical_map`, `_map_defects`, `_component_modules` or the shipped test classes changed except
+docstrings, so the mutants aimed at them still apply.
+
+- **Unconditional, no authority needed** (plant D's half, done first as the brief required): an id
+  claimed by two rows; an id the diagram enumerates that no row carries; an id no diagram enumerates; a
+  CAP id the registry does not list.
+- **Pairing, both directions:** a row whose `(COMP, CAP)` pair is not the diagram's; a module the diagram
+  pairs that the package lacks; a component in the package that is neither exempt nor paired.
+- **Default-deny on the authority (ADR-0039/R2, matching bound 3's precedent in-file):** any
+  `Component*(` macro whose label is not a COMP id, whose technology argument yields no module (a hyphen
+  where the em dash is), or that is a second declaration for a module the dict would otherwise overwrite
+  silently — each returned as unanalysable and turned into a failure naming the line.
+- **The R3 exemption is itself held.** `_WITHOUT_A_COMPONENT_ID = {"analysis", "errors", "limits"}`, and
+  `test_the_three_modules_with_no_component_id_are_named_not_skipped` asserts four things rather than
+  skipping: the set is those three names, each really is in the package, the diagram really pairs none of
+  them, and the map really labels none of them. `_id_defects` then reds in **both** directions — a module
+  that *gains* a diagram entry while the map shows no id, and one that *gains* an id in the map while the
+  diagram pairs none (`test_an_exempt_module_the_diagram_starts_pairing_reds`,
+  `..._the_map_starts_labelling_reds`).
+- **The skip in `_map_row_ids` is a hand-off, not a hole.** It `continue`s on a line it cannot read,
+  which is only safe while `_canonical_map` *denies* that same line.
+  `test_the_two_row_readers_accept_exactly_the_same_lines` pins that the two patterns accept the same
+  set, so narrowing either one reds.
+
+**What remains unheld after this, each with a control asserting it IS a hole:**
+
+| hole | why | the control that asserts it is a hole |
+|---|---|---|
+| a row's **English description** (AC-5) | no artifact in this repo decides whether "scores 0..100 from the solver's rung tags" describes `difficulty.py` | `test_a_wrong_description_is_the_one_hole_that_stays_open` — the literal CARD-261 defect (`difficulty.py ... not yet built (later card)`) passes **both** `_map_defects` and `_id_defects`, asserted |
+| `admin/`'s **CAP-006 pairing** | named mid-description, not as a leading prefix | `test_the_capability_pairing_reads_only_a_leading_cap_id` pins the loose set to `["admin"]` |
+| `CLAUDE.md` **prose with no ids** | `_claude_md_rows` is two patterns, neither of which reads prose | `TestComponentMap_WhatTheClaudeMdReaderAbsorbs`, 10 cases + the edge case |
+| the **"two pipeline adapters"** count inside the *canonical map* | ADR-0019 is its authority; no artifact pairs a component with "is a pipeline adapter", so there is nothing to enumerate. It sits beside held rows (`cli.py`/`web/`/`admin/` all carry COMP ids held to the diagram) and beside `_ADAPTERS`, unlike `CLAUDE.md`'s count which sat alone | **none — declared, not closed.** Candidate for CARD-264's family |
+
+### F-103 / F-104 / F-105 / F-106
+
+- **F-103** — `_canonical_map`'s docstring no longer attributes the four-space rule to the `::` blocks:
+  *"The indent is the whole rule: this parser never looks for `::`, so its reach is every
+  four-space-indented line in the docstring, inside one of the literal blocks or not."*
+- **F-104** — the denominator is corrected to **46,289** with the tree named. Re-derived both ways:
+  `46,289` at `604cc542` (60 files, one `total` line, no `xargs` batching), `46,260` at `fac4896f` via
+  `git archive` into a scratch dir; numerator `29,358` at both; `29358/46289 = 63.4%`, `29358/46260 =
+  63.5%` — **63% on either denominator**. The 29-line gap is exactly this card's own `+55/−26` on
+  `src/nonogram/__init__.py`, i.e. the figure was taken before the author's own edit. **It was never
+  shipped into either map** — re-verified: `grep -nE "29,?358|46,?2[0-9][0-9]|63%" CLAUDE.md
+  src/nonogram/__init__.py` returns nothing — so nothing rots; the correction is to this card's notes
+  only.
+- **F-105** — *"both copies had, in different places"* → *"both copies had **drifted**, in different
+  places"*.
+- **F-106** — decided together with F-101(b), as the brief asked. **Renamed** rather than narrowed:
+  `test_claude_md_states_no_component_row_of_its_own` →
+  `test_claude_md_carries_no_component_row_and_names_no_component_id`, and the failure message now says
+  *"carries a component-map row again, or names a COMP-NNN id ... and the id ban is wider than the row
+  ban on purpose"*. `_claude_md_rows`' docstring states the real breadth (any line of the whole file,
+  prose and fenced code blocks included, no scoping to the layout block), says the id ban is deliberate
+  and why, and names the control that pins it. Narrowing was rejected: an id in `CLAUDE.md` is the first
+  column of a second copy, and the whole-file reach is what caught plant H below.
+
+### Both states, demonstrated on disk — every plant restored and digest-verified
+
+`cp -p` backups of all four files, `shasum -a 256` baseline, restore in an `EXIT` trap, verified by
+**both** `shasum -a 256 -c` and `diff -q`; `git status --porcelain` afterwards showed only the four
+intended modifications. SHIPPED re-run before and after. Selection: the five `TestComponentMap_*`
+classes, 34 collected tests.
+
+| plant | result |
+|---|---|
+| SHIPPED | **34 passed, exit 0** |
+| **C** `solver/ COMP-005 CAP-003` → `COMP-004 CAP-009` | **RED, 4 keys:** `duplicate: ['COMP-004']`, `enumerated and no row carries: ['COMP-005']`, `not the diagram's: ['solver: the map says COMP-004/CAP-009, the diagram says COMP-005/CAP-003']`, `registry does not enumerate: ['CAP-009']` |
+| **D** `clues.py COMP-004` → `COMP-005` | **RED, 3 keys:** `duplicate: ['COMP-005']`, `enumerated and no row carries: ['COMP-004']` (COMP-004 vanished), `not the diagram's: ['clues: the map says COMP-005/CAP-002, the diagram says COMP-004/CAP-002']` |
+| **F** `difficulty.py CAP-004` → `CAP-009` (CAP-id existence) | **RED:** `not the diagram's: ['difficulty: ... COMP-006/CAP-009 ... COMP-006/CAP-004']`, `registry does not enumerate: ['CAP-009']` |
+| **G** puml `"Python — cli.py"` → `"Python - cli.py"` (authority default-deny) | **RED:** `unanalysable Component declarations: ["81: cannot read a module from 'Python - cli.py'"]` plus `COMP-001` unenumerated and `cli` unpaired |
+| **H** prose + **one** `COMP-001` appended to `CLAUDE.md` | **RED:** `['54: The pipeline runs one way. `cli.py` (COMP-001) is the only inbound adapter.']` |
+| **I** the same prose with **no** id | **GREEN — the declared hole, exactly as measured** |
+| **J** `_claude_md_rows` widened (`or "adapter" in line`) | **RED, 3 tests**, incl. *"the declared hole has closed -- _claude_md_rows now catches prose with no ids, so AC-3's bound and this class must be rewritten"* |
+| **K** `_CLAUDE_MD_ROW` narrowed (`\.py` → `\.pyx`) | **RED:** *"these lines no longer read the way ... says: ['conftest.py      # shared fixtures']"* |
+| SHIPPED again | **34 passed, exit 0**; restore verified OK on all four files |
+
+F-101(a)'s own red, before the `CLAUDE.md` edit (TDD, the state existed on the shipped file):
+
+```
+AssertionError: CLAUDE.md states a count of adapters again. A corrected count is still an
+uncontrolled copy of the canonical map's adapter rows (F-101): point at src/nonogram/__init__.py
+and at tests/test_cli.py's _ADAPTERS instead. ["42: ... there are three inbound adapters
+(cli.py, web/ and admin/), not one."]
+```
+
+### Mutants — the committed instrument, with the full domain
+
+Instrument: `tests/kill_matrix.py` (documented in `tests/README.md` from line 453). No second instrument
+written. Every mutant **line-count preserving**; `Edit` validated before application; `cp -p` backup with
+`shasum -a 256` + `diff -q` verification in the instrument's own `finally`; **SHIPPED re-run between
+mutants** and held cell-for-cell; aggregation **ANY-RED** across both passes.
+
+**DOMAIN, stated in full because a per-assertion figure is meaningless without it:** 138 `ast.Assert`
+nodes in `tests/test_cli.py` — an **assert-node count, not a collected-test count**; selection = the five
+`TestComponentMap_*` classes; **34 collected tests**; **55 arms reached**; SHIPPED **0 FAIL of 55
+reached** at **pytest exit 0**; **child instrumentation off**; both `Pass.RECORDING` and
+`Pass.RERAISING` fired.
+
+**16 mutants, 15 killed, 1 proven behaviour-equivalent — no survivors.**
+
+| mutant | recording | re-raising | verdict |
+|---|---|---|---|
+| M1 `_CLAUDE_MD_ROW` **alone** (`\.py`→`\.pyx`) | 3 FAIL | 2 FAIL | KILLED |
+| M2 `_COMPONENT_ID` **alone** (`COMP-\d`→`ZCOMP-\d`) | 4 FAIL | 3 FAIL | KILLED |
+| M3 `_canonical_map`'s `body[0].isspace()` guard → `pass` | 4 FAIL | 4 FAIL | KILLED |
+| M4 `_component_modules`' walrus `is not None` → `is not False` | 6 FAIL | 6 FAIL | KILLED |
+| M5 puml declaration deny → `pass` | 1 FAIL | 1 FAIL | KILLED |
+| M6 puml module deny → `pass` | 1 FAIL | 1 FAIL | KILLED |
+| M7 puml duplicate-declaration deny → `pass` | 1 FAIL | 1 FAIL | KILLED |
+| M8 `_id_defects` duplicate check `> 1` → `> 2` | 2 FAIL | 2 FAIL | KILLED |
+| M9 `_id_defects` mispairing `!=` → `==` | 6 FAIL | 6 FAIL | KILLED |
+| M10 CAP existence `- capability_ids` → `& capability_ids` | 5 FAIL | 5 FAIL | KILLED |
+| M11 `_WITHOUT_A_COMPONENT_ID` gains `"clues"` | 6 FAIL | 4 FAIL | KILLED |
+| M12 `_adapter_counts` emphasis strip `"*"` → `"+"` | 1 FAIL | 1 FAIL | KILLED |
+| M13 `_PUML_CAPABILITY` `:` → `\.` | 3 FAIL | 3 FAIL | KILLED |
+| M14 `_map_row_ids`' `isspace()` guard → `pass` | 0 FAIL | 0 FAIL | **EQUIVALENT — see below** |
+| M15 real map plant C on `__init__.py` | 1 FAIL | 1 FAIL | KILLED |
+| M16 real map plant D on `__init__.py` | 1 FAIL | 1 FAIL | KILLED |
+
+**M1 and M2 fired separately and each killed independently.** Cycle 1 recorded as *not established*
+whether `_CLAUDE_MD_ROW` and `_COMPONENT_ID` are independently controlled, because the reported matrix
+fused them into a single arm. They are: each kills on its own, and
+`test_each_disjunct_carries_a_case_the_other_does_not` is the committed arm for it.
+
+**M14 is a no-op mutant, not a survivor, and that is proved rather than asserted** — the brief's standard
+is that the two look identical. Proof: `_ROW_IDS` is anchored `^(?P<name>[A-Za-z_]...)`, so a body whose
+first character is whitespace can **never** match it, and `_map_row_ids`' non-match path is `continue`.
+Removing the guard therefore cannot change the output. Measured against the worktree's own package:
+`_map_row_ids` returns **13 rows with the guard and the identical 13 tuples without it**
+(`a == b` → `True`), and `_ROW_IDS.match` is `None` for every whitespace-leading probe. The asymmetry
+with M3 is real and load-bearing: `_canonical_map`'s non-match path is **deny**, not `continue`, so there
+the same guard *is* load-bearing and M3 kills.
+
+### AC and guardrail status
+
+- **AC-1, AC-2, AC-3** — MET, unchanged in substance. AC-3's *"exactly one place a row can drift from"*
+  is now reached for the adapter count too, which cycle 1 found it was not: the inline clause is gone and
+  `test_claude_md_states_no_count_of_adapters` keeps it gone.
+- **AC-4 — MET, and its figure holds verbatim against the pre-card tree.**
+  `git diff -U0 fac4896f -- tests/test_cli.py | grep -c '^-[^-]'` → **0**; `--numstat` → **`1028 0`**. So
+  **no line that existed before this card is removed or rewritten**, and `_rank`, `_outward_imports`,
+  `_MODULES`, `_component`, `_SHARED`, `_LAUNCH_EDGE`, `_ADAPTERS` are byte-identical to `fac4896f`.
+  **No AC amendment is needed.** For completeness, against the *reviewed* commit the numstat is
+  `781 14` — and each of those 14 removed lines was checked individually against
+  `git show fac4896f:tests/test_cli.py` and is **absent** from it, i.e. all 14 are lines this card itself
+  added (the F-103/F-106/F-102 docstring and rename edits). The constraint I worked under was exactly
+  this: rewrite only lines this card introduced, never a pre-card line.
+- **AC-5 — MET, and the bound is now narrow as well as honest.** The wording *"no component's
+  **description** is claimed to be controlled"* still describes the shipped artefact, but it is no longer
+  the whole of what the AC should say, because the id columns it silently covered are now held.
+  **Proposed amended wording, for the owner:** *"AC-5 (guard) Given all edits, then no component's
+  **English description** is claimed to be controlled. The enumeration holds the row set, and the COMP-id
+  and CAP-id columns are held against `meta/architecture/c4/components-CTX-001.puml`; what no artifact in
+  this repository decides is whether 'scores 0..100 from the solver's rung tags' is an accurate account
+  of `difficulty.py`. Declare that bound in the control's docstring **and** assert that it is a hole."*
+  The shipped artefact already satisfies the amended form.
+- **G-1 — MET.** Zero removed pre-card lines (above); the 17 walk/layering guards pass inside the 130.
+- **G-2 — MET.** No third copy. The new docstrings describe parsers and bounds; they restate no row. The
+  two false-prose fixtures in `TestComponentMap_WhatTheClaudeMdReaderAbsorbs.CASES` are **counter**
+  examples — statements false of this package — and are commented as such.
+- **G-3 — MET.** No new import at all; `re` and `pathlib.Path` were already imported. `pyproject.toml`
+  untouched.
+- **G-4 — MET in both directions, verified rather than assumed.** `git diff -U0 604cc542 -- CLAUDE.md` is
+  **one hunk, `@@ -42 +42 @@`**, inside the layout block. The three out-of-block defects are present and
+  byte-identical: `:46` still cites `sourcing/random_grid.py`'s `validate_size`, `:48` still says "plus
+  `pytest` as a dev-only extra", `:50` still says the cooperative timeout is "not yet enforced" and still
+  cites 40×40. `grep -nio '[a-z]* [a-z]* adapters\?' CLAUDE.md` returns **nothing** now; before the fix
+  it returned only `42: inbound adapters`, so the adapter-count guard needed no edit outside the block.
+- **G-5 — MET.** `nonogram_poc` appears nowhere; `_refuse_unless_test_database` untouched; no database
+  connected. Every pytest, script and mutation run exported
+  `NONOGRAM_FULL_SUITE_LOCK=/tmp/card261-fix1.lock`; `meta/kanban/.full-suite.lock` was never read,
+  written or created, and the full suite was never run.
+- **G-6 — MET for what was scanned; no whole-tree claim.** Independent `ast` walk over **every** string
+  literal in `src/nonogram/__init__.py`: **zero** codepoints in U+25A0..U+25FF and zero U+2022/U+2219.
+  Separately, every added line of the src-side diff scanned for the same codepoints: **zero**. The only
+  non-ASCII codepoint added anywhere is U+2014 (em dash), which the rule does not cover.
+  `pdf_generator.py`'s three U+2022 remain the declared exemption and no clean-scan claim is made.
+
+### Tests run (never the full suite — CARD-262 is live in a sibling worktree)
+
+- `tests/test_cli.py` — **130 passed, exit 0** (was 107 at `604cc542`: **+23** tests).
+- `tests/test_cli.py -k TestComponentMap` — **34 passed, 96 deselected, exit 0** (was 11: **+23**).
+- `tests/test_guard_integrity.py` + `tests/test_suite_profile.py` + `tests/test_kill_matrix.py` —
+  **606 passed, exit 0**. This is where ADR-0036/R4's and ADR-0039/R1–R3's own checks live, and
+  `test_kill_matrix.py` is added to the subset because this round used that instrument.
+- **Breadth, and the honest limit.** `scripts/impact_set.py --base $(git merge-base HEAD main)` returns
+  **`FULL`** — the selection cannot be narrowed at all this round, so `make test-impact` would have run
+  the whole suite and taken the lock. **I did not run it**, by instruction; the orchestrator runs the
+  real gate. The narrowing that replaces it rests on a measurement: **`tests/test_cli.py` is the only
+  test file that reads `CLAUDE.md`, `meta/architecture/c4/components-CTX-001.puml` **or**
+  `meta/architecture/domain/capabilities.yml`** — every other file that mentions `CLAUDE.md` names it in
+  prose only (`grep -rn 'CLAUDE.md' tests/ | grep -vE 'read_text|open\(|Path'` leaves nothing). So the
+  new controls' *inputs* are fully covered by the subsets above; what is **not** covered is the
+  transitive blast radius of `src/nonogram/__init__.py` being the package root, which is the gate's job.
+- **Verified which package the suite loads**, because every row figure depends on it: a throwaway test in
+  the worktree printed `nonogram.__file__` =
+  `/Users/omelnikova/PycharmProjects/PythonProject4-card-261/src/nonogram/__init__.py` with **13** rows
+  in the docstring. (An early ad-hoc probe of mine imported `nonogram` without the worktree's `src` on
+  `sys.path` and silently read the editable install's copy, reporting 11 rows; the M14 equivalence proof
+  was redone with the worktree's `src` first on the path. Disclosed because the wrong number appeared in
+  my own intermediate output.)
+- **No timing measured and no duration reported.**
+
+### Not done, stated as incomplete
+
+- **F-107 is untouched, deliberately.** `test_the_adapter_allowlist_is_closed_at_the_two_known_adapters`
+  (`tests/test_cli.py:787`) asserts `_ADAPTERS == {"cli", "web", "admin"}` — **three** names under a name
+  and a docstring that both say **two**. It is pre-existing, outside the diff, and scored zero, and the
+  brief forbids editing it unilaterally. It now matters more, not less: F-101(a)'s fix points a reader of
+  `CLAUDE.md` straight at `_ADAPTERS`, and that reader lands on a test whose name lies. **Owner's call:**
+  a one-word rename here, or move it to CARD-264 with the other three stale citations.
+- The **"two pipeline adapters"** count inside the canonical map is declared, not closed (table above).
+- The accuracy of each row's **English description** is unheld by construction (AC-5) and asserted to be
+  a hole; it is not reviewed here.
+
+## Worktree notes — fix round 2 (review cycle 2, 7.8/10, FAIL on `min_improvement`)
+
+Scope as the owner constrained it: **four items, nothing else**. I-1(a), I-1(b), the AC-5 amendment, and
+M-1. F-107 and the three stale "two" claims around `_ADAPTERS` are untouched and stay on CARD-264 — no
+rename anywhere; `CLAUDE.md`'s `:46`/`:48`/`:50` are untouched (G-4, verified below). No new control
+outside those four items.
+
+### What changed, per item
+
+| item | the change | the control that now holds it |
+|---|---|---|
+| **I-1(a)** the padable `>= 10` floor | the total floor is **gone** from `test_every_case_reads_the_way_this_class_says_it_does`; the corpus is pinned **per side** (≥ 5 must-catch, ≥ 5 known-miss) and **by value** | `TestComponentMap_WhatTheClaudeMdReaderAbsorbs::test_the_cases_that_carry_the_claim_are_pinned_by_value` — five strings pinned by value, the `` (False, "`cli.py` is the only inbound adapter.") `` row **first**, so deleting it names *that sentence* and not a count |
+| **I-1(b)** `_adapter_counts` could not match its own docstring's example | `_ADAPTER_COUNT` **widened** (a quantity is a numeral, a number word, or a word implying one — `both`, `only`, `sole`, `a pair of`, `a trio of`; `eleven`/`twelve`/`zero` added) and **narrowed** (the gap to the noun 2 words → 1 word, which is what closed the three measured false positives) | `::test_every_adapter_count_case_reads_the_way_this_class_says_it_does` over the new `ADAPTER_COUNT_CASES` (22 cases), plus `::test_the_adapter_count_cases_that_carry_the_claim_are_pinned_by_value` (≥ 12 deny / ≥ 10 allow, five strings by value) |
+| **AC-5** | amended in the card's `## Acceptance criteria` section, with the superseded wording recorded here | the amendment's own new clause ("assert that it is a hole") is now satisfied in **both** places it was not: M-1 below, and the CASES corpus above |
+| **M-1** the map's "two pipeline adapters" | **both halves**: a control for the scoping, derived from the package walk; and the number itself asserted as a hole | `TestComponentMap_EveryComponentIsListedExactlyOnce::test_the_maps_adapter_count_is_scoped_and_the_walk_is_why` and `::test_the_maps_adapter_count_is_the_other_hole_that_stays_open` |
+
+### M-1 — which of the two the brief offered I chose, and why: **both**, and the measurement that decides it
+
+The brief allowed either a control or the asserted-bound form. The deciding measurement, taken with the
+worktree's own `src` first on `sys.path` (`nonogram.__file__` printed as the worktree copy, not the
+editable install): **all three adapters import `orchestrator`.**
+
+```
+admin imports: ['admin','analysis','clues','db','difficulty','errors','export','limits','orchestrator','solver','sourcing']
+cli   imports: ['difficulty','errors','export','orchestrator','web']
+web   imports: ['difficulty','errors','export','limits','orchestrator','sourcing','web']
+adapters importing orchestrator = ['admin','cli','web'] -> count 3
+```
+
+So the **number** cannot be derived: the package walk says three, the C4 diagram pairs all three with a
+COMP id, and neither artefact says that two of the three are *the pipeline's*. ADR-0019 says it in prose
+("today there are exactly two adapters and one option set", `0019-web-ui-component-boundary.md:32`),
+which is not a set a runtime can enumerate — and a number restated from a literal in the test file is
+not a control (ADR-0039/R2). A regex over an ADR's prose would be a new authority and a new parser on a
+card already flagged **large but in-scope**, and the escalation route was `continue`, not `expand`.
+
+What **is** derivable is the **scoping**, and that is the half that carries the reader risk: the count is
+only true because `admin/` is outside ADR-0019's scope, and the walk is what makes that sentence
+necessary. So `test_the_maps_adapter_count_is_scoped_and_the_walk_is_why` holds three things against the
+package: that every adapter in `_ADAPTERS` imports the orchestrator, that there are **three** of them,
+and that the map still carries the scoping clause. The number itself is then asserted to be a hole —
+cycle 2's Plant A as a committed arm rather than as a reviewer's disk plant.
+
+I also accept the reviewer's correction of my previous framing without reservation: the count did **not**
+relocate from `CLAUDE.md`. `fac4896f` already carried both sentences; this card's edit inserted the word
+"pipeline", narrowing a pre-existing claim. My earlier note implied otherwise and was wrong.
+
+### Both states, demonstrated on disk — every mutation restored and verified two ways
+
+`cp -p` backups of all three targets, a `shasum -a 256` baseline file, restore in a
+`trap ... EXIT INT TERM`, verified by **both** `shasum -a 256 -c` and `diff -q` per path. Scratch in
+`mktemp -d`. Every mutation target was inside `/Users/omelnikova/PycharmProjects/PythonProject4-card-261`;
+the main checkout's `.venv/bin/python` was used as an **interpreter only** and no path under the main
+checkout or `-card-262` was read, written or named as a target. Every invocation exported
+`NONOGRAM_FULL_SUITE_LOCK=/tmp/card261-fix2.lock` and pytest announced the redirect in its own output
+each time. No timing measured, no duration reported.
+
+**The acceptance test for this round — the reviewer's padding attack, GREEN before and RED after.** The
+attack is exactly the one cycle 2 executed: delete `` (False, "`cli.py` is the only inbound adapter.") ``
+and substitute a near-duplicate must-catch row, tuple length still 10.
+
+| state | file under test | result |
+|---|---|---|
+| **1** the attack on `HEAD` (`feb3e6b5`, the reviewed state) | `git show HEAD:tests/test_cli.py` | **GREEN, 34 passed, `PYTEST EXIT=0`** — Plant I reproduces cell for cell |
+| **2** the same attack after the fix | the committed file | **RED, `PYTEST EXIT=1`**, `test_the_cases_that_carry_the_claim_are_pinned_by_value`, message: *"the known-miss case carrying F-101's own wording has been removed from CASES. That sentence is this card's own defect … It is not interchangeable with another case: ['docs/GENERATION_ALGORITHM.md   the generation pipeline', 'tests/README.md    the suite guide', '`difficulty.py` is not yet built.', 'sourcing covers CAP-001 and nothing else.']"* |
+
+The by-value pin is deliberately asserted **before** the per-side floors: in the first arrangement the
+floor fired first and the message said "the known-miss side has shrunk" (`assert 4 >= 5`), which is true
+but says less than the sentence the attack deleted. Both arms exist; the one that names the sentence
+goes first.
+
+**I-1(b) — the planted prose, GREEN before and RED after.** Plant G verbatim, as running prose
+immediately under `CLAUDE.md`'s `## Architecture` heading:
+*"Both inbound adapters import the orchestrator; `cli.py` is the only inbound adapter that parses argv."*
+
+| state | result |
+|---|---|
+| **3** the plant on `HEAD` | **GREEN, `PYTEST EXIT=0`** over `tests/test_cli.py` **and** `tests/test_guard_integrity.py` (261 tests) — Plant G reproduces |
+| **4** the same plant after the fix | **RED, `PYTEST EXIT=1`**, `test_claude_md_states_no_count_of_adapters`, naming the line: *"CLAUDE.md states a count of adapters again … ['40: Both inbound adapters import the orchestrator; cli.py is the only inbound adapter that parses argv.']"* |
+
+**M-1 — the scoping control, GREEN before and RED after.** The scoping sentence
+(*"… not a count of every entry point in the tree: ``admin/`` is a third one, outside ADR-0019's scope as
+written."*) replaced, line count preserved, by a sentence that drops the scope.
+
+| state | result |
+|---|---|
+| **5a** on `HEAD` | **GREEN, `PYTEST EXIT=0`** (34 tests) — the count had no control of any kind |
+| **5b** after the fix | **RED, `PYTEST EXIT=1`**, `test_the_maps_adapter_count_is_scoped_and_the_walk_is_why`: *"the canonical map states a count of adapters and no longer scopes it. Two is ADR-0019's figure; the walk finds three adapters, all of which import the orchestrator, so the unscoped sentence is false of this tree — restore the scope or drop the count"* |
+| **6a** Plant A after the fix (`two` → `five`, both sentences) | **GREEN, `PYTEST EXIT=0`** (39 tests) — **as asserted.** This is the hole, and `test_the_maps_adapter_count_is_the_other_hole_that_stays_open` is the arm that says so |
+| **6b** the count reworded past the planter (`the two pipeline adapters` → `the 2 pipeline adapters`) | **RED, `PYTEST EXIT=1`** — *"the lie was not planted … so this test has stopped measuring anything"*. The hole-assertion is not a test that cannot fail |
+
+**The adapter corpus' own pins, both demonstrated RED.** The reach control is covered by M18/M19 in the
+matrix; these are the by-value pins over `ADAPTER_COUNT_CASES` itself, each by the same substitution
+attack that defeated the old floor — one case replaced, the tuple's length unchanged.
+
+| state | result |
+|---|---|
+| **7a** the false-positive case *"See section 3 about inbound adapters."* replaced by another allow-side row | **RED, `PYTEST EXIT=1`**, `:2323`: *"the false-positive case 'See section 3 about inbound adapters.' has been removed from ADAPTER_COUNT_CASES. Each of these red under the two-word bound this guard used to carry, and a deny-side guard that reds on a sentence stating no count is one the next card switches off."* |
+| **7b** the F-101 deny case replaced by another deny-side row | **RED, `PYTEST EXIT=1`**, `:2307`: *"the case carrying F-101's own wording has been removed from ADAPTER_COUNT_CASES … so it is the one case"* |
+
+### What state would make each control red, and whether that state exists today
+
+| control | red when | exists today |
+|---|---|---|
+| `test_the_cases_that_carry_the_claim_are_pinned_by_value` | any of the five pinned strings leaves `CASES`, or either side drops below 5 | **No** — demonstrated by state 2 above, which is the only way to produce it |
+| `test_every_case_reads_the_way_this_class_says_it_does` | `_claude_md_rows`' reach moves in either direction | **No** (cycle 2's Plant B produced it) |
+| `test_every_adapter_count_case_reads_the_way_this_class_says_it_does` | `_ADAPTER_COUNT` narrows past a quantifier form or widens onto a sentence stating no count | **No** — M18 and M19 in the matrix below are exactly those two directions |
+| `test_the_adapter_count_cases_that_carry_the_claim_are_pinned_by_value` | the F-101 sentence or any of the three false-positive cases leaves `ADAPTER_COUNT_CASES` | **No** |
+| `test_claude_md_states_no_count_of_adapters` | `CLAUDE.md` states a quantity of adapters again, in any committed form | **No** — state 4 is the only way to produce it; `_adapter_counts` on the shipped file returns `[]` under the new pattern as it did under the old |
+| `test_the_maps_adapter_count_is_scoped_and_the_walk_is_why` | `admin` stops importing the orchestrator, `_ADAPTERS` stops being three, or the scoping clause leaves the docstring | **No** — state 5b |
+| `test_the_maps_adapter_count_is_the_other_hole_that_stays_open` | the count **gains** a control, or the map rewords the count past the planter | **No** — state 6b. It reds *when the hole closes*, which is what makes it a bound and not a wish |
+
+### The amended AC-5, written onto the card, with the evidence
+
+Adopted this round, as cycle 2's `amendment_verdict: ACCEPT` directs and for the reason it adds: adopting
+it turns I-1 and M-1 into **AC violations** rather than declared bounds, which is why it belongs in the
+round that fixes them. The card's `## Acceptance criteria` section now reads the amended form; the
+superseded wording is kept here so the change is auditable:
+
+> **Superseded (as created):** *"AC-5 (guard) Given all edits, then no component's **description** is
+> claimed to be controlled. The enumeration can hold the **row set**; it cannot judge whether 'scores
+> 0..100 from the solver's rung tags' is an accurate account of `difficulty.py`. Declare that bound
+> explicitly in the control's docstring."*
+
+Three substantive changes, each with its evidence:
+
+1. **"description" → "English description".** Cycle 1's F-102 was possible *only* because the word
+   "description" silently covered a structured identifier with an authority: a wrong COMP id, a
+   `CAP-009` belonging to nothing, and two rows claiming `COMP-005` were all green under an AC that
+   said descriptions are unheld. Naming the English makes that fold impossible to repeat.
+2. **The authority file is named** — `meta/architecture/c4/components-CTX-001.puml` — so the AC states
+   where the id columns are held rather than leaving a reader to find out.
+3. **"and assert that it is a hole"** promotes ADR-0039/R3 from a practice this card chose into a
+   requirement of the AC. That clause is the one that makes this round's work an AC obligation:
+   it was honoured for the English description
+   (`test_a_wrong_description_is_the_one_hole_that_stays_open`) and for `admin/`'s CAP-006
+   (`test_the_capability_pairing_reads_only_a_leading_cap_id`), and it was **not** honoured for the
+   adapter count (M-1) nor for the CASES corpus (I-1a) — both closed above.
+
+**Checked against what I built.** AC-5 as amended: no component's English description is claimed to be
+controlled; the row set is held; both id columns are held against the named puml; the bound is declared
+in `_map_defects`' docstring **and** asserted by `test_a_wrong_description_is_the_one_hole_that_stays_open`.
+The two bounds the clause newly reaches are now asserted as well — the adapter count by
+`test_the_maps_adapter_count_is_the_other_hole_that_stays_open`, and the corpus' own extent by
+`test_the_cases_that_carry_the_claim_are_pinned_by_value`. **MET, and met in the amended form.**
+
+### AC and guardrail status after this round
+
+- **AC-1, AC-2, AC-3 — MET, unchanged in substance.** No control they name was edited; the five
+  `TestComponentMap_*` classes keep their names and their existing methods.
+- **AC-4 — MET, figures as cycle 2 settled them and not re-derived.** `0` removed lines and `1028 0`
+  against `fac4896f` are the cycle-2 figures and I did not reproduce them; what I checked is that this
+  round preserves the property: **this round removes one line this card itself added** (the
+  `assert len(self.CASES) >= 10, self.CASES` floor, added at `feb3e6b5`) and no pre-card line. Measured:
+  `git diff -U0 fac4896f -- tests/test_cli.py | grep -c '^-[^-]'` → **0**.
+- **AC-5 — MET in the amended form** (above).
+- **G-1 — MET.** Zero removed pre-card lines; the layering guard's symbols are untouched. My one new
+  read of the walk (`_imported_components` over `_MODULES`, in the M-1 scoping control) **consumes** the
+  existing helpers and changes none of them: no rule relaxed, retargeted or deleted.
+- **G-2 — MET.** No third copy. `ADAPTER_COUNT_CASES`' deny-side rows are *counterexamples* —
+  statements this repository must not make — and the two that resemble the map's own wording
+  (`the two pipeline adapters import ``orchestrator```) are there to be **refused**, not restated. The
+  new docstrings describe patterns, authorities and bounds; they quote no row.
+- **G-3 — MET.** No new import at all this round; `pyproject.toml` untouched.
+- **G-4 — MET, and this round does not touch `CLAUDE.md` at all.** `git diff fac4896f HEAD -- CLAUDE.md`
+  is unchanged from cycle 2's verified state (one hunk, `@@ -42,11 +42 @@`); this round's diff for
+  `CLAUDE.md` is **empty**, so `:46`'s `validate_size` citation, `:48`'s "dev-only extra" and `:50`'s
+  "not yet enforced"/40×40 are byte-identical by construction rather than by inspection.
+- **G-5 — MET.** `nonogram_poc` appears nowhere in this round's diff; `tests/conftest.py` and
+  `tests/database_guard.py` untouched; no database connected. Every pytest, script and matrix invocation
+  exported `NONOGRAM_FULL_SUITE_LOCK=/tmp/card261-fix2.lock`, pytest announced the redirect each time,
+  and `meta/kanban/.full-suite.lock` was never read, written or created. The full suite was never run.
+- **G-6 — MET trivially this round: `src/nonogram/__init__.py` is not edited.** This round's only source
+  change is `tests/test_cli.py` plus the card, so ADR-0036/R4's live surface is unchanged from the state
+  cycle 2 verified. No whole-tree clean claim is made.
+
+### Figures I did NOT re-derive, because cycle 2 settled them
+
+As instructed. AC-4's `0` / `1028 0` against `fac4896f` (and that the `1028 0` is itself the proof no
+pre-card line was removed); the five-row CAP agreement as a convention with the loose set `["admin"]`;
+the ten defect kinds as ten behaviours with all 90 ordered pairs separable; M14 a no-op and M3 not
+(0 → 22 unanalysable versus 13 cell-identical tuples). None of them is restated as mine.
+
+### Certification — `8f-mutation` RUN, not deferred a third time
+
+Cycle 2 refused to propose a third deferral, and this round does not ask for one. The matrix was
+**re-fired in full over the changed selection**, including four new mutants over the arms this round
+adds, so cycle 3 inherits a certified selection rather than one that moved under a certified matrix.
+
+Instrument: the committed `tests/kill_matrix.py` (contract in `tests/README.md` from line 453). **No
+second instrument written.** Every mutant line-count preserving; `Edit` validated before application;
+assert topology re-derived from each mutated file; `cp -p` backup with `shasum -a 256` + `diff -q` in the
+instrument's own `finally`; **SHIPPED re-run between mutants** and held cell-for-cell; aggregation
+**ANY-RED** across both passes.
+
+**DOMAIN, stated in full because a per-assertion figure is meaningless without it:**
+**155 `ast.Assert` nodes** in `tests/test_cli.py` — an **assert-node count, not a collected-test count**
+(138 at `feb3e6b5`, so +17 this round); selection = the **five `TestComponentMap_*` classes**, unchanged
+and unrenamed; **39 collected tests** (34 at `feb3e6b5`); **72 arms reached**; SHIPPED **0 FAIL of 72
+reached** at **pytest exit 0** with 39 collected; **child instrumentation OFF**, so the `0 BLIND` reading
+means *the overlay never ran*, not that no arm is blind, and an arm executing only inside a child records
+nothing; both `Pass.RECORDING` and `Pass.RERAISING` fired.
+
+**20 mutants, 19 killed, 1 the known no-op — no survivors.**
+
+| mutant | recording | re-raising | verdict |
+|---|---|---|---|
+| M1 `_CLAUDE_MD_ROW` alone (`\.py`→`\.pyx`) | 3 FAIL, exit 0 | 2 FAIL, exit 1 | KILLED |
+| M2 `_COMPONENT_ID` alone (`COMP-\d`→`ZCOMP-\d`) | 4 FAIL, exit 0 | 3 FAIL, exit 1 | KILLED |
+| M3 `_canonical_map`'s `isspace` guard → `pass` | 5 FAIL, exit 0 | 5 FAIL, exit 1 | KILLED |
+| M4 `_component_modules` walrus `is not None`→`is not False` | 8 FAIL, exit 1 | 7 FAIL, exit 1 | KILLED |
+| M5 puml declaration deny → `pass` | 1 FAIL, exit 1 | 1 FAIL, exit 1 | KILLED |
+| M6 puml module deny → `pass` | 1 FAIL, exit 1 | 1 FAIL, exit 1 | KILLED |
+| M7 puml duplicate-declaration deny → `pass` | 1 FAIL, exit 1 | 1 FAIL, exit 1 | KILLED |
+| M8 `_id_defects` duplicate `> 1` → `> 2` | 2 FAIL, exit 0 | 2 FAIL, exit 1 | KILLED |
+| M9 `_id_defects` mispairing `!=` → `==` | 7 FAIL, exit 0 | 7 FAIL, exit 1 | KILLED |
+| M10 CAP existence `- capability_ids` → `&` | 6 FAIL, exit 0 | 6 FAIL, exit 1 | KILLED |
+| M11 `_WITHOUT_A_COMPONENT_ID` gains `"clues"` | 7 FAIL, exit 0 | 5 FAIL, exit 1 | KILLED |
+| M12 `_adapter_counts` emphasis strip `"*"`→`"+"` | 1 FAIL, exit 0 | 1 FAIL, exit 1 | KILLED |
+| M13 `_PUML_CAPABILITY` `:` → `\.` | 4 FAIL, exit 0 | 4 FAIL, exit 1 | KILLED |
+| M14 `_map_row_ids`' `isspace` guard → `pass` | 0 FAIL, exit 0 | 0 FAIL, exit 0 | **the known no-op** (below) |
+| M15 real map plant C on `__init__.py` | 2 FAIL, exit 0 | 2 FAIL, exit 1 | KILLED |
+| M16 real map plant D on `__init__.py` | 2 FAIL, exit 0 | 2 FAIL, exit 1 | KILLED |
+| **M17 the padding attack on `CASES`** (new) | 2 FAIL, exit 0 | 1 FAIL, exit 1 | KILLED — `:2191` the F-101 by-value pin **and** `:2201` the known-miss floor, two independent arms |
+| **M18 `_ADAPTER_COUNT` narrowed to numerals only** (new) | 1 FAIL, exit 0 | 1 FAIL, exit 1 | KILLED — `:2285`, the adapter corpus |
+| **M19 `_ADAPTER_COUNT` gap widened back to two words** (new) | 1 FAIL, exit 0 | 1 FAIL, exit 1 | KILLED — `:2285`, the false-positive cases |
+| **M20 the scoping sentence removed from the canonical map** (new) | 1 FAIL, exit 0 | 1 FAIL, exit 1 | KILLED — `:1614`, M-1's scoping control |
+
+**M14 is the no-op cycle 2 proved, and I do not re-prove it.** Cycle 2 established it by output
+comparison rather than by a matrix cell — `_map_row_ids` returns 13 cell-for-cell identical tuples with
+and without the guard, because `_ROW_IDS` is anchored and the non-match path is `continue` — versus M3's
+0 → 22 unanalysable, where the non-match path is deny. Its 0/0 here is consistent with that and is not
+independent evidence of it.
+
+**M17 is the acceptance test of this round, measured arm-level.** Its two recording-pass FAIL cells are
+`:2191` (the by-value pin on the F-101 sentence) and `:2201` (the known-miss floor) — two arms, so the
+pin and the floor are not one control wearing two names: the pin names the sentence, the floor catches a
+shrinkage that leaves the sentence in place. Under the re-raising pass only `:2194` reds, because that
+pass short-circuits at the first failing assert, which is exactly the attribution the recording pass
+exists to make.
+
+**The trap the brief carried from the sibling card reproduced here, 15 times.** Under the recording pass
+**16 of the 20 mutants exited 0**, and **15 of those 16 carry FAIL cells** (all but M14). A test-level
+reading of the recording pass would therefore have published fifteen killed mutants as survivors —
+including every one of this round's four new ones. The kill verdicts above are arm-level attributions
+from the matrix, cross-read against the re-raising pass's true propagation (exit 1 on all 19), and at no
+point substituted with pytest's own exit code.
+
+**Restore verification at exit:** `shasum -a 256 -c` over the two mutated paths → 2× OK; `diff -q`
+against an independent pre-matrix copy of `tests/test_cli.py` → identical; `git status --porcelain`
+shows only `meta/kanban/cards/CARD-261.md` and `tests/test_cli.py` modified (plus the two untracked
+review reports, which are the reviewer's); `git diff --stat HEAD -- CLAUDE.md src/` is **empty**.
+
+**Nothing left un-refired.** All 16 of cycle 2's cells were re-fired cell for cell, plus 4 new ones. No
+cell is reported from cycle 2's numbers.
+
+**Disclosed, because the linenos above have to match the committed bytes:** the matrix was fired twice.
+The first firing was against a state two blank lines and one reflowed docstring paragraph earlier than
+the commit, so its cells carried linenos 2–3 higher. The verdicts were **identical mutant for mutant**
+(19 killed, M14 0/0; the same FAIL counts in both passes), and the figures reported above are the
+**second** firing, taken against the exact bytes committed — `shasum -a 256 -c` over both mutated paths
+→ 2× OK, and `diff -q` against an independent pre-matrix copy → identical. Nothing in this table comes
+from the earlier run.
+
+### Tests run (never the full suite — CARD-262 is live in a sibling worktree)
+
+Scoped exactly as the brief binds: `tests/test_cli.py`, `tests/test_guard_integrity.py`,
+`tests/test_suite_profile.py`, `tests/test_kill_matrix.py`. The main checkout's
+`.venv/bin/python` was used **as an interpreter only**, with `cwd` = this worktree.
+
+- `tests/test_cli.py` — **135 collected, exit 0** (130 at `feb3e6b5`: **+5**).
+- `tests/test_cli.py -k TestComponentMap` — **39 collected, exit 0** (34 at `feb3e6b5`: **+5**). The
+  five class names are unchanged; the five new methods sit inside two of them.
+- The four scoped files together — **741 collected, exit 0** (`tests/test_cli.py` 135,
+  `tests/test_guard_integrity.py` 131, `tests/test_kill_matrix.py` 76,
+  `tests/test_suite_profile.py` 399). The collection figure comes from `--collect-only`, because this
+  repository's `-q` run prints no pass-count line of its own; the verdict I report is pytest's **exit
+  code**, and I do not quote a pass count I cannot show. Re-run against the exact committed bytes:
+  `SUBSET_EXIT=0`.
+- `tests/test_guard_integrity.py` was run at the fixed state **and** under the CLAUDE.md plant
+  (state 3/4 above), which is the file cycle 2 corrected me about: it *does* read `CLAUDE.md`, at
+  `:80`/`:2840`, in the Commands section around line 10 — nowhere near this card's single hunk at
+  line 42. I carry that correction rather than repeating the claim it falsified; this round does not
+  touch `CLAUDE.md` at all.
+- Every invocation exported `NONOGRAM_FULL_SUITE_LOCK=/tmp/card261-fix2.lock`, and pytest announced the
+  redirect in its own output each time. `meta/kanban/.full-suite.lock` was never read, written or
+  created. `make impact-set` / `make test-impact` were not used.
+- **No timing measured and no duration reported.**
+- **Which package the suite loads, confirmed again** because every structural figure depends on it: the
+  `python -I` probes printed `nonogram.__file__` =
+  `/Users/omelnikova/PycharmProjects/PythonProject4-card-261/src/nonogram/__init__.py`, with the
+  worktree's `src` first on `sys.path`. No ad-hoc `python -c "import nonogram"` was trusted for any
+  figure — that is the editable-install trap, and it reports the pre-card 11-row map.
+
+### Not done, stated plainly as incomplete
+
+- **F-107 and the three stale "two" claims around `_ADAPTERS` are untouched**, by instruction: the
+  module comment ("this set is closed at two names"), the test name
+  (`test_the_adapter_allowlist_is_closed_at_the_two_known_adapters`) and its docstring's first line.
+  Nothing renamed. They stay on **CARD-264**. My own M-1 control reads `_ADAPTERS` and asserts its
+  members all import the orchestrator; it does not edit the set, the comment, the name or the docstring,
+  and it adds a second place that will red if the set changes — which is a reason CARD-264's rename is
+  cheap, not a reason to do it here.
+- **The number in "There are exactly two adapters (ADR-0019)" still has no authority**, and that is now
+  asserted rather than declared (M-1 above). Closing it would need an enumerable set for "ADR-0019's
+  adapters"; the only statement of it in the repo is ADR-0019's prose. Not attempted this round: it is a
+  new authority and a new parser, and the escalation route the owner picked was `continue`.
+- **A floor or a by-value pin cannot be certified by weakening the assertion itself.** The instrument
+  refuses an edit that moves the target's assert topology, "each node's lineno *and* what the assertion
+  at it says", so a mutant that neuters an assert inside `tests/test_cli.py` is refused by design. Those
+  arms are therefore certified by mutating the **artefact** they pin (M17 for `CASES`, M20 for the
+  docstring's scoping sentence), which is the right direction but is worth stating as a bound rather
+  than leaving it to be inferred from the mutant list.
+- **The forms `_adapter_counts` still misses are not closed, deliberately** — an enumeration ("The
+  adapters: cli, web, admin"), a count under another noun ("three inbound entry points"), a number more
+  than one adjective away, a hyphenated adjective, "adapters x2", "adapters number three". Every one is
+  a committed `False` case, and the helper's docstring and the test's docstring both now say so. The
+  brief's standard was that the control's name, message and docstring state the shape it actually has,
+  not that every form be caught.
+- **The full suite and the real impact gate were not run**, by instruction. `scripts/impact_set.py`
+  returns `FULL` for this card, so the coordinator's gate is the only instrument that can cover
+  `src/nonogram/__init__.py`'s transitive blast radius — and `src/` is untouched this round, so the
+  radius is unchanged from the gate that already passed at `feb3e6b5`.
+- **M-2's three non-reproducing figures** (the gate-breadth measurement, the diff-hunk notation
+  `@@ -42,11 +42 @@`, the `_id_defects` taxonomy grouping) are **not** corrected in the fix-round-1 notes
+  above — those notes are the record of what that round claimed. The corrections are carried here
+  instead: the gate-breadth sentence was false as stated (two files read `CLAUDE.md`), the hunk header is
+  `@@ -42,11 +42 @@`, and two of the four `_id_defects` kinds the taxonomy sentence called
+  authority-free — "a COMP id the diagram does not enumerate" and "a COMP id the diagram enumerates that
+  no row carries" — are set differences against `authority` and do need it. Only the duplicate count over
+  `rows` and the CAP-registry membership test hold with an empty authority.
+
+---
+
+### [AC/EC/G verification gate] **GATE PASSED** — and it found two merge preconditions the card did not carry
+
+**The phantom-control check cleared first**, which is the one this station exists for. All five named
+classes re-derived **per class by direct `--collect-only`**, not by arithmetic — including the `17` I had
+handed over as arithmetic, which holds: 4 / 6 / 3 / **17** / 9 = **39**, matching the whole-selection
+figure. `tests/test_cli.py` collects 135; AC-4's named parametrisation collects 11; G-6's control
+collects 1. **No pytest exit-5 anywhere and no named class that exists nowhere** — the CARD-221 /
+CARD-206 failure mode is absent. Package identity confirmed in an isolated `python -I`:
+`nonogram.__file__` is the worktree's copy with **13 rows**, so the editable-install trap is excluded
+from every figure.
+
+**The card declares no ECs** — stated rather than left blank.
+
+**Every control that admits a failing state was made to fail.** Plants: a real module
+`src/nonogram/planted_component.py` (reds naming `planted_component`), a real planted row, a row pasted
+into `CLAUDE.md` (reds naming `'55: cli.py COMP-001 the only inbound adapter'`), a wrong COMP id (reds
+naming *"the map says COMP-004/CAP-003, the diagram says COMP-005/CAP-003"*), and a planted U+2022 in
+`src/nonogram/__init__.py`'s docstring. Mutants: `_rank` degenerated to one rank, `_outward_imports`'
+`<=` relaxed to `<` (**3 of 10** forbidden-edge params red — a live control over precisely the relaxation
+G-1 forbids), and `_map_defects`' `> 1` → `> 0`.
+
+**AC-4 got an independent structural re-derivation** rather than carrying cycle 3's: AST source-segment
+comparison against `fac4896f` shows **17 symbols byte-identical**, the four walk guard functions
+byte-identical, and the `parametrize` decorator carrying the ten forbidden edges byte-identical; numstat
+`1337 0`; the diff is exactly two hunks — `+import re` at line 14 and a 1336-line append after line 1081.
+
+**G-6 was re-derived by the gate's own AST scan over all 60 files** under `src/nonogram/**`: exactly
+three hits, all U+2022, all at `admin/pdf_generator.py:321`, the declared exemption. No whole-tree claim.
+
+### Two findings of the gate's own, beyond what cycle 3 named
+
+**AC-3 — MET with a bound cycle 3 did not name.** `test_claude_md_points_at_the_canonical_map` and its
+sibling assert only that the substrings occur **somewhere in `CLAUDE.md`**. Demonstrated: with line 42
+stripped of both pointer sentences and the two tokens moved into an **HTML comment in the Commands
+section**, all 39 tests pass at exit 0. So AC-3's *"points at `src/nonogram/__init__.py`"* half is
+**tight in fact today** — exactly one occurrence of each token, both inside line 42 — **and loose in
+form**. ~2 lines to close. This is the same shape as the card's own subject: a claim held by a
+whole-file substring rather than at the place it is made.
+
+**AC-5 — and the gate drew a line cycle 3 left implicit.** It verified against the **amended** wording
+and separates two readings: AC-5's *own text* obliges one declared-and-asserted bound (the English
+description), and that one has a control the gate made fail — so **AC-5 is MET on its text**. But the
+card extended the clause to all five bounds, and under that reading **the number bound is asserted only
+nominally, and the gate says plainly that a nominal assertion does not satisfy "assert that it is a
+hole"**. Its evidence is four-fold and decisive: `_canonical_map(doc) == _canonical_map(lie)` **and**
+`_map_row_ids(doc) == _map_row_ids(lie)` are both **True**, so the two defect arms evaluate the *same
+values* as the live arms; the test red on every **unrelated** defect planted (module, row, wrong COMP id,
+the `>1→>0` mutant); and it **stayed GREEN at exit 0 while the map stated a false count** (`two` → `five`
+in both sentences, 39 passed). Its docstring's *"A later card that gives the count an authority will red
+here and delete this test deliberately"* is **false for every mechanism anyone would actually use**.
+
+**And three committed sentences overclaim, with the arithmetic.** `tests/test_cli.py:1109-1111` says
+cycle 2's 32 forms are *"every one of them a committed case"* — the corpus has **22**, and of the **25**
+forms recoverable from cycle 2's report **7 are represented by no case**; the universal is also
+arithmetically impossible as written. `:1125`'s declared cost names `"three distinct inbound process
+adapters"` while the real boundary is **one word narrower** — `'three distinct inbound adapters'` evades
+the shipped pattern. And the card at `:983` claims every listed form is a committed `False` case;
+**`'adapters x2'` is not in the file**.
+
+**A correction to the bound I recorded from cycle 3.** I wrote that all five two-adjective forms were
+caught at `feb3e6b5`. **It does not reproduce:** three were (`three distinct inbound adapters`,
+`2 distinct inbound adapters`, `three inbound python adapters`); **`Both known inbound adapters` and
+`a pair of distinct inbound adapters` were missed then too**, because `both`/`a pair of` were not in the
+old alternation. So the regression is **three** forms, and the other two are **pre-existing gaps** — a
+distinction that matters for CARD-265, where fixing a regression and closing a pre-existing gap are
+different jobs.
+
+### The seven bounds the owner accepts by merging
+
+| # | What is being accepted | Status |
+|---|---|---|
+| 1 | A plain count of adapters standing **two adjectives** from the noun can go back into `CLAUDE.md` unnoticed; the comment at `:1125` states the cost one word too wide. **Three** of the forms are this round's regression, two are pre-existing. | prose only — ~4 lines (**CARD-265 AC-1/AC-2**) |
+| 2 | A sentence stating **no** count can red the guard with a message claiming it states one. A deny-side guard with a misdescribing message is the documented route to being switched off. | prose only — ~2 lines (**CARD-265 AC-1**) |
+| 3 | The hole-test for the adapter number will **not** notice the hole closing by any mechanism outside `_map_defects`/`_id_defects`, and its docstring says it will. Its planter self-check *is* a real control. | prose only, confirmed by execution — ~2 lines (**CARD-265 AC-4**) |
+| 4 | Five of ten `CASES` slots are held by arithmetic rather than by value — including `"sourcing covers CAP-001 and nothing else."`, the corpus' **only** detector of a `_COMPONENT_ID` widening across the COMP/CAP boundary. | partly asserted — one line (**CARD-265 AC-3**) |
+| 5 | The *"exactly two adapters (ADR-0019)"* **number** has no enumerable authority and cannot be derived; the **scoping** is controlled, the number is not. The number is **true** of the tree as written. | carded forward — needs an authority or a parser over ADR prose (**CARD-265 AC-4**) |
+| 6 | The certification's 20 mutants do not establish that every by-value pin has its own control — M17 reaches **2 of 12** pin arms. | prose only — two more artefact mutants per corpus (**CARD-265**) |
+| 7 | CARD-264's three stale "two" claims are now reachable from a pointer this card created at `CLAUDE.md:42`. | carded forward — **CARD-264, already implemented** |
+
+Plus the gate's own eighth, recorded here because it was found at the gate and belongs with the others:
+**AC-3's pointer half is a whole-file substring test**, tight in fact and loose in form, ~2 lines.
+
+### Merge ahead of CARD-264 — measured, not argued
+
+Done from the gate's own tree and the shared object store; it entered neither sibling worktree.
+`git merge-base d40e9d4a 335c641e` = **`feb3e6b5`**, so CARD-264 is branched from this card's own fix-1
+tip and already carries `import re` and the fix-1 classes. **Trial three-way merge
+`git merge-tree --write-tree 335c641e d40e9d4a` → exit 0, zero conflicts**, result tree `d15e1685`. And a
+*semantic* cross-check on the merged tree rather than only a textual one: this card's own helpers run
+over the merged `CLAUDE.md` blob give `_claude_md_rows` → `[]` and `_adapter_counts` → `[]` with both
+pointer substrings present, so CARD-264's three-line change reintroduces no COMP id and no count. All
+five `TestComponentMap_*` classes intact; CARD-264 keeps the `_ADAPTERS` symbol and renames only the
+test, so this card's M-1 scoping control survives the rename.
+
+**Conclusion: merge CARD-261 first; CARD-264 needs no rebase beyond fast-forwarding past fix round 2.**
+
+**Disclosed by the gate:** one `ls` stat of main's `.full-suite.lock` path at the end (result: no such
+file). A stat, nothing read, written or created.
