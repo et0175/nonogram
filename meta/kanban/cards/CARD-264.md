@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_cli.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md
-**Review score:** —
+**Review score:** 8.3 (cycle 1, PASS — one polish round before the gate)
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -617,3 +617,119 @@ scratch-path redirect itself in the output.
 
 One pre-existing warning surfaced again and is already on the backlog: `datetime.utcnow()` at
 `admin/image_manager.py:588`.
+
+---
+
+### [Review cycle 1] **8.3 — PASS** (baseline `10 − deductions`, stated), and one finding is the card's own defect walking back in
+
+Report: `meta/review/20261022T114447Z-CARD-264-cycle1.yml`. Deductions **2.00** → 8.00, plus a **+0.30**
+adjustment recorded as its own line rather than folded into weights → **8.30**. Twelve on-disk plants,
+each with a `cp -p` backup, a `shasum -a 256` manifest and a trap restore verified **two ways**.
+
+**F-1 (0.40) is the one that matters, because it is this card's subject turned on this card's control.**
+AC-7's "find the subject by the assertion it makes, not by name" survives a legitimate rename, a second
+pinning test, relocation into a class method and a deleted comment block — I asked for all four and all
+four held. It does **not** survive the assertion being extracted into a **neutrally-named top-level
+helper**: the helper becomes "the test that pins it", so the real test's name goes unjudged. **Plant 5d
+restored `test_the_adapter_allowlist_is_closed_at_the_two_known_adapters` verbatim → exit 0, 7 passed.**
+The card's own defect, back on the loudest surface in the repo, green. Fix is one assertion.
+
+**F-9 (0.30) — and this one is almost funny.** `docs/.../09-the-three-inbound-adapters.md:32-33` still
+cites `# tests/test_cli.py:747` and `# :760`. Actual: 748/761 at `feb3e6b5` and **756/769** at
+`d40e9d4a` — **this card's own eight-line comment addition pushed them from off-by-one to off-by-nine**,
+in the very file it edited, *after* rewriting every other line citation on that page to by-name form. No
+control over it. Two deleted numbers close it.
+
+**F-3 (0.25) — the AST sweep misses an assembled name, and the prose overclaims.** A real ADR-0019/R1
+violation — `getattr(random_grid, "validate_" + "extent")`, and the f-string form in
+`web/submission.py` — passes both sweeps at exit 0. The *hole* is the generic static-analysis limit and
+is acceptable. What is not acceptable on this card is that `_domain_validator_hits`' docstring, the
+notes, **and the test's own name `test_a_string_built_reference_is_caught_too`** all claim coverage the
+body does not have (it tests a whole literal). **A name that lies, in a control for a card about names
+that lie.**
+
+**F-4 (0.20) — the exemption is keyed by basename and compared as a set**, so `web/rvsub/submission.py`
+with the same prose mention passes with no divergence. The brief's own prediction — *"the shape that
+quietly becomes two"* — realised. One line: a relative path instead of `path.name`.
+
+**But the exemption held the two hardest attacks, which is the part worth keeping.** A second prose
+citation elsewhere reds naming `('__init__.py','validate_density')`; and a **real import and call of the
+exempted token, in the exempted file, under a docstring citing the rule** reds with two arms
+(`submission.py:355 imports / :356 names`). **The exemption absorbs nothing in code.**
+
+**The remaining minors are all one declared-miss line each.** F-8: AC-6's vocabulary is two words, so a
+second uncited claim phrased without them keeps the count at 1 — and a second claim joined by a **colon
+or comma** also evades the pin-at-one, where an em-dash or full stop reds. F-2: `_COUNT_CLAIM` catches
+all three shipped defects and the digit form but misses "two **modules**", "two **entries**", "the
+**two-adapter** allowlist", "a pair of", "both". F-5: a fenced ```` ```python ```` block inside a guarded
+paragraph is invisible to the span regex — and `CLAUDE.md` already carries four fences — while tables and
+bullets under the same line *are* caught. F-6: a false **type** claim passes, because the four type spans
+are accepted for being builtin-shaped and never checked against the code. F-10: the extras table is
+restated in prose in a docstring with no control — the copy AC-3 removed from `CLAUDE.md`, one file over.
+
+**One figure does not reproduce (F-11, 0.10): "575 repo paths".** `_repo_paths()` globs `*`, so it counts
+`__pycache__/*.pyc` — the same walk gives **604** today (97 cached) or **507** excluding cache, so 575
+implies 68 cached at measurement time. **Non-reproducible by construction**, and benign in effect since a
+`.pyc` can never satisfy a `.py`/`.toml`/`.md` span. Everything else reproduced exactly by an independent
+method: 1,347 symbols (a separate recursive-descent walker, not `ast.walk`), 60 modules, 0 unparsable, 11
+distributions, the 24 claims with the breakdown **9 + 8 + 4 + 2 + 1** exact, the six derived members by
+name with definition sites, and 115 / 236 / 149 assert nodes by three independent methods.
+
+### Both of my judgements confirmed, and one of them sharpened against the card
+
+**The AC-4 table: the implementation was right, I was right to accept it, and the card is wrong on "the
+size".** `requirements.yml` has AC-038 as `status: superseded, superseded_by: AC-084` with
+`given: a 50x50 …`, and its `then` is character-for-character AC-084's; `_validate_side` raises
+`SizeOutOfRange` on a 50 side. So **changing `50x50` to `30x30` would make both sentences false** — a
+sharper statement than "only the symbol is wrong", and the reason the agent was right to report rather
+than fix.
+
+**The fourth stale site: leaving it is right, and AC-060 provably cannot reach it.** Six probes, each
+keyed on a substring selector (`imports the X`, `GenerationRequest`, `501`, `Access control`, one
+GET/POST literal) — the adapter-count sentence contains none, and **no test anywhere compares
+`web.__doc__` to `_ADAPTERS`**. Filed at **zero**: touching it would put a `src/` path in the diff and
+cost G-6-by-construction, it is disclosed in the docs page with the correct distinction, and the
+*reachable* harm — the `CLAUDE.md` → `_ADAPTERS` route — is closed. And `src/nonogram/__init__.py` is
+confirmed **not** a defect for a reason better than mine: the qualification at `:71-73` **pre-emptively
+quotes the sentence verbatim**, so the two cannot drift.
+
+### Contract, guardrails, scope — all clear
+
+**Projection 10, kept 5, derived independently**, with the documented trap reproduced: the reach idiom
+case-**insensitively** over the ADR files selects ADR-0036/0037/**0039**, where case-sensitively it
+returns only 0036/0037. Sanity check passes. **Verdict line for each of the five, all PASS**, and two are
+worth quoting: **ADR-0038/R7** is *favourable* to AC-3's rewrite, because the old "(plus `pytest` as a
+dev-only extra)" was itself false about that extra's contents; and **ADR-0038/R8** holds with **zero**
+skip mechanisms added across 1,199 added lines, cross-checked by whole-file `pytest.skip` counts
+unchanged in all five files and zero bare-return early exits. Every deduction sits on **R3's last clause**
+(undeclared residual) and none on R1 — no claim lacks a control, and the reviewer made each control fail.
+
+**ADR-0039/R1 was demonstrated on arms the reviewer chose, not the committed ones** — its own dead member
+`parse_colour_ramp`, its own AC-2 plants at **`:48` and `:50`** (red with *computed* lines, not the
+hardcoded 46), and a plant of `validate_aspect_ratio` in `web/uploads.py`, a member the retired triple did
+**not** contain. So the derivation **adds caught ground** rather than merely preserving it.
+
+**G-1..G-7 all PASS.** G-1 is three single-line hunks, `@@ -46 +46 @@`, `@@ -48 +48 @@`, `@@ -50 +50 @@`,
+nothing else, with line 40 byte-identical and the project's own `_CLAUDE_MD_ROW` / `_COMPONENT_ID` /
+`_ADAPTER_COUNT` detectors all at 0 hits. G-6 verified **two ways** — no `src/` path in the diff *and* an
+independent per-character sweep of all seven files at 0 hits, with no whole-tree claim. CON-009/CON-010
+run by the reviewer: 6 collected, **exit 0**.
+
+**The five unmeasurable tests: the exclusion hid nothing** — exactly 5 collect, running them is exit 0,
+and target B with them excluded is exit 0, so SHIPPED is a true baseline for the remainder.
+
+**Scope gate: in scope, and both `Touches` additions correct.** The second reason for
+`tests/test_guard_integrity.py` checks out numerically: CARD-261's region sits at 1309+/1725+ while this
+card's `test_cli.py` edits end at **1125**. The docs page was **not optional** — the rename would have
+staled its verbatim quote and its test-name citation.
+
+**Rebase: expect it clean, with a caveat worth acting on.** CARD-261's `feb3e6b5..335c641e` touches only
+its card file and `tests/test_cli.py`, and **does not touch `CLAUDE.md` at all**; its earliest
+`test_cli.py` hunk is old line **1105** against this card's last at **919** — 186 lines apart. The caveat:
+the call is good as of `335c641e` only, and this card now carries a **by-name** citation of
+`_adapter_counts` in a new comment, so **one grep after the rebase** is owed in case a later CARD-261
+round renames it.
+
+A nit of the reviewer's that is mine: the `Touches:` **field** was never edited on the branch copy (the
+projection is 10 either way, verified both ways), and `CARD-264.md` is untracked at `d40e9d4a` so the
+worktree notes are not in the commit — both correct, and both handled on main's copy by the one-way sync.
