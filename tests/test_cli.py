@@ -741,10 +741,18 @@ def test_non_domain_exceptions_are_not_swallowed(
 # the point: ADR-0019 adds COMP-008 (``web``) as a sibling of COMP-001
 # (``cli``) at the same rank, so both may import the orchestrator and nothing
 # else about the rule changes. A guard with an allowlist is weaker than a guard
-# without one (ADR-0019, Negative), so this set is closed at two names and is
-# deliberately not a pattern — a third adapter is a decision, not a rename.
-# ``test_the_adapter_allowlist_is_closed_at_the_two_known_adapters`` fails if it
-# ever grows.
+# without one (ADR-0019, Negative), so the set below is closed and is
+# deliberately not a pattern: it grows only by a deliberate edit to that line,
+# reviewed as the architectural change admitting an adapter is.
+# ``test_the_adapter_allowlist_is_closed_and_grows_only_by_a_deliberate_edit``
+# fails if it grows without one.
+#
+# The count lives in the set and nowhere else (CARD-264). This comment, that
+# test's name and that test's first line each stated a count the set had
+# already outgrown, directly above an assertion that pins it correctly -- and
+# CARD-261 made this the first place a CLAUDE.md reader is sent, so a reader
+# who believed the prose over the code would have deleted a correct entry.
+# ``TestAdapterAllowlist_NoProseClaimsAStaleCount`` is why that cannot recur.
 _ADAPTERS = frozenset({"cli", "web", "admin"})
 _ORCHESTRATOR = "orchestrator"
 _SHARED = frozenset({"errors", "limits"})
@@ -902,18 +910,217 @@ def test_the_import_walk_actually_sees_the_package() -> None:
     } <= set(_MODULES)
 
 
-def test_the_adapter_allowlist_is_closed_at_the_two_known_adapters() -> None:
-    """ADR-0019's allowlist is two names, and staying two names is the rule.
+def test_the_adapter_allowlist_is_closed_and_grows_only_by_a_deliberate_edit() -> None:
+    """ADR-0019's allowlist is closed, and staying closed is the rule.
 
     The exemption this guard grants is the weakest part of it (ADR-0019,
     Negative): every name in :data:`_ADAPTERS` is a module allowed to import
     the orchestrator, so the set growing quietly — by a rename, by a helper
     package someone thought of as "adapter-ish" — is exactly how the rule
-    erodes. Pinning the literal set means adding a third adapter has to be a
-    deliberate edit to this line, reviewed as the architectural change it is.
+    erodes. Pinning the literal set means admitting another adapter has to be
+    a deliberate edit to this line, reviewed as the architectural change it is.
+
+    The rule rather than a count (CARD-264). This test was named after a count
+    and restated it here, while the assertion below had already outgrown it:
+    ``admin`` was admitted, the pin did its job, and the prose did not move.
+    A claim with no control, sitting on top of a control that works -- which
+    is the shape ``admin`` itself would have been deleted over, once CARD-261
+    pointed a CLAUDE.md reader at this line. Whatever :data:`_ADAPTERS` holds
+    is the number, and it is written down once, below.
     """
     assert _ADAPTERS == {"cli", "web", "admin"}
     assert _rank("cli") == _rank("web") == _rank("admin") == _ADAPTER_RANK
+
+
+#: A count of adapters *or of names*, in words or digits, up to two words
+#: before the noun. A widened sibling of :data:`_ADAPTER_COUNT` rather than a
+#: second copy of it, and the widening is the measured one: of the three stale
+#: claims CARD-264 removed from this file, ``_ADAPTER_COUNT``'s shape reached
+#: only one ("the two known adapters"); the other two counted *names* ("closed
+#: at two names", "the allowlist is two names"), which is how a count of a set
+#: gets written when the set's members are strings. The two patterns answer
+#: different questions over different files and are deliberately not shared:
+#: ``_ADAPTER_COUNT`` denies a count of adapters anywhere in CLAUDE.md, this
+#: one denies a count of either kind in this module's own prose about
+#: :data:`_ADAPTERS`.
+_COUNT_CLAIM = re.compile(
+    r"\b(?:no|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"(?:\w+\s+){0,2}(?:adapters?|names?)\b",
+    re.IGNORECASE,
+)
+
+
+class TestAdapterAllowlist_NoProseClaimsAStaleCount:
+    """AC-7 (CARD-264): the prose around :data:`_ADAPTERS`, held to the set.
+
+    Routed in from CARD-261's review cycle 1 as one finding and measured as
+    three: the comment above the set, the name of the test that pins it, and
+    that test's first line each stated a count the set had already outgrown,
+    while the assertion itself was correct the whole time. The mechanism
+    worked and the prose lied -- this card's subject in one function.
+
+    **Why it was urgent rather than cosmetic.** CARD-261 added a pointer from
+    CLAUDE.md into :data:`_ADAPTERS`, which made this the first *reachable*
+    route from the file every session loads to this prose. A reader who
+    follows it, finds the correct members under prose stating a smaller count,
+    and concludes the extra member is the erosion would **delete a correct
+    entry** -- worse than the stale count it replaced, and reachable only
+    because of CARD-261.
+
+    The prose now states the rule; the count is held in exactly one place, by
+    the assertion, and this class reads :data:`_ADAPTERS` for it rather than
+    restating it.
+    """
+
+    #: Identifier tokens that carry digits without claiming a count.
+    _IDS = re.compile(r"\b(?:ADR|CARD|COMP|CAP|FR|NFR|AC|CON|US|EC)-\d+")
+
+    @classmethod
+    def _count_claims(cls, prose: str) -> list[str]:
+        """Every count-of-a-set claim in ``prose``.
+
+        Underscores become spaces first, because a test *name* is prose here:
+        ``..._at_the_two_known_adapters`` is the loudest of the three claims --
+        it is what every verbose run and every failure report prints -- and a
+        reader that only saw spaces would walk straight past it. Issue ids are
+        stripped, so ``ADR-0019`` is not read as a number.
+        """
+        plain = cls._IDS.sub("", prose.replace("_", " ").replace("*", "").replace("`", ""))
+        return [match.group(0).strip() for match in _COUNT_CLAIM.finditer(plain)]
+
+    @staticmethod
+    def _allowlist_prose() -> dict[str, str]:
+        """The three places this module writes prose about :data:`_ADAPTERS`.
+
+        Located from the code: the assignment is found by ast and the comment
+        block is whatever runs of ``#`` sit directly above it, and the test is
+        found by **the assertion it makes**, never by its name -- the name is
+        one of the things under judgement here, and a rule that found its
+        subject by name would have been retired by the rename that fixed it.
+        Each of the three is required to exist (ADR-0039/R2): a comment block
+        that has gone, or a second test pinning the set, is a FAILURE rather
+        than a quietly smaller sweep.
+        """
+        source = Path(__file__).resolve().read_text(encoding="utf-8")
+        lines = source.splitlines()
+        tree = ast.parse(source)
+
+        assignments = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "_ADAPTERS"
+                for target in node.targets
+            )
+        ]
+        assert len(assignments) == 1, "expected exactly one _ADAPTERS assignment"
+        index = assignments[0].lineno - 1
+        comment: list[str] = []
+        while index > 0 and lines[index - 1].lstrip().startswith("#"):
+            index -= 1
+            comment.append(lines[index])
+        assert comment, "the comment block above _ADAPTERS has gone"
+
+        pinning = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and any(
+                isinstance(assertion.test, ast.Compare)
+                and isinstance(assertion.test.left, ast.Name)
+                and assertion.test.left.id == "_ADAPTERS"
+                for assertion in ast.walk(node)
+                if isinstance(assertion, ast.Assert)
+            )
+        ]
+        assert len(pinning) == 1, [node.name for node in pinning]
+
+        return {
+            "the comment above _ADAPTERS": "\n".join(reversed(comment)),
+            "the name of the test that pins it": pinning[0].name,
+            "that test's first line": (ast.get_docstring(pinning[0]) or "").split("\n")[0],
+        }
+
+    def test_no_prose_around_the_allowlist_claims_a_count(self) -> None:
+        prose = self._allowlist_prose()
+        assert len(prose) == 3, prose
+
+        claims = {
+            where: found
+            for where, text in prose.items()
+            if (found := self._count_claims(text))
+        }
+
+        assert claims == {}, (
+            "prose around _ADAPTERS states a count of the set. The count is "
+            f"len(_ADAPTERS) == {len(_ADAPTERS)} and belongs in the assertion "
+            f"and nowhere else: {claims}"
+        )
+
+    @pytest.mark.parametrize(
+        ("where", "prose"),
+        [
+            pytest.param(
+                "so this set is closed at two names and is deliberately not a"
+                " pattern — a third adapter is a decision, not a rename.",
+                "two names",
+                id="the-module-comment",
+            ),
+            pytest.param(
+                "test_the_adapter_allowlist_is_closed_at_the_two_known_adapters",
+                "two known adapters",
+                id="the-test-name",
+            ),
+            pytest.param(
+                "ADR-0019's allowlist is two names, and staying two names is the rule.",
+                "two names",
+                id="the-docstrings-first-line",
+            ),
+        ],
+    )
+    def test_each_claim_this_card_removed_is_still_caught(
+        self, where: str, prose: str
+    ) -> None:
+        """ADR-0039/R1: caught WITH the defect, missed WITHOUT it. The three
+        strings are the shipped ones verbatim, so the rule is held to the
+        defect it was written for on every run and not only on the day it was
+        written."""
+        assert prose in self._count_claims(where), self._count_claims(where)
+
+    def test_the_rule_passes_prose_that_states_the_rule_instead(self) -> None:
+        """The other state: the replacements this card shipped, and the one
+        shape next to them that must stay legal -- "a guard without one" is
+        not a count of anything."""
+        for text in (
+            "the set below is closed and grows only by a deliberate edit",
+            "A guard with an allowlist is weaker than a guard without one",
+            "whatever _ADAPTERS holds is the number",
+        ):
+            assert self._count_claims(text) == [], text
+
+    def test_the_pinned_literal_holds_as_many_names_as_the_set_does(self) -> None:
+        """AC-7's control reads ``len(_ADAPTERS)`` rather than restating it.
+
+        The pinned literal is read off the assertion with ast, so this
+        compares the set the guard consults against the set the pin declares
+        without either number being written down here.
+        """
+        source = Path(__file__).resolve().read_text(encoding="utf-8")
+        pinned = [
+            assertion.test.comparators[0]
+            for assertion in ast.walk(ast.parse(source))
+            if isinstance(assertion, ast.Assert)
+            and isinstance(assertion.test, ast.Compare)
+            and isinstance(assertion.test.left, ast.Name)
+            and assertion.test.left.id == "_ADAPTERS"
+        ]
+        assert len(pinned) == 1, pinned
+        literal = pinned[0]
+        assert isinstance(literal, ast.Set), ast.unparse(literal)
+
+        assert len(_ADAPTERS) == len(literal.elts)
+        assert len(_ADAPTERS) == len({ast.literal_eval(name) for name in literal.elts})
 
 
 def test_the_shared_layer_is_closed_at_errors_and_limits() -> None:

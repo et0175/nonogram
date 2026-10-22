@@ -97,6 +97,72 @@ _POLL_INTERVAL_S = 0.01
 
 _WEB_SOURCES = sorted(Path(web.__file__).parent.rglob("*.py"))
 
+#: A name shaped like one of the domain's own validators or parsers. The
+#: prefix is the convention the package actually follows -- ``validate_extent``,
+#: ``validate_density``, ``validate_aspect_ratio``, ``parse_tier``,
+#: ``parse_art``, ``_validate_side`` -- and matching on the shape is what makes
+#: :func:`_domain_validator_names` an enumeration instead of a list.
+_DOMAIN_VALIDATOR_SHAPE = re.compile(r"^_?(?:validate|parse)_")
+
+
+def _domain_validator_names() -> dict[str, list[str]]:
+    """``{validator: [modules defining it]}`` for the domain, from the domain.
+
+    CARD-264. The guard below used to carry a hand-written triple,
+    ``("validate_size", "validate_density", "parse_tier")``, and
+    **``validate_size`` had no definition anywhere in ``src/``** -- the public
+    validator is ``validate_extent`` (ADR-0022/R1 refused a one-integer one:
+    "half an extent is not a thing the model validates"). A token that exists
+    in no module cannot appear in a web source, so one third of that set was
+    unfalsifiable: it could never fail for a real reason, and nothing said so.
+
+    The set is now derived from an authority the runtime can enumerate
+    (ADR-0039/R2): every ``validate_*``/``parse_*`` function the package
+    defines **outside the adapter rank**. Which modules are adapters is read
+    from ``tests.test_cli._ADAPTERS``, the closed set the layering guard
+    already holds, so ``cli.py``, ``web/`` and ``admin/`` are excluded by the
+    same authority that defines the rank -- and a fourth adapter admitted
+    there changes this set without an edit here.
+
+    Deny-side, so the cost is a false positive: a domain function that happens
+    to be named ``parse_*`` and that the adapter had a legitimate reason to
+    name would have to be reworded or exempted deliberately.
+    """
+    names: dict[str, list[str]] = {}
+    for path in sorted(cli_tests._PACKAGE_DIR.rglob("*.py")):
+        relative = path.relative_to(cli_tests._PACKAGE_DIR)
+        owner = relative.parts[0] if len(relative.parts) > 1 else path.stem
+        if owner in cli_tests._ADAPTERS:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and (
+                _DOMAIN_VALIDATOR_SHAPE.match(node.name)
+            ):
+                names.setdefault(node.name, []).append(str(relative))
+    return names
+
+
+#: The names ADR-0019/R1 forbids the web adapter from writing, enumerated
+#: above. Held non-empty by the guard itself and pinned against the package by
+#: :class:`TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember`.
+_DOMAIN_VALIDATORS = tuple(sorted(_domain_validator_names()))
+
+#: ``(module, validator)`` sites where ``web/`` names a domain validator in
+#: **prose** -- ADR-0039/R3 exemptions, each one a claim. There is exactly one:
+#: ``submission.py``'s ``_extent_token`` docstring says the tokens it parses
+#: are "refused inward by ``sourcing.random_grid.validate_extent``", which is
+#: the adapter *documenting its compliance* with the rule this guard enforces.
+#: Refusing it would make the guard punish the sentence that states the rule.
+#:
+#: Two controls, because an exemption with none is the defect this card is
+#: about: it is held to an **equality** against the sites that exist today
+#: (``test_the_prose_exemption_is_exactly_the_sites_that_exist_today``), and it
+#: is held to what it must **not** absorb -- the same name in code, which the
+#: AST arm of the guard catches regardless of this table
+#: (``test_the_exemption_does_not_absorb_a_real_reference``).
+MEASURED_PROSE_CITATIONS = (("submission.py", "validate_extent"),)
+
 #: The names and literals a challenge is actually written with (AC-053).
 #: Symbolic names first, because that is how a status is normally spelled here;
 #: the two integers catch the hand-written form.
@@ -156,6 +222,42 @@ def _auth_vocabulary_hits(source: str, name: str = "<source>") -> list[str]:
                 hits.append(f"{name}:{node.lineno} uses the literal {node.value!r}")
             if isinstance(node.value, str) and "www-authenticate" in node.value.lower():
                 hits.append(f"{name}:{node.lineno} writes a challenge header")
+    return hits
+
+
+def _domain_validator_hits(
+    source: str, tokens: tuple[str, ...], name: str = "<source>"
+) -> list[str]:
+    """Every place ``source`` names one of ``tokens`` in *code*.
+
+    The same shape as :func:`_auth_vocabulary_hits` and for the same two
+    reasons: the scan can be shown to discriminate against fabricated sources
+    rather than only ever running over a package expected to be clean, and it
+    reads ``_docstring_nodes`` so that an explanation of why something is
+    absent is not read as evidence that it is present. Imports, attribute
+    access, a bare name and a non-docstring string literal (which is how
+    ``getattr(random_grid, "validate_extent")`` would be written) all count.
+    """
+    hits: list[str] = []
+    tree = ast.parse(source)
+    docstrings = _docstring_nodes(tree)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.alias) and node.name.split(".")[-1] in tokens:
+            hits.append(f"{name}:{node.lineno} imports {node.name}")
+        elif isinstance(node, ast.Attribute) and node.attr in tokens:
+            hits.append(f"{name}:{node.lineno} calls .{node.attr}")
+        elif isinstance(node, ast.Name) and node.id in tokens:
+            hits.append(f"{name}:{node.lineno} names {node.id}")
+        elif (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in docstrings
+        ):
+            hits.extend(
+                f"{name}:{node.lineno} writes {token!r} in a string literal"
+                for token in tokens
+                if token in node.value
+            )
     return hits
 
 
@@ -2045,13 +2147,162 @@ def test_the_web_package_imports_no_domain_validator() -> None:
 
     ``_WEB_SOURCES`` is asserted non-empty first (AC-059): this loop is cited
     as the enforcement of ADR-0019/R1, and an empty glob would have it certify
-    that rule by reading nothing.
+    that rule by reading nothing. :data:`_DOMAIN_VALIDATORS` is asserted
+    non-empty on the next line for the same reason, one axis over (CARD-264):
+    vacuity was guarded on the **file** axis and unguarded on the **set** axis,
+    and a set whose members have stopped existing certifies the rule by
+    searching for nothing. **A guard over a set needs its set checked, not
+    only its input.**
+
+    Two sweeps per source, because they fail on different things. The AST one
+    (:func:`_domain_validator_hits`) is the rule: a validator named in *code* --
+    imported, called, or written into a string literal -- is the erosion
+    ADR-0019/R1 forbids. The substring one keeps the breadth the hand-written
+    triple had: a mention anywhere in the file, comments included, with one
+    measured prose exemption in :data:`MEASURED_PROSE_CITATIONS`.
     """
     assert _WEB_SOURCES, "no web adapter sources found"
+    assert _DOMAIN_VALIDATORS, "no domain validator names found"
     for path in _WEB_SOURCES:
         source = path.read_text(encoding="utf-8")
-        for token in ("validate_size", "validate_density", "parse_tier"):
+        hits = _domain_validator_hits(source, _DOMAIN_VALIDATORS, path.name)
+        assert hits == [], hits
+        for token in _DOMAIN_VALIDATORS:
+            if (path.name, token) in MEASURED_PROSE_CITATIONS:
+                continue
             assert token not in source, f"{path.name} references {token!r}"
+
+
+class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
+    """AC-4/AC-5 (CARD-264): the guard's *set*, given the control it lacked.
+
+    ``test_the_web_package_imports_no_domain_validator`` above is cited by its
+    own docstring as the enforcement of ADR-0019/R1, and it carried
+    ``validate_size`` -- a name with **zero definitions anywhere in src/** --
+    for one third of its vocabulary. That arm could not fail for a real
+    reason: a token no module defines cannot appear in a web source. The
+    author was alert to the adjacent vacuity and missed this one: the same
+    docstring asserts ``_WEB_SOURCES`` non-empty "because an empty glob would
+    have it certify that rule by reading nothing" -- vacuity guarded on the
+    **file** axis, unguarded on the **set** axis.
+
+    So this class holds the set itself (ADR-0039/R1: the claim "every name here
+    is a name the domain actually has" needs a control that can fail). The
+    rule is a pure comparison over a given set and a given package, so the
+    planted-member case reds on every run rather than only when someone
+    re-plants it by hand.
+    """
+
+    @staticmethod
+    def _dead_members(tokens: tuple[str, ...], defined: dict[str, list[str]]) -> list[str]:
+        """Every token in ``tokens`` that ``defined`` does not define."""
+        return [token for token in tokens if token not in defined]
+
+    def test_every_name_in_the_set_is_defined_in_the_package(self) -> None:
+        defined = _domain_validator_names()
+        assert defined, "the package walk found no domain validators at all"
+
+        dead = self._dead_members(_DOMAIN_VALIDATORS, defined)
+
+        assert dead == [], (
+            "a name in the web adapter's forbidden-token set is defined in no "
+            "module under src/nonogram, so that arm of the guard can never "
+            f"fail for a real reason: {dead}"
+        )
+
+    def test_a_planted_dead_token_reds_naming_it(self) -> None:
+        """AC-5's first half, as a committed case: caught WITH the member,
+        missed WITHOUT it."""
+        defined = _domain_validator_names()
+
+        assert self._dead_members(
+            (*_DOMAIN_VALIDATORS, "validate_size"), defined
+        ) == ["validate_size"]
+        assert self._dead_members(_DOMAIN_VALIDATORS, defined) == []
+
+    def test_the_derivation_still_reaches_the_names_the_rule_is_about(self) -> None:
+        """A floor pin, the shape :data:`cli_tests._ADAPTERS` gets: a
+        derivation that stopped matching would hand the guard a smaller set
+        and look identical. ``validate_extent`` is the name the dead member
+        should always have been; ``validate_density`` and ``parse_tier`` are
+        the two live members of the retired triple, so nothing the guard used
+        to catch has been given up (G-2)."""
+        assert set(_DOMAIN_VALIDATORS) >= {
+            "validate_extent",
+            "validate_density",
+            "parse_tier",
+        }, _DOMAIN_VALIDATORS
+        # The dead name's tombstone: ADR-0022/R1 refused a one-integer public
+        # validator, so re-introducing one is a decision to review, not a
+        # rename -- and this reds the moment it is made.
+        assert "validate_size" not in _DOMAIN_VALIDATORS
+
+    def test_the_prose_exemption_is_exactly_the_sites_that_exist_today(self) -> None:
+        """ADR-0039/R3: an exemption is held to an equality against the sites
+        that exist. A new prose mention reds and has to be judged; an
+        exemption whose site has gone reds too, instead of sitting there
+        absorbing nothing."""
+        prose_only = {
+            (path.name, token)
+            for path in _WEB_SOURCES
+            for token in _DOMAIN_VALIDATORS
+            if token in (source := path.read_text(encoding="utf-8"))
+            and not _domain_validator_hits(source, (token,), path.name)
+        }
+
+        assert prose_only == set(MEASURED_PROSE_CITATIONS), (
+            "the prose exemption and the prose mentions in web/ have diverged: "
+            f"{sorted(prose_only)} vs {sorted(MEASURED_PROSE_CITATIONS)}"
+        )
+
+    def test_the_exemption_does_not_absorb_a_real_reference(self) -> None:
+        """ADR-0039/R3's other half: what the exemption must **not** absorb.
+
+        The exempted pair is a docstring sentence; the same name in code, in
+        the same file, is caught by the AST arm, which the exemption table
+        does not reach at all.
+        """
+        module, token = MEASURED_PROSE_CITATIONS[0]
+        prose = f'"""refused inward by ``sourcing.random_grid.{token}``."""\n'
+        code = (
+            f"from nonogram.sourcing.random_grid import {token}\n"
+            f"def read(text):\n"
+            f"    return {token}(int(text), None)\n"
+        )
+
+        assert _domain_validator_hits(prose, _DOMAIN_VALIDATORS, module) == []
+        assert _domain_validator_hits(code, _DOMAIN_VALIDATORS, module) == [
+            f"{module}:1 imports {token}",
+            f"{module}:3 names {token}",
+        ]
+
+    def test_the_guard_still_catches_a_real_reference_to_the_old_live_members(
+        self,
+    ) -> None:
+        """AC-5's second half, in-memory: repairing the set did not reduce what
+        the guard already caught. Both arms fire on a real reference to
+        ``validate_density`` -- the AST one and the substring one -- so the
+        token this card removed was the only thing removed."""
+        planted = (
+            "from nonogram.sourcing import random_grid\n"
+            "def read(text):\n"
+            "    return random_grid.validate_density(int(text))\n"
+        )
+
+        assert _domain_validator_hits(planted, _DOMAIN_VALIDATORS, "submission.py") == [
+            "submission.py:3 calls .validate_density"
+        ]
+        assert "validate_density" in planted
+        assert ("submission.py", "validate_density") not in MEASURED_PROSE_CITATIONS
+
+    def test_a_string_built_reference_is_caught_too(self) -> None:
+        """``getattr`` is how an import guard is walked around; a non-docstring
+        string literal naming a validator counts as code."""
+        planted = 'def read(m):\n    return getattr(m, "validate_extent")\n'
+
+        assert _domain_validator_hits(planted, _DOMAIN_VALIDATORS, "handler.py") == [
+            "handler.py:2 writes 'validate_extent' in a string literal"
+        ]
 
 
 def test_the_web_package_raises_nothing() -> None:
@@ -2229,6 +2480,29 @@ class TestWebGuards_EveryStructuralLoopAssertsNonEmpty:
         """The control: unmonkeypatched, it still passes — so the failure above
         is the emptying and not a broken call."""
         cli_tests.test_the_web_adapter_never_imports_the_cli_adapter()
+
+    def test_the_domain_validator_guard_fails_when_its_token_set_is_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """AC-4 (CARD-264) in this class's own terms: the **set** axis.
+
+        Every test above empties a *collection the guard loops over* and
+        checks the guard notices. The domain-validator guard loops over two:
+        the sources, and the vocabulary it looks for in them. The second had
+        no such case, and the set had quietly lost a third of itself --
+        ``validate_size``, defined in no module under ``src/``. The breadth
+        of this class was the file axis; this is the same question one axis
+        over.
+        """
+        monkeypatch.setattr(f"{__name__}._DOMAIN_VALIDATORS", ())
+
+        with pytest.raises(AssertionError, match="no domain validator names found"):
+            test_the_web_package_imports_no_domain_validator()
+
+    def test_that_guard_passes_on_the_real_token_set(self) -> None:
+        """The control for the case above: unmonkeypatched it passes, so the
+        failure is the emptying and not a guard that cannot be satisfied."""
+        test_the_web_package_imports_no_domain_validator()
 
 
 class TestWebDocstrings_MatchTheShippedPackage:

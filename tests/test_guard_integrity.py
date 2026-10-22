@@ -64,6 +64,7 @@ floor (AC-3).
 from __future__ import annotations
 
 import ast
+import builtins
 import importlib.util
 import re
 import sys
@@ -2869,3 +2870,666 @@ class TestTheInterpreterFloor:
         assert sys.version_info[:2] >= self._declared_floor(), (
             sys.version_info[:2], self._declared_floor()
         )
+
+
+# --------------------------------------------------------------------------
+# CARD-264 -- the claims CLAUDE.md makes about the code, held to the code
+# --------------------------------------------------------------------------
+#
+# This module already holds one CLAUDE.md claim to its authority
+# (``TestTheInterpreterFloor``: pyproject.toml declares the floor and
+# CLAUDE.md follows it). CARD-264's claims are the same shape against a
+# different authority -- the package itself -- so they live beside it rather
+# than in ``tests/test_cli.py``, where CARD-261's component-map controls are
+# still moving. See the card's worktree notes for that scope decision.
+
+SRC_PACKAGE = REPO_ROOT / "src" / "nonogram"
+
+#: The paragraphs of CLAUDE.md whose claims this rule reads, each located by
+#: its **bold lead-in** and never by line number. That is CARD-264's own
+#: subject in miniature: the three defects it fixes were reported at three
+#: different line numbers by three readings, because CARD-261 rewrote the
+#: block above them in between. A lead-in this rule cannot find is a
+#: **FAILURE, not a skip** (ADR-0039/R2) -- a renamed paragraph would retire
+#: the control silently, which is ``_WEB_SOURCES``' empty-glob defect with
+#: the names changed.
+GUARDED_PARAGRAPHS = (
+    "**Boundary types vs. internal representation.**",
+    "**The dependency baseline is closed.**",
+    "**The solver (`solver/`) is the correctness-critical component.**",
+)
+
+#: Spans this rule reads as a keyword rather than as a symbol: CLAUDE.md
+#: names argparse's ``choices=``/``type=`` to say the project does *not* use
+#: them, so there is nothing in ``src/`` for them to resolve to. An
+#: exemption is a claim (ADR-0039/R3), so it is held to an **equality**
+#: against the spans that exist today by
+#: ``test_the_keyword_exemption_absorbs_exactly_the_spans_it_was_measured_on``:
+#: a new keyword-shaped span is a red that has to be judged, not absorbed.
+MEASURED_KEYWORD_SPANS = ("choices=", "type=")
+
+#: What this rule is measured **not** to see, declared rather than implied
+#: (ADR-0039/R3). It reads the three paragraphs above and no others, and
+#: within them only backtick-quoted spans: an unquoted claim ("the solver
+#: checks the deadline six times") is prose it cannot analyse and does not
+#: pretend to. ``_adapter_counts`` in ``tests/test_cli.py`` is the precedent
+#: for closing one such shape when it matters; the general case is open and
+#: is proposed as a standing check on the card.
+MEASURED_CLAIM_MISSES = (
+    "a claim written without backticks, anywhere in the file",
+    "a claim in a paragraph whose lead-in is not in GUARDED_PARAGRAPHS",
+)
+
+_BACKTICK_SPAN = re.compile(r"`([^`\n]+)`")
+_IDENTIFIER_CHAIN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
+_PATH_SUFFIXES = (".py", ".toml", ".md", ".yml", ".cfg", ".txt")
+
+
+def _guarded_paragraphs(text: str) -> tuple[dict[str, tuple[int, str]], list[str]]:
+    """The guarded paragraphs of ``text``, as ``{lead-in: (line, body)}``.
+
+    Returns the paragraphs found and the lead-ins that are missing, so the
+    caller fails on a missing one instead of quietly reading fewer claims.
+    """
+    found: dict[str, tuple[int, str]] = {}
+    line = 1
+    for block in text.split("\n\n"):
+        for lead_in in GUARDED_PARAGRAPHS:
+            if block.lstrip().startswith(lead_in):
+                before = block[: block.index(lead_in)]
+                found[lead_in] = (line + before.count("\n"), block)
+        line += block.count("\n") + 2
+    return found, [lead_in for lead_in in GUARDED_PARAGRAPHS if lead_in not in found]
+
+
+def _claims(paragraph: str, first_line: int) -> list[tuple[int, str]]:
+    """Every backtick-quoted span in ``paragraph``, as ``(line, span)``."""
+    return [
+        (first_line + paragraph[: match.start()].count("\n"), match.group(1))
+        for match in _BACKTICK_SPAN.finditer(paragraph)
+    ]
+
+
+def _src_symbols() -> tuple[dict[str, set[str]], set[str], list[str]]:
+    """The package's own vocabulary, enumerated from the package.
+
+    ``({symbol: {module stems defining it}}, {module and package names},
+    [files that would not parse])`` -- the authority ADR-0039/R2 asks for,
+    walked from disk the way ``tests/test_cli.py``'s import guard walks it,
+    rather than a second hand-written list of names (G-3). A file that will
+    not parse is returned rather than skipped, so the caller fails on it.
+    """
+    symbols: dict[str, set[str]] = {}
+    modules: set[str] = set()
+    unparsable: list[str] = []
+    for path in sorted(SRC_PACKAGE.rglob("*.py")):
+        modules.add(path.stem)
+        modules.update(part for part in path.relative_to(SRC_PACKAGE).parts[:-1])
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:  # pragma: no cover - a broken checkout
+            unparsable.append(f"{path.name}: {exc}")
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                symbols.setdefault(node.name, set()).add(path.stem)
+        for node in tree.body:
+            targets = (
+                node.targets
+                if isinstance(node, ast.Assign)
+                else [node.target]
+                if isinstance(node, ast.AnnAssign)
+                else []
+            )
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    symbols.setdefault(target.id, set()).add(path.stem)
+    return symbols, modules, unparsable
+
+
+def _repo_paths() -> set[str]:
+    """Every file under the trees CLAUDE.md's guarded paragraphs can name."""
+    paths = {
+        str(path.relative_to(REPO_ROOT).as_posix())
+        for tree in ("src", "tests", "docs")
+        for path in (REPO_ROOT / tree).rglob("*")
+        if path.is_file()
+    }
+    paths.update(
+        path.name for path in REPO_ROOT.iterdir() if path.is_file()
+    )
+    return paths
+
+
+def _declared_distributions() -> tuple[set[str], dict[str, set[str]]]:
+    """``(runtime, {extra: dists})`` from pyproject.toml, which is the authority.
+
+    ADR-0006/R1's baseline is ``project.dependencies``; the extras have
+    always been outside it, and pyproject.toml's own comment says so. Read
+    rather than restated (G-3), so CLAUDE.md's dependency paragraph can be
+    checked against it without a second copy of either list.
+    """
+    table = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+
+    def _name(requirement: str) -> str:
+        return re.split(r"[<>=!~;\[ ]", requirement, maxsplit=1)[0].strip().lower()
+
+    runtime = {_name(item) for item in table["dependencies"]}
+    extras = {
+        extra: {_name(item) for item in items}
+        for extra, items in table.get("optional-dependencies", {}).items()
+    }
+    return runtime, extras
+
+
+def _dependency_claim_defects(
+    paragraph: str,
+    runtime: set[str],
+    extras: dict[str, set[str]],
+) -> list[str]:
+    """Every way CLAUDE.md's dependency paragraph and pyproject.toml disagree.
+
+    Both directions, and both against pyproject.toml rather than against a
+    second list (G-3): a runtime distribution the paragraph stops naming is a
+    defect, a distribution it names that lives only in an extra is a defect
+    (that is the shipped error -- ``pytest`` presented as the one extra), an
+    extra named in backticks is a restatement of a table that has grown three
+    times, and a paragraph that cites no authority is a defect because the
+    reader has nowhere to check it.
+
+    Takes the two tables rather than reading pyproject.toml itself, so the
+    rule can be run against a fabricated one below and cannot pass vacuously.
+    """
+    defects: list[str] = []
+
+    def mentioned(name: str) -> bool:
+        pattern = rf"(?<![\w-]){re.escape(name)}(?![\w-])"
+        return re.search(pattern, paragraph, re.IGNORECASE) is not None
+
+    for name in sorted(runtime):
+        if not mentioned(name):
+            defects.append(
+                "the dependency paragraph no longer names the runtime "
+                f"dependency {name!r}"
+            )
+    for extra, declared in sorted(extras.items()):
+        for name in sorted(declared - runtime):
+            if mentioned(name):
+                defects.append(
+                    f"the dependency paragraph names {name!r}, which "
+                    f"pyproject.toml declares only in the {extra!r} extra"
+                )
+    restated = sorted(extra for extra in extras if f"`{extra}`" in paragraph)
+    if restated:
+        defects.append(
+            "the dependency paragraph restates pyproject.toml's extras by "
+            f"name: {restated}"
+        )
+    if "pyproject.toml" not in paragraph:
+        defects.append(
+            "the dependency paragraph does not cite pyproject.toml, which is "
+            "the authority for both halves of the claim"
+        )
+    return defects
+
+
+def _is_type_expression(span: str) -> bool:
+    """True for a span that is a type or literal written out of builtins.
+
+    ``list[list[bool]]``, ``tuple[tuple[int, ...], ...]``, ``(0,)`` and
+    ``()`` are the boundary-type paragraph's subject and name nothing in
+    ``src/``. Decided by parsing the span and resolving every name in it
+    against ``dir(builtins)`` -- enumerated, not listed (ADR-0039/R2).
+    """
+    try:
+        tree = ast.parse(span, mode="eval")
+    except SyntaxError:
+        return False
+    names = [node.id for node in ast.walk(tree) if isinstance(node, ast.Name)]
+    return all(name in dir(builtins) for name in names)
+
+
+def _classify(
+    span: str,
+    symbols: dict[str, set[str]],
+    modules: set[str],
+    paths: set[str],
+    distributions: set[str],
+) -> tuple[str, str]:
+    """``(kind, detail)`` for one backtick-quoted span.
+
+    Default-deny: every shape this function recognises is named, and
+    everything left over is ``"unanalysable"`` -- a FAILURE for the caller,
+    never a silent pass (ADR-0039/R2).
+    """
+    if span.endswith("/") or any(span.endswith(suffix) for suffix in _PATH_SUFFIXES):
+        bare = span.rstrip("/")
+        if span.endswith("/"):
+            hit = any(f"/{bare}/" in f"/{path}" for path in paths)
+        else:
+            hit = any(path == span or path.endswith(f"/{span}") for path in paths)
+        return ("path", "") if hit else ("path", "names no file in the repo")
+    if span in MEASURED_KEYWORD_SPANS:
+        return "keyword", ""
+    if _IDENTIFIER_CHAIN.fullmatch(span):
+        parts = span.split(".")
+        name, qualifier = parts[-1], parts[-2] if len(parts) > 1 else None
+        if name in symbols:
+            if qualifier in modules and qualifier not in symbols[name]:
+                return "symbol", (
+                    f"says {qualifier}.{name}, but {name} is defined in "
+                    f"{sorted(symbols[name])}"
+                )
+            return "symbol", ""
+        if name in modules:
+            return "module", ""
+        if name.lower() in distributions:
+            return "distribution", ""
+        return "symbol", "names no symbol defined in src/nonogram"
+    if _is_type_expression(span):
+        return "type-expression", ""
+    return "unanalysable", "is a shape this rule cannot read, so it is denied"
+
+
+def _claim_defects(
+    claims: list[tuple[int, str]],
+    symbols: dict[str, set[str]],
+    modules: set[str],
+    paths: set[str],
+    distributions: set[str],
+) -> list[str]:
+    """Every claim in ``claims`` that its authority does not bear out.
+
+    Takes the enumerated authorities rather than reading disk, so the rule
+    can be run against a fabricated package and a fabricated paragraph and
+    cannot pass vacuously -- the shape ``_map_defects`` and
+    ``_outward_imports`` in ``tests/test_cli.py`` already use.
+    """
+    defects = []
+    for line, span in claims:
+        kind, detail = _classify(span, symbols, modules, paths, distributions)
+        if detail:
+            defects.append(f"CLAUDE.md:{line}: `{span}` ({kind}) {detail}")
+    return defects
+
+
+class TestClaudeMd_EverySymbolItNamesExists:
+    """AC-1 (CARD-264): the every-session file's code claims, held to the code.
+
+    ``CLAUDE.md`` is loaded as project instructions in every session and step
+    7a of the kanban ``start`` procedure extracts its sections into every
+    implementation agent's brief, so a false claim here is **acted on**. It
+    named ``sourcing/random_grid.py``'s ``validate_size`` for about six weeks
+    (``git log -L`` puts the two touches of those lines at 2026-09-08 and
+    2026-10-22, and nothing in the repo maps the former to a wave number, so
+    that date range is the honest figure and a wave count is not derivable).
+    ``validate_size`` has **zero definitions anywhere in src/**: the public
+    validator is ``validate_extent``, and ADR-0022/R1's refusal of a
+    one-integer public validator is recorded in ``_validate_side``'s own
+    docstring -- "half an extent is not a thing the model validates".
+
+    The symbol set is **enumerated from the package** (:func:`_src_symbols`),
+    never from a second hand-written list, so a symbol that stops existing
+    reds here instead of going quiet (ADR-0039/R2, G-3).
+    """
+
+    @staticmethod
+    def _authorities() -> tuple[dict[str, set[str]], set[str], set[str], set[str]]:
+        symbols, modules, unparsable = _src_symbols()
+        assert unparsable == [], unparsable
+        assert symbols, "the package walk found no symbols"
+        assert modules, "the package walk found no modules"
+        runtime, extras = _declared_distributions()
+        return symbols, modules, _repo_paths(), runtime | set().union(*extras.values())
+
+    def test_the_guarded_paragraphs_are_all_present(self) -> None:
+        """Located by text, never by line number -- and a missing lead-in is a
+        failure, because a renamed paragraph would otherwise retire the whole
+        rule the way an empty glob retires a source sweep."""
+        found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
+
+        assert missing == [], (
+            "CLAUDE.md no longer carries these paragraph lead-ins, so the "
+            "claims below are read from nothing: " + repr(missing)
+        )
+        assert len(found) == len(GUARDED_PARAGRAPHS)
+
+    def test_every_claim_in_them_resolves_against_the_package(self) -> None:
+        found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
+        assert not missing, missing
+        symbols, modules, paths, distributions = self._authorities()
+
+        claims = [
+            claim
+            for lead_in, (line, body) in found.items()
+            for claim in _claims(body, line)
+        ]
+        assert len(claims) >= 10, (
+            f"only {len(claims)} backtick-quoted claims found across "
+            "CLAUDE.md's guarded paragraphs; the rule is reading too little"
+        )
+        defects = _claim_defects(claims, symbols, modules, paths, distributions)
+
+        assert defects == [], "\n".join(defects)
+
+    def test_the_keyword_exemption_absorbs_exactly_the_spans_it_was_measured_on(
+        self,
+    ) -> None:
+        """ADR-0039/R3: an exemption is a claim, held to an equality against
+        the spans that exist today. A new keyword-shaped span is a red to be
+        judged rather than something this exemption quietly absorbs."""
+        found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
+        assert not missing, missing
+        symbols, modules, paths, distributions = self._authorities()
+
+        exempted = sorted(
+            {
+                span
+                for line, body in found.values()
+                for _, span in _claims(body, line)
+                if _classify(span, symbols, modules, paths, distributions)[0] == "keyword"
+            }
+        )
+
+        assert exempted == sorted(MEASURED_KEYWORD_SPANS), (
+            "the keyword exemption and the spans it absorbs have diverged: "
+            f"{exempted} vs {sorted(MEASURED_KEYWORD_SPANS)}"
+        )
+
+    def test_the_rule_names_what_it_cannot_see(self) -> None:
+        """ADR-0039/R3's last clause: the residual hole is declared, not implied."""
+        assert MEASURED_CLAIM_MISSES
+        symbols, modules, paths, distributions = self._authorities()
+
+        # The declared miss, demonstrated rather than asserted in prose: the
+        # same dead symbol unquoted is invisible to this rule, and quoted is
+        # not.
+        unquoted = "range validation happens in random_grid's validate_size"
+        quoted = "range validation happens in `random_grid.validate_size`"
+
+        assert _claim_defects(_claims(unquoted, 1), symbols, modules, paths, distributions) == []
+        assert _claim_defects(_claims(quoted, 1), symbols, modules, paths, distributions)
+
+
+class TestClaudeMd_APlantedDeadSymbolReds:
+    """AC-2 (CARD-264): the control, caught WITH the defect and missed WITHOUT.
+
+    The on-disk half of this is run from the card's worktree notes (a planted
+    ``CLAUDE.md`` reference, red with it and green without, restored under a
+    ``cp -p`` backup verified by ``shasum -a 256`` and ``diff -q``). What is
+    committed here is the same rule against fabricated paragraphs, so every
+    defect kind has a case that reds on every run and none of them depends on
+    mutating a tracked file.
+    """
+
+    @staticmethod
+    def _authorities() -> tuple[dict[str, set[str]], set[str], set[str], set[str]]:
+        return TestClaudeMd_EverySymbolItNamesExists._authorities()
+
+    @pytest.mark.parametrize(
+        ("paragraph", "fragment"),
+        [
+            pytest.param(
+                "validation happens in `sourcing/random_grid.py`'s `validate_size`",
+                "`validate_size` (symbol) names no symbol defined in src/nonogram",
+                id="the-defect-this-card-fixes",
+            ),
+            pytest.param(
+                "the boundary type is `orchestrator.GenerationRequesst`",
+                "names no symbol defined in src/nonogram",
+                id="a-typo-in-a-real-symbol",
+            ),
+            pytest.param(
+                "the public validator is `clues.validate_extent`",
+                "says clues.validate_extent, but validate_extent is defined in",
+                id="a-real-symbol-attributed-to-the-wrong-module",
+            ),
+            pytest.param(
+                "the pipeline is described in `docs/NO_SUCH_FILE.md`",
+                "names no file in the repo",
+                id="a-path-that-does-not-exist",
+            ),
+            pytest.param(
+                "the solver's state is `a pair of (filled, empty` masks",
+                "is a shape this rule cannot read, so it is denied",
+                id="a-shape-the-rule-cannot-read-defaults-to-deny",
+            ),
+        ],
+    )
+    def test_a_planted_claim_reds_naming_the_span_and_its_line(
+        self, paragraph: str, fragment: str
+    ) -> None:
+        symbols, modules, paths, distributions = self._authorities()
+
+        defects = _claim_defects(
+            _claims(paragraph, 46), symbols, modules, paths, distributions
+        )
+
+        assert len(defects) == 1, defects
+        assert defects[0].startswith("CLAUDE.md:46: "), defects
+        assert fragment in defects[0], defects
+
+    def test_the_same_claims_pass_once_the_planted_span_is_removed(self) -> None:
+        """The other state: with the dead symbol replaced by the live one, the
+        identical rule is green -- so the reds above are the plant and not a
+        rule that cannot pass."""
+        symbols, modules, paths, distributions = self._authorities()
+        repaired = (
+            "validation happens in `sourcing/random_grid.py`'s `validate_extent`"
+            " / `validate_density`, never as `choices=` constraints, and the"
+            " boundary type is `orchestrator.GenerationRequest` carrying"
+            " `list[list[bool]]`"
+        )
+
+        assert _claim_defects(
+            _claims(repaired, 46), symbols, modules, paths, distributions
+        ) == []
+
+    def test_the_real_symbols_the_paragraph_names_are_each_resolvable(self) -> None:
+        """Caught WITH the authority, missed WITHOUT it: fed a package whose
+        walk found nothing, the rule reds on claims the real walk resolves --
+        so the green above is the package agreeing, not an authority that
+        accepts anything."""
+        paths = _repo_paths()
+
+        assert _claim_defects(
+            _claims("`validate_extent`", 46), {}, set(), paths, set()
+        )
+
+
+class TestClaudeMd_TheDependencyClaimMatchesPyproject:
+    """AC-3 (CARD-264): the dependency paragraph, and the shape that shipped.
+
+    **The shape that shipped is "do not restate".** CLAUDE.md's paragraph
+    said "stdlib + Pillow + NumPy as runtime dependencies (plus ``pytest`` as
+    a dev-only extra)" while pyproject.toml carries **three** extras -- ``dev``
+    (pytest and pytest-playwright), ``admin`` (Flask, Werkzeug, reportlab,
+    gunicorn) and ``db`` (SQLAlchemy, alembic, psycopg2-binary). A corrected
+    list would be a second copy of a table that has grown three times, which
+    is the disease CARD-261 treated in the component map, so the paragraph now
+    names the runtime baseline ADR-0006/R1 is about and points at
+    pyproject.toml for the extras instead of enumerating them.
+
+    Both halves are controlled, from pyproject.toml itself (G-3): the runtime
+    distributions it declares must each be named, and no distribution that
+    lives only in an extra -- nor an extra's own name -- may appear. The
+    second half is what keeps ADR-0038/R7 readable from here: ``pytest`` and
+    ``pytest-playwright`` are dev-only, and a paragraph that listed either
+    beside Pillow and NumPy would be claiming otherwise.
+    """
+
+    @staticmethod
+    def _paragraph() -> str:
+        found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
+        assert not missing, missing
+        return found["**The dependency baseline is closed.**"][1]
+
+    def test_the_paragraph_names_the_runtime_baseline_and_no_extra(self) -> None:
+        runtime, extras = _declared_distributions()
+        assert runtime, "pyproject.toml declares no runtime dependency"
+        assert extras, "pyproject.toml declares no extras"
+
+        defects = _dependency_claim_defects(self._paragraph(), runtime, extras)
+
+        assert defects == [], "\n".join(defects)
+
+    @pytest.mark.parametrize(
+        ("paragraph", "fragment"),
+        [
+            pytest.param(
+                "`pyproject.toml` declares exactly stdlib + Pillow as runtime deps",
+                "no longer names the runtime dependency 'numpy'",
+                id="a-runtime-dependency-gone-missing",
+            ),
+            pytest.param(
+                "`pyproject.toml` declares stdlib + Pillow + NumPy (plus pytest"
+                " as a dev-only extra)",
+                "names 'pytest', which pyproject.toml declares only in the 'dev' extra",
+                id="the-defect-this-card-fixes",
+            ),
+            pytest.param(
+                "`pyproject.toml` declares Pillow + NumPy; the `dev`, `admin` and"
+                " `db` extras are outside the baseline",
+                "restates pyproject.toml's extras by name: ['admin', 'db', 'dev']",
+                id="a-restatement-of-the-extras-table",
+            ),
+            pytest.param(
+                "runtime dependencies are exactly Pillow and NumPy",
+                "does not cite pyproject.toml, which is the authority",
+                id="a-paragraph-that-cites-no-authority",
+            ),
+        ],
+    )
+    def test_a_planted_divergence_reds(self, paragraph: str, fragment: str) -> None:
+        runtime, extras = _declared_distributions()
+
+        defects = _dependency_claim_defects(paragraph, runtime, extras)
+
+        assert any(fragment in defect for defect in defects), defects
+
+    def test_the_rule_reds_when_the_authority_moves_under_it(self) -> None:
+        """Caught WITH the authority, missed WITHOUT: the same shipped
+        paragraph against a fabricated pyproject that moved Pillow into an
+        extra reds, so the green above is agreement with the real table."""
+        defects = _dependency_claim_defects(
+            self._paragraph(), {"numpy"}, {"imaging": {"pillow"}}
+        )
+
+        assert any("only in the 'imaging' extra" in defect for defect in defects), defects
+
+
+class TestClaudeMd_TheTimeoutClaimNamesItsTest:
+    """AC-6 (CARD-264): no surviving claim about the solver's timeout that no
+    test pins.
+
+    The paragraph said the cooperative timeout's "hook points [are] already
+    present in ``propagate.py``/``search.py``, not yet enforced". It is fully
+    enforced: ``orchestrator`` fixes one ``time.monotonic`` deadline per
+    request and passes it inward, six sites check it across ``propagate.py``
+    and ``search.py``, and ``propagate.py`` raises ``SolverTimeout``.
+    Correcting "not yet enforced" to "enforced" would have been false again
+    the day someone removed a check site, with nothing to notice -- so the
+    clause now says what the code guarantees and **names the test that pins
+    it**, and this control holds that pairing: the sentence that mentions the
+    deadline must cite a path under ``tests/`` that exists.
+
+    The count is pinned at the one sentence there is today, the way
+    ``_LAUNCH_EDGE`` is pinned as one ordered pair: dropping the clause is a
+    legitimate decision, and this makes it a deliberate edit to this line
+    rather than a quiet loss of the citation.
+    """
+
+    _VOCABULARY = ("timeout", "deadline")
+
+    def _sentences(self) -> list[str]:
+        found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
+        assert not missing, missing
+        return [
+            sentence
+            for line, body in found.values()
+            for sentence in re.split(r"(?<=[.;])\s+", body)
+            if any(word in sentence.lower() for word in self._VOCABULARY)
+        ]
+
+    def test_the_claim_is_one_sentence_and_it_names_an_existing_test(self) -> None:
+        sentences = self._sentences()
+        paths = _repo_paths()
+
+        assert len(sentences) == 1, (
+            "the number of sentences in CLAUDE.md's guarded paragraphs that "
+            "speak about the solver's deadline has changed; each one has to "
+            f"name the test that pins it: {sentences}"
+        )
+        cited = re.findall(r"`(tests/[\w./-]+\.py)`", sentences[0])
+        assert cited, (
+            "CLAUDE.md claims something about the solver's deadline without "
+            f"naming the test that enforces it: {sentences[0]!r}"
+        )
+        missing = [path for path in cited if path not in paths]
+        assert missing == [], missing
+
+    def test_no_guarded_paragraph_says_the_mechanism_is_unenforced(self) -> None:
+        """The specific stale shape, denied by value. Deny-side, so the cost is
+        a false positive: a future sentence that legitimately describes
+        something as not yet enforced must reword or edit this line."""
+        found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
+        assert not missing, missing
+
+        offenders = [
+            f"{lead_in}: {phrase}"
+            for lead_in, (_line, body) in found.items()
+            for phrase in ("not yet enforced", "not enforced", "hook points")
+            if phrase in body.lower()
+        ]
+
+        assert offenders == [], offenders
+
+    @staticmethod
+    def _supported_range() -> dict[str, int]:
+        source = (SRC_PACKAGE / "limits.py").read_text(encoding="utf-8")
+        bounds = {
+            name: int(value)
+            for name, value in re.findall(r"^(MIN_SIZE|MAX_SIZE) = (\d+)$", source, re.M)
+        }
+        assert bounds.keys() == {"MIN_SIZE", "MAX_SIZE"}, bounds
+        return bounds
+
+    @staticmethod
+    def _figures_outside(bodies: dict[str, str], bounds: dict[str, int]) -> list[str]:
+        """Every ``NxM`` figure in ``bodies`` that ``limits.py`` cannot produce.
+
+        Takes the paragraphs and the bounds rather than reading either, so the
+        rule has a case that reds on every run even though the shipped file now
+        carries no such figure at all. That matters: this is a deny-side rule
+        with **no instance left in the tree**, and a rule with no instance and
+        no fabricated case is exactly the unfalsifiable arm this card is about.
+        """
+        return [
+            f"{where} claims a {side}-cell side, outside "
+            f"{bounds['MIN_SIZE']}..{bounds['MAX_SIZE']}"
+            for where, body in bodies.items()
+            for side, _other in re.findall(r"\b(\d+)\s*[x\u00d7]\s*(\d+)\b", body)
+            if not bounds["MIN_SIZE"] <= int(side) <= bounds["MAX_SIZE"]
+        ]
+
+    def test_no_guarded_paragraph_claims_a_grid_size_the_limits_forbid(self) -> None:
+        """The paragraph's other defect: it named a known-hard class at
+        "40x40+", a side ``limits.py`` caps at MAX_SIZE, so no such grid can
+        be produced. The figure is gone and the paragraph points at
+        ``limits.MAX_SIZE`` instead of restating a number (G-3)."""
+        found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
+        assert not missing, missing
+        bodies = {lead_in: body for lead_in, (_line, body) in found.items()}
+
+        assert self._figures_outside(bodies, self._supported_range()) == []
+
+    def test_the_figure_rule_reds_on_the_figure_that_shipped(self) -> None:
+        """Caught WITH the defect, missed WITHOUT it."""
+        bounds = self._supported_range()
+
+        assert self._figures_outside(
+            {"solver": "random mid-density grids at 40x40+ are hard"}, bounds
+        ) == ["solver claims a 40-cell side, outside 10..30"]
+        assert self._figures_outside(
+            {"solver": "random mid-density grids at 30x30 are hard"}, bounds
+        ) == []

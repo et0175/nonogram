@@ -21,23 +21,40 @@ ADR-0019's scope as written, with its own entry point and its own process.
 two adapters (ADR-0019)' below describes the *pipeline's* adapters, not a count of
 every entry point in the tree."
 
-The import guard lists the adapter rank by name rather than by pattern, and
-`tests/test_cli.py:742` says why: **"A guard with an allowlist is weaker than a
-guard without one (ADR-0019, Negative), so this set is closed … and is deliberately
-not a pattern — a third adapter is a decision, not a rename."**
+The import guard lists the adapter rank by name rather than by pattern, and the
+comment above `_ADAPTERS` in `tests/test_cli.py` says why: **"A guard with an
+allowlist is weaker than a guard without one (ADR-0019, Negative), so the set
+below is closed and is deliberately not a pattern: it grows only by a deliberate
+edit to that line, reviewed as the architectural change admitting an adapter
+is."**
 
 ```python
 _ADAPTERS = frozenset({"cli", "web", "admin"})   # tests/test_cli.py:747
 _LAUNCH_EDGE = ("cli", "web")                    # :760 — the only same-rank import
 ```
 
-> **The guard's prose contradicts its own code.** `tests/test_cli.py:743` says the
-> set "is closed at **two** names", `:740` names only `web` and `cli`, and the test
-> is still called `test_the_adapter_allowlist_is_closed_at_the_two_known_adapters`
-> (`:904`) — while its assertion is `_ADAPTERS == {"cli", "web", "admin"}` (`:914`).
-> The mechanism is intact and the pin did its job when `admin` was admitted; only
-> the prose and the test name lagged. The same stale claim appears at
-> `web/__init__.py:21` and `CLAUDE.md:45`.
+> **The guard's prose contradicted its own code until CARD-264.** The comment
+> above `_ADAPTERS` said the set "is closed at **two** names", the test that pins
+> it was called `test_the_adapter_allowlist_is_closed_at_the_two_known_adapters`,
+> and that test's first line repeated the count — while the assertion underneath
+> had read `_ADAPTERS == {"cli", "web", "admin"}` ever since `admin` was admitted.
+> The mechanism was intact throughout and the pin did its job; only the prose
+> lagged. It stopped being cosmetic when CARD-261 pointed a `CLAUDE.md` reader
+> straight at that line: a reader who found the correct members under prose
+> claiming fewer, and concluded `admin` was the erosion, would have deleted a
+> correct entry. All three now state the *rule* — the set is closed and grows
+> only by a deliberate edit to that line — and
+> `TestAdapterAllowlist_NoProseClaimsAStaleCount` reds if any prose around the
+> set states a count again, reading `len(_ADAPTERS)` for the number rather than
+> restating it.
+>
+> **One site of the same claim is still open:** `web/__init__.py`'s package
+> docstring says the structural guard "knows exactly two adapter names — `cli`
+> and `web`". CARD-264 edits no file under `src/`, so it was measured and left;
+> `CLAUDE.md`'s copy was removed by CARD-261. Note that
+> `src/nonogram/__init__.py`'s "There are exactly two adapters (ADR-0019)" is a
+> *different* and deliberate statement, qualified in the docstring itself as
+> describing the pipeline's adapters rather than every entry point in the tree.
 
 ## COMP-001 — the CLI
 
