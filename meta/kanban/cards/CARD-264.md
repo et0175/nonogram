@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** CARD-261's implementation hand-back, 2026-10-22: it re-derived all three defects as real and **left them in place deliberately**, because G-4 confined that card to the layout block. Reported rather than absorbed, which is why they are a card and not a silent fix.
 **Idea:** —
-**Wave:** —
+**Wave:** 54 (next — see the sequencing note)
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_cli.py
 **Review score:** —
@@ -203,3 +203,16 @@ this card's dead `validate_size` token, and CARD-261's two gating findings.
   with no possible failure. If a standing check is worth having anywhere on this board, it is *"every
   member of every hand-written guard set still names something that exists"*, and this card is the
   natural place to propose it.
+
+## [Owner decision 2026-10-22] AC-7 stays here, and this card goes out next wave
+
+CARD-261's cycle 2 raised the question of folding AC-7 into that card's fix round, because CARD-261
+creates the first **reachable** pointer from the every-session file into `_ADAPTERS`. The owner's decision
+is to **keep it separate and dispatch CARD-264 next**, so CARD-261 stays inside its slice.
+
+**The failure mode this card now closes is worse than the one CARD-261 removed, and it is reachable only
+because of CARD-261.** The reviewer's reading, which is the sharpest argument on this card: the *value* in
+`_ADAPTERS` is correct and matches the canonical map, but the prose around it says "two" in all three
+places. A reader who follows CARD-261's new pointer, finds a set of three under prose saying two, and
+concludes `admin` is the erosion will **remove a correct entry** — strictly worse than the stale count it
+replaced. The window is one wave long by design; do not widen this card to shorten it.
