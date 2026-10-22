@@ -1132,13 +1132,25 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
     else, so ``3 + len(section)`` is a failure and
     ``1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + …`` is not.
 
-    **And it fails closed** (ADR-0039/R2; review cycle 2's F-201 measured
-    eight shapes passing the first version of this walk silently). What the
-    walk reads is data rather than prose — :data:`BINDERS_READ`,
-    :data:`STRING_FIELDS_READ`, :data:`GEOMETRY_DOORS`,
-    :data:`FRONT_MATTER_CONSTANTS` — and a shape a position flows through
-    that none of them names is a **refusal**, which reds naming the line and
-    the shape. The set is held to an equality rather than a floor;
+    **It fails closed on the POSITION axis, and not on the DOOR axis**
+    (ADR-0039/R2; cycle 2's F-201 measured eight shapes passing the first
+    version of this walk silently, and cycle 3's F-301 measured the door
+    axis still passing). What the walk reads is data rather than prose —
+    :data:`BINDERS_READ`, :data:`STRING_FIELDS_READ`, :data:`GEOMETRY_DOORS`,
+    :data:`FRONT_MATTER_CONSTANTS` — and a shape a **position** flows
+    through that none of them names is a **refusal**, which reds naming the
+    line and the shape.
+
+    **Declared exemption, not a closure (ADR-0039/R3): a door whose identity
+    is not a syntactic name in the call position is neither read nor
+    refused.** ``called()`` recognises a door only as ``ast.Name`` or
+    ``ast.Attribute`` in ``Call.func``, so ``getattr(self, "page_spec")(…)``,
+    an assembled name, a door through a local string, and
+    ``operator.methodcaller`` all reach the real geometry door with nothing
+    reported — measured, four shapes, cycle 3's F-301. Closing that axis is
+    CARD-262's, carded rather than attempted here: the cycle budget is spent
+    and a mechanism added now would ship uncertified.
+    The set is held to an equality rather than a floor;
     :data:`PLANTED_SHAPES` is the measured table of what the walk reads and
     what it refuses; and the one shape still allowed silently is
     :data:`EXEMPTION`, whose control and whose cost on this module are both
@@ -1373,10 +1385,13 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         its own — which is how every control below measures this analyser
         without a file on disk being mutated.
 
-        The walk **fails closed** (ADR-0039/R2): binding occurrences come from
-        the module's own store contexts rather than from a list of statement
-        kinds, and every shape a position can flow through that this walk does
-        not read appends a refusal below instead of passing.
+        The walk fails closed **on the position axis** (ADR-0039/R2): binding
+        occurrences come from the module's own store contexts rather than from
+        a list of statement kinds, so every shape a **position** can flow
+        through that this walk does not read appends a refusal below instead
+        of passing. It does **not** fail closed on the door axis — a door that
+        is not a syntactic name in ``Call.func`` is neither read nor refused
+        (the class docstring's declared exemption; cycle 3's F-301, CARD-262).
         ``follow_terms`` removes the one :data:`EXEMPTION`.
         """
         import ast
