@@ -1586,3 +1586,14 @@ that sentence.
 **Owed to cycle 3:** Step 8f's certification half, `deferred(cost)` for two cycles running. The agent
 declares nothing half-fixed, and names what a certifying reviewer should still find open: F-203's `:522`
 residue text and the three sentences above.
+
+---
+
+### [Build gate — fix 2] PASSED: 3326 passed, 16 skipped, 0 failed, EXIT=0
+
+35-file selection at `beb3a527`, derived by `scripts/impact_set.py` and run independently of the
+agent's own 11-file run (945 passed). Same declared override as the fix-1 gate and for the same
+reason: the selector returns `FULL` because `tests/conftest.py` is changed against the merge-base, and
+the narrowing rests on the recomputed AST-digest equality (33624 / `4cfa0b4b…`) proving that change is
+docstring-only. CARD-206's fix round was live in the sibling worktree, so a lock-taking full run would
+have red it. The full suite comes at the merge gate.
