@@ -1,6 +1,6 @@
 # CARD-261: Both component maps drift silently; hold them to the package the import walk already enumerates
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.75d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/261-control-the-component-map
-**Worktree:** ../PythonProject4-card-261
+**Worktree:** — (removed at merge)
 **Source:** found 2026-10-22 while establishing what `forge:explain` could ground its L4 narrative on. Two of the five defects were corrected directly in `9c4e851a` (CLAUDE.md's two "not yet built" rows); the owner carded the rest rather than take a wider edit to the project's instruction file outside a card.
 **Idea:** —
 **Wave:** 53
@@ -17,9 +17,9 @@
 **Touches:** CLAUDE.md, src/nonogram/__init__.py, tests/test_cli.py
 **Review score:** 7.5 (c1) → 7.8 (c2) → **8.5 (c3, PASS with 7 bounds)**
 **Started:** 2026-10-22T08:08:13Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-22T12:55Z
+**Actual:** 0.9d against 0.75d (1.2x)
+**Merge commit:** ac63e17a (merged `ff4374f6`)
 **Blocked by:** —
 
 ## Why — the map is read by every agent brief, and nothing reds when it lies
