@@ -47,7 +47,7 @@ under `tests/` reads `CLAUDE.md` at all — verified, the only occurrences are p
 
 So roughly half the shipped system is missing from the layout a new session reads first, and the file
 CLAUDE.md defers to as canonical is stale in the same direction. **The two "not yet built" rows had
-been misinforming briefs for 51 waves** — a card asking whether it could use the difficulty scorer was
+been misinforming briefs from 2026-09-08 to 2026-10-22 — about six weeks** — a card asking whether it could use the difficulty scorer was
 reading that it did not exist.
 
 **This is ADR-0039/R1's family, not a typo.** The map makes a claim about the code; the claim has no
@@ -204,3 +204,24 @@ _Dropped (7), each executed by the suite on every gate: ADR-0006/R1, ADR-0027/R2
   has **seven** capabilities, not six — CAP-007 *Puzzle play* (FR-044, US-028, CON-021, ADR-0038) is
   real, shipped code with its own L4 file. **Recorded rather than quietly deleted** because this is the
   card's own subject in miniature: a claim about the repository, asserted without a control, wrong.
+
+---
+
+### [Figure corrected] "51 waves" was never derivable; it is a date range
+
+The orchestrator wrote that the stale map had misinformed briefs "for 51 waves" — in this card's `## Why`,
+in the brief handed to the implementation agent, and to the owner in conversation. **It is not a figure
+anything in this repository supports.** `git log -L 42,52:CLAUDE.md` shows exactly two commits ever
+touching those lines — `96da6ac4` (2026-09-08, which introduced the block) and `9c4e851a` (2026-10-22,
+which fixed two of its rows) — and `meta/kanban/retro.md`'s earliest dated wave is 28–30 on 2026-10-03,
+so nothing maps 2026-09-08 to a wave number. The implementation agent re-derived this, declined to repeat
+the figure in `CLAUDE.md`'s new sentence, and said why; the card is corrected to the date range it can
+support.
+
+**Second figure corrected, from the same hand-back.** The orchestrator's brief said the solver's
+cooperative deadline is checked at **four** sites. It is checked at **six** — `propagate.py:983`,
+`:1129`, `search.py:1180`, `:1259`, **`:1418`** and **`:1728`** (`grep -n 'check_deadline(' src/nonogram/solver/*.py`,
+with the raise at `propagate.py:221` and the one per-request deadline fixed at `orchestrator.py:1793`).
+A subset was stated as if complete. It changes nothing about the card — the point was that the timeout
+*is* enforced, and six sites make that case more strongly than four — but a figure in a brief is a claim,
+and its control is recomputation.
