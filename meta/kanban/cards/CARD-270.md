@@ -1,6 +1,6 @@
 # CARD-270: Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ops
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/270-fifth-rule-divisions
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-270
 **Source:** quick — owner bug report 2026-10-22: "Regions around wider lines (5x cell number) don't have gray cell divisions around black cells"; no handoff increment
 **Idea:** —
-**Wave:** —
+**Wave:** 54
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_fifth_rule.py, tests/test_admin_design_tokens.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-22T17:20:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

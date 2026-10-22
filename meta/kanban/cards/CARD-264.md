@@ -1,6 +1,6 @@
 # CARD-264: CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
 
-**Status:** in_progress
+**Status:** blocked
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — decompose: its branch and main both build `_ADAPTER_COUNT`, in 7 conflicting regions, and the boundary is CARD-265's declared subject
 
 ## Why — three false claims in the file every agent brief is built from, and one has already spread
 
@@ -1031,3 +1031,74 @@ five pre-existing `monkeypatch`-dotted-target blind tests not brought into the i
 instrument was not modified). And the extra `SyntaxWarning` in the `TestClaudeMd` run, 9 → 10, is the
 pre-existing `dog_in_house.py:6` ASCII-art escape re-reported once more because one more test calls
 `_src_symbols()` — not introduced, not fixed, already on the backlog.
+
+---
+
+### [Escalated] 2026-10-22 — the merge is BLOCKED, and the reason is a slice, not a defect
+
+**Station: decompose. Route: the owner chooses one of the three options below.** Worktree and branch are
+KEPT — three good commits are on it (`d40e9d4a`, `d5da18ff`, and CARD-261's two inherited ones) and
+nothing here says the work is wrong.
+
+**What was measured, before anything was changed.** `run resume` diagnosed the worktree
+(DIRTY + IMPL_HAS_COMMITS, where the only dirt is this card copy and the cycle-1 review report — both
+procedurally uncommittable from a worktree, so this was a review-cycle restart, not an implementation
+restart). The branch is **41 commits behind main**. A dry run of the merge, which changes nothing:
+
+```
+git merge-tree --write-tree --name-only main card/264-claude-md-outside-the-map
+  -> exit 1
+  meta/kanban/cards/CARD-261.md
+  tests/test_cli.py
+```
+
+For contrast, the same dry run on the sibling card in flight is **exit 0** — CARD-262 merges clean, so
+this is specific to this branch and not a stale main.
+
+**The conflict is semantic, in seven regions, and all seven are one mechanism.** Both sides independently
+wrote `_ADAPTER_COUNT` and its corpus:
+
+| side | the pattern it wrote | its declared bound |
+|---|---|---|
+| this branch | numerals and number words only | gap of **two** words to the noun |
+| **main** (CARD-261 cycle 2, merged) | numerals, number words, **and words that imply a number** — `both`, `only`, `sole`, `a pair of` | gap of **one** word, **measured over 32 committed forms** in `ADAPTER_COUNT_CASES` |
+
+main's version is strictly the more developed one, and it records *why* the two-word bound was wrong, in
+its own comment: two words is wide enough to swallow a verb phrase, so `"See section 3 about inbound
+adapters."` and `"the four tests cover adapters"` both matched while stating no count — *"a deny-side
+guard that reds on a cross-reference is one the next card switches off rather than obeys."* It also
+catches the literal F-101 defect this guard exists for (`"the only inbound adapter"`), which the
+two-word numeral-only pattern **cannot** match.
+
+**So resolving this conflict by hand is the one thing that must not happen here.** Taking this branch's
+side regresses a guard whose bound was measured over 32 forms one cycle ago, and it would regress it
+*silently* — a narrower deny-side pattern reds on nothing, so every test stays green while the guard
+stops catching the case it was built for. That is ADR-0039/R1's defect family exactly: a claim whose
+control can no longer fail. Fifteen consecutive gating findings in that family across three waves is
+why this is an escalation and not a judgement call made from a merge driver.
+
+**And the boundary already belongs to a third card.** `CARD-265` is `ready`, titled *"The
+`_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence `tests/README.md` is missing"*,
+with `Touches: tests/test_cli.py`. Three cards now hold one mechanism: CARD-261 (merged), this card
+(branch), CARD-265 (queued). The conflict graph would have serialized this card against CARD-265
+anyway; what it could not see is that main had already absorbed the mechanism.
+
+**The owner's three options, with what each costs:**
+
+1. **Fold the guard into CARD-265 and narrow this card to its other six files** (recommended) —
+   `CLAUDE.md`, `tests/test_web_server.py`, `tests/test_timeout.py`, `tests/test_sourcing_image.py`,
+   `tests/test_guard_integrity.py` and the `docs/how-it-works/…` page carry this card's actual subject
+   (three false CLAUDE.md claims). Those merge clean. `tests/test_cli.py` comes off `Touches:`, and
+   CARD-265 inherits the one measured question — which of the two bounds is right — as its own, with
+   main's 32 cases as the corpus it must not shrink.
+2. **Rebase and keep main's guard wholesale** — resolve all seven regions in main's favour, drop this
+   branch's `_ADAPTER_COUNT` work, keep its `TestAdapterAllowlist_NoProseClaimsAStaleCount` only if it
+   passes against main's pattern. Cheaper, but it discards this branch's cycle-1 review evidence for
+   the parts it deletes, and the deletion itself would ship uncertified.
+3. **`/kanban redo CARD-264`** — discard the branch and re-implement against today's main. The three
+   commits are good work; this is the most expensive option and is only right if the re-slice changes
+   the card's subject substantially.
+
+**Nothing on this branch was modified.** No rebase, no merge, no commit, no `git add`. The dry run wrote
+only to `/tmp`. Cycle-1's review report has been synced into the main repo's `meta/review/` so the
+evidence survives a later `redo`/`abandon`.

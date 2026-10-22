@@ -10,8 +10,22 @@ max_concurrent_override: 2
 # intact: no full-suite run is permitted in any of the three worktrees, each redirects
 # its suite lock to a scratch path, and no merge is pending. The cap returns to 2 when
 # wave 53 lands.
-active: [CARD-262, CARD-264]
-escalated: []
+#
+# 2026-10-22, later (run resume, owner's "commit the cards and run the wave"): the
+# breach is OVER and the cap is honoured again at 2. Both slots were held by STALLED
+# pipelines -- no agent was running for either card in the resuming session -- so the
+# run began with `run resume` rather than by starting new cards. CARD-264 escalated at
+# the rebase step (7-region semantic conflict with main over _ADAPTER_COUNT; see its
+# card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
+# at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
+active: [CARD-262, CARD-270]
+escalated:
+  - id: CARD-264
+    reason: "merge BLOCKED: branch and main both build _ADAPTER_COUNT in 7 conflicting regions; main's bound was measured over 32 committed forms (CARD-261 cycle 2) and taking the branch's narrower numeral-only pattern would regress a deny-side guard silently -- all tests stay green. The boundary is additionally CARD-265's declared subject (Touches: tests/test_cli.py), so one mechanism is held by three cards."
+    station: decompose
+    route: "owner decision, 3 options on the card: (1) fold the guard into CARD-265 and narrow this card to its other six files [recommended -- those merge clean] (2) rebase keeping main's guard wholesale (3) /kanban redo CARD-264"
+    at: 2026-10-22T17:05:00Z
+    evidence: "git merge-tree --write-tree main card/264-... -> exit 1 (tests/test_cli.py, meta/kanban/cards/CARD-261.md); the same dry run on CARD-262 -> exit 0, so main is not stale. Branch unmodified: no rebase, no merge, no commit. Cycle-1 report synced to meta/review/20261022T114447Z-CARD-264-cycle1.yml."
 merged_wave_45:
   - id: CARD-248
     merge_commit: 1256982

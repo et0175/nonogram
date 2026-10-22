@@ -1158,3 +1158,29 @@ not a write or create, and nothing in the round's evidence depends on it — eve
 path and echoed the line saying so. Recorded because a rule broken and reported is worth more than a rule
 broken quietly, and because the instruction it broke was one I had made partly redundant by telling it
 the holder in the first place.
+
+---
+
+### [Build gate] cycle 2, PASSED — impact scope, 2741 passed / 11 skipped / 0 failed, 6:31
+
+`run resume` restarted this card at **review cycle 2** (cycle 1 scored 5.7 with one Critical; fix 1
+`b88621d8` is on the branch). The gate before that review:
+
+- **Scope:** impact, 23 test files, derived as `make impact-set BASE=$(git merge-base HEAD main)`.
+- **Result:** `2741 passed, 11 skipped, 0 failed in 391.78s` (6:31), exit 0. **Not vacuous** — 2741
+  tests executed.
+- **Interpreter:** the main checkout's `.venv/bin/python` passed as `PY=`; this worktree has no `.venv`
+  and the Makefile default gives `Error 127` here (the card's own earlier note asked for this to be
+  written down, so: it is still true).
+- **Full-suite lock:** redirected to `/tmp/card262-cycle2.lock` via `NONOGRAM_FULL_SUITE_LOCK`, and the
+  runner confirmed it in its own output. The board's `meta/kanban/.full-suite.lock` was never created,
+  read as authority, or modified — which is what lets CARD-270 run its own pytest in a sibling worktree
+  at the same time (CARD-255's guard reds a sibling's run on a FOREIGN holder).
+
+**Not rebased, deliberately, and the reason is measured.** The branch is 41 commits behind main, but
+`git merge-tree --write-tree --name-only main card/262-close-the-door-axis` is **exit 0** (clean), and
+main's 41 commits touch **neither** of this card's files — not
+`tests/test_book_export_interior_cover.py`, not `src/nonogram/admin/book_pdf_generator.py`. So the
+review base is sound, the guard's `816`-call and `inside == 17` equalities are measured against the same
+generator text they were derived from, and the rebase belongs where the procedure puts it: the `done`
+merge gate, with the full suite. Rebasing now would have risked the worktree's note state for no signal.
