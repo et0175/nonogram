@@ -15,7 +15,7 @@
 **Wave:** 53
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py, src/nonogram/admin/book_pdf_generator.py
-**Review score:** —
+**Review score:** — (implementation landed; cycle 1 pending)
 **Started:** 2026-10-22T08:08:13Z
 **Closed:** —
 **Actual:** —
@@ -128,3 +128,447 @@ _Dropped (27), each executed by the suite on every gate: ADR-0006/R1, ADR-0022/R
 - **[Use CARD-260's committed instrument]** `tests/kill_matrix.py`, documented in `tests/README.md` from line 453. Do not write another. Keep deletion mutants **line-count-preserving**, aggregate **any-RED**, target the occurrence inside the arm you mean, and **report the DOMAIN of every per-assertion figure** — and note cycle 3's lesson that a mutant can kill *outside* the assert matrix's domain, in which case both domains are recorded rather than a blank matrix quoted.
 - **[A measured bound to inherit, not re-derive]** CARD-206 cycle 2 established that **no module outside the generator computes a front-matter-relative interior position today**: an AST census found 23 `page_spec`/`book_page_spec` calls across 5 modules, 18 of them inside the generator, and of the other five only `book_proof.py:767` passes a non-trivial position — a standalone proof document with no front matter. Re-derive it if you rely on it; do not restate it without re-deriving.
 - **[Not attempted by any cycle, recorded as unchecked rather than clean]** `__set_name__`, metaclass and `type()`-constructed class routes into the walk. Cycle 3 declined them because no line-count-preserving plant reaches them without restructuring a class body. If this card's semantics (step 1) say they are in scope, they need a plant that does not pretend to be line-count-preserving.
+
+---
+
+## Worktree notes — implementation (2026-10-22)
+
+### SEMANTICS: what *"the guard enumerates every page position"* means — declared before the code
+
+Written first, as step 1 and AC-1 require, so review checks the implementation against a decision.
+Nothing below was measured after the fact; the measurements that follow this block were taken against
+it. Where the implementation later diverged from this declaration, the divergence is recorded in
+**[SEMANTICS reconciliation]** below rather than edited into this block.
+
+**The guard's subject.** `TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage` reads one
+module's text (`src/nonogram/admin/book_pdf_generator.py`) with `ast` and reports, for every interior
+page position that module computes, the integer literals that position is built from. Its claim is that
+a front-matter page count written as a bare literal cannot hide anywhere in that module.
+
+**It is a static analyser, so its semantics are a failure matrix over AXES.** An axis is one question
+the walk must answer about a node, and the walk's answer on each axis is exactly one of three values:
+
+| value | meaning |
+|---|---|
+| **READ** | the walk analysed the shape and reported its literals |
+| **REFUSED** | the walk could not analyse the shape and said so — a `refusals` entry naming line, shape and name, which reds |
+| **SILENT** | the walk neither read nor refused it. **Forbidden by ADR-0039/R2 except as a named exemption under R3 with a control that can fail.** |
+
+**The four axes, named.** Three attempts failed because only the first was ever defined.
+
+1. **POSITION axis** — *which expressions in the module are page positions.* Closed by CARD-206 fix 2,
+   and this card does not rebuild it. Closed by two closures over the **grammar**, not over a list of
+   shapes: (a) the *binding closure* — every binding occurrence of a position name is found from the
+   module's own non-`Load` store contexts (`Name`/`Attribute`/`Subscript`, decomposed through
+   `Tuple`/`List`/`Starred`), and the binder it sits in is looked up in `BINDERS_READ`; a binder not in
+   that table is REFUSED; (b) the *string closure* — a position name held as a bare string in any
+   `(class, field)` pair outside `STRING_FIELDS_READ` is REFUSED. One declared R3 exemption:
+   `EXEMPTION` (a non-position term of a position expression is read for its written literals and not
+   followed into its own bindings), removable with the single analyser parameter `follow_terms`.
+2. **DOOR axis** — *which calls in the module are geometry doors (ADR-0036/R2).* **This card's
+   subject, and it was SILENT.** Declared semantics, chosen here: *a call whose callee's identity this
+   walk cannot derive is REFUSED.* Closed by two closures, and by **no per-shape branch** — neither
+   closure mentions `getattr`, `setattr`, `methodcaller`, `attrgetter` or `vars`:
+   - **callee-identity closure** — for every `ast.Call` in the module, the callee must be *anchored*:
+     `Call.func` is an `ast.Attribute`, or an `ast.Name` whose every binding occurrence in the module
+     (through the same `BINDERS_READ` table the position axis uses) holds a value that is itself a
+     syntactic `Name` or `Attribute`. A callee of any other node class, or a `Name` bound anywhere to an
+     arbitrary expression, is REFUSED. This is what closes a door whose name is **never spelled** —
+     assembled at runtime, or taken from data.
+   - **door-spelling closure** — a geometry-door name appearing in any `(class, field)` pair outside
+     `DOOR_SPELLINGS_READ` is REFUSED. The exact mirror of the position axis's string closure, keyed on
+     `GEOMETRY_DOORS` instead. This is what closes a door reached by **spelling its name as data**.
+   Each arm is individually removable (`door_arms=`), and **each catches a shape the other misses** —
+   so neither is decoration.
+3. **MODULE axis** — *which text the walk reads at all.* It parses exactly one module. A position
+   computed in another module and passed in is outside the enumeration, not refused by it.
+   **DECLARED, not closed** (AC-4), with the measured bound re-derived below. The walk cannot be closed
+   on this axis without becoming a whole-program analyser, which is a different artefact.
+4. **VALUE axis** — *which wrong positions are wrong in a way an integer literal reveals.* A position
+   spelled `0` or `1` is indistinguishable from the legitimate 1-based term, and a position whose
+   literal lives outside the module's text (a database row, a config) is not in the AST at all.
+   **DECLARED, not closed** (AC-4), and it overlaps rather than leans on
+   `TestBookExport_TitlePageCountedEverywhere`'s monkeypatch case, which covers every position that
+   reaches a byte of output.
+
+**What the guard does with a shape it cannot analyse**, on every axis: axes 1 and 2 **REFUSE** — a
+`refusals` entry, which reds, naming the line and the shape. Axes 3 and 4 are SILENT by declaration, and
+each carries its own control below. There is no fifth state and no "assumed clean".
+
+**What a table of planted shapes is.** `PLANTED_SHAPES` and the new door-shape table are **regression
+nets over the shapes measured so far — never completeness arguments.** That is a semantic decision, not
+a hedge: a closure's completeness claim rests on its *quantifier* (every `ast.Call`; every
+`(class, field)`), which the tables cannot establish and are not asked to. Their own control is that a
+row may not declare a SILENT outcome: `test_no_planted_shape_is_declared_silent` reds on an empty
+declared outcome in either table, so a blind spot can never be parked in a table as acceptable.
+
+**Closed vs declared, decided here:**
+
+| axis | decision | its ADR-0039/R3 control |
+|---|---|---|
+| POSITION | CLOSED (inherited) | `BINDERS_READ`/`STRING_FIELDS_READ` per-member controls; `EXEMPTION` removable by `follow_terms`, cost asserted |
+| DOOR | **CLOSED (this card)** | both arms removable by `door_arms=`; each arm's own shape; the shipped module's refusal count asserted as an equality |
+| MODULE | **DECLARED** | an AST census of every geometry-door call outside the module, re-derived and asserted |
+| VALUE | **DECLARED** | `POSITION_LITERALS` is the removable parameter: the control is the planted-literal pair |
+
+### [SEMANTICS correction] The declaration was wrong on one clause, and it is corrected here, not rewritten
+
+The SEMANTICS block above is left as it was written, before the code, so review can see what was
+decided. **One clause of axis 2 was wrong**, and an independent plant falsified it:
+
+> *"`Call.func` is an `ast.Attribute`, or an `ast.Name` whose every binding occurrence in the module …"*
+
+The clause before the comma is the hole. Treating **every** attribute callee as self-evidently anchored
+re-opened the whole F-301 family one storage over. **Corrected to:** *the callee must be a name or
+attribute whose every binding occurrence **in its own storage** holds a syntactic `Name` or
+`Attribute`.* Both docstrings and the code now say that; the block above does not, deliberately.
+
+Two further refinements, recorded rather than folded into the block:
+
+1. **An annotation-only `AnnAssign` binds nothing.** `field: int` in a dataclass body holds no value, so
+   it is not a binding occurrence. Without this the module's own `interior_page_count: int` at
+   `book_pdf_generator.py:2889` would make three legitimate calls to the *function* of the same name
+   refusals — found by measuring the first draft of the arm, not by reasoning.
+2. **The callee-identity arm is scope-insensitive.** The block already said "every binding occurrence
+   **in the module**", so this is a bound rather than a divergence: a name bound opaquely in one
+   function and used as a callee in another is refused although no door can reach it. That is an
+   over-approximation in the **fail-closed** direction (ADR-0039/R2's default deny) and it costs **0
+   refusals** on this module, asserted. The module's one real shadowing case — the nested `def technique`
+   at `:4448` against the `technique` parameter at `:4350` — is **not** refused, because an `ast.arg` is
+   not one of `BINDERS_READ`'s shapes.
+
+### [AC-3] The independent plant falsified this card's own closure, and that is the result
+
+AC-3's control is a plant chosen by **someone other than the author of the walk**. An adversarial
+reviewer was given the harness and both tables, told to go where the tables do not, and told that
+finding nothing silent would be a useful result. It ran **41 plants, 38 of them in neither table**, and
+returned **23 silent**. The author's own 18-row table passed every row while a stranger's shapes did
+not — which is exactly what AC-3 exists to expose, and why a table of planted shapes is a regression
+net and never a completeness argument.
+
+**What was closed (the defect this card then owned).** The storage family, three plants:
+`self._door = getattr(self, "page_" + _SUFFIX)` then `self._door(3 + len(section))` — W0 with `_d`
+spelled as an attribute — plus the same door laundered through a helper, and a `__call__` object parked
+on an attribute. All three were **SILENT**. They are now W12, W13, W14 and all three **refuse**.
+
+**The obvious fix is wrong, and this is the measurement that chose the real one.** Extending the anchor
+check to attribute callees against **one** opaque table costs **51 refusals on a module with no defect
+in it** — `text = f"…"` and `draw.text(…)` share a spelling and nothing else; the collisions are `text`,
+`line`, `cell_sizes` and `page_spec`. Keying the table on **(storage, spelling)**, with `a local name`
+and `an attribute` kept apart and each callee looked up in its own storage, costs **0**. Both figures
+re-derived through the same prototype walk (`callee_arm`/`arm` in the scratchpad), and the 0 is asserted
+in the suite by `test_the_door_axis_arms_reach_every_call_and_refuse_none_of_them`.
+
+**Three more of the reviewer's plants were already refused and are now rows**, so the net grows rather
+than the claim: W15 (an opaque door bound by a `for` target), W16 (a walrus callee), W17 (a door in a
+dict on `self`, a subscript callee). None is a shape anyone wrote a branch for — the closures catch
+them — which is the reviewer's own conclusion: *"On the `ast.Name` axis, yes — genuinely. I tried to
+find an opaque local door the arms miss and failed."*
+
+### [Axis 5, DECLARED not closed] the CALL-GRAPH axis, found by the independent plant
+
+The reviewer's remaining silent shapes are **not** door-axis shapes. They are a position forwarded past
+a callee this walk resolves **by name** against the module's own `defs`:
+
+- an **alias of a non-door method** that carries a position — `_f = self.puzzle_pages;
+  _f([], 3 + len(section))`. `puzzle_pages`' `first_page` is in the vocabulary; the alias hides the
+  literal. The walk refuses this on the *door* (W4) and has nothing for non-door functions.
+- a **parameter used as a callee** — a callback `make_spec(3 + len(section))`. A parameter is an
+  `ast.arg`, never a binding occurrence under one of `BINDERS_READ`'s shapes, so it can never enter the
+  opaque table. A `lambda` in the same place **is** refused (V13), so the gap is specifically a nested
+  `def` reached through a parameter.
+- a **`*args` forwarder** — `def _answer_spec(generator, *position_args)`. `vararg` is not in
+  `posonlyargs + args`, so the fixed point maps no caller argument onto it though the star reaches the
+  door.
+
+**This falsified a sentence this card had already written into both docstrings** — *"the walk fails
+closed on **both** the position and the door axis"*. True of the position axis's **binding** closure,
+false of its **call-graph** resolution. **Narrowed in both docstrings rather than defended**, which is
+the board's rule applied to this card's own prose: prefer deleting or narrowing a claim over adding one.
+Axis 1 now reads *"closed on binding occurrences … **not** closed on how a position reaches a callee —
+that is axis 5"*, and the method docstring points at the class's axis table as the authority instead of
+restating it.
+
+### [The VALUE axis] the declaration predicted this before any of it was planted
+
+Axis 4 was declared open in the SEMANTICS block **before the code**, and the reviewer's Groups B and C
+are what it predicted:
+
+- **the count spelled in ones** — `… + len(section) + 1 + 1 + 1 + 1`. `POSITION_LITERALS = (0, 1)`
+  admits `1` and caps nothing, so three extra front-matter pages are added while the derivation, the
+  `GUIDE_PAGE_COUNT` load, the vocabulary, the 23-site equality **and** the 7-site guide equality all
+  stay intact. **This is the one I would fix first** and it is not this card's axis.
+- **a module constant the literal reader does not reach** — `module_integers` reads only a top-level
+  `ast.Assign` of a bare int `Constant`, so `_HIDDEN_FRONT_MATTER: int = 3`, `= 1 + 2`, a constant
+  inside an `if` block and `len(_FRONT_MATTER_PAGES)` over a module tuple all defeat V15's mechanism.
+- **what counts as an integer** — `int(3.0)`, `True + True + True`, `ord("\x03")`, `int("0x3", 0)`,
+  `eval("3 + len(section)")`.
+
+### [The bound has a control that fails in both directions]
+
+`MEASURED_BLIND_SPOTS` holds four of the reviewer's shapes — two value-axis, two call-graph — and
+`test_the_declared_blind_spots_are_still_exactly_these` asserts they **are** silent. That is what makes
+a declared bound falsifiable: narrow the value axis or close the call-graph axis and it reds, naming the
+row, so the declaration is re-measured instead of standing while the code moves underneath it. It is
+deliberately **not** a row of `DOOR_SHAPES`/`PLANTED_SHAPES`, because
+`test_no_planted_shape_is_declared_silent` forbids a silent outcome there: a blind spot parked in a
+regression net as *expected* is the shape ADR-0039/R2 forbids. A bound lives in its own table.
+
+### [TDD] one line per criterion
+
+- **AC-1:** no test — the deliverable is card text. The `SEMANTICS:` block above was written and saved
+  **before** the first line of guard code, and before the first commit (`8bc7671f`). Its control is
+  that cycle 1's review quotes it; its honesty check is **[SEMANTICS correction]**, which records the
+  one clause an independent plant falsified instead of rewriting the block to match the code.
+- **AC-2:** `test_every_door_shape_is_read_or_refused_and_never_silent` **red→green**. Red first with
+  9 of 12 rows returning `()`; the failure named every silent row. Green after the two closures. Then
+  red **again** when the independent reviewer's W12–W14 were added, and green after the
+  (storage, spelling) keying.
+- **AC-3:** `test_the_declared_blind_spots_are_still_exactly_these` **red→green** (it did not exist
+  until the reviewer's plants existed). AC-3's own control is not a test of mine at all — it is the
+  reviewer's 41 plants, 23 silent, one of which was a defect in this card's own closure.
+- **AC-4:** `test_the_module_axis_bound_is_measured_rather_than_declared` **red→green** — red first
+  because the first draft hard-wired `args[1:]` for the position slot, which is review cycle 2's F-203
+  defect exactly, and reported nothing; green once the slot is read from each door's own signature via
+  `_door_position_slots`. `test_the_declared_blind_spots_are_still_exactly_these` carries axes 4 and 5.
+- **AC-5:** no new test; the three equalities are unchanged and re-measured green (23 sites, the same
+  six-name vocabulary, 7 guide-counting expressions). Both directions re-certified by mutant below.
+- **F-303:** `test_every_binder_read_is_what_makes_its_own_shape_read` **red→green** — red first on
+  `Assign` because the tiny per-binder sources define only one of the two doors and an unseedable door
+  is itself a refusal (F-203 again); green once only `page_spec` is seeded.
+
+### [Mutants] 16 of 16 ANY-RED, and the domain of every figure
+
+**Domain, stated in full:** the signal is **pytest's own exit code** over the selection, i.e. a
+**test-level** ANY-RED, *not* a per-`ast.Assert` kill matrix. The denominator is **collected tests**,
+never assert-node count. Every mutant is **line-count-preserving**, applied to
+`tests/test_book_export_interior_cover.py` on disk, with `cp -p` backup, restore in a `finally`, and
+`shasum -a 256` verified byte-identical afterwards (`0966643820…` before and after both rounds).
+SHIPPED was re-run **between** every mutant and was `exit 0, 0 failed` each time.
+
+**The committed instrument was NOT the source of these figures, and that is a declared gap.** A
+`tests/kill_matrix.py` run over 13 mutants (`Pass.RERAISING`, selection = the guard class) was started
+and **did not finish** — it produced no matrix before it was stopped, so **no per-assertion figure is
+quoted anywhere in these notes**. It was stopped with SIGINT so the instrument's own restore `finally`
+ran, and the target was then verified against nine pristine markers and `git status`. Recorded as
+incomplete rather than replaced by a partial grid: per-arm attribution for these mutants is **owed**,
+and the figures below are test-level only.
+
+| round | domain | result |
+|---|---|---|
+| 1 | each mutant scoped to **one** test nodeid | 13 RED / 3 SURVIVED |
+| 2 | the three survivors re-run against the **whole guard class** | **3 RED** |
+
+**Round 1's three survivors were defects in the mutants and in the selection, not findings about the
+tests** — and the first of them is this card's own family, hit on its own instrument:
+
+1. **M14** (`POSITION_LITERALS = (0, 1)` → `(0,)`) read SURVIVED under a one-test selection and kills
+   **8 arms** against the class. **A scoped negative is unsound here**, so round 1's scoped domain is
+   reported for its positives only; no negative result from it is quoted.
+2. **M15** changed only the opaque table's *setter* and not its *lookup*, so it **disabled** the arm
+   instead of conflating the two storages — a mutant doing something other than what it is named.
+   Corrected (`M15b`, both sides) it reds **5 arms**, including the reach test.
+3. **M16** changed only a blind-spot row's **label**, which both sides of the equality read, so it was
+   invariant — **CARD-206's F-302 defect reproduced in this card's own mutant**. Corrected (`M16b`,
+   the row's *body*, so the shape stops being silent) it reds the blind-spot arm.
+
+| mutant | what it deletes | arms red |
+|---|---|---|
+| `M8_DOOR_AXIS_DELETED` | `DOOR_ARMS = ()` — both closures at once; reproduces F-301 | RED |
+| `M1_CALLEE_ARM_DELETED` | the callee-identity closure | RED |
+| `M2_SPELLING_ARM_DELETED` | the door-spelling closure | RED |
+| `M15b_STORAGES_CONFLATED` | the (storage, spelling) keying, both sides | RED, 5 |
+| `M3_DOOR_SPELLING_WIDENED` | `("alias","asname")` → `("Constant","value")` | RED |
+| `M4_ASYNCFOR_REMOVED` | `AsyncFor` from `BINDERS_READ` (F-303) | RED |
+| `M5_NAMEDEXPR_REMOVED` | `NamedExpr` from `BINDERS_READ` (F-303) | RED |
+| `M6_ROW_DECLARED_SILENT` | a `DOOR_SHAPES` row's outcome → `()` | RED |
+| `M7_MODULE_BOUND_EMPTIED` | the module-axis allowlist | RED |
+| `M9/M10_SITES_±1` | `POSITION_SITE_COUNT` 23 → 24 / 22 | RED both |
+| `M11_VOCABULARY_RENAMED` | one of the six position names | RED |
+| `M12/M13_GUIDE_±1` | the guide-counting `== 7` | RED both |
+| `M14_POSITION_LITERALS_NARROWED` | `1` from `POSITION_LITERALS` | RED, 8 |
+| `M16b_BLIND_SPOT_NO_LONGER_SILENT` | a blind spot's silence | RED |
+
+**AC-5 re-certified in both directions:** `M9`/`M10` (site count ±1), `M12`/`M13` (guide count ±1) and
+`M11` (a renamed vocabulary member) all red. None of the three equalities has become a floor.
+
+### [Figures, each re-derived and its door named]
+
+- **23 derived position sites, 6 position names, 7 guide-counting expressions** — unchanged by this
+  card, re-derived through `_page_positions()` and `_counting_expressions()` and asserted as
+  equalities. Door: the guard's own analyser.
+- **816 calls in the module, all of them syntactic names, 0 door-axis refusals** — derived through a
+  **second, independent** walk written inside
+  `test_the_door_axis_arms_reach_every_call_and_refuse_none_of_them`, not by re-calling the analyser.
+  Both the 816 and the 0 are asserted.
+- **51 → 0 refusals** for the one-shared-table vs (storage, spelling) keying — derived through the
+  standalone prototype walks `fixe.py`/`fixe2.py`, and the `0` independently asserted in the suite.
+  Collisions named: `text`, `line`, `cell_sizes`, `page_spec`.
+- **MODULE axis: 23 geometry-door calls in `src/`, 17 in the generator, 6 outside across 4 modules, 1
+  of the 6 passing a non-trivial position** (`book_proof.py:767`, a standalone proof document with no
+  front matter). Re-derived through this card's own AST census with the slot read from each door's
+  signature. **This differs from CARD-206 cycle 2's restatement of "18 of them inside the generator"**
+  — my derivation gives **17**. Re-derived rather than restated, as that card's note asked; the delta
+  is reported rather than reconciled, because the two censuses may not have counted the same thing.
+- **14 of 18 `DOOR_SHAPES` rows fall silent with both arms removed** — asserted as an equality
+  (`SILENT_WITHOUT_THE_DOOR_ARMS`), with the other 4 asserted at exactly 4.
+- **41 plants / 38 outside both tables / 23 silent** — the independent reviewer's figures, its own.
+
+### [Honest bounds]
+
+1. **Per-assertion attribution is owed.** Every figure here is test-level ANY-RED. The committed
+   instrument did not finish; no kill matrix is quoted.
+2. **Three of five axes are open by declaration** — MODULE, VALUE, CALL-GRAPH — each with a control
+   that fails. Closed: POSITION (on binding occurrences) and DOOR.
+3. **The callee-identity arm is scope-insensitive**, over-approximating in the fail-closed direction.
+4. **The reviewer's 23 silent shapes: 3 closed, 4 bounded, 16 neither.** The 16 are all VALUE-axis or
+   CALL-GRAPH-axis instances of the four mechanisms named above, and the bound carries two
+   representatives of each axis rather than all 16 — a choice made for runtime, and a real gap in the
+   bound's resolution, not in its direction.
+5. **`__set_name__`, metaclass and `type()`-constructed class routes** are still not reachable by a
+   line-count-preserving plant. The reviewer approximated them at module level (its X18, X27) and both
+   were silent; a genuine in-class-body plant remains unchecked rather than claimed clean.
+6. **`len(calls) == 816` and `inside == 17` will red on any future production edit** that adds a call
+   or a door call to the generator. That is intended — they are the closure's denominators — but it is
+   a maintenance cost this card is imposing, stated rather than discovered later.
+
+### [Gates] impact set, the tripwires, and the guardrails
+
+- **Impact gate:** `make impact-set BASE=$(git merge-base HEAD main)` → **23 test files**;
+  `make test-impact` → **2737 passed, 11 skipped, 0 failed, exit 0**. (`PY=` had to be pointed at the
+  main checkout's interpreter: this worktree has no `.venv`, and the Makefile's default
+  `./.venv/bin/python` gives `make: *** Error 127` here. Worth a line in `tests/README.md` for the next
+  card that works in a worktree.)
+- **The full suite was NOT run** — CARD-261 is live in the sibling worktree. Every pytest run in this
+  worktree used `NONOGRAM_FULL_SUITE_LOCK=/tmp/card262-impl.lock`; the board's own
+  `meta/kanban/.full-suite.lock` was never created, read as authority, or modified.
+- **G-1 (no production behaviour change): structurally guaranteed, not argued.** The diff against the
+  merge-base is **one file, `tests/test_book_export_interior_cover.py`** — `git diff --name-only … --
+  src/` is **empty**. The door axis closed with **zero** production change, because the module's 816
+  calls are already all syntactic names. The card's step 2 offered "make a door's identity derivable
+  where it is used"; it already was.
+- **G-2:** `src/nonogram/export/layout.py` untouched (it is inside that empty `src/` diff). The three
+  CON-019 byte-identity tripwires ran **unedited**: `tests/test_export_a4_golden.py` +
+  `tests/property/test_cli_exports_byte_identity.py` → **66 passed, exit 0**.
+- **G-3:** no database was created, dropped, connected to or truncated; `_refuse_unless_test_database`
+  untouched; no `DATABASE_URL` was set in this worktree.
+- **G-4:** no new dependency; the guard is stdlib `ast` only.
+- **G-5:** the one axis that could not be closed was **declared** (axis 5), not accommodated by
+  loosening an arm. No arm was weakened: the only arm whose behaviour changed is the one this card
+  added, and it was made **stricter** (attributes as well as locals) after the independent plant.
+- **G-6:** no timing measurement is reported anywhere in these notes.
+- **Commits:** `8bc7671f` (the closure, the tables, F-303, the axis docstring) and `060190c6` (the
+  "missed WITHOUT" equality). Explicit pathspecs only; nothing under `meta/` is staged or committed, so
+  this card copy is worktree-only by design.
+
+---
+
+### [Implementation landed] `8bc7671f` + `060190c6` — and **zero production change**
+
+One file changed, `tests/test_book_export_interior_cover.py`.
+`git diff --name-only merge-base..HEAD -- src/` is **empty**, so G-1 is structurally guaranteed rather
+than asserted. The door axis closed without touching production, because the generator's callees were
+already all syntactic names — which is itself the finding: the axis was open as a *guard* hole, not as a
+live defect.
+
+**Gates run by the implementation:** impact set 23 files → **2737 passed, 11 skipped, 0 failed, exit 0**;
+guard file plus its property neighbour **86 passed**; the CON-019 tripwires, unedited, **66 passed**.
+I will run the real gate at the cycle boundary.
+
+**AC-3 did its job in the only way that counts: it falsified the author's own closure.** An independent
+plant author ran **41 plants, 38 outside both tables, 23 silent** — against a hand-built 18-row table
+that passed every one of its own rows. Of the 23: **3 closed, 4 bounded, 16 carded forward**. The three
+closed are one family — `self._door = getattr(self, "page_" + _SUFFIX)` then `self._door(...)`, the same
+laundered through a helper, and a `__call__` object on an attribute. That is W0 *with the local spelled
+as an attribute*, and it re-opened F-301's whole family one storage over.
+
+**The declaration was wrong in one clause, and the block was left as written with the correction beside
+it.** The author had declared a callee anchored when *"`Call.func` is an `ast.Attribute`, **or** an
+`ast.Name` whose every binding…"*. The clause before the comma **is** the hole: treating every attribute
+callee as self-evidently anchored is what let the storage family through. Corrected to *"in its own
+storage"*. Leaving the original visible beside the correction is the right call — a pre-code semantics
+block that gets quietly edited to match the code is worth nothing.
+
+**51 → 0, which is how the fix was chosen rather than reasoned.** The obvious repair — one shared opaque
+table — costs **51 refusals on a module with no defect in it**, because `text = f"..."` and
+`draw.text(...)` share a spelling and nothing else (collisions: `text`, `line`, `cell_sizes`,
+`page_spec`). Keyed on **(storage, spelling)** with locals and attributes kept apart: **0**.
+
+**A fifth axis was discovered by the plant and is declared, not closed** — the **call-graph** axis: a
+position forwarded past a callee the walk resolves *by name* (an alias of a non-door position method, a
+callback parameter used as a callee, a `*args` forwarder). This **falsified a sentence already shipped
+into both docstrings** — *"fails closed on both the position and the door axis"* — which is true of the
+position axis's *binding* closure and false of its *call-graph* resolution. Narrowed, not defended.
+Three of five axes are now open by declaration, each with a control that reds if the hole closes.
+
+### The mutant work, with its domain and its incompleteness stated
+
+**Domain: pytest's exit code over a selection — a TEST-LEVEL ANY-RED. Denominator is collected tests,
+never assert-node count, and no per-assertion figure is quoted anywhere.** 16/16 ANY-RED across two
+rounds; all mutants line-count-preserving, `cp -p` backup, restore in `finally`, `shasum -a 256`
+verified byte-identical before and after both rounds, SHIPPED re-run between every mutant at exit 0.
+
+**The committed instrument did not finish and that is reported as incomplete, not papered over.** A
+`tests/kill_matrix.py` run (13 mutants, `Pass.RERAISING`, selection = the guard class) produced **no
+matrix** before it was stopped; SIGINT was used so the restore `finally` ran, then nine pristine markers
+and `git status` were verified. **Per-arm attribution is owed** and is the first thing the review cycle
+should ask for.
+
+**Round 1's three "survivors" were all defects in the mutants or the selection, and two of them are this
+board's own recent defects reproduced on the author's own instrument:**
+
+| survivor | what was actually wrong | corrected |
+|---|---|---|
+| M14 | read SURVIVED under **one nodeid** and kills **8 arms** against the whole class — **a scoped negative is unsound here**, so round 1 is quoted for positives only | RED, 8 arms |
+| M15 | changed only the **setter**, not the lookup — it *disabled* the arm instead of conflating the storages, i.e. a mutant that tests nothing | `M15b` → RED, 5 arms |
+| M16 | changed only a **label**, which *both sides* of the equality read — **CARD-206's F-302 defect reproduced in the author's own mutant** | `M16b` (the body) → RED |
+
+That table is the most useful thing in the hand-back: it is the no-op-mutant trap from
+`tests/README.md` caught three times in one run, by the author, on their own work.
+
+### Figures, and one that disagrees with CARD-206
+
+- **816 calls, all syntactic names, 0 door refusals** — derived by a **second, independent** walk inside
+  the test rather than by re-calling the analyser. Both asserted.
+- **MODULE axis: 23 door calls in `src/`, 17 in the generator, 6 outside, 1 non-trivial**
+  (`book_proof.py:767`). **CARD-206 cycle 2 said 18 inside; this says 17.** Re-derived as that card
+  asked, delta **reported and not reconciled** — which is the right handling, and mine to settle.
+- 23 sites / 6 names / 7 guide expressions unchanged; **14 of 18** rows silent without the arms,
+  asserted as an equality so the arms cannot become decoration.
+- F-303 closed for **all 8** `BINDERS_READ` members, not the 2 filed, with per-member controls reading
+  each shape twice (with the member → READ, without → REFUSED) and V16–V19 giving `AnnAssign`, `For`,
+  `AsyncFor` and `NamedExpr` a planted shape each. The two members CARD-206 shipped with no control
+  anywhere now have one.
+
+### Bounds the author declared against itself
+
+1. Per-assertion attribution is **owed**; every figure is test-level.
+2. Three of five axes open by declaration, each with a failing control.
+3. The callee-identity arm is **scope-insensitive** — it over-approximates in the fail-closed direction.
+4. The bound carries **2 representatives per open axis, not all 16** silent shapes — a real gap in the
+   bound's *resolution*, chosen for runtime cost.
+5. `__set_name__` / metaclass / `type()` in-class-body routes are still unreachable by a
+   line-count-preserving plant — **unchecked, not clean**.
+6. `len(calls) == 816` and `inside == 17` **will red on any future production edit** that adds a call to
+   the generator. Intended — they are the closure's denominators — but a maintenance cost imposed on
+   every later book card, and stated now rather than discovered then.
+
+### Carded forward rather than patched here
+
+`POSITION_LITERALS` admits `1` and caps nothing, so `1 + 1 + 1 + len(section)` and
+`… + len(section) + 1 + 1 + 1 + 1` pass — the author's own pick for "the one I'd fix first", and the
+realistic way front matter grows. `module_integers` reads only a top-level `ast.Assign` of a bare int,
+so `_HIDDEN_FRONT_MATTER: int = 3`, `= 1 + 2`, an `if`-block constant and `len(_FRONT_MATTER_PAGES)` all
+defeat V15. And what counts as an integer at all (`int(3.0)`, `True+True+True`, `ord("\x03")`, `eval`).
+**The pre-code VALUE-axis declaration predicted this class before any of it was planted**, which is the
+best evidence this card's "declare semantics before code" requirement earns its keep.
+
+### A protocol conflict the agent flagged instead of silently resolving — and it was right, I was wrong
+
+I instructed it to commit its card copy. Its own hard rule forbids committing anything under `meta/`.
+**Its rule is the correct one**: the kanban procedure excludes `meta/` from a card's commits precisely so
+card and review prose cannot enter the branch they describe, and the orchestrator syncs the worktree's
+notes **one way** into `main` instead. It honoured the rule, left the notes in the worktree copy, and
+told me about the conflict rather than picking one silently. The notes above are that one-way sync
+(the worktree copy was a pure 332-line append to main's 130 — first 130 lines byte-identical, verified
+before copying).
