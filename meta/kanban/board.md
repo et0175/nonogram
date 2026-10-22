@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 07:37 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 08:19 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -57,7 +57,8 @@ _Updated: 2026-10-22 07:37 UTC_  ·  <!-- forge:run wave=52 mode=interactive con
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
-| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-261 P2, CARD-262 P2 | ⏳ not yet dispatched to a wave |
+| 53 | CARD-261 P2, CARD-262 P2 | ▶ active (CARD-261 in_progress, CARD-262 in_progress) |
+| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -84,21 +85,25 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-231** P2 · A section opener names its section in large type, with dots, range and a line of what to expect  _(unscheduled, tier 1)_
 - **CARD-232** P2 · Solutions become fixed tiles, four to a page in a 2x2 grid, each with its clues  _(unscheduled, tier 1)_
 - **CARD-249** P2 · The editor page says which puzzle it is editing  _(unscheduled, tier 1)_
-- **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates  _(unscheduled, tier 1)_
-- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control  _(unscheduled, tier 1)_
 - **CARD-218** P2 · Each book renders once per module, not once per test  _(unscheduled, tier 2)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 2)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
 
 ## In Progress
-_(none)_
+- **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates
+  `worktree: ../PythonProject4-card-261` · `branch: card/261-control-the-component-map`
+  `elapsed: 0.0d / 0.75d est`
+- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
+  `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
+  `elapsed: 0.0d / 1d est`
 
 ## Review
 _(none)_
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
+- **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-312..315 and EC-037** define the error counter as continuously displayed, and a further AC pins its DOM order relative to the hint and progress counters. This card changes that behaviour, so the requiremen…
 
 ## Done
 _242 cards merged, waves 1–52 (plus 43 from before the `Wave:` field existed)._ Most recent:
