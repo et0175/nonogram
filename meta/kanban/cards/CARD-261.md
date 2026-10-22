@@ -1713,3 +1713,33 @@ Verified after, four ways: `alembic current` → **`016 (head)`**; `information_
 **So the gate can now run the configuration production actually uses**, which no gate on this board has
 done. Both are being run, sequentially: the project-default suite (no `DATABASE_URL`, comparable with
 every earlier gate) and then a DB-mode suite — the first measurement of that path here, whatever it says.
+
+### [Merge gate, attempt 2 — project default] **PASSED** — 8823 passed, 27 skipped, 0 failed, exit 0
+
+Full suite at `ff4374f6` with `DATABASE_URL` **unset**, which is the configuration `CLAUDE.md` defines and
+the one every earlier gate on this board used. Board lock held by CARD-261 throughout.
+
+**And the two runs reconcile exactly, which is the useful part.** Attempt 1 (with `DATABASE_URL`, against
+the then-stale `nonogram_test`) gave 8844 passed / 5 failed / 1 skipped. Attempt 2 gives 8823 passed / 27
+skipped / 0 failed. Both total **8850** collected, and the movement is accounted for to the test:
+
+| | with the database | without it |
+|---|---|---|
+| passed | 8844 | 8823 |
+| failed | 5 | 0 |
+| skipped | 1 | 27 |
+
+`8844 − 8823 = 21` tests pass only when a database is configured, and `21 + 5 = 26` is exactly the
+increase in skips (`27 − 1`). So **nothing else moved between the two runs** — every difference is the
+database being present or absent, which is what makes attempt 1's failure attributable to the environment
+rather than to anything in the card. That reconciliation is stronger evidence than either run alone.
+
+It also puts a number on the gap the backlog item describes: **26 tests — 21 passes plus the 5 that
+needed the migration — are invisible to the project-default gate.** Every gate on this board has been
+blind to twenty-six tests, and they are the ones covering the configuration production runs.
+
+**The DB-mode gate is now running** at the same commit, `nonogram_test` at `016 (head)`, sequentially
+after this one. Its script refuses to start if another bare full suite is on the machine, if the worktree
+HEAD is not `ff4374f6`, if the board lock is not ours, if the target does not end in `nonogram_test`, or
+if `alembic_version` is not `016` — the last of those being precisely the drift that produced attempt 1's
+false failure, now a precondition rather than a surprise.
