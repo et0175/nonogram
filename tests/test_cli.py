@@ -1102,11 +1102,31 @@ _MAP_ROW = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\.py|/)\s+\S")
 _CLAUDE_MD_ROW = re.compile(r"^\s*[A-Za-z_][A-Za-z0-9_]*(?:\.py|/)\s{2,}\S")
 _COMPONENT_ID = re.compile(r"COMP-\d")
 
-# A count of adapters, in words or digits, up to two words before the noun:
-# "three inbound adapters", "2 adapters", "the two pipeline adapters".
+# A stated *quantity* of adapters, standing next to the noun or one adjective
+# away from it: "three inbound adapters", "2 adapters", "the two pipeline
+# adapters", "Both inbound adapters", "`cli.py` is the only inbound adapter".
+#
+# Two bounds, both measured rather than guessed -- cycle 2 of this card's
+# review swept 32 forms through this helper, and every one of them is a
+# committed case in ``ADAPTER_COUNT_CASES`` below.
+#
+# 1. A quantity is a numeral, a number word, or a word that *implies* a number:
+#    ``both`` is two, ``only``/``sole`` is one, ``a pair of``/``a trio of`` is
+#    two or three. The first version of this pattern took numbers only, and so
+#    could not match "the only inbound adapter" -- the literal F-101 defect
+#    this guard exists to refuse, and the example its own docstring opened
+#    with. A count with no numeral in it is still a count.
+# 2. The gap to the noun is at most ONE word. Two was the first bound, and two
+#    words is wide enough to swallow a verb phrase: "See section 3 about
+#    inbound adapters.", "the four tests cover adapters" and "no capability
+#    module adapters import anything" all matched, none of them states a count,
+#    and a deny-side guard that reds on a cross-reference is one the next card
+#    switches off rather than obeys. The declared cost of the narrower bound is
+#    that "three distinct inbound process adapters" evades.
 _ADAPTER_COUNT = re.compile(
-    r"\b(?:no|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
-    r"(?:\w+\s+){0,2}adapters?\b",
+    r"\b(?:zero|no|one|two|three|four|five|six|seven|eight|nine|ten|eleven"
+    r"|twelve|\d+|both|only|sole|a\s+(?:pair|trio|couple|handful)\s+of)"
+    r"\s+(?:\w+\s+)?adapters?\b",
     re.IGNORECASE,
 )
 
@@ -1260,10 +1280,24 @@ def _adapter_counts(text: str) -> list[str]:
     Markdown emphasis and code quoting are stripped before the search, because
     the shipped clause wrote the number as ``**three**``: a reader that only
     saw bare words would have passed the exact line this function exists to
-    refuse. Deny-side, so the cost is a false positive -- a future sentence
-    that happens to put a number two words from "adapter" must reword or edit
-    this guard -- and ``test_the_reader_finds_a_count_when_there_is_one`` pins
-    both the match and the near miss.
+    refuse.
+
+    **The reach, stated as it was measured.** A count here is a numeral, a
+    number word, or a word implying a number (``both``, ``the only``, ``the
+    sole``, ``a pair of``), standing at most one word from "adapter". What
+    that does *not* reach is a count carried by an enumeration ("The adapters:
+    cli, web, admin"), a count of the adapters under another noun ("three
+    inbound entry points"), a number more than one adjective away ("three
+    distinct inbound process adapters") and a hyphenated adjective, because a
+    run of word characters does not cross a hyphen. Deny-side, so the residual
+    cost is a false positive, and the three sentences cycle 2 measured as ones
+    this guard must **not** claim are committed cases too: a guard that reds on
+    "See section 3 about inbound adapters." gets deleted rather than obeyed.
+    Both halves are pinned by
+    ``TestComponentMap_WhatTheClaudeMdReaderAbsorbs.ADAPTER_COUNT_CASES``, per
+    side and by value, so neither can change silently;
+    ``test_the_reader_finds_a_count_when_there_is_one`` pins the two spellings
+    the live file used.
     """
     plain = text.replace("*", "").replace("`", "")
     return [
@@ -1539,6 +1573,99 @@ class TestComponentMap_EveryComponentIsListedExactlyOnce:
             "the canonical map in src/nonogram/__init__.py disagrees with the "
             "package the import walk enumerates: "
             f"{_map_defects(_component_modules(_MODULES), rows, unanalysable)}"
+        )
+
+    def test_the_maps_adapter_count_is_scoped_and_the_walk_is_why(self) -> None:
+        """M-1, half one. The canonical map states "There are exactly two
+        adapters (ADR-0019)" and "the two pipeline adapters import
+        ``orchestrator``". The import walk enumerates **three** adapters, and
+        all three of them import the orchestrator -- measured here, not assumed
+        -- so two is true of ADR-0019's scope and false of the tree. That is
+        why the map carries a scoping sentence naming ``admin/`` as the third
+        one, and the scoping is what this holds.
+
+        The authority is the package (ADR-0039/R2), not a number in this file:
+        if ``admin`` stopped importing the orchestrator the premise of the
+        scoping sentence would have changed and this reds, and if the scoping
+        sentence were deleted the map would be left stating a count that
+        contradicts the walk, which also reds. What it cannot hold is the
+        number itself -- see the test below, which asserts that hole.
+        """
+        adapters_importing_the_orchestrator = {
+            component
+            for module, path in _MODULES.items()
+            if _ORCHESTRATOR in _imported_components(module, path)
+            and (component := _component(module)) in _ADAPTERS
+        }
+
+        assert adapters_importing_the_orchestrator == set(_ADAPTERS), (
+            "the premise of the canonical map's scoping sentence has changed: "
+            "it says the count of two is the *pipeline's* adapters and that "
+            "admin/ is a third one outside ADR-0019's scope, which reads as it "
+            "does because every adapter the walk enumerates imports the "
+            f"orchestrator. Those that do: {sorted(adapters_importing_the_orchestrator)}; "
+            f"the allowlist: {sorted(_ADAPTERS)}"
+        )
+        assert len(adapters_importing_the_orchestrator) == 3, (
+            "three is the figure the scoping sentence exists for; a map saying "
+            "two adapters import the orchestrator with no scope would now be "
+            f"a true statement: {sorted(adapters_importing_the_orchestrator)}"
+        )
+        assert "``admin/`` is a third" in (nonogram.__doc__ or ""), (
+            "the canonical map states a count of adapters and no longer scopes "
+            "it. Two is ADR-0019's figure; the walk finds three adapters, all "
+            "of which import the orchestrator, so the unscoped sentence is "
+            "false of this tree -- restore the scope or drop the count"
+        )
+
+    def test_the_maps_adapter_count_is_the_other_hole_that_stays_open(self) -> None:
+        """M-1, half two, and the amended AC-5's "assert that it is a hole".
+
+        No artefact in this repository enumerates "ADR-0019's adapters" as a
+        set. The package walk enumerates three adapter modules; the C4
+        component diagram pairs each of the three with a COMP id; neither says
+        that two of the three are *the pipeline's*. ADR-0019 says it, in prose
+        ("today there are exactly two adapters and one option set"), which is
+        not a set a runtime can enumerate. So the number in the map can only be
+        restated from a literal in this file, and a restatement is not a
+        control (ADR-0039/R2) -- which leaves the bound to be stated the way
+        the amended AC-5 requires: asserted, not declared.
+
+        Cycle 2's Plant A as a committed arm. The reviewer changed the number
+        to five on disk and the suite passed, 130 tests at exit 0; here the
+        same lie is made in a copy of the docstring and every control in this
+        file is run against it. A later card that gives the count an authority
+        will red here and delete this test deliberately.
+        """
+        lie = (nonogram.__doc__ or "").replace(
+            "two pipeline adapters", "five pipeline adapters"
+        ).replace("two adapters", "five adapters")
+
+        assert "five pipeline adapters" in lie and "five adapters" in lie, (
+            "the lie was not planted -- the canonical map no longer words its "
+            "adapter count the way this test rewrites it, so this test has "
+            "stopped measuring anything"
+        )
+
+        rows, unanalysable = _canonical_map(lie)
+        authority, undeclared = _c4_components(_PUML.read_text(encoding="utf-8"))
+        capabilities = _capability_ids(_CAPABILITIES.read_text(encoding="utf-8"))
+
+        assert not _map_defects(_component_modules(_MODULES), rows, unanalysable), (
+            "the adapter count inside the canonical map now has a control: the "
+            "row set reds on a wrong count. Close M-1 on the card and delete "
+            "this test -- it asserts the opposite"
+        )
+        assert not _id_defects(
+            _component_modules(_MODULES),
+            authority,
+            capabilities,
+            _map_row_ids(lie),
+            undeclared,
+        ), (
+            "the adapter count inside the canonical map now has a control: the "
+            "id columns red on a wrong count. Close M-1 on the card and delete "
+            "this test -- it asserts the opposite"
         )
 
 
@@ -1993,6 +2120,23 @@ class TestComponentMap_WhatTheClaudeMdReaderAbsorbs:
     prose evades only while it carries no component id. The extent cannot now
     change in either direction -- a narrowing that lets a tabular row through,
     or a widening that starts catching ordinary sentences -- without a red.
+
+    Cycle 2 then found that the *corpus itself* was the unprotected part, and
+    showed it by execution. Its only structural pin was ``len(CASES) >= 10``,
+    a floor on the whole tuple: three of the five known-miss cases were
+    replaced with near-duplicate must-catch rows, the tuple stayed at ten, and
+    the suite stayed green at exit 0. A floor on a total is padable, and the
+    padding deleted the half of the corpus that is this class's entire purpose.
+    So both corpora below are pinned the way the rest of this card pins a
+    claim-bearing artefact -- ``_ADAPTERS``, ``_WITHOUT_A_COMPONENT_ID``,
+    ``_LAUNCH_EDGE`` -- rather than by arithmetic over a length: a floor **per
+    side**, and the specific strings that carry the claim **by value**, written
+    out inside the assertion so a case cannot be deleted by editing a pin list
+    along with it.
+
+    ``_adapter_counts`` gets the same treatment, because cycle 2 measured its
+    reach as narrower than its own docstring's example: see
+    :data:`ADAPTER_COUNT_CASES`.
     """
 
     # (expected to be flagged, the line fed to the reader). Two of the False
@@ -2014,11 +2158,11 @@ class TestComponentMap_WhatTheClaudeMdReaderAbsorbs:
 
     def test_every_case_reads_the_way_this_class_says_it_does(self) -> None:
         """One assertion per case, so a case that flips is named rather than
-        hidden behind a count, plus a floor on the corpus so it cannot silently
-        shrink to the cases that happen to pass.
+        hidden behind a count. The corpus' own floor is deliberately *not*
+        here: a floor on the total was padable and was padded, so it lives per
+        side and by value in
+        ``test_the_cases_that_carry_the_claim_are_pinned_by_value``.
         """
-        assert len(self.CASES) >= 10, self.CASES
-
         wrong = [
             line
             for flagged, line in self.CASES
@@ -2029,6 +2173,160 @@ class TestComponentMap_WhatTheClaudeMdReaderAbsorbs:
             "_claude_md_rows' reach has changed; these lines no longer read the "
             f"way TestComponentMap_WhatTheClaudeMdReaderAbsorbs says: {wrong}"
         )
+
+    def test_the_cases_that_carry_the_claim_are_pinned_by_value(self) -> None:
+        """I-1(a). The corpus is the measurement, so the corpus needs a control.
+
+        ``len(CASES) >= 10`` was satisfied by a tuple with three of its five
+        known-miss cases replaced by near-duplicate must-catch rows, which is
+        how the measurement was emptied at exit 0. Two pins instead of one
+        count: a floor on **each side**, so padding one side cannot pay for
+        deleting the other; and the strings that carry the claim written out
+        **here**, in the assertion, so deleting a case reds even if whatever
+        list named it is edited away with it.
+        """
+        must_catch = [line for flagged, line in self.CASES if flagged]
+        known_miss = [line for flagged, line in self.CASES if not flagged]
+
+        assert "`cli.py` is the only inbound adapter." in known_miss, (
+            "the known-miss case carrying F-101's own wording has been removed "
+            "from CASES. That sentence is this card's own defect -- the claim "
+            "the ## Why table measured as having misinformed briefs -- and it "
+            "is the only committed artefact telling a reader that this exact "
+            "sentence still evades _claude_md_rows. It is not interchangeable "
+            f"with another case: {known_miss}"
+        )
+
+        assert len(must_catch) >= 5, f"the must-catch side has shrunk: {must_catch}"
+        assert len(known_miss) >= 5, (
+            "the known-miss side has shrunk. It is the half that measures the "
+            "declared hole -- a corpus of must-catch rows alone says nothing "
+            f"about where _claude_md_rows stops: {known_miss}"
+        )
+        for pinned in (
+            "docs/GENERATION_ALGORITHM.md   the generation pipeline",
+            "tests/README.md    the suite guide",
+        ):
+            assert pinned in known_miss, (
+                f"the known-miss case {pinned!r} has been removed from CASES. "
+                "It is the edge of the row pattern -- a two-space column whose "
+                "first token is not a module name -- and nothing else here "
+                "measures it."
+            )
+        for pinned in (
+            "conftest.py      # shared fixtures",
+            "The solver (COMP-005) is the correctness-critical component.",
+        ):
+            assert pinned in must_catch, (
+                f"the must-catch case {pinned!r} has been removed from CASES. "
+                "One disjunct of the reader catches it and the other does not, "
+                "so it is what keeps the two from being measured as one arm."
+            )
+
+    # (expected to be denied, the line fed to ``_adapter_counts``). I-1(b).
+    # Cycle 2 swept 32 forms through that helper and found its reach narrower
+    # than its own docstring's opening example -- "`cli.py` is the only inbound
+    # adapter", the literal F-101 defect, evaded it at exit 0 -- while it
+    # red on three sentences that state no count at all. Both are cases now,
+    # on the same shape as ``CASES`` above, because a measured reach that is
+    # not committed is a measurement that lasts one cycle.
+    #
+    # The False rows are two kinds, marked below: forms this guard is known to
+    # miss, and sentences it must not claim. The second kind is not padding --
+    # a deny-side guard that reds on a cross-reference is one the next card
+    # switches off rather than rewords around, so a false positive here is a
+    # defect in the same sense a miss is.
+    ADAPTER_COUNT_CASES = (
+        (True, "there are three inbound adapters, not one"),
+        (True, "There are 3 inbound adapters in this tree."),
+        (True, "ADR-0019 closes the set at 2 adapters"),
+        (True, "the two pipeline adapters import ``orchestrator``"),
+        (True, "two adapter modules sit at the adapter rank"),
+        (True, "Both inbound adapters import the orchestrator."),
+        (
+            True,
+            "Both inbound adapters import the orchestrator; `cli.py` is the "
+            "only inbound adapter that parses argv.",
+        ),
+        (True, "`cli.py` is the only inbound adapter."),
+        (True, "the sole inbound adapter is `cli.py`"),
+        (True, "a pair of inbound adapters drive one orchestrator"),
+        (True, "a trio of inbound adapters, counting admin/"),
+        (True, "eleven adapters would still be a count"),
+        # Known to be missed: a count this guard cannot see.
+        (False, "The adapters: cli, web, admin"),
+        (False, "adapters are cli.py, web/ and admin/"),
+        (False, "There are three inbound entry points"),
+        (False, "three distinct inbound process adapters"),
+        (False, "three http-and-cli adapters"),
+        (False, "adapters number three in this tree"),
+        # Not counts at all. Reding on one of these is the false positive that
+        # gets a deny-side guard deleted instead of obeyed.
+        (False, "See section 3 about inbound adapters."),
+        (False, "web/ grew in CARD-200; the four tests cover adapters"),
+        (False, "no capability module adapters import anything"),
+        (False, "which modules are adapters is the map's business"),
+    )
+
+    def test_every_adapter_count_case_reads_the_way_this_class_says_it_does(
+        self,
+    ) -> None:
+        """One assertion over the corpus, naming every case that flipped --
+        the same shape as the reader's corpus above, and for the same reason:
+        ``_adapter_counts`` is a deny-side guard whose reach was declared in
+        prose and measured as something else.
+        """
+        wrong = [
+            line
+            for flagged, line in self.ADAPTER_COUNT_CASES
+            if bool(_adapter_counts(line)) is not flagged
+        ]
+
+        assert not wrong, (
+            "_adapter_counts' reach has changed; these lines no longer read "
+            "the way TestComponentMap_WhatTheClaudeMdReaderAbsorbs says: "
+            f"{wrong}"
+        )
+
+    def test_the_adapter_count_cases_that_carry_the_claim_are_pinned_by_value(
+        self,
+    ) -> None:
+        """The same two pins as the reader's corpus, for the same reason: a
+        floor on a total can be met by padding the side that passes.
+        """
+        denied = [line for flagged, line in self.ADAPTER_COUNT_CASES if flagged]
+        allowed = [line for flagged, line in self.ADAPTER_COUNT_CASES if not flagged]
+
+        assert len(denied) >= 12, f"the deny side has shrunk: {denied}"
+        assert len(allowed) >= 10, (
+            "the allow side has shrunk. It carries both the forms this guard "
+            "is known to miss and the sentences it must not claim, and "
+            f"neither is measured anywhere else: {allowed}"
+        )
+
+        assert (
+            "Both inbound adapters import the orchestrator; `cli.py` is the "
+            "only inbound adapter that parses argv."
+        ) in denied, (
+            "the case carrying F-101's own wording has been removed from "
+            "ADAPTER_COUNT_CASES. That sentence passed this guard at exit 0 "
+            "for a whole cycle -- its second clause is the exact claim the "
+            f"card's ## Why table measured -- so it is the one case: {denied}"
+        )
+        assert "`cli.py` is the only inbound adapter." in denied, denied
+        assert "Both inbound adapters import the orchestrator." in denied, denied
+        for pinned in (
+            "See section 3 about inbound adapters.",
+            "web/ grew in CARD-200; the four tests cover adapters",
+            "no capability module adapters import anything",
+        ):
+            assert pinned in allowed, (
+                f"the false-positive case {pinned!r} has been removed from "
+                "ADAPTER_COUNT_CASES. Each of these red under the two-word "
+                "bound this guard used to carry, and a deny-side guard that "
+                "reds on a sentence stating no count is one the next card "
+                "switches off."
+            )
 
     def test_each_disjunct_carries_a_case_the_other_does_not(self) -> None:
         """The reader is two patterns, and the cycle-1 kill matrix fused them
@@ -2075,6 +2373,17 @@ class TestComponentMap_WhatTheClaudeMdReaderAbsorbs:
         the hole the test above measures. A count in this file is therefore the
         one shape of the hole that must not be allowed to sit in it -- so this
         denies the shape instead of relying on the reader.
+
+        Both of those wordings are denied now. Only the second was, for a
+        cycle: ``_ADAPTER_COUNT`` took numbers only, so the sentence this
+        docstring opens with -- "the only inbound adapter", carrying no numeral
+        -- evaded the guard introduced to refuse it, and
+        "Both inbound adapters import the orchestrator; `cli.py` is the only
+        inbound adapter that parses argv." sat in CLAUDE.md at exit 0 across
+        this file and ``tests/test_guard_integrity.py``. A count with no
+        numeral in it is still a count. The forms that *do* still evade are
+        enumerated in :data:`ADAPTER_COUNT_CASES` rather than left for a reader
+        to find by experiment.
         """
         counts = _adapter_counts(_CLAUDE_MD.read_text(encoding="utf-8"))
 
