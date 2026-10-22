@@ -41,3 +41,29 @@ conflicts:
     card's measurement (3222 / 2640).
   resolved: manual
   at: 2026-10-17
+
+- pair: [CARD-261, main]
+  files: [meta/kanban/cards/CARD-261.md]
+  predicted: false
+  reason: >-
+    Not a card-against-card conflict, and worth recording because the dispatcher cannot
+    predict this shape at all. CARD-261's two fix rounds COMMITTED the card file onto the
+    branch, which the kanban procedure forbids -- meta/ is excluded from a card's commits
+    precisely so card prose cannot enter the branch it describes, and the orchestrator syncs
+    the notes one way instead. Meanwhile the orchestrator had edited main's copy of the same
+    file heavily (three review cycles, three gates, the amended AC-5). The rebase onto main
+    therefore conflicted on that file twice, once per fix commit. The orchestrator's own
+    instruction caused it: all three live cards were told to commit with explicit pathspecs,
+    and only CARD-262's agent pushed back and refused to stage anything under meta/.
+    Resolved by taking main's copy both times, verified first as a strict superset carrying
+    the branch's "Superseded (as created)" record, both fix rounds' notes and the amended
+    AC-5. The later --no-ff merge was then clean, because the rebase's resolution had already
+    put main's content into the branch's history.
+  resolved: manual
+  at: 2026-10-22
+  lesson: >-
+    The predictor reads Touches, which lists code paths; a card's own file under meta/ is
+    never in Touches, so this class of conflict is invisible to it. The cheap guard is not a
+    hotspot entry but the instruction itself: an implementation brief must say "stage nothing
+    under meta/" rather than only "use explicit pathspecs".
+

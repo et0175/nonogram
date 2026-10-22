@@ -1,10 +1,31 @@
-wave: 52
+wave: 54
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: []
-escalated: []
+# 2026-10-22: THREE cards are active against this cap of 2, on the owner's explicit
+# "dispatch 264" while wave 53's two cards were still in fix rounds. Recorded as an
+# authorised breach rather than left to be inferred from the active list. The cap's
+# stated purpose -- merges run sequentially and never with concurrent full suites -- is
+# intact: no full-suite run is permitted in any of the three worktrees, each redirects
+# its suite lock to a scratch path, and no merge is pending. The cap returns to 2 when
+# wave 53 lands.
+#
+# 2026-10-22, later (run resume, owner's "commit the cards and run the wave"): the
+# breach is OVER and the cap is honoured again at 2. Both slots were held by STALLED
+# pipelines -- no agent was running for either card in the resuming session -- so the
+# run began with `run resume` rather than by starting new cards. CARD-264 escalated at
+# the rebase step (7-region semantic conflict with main over _ADAPTER_COUNT; see its
+# card), which freed one slot; CARD-270 took it. CARD-262 keeps the other and resumes
+# at review cycle 2. Nothing was force-started: 1 resumed + 1 new = 2.
+active: [CARD-262, CARD-270]
+escalated:
+  - id: CARD-264
+    reason: "merge BLOCKED: branch and main both build _ADAPTER_COUNT in 7 conflicting regions; main's bound was measured over 32 committed forms (CARD-261 cycle 2) and taking the branch's narrower numeral-only pattern would regress a deny-side guard silently -- all tests stay green. The boundary is additionally CARD-265's declared subject (Touches: tests/test_cli.py), so one mechanism is held by three cards."
+    station: decompose
+    route: "owner decision, 3 options on the card: (1) fold the guard into CARD-265 and narrow this card to its other six files [recommended -- those merge clean] (2) rebase keeping main's guard wholesale (3) /kanban redo CARD-264"
+    at: 2026-10-22T17:05:00Z
+    evidence: "git merge-tree --write-tree main card/264-... -> exit 1 (tests/test_cli.py, meta/kanban/cards/CARD-261.md); the same dry run on CARD-262 -> exit 0, so main is not stale. Branch unmodified: no rebase, no merge, no commit. Cycle-1 report synced to meta/review/20261022T114447Z-CARD-264-cycle1.yml."
 merged_wave_45:
   - id: CARD-248
     merge_commit: 1256982
@@ -1038,3 +1059,42 @@ resume_2026_10_22:
     boundary. The recovery needed no decision and there was none to make; the wave-53 dispatch is a
     decision and is the owner's, consistent with this board's practice of recording an owner_decision at
     every wave boundary (wave_45, wave_48, wave_52).
+
+wave_54:
+  dispatched: 2026-10-22
+  cards: [CARD-264]
+  concurrency_note: >
+    Three worktrees are live at once (CARD-261 fix 2, CARD-262 fix 1, CARD-264 implementation),
+    which is above the usual two but below dispatcher.max_concurrent. It is safe only because no
+    full-suite run is permitted in any of them: every agent redirects the lock to a scratch path
+    and scopes its runs, so CARD-255's guard cannot red a sibling.
+  base: >
+    CARD-264's worktree is cut from feb3e6b5 -- CARD-261's fix-1 commit -- not from main. CARD-261
+    rewrites CLAUDE.md's layout block and moves every line below it, so a main-based worktree would
+    have had the implementation write controls against a file about to change underneath it in the
+    same two paths. A rebase onto main is owed after CARD-261 merges, before CARD-264's gate.
+  conflict_edges: >
+    CARD-264 shares CLAUDE.md and tests/test_cli.py with CARD-261 -- 2 of 5 paths, which is 0.4
+    against dispatcher.max_overlap 0.3 and would normally serialize. Dispatched concurrently anyway
+    because the two cards collide in NEITHER path by construction: G-4 on CARD-261 and G-1 on
+    CARD-264 were written as mirror images so every line of CLAUDE.md has exactly one owner, and
+    CARD-261's cycle 2 verified the out-of-block defects present and byte-identical from the other
+    side. This is a deliberate override of the overlap score on measured evidence, not a miss.
+  contract: projection 10, kept 5, dropped 5 (ADR-0038/R7-R8 review-lens; ADR-0039/R1-R3 reach-limited)
+
+card_261_done:
+  merge_commit: ac63e17a
+  tested_tree: ff4374f6
+  at: 2026-10-22
+  gates: >-
+    Run in BOTH configurations, sequentially, which is a first on this board: the project
+    default (no database variable) gave 8823 passed / 27 skipped / 0 failed, and the
+    DB-mode run against a freshly migrated nonogram_test gave 8849 passed / 1 skipped / 0
+    failed. The two reconcile to the test -- 21 tests pass only with a database configured,
+    and 21 plus the 5 that needed the migration equals the 26-skip difference -- so nothing
+    moved between the runs except the database being present. That reconciliation is also
+    the first measurement of how much the project-default gate cannot see: twenty-six tests.
+  concurrency: >-
+    The owner's cap of 2 is restored by this merge; two cards remain active. The merge ran
+    with no other full suite on the machine, and the DB-mode gate refuses to start if it
+    finds one, so the cap's stated purpose is enforced by the script rather than remembered.

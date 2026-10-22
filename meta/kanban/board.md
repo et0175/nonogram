@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 07:37 UTC_  ·  <!-- forge:run wave=52 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 17:30 UTC_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -57,7 +57,9 @@ _Updated: 2026-10-22 07:37 UTC_  ·  <!-- forge:run wave=52 mode=interactive con
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
-| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-261 P2, CARD-262 P2 | ⏳ not yet dispatched to a wave |
+| 53 | CARD-261 P2, CARD-262 P2 | ▶ active (CARD-261 **done** `ac63e17a`; CARD-262 in cycle 2) |
+| 54 | CARD-264 P2, CARD-270 P2, (queued: CARD-271, CARD-267, CARD-269, CARD-268) | ▶ active ⚠ (CARD-264 **escalated** at its rebase — 7-region `_ADAPTER_COUNT` conflict with main; CARD-270 took the freed slot) |
+| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -84,21 +86,42 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-231** P2 · A section opener names its section in large type, with dots, range and a line of what to expect  _(unscheduled, tier 1)_
 - **CARD-232** P2 · Solutions become fixed tiles, four to a page in a 2x2 grid, each with its clues  _(unscheduled, tier 1)_
 - **CARD-249** P2 · The editor page says which puzzle it is editing  _(unscheduled, tier 1)_
-- **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates  _(unscheduled, tier 1)_
-- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control  _(unscheduled, tier 1)_
 - **CARD-218** P2 · Each book renders once per module, not once per test  _(unscheduled, tier 2)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 2)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
+- **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(unscheduled, quick — owner decision 2026-10-22)_
+- **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(unscheduled, quick — owner decision 2026-10-22)_
+- **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(unscheduled, quick — owner decision 2026-10-22)_
+- **CARD-271** P2 · Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides  _(wave 54 queue, quick — owner bug report 2026-10-22; next into a free slot)_
+- **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(wave 54 queue, quick — owner decision 2026-10-22)_
+- **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(wave 54 queue, quick — owner decision 2026-10-22)_
+- **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(wave 54 queue, quick — owner decision 2026-10-22)_
+- **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2 — **now carries CARD-264's escalated guard question**, see below)_
+- **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
 
 ## In Progress
+- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
+  `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
+  `cycle 1: 5.7 CRITICAL` → `fix 1 b88621d8` (axis closed, 760→0 cost sequence, 13/13 plants refuse)
+  `resumed 2026-10-22` · `gate PASSED (impact, 2741 passed / 11 skipped / 0 failed, 6:31)` · `cycle 2 running`
+  `not rebased: merge-tree with main is clean and main touches neither of its files; rebase belongs to done`
+- **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
+  `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions` · `base: 51128cf5 (main)`
+  `started 2026-10-22, took the slot CARD-264's escalation freed` · `implementation running`
+
+## Review
 _(none)_
+
+## Blocked
+- **CARD-264** 🔒 CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard  ← **escalated 2026-10-22 at the rebase step, station: decompose.** `git merge-tree` against main is exit 1 in **7 semantic regions**, all one mechanism: its branch and main both build `_ADAPTER_COUNT`. main's version (CARD-261 cycle 2, merged) admits number-*implying* words (`both`, `only`, `sole`, `a pair of`) with a one-word gap **measured over 32 committed forms**; the branch's is numeral-only with a two-word gap, which cannot match the literal F-101 defect the guard exists for. Taking the branch's side would regress a deny-side guard **silently** — a narrower pattern reds on nothing, so every test stays green. And the boundary is **CARD-265's declared subject** (`Touches: tests/test_cli.py`), so one mechanism is held by three cards. Branch and worktree KEPT, three good commits on them, nothing modified. Owner picks: (1) fold the guard into CARD-265 and narrow this card to its other six files, which merge clean _(recommended)_ · (2) rebase keeping main's guard wholesale · (3) `/kanban redo CARD-264`.
 
 ## Review
 _(none)_
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
+- **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/for…
 
 ## Done
 _242 cards merged, waves 1–52 (plus 43 from before the `Wave:` field existed)._ Most recent:
