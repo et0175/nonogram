@@ -487,10 +487,9 @@ def _rebuild_public_schema(engine, database_url: str):
 
     Why step 3 exists, why its position is not load-bearing, how that was
     measured, and what it does and does **not** pin, are CARD-252's record.
-    They are stated **once**, on
-    :func:`nonogram.db.session.reset_engine`, and this docstring does not
-    repeat them (CARD-259): a fixture's reader needs the order, not a
-    refutation, a re-measurement and a review mutant's name. Read that
+    They are on :func:`nonogram.db.session.reset_engine` (CARD-259): a
+    fixture's reader needs the order, not a refutation, a re-measurement and a
+    review mutant's name. Read that
     function, and the module docstring of ``tests/test_db_engine_lifecycle.py``
     it sends you to, before concluding this call fixed anything.
 

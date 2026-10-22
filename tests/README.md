@@ -647,21 +647,15 @@ itself:
   **preamble** with the three arms below it `NOT-REACHED`, `POINTER-ROT` and
   `POINTER-DEL-WORD` RED at the **pointer** arm, `CONTROLS-RENAME-ONLY` `PASS`,
   SHIPPED all-PASS. What the anchor reproduces is that **grid**, not an
-  address: the four addresses were `:859` / `:878` / `:889` / `:897` at
-  `b441ba00`, became `:877` / `:897` / `:908` / `:916` when CARD-259 cut
-  CARD-252's record out of the texts that test reads, and are `:1077` /
-  `:1121` / `:1128` / `:1134` since that card's fix round derived the set of
-  texts instead of listing them. They live as literals in
+  address: the four addresses are `:1060` / `:1136` / `:1143` / `:1149` at
+  HEAD. They live as literals in
   `test_kill_matrix.py` and are **re-derived by hand and re-committed** at
   each card that moves that file — nothing in the suite re-derives them,
   because the anchor's only check on them is `set(arms) <= linenos`, which
   says the four literals *are* assert linenos and not that they are *those
-  four arms*. That matters because the shift **overlaps**: measured at the
-  second move, `:897` had become the names arm where it used to be the
-  pointer arm; measured at the third, three of the four previous addresses
-  are no longer assert linenos at all (so a stale constant reads loudly) but
-  `:916` still is — an unrelated assert in another test — so a quarter of a
-  stale reading would have been a silent misattribution. A membership test
+  four arms*. That matters because a shift can **overlap**: measured at the
+  second of the moves, `:897` had become the names arm where it used to be
+  the pointer arm. A membership test
   cannot tell a misattribution from a reading.
 
 ### Declared bounds

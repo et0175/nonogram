@@ -10,8 +10,7 @@ same commit. Two explanations have been offered and both are dead -- psycopg2
 has no ``prepare_threshold`` (wave 45), and CARD-252's ``reset_engine()`` is in
 the tree that CARD-256's gates still ran red then green on. CARD-252's own
 record -- what its gates measured, and what its fix does and does not pin --
-is kept on :func:`nonogram.db.session.reset_engine`; this module restates none
-of it.
+is kept on :func:`nonogram.db.session.reset_engine`.
 
 So this module is not a third hypothesis and it fixes nothing. It records, on
 the next occurrence, the four things no traceback currently shows:

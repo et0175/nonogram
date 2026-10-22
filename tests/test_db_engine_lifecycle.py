@@ -13,11 +13,8 @@ rebuilds it only when ``DATABASE_URL`` changes. The test session rebuilds the
 built the global engine for that URL kept it, pool and all, and connections
 opened before the DROP were handed back out after it. What that cost the
 board -- how many runs failed, in how many waves, and which of them were build
-gates -- is a **measurement**, and it is stated once, on
-:func:`nonogram.db.session.reset_engine`. This docstring does not restate it:
-the two copies that did had already drifted apart by a whole unit, one saying
-"four build gates" where the other said "four waves of build gates", and
-neither turned out to be the figure CARD-252 measured (CARD-259). The
+gates -- is a **measurement**, and it is on
+:func:`nonogram.db.session.reset_engine` (CARD-259). The
 signatures were ``relation "puzzles" does not exist`` and a ``UUID`` column
 arriving as the float ``inf`` so that ``uuid.UUID(hex=inf)`` called
 ``.replace`` on it.
@@ -55,7 +52,7 @@ reach is what gated the card. What is left is the part that had authority: a
 derived check that ``reset_engine`` retires exactly what ``_init_engine``
 builds, two checks that the seam is published and really called, and a per-file
 **textual count** standing behind a declared convention. The convention, and an
-explicit list of what the count does not enforce, is stated **once**, on
+explicit list of what the count does not enforce, is on
 :func:`nonogram.db.session.reset_engine`;
 :class:`TestEngineLifecycle_TheResetIsAPublishedSeam` lists the controls that
 stand behind it and points there.
@@ -405,17 +402,11 @@ _CARD_252_AUTHORITY_ROOTS = (REPO / "src" / "nonogram", REPO / "tests")
 #: card id, as a whole token. The *set* of texts is derived (ADR-0039/R2); this
 #: predicate is not, and that is its declared bound -- a docstring that
 #: restates the record without ever naming the card is outside the derivation's
-#: reach. Measured on 2026-10-22: two docstrings under the roots above carry a
-#: marker of the record without naming the card, and neither restates a figure
-#: or a bound of it (``test_no_server_side_prepared_statement_is_ever_created``
-#: *measures* the ``pg_prepared_statements`` zero rather than quoting it, and
-#: ``tests/test_web_server.py``'s cross-origin test uses the words "not
-#: load-bearing" about something else) -- so the residue is zero today, by
-#: inspection rather than by construction.
+#: reach, and that residue is not measured here.
 _CARD_252_SIGNATURE = re.compile(r"(?<![A-Za-z0-9_])CARD-252(?![0-9])")
 
-#: One whole-word match, left and right. Used for the globals, for the pointer
-#: and for the signature above, so "word" means the same thing in every arm.
+#: One whole-word match, left and right. Used for the globals and for the
+#: pointer.
 _WORD_BOUNDED = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"
 
 
@@ -728,9 +719,8 @@ class TestEngineLifecycle_TheDbCoverageDoesNotQuietlyVanish:
     platform ``setrlimit`` skip in ``tests/test_book_pdf_memory.py``, which
     macOS refuses at every value — and it is checked at the gate and recorded
     on CARD-252, whose record is kept on
-    :func:`nonogram.db.session.reset_engine` and restated in no docstring,
-    this one included. Treat the sentence above as a pointer, not as
-    coverage.
+    :func:`nonogram.db.session.reset_engine`. Treat the sentence above as a
+    pointer, not as coverage.
 
     The reachability probe here is deliberately a second implementation: a
     bare ``psycopg2.connect`` to the maintenance database rather than
@@ -849,14 +839,13 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
     the price of a module that stays silent -- and silent is how it got here.
     That sentence is the only place this docstring names all three globals, and
     :meth:`test_every_text_that_names_card_252_points_here_and_agrees_on_the_parameters`
-    holds this docstring to naming each of them as a whole word -- reword one
-    of the three away and that control reds, per name.
+    holds this docstring to naming each of them as a whole word.
 
     The convention behind the backstop below -- and the bound on what that
     backstop enforces, whose blind-to list is this guard's declared limit --
-    is written **once**, on :func:`nonogram.db.session.reset_engine`. **This
-    class does not repeat it**, and neither does ``conftest.py``'s step 3 at
-    the call site. Both used to, "in the same words", which was a claim with
+    is on :func:`nonogram.db.session.reset_engine`; this class and
+    ``conftest.py``'s step 3 at the call site point there.
+    Both used to, "in the same words", which was a claim with
     nothing to red when the copies drifted;
     :meth:`test_every_text_that_names_card_252_points_here_and_agrees_on_the_parameters`
     is what replaces that rule -- over every text a derivation finds off the
@@ -934,7 +923,7 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         directly and calls it bare, this test reds and has to be widened —
         deliberately, rather than quietly accepting any call to anything of
         that name. Nothing else about conftest's shape is read here, and
-        nothing of CARD-252's record is: that is kept on
+        CARD-252's record is kept on
         :func:`nonogram.db.session.reset_engine`.
         """
         tree = ast.parse(CONFTEST_SOURCE.read_text(encoding="utf-8"))
@@ -1000,18 +989,12 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         text into a tree of its own and shows the failure happening, and then
         stopping when the plant is removed.
 
-        **The parameters.** A derived text that names **more than one** of the
-        globals the builder creates is read as a statement of the convention,
-        and is held to the mechanism's own parameters -- the globals
-        (:func:`_global_names_assigned_by`) and the two spellings the scan
-        counts (:func:`_spelling_heads`), both read from the code.
-        Deliberately **not** a string comparison of docstrings, which would be
-        the same uncontrolled rule with a test attached. **Declared bound:** a
-        text naming exactly one global is read as prose and is outside the
-        names arm by construction; the pointer arm still holds it. Measured at
-        HEAD: **three** texts enumerate more than one and are held to both
-        arms, **two** name exactly one (both module docstrings, both carrying
-        the pointer). A text may
+        **The parameters.** A text held here is held to the mechanism's own
+        parameters -- the globals (:func:`_global_names_assigned_by`) and the
+        two spellings the scan counts (:func:`_spelling_heads`), both read
+        from the code. Deliberately **not** a string comparison of
+        docstrings, which would be the same uncontrolled rule with a test
+        attached. A text may
         hold the names in double backticks, which the scan does not count, and
         writes :data:`_NAME_PLACEHOLDER` where the attribute spelling would
         otherwise quote one.
@@ -1096,10 +1079,42 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
             "keeper, and every arm below would then be measuring the wrong "
             "texts or none at all (ADR-0039/R2: no silent pass)"
         )
+        conftest_tree = ast.parse(CONFTEST_SOURCE.read_text(encoding="utf-8"))
+        receivers = _session_aliases_in(conftest_tree) | set(_SESSION_MODULE_PATHS)
+        callers = {
+            node.name
+            for node in ast.walk(conftest_tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and any(
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == pointer.__name__
+                and ast.unparse(call.func.value) in receivers
+                for call in ast.walk(node)
+            )
+        }
+        assert callers, (
+            f"no function in {CONFTEST_SOURCE} calls `{target}` through a "
+            "receiver this check can see, so the text at that call site is "
+            "held to nothing it says about the mechanism"
+        )
+        stated_in = {
+            (SESSION_SOURCE, pointer.__name__),
+            (REPO / "tests" / Path(__file__).name, type(self).__name__),
+        } | {(CONFTEST_SOURCE, name) for name in callers}
+        reached = {(path, qualname) for _label, path, qualname, _doc in derived}
+        unreached = sorted(f"{path}::{qualname}" for path, qualname in stated_in - reached)
+        assert not unreached, (
+            "the derivation does not reach "
+            + ", ".join(unreached)
+            + f" -- a text `{target}`'s convention is stated in, so the two "
+            "arms below would not see it at all"
+        )
         texts = tuple(
             (label, doc)
-            for label, _path, _qualname, doc in derived
-            if len(_names_shown_in(doc, names)) > 1
+            for label, path, qualname, doc in derived
+            if (path, qualname) in stated_in
+            or len(_names_shown_in(doc, names)) > 1
         )
         assert keepers[0][0] in {label for label, _doc in texts}, (
             "the keeper is not in the set held to the mechanism's parameters, "
@@ -1160,8 +1175,8 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
         the agreement's own AST: every ``assert`` inside its
         ``for label, text in texts`` loop must carry a message that
         interpolates ``label``. Delete the interpolation from either arm and
-        this reds, naming the line. CARD-252's record itself is not restated
-        here; it is kept on :func:`nonogram.db.session.reset_engine`.
+        this reds, naming the line. CARD-252's record is kept on
+        :func:`nonogram.db.session.reset_engine`.
         """
         tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
         agreement = (
@@ -1494,8 +1509,8 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
 #:
 #: Each row is ``(retired_from, clause, home, surviving_phrase, kind)``:
 #:
-#: * ``retired_from`` -- ``conftest`` for ``_rebuild_public_schema``'s step-3
-#:   record, ``guard`` for the class docstring's;
+#: * ``retired_from`` -- which retired text the clause comes from, and
+#:   ``-reworded`` where that text is also the clause's home today;
 #: * ``clause`` -- the clause as the retired text wrote it, verbatim;
 #: * ``home`` -- ``<repo-relative path>::<qualname>`` of the docstring that
 #:   carries it now (``<module>`` for a module docstring);
@@ -1509,8 +1524,8 @@ class TestEngineLifecycle_TheResetIsAPublishedSeam:
 #:
 #: How to recompute the ``clause`` column rather than trusting it:
 #: ``git diff -U0 <merge-base>..HEAD -- tests/conftest.py
-#: tests/test_db_engine_lifecycle.py``, take the removed docstring lines of
-#: those two texts, join them, split at sentence boundaries and then at ``;``
+#: tests/test_db_engine_lifecycle.py``, take the removed docstring lines,
+#: join them, split at sentence boundaries and then at ``;``
 #: and at em-dash-introduced independent clauses. That split is what produced
 #: these rows, and it is stated here because CARD-259's cycle 1 shipped a
 #: count (44) whose script was never committed and could not be reproduced --
@@ -1630,39 +1645,46 @@ _CARD_252_CLAUSE_SURVIVAL = (
         "narration",
     ),
     (
-        "guard",
+        "guard-reworded",
         "The decision (recorded as a ``STRUCTURE:`` note on CARD-252): the fixture calls :func:`nonogram.db.session.reset_engine`.",
         "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam",
         "The decision is recorded as a ``STRUCTURE:`` note on CARD-252",
         "narration",
     ),
     (
-        "guard",
+        "guard-reworded",
         "The alternative -- the card's own sketch, assigning ``None`` to ``engine``, ``SessionLocal`` and ``_engine_url`` from inside ``conftest.py``",
         "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam",
         "the alternative was to assign ``None`` to ``engine``, ``SessionLocal`` and ``_engine_url`` from inside ``conftest.py``",
         "bound",
     ),
     (
-        "guard",
+        "guard-reworded",
         "is the same four lines, but it leaves ``session.py`` silent about the fact that something retires its engine, and silent is how the module got here.",
         "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam",
         "the same four lines, bought at the price of a module that stays silent",
         "narration",
     ),
     (
-        "guard",
+        "guard-reworded",
         "That sentence is the only place this docstring names all three globals.",
         "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam",
         "That sentence is the only place this docstring names all three globals",
         "bound",
     ),
     (
-        "guard",
+        "guard-reworded",
         'It used to, "in the same words", which was a claim with nothing to red when the two copies drifted.',
         "tests/test_db_engine_lifecycle.py::TestEngineLifecycle_TheResetIsAPublishedSeam",
         'Both used to, "in the same words", which was a claim with nothing to red when the copies drifted',
         "narration",
+    ),
+    (
+        "module",
+        'Four consecutive build gates on this board reported failures that reproduced on no second run, including ``relation "puzzles" does not exist`` and a ``UUID`` column arriving as the float ``inf`` so that ``uuid.UUID(hex=inf)`` called ``.replace`` on it.',
+        "src/nonogram/db/session.py::reset_engine",
+        "one failing run in each of four consecutive waves -- 45, 46, 47 and 48",
+        "figure",
     ),
 
 )
@@ -1785,9 +1807,7 @@ class TestCard259_TheDerivedSetOfTextsDeniesByDefault:
 
         The names arm's trigger is derived from the globals themselves, not
         chosen per text: a text naming two of three is a partial enumeration
-        and fails; the same text naming all three passes. The declared bound is
-        the other direction -- a text naming exactly one is read as prose, and
-        this measures that too, so the bound is a reading rather than a claim.
+        and fails; the same text naming all three passes.
         """
         names = sorted(_global_names_assigned_by("_init_engine"))
         assert len(names) > 2, names
@@ -1850,7 +1870,7 @@ class TestCard259_TheDerivedSetOfTextsDeniesByDefault:
         The record itself is on :func:`nonogram.db.session.reset_engine`.
         """
         rows = _CARD_252_CLAUSE_SURVIVAL
-        assert len(rows) >= 21, (
+        assert len(rows) >= 22, (
             f"the survival table has shrunk to {len(rows)} rows; a clause "
             "removed from it is a clause nothing claims a home for"
         )

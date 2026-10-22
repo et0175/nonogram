@@ -1558,14 +1558,11 @@ def test_ac5_a_no_op_mutant_is_refused(simple_target):
 #: The five-occurrence case from the wild, named in CARD-257's cycle-3 record.
 #: A correction that is itself trap 5's shape: what occurs **five** times in
 #: ``tests/test_db_engine_lifecycle.py`` is the assert's *message*; the whole
-#: source line occurs four times, because ``:818`` asserts ``built`` where the
+#: source line occurs four times, because ``:950`` asserts ``built`` where the
 #: other four assert ``names``. Measured here rather than carried over, and
 #: both numbers are asserted below so neither can drift.
 #:
-#: The **line numbers** are a position in a live file and they moved once
-#: already: CARD-259 cut CARD-252's record out of two of the three texts the
-#: anchored test reads, which shifted every occurrence below the edit
-#: (``816, 859, 914, 960, 1087`` -> ``818, 877, 935, 981, 1108``). The two
+#: The **line numbers** are a position in a live file and they have moved. The two
 #: *counts* (5 and 4) and the arm's *occurrence* (2) did not move, which is the
 #: reason they, and not the positions, are what the anchor is about. Re-derive
 #: these from the file rather than trusting them.
@@ -1574,10 +1571,10 @@ NAMES_BLIND_LINE = (
     '        assert names, "no module-level globals found in _init_engine '
     '(guard is blind)"'
 )
-NAMES_BLIND_OCCURRENCES = (961, 1077, 1207, 1253, 1380)
-#: ``:1077`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which
+NAMES_BLIND_OCCURRENCES = (950, 1060, 1222, 1268, 1395)
+#: ``:1060`` is CARD-257's ``NAMES-BLIND`` arm -- the second occurrence, which
 #: is the whole point: a caller who did not name it would have mutated
-#: ``:961``, in a different test, and read the answer off the wrong arm.
+#: ``:950``, in a different test, and read the answer off the wrong arm.
 NAMES_BLIND_ARM_OCCURRENCE = 2
 LIFECYCLE = REPO / "tests" / "test_db_engine_lifecycle.py"
 
@@ -1614,8 +1611,8 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
     """Each of the five is reachable, and each hits its own line and no other.
 
     This is trap 5's second half in the wild: ``occurrence=2`` is CARD-257's
-    ``NAMES-BLIND`` arm at ``:877``, and a caller who did not name it would have
-    silently mutated ``:818``, which belongs to a different test.
+    ``NAMES-BLIND`` arm at ``:1060``, and a caller who did not name it would
+    have silently mutated ``:950``, which belongs to a different test.
     """
     source = LIFECYCLE.read_text(encoding="utf-8")
     mutated = km.apply_edit(
@@ -1635,7 +1632,7 @@ def test_ac5_an_explicit_occurrence_hits_exactly_that_lineno(occurrence, lineno)
         if before != after
     ]
     assert moved == [lineno], moved
-    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 1077
+    assert occurrence != NAMES_BLIND_ARM_OCCURRENCE or lineno == 1060
 
 
 def test_ac5_an_occurrence_past_the_end_is_refused():
@@ -2479,7 +2476,7 @@ FOUR_ARM = (
 )
 #: CARD-257's four arms, restated from its cycle-3 record and re-derived from
 #: the unmodified parse below rather than trusted.
-PREAMBLE, NAMES, HEADS, POINTER = 1077, 1121, 1128, 1134
+PREAMBLE, NAMES, HEADS, POINTER = 1060, 1136, 1143, 1149
 WORD = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"
 
 
@@ -2673,22 +2670,15 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     """``tests/test_db_engine_lifecycle.py``: the second anchor, CARD-257's grid.
 
     The **grid** is CARD-257's, measured at ``b441ba00``. The **positions** are
-    not, and they have now moved twice: from ``:859`` / ``:878`` / ``:889`` /
-    ``:897`` at ``b441ba00``, to ``:877`` / ``:897`` / ``:908`` / ``:916`` when
-    CARD-259 cut CARD-252's record out of the texts that test reads, to
-    ``:1077`` (preamble), ``:1121`` (names), ``:1128`` (heads) and ``:1134``
-    (pointer) when its fix round derived the set of texts instead of listing
-    them. That is the anchor's own distinction: what reproduces is the grid
-    cell for cell, not an address. Re-derived from the unmodified parse here,
-    never reused from a previous reading.
+    not: they are ``:1060`` (preamble), ``:1136`` (names), ``:1143`` (heads)
+    and ``:1149`` (pointer) at HEAD. That is the anchor's own distinction: what reproduces is
+    the grid cell for cell, not an address. Re-derived from the unmodified
+    parse here, never reused from a previous reading.
 
     **The shift still overlaps, measured rather than assumed.** Of the four
-    previous addresses, three (``:877``, ``:897``, ``:908``) are not assert
-    linenos at HEAD, so a stale constant reads loudly; ``:916`` **is** one --
-    an unrelated assert in
-    :meth:`TestEngineLifecycle_TheResetIsAPublishedSeam.test_reset_engine_is_public_and_says_who_calls_it`
-    -- so one quarter of a stale reading would have been a silent
-    misattribution rather than a NOT-REACHED. That is the seventh shape this
+    previous addresses, none (``:1077``, ``:1121``, ``:1128``, ``:1134``) is an
+    assert lineno at HEAD, so a stale constant reads loudly here. That is the
+    seventh shape this
     instrument refuses for a *mutant* standing inside its own anchor, whose
     precondition (``set(arms) <= linenos``) is a membership test and cannot
     tell the two apart. Recorded, not routed around: the constants above are
@@ -2706,8 +2696,8 @@ def test_ac7_the_four_arm_grid_of_card_257_reproduces():
     -- which is why ANY-RED is doing real work here and not only in a fixture.
     The mutant count stays 14 because this anchor scopes its edits to the two
     texts it can reach: the third lives in ``tests/conftest.py``, which the
-    instrument refuses to edit by identity. CARD-252's record is not restated
-    here; it is kept on :func:`nonogram.db.session.reset_engine`, and since
+    instrument refuses to edit by identity. CARD-252's record is kept on
+    :func:`nonogram.db.session.reset_engine`, and since
     CARD-259 the set of texts that anchored test holds is derived off the disk
     rather than listed, so the **three** texts above is a reading of today's
     tree and not a constant.
