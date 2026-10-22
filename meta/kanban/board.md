@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 15:50 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 16:35 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -57,7 +57,7 @@ _Updated: 2026-10-22 15:50 UTC_  ·  <!-- forge:run wave=53 mode=interactive con
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
-| 53 | CARD-261 P2, CARD-262 P2 | ▶ active (both in fix rounds) |
+| 53 | CARD-261 P2, CARD-262 P2 | ▶ active (CARD-261 **done** `ac63e17a`; CARD-262 in cycle 2) |
 | 54 | CARD-264 P2 | ▶ active (dispatched 2026-10-22, based on CARD-261's tip) |
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
 
@@ -92,17 +92,14 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
 
 ## In Progress
-- **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates
-  `worktree: ../PythonProject4-card-261` · `branch: card/261-control-the-component-map`
-  `7.5` → `7.8` → **8.5 PASS** · `AC/EC/G gate: PASSED` · **merge-ready, holding for the full-suite window**
 - **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
 - **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2)_
 - **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
   `worktree: ../PythonProject4-card-264` · `branch: card/264-claude-md-outside-the-map`
-  `base: feb3e6b5` · `contract: 5 of 10` · `impl d40e9d4a` · `gate PASSED` · `cycle 1: 8.3 PASS` · `polish round running`
+  `base: feb3e6b5` · `gate PASSED` · `cycle 1: 8.3 PASS` → `polish d5da18ff` · `AC/EC/G gate pending`
 - **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
   `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
-  `impl 8bc7671f + 060190c6 (zero src/ change)` → `cycle 1: 5.7 CRITICAL, axis not closed` · owner route **default-deny, cost measured first** · `fix 1 running`
+  `cycle 1: 5.7 CRITICAL` → `fix 1 b88621d8` (axis closed, 760→0 cost sequence, 13/13 plants refuse) · `cycle 2 pending`
 
 ## Review
 _(none)_

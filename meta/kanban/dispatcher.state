@@ -10,7 +10,7 @@ max_concurrent_override: 2
 # intact: no full-suite run is permitted in any of the three worktrees, each redirects
 # its suite lock to a scratch path, and no merge is pending. The cap returns to 2 when
 # wave 53 lands.
-active: [CARD-261, CARD-262, CARD-264]
+active: [CARD-262, CARD-264]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -1067,3 +1067,20 @@ wave_54:
     CARD-261's cycle 2 verified the out-of-block defects present and byte-identical from the other
     side. This is a deliberate override of the overlap score on measured evidence, not a miss.
   contract: projection 10, kept 5, dropped 5 (ADR-0038/R7-R8 review-lens; ADR-0039/R1-R3 reach-limited)
+
+card_261_done:
+  merge_commit: ac63e17a
+  tested_tree: ff4374f6
+  at: 2026-10-22
+  gates: >-
+    Run in BOTH configurations, sequentially, which is a first on this board: the project
+    default (no database variable) gave 8823 passed / 27 skipped / 0 failed, and the
+    DB-mode run against a freshly migrated nonogram_test gave 8849 passed / 1 skipped / 0
+    failed. The two reconcile to the test -- 21 tests pass only with a database configured,
+    and 21 plus the 5 that needed the migration equals the 26-skip difference -- so nothing
+    moved between the runs except the database being present. That reconciliation is also
+    the first measurement of how much the project-default gate cannot see: twenty-six tests.
+  concurrency: >-
+    The owner's cap of 2 is restored by this merge; two cards remain active. The merge ran
+    with no other full suite on the machine, and the DB-mode gate refuses to start if it
+    finds one, so the cap's stated purpose is enforced by the script rather than remembered.
