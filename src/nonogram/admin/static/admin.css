@@ -572,7 +572,21 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   padding-bottom: calc(var(--player-cell) * 0.2);
 }
 .player-board tfoot .player-corner { border-bottom: none; }
-.player-cell[data-state="filled"] { background: var(--grid-ink); }
+/* A filled cell's own division (CARD-270). The fill is --grid-ink and so is
+   every MAJOR rule: the every-fifth .major-right/.major-below below, the
+   board's outer frame, and the clue gutters' edges. Ink on ink — so a run of
+   filled cells crossing any of those merged into one blob, exactly where the
+   heavy rule exists to help the player count (owner, 2026-10-22). The fix is
+   neighbour-independent: every filled cell draws a --player-thin hairline
+   --player-rule wide just inside its own box, so the division reads the same
+   across a thin rule, a major rule, the frame and a gutter edge
+   (tests/test_puzzle_solver_fifth_rule.py samples all four in pixels).
+   box-shadow takes no part in layout, so the cell's box is unchanged — the
+   same precedent .is-hinted uses further down to draw inside a cell; that
+   rule comes LATER in this file and so still wins outright on a hinted cell,
+   which keeps CARD-183's accent outline and paper ring exactly as they were
+   (asserted on a cell that is filled AND hinted). */
+.player-cell[data-state="filled"] { background: var(--grid-ink); box-shadow: inset 0 0 0 var(--player-rule) var(--player-thin); }
 .player-cell[data-state="empty"]::after { content: ""; display: block; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
 /* The "?" mark (CARD-186): a glyph 0.6 x the cell side, weight 600, in the
    accent token (tests/test_puzzle_solver_maybe.py measures its size, its box
