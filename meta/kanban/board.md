@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 08:19 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 08:29 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -58,7 +58,7 @@ _Updated: 2026-10-22 08:19 UTC_  ·  <!-- forge:run wave=53 mode=interactive con
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
 | 53 | CARD-261 P2, CARD-262 P2 | ▶ active (CARD-261 in_progress, CARD-262 in_progress) |
-| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2 | ⏳ not yet dispatched to a wave |
+| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-264 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -89,6 +89,7 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 2)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
+- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard  _(unscheduled, tier 2)_
 
 ## In Progress
 - **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates
@@ -103,7 +104,7 @@ _(none)_
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
-- **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-312..315 and EC-037** define the error counter as continuously displayed, and a further AC pins its DOM order relative to the hint and progress counters. This card changes that behaviour, so the requiremen…
+- **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/for…
 
 ## Done
 _242 cards merged, waves 1–52 (plus 43 from before the `Wave:` field existed)._ Most recent:
