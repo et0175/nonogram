@@ -1,6 +1,6 @@
 # CARD-259: CARD-252's record is written in three places; single-source it and control the pointer
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/259-single-source-the-record
-**Worktree:** ../PythonProject4-card-259
+**Worktree:** —
 **Source:** CARD-257 review cycle 1, F-005 (a second surviving doubling) and the card's own declared residue (`reset_engine()` is 135 lines for a 6-line body)
 **Idea:** —
 **Wave:** 52 (dispatched 2026-10-21; queued — moved from 51 at wave-51 dispatch: it depends on CARD-260's instrument, and the owner's cap is 2 active cards)
 **Depends on:** CARD-257 (merged `b441ba00` — it created the single source this card points at), CARD-260 (**consume its committed instrument; do not build a sixth**)
 **Touches:** tests/conftest.py, src/nonogram/db/session.py, tests/test_db_engine_lifecycle.py, tests/test_kill_matrix.py, tests/README.md, tests/helpers/undefined_table_report.py  _(corrected 2026-10-22 from three files — cycle-1 F-107; `test_kill_matrix.py` and `README.md` were declared `SCOPE+` by the implementer, and `undefined_table_report.py` by fix round 1 — its module docstring names CARD-252 and the derived deny-default fails on a text with no pointer)_
 **Review score:** 8.5 (cycle 3/3 — ✓ review passed; AC/EC/G gate ✓ 10 of 10 after the owner's AC-2 narrowing)
-**Started:** 2026-10-21T22:18:12Z · **Closed:** — · **Actual:** — · **Merge commit:** —
+**Started:** 2026-10-21T22:18:12Z · **Closed:** 2026-10-22T06:38:15Z · **Actual:** 0.35d (8.3h; 3 review cycles, 2 fix rounds, 1 escalation, 1 AC/EC/G gate, 2 merge-gate runs) · **Merge commit:** `5f18e2f5`
 **Blocked by:** —
 
 ## Why — CARD-257 retired one doubling and the review found the next one behind it
@@ -1892,3 +1892,60 @@ for the four that did; AC-4's hash equality is a card-time derivation with no co
 own wording, and the standing half is the tree sweep; G-1's per-body split has no committed test and was
 derived structurally; G-3's second clause rests on structure plus probes rather than a plant; the two
 `db_required` tests skip, so that class's AC-1/AC-2 are unevidenced here as in every cycle.
+
+---
+
+### [Merge gate] RED then GREEN — and the red was the orchestrator's own harness
+
+**Run 1 (`5e097d24`): 1 failed, 8783 passed, 1 skipped. EXIT=1.**
+
+```
+tests/test_impact_set.py::test_the_selector_runs_as_a_script_and_prints_paths
+Popen returncode 255 — executable …/PythonProject4-card-259/.venv/bin/python
+```
+
+**Not this card's defect.** A card **worktree has no `.venv`** — only the main checkout does — and a
+merge gate always runs from a worktree, so a test spawning that path passes everywhere the suite is
+normally run and raises in the one place that decides whether a card merges. **Every impact-scoped gate
+missed it for a structural reason:** the selection is derived by globbing the *worktree's* `tests/`, and
+that file did not exist there until the rebase brought it in. The full-suite merge gate was therefore
+the first context in which the test ran from a worktree at all — the backstop that makes
+`review.test_scope: impact` safe, doing its job on the harness built to make that narrowing safe.
+
+Fixed on **main** (`1c370193`), where the defect lives, with `sys.executable`; verified 33 passed, exit
+0, in **both** the main checkout and this worktree. **Class checked:** exactly one site in `tests/`
+*executes* a `.venv` path; seven others *write* one without executing it (a docstring, two parsed log
+samples, a fake `activate` two shell-script tests build in their own tmp root) and are all legitimate.
+**The class now has a control**, shown failing: an AST walk reds if a `.venv` string reaches a
+process-spawning call — planting one into `tests/test_cli.py` gives exit 1 naming
+`test_cli.py:15 subprocess.run` against exit 0 on SHIPPED.
+
+**Run 2 (`a3de9394`, rebased onto the fix): 8785 passed, 1 skipped, 0 failed. EXIT=0.** Lock taken and
+released; `meta/kanban/.full-suite.lock` gone afterwards.
+
+**This gate ran at the board's documented condition, which CARD-260's did not.** `DATABASE_URL` was
+**set**, against a derived database whose name was guarded twice before any server was touched (it must
+end in `_test` and must not contain `nonogram_poc`; the guards run before the script does, and
+`nonogram_poc` is not on this server at all). Result: **1 skip, not 27** — the single
+`setrlimit(RLIMIT_AS)` skip this kernel refuses — and **8,785 tests passed against CARD-260's 8,718.**
+That **retires the declared bound CARD-260 merged under**: its gate exercised ~26 fewer tests because
+the condition was unset, and this one did not.
+
+**Merge:** `git merge --no-ff` → **`5f18e2f5`** (`refactor:` from `Category: tech-debt`), 6 files,
++919/−142. Target-unmoved guard verified — `git rev-parse main` equalled `git merge-base main <branch>`,
+so the tree merged is the tree tested — and the merged tree is **byte-identical to the gated commit**
+across `src/`, `tests/`, `migrations/`, `pyproject.toml`, `Makefile` and `scripts/`.
+
+**Deferral scan:** one hit, `_NAME_PLACEHOLDER` — a named constant in a docstring. **Zero real
+deferrals.**
+
+**The rebase collision, handled rather than forced.** Three review YAMLs were untracked in the worktree
+and tracked in main. Each was diffed against main's committed copy rather than assumed: cycles 2 and 3
+**identical**, cycle 1 differing on exactly **2 lines** — the same line before and after — every token
+of which was the orchestrator's own stale-figure reconciliation. Main was strictly the newer copy;
+backed up to the scratchpad regardless. The card copy blocking the rebase was proved byte-identical to
+main's before being discarded.
+
+**Actual 0.35d against a 0.75d estimate — 0.46x, the first card in five waves to come in under.** The
+estimate was right because the owner's wave-50 rule forced it off `trivial`/0.5d at dispatch; the work
+then cost less than the floor rather than more.
