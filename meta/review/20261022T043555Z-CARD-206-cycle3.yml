@@ -1,0 +1,469 @@
+version: 1
+card: CARD-206
+cycle: 3
+generated_at: '2026-10-22T04:35:55Z'
+target: 'card/206-interior-title-page @ eb5cbd5d (27ca88c7..HEAD; fix-2 delta 91a51395..eb5cbd5d = 3 files, +735/-122, test files only)'
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: 'forge:review'
+reviewer_version: 'forge 2026.8.17'
+mode: 'final cycle (3 of 3) -- differential re-review of fix 2 + owed certification of the replaced mechanism'
+
+verdict_summary: >-
+  The score clears min_score (8.5 >= 8) and the feature itself is sound: AC-1..AC-6 hold, the
+  renders agree with the card's corrected claims, and all four of cycle 2's findings are closed on
+  their own terms, each re-derived from code rather than from the fix note. The owed certification
+  ran with the committed instrument: fix 2's six named mutants all reproduced, three of them
+  cell-for-cell once a uniform +17 line-number offset in the card's own table is accounted for.
+  BUT the loop's success condition is not met. One NEW Important (F-301) survives: the rebuilt
+  page-position walk still fails OPEN, on the door axis rather than the position axis, and two
+  universals fix 2 added to say otherwise are falsified by a disk mutant that leaves the whole
+  134-node matrix FAIL-free. F-301 is attributed to fix 2 and is the same family as cycle 1's F-102
+  and cycle 2's F-201, so family_regression_streak reaches 2 and this card ESCALATES out of the
+  loop rather than merging.
+
+findings:
+  - id: F-301
+    title: 'The page-position walk still fails OPEN: a geometry door reached other than as a syntactic call is neither read nor refused'
+    severity: important
+    gating: true
+    category: 'test-quality / system-contract (ADR-0039/R2 second clause, ADR-0039/R1)'
+    file: tests/test_book_export_interior_cover.py
+    line: 1376
+    confidence: high
+    source: 'measured -- kill_matrix mutant R1b_DOOR_VIA_GETATTR_PRESERVED on disk, plus 12 in-memory shapes'
+    evidence: |
+      Fix 2 rebuilt the walk around two closures and states, twice, that the result has no
+      "shape I thought of" left in it:
+
+        :1135  "**And it fails closed** (ADR-0039/R2 ...) ... a shape a position flows through
+                that none of them names is a **refusal**, which reds naming the line and the shape."
+        :1376  "The walk **fails closed** (ADR-0039/R2): ... every shape a position can flow
+                through that this walk does not read appends a refusal below instead of passing."
+
+      Both are false. The POSITION side is genuinely closed -- I could not break it. The DOOR side
+      is not: door recognition is still an enumeration of syntactic call spellings. `called(call)`
+      reads only `Call.func` as `ast.Name` or `ast.Attribute`, and the one refusal that covers an
+      unrecognised door ("a geometry door referenced without being called", :1648) is keyed on
+      `isinstance(node, ast.Attribute) and node.attr in doors`. A door whose identity is not a
+      syntactic name in the call position is therefore dropped before either closure sees it --
+      which is the refusal-side failure, not the position-side one.
+
+      CERTIFIED ON DISK. Mutant R1b_DOOR_VIA_GETATTR_PRESERVED replaces two comment lines of
+      `interior_stream` (leaving DERIVED_POSITION intact, so the guard's own plant anchor still
+      resolves) with:
+
+            _d = getattr(self, "page_spec")
+            _d(3 + len(section))
+
+      That is F-102's exact literal -- a front-matter page count spelled `3` -- handed to the real
+      geometry door. Reading: pytest exit 0, 133 of 134 assert nodes reached, **0 FAIL**. Every
+      arm of the guard passes: `refusals == []` (:1947), `tuple(vocabulary) == POSITION_NAMES`
+      (:1948), `len(sites) == 23` (:1949), the per-door control (:1984), `_bare_literals == []`
+      (:2001) and the sixteen-row shape table (:2039). A silent pass, which is exactly what
+      ADR-0039/R2's second clause forbids and what cycle 2's F-201 gated on.
+
+      In-memory, four of twelve shapes I planted escape the same way and all four share that one
+      cause: `getattr(self, "page_spec")(...)`, `getattr(self, "page" + "_spec")(...)`,
+      `getattr(self, _n)(...)` with `_n = "page_spec"`, and `operator.methodcaller("page_spec", ...)`.
+      The door name as a bare string is not a POSITION name, so the string closure
+      (STRING_FIELDS_READ) does not refuse it; `Call.func` is itself a `Call`, so `called()`
+      returns None and the door-slot walk skips it; there is no `ast.Attribute` naming the door,
+      so refusal class 3 does not fire. `getattr(` is already an idiom of this module
+      (book_pdf_generator.py:5245), so the shape is not foreign to the file.
+
+      The class has NO control that can fail. PLANTED_SHAPES is sixteen rows every one of which
+      declares a non-empty outcome, so the table can only regress on a shape its author chose; it
+      cannot discover a class nobody planted. That is ADR-0039/R1 as well: a claim whose control
+      cannot fail is narrative, and must be narrowed to what is measured or deleted.
+
+      What is NOT the finding, said plainly: there is no live defect. The module reports 0
+      refusals, 0 offenders and 23 derived sites, every one of its own door calls is a direct
+      `self.page_spec(...)`, and the behavioural monkeypatch case still covers every position that
+      reaches a byte of output. What gates is the declared reach, again, in the mechanism built to
+      narrow the declared reach.
+
+      Remedy is one narrowing plus one exemption, the same shape cycle 2 asked for and got on the
+      position axis: say that door recognition is by syntactic call form, name the
+      unrecognisable-door class as a second exemption under ADR-0039/R3, and give it a control in
+      both states (caught with the exemption removed, missed with it in place) the way EXEMPTION
+      already has one.
+    status: open
+    attribution: 'introduced by fix 2 (eb5cbd5d) -- both "fails closed" universals and the "referenced without being called" refusal class are added lines of that commit; `git show 91a51395:tests/test_book_export_interior_cover.py` contains neither'
+    family: 'FAM-POSITION-REACH -- an over-broad universal about the page-position guard''s reach, with no control that can fail on the class it misses. Same family as cycle 1 F-102 and cycle 2 F-201.'
+
+  - id: F-302
+    title: 'The sentence fix 2 wrote to narrow F-202 carries one clause that is measurably false'
+    severity: minor
+    gating: false
+    category: 'test-quality (ADR-0039/R1)'
+    file: tests/property/test_book_export_interior.py
+    line: 1120
+    confidence: high
+    source: 'measured -- kill_matrix mutant B3_PARITY_CONSTANT_DRIFT'
+    evidence: |
+      The narrowed comment says the separation equality at :1127 "reds on a drift in that function
+      or in the two PARITY constants and not on a production parity failure". The second half is
+      right and is certified below (B1 reds :1139/:1144 and leaves :1127 alone). The clause about
+      the constants is wrong: `separation_mm = PARITY_GUTTER_MM - PARITY_OUTSIDE_MM` and both
+      `_expected_drawing_left_mm` readings are taken with those same two constants, so the equality
+      is invariant to them by construction -- the same self-cancellation one level down that F-202
+      filed one level up.
+
+      Mutant B3_PARITY_CONSTANT_DRIFT (`PARITY_OUTSIDE_MM = 10.0` -> `15.0`, line-count-preserving):
+      pytest exit 0, 11 of 52 assert nodes reached, **0 FAIL**. Neither :1127 nor any other arm
+      sees it. (A drift large enough to take `gutter - outside` below 4.0 would red the floor at
+      :1135, but that is the floor, not the equality the sentence credits.)
+    status: open
+    attribution: 'introduced by fix 2 (eb5cbd5d) -- the clause is in the replacement comment, not in the one it replaced'
+    family: 'FAM-POSITION-REACH (a claim about what reds that no control enforces)'
+
+  - id: F-303
+    title: 'Two of BINDERS_READ''s eight members are inert -- cycle 2''s F-203 shape, moved to the new set'
+    severity: minor
+    gating: false
+    category: 'test-quality (ADR-0039/R1)'
+    file: tests/test_book_export_interior_cover.py
+    line: 1286
+    confidence: high
+    source: 'measured -- per-member removal over the module and over PLANTED_SHAPES, plus mutant R4_BINDER_MEMBER_INERT on disk'
+    evidence: |
+      F-203 closed the inert member in GEOMETRY_DOORS and added a per-member control for it
+      (:1984, certified by A4). BINDERS_READ, which fix 2 introduced in the same commit, has no
+      such control, and two of its eight members have no control anywhere:
+
+        member         removing it changes                     controlled by
+        Assign         module: 23 -> 18 sites, 5 refusals       the module itself
+        AnnAssign      module: 2 refusals                       the module itself
+        AugAssign      module: 23 -> 20 sites, 3 refusals       the module itself
+        For            module: 23 -> 21 sites, 2 refusals       the module itself
+        comprehension  V7 flips offender -> refusal             PLANTED_SHAPES
+        withitem       V12 flips (offender,refusal) -> refusal  PLANTED_SHAPES
+        AsyncFor       NOTHING                                  -- none --
+        NamedExpr      NOTHING                                  -- none --
+
+      Certified on disk: mutant R4_BINDER_MEMBER_INERT (`"AsyncFor"` -> `"AsyncForX"`,
+      line-count-preserving) reads pytest exit 0, 133 reached, **0 FAIL** over 134 nodes.
+
+      Lower severity than F-203 was, because the two inert members widen what the walk reads rather
+      than what it claims to catch, and a forward-looking member of a "what the walk reads" table is
+      defensible. It is filed because the card's own rule is that a set a guard consults carries a
+      control per member, and because it is the same shape one cycle later in a set built by the
+      same commit.
+    status: open
+    attribution: 'introduced by fix 2 (eb5cbd5d) -- BINDERS_READ does not exist at 91a51395'
+    family: 'FAM-SET-MEMBER-WITHOUT-CONTROL (cycle 2 F-203)'
+
+  - id: F-304
+    title: 'The card''s fix-2 certification table quotes assert line numbers from a pre-trim file; every Group-A number above :1233 is +17'
+    severity: minor
+    gating: false
+    category: documentation
+    file: meta/kanban/cards/CARD-206.md
+    line: 1256
+    confidence: high
+    source: 'measured -- re-ran the same mutants and mapped the FAIL cells'
+    evidence: |
+      Fix 2 made a trimming pass after its certification run (+116 -> +99 prose lines, i.e. 17
+      lines removed from the cover file) and did not re-derive the line numbers. Every Group-A
+      cell the card quotes above :1233 therefore resolves to the wrong assertion in the committed
+      file, by a uniform +17:
+
+        card :1964 -> :1947 refusals == []          card :2056 -> :2039 the shape table
+        card :1965 -> :1948 vocabulary equality     card :2074 -> :2057 planted-literal control
+        card :1966 -> :1949 site-count equality     card :2080 -> :2063 planted-literal control
+        card :2001 -> :1984 per-door control        card :2105 -> :2088 exemption must-not-absorb
+        card :2018 -> :2001 bare-literal check      card :2135 -> :2118 exemption cost
+        card :2038 -> :2021 DERIVED_POSITION once   card :2136 -> :2119 exemption cost
+
+      The FAIL counts and the semantic labels are all correct -- A4's ten cells reproduce exactly
+      under the offset, which is what proves the offset is uniform rather than the reading wrong.
+      Only :1202 (above the trimmed region) resolves as written. Filed because this card's whole
+      discipline is that a quoted figure must resolve, and a reader checking :2018 lands on the
+      per-door control instead of the bare-literal check.
+    status: open
+    attribution: 'introduced by fix 2 (eb5cbd5d) -- the note and the trimming pass are in the same commit'
+    family: 'FAM-FIGURE-DOES-NOT-RESOLVE'
+
+cycle_2_findings_verified:
+  - id: F-201
+    verdict: 'closed on every shape it named; root cause survives on a different axis (see F-301)'
+    evidence: |
+      Closed, verified against code and by mutant: the three floors are equalities
+      (`len(sites) == 23`, `tuple(vocabulary) == POSITION_NAMES`, `== 7` on the guide-counting
+      half) and each reds in BOTH directions (see figures_rederived); eight of F-201's nine
+      escaping shapes are CAUGHT and V5 is REFUSED, with V3 -- the shape fix 1 reported 0 offenders
+      for -- now reddening on disk (mutant A3, :2001); the sentence F-201 measured false ("only if
+      it was set in this module") is deleted AND made true, since an attribute store of a position
+      name is now a site; `refusals == []` and `_bare_literals(sites) == []` are asserted.
+      NOT closed: F-201's own one-line statement of what it found -- "the widened guard fails
+      OPEN" -- still holds, on the door-recognition axis. Reported as F-301 rather than as a
+      reopened F-201 because every shape and sentence F-201 enumerated is genuinely fixed.
+  - id: F-202
+    verdict: 'closed, with one false clause in the replacement (F-302)'
+    evidence: 'B1_PARITY_BLIND reds :1139 and :1144 and leaves :1127 and :1135 alone; B2_MODEL_DRIFT reds :1127 alone. Reproduced independently, cell for cell with the card.'
+  - id: F-203
+    verdict: closed
+    evidence: |
+      Re-derived the per-door table myself and it matches the card exactly: ("page_spec",
+      "book_page_spec") 6 names / 23 sites; ("page_spec",) 6 / 22, missing :3163 door argument
+      book_page_spec; ("book_page_spec",) 6 / 23, missing the five page_spec door-argument sites at
+      :4022 :4074 :6449 :6826 :6867; () 0 / 0. The slot is read from each door's own signature
+      (slot 1 for book_page_spec, because args[0] is the book) and a door without a `page_number`
+      parameter is a refusal. Mutant A4_DOOR_SLOT_REVERTED reds the per-member control at :1984
+      together with nine other nodes.
+  - id: F-204
+    verdict: closed
+    evidence: 'tests/test_book_pdf_memory.py:3073, :3095, :3469, :3480 now read `1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + plan.toc_page_count + ...`; GUIDE_PAGE_COUNT is imported at :159.'
+
+prose_audit:
+  net_change: '+149/-50, net +99 comment and docstring lines over the three edited files (card''s own figure, not re-measured here)'
+  deletions_confirmed:
+    - 'the universal "enumerates **every page position in the module**" -- present at 91a51395:1125, absent now (replaced by "enumerates the module''s page positions, derived rather than listed")'
+    - 'the whole "What this still cannot see, **measured rather than assumed**" paragraph -- 1 occurrence at 91a51395, 0 now'
+    - '"The count itself is not asserted: it is a figure no control could fail on" -- present at 91a51395:1447-1448, absent now'
+  added_claims_with_their_control:
+    - claim: 'the seed is the geometry door every position must reach'
+      control: ':1960 (doors=() reports nothing at all) and :1984 (per-door); mutant A4 reds both'
+    - claim: 'every binding occurrence of a vocabulary name is a site'
+      control: ':1947 refusals == [] plus :1949; mutants A2/A3/A4'
+    - claim: 'a shape a position flows through that none of them names is a refusal'
+      control: 'NONE that can fail on an unenumerated class -- F-301'
+    - claim: 'every shape a position can flow through that this walk does not read appends a refusal below instead of passing'
+      control: 'NONE -- F-301, falsified by R1b'
+    - claim: 'the monkeypatch case covers every position that reaches a byte of output'
+      control: 'no assertion reads it; it is a declared bound rather than a claim about the walk, and cycle 2 measured the half of it that mattered (first_answer_page is live at :6976/:6978). Borderline, not filed separately.'
+    - claim: 'what the exemption must NOT be read as covering is a front-matter count behind such a term'
+      control: ':2084/:2088 in both states; and the state is a parameter, so removal catches the whole class'
+    - claim: 'the exemption''s cost is asserted rather than written down so it cannot go stale'
+      control: ':2118/:2119, equalities (5 sites, four named terms)'
+    - claim: 'book_kdp states no front-matter term of its own -- it delegates to interior_page_count'
+      control: 'no assertion; spot-checked by reading book_kdp.py (the constants appear only in docstrings; :547 returns interior_page_count(...)). True but uncontrolled.'
+    - claim: 'it reds on a drift in that function or in the two PARITY constants'
+      control: 'NONE for the constants half -- F-302, falsified by B3'
+  judgement: >-
+    The increase is overwhelmingly controlled -- the new mechanism really is a refusal plus a table
+    of measured outcomes, both read by assertions, and the three claims fix 2 said it declined to
+    write are indeed absent from the code. Two added sentences (F-301) and one added clause (F-302)
+    are the exceptions, and both are claims about what the mechanism catches rather than about what
+    it is, which is the family this card keeps producing.
+
+figures_rederived:
+  - figure: 'len(sites) == 23'
+    domain: 'ast walk of src/nonogram/admin/book_pdf_generator.py at eb5cbd5d, via the test class''s own _page_positions()'
+    result: '23, confirmed; the 23 are listed in my run log (8 door/indirect argument sites, 5 parameter defaults, 4 assignments, 3 augmented, 2 loops, 1 toc argument)'
+    reds_both_ways: 'ADDITION: A2b_SITE_ADDED_ANCHOR_PRESERVED (`page_number = len(section)` on two preserved comment lines) -> exit 0, 133 reached, FAIL {1949 site count, 2118 exemption cost}. REMOVAL: R1 (the derived assignment rebound to a non-position name) -> 23 -> 22 in-memory, equality reds. Confirmed in both directions.'
+  - figure: 'tuple(vocabulary) == POSITION_NAMES (6 names)'
+    domain: same
+    result: "['first_answer_page', 'first_page', 'guide_page_number', 'page_number', 'puzzle_page', 'title_page_number'] -- 6, exactly POSITION_NAMES"
+    reds_both_ways: 'REMOVAL: mutant R2_POSITION_NAME_RENAMED (`title_page_number` -> `tp_number_______`, 2 occurrences, line-count-preserving) -> exit 0, 133 reached, FAIL exactly {1948}. ADDITION: any copied non-position name grows the vocabulary (seen as a side effect of my M12 *args shape). Confirmed in both directions.'
+  - figure: 'len(guide-counting expressions) == 7'
+    domain: 'outermost enclosing expression of every GUIDE_PAGE_COUNT load, same module'
+    result: '7, at :3606 :6043 :6201 :6453 :6719 :6903 :6925'
+    reds_both_ways: 'REMOVAL: mutant R3_GUIDE_EXPRESSION_REMOVED (one GUIDE_PAGE_COUNT load spelled as its value 2) -> exit 0, FAIL {1202 the == 7 equality, 2001, 2021, 2039}. ADDITION: A1/A3 both drop it to 6 and red :1202. Confirmed in both directions.'
+  - figure: "the exemption's cost: 5 of 23 sites over index, pages, section, toc_page_count"
+    domain: '_page_positions(follow_terms=True) over the module'
+    result: 'exactly 5 -- :6316 (pages), :6453 (toc_page_count), :6719 (section, toc_page_count), :6927 (index), :6978 (index); terms == [index, pages, section, toc_page_count]. Matches the card.'
+  - figure: "the exemption's control in both states"
+    domain: "the test-owned source EXEMPTED_TERM (`hidden = 3; first_answer_page = hidden + len(section)`)"
+    result: "kept -> no offender; removed -> [('assignment','first_answer_page',[('not followed','hidden'),('not followed','section')])]. Both states confirmed."
+    harder_question: >-
+      Is the control the shape the exemption must not absorb, or merely one instance of it? It is
+      representative, and that is checkable rather than asserted: the exemption is a single
+      parameter of the analyser (follow_terms), not a per-shape branch, so removing it catches the
+      whole class at once. I confirmed that on a shape the control does not contain -- a
+      module-level container, `_acc = [3]` with `first_answer_page = _acc[0] + len(section)` --
+      which is silent with the exemption in place and comes back as
+      ('not followed', '_acc') with it removed, the same shape the control asserts. This is a
+      genuine strength of fix 2 and I record it as such.
+  - figure: 'per-door site contribution'
+    domain: '_page_positions(doors=...) over the module'
+    result: 'matches the card cell for cell (6/23, 6/22 losing :3163, 6/23 losing the five page_spec door-argument sites, 0/0)'
+  - figure: 'STRING_FIELDS_READ member cost'
+    domain: 'per-member removal over the module'
+    result: "arg.arg -> 14 refusals (card's figure, confirmed); Name.id -> 55; Attribute.attr -> 6; keyword.arg -> 3. No member of this set is decorative."
+  - figure: 'BINDERS_READ member cost'
+    domain: 'per-member removal over the module and over PLANTED_SHAPES'
+    result: 'six of eight members have a control that fails; AsyncFor and NamedExpr have none -- F-303'
+
+closure_attack:
+  summary: '12 shapes planted in memory plus 3 on disk through the instrument; 8 of the 12 killed, 4 escaped silently, and all 4 escapes share one cause (the door, not the position)'
+  killed:
+    - 'M7 `self.page_spec(**{"page_number": 3 + len(section)})` -> two refusals (nothing in the position slot; a position name in Constant.value)'
+    - 'M8 `(self.page_spec if section else self.page_spec)(...)` -> refusal, door referenced without being called'
+    - 'M12 `*args` wrapper forwarding -> vocabulary grows by the forwarded name, so the vocabulary equality reds'
+    - 'M13 `**kwargs` wrapper forwarding -> offender at the wrapper keyword AND a refusal at the door'
+    - "M14 `setattr(self, \"page_number\", 3 + len(section))` -- the orchestrator's own plant, reproduced: refusal, a position name in Constant.value"
+    - 'M15 a position threaded through a decorator-shaped helper call -> offender'
+    - 'M16 the door reached through a module-level alias `_ALIAS = BookPDFGenerator.page_spec` -> refusal, door referenced without being called'
+    - 'a conditional expression `(3 if x else 4) + len(section)` in a position -> offender (both literals read)'
+  escaped:
+    - 'M1 `_d = getattr(self, "page_spec"); _d(3 + len(section))` -- SILENT (certified on disk as R1b: 0 FAIL of 133 reached)'
+    - 'M2 the same with the name assembled, `getattr(self, "page" + "_spec")` -- SILENT'
+    - 'M5 the same through a local string variable -- SILENT'
+    - 'M6 `operator.methodcaller("page_spec", 3 + len(section))` -- SILENT to the guard (see certification: on disk it is killed OUTSIDE the matrix domain, by production NameError on an unimported `operator`, so R1b rather than R5 is the usable demonstration)'
+    - 'M3 `_acc = [3]` at module level with `first_answer_page = _acc[0] + len(section)` -- SILENT, but squarely inside the declared EXEMPTION and caught by removing it; not a finding'
+  not_attempted:
+    - '`__set_name__` / metaclass paths and `type()`-constructed classes -- no line-count-preserving plant into this module reaches them without restructuring a class body; recorded as unchecked rather than claimed clean'
+    - 'a door published through a class-level dispatch tuple -- same reason; it is the same cause as M1 and would add nothing'
+
+certification:
+  instrument: 'tests/kill_matrix.py (committed), used as documented from tests/README.md:453'
+  method: 'RECORDING pass, aggregate ANY-RED, child instrumentation OFF, SHIPPED re-run between every mutant and held equal cell for cell, every mutant line-count-preserving, every target inside this worktree, restores by the instrument''s own cp -p + diff -q + shasum -a 256 and confirmed afterwards by `git diff --stat` reading a clean src/ and a clean tests/'
+  groups:
+    - group: A
+      domain: 'RECORDING pass over tests/test_book_export_interior_cover.py -- 134 ast.Assert nodes (node count, not a collected-test count); SHIPPED 0 FAIL of 133 reached, pytest exit 0, 76 collected tests; :621 NOT-REACHED on SHIPPED and on every mutant alike (pre-existing, unchanged by this round)'
+      mutants:
+        - name: A1_PLANTED_LITERAL
+          author: 'fix 2'
+          change: 'production: the derived first_answer_page back to `3 + len(section)`'
+          outcome: 'exit 0, 133 reached, 4 FAIL'
+          cells: '{1202 guide-counting equality, 2001 bare-literal check, 2021 DERIVED_POSITION occurs once, 2039 the shape table}'
+          domain_note: 'the card quotes these as :1202/:2018/:2038/:2056 -- same four, +17 (F-304). Count and labels reproduce.'
+        - name: A2_SITE_ADDED
+          author: 'fix 2'
+          change: 'production: one extra position binding'
+          outcome: 'as the card places it (DERIVED_POSITION left intact) this is a 1-cell kill; reproduced as A2b below'
+          cells: 'see A2b'
+          domain_note: 'my first placement replaced DERIVED_POSITION and therefore also red :2021/:2039, which are artefacts of the plant anchor rather than of the added site. Re-run with the anchor preserved to isolate it.'
+        - name: A2b_SITE_ADDED_ANCHOR_PRESERVED
+          author: reviewer
+          change: 'production: `page_number = len(section)` planted over two comment lines, DERIVED_POSITION untouched'
+          outcome: 'exit 0, 133 reached, 2 FAIL'
+          cells: '{1949 the site-count equality, 2118 the exemption cost}'
+          domain_note: 'confirms the card''s headline -- the site-count equality is the one structural arm of 134 that sees a site appear. The second cell is my shape''s own doing (`section` is a non-position term, so it adds a sixth exempted site), not a defect.'
+        - name: A3_TUPLE_UNPACK_SHAPE
+          author: 'fix 2'
+          change: 'production: F-201''s V3, the shape fix 1''s walk reported 0 offenders for'
+          outcome: 'exit 0, 133 reached, 4 FAIL'
+          cells: '{1202, 2001 the offender assertion, 2021, 2039}'
+          domain_note: 'the silent shape of cycle 2 now reds on disk. Card''s four, +17.'
+        - name: A4_DOOR_SLOT_REVERTED
+          author: 'fix 2'
+          change: 'test: POSITION_PARAMETER -> "no_such_parameter", so no door can be seeded'
+          outcome: 'exit 0, 133 reached, 10 FAIL'
+          cells: '{1947, 1948, 1949, 1984, 2039, 2057, 2063, 2088, 2118, 2119}'
+          domain_note: 'the card''s ten cells map onto these ten exactly under a uniform +17. This is what establishes that F-304 is an offset and not a wrong reading.'
+        - name: R1b_DOOR_VIA_GETATTR_PRESERVED
+          author: reviewer
+          change: 'production: `_d = getattr(self, "page_spec"); _d(3 + len(section))` over two comment lines, DERIVED_POSITION untouched'
+          outcome: 'exit 0, 133 reached, **0 FAIL**'
+          cells: 'none -- the entire 134-node matrix is FAIL-free and all 76 tests of the file pass'
+          domain_note: 'THE GATING READING (F-301). Not a kill outside the domain: exit is 0 and 133 arms were reached, which the instrument''s own figure separates from the other two FAIL-free shapes.'
+        - name: R5_DOOR_VIA_METHODCALLER_PRESERVED
+          author: reviewer
+          change: 'production: `operator.methodcaller("page_spec", 3 + len(section))` over two comment lines'
+          outcome: 'exit 1, only 70 reached, 10 FAIL at {171, 183, 184, 465, 485, 486, 487, 488, 495, 496}'
+          cells: 'none of the guard''s own nodes'
+          domain_note: 'TWO DOMAINS, recorded rather than quoted blank. Inside the assert matrix the guard''s arms are untouched -- the shape is as silent to the walk as M1. The kill is OUTSIDE the guard''s domain: `operator` is not imported in book_pdf_generator.py, so the module raises NameError during export and the file''s behavioural tests red. R1b, which uses the builtin getattr and so runs clean, is the usable demonstration.'
+        - name: R2_POSITION_NAME_RENAMED
+          author: reviewer
+          change: 'production: `title_page_number` -> `tp_number_______` (2 occurrences)'
+          outcome: 'exit 0, 133 reached, 1 FAIL'
+          cells: '{1948 the vocabulary equality}'
+          domain_note: 'the removal direction of the vocabulary equality, which fix 2 demonstrated only upward.'
+        - name: R3_GUIDE_EXPRESSION_REMOVED
+          author: reviewer
+          change: 'production: one GUIDE_PAGE_COUNT load spelled as its value 2'
+          outcome: 'exit 0, 133 reached, 4 FAIL'
+          cells: '{1202 the == 7 equality, 2001, 2021, 2039}'
+          domain_note: 'the removal direction of the third equality.'
+        - name: R4_BINDER_MEMBER_INERT
+          author: reviewer
+          change: 'test: BINDERS_READ key "AsyncFor" -> "AsyncForX"'
+          outcome: 'exit 0, 133 reached, **0 FAIL**'
+          cells: none
+          domain_note: 'a set member with no control -- F-303. FAIL-free with exit 0 and 133 reached, so it is a survival, not an out-of-domain kill.'
+    - group: B
+      domain: 'RECORDING pass over tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_ParityCountsFromTheTitlePage -- 52 ast.Assert nodes; SHIPPED 0 FAIL of 11 reached, pytest exit 0, 1 collected test'
+      mutants:
+        - name: B1_PARITY_BLIND
+          author: 'fix 2'
+          change: 'production book_page_spec._parity made ODD for every page'
+          outcome: 'exit 0, 11 reached, 2 FAIL'
+          cells: '{1139, 1144 -- the two ink arms}; :1127 and :1135 survive'
+          domain_note: 'reproduces the card exactly, line numbers included (this file was not trimmed).'
+        - name: B2_MODEL_DRIFT
+          author: 'fix 2'
+          change: "the test's own model, gutter_mm -> gutter_mm + 5.0 on the right-hand branch (occurrence 2)"
+          outcome: 'exit 0, 11 reached, 1 FAIL'
+          cells: '{1127 -- the separation equality, and nothing else}'
+          domain_note: 'reproduces the card exactly.'
+        - name: B3_PARITY_CONSTANT_DRIFT
+          author: reviewer
+          change: 'PARITY_OUTSIDE_MM = 10.0 -> 15.0'
+          outcome: 'exit 0, 11 reached, **0 FAIL**'
+          cells: none
+          domain_note: 'F-302. The comment credits the equality with reddening on a drift in the two PARITY constants; it does not, because both sides of the equality read them.'
+  restore_verification: '`git status --short` and `git diff --stat` after both groups read exactly one modified file, meta/kanban/cards/CARD-206.md, which this review never touched and which was already modified at the start of the session; src/nonogram/** and tests/** are clean.'
+
+renders:
+  verdict: 'the cycle-1 artefacts still describe this head and nothing in them contradicts the card; no new render is owed, and I agree with the orchestrator on why (fix 2 is test files only, so src/nonogram/** and tests/fixtures/book_baseline_card206.json are byte-identical)'
+  checked:
+    - claim: 'page 1 carries no ink of any kind (AC-1)'
+      result: 'book1-page1-blank-title.png and widegutter-page1-blank-title.png are 1275x1650 with 0 pixels below 250 and a minimum luminance of 255 -- pure white, both books. Confirmed numerically, not by eye.'
+    - claim: "page 2 is the guide's first page, with its folio bottom-left, and pages 2-3 genuinely face"
+      result: 'spread-guide-pages-2-and-3.png read as an image: "How to Solve Nonograms" on the verso with folio 2 at bottom-left, "When the Puzzle Gets Harder" on the recto with folio 3 at bottom-right. The two guide pages face. Confirmed.'
+    - claim: "page 6's folio is centred and does not mirror, while the QR group and the size label do"
+      result: |
+        book1-page6-first-puzzle.png read as an image and measured. The folio glyph occupies
+        x 631..642 in BOTH books -- identical absolute position, centre 636.5 against a page
+        centre of 637.5 -- although the two books' frames differ (frame centre 637.5 against
+        608.0, frame right edge 1202 against 1159). So the folio is centred on the trim page and
+        is invariant to the margins, which is what "centred and not mirroring" means. The size
+        label tracks the frame's right edge (centre 1159.5 -> 1116.5 between the two books) and
+        the QR group sits at the bottom-left below the rule. Confirmed.
+    - claim: 'page 6 is the first puzzle page and is a left-hand page'
+      result: 'the folio reads 6 and the page is the first puzzle page; the left-hand spec is what the parity property test pins, and B1 shows that claim is carried by assertions that red.'
+
+coverage:
+  read:
+    - meta/kanban/cards/CARD-206.md (in full)
+    - meta/review/20261022T013915Z-CARD-206-cycle2.yml
+    - tests/test_book_export_interior_cover.py (the whole guard, :1100-:2119, plus its class data)
+    - tests/property/test_book_export_interior.py (the parity property test and its model)
+    - tests/test_book_pdf_memory.py (the four F-204 lines and the GUIDE_PAGE_COUNT import)
+    - src/nonogram/admin/book_pdf_generator.py (page_spec, interior_stream, the 23 position sites)
+    - src/nonogram/admin/book_page_spec.py (_parity, book_page_spec signature)
+    - src/nonogram/admin/book_kdp.py (checked that it states no front-matter term of its own)
+    - tests/kill_matrix.py (Edit/Mutant/Pass/Runner/KillMatrix API and its refusals)
+    - tests/README.md:453-600 (the kill_matrix section)
+    - 'git show 91a51395:tests/test_book_export_interior_cover.py (for attribution)'
+    - '/Users/omelnikova/Documents/nonogram-reviews/CARD-206/ -- all 8 PNGs measured, 2 read as images'
+  ran:
+    - 'kill_matrix group A, RECORDING, 8 mutants over tests/test_book_export_interior_cover.py'
+    - 'kill_matrix group A, RECORDING, 3 isolated mutants (A2b, R1b, R5) over the same file'
+    - 'kill_matrix group B, RECORDING, 3 mutants over the parity property test'
+    - 'the guard analyser driven directly over 12 planted shapes and 4 removal variants, in memory, nothing on disk mutated'
+    - 'per-member removal of GEOMETRY_DOORS, STRING_FIELDS_READ and BINDERS_READ'
+    - 'Pillow/NumPy measurement of the eight render PNGs'
+  not_checked:
+    - 'the 109-file build gate was not re-run; I rely on the orchestrator''s 5914 passed / 16 skipped / 0 failed / EXIT=0 at eb5cbd5d and have no reason to doubt it. The full suite was deliberately not run (CARD-259 holds the sibling worktree).'
+    - 'the scope gate -- already run and resolved, not re-run per the brief'
+    - '`__set_name__` / metaclass / type()-constructed-class routes into the walk; no line-count-preserving plant reaches them without restructuring a class body'
+    - 'no timing measurement was taken and no duration is reported'
+  environment: 'NONOGRAM_FULL_SUITE_LOCK=/tmp/card206-review3.lock was exported for every pytest and kill_matrix invocation; meta/kanban/.full-suite.lock was never read, written, created or deleted. Interpreter /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python, cwd /Users/omelnikova/PycharmProjects/PythonProject4-card-206. No git add/commit/checkout/restore/stash/reset/clean. Nothing under src/nonogram/export/layout.py was touched (G-2) and the CON-019 byte-identity tripwires were neither edited nor red (G-5).'
+
+family_regression:
+  streak_before: 1
+  gating_findings_this_cycle: ['F-301']
+  attribution: 'fix 2 (eb5cbd5d)'
+  same_family_as: ['F-102 (cycle 1, gating, attributed to the implementation)', 'F-201 (cycle 2, gating, attributed to fix 1)']
+  family: 'FAM-POSITION-REACH -- the page-position guard declares a reach wider than the one it measures, and the claim has no control that can fail on the class it misses'
+  fires: true
+  streak_after: 2
+  consequence: >-
+    cmd-start-review.md's condition (family_regression_streak >= 2) is met. This card ESCALATES out
+    of the review loop. Cycle 3 is the last cycle, the gating finding is attributed to fix 2 rather
+    than to the implementation, and it is the third consecutive cycle whose gating finding is the
+    same over-broad-reach claim about the same guard -- the second time in a row introduced by the
+    fix written to close the previous one. Saying it unambiguously, as the brief asks: the streak
+    is 2, the card does not merge on this verdict, and it goes to the owner rather than to a
+    fourth cycle.
+
+merge_decision:
+  score_gate: 'PASS (8.5 >= 8)'
+  improvement_gate: 'the score is essentially flat against cycle 2 (8.6 -> 8.5); the mechanism improved materially but one Important remains open, so min_improvement is not the operative gate'
+  severity_gate: 'FAIL -- 1 Important open (F-301)'
+  verdict: 'DOES NOT MERGE; escalate'

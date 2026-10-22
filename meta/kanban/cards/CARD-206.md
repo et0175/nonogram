@@ -15,7 +15,7 @@
 **Wave:** 52
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_numbers.py, tests/test_book_export_interior_cover.py, tests/property/test_book_export_interior.py, tests/test_book_toc.py, tests/helpers/book_corpus.py  _(the last entry added 2026-10-22, after the scope gate, for dispatch correctness only — see `[Touches corrected]`; the other 20 files this card really changed are deliberately NOT listed)_
-**Review score:** 8.6 (cycle 2/3 — fix round 2 applied, cycle 3 pending)
+**Review score:** 8.5 (cycle 3/3 — **ESCALATED: family regression, streak 2**; 1 Important open, cycle budget exhausted)
 **Started:** 2026-10-21T22:18:12Z
 **Closed:** —
 **Actual:** —
@@ -1361,3 +1361,97 @@ Same 109-file selection, re-derived at `eb5cbd5d` rather than reused. **5910 →
 tests are fix 2's own controls — the sixteen-row shape table, the per-door site control, the exemption's
 two states, and the exemption-cost equality. The 16 skips are `db_required`/browser, green. Build-fix
 attempts remain **1 of 2**, from the original page-count-pin repair; neither fix round needed one.
+
+---
+
+### [Review 3/3] Score: 8.5 — **1 Important gates. ⚠ family regression — streak 2. ESCALATED.**
+
+Report: `meta/review/20261022T043555Z-CARD-206-cycle3.yml`. Score clears `min_score: 8`; the loop's
+success condition does not, because it requires zero surviving critical/important. **`max_cycles: 3` is
+exhausted — there is no cycle 4.**
+
+**[Review 3/3] ⚠ family regression — the page-position guard declaring a reach wider than the one it
+measures: 3 gating findings across cycles 1-3, the last two each attributed to the previous fix.**
+
+**[Family] The guard keeps claiming a reach it has not measured** — F-102 (cycle 1, attributed to the
+implementation), F-201 (cycle 2, attributed to fix 1), F-301 (cycle 3, attributed to fix 2), files:
+`tests/test_book_export_interior_cover.py`, `src/nonogram/admin/book_pdf_generator.py`.
+
+**The streak arithmetic, checked this time** (`cmd-start-review.md:1596-1629` — I asserted this trigger
+wrongly on CARD-259 at streak 1 and will not do it again):
+
+| cycle | gating | attribution | streak |
+|---|---|---|---|
+| 1 | F-101, F-102 | the implementation — no prior fix exists, so a regression is impossible | 0 |
+| 2 | F-201 | **fix 1**; family matches fix 1's own declarations | **1** |
+| 3 | F-301 | **fix 2**; same family as cycle 2's regression | **2** |
+
+`streak >= 2` → escalate. **Correct, and it is the first genuine instance on this board.**
+
+**F-301 (Important, gating) — the rebuilt walk still fails open, on the *door* axis.** Verified by the
+orchestrator before accepting it. Fix 2 closed the **position** side completely — the reviewer could not
+break it, and nor could I. It did not close the **door** side: `called(call)` reads only `Call.func` as
+`ast.Name`/`ast.Attribute`, and the refusal covering an unrecognised door is keyed on
+`isinstance(node, ast.Attribute)`. A door whose identity is not a syntactic name in the call position is
+**dropped before either closure sees it** — the refusal-side failure, not a position-side one.
+
+My own plant, line-count-preserving, file restored byte-identical (`d8b9ece8…`, `diff -q` clean):
+
+```
+_d = getattr(self, "page_spec")
+_d(3 + len(section))
+```
+
+**pytest exit 0.** F-102's exact literal reaches the real geometry door while `refusals == []`,
+`tuple(vocabulary) == POSITION_NAMES`, `len(sites) == 23`, `_bare_literals == []`, the per-door control
+and the sixteen-row shape table **all pass**. That falsifies the two sentences fix 2 added — *"**And it
+fails closed** … a shape a position flows through that none of them names is a refusal"* and *"every
+shape a position can flow through that this walk does not read appends a refusal below instead of
+passing"*. `getattr(` is already an idiom of this very module (`book_pdf_generator.py:5245`), so the
+shape is not exotic. And `PLANTED_SHAPES` **cannot fail on the class**: all sixteen rows declare a
+non-empty outcome, so it regresses only on shapes its author chose.
+
+**There is no live defect, and that distinction is the whole of the owner's decision.** The module has
+**0 refusals, 0 offenders, 23 derived sites**, all of them direct `self.page_spec(...)`. Every page
+number is right; AC-1..AC-6 hold; G-1..G-5 hold; the renders confirm the card's substance. What gates is
+a **sentence in a test docstring** about what the guard catches.
+
+**The closure attack, reported as attempts rather than only findings** — 12 shapes in memory, 3 on disk.
+**8 killed**: a `**{"page_number": …}` splat (two refusals), a conditional door expression, an `*args`
+wrapper (vocabulary equality reds), a `**kwargs` wrapper, my own `setattr` string plant (reproduced
+independently), a decorator-shaped helper call, a module-level door alias, a conditional expression in a
+position. **4 escaped silently, all one cause — the door**: `getattr` with a literal name, with an
+assembled name, through a local string variable, and `operator.methodcaller`. A fifth silent shape is
+squarely inside the declared exemption and correctly **not** filed. **Not attempted and recorded as
+unchecked rather than claimed clean:** `__set_name__`/metaclass/`type()`-constructed routes, because no
+line-count-preserving plant reaches them without restructuring a class body.
+
+**What fix 2 earned, and it is a lot.** All three equalities **red in both directions** — the reviewer
+supplied the removal direction nobody had shown: `R2_POSITION_NAME_RENAMED` reds the vocabulary equality
+alone (1 node of 134), `R3_GUIDE_EXPRESSION_REMOVED` reds the `== 7`, and the site-count equality reds
+on addition *and* on removal. Fix 2's six named mutants were **all fired by the reviewer and all
+reproduced**, including A4's ten cells mapping exactly under a uniform +17 line offset — which is what
+proves F-304 is an offset rather than a wrong reading. And **the exemption's control is representative
+rather than one instance**, which the reviewer checked rather than asserted: the exemption is a single
+analyser parameter, not a per-shape branch, so removing it catches the whole class at once — confirmed
+on a shape the control does not contain. That is a genuine strength.
+
+**Three Minors, all fix-2-attributed.** **F-302** — the sentence fix 2 wrote to *narrow* F-202 contains
+a false clause ("it reds on a drift in the two PARITY constants"); mutant `B3_PARITY_CONSTANT_DRIFT`
+gives **0 FAIL**, because both sides of the equality read those constants, so it is invariant to them.
+The material half is correct and certified. **F-303** — 2 of `BINDERS_READ`'s 8 members (`AsyncFor`,
+`NamedExpr`) have **no control anywhere**; `comprehension` and `withitem` do. Cycle 2's F-203 shape,
+relocated into the set fix 2 built. **F-304** — the card's fix-2 certification table quotes
+**pre-trim** line numbers: every Group-A number above `:1233` is **+17**.
+
+**Cycle 2's four findings: all genuinely closed on everything they enumerated** — three floors became
+equalities, 8 of 9 shapes caught, V5 refused, V3 reds on disk, the false sentence both deleted and made
+true, the door slot read from each signature, the four bare `2`s now the constant. **But F-201's
+one-line root statement — "the widened guard fails open" — still holds on a different axis**, which the
+reviewer filed as a new finding rather than a reopened one, and said so plainly.
+
+**The prose increase is almost entirely controlled.** All three claimed deletions confirmed against
+`91a51395`. The reviewer enumerated every added claim-shaped sentence and named the failing assertion
+for each; **the only exceptions are the two "fails closed" universals (F-301) and one clause of the
+F-202 replacement (F-302)** — both claims about *what the mechanism catches*, which is this card's
+family exactly.
