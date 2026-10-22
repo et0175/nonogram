@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 13:40 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
+_Updated: 2026-10-22 14:00 UTC_  ·  <!-- forge:run wave=53 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -57,8 +57,9 @@ _Updated: 2026-10-22 13:40 UTC_  ·  <!-- forge:run wave=53 mode=interactive con
 | 50 | CARD-256 P1, CARD-257 P2 | ✅ done |
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
-| 53 | CARD-261 P2, CARD-262 P2 | ▶ active (CARD-261 in_progress, CARD-262 in_progress) |
-| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-264 P2 | ⏳ not yet dispatched to a wave |
+| 53 | CARD-261 P2, CARD-262 P2 | ▶ active (both in fix rounds) |
+| 54 | CARD-264 P2 | ▶ active (dispatched 2026-10-22, based on CARD-261's tip) |
+| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -89,12 +90,14 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 2)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
-- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard  _(unscheduled, tier 2)_
 
 ## In Progress
 - **CARD-261** P2 · Both component maps drift silently; hold them to the package the import walk already enumerates
   `worktree: ../PythonProject4-card-261` · `branch: card/261-control-the-component-map`
   `cycle 1: 7.5` → `fix 1 feb3e6b5` → `cycle 2: 7.8 FAIL (min_improvement)` · owner route **continue** · `fix 2 running`
+- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
+  `worktree: ../PythonProject4-card-264` · `branch: card/264-claude-md-outside-the-map`
+  `base: feb3e6b5 (CARD-261's tip, not main)` · `contract: 5 of 10` · `implementation running`
 - **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
   `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
   `impl 8bc7671f + 060190c6 (zero src/ change)` → `cycle 1: 5.7 CRITICAL, axis not closed` · owner route **default-deny, cost measured first** · `fix 1 running`

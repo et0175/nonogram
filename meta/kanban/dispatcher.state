@@ -1038,3 +1038,25 @@ resume_2026_10_22:
     boundary. The recovery needed no decision and there was none to make; the wave-53 dispatch is a
     decision and is the owner's, consistent with this board's practice of recording an owner_decision at
     every wave boundary (wave_45, wave_48, wave_52).
+
+wave_54:
+  dispatched: 2026-10-22
+  cards: [CARD-264]
+  concurrency_note: >
+    Three worktrees are live at once (CARD-261 fix 2, CARD-262 fix 1, CARD-264 implementation),
+    which is above the usual two but below dispatcher.max_concurrent. It is safe only because no
+    full-suite run is permitted in any of them: every agent redirects the lock to a scratch path
+    and scopes its runs, so CARD-255's guard cannot red a sibling.
+  base: >
+    CARD-264's worktree is cut from feb3e6b5 -- CARD-261's fix-1 commit -- not from main. CARD-261
+    rewrites CLAUDE.md's layout block and moves every line below it, so a main-based worktree would
+    have had the implementation write controls against a file about to change underneath it in the
+    same two paths. A rebase onto main is owed after CARD-261 merges, before CARD-264's gate.
+  conflict_edges: >
+    CARD-264 shares CLAUDE.md and tests/test_cli.py with CARD-261 -- 2 of 5 paths, which is 0.4
+    against dispatcher.max_overlap 0.3 and would normally serialize. Dispatched concurrently anyway
+    because the two cards collide in NEITHER path by construction: G-4 on CARD-261 and G-1 on
+    CARD-264 were written as mirror images so every line of CLAUDE.md has exactly one owner, and
+    CARD-261's cycle 2 verified the out-of-block defects present and byte-identical from the other
+    side. This is a deliberate override of the overlap score on measured evidence, not a miss.
+  contract: projection 10, kept 5, dropped 5 (ADR-0038/R7-R8 review-lens; ADR-0039/R1-R3 reach-limited)
