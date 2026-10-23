@@ -1,6 +1,6 @@
 # CARD-264: CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — implementation: the 8h holds spot-check failed on 2 of 2 sampled contract verdicts (ADR-0039/R1 and R3); four undeclared controls-that-cannot-fail, all new in this card, measured to a line. Owner chooses scope: fix+certify / merge+route / fix+ship-uncertified.
+**Blocked by:** —  <!-- escalation CLOSED 2026-10-23: owner chose option 1, fix S-1..S-4 then certify with a re-entry cycle -->
 
 ## Why — three false claims in the file every agent brief is built from, and one has already spread
 
@@ -2203,3 +2203,26 @@ live guard — is **done and certified**.
 reports (cycles 1, 2, 3) are already synced into the main repo's `meta/review/`, so the evidence survives
 whatever happens next. The two throwaway spot-check worktrees under the scratchpad are removed. The
 worktree is clean at `e26e5473` and the branch is untouched.
+
+
+---
+
+### [Escalation CLOSED] 2026-10-23 — the owner chose **option 1**: fix S-1..S-4, then certify
+
+**Decision: one fix round for all four, then a re-entry review cycle to certify it, then re-gate and
+merge.** Status returns to `review`; the card leaves `escalated` and retakes its slot. The reasoning the
+owner acted on, restated so the next reader does not have to reconstruct it: the four defects are
+*controls that cannot fail*, in a card raised to remove controls that cannot fail — and S-1's site sits
+**44 lines** from the correct device, whose own docstring explains why that device exists. Landing them as
+residues would have been defensible on cost and wrong on substance.
+
+**The budget allows it, which is why this is not a stretch.** The aggregate round counter stands at **3**
+of the 6 that signal structural non-convergence, so a re-entry cycle 4 is inside the discipline rather
+than an exception to it. The fix is bounded and adds no new mechanism: one fabricated positive (copying
+`:3834`), one widened floor pin, two declaration edits.
+
+**What this round must not do**, stated because the temptation is obvious: it must not touch
+`CLAUDE.md` (G-1 — the three single-line hunks are final), must not add a control for the substring arm
+(its zero-unique-detection is measured and declared), and must not rewrite `CLAUDE.md:50`'s timeout
+sentence (refuted at cycle 2, and the `check_deadline` census belongs to CARD-266). Four defects, their
+two weaker siblings, three prose by-catch items. Nothing else.

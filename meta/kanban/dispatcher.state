@@ -27,8 +27,9 @@ max_concurrent_override: 2
 # first: merge 99782837 brought wave 54's two merged cards in, clean and with ZERO file
 # overlap measured (main's 25 changed paths intersect none of this card's six), unlike
 # the first rebase which carried a seven-region semantic conflict and was escalated.
-active: []
-escalated_now:
+# Escalation CLOSED 2026-10-23: owner chose option 1 (fix S-1..S-4, then certify with a
+# re-entry cycle 4). Card back to `review` and back in the slot.
+active:
   - id: CARD-264
     phase: review
     review_cycle: 3
@@ -43,7 +44,7 @@ escalated_now:
     station: implementation
     reason: "The Step 8h holds spot-check failed on 2 of 2 sampled contract verdicts. ADR-0039/R1: tests/test_guard_integrity.py:3789's phrase set has no control (rot all three members -> 157/157 green) and tests/test_web_server.py:2302's floor pin names 3 of the 6 derived members, so dropping `_?` sheds `_validate_side` with every control green. ADR-0039/R3: MEASURED_CLAIM_MISSES[2] is WIDER than measured (declares as missed a family the guard catches) and MEASURED_DEPENDENCY_CLAIM_MISSES is NARROWER than reality (an invented runtime distribution evades all four arms). All four new in this card, all undeclared, each measured to a line."
     not_in_doubt: "Full suite green at e26e5473 (8921 exec / 8894 pass / 27 skip / 0 fail). Every AC passes with on-disk plants in both states. G-1..G-7 hold, G-1 and G-6 verified two ways. CON-009 + CON-010 genuinely run, 9 passed. Cycle 3: 0 critical, 0 important, score 9.6. The card's actual deliverable is done and certified."
-    options: "1) fix S-1..S-4 + one re-entry cycle to certify (recommended; aggregate 3 of 6 rounds spent). 2) merge now, route S-1..S-4 to CARD-266 which owns the mechanism. 3) fix and merge uncertified -- the wave-48 trap by name, not recommended."
+    owner_decision: "OPTION 1, 2026-10-23: fix S-1..S-4, then a re-entry review cycle to certify, then re-gate and merge. Aggregate round counter 3 of the 6 that signal non-convergence, so cycle 4 is inside the discipline. The alternatives were merge+route-to-CARD-266 (cheapest, defensible on cost, wrong on substance -- four controls that cannot fail would ship in a card raised to remove them) and fix+ship-uncertified (the wave-48 trap by name)."
     reversal_recorded: "I stated in-session that I would route rather than escalate, on the premise that the fix was two text narrowings. R1's two findings are MISSING CONTROLS, not text, so the premise was false and the decision is reversed on the record."
 escalated: []
 merged_wave_54:

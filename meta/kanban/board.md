@@ -58,7 +58,7 @@ _Updated: 2026-10-22 (decompose: CARD-272..CARD-274 added)_  ·  <!-- forge:run 
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
 | 53 | CARD-261 P2, CARD-262 P2 | ✅ done (CARD-261 `ac63e17a`; CARD-262 `faea50a5` — escalated at cycle 2/3, re-entered on the owner's declare route, landed) |
-| 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 🔒 escalated | 🔒 **CARD-264 escalated 2026-10-23** at the 8h holds spot-check — station **implementation**, owner chooses scope. Its deliverable is done and certified (full suite green, every AC with plants in both states, G-1..G-7, cycle 3 = 9.6 with 0 gating); what failed is **2 of 2 sampled contract holds**, four undeclared controls-that-cannot-fail. Queue behind it unchanged: CARD-271, CARD-267, CARD-269, CARD-268.|
+| 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 ▶ fix 3 → cycle 4 | ▶ active. **CARD-264's escalation CLOSED 2026-10-23 — owner chose option 1:** fix the four controls-that-cannot-fail (S-1..S-4) the 8h spot-check found, then a **re-entry cycle 4** to certify, then re-gate and merge. Aggregate round counter 3 of the 6 that signal non-convergence. Queue behind it: CARD-271, CARD-267, CARD-269, CARD-268.|
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -109,10 +109,12 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 
 ## Review
-_(none — CARD-264 is escalated, see Blocked)_
+- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
+  `worktree: ../PythonProject4-card-264` · `branch: card/264-claude-md-outside-the-map` · `head: e26e5473`
+  `8.3 (c1) → 5.5 (c2, 2 of 3 refuted) → fix 2 → 9.6 (c3/3, 0 gating) → 8h spot-check FAILED 2 of 2 holds → escalated → owner: FIX + CERTIFY`
+  `fix 3 running on S-1..S-4 (two missing controls, one declaration wider than measured, one narrower) → then cycle 4 re-entry → full gate → merge`
 
 ## Blocked
-- **CARD-264** 🔒 CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard  ← escalated 2026-10-23, station **implementation**: the Step 8h holds spot-check failed on **2 of 2** sampled contract verdicts (ADR-0039/R1 and R3). Four undeclared controls that cannot fail, all new in this card, each measured to a line — `test_guard_integrity.py:3789` (phrase set with no control; rot all three members → 157/157 green, with the **correct device 44 lines away** at `:3834`), `test_web_server.py:2302` (floor pin names 3 of 6 derived members), plus one declaration wider and one narrower than measured. **Not in doubt:** full suite green at `e26e5473`, every AC plants both states, G-1..G-7 hold, CON-009+CON-010 genuinely run (9 passed), cycle 3 = 9.6 / 0 gating. Owner chooses: fix+certify (recommended) · merge+route to CARD-266 · fix+ship uncertified.
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
 - **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/for…
 
