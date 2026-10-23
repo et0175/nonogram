@@ -1410,3 +1410,183 @@ feeding on itself* says there is no loop.
 So: into the fix round, with **cycle 3 of 3** as the certifying cycle. The budget is exactly right for
 this shape — one fix round, one review to certify it — and it is also all there is, which the fix brief
 says out loud.
+
+#### [Adversarial] C-1 **CONFIRMED** — and the refutation attempt made the finding sharper in three ways
+
+A fresh skeptic was given the claim and the code, not the reviewer's reasoning, and told to default to
+refuted. It confirmed all three sub-claims mechanically and corrected the **mechanism** of one:
+
+**1. The quotation is not fabricated — it is verbatim text from a version this branch reverted.**
+`grep -rn "grows only by a deliberate edit" src tests` has no hits at HEAD, but
+`git show d40e9d4a:tests/test_cli.py:743-746` reads character-for-character what the page quotes. So the
+defect is *a quotation attributed to a file that no longer contains it* — which is a **better** statement
+of this card's own thesis than a fabrication would have been: nobody invented anything, the text simply
+stopped being true underneath the page, and no control noticed. That is the card's subject in one
+artefact.
+
+**2. The decisive fact is a hash, not a reading.** `git show main:tests/test_cli.py | shasum` and
+`shasum tests/test_cli.py` are both `e30a6ac6…`, and `git diff main...HEAD -- tests/test_cli.py` is
+empty. History confirms the asserted mechanism: `d40e9d4a` rewrote the comment and added the guard,
+`4f7263fb` resolved the file back to main, the page was not reverted with it.
+
+**3. A plain revert to main's text would reintroduce two defects — so "revert the hunk" is the wrong
+fix.** main's page is *substantively true today* ("the guard's prose contradicts its own code" still
+describes HEAD accurately), but its six line citations are **each off by one** (`:742`→743, `:743`→744,
+`:740`→741, `:747`→748, `:904`→905, `:914`→915) and its lines 39-40 claim the stale count also appears at
+`CLAUDE.md:45`, which is **false** — main's own `CLAUDE.md:42` states no count. The branch page already
+fixed exactly those two things. So the fix must keep the branch's two genuine improvements (the line
+numbers dropped, the CARD-261 note at `:54`) and restore only the **tense and the truth**.
+
+**A fourth thing the skeptic found that neither cycle had: the stale count is unguarded, and the guard
+that looks like it covers it does not.** `_ADAPTER_COUNT` (`tests/test_cli.py:1126`) is consumed by
+`_adapter_counts` (`:1270-1307`), which scans **`CLAUDE.md`'s** text — `TestComponentMap_WhatTheClaudeMdReaderAbsorbs`,
+named at `:1297` — not the prose around `_ADAPTERS`. And `len(_ADAPTERS)` appears nowhere at HEAD. So
+`tests/test_cli.py:744`'s "closed at two names" has **no control at all**, which is a fact
+**CARD-265** needs and did not have: it owns that file and that question, and its brief should say that
+the count it settles has to be guarded *where the count is written*, not only where `CLAUDE.md` quotes it.
+
+**Severity, adjusted down on the skeptic's argument and recorded rather than defended.** Critical →
+**Important**: it is docs-only, no `src/` path is touched, `tests/test_cli.py` is byte-identical to main,
+and `grep -rn "how-it-works" tests/*.py` has no hits — so **no gate in the suite catches this page at
+all**, and no behaviour is affected. It still gates the card (Important blocks the success path exactly
+as Critical does), so the flow does not change; what changes is that the card's record should not call
+docs prose a correctness bug. It remains a genuine blocker for *this* card specifically, because a card
+whose thesis is "a false claim in project prose gets acted on" cannot ship a page carrying three false
+claims about the very guard it is about.
+
+#### [Adversarial] dropped false positive: I-1 **REFUTED** — the measurement reproduces, the reading does not
+
+This is the most useful thing the adversarial step has done on this board, because the finding was
+mine-by-adoption and it was wrong for a reason worth keeping.
+
+**The measurement reproduced exactly, and the skeptic extended it.** All six `check_deadline` call sites
+confirmed independently by `grep -rn "check_deadline" src/` (one definition, one re-export, one import,
+six call sites; `SolverTimeout` raised from exactly one place, `propagate.py:221`, and the only deadline
+clock read at `:219`, so the set is complete). Single-site deletion: `propagate.py:983` **kills**, the
+other five **each survive at exit 0**. Exactly as filed.
+
+**But the finding graded the sentence against a referent the sentence does not use.** `CLAUDE.md:50`
+says the solver *"checks it **as it propagates and branches**"* — that clause **is** the sentence's own
+enumeration of its check sites: **two**, propagation-side and branch-side. It never claims six, never
+claims per-call-site coverage, and never claims the suite reds on removing any individual
+`check_deadline(...)` expression. Measured against what it *does* claim, every element is pinned:
+
+| the sentence's claim | pinned? | evidence |
+|---|---|---|
+| propagation-side check site | **yes** | mutant M1 reds two tests, one asserting the check is *inside* the loop (`clock.reads >= 2`) |
+| branch-side check site | **yes** | combined mutant C1 — **all four** `search.py` sites off — reds `test_the_search_checks_the_deadline_at_every_branch_node` with `assert 4 >= 6` at `:473` |
+| one-deadline-per-request rule | **yes** | `test_every_attempt_in_one_request_shares_one_deadline:501`, `test_the_deadline_is_the_budget_measured_from_the_start_of_the_request:532` |
+
+The combined mutants are the half the finding never ran, and they decide it: the branch-side checkpoint
+is **pinned collectively**. Either `search.py:1180` or `:1418` alone satisfies it — so "satisfied by any
+one of the remaining sites" is true in substance, and yet the *concept* is covered. **The internal
+redundancy of a mechanism is not a false claim by the brief that names it.**
+
+**Three independent things confirm the reading rather than my preference for it.** The cited test file
+*explicitly disclaims* the granularity the finding demanded — its own section header reads *"where the
+check happens (ADR-0011's **two** checkpoints)"* and its module docstring names **three** load-bearing
+properties, which map one-to-one onto the three things `CLAUDE.md:50` says are pinned. The card's own
+AC-6 bar is *"the clause is gone or the test that enforces it is named in the same sentence"* — the bar
+is the naming, and the line meets it. And `CARD-264.md:296-300` anticipated this exact distinction when
+the fix shipped: *"a named test is a claim the suite carries."* Reading "pinned by" as "every
+implementation detail below it is individually mutation-covered" would make nearly every citation in
+`CLAUDE.md` false, including the `test_solver_uniqueness.py` citation in the same sentence.
+
+Dropped from the gating count. **This is what the adversarial step is for**: unrefuted, it would have
+cost a fix round rewriting a sentence that is true, in the last cycle of the budget, and the rewrite
+would have been a regression.
+
+#### [Adversarial] one TRUE residue the skeptic found while refuting — and it is a control that cannot fail
+
+`tests/test_timeout.py:479-485` — `test_the_branch_checkpoint_alone_stops_a_search_propagation_would_not`'s
+docstring claims *"the only thing left that can raise is the branch-node check"*. **False under HEAD.**
+`_blind_propagation` (`:424-451`) monkeypatches `search_module.propagate` only, while `search.py:694`
+calls `propagate_overlap(board, ..., deadline)` with the real deadline — so `propagate.py:1129` raises
+first. Demonstrated, not argued: under mutant C1, with **all four** branch-side sites neutralised, that
+test **still passes**. So a test whose whole subject is "the branch checkpoint alone" passes for the
+wrong reason and would survive the deletion of the thing it names. One unblinded path; the fix is one
+line (stub `propagate_overlap` too).
+
+**Not fixed here, and the reason is the budget rather than the scope.** `tests/test_timeout.py` *is* in
+this card's `Touches`, and this is precisely the card's thesis — a claim whose control cannot fail — so
+there is a real argument for absorbing it. Against: it is pre-existing, outside every hunk in the diff,
+and **cycle 3 of 3 is the only cycle left**. Widening a card into its last certifying cycle is how a
+card ships its final edit uncertified, which is the wave-48 lesson this board keeps re-learning.
+Carded forward instead.
+
+#### [Process] I dispatched two mutating skeptics into ONE worktree — my error, recorded
+
+The I-1 skeptic reported, unprompted, that another agent was concurrently mutating
+`tests/test_web_server.py` and `src/nonogram/web/handler.py` in the same tree, so its `git status
+--porcelain` could not come back clean. That is the I-2 skeptic, and the collision is mine: the
+adversarial step's brief gives each skeptic "the finding + the file scope", and I gave both the same
+worktree without considering that a *measuring* skeptic mutates.
+
+**No contamination, argued rather than assumed, in both directions.** I-1 mutated only
+`solver/propagate.py` and `solver/search.py` and measured `tests/test_timeout.py`, which exercises the
+solver; I-2 mutated `tests/test_web_server.py` and a comment token in `web/handler.py` and measures the
+web guard, which sweeps `web/` sources only. I-1's inserted `pass  # MUTANT:` lines define no
+`validate_*`/`parse_*` function, so I-2's derived set is unchanged by them; I-2's comment plant changes
+no behaviour the solver reaches. Each skeptic verified restoration of **its own** files by
+`shasum -a 256 -c` and `diff -q` (I-1: both files OK, `git diff --stat HEAD` empty, no `MUTANT` marker
+anywhere in `src/` or `tests/`). The worktree must still be confirmed byte-identical to `HEAD` once I-2
+finishes — that check is owed and is not optional, because "each verified its own files" is not the
+same statement as "the tree is clean".
+
+**Standing rule for this board, learned the cheap way:** a skeptic that measures by mutation needs its
+own worktree, or the skeptics run serially. Two agents mutating one tree is how the concurrent-session
+collision of 2026-10-22 started, and this time it was self-inflicted.
+
+#### [Adversarial] I-2 **PARTIAL** — primary refuted (the arm is redundant, not unguarded), secondary confirmed
+
+**Primary REFUTED, and the refutation is an exhaustive partition rather than a counter-example.** The
+mutant reproduces — `if True or (where, token) in MEASURED_PROSE_CITATIONS:` on one line, `wc -l` 3360
+before and after, and nothing kills it on a clean tree (whole file 165 passed, exit 0). But the finding
+read "no test kills the mutant" as "the arm's detection is unguarded", and those are different
+statements. Partition every `token in source` event:
+
+| the violation appears… | caught by | measured |
+|---|---|---|
+| in **code** | the untouched AST arm's `assert hits == []` at `:2215` | plant (d): `_CARD264_PROBE = "validate_density"` in `web/handler.py` → **exit 1** with the arm off |
+| in **prose only** | the exemption equality at `:2299`, computed by an independent comprehension that never routes through the mutated branch | plant (b): the finding's **own** demonstration case, a bare `parse_tier` comment → **exit 1** with the arm off |
+
+Exhaustive, no residue — and the equality additionally reds if `_WEB_SOURCES` empties and errors if any
+web source fails `ast.parse`. So **no violation the arm would catch goes unreported when the arm is
+off**: the arm carries *zero unique detection*, G-2 is not at risk, and nothing becomes unfalsifiable.
+A control for it would be a test for an arm that provably catches nothing of its own. Eleven other
+candidate controls were checked and correctly ruled out one by one, including the four that *look* like
+they cover it (`test_that_guard_passes_on_the_real_token_set` inherits the mutation because it calls the
+guard; two empty-collection cases match messages raised **before** the loop; the floor pin is
+indifferent to how the set is consumed).
+
+Dropped from the gating count. The honest residue is the skeptic's own suggestion and it is one line: a
+comment at `:2216` recording that the arm's two halves are held by `:2215` and `:2299`, so the next
+reader does not re-derive this.
+
+**Secondary CONFIRMED, at Minor.** `tests/test_web_server.py:2341`'s `assert "validate_density" in
+planted` has both operands bound to a test-authored literal concatenation at `:2332-2336`. Its truth
+value is fixed entirely by text in the test body — it reads no production code, no module global and no
+guard path — so it cannot fail unless someone edits the fixture string, while the test's **name**
+(`..._still_catches_a_real_reference_to_the_old_live_members`) and docstring (*"Both arms fire … the AST
+one and the substring one"*) assert that the substring arm fires. The test's other two assertions are
+real (`:2338-2340` exercises the AST arm behaviourally, `:2342` reads the exemption table), so it is a
+valid AST-arm control carrying one decorative line and half an unsupported docstring.
+
+#### The recount, and the one pattern this card should leave behind
+
+**Gating after verification: 0 critical, 1 important.** C-1 (CONFIRMED, downgraded Critical→Important),
+I-1 dropped (refuted), I-2 primary dropped (refuted) with its secondary surviving at Minor. The severity
+gate stays closed on the one Important, so the fix round runs — but it runs on **one** gating finding
+plus nine narrowings rather than on three, and two of the three findings that would have driven it were
+false. That is the adversarial step paying for itself twice in one cycle, in the last cycle of a budget.
+
+**The pattern worth carrying off this card, stated once:** *this card's own new controls describe
+themselves as proving more than their bodies prove.* Cycle 1's F-3 was an instance
+(`test_a_string_built_reference_is_caught_too` tested a whole literal); I-2's secondary is a second,
+independent one (`...still_catches_a_real_reference...` claims both arms fire, and the substring half is
+a literal-vs-literal line). Neither is attributable to the previous fix, so the board's family-regression
+detector correctly reads **streak 0** and this is **not** an escalation — but one sentence covers both,
+and it is the same sentence as the card's subject. A card raised to remove claims whose controls cannot
+fail wrote two controls whose *names* claim more than they prove. If anything from this card belongs in
+the board's standing rules, it is that a control's name and docstring are claims too, and the thing that
+checks them is reading the body.
