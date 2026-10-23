@@ -3139,3 +3139,54 @@ exit code was read too — trap (b)'s discipline catching its own instrument —
 one level out: **evidence that is absent reads the same as evidence that is zero.** Every figure above
 comes from a non-quiet run. Routed to the backlog beside the two sibling items (`-k` selecting nothing,
 and green-with-skips being indistinguishable from fully verified).
+
+## [Gate] Post-fix full suite at `8727e519` — PASSED, and the first attempt's lock provenance was mine to lose
+
+**Result: exit 0, 8931 executed, 8904 passed, 27 skipped, 0 failed, 0 error.** No duration recorded (G-7).
+
+**Reconciliation, and it closes exactly:** the suite's executed count goes **8925 → 8931, +6**, against a
+per-file delta of `tests/test_guard_integrity.py` **161 → 167 (+6)** and `tests/test_web_server.py`
+**166 → 166 (+0)**. The six are the six test functions the diff adds, enumerated from it by `ast` rather
+than counted by eye: three in the new `TestTheDeclaredMissTables`, and
+`test_the_path_suffix_census_is_the_one_this_comment_states`,
+`test_a_member_is_caught_however_it_is_spelled`,
+`test_the_phrase_rule_names_the_synonyms_it_does_not_carry` into existing classes. The **seventh** FIXED
+id is a *modified* existing test (`test_the_rule_names_what_it_cannot_see`, F-2's restated bound), so it
+adds no count — which is why the delta is 6 and not 7, and the figure that would otherwise look short.
+Cumulative for the card: **+48** across four rounds, every one accounted for. 27 skips throughout, the
+standing DB-mode skips.
+
+### The gate was run twice, and the first run's record is the finding
+
+The first run of this gate was **green and identical** — exit 0, 8904 passed, 27 skipped, 0 failed — and
+it held **no lock at all**, because the orchestrator never wrote one. The division of labour is correct
+and documented (`tests/README.md:335-339`: *"every gate script writes that one file, and
+`tests/full_suite_lock.py` reads that one file"*; the module docstring explains why identity is
+`worktree:` rather than a pid — the script writes the lock and launches pytest as a **child**, so no pid
+in the file is ever the pid of the reading process). Pytest's hook only *reads*. I ran pytest and skipped
+the write, then reported the gate as "board lock taken for real".
+
+**Nothing here could have caught that, and the reason is structural:** `current_verdict()`'s first branch
+is `if text is None: return True, None`. A missing lock is the normal case for every impact-scoped run and
+every agent's selection, so it cannot be an error, and the guard's subject is a **foreign** lock — from
+inside a run, *"no lock at all"* and *"my own lock, correctly released"* are the same observation. This
+board has already paid for the near-miss once: `meta/kanban/suite-timing.log` records a gate that
+*"spent part of its life holding nothing"* after a late `rm -f "$LOCK"`, and CARD-255's docstring opens on
+CARD-225's gate reporting two failures that were not the tree.
+
+**Re-run rather than argued through.** The exclusivity of the first run is in fact well supported — two
+checkouts exist, no other pytest was running, and the board's known contention canary (`test_web_upload.py`'s
+machine-wide temp-dir sweep, on the backlog precisely because it reds when two worktrees run at once)
+passed — but that is an argument, and this card's entire subject is evidence that cannot fail. A gate
+claiming protection it did not have is that defect committed in the gate of the card about it. So the
+suite was run again with the lock written as `tests/README.md` specifies — `holder`, `at`, absolute
+`worktree:`, `commit: 8727e519` — the `trap` armed where the lock became ours and disarmed in the same
+breath as the `rm -f`, and the file verified gone afterwards. **The second run matched the first cell for
+cell**, which is the outcome that makes this a provenance defect and not a measurement one.
+
+**Not asserted either way:** whether this card's *earlier* gates took the lock. `dispatcher.state` records
+"board lock taken and released" at `99782837`, written by an earlier session, and that is not verifiable
+from here. Routed to the backlog with the fix stated as **default-deny** (ADR-0039/R2, the same shape the
+lock guard already applies to an unresolvable `worktree:`): a full-suite run must be *requirable* to be
+covered, so a gate that forgot is a red rather than a green with a footnote — plus the cheap half, that a
+gate's evidence line should quote the lock it wrote.
