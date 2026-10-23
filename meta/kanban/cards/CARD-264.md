@@ -1,6 +1,6 @@
 # CARD-264: CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
 
-**Status:** review
+**Status:** blocked
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —  <!-- unblocked 2026-10-22: narrowed per the owner's decision; awaiting a free slot, cap is 2 -->
+**Blocked by:** escalated — implementation: the 8h holds spot-check failed on 2 of 2 sampled contract verdicts (ADR-0039/R1 and R3); four undeclared controls-that-cannot-fail, all new in this card, measured to a line. Owner chooses scope: fix+certify / merge+route / fix+ship-uncertified.
 
 ## Why — three false claims in the file every agent brief is built from, and one has already spread
 
@@ -2075,3 +2075,131 @@ function above the table M-6 just cleaned, and now inconsistent with `:3507`'s s
 `getattr(m, 'validate_' 'extent')` — implicit adjacent-literal concatenation — is **caught** by the AST
 arm, because CPython folds it into one `Constant`, so `MEASURED_AST_SWEEP_MISSES[0]`'s head is over-wide
 if read as a family rather than as the exact `+` expression it quotes.
+
+#### [8h spot-check] ✗ **ADR-0039/R1 — `✓ holds` NOT reproduced either.** Two undeclared sites, and one of them has its own correct device 44 lines away
+
+**Both cited evidence elements reproduced exactly**, which is worth saying first: `F6-DECL-GUTTED` kills
+at `tests/test_guard_integrity.py:3349` and `AST-MISS-3-GUTTED` at `tests/test_web_server.py:2466`, under
+the committed instrument, both passes, ANY-RED, with **twelve** SHIPPED readings taken and every one
+cell-for-cell identical (`69 PASS / 0 FAIL / 80 NOT-REACHED` on the guard target, `34 / 0 / 217` on the
+web target), and every mutant's `old` pre-counted as occurring exactly once so no reading is the
+writes-nothing false survivor. The fix round did real work. **The rule-level `✓ holds` is what fails.**
+
+One bounded independent pass, over hand-written sets the new guards consult and absence-assertions over a
+clean file, found **two** claims whose control cannot fail. Both are new in this card. Of seven mutants
+the skeptic chose itself, **five survived, four of them undeclared** — each verified at whole-file scope
+with plain pytest, not just under the narrowed selection:
+
+**1. `tests/test_guard_integrity.py:3789` — a set a guard consults, with nothing that reads it.**
+`test_no_guarded_paragraph_says_the_mechanism_is_unenforced` consults
+`("not yet enforced", "not enforced", "hook points")` and asserts `offenders == []` against the shipped
+`CLAUDE.md`. Rot **all three** members → `tests/test_guard_integrity.py` is **157/157 green**. Nothing
+else in the repo reads that set. So the claim its name and docstring make — the stale shape is denied by
+value — has no control that can fail: an inert phrase set passes identically to the live one, which is
+R1's *"narrative, not coverage"* clause verbatim.
+
+**And the comparison is internal and unflattering.** Two methods further down the same class,
+`test_the_figure_rule_reds_on_the_figure_that_shipped` (`:3834`), supplies exactly the
+caught-WITH/missed-WITHOUT pair R1 asks for — and its docstring at `:3806-3814` *explains why*: **"a rule
+with no instance and no fabricated case is exactly the unfalsifiable arm this card is about."** The device
+was built, documented, and then not applied to its sibling rule 44 lines up. That is the single sharpest
+finding on this card, because it is not an oversight about the rule — it is the rule understood, written
+down, and missed once.
+
+**2. `tests/test_web_server.py:120` — the derivation can silently shed half its members.**
+`_DOMAIN_VALIDATOR_SHAPE = re.compile(r"^_?(?:validate|parse)_")`, whose own comment at `:115-119` names
+`_validate_side` as what the `_?` is for. Drop the `_?` → measured `LOST members: ['_validate_side']`,
+and **every control still passes, whole file green**. The floor pin at `:2302` names only
+`validate_extent`, `validate_density`, `parse_tier` — **3 of the 6** derived members — so the set is
+guarded for half of itself. The pin's own docstring at `:2295-2301` states this exact hazard: *"a
+derivation that stopped matching would hand the guard a smaller set and look identical."* Contrast
+`SHAPE-PARSE-DROP`, which removes `parse_tier`/`parse_art` and **is** killed at `:2302`: the control
+exists and works, it is simply not complete over the set it guards.
+
+**Two weaker survivors, reported and not gated on.** The `×` member of the figure rule's character class
+(`:3819`) has no control — the planted case at `:3838` writes ASCII `40x40` — so a `30×40` figure would
+pass while the helper's docstring claims *"every NxM figure"*. And `_PATH_SUFFIXES`' `.yml`/`.cfg`/`.txt`
+members (`:2938`) have no completeness test, but `_classify` is **default-deny**, so losing a suffix makes
+the rule *stricter* (the span falls to "unanalysable" and reds) — a false-positive risk, not a missed
+catch. Correctly distinguished rather than lumped in.
+
+**One survivor that is declared, and reproducing it is a point in the card's favour.**
+`SUBSTRING-ARM-OFF` survives — and the diff **says so**, at `tests/test_web_server.py:2227-2241`: the arm
+*"carries no unique detection, measured by exhaustive partition … it is deliberately left without a
+control of its own … Do not read its presence as evidence that a prose mention is caught here."* The
+skeptic reproduced that measurement rather than refuting it. That is R1's *"narrowed to what is
+measured"* done honestly, and it is presumably part of what the ✓ was built on.
+
+**A new bound on the instrument, and it is a gap in the instrument's own gate rather than in this card.**
+A SHIPPED baseline can be **test-level red (pytest exit 1) with 0 FAIL cells** and `_refuse_unless_clean`
+**accepts** it, because its contract is FAIL-free plus ≥1 arm reached. Cause: a selection containing
+`with pytest.raises(AssertionError, ...)` (`tests/test_web_server.py:2660`, `:2679`) has the raise
+swallowed by the recording pass, so the block fails `DID NOT RAISE` **outside** the `ast.Assert` domain
+while plain pytest on the same selection is green (19 passed). Anyone re-measuring this diff must read
+the **exit code**, not only the cells. Added to the backlog item that already carries the instrument's
+blind spot — this is a sharper statement of it than the one on record.
+
+**Ninth and tenth instances of the recording-pass trap:** all three declaration-gutting mutants exited
+pytest **0** in the recording pass while the matrix recorded a FAIL cell. A one-pass reading would have
+published three real kills as survivors.
+
+---
+
+### [Escalated] 2026-10-23 — the 8h spot-check failed on **2 of 2** holds sampled, and this is the owner's call
+
+**Station: implementation. Route: the owner chooses one of the three options below.** Worktree and branch
+are **KEPT** — five good commits are on them and the full suite is green at `e26e5473`.
+
+**I said in-session that I would route this rather than escalate, on the premise that the fix was "two
+text narrowings". That premise is now false and the decision is reversed.** R3's two defects are text;
+R1's two are **missing controls** — work that adds assertions, in a card with no review cycle left to
+certify them. Recording the reversal rather than quietly acting on the better information.
+
+**What the sample says, and it is the part that decides this.** The spot-check is capped at 3 and samples
+the review's `✓ holds` lines. I sampled **2** of the 8, choosing the two that cycle 2 had marked `✗` and
+cycle 3 flipped to `✓` — the highest-risk flips. **Both failed re-derivation.** A third sample
+(CON-009/CON-010) reproduced perfectly, so the review is not uniformly unreliable; but the two *flips*
+are exactly where it was. Two of two is not a localized slip, and the cap means I cannot cheaply learn
+whether the remaining five holds are sound.
+
+**The four defects, all new in this card, all undeclared, each measured to a line:**
+
+| id | site | defect | what the fix is |
+|---|---|---|---|
+| S-1 | `tests/test_guard_integrity.py:3789` | the phrase set `("not yet enforced", "not enforced", "hook points")` has **no control**: rot all three and the file is 157/157 green | **add a control** — a fabricated positive, exactly the device `:3834` already implements and `:3806-3814` documents |
+| S-2 | `tests/test_web_server.py:120` + `:2302` | the floor pin names **3 of 6** derived members, so dropping `_?` sheds `_validate_side` with every control green | **widen the pin** to all six derived names |
+| S-3 | `tests/test_guard_integrity.py:2921-2923` | `MEASURED_CLAIM_MISSES[2]` is **wider than measured** — declares as missed a family (`bool`, `int`, `str`, …) the guard catches, because `_classify` tests the identifier chain at `:3175` before the type branch at `:3190` | narrow the entry's condition to the subscripted/parenthesised forms it is really about |
+| S-4 | `tests/test_guard_integrity.py:3072-3079` | `MEASURED_DEPENDENCY_CLAIM_MISSES` is **narrower than reality** — an invented runtime distribution evades all four arms, so "exactly" is unenforced upward | declare the third family, with a case |
+
+Plus two weaker survivors not gated on (the `×` member of the figure class at `:3819`; `_PATH_SUFFIXES`
+at `:2938`, where default-deny makes the loss *stricter* rather than blind), and three by-catch prose
+items. S-1 and S-2 are **ADR-0039/R1 clause 1**; S-3 and S-4 are **R3's last clause**.
+
+**What is NOT in doubt, so the options are about scope and not about quality.** The full suite is green at
+`e26e5473` (8921 executed / 8894 passed / 27 skipped / 0 failed), every AC passes with on-disk plants in
+both states, G-1..G-7 all hold with G-1 and G-6 verified two independent ways, CON-009 and CON-010 are
+genuinely run and green (9 passed — and the selector trap that hid CON-010 twice is now measured and
+documented), cycle 3 found 0 critical and 0 important, and the three cited mutant kills all reproduce.
+The card's actual deliverable — the three false `CLAUDE.md` claims and the dead `validate_size` token in a
+live guard — is **done and certified**.
+
+**The three options, with what each costs:**
+
+1. **Fix S-1..S-4, then one re-entry review cycle to certify them** (my recommendation). The aggregate
+   round counter permits it — 3 rounds spent of the 6 that signal structural non-convergence — and the
+   work is bounded: one fabricated positive, one widened pin, two declaration edits. Cost: a fix round, a
+   review cycle, and a re-gate. This is the option that leaves no knowingly-false declaration in the tree,
+   which matters more than usual on *this* card, since a false claim in a file agents read is its subject.
+2. **Merge now; route S-1..S-4 to CARD-266**, which already owns the standing-check mechanism and has
+   just been handed two related items. Cheapest, and defensible: R3's last clause asks that residues be
+   *recorded as measured bounds*, and they now are — on this card, to the line, with their mechanisms. The
+   cost is honest and should be stated: four controls that cannot fail ship in a card raised to remove
+   controls that cannot fail, and S-1's site sits 44 lines from the correct device.
+3. **Fix S-1..S-4 and merge without a certifying cycle**, naming them as shipping uncertified. Cheapest
+   that still leaves the tree honest, and it is the wave-48 trap by name: the card's final edit would
+   carry no reviewer. I do not recommend it, and I would not take it without being told to.
+
+**Nothing was modified for this escalation.** No fix applied, no commit, no rebase. All three review
+reports (cycles 1, 2, 3) are already synced into the main repo's `meta/review/`, so the evidence survives
+whatever happens next. The two throwaway spot-check worktrees under the scratchpad are removed. The
+worktree is clean at `e26e5473` and the branch is untouched.
