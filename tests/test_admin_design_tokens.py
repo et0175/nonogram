@@ -415,6 +415,14 @@ def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
     constant the left-hand rule already carries (.player-clue.is-row
     .player-clue-num), read out of that rule here rather than repeated, so
     the two cannot drift apart without this failing.
+
+    CARD-271 adds a fifth selector to the list: the one that moves a KEPT row
+    gutter from the scrollport's left edge to its right when CARD-193's
+    mirror put it there. It is a right-hand-gutter rule like the others, so
+    it belongs under this guard rather than beside it, and it declares the
+    two inset keywords that move; ``auto`` joins ``none``/``left``/``top`` in
+    the allowed set for that reason. Everything the guard is actually for —
+    a colour or a rule width written as a literal — is still reported.
     """
     css = (_STATIC / "admin.css").read_text()
     # Comments first: [^{}] crosses newlines, so a /* ... */ mentioning a
@@ -429,11 +437,13 @@ def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
         ".player-board .player-corner.is-right",
         ".player-board tfoot .player-clue.is-col",
         ".player-board tfoot .player-corner",
+        ".player-board.is-keeping-rows .is-stuck-row.is-right",
     ], selectors
     gap = re.search(r"\.player-board \.player-clue\.is-row \.player-clue-num \{[^}]*?\s(\d\.\d+ch)\s",
                     rules_only)
     assert gap, "admin.css no longer sets the row numbers' own gap"
-    allowed = {"none", "left", "top", "0", "0.5ch", "calc(var(--player-cell) * 0.2)", gap.group(1)}
+    allowed = {"none", "left", "top", "auto", "0", "0.5ch",
+               "calc(var(--player-cell) * 0.2)", gap.group(1)}
     for selector, body in blocks:
         values = [part.split(":", 1)[1].strip() for part in body.split(";") if ":" in part]
         assert values, selector

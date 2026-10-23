@@ -237,9 +237,41 @@ def _tokens(page) -> dict:
     return {**colours, **widths}
 
 
+#: Take the clue gutters off the scrollport for the duration of a capture
+#: (CARD-271), and put them back.
+#:
+#: A kept gutter is ``position: sticky`` against ``.player-stage``, so unless
+#: the stage happens to be at the far end of that axis the gutter is PAINTED
+#: away from its flow position — and an element screenshot of the table
+#: ignores the stage's own overflow clip, so the band then lands in the
+#: capture over cells the player cannot see at that scroll at all (measured
+#: at 390 px on this file's 20 x 20: 113 px of cells, columns 12 to 19,
+#: reading --color-surface instead of the fill). Every reading in this file
+#: is about the table's own RULES, so it is taken of the table alone.
+#:
+#: Sticking is layout-neutral — ``_GEOMETRY`` below is the same either way,
+#: which is asserted in its own right by tests/test_puzzle_solver_clues.py
+#: ``TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted`` — so this
+#: changes what is painted and nothing else, and the classes go straight back
+#: so no later assertion in the same test sees a page this file invented.
+_UNSTICK = """(on) => {
+  const table = document.querySelector('.player-board');
+  if (on) table.classList.add(...table.dataset.keptClasses.split(' ').filter(Boolean));
+  else {
+    const kept = [...table.classList].filter((c) => c.startsWith('is-keeping-'));
+    table.dataset.keptClasses = kept.join(' ');
+    table.classList.remove(...kept);
+  }
+}"""
+
+
 def _board(page):
     """An element screenshot of the table, and the cell boxes inside it."""
-    png = page.locator(".player-board").screenshot(scale="css")
+    page.evaluate(_UNSTICK, False)
+    try:
+        png = page.locator(".player-board").screenshot(scale="css")
+    finally:
+        page.evaluate(_UNSTICK, True)
     return _image(png), page.evaluate(_GEOMETRY)
 
 

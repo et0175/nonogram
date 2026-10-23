@@ -296,6 +296,38 @@
 // pairs them by data-line). Every board built leaves one
 // performance.mark(DRAW_MARK), so what a layout choice cost is countable.
 //
+// STICKY GUTTERS (CARD-271, owner's bug report 2026-10-22: "clues sometimes
+// are missed at the bottom and at the left for big puzzles"). CARD-212's
+// duplicates deliver "a player scrolled to the far edge still has clues in
+// view" only while they FIT, and the biggest boards are exactly the ones they
+// do not fit: at 1280 x 720 every board from about 24 columns up is drawn
+// plain (see drawSettledLayout). So EACH axis keeps ONE of its gutters in
+// view by sticking it to .player-stage — the one scroll container over the
+// board (measured: the table's every ancestor from .main up is
+// overflow:visible, so sticky resolves against the stage's own scrollport).
+// The gutter that sticks is the one that carries the labels: the head column
+// gutter and the first (or, mirrored, the only) row gutter. The DUPLICATE
+// never sticks, which is a measurement and not a preference — a 30 x 30 at
+// 300% zoom has a 584 px row band in a 980 px stage, so sticking a gutter at
+// each end of an axis would cover the cells between them outright. drawBoard
+// marks each box with .is-stuck-col / .is-stuck-row for the axis (or, for a
+// corner, the two axes) it keeps in view; admin.css ("Clue gutters that stay
+// in view") does the sticking. Nothing here is a fit decision:
+// DOUBLE_MIN_CELL, BIG_SIDE, the ladder's rung order and isMirrored are
+// untouched by this card, and a doubled board draws exactly the boxes, in
+// exactly the places, that CARD-212 left it drawing.
+//   And a band sticks only while it has ROOM to: a stuck band floats over
+//   the cells, so it spends the stage's space twice. keepCluesInView
+//   measures what the drawn band could cover and sets .is-keeping-rows /
+//   .is-keeping-cols on the table per axis (STICK_MAX_SHARE); it runs after
+//   every draw and after every zoom, because the band's depth follows the
+//   cell. Where there is no room the board keeps today's rendering and the
+//   clues still scroll away — which is the bug, unfixed, in the two places
+//   it cannot be fixed this way: a mirrored phone (the band is 76% of the
+//   stage) and 300% zoom (the band is magnified with the cells, to 9 cells
+//   deep in an 11-cell stage). Both are owner decisions about the BAND, not
+//   about stickiness, and both are recorded on CARD-271.
+//
 // ZOOM (CARD-195, FR-044). A view setting that multiplies the fitted cell
 // side (admin.css --player-zoom on table.player-board); it changes no board
 // state, is never recorded, never in serializeState/the save, and starts at
@@ -394,6 +426,35 @@ const BIG_SIDE = 15;
 // actually drawn, never against a re-derivation of admin.css's clamp.
 const DOUBLE_MIN_CELL = 24;
 
+// CARD-271: the most of .player-stage's own visible box a clue gutter may
+// cover before it stops being kept in view. A stuck gutter floats over the
+// cells it used to scroll away from, so "keep the clues in view" and "keep
+// the BOARD in view" are the same budget spent twice -- and where the band is
+// big, the board loses. The share is taken against what a band can actually
+// cover, min(this axis's overflow, the band's own size), so an axis that
+// barely scrolls keeps its clues however deep its band is.
+//
+// Two fifths is a MEASURED bar between two sets of cases rather than a round
+// number, and the gap between them is narrow enough to be worth stating:
+//
+//   * the cases this card has to fix top out at 0.364 -- the deepest being a
+//     30 x 30 at 1280 x 600, whose whole 135.4 px column band would scroll
+//     off a 372 px stage;
+//   * the cases where a stuck band demonstrably took the board away from the
+//     player start at 0.496: a 15 x 15 at 1024 x 768 and 200% zoom, where a
+//     359.4 px row band over a 724 px stage swallowed the cells a recorded
+//     touch drag was aimed at (tests/test_puzzle_solver_zoom.py
+//     TestSolverZoom_OneFingerDragIsUnchangedByZoom, which reds on a bar of
+//     0.5 and passes on this one). They run up to 0.76 -- a mirrored 30 x 30
+//     on a 390 px phone, six columns of a thirty-column board left visible
+//     and the cells under the band not tappable at all
+//     (tests/test_puzzle_solver_phone.py
+//     TestSolverPhone_TouchDragMarksOnAFittedBoard).
+//
+// Nothing was measured between 0.364 and 0.496, so where in that gap the bar
+// belongs is the owner's to move; CARD-271 records it as such.
+const STICK_MAX_SHARE = 0.4;
+
 // The performance.mark drawBoard leaves behind, one per board built.
 const DRAW_MARK = "nonogram-player-board-draw";
 
@@ -449,10 +510,12 @@ function readPayload() {
 //              (CARD-193's mirrored gutter, and CARD-212's second row gutter)
 //   duplicate  CARD-212's repetition: aria-hidden and unlabelled, so a screen
 //              reader still reads each clue exactly once — from the first
-//              gutter, which keeps the aria-label
+//              gutter, which keeps the aria-label. It is also the box that
+//              does NOT stick (CARD-271): an axis's duplicate already sits at
+//              the far end, so .is-stuck-row / .is-stuck-col goes on its twin.
 function clueBox(tag, kind, line, label, clue, { right = false, duplicate = false } = {}) {
   const box = document.createElement(tag);
-  box.className = `player-clue is-${kind}${right ? " is-right" : ""}`;
+  box.className = `player-clue is-${kind}${right ? " is-right" : ""}${duplicate ? "" : ` is-stuck-${kind}`}`;
   box.scope = kind === "row" ? "row" : "col";
   box.dataset.line = String(line);
   if (duplicate) box.setAttribute("aria-hidden", "true");
@@ -469,9 +532,17 @@ function clueBox(tag, kind, line, label, clue, { right = false, duplicate = fals
 // The blank box where a clue gutter crosses another. `right` puts it on the
 // right of the column clues, where it carries the heavy rule the row clues'
 // own side normally draws (admin.css .player-corner.is-right).
-function cornerBox(right) {
+//
+// `stuck` is CARD-271's two markers, and a corner is the one box that needs
+// them stated rather than derived: it lies in a column band AND in a row
+// band, and the two are kept in view independently. `col` is "my column band
+// is the one that sticks" (the head one, never the <tfoot> duplicate) and
+// `row` is "my row band is the one that sticks" (the left gutter normally,
+// the right one when CARD-193's mirror made the right gutter the only one).
+function cornerBox(right, stuck) {
   const corner = document.createElement("td");
-  corner.className = right ? "player-corner is-right" : "player-corner";
+  corner.className = `player-corner${right ? " is-right" : ""}`
+    + `${stuck.col ? " is-stuck-col" : ""}${stuck.row ? " is-stuck-row" : ""}`;
   return corner;
 }
 
@@ -528,13 +599,18 @@ function drawBoard(stage, payload, layout, zoomPercent) {
   // The column-clue gutter: above the grid, or (duplicate) under it.
   const columnGutter = (duplicate) => {
     const line = (duplicate ? table.createTFoot() : table.createTHead()).insertRow();
-    if (!mirrored) line.append(cornerBox(false));
+    // CARD-271: a corner's column band sticks only in the head; its row band
+    // sticks on the side the one-or-first row gutter is on — the left, unless
+    // the mirror put the only row gutter on the right.
+    if (!mirrored) line.append(cornerBox(false, { col: !duplicate, row: true }));
     columns.forEach((clue, col) => {
       const box = clueBox("th", "col", col, `Column ${col + 1}`, clue, { duplicate });
       if (majorAfter(col, width)) box.classList.add("major-right");
       line.append(box);
     });
-    if (mirrored || rowGutters === 2) line.append(cornerBox(true));
+    if (mirrored || rowGutters === 2) {
+      line.append(cornerBox(true, { col: !duplicate, row: mirrored }));
+    }
   };
   columnGutter(false);
 
@@ -744,11 +820,46 @@ function start() {
     return plainCells;
   }
 
+  // CARD-271: which axes can afford to keep their gutter in view, decided by
+  // measuring the board that was drawn — the same discipline as the layout
+  // ladder above, and for the same reason: the band's depth is admin.css's
+  // clamp times the clue the puzzle happens to have, and predicting it here
+  // would be re-deriving that clamp.
+  //
+  // A stuck band floats over cells, so what is measured is how much of the
+  // stage it can cover: min(this axis's overflow, the band's own size). An
+  // axis that does not scroll covers nothing however deep its band is (a
+  // 15 x 15, and every doubled board at 100 %, are in that case), and an
+  // axis past STICK_MAX_SHARE of the stage keeps today's rendering — the
+  // clues scroll away, which is the bug, but a band over most of the board
+  // is worse than the bug (see STICK_MAX_SHARE).
+  //
+  // Sticky takes no part in layout and, in Chromium, a stuck box adds
+  // nothing to the scrollable overflow either, so neither term below is
+  // changed by the classes this sets: the measurement cannot oscillate
+  // (asserted in tests/test_puzzle_solver_clues.py
+  // TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted).
+  function keepCluesInView() {
+    const band = (selector, side) => {
+      const box = table.querySelector(selector);
+      return box === null ? 0 : box.getBoundingClientRect()[side];
+    };
+    const affords = (overflow, bandSize, port) =>
+      Math.min(overflow, bandSize) <= port * STICK_MAX_SHARE;
+    table.classList.toggle("is-keeping-rows", affords(
+      stage.scrollWidth - stage.clientWidth,
+      band("th.player-clue.is-row.is-stuck-row", "width"), stage.clientWidth));
+    table.classList.toggle("is-keeping-cols", affords(
+      stage.scrollHeight - stage.clientHeight,
+      band("th.player-clue.is-col.is-stuck-col", "height"), stage.clientHeight));
+  }
+
   function redraw() {
     const zoom = marking.getZoom();
     cellElements = drawSettledLayout(zoom);
     table = stage.querySelector(".player-board");
     clueNumbers = clueNumbersOf(table);
+    keepCluesInView();
     paint(cellElements, board);
     // The highlighted ELEMENT is gone with the old table; the hinted CELL is
     // not, so it is put back on the new one (CARD-212 review cycle 2,
@@ -791,6 +902,12 @@ function start() {
       }
     },
     forget: () => save.forget(),
+    // CARD-271: zoom changes the band and the overflow without redrawing the
+    // board (it is one custom property on the table), so the "can this axis
+    // afford to keep its clues?" measurement has to be taken again after
+    // one. It is the only thing zoom does beyond --player-zoom and the
+    // anchored scroll, and it records nothing (CON-021).
+    zoomed: () => keepCluesInView(),
   });
   redraw();
   // CARD-193: the mirror follows the viewport, not a redraw of its own
@@ -1059,6 +1176,9 @@ function wireMarking(container, player) {
       if (table) table.style.setProperty("--player-zoom", String(zoom / 100));
       container.scrollLeft = anchoredScroll(container.scrollLeft, anchorX, old, zoom);
       container.scrollTop = anchoredScroll(container.scrollTop, anchorY, old, zoom);
+      // CARD-271: the clue band scales with the cell, so a zoom changes
+      // whether either axis can still afford to keep its gutter in view.
+      player.zoomed();
     }
     syncZoom();
   }
