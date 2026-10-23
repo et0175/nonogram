@@ -118,6 +118,12 @@ def _web_relative(path: Path) -> str:
 #: ``validate_density``, ``validate_aspect_ratio``, ``parse_tier``,
 #: ``parse_art``, ``_validate_side`` -- and matching on the shape is what makes
 #: :func:`_domain_validator_names` an enumeration instead of a list.
+#:
+#: Every narrowing of this pattern is held, not just the ones a named floor
+#: happens to cover: ``test_the_derivation_still_reaches_the_names_the_rule_is_about``
+#: compares the derived set to the same package read with a predicate written
+#: in that test, so dropping the ``_?`` -- which silently shed
+#: ``_validate_side`` with the whole file green (fix round 3, S-2) -- reds.
 _DOMAIN_VALIDATOR_SHAPE = re.compile(r"^_?(?:validate|parse)_")
 
 
@@ -203,7 +209,12 @@ MEASURED_PROSE_CITATIONS = (("submission.py", "validate_extent"),)
 #: also reads the entry's own text, so gutting or widening the declaration
 #: reds rather than passing on the remaining entries.
 MEASURED_AST_SWEEP_MISSES = (
-    'a name concatenated from literals -- getattr(m, "validate_" + "extent")',
+    'a name concatenated from literals with + -- getattr(m, "validate_" +'
+    ' "extent"). The implicit adjacent-literal form, getattr(m, "validate_"'
+    ' "extent"), is **caught**: CPython folds adjacent string literals at'
+    " parse time, so the token does sit in one ast.Constant. The head used to"
+    " read \"concatenated from literals\" without naming the operator, which"
+    " covered the caught form too (measured, fix round 3, B-3)",
     'a name interpolated at runtime -- getattr(m, f"validate_{what}")',
     "a name supplied from outside the source -- an environment variable or a"
     " request field -- which no contiguous run of the file spells",
@@ -2292,13 +2303,56 @@ class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
         ) == ["validate_size"]
         assert self._dead_members(_DOMAIN_VALIDATORS, defined) == []
 
+    @staticmethod
+    def _independently_derived() -> set[str]:
+        """The same set, enumerated with a predicate written **here**.
+
+        An independent second implementation rather than a second copy of the
+        six names (G-3, and CLAUDE.md's standing test-style preference:
+        ``solver/propagate.py``'s ``mask_runs`` cross-checked against
+        ``clues.encode_line`` from the test tree is the precedent). It reads
+        the same two authorities the derivation reads -- the package tree and
+        ``cli_tests._ADAPTERS`` -- so a seventh validator, or a fourth
+        adapter, moves both sides at once and no list here has to be edited.
+        What it deliberately does *not* share is
+        :data:`_DOMAIN_VALIDATOR_SHAPE`: the shape convention is spelled out
+        again, in a different mechanism, because a pin that consulted the same
+        pattern would move with every narrowing of it.
+        """
+        names: set[str] = set()
+        for path in sorted(cli_tests._PACKAGE_DIR.rglob("*.py")):
+            relative = path.relative_to(cli_tests._PACKAGE_DIR)
+            owner = relative.parts[0] if len(relative.parts) > 1 else path.stem
+            if owner in cli_tests._ADAPTERS:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            names.update(
+                node.name
+                for node in ast.walk(tree)
+                if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+                and node.name.removeprefix("_").startswith(("validate_", "parse_"))
+            )
+        return names
+
     def test_the_derivation_still_reaches_the_names_the_rule_is_about(self) -> None:
         """A floor pin, the shape :data:`cli_tests._ADAPTERS` gets: a
         derivation that stopped matching would hand the guard a smaller set
         and look identical. ``validate_extent`` is the name the dead member
         should always have been; ``validate_density`` and ``parse_tier`` are
         the two live members of the retired triple, so nothing the guard used
-        to catch has been given up (G-2)."""
+        to catch has been given up (G-2).
+
+        Widened in fix round 3 (S-2), because the three names were **half**
+        the derived set and the hazard this docstring states was reachable
+        around them: measured, dropping the ``_?`` from
+        :data:`_DOMAIN_VALIDATOR_SHAPE` dropped ``_validate_side`` out of the
+        set with this file 166/166 green and every control passing, while
+        dropping ``parse_`` was killed here. The pin is now an **equality**
+        against :meth:`_independently_derived`, so every member is pinned --
+        ``parse_art`` and ``validate_aspect_ratio`` as much as the three the
+        floor names -- without a hand-written list of six that would rot the
+        day a seventh validator is added.
+        """
         assert set(_DOMAIN_VALIDATORS) >= {
             "validate_extent",
             "validate_density",
@@ -2308,6 +2362,16 @@ class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
         # validator, so re-introducing one is a decision to review, not a
         # rename -- and this reds the moment it is made.
         assert "validate_size" not in _DOMAIN_VALIDATORS
+
+        independent = self._independently_derived()
+
+        assert independent, "the independent walk found no validator at all"
+        assert set(_DOMAIN_VALIDATORS) == independent, (
+            "the shape derivation and an independently written predicate over "
+            "the same package disagree, so the guard's set has moved without "
+            f"the package moving: {sorted(_DOMAIN_VALIDATORS)} vs "
+            f"{sorted(independent)}"
+        )
 
     def test_the_prose_exemption_is_exactly_the_sites_that_exist_today(self) -> None:
         """ADR-0039/R3: an exemption is held to an equality against the sites
@@ -2405,6 +2469,12 @@ class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
         whole file, so the concatenated form is only invisible because no
         contiguous run of the source spells the token -- which is exactly the
         family declared, and not one word wider.
+
+        The first entry's head was narrowed in fix round 3 (B-3): read as a
+        family, "concatenated from literals" also covered the **implicit**
+        adjacent-literal form, which CPython folds into a single
+        ``ast.Constant`` and this arm therefore catches. It now sits on the
+        caught side below, beside the ``+`` form the entry quotes.
         """
         assert MEASURED_AST_SWEEP_MISSES
 
@@ -2413,6 +2483,7 @@ class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
             "def read(m, what):\n"
             '    return getattr(m, f"validate_{what}")\n'
         )
+        implicit = 'def read(m):\n    return getattr(m, "validate_" "extent")\n'
 
         assert _domain_validator_hits(concatenated, _DOMAIN_VALIDATORS, "x.py") == []
         assert _domain_validator_hits(interpolated, _DOMAIN_VALIDATORS, "x.py") == []
@@ -2421,7 +2492,18 @@ class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
             assert token not in concatenated, token
             assert token not in interpolated, token
 
-        assert "concatenated from literals" in MEASURED_AST_SWEEP_MISSES[0]
+        # The adjacent-literal form the head used to cover by implication:
+        # no contiguous run of the *source* spells the token either, and the
+        # AST arm reports it anyway, because the fold happens before this
+        # function ever sees the tree.
+        for token in _DOMAIN_VALIDATORS:
+            assert token not in implicit, token
+        assert _domain_validator_hits(implicit, _DOMAIN_VALIDATORS, "x.py") == [
+            "x.py:2 writes 'validate_extent' in a string literal"
+        ]
+
+        assert "concatenated from literals with +" in MEASURED_AST_SWEEP_MISSES[0]
+        assert "implicit adjacent-literal form" in MEASURED_AST_SWEEP_MISSES[0]
         assert "interpolated at runtime" in MEASURED_AST_SWEEP_MISSES[1]
 
     def test_a_name_supplied_from_outside_the_source_is_a_measured_miss(self) -> None:
