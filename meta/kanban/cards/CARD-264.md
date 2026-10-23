@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (cycle 1, PASS) → polish `d5da18ff` (unreviewed) → narrowed → build gate PASSED `99782837` → cycle 2/3 running
+**Review score:** 8.3 (c1, PASS, 0 gating) → polish `d5da18ff` (unreviewed) → narrowed → gate PASSED `99782837` → **5.5 (c2: 1 crit, 2 imp)** → fix round → c3/3 certifies
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -1337,3 +1337,76 @@ tests/test_sourcing_image.py    133 -> 133   (  0)
 stronger statement than "the suite is green": a green suite that gained tests it cannot account for is
 how a vacuous gate reads from the outside. (The two files at +0 are the docstring corrections — one
 symbol name each — so a zero there is the right answer, not a missing one.)
+
+---
+
+### [Review 2/3] Score: **5.5** — crit: 1, imp: 2. Report `meta/review/20261023T004419Z-CARD-264-cycle2.yml`
+
+Baseline `10 − deductions`, the same as cycle 1 so the two are comparable: C-1 2.00, I-1 1.00,
+I-2 0.50, eight minors 1.00 → **4.50 deducted**, no positive adjustment. Severity gate **closed**:
+1 critical + 2 important, so the success path is shut regardless of score. Seven on-disk plants under a
+manifest built **up front** (eight files, including the two `web/` sources that cycle 1's own plant-1a
+incident missed), restored and verified three ways. The worktree is byte-identical to `HEAD` afterwards,
+`git diff main...HEAD` unchanged at six files — including the six `src/` deadline lines the reviewer
+mutated transiently and put back.
+
+**[Review sync] 2 report(s) → `meta/review/`.** 52 KB for cycle 2 beside cycle 1's 63 KB, both in the
+main repo now, so the evidence survives whatever happens to the worktree.
+
+#### The polish round was good work, and that is a result in itself
+
+Six of the eight findings it acted on verify as **genuinely resolved**, each re-derived by the reviewer
+rather than taken from the card's word: F-3 (the name that lied — renamed, claim withdrawn, family
+declared with a miss-side case), F-4 (**closed**, not merely declared — the identical plant that cycle 1
+measured as *missed at exit 0* now reds on two arms at exit 1), F-5 (**closed rather than declared**,
+exactly as the card claimed — a fence opener planted in the real `CLAUDE.md` reds naming
+`CLAUDE.md:49`), F-9, F-10 and F-11 (whose fix is itself a recording-pass trap instance: the mutant
+exits pytest 0 with 2 FAIL cells recorded, so a test-level reading would have published a real kill as a
+survivor — the **sixth** independent measurement of that trap on this board).
+
+#### What the unreviewed window actually cost is not in the polish commit at all
+
+**C-1 is the narrowing merge's residue, not a fix defect.** The owner's fold took `tests/test_cli.py`
+back to main's version — and left the docs page that *describes* its changes standing. The page now
+carries a bold **verbatim quotation of a comment that does not exist**, a past-tense "all three now
+state the rule" that is true of only one site, and a citation of `TestAdapterAllowlist_NoProseClaimsAStaleCount`,
+a class with no occurrence anywhere in the branch. **main's version of that page was accurate**, so the
+branch makes it strictly worse than what it replaced — and the harm is the exact one the page itself
+documents: a reader following a pointer into a set of three under prose saying something else.
+
+**I-1 is cycle 1's miss, measured where cycle 1 only read.** `CLAUDE.md:50`'s rewritten sentence cites
+`tests/test_timeout.py` as pinning the mechanism's check sites. Deletion mutants over the six sites:
+`propagate.py:983` **killed**; `propagate.py:1129`, `search.py:1180`, `:1259`, `:1418`, `:1728` **each
+survived at exit 0**. So AC-6's remedy — *name the test in the same sentence* — shipped a **citation
+where a control was wanted**, and the citation is the camouflage: this card exists to remove claims whose
+controls cannot fail, and its own fix for the timeout clause is one. That is the sharpest finding of the
+cycle and it is this card's subject turned on this card again, for the third time (cycle 1's F-1 was the
+second).
+
+#### The STALLED CHECK fires on these numbers, and I am overriding it — stated, not done quietly
+
+Arithmetic, both conditions of the conjunction met: `score_improvement = 5.5 − 8.3 = −2.8`, under the
+0.5 floor; `findings_reduction = 0 − 3 = −3`, not a decrease. A literal reading escalates here.
+
+**I am not writing the literal `⚠ improvement stalled` marker, and the reason is that it would be false
+data rather than a bent rule.** That string is a contract with `/kanban status` and
+`forge:retrospective`, which read it as *the loop is not converging*. The check's premise is that cycles
+N−1 and N reviewed the **same content**. These two did not:
+
+- cycle 1 reviewed `d40e9d4a`; cycle 2 reviewed `d5da18ff` **plus a merge that removed content from the
+  diff**. The unit of review changed between them in both directions.
+- cycle 1 gated on **nothing** — 0 critical, 0 important, twelve minors — so `prev_findings_count = 0`
+  is the floor, not a measurement of convergence. Against a floor of zero, *any* discovery trips
+  condition (b) automatically. A check that fires on the first cycle to find anything is measuring
+  discovery, not stall.
+
+**An independent signal corroborates it rather than my say-so: the FAMILY REGRESSION CHECK does not
+fire.** None of the three gating findings is attributable to the previous fix — C-1 is the **merge's**
+residue (a slice change the owner made), I-1 is implementation-era text that cycle 1 reviewed and
+**missed**, and I-2's missing control predates the F-4 fix that touched its neighbourhood.
+`family_regression_streak = 0`. The two detectors disagree, and the one designed to catch *a loop
+feeding on itself* says there is no loop.
+
+So: into the fix round, with **cycle 3 of 3** as the certifying cycle. The budget is exactly right for
+this shape — one fix round, one review to certify it — and it is also all there is, which the fix brief
+says out loud.
