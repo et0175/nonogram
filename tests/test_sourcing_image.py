@@ -740,7 +740,7 @@ def test_a_zero_extent_grid_is_a_caller_bug_and_not_an_input_error(
     """The other degenerate extent, declared and separated from the first.
 
     Grid extents reach these functions only after
-    ``random_grid.validate_size``, so a target of ``0`` cannot come from a user
+    ``random_grid.validate_extent``, so a target of ``0`` cannot come from a user
     — it is a wiring bug, and gets ``ValueError`` the way ``nudge`` treats a
     zeroth attempt, not a domain error the CLI would map to an exit code.
     """

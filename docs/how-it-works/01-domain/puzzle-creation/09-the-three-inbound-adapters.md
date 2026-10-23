@@ -17,27 +17,46 @@ and ADR-0008 kept exactly one `[project.scripts]` console entry point — so
 adapters behind them" (`cli.py:7`). The admin panel is a **third**, outside
 ADR-0019's scope as written, with its own entry point and its own process.
 
-`src/nonogram/__init__.py:40` is careful about that sentence: "'There are exactly
-two adapters (ADR-0019)' below describes the *pipeline's* adapters, not a count of
-every entry point in the tree."
+`src/nonogram/__init__.py:71-73`'s module docstring is careful about that
+sentence, and says so in the same breath that names the third:
+"'There are exactly two adapters (ADR-0019)' below describes the *pipeline's*
+adapters, not a count of every entry point in the tree: `admin/` is a third
+one, outside ADR-0019's scope as written."
 
-The import guard lists the adapter rank by name rather than by pattern, and
-`tests/test_cli.py:742` says why: **"A guard with an allowlist is weaker than a
-guard without one (ADR-0019, Negative), so this set is closed … and is deliberately
-not a pattern — a third adapter is a decision, not a rename."**
+The import guard lists the adapter rank by name rather than by pattern, and the
+comment above `_ADAPTERS` in `tests/test_cli.py` says why: **"A guard with an
+allowlist is weaker than a guard without one (ADR-0019, Negative), so this set is
+closed at two names and is deliberately not a pattern — a third adapter is a
+decision, not a rename."**
 
 ```python
-_ADAPTERS = frozenset({"cli", "web", "admin"})   # tests/test_cli.py:747
-_LAUNCH_EDGE = ("cli", "web")                    # :760 — the only same-rank import
+_ADAPTERS = frozenset({"cli", "web", "admin"})   # tests/test_cli.py
+_LAUNCH_EDGE = ("cli", "web")                    # the only same-rank import
 ```
 
-> **The guard's prose contradicts its own code.** `tests/test_cli.py:743` says the
-> set "is closed at **two** names", `:740` names only `web` and `cli`, and the test
-> is still called `test_the_adapter_allowlist_is_closed_at_the_two_known_adapters`
-> (`:904`) — while its assertion is `_ADAPTERS == {"cli", "web", "admin"}` (`:914`).
-> The mechanism is intact and the pin did its job when `admin` was admitted; only
-> the prose and the test name lagged. The same stale claim appears at
-> `web/__init__.py:21` and `CLAUDE.md:45`.
+> **The guard's prose contradicts its own code.** The comment quoted above says
+> the set "is closed at **two** names"; the test that pins it is called
+> `test_the_adapter_allowlist_is_closed_at_the_two_known_adapters` and its
+> docstring opens "ADR-0019's allowlist is two names" — while the assertion
+> underneath has read `_ADAPTERS == {"cli", "web", "admin"}` ever since `admin`
+> was admitted. The mechanism is intact and the pin does its job; only the prose
+> lags. It stopped being cosmetic when CARD-261 pointed a `CLAUDE.md` reader
+> straight at that line: a reader who found the correct members under prose
+> claiming fewer, and concluded `admin` was the erosion, would have deleted a
+> correct entry. `CLAUDE.md`'s own copy of the claim was removed by CARD-261;
+> the three sites inside `tests/test_cli.py` are **CARD-265's** subject, which
+> inherited that file by owner decision on 2026-10-22. The count there is
+> currently **unguarded**: that file's `_ADAPTER_COUNT` / `_adapter_counts` pair
+> denies a stated adapter count in **`CLAUDE.md`'s** text, and reads nothing
+> around `_ADAPTERS` itself.
+>
+> **One site of the same claim is still open:** `web/__init__.py`'s package
+> docstring says the structural guard "knows exactly two adapter names — `cli`
+> and `web`". CARD-264 edits no file under `src/`, so it was measured and left.
+> Note that `src/nonogram/__init__.py`'s "There are exactly two adapters
+> (ADR-0019)" is a *different* and deliberate statement, qualified in the
+> docstring itself as describing the pipeline's adapters rather than every entry
+> point in the tree.
 
 ## COMP-001 — the CLI
 
