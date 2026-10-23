@@ -241,3 +241,38 @@ of the table above are the minimum the settled bound must be measured against, i
   sentence. `MEASURED_BLIND_SPOTS` in `tests/test_book_export_interior_cover.py` is the in-repo
   precedent: a table asserting the shapes **are** silent, so closing a hole reds and the declaration is
   re-measured instead of standing while the code moves underneath it.
+
+---
+
+## [Routed in 2026-10-23] The stale count this card inherits is **unguarded**, and the guard that looks like it covers it does not
+
+Found by the adversarial skeptic that confirmed CARD-264's cycle-2 finding C-1. It is a fact this card
+needs and did not have, and it changes what "settle the bound" has to deliver.
+
+**Three stale "two" claims still stand at HEAD**, in the file this card inherited:
+
+| where | the claim | reality |
+|---|---|---|
+| `tests/test_cli.py:744` | the module comment: *"so this set is closed at **two names** and is deliberately not a pattern — a third adapter is a decision, not a rename"* | the set holds **three**; the third adapter **was** that decision, and it landed |
+| `tests/test_cli.py:905` | the test's **name**: `test_the_adapter_allowlist_is_closed_at_the_two_known_adapters` | three |
+| `tests/test_cli.py:906` | its docstring's first line: *"ADR-0019's allowlist is two names"* | three |
+
+**And nothing guards any of them.** `_ADAPTER_COUNT` (`tests/test_cli.py:1126`) is consumed by
+`_adapter_counts` (`:1270-1307`), which scans **`CLAUDE.md`'s** text — the consumer is named at `:1297`,
+`TestComponentMap_WhatTheClaudeMdReaderAbsorbs`. It never reads the prose around `_ADAPTERS`.
+`len(_ADAPTERS)` appears **nowhere** in the tree. So the guard whose pattern this card is settling is
+pointed at one surface, and the three stale claims sit on another with no control at all.
+
+**What that adds to this card.** Settling which `_ADAPTER_COUNT` bound is right is necessary and not
+sufficient: a settled pattern that still only reads `CLAUDE.md` leaves the count stale **where the count
+is written**. The deny rule has to reach the prose around the set itself — the comment, the test name and
+the docstring — which is what CARD-264's folded
+`TestAdapterAllowlist_NoProseClaimsAStaleCount` was for, and it is available to adopt at
+`git show d5da18ff:tests/test_cli.py` under the standing condition that it be re-measured against
+whichever bound this card settles.
+
+**The cost of leaving it is measured, not speculative, and it is the reason CARD-264 existed.** CARD-261
+created the first *reachable* pointer from the every-session file into `_ADAPTERS`. A reader who follows
+it, finds a set of three under prose saying two, and concludes `admin` is the erosion will **remove a
+correct entry** — strictly worse than the stale count it replaced. CARD-264 closed the `CLAUDE.md` end of
+that route; this card owns the other end, and until it lands the route is half-closed.
