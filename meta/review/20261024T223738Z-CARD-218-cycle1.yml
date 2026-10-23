@@ -227,7 +227,7 @@ findings:
     source: static
     violates: AC-5
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -323,7 +323,7 @@ findings:
     source: static
     violates: ADR-0039/R2
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -565,7 +565,7 @@ findings:
     source: static
     violates: ADR-0039/R2
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -625,7 +625,8 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: dismissed
+    dismissed_reason: "Judgement call, low priority, and it did not fall out of the F-001/F-002 work. Moving the NAME check into the consumers would duplicate it twice and lose the 'fails at the divergence' property the fixture argues for, and the adjudication found the diagnosis message good. Re-measured in fix round 1: the mutant now reds 8 ERROR cells across 4 classes (up from 6 across 3), because the F-001 control adds two consumers - the finding is marginally worse than cycle 1 recorded, stated rather than argued away. CARD-218 closes after this round."
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null

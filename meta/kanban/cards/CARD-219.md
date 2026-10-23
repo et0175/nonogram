@@ -17,6 +17,23 @@
 **Deferred waves:** 0
 **Depends on:** CARD-217, CARD-205, CARD-206, CARD-207, CARD-208, CARD-209
 **Touches:** tests/test_book_pdf_levels.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/test_book_pdf_two_up.py, tests/test_book_solved_answer_key.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py, tests/helpers/book_corpus.py
+<!-- SHARED CURATION HELPERS ARE THIS CARD'S TO CREATE, added 2026-10-24 from
+CARD-218's fix-round pre-gate. CARD-218's fix round 1 had to put nine helper
+functions in BOTH of its two files -- 8 of the 9 byte-identical in code, 53
+executable lines, nothing asserting the copies agree, and the ninth's assertion
+message already prescribing two different remedies for one condition. The cause
+was a scope fence: the orchestrator fenced tests/conftest.py out of that round,
+although it sits in CARD-218's own Touches and the tree already imports a
+shared helper from it (tests/test_card_156_db_fixture.py:14). This card
+converts SIX more files and needs the same machinery, so it is where the third
+copy would appear and where the shared home belongs -- tests/conftest.py (a
+declared conflict hotspot, so this card serializes against anything else
+touching it) or tests/helpers/. Take the two existing copies with it rather
+than adding a third, and give the result the agreement guard they lack. The
+helpers: _page_digest, _case_of, _declares, _declared_consumers,
+_consumers_among, _refuse_unless_every_consumer_is_collected,
+_refuse_unless_nothing_takes_it_later, _bitmap_bytes, _retained_bitmap_bytes.
+Backlogged in full under @tech-debt. -->
 **Review score:** —
 **Started:** —
 **Closed:** —
