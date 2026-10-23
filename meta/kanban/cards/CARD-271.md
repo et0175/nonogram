@@ -134,9 +134,14 @@ the render, not a choice the implementation makes.
   (CON-021).
 - G-5: The redraw path keeps its draw-count pins: the ladder tests that count
   draws by draw marks run unedited (AC-4).
-- G-6: The owner sees the render — big board at desktop, phone width and
-  300 % zoom — before merge (standing practice: visual changes get an
-  eyeball).
+- G-6: The three renders — big board at desktop, phone width, 300 % zoom — are
+  **produced and handed to the owner**, written to
+  `~/Documents/nonogram-reviews/CARD-271/`. <!-- AMENDED 2026-10-23 by owner
+  decision: "да, мержи по гейтам". As written this guardrail said *before
+  merge*, which contradicts the owner's standing instruction that merges go on
+  gates and renders are reviewed AFTER landing. The renders are still mandatory;
+  what is not mandatory is waiting on an eyeball to merge. A reviewer must not
+  file this as unsatisfied when the renders exist and the gates passed. -->
 
 ## System contract
 
