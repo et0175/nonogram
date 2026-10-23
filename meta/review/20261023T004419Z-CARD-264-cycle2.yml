@@ -382,7 +382,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -441,9 +441,10 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-2
-    status: open
+    status: dismissed
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: >-
+      refuted by independent verification in review cycle 2: the sentence enumerates two checkpoints (propagation and branching) and both are pinned -- propagation-side by a single-site mutant, branch-side collectively (all four search.py sites off reds test_the_search_checks_the_deadline_at_every_branch_node). Rewriting it would trade a true claim for a weaker one in the card's last cycle.
     learned_pattern: null
 
   - id: I-2
@@ -493,7 +494,7 @@ findings:
     source: static
     violates: ADR-0039/R3
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -528,7 +529,7 @@ findings:
     source: static
     violates: ADR-0039/R3
     root_cause: RC-3
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -564,7 +565,7 @@ findings:
     source: static
     violates: ADR-0039/R3
     root_cause: RC-3
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -590,7 +591,7 @@ findings:
     source: static
     violates: ADR-0039/R3
     root_cause: RC-3
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -622,7 +623,7 @@ findings:
     source: static
     violates: ADR-0039/R3
     root_cause: RC-3
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -648,7 +649,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -676,7 +677,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-4
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -703,7 +704,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-4
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -727,7 +728,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null

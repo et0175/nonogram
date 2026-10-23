@@ -1590,3 +1590,232 @@ and it is the same sentence as the card's subject. A card raised to remove claim
 fail wrote two controls whose *names* claim more than they prove. If anything from this card belongs in
 the board's standing rules, it is that a control's name and docstring are claims too, and the thing that
 checks them is reading the body.
+
+---
+
+## [One-way sync] Fix round 2's own notes, pulled from the worktree
+
+
+## Worktree notes -- fix round 2 (`forge:fix`, auto), 2026-10-23, on review cycle 2
+
+Narrowing round, as briefed: ten items, no new mechanism. Scope held to the card's six files; no `src/`
+path touched (`git diff --name-only $(git merge-base HEAD main)` lists `CLAUDE.md`, the adapters doc and
+four `tests/` files, **zero** `src/` paths -- G-6 by construction). `tests/test_cli.py` left alone and
+re-verified byte-identical to `main` (`shasum -a 256` = `f0a9dc3c24b62c0d…` on both sides; the brief's
+`e30a6ac6…` was a different digest form, the identity is what matters and it holds). `CLAUDE.md` was
+**not** edited this round -- cycle 2's I-1 was refuted and the file still carries exactly three
+single-line hunks at `:46`/`:48`/`:50` (`git diff --unified=0` → three `@@ -N +N @@` headers, G-1).
+
+### C-1 + M-7 -- the adapters page, put back into the present tense
+
+Every line number re-derived in this worktree at HEAD before writing anything, not copied from the
+brief:
+
+| claim | cited on the page before | **re-derived** |
+| --- | --- | --- |
+| the qualified "exactly two adapters" sentence | `src/nonogram/__init__.py:40` | `:71`-`:73` (and the unqualified statement at `:78`); `:40` is inside the module-list block |
+| the `_ADAPTERS` comment | by name (this branch had already dropped the number) | `tests/test_cli.py:743`-`:747`, `_ADAPTERS` itself at `:748` |
+| the test that pins the set | by name | `def` at `:905`, its docstring's first line at `:906` |
+| the web adapter's copy of the claim | by name | `src/nonogram/web/__init__.py:21`, still present |
+
+Three false claims removed, one stale figure removed:
+
+* **(a)** the bold verbatim quotation was text from `d40e9d4a`'s version of `tests/test_cli.py`, which
+  the owner's fold reverted. `grep -rn "grows only by a deliberate edit" src tests` → **0 hits** at HEAD.
+  Replaced with the comment the file actually carries, quoted whole -- including its stale "closed at
+  two names", because that stale count *is* the subject of the block underneath and eliding it with an
+  ellipsis would have been a second kind of dishonest framing.
+* **(b)** the past tense ("contradicted … until CARD-264", "All three now state the *rule*") is now the
+  present tense, because the contradiction is live at `:744` / `:905` / `:906`. The page now says the
+  three sites in that file are **CARD-265's** subject (owner decision 2026-10-22) and that the count
+  there is **unguarded**, which is the measured fact: `_ADAPTER_COUNT` (`tests/test_cli.py:1126`) is
+  consumed by `_adapter_counts` (`:1270`), whose body reads `CLAUDE.md`'s text and nothing else.
+* **(c)** the sentence citing `TestAdapterAllowlist_NoProseClaimsAStaleCount` and `len(_ADAPTERS)` is
+  deleted. `grep -rn "NoProseClaims" src tests` → **0 hits**; `grep -rn "len(_ADAPTERS)" src tests` →
+  **0 hits**.
+* **M-7**: `src/nonogram/__init__.py:40` → cited by name ("module docstring"), consistent with the rest
+  of the page.
+
+Not done by reverting to `main`'s hunk, deliberately: `main`'s six line citations are each off by one
+(743/744/741/748/905/915 against its 742/743/740/747/904/914) and its claim that the stale count also
+sits at `CLAUDE.md:45` is false -- `main`'s own `CLAUDE.md:42` states no count. This branch's two real
+improvements (no `:NNN` into another file; CARD-261 named as what removed `CLAUDE.md`'s copy) are kept,
+and the verified-open `web/__init__.py` site is kept flagged open.
+
+### I-2 secondary -- which shape, and why
+
+**Chose: delete the decorative assertion and narrow the docstring to the AST arm.** The brief offered
+the alternative of a fabricated source pair that genuinely exercises the substring arm, and that
+alternative is incoherent with the brief's own primary follow-up: the substring arm carries **zero
+unique detection**, so a control for it would pin a reach no other arm has -- a new unfalsifiable arm on
+a card about unfalsifiable arms. `assert "validate_density" in planted` is gone; the docstring now
+claims only what its body measures, and records what it used to claim and why that was wrong.
+
+### I-2 primary follow-up -- the partition, re-measured here
+
+Recorded as a comment above the substring loop in
+`test_the_web_package_imports_no_domain_validator`. Re-derived rather than taken on trust, in memory,
+against the real `_WEB_SOURCES` (no on-disk plant, so no `src/` file was ever mutated):
+
+* real `prose_only` = `[('submission.py', 'validate_extent')]` = `MEASURED_PROSE_CITATIONS` -- the
+  equality holds as shipped;
+* a **prose**-shaped violation (the token in a docstring, in a non-exempted file): AST arm returns `[]`,
+  `prose_only` grows by `('handler.py', 'validate_density')`, and the equality in
+  `test_the_prose_exemption_is_exactly_the_sites_that_exist_today` **breaks**. That comprehension
+  re-derives prose mentions from each source directly and does not route through the substring loop, so
+  disabling the loop does not weaken it;
+* a **code**-shaped violation: AST arm returns `['handler.py:1 imports validate_density']`, so it reds
+  one line above the loop.
+
+The arm is kept (G-2: nothing the guard caught is given up) and deliberately left without a control.
+
+### The five declared-miss narrowings, before → after
+
+Every "after" below is a measurement run in this worktree, not a figure inherited from a docstring.
+
+| id | declaration | measured before | **after** |
+| --- | --- | --- | --- |
+| **M-1** | `MEASURED_TIMEOUT_CLAIM_MISSES[1]` | entry said an em-dash *breaks* the split. Measured against `_timeout_sentences`: em-dash-joined = **1** sentence (does **not** break); colon = 1; comma = 1; full stop = **2**; **semicolon = 2** (unmentioned by the entry) | entry names colon, comma **and em-dash** as non-breaking, and full stop **and semicolon** as breaking. The em-dash body moved from the caught list to the missed list -- it did read as 2 sentences, but on the full stop `cited` already ends with, which is why it looked like evidence. A semicolon body took its place on the caught side |
+| **M-2** | `MEASURED_AST_SWEEP_MISSES[2]` | declared "a lookup table, an environment variable or a request" as a miss. Measured: `{"extent": "validate_extent"}` → `["x.py:1 writes 'validate_extent' in a string literal"]` -- **caught**, by both arms. `os.environ[...]` → `[]`; `posted["validator"]` → `[]` | narrowed to "a name supplied from outside the source -- an environment variable or a request field -- which no contiguous run of the file spells". New case holds the lookup table on the **caught** side and the two external forms on the **miss** side, and denies the re-widening (`assert "lookup table" not in declared`) |
+| **M-3** | `MEASURED_CLAIM_MISSES` | three entries, two demonstrated executably, **none** of them read by any assertion -- which is why `F6-DECL-GUTTED` survived | each case now reads a fragment of its own entry. Entry `[1]` ("a lead-in not in `GUARDED_PARAGRAPHS`") had no case at all and gets one, shown both ways round (`_guarded_paragraphs` finds nothing under `**Test style.**`, finds the paragraph under a guarded lead-in) |
+| **M-4** | `_dependency_claim_defects` | no declared reach. Measured evasions: un-backticked extras ("the dev, admin and db extras sit outside it") → `[]`; a **denial** ("`pyproject.toml` no longer declares Pillow or NumPy at runtime") → `[]`. Measured **non**-evasion: members un-backticked ("flask, gunicorn, reportlab, werkzeug are admin-only") → **4** defects | `MEASURED_DEPENDENCY_CLAIM_MISSES`, two entries, both held on the miss side by a new `test_the_rule_names_what_it_cannot_see` -- which also holds the member restatement on the **caught** side, generically (it picks the first extra with non-runtime members from pyproject's own tables, so a fourth extra needs no edit here) and keyed on the entries' own text. The backtick-independence of the member arm is **not** declared away |
+| **M-6** | the dependency class's docstring | "pyproject.toml carries **three** extras" -- re-derived by `tomllib` as `['admin', 'db', 'dev']`, accurate today and rottable | the number is gone, not controlled (G-3: point at the authority). `test_the_restatement_rule_covers_every_extra_pyproject_declares` already builds from those keys, so no second reader was added |
+
+`M-5`: `_src_symbols`' `ast.parse` now passes `filename=str(path)`. The ten SyntaxWarnings a
+`TestClaudeMd` selection raises print
+`src/nonogram/sourcing/templates/dog_in_house.py:6` instead of `<unknown>:6`, matching the sibling
+helper `tests/test_web_server.py::_domain_validator_names`.
+
+`M-8`: prose only -- "…was ``validate_size`` until CARD-264; that name has no definition anywhere in
+``src/`` — ADR-0022/R1 …". The relative clause no longer attaches to the card id. The surrounding
+superseded-50x50 reasoning is untouched.
+
+### Mutants -- the controls were measured, not asserted
+
+`tests/kill_matrix.py` (the committed instrument; nothing else written), line-count-preserving,
+**ANY-RED**, SHIPPED re-run between mutants, **both passes**. Domains stated per the instrument's own
+rule: the denominator is the target file's `ast.Assert` node count, carried separately from the
+collected-test count.
+
+`tests/test_guard_integrity.py` -- **149** assertion nodes; selection of **3** tests, **29** arms
+reached; SHIPPED **0 FAIL of 29 reached** in both passes:
+
+| mutant | recording | re-raising | FAIL cell(s) |
+| --- | --- | --- | --- |
+| `F6-DECL-GUTTED` (gut `MEASURED_CLAIM_MISSES[2]`'s middle line) | exit 0, **1 FAIL** | exit 1, **1 FAIL** | `:3349` `assert "resolves in dir(builtins)" in MEASURED_CLAIM_MISSES[2]` |
+| `TIMEOUT-MISS-2-GUTTED` | exit 0, **2 FAIL** | exit 1, **1 FAIL** (short-circuit) | `:3776`, `:3777` -- the two joiner halves |
+| `DEP-MISS-1-GUTTED` | exit 0, **1 FAIL** | exit 1, **1 FAIL** | `:3640` `assert "without backticks" in MEASURED_DEPENDENCY_CLAIM_MISSES[0]` |
+| `DEP-MISS-2-GUTTED` | exit 0, **1 FAIL** | exit 1, **1 FAIL** | `:3641` |
+
+`tests/test_web_server.py` -- **251** assertion nodes; selection of **2** tests, **14** arms reached;
+SHIPPED **0 FAIL of 14 reached** in both passes:
+
+| mutant | recording | re-raising | FAIL cell |
+| --- | --- | --- | --- |
+| `AST-MISS-3-GUTTED` | exit 0, **1 FAIL** | exit 1, **1 FAIL** | `:2466` `assert "an environment variable or a request field" in declared` |
+
+Every mutant produced **≥1 FAIL cell** in both passes -- so none of them is the "absent `old` writes
+nothing" shape. `F6-DECL-GUTTED` was the mutant cycle 2 measured as **surviving**; it is now killed, and
+`AST-MISS-3-GUTTED` likewise. The recording pass's exit 0 with FAIL cells recorded is exactly the trap
+the brief warned has caught this card six times -- hence both passes, read per cell.
+
+### Gates run (scoped, never the full suite)
+
+`NONOGRAM_FULL_SUITE_LOCK=/tmp/card264-fix2.lock` was exported for every pytest, script and mutant run,
+so the board's own `meta/kanban/.full-suite.lock` was never read, written or created.
+
+* `tests/test_guard_integrity.py tests/test_web_server.py tests/test_sourcing_image.py` -- **all green**,
+  no failures.
+* `tests/test_timeout.py` -- collection only (**17** collected, exit 0): this round's change there is one
+  docstring sentence.
+* **G-2**: `TestWebServer_BindsLoopbackOnlyByDefault` (CON-009) and CON-010's four arms
+  (`test_the_corpora_are_large_and_cover_every_declared_signal`,
+  `test_every_cross_origin_or_foreign_authority_request_is_refused`,
+  `test_every_same_origin_or_metadata_free_request_is_served`,
+  `test_the_accepted_fetch_metadata_is_the_two_spec_values`) -- **10 passed, exit 0**. CON-010 is
+  module-level `def`s, not a class: the id `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest`
+  is the logical requirement id (stated in the comment at `tests/test_web_server.py:1950`), and
+  `PropertyTest_` is not in pytest's `python_classes`, so selecting it as a class runs nothing. Worth
+  knowing for any future brief that names it as a class.
+* `_WEB_SOURCES`' non-empty assertion and `_DOMAIN_VALIDATORS`' are untouched; nothing the guard caught
+  was given up.
+* **G-7**: no durations measured or reported anywhere in this round.
+
+### Flaky, pre-existing, and *not* this round's
+
+`TestWebServer_BindsLoopbackOnlyByDefault::test_the_port_stays_free_on_every_other_interface` failed
+**once** mid-round (`_port_is_free_on('192.168.0.109', 59110)` returned `False` where the test wants
+`True`), then passed on three consecutive isolated re-runs and in the combined CON-009+CON-010 run. It
+is at `tests/test_web_server.py:555`, inside no hunk this card touches, and depends on the host's
+network and on whether another process on this machine holds the ephemeral port the fixture drew. It is
+host-dependent flake, not a regression -- but it is a **real** flake on a CON-009 control, and it
+deserves its own card rather than a shrug.
+
+### Skipped, with the measurement
+
+* **I-1** (`CLAUDE.md:50`) -- refuted in cycle 2 and **not touched**, per the brief. The sentence's own
+  enumeration is two checkpoints and both are pinned.
+* `tests/test_timeout.py:479`-`:485`'s `_blind_propagation` defect -- out of scope by the brief, being
+  carded separately. `tests/test_timeout.py` was edited this round for M-8 only, in the module docstring;
+  those lines are untouched.
+* The three `U+2022` codepoints in `src/nonogram/admin/pdf_generator.py` are **not** a G-6 violation:
+  they are a named, controlled exemption (`DINGBAT_EXEMPT_MODULES` in
+  `tests/test_book_difficulty_dots.py`, whose reason is itself asserted). Checked because the brief
+  asked for structural verification rather than assumption; the structural check that settles G-6 for
+  this card is that the diff contains no `src/` path at all.
+
+---
+
+### [Correction, measured by the orchestrator] This card twice claimed to have run CON-010, and twice ran **nothing**
+
+The fix round flagged a selection detail in passing. It is worse than a detail, and it falsifies two of
+this card's own evidence lines, so it is recorded here rather than left in a hand-back.
+
+**What this card's earlier rounds ran**, verbatim from the polish round's own table at line 938:
+*"CON-009 + CON-010 (`TestWebServer_BindsLoopbackOnlyByDefault`,
+`PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest`) | 6 collected | exit 0 |
+6 passed, 159 deselected"*. The implementation round reported the same shape.
+
+**Measured now, on the same file:**
+
+| selection | collects |
+|---|---|
+| `-k 'TestWebServer_BindsLoopbackOnlyByDefault or PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest'` | **6** |
+| `-k 'TestWebServer_BindsLoopbackOnlyByDefault'` **alone** | **6** — the same six |
+| `-k 'PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest'` | **0** |
+
+So the compound selection collected CON-009's six tests and **nothing of CON-010's**. The `or` arm
+contributed zero, exit 0 either way, and the line "CON-009 + CON-010 … 6 passed" is **false about
+CON-010**: it was never executed. Both rounds reported a constraint as exercised that no process ever
+touched.
+
+**The cause is documented in the code, which is what makes it a trap rather than a typo.**
+`PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest` is **not a test symbol** — it
+occurs three times in `tests/test_web_server.py` and all three are prose: the module docstring's EC-004
+line (`:10`), a docstring reference (`:1346`), and the section comment (`:1950`). The comment at `:1959`
+says why: *"Written as module-level functions rather than as a class, which is this project's convention
+for a property."* The id is the **requirement's declared check name**, and the project deliberately does
+not spell it as a class. So the id is correct everywhere it appears as a contract reference — and selects
+nothing everywhere it is used as a `-k` pattern.
+
+**The real tests, and a selection that reaches them:** `test_the_corpora_are_large_and_cover_every_declared_signal`,
+`test_every_cross_origin_or_foreign_authority_request_is_refused`,
+`test_every_same_origin_or_metadata_free_request_is_served`. With CON-009 that is **8** collected, not 6
+— which is also why the fix round's own run reported 10 for a slightly wider selection and the earlier
+rounds reported 6: the discrepancy was visible in the numbers all along and nobody subtracted them.
+
+**Blast radius, measured rather than feared: this card only.** `grep` across `meta/kanban/cards/` finds
+the id in many cards, but every other occurrence is a `## System contract` projection line or an AC/EC
+evidence reference — correct usage, since that is the rule's declared check id. The only place it is used
+as a **pytest selector** is this card's line 938.
+
+**Why it matters beyond the correction.** G-2 exists to keep CON-009 and CON-010 intact, and CON-010 is
+the cross-origin refusal — a security boundary. Two rounds of this card asserted that boundary was
+re-run and green on the strength of a selector that matched nothing, which is the vacuous-pass shape this
+very card was raised to remove, one level up: **not a claim without a control, but a control without an
+execution.** The board's own gate has a VACUOUS-GATE CHECK for exactly this (exit 0 with zero tests is
+"an empty room, not a pass"); a card's hand-written evidence selection has no such check. Filed to the
+backlog as its own shape.
+
+**CON-010 is now actually run.** The fix round's run of the corrected selection: **10 passed, exit 0**,
+and the post-fix full-suite gate executes all three functions by construction.
