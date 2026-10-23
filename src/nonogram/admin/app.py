@@ -2313,12 +2313,19 @@ def create_app(debug=None):
 
         except ValueError as e:
             flash(f"Filter error: {str(e)}", "error")
+            # Every dropdown the form offers, not just some of them: the owner
+            # corrects a rejected filter from this very page, so a control that
+            # renders empty here is a control they cannot use. `strategies` was
+            # missing and Jinja iterates a missing name as nothing rather than
+            # raising, so the Strategy dropdown silently lost its options on
+            # every filter error while the page stayed 200.
             return render_template(
                 "puzzles_list.html",
                 puzzles=[],
                 error=str(e),
                 books=books,
                 statuses=_PUZZLE_STATUSES,
+                strategies=STRATEGY_NAMES,
             )
 
     @app.route("/puzzle/<puzzle_id>/rename", methods=["POST"])

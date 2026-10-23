@@ -40,7 +40,16 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
                     <option value="">All</option>
                     <option value="unassigned" {% if request.args.get('book_id') == 'unassigned' %}selected{% endif %}>Unassigned</option>
                     {% for book in books %}
-                    <option value="{{ book.book_id }}" {% if request.args.get('book_id') == book.book_id|string %}selected{% endif %}>{{ book.title }}</option>
+                    {# A `Book` keeps its title in `metadata.title`; it has no
+                       `.title` of its own, and Jinja renders a missing
+                       attribute as "" rather than raising — so asking for
+                       `book.title` here listed every book under a blank label.
+                       Same spelling as every other template that shows a book
+                       (books_list, book_create, book_finalize, ...). The
+                       fallback to the id mirrors puzzle_edit.html: a row whose
+                       title never got written is still pickable instead of
+                       being an unnamed option nobody can choose. #}
+                    <option value="{{ book.book_id }}" {% if request.args.get('book_id') == book.book_id|string %}selected{% endif %}>{{ book.metadata.title or book.book_id }}</option>
                     {% endfor %}
                 </select>
             </div>
