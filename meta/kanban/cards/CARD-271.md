@@ -15,7 +15,7 @@
 **Wave:** 55
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py
-**Review score:** 6.0 (cycle 1, NOT CERTIFIED — fix round 1 dispatched)
+**Review score:** 6.0 (cycle 1, NOT CERTIFIED — fix round 1 complete at `c1f11264`, its pre-gate PASSED, review cycle 2 dispatched)
 **Started:** 2026-10-23T15:05Z
 **Closed:** —
 **Actual:** —
@@ -441,7 +441,7 @@ gate, in this worktree, by the dispatcher.
 
 | claim | re-derivation | verdict |
 | --- | --- | --- |
-| 7 files, the three card test files with 0 deleted lines (G-5) | `git diff --numstat` fork-point→HEAD: 58/0, 126/6, 11/1, 743/0, 33/1, 155/0, 182/0 | holds |
+| 7 files, the three card test files with 0 deleted lines | `git diff --numstat` fork-point→HEAD: 58/0, 126/6, 11/1, 743/0, 33/1, 155/0, 182/0 | holds |
 | three card files 130 passed, 0 skipped (from a 105/0 baseline) | 130 passed, 0 skipped, 77.5 s | holds |
 | G-1: `DOUBLE_MIN_CELL`, `BIG_SIDE`, the ladder's rung order, `isMirrored` untouched | the ONLY changed line naming any of the four is an added comment saying so; `layoutLadder`'s body (:736-745) carries no `+`/`-`; the ladder test's class body extracted by `ast` from **both** revisions is byte-identical, 43 lines | holds |
 | G-3 `solver_state.js` byte-identical | `git diff --stat` empty | holds |
@@ -679,3 +679,502 @@ while `keepCluesInView()` is a few `getBoundingClientRect()` reads and two
 `classList.toggle`s. Reaching the cheap one on every board's viewport change
 is the likely fix; reaching the expensive one would contradict a comment the
 round would then owe an argument against.
+
+## Worktree notes -- fix round 1 (2026-10-23)
+
+Cycle 1 scored 6.0, NOT CERTIFIED. All eight findings plus the pre-gate's
+PG-1 were worked. Two of them were answered with a measurement that disagrees
+with the report, and both are stated as disagreements rather than smoothed
+over.
+
+### F-001 CRITICAL -- fixed, and certified against the mechanism-free state
+
+**The fix.** `solver.js`: the two viewport listeners now reach a shared
+`viewportChanged()` -- `redraw()` when `isBig`, `keepCluesInView()` otherwise
+-- and the resize listener no longer returns early on a small board. The
+`isBig` gate stays on the REDRAW, exactly where its two comments
+(`solver.js:913-918`, `:933-937`) reason it belongs.
+
+**The measurement behind that choice, which the brief asked to be stated.** A
+redraw of every board on every resize is a board build for a decision that
+needs two class toggles, and the test that says so is a DRAW COUNT, not a
+duration (G-7): mutant D3 replaces the split with an unconditional `redraw()`
+and
+`tests/test_puzzle_solver_zoom.py::TestSolverZoom_SurvivesADoubledRedraw::test_a_board_too_small_to_double_is_not_redrawn_by_a_resize`
+reds at `zoom.py:908` with `assert 2 == 1`, while the two new F-001 tests stay
+green. So the two designs are distinguished by an existing pin, the comment is
+honoured rather than contradicted, and nothing in the card's "burst of resize
+events" bound moves.
+
+**The control AC-5 did not have**, added to
+`TestSolverClues_SmallBoardsUnaffectedByStickiness`:
+
+| test | what it pins |
+|------|--------------|
+| `test_a_resize_after_a_zoom_re_measures_the_room` | the stale STICK: 15 x 15, loaded 1920 x 1500, zoomed 200 %, dragged to 1024 x 768 |
+| `test_a_grown_window_re_measures_the_room_too` | the reverse: 1024 x 768 -> 1600 x 1200, where the rule says there IS room |
+
+Both compare against the same board, viewport and zoom reached by LOADING
+there, re-derive the decision from the page's own `cover`/`port` and
+`STICK_MAX_SHARE`, and assert the three inputs (`port`, `band`, `overflow`)
+match between the two routes, so the comparison is of one board and not of
+two. The first also counts cells whose own centre does not hit-test to
+themselves, scrolled to the bottom-right -- the trap the brief names: at
+scroll 0 a sticky box sits at its flow position and covers nothing.
+
+**Certification, which cannot be a deletion of something this round added:**
+checked `src/nonogram/admin/static/solver.js` out at the base commit
+`023157e3` (the mechanism-free state), left the new tests in place:
+
+```
+2 failed, 3 passed
+clues.py:2656  resized keeping [True, True] != verdict [False, False]
+               band [376.3, 270.4]  overflow [424, 518]  port [724, 540]
+               resized_hits {'visible': 140, 'blocked': 105}
+clues.py:2696  the grown direction: [False, False] != [True, True]
+```
+
+With the fix: 5 passed. 105 of 140 visible cells unable to take their own tap
+is the consequence, reproduced independently of both the reviewer's probe and
+the orchestrator's.
+
+### F-002 IMPORTANT -- fixed, and it found a second defect on the way in
+
+`_board()` now reads `_GEOMETRY` inside the unstuck window and asserts it
+equals the reading taken with the classes back, so the claim carries its own
+control instead of citing
+`test_sticking_changes_neither_the_band_nor_the_overflow` -- which asserts the
+band, the overflow and the port, three terms `_GEOMETRY` never reads.
+`_UNSTICK` deletes its `keptClasses` stash on the way out, and `_board`
+asserts the table carries no `data-kept-classes` afterwards, so the "no later
+assertion sees a page this file invented" half of the claim is checked too.
+
+**Demonstrated, not argued** (mutant I2'): a `transform: translateY(2px)` on
+the cells of a keeping board moves every cell relative to the table while
+leaving the band, the overflow and the port untouched. All SIX tests of
+`TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted` -- the cited
+control -- stay GREEN, and `fifth_rule.py:361` reds with "sticking moved the
+table's own geometry". That is F-002's gap, measured from both sides.
+
+**The second defect, which the new control exposed.** Adding a read inside the
+capture window made
+`test_leaving_a_filled_cell_at_the_boards_edge_the_first_pixel_is_the_hairline[phone]`
+fail in 2 runs of 3. Control run first, as the brief requires: the same
+five-file selection with THIS file at the base revision and the same fixed
+`solver.js` passed 3 of 3, so it was mine to explain, not CARD-277's. It is
+not a flake but a soundness hole, and the probe says why:
+
+```
+start viewport: [390, 844]  draws: 1
+after an element screenshot: [390, 844]  draws: 1  events: [['resize', 390, 844]]
+after 600 ms:               [390, 844]  draws: 2
+```
+
+**A Playwright element screenshot makes the page fire `resize`** -- the
+viewport never changes -- and `RESIZE_SETTLE` later CARD-212's debounced
+listener REDRAWS the board, replacing the whole table. So every capture in
+this file leaves a redraw landing a moment later, and the shipped `_board`
+read its geometry after that boundary: `png` could describe one table
+generation and `geometry` its replacement, silently. (The shipped helper met
+the same condition as `TypeError: Cannot read properties of undefined (reading
+'split')`, with nothing to say which table it had been handed.)
+
+Fixed by making the window provably one generation: `_quiet()` waits out the
+pending redraw before anything is read, and the draw count is compared across
+the window afterwards. Mutant D10 deletes the wait -- 1 of 2 runs of the
+five-file selection reds with `Locator.screenshot: Element is not attached to
+the DOM`, i.e. the redraw detaching the table mid-capture. With the wait: 5 of
+5 runs green. This is not a CARD-271 defect; it is an interaction between
+CARD-212's resize listener and this file's captures, and CARD-271 is simply
+where it became visible.
+
+### F-003 -- fixed, and no test can cover it, measured rather than claimed
+
+`solver.js:845` now answers `Infinity`, not `0`. `Infinity` is the largest
+value `affords` can be handed, so the only axis that still keeps with its band
+unmeasurable is one whose own overflow is already inside the share -- a band
+of any size could cover no more than that overflow anyway. A `0` answered the
+opposite: `Math.min(overflow, 0) <= port * 0.4` is always true, so an axis
+whose labelled gutter could not be found would STICK (ADR-0039/R2).
+`clues.py`'s `_ROOM` reimplements the expression and was moved with it.
+
+**No mutant certifies this and that is the finding, not a gap**: the review's
+own R2 deleted the guard outright and all 158 tests stayed green, because
+every board `drawBoard` produces marks one `is-stuck-row` and one
+`is-stuck-col` box. The branch is DEAD, not untested, so its direction is all
+there is to get right. Written into the code comment beside it.
+
+### F-004 -- fixed, one step past the suggestion
+
+The review suggested hoisting the stickiness precondition above the pan loop.
+That fixes the attribution but still aborts before `_board_snapshot` is
+compared, so CON-021-under-panning stays unverified on exactly the cycles when
+stickiness is broken -- the finding's own second cost. Instead the keeping is
+READ in the loop and JUDGED after the recording assertion. Mutant D9
+(`STICK_MAX_SHARE` 0.4 -> 0.01, the room condition made total) reds
+`zoom.py:1119` -- the precondition -- with `zoom.py:1116`, the snapshot
+comparison, evaluated and passed. Nothing the in-loop assertion covered is
+lost: the six readings (at the zoom and after each of the five pans) are all
+asserted.
+
+### F-005, F-007, PG-1 -- fixed in the form that cannot drift again
+
+* F-005: the ordinal is gone. The docstring names the rule it adds
+  (`.player-board.is-keeping-rows .is-stuck-row.is-right`) and leaves the
+  count to the equality one line below, which is mechanically present. Mutant
+  D6 (the rule deleted from admin.css) reds that equality at
+  `test_admin_design_tokens.py:439`.
+* F-007: `STICK_MAX_SHARE`'s derivation is split and named. Mutant D8
+  (`const STICK_MAX_SHARE = Infinity;`, outside the regex's domain) now gives
+  `AssertionError: solver.js no longer declares STICK_MAX_SHARE as a decimal`
+  in all three importing files, where it gave `AttributeError: 'NoneType'
+  object has no attribute 'group'`. Still three collection errors -- an
+  import-time derivation cannot avoid that -- but attributable.
+* PG-1: both "half the stage" comments now NAME `STICK_MAX_SHARE` instead of
+  quantifying it (`clues.py`, `zoom.py`), because both sit above an assertion
+  that re-derives the decision from the constant, so the figure was a stale
+  copy and never a second opinion. The number has one home, `solver.js`.
+  `RESIZE_SETTLE` gained the same treatment where this round needed it.
+
+### F-006 -- fixed behaviourally; the pixel half is MEASURED TO BE UNAVAILABLE
+
+The mirrored corner now carries two independent behavioural readings in
+`test_both_bands_are_in_view_at_every_corner`: geometry (`inside`,
+`dRight == 0`, `dTop == 0`) and the hit-test (`hit in GUTTER_PAINTS`). Both
+red on the review's R4 (`cornerBox`'s `row: mirrored` -> `row: false`), which
+took the kill count from 1 cell to 2 tests (`phone.py:860`, `phone.py:885`);
+and mutant D6b, which removes only the CORNER from the side-swap rule, reds
+`phone.py:863` -- the corner's own geometry reading -- proving it bites
+independently of the declaration equality.
+
+**Disagreement with the brief, measured.** The brief asks for "the same
+two-way control -- in `hit` and in pixels". A pixel control is not available
+here, and shipping one would have been the very shape F-002 is about. I wrote
+one, and mutant D5b (deleting `.player-corner { background: var(--color-bg) }`)
+left it GREEN while reddening the desktop sample. The reason, measured at
+600 x 844 with all 900 cells filled:
+
+```
+document.elementsFromPoint(corner centre)
+  scrollLeft 0   shift [-135.9, 0]  -> [the corner, TABLE, .player-stage, .main]
+  scrollLeft 136 shift [0, 0]       -> [the corner, TABLE, .player-stage, .main]
+```
+
+Nothing is ever behind this corner. It lives in the `<thead>`, above every
+cell, and the mirror puts the row band on the right, so the desktop claim
+("the crossing is a hole through which the cells show") has no counterpart on
+a mirrored board. The uncontrolled assertion was deleted and the measurement
+written beside the readings that do bite.
+
+### F-008 -- produced, and the review's reason for bounding it is wrong
+
+`tests/test_puzzle_editor_ui.py` gains
+`TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule`: a 30 x 30 edit page,
+asserting the editor's stage is the scroll container (`#puzzle-player`,
+`overflow-y: auto`), that solver.js marked the kept gutter of each axis, and
+that `keeping` equals the decision re-derived from the editor page's OWN
+measurements -- at load and again after a viewport change. Mutant D4 (the
+`keepCluesInView()` call deleted from `redraw()`) reds it at
+`editor_ui.py:3988`.
+
+**Disagreement, measured.** F-008 bounds its own risk with "the editor ships
+no zoom control, so F-001's zoom-then-resize path cannot reach it". It does
+ship one: `puzzle_edit.html:146-150` is a `.player-zoom` group with
+`[data-player-zoom-action="out"]`, `[data-player-zoom-readout]` and
+`[data-player-zoom-action="in"]`, forty-odd lines above the
+`.player-stage#puzzle-player` the finding quotes. Pinned by
+`test_the_editor_ships_the_zoom_control`. So F-001 reached the editor too, and
+the editor is covered by the same fix rather than exempt from the defect.
+
+### Mutants: every mechanism DELETED, with the cells
+
+| # | mechanism DELETED | outcome |
+|---|-------------------|---------|
+| D1 | **the F-001 fix itself**, by checking `solver.js` out at base `023157e3` -- the mechanism-free state, since an added call site cannot be certified by deleting what was added | KILLED. 2 failed, 3 passed. `clues.py:2656` keeping [True,True] vs verdict [False,False], 105 of 140 cells blocked; `clues.py:2696` the grown direction |
+| D2 | the added `else keepCluesInView();` branch | KILLED. 2 failed, 3 passed, same two cells |
+| D3 | the branch SPLIT -- `viewportChanged` made an unconditional `redraw()` | KILLED. `zoom.py:908 assert 2 == 1`, the small board's draw-count pin. 1 failed, 11 passed |
+| D4 | the `keepCluesInView()` call in `redraw()` | KILLED. 7 failed: `editor_ui.py:3988` (F-008), `clues.py:3103` x5, `clues.py:3126` |
+| D5 | `cornerBox`'s `row: mirrored` (the mirrored crossing) | KILLED. 2 failed: `phone.py:860` (behavioural, NEW this round), `phone.py:885` (declaration) -- was 1 cell before |
+| D6 | the mirrored side-swap rule, whole | KILLED. 3 failed: `phone.py:817`, `phone.py:885`, `test_admin_design_tokens.py:439` (F-005's mechanical count) |
+| D6b | the CORNER's share of that rule only (`.is-stuck-row.is-right` -> `th.is-stuck-row.is-right`) | KILLED. `phone.py:863` -- the corner's own geometry reading, NEW this round |
+| D7 | `_UNSTICK`'s `delete table.dataset.keptClasses` | KILLED. 11 failed, `fifth_rule.py:367` "_UNSTICK left data-kept-classes on the table" |
+| D8 | `STICK_MAX_SHARE`'s value put outside the regex's domain (`Infinity`) | KILLED, and NAMED: `AssertionError: solver.js no longer declares STICK_MAX_SHARE as a decimal` x3, where it was `AttributeError: 'NoneType'` |
+| D9 | the room condition made total (0.4 -> 0.01) | KILLED at `zoom.py:1119`, the precondition, WITH `zoom.py:1116` (the CON-021 snapshot) evaluated and green -- F-004's whole point |
+| D10 | `_quiet()`'s settle before a capture | KILLED, 1 of 2 runs of the five-file selection: `Locator.screenshot: Element is not attached to the DOM`. Intermittent by nature and reported as such |
+| E1 | **edge**, 0.4 -> 0.5 (just over the board-eating cases) | KILLED. `TestSolverZoom_OneFingerDragIsUnchangedByZoom::test_a_region_touch_drag_at_200_percent_marks_exactly_five_cells`. 1 failed, 13 passed |
+| E2 | **edge**, 0.4 -> 0.36 (just under the must-fix cases) | KILLED. `clues.py` room table [1280x600] + `test_sticking_changes_neither_the_band_nor_the_overflow`. 2 failed, 12 passed |
+| I2' | **injection**, not a deletion: cells moved relative to the table (`transform: translateY(2px)`) while band/overflow/port stay put. The subject -- layout-neutrality -- is a property of `position: sticky` and cannot be deleted | KILLED at `fifth_rule.py:361`, with all SIX cells of the CITED control green. F-002 demonstrated |
+| D5b | `.player-corner`'s background, on the MIRRORED board | **SURVIVED**, and that is the measurement behind F-006's disagreement above, not a gap left open. The desktop sample reds (`clues.py:2771`, reads --grid-ink); nothing is ever behind the mirrored corner |
+
+14 directions applied, 13 killed, 1 survived-and-explained. Both source files
+sha256-verified against the shipped tree after every mutant
+(`solver.js 77cc6c4c...`, `admin.css 04d40cc5...`); every anchor pre-counted
+to exactly one occurrence before any edit, and the one that counted 0 was
+REFUSED by the harness rather than silently applied. Every row reports cells,
+never an exit code: D8 exits 2 with no tests collected and is still a kill
+because the three named errors say what broke.
+
+### Runs -- predicted first, reconciled after
+
+Predicted delta before running: **+2 in `clues.py`** (the two F-001 controls),
+**+2 in `editor_ui.py`** (F-008's two), **+0 net in `phone.py`** (one test
+added, then deleted when D5b measured it uncontrollable), **+0** in
+`zoom.py`, `fifth_rule.py`, `admin_design_tokens.py` -- all three were edits
+to existing tests.
+
+| selection | at `023157e3` | now | delta |
+|-----------|---------------|-----|-------|
+| the three card files | 130 passed, 0 skipped | **132 passed, 0 skipped, EXIT=0** | +2, the two clues tests |
+| those three + design_tokens + fifth_rule | 158 passed, 0 skipped, exit 0 | **160 passed, 0 skipped, EXIT=0** | +2, same two |
+| the 16 selector-naming files + marking | 687 passed, 4 skipped, exit 0 | **691 passed, 4 skipped, EXIT=0** | +4, those two plus editor_ui's two |
+
+Reconciled exactly. The 4 skips are the same four, all
+`tests/conftest.py:207 Database not reachable: DATABASE_URL is not set` from
+`tests/test_puzzle_edit_routes.py:375`; **zero skips in a browser file**. The
+five-file selection was run 5 times after the `_quiet` fix (3 consecutive plus
+2) and is green every time; before it, 2 of 3 red.
+
+`-q` never passed (`pyproject.toml:89` sets it), no `-k` anywhere, every
+selection by explicit path or node id.
+
+### Guardrails re-derived at the end of the round
+
+* **G-1**: `git diff 023157e3 -- solver.js` contains no `+`/`-` line naming
+  `DOUBLE_MIN_CELL`, `BIG_SIDE`, `layoutLadder` or `isMirrored`. Untouched.
+* **G-3**: `git diff ec42e6ea -- solver_state.js` is empty.
+* **G-5**: against the fork point the three card test files are **967/0,
+  194/0, 214/0 -- still zero deleted lines**. Every line this round replaced
+  was a line this card itself added, so the fork-point diff records no
+  deletion. Against the base commit the three show 4, 0 and 6 deletions, all
+  of them rewrites of this card's own prose or expressions, enumerated:
+  `clues.py` the `STICK_MAX_SHARE` derivation (3) and the "half the stage"
+  comment (1); `zoom.py` the `test_each_axis...` docstring (4), the
+  `..._record_and_save_nothing` docstring tail (1) and the in-loop keeping
+  assertion that F-004 moved (1). Outside the three: `fifth_rule.py` 3
+  fork-point deletions (`_board`'s one-line docstring, its two body lines) and
+  `test_admin_design_tokens.py` 1 (the `allowed` set, from the implementation
+  round).
+* **G-7**: no duration is measured or asserted anywhere this round. The two
+  settle waits (`_settled`, `_quiet`) are derived from `RESIZE_SETTLE` and
+  wait OUT a debounce; the performance claim behind the F-001 design is
+  carried by a DRAW COUNT (D3), not by a timing.
+* **ADR-0036/R4**: no added line under `src/nonogram/**` carries
+  U+25A0..U+25FF, U+2022 or U+2219.
+* **ADR-0038/R1**: no added line under `src/` matches
+  `import |require\(|<script src="http`; `pyproject.toml` untouched.
+* **G-2**: no hex added to `admin.css` -- in fact `admin.css` is byte-identical
+  to the implementation round's (`04d40cc5...`); this round changed no CSS.
+* **ADR-0038/R4**: the room decision stayed a DOM measurement in `solver.js`.
+
+### G-6, as amended
+
+**No re-render is owed.** All five handed renders are load-and-zoom states at
+a fixed viewport, and nothing this round changes what a freshly loaded board
+decides: `keepCluesInView`'s terms are untouched, the only changed branch is
+the dead missing-box fallback, and the room table + the zoom ladder (which
+assert exactly those five configurations) are green unchanged.
+
+One render is ADDED, for the configuration the fix does change:
+`~/Documents/nonogram-reviews/CARD-271/06-resize-after-zoom-re-measured.png`
+-- a 15 x 15 loaded at 1920 x 1500, zoomed to 200 %, dragged to 1024 x 768,
+scrolled to the bottom-right. `keeping [False, False]`, which is what that
+viewport's own terms give, and `{'visible': 140, 'blocked': 0}`: every visible
+cell takes its own tap. Before the fix the same page showed `keeping [True,
+True]` and 105 of those 140 cells blocked.
+
+### Two things handed on rather than fixed here
+
+1. **A Playwright element screenshot makes the page fire `resize`**, and
+   CARD-212's debounced listener redraws the board a moment later. Every file
+   that element-screenshots a player board is exposed to reading two board
+   generations as one; `tests/test_puzzle_solver_fifth_rule.py` is fixed here,
+   but the interaction belongs to the board, not to this card. Worth a card.
+2. **F-008's premise was wrong about the editor's toolbar** and the editor is
+   a second surface for every solver.js rendering decision. One test is
+   produced here, as the brief asked; a systematic editor pass over the
+   gutters is not this card's.
+
+### [PG-3, fix round 1 pre-gate] The editor clause could not fail -- corrected
+
+The pre-gate is right and the finding is the one this round exists to close,
+re-created inside the test that closed it. Measured here independently:
+`TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule` run in full with
+`solver.js` at base `023157e3` -- F-001 present -- was **2 passed, EXIT=0**.
+`isBig` is `payload.width > BIG_SIDE || payload.height > BIG_SIDE` with
+`BIG_SIDE = 15`, so the clause's `_unique_grid(30, 30)` is big on both sides
+and its resize always reached `redraw()`. The one branch F-001 was in is the
+one a 30 x 30 cannot take. ADR-0039/R1, in the same shape as F-002.
+
+**Remedy 1 taken, because the configuration DOES exist on the editor page.**
+Measured before rewriting anything, and measured from inside `tests/` --
+which matters, see the instrument note below. A 15 x 15 on the EDITOR page:
+
+| zoom | 1920 x 1500 | 1024 x 768 | decides differently |
+|------|-------------|------------|---------------------|
+| 100 % | `[True, True]`, overflow `[0, 0]` | `[True, True]`, overflow `[0, 0]` | no |
+| 150 % | `[True, True]`, overflow `[0, 0]` | `[True, False]`, band `[270.4, 231.2]`, port `[724, 540]` | yes |
+| **200 %** | `[True, True]`, band `[409.5, 350.2]`, overflow `[0, 0]` | `[False, False]`, band `[359.4, 307.3]`, cover `[359.4, 307.3]`, port `[724, 540]` | **yes, on both axes** |
+
+200 % is taken: the widest contrast, and the same recipe the clues.py cases
+use. The clause moved out into
+`test_a_resize_after_a_zoom_re_measures_the_editors_room` -- 15 x 15, zoomed
+200 %, 1920 x 1500 -> 1024 x 768, with the same-viewport LOADED control and
+the three input-identity assertions, exactly as the player's cases.
+
+**Certified the way the brief asks:** `git checkout 023157e3 --
+src/nonogram/admin/static/solver.js`, whole class run ->
+
+```
+1 failed, 2 passed, EXIT=1
+editor_ui.py:4056  resized["keeping"] != verdict(resized)
+                   at_load [True, True]  band [409.5, 350.2]  overflow [0, 0]
+                   loaded  [False, False] band [359.4, 307.3] overflow [372, 519]
+```
+
+restored from a copy taken before the checkout, `sha256
+77cc6c4c3bf12d850b709633edf6eb5c92bdd763c54c7b2d44bbfce258b20a90` verified.
+With the fix: 3 passed. **The rest of F-008 was not re-opened** -- the marker
+census and the load-time room equality are unchanged on the 30 x 30, and the
+pre-gate's own mutant kills the latter.
+
+**An instrument note, because it nearly cost this measurement.** My first two
+probes of this lived in the scratchpad, outside `tests/`, and reported the
+EDITOR's and the PLAYER's 15 x 15 alike as having **no `is-stuck-*` markers at
+all** (`band [inf, inf]`, `keeping [False, False]`) -- which would have said
+remedy 1 was impossible and sent me to remedy 2, deleting a clause that can in
+fact be made to bite. The same board read from a file inside `tests/` has the
+markers. The tell was in the run's own output: `PytestUnknownMarkWarning:
+Unknown pytest.mark.browser`, i.e. the suite's configuration was not being
+applied to that file. **A probe outside `tests/` is not this suite's
+instrument.** Every number in this block was taken from a file inside
+`tests/`, run once and deleted.
+
+### Records correction -- G-5
+
+The Runs block above reports G-5 as deleted-line counts in the three card test
+files. That is the wrong subject. **G-5 is "The redraw path keeps its
+draw-count pins: the ladder tests that count draws by draw marks run unedited
+(AC-4)."** On its real subject it HOLDS, re-derived: no changed line of
+`tests/test_puzzle_solver_zoom.py` lies in the body of a draw-counting test,
+and both pins -- `..._a_burst_of_resize_events_redraws_once` and
+`..._a_board_too_small_to_double_is_not_redrawn_by_a_resize` -- carry no `+`
+or `-` line at all. That the second of them is also what separates this
+round's two candidate designs for F-001 (mutant D3) is the guardrail doing
+its job, not a conflict with it.
+
+The deleted-line counts are still true and still worth keeping -- they are the
+record for the three card files' no-deletion discipline (967/0, 194/0, 214/0
+against the fork point) -- but they are not G-5, and a guardrail restated
+wrong on the permanent record is how the next card re-learns it.
+
+## [FIX ROUND 1 PRE-GATE 2026-10-23, orchestrator] PASSED — one gating finding of the gate's own, corrected before the cycle
+
+Fix round 1 is `29e019a7` + the correction `c1f11264`, on base `023157e3`.
+Nothing below is read off the round's report; every row was measured here.
+
+### Reconciled against the round's claims
+
+| claim | re-derivation | verdict |
+| --- | --- | --- |
+| 7 files, 569/32 against base (before the correction) | `git diff --numstat 023157e3..29e019a7`: 54/5, 12/7, 92/0, 228/4, 106/10, 39/0, 38/6 = 569/32 | holds |
+| `solver.js` sha256 `77cc6c4c…`, `admin.css` untouched this round | `77cc6c4c3bf12d850b709633edf6eb5c92bdd763c54c7b2d44bbfce258b20a90`, verified again after every mutant of mine | holds |
+| three card files 132, + design_tokens + fifth_rule 160 | `--collect-only`: **132** and **160** | holds |
+| 16 selector-naming + marking | **691 passed, 4 skipped, EXIT=0, 376.7 s** at `29e019a7` (695 collected); **696 collected** after the correction | holds |
+| the `+4` | attributable BY NAME: the base→`29e019a7` test diff adds exactly four `def test_` lines (two in `clues.py`, two in `editor_ui.py`), removes none, touches no `@pytest.mark.parametrize`; so `phone.py` and `zoom.py` are +0, including the phone case the round deleted after its own D5b | holds |
+| the 4 skips | `tests/conftest.py:207 Database not reachable: DATABASE_URL is not set`, all four in `test_puzzle_edit_routes.py` (`73 passed, 4 skipped` run alone with `-rs`), **zero in a browser file** | holds |
+| G-1 | no `+`/`-` line of the `solver.js` diff names `DOUBLE_MIN_CELL`, `BIG_SIDE`, `layoutLadder` or `isMirrored` | holds |
+| G-3 | `solver_state.js` byte-identical to the fork point | holds |
+| G-5, on its real subject | no changed line of `zoom.py` lies in a draw-counting test body; both pins carry no `+`/`-` at all | holds |
+| G-7 | no added line names `perf_counter`/`time`/`timeit`/`elapsed`/`duration` | holds |
+| ADR-0036/R4 | 54 added `src/nonogram/**` lines, none carrying U+25A0..U+25FF, U+2022, U+2219 | holds |
+| G-6 | six renders in `~/Documents/nonogram-reviews/CARD-271/`; `06-resize-after-zoom-re-measured.png` is the configuration the fix changes | holds |
+| F-008's premise | `puzzle_edit.html:146-149` **is** a `.player-zoom` group with both `data-player-zoom-action`s and the readout — the round is right and review cycle 1 was wrong | the round's disagreement (b) stands |
+| the cycle-1 YAML's eight findings marked fixed | `diff` of the two copies is exactly 8 × `status: open` → `fixed` and nothing else | holds |
+| card notes appended, not edited in place | worktree card `509/0` then `71/11` confined to `editor_ui.py` | append-only |
+
+### F-001 — certified by the instrument written before the fix existed
+
+My cycle-1 probe, unchanged, against the fixed tree — 15 x 15 loaded at
+1920 x 1500, zoomed to 200 %, dragged to 1024 x 768, settled, scrolled to the
+corner:
+
+```
+at_load   keeping=[True,True]   verdict=[True,True]   cover=[0,0]         port=[1620,1150]
+stale     keeping=[False,False] verdict=[False,False] cover=[376.3,270.4] port=[724,540]
+fresh     keeping=[False,False] verdict=[False,False] cover=[376.3,270.4] port=[724,540]
+healed    keeping=[False,False] verdict=[False,False] cover=[376.3,270.4] port=[724,540]
+stale_hits {'visible': 140, 'blocked': 0}        (was 141 visible / 105 blocked)
+```
+
+It fails now, at exactly the assertion that STATES the defect, with its
+comparability and mechanism-where-reached assertions still passing; against
+base `solver.js` the same probe passes. A control that fails in both
+directions (ADR-0039/R1).
+
+Three mutants of the gate's own, line-count preserving, sha256 restored after
+each: **M1** base `solver.js` → the two new AC-5 cases red (2 failed, 4
+passed, my probe among the greens), so the added call site is certified
+against the mechanism-free state and not by deleting what the round added;
+**M2** `keepCluesInView();` deleted from `redraw()` (1620 → 1620 lines) → the
+new editor control reds at its first assertion; **M4** below.
+
+### PG-3 (the gate's own, GATING) — and its correction
+
+**M3**: the whole new editor class run against `solver.js` at base
+`023157e3`, i.e. with F-001 present → **2 passed, EXIT=0**. The round wrote
+that F-001 reached the editor too and added a clause for it ("after a viewport
+change too, F-001's path"), but its board was `_unique_grid(30, 30)` and
+`isBig` is `width > BIG_SIDE || height > BIG_SIDE` with `BIG_SIDE = 15`, so a
+30 x 30 is big on both sides and its resize always reached `redraw()` — the
+one branch the defect never entered. F-002's own family, a claim whose control
+cannot fail, re-created inside the test added to close a finding about a claim
+whose control could not fail. Handed back rather than carried into the cycle:
+a review cycle is for what the gate cannot measure, and this one was measured.
+
+The round took remedy 1 after measuring that the configuration exists — a
+15 x 15 on the editor page decides `[True,True]` at 1920 x 1500 and
+`[False,False]` at 1024 x 768 **at 200 % zoom**, alike at 100 %, so the zoom
+is load-bearing and an unzoomed clause would have been vacuous for a second
+reason. **M4**, mine, closes it: the corrected class against base `solver.js`
+is **1 failed, 2 passed, EXIT=1**, red at `editor_ui.py:4056`
+(`resized["keeping"] == _verdict(resized)` → `[True,True] == [False,False]`)
+with the two pre-existing readings green, so the kill is attributable to the
+clause and not to the file. With the fix, 3 passed. Counts reconciled: one
+`def test_` added, `editor_ui.py` **117 collected**, the 17-file selection
+**696 collected** = my 695 + 1.
+
+### Two instrument defects, both the gate's to record
+
+**Mine.** The first run of the 17-file selection reported `EXIT=4`, "no tests
+ran in 0.00s" and `ERROR: file or directory not found:` followed by all
+seventeen paths as ONE argument. Cause: zsh does not word-split an unquoted
+parameter expansion, so `FILES=$(… | tr '\n' ' ')` then `pytest $FILES` hands
+pytest a single path. Re-run with an array and a printed `count=17`. The
+fourth shape of today's lesson and the cheapest: a run that measures nothing
+announces itself only in its exit code.
+
+**`git checkout <rev> -- <path>` STAGES the path.** Both the round and this
+gate hit it while certifying against base: the working tree reads right and
+the index holds the base file (`MM`), so a later commit without explicit
+pathspecs would have shipped the reverted `solver.js`. Caught both times by
+reading `git status`. The gate's remaining certifications used
+`git show <rev>:<path> > <path>`, which touches no index at all — that is the
+form to use, and it is now on the record beside the board's standing
+explicit-pathspec rule.
+
+**One of the round's own, and it is the day's lesson again.** Its first two
+PG-3 probes lived in the scratchpad, outside `tests/`, and reported the
+editor's and the player's 15 x 15 alike as carrying no `is-stuck-*` markers at
+all — which would have said remedy 1 was impossible and sent it to delete a
+clause that can in fact be made to bite. The tell was in the run's own output:
+`PytestUnknownMarkWarning: Unknown pytest.mark.browser`, i.e. the suite's
+configuration was not reaching the file. Every figure it then used was taken
+in-tree. Instrument first, verdict second — the fifth shape today, and the
+first one where the instrument's own warning line was the thing that caught
+it.
+
+### Housekeeping
+
+`tests/test_card271_orch_f001.py`, my cycle-1 probe, was untracked in the
+worktree and would have been collected by a bare full-suite run at the merge
+gate. Removed from the worktree; it lives in the session scratchpad.

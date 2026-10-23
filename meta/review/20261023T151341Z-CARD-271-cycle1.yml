@@ -166,7 +166,7 @@ findings:
     source: static
     violates: AC-5
     root_cause: RC-1
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -246,7 +246,7 @@ findings:
     source: static
     violates: ADR-0039/R1
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -289,7 +289,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -337,7 +337,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -382,7 +382,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern:
@@ -430,7 +430,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -480,7 +480,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -511,7 +511,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern:
