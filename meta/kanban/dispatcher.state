@@ -29,8 +29,18 @@ max_concurrent_override: 2
 # the first rebase which carried a seven-region semantic conflict and was escalated.
 # Escalation CLOSED 2026-10-23: owner chose option 1 (fix S-1..S-4, then certify with a
 # re-entry cycle 4). Card back to `review` and back in the slot.
-# CARD-264 MERGED 066ddc1f 2026-10-23, worktree removed. No card in flight.
-active: []
+# CARD-264 MERGED 066ddc1f 2026-10-23, worktree removed.
+# 2026-10-23, owner's "run CARD-271": wave 55 opens with the owner's bugs-first order. 1 active against
+# a cap of 2; the second slot stays empty because solver.js/admin.css are this card's for the duration
+# and the three cards queued behind it (CARD-267, CARD-269, CARD-268) all touch them.
+active:
+  - id: CARD-271
+    phase: implementation
+    at: 2026-10-23
+    worktree: ../PythonProject4-card-271
+    branch: card/271-clues-stay-in-view
+    prerequisites: "MEASURED before dispatch, both of which could have made the card unverifiable. (1) All six ACs are browser tests and ADR-0038/R8 makes them skip LOUDLY: playwright imports, five Chromium builds present, and the three named test files run 105 passed / 0 SKIPPED. Any skip in them during this card is a signal, not normal. (2) impact_set.py over the card's six Touches returns a REAL 26-file selection, not FULL -- so the inner loop costs ~2 min of tests and the full suite runs ONCE, at the merge gate. CARD-264's six full gates in one day came from the opposite answer."
+    scope_note: "UI card (## Design context present), so visual capture applies and G-6 requires the owner sees the render before merge: big board at desktop, 390px phone, 300% zoom, written to ~/Documents/nonogram-reviews/CARD-271."
 done_this_wave:
   - id: CARD-264
     phase: done

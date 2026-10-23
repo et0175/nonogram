@@ -1,6 +1,6 @@
 # CARD-271: Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** ops
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/271-clues-stay-in-view
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-271
 **Source:** quick — owner bug report 2026-10-22: "clues sometimes are missed at the bottom and at the left for big puzzles"; no handoff increment
 **Idea:** —
-**Wave:** —
+**Wave:** 55
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-23T15:05Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -208,3 +208,22 @@ none exists yet; report them as written, never as passing before they exist:
   `tokens.css`); the dispatcher serializes same-wave overlaps. If CARD-267
   merges first, AC-6's "renders cleanly" check includes the crosshair tint on
   a sticky gutter.
+
+## [Dispatch note 2026-10-23] Two prerequisites measured before the brief, because both could have made this card unverifiable
+
+**1. Every one of AC-1..AC-6 is a browser test, and ADR-0038/R8 says they fail or skip *loudly*.** If
+Chromium were absent they would all **skip green** and the card would "pass" having verified nothing —
+the green-with-skips shape this board has already carded (a skipped run reports the same collected count
+and the same exit 0 as a verified one; only the **passed** count separates them). Measured before
+dispatch: `playwright` imports, five Chromium builds are in `~/Library/Caches/ms-playwright/`, and the
+card's three test files run **105 passed, 0 skipped**. So this card's evidence is real, and **any skip in
+those files during this card is a signal, not normal**.
+
+**2. The inner loop does not need the full suite.** `scripts/impact_set.py` over this card's six
+`Touches` returns a real **26-file selection**, not `FULL` — unlike CARD-264, whose `CLAUDE.md` tripped
+the fail-closed branch and forced six full gates in one day. The selection is pinned in the brief, so the
+per-round cost is ~2 minutes of tests instead of ~24, and the full suite runs **once**, at the merge gate.
+
+**Conflict note for the dispatcher, not an action for this card.** `src/nonogram/admin/static/solver.js`
+and `admin.css` are the board's busiest hotspot: CARD-280 (solved reveal), CARD-267 and CARD-277 all land
+there. This card holds them for its duration; the other three must not run concurrently with it.
