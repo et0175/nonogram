@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → **7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner decision pending**
+**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → **7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner: fix both + narrow re-entry review**
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -3286,3 +3286,59 @@ stands at **5 of the 6** that signal structural non-convergence.
 
 **Escalated to the owner.** Both fixes are small and local. The reviewer's own condition on a sixth round:
 its matrix **must** include an add-a-line mutant and a co-edited-drop mutant, or it reproduces this cycle.
+
+## [Owner decision 2026-10-23, cycle 5] Fix both, then a review scoped to the two fixes — and the brief carries what the last one did not
+
+Options put to the owner were: (1) fix both then a **narrow** re-entry review of only those two fixes;
+(2) fix both and merge on the gate with the last edit recorded as reviewer-uncertified, which this board's
+own rule permits; (3) fix both plus a **full** cycle 6; (4) merge as-is and route both findings to a new
+card. **The owner chose (1).** Either way the aggregate round counter reaches **6 of 6**; what (1) buys
+over (2) is that the last edit is seen by a reviewer, on the one card where four consecutive rounds each
+introduced a defect — and what it saves over (3) is re-reviewing content cycle 5 already re-derived
+independently and found sound.
+
+### F-001 — the fix is the second of the reviewer's two options, because the first only hides it
+
+The reviewer offered *"narrow clause 2 to the four constructed directions, **or** add the two missing cases
+and replace `assert keyed >= 45` with an equality"*. Narrowing would make the claim true and leave the
+`:3157` mechanism with **no failing control** and the entry still free to shrink back to the round-3
+wording. So:
+
+1. **Add the two missing cases.** An **add-a-line** case — an unkeyed continuation line appended to the
+   fabricated entry, which the deployed verdict must name — and a **co-edited-drop** case — a declaration
+   line removed *together with its key phrase*, the realistic edit that is silent today.
+2. **Replace the floor pin with an equality.** `assert keyed >= 45` reads 56 against a measured 57: eleven
+   lines of slack, and the slack is what lets the drop pass. The equality is **5 tables / 12 entries / 57
+   source lines**, re-derived through the deployed enumerator and not copied from this sentence.
+3. **The control that proves it:** with `:3157` (`if span != len(element_keys):`) disabled, the new cases
+   must **red**. That is the delete-the-mechanism mutant cycle 5 ran as `M2-SPAN-EQ-DROP` and found
+   surviving at 167/167 green.
+
+### F-002 — recompute, and name the door
+
+"The complete enumeration" says **nine/four/11**; the tree holds **ten/five/twelve**, which the card's own
+table three lines below already states (3+3+2+1+3 = 12 entries, 18+16+5+9+9 = 57 lines). Re-derive every
+figure in that section **through the deployed enumerator** against the final tree, and say which door it
+came through. The cause is on the record: 9/4/11 is the tree before m-A added
+`MEASURED_UNENFORCED_PHRASE_MISSES` **in the same round**, so the headline predates the round's own last
+edit. The round must also restate what its **216-variant sweep does not cover** — none of its four
+mutations changes an entry's line count, which is exactly the blind spot F-001 lives in, and the cycle-5
+reviewer's own 197-variant replication inherited it.
+
+### What the fix-4 brief omitted, stated here as the round's first instruction
+
+**A fix mutates by DELETING each mechanism its claims name.** A mutant that only breaks what the fix
+*added* certifies the addition and says nothing about whether the mechanism is load-bearing. Fix 4 ran
+nine mutants: eight mutate declaration text or a comment figure, the ninth reverts a behaviour change, and
+**none deletes a mechanism**. The rule is a standing one on this board and `grep` confirms the fix-4 brief
+did not restate it — it was restated to the cycle-5 reviewer instead, which is why the reviewer found
+F-001 and the round did not. **This round's matrix must include an add-a-line mutant and a co-edited-drop
+mutant**, which is also the cycle-5 reviewer's own stated condition on any further round.
+
+### And the class, not the instance
+
+Clause 2 is one claim that enumerates directions. **Enumerate every claim in this card's diff that says a
+control "reds", "survives" or that some list of directions "all red", and require a constructed case per
+direction or narrow the claim to what is constructed.** Cycle 5 named one sibling in passing — the census
+comment's *"Dropping `.md` or `.py` reds, dropping `.yml` survives"* — and a brief that names a sibling
+gets that sibling checked while a brief that names the class gets every arm checked.
