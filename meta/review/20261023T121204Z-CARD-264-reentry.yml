@@ -1,0 +1,352 @@
+version: 1
+generated_at: "2026-10-23T12:12:04Z"
+target: "CARD-264 narrow re-entry review of fix round 5: git diff 8727e519..6c29d282 on card/264-claude-md-outside-the-map at 6c29d282 (tests/test_guard_integrity.py, tests/test_web_server.py) plus the round's own notes"
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+mode: "narrow re-entry (confirmation): the delta plus question 5. The rest of the card is carried from cycle 5's independent re-derivation per the owner's route."
+
+coverage:
+  read:
+    - "tests/test_guard_integrity.py (the contract block 2935-2995, _MEASURED_TABLE_LINE_KEYS, _MEASURED_TABLES_KEYED_ELSEWHERE, _declaration_census, _unkeyed_declaration_lines, the _PATH_SUFFIXES census comment and its test, TestTheDeclaredMissTables in full)"
+    - "tests/test_web_server.py (the '#:' block over MEASURED_AST_SWEEP_MISSES)"
+    - "meta/kanban/cards/CARD-264.md (header, AC-1..AC-7, Guardrails, System contract, Worktree notes -- fix round 5)"
+    - "tests/kill_matrix.py (module contract, Edit/Mutant/Runner/Matrix API)"
+    - "tests/full_suite_lock.py (LOCK_PATH_VAR only)"
+  not_reached:
+    - "the rest of the card's territory certified by cycle 5 (the five exemption reasons, _classify's default-deny, m-1, m-B, m-4, AC-1..AC-6) -- out of scope by the brief"
+    - "CLAUDE.md beyond confirming the delta does not touch it"
+    - "tests/test_cli.py (CARD-265), the check_deadline census (CARD-266), _blind_propagation (CARD-278)"
+    - "the full suite (never run, by the brief; it passed at 6c29d282 per the orchestrator)"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 222, removed: 30 }
+  tests_cover_change: true
+  ast_enumeration:
+    test_guard_integrity_test_methods: "66 -> 66 (one renamed: ..._reds_on_a_gutted_or_inverted_line -> ..._reds_on_every_direction_it_declares; none added, none removed)"
+    test_guard_integrity_assert_nodes: "210 -> 214"
+    test_web_server_test_methods: "110 -> 110"
+    test_web_server_assert_nodes: "256 -> 256 (comment-only edit; G-2 holds structurally)"
+  selections:
+    - "tests/test_guard_integrity.py + tests/test_web_server.py, SHIPPED: 333 collected, 333 passed, exit 0 (167 + 166)"
+    - "the three TestTheDeclaredMissTables node ids, explicit, SHIPPED: 3 collected, 3 passed, exit 0"
+    - "the retired node id test_the_line_keying_control_reds_on_a_gutted_or_inverted_line: 'no match in any of [<Class TestTheDeclaredMissTables>]', exit 4 -- it does not silently pass"
+    - "kill_matrix SHIPPED, recording pass, selection tests/test_guard_integrity.py: exit 0, 0 FAIL of 214 reached, 167 collected tests (trap (b): the exit code was read, not only the cells)"
+  excluded_from_every_measurement_selection:
+    - "tests/test_web_server.py::TestWebGuards_EveryStructuralLoopAssertsNonEmpty -- kill_matrix cannot measure it, so tests/test_web_server.py was in no instrument selection here. Stated rather than left to be inferred."
+  unmeasured:
+    max_fan_in: "not_applicable -- the delta exports no symbol; _declaration_census is module-private to one test file and has three call sites, all inside it (:4807, :4973, :4974)"
+    cochange_missing: "not_applicable -- the delta's two files are the card's own territory and the co-change peer (meta/kanban/cards/CARD-264.md) is present as a working-tree modification"
+    hotspots: "not_applicable -- narrow re-entry; churn/defect-density on these two files is this card's own five rounds and carries no independent signal"
+
+system_contract:
+  rules_checked: 5
+  holds: 5
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0039/R1 (a claim needs a control that can fail) ✓ holds -- fresh, re-derived by measurement: all seven directions the contract clause names are killed by a mutant that DELETES the mechanism they rest on, each at that direction's own assertion (span equality -> added @:4954 and dropped @:4955; per-line comparison -> gutted @:4954; line binding -> moved @:4954; per-entry iteration -> inverted @:4954; entry-count arm -> extra_entry @:4954; assigned-nowhere arm -> renamed @:4955). Census equality reds in BOTH tree directions: a planted sixth keyed table gives (6, 13, 58) and a dropped keyed table (4, 10, 52), both failing at :4807. Six-mutant recording-pass matrix, SHIPPED exit 0 / 0 FAIL of 214."
+    - "ADR-0039/R2 (a guard's set is derived from an authority the runtime can enumerate) ✓ holds -- fresh: _declaration_census counts over _MEASURED_TABLE_LINE_KEYS, the single authority, and the completeness arm's `found == keyed | exempt` still enumerates MEASURED_* names from both sources with ast. No second copy of any figure was added to tests/test_web_server.py -- the local figures there were removed, not updated (G-3). Verified: dropping a keyed table reds both the census (4, 10, 52) and the completeness arm, naming MEASURED_TIMEOUT_CLAIM_MISSES."
+    - "ADR-0039/R3 (an exemption is a claim and carries a control for what it must NOT absorb) ✓ holds -- fresh: the one declared blind spot (a declaration line dropped together with its key phrase) is honest. Planted on the real MEASURED_TIMEOUT_CLAIM_MISSES[1], it leaves `assert defects == []` green and reds at the census equality alone, (5, 12, 56) vs (5, 12, 57) at :4805. And the declared hole 'no control can kill deleting the census assert line itself' is a TRUE bound, not a false one: with that statement removed, tests/test_guard_integrity.py is 167 passed exit 0 and tests/test_web_server.py 166 passed exit 0."
+    - "ADR-0038/R7 (pytest-playwright declared only in a dev-only extra) ✓ holds — carried(cycle 5, delta-clean): the delta is two test files; pyproject.toml is not in `git diff --name-only 8727e519..6c29d282`."
+    - "ADR-0038/R8 (browser tests fail or skip loudly with a named reason) ✓ holds — carried(cycle 5, delta-clean): no playwright-marked test is in the delta; tests/test_web_server.py's ast.Assert count is unchanged at 256 and its only edit is a '#:' comment."
+  holds_spot_check:
+    performed: true
+    sampled: 3
+    sampled_rules: ["ADR-0039/R1", "ADR-0039/R2", "ADR-0039/R3"]
+    note: "All three re-derived by my own measurement rather than by reading the round's claim: the six-mutant mechanism matrix, the two census tree-direction plants, the real co-edited drop, and the census-assert deletion. The two carried lines were excluded from the sample per the rule."
+
+root_causes:
+  - id: RC-1
+    title: "A declaration restated in prose rather than re-derived -- the same class as F-002, in the round that fixed F-002"
+    finding_ids: [F-001, F-002, F-004, F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_guard_integrity.py
+    line: 4751
+    title: "TestTheDeclaredMissTables' class docstring claims all seven directions name a line; two of them name the table"
+    description: |
+      :4751-4752 reads: "The per-line arm reds on seven directions, each with a
+      constructed case naming the line it reds on."  Measured against the
+      mechanism: two of the seven verdicts carry no line number at all.
+
+        extra_entry -> "fabricated.py: MEASURED_FABRICATED_MISSES holds 3
+                        entries and 2 key groups"        (_unkeyed_declaration_lines:3209)
+        renamed     -> "fabricated.py: MEASURED_FABRICATED_MISSES is keyed
+                        here but assigned nowhere"       (:3202)
+
+      Both are `f"{where}: ..."`, not `f"{where}:{first}: ..."`, and the
+      committed cases' own `expected` prefixes (:4942, :4948) contain no line
+      number either -- so the docstring is contradicted by the very cases it
+      is describing.
+
+      This is a claim wider than the mechanism, in one of the four places the
+      round names as "restated from the mechanism as it now stands"
+      (DECLARATIONS F-001).  The other three get it right: the contract block
+      at :2954-2956 says "changing an entry **count** and **renaming** the
+      table red naming the table rather than a line", and
+      test_the_rule_names_what_it_cannot_see's docstring enumerates only the
+      five line-naming directions.  The class docstring is the single
+      restatement that over-generalises, and the over-generalisation is the
+      same shape as cycle 5's F-001 (clause 2 claiming five directions where
+      four were constructed).
+    suggestion: |
+      One sentence.  Replace "each with a constructed case naming the line it
+      reds on" with the distinction the contract block already draws, e.g.
+      "each with a constructed case asserting the verdict it names -- by line
+      number for the five that move a line, and by table for the entry-count
+      and rename directions."  No mechanism changes, so the mutation matrix
+      does not need re-running.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/test_guard_integrity.py
+    line: 2962
+    title: "'eleven lines of slack' is twelve: the retired floor `keyed >= 45` against a measured 57 tolerated 12 lines leaving"
+    description: |
+      The sentence explaining WHY the floor was replaced by an equality states
+      the floor's slack as eleven, in two places in the code and once in the
+      card:
+
+        tests/test_guard_integrity.py:2962  "that pin read ``>= 45`` against a
+            measured 57: eleven lines of slack, which is exactly what made the
+            shrink silent"
+        tests/test_guard_integrity.py:4794-4795  "The floor it replaces read
+            `>= 45` against a measured 57, and eleven lines of slack is what
+            made the one edit the per-line arm cannot see ... silent"
+        meta/kanban/cards/CARD-264.md:1886  "at `>= 45` against a measured 57
+            it had eleven lines of slack."
+
+      The retired assertion was `assert keyed >= 45` (the diff's removed lines)
+      and `keyed` summed exactly what _declaration_census's third figure sums,
+      measured 57.  Under `>=`, keyed may fall to 45 inclusive and still pass,
+      so the number of declaration lines that could silently disappear is
+      57 - 45 = **12**, not 11.  The figure is wrong under the other natural
+      reading too (the margin 57 - 45 is 12).
+
+      It is the F-002 class exactly -- a figure written into prose where
+      nothing re-derives it -- recurring inside the round whose own stated
+      principle is "a figure belongs where it can be re-derived rather than
+      beside the thing it describes" (:2957-2958).  It is load-bearing for the
+      argument it carries: the sentence's whole job is to quantify why a floor
+      could not be the control, and it quantifies it wrong.
+    suggestion: |
+      Change "eleven" to "twelve" in all three places, or state it as the
+      margin without a count ("a floor of 45 against a measured 57 tolerated
+      every line down to 45").  The second shape is the one the round's own
+      F-002 principle prefers.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_guard_integrity.py
+    line: 2946
+    title: "The new 'Seven directions red, and each has a constructed case' count has no failing control -- deleting a case survives at 167/167"
+    description: |
+      Measured: with the `added` case -- the one fix round 5 built to answer
+      F-001 -- deleted from the direction loop (:4933-4938), the whole file is
+      167 collected, 167 passed, exit 0.  Nothing in the tree observes a
+      direction leaving, so the prose count at :2946 and the class docstring's
+      "seven" can drift back out of agreement with the cases exactly the way
+      clause 2's "five" did.
+
+      Filed Minor, not gating, and the reason matters: the gap is PRE-EXISTING
+      (it was equally true of the four cases at 8727e519 and at every earlier
+      round, and cycle 5 certified that territory), and fix round 5 narrowed it
+      rather than widening it -- the count and the cases now agree, which I
+      verified.  No claim about the *rule* is currently wider than its control:
+      all seven mechanisms have a failing control.  What is missing is only
+      regression prevention on a prose count.
+
+      Worth naming because the module already contains the pattern that would
+      close it: test_the_path_suffix_census_is_the_one_this_comment_states
+      parses the `#: SPANS:` declaration out of this same source and re-derives
+      every figure in it, for exactly this reason ("A figure in a comment that
+      nothing reads is this card's own subject").  Round 4 applied that pattern
+      to _PATH_SUFFIXES' census and round 5 did not apply it to its own new
+      direction count.
+    suggestion: |
+      Either `assert len(<the direction tuple>) == 7` beside the loop, or --
+      better and precedented one screen up -- parse the contract block's
+      "Seven directions" out of this source and hold it against the loop's
+      length, the way the SPANS declaration is held.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_guard_integrity.py
+    line: 2960
+    title: "The census figure 5/12/57 is restated in three prose copies that nothing re-derives"
+    description: |
+      The figure the round pinned to an equality at :4807 is also written out
+      in prose at :2960 ("5 tables, 12 entries, 57 keyed source lines"), :3159
+      ("5 / 12 / 57") and :4801 ("5 / 12 / 57 both ways, entry spans 1+4+13,
+      3+3+10, 2+3, 9 here and 6+1+2 in tests/test_web_server.py").  All four
+      figures are CORRECT today -- I re-derived (5, 12, 57) and every per-table
+      span independently, by hand from _MEASURED_TABLE_LINE_KEYS and through
+      _declaration_census.
+
+      The risk is one-directional and known: when the tree legitimately gains a
+      declaration, :4807 reds and forces the tuple to be updated, while the
+      three prose copies can be left behind silently.  That is the mechanism by
+      which cycle 5's F-002 happened (the enumeration said 9/4/11 while the
+      tree held 10/5/12).  Same class as F-002 above, lower severity because the
+      authority is co-located and the figures are currently right.
+    suggestion: |
+      Point the prose at the equality instead of repeating it ("the figures are
+      the ones test_every_line_of_every_declared_miss_entry_is_keyed pins"), the
+      way the round already retired the "Two other shapes" count to the dict.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_guard_integrity.py
+    line: 4809
+    title: "The census assert's own failure message restates (5, 12, 57) as a literal beside the tuple it is reporting on"
+    description: |
+      :4807-4810 holds the figure twice in one statement -- once as the pinned
+      tuple and once inside the message, "and the contract states (5, 12, 57)".
+      The f-string half already prints the measured value, so a future edit that
+      updates the tuple and not the message produces a failure text that
+      misstates what the contract says.  An assertion that pins text beside the
+      truth it pins.
+    suggestion: |
+      Interpolate it: `f"... and the contract states {EXPECTED}"` with the tuple
+      bound to one name, or drop the clause from the message.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check:
+  executed: true
+  deferred: false
+  instrument: "tests/kill_matrix.py, selection tests/test_guard_integrity.py (one file), child instrumentation off, domain 214 ast.Assert nodes carried separately from 167 collected tests"
+  rule_applied: "every mutant DELETES a mechanism the round's claims name (the fix-4 omission that produced cycle 5's F-001)"
+  trap_a: "every `old` pre-counted and occurring exactly once; every edit line-count preserving, so no assert lineno shifts"
+  trap_b: "SHIPPED's exit code read, not only its cells -- exit 0, 0 FAIL of 214 reached, 167 collected, and re-run between every mutant by the instrument"
+  recording_pass_exit_0_with_fail_cells: ["R-ASSIGNED-NOWHERE-DELETE"]
+  mutants:
+    - name: R-SPAN-EQ-DELETE
+      deletes: "`if span != len(element_keys):` -- the only mechanism in this module that reads an entry's line count (`end_lineno` occurs exactly once in the file, at :3217, inside it: the round's claim verified)"
+      verdict: killed
+      cells: "exit 1, 209 reached, FAIL [4954, 4955] -- :4954 on the `added` direction (verdict becomes []), :4955 on the `dropped` direction's misattribution (it reds at :3 on a key mismatch instead of :2 on the count). Nothing else in the file."
+    - name: R-PER-LINE-DELETE
+      deletes: "`if phrase not in line:` -- the per-line phrase comparison"
+      verdict: killed
+      cells: "exit 1, 208 reached, FAIL [4954] (the gutted direction first; the harness shows inverted and moved red independently under it too)"
+    - name: R-LINE-BIND-DELETE
+      deletes: "`line = lines[first - 1 + offset]` -> `line = source` -- the binding of a key to its own line, i.e. the degradation to 'a key anywhere in the entry' that fix rounds 2 and 3 shipped"
+      verdict: killed
+      cells: "exit 1, 209 reached, FAIL [4954] -- on the `moved` direction specifically: the phrase is still somewhere in the entry, so the verdict is [] without the line binding"
+    - name: R-PER-ENTRY-DELETE
+      deletes: "`zip(value.elts, entry_keys)` -> `zip(value.elts[:1], entry_keys)` -- the iteration over every entry of a table"
+      verdict: killed
+      cells: "exit 1, 209 reached, FAIL [4954] -- on the `inverted` direction specifically (it lives in entry[1])"
+    - name: R-ENTRY-COUNT-DELETE
+      deletes: "`if len(value.elts) != len(entry_keys):` -- the entry-count arm"
+      verdict: killed
+      cells: "exit 1, 209 reached, FAIL [4954] -- on the `extra_entry` direction"
+    - name: R-ASSIGNED-NOWHERE-DELETE
+      deletes: "`if value is None:` -- the keyed-here-but-assigned-nowhere arm"
+      verdict: killed
+      cells: "exit 0 (recording pass) / 214 reached / FAIL [4955] -- on the `renamed` direction, at the message assert: the defect degrades to 'is not a tuple display', so len(verdict) == 1 still holds and only the pinned message sees it. The exit-0-with-a-FAIL-cell reading is stated, not quoted bare."
+    - name: R-MD-DROP
+      deletes: "`.md` out of _PATH_SUFFIXES"
+      verdict: killed
+      cells: "recording exit 0, 214 reached, 7 FAIL [3875, 4011, 4058, 4070, 4071, 4101, 4102]; re-raising exit 1, 201 reached, 4 FAIL"
+    - name: R-PY-DROP
+      deletes: "`.py` out of _PATH_SUFFIXES"
+      verdict: killed
+      cells: "recording exit 0, 214 reached, 6 FAIL [3702, 4009, 4011, 4025, 4058, 4070]; re-raising exit 1, 209 reached, 4 FAIL"
+    - name: R-YML-DROP
+      deletes: "`.yml` out of _PATH_SUFFIXES -- fix round 3's measured survivor"
+      verdict: killed
+      cells: "recording exit 0, 214 reached, 3 FAIL [4058, 4070, 4071]; re-raising exit 1, 209 reached, 1 FAIL. The three are `sorted(declared) == sorted(_PATH_SUFFIXES)`, `declared == measured` and the four-zeros count, all in test_the_path_suffix_census_is_the_one_this_comment_states -- exactly as the rewritten comment names them."
+    - name: "T1-SIXTH-KEYED-TABLE (tree plant, not a mechanism deletion)"
+      deletes: "nothing -- the shape the brief requires: the census equality must fail when the tree holds MORE"
+      verdict: killed
+      cells: "exit 1 at :4813, (6, 13, 58) vs (5, 12, 57); the completeness arm stayed green, so the census is what saw it"
+    - name: "T2-DROP-A-KEYED-TABLE (tree plant)"
+      deletes: "a keyed table out of _MEASURED_TABLE_LINE_KEYS -- the census equality must fail when the tree holds FEWER"
+      verdict: killed
+      cells: "exit 1 at :4796, (4, 10, 52) vs (5, 12, 57), and separately at :4822 in the completeness arm naming MEASURED_TIMEOUT_CLAIM_MISSES"
+    - name: "T3-CO-EDITED-DROP on the real tree (tree plant)"
+      deletes: "a real declaration line of MEASURED_TIMEOUT_CLAIM_MISSES[1] TOGETHER WITH its key phrase"
+      verdict: killed
+      cells: "exit 1 at :4805 only, (5, 12, 56) vs (5, 12, 57); `assert defects == []` passed, so the per-line arm's blind spot is real and the census equality is its only control -- the round's central claim, reproduced"
+    - name: "Q5-B / M5b-equivalent: a 14th unkeyed line on the real MEASURED_CLAIM_MISSES[2]"
+      deletes: "nothing -- the add-a-line shape on a real entry"
+      verdict: killed
+      cells: "exit 1 at :4792, 'tests/test_guard_integrity.py:3248: MEASURED_CLAIM_MISSES[2] spans 14 source line(s) and carries 13 key(s)'; 1 failed, 166 passed"
+    - name: "M-CENSUS-ASSERT-DELETED (the declared hole)"
+      deletes: "the census assertion statement itself -- the control"
+      verdict: survived
+      cells: "tests/test_guard_integrity.py 167 passed exit 0; tests/test_web_server.py 166 passed exit 0. The declaration 'one mutant no control can kill' is an HONEST bound, not a false one. No finding: the round declares it rather than claiming soundness, which is what ADR-0039/R3 asks for."
+    - name: "Q5-A: the `added` case deleted from the direction loop"
+      deletes: "one of the seven constructed cases the round's claim enumerates"
+      verdict: survived
+      cells: "167 passed, exit 0 -- see finding F-003 (filed Minor; the gap is pre-existing and the count is currently correct)"
+
+restoration:
+  method: "manifest built up front with `shasum -a 256` over the four files any plant could reach; `cp -p` backups; every plant applied and reverted from an in-memory copy of the pristine text (never `git checkout`/`git restore`); kill_matrix restores from its own `finally`"
+  verified_three_ways:
+    - "shasum -a 256 -c: tests/test_guard_integrity.py OK, tests/test_web_server.py OK, tests/kill_matrix.py OK, CLAUDE.md OK"
+    - "diff -q against the cp -p backups: identical for all three test files"
+    - "git status --porcelain: only `M meta/kanban/cards/CARD-264.md` plus the untracked meta/review/*.yml reports"
+  committed_anything: false
+
+run_discipline:
+  full_suite_run: false
+  lock: "NONOGRAM_FULL_SUITE_LOCK=/private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/f7b1d54a-8309-4e9b-8cf1-e8633015b556/scratchpad/card264-reentry.lock exported for every pytest, script and mutant; pytest printed the override line on every run. The board's meta/kanban/.full-suite.lock was never read, written or created."
+  no_q_flag: true
+  timing_measurements_taken: false

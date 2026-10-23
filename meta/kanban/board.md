@@ -58,7 +58,7 @@ _Updated: 2026-10-22 (decompose: CARD-272..CARD-274 added)_  ·  <!-- forge:run 
 | 51 | CARD-258 P1, CARD-260 P1 | ✅ done |
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
 | 53 | CARD-261 P2, CARD-262 P2 | ✅ done (CARD-261 `ac63e17a`; CARD-262 `faea50a5` — escalated at cycle 2/3, re-entered on the owner's declare route, landed) |
-| 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 (narrowed, queued) | ▶ active (both merged; **no card in flight** — CARD-264 is first into the next slot, then CARD-271, CARD-267, CARD-269, CARD-268) |
+| 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 ▶ re-entry 8.5, merge gate in flight | ▶ active. **CARD-264's escalation CLOSED 2026-10-23 — owner chose option 1:** fix the four controls-that-cannot-fail (S-1..S-4) the 8h spot-check found, then a **re-entry cycle 4** to certify, then re-gate and merge. **Cycle 4 then scored 7.65 NOT CERTIFIED — the fix round introduced two defects of the card's own kind — and the owner chose one more fix + cycle 5.** Fix 4 decided the declared-miss tables' semantics before touching an entry and applied them tree-wide (216 line-level variants, 0 survived; 9/9 mutants killed), committed `8727e519` and **pre-gated** (7/7 named tests by node id, 167+166 whole-file, 2 of 9 mutants re-derived at the gate). The gate passed (8931 executed, 0 failed) and **cycle 5 scored 7.6, NOT CERTIFIED — 2 important, both introduced by fix 4.** The mechanism itself held under independent re-derivation (197-variant sweep, 0 survivors; all five exemption reasons true; m-1 sound; the round's disagreement with its brief adjudicated in the round's favour) — both findings are in the *claims about* it. **⚠ improvement stalled** and **family regression at streak 2** both fire, neither premise failing, so this is with the owner. Aggregate round counter **5 of 6**. Queue behind it: CARD-271, CARD-267, CARD-269, CARD-268.|
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -74,6 +74,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _Full list: [meta/kanban/backlog.md](backlog.md)_
 
 ## Ready
+- **CARD-281** P2 · The figures a guard module states about itself are copies, and copies are what drifted five times on one card  _(unscheduled, from CARD-264's re-entry review)_
 - **CARD-207** P2 · A book puzzle page's header splits — "Puzzle 37" flush left, "MEDIUM" flush right, a rule beneath  _(unscheduled, tier 1)_
 - **CARD-208** P2 · Printed clue numbers sit in ruled boxes, like the player's clue cells  _(unscheduled, tier 1)_
 - **CARD-209** P2 · Wide-but-short solutions pack 3 to a page, one column × three rows  _(unscheduled, tier 1)_
@@ -90,18 +91,17 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 2)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
-- **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(unscheduled, quick — owner decision 2026-10-22)_
-- **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(unscheduled, quick — owner decision 2026-10-22)_
-- **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(unscheduled, quick — owner decision 2026-10-22)_
-- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard  _(wave 54, **narrowed and unblocked** 2026-10-22 — **first into the next free slot**; cycle 1 passed 8.3, `tests/test_cli.py` folded to CARD-265, merge `4f7263fb`, build gate owed because impact-set answers FULL)_
 - **CARD-271** P2 · Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides  _(wave 54 queue, quick — owner bug report 2026-10-22)_
 - **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(wave 54 queue, quick — owner decision 2026-10-22)_
+- **CARD-280** P3 · The solved board stops being a worksheet and becomes the picture  _(unscheduled, 0.75d — owner request 2026-10-23; **serialises against CARD-267 / 268 / 269** on solver.js + solver_state.js + admin.css, which is why it is P3: a queue position, not a judgement)_
+- **CARD-279** P2 · A loopback-binding control asks whether a port is free on a LAN address, and the answer depends on the network  _(unscheduled, trivial 0.25d — CON-009 probe seen red once 2026-10-23; carries the measured CON-010 **selector** defect too: `-k` by the requirement id collects **zero**)_
+- **CARD-278** P2 · `_blind_propagation` blinds one propagation path of two, so the test named for the branch checkpoint passes without it  _(unscheduled, trivial 0.25d — found 2026-10-23 by the skeptic that **refuted** CARD-264's I-1; not absorbed because CARD-264 is at cycle 3/3 and a last-cycle widening ships uncertified)_
 - **CARD-277** P2 · A drag at 200% zoom marked the whole board once — reproduce it before deciding what it is  _(unscheduled, quick — CARD-270 review 2 ruled it needs its own card; **does not block CARD-270**)_
 - **CARD-276** P2 · Close the door axis for real — anchoring as a fixed point, and the residue CARD-262 declared  _(unscheduled, `architectural` — **blocked on CARD-262 merging**; carries the transitive fixed point, three declared residues, six unfired matrix cells and two prose defects the AC/EC/G gate found)_
 - **CARD-275** P2 · The guide strip's frame vanishes against filled cells — the same ink-on-ink class, in the second place it lives  _(unscheduled — CARD-270 review F-004, carded on the owner's instruction; **merge CARD-270 first**, it reads the grey that card's pixel assertions depend on)_
-- **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2 — **now owns the folded `_ADAPTER_COUNT` question** (owner decision 2026-10-22); estimate 0.25d → 0.75d; its item 1 already measured BOTH rival bounds and neither dominates)_
+- **CARD-265** P2 · The `_ADAPTER_COUNT` boundary, four one-line bounds, and the one sentence tests/README.md is missing  _(unscheduled, tier 2 — **now owns the folded `_ADAPTER_COUNT` question** (owner decision 2026-10-22); estimate 0.25d → 0.75d; its item 1 already measured BOTH rival bounds and neither dominates; **2026-10-23: the three stale "two" claims it inherits have NO control — `_adapter_counts` scans CLAUDE.md, not the prose around `_ADAPTERS`, and `len(_ADAPTERS)` appears nowhere)_
 - **CARD-266** P2 · The standing check — no prose anywhere names a `validate_*`/`parse_*` symbol that does not exist  _(unscheduled, tier 2)_
 - **CARD-272** P2 · The import guard gains the composite-capability rank (ADR-0040)  _(unscheduled — after CARD-265; delta carded 2026-10-22)_
 - **CARD-273** P2 · Book production moves to src/nonogram/book/ — the ADR-0040 rewrite  _(unscheduled — after CARD-272 and the book wave drains; 17 deps)_
@@ -111,18 +111,11 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 
 ## Review
-_(none — both wave-54 cards merged; the next free slot goes to CARD-264)_
-
-## Review
-- **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
-  `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions`
-  `cycle 1: 8.4 (1 Important) → fix fc035f7d → cycle 2: 9.7 ✓ PASSES (0 crit / 0 imp; mutation certification clean)` · `AC/EC/G gate running`
-- **CARD-270** P2 · Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
-  `worktree: ../PythonProject4-card-270` · `branch: card/270-fifth-rule-divisions`
-  `cycle 1: 8.4 (1 Important) → fix fc035f7d → cycle 2: 9.7 ✓ PASSES (0 crit / 0 imp; mutation certification clean)` · `AC/EC/G gate running`
-- **CARD-262** P2 · The page-position guard's door axis is open; close it or name every exemption with a control
-  `worktree: ../PythonProject4-card-262` · `branch: card/262-close-the-door-axis`
-  `5.7 (c1) → 5.2 (c2) → owner: DECLARE the axis → fix ac479658 → cycle 3: 9.3 ✓ PASSES (0 crit / 0 imp; N17+N10 re-fired on committed bytes)` · `AC/EC/G gate running` · `F-601 worktree contamination caught & remediated by the review`
+- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
+  `worktree: ../PythonProject4-card-264` · `branch: card/264-claude-md-outside-the-map` · `head: e26e5473`
+  `8.3 (c1) → 5.5 (c2, 2 of 3 refuted) → fix 2 → 9.6 (c3/3, 0 gating) → 8h spot-check FAILED 2 of 2 holds → escalated → owner: FIX + CERTIFY`
+  `fix 3 ✓ 098ecd91 (9 ids, 20/20 mutants, pre-gate 11/11) → gate ✓ 8925 exec / 8898 pass / 0 fail (+4 reconciles) → cycle 4 re-entry CERTIFYING`
+  `three gates, three reconciled deltas: 8919 (+36 the card's own) → 8921 (+2 fix 2) → 8925 (+4 fix 3). Cumulative +42, every one accounted for.`
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
