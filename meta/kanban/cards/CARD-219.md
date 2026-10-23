@@ -72,14 +72,37 @@ assert an integer.
 
 ## Acceptance criteria
 
+<!-- DEAD `test:` REFS RESOLVED 2026-10-24, orchestrator, from CARD-218's review
+cycle 1 (F-003) and the orchestrator's follow-up count. The finding: EIGHT
+distinct `TestCuration_*` verifiers are named across CARD-218, CARD-219 and
+CARD-220, and ZERO of them exist — there is no `tests/test_curation.py` and no
+class whose name begins `TestCuration` anywhere under `tests/`. A planned
+shared guard module was never written and three cards' ACs were written against
+it, which reads as mechanically checked and is not (`check_ref_missing` in the
+ADR-0039 sense).
+
+The resolution, taken once for all three cards rather than three times: SIX of
+the eight are **diff properties, not test properties** — "the count is
+unchanged", "no minimum was lowered", "these paths are untouched", "this
+mechanism keeps a rendering test" all compare the tree BEFORE the card with the
+tree after it, and no standing test can know "before this card". A standing
+test that tried would be a hand-maintained census that every later card breaks,
+which is the artefact class this board's guardrails forbid. Those six move to
+the AC/EC/G gate station as explicit gate-time measurements, which is what both
+CARD-218 rounds actually did. The two that ARE derivable keep a test, named
+below. No AC's substance changed; only what verifies it, and each now names
+something that exists or something that will be run. -->
+
 - **AC-1** (happy): *Given* a converted positional test, *when* it runs, *then*
   it asserts the same fact about the same book with no page rendered, and it
   fails if the plan changes. (test: the converted tests themselves, names
   unchanged)
 - **AC-2** (guard, plan-to-pixel tie): *Given* each file this card converts,
   *when* the card is reviewed, *then* it names a surviving rendering test in
-  that file's mechanism, and that test is still present and green. (test:
-  `TestCuration_EveryConvertedMechanismKeepsARenderingTest`)
+  that file's mechanism, and that test is still present and green. (**gate**: the card names the
+  surviving rendering test per converted mechanism by node id and the gate runs
+  each one -- recorded, not asserted; "converted" is card knowledge that no
+  standing test has)
 - **AC-3** (guard, mutation): *Given* a deliberate off-by-one injected into the
   page-plan arithmetic (`interior_page_count`, the divider's position, the
   answer-section count), *when* the suite runs, *then* the converted tests
@@ -88,16 +111,20 @@ assert an integer.
   `review.mutation_check`)
 - **AC-4** (guard, no coverage loss): *Given* the converted files, *when* the
   suite runs, *then* their collected test count is unchanged — conversion never
-  deletes or merges a test. (test:
-  `TestCuration_ConvertedFilesKeepTheirTestCount`)
+  deletes or merges a test. (**gate**: set difference over sorted
+  node ids between the fork point and HEAD -- removals must be 0; additions are
+  permitted and must each be named on the card. A standing test cannot know the
+  pre-card count; see the resolution note above.)
 - **AC-5** (happy, measured): *Given* a solo profile before and after, *then*
   the card records both wall-clocks and the per-file deltas. (recorded, not
   asserted)
 - **AC-6** (edge, no second implementation): *Given* a converted geometric
   test, *when* it computes its expectation, *then* it reads the layout
   function's own returned numbers and does not re-derive them with a copy of
-  the formula under test. (test:
-  `TestCuration_NoReDerivedGeometryInConvertedTests`)
+  the formula under test. (**gate**: reviewed per
+  converted test, each named on the card with the call site it reads its
+  expectation from. A tree-wide derived version of this check is possible and is
+  its own card, not this one's.)
 
 ## Guardrails
 

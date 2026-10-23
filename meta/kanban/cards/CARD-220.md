@@ -84,22 +84,52 @@ large deletion set means the proof step is being skipped.
 
 ## Acceptance criteria
 
+<!-- DEAD `test:` REFS RESOLVED 2026-10-24, orchestrator, from CARD-218's review
+cycle 1 (F-003) and the orchestrator's follow-up count. EIGHT distinct
+`TestCuration_*` verifiers are named across CARD-218, CARD-219 and CARD-220 and
+ZERO exist — there is no `tests/test_curation.py` and no class whose name begins
+`TestCuration` anywhere under `tests/`. A planned shared guard module was never
+written and three cards' ACs were written against it, which reads as
+mechanically checked and is not.
+
+Resolved once for all three cards: SIX of the eight are **diff properties, not
+test properties**. "The count equals the pre-card count minus the deletions",
+"no minimum was lowered", "these paths are untouched" all compare the tree
+before the card with the tree after it, and no standing test can know "before
+this card" — one that tried would be a hand-maintained census that every later
+card breaks, the artefact class this card's own G-rules forbid. Those six move
+to the AC/EC/G gate station as explicit gate-time measurements, each stated as
+the derivation that produces it. No AC's substance changed; only what verifies
+it, and each now names something that will actually be run.
+
+This card is the one where the distinction bites hardest: its whole subject is
+a DELETION LIST, so every one of its guards is a before/after comparison by
+nature. Read AC-2, AC-3 and AC-4 as gate obligations on the card's own diff. -->
+
 - **AC-1** (happy): *Given* each deleted test, *when* the card is reviewed,
   *then* the diff names its surviving covering test and the mutation that
   proved the survivor fails on the broken behaviour. (test: the card's recorded
   mutation evidence, per `review.mutation_check`)
 - **AC-2** (guard, accounted count): *Given* the suite, *when* it runs, *then*
   the collected test count equals the pre-card count minus exactly the
-  enumerated deletions (parametrised merges keep their case count). (test:
-  `TestCuration_CollectedCountMatchesTheEnumeratedDeletions`)
+  enumerated deletions (parametrised merges keep their case count). (**gate**: set difference over
+  sorted node ids between the fork point and HEAD -- the removed set must equal
+  the card's enumerated deletion list exactly, in both directions, and the added
+  set must be empty. A standing test cannot know the pre-card count; see the
+  resolution note above.)
 - **AC-3** (guard, protected classes): *Given* the diff, *when* it is
   reviewed, *then* it touches none of: `tests/helpers/brute_force_oracle.py`,
   `tests/property/test_solver_uniqueness.py`, the `mask_runs` cross-check, the
   A4 golden test, or `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`.
-  (test: `TestCuration_ProtectedTestsUntouched`)
+  (**gate**: `git diff --name-only <fork>..HEAD` intersected with the
+  protected set must be empty, and the two protected node ids must be present
+  and green. This is a property of the DIFF, which no standing test observes.)
 - **AC-4** (guard, corpus minimums): *Given* every property test, *when* the
   diff is reviewed, *then* no asserted minimum case count is lower than before
-  the card. (test: `TestCuration_CorpusMinimumsNeverLowered`)
+  the card. (**gate**: every integer literal
+  compared against a corpus length is collected by `ast` at the fork point and
+  at HEAD and the two sets compared -- no value may fall. Derived, not
+  hand-listed; a property of the diff, so not a standing test.)
 - **AC-5** (edge, failed subsumption): *Given* a candidate pair where the
   survivor passes the mutation, *when* the card finishes, *then* the candidate
   is still present and the card records why the pair was not redundant. (test:
