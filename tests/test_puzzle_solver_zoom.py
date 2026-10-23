@@ -1056,9 +1056,13 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
             room = _room(page)
             ladder[percent] = room["keeping"]
             # The rule, re-derived from this zoom's own measurements rather
-            # than read off the classes.
+            # than read off the classes — off the RAW cover, the number
+            # solver.js actually compares, not the rounded one the report
+            # quotes (CARD-271 review cycle 2, F-101; see _ROOM). This is one
+            # of the two controls holding an owner decision, so a ±0.05 px
+            # window here is a window in the decision.
             assert room["keeping"] == [
-                room["cover"][axis] <= room["port"][axis] * STICK_MAX_SHARE
+                room["coverRaw"][axis] <= room["port"][axis] * STICK_MAX_SHARE
                 for axis in (0, 1)], (percent, room)
 
         kept = {

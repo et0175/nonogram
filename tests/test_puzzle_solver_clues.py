@@ -2942,8 +2942,26 @@ STICK_MAX_SHARE = float(_DECLARED_SHARE.group(1))
 
 
 #: What solver.js's keepCluesInView measured, and the inputs it measured it
-#: from: ``cover`` is what a stuck band could actually hide, min(this axis's
+#: from: the cover is what a stuck band could actually hide, min(this axis's
 #: overflow, the band's own size), against STICK_MAX_SHARE of the stage.
+#:
+#: It comes back TWICE, and the split is the point (CARD-271 review cycle 2,
+#: F-101). ``coverRaw`` is the number solver.js's ``affords`` actually
+#: compares; ``cover`` is that number rounded to a tenth, for failure messages
+#: and readable reports — 376.3 reads better than 376.29998779296875. EVERY
+#: comparison against the bar reads ``coverRaw``, and nothing re-derives the
+#: rule from the rounded one.
+#:
+#: ``overflow`` and ``port`` are integers on both sides, so the band's
+#: fraction was the only divergence — and it was one-sided toward agreeing
+#: with a page that sticks: at port 980 the bar is 392.0, and a true cover of
+#: 392.04 rounds to 392.0, so the rounded form answers KEEP where solver.js
+#: answers NOT-KEEP. The ``>`` site in tests/test_puzzle_solver_phone.py errs
+#: the other way for the same reason. A ±0.05 px window under nine
+#: assertions, including both F-001 controls, both editor controls and the
+#: controls holding this card's two owner decisions. ADR-0039/R2 is about
+#: derivation rather than resemblance, and a figure that tracks the value but
+#: not the precision is resemblance.
 _ROOM = """() => {
   const stage = document.querySelector('.player-stage');
   const table = document.querySelector('.player-board');
@@ -2965,6 +2983,7 @@ _ROOM = """() => {
     band: band.map((n) => +n.toFixed(1)),
     overflow,
     port: [stage.clientWidth, stage.clientHeight],
+    coverRaw: [Math.min(overflow[0], band[0]), Math.min(overflow[1], band[1])],
     cover: [+Math.min(overflow[0], band[0]).toFixed(1),
             +Math.min(overflow[1], band[1]).toFixed(1)],
   };
@@ -2980,8 +2999,12 @@ def _verdict(room):
     re-derived from the measurements and solver.js's constant, never read off
     the classes it set. ``_room(page)["keeping"] == _verdict(_room(page))`` is
     the whole rule, and every test below that cares which axes keep its board
-    checks the two against each other rather than trusting either."""
-    return [room["cover"][axis] <= room["port"][axis] * STICK_MAX_SHARE
+    checks the two against each other rather than trusting either.
+
+    Reads ``coverRaw``, never the rounded ``cover``: see :data:`_ROOM`
+    (F-101). The rounded figure is for reading, not for deciding.
+    """
+    return [room["coverRaw"][axis] <= room["port"][axis] * STICK_MAX_SHARE
             for axis in (0, 1)]
 
 
@@ -3108,10 +3131,11 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         # that file. (It said "half" until CARD-271's pre-gate, PG-1; the
         # assertion below was always derived from the constant, so the figure
         # was a stale copy and not a second opinion. Nothing here restates it:
-        # the share is spelled once, in solver.js.)
+        # the share is spelled once, in solver.js.) The RAW cover, not the
+        # rounded one the report above quotes — F-101; see _ROOM.
         assert 0 < STICK_MAX_SHARE < 1, STICK_MAX_SHARE
         assert seen["keeping"] == [
-            seen["cover"][axis] <= seen["port"][axis] * STICK_MAX_SHARE
+            seen["coverRaw"][axis] <= seen["port"][axis] * STICK_MAX_SHARE
             for axis in (0, 1)], (name, seen)
 
     def test_sticking_changes_neither_the_band_nor_the_overflow(

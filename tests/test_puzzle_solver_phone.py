@@ -910,8 +910,13 @@ class TestSolverPhone_MirroredGutterSticks:
         assert room["band"][0] == pytest.approx(272.2, abs=0.5), room
         assert room["port"] == [358, 583] and room["overflow"] == [346, 0], room
         # Past the share the rule allows, re-derived here from solver.js's
-        # own constant rather than from the class it set.
-        assert room["cover"][0] > room["port"][0] * STICK_MAX_SHARE, room
+        # own constant rather than from the class it set — off the RAW cover
+        # (CARD-271 review cycle 2, F-101; see _ROOM). This comparison runs
+        # the OTHER way round, so rounding errs the other way too: a true
+        # cover of 392.04 reads as 392.0 and this would fail where the rule
+        # says it holds. Same root, both directions — and this is the control
+        # holding the 390 px owner decision.
+        assert room["coverRaw"][0] > room["port"][0] * STICK_MAX_SHARE, room
 
         _to_corner(page, 0, 0)
         seen = _in_view(page, 0, 0)
