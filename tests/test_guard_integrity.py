@@ -2935,8 +2935,33 @@ MEASURED_KEYWORD_SPANS = ("choices=", "type=")
 # line.* :data:`_MEASURED_TABLE_LINE_KEYS` holds one phrase per line, and
 # :func:`_unkeyed_declaration_lines` reads the tables back out of the test
 # source with ``ast`` and checks each phrase against the line it belongs to.
-# Gutting a line, inverting it, adding one, deleting one, or moving a keyed
-# phrase onto a neighbouring line of the same entry all red.
+#
+# Seven directions red, and **each has a constructed case** in
+# ``TestTheDeclaredMissTables
+# .test_the_line_keying_control_reds_on_every_direction_it_declares``, which
+# asserts the line the verdict names and not merely that it is non-empty:
+# **gutting** a line, **inverting** it and **moving** a keyed phrase onto a
+# neighbouring line of the same entry red at the per-line comparison;
+# **adding** an unkeyed line to an entry and **deleting** a keyed one red at
+# the span equality ``span != len(element_keys)``, the only mechanism in this
+# module that reads an entry's line *count*; changing an entry **count** and
+# **renaming** the table red naming the table rather than a line. Cycle 5
+# found the add direction constructed nowhere and the span equality therefore
+# deletable with the file still 167/167 green (F-001); fix round 5 is where
+# both got a case that fails without it.
+#
+# **The one edit this arm cannot see, declared rather than claimed sound
+# (cycle 5, F-001).** A declaration line removed *together with* its key
+# phrase. Both counts fall by one, so the span equality is satisfied and
+# every surviving key still sits on its own line: the verdict is ``[]`` **by
+# construction**, and the committed case asserts that empty verdict instead
+# of implying a catch. What sees it is the **census equality** in
+# ``test_every_line_of_every_declared_miss_entry_is_keyed`` -- 5 tables, 12
+# entries, 57 keyed source lines, through :func:`_declaration_census` -- so
+# an entry that quietly shrinks reds on the figure. Until fix round 5 that
+# pin read ``>= 45`` against a measured 57: eleven lines of slack, which is
+# exactly what made the shrink silent, and the entry free to fall back to
+# the round-3 wording round 4 exists to correct.
 #
 # The two alternatives were rejected by measurement rather than by taste.
 # *Keying only the operative clause* is what fix rounds 2 and 3 did; it is
@@ -2954,11 +2979,16 @@ MEASURED_KEYWORD_SPANS = ("choices=", "type=")
 # and shown **caught**. A case that only asserts prose about the rule is the
 # vacuous arm this card exists to remove.
 #
-# The contract covers the tables that declare a bound **in prose**. Two other
-# shapes of ``MEASURED_*`` table in this tree are keyed differently and are
-# exempted by name in :data:`_MEASURED_TABLES_KEYED_ELSEWHERE`, so that a new
+# The contract covers the tables that declare a bound **in prose**. The
+# ``MEASURED_*`` tables keyed some other way are exempted from it, each named
+# with the keying it has instead in :data:`_MEASURED_TABLES_KEYED_ELSEWHERE`
+# -- which is the authority for which they are and how many -- so that a new
 # table named ``MEASURED_*`` with no keys is a red rather than a discovery
-# for a fifth round.
+# for a fifth round. **No count is restated here.** This sentence used to
+# open "Two other shapes", which is true of the shapes and reads as a count
+# of the tables, of which there are five; cycle 5 read it the second way
+# (F-002), and a figure belongs where it can be re-derived rather than
+# beside the thing it describes.
 # ---------------------------------------------------------------------------
 
 #: One required phrase per **source line** of every prose ``MEASURED_*``
@@ -3109,6 +3139,38 @@ def _measured_table_names(source: str) -> set[str]:
     }
 
 
+def _declaration_census(
+    keys_by_file: dict[str, dict[str, tuple[tuple[str, ...], ...]]],
+) -> tuple[int, int, int]:
+    """``(tables, entries, keyed source lines)`` over a per-line key mapping.
+
+    The figures ``test_every_line_of_every_declared_miss_entry_is_keyed``
+    pins to an **equality**, and the only control over the one edit the
+    per-line arm cannot see: a declaration line dropped *together with* its
+    key phrase satisfies the span equality in
+    :func:`_unkeyed_declaration_lines` -- both counts fall by one -- and
+    leaves every surviving key on its own line, so the verdict there is
+    ``[]`` by construction. The census is what moves (57 -> 56).
+
+    Counted over the keys rather than over the sources on purpose: the
+    per-line arm already holds each entry's key count equal to its source
+    line count and each table's key-group count equal to its entry count, so
+    with an empty verdict these three figures are the sources' as well. The
+    two doors were cross-derived in fix round 5 and agree -- 5 / 12 / 57.
+    """
+    tables = sum(len(keys) for keys in keys_by_file.values())
+    entries = sum(
+        len(entry) for keys in keys_by_file.values() for entry in keys.values()
+    )
+    lines = sum(
+        len(group)
+        for keys in keys_by_file.values()
+        for entry in keys.values()
+        for group in entry
+    )
+    return tables, entries, lines
+
+
 def _unkeyed_declaration_lines(
     source: str,
     keys: dict[str, tuple[tuple[str, ...], ...]],
@@ -3241,8 +3303,22 @@ _IDENTIFIER_CHAIN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_
 #: a control over the members would pin a hazard that cannot cause a miss.
 #: That is why there is no member control -- and the census above is not one:
 #: it is a figure, keyed because it is a figure, and it decides nothing.
-#: Dropping ``.md`` or ``.py`` reds, dropping ``.yml`` survives, exactly as
-#: this direction predicts. The direction itself is held by
+#:
+#: **Re-measured in fix round 5, and the sentence that stood here was false.**
+#: It read "dropping ``.md`` or ``.py`` reds, dropping ``.yml`` survives,
+#: exactly as this direction predicts" -- the W-2 measurement from fix round
+#: 3, left standing by the round that closed it. Dropping **any** member reds
+#: now, because the census two paragraphs up keys the member list itself.
+#: Measured through ``tests/kill_matrix.py`` over this file, domain
+#: ``ast.Assert`` nodes: dropping ``.md`` reds **7** of them, ``.py`` **6**
+#: and ``.yml`` **3** in the recording pass (4, 4 and 1 in the re-raising
+#: pass, which stops at the first failure in a test). The ``.yml`` three are
+#: ``sorted(declared) == sorted(_PATH_SUFFIXES)``, ``declared == measured``
+#: and the four-zeros count, all in
+#: ``test_the_path_suffix_census_is_the_one_this_comment_states``. The
+#: survivor was real when it was measured and m-B closed it in the same round
+#: that kept quoting it: a member that leaves now takes the declaration with
+#: it. The *direction* claim above is unchanged and still held by
 #: ``test_a_suffix_outside_the_table_is_denied_not_accepted``. The opposite
 #: direction, where an incomplete table *is* a missed catch, is one screen
 #: down in :data:`TestClaudeMd_TheTimeoutClaimNamesItsTest
@@ -3668,7 +3744,10 @@ class TestClaudeMd_EverySymbolItNamesExists:
         :func:`_unkeyed_declaration_lines` **and**
         :class:`TestTheDeclaredMissTables`, under the contract written out
         above :data:`_MEASURED_TABLE_LINE_KEYS`; gutting, inverting, moving,
-        adding or dropping a line reds there, by line number.
+        adding or dropping a line reds there, by line number -- each with a
+        constructed case, as of fix round 5, and one declared exception: a
+        line dropped *together with* its key phrase is invisible to that arm
+        by construction and is held by the census equality instead.
 
         Fix round 3 narrowed the third entry (S-3) and widened the second
         (B-2). The second entry's case shows the continuation block it names.
@@ -4668,6 +4747,17 @@ class TestTheDeclaredMissTables:
     anywhere in the entry leaves every other line free text; a key bound to
     its line does not.
 
+    **Two arms, because one of them has a blind spot that is a property of
+    it** (cycle 5, F-001). The per-line arm reds on seven directions, each
+    with a constructed case naming the line it reds on. It cannot see a
+    declaration line removed *together with* its key phrase: both counts
+    fall by one and every surviving key is still on its own line, so the
+    verdict is ``[]`` by construction. That edit is the realistic one -- it
+    is how an entry shrinks back to a wording a previous round corrected --
+    and what sees it is the **census equality** in
+    :meth:`test_every_line_of_every_declared_miss_entry_is_keyed`, which
+    replaced a floor of ``45`` against a measured 57 that could not.
+
     The tables are read back out of the test sources with ``ast`` rather than
     imported, for two reasons. ``tests/test_web_server.py``'s declared misses
     are covered here without a second copy of them (G-3) -- the same mutual
@@ -4694,17 +4784,30 @@ class TestTheDeclaredMissTables:
         )
 
         defects: list[str] = []
-        keyed = 0
         for where, keys in _MEASURED_TABLE_LINE_KEYS.items():
             assert keys, where
-            keyed += sum(len(group) for entry in keys.values() for group in entry)
             defects.extend(_unkeyed_declaration_lines(self._source(where), keys, where))
 
-        assert keyed >= 45, (
-            f"only {keyed} declaration lines are keyed across "
-            f"{len(self._FILES)} files; the contract is reading too little"
-        )
         assert defects == [], "\n".join(defects)
+
+        # The census, as an EQUALITY and not a floor (cycle 5, F-001). The
+        # floor it replaces read `>= 45` against a measured 57, and eleven
+        # lines of slack is what made the one edit the per-line arm cannot
+        # see -- a declaration line dropped together with its key phrase --
+        # silent: both counts fall by one, the verdict above stays `[]`, and
+        # a floor does not notice. This figure does. Every number in it is
+        # re-derived rather than copied: fix round 5 took it through
+        # `_declaration_census` over the keys AND through the deployed
+        # enumerator's own AST walk over the two sources (5 / 12 / 57 both
+        # ways, entry spans 1+4+13, 3+3+10, 2+3, 9 here and 6+1+2 in
+        # tests/test_web_server.py). A new table, a new entry or a new line
+        # is a red to be judged and the figure updated with it -- which is
+        # the point: a declaration this module keys cannot be added or
+        # removed without someone saying so.
+        assert _declaration_census(_MEASURED_TABLE_LINE_KEYS) == (5, 12, 57), (
+            f"the keyed declarations are now {_declaration_census(_MEASURED_TABLE_LINE_KEYS)} "
+            "(tables, entries, source lines) and the contract states (5, 12, 57)"
+        )
 
     def test_every_measured_table_in_the_tree_is_accounted_for(self) -> None:
         """The contract's closing clause: a new ``MEASURED_*`` table is a red.
@@ -4735,14 +4838,32 @@ class TestTheDeclaredMissTables:
             "an exemption with no reason is the shape this card is about"
         )
 
-    def test_the_line_keying_control_reds_on_a_gutted_or_inverted_line(self) -> None:
+    def test_the_line_keying_control_reds_on_every_direction_it_declares(
+        self,
+    ) -> None:
         """The contract's clause 3, applied to the control that enforces it.
 
         A fabricated table rather than the real ones, because an assertion
-        built on the real sources is satisfied by the real sources: the four
-        ways a declaration can move out from under its key have to be
-        constructed. The **moved** case is the one that actually shipped --
-        the phrase is still somewhere in the entry, one line up.
+        built on the real sources is satisfied by the real sources: every way
+        a declaration can move out from under its key has to be constructed.
+        The **moved** case is the one that actually shipped -- the phrase is
+        still somewhere in the entry, one line up.
+
+        One case per direction the contract names, and each asserts the
+        **line the verdict names**, not merely that it is non-empty. Cycle 5
+        is why: the ``add`` direction was constructed nowhere, so the span
+        equality -- the only mechanism in this module that reads an entry's
+        line count -- could be deleted with the file 167/167 green, and the
+        ``drop`` case that did exist reds *for a different reason* once the
+        span equality is gone (at the fabricated line 3, on a key mismatch,
+        rather than at line 2 on the count) and so could not tell the two
+        apart. A truthiness assert cannot see a misattribution; a line number
+        can.
+
+        The last block is the contract's **declared bound**: the co-edited
+        drop, which this arm cannot see by construction, asserted as the
+        empty verdict it is, with the census that does see it measured beside
+        it.
         """
         intact = (
             "MEASURED_FABRICATED_MISSES = (\n"
@@ -4775,17 +4896,82 @@ class TestTheDeclaredMissTables:
             '    " because the sweep reads one node at a time",\n',
             '    "a shape this rule cannot see",\n',
         )
+        # The direction cycle 5 found constructed nowhere: a line appended to
+        # an entry nobody keyed. Appended at the **end** of the entry on
+        # purpose -- the keys of every line before it still sit on their own
+        # line, so with the span equality disabled this entry's verdict is
+        # `[]`, which is a *missing* defect rather than a misattributed one.
+        # Measured: that mutant then reds at `len(verdict) == 1` here and at
+        # the message assert on the `drop` case, and at nothing else in the
+        # file (recording pass, 2 of 214 assertion nodes).
+        added = intact.replace(
+            '    " because the sweep reads one node at a time",\n',
+            '    " because the sweep reads one node at a time"\n'
+            '    " -- and one more clause, on a line nobody keyed",\n',
+        )
+        extra_entry = intact.replace(
+            '    "a second shape, caught instead",\n',
+            '    "a second shape, caught instead",\n'
+            '    "a third shape nobody keyed",\n',
+        )
         renamed = intact.replace("MEASURED_FABRICATED_MISSES", "MEASURED_RENAMED")
 
-        for mutated, why in (
-            (gutted, "gutted"),
-            (inverted, "inverted"),
-            (moved, "moved onto the line above"),
-            (dropped, "one line shorter"),
-            (renamed, "renamed"),
+        for mutated, why, expected in (
+            (gutted, "gutted", "fabricated.py:3: MEASURED_FABRICATED_MISSES[0] no "),
+            (inverted, "inverted", "fabricated.py:4: MEASURED_FABRICATED_MISSES[1] no "),
+            (
+                moved,
+                "moved onto the line above",
+                "fabricated.py:3: MEASURED_FABRICATED_MISSES[0] no ",
+            ),
+            (
+                dropped,
+                "one line shorter, its key kept",
+                "fabricated.py:2: MEASURED_FABRICATED_MISSES[0] spans 1 source "
+                "line(s) and carries 2 key(s)",
+            ),
+            (
+                added,
+                "one line longer, unkeyed",
+                "fabricated.py:2: MEASURED_FABRICATED_MISSES[0] spans 3 source "
+                "line(s) and carries 2 key(s)",
+            ),
+            (
+                extra_entry,
+                "one entry more",
+                "fabricated.py: MEASURED_FABRICATED_MISSES holds 3 entries and "
+                "2 key groups",
+            ),
+            (
+                renamed,
+                "renamed",
+                "fabricated.py: MEASURED_FABRICATED_MISSES is keyed here but "
+                "assigned nowhere",
+            ),
         ):
             assert mutated != intact, why
-            assert _unkeyed_declaration_lines(mutated, keys, "fabricated.py"), why
+            verdict = _unkeyed_declaration_lines(mutated, keys, "fabricated.py")
+            assert len(verdict) == 1, (why, verdict)
+            assert verdict[0].startswith(expected), (why, verdict)
+
+        # The declared bound, constructed: the same line dropped **together
+        # with** its key phrase. Two counts fall together, so the span
+        # equality holds and every surviving key is still on its own line --
+        # the verdict is empty, and that is a property of the mechanism, not
+        # an oversight. The control for it is the census one test up, so the
+        # two figures below are what reds there: a keyed line leaves and the
+        # equality on (tables, entries, lines) stops holding.
+        co_edited_keys = {
+            "MEASURED_FABRICATED_MISSES": (
+                ("a shape this rule cannot see",),
+                ("caught instead",),
+            )
+        }
+        assert (
+            _unkeyed_declaration_lines(dropped, co_edited_keys, "fabricated.py") == []
+        )
+        assert _declaration_census({"fabricated.py": keys}) == (1, 2, 3)
+        assert _declaration_census({"fabricated.py": co_edited_keys}) == (1, 2, 2)
 
         # ...and the enumeration sees the fabricated table under either name,
         # so the completeness arm above cannot be walked around by a rename.

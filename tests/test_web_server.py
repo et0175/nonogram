@@ -213,9 +213,15 @@ MEASURED_PROSE_CITATIONS = (("submission.py", "validate_extent"),)
 #: ``tests/test_guard_integrity.py``: that module holds one required phrase
 #: per source line of this table and checks each against the line it belongs
 #: to, so gutting a line, inverting it, moving a phrase onto a neighbouring
-#: line, or changing the entry count reds there, by line number
-#: (``TestTheDeclaredMissTables``). It is keyed from there rather than here so
-#: that this table is not copied (G-3) -- the same mutual arrangement that
+#: line, adding an unkeyed line to an entry or dropping a keyed one reds
+#: there **by line number**, and changing the entry count reds naming the
+#: table (``TestTheDeclaredMissTables``, one constructed case per direction
+#: as of fix round 5). The one edit that arm cannot see is declared with the
+#: contract: a line dropped *together with* its key phrase leaves both counts
+#: equal, and what reds then is that module's census equality over the keyed
+#: declarations of both files, this table's included (no figure is restated
+#: here -- it belongs where it is re-derived). It is keyed from there rather
+#: than here so that this table is not copied (G-3) -- the same arrangement that
 #: module's docstring opens with. Fix round 3 reworded the first entry's head
 #: (B-3) and the fragments its case keyed on moved off the lines carrying the
 #: claim, so inverting them survived; that is the defect the contract exists
