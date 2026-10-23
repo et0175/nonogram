@@ -2001,3 +2001,77 @@ matched nothing, exit 0 inside a compound selection, a security constraint repor
 defect class, opposite side: **exit code plus collected count does not establish that a constraint was
 verified; the passed count does.** The verdict line under test cites "6 passed", so it is sound — but the
 evidence idiom this board writes ("N collected, exit 0") is not, and that is now on CARD-279.
+
+#### [8h spot-check] ✗ **ADR-0039/R3 — `✓ holds` NOT fully reproduced.** Two of the five narrowings fail the verdict's universal claim
+
+The spot-check exists because the `✓` half of a contract gates a merge as hard as the `✗` half, and
+until this step nothing had checked it. Here it earned its keep. A skeptic in its own worktree, given
+the rule and the verdict line verbatim and told to default to `not_reproduced`, re-derived all three of
+R3's clauses per declared-miss entry — and **clause 3 ("its own failing control") reproduces for all
+five**, as do both exemption equalities, and clauses 1 and 2 for M-1 and M-2. What does **not** reproduce
+is the verdict's universal sentence, *"each is no wider and no narrower than measured"*:
+
+**1. `MEASURED_CLAIM_MISSES[2]` (`tests/test_guard_integrity.py:2921-2923`) is WIDER than measured.** The
+entry declares as a miss *"a span that parses and whose every name resolves in `dir(builtins)`"*. Measured
+in-process: `` `bool` ``, `` `int` ``, `` `str` ``, `` `list` ``, `` `tuple` ``, `` `dict` ``,
+`` `frozenset` `` each satisfy that condition **verbatim** and the guard **catches** every one of them —
+`('symbol', 'names no symbol defined in src/nonogram')`. Cause located, not guessed: `_classify` tests
+`_IDENTIFIER_CHAIN.fullmatch(span)` at **`:3175`** *before* `_is_type_expression(span)` at **`:3190`**, so
+a bare builtin never reaches the type-expression branch. The steelman does not save it — *"clues cross the
+boundary as `str`"* is a **false type claim** and reds. Only the subscripted and parenthesised forms
+(`list[list[bool]]`, `(0,)`, `()`) are genuinely missed. **And it has a live consequence**: a future
+`CLAUDE.md` reword to "grids are lists of `bool`" would red with a message this declaration says cannot
+happen.
+
+**2. `MEASURED_DEPENDENCY_CLAIM_MISSES` (`:3072-3079`) is NARROWER than reality.** A third evasion family
+is undeclared: a paragraph that **invents** a runtime distribution. Measured — the live paragraph plus
+`" and requests"` → `[]`; `` `pyproject.toml` declares exactly stdlib + Pillow + NumPy + requests `` →
+`[]`; three invented dists at once → `[]`. Cause: `_dependency_claim_defects` (`:3082`) has four arms —
+every declared runtime dist must be mentioned, no extra-only member may be, no backticked extra name, and
+pyproject must be cited — and **none of them loops over the names the paragraph does mention**, so a
+distribution in no pyproject table is invisible. It is live rather than hypothetical: the shipped
+paragraph writes the dist names **unbackticked**, so AC-1's span rule cannot see them either
+(`_claim_defects` on `"stdlib + Pillow + NumPy + requests"` → `[]`; only the backticked form reds). **The
+word "exactly" in the guarded paragraph is unenforced on the upper side** — precisely the kind of residue
+R3's last clause requires be recorded as a measured bound, and it is not in the table.
+
+**The verdict line is therefore re-judged on this card: ADR-0039/R3 is `✗ violated` on its last clause,
+not `✓ holds`.** Cycle 2 had marked it ✗ on that same clause; cycle 3 flipped it to ✓; this re-derivation
+restores the ✗ with two *new* instances the flip did not cover. I am not leaving a ✓ on the card that an
+independent agent could not reproduce.
+
+**Why clause 3 passing everywhere is not a defence, and is in fact the sharpest result here.** All ten
+mutants fired by the spot-check killed, each at the entry-keyed assertion — `CLAIM-MISS-2-GUTTED` reds at
+`:3349`, exactly where the fix round said it would. But that assertion **pins the entry's *text*, not the
+entry's *truth***. A declaration can have a perfect failing control and still say something false, and
+that is how both defects above survived a 9.6 review. This is the card's own subject one level further
+out than the card ever went: *a control over a claim is not a control over the claim's correctness.*
+
+**Everything else about the verdict reproduced**, and some of it is stronger than claimed. M-1's em-dash
+correction is right (`(?<=[.;])\s+` looks behind for `.` or `;` only, so colon, comma and em-dash all
+join into one sentence; full stop and semicolon both split) and the breaking-set complement was probed —
+`?`, `!`, en-dash and a parenthetical all give one sentence. M-2's narrowing is the measured one: the
+lookup-table form it moved **off** the miss side is genuinely caught by **both** arms, and the two
+remaining shapes are genuinely invisible to both. Both exemption equalities re-derived independently —
+`MEASURED_PROSE_CITATIONS` is a true two-sided equality (its left side is derived from the sources, so a
+new prose mention reds at `:2325`), while `MEASURED_KEYWORD_SPANS`' equality is **subset-by-construction**
+and can only catch a *dead* exemption, never a newly absorbed site — a structural point the comment at
+`:2908` claims and which is delivered by **default-deny elsewhere**, measured: `_classify("nargs=")` and
+`_classify("metavar=")` both return `('unanalysable', 'is a shape this rule cannot read, so it is
+denied')` and red at `:3274`. Equality plus default-deny satisfies the clause; the equality alone does
+not.
+
+**The recording-pass trap, a ninth time and at full strength: all ten mutants exited pytest 0 while the
+matrix recorded a FAIL cell.** A test-level reading would have published ten real kills as survivors.
+Domains stated and never conflated: target A **149** `ast.Assert` nodes / 29 reached / 3 collected tests;
+target B **251** / 17 / 4. SHIPPED FAIL-free before every mutant. Worktree left clean, detached at
+`e26e5473`, board lock never touched.
+
+**Three by-catch items recorded, none of them gating.** `_dependency_claim_defects`' own docstring
+(`:3093-3094`) still says the extras table "has grown **three times**" — an uncontrolled count one
+function above the table M-6 just cleaned, and now inconsistent with `:3507`'s softened wording.
+`_guarded_paragraphs` (`:2941`) cannot see a **continuation block** under a guarded lead-in (a second
+`\n\n` block has no lead-in of its own), which entry [1] covers only by charity. And
+`getattr(m, 'validate_' 'extent')` — implicit adjacent-literal concatenation — is **caught** by the AST
+arm, because CPython folds it into one `Constant`, so `MEASURED_AST_SWEEP_MISSES[0]`'s head is over-wide
+if read as a family rather than as the exact `+` expression it quotes.
