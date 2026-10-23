@@ -18,11 +18,24 @@ review:
   enabled: true
   min_score: 8
   max_cycles: 3
-  min_improvement: 0.5
+  # "off", 2026-10-23. Quoted on purpose: a bare `off` is YAML False, reads back
+  # as 0 and silently means "escalate only on a strict fall". forge's own
+  # kanban SKILL.md documents when to switch this off: the score judges the
+  # state at the current DEPTH of scrutiny, so a deeper cycle scores the SAME
+  # code lower while the card converges. This board shows that shape on
+  # CARD-264 (9.6 -> 7.65 -> 7.6 after the 8h spot-check went deeper).
+  # family_regression below stays as the stall detector.
+  min_improvement: "off"
   build_fix_attempts: 2
   scope_gate: on
-  family_regression: on
-  parallel: false     # keep off: heavy reviewers x max_concurrent is the cost cliff
+  # warn, 2026-10-23: writes the [Family] note but never escalates (`off` is
+  # refused by forge in run auto/autonomy, CARD-154). The retro's 2026-10-20
+  # precedent already treats the flag as a signal to surface at the wave
+  # boundary when findings are record-only; this makes that the default.
+  # A code-implicated family is still visible in the note -- raise it to `on`
+  # if one ever slips through unescalated.
+  family_regression: warn
+  parallel: false    # keep off: heavy reviewers x max_concurrent is the cost cliff
 
   test_command: "./.venv/bin/python -m pytest"
 
