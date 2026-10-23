@@ -112,7 +112,8 @@ _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 - **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
   `worktree: ../PythonProject4-card-264` · `branch: card/264-claude-md-outside-the-map` · `head: 99782837`
   `cycle 1: 8.3 ✓ PASS, 0 gating → polish d5da18ff (unreviewed) → narrowed → build gate ✓ (8919 exec / 8892 pass / 0 fail; +36 reconciles exactly) → cycle 2: 5.5 ✗ (1 crit, 2 imp)`
-  `fix round next, then cycle 3/3 certifies. STALLED CHECK fires on the numbers and is OVERRIDDEN with reasons on the card — the family-regression detector reads 0, and the two cycles reviewed different content.`
+  `adversarial pass REFUTED 2 of 3 gating findings → fix 2 e26e5473 (1 gating + 9 narrowings; pre-gate 7/7) → post-fix gate ✓ 8921 exec / 8894 pass / 0 fail, +2 reconciles → cycle 3/3 running as a FULL review, not confirmation mode`
+  `STALLED CHECK fired on cycle 2's numbers and is OVERRIDDEN with reasons on the card — family-regression reads 0, and the two cycles reviewed different content. Cycle 3 is the certification of record: no cycle follows it.`
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…

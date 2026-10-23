@@ -1819,3 +1819,45 @@ backlog as its own shape.
 
 **CON-010 is now actually run.** The fix round's run of the corrected selection: **10 passed, exit 0**,
 and the post-fix full-suite gate executes all three functions by construction.
+
+### [Build gate] **PASSED** at `e26e5473` (post-fix-2) — exit 0, and the +2 reconciles to the fix round exactly
+
+| figure | value |
+|---|---|
+| pytest exit code | **0** |
+| executed | **8921** |
+| passed | **8894** |
+| skipped | **27** |
+| failed / error | **0 / 0** |
+
+Board lock taken and released, verified gone. **+2 against this card's own first gate (8919)**, and the
+per-file collection delta from `99782837` to `e26e5473` is `test_guard_integrity.py` 156→157 and
+`test_web_server.py` 165→166. The fix round added exactly **two** new test functions —
+`test_a_name_supplied_from_outside_the_source_is_a_measured_miss` (M-2's caught/miss case) and
+`test_the_rule_names_what_it_cannot_see` in `TestClaudeMd_TheDependencyClaimMatchesPyproject` (M-4's
+declared reach). **+2 and +2.** The round's other seven fixes changed assertions, declarations and prose
+rather than adding tests, which is what a narrowing round should look like from the outside.
+
+Cumulative against main: **8921 − 8883 = +38**, all of it this card's.
+
+### [Review 3/3] dispatched as a **FULL** review, not in confirmation mode — and the reason is this card's history
+
+Confirmation mode is mechanically available (cycle > 1; cycle 2 parsed cleanly; every commit since the
+reviewed state is a fix commit against named findings; scope IN_SCOPE; the fix round addresses all three
+of cycle 2's gating findings, two by refutation). I am declining it, deliberately:
+
+1. **This is the only certification this card will get.** Cycle 3 of 3 is the last; there is no cycle
+   after it to catch what it carries forward. A differential review legitimately *carries verdicts
+   forward* for scope that the fix delta does not touch — and carrying a verdict forward is exactly the
+   move whose failure mode this card exists to remove. On this card, of all cards, a verdict nobody
+   re-derived is the wrong kind of saving.
+2. **Both prior cycles missed real defects in this same diff**, which is the empirical case against
+   trusting their verdicts as a floor. Cycle 1 passed at 8.3 and missed everything cycle 2 found; cycle 2
+   found those and missed the CON-010 selector defect — a **security** control reported as run, twice,
+   while the selector matched nothing — which neither reviewer caught and which only surfaced because a
+   fix agent happened to look at a collection count.
+3. The wall-clock confirmation mode saves is the cheapest thing on this card's balance sheet. Two of
+   cycle 2's three gating findings were false and cost a verification round each; one real finding came
+   from a docs page no gate in the suite reads. Spending a full review here is the correct trade.
+
+Stated so the next reader knows it was a choice with a reason, not an omission.
