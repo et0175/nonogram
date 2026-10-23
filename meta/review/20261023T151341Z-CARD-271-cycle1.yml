@@ -1,0 +1,600 @@
+version: 1
+generated_at: "2026-10-23T15:13:41Z"
+target: "CARD-271 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-271, branch card/271-clues-stay-in-view, commit 023157e3, fork point ec42e6ea (7 files: admin.css 58/0, solver.js 126/6, test_admin_design_tokens.py 11/1, test_puzzle_solver_clues.py 743/0, test_puzzle_solver_fifth_rule.py 33/1, test_puzzle_solver_phone.py 155/0, test_puzzle_solver_zoom.py 182/0)"
+overall_score: 6.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/static/solver.js (the whole CARD-271 surface: :296-333 authority block, :426-456 STICK_MAX_SHARE, :510-545 clueBox/cornerBox, :599-650 drawBoard gutters, :820-945 keepCluesInView/redraw/zoomed/resize, :1168-1185 applyZoom)"
+    - "src/nonogram/admin/static/admin.css (:572-632 the four sticky rules, the corner background, the .player-stage block :455-470, --color-bg/--bs-body-bg chain)"
+    - "tests/test_puzzle_solver_clues.py (:2278-2985, all of CARD-271's additions)"
+    - "tests/test_puzzle_solver_phone.py (:744-897 CARD-271 additions)"
+    - "tests/test_puzzle_solver_zoom.py (:907-1087 CARD-271 additions, plus _board_snapshot :95-108 and TestSolverZoom_IsNotSavedAndSendsNothing :481)"
+    - "tests/test_admin_design_tokens.py (:395-460 the right-hand-gutter equality guard)"
+    - "tests/test_puzzle_solver_fifth_rule.py (:148-162 _GEOMETRY, :240-275 _UNSTICK/_board)"
+    - "meta/kanban/cards/CARD-271.md (MAIN's copy — the contract)"
+    - "meta/architecture/decisions/adr/0038-*.md and 0039-*.md (## Rules blocks)"
+    - "src/nonogram/admin/templates/puzzle_edit.html (the editor reuses .player-stage#puzzle-player)"
+  not_reached:
+    - "the 11 non-card test files in the 17-file selector gate were RUN but not read line by line"
+    - "the five handed renders in ~/Documents/nonogram-reviews/CARD-271/ (G-6 amended: not a pre-merge eyeball gate; existence re-derived by the pre-gate, not re-opened here)"
+    - "tests/test_puzzle_editor_ui.py read only by grep (no gutter/stage selector in it — that absence is finding F-006b)"
+  confidence: high
+  gates_run:
+    - "SHIPPED, the three card files + the two outside-Touches files: 158 passed, 0 skipped, 0 collection errors, EXIT=0, 87.7 s (matches the pre-gate)"
+    - "impact gate, the 16 test files naming player-board / player-clue / player-stage / admin.css plus tests/test_puzzle_solver_marking.py (ADR-0038/R2's named check): 687 passed, 4 skipped, EXIT=0, 354.4 s"
+    - "the 4 skips are ALL `SKIPPED [4] tests/conftest.py:207: Database not reachable: DATABASE_URL is not set`, from the single db_required class in the selection (tests/test_puzzle_edit_routes.py:375). ZERO skips in a browser file, and no test in the suite carries both db_required and mark.browser (verified by grep). The brief's skip signal is cleared with a measurement, not assumed."
+metrics:
+  diff: { files: 7, added: 1308, removed: 8 }
+  max_fan_in:
+    symbol: "player.zoomed (solver.js:910)"
+    callers: 1
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/admin.css (52 of 60 commits in 12 months)"
+    - "src/nonogram/admin/static/solver.js (31 of 60)"
+  churn_12m: 60
+  defect_density_12m: "19 of 60 commits on the two static files are fix/bug/hotfix (32%) — findings in them are weighted up"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the four co-change peers above this diff (puzzle_solve.html 19/60, app.py 17/60, solver_state.js 15/60, test_puzzle_solver_marking.py 14/60) are each correctly absent: the card adds no markup and no route, solver_state.js is forbidden by G-3, and marking.py needed no edit (it was run, green). So the empty list is a derived empty, not an unrun check."
+    max_fan_in: "no_eligible_fact — every symbol this card adds (keepCluesInView, STICK_MAX_SHARE, the `stuck` parameter of cornerBox, player.zoomed) is file-local to solver.js with exactly one call site; the module exports nothing new and window.puzzlePlayer's frozen surface is unchanged. The 1 is true and says nothing about blast radius."
+
+system_contract:
+  # 14 rule IDS in 12 verdict lines: two lines legally compress ids that share
+  # one verdict and one reason, and each names every id it covers.
+  rules_checked: 14
+  holds: 9
+  unchecked: 4
+  violated: 1
+  count_line: "System contract: 14 rules checked, 9 ✓ holds, 4 ⚠ unchecked (stale_check: ADR-0038/R8; no_eligible_fact: CON-011, CON-015, CON-016), 1 ✗ violated (ADR-0039/R1 — F-002)"
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — hand-written JS/CSS, no framework, no build step: `git diff ec42e6ea..HEAD -- src/` has 0 added lines matching `import |require\\(|from '|<script src=\"http`; pyproject.toml is not in the 7-file diff, so no toolchain or vendored library entered."
+    - "ADR-0038/R2 ✓ holds — no network request per mark and none per scroll: the diff adds no addEventListener at all (`git diff … -- src/ | grep '^+.*addEventListener'` is empty), so the mechanism runs only from redraw() (solver.js:862) and applyZoom (:1181). TestSolverMarking_NoRequestPerMark green in the 17-file gate."
+    - "ADR-0038/R3 ✓ holds — no_eligible_fact for clue derivation: the diff touches no clue computation; clueBox/cornerBox gained class markers only, and TestSolverPage_ShowsTheClues is green in the 17-file gate."
+    - "ADR-0038/R4 ✓ holds — `git diff --stat ec42e6ea..HEAD -- src/nonogram/admin/static/solver_state.js` is empty (byte-identical); the room decision is a DOM measurement in solver.js and nothing about it entered the pure module."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is not in the diff, so pytest-playwright's dev-only extra is untouched."
+    - "ADR-0038/R8 ⚠ unchecked — stale_check: the rule is about what happens with Chromium ABSENT, which this host cannot exhibit (five Chromium builds installed). What IS measured: 0 skipped across the 5-file 158-test selection and 0 browser-file skips in the 17-file gate, so no browser test passed silently here."
+    - "ADR-0036/R4 ✓ holds — 0 added lines under src/ carry U+25A0..U+25FF, U+2022 or U+2219 (grep -P over the added lines of the src diff)."
+    - "ADR-0039/R1 ✗ violated — tests/test_puzzle_solver_fifth_rule.py:252-254 licenses a two-class-state capture with a claim whose cited control (tests/test_puzzle_solver_clues.py:2893, asserting band/overflow/port at :2918-2919) cannot fail for the term the claim is about (_GEOMETRY's table w/h and per-cell offsets). See F-002. Important, not Critical: the claim is TRUE (measured identical — table 471.453125 x 380.03125 both ways, 0 of 400 cells differing); it is the control that is the wrong one."
+    - "ADR-0039/R2 ✓ holds — the two guard sets this card touches are derived, not hand-written: STICK_MAX_SHARE is read out of solver.js (clues.py:2798) and the row-gap constant out of admin.css (test_admin_design_tokens.py:442); the sticky-rule set is collected by selector with an equality on the count (clues.py:2941-2945) so a renamed or deleted rule reds rather than shrinks."
+    - "ADR-0039/R3 ✓ holds — the one coloured value the card adds (.player-corner background) carries its own per-rule exemption with four literal controls (clues.py:2958-2968: rgb(), a named colour, a colour inside color-mix, and transparent), each asserted to FAIL the token predicate."
+    - "CON-021 ✓ holds — zoom and pan record and save nothing: TestSolverZoom_CluesStayInViewWhileZoomed::test_zooming_and_panning_record_and_save_nothing (zoom.py:1066) compares the whole solve-state snapshot (cell states, errors, progress, hints, undo/redo aria, localStorage) across a zoom, five pans and a zoom back, and the independent pre-card control TestSolverZoom_IsNotSavedAndSendsNothing (zoom.py:481) is green. The coupling inside the new test is F-004, a control-shape finding, not a CON-021 breach."
+    - "CON-011 / CON-015 / CON-016 ⚠ unchecked — no_eligible_fact: 30x30 remains the biggest board exercised (CON-011) and the card adds no route, no auth surface and ships no solution anywhere new (CON-015/016); nothing in the 7-file diff bears on them."
+
+root_causes:
+  - id: RC-1
+    title: "keepCluesInView made every board's rendering viewport-dependent, but the two viewport triggers are still gated on isBig — the pre-card gate for the mirror and the ladder"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "A claim about the mechanism cites, or is pinned by, something that is not the term the claim is about (control-vs-claim mismatch — the PG-1 family)"
+    finding_ids: [F-002, F-004, F-005, F-006]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: ops
+    type: bug
+    file: src/nonogram/admin/static/solver.js
+    line: 942
+    title: "A small board's is-keeping-* classes go stale on any viewport change, and the stale stick makes half the visible cells untappable"
+    description: |
+      `keepCluesInView()` (solver.js:842) is reached from exactly two places:
+      `redraw()` (:862) and `zoomed()` (:910). A viewport change reaches
+      `redraw()` only through `:920` (`if (isBig) redraw();`) and `:942`
+      (`if (!isBig) return;`). Before this card every viewport-dependent
+      decision — CARD-193's mirror and CARD-212's ladder — applied only to a
+      board big on one side, so that gate was correct. This card makes the
+      rendering of EVERY board viewport-dependent, and the gate is now wrong:
+      a board with both sides <= BIG_SIDE never re-measures.
+
+      MEASURED, in this worktree at 023157e3 (reproduction script:
+      /private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/f7b1d54a-8309-4e9b-8cf1-e8633015b556/scratchpad/card271_review_probe.py):
+
+        15x15, loaded at 1920x1500, zoomed to 200%
+          -> keeping [True, True], overflow [0, 0]                 (correct)
+        resize to 1024x768, waited 600 ms (4x RESIZE_SETTLE=150)
+          -> keeping STILL [True, True]
+             band [376.3, 270.4]  port [724, 540]  overflow [424, 518]
+             cover/port = 0.520 and 0.501, both past STICK_MAX_SHARE 0.4
+          -> the decision keepCluesInView's own terms give here: [False, False]
+
+      Consequence, measured on that stale page: of the 70 cells whose centre
+      lies inside `.player-stage`'s visible box, **35 are not reachable by a
+      tap** — `document.elementFromPoint` at the cell's centre returns
+      `TH.player-clue is-row is-stuck-row`, not the cell.
+
+      Two controls make that refutable:
+        * the same board at the same viewport reached by LOADING there:
+          keeping [False, False], 0 of 140 cells blocked;
+        * the same stale page after one zoom-out/zoom-in round trip (the only
+          path that re-measures): keeping [False, False], 0 of 84 blocked.
+
+      This is precisely the regression class the round measured and refused.
+      solver.js:437-447 names it: "a 15 x 15 at 1024 x 768 and 200% zoom,
+      where a 359.4 px row band over a 724 px stage swallowed the cells a
+      recorded touch drag was aimed at" — share 0.496. The room condition
+      refuses that configuration at load and at zoom; the resize path
+      reinstates it.
+
+      The reverse direction is stale too (measured): at 1024x768/200% the
+      classes are correctly [False, False]; grown to 1600x1200, where the
+      fresh decision is [True, True], they stay [False, False] — so the clues
+      scroll away where the card's own rule says there is room.
+
+      AC-5 ("Given a 15x15 board that fits its stage, then nothing observable
+      changes") is the clause this breaks, for a state the AC's own test never
+      enters.
+
+      NO CONTROL CAN FAIL FOR THIS, and that is the second half of the
+      finding. The mechanism whose absence this is — a re-measurement after a
+      viewport change on a non-big board — does not exist, so there is no line
+      to delete; the certifying evidence is the behaviour probe above with its
+      two control runs. tests/test_puzzle_solver_clues.py:2530
+      (TestSolverClues_SmallBoardsUnaffectedByStickiness::test_a_15x15_moves_nothing)
+      is parametrized over three viewports but runs at 100% zoom and never
+      resizes, and `grep -rn is-keeping tests/` shows only four sites in the
+      whole suite (clues.py:2818-2819, :2906, :2941; fifth_rule.py:261) — none
+      of them after a viewport change.
+
+      Reachability caveat, stated so the severity is auditable: it needs a
+      zoom and then a window resize / rotation / phone URL-bar collapse (the
+      card's own comment at solver.js:931 names that last one as a real
+      event), and it self-heals on the player's next zoom step. A reviewer
+      could defensibly call this Important rather than Critical; it gates
+      either way.
+    suggestion: |
+      Drop the `isBig` gate from the re-measurement, not from the redraw:
+      in the resize handler (:941-945) call `keepCluesInView()` for every
+      board on the debounced settle, and `redraw()` only when `isBig`; do the
+      same in the `mirrorQuery` change handler (:919-921). `keepCluesInView`
+      reads four numbers and toggles two classes, so running it for a small
+      board costs nothing a resize does not already cost.
+
+      The control AC-5 is missing: parametrize
+      TestSolverClues_SmallBoardsUnaffectedByStickiness with a case that
+      zooms, then resizes, then asserts `_room(page)["keeping"]` equals the
+      decision re-derived from that viewport's own cover/port (the shape
+      clues.py:2884-2890 already uses), and assert no visible cell's centre
+      hit-tests to a gutter box (the `_IN_VIEW` `hit` classification already
+      exists and would read `another gutter box` today).
+    confidence: high
+    source: static
+    violates: AC-5
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_fifth_rule.py
+    line: 252
+    title: "The claim that licenses _board()'s two-class-state capture cites a control that cannot fail for the term the claim is about"
+    description: |
+      `_board()` (fifth_rule.py:268-275) takes the element screenshot with the
+      `is-keeping-*` classes OFF and then, after the `finally` has put them
+      back, evaluates `_GEOMETRY` — capture and geometry are read in two
+      different class states. The docstring licenses that at :252-254:
+      "Sticking is layout-neutral — ``_GEOMETRY`` below is the same either
+      way, which is asserted in its own right by
+      tests/test_puzzle_solver_clues.py
+      ``TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted``".
+
+      That class's `test_sticking_changes_neither_the_band_nor_the_overflow`
+      (clues.py:2893-2919) asserts exactly three terms —
+      `(loose["band"], loose["overflow"], loose["port"]) ==
+      (stuck["band"], stuck["overflow"], stuck["port"])` at :2918-2919.
+      `_GEOMETRY` (fifth_rule.py:148-162) reads NONE of them: it reads the
+      table's own `width`/`height` and every `td.player-cell`'s offset from
+      the table's rect. So the cited control cannot fail for the claim it is
+      cited for — ADR-0039/R1's exact shape ("a claim whose control cannot
+      fail is narrative, not coverage").
+
+      MEASURED (probe C, the fifth-rule file's own board and viewport: 20x20
+      at 390x844, stage scrolled to mid-axis): the two readings really ARE
+      identical — table 471.453125 x 380.03125 in both states, 0 of 400 cells
+      differ, and the restore is identical. So the helper is SOUND and the
+      claim is TRUE; what is missing is the control, which is why this is
+      Important and not Critical.
+
+      Nothing in the suite would red if sticking ever did move a cell relative
+      to the table: `grep -rn is-keeping tests/` finds four sites, and
+      clues.py:2906 is the only one that toggles the classes off, comparing
+      the three terms above.
+
+      Certification: no mutant can kill this by deletion, because the control
+      being asserted does not exist — that is the finding. The nearest
+      available deletion confirms the shape: mutant R6 (removing `left: auto`
+      from admin.css:624) was killed by exactly ONE cell, the declaration
+      equality at phone.py:797-800, while every behavioural reading
+      (`dRight == 0`, `hit`, the pixel samples) stayed green.
+
+      Second, smaller instance of the same overclaim in the same helper: the
+      docstring says "the classes go straight back so no later assertion in
+      the same test sees a page this file invented", but `_UNSTICK`
+      (:256-266) also writes `table.dataset.keptClasses` and never removes it,
+      so the table keeps a `data-kept-classes` attribute for the rest of the
+      page's life. Harmless today (nothing in that file reads the table's
+      dataset), but it is part of the claim that is not true.
+    suggestion: |
+      One line in `_board()`: read `_GEOMETRY` inside the unstuck window too
+      and assert the two readings are equal, so the file's own claim carries
+      its own control —
+
+          page.evaluate(_UNSTICK, False)
+          try:
+              png = page.locator(".player-board").screenshot(scale="css")
+              loose = page.evaluate(_GEOMETRY)
+          finally:
+              page.evaluate(_UNSTICK, True)
+          geometry = page.evaluate(_GEOMETRY)
+          assert loose == geometry, "sticking moved the table's own geometry"
+          return _image(png), geometry
+
+      Alternatively extend clues.py:2918 to compare the cells' offsets from
+      the table rect as well, and keep the citation. And have `_UNSTICK`
+      delete `dataset.keptClasses` when it restores.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 845
+    title: "The band measurement's missing-box fallback fails OPEN toward sticking — the one direction the room condition exists to prevent"
+    description: |
+      `band()` answers `box === null ? 0 : …` (solver.js:845). A 0 band makes
+      `affords` read `Math.min(overflow, 0) <= port * 0.4` — always true — so
+      an axis whose labelled gutter cannot be found KEEPS, i.e. sticks. That
+      is the board-eating direction: the whole point of STICK_MAX_SHARE
+      (:426-456) is that a band floating over the cells costs the player the
+      board, and the fallback chooses that outcome for the case it cannot
+      measure.
+
+      MEASURED: mutant R2 deleted the guard outright
+      (`return box.getBoundingClientRect()[side];`) and all 158 tests of the
+      5-file selection stayed green, 0 collection errors. So the branch is
+      not under-tested, it is DEAD: every board `drawBoard` produces has
+      rowGutters >= 1 and colGutters >= 1 with `duplicate === false` on the
+      first of each, so `clueBox` (:516) always marks one `is-stuck-row` and
+      one `is-stuck-col` th. There is no reachable consequence today, which
+      is why this is medium and not high.
+
+      Worth fixing anyway because it is one character of asymmetry: a future
+      layout that draws an axis with no labelled gutter would silently stick
+      it, and the failure would look like the five player-action regressions
+      this card already paid for once.
+    suggestion: |
+      Fail closed: `return box === null ? Infinity : …` (or return the port so
+      the axis simply does not keep). Note that the test-side reimplementation
+      of the same expression (clues.py:2810-2812) deliberately mirrors
+      solver.js, so it changes with it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_zoom.py
+    line: 1084
+    title: "CON-021's panning control aborts on a stickiness precondition before it ever evaluates the recording assertion"
+    description: |
+      `test_zooming_and_panning_record_and_save_nothing` (zoom.py:1066) is
+      G-4 / CON-021's control for panning. Inside the pan loop it asserts
+      `_room(page)["keeping"] == [True, True]` (:1084) — a stickiness
+      precondition — and the one assertion that IS the control,
+      `_board_snapshot(page, puzzle) == before`, comes after the loop
+      (:1087). So a stickiness regression reds this test with the recording
+      property never evaluated.
+
+      Two costs, both small but real: the failure is misattributed (it reads
+      as a CON-021 breach when nothing was recorded wrongly), and on exactly
+      the cycles where stickiness is broken, CON-021-under-panning is
+      unverified while the report says a CON-021 test red.
+
+      MEASURED: the pre-gate's P7' mutant (the room condition made total — no
+      axis keeps) reds this test, per the card's own record at
+      meta/kanban/cards/CARD-271.md "Handed to review cycle 1" item 3. My own
+      R1 (deleting the per-axis row-band selector) reds 8 cells and NOT this
+      one, because at 900x700/125% the mutated measurement still answers
+      [True, True] — which shows the precondition is load-bearing for the
+      test's outcome rather than incidental.
+
+      MITIGATION, stated because it bounds the severity: CON-021's recording
+      property is not solely held here. `TestSolverZoom_IsNotSavedAndSendsNothing`
+      (zoom.py:481, pre-card) is an independent recording control for the
+      zoom, and it has no stickiness precondition. That is why this is medium
+      and why CON-021 is reported as ✓ holds in the system-contract block.
+    suggestion: |
+      Hoist the keeping check to a single precondition before the pan loop
+      (one `assert _room(page)["keeping"] == [True, True]` after `_zoom_to`),
+      so the loop contains only panning and the snapshot comparison is the
+      only thing that can red inside the control's own subject.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_admin_design_tokens.py
+    line: 419
+    title: "\"CARD-271 adds a fifth selector to the list\" — the list it is added to now has six entries (a PG-1 sibling)"
+    description: |
+      The docstring this card adds says "CARD-271 adds a fifth selector to the
+      list" (:419). The asserted list at :435-442 has SIX entries after the
+      addition (the five CARD-212/CARD-193 right-hand-gutter rules plus
+      `.player-board.is-keeping-rows .is-stuck-row.is-right`). Nothing
+      re-derives the figure, so it is the same class the pre-gate filed as
+      PG-1 (two comments quantifying a two-fifths bar as "half") — one more
+      instance, this one in a file where the count IS mechanically present
+      one line below the prose that gets it wrong.
+
+      ANSWER TO HANDED ITEM 2, measured rather than read: the widening is
+      safe and is in fact a strengthening.
+        * `auto` can only be a value of an inset/box keyword in CSS; it is
+          neither a colour nor a length, so no colour and no rule width can
+          enter the five... six rules through it. The predicate those rules
+          are judged by is `allowed` ∪ `var(--token)[ solid var(--token)]`
+          (:447-457), and `background: auto` / `border-width: auto` are not
+          valid declarations at all.
+        * Because the selector list is an EQUALITY, the new rule had to join
+          it — so admin.css:624 is now UNDER the guard, and a colour or a bare
+          length written into it reds this test. Coverage went up, not down.
+      Certified with two mutants rather than by reading: R8 (`background: red`
+      written into the new rule) reds BOTH guards — the per-rule property
+      sweep at clues.py:2953 and the token predicate in
+      test_admin_design_tokens.py — and R9 (`right: 2px`) reds
+      test_admin_design_tokens.py:453 with "'2px' is not a design token". So
+      the widening lets neither a colour nor a bare length through, and the
+      new rule really is inside the guarded set.
+    suggestion: "Say \"a sixth selector\", or drop the ordinal and name the rule."
+    confidence: low
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_phone.py
+    line: 787
+    title: "The mirrored crossing is held only by a declaration equality — no pixel or hit-test reading covers it, unlike the desktop corner"
+    description: |
+      MEASURED by mutant R4: deleting the `mirrored` term from the mirrored
+      right corner's row marker (solver.js:612, `{ col: !duplicate, row:
+      mirrored }` -> `{ col: !duplicate, row: false }`) reds exactly ONE cell
+      — `TestSolverPhone_MirroredGutterSticks::test_the_mirrored_corner_sticks_to_the_right_too`
+      (phone.py:787-806), an equality over `[className, position, top, left,
+      right]`. 1 failed, 157 passed, 0 collection errors.
+
+      The claim that marker carries is a painting claim — the docstring at
+      clues.py:2499-2503 states it for the desktop corner: "otherwise the
+      crossing is a hole through which the cells show". For the DESKTOP corner
+      that claim has behavioural controls, and they fire: mutant R3 (deleting
+      admin.css:625, the corner's z-index 3) reds `hit` as
+      `'another gutter box'` instead of `'own box'` (clues.py:2499) AND reds
+      the pixel sample as `(28, 35, 51)` = `--grid-ink`, i.e. the filled cells
+      showing through (clues.py:2602). For the MIRRORED corner neither exists:
+      `_in_view` computes a `corner` key (clues.py:2346) but the phone class
+      never asserts it (phone.py:770-786 reads only `row` and `col`), and both
+      pixel/hit controls run on the non-mirrored desktop board.
+
+      So the mirrored crossing is controlled in declaration only. It is
+      genuinely controlled — R4 was killed — which is why this is low rather
+      than a gating finding; it is recorded because the brief asks for the
+      is-right x isMirrored interaction and because the two corners are
+      asymmetrically covered.
+    suggestion: |
+      One line in `test_both_bands_are_in_view_at_every_corner`: assert
+      `seen["corner"]["hit"] in GUTTER_PAINTS` and
+      `seen["corner"]["dRight"] == pytest.approx(0, abs=0.5)` — the `corner`
+      key is already computed and discarded.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_solver_clues.py
+    line: 2798
+    title: "The constant's source-read reds as three opaque collection errors instead of a named failure — the one-line idiom that fixes it is already in a file this card edits"
+    description: |
+      ANSWER TO HANDED ITEM 4, measured rather than accepted.
+
+      `STICK_MAX_SHARE = float(re.search(r"\\nconst STICK_MAX_SHARE = ([0-9.]+);", …).group(1))`
+      (clues.py:2796-2799) is the good CARD-281 pattern — the figure is
+      derived from solver.js, so a drift cannot pass as agreement — but the
+      failure mode is unnamed. With `const STICK_MAX_SHARE = Infinity;` in
+      solver.js, `--collect-only` over the three importing files gives:
+
+          3 errors during collection, no tests collected, exit 2
+          ERROR tests/test_puzzle_solver_clues.py - AttributeError: 'NoneType' …
+          ERROR tests/test_puzzle_solver_phone.py - AttributeError: 'NoneType' …
+          ERROR tests/test_puzzle_solver_zoom.py  - AttributeError: 'NoneType' …
+
+      It IS loud (exit 2, three named ERROR lines), so ADR-0038/R8 is not
+      breached — nothing passes silently. What it is not is attributable: the
+      message says a regex matched nothing, not "solver.js no longer declares
+      STICK_MAX_SHARE as a decimal", and it takes three browser test files out
+      of collection, which is the shape this card's own pre-gate paid for
+      twice (its P6/P7 mutants exited non-zero with three collection errors
+      and zero failure cells, and had to be respelled).
+
+      Verdict: worth the one line, not worth gating on. The precedent is in a
+      file this card already edits —
+      `assert gap, "admin.css no longer sets the row numbers' own gap"`
+      (test_admin_design_tokens.py:443), the same derivation with a named
+      failure.
+    suggestion: |
+      Split the derivation and name it:
+
+          _SHARE = re.search(r"\\nconst STICK_MAX_SHARE = ([0-9.]+);",
+                             (_TOKENS_STATIC / "solver.js").read_text())
+          assert _SHARE, "solver.js no longer declares STICK_MAX_SHARE as a decimal"
+          STICK_MAX_SHARE = float(_SHARE.group(1))
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/templates/puzzle_edit.html
+    line: 153
+    title: "Out of scope: the editor board inherits the mechanism, and the confirmation the card's Design context asked for was not produced"
+    description: |
+      `puzzle_edit.html:153` is `<div class="player-stage" id="puzzle-player">`
+      — the editor reuses the same stage element and the same solver.js, so
+      `drawBoard` marks its gutters `is-stuck-*` and `keepCluesInView` runs on
+      the editor board too. The card's Design context asks to "confirm no
+      editor regression on the render"; no editor test reads a gutter box
+      (`grep -n "player-clue|player-stage|player-corner|is-keeping|is-stuck"
+      tests/test_puzzle_editor_ui.py` -> no hits) and none of the five handed
+      renders is the editor.
+
+      The risk is low and I state why rather than leaving it open: the editor
+      runs the same room condition, and its toolbar ships no zoom control, so
+      F-001's zoom-then-resize path cannot reach it. Informational only —
+      noted for the follow-up, not a gate.
+    suggestion: "Either add one editor assertion on a 30x30 edit page, or record in the card that the editor inherits the mechanism unrendered."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+# ---------------------------------------------------------------------------
+# Step 8f mutation check — RUN, not deferred. The cost ladder would defer it
+# (F-001 is a gating finding), but the dispatch brief names this card the
+# stable-code case the ladder defers to and specifies the mechanisms to
+# attack, so it ran. Selection for every mutant: the three card test files
+# plus the two outside-Touches files (158 tests). Both source files
+# sha256-verified against the shipped tree after every mutant; all six
+# anchors pre-counted to exactly one occurrence before any edit.
+#
+# SHIPPED baseline: 158 passed, 0 skipped, 0 collection errors, EXIT=0, 87.7 s
+#   sha256 solver.js  0d3ea0dd9de7fbffd53cdcd79782792ed33950573dafdca6a33c39a41d1b76f8
+#   sha256 admin.css  04d40cc58272afe1596ff2ae85057bf1d72b148ea3a4856217e0407fb28a7274
+mutation_check:
+  mutants: 9
+  killed: 8
+  survived: 1
+  results:
+    - id: R1
+      mechanism_deleted: "the per-axis row-band lookup (solver.js:850, `band(\"th.player-clue.is-row.is-stuck-row\", \"width\")` -> `band(\"th.player-clue\", \"width\")`, so the row axis measures the first head column box instead of its own band)"
+      outcome: "KILLED — 8 failed, 150 passed, 0 collection errors, exit 1"
+      cells: >-
+        clues.py:2884 room[390x844] keeping [True,True] != [False,True];
+        phone.py:610 touch drag marks {} != 5 cells;
+        phone.py:623 tap marks {} != {(12,27)};
+        zoom.py:417 200% region drag marks {};
+        phone.py:870 the 390 px refusal keeping [True,True] != [False,True];
+        zoom.py:281 zoom-out centre `assert None is not None`;
+        zoom.py:1052 give-up ladder keeping [True,False] != [False,False] at 225%;
+        fifth_rule.py test_a_light_band_reads_across_the_fifth_rule[phone-y]
+    - id: R2
+      mechanism_deleted: "the missing-box fallback (solver.js:845, `box === null ? 0 :` removed)"
+      outcome: "SURVIVED — 158 passed, 0 collection errors, exit 0"
+      cells: "none. The branch is DEAD, not untested: every drawn board marks one is-stuck-row and one is-stuck-col th. Filed as F-003 for its direction (fail-open toward sticking), not as a test gap."
+    - id: R3
+      mechanism_deleted: "the corner's z-index over both bands (admin.css:625 deleted outright)"
+      outcome: "KILLED — 3 failed, 155 passed, 0 collection errors, exit 1"
+      cells: >-
+        clues.py:2499 corner hit 'another gutter box' != 'own box' (a PAINTING kill, not a declaration one);
+        clues.py:2602 corner pixel (28,35,51) == --grid-ink, i.e. the filled cells show through (a PIXEL kill);
+        clues.py:2945 "admin.css declares 3 .is-keeping-* rules, not 4"
+    - id: R4
+      mechanism_deleted: "the mirrored right corner's row marker (solver.js:612, `row: mirrored` -> `row: false`)"
+      outcome: "KILLED — 1 failed, 157 passed, 0 collection errors, exit 1"
+      cells: "phone.py:797 corners equality (the ONLY cell; declaration-level — see F-006)"
+    - id: R5
+      mechanism_moved: "STICK_MAX_SHARE 0.4 -> 0.45, INSIDE the 0.364..0.496 gap the card declares unmeasured and the owner's to move"
+      outcome: "KILLED — 1 failed, 157 passed, 0 collection errors, exit 1"
+      cells: "zoom.py:1064 kept[rows] [100,125,150,175,200,225] != [100,125,150,175,200]"
+      note: "So the bar IS pinned inside its own declared gap, by exactly one cell. The room table (clues.py ROOMS) and the 390 px refusal both survive 0.45. Recorded as an observation, not a finding: a bar move being a test edit is arguably correct, but the card's prose and the suite disagree about how free the owner is."
+    - id: R6
+      mechanism_deleted: "half the side-swap (admin.css:624, `left: auto` removed, leaving `right: 0`)"
+      outcome: "KILLED — 1 failed, 157 passed, 0 collection errors, exit 1"
+      cells: "phone.py:797 corners equality, computed `left` '0px' != 'auto' (declaration-level only)"
+      note: >-
+        Every behavioural reading stayed green and that is CORRECT, not a gap:
+        at 600x844 the mirrored band (272.2 px) fits the port (568 px), so the
+        left and right sticky constraints agree and `left: 0` never binds.
+        A band wide enough for them to conflict is a band past 40% of the
+        port, which the room condition refuses to stick at all — so `left: auto`
+        is unreachable belt-and-braces under the shipped rule. Reported as an
+        honest "could not break it behaviourally, and here is why".
+    - id: R7
+      mechanism_moved: "STICK_MAX_SHARE 0.4 -> Infinity (outside the test's `([0-9.]+)` domain) — handed item 4's measurement"
+      outcome: "NOT AN HONEST KILL, by construction — 3 errors during collection, 0 tests collected, 0 failure cells, exit 2"
+      cells: "none; AttributeError: 'NoneType' object has no attribute 'group' in clues/phone/zoom at import time. Recorded as F-007, and as the confirmation that an exit code is not a verdict."
+    - id: R8
+      mechanism_broken: "a colour reaching into the card's new rule (admin.css:624 gains `background: red`) — handed item 2's default-deny direction"
+      outcome: "KILLED — 2 failed (BOTH guards), exit 1"
+      cells: >-
+        clues.py:2953 the per-rule PROPERTY sweep: ('.player-board.is-keeping-rows .is-stuck-row.is-right', ['left','right','background']);
+        test_admin_design_tokens.py the same rule's value judged not a token
+    - id: R9
+      mechanism_broken: "a bare length reaching into the card's new rule (admin.css:624 `right: 0` -> `right: 2px`)"
+      outcome: "KILLED — 1 failed, 1 passed, exit 1"
+      cells: "test_admin_design_tokens.py:453 \".player-board.is-keeping-rows .is-stuck-row.is-right: '2px' is not a design token\""
+      note: >-
+        R8 + R9 together certify handed item 2 with controls rather than by
+        reading: adding `auto` to the allowed keyword set did NOT weaken the
+        guard, and because the selector list is an equality the new rule is
+        now INSIDE it — a colour and a bare length both red through it.

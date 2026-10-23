@@ -15,7 +15,7 @@
 **Wave:** 55
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py
-**Review score:** —
+**Review score:** 6.0 (cycle 1, NOT CERTIFIED — fix round 1 dispatched)
 **Started:** 2026-10-23T15:05Z
 **Closed:** —
 **Actual:** —
@@ -577,3 +577,105 @@ asset cards are not the same answer.
 4. The constant's source-read reds as an opaque collection error, not a named
    failure, when the value leaves `([0-9.]+)`. The CARD-281 pattern applied
    with a sharp edge.
+
+## [REVIEW CYCLE 1 2026-10-23] 6.0, NOT CERTIFIED — one real player-visible bug, found by a reviewer that could not break anything else
+
+Report: `meta/review/20261023T151341Z-CARD-271-cycle1.yml` (synced from the
+worktree). Eight findings: 1 critical, 1 important, 2 medium, 3 minor, 1 info.
+Score arithmetic: 10 − 2 (F-001) − 1 (F-002) − 0.5 − 0.5 (F-003, F-004) = 6.0.
+
+Cycle 1 is the first scored cycle, so the STALLED CHECK and the FAMILY
+REGRESSION CHECK have no prior to compare against and did not fire.
+
+### F-001 is real. I re-derived it myself before spending a fix round on it
+
+A critical finding gets the same treatment as a round's claim. I wrote my own
+probe from `solver.js` and the card's helpers rather than reading the
+reviewer's, and it reproduces — **larger than reported**.
+
+The defect is structural and it is one missing call site. `keepCluesInView()`
+(`:842`) is reached from exactly two places, `redraw()` (`:862`) and
+`zoomed()` (`:910`); a viewport change reaches `redraw()` only through `:920`
+`if (isBig) redraw()` and `:942` `if (!isBig) return`. So on a **small** board
+no viewport change re-measures anything, and the `is-keeping-*` classes set at
+load survive a resize that invalidates them. The guard was right before this
+card — a 15 × 15 has no mirror and no duplicate, so it had nothing to redraw —
+and this card is what makes *every* board's rendering viewport-dependent.
+
+15 × 15, loaded 1920 × 1500, zoomed to 200 %, resized to 1024 × 768, waited
+600 ms (4 × `RESIZE_SETTLE`), stage scrolled to bottom-right:
+
+```
+stale    keeping=[True, True]   verdict=[False, False]
+         cover=[376.3, 270.4]  port=[724, 540]  overflow=[424, 518]
+fresh    keeping=[False, False] verdict=[False, False]   <- same board, same viewport,
+healed   keeping=[False, False] verdict=[False, False]      same zoom, reached by LOADING
+stale_hits  {'visible': 141, 'blocked': 105}
+fresh_hits  {'visible': 140, 'blocked': 0}
+healed_hits {'visible': 140, 'blocked': 0}
+```
+
+Shares **0.520 and 0.501** against a 0.4 bar, and at the corner **105 of 141
+visible cells do not take their own tap** — the reviewer measured 35 of 70 at
+a different scroll position. `fresh` and `healed` are the controls that make
+the stale reading mean something: the mechanism is correct everywhere it is
+*reached*, so this is a missing call and not a broken measurement. The reverse
+direction is stale too (a board grown wider keeps `[False, False]` where the
+fresh decision is `[True, True]`).
+
+It is precisely the configuration this card measured and **refused** —
+`solver.js:437-447` names "a 15 × 15 at 1024 × 768 and 200% zoom … 359.4 px
+row band over a 724 px stage" at share 0.496. The refusal holds at load and at
+zoom; the resize path reinstates it.
+
+**My first probe refuted its own finding, and that is worth recording.** At
+scroll (0, 0) a sticky box sits exactly at its flow position and covers
+nothing, so a consequence probe that does not scroll the stage measures its
+own omission and reports zero blocked cells. The staleness assertions passed
+on that first pass and only the consequence assertion failed, which is what
+pointed at the probe rather than at the finding. Instrument first, verdict
+second — the same lesson the pre-gate's two dishonest kills taught three hours
+earlier, in a third shape.
+
+### The rest of the cycle, and why the score understates the card
+
+The reviewer states this plainly and I agree with it: everything about this
+card **except** F-001 is unusually strong. Twenty-eight mutants across the
+implementation round, my pre-gate and this cycle; every AC with a control;
+both owner-decision limitations pinned as **list equalities that red in both
+directions**; the one figure derived from source rather than copied. The
+reviewer could not break the corner's painting claim (killed in `hit` *and* in
+pixels, refuting its own prior), could not break the side-swap behaviourally
+and **explained why that is correct** rather than filing it (a band wide
+enough to make the left and right constraints conflict is past 40 % of the
+port, which the room condition refuses to stick at all), and filed no
+boundary-coverage noise after establishing that `affords`' `<=` edge is
+unreachable by construction.
+
+One of its nine mutants survived (F-003, the `=== null ? 0` fallback) and it
+proved the branch **dead rather than untested** — the distinction that keeps
+that from being a coverage finding.
+
+Of my four handed items: item 1 **refuted as sound-by-citation and confirmed
+sound-in-fact** (the cited control covers band/overflow/port; `_GEOMETRY`
+reads none of the three — F-002); item 2 **confirmed a safe widening and in
+fact a strengthening**, since the selector list is an equality so `admin.css`
+:624 is now inside the guard; item 3 **confirmed coupled but bounded**, CON-021
+holding independently at `zoom.py:481`; item 4 **measured and worth one line**.
+
+### Routed into fix round 1 rather than carried
+
+F-001 (with the AC-5 case it needs, certified against the **base** revision
+since an added call site cannot be certified by deleting what the round
+added), F-002, F-003, F-004, F-005, F-006, F-007, PG-1's two "half the stage"
+comments, and F-008 — the card's own unproduced editor confirmation, which the
+round must produce or close with a measured reason.
+
+**The fix brief carries the constraint that makes F-001 non-trivial:** the
+`!isBig` guard must not simply be dropped. Its reasoning is written at
+`:913-918` and `:933-937` and it is about cost — a `redraw()` is "tens of
+milliseconds of layout", which is why the resize path is debounced at all,
+while `keepCluesInView()` is a few `getBoundingClientRect()` reads and two
+`classList.toggle`s. Reaching the cheap one on every board's viewport change
+is the likely fix; reaching the expensive one would contradict a comment the
+round would then owe an argument against.
