@@ -2959,9 +2959,9 @@ MEASURED_KEYWORD_SPANS = ("choices=", "type=")
 # ``test_every_line_of_every_declared_miss_entry_is_keyed`` -- 5 tables, 12
 # entries, 57 keyed source lines, through :func:`_declaration_census` -- so
 # an entry that quietly shrinks reds on the figure. Until fix round 5 that
-# pin read ``>= 45`` against a measured 57: eleven lines of slack, which is
-# exactly what made the shrink silent, and the entry free to fall back to
-# the round-3 wording round 4 exists to correct.
+# pin read ``>= 45`` against a measured 57: **twelve** lines of slack, since
+# 57 may fall to 45 inclusive and still pass -- which made the shrink silent,
+# and the entry free to fall back to the round-3 wording round 4 corrects.
 #
 # The two alternatives were rejected by measurement rather than by taste.
 # *Keying only the operative clause* is what fix rounds 2 and 3 did; it is
@@ -4748,8 +4748,8 @@ class TestTheDeclaredMissTables:
     its line does not.
 
     **Two arms, because one of them has a blind spot that is a property of
-    it** (cycle 5, F-001). The per-line arm reds on seven directions, each
-    with a constructed case naming the line it reds on. It cannot see a
+    it** (cycle 5, F-001). The per-line arm reds on seven directions: five
+    cases name the line they red on, two name the table. It cannot see a
     declaration line removed *together with* its key phrase: both counts
     fall by one and every surviving key is still on its own line, so the
     verdict is ``[]`` by construction. That edit is the realistic one -- it
@@ -4791,8 +4791,8 @@ class TestTheDeclaredMissTables:
         assert defects == [], "\n".join(defects)
 
         # The census, as an EQUALITY and not a floor (cycle 5, F-001). The
-        # floor it replaces read `>= 45` against a measured 57, and eleven
-        # lines of slack is what made the one edit the per-line arm cannot
+        # floor it replaces read `>= 45` against a measured 57 -- twelve lines
+        # of slack, 45 inclusive still passing -- which made the edit it cannot
         # see -- a declaration line dropped together with its key phrase --
         # silent: both counts fall by one, the verdict above stays `[]`, and
         # a floor does not notice. This figure does. Every number in it is
