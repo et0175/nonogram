@@ -426,3 +426,25 @@ open:
   # project's convention (the validator errors on a DEC present in both
   # files); question, alternatives and resolution live in
   # decisions/resolved.yml and in ADR-0040's Context/Alternatives sections.
+
+  # ---------------------------------------------------------------------------
+  # 2026-10-23 public player delta (DEC-044..DEC-046). The three decisions —
+  # per-puzzle URL namespace, static hosting, analytics — were elicited AND
+  # decided by the owner on 2026-10-23 (ONLINE_GAME_SPECIFICATION.md Technical
+  # Architecture, commit 8b0ca0e2; raw-requirements.md Delta 2026-10-23), so
+  # they are recorded directly in decisions/resolved.yml per the
+  # DEC-026/027/028 precedent and never held open here (the validator errors
+  # on a DEC present in both files). All three resolved by ONE ADR, ADR-0041
+  # — one coherent decision cluster, the public phase's shape:
+  #   DEC-044 grid_content_hash_sha256_10hex (the key recipe is ADR-0041/R1;
+  #   any change to it is a breaking change to every printed book),
+  #   DEC-045 vercel_static_site (the admin Render service never serves
+  #   public traffic),
+  #   DEC-046 goatcounter_cookieless (no stored IPs or per-visitor ids,
+  #   ADR-0041/R6).
+  # No synthesis block (c4/ exists; the DEC-025 precedent in this header
+  # applies) — the new COMP-011 (player/**) was registered in trace.yml by
+  # the same delta; the C4 component view is one static-site element behind
+  # on this and a full synthesis pass may redraw it when convenient.
+  # CARD-282/CARD-283 were cut blocked on exactly this delta and can now be
+  # unblocked.

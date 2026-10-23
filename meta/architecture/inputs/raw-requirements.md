@@ -537,3 +537,54 @@ Verbatim, the owner's five items:
     `in_a_book` reason), `:2644` (the editor page's 409) and the two CARD-245 save paths through
     `_row_an_edit_may_touch` (`puzzle_review.py:906`), plus `EDIT_REFUSAL_REASONS` at `:1184`, which the
     client's allow-list of answers-that-never-write is keyed on (CARD-246 review cycle 2, G-001).
+
+## Delta 2026-10-23 — The public player phase (ONLINE_GAME_SPECIFICATION.md "Technical Architecture", commit 8b0ca0e2)
+
+Scope of this intake: the owner's 2026-10-23 decision to build the public, static-hosted puzzle
+player that book QR codes point at — the phase ADR-0038/R6 anticipated — plus the three decisions
+elicited and decided the same day. Cards CARD-282..285 were cut from the spec; CARD-282 and
+CARD-283 are blocked on exactly this delta.
+
+# processed: 2026-10-23 → FR-045 (AC-380..AC-392, EC-048..EC-050); CON-021 (statement amended — two forms of interactive play); ADR-0038 (History amendment note — R6 unchanged, R1 scoped to the admin player); ADR-0041; TERM-040, TERM-041; trace.yml COMP-011
+- OWNER DECISION: build the public player phase now — ONE player app serving both the printed-book
+  QR codes and online browsing, as static files only (plain hand-written JS/CSS, the stack ADR-0038
+  chose; the pure state module solver_state.js reused by build-time copy from
+  src/nonogram/admin/static/, never edited), in a top-level `player/` directory outside the Python
+  package. Routes /play/<key>, /b/<slug>, /library. The data it reads is a "player bundle" of
+  static JSON exported by the admin panel on an explicit owner action: index.json (library),
+  puzzle/<key>.json (clues via compute_clues, keyed by the grid hash), book/<slug>.json (book slug,
+  title, ordered puzzle keys). The public player ships NO solution grid: completion is detected
+  client-side as "every row and column clue satisfied", which for a uniquely-solvable puzzle (the
+  generator's one mandatory property) is exactly the solution — ADR-0038/R6 is NOT weakened, it is
+  satisfied by construction and stays mandatory. Play state lives in the visitor's browser
+  localStorage only; no accounts, no server-side writes of any kind. Source:
+  ONLINE_GAME_SPECIFICATION.md "Technical Architecture", owner decision 2026-10-23, commit 8b0ca0e2.
+# processed: 2026-10-23 → DEC-044 (resolved same day by ADR-0041, R1 pins the recipe); TERM-041
+- OWNER DECISION (elicited 2026-10-23, DEC-044): the per-puzzle public URL namespace is a GRID
+  CONTENT HASH, with the domain stated precisely (a hash whose domain is unstated has burned this
+  project before): key = first 10 lowercase hex characters of SHA-256 over the UTF-8 bytes of
+  "{width}x{height}:" followed by the solution grid's cells row-major, '1' for filled and '0' for
+  empty. Deterministic and recomputable from the puzzle itself (printed books preserve the grid
+  forever, so the key survives any database re-seed or loss); one-way, so the URL reveals nothing
+  about the solution; identical grids share a key by design. Rejected: stored opaque slug (stable
+  only as long as the DB and its backups), database row id (changes on re-seed; printed books
+  outlive databases). Source: owner, 2026-10-23.
+# processed: 2026-10-23 → DEC-045 (resolved same day by ADR-0041, R3)
+- OWNER DECISION (elicited 2026-10-23, DEC-045): static hosting is VERCEL (no cold starts, CDN;
+  the admin panel's Render service stays untouched and never serves public traffic). Rejected:
+  Render static site (same dashboard as the admin was tempting, but the owner chose Vercel),
+  Cloudflare Pages, and serving from the admin Flask service (free-tier spin-down means a 30-60 s
+  cold start on a QR scan, and it widens the admin attack surface). Source: owner, 2026-10-23.
+# processed: 2026-10-23 → DEC-046 (resolved same day by ADR-0041, R6)
+- OWNER DECISION (elicited 2026-10-23, DEC-046): analytics is GOATCOUNTER — cookieless, no consent
+  banner, free; counts visits, uniques, country, device. No raw IPs are ever stored by anything we
+  ship (an IP is personal data under GDPR; carrier NAT makes it a bad unique key anyway). The
+  per-book slug in the QR URL (/b/<book-slug>) is the primary per-book signal. Rejected: Plausible
+  (paid, equally fine — a swap is one script tag, and ADR-0041/R6 makes it an ADR revision, not
+  drift), homegrown IP logging (rejected outright). Source: owner, 2026-10-23.
+# processed: 2026-10-23 → resolved as above; this line closes the 2026-10-03 "still PENDING" marker
+- The 2026-10-03 intake's pending item — "per-puzzle QR codes, the URL namespace, and the persisted
+  puzzle-number mapping they depend on" — is half-discharged by this delta: the URL namespace is
+  decided (DEC-044) and needs NO persisted mapping at all, because the key is recomputable from the
+  grid. The QR codes on the printed page remain CARD-210's scope, now one unblock away. Source:
+  this session, 2026-10-23.

@@ -187,12 +187,22 @@ capabilities:
       cells by click cycle and line drags, stroke-level undo and redo, a
       live error count against the solution, a solved state with the
       picture's name, and reset. A read of a stored puzzle only — nothing
-      about a play session is persisted, and interactive play exists
-      nowhere else (CON-021). Hints are out of V1.
+      about a play session is persisted server-side, and interactive play
+      exists in exactly the two forms CON-021 names: this admin player and
+      the public player (FR-045, ADR-0041) — the static site book QR codes
+      point at, which reads only the player bundle (TERM-040) the admin
+      panel exports and never has the solution.
     # New 2026-10-03 (a). No events/commands/aggregates by design (see the
     # header note).
+    # AMENDED 2026-10-23 (raw-requirements.md Delta 2026-10-23; ADR-0041):
+    # FR-045 added — the public player phase joins this capability (same
+    # job, second surface, COMP-011). Still no event, command or aggregate:
+    # the bundle export is a read of the store and every mark lives in the
+    # visitor's browser. "Hints are out of V1" was superseded 2026-10-06 for
+    # the admin player (FR-044 Hint button); the public player ships no
+    # hints (it has no solution to reveal one from).
     events: []
     commands: []
     aggregates: []
     stories: [US-028]
-    requirements: [FR-044]
+    requirements: [FR-044, FR-045]

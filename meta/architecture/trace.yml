@@ -1,6 +1,19 @@
 # generated_by: forge:architect-synthesis
 # generated_at: 2026-08-27
 # tier: medium
+# updated_at: 2026-10-23 (delta mode, written by the public-player architect
+#   delta — raw-requirements.md Delta 2026-10-23, owner decision 2026-10-23
+#   (ONLINE_GAME_SPECIFICATION.md Technical Architecture, commit 8b0ca0e2),
+#   DEC-044..DEC-046 resolved by ADR-0041: component ADDED — COMP-011 Public
+#   Player, the static site in the top-level player/ directory (the first
+#   component whose code lives outside src/nonogram/; the import guard's walk
+#   is untouched because it is not Python). Row ADDED for FR-045 (CAP-007;
+#   COMP-009 exports the player bundle, COMP-011 serves the pages; planned
+#   test names from CARD-282..285). CON-021 row AMENDED to its two-player
+#   form (the "no public player" reading is superseded by the amendment, the
+#   constraint's everything-else-forbidden force is unchanged). No existing
+#   row or id touched; c4/ not redrawn here — the component view is one
+#   static-site element behind, flagged for the next synthesis pass.)
 # updated_at: 2026-10-06 (a) (delta mode, written by domain-extraction —
 #   wave-34 catch-up, raw-requirements.md Delta 2026-10-06 (a): tests ADDED
 #   to FR-044 (CARD-182 TestSolverPhone_*, CARD-183 hint, CARD-186 "?" /
@@ -615,11 +628,11 @@ links:
   status: covered
 
 - req: CON-021
-  description: "Interactive play only as the admin panel's puzzle player (behind CON-015/CON-016); no public player, no persisted play state, no accounts; the admin player may ship the solution to the browser, a public one may not"
+  description: "Interactive play in exactly two forms — the admin panel's puzzle player (behind CON-015/CON-016, may ship the solution) and the public player per ADR-0041 (static, read-only, no accounts, localStorage-only, never ships a solution); everything else forbidden, no server-persisted play state anywhere"
   capabilities: [CAP-007]
   contexts: [CTX-001]
-  components: [COMP-009]
-  adrs: [ADR-0038, ADR-0030]
+  components: [COMP-009, COMP-011]
+  adrs: [ADR-0038, ADR-0030, ADR-0041]
   tests: [TestSolverPage_WritesNothing]
   notes: >-
     New 2026-10-03 (a), superseding CON-002. Checked by review lens: its
@@ -637,6 +650,14 @@ links:
     decision, CARD-185, wave 35); nothing on the server, no request per mark
     (ADR-0038/R2), admin panel only. Check stays review-lens; no test added
     here.
+    AMENDED 2026-10-23 (raw-requirements.md Delta 2026-10-23; ADR-0041,
+    FR-045): "only as the admin panel's player" becomes "in exactly two
+    forms" — the public player (COMP-011) is the second and last, static,
+    read-only, no accounts, localStorage-only, never shipping a solution
+    (clue-satisfaction solved check; ADR-0038/R6 satisfied by construction,
+    unweakened). Everything else the constraint forbade stays forbidden.
+    Check stays review-lens; FR-045's planned tests cover the public
+    player's sharpest clauses only.
   status: partial
 
 - req: CON-003
@@ -2248,6 +2269,44 @@ links:
     architect delta, not fixed here.
   status: partial
 
+- req: FR-045
+  description: "Public player phase: the admin panel exports the player bundle (static JSON — library index, clue files keyed by the grid content hash, book files keyed by slug; no solution, read-only, deterministic) and the static player/ site serves /play/<key>, /b/<slug> and /library from it, solved by clue satisfaction, localStorage-only state, GoatCounter analytics, Vercel-hosted"
+  capabilities: [CAP-007]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-011]
+  adrs: [ADR-0041, ADR-0038, ADR-0006]
+  tests:
+  - tests/test_player_bundle.py::test_bundle_tree_and_clues_match_the_encoder
+  - tests/test_player_bundle.py::test_bundle_is_clean_of_answers
+  - tests/test_player_bundle.py::test_export_is_readonly_and_deterministic
+  - tests/test_public_player.py::test_play_page_renders_and_marks
+  - tests/test_public_player.py::test_solved_fires_on_clue_satisfaction_only
+  - tests/test_public_player.py::test_resume_is_local_and_the_page_writes_nowhere
+  - tests/test_public_player.py::test_phone_viewport_is_playable
+  - tests/test_public_player.py::test_served_tree_is_clean_of_answers
+  - tests/test_public_player.py::test_no_write_request_for_any_interaction
+  - tests/test_public_player_pages.py::test_book_landing_lists_and_links
+  - tests/test_public_player_pages.py::test_unknown_slug_lands_softly
+  - tests/test_public_player_pages.py::test_library_filters_the_index
+  - tests/test_public_player_pages.py::test_assembled_site_is_self_contained
+  - tests/test_public_player_pages.py::test_pages_work_with_analytics_blocked
+  - tests/test_public_player_pages.py::test_no_homegrown_tracking
+  notes: >-
+    New 2026-10-23 (raw-requirements.md Delta 2026-10-23; owner decision,
+    ONLINE_GAME_SPECIFICATION.md Technical Architecture, commit 8b0ca0e2;
+    DEC-044..DEC-046 resolved by ADR-0041). Two components share the
+    requirement along the data flow: COMP-009 owns the bundle export
+    (AC-380..AC-382, EC-048/EC-049 — behind the admin door, clues through
+    compute_clues, ADR-0041/R5) and COMP-011 owns the pages
+    (AC-383..AC-392, EC-050 — static files only, state module reused from
+    COMP-009's static/ by byte-identical copy, ADR-0041/R3). The solved
+    check needs no solution because every published puzzle is uniquely
+    solvable (CON-005/INV-002) — ADR-0038/R6 satisfied by construction.
+    Planned test names from CARD-282..CARD-285; no code yet (CARD-282/283
+    blocked on exactly this delta, now dischargeable). Status partial until
+    the cards ship.
+  status: partial
+
 - req: NFR-008
   description: "Every puzzle printed in a book has 4.75 mm <= cell <= 7.5 mm, chosen per grid size per book on the book's own trim and fitted to the deepest-clued member of that size; below 4.75 mm only by explicit override"
   capabilities: [CAP-006]
@@ -2400,3 +2459,15 @@ components:
   name: Persistence
   context: CTX-001
   code: ["src/nonogram/db/**.py"]
+# COMP-011 added 2026-10-23 (the public player delta, ADR-0041 / FR-045): the
+# public static player site in the top-level player/ directory — the first
+# component whose code lives OUTSIDE src/nonogram/. It is not a Python module
+# (plain hand-written JS/CSS, ADR-0041/R3), so the import guard's ast walk of
+# src/nonogram/**/*.py is untouched; its only inbound dependency is the
+# player bundle COMP-009 exports (static JSON), and it reuses COMP-009's pure
+# state module solver_state.js by byte-identical build-time copy, never by
+# import or edit.
+- id: COMP-011
+  name: Public Player
+  context: CTX-001
+  code: ["player/**"]

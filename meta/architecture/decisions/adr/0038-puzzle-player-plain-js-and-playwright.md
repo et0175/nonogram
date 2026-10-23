@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-10-03
 **Deciders:** Olga (project owner)
-**Revised:** 2026-10-06 (History: R8 — there is no CI; browser tests run locally, the CI clause applies once CI exists)
+**Revised:** 2026-10-06 (History: R8 — there is no CI; browser tests run locally, the CI clause applies once CI exists); 2026-10-23 (History: the public phase R6 anticipated has arrived as ADR-0041 — no rule of this ADR changes)
 **Migration:** on-touch
 **Pattern:** —
 **API-Posture:** —
@@ -78,6 +78,7 @@ Mirror the client's state rules in a Python reference model for the property tes
 
 - 2026-10-03: Created. It resolves DEC-040 (plain JavaScript and CSS as static files in the Flask admin panel, with no framework, build step or vendored library) and DEC-041 (pytest-playwright and Chromium as a dev-only extra, with a loud skip). Both are owner-confirmed choices that add no runtime dependency, no container and no toolchain, and that put the shipped JavaScript under browser-level test.
 - 2026-10-06: Revised (owner decision, IDEA-065; raw-requirements.md Delta 2026-10-06 (a); no DEC — a correction of a rule's premise, not a new decision). R8 assumed a CI pipeline ("CI installs Chromium ... before running them"); the project has none. R8 now states the local reality: browser tests run on a developer machine with Chromium installed by `playwright install chromium`, and when it is missing they fail or skip loudly (unchanged). The CI sentence becomes conditional — it applies only once a CI pipeline exists — and "no CI" is recorded as a known gap, not a satisfied rule. No other rule's meaning changes. (Same day, outside this ADR: FR-044 now admits browser-local resume in localStorage, CON-021 amended; R2 — no network request per mark — is unchanged and still holds for it.) Migration: on-touch — no test or code is out of step with the revised R8; the CI clause binds whoever first builds a CI pipeline.
+- 2026-10-23: Amendment note (owner decision, raw-requirements.md Delta 2026-10-23; the decisions themselves are DEC-044..DEC-046, resolved by ADR-0041 — nothing is decided here). The public phase R6 anticipated has arrived: ADR-0041 shapes it as a static player site (top-level `player/`, Vercel-hosted) reading a bundle of clue-only JSON the admin panel exports, keyed by a grid content hash. **R6's text and force are unchanged** — the public player satisfies it by construction, never shipping a solution grid at all and detecting the solved state as "every row and column clue satisfied", which for a uniquely solvable puzzle (CON-005) is exactly the solution; ADR-0041/R2 restates the clause with the new surface in scope. R1's "served as static files by the admin panel" clause remains scoped to the ADMIN player only — the public player's serving, stack and reuse-by-copy of `solver_state.js` are ADR-0041/R3. CON-021 was amended the same day to its two-player form. Migration: on-touch — no rule here changes meaning; the Decision section's sentence "any public phase therefore reopens this ADR" is discharged by that reopening having happened.
 
 ## Rules
 

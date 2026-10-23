@@ -430,3 +430,36 @@ terms:
     context: CTX-001
     aliases: [undo step, history step]
     source: [US-028, FR-044]
+  # New 2026-10-23 (delta — the public player phase; owner decision,
+  # ONLINE_GAME_SPECIFICATION.md Technical Architecture, commit 8b0ca0e2).
+  # context: CTX-001 (COMP-009 exports it, COMP-011 reads it).
+  - id: TERM-040
+    term: Player bundle
+    definition: >-
+      The directory tree of static JSON the admin panel exports on an
+      explicit owner action for the public player to read: index.json (the
+      library index of published puzzles), puzzle/<key>.json per puzzle
+      (clues from compute_clues plus metadata, keyed by the public player
+      key, TERM-041) and book/<slug>.json per finalized book (slug, title,
+      ordered puzzle keys). Read-only against the database, deterministic
+      (same input, same bytes), and clean of answers: no file carries a
+      solution grid, data from which one cell is recoverable, or the
+      picture name (FR-045, ADR-0041/R2, R5).
+    context: CTX-001
+    aliases: [bundle, player bundle export, public bundle]
+    source: [US-028, FR-045]
+  - id: TERM-041
+    term: Public player key
+    definition: >-
+      A puzzle's stable public URL key, printed under QR codes forever: the
+      first 10 lowercase hexadecimal characters of SHA-256 over the UTF-8
+      bytes of "{width}x{height}:" followed by the solution grid's cells
+      row-major, '1' for a filled cell and '0' for an empty one
+      (ADR-0041/R1). Deterministic and recomputable from the puzzle itself,
+      so it survives any database re-seed or loss; one-way, so the URL
+      reveals nothing about the solution; identical grids share a key by
+      design. Any change to the recipe is a breaking change requiring a new
+      ADR.
+    context: CTX-001
+    aliases: [grid content hash, puzzle key, public key]
+    source: [US-028, FR-045]

@@ -209,3 +209,36 @@ resolved:
     resolved_by: ADR-0040
     resolution_label: composite_capability_rank
     date: 2026-10-22
+  # DEC-044..DEC-046: the public player phase (FR-045, owner decision
+  # 2026-10-23, ONLINE_GAME_SPECIFICATION.md Technical Architecture, commit
+  # 8b0ca0e2). Elicited and decided by the owner the same day, so recorded
+  # here directly as resolved (the DEC-026/027/028 precedent); one ADR for
+  # all three because they are one coherent decision cluster — the public
+  # phase's shape: what a printed QR code resolves to, forever.
+  - id: DEC-044
+    question: >
+      What is the per-puzzle public URL namespace for /play/<key> — the key
+      printed books bake into QR codes forever, which therefore must outlive
+      any database, re-seed or host: a stored opaque slug, the database row
+      id, or a hash recomputable from the puzzle's own content?
+    resolved_by: ADR-0041
+    resolution_label: grid_content_hash_sha256_10hex
+    date: 2026-10-23
+  - id: DEC-045
+    question: >
+      Where does the public player host — Vercel, Render static site,
+      Cloudflare Pages, or served from the admin Flask service — given that
+      a QR scan from a printed book must load instantly (no free-tier cold
+      start) and customer traffic must never touch the admin origin?
+    resolved_by: ADR-0041
+    resolution_label: vercel_static_site
+    date: 2026-10-23
+  - id: DEC-046
+    question: >
+      How is public player usage counted without storing anyone's IP or
+      per-visitor identifier (GDPR; carrier NAT) — GoatCounter, Plausible,
+      or homegrown logging — with the per-book QR slug as the primary
+      per-book signal?
+    resolved_by: ADR-0041
+    resolution_label: goatcounter_cookieless
+    date: 2026-10-23
