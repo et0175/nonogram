@@ -840,9 +840,24 @@ function start() {
   // (asserted in tests/test_puzzle_solver_clues.py
   // TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted).
   function keepCluesInView() {
+    // The fallback fails CLOSED, toward not sticking (CARD-271 review cycle
+    // 1, F-003). `Infinity` is the largest value `affords` can be handed, so
+    // the only axis that still keeps with its band unmeasurable is one whose
+    // own overflow is already inside the share — i.e. one where a band, of
+    // whatever size, could cover no more than that overflow anyway. A 0 here
+    // answered the opposite: a band of nothing always affords, so an axis
+    // whose labelled gutter could not be found would STICK, which is the
+    // board-eating direction STICK_MAX_SHARE exists to refuse (ADR-0039/R2).
+    // No test can cover the branch, and that is measured rather than assumed:
+    // the review's mutant R2 deleted the guard outright and all 158 tests of
+    // the five-file selection stayed green, because every board drawBoard
+    // produces marks one `is-stuck-row` box and one `is-stuck-col` box — the
+    // branch is DEAD, not untested, so its direction is all there is to get
+    // right. tests/test_puzzle_solver_clues.py's _ROOM reimplements this
+    // expression and moves with it.
     const band = (selector, side) => {
       const box = table.querySelector(selector);
-      return box === null ? 0 : box.getBoundingClientRect()[side];
+      return box === null ? Infinity : box.getBoundingClientRect()[side];
     };
     const affords = (overflow, bandSize, port) =>
       Math.min(overflow, bandSize) <= port * STICK_MAX_SHARE;
@@ -915,10 +930,41 @@ function start() {
   // duplicate is a property of the viewport — so a board big on EITHER side
   // redraws here, not only a mirrorable one; a board big on neither, which
   // can have no mirror and no duplicate, never redraws at all.
+  //
+  // CARD-271 (review cycle 1, F-001): and a board big on neither side still
+  // has to RE-MEASURE. Before this card every viewport-dependent decision was
+  // a LAYOUT one — CARD-193's mirror, CARD-212's ladder — and both need a
+  // board big on one side, so that gate was the right gate. The room
+  // condition is viewport-dependent for EVERY board, so what the two
+  // listeners below reach is split: `keepCluesInView()` always, `redraw()`
+  // only where the layout itself can change. Measured on a 15 x 15 at 200 %
+  // zoom dragged from 1920 x 1500 to 1024 x 768 with the resize settled: the
+  // classes set at load (both axes keeping, nothing scrolling there) survived
+  // into a viewport whose own terms answer neither axis — a 376.3 px row band
+  // and a 270.4 px column band over a 724 x 540 scrollport, shares 0.520 and
+  // 0.501 against STICK_MAX_SHARE — and 105 of the 140 cells visible at the
+  // bottom-right corner then hit-tested to a band instead of to themselves.
+  // That is exactly the regression class STICK_MAX_SHARE was measured to
+  // refuse, reinstated through the one path that did not re-measure. The
+  // reverse was stale too: a board grown wider kept today's rendering where
+  // the rule says there is room, so the clues scrolled away.
+  //
+  // Re-measuring is not redrawing, and the split is what keeps BOTH comments
+  // above true: keepCluesInView() reads four numbers off boxes that are
+  // already there and toggles two classes, leaving no DRAW_MARK behind, so a
+  // small board still draws exactly once however often its window moves
+  // (tests/test_puzzle_solver_zoom.py
+  // ..._a_board_too_small_to_double_is_not_redrawn_by_a_resize counts that,
+  // and ..._a_burst_of_resize_events_redraws_once still bounds the big
+  // board's draws). Redrawing every board on every resize would have paid a
+  // board build for a decision that needs two class toggles.
   const isBig = payload.width > BIG_SIDE || payload.height > BIG_SIDE;
-  mirrorQuery.addEventListener("change", () => {
+  const viewportChanged = () => {
+    // redraw() re-measures as part of drawing — see keepCluesInView() in it.
     if (isBig) redraw();
-  });
+    else keepCluesInView();
+  };
+  mirrorQuery.addEventListener("change", viewportChanged);
   // CARD-212: and the window itself, not only the breakpoint. CARD-193's
   // mirror could never go stale, because its condition IS the media query
   // above — cross 820 px and it is re-evaluated, and it is false everywhere
@@ -937,11 +983,14 @@ function start() {
   // ..._a_burst_of_resize_events_redraws_once) — from the recorded history,
   // exactly as a breakpoint crossing redraws it: marks, zoom, undo/redo, the
   // save, and since G-003 the hinted cell's highlight all survive.
+  // Both boards are debounced, and the small one for the same reason the big
+  // one is: a window drag fires `resize` continuously, and a re-measurement
+  // per event would read the layout mid-drag and toggle the classes on
+  // readings the player never sees settle.
   let resizeSettling = 0;
   window.addEventListener("resize", () => {
-    if (!isBig) return;
     clearTimeout(resizeSettling);
-    resizeSettling = setTimeout(redraw, RESIZE_SETTLE);
+    resizeSettling = setTimeout(viewportChanged, RESIZE_SETTLE);
   });
 
   window.puzzlePlayer = Object.freeze({

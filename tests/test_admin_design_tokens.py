@@ -416,13 +416,18 @@ def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
     .player-clue-num), read out of that rule here rather than repeated, so
     the two cannot drift apart without this failing.
 
-    CARD-271 adds a fifth selector to the list: the one that moves a KEPT row
-    gutter from the scrollport's left edge to its right when CARD-193's
-    mirror put it there. It is a right-hand-gutter rule like the others, so
-    it belongs under this guard rather than beside it, and it declares the
-    two inset keywords that move; ``auto`` joins ``none``/``left``/``top`` in
-    the allowed set for that reason. Everything the guard is actually for —
-    a colour or a rule width written as a literal — is still reported.
+    CARD-271 adds one selector to the list, named rather than counted:
+    ``.player-board.is-keeping-rows .is-stuck-row.is-right``, the rule that
+    moves a KEPT row gutter from the scrollport's left edge to its right when
+    CARD-193's mirror put it there. (It said "a fifth selector" while the
+    asserted list below held six — CARD-271 review cycle 1, F-005. The list is
+    an equality one line down, so an ordinal here was a copy of a figure that
+    is already mechanically present, and the fix is to drop the figure rather
+    than to correct it.) It is a right-hand-gutter rule like the others, so it
+    belongs under this guard rather than beside it, and it declares the two
+    inset keywords that move; ``auto`` joins ``none``/``left``/``top`` in the
+    allowed set for that reason. Everything the guard is actually for — a
+    colour or a rule width written as a literal — is still reported.
     """
     css = (_STATIC / "admin.css").read_text()
     # Comments first: [^{}] crosses newlines, so a /* ... */ mentioning a

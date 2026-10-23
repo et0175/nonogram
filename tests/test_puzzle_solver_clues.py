@@ -2523,6 +2523,20 @@ class TestSolverClues_SmallBoardsUnaffectedByStickiness:
     box, independently of the stage: a sticky box that had shifted would
     move relative to the table, because sticky shifts a box out of its flow
     position and nothing else does.
+
+    AC-5's clause is "nothing OBSERVABLE changes", and a 15 x 15 that fits at
+    100 % is only the easy half of it. The second and third tests here are the
+    half this card's review cycle 1 found missing (F-001): a small board that
+    is zoomed DOES scroll, so the room condition has a real answer for it, and
+    that answer is a property of the viewport. Before the fix the two viewport
+    triggers in solver.js were both gated on ``isBig`` — correct while every
+    viewport-dependent decision was a LAYOUT one, since a board big on neither
+    side can have neither CARD-193's mirror nor CARD-212's duplicate — so the
+    classes a small board was given at load survived any later resize, and a
+    stale stick floated a band over cells the player could then not tap. Both
+    directions are pinned below, each against the same board, viewport and
+    zoom reached by LOADING there, because the mechanism is right everywhere it
+    is reached and it is the reaching that was missing.
     """
 
     @pytest.mark.parametrize("viewport", [ROOMY, LAPTOP, {"width": 390, "height": 844}],
@@ -2566,6 +2580,121 @@ class TestSolverClues_SmallBoardsUnaffectedByStickiness:
         assert {b[1] for b in band} == {0}, band
         assert {b[2] for b in above} == {0}, above
         assert sorted(b[2] for b in band) == [b[2] for b in band], band
+
+    #: The viewport a zoomed 15 x 15 is dragged BETWEEN, and the zoom. Measured
+    #: on this host, Chromium: at 1920 x 1500 nothing scrolls, so both axes
+    #: keep; at 1024 x 768 the same board has a 376.3 px row band and a
+    #: 270.4 px column band over a 724 x 540 scrollport and overflows past
+    #: both, so what each band could hide is 0.520 and 0.501 of its axis —
+    #: past STICK_MAX_SHARE, and neither axis may keep. Every assertion below
+    #: re-derives that from the page's own numbers; these two viewports are
+    #: chosen because the decision differs between them, which is what makes
+    #: the test able to see a missing re-measurement at all.
+    SHRINK_FROM = ROOMY
+    SHRINK_TO = {"width": 1024, "height": 768}
+    #: And the reverse: from a viewport that refuses both axes to one with the
+    #: room for both.
+    GROW_TO = {"width": 1600, "height": 1200}
+    STALE_ZOOM = 200
+
+    def test_a_resize_after_a_zoom_re_measures_the_room(
+        self, browser_page, live
+    ) -> None:
+        """The stale STICK, and what it costs the player.
+
+        A 15 x 15 zoomed to 200 % at 1920 x 1500 keeps both axes, because
+        nothing scrolls there and a band that covers nothing is free. Dragged
+        to 1024 x 768 the same board overflows on both axes and the bands are
+        half the scrollport, which is the configuration STICK_MAX_SHARE was
+        measured to refuse — solver.js:437-447 names this very board and
+        viewport, "where a 359.4 px row band over a 724 px stage swallowed the
+        cells a recorded touch drag was aimed at". Without a re-measurement
+        the refusal does not reach the resized page: the classes stay on, the
+        bands float, and most of the cells still visible do not take their own
+        tap.
+
+        The LOADED control is what makes this a missing call site rather than
+        a broken measurement — the same board at the same viewport and zoom,
+        reached by loading, decides correctly — and the hit count is read
+        scrolled to the far corner, because at scroll 0 a sticky box sits at
+        its flow position and covers nothing at all.
+        """
+        page = browser_page
+
+        page.set_viewport_size(self.SHRINK_FROM)
+        _open_player(page, live)
+        _zoom(page, self.STALE_ZOOM)
+        at_load = _room(page)
+        page.set_viewport_size(self.SHRINK_TO)
+        _settled(page)
+        resized = _room(page)
+        _to_bottom_right(page)
+        resized_hits = _blocked(page)
+
+        page.set_viewport_size(self.SHRINK_TO)
+        _open_player(page, live)
+        _zoom(page, self.STALE_ZOOM)
+        loaded = _room(page)
+        _to_bottom_right(page)
+        loaded_hits = _blocked(page)
+
+        report = {"at_load": at_load, "resized": resized, "loaded": loaded,
+                  "resized_hits": resized_hits, "loaded_hits": loaded_hits}
+        # One board at one viewport, measured twice: if the three inputs
+        # differed, the two readings would not be comparable and this test
+        # would be about two different pages.
+        assert resized["port"] == loaded["port"], report
+        assert resized["band"] == loaded["band"], report
+        assert resized["overflow"] == loaded["overflow"], report
+        # Not vacuous: the viewport really does change the answer, so a page
+        # that never re-measured would be caught by the next two assertions
+        # and not merely be unexercised.
+        assert at_load["keeping"] != _verdict(loaded), report
+        # The mechanism, where it is reached...
+        assert loaded["keeping"] == _verdict(loaded), report
+        # ...and where it has to be reached through a resize.
+        assert resized["keeping"] == _verdict(resized), report
+        assert resized["keeping"] == loaded["keeping"], report
+
+        # The consequence, in cells: a stuck band over the bottom-right cells
+        # takes their taps, and that is the whole reason the room condition
+        # exists. Both readings see cells, so neither zero is an empty count.
+        assert loaded_hits["visible"] > 0 and resized_hits["visible"] > 0, report
+        assert loaded_hits["blocked"] == 0, report
+        assert resized_hits["blocked"] == 0, report
+
+    def test_a_grown_window_re_measures_the_room_too(
+        self, browser_page, live
+    ) -> None:
+        """The same staleness in the other direction, which costs the clues
+        rather than the board: a zoomed 15 x 15 that was refused both axes at
+        1024 x 768 is given a window with the room for them, and without a
+        re-measurement it goes on scrolling its clues away where the card's own
+        rule says to keep them. One direction of a bar is not a control for
+        it (CARD-264's lesson), so both are pinned."""
+        page = browser_page
+
+        page.set_viewport_size(self.SHRINK_TO)
+        _open_player(page, live)
+        _zoom(page, self.STALE_ZOOM)
+        at_load = _room(page)
+        page.set_viewport_size(self.GROW_TO)
+        _settled(page)
+        resized = _room(page)
+
+        page.set_viewport_size(self.GROW_TO)
+        _open_player(page, live)
+        _zoom(page, self.STALE_ZOOM)
+        loaded = _room(page)
+
+        report = {"at_load": at_load, "resized": resized, "loaded": loaded}
+        assert resized["port"] == loaded["port"], report
+        assert resized["band"] == loaded["band"], report
+        assert resized["overflow"] == loaded["overflow"], report
+        assert at_load["keeping"] != _verdict(loaded), report
+        assert loaded["keeping"] == _verdict(loaded), report
+        assert resized["keeping"] == _verdict(resized), report
+        assert resized["keeping"] == loaded["keeping"], report
 
 
 #: --grid-ink as the browser resolves it, for the pixel sample below.
@@ -2795,9 +2924,21 @@ class TestSolverClues_DoubledGuttersAreNotStuck:
 #: from the measurements rather than from the classes, which needs the
 #: number — and reading it here means the number has one home and a drift
 #: cannot pass as agreement.
-STICK_MAX_SHARE = float(re.search(
+#:
+#: The absence is NAMED rather than left to the regex (CARD-271 review cycle
+#: 1, F-007): a value outside the ``([0-9.]+)`` domain makes ``re.search``
+#: answer ``None`` at IMPORT time, which takes this file, phone.py and zoom.py
+#: out of collection with ``AttributeError: 'NoneType' ... 'group'`` — loud
+#: (exit 2, three ERROR lines) but unattributable, and this card's own
+#: pre-gate paid for that exact shape twice, with two mutants that exited
+#: non-zero having run nothing. The idiom is the one already beside the
+#: row-gap derivation in tests/test_admin_design_tokens.py: derive the figure,
+#: and say what its absence means.
+_DECLARED_SHARE = re.search(
     r"\nconst STICK_MAX_SHARE = ([0-9.]+);",
-    (_TOKENS_STATIC / "solver.js").read_text()).group(1))
+    (_TOKENS_STATIC / "solver.js").read_text())
+assert _DECLARED_SHARE, "solver.js no longer declares STICK_MAX_SHARE as a decimal"
+STICK_MAX_SHARE = float(_DECLARED_SHARE.group(1))
 
 
 #: What solver.js's keepCluesInView measured, and the inputs it measured it
@@ -2808,7 +2949,11 @@ _ROOM = """() => {
   const table = document.querySelector('.player-board');
   const size = (sel, side) => {
     const box = table.querySelector(sel);
-    return box === null ? 0 : box.getBoundingClientRect()[side];
+    // Infinity, not 0, because solver.js's own fallback fails closed toward
+    // NOT sticking (CARD-271 review cycle 1, F-003) and this expression is a
+    // deliberate reimplementation of that one: it moves with it or it stops
+    // being a cross-check. Unreachable on every board the suite draws.
+    return box === null ? Infinity : box.getBoundingClientRect()[side];
   };
   const band = [size('th.player-clue.is-row.is-stuck-row', 'width'),
                 size('th.player-clue.is-col.is-stuck-col', 'height')];
@@ -2828,6 +2973,80 @@ _ROOM = """() => {
 
 def _room(page):
     return page.evaluate(_ROOM)
+
+
+def _verdict(room):
+    """The decision ``keepCluesInView``'s OWN terms give for this reading —
+    re-derived from the measurements and solver.js's constant, never read off
+    the classes it set. ``_room(page)["keeping"] == _verdict(_room(page))`` is
+    the whole rule, and every test below that cares which axes keep its board
+    checks the two against each other rather than trusting either."""
+    return [room["cover"][axis] <= room["port"][axis] * STICK_MAX_SHARE
+            for axis in (0, 1)]
+
+
+#: solver.js's RESIZE_SETTLE, read out of the file that declares it so the
+#: wait below cannot drift from the debounce it is waiting out. Named on
+#: absence for the same reason STICK_MAX_SHARE is (F-007).
+_DECLARED_SETTLE = re.search(
+    r"\nconst RESIZE_SETTLE = (\d+);", (_TOKENS_STATIC / "solver.js").read_text())
+assert _DECLARED_SETTLE, "solver.js no longer declares RESIZE_SETTLE as an integer"
+RESIZE_SETTLE = int(_DECLARED_SETTLE.group(1))
+
+
+def _settled(page):
+    """Wait out the trailing debounce a viewport change is handled through.
+
+    Four times the declared settle, which is the wait
+    tests/test_puzzle_solver_zoom.py's resize tests already use: generous
+    rather than tight on purpose, because what is being read afterwards is a
+    settled state and a tight wait would turn a slow machine into a failure.
+    """
+    page.wait_for_timeout(4 * RESIZE_SETTLE)
+
+
+#: Every cell whose own centre lies inside ``.player-stage``'s visible box,
+#: and how many of them do not take their own tap: ``document.elementFromPoint``
+#: at the centre answering something that is not the cell means a stuck band
+#: is floating over it. This is the CONSEQUENCE reading of the room condition
+#: — the reason STICK_MAX_SHARE exists at all — and it is in window
+#: coordinates, so the stage has to be inside the window first (see
+#: :func:`_to_corner`, and note that at scroll 0 a sticky box sits at its flow
+#: position and covers nothing, so this must be read scrolled).
+_BLOCKED = """() => {
+  const stage = document.querySelector('.player-stage');
+  const port = stage.getBoundingClientRect();
+  let visible = 0, blocked = 0;
+  for (const cell of document.querySelectorAll('.player-board td.player-cell')) {
+    const box = cell.getBoundingClientRect();
+    const x = box.left + box.width / 2, y = box.top + box.height / 2;
+    if (x < port.left || x > port.right || y < port.top || y > port.bottom) continue;
+    visible += 1;
+    const hit = document.elementFromPoint(x, y);
+    if (hit !== cell && !cell.contains(hit)) blocked += 1;
+  }
+  return { visible, blocked };
+}"""
+
+
+def _blocked(page):
+    return page.evaluate(_BLOCKED)
+
+
+def _zoom(page, percent):
+    """Step the zoom buttons to ``percent``.
+
+    tests/test_puzzle_solver_zoom.py has the same helper; it imports this
+    module, so this one is written here rather than imported from there, in
+    the same spirit as the rest of this suite's one-directional test imports.
+    """
+    assert 100 <= percent <= 300 and percent % 25 == 0, percent
+    readout = page.locator("[data-player-zoom-readout]")
+    current = int(readout.text_content().rstrip("%"))
+    action = "in" if percent > current else "out"
+    for _ in range(abs(percent - current) // 25):
+        page.locator(f'[data-player-zoom-action="{action}"]').click(force=True)
+    assert readout.text_content() == f"{percent}%", readout.text_content()
 
 
 @pytest.mark.browser
@@ -2884,7 +3103,12 @@ class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
         assert seen["keeping"] == keeping, (name, seen)
         # The decision re-derived from its own inputs, here, rather than
         # trusted from the class: each axis keeps exactly while what its band
-        # could hide is at most half the stage.
+        # could hide is at most STICK_MAX_SHARE of the stage — two fifths,
+        # 0.4, as solver.js declares it and as the next line reads it out of
+        # that file. (It said "half" until CARD-271's pre-gate, PG-1; the
+        # assertion below was always derived from the constant, so the figure
+        # was a stale copy and not a second opinion. Nothing here restates it:
+        # the share is spelled once, in solver.js.)
         assert 0 < STICK_MAX_SHARE < 1, STICK_MAX_SHARE
         assert seen["keeping"] == [
             seen["cover"][axis] <= seen["port"][axis] * STICK_MAX_SHARE

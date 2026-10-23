@@ -1033,10 +1033,18 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
     ) -> None:
         """The boundary of this card's fix, pinned so that it is a recorded
         limitation and not a surprise: stepping 100 % to 300 %, each axis
-        keeps its gutter until its band would hide more than half the stage,
-        and from there on the board renders exactly as it did before this
-        card. A band that stopped being magnified by zoom would move both
-        numbers below to "never", which is the owner decision this records.
+        keeps its gutter until its band would hide more than
+        ``STICK_MAX_SHARE`` of the stage, and from there on the board renders
+        exactly as it did before this card. A band that stopped being
+        magnified by zoom would move both numbers below to "never", which is
+        the owner decision this records.
+
+        The share is NAMED here rather than quantified, which is how CARD-271's
+        pre-gate finding PG-1 is fixed in a form that cannot drift again: this
+        sentence said "half" while solver.js declared two fifths, and the loop
+        below re-derives the decision from the imported constant — so the
+        figure in the prose was a stale copy and never a second opinion. The
+        number has one home, solver.js, and nothing restates it.
         """
         page = browser_page
         page.set_viewport_size({"width": 1280, "height": 720})
@@ -1070,7 +1078,21 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
         coming back. (TestSolverZoom_IsNotSavedAndSendsNothing above says that
         of the zoom itself; this adds the panning, which is what CARD-271
         made the gutters respond to, and the re-measurement that each zoom
-        step now runs.)"""
+        step now runs.)
+
+        The stickiness PRECONDITION is read where it has to be read and
+        JUDGED after the recording assertion, which is the point (CARD-271
+        review cycle 1, F-004). Asserted inside the pan loop it reddened this
+        test before ``_board_snapshot`` was ever compared, so a stickiness
+        regression — which is not a recording regression — was reported as a
+        CON-021 failure with CON-021's own property unevaluated: on exactly
+        the cycles where stickiness broke, panning's recording property went
+        unverified while the report said a CON-021 test red. The review's own
+        suggestion was to hoist it above the loop, which fixes the
+        attribution but still aborts before the snapshot; keeping the readings
+        and judging them last fixes both, and loses nothing the in-loop
+        assertion covered.
+        """
         page = browser_page
         page.set_viewport_size({"width": 900, "height": 700})
         puzzle = live.store(_GRID_30x30)
@@ -1079,9 +1101,19 @@ class TestSolverZoom_CluesStayInViewWhileZoomed:
         before = _board_snapshot(page, puzzle)
 
         _zoom_to(page, 125)
+        # Read, not yet judged: that both bands ARE stuck at this board,
+        # viewport and zoom is what makes the pans below drag the board under
+        # a kept gutter, rather than this being a test of a board where
+        # sticking never happened.
+        panned = [_room(page)["keeping"]]
         for x, y in ((0, 0), (1, 0), (0, 1), (1, 1), (0, 0)):
             _to_corner(page, x, y)
-            assert _room(page)["keeping"] == [True, True]
+            panned.append(_room(page)["keeping"])
         _zoom_to(page, 100)
 
+        # The control's own subject, first and unconditionally.
         assert _board_snapshot(page, puzzle) == before
+        # ...and then the precondition, at the zoom and through every pan — a
+        # scroll position is not one of the room condition's terms, so it
+        # cannot change the answer.
+        assert panned == [[True, True]] * 6, panned

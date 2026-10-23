@@ -826,6 +826,45 @@ class TestSolverPhone_MirroredGutterSticks:
             assert seen["col"]["numbers"] == [
                 str(n) for n in _encode([line[col] for line in BIG])], (corner, seen)
 
+            # The CROSSING, read behaviourally and not only as a declaration
+            # (CARD-271 review cycle 1, F-006). The mirror leaves one corner
+            # and it is the corner of both kept bands, so it sticks on both
+            # axes: the row axis pins it to the scrollport's right edge and
+            # the column axis to its top, and a hit-test at its centre finds
+            # a gutter box rather than something painted over it. That marker
+            # used to be held by the computed-style equality in the next test
+            # alone — the review's mutant on it (cornerBox's `row: mirrored`
+            # -> `row: false`) reddened exactly one cell, a declaration one.
+            # Two independent readings are added here: geometry (is it pinned
+            # to the scrollport's edges, or scrolled away with the band?) and
+            # the hit-test. Both red on that mutant.
+            #
+            # What is NOT added, measured rather than skipped: the desktop
+            # corner's PIXEL control ("the crossing is a hole through which
+            # the cells show", tests/test_puzzle_solver_clues.py
+            # TestSolverClues_StickyGutterRendersCleanly) has no counterpart
+            # here, because on a mirrored board no cell is ever behind this
+            # corner. It lives in the <thead>, above every cell, and the row
+            # band is on the right: measured at 600 x 844 with all 900 cells
+            # filled, `document.elementsFromPoint` at the corner's centre
+            # returns [the corner, the table, the stage, .main] at BOTH scroll
+            # ends — nothing between it and the table, whether it is displaced
+            # 135.9 px from its flow position (scrollLeft 0) or sitting at it
+            # (scrollLeft 136). A pixel sample there is a reading of the
+            # table's own background, so an assertion on it would pass
+            # whatever the corner's opacity: deleting
+            # `.player-corner { background: var(--color-bg) }` from admin.css
+            # reds the DESKTOP sample (clues.py, corner reads --grid-ink) and
+            # leaves a mirrored one green. ADR-0039/R1 — a claim whose control
+            # cannot fail is narrative, so it is stated here instead.
+            assert seen["corner"] is not None, (
+                corner, "no .player-corner carries both stuck markers, so the "
+                        "mirrored crossing is not held on the row axis")
+            assert seen["corner"]["inside"], (corner, seen["corner"])
+            assert seen["corner"]["dRight"] == pytest.approx(0, abs=0.5), (corner, seen["corner"])
+            assert seen["corner"]["dTop"] == 0, (corner, seen["corner"])
+            assert seen["corner"]["hit"] in GUTTER_PAINTS, (corner, seen["corner"])
+
     def test_the_mirrored_corner_sticks_to_the_right_too(self, browser_page, live) -> None:
         """The mirror leaves ONE corner, the right-hand one, and it is the
         corner of the band that sticks — so it carries both markers here,
