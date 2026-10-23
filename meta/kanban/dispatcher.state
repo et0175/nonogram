@@ -29,9 +29,11 @@ max_concurrent_override: 2
 # the first rebase which carried a seven-region semantic conflict and was escalated.
 # Escalation CLOSED 2026-10-23: owner chose option 1 (fix S-1..S-4, then certify with a
 # re-entry cycle 4). Card back to `review` and back in the slot.
-active:
+# CARD-264 MERGED 066ddc1f 2026-10-23, worktree removed. No card in flight.
+active: []
+done_this_wave:
   - id: CARD-264
-    phase: review
+    phase: done
     review_cycle: 5   # 7.6 NOT CERTIFIED -- 2 important, both introduced by fix 4. BOTH checks fire: stalled (dscore -0.05, dfindings 0, premise VALID) and family regression (streak 2). Escalated to the owner.
     cycle_2: "5.5 -- 1 critical, 2 important. Severity gate CLOSED. Report meta/review/20261023T004419Z-CARD-264-cycle2.yml (synced). The polish round verifies as good work (6 of 8 findings genuinely resolved, F-4 and F-5 CLOSED rather than declared, each re-derived by the reviewer); what the unreviewed window cost is the NARROWING MERGE's residue -- the docs page still describes the tests/test_cli.py work the fold took back to main, including a verbatim quotation of a comment that does not exist and a citation of a class present nowhere."
     stalled_check: "FIRES on the numbers (dscore -2.8 < 0.5 AND dfindings -3 <= 0) and is OVERRIDDEN, with the reasons on the card and WITHOUT writing the literal `improvement stalled` marker -- that string is a contract with status/retrospective meaning the loop is not converging, and it would be false data here. The check's premise is that two cycles reviewed the same content; cycle 1 reviewed d40e9d4a, cycle 2 reviewed d5da18ff PLUS a merge that removed content. Cycle 1 gated on nothing, so prev_findings_count=0 is a floor against which ANY discovery trips condition (b) automatically. Corroborated independently: the FAMILY REGRESSION detector reads streak 0 -- no gating finding is attributable to the previous fix."

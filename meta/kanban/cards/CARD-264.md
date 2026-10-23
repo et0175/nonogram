@@ -1,6 +1,6 @@
 # CARD-264: CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → 7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner: fix both + narrow re-entry review → fix 5 `6c29d282` pre-gated + **gated (8931 exec, 0 failed, count flat as predicted)** → **re-entry review 8.5** (mechanism unbreakable; 2 imp, both prose of the class fix 5 fixed) → orchestrator corrected both as two sentence edits `6f09e29d` → AC/EC/G gate 46/46 → **merge gate in flight**
+**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → 7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner: fix both + narrow re-entry review → fix 5 `6c29d282` pre-gated + **gated (8931 exec, 0 failed, count flat as predicted)** → **re-entry review 8.5** (mechanism unbreakable; 2 imp, both prose of the class fix 5 fixed) → orchestrator corrected both as two sentence edits `6f09e29d` → AC/EC/G gate 46/46 → merge gate `6f09e29d` PASSED (8931 exec, 8904 passed, 27 skipped, 0 failed) → **MERGED `066ddc1f`**
 **Started:** 2026-10-22T13:55Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-23
+**Actual:** 1d  <!-- estimate 1d; 4 fix rounds, 5 review cycles + 1 narrow re-entry, 6 full-suite gates, 2 owner decisions -->
+**Merge commit:** `066ddc1f`
 **Blocked by:** —  <!-- escalation CLOSED 2026-10-23: owner chose option 1, fix S-1..S-4 then certify with a re-entry cycle -->
 
 ## Why — three false claims in the file every agent brief is built from, and one has already spread
@@ -3792,3 +3792,43 @@ narrowed rather than created). Closing these needs a mechanism that parses the f
 following this module's own precedent in
 `test_the_path_suffix_census_is_the_one_this_comment_states`. That is a card, not a sentence, so it is
 **CARD-281**, whose first table is the four figures this one card got wrong in a single day.
+
+## [Merged] `066ddc1f`, 2026-10-23 — and what covers the gap between the gated tree and the merged one
+
+**Merge gate at `6f09e29d`: exit 0, 8931 executed, 8904 passed, 27 skipped, 0 failed, 0 error**, with the
+board's lock written by the gate (`at: 2026-10-23T12:18:26Z`, `commit: 6f09e29d`) and verified removed.
+
+**The merged tree is not the gated tree, and this is the argument that covers the difference** rather than
+a hope that it does not matter. `main`'s code moved while this branch was gated — the book-filter fix
+`eece971d` landed at 09:24. Measured, not assumed:
+
+* the two sides' changed file sets are **disjoint** (`comm -12` over both diffs against the merge-base
+  returns nothing);
+* `main` added **no** `validate_*`/`parse_*` function, so `tests/test_web_server.py`'s derived
+  `_DOMAIN_VALIDATORS` authority is unmoved — checked against the diff rather than inferred;
+* `main` was merged **into the branch** (`b7d6099b`) and the merged tree's **interaction surface** re-run:
+  the card's two guard modules, the three files that read them **by name** (`tests/test_cli.py`,
+  `tests/test_book_difficulty_dots.py`, `tests/test_web_server.py` — found by `grep`, not assumed), and
+  `main`'s own new test file → **638 passed, 0 failed**;
+* after the merge, `git diff` over `src/ tests/ migrations/ pyproject.toml CLAUDE.md docs/` between `main`
+  and the branch is **empty**: the merged code tree *is* the branch's.
+
+The full suite was deliberately **not** run a seventh time today. The wave smoke test is where a
+full run on merged `main` belongs, and six gates on one card was already the day's dominant cost.
+
+### One sync defect found at the merge, and it is backlog item 172's exact shape
+
+The one-way sync appends a round's **new section**. Fix round 5 also corrected the round-4 notes **in
+place** — the F-002 blockquote, the corrected ten/five/twelve enumeration, the four-door derivation list,
+and the paragraph stating what the 216-variant sweep does not cover — and an append-only sync cannot see
+those. The worktree card held **52 lines main did not**. Fixed by transplanting the whole round-4 section
+as round 5 left it (255 lines → 296), so the blocks arrived together and in place. What remained
+worktree-only was *only* the agent-owned copy's stale orchestrator fields, which is the drift item 172
+describes and the reason cycle 5's F-004 was filed against text this card does not contain.
+
+### What this card cost, recorded because the owner asked and the journal could not answer
+
+4 fix rounds, 5 review cycles + 1 narrow re-entry, 6 full-suite gates, 2 owner decisions, 1 redundant
+gate (mine — the first post-fix-4 run held no lock). Every gating finding after cycle 3 was about the
+card's own **records**, never about a guard. The aggregate round counter finished at **6 of 6**, the limit
+that signals structural non-convergence, and the card landed on the round that reached it.
