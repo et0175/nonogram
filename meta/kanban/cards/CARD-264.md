@@ -2776,3 +2776,49 @@ selector trap reproduced rather than trusted (`-k` by the requirement id: **0 co
 15 mutants, both passes, ANY-RED, all 19 `old` strings pre-counted as occurring exactly once, SHIPPED's
 **exit code** read every time, and the exit-0-with-FAIL-cells reading occurring for **7 of 15** mutants —
 each confirmed at exit 1 in the re-raising pass.
+
+---
+
+### [Owner decision 2026-10-23] One more fix, then cycle 5 — and the brief's first instruction is to **decide the semantics**
+
+Owner chose option 1 of three: fix F-1 and F-2, then a cycle-5 certification. The alternatives and why
+they lost, recorded because the one rejected is informative: **revert S-3 only** would have restored a
+control that demonstrably worked (the identical gut reds at `e26e5473` with exit 1, 3 failed) and left the
+original over-wide wording — a known defect in the *safe* direction, since an over-wide declared miss errs
+toward "check it yourself" — but it does not re-key the three sibling entries fix 3 also unkeyed, so it is
+a partial revert, not a clean one. **Land-and-route-to-CARD-266** was the cheapest and the family sentence
+argues for it (a design route, not a polish one), but the owner has twice now preferred the honest tree
+over the cheap close on this card.
+
+**Aggregate round counter goes to 5 of the 6 that signal structural non-convergence.** One round of margin
+left. Said plainly on the card because the next round, if there is one, is the board's own signal that the
+problem is structural.
+
+**What makes this round different from the three that failed in the same mechanism, and it is the whole
+bet:** the brief's **step 0** is not a fix. It is to *decide and write down, in the file*, the contract
+every `MEASURED_*` entry obeys — what an entry's text means (exactly what is measured, neither wider nor
+narrower, both directions having now failed in the same entry in consecutive rounds), how an entry is
+keyed (one rule, chosen with a stated reason over the alternatives), and what its case must do — and then
+to **apply that rule to every entry in both files**, not only the four the findings name. A fourth local
+patch produces a fifth finding; that is what the family sentence says and it is now three rounds of
+evidence. The round is also told to verify by gutting **and inverting every line of every entry**, because
+the reviewer enumerated four surviving inversions and there may be more.
+
+**F-2's correct bound is handed over exactly, which is the thing neither previous wording had:** *an
+expression that parses, whose every name resolves in `dir(builtins)`, **and which is not a bare identifier
+chain***. The exclusion clause is a statement about `_classify`'s own branch order — `_IDENTIFIER_CHAIN`
+is tested at `:3175` before `_is_type_expression` at `:3190`, which is *why* bare builtins are caught — so
+it is precise rather than a hedge. And the two asserts fix 3 added to lock the wrong wording in (`:3445`
+pinning the under-wide text, `:3450` blocking the correct widening) are named for removal.
+
+**Four open minors fold into this round so it leaves nothing behind:** m-1 (`mentioned()` escapes the
+canonical pyproject name, so a PEP-503-equivalent spelling walks through undeclared), m-A
+(`_UNENFORCED_PHRASES` is a deny-list whose missing-member direction is the **harmful** one and is
+undeclared, while `_PATH_SUFFIXES` got a declared bound for a harmless one), m-B (W-2's census is four not
+three, and its *"no instance to key on"* reason is refuted by the same commit's own test keying `.md` on a
+repo file), and m-4 (the docs quotation's colon replaced by a full stop inside the quotation marks).
+
+**The guard's behaviour is explicitly out of bounds.** `_classify`, `_is_type_expression` and
+`_IDENTIFIER_CHAIN` are correct and measured; every item is a declaration or a keying defect. The one
+permitted exception is m-1's `mentioned()` normalisation, which the round must flag as a behaviour change
+if it takes it.
