@@ -1,0 +1,570 @@
+version: 1
+generated_at: "2026-10-23T17:32:28Z"
+target: "CARD-271 cycle 2 (confirmation) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-271, branch card/271-clues-stay-in-view, fork point ec42e6ea, HEAD c1f11264 (8 files: admin.css 58/0, solver.js 179/10, test_admin_design_tokens.py 16/1, test_puzzle_editor_ui.py 152/0, test_puzzle_solver_clues.py 967/0, test_puzzle_solver_fifth_rule.py 131/3, test_puzzle_solver_phone.py 194/0, test_puzzle_solver_zoom.py 214/0). Fix delta reviewed at full depth: 023157e3..c1f11264."
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+# ---------------------------------------------------------------------------
+# CYCLE 2's CENTRAL QUESTION, and the answer: not "are the fixes present" but
+# "is each fix CONTROLLED". Ten mutants of my own, eight of them a DELETION of
+# a named mechanism (plus two injections whose subjects — layout-neutrality
+# under `position: sticky`, and a slow machine — are platform properties with
+# no line to delete). Nine killed with the cells named; one survived and is
+# explained with its own measurement.
+# Every one of cycle 1's eight findings is re-derived here against evidence,
+# not read off the round's report.
+# ---------------------------------------------------------------------------
+
+coverage:
+  read:
+    - "src/nonogram/admin/static/solver.js (:390-460 BIG_SIDE/DOUBLE_MIN_CELL/STICK_MAX_SHARE, :506-546 clueBox/cornerBox, :595-650 drawBoard's gutters, :700-760 layoutLadder/isMirrored, :809-875 drawSettledLayout/keepCluesInView/redraw, :927-998 the viewportChanged split and the two listeners)"
+    - "src/nonogram/admin/static/admin.css (the whole CARD-271 block, :573-635: four .is-keeping-* rules + .player-corner background)"
+    - "tests/test_puzzle_solver_fifth_rule.py (:55-60 the RESIZE_SETTLE import, :254-372 _UNSTICK/_DRAWS/_quiet/_board, and every _board call site :555-871)"
+    - "tests/test_puzzle_solver_clues.py (:2390-2400 _to_bottom_right, :2523-2700 the AC-5 class and its two new tests, :2924-2990 _DECLARED_SHARE/_ROOM/_verdict/_settled/_BLOCKED/_zoom, :3095-3170 the room class and the sticky-rule count)"
+    - "tests/test_puzzle_solver_phone.py (:826-890 the mirrored crossing's two new readings and the declaration equality)"
+    - "tests/test_puzzle_solver_zoom.py (:1033-1120 the zoom ladder docstring and the F-004 read-then-judge rewrite; :900-915 the two draw-count pins)"
+    - "tests/test_puzzle_editor_ui.py (:3921-4070 the whole new class)"
+    - "tests/test_admin_design_tokens.py (:416-460 the right-hand-gutter equality guard)"
+    - "src/nonogram/admin/templates/puzzle_edit.html (:146-158 — the zoom control and #puzzle-player)"
+    - "meta/kanban/cards/CARD-271.md (MAIN's copy, all 1181 lines — the contract, the amended guardrails, both pre-gate records, cycle 1's record, the fix-round notes and PG-3)"
+    - "meta/review/20261023T151341Z-CARD-271-cycle1.yml (all eight findings, verbatim)"
+    - "meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md (## Rules)"
+    - "meta/kanban/config.yml"
+  not_reached:
+    - "the 11 non-card test files in the 17-file gate were RUN (692 passed) but not read line by line"
+    - "the six renders in ~/Documents/nonogram-reviews/CARD-271/ — existence verified (six PNGs), not eyeballed: G-6 as amended is produce-and-hand-over, not a pre-merge eyeball gate, and visual: off in config"
+    - "tests/test_puzzle_solver_clues.py's AC-1/AC-6 bodies and tests/test_puzzle_solver_phone.py's AC-2 body were read by cycle 1 and are unchanged by the fix delta except where named above — carried, not re-derived line by line"
+  confidence: high
+  gates_run:
+    - "CYCLE GATE, impact-scoped, 17 files by explicit path (the 16 naming player-board / player-clue / player-stage / admin.css, plus tests/test_puzzle_solver_marking.py for ADR-0038/R2's named check), zsh array with count=17 printed: 696 collected, 692 passed, 4 skipped, EXIT=0, 367.77 s. PREDICTED before running: 696 collected / 692 passed / 4 skipped — reconciled exactly."
+    - "PREDICTED COLLECTED DELTA, stated before any mutant: 0. Every mutant I ran was line-count-preserving and none added or removed a test, so the collected count must not move; --collect-only before (696) and the post-mutation gate check (696) agree."
+    - "the 4 skips are all `SKIPPED [4] tests/conftest.py:207: Database not reachable: DATABASE_URL is not set`, and `grep -ln db_required` over the 17 files returns exactly ONE file, tests/test_puzzle_edit_routes.py — so all four are attributed to that file by an independent derivation, and ZERO skips are in a browser file. The dispatch note's skip signal is cleared with a measurement."
+    - "nine mutants, nine narrow selections by explicit path or node id; `-q` never passed (pyproject.toml:89 already sets it); no `-k` anywhere"
+metrics:
+  diff: { files: 8, added: 1911, removed: 14 }
+  max_fan_in:
+    symbol: "viewportChanged (solver.js:962)"
+    callers: 2
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/admin.css (52 of the 60 commits touching the two static files in 12 months)"
+    - "src/nonogram/admin/static/solver.js (32 of 60)"
+  churn_12m: 30
+  defect_density_12m: "9 of the 30 commits on the eight touched files are fix/bug/hotfix (30%) — findings in solver.js/admin.css are weighted up"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the co-change peers above this diff are
+      puzzle_solve.html (19/52), app.py (17), solver_state.js (15),
+      test_puzzle_solver_marking.py (14) and test_puzzle_solver_maybe.py (9).
+      Each is correctly absent: the card adds no markup and no route,
+      solver_state.js is forbidden by G-3 (verified byte-identical), and
+      marking.py + maybe.py needed no edit (both RUN in the gate, green). The
+      one peer that was missing in cycle 1 — test_puzzle_editor_ui.py (6/52) —
+      is now IN the diff. So the empty list is a derived empty.
+    max_fan_in: >-
+      no_eligible_fact — every symbol in the fix delta (viewportChanged,
+      keepCluesInView, _verdict, _settled, _blocked, _quiet, _DRAWS) is
+      file-local; solver.js exports nothing new and window.puzzlePlayer's
+      frozen surface is unchanged. The 2 is true and says nothing about blast
+      radius.
+
+system_contract:
+  # 16 rule ids in 16 verdict lines. Cycle 1 enumerated 14; ADR-0038/R5 and
+  # ADR-0038/R6 are added here, so no rule the lens assembles for this card's
+  # ADR-0038/ADR-0039/ADR-0036/CON scope is left unnamed. The card's own
+  # `## System contract` section lists 5 (ADR-0038/R1-R4, CON-021); all five
+  # are among the 16. Nothing is carried: the fix delta touches src/ and
+  # tests/, which every one of these rules' scope globs intersect, so
+  # carry-forward is refused fail-closed and each was re-derived.
+  rules_checked: 16
+  holds: 11
+  unchecked: 5
+  violated: 0
+  count_line: "System contract: 16 rules checked, 11 ✓ holds, 5 ⚠ unchecked (stale_check: ADR-0038/R8; no_eligible_fact: ADR-0038/R6, CON-011, CON-015, CON-016), 0 ✗ violated"
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — hand-written JS/CSS, no framework, no build step: `git diff ec42e6ea..c1f11264 -- src/ | grep '^+' | grep -cE 'import |require\\(|<script src=\"http'` is 0, and pyproject.toml is not in the 8-file diff (`git diff --stat -- pyproject.toml` empty), so no toolchain and no vendored library entered."
+    - "ADR-0038/R2 ✓ holds — no network request per mark and none per scroll: the whole fork→HEAD src diff adds exactly ONE `addEventListener` line, `mirrorQuery.addEventListener(\"change\", viewportChanged);`, which REPLACES the pre-existing change listener with a named handler rather than adding a listener (the `resize` registration at solver.js:991 carries no +/-). TestSolverMarking_NoRequestPerMark green in the 17-file gate."
+    - "ADR-0038/R3 ✓ holds — clues stay the embedded JSON of compute_clues: the diff touches no clue computation; clueBox/cornerBox gained class markers only. TestSolverPage_ShowsTheClues green in the 17-file gate."
+    - "ADR-0038/R4 ✓ holds — `git diff --stat ec42e6ea..c1f11264 -- src/nonogram/admin/static/solver_state.js` is empty (byte-identical), and the room decision is still a DOM measurement inside solver.js's keepCluesInView (:842-873, reading stage.scrollWidth/clientWidth and two getBoundingClientRect calls); nothing about it entered the pure module."
+    - "ADR-0038/R5 ✓ holds — scope is pyproject.toml, which is not in the diff (`git diff --stat -- pyproject.toml` empty), so the static/*.js package-data entry is untouched."
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: the diff ships no solution anywhere new and adds no route or template; nothing in the 8 files bears on who may receive a solution grid."
+    - "ADR-0038/R7 ✓ holds — pyproject.toml untouched, so pytest-playwright's dev-only extra is unchanged."
+    - "ADR-0038/R8 ⚠ unchecked — stale_check: the rule is about what happens with Chromium ABSENT, a state this host cannot exhibit (five Chromium builds installed). What IS measured on this head: 696 collected / 692 passed / 4 skipped in the 17-file gate, and all 4 skips are the DATABASE_URL skip from the suite's single db_required file (tests/test_puzzle_edit_routes.py, derived by grep, not assumed) — so zero browser tests passed silently."
+    - "ADR-0036/R4 ✓ holds — `git diff ec42e6ea..c1f11264 -- src/nonogram | grep '^+' | grep -cP '[\\x{25A0}-\\x{25FF}\\x{2022}\\x{2219}]'` is 0 over all 237 added src lines."
+    - "ADR-0039/R1 ✓ holds — cycle 1's one ✗ (F-002) is CLOSED, and closed with a control that fails rather than with a reworded claim. Re-derived by mutant X-A (injection: a transform on a keeping board's cells, so the cells move relative to the table while band/overflow/port stay put): the NEW control reds at tests/test_puzzle_solver_fifth_rule.py:361 in 4 cells, while all six tests of the control cycle 1 found uncitable (TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted) and the whole of test_admin_design_tokens.py stay GREEN — 4 failed, 17 passed. Caught WITH the mechanism, missed WITHOUT it, measured from both sides. The family's second instance (PG-3's editor clause) is likewise closed under a control that fails: X-F reds editor_ui.py:4056 against base solver.js, 1 failed / 2 passed."
+    - "ADR-0039/R2 ✓ holds — every guard set this card consults is derived from an authority the runtime can enumerate, and now says so on absence: STICK_MAX_SHARE (clues.py:2936-2941) and RESIZE_SETTLE (clues.py:2988-2992) are read out of solver.js with a named assert each, the sticky-rule set is collected by selector with an equality on the count (clues.py:3165-3169) and the right-hand-gutter set with an equality on the selectors (test_admin_design_tokens.py:439-446, six entries), and the band fallback now defaults to DENY (`box === null ? Infinity`, solver.js:856 and its reimplementation at clues.py:2956) instead of to sticking."
+    - "ADR-0039/R3 ✓ holds — the one coloured value the card adds (.player-corner { background: var(--color-bg) }) carries its own per-rule exemption with four literal controls each asserted to FAIL the token predicate (clues.py, the per-rule property sweep); admin.css is byte-identical to cycle 1's reviewed state (sha256 04d40cc5…), so the exemption did not grow."
+    - "CON-021 ✓ holds, and the fix STRENGTHENED it — play state persists only in localStorage and nothing is recorded per scroll. Re-derived by mutant X-D (the room condition made total, STICK_MAX_SHARE 0.4 → 0.01): zoom.py:1119, the stickiness precondition, reds with `[[False,False]]*6 != [[True,True]]*6` AND zoom.py:1115, the whole-snapshot comparison that IS CON-021's property, is evaluated and GREEN. That is exactly the inversion F-004 asked for: before the fix a stickiness regression aborted the test with CON-021's property unevaluated."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: 30x30 remains the largest board exercised (the editor class's GRID and the player's AC-1 board); nothing in the diff changes the bound."
+    - "CON-015 ⚠ unchecked — no_eligible_fact: the diff adds no route and no auth surface."
+    - "CON-016 ⚠ unchecked — no_eligible_fact: same — no new reader-facing surface."
+
+root_causes:
+  - id: RC-1
+    title: "A derived cross-check that rounds one operand of the inequality it re-implements (the derivation tracks the source's VALUE but not its PRECISION)"
+    finding_ids: [F-101]
+
+findings:
+  - id: F-101
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_solver_clues.py
+    line: 2968
+    title: "_ROOM rounds `cover` to one decimal while solver.js's `affords` compares the raw float, so the derived cross-check can disagree with the source it re-implements"
+    description: |
+      `_verdict` (clues.py:2977-2982) is this card's central certification
+      idiom: it re-derives keepCluesInView's decision from the page's own
+      measurements and solver.js's constant, so that `keeping == _verdict(...)`
+      is a cross-check rather than a tautology. Nine of the suite's assertions
+      on this card rest on it, including both new F-001 controls
+      (clues.py:2656, :2696), both new editor controls (editor_ui.py:4003,
+      :4056) and the five-viewport room table (clues.py:3103).
+
+      The two sides are not the same expression. solver.js:860-861:
+
+          Math.min(overflow, bandSize) <= port * STICK_MAX_SHARE
+
+      with `bandSize` the raw `getBoundingClientRect()[side]`. `_ROOM`
+      (clues.py:2968-2969) answers
+
+          cover = +Math.min(overflow, band).toFixed(1)
+
+      and `_verdict` then compares that ROUNDED value against
+      `port * STICK_MAX_SHARE`. `port` and `overflow` are integers on both
+      sides (clientWidth / scrollWidth - clientWidth), so the rounding of the
+      band's fractional part is the only divergence — and it is a divergence
+      of the comparison, not just of the report: for a port of 980 the bar is
+      392.0, and a true cover of 392.04 rounds to 392.0, so `_verdict` answers
+      KEEP where solver.js answers NOT-KEEP. The window is +/-0.05 px wide and
+      it is one-sided in the direction that makes the test agree with a page
+      that is sticking when the rule says it should not.
+
+      Not reachable in any configuration this card measures — the shares are
+      0.364 and 0.496 either side of a 0.400 bar, and cycle 1 separately
+      established that `affords`' `<=` edge is unreachable by construction —
+      which is why this is medium and not high, and why no mutant can
+      demonstrate it by deletion (there is no line whose removal produces a
+      knife-edge board). What makes it worth the half point rather than a nit
+      is WHERE it sits: the fix round edited this very expression in the name
+      of "it moves with it or it stops being a cross-check" (the F-003
+      comment at clues.py:2951-2955), tracked the value and left the
+      precision, and ADR-0039/R2 is the rule about a guard's set being
+      derived from its authority rather than resembling it.
+    suggestion: |
+      Keep `cover` rounded for the failure REPORT and compare the raw value in
+      the decision. One line: have `_ROOM` return both, e.g.
+      `coverRaw: [Math.min(overflow[0], band[0]), …]` beside the rounded
+      `cover`, and have `_verdict` read `coverRaw`. Nothing else in the suite
+      reads `cover` for anything but a message. Alternatively assert the two
+      sides cannot straddle the bar — `abs(cover - port*SHARE) > 0.05` — so a
+      knife-edge board reds as "this board is on the bar" instead of silently
+      agreeing.
+    confidence: medium
+    source: static
+    violates: ADR-0039/R2
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_solver_fifth_rule.py
+    line: 324
+    title: "_quiet's fixed 4 x RESIZE_SETTLE doubles the wall-clock of tests/test_puzzle_solver_fifth_rule.py (13.4 s -> 27.4 s, measured), and the file runs on every impact-scoped cycle"
+    description: |
+      MEASURED, both ways, in this worktree: the file with `_quiet` intact is
+      `17 passed in 27.35 s`; with only `page.wait_for_timeout(4 *
+      _RESIZE_SETTLE)` replaced by `pass` (one line, line count preserved) it
+      is `17 passed in 13.84 / 13.40 / 12.96 s` over three runs. So the settle
+      costs ~14 s on one file, about +4 % of the 17-file cycle gate (which
+      moved 354.4 s at 023157e3 to 367.77 s here). ~23 `_board` invocations
+      across the file's 17 tests at 600 ms each accounts for it.
+
+      Stated as low, with the counter-argument made rather than omitted,
+      because the obvious cheaper shapes are both wrong here: the first
+      `_board` of a test is NOT exempt (`page.set_viewport_size` itself fires
+      `resize`, so a redraw is pending before the first capture too — I
+      checked before claiming it), and the fixed wait is this suite's standing
+      idiom (`_settled`, clues.py:2995, and zoom.py's resize tests), derived
+      from the declared constant rather than guessed, which is what keeps G-7
+      satisfied. It is also NOT the flake source engineering-standards §6
+      warns about: deleting it makes the file flakier, not less (see the
+      mutation table, X-B).
+
+      The one shape that would be both deterministic and cheaper is polling
+      the draw count until it has been stable for one RESIZE_SETTLE instead of
+      waiting four — typically ~150-300 ms instead of 600 ms. Worth the owner
+      knowing the number; not worth gating on.
+    suggestion: |
+      Optional: make `_quiet` poll — read `_DRAWS`, wait RESIZE_SETTLE, read
+      again, and return as soon as two consecutive reads agree (cap at the
+      current 4 x RESIZE_SETTLE so the worst case is unchanged). The
+      correctness guard does not move: the draw-count comparison in `_board`
+      (:355) is what makes the window sound, and it is independently
+      controlled.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-271.md
+    line: 816
+    title: "The fix-round record cites zoom.py:1116 for the CON-021 snapshot assertion, which is at zoom.py:1115 — the PG-1 figure-copy family, one layer out in the record"
+    description: |
+      The F-004 note reads "Mutant D9 … reds `zoom.py:1119` — the
+      precondition — with `zoom.py:1116`, the snapshot comparison, evaluated
+      and passed". Re-derived here with my own mutant X-D (STICK_MAX_SHARE
+      0.4 -> 0.01, line count preserved): the test reds at
+      `tests/test_puzzle_solver_zoom.py:1119` exactly as recorded, and the
+      snapshot comparison it leaves green is `assert _board_snapshot(page,
+      puzzle) == before` at **:1115**, not :1116 (:1114 is the comment above
+      it). The substance of the claim is correct and I confirmed it; the
+      cited line is one off.
+
+      Filed because it is the same family as PG-1 and F-005 — a figure
+      written into prose that a mechanism already states — in its third
+      shape on this card: here the authority is pytest's own failure line and
+      the prose carries a hand-copied one. CARD-281 exists to mechanise this
+      class. Not load-bearing: nothing reads the card's prose, and the
+      measurement itself reproduces.
+    suggestion: "Correct :1116 -> :1115 in the fix-round note, or cite the assertion by its text (`assert _board_snapshot(page, puzzle) == before`) rather than by line."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "A figure copied into prose beside a mechanism that already states it; the control is right and the prose is a stale copy."
+      dismissed_count: 2
+
+  - id: F-104
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_puzzle_solver_fifth_rule.py
+    line: 300
+    title: "Out of scope, and BOUNDED by measurement: the element-screenshot/resize interaction the round hands on reaches exactly one site in the suite, and it is the one fixed here"
+    description: |
+      The round hands on "a Playwright element screenshot makes the page fire
+      `resize`, and CARD-212's debounced listener redraws the board a moment
+      later; every file that element-screenshots a player board is exposed".
+      I measured the exposure rather than leaving it open-ended:
+      `grep -rn '\.screenshot(' tests/*.py` finds four sites, and exactly ONE
+      is an ELEMENT screenshot — `tests/test_puzzle_solver_fifth_rule.py:352`,
+      the one this card fixes. The other three (clues.py:2768,
+      fifth_rule.py:227, maybe.py:815/817) are PAGE screenshots, for which
+      the mechanism was neither measured nor claimed.
+
+      So the handed-on card is still worth writing (the interaction belongs to
+      the board, and a future element screenshot would meet it), but no
+      second site is exposed today. Informational; it does not gate and it
+      does not widen this card.
+    suggestion: "Carry the handed-on card; note in it that the exposure is element screenshots specifically, and that page screenshots were not measured."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-105
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/static/solver.js
+    line: 991
+    title: "Out of scope, MEASURED AND REFUTED rather than left as a worry: no in-page interaction moves .player-stage's own box, so the F-001 class has no residual path through marking, the brush menu or a hint"
+    description: |
+      F-001's root cause is structural — the room decision depends on the
+      stage's box and only window-level events re-measure it — so the obvious
+      residual is anything that changes `.player-stage`'s client box WITHOUT
+      firing `resize`. I probed it from inside `tests/` (a probe outside
+      `tests/` is not this suite's instrument — the round paid for that twice)
+      and deleted the probe afterwards. A 30 x 30 at 1280 x 720:
+
+        at load            client [980, 492]  scroll [980, 583]  keeping [True, True]
+        after 12 marks     client [980, 492]  scroll [980, 583]  keeping [True, True]
+        brush menu open    client [980, 492]  scroll [980, 583]  keeping [True, True]
+        after a hint       client [980, 492]  scroll [980, 583]  keeping [True, True]
+        after zoom 125 %   client [980, 492]  scroll [980, 725]  keeping [True, True]
+                           (room re-measured: band [272.2, 168.6], verdict [True, True])
+
+      The port never moves; only `scrollHeight` does, and only on the zoom,
+      which `zoomed()` already re-measures. So the three in-page interactions
+      a player actually performs cannot make the classes stale, and the
+      hypothesis is refuted rather than filed. A `ResizeObserver` on the stage
+      would close the class by construction instead of by enumeration — worth
+      one line in a future card, not a finding on this one.
+    suggestion: "If the class is ever to be closed by construction rather than by enumeration, a ResizeObserver on .player-stage calling keepCluesInView is the shape; not this card's."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+# ---------------------------------------------------------------------------
+# CYCLE 1's EIGHT FINDINGS — re-derived, not read off the round's report.
+# Every one is closed, and seven of the eight are closed under a control that
+# I made FAIL here. The eighth (F-003) is closed on a measurement that no
+# control can replace, and the measurement is re-derived statically below.
+# ---------------------------------------------------------------------------
+confirmed_fixes:
+  - id: F-001
+    severity_was: critical
+    verdict: "FIXED and CONTROLLED IN BOTH DIRECTIONS"
+    evidence: >-
+      Mutant X-G (base solver.js at 023157e3 via `git show <rev>:<path> >
+      <path>`, which stages nothing — git status read after, index clean):
+      TestSolverClues_SmallBoardsUnaffectedByStickiness is 2 failed, 3 passed,
+      red at clues.py:2656 (shrink: keeping [True,True] vs verdict
+      [False,False], band [376.3, 270.4], overflow [424, 518], port [724, 540],
+      resized_hits {'visible': 140, 'blocked': 105}) and at clues.py:2696 (the
+      grown direction: [False,False] vs [True,True]). Both comparability
+      assertions and the non-vacuity assertion pass first, so each kill is
+      attributable to the clause and not to the file. The DESIGN is pinned too:
+      mutant X-H (the split made unconditional — `if (true) redraw();`) reds
+      zoom.py:908 `assert 2 == 1`, the small board's draw-count pin, with all
+      five AC-5 cases green (1 failed, 11 passed), so the cheap/expensive
+      choice is a measured one and solver.js:913-918's comment is honoured
+      rather than contradicted. Mutant X-I (`keepCluesInView()` deleted from
+      redraw()) reds 7 cells: editor_ui.py:4003 plus clues.py:3103 x5 and
+      clues.py:3126.
+  - id: F-002
+    severity_was: high
+    verdict: "FIXED, and the new control is strictly stronger than the citation it replaced"
+    evidence: >-
+      Mutant X-A, an injection because layout-neutrality is a property of
+      `position: sticky` and cannot be deleted: one line added to admin.css's
+      existing .player-corner line (line count 1064 -> 1064), giving a keeping
+      board's cells `transform: translateY(2px)` through an attribute selector
+      (`[class~="is-keeping-rows"]`) chosen so it does NOT enter either
+      derived rule set — clues.py:3165's `^\.player-board\.is-keeping` count
+      and test_admin_design_tokens.py:439's is-right/tfoot equality both
+      stayed green, confirming the injection measures F-002 and not a guard.
+      Result: 4 failed, 17 passed. The four are fifth_rule.py:361 "sticking
+      moved the table's own geometry" (cells y 157.21875 -> 159.21875, table
+      w/h identical); the 17 include ALL SIX tests of
+      TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted, the control
+      the shipped helper used to CITE. Caught with the new mechanism, missed
+      without it.
+  - id: F-003
+    severity_was: medium
+    verdict: "FIXED; the branch is DEAD BY CONSTRUCTION, re-derived rather than accepted"
+    evidence: >-
+      solver.js:856 now answers `Infinity`, and `Math.min(overflow, Infinity)
+      <= port * SHARE` reduces to `overflow <= port * SHARE` — an axis with an
+      unmeasurable band keeps only where its own overflow already fits, which
+      is fail-closed; the old `0` made the comparison unconditionally true,
+      i.e. always STICK. clues.py's _ROOM (:2956) moved with it. Unreachability
+      re-derived statically: drawBoard appends `rowClue(false)` unconditionally
+      on every body row (solver.js:636 when mirrored, :629 otherwise) and calls
+      `columnGutter(false)` unconditionally (:614), and clueBox stamps
+      `is-stuck-${kind}` on every box with `duplicate === false` (:518). So
+      `th.player-clue.is-row.is-stuck-row` and
+      `th.player-clue.is-col.is-stuck-col` each exist on every board drawBoard
+      can produce, for any width/height >= 1 that readPayload accepts. Cycle
+      1's own mutant R2 deleting the guard left all 158 tests green, which is
+      consistent with dead rather than untested. I did not file "untested": I
+      tried to reach it and it is unreachable.
+  - id: F-004
+    severity_was: medium
+    verdict: "FIXED, and the inversion is demonstrated"
+    evidence: >-
+      Mutant X-D (STICK_MAX_SHARE 0.4 -> 0.01, inside the regex's domain so the
+      harness does not die at import; line count 1620 -> 1620): 1 failed, red
+      at zoom.py:1119 with `[[False,False]]*6 != [[True,True]]*6`, and
+      zoom.py:1115 — `assert _board_snapshot(page, puzzle) == before`, CON-021's
+      actual property — evaluated and GREEN. The six readings (at the zoom and
+      after each of the five pans) are all asserted, so nothing the in-loop
+      assertion covered is lost. One record correction, F-103: the green line
+      is :1115, not the :1116 the card's note cites.
+  - id: F-005
+    severity_was: low
+    verdict: "FIXED in the form that cannot drift again"
+    evidence: >-
+      The ordinal is gone; the docstring names the rule
+      (`.player-board.is-keeping-rows .is-stuck-row.is-right`) and leaves the
+      count to the equality at test_admin_design_tokens.py:439-446, which is
+      mechanically present one line below and holds six entries. The widening
+      cycle 1 cleared (`auto` in the allowed set) is unchanged, and my X-A
+      injection independently confirms the equality still bites on the rule set
+      rather than on its description.
+  - id: F-006
+    severity_was: low
+    verdict: "FIXED; the mirrored crossing now has two independent cells, and the deleted pixel assertion was the right call"
+    evidence: >-
+      Mutant X-E (cornerBox's `row: mirrored` -> `row: false`, line count
+      preserved): 2 failed, 1 passed — phone.py:860 (the NEW behavioural
+      reading: "no .player-corner carries both stuck markers") and phone.py:885
+      (the pre-existing declaration equality). Mutant X-E2 (the CORNER's share
+      of the side-swap rule only: `.is-stuck-row.is-right` ->
+      `th.is-stuck-row.is-right`, so the td corner drops out): 2 failed, red at
+      phone.py:863 with `inside: False, dLeft 431.72` — the corner's own
+      GEOMETRY reading, which bites where a declaration-only control could only
+      have reported a computed style. On the deleted pixel assertion I agree
+      with the round and spot-checked its structural premise: cornerBox appends
+      the mirrored corner to the HEAD row (solver.js:611-613) and the mirror
+      puts the row band on the right, so no cell is ever behind that corner —
+      a pixel sample there reads the table's own background and would pass
+      whatever the corner's opacity. Deleting an assertion that cannot fail is
+      ADR-0039/R1 applied, not coverage lost.
+  - id: F-007
+    severity_was: low
+    verdict: "FIXED, and the same treatment given to the second derived constant"
+    evidence: >-
+      clues.py:2936-2941 splits the STICK_MAX_SHARE derivation and names its
+      absence ("solver.js no longer declares STICK_MAX_SHARE as a decimal");
+      :2988-2992 does the same for RESIZE_SETTLE, which the round needed for
+      _quiet and which fifth_rule.py now imports rather than copying. Three
+      collection errors remain unavoidable for an import-time derivation — the
+      round says so — but they are attributable.
+  - id: F-008
+    severity_was: info
+    verdict: "PRODUCED, and after PG-3 it is CONTROLLED; the round's disagreement with cycle 1's premise is correct"
+    evidence: >-
+      Mutant X-F (base solver.js at 023157e3, the mechanism-free state):
+      TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule is 1 failed, 2 passed,
+      red at editor_ui.py:4056 (`[True, True] == [False, False]`, at_load band
+      [409.5, 350.2] overflow [0,0], loaded band [359.4, 307.3] overflow
+      [372,519]) with the three comparability assertions and the two
+      pre-existing readings green — so the clause can fail, and the kill is the
+      clause's and not the file's. That is PG-3 closed, re-derived
+      independently. I also spot-checked the premise cycle 1 got wrong:
+      puzzle_edit.html:146-150 IS a `.player-zoom` group with
+      `[data-player-zoom-action="out"]`, `[data-player-zoom-readout]` and
+      `[data-player-zoom-action="in"]`. The editor ships a zoom control; the
+      round is right and cycle 1 was wrong.
+
+# ---------------------------------------------------------------------------
+# Step 8f MUTATION CHECK — RUN (not deferred: this cycle has no gating
+# findings, which is exactly the condition the cost ladder defers TO).
+# TEN directions — eight deletions/base-reverts and two injections (an
+# injection where the subject is a property of the platform and so has no line
+# to delete); every anchor pre-counted
+# to exactly ONE occurrence before any edit; every edit line-count preserving
+# (the counts are printed in the rows); every mutant restored from a pristine
+# copy taken before the first edit and sha256-verified after; `git status` read
+# after every mutant and after the last (index clean, worktree clean apart
+# from meta/). `git checkout <rev> -- <path>` was NEVER used — the two base
+# certifications used `git show <rev>:<path> > <path>`, which touches no index.
+#
+# PRISTINE sha256, re-verified at the end with `shasum -c` (all 7 OK):
+#   solver.js                        77cc6c4c3bf12d850b709633edf6eb5c92bdd763c54c7b2d44bbfce258b20a90
+#   admin.css                        04d40cc58272afe1596ff2ae85057bf1d72b148ea3a4856217e0407fb28a7274
+#   test_puzzle_solver_fifth_rule.py 5668087a36182d230b1693fa8770443844db6fc3f6b6cb2112b7002558916092
+#   test_puzzle_solver_clues.py      45788aec8b7662579af4baa7272daa0dc7f777f778da0e1788c0c8833d1f82b8
+#   test_puzzle_solver_phone.py      4853ad66c5b0c5086128ed4c09d75c0c7d0e97b55455775b99f3f700a6cd3da6
+#   test_puzzle_solver_zoom.py       f70d0ed1d9bdb911c88fbe12c4b7b37772e47f3f30b7df049878ef09050479a0
+#   test_puzzle_editor_ui.py         8d7a85b88431aa2f04d37d76d7394d3b04ffa581f0538ba8a1dff8118b4d3ccd
+# `git diff --numstat -- src tests` at the end: EMPTY.
+# ---------------------------------------------------------------------------
+mutation_check:
+  mutants: 10
+  killed: 9
+  survived: 1
+  results:
+    - id: X-A
+      mechanism: "INJECTION (the subject cannot be deleted): a keeping board's cells moved relative to the table — `transform: translateY(2px)` via `[class~=\"is-keeping-*\"]`, appended to admin.css's existing .player-corner line, 1064 -> 1064 lines"
+      outcome: "KILLED — 4 failed, 17 passed"
+      cells: "fifth_rule.py:361 x4 'sticking moved the table's own geometry' (cells y 157.21875 -> 159.21875 at desktop, 92.21875 -> 94.21875 at phone; table w/h identical). GREEN throughout: all six tests of TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted — the control the shipped helper used to CITE — and all of test_admin_design_tokens.py."
+      proves: "F-002 fixed, from both sides: caught WITH the new control, missed WITHOUT it (ADR-0039/R1)."
+    - id: X-B
+      mechanism: "DELETED: _quiet's settle (`page.wait_for_timeout(4 * _RESIZE_SETTLE)` -> `pass`), 985 -> 985 lines"
+      outcome: "SURVIVED in the narrow selections, KILLED 1 of 2 in the five-file one — 11 runs total, 1 red"
+      cells: "fifth_rule.py alone: 17 passed x3. The FilledCellsDivideAcrossMajorRules class alone: 9 passed x6. The five-file selection (the one the round used): run 1 `1 failed, 159 passed` at test_a_light_band_reads_across_the_fifth_rule[phone-y], run 2 `160 passed`."
+      proves: >-
+        The round's D10 record is accurate, including its own 'intermittent by
+        nature' caveat — I reproduced 1 of 2 on the same selection and 0 of 9
+        on narrower ones. NOT filed as a finding, because the property _quiet
+        protects is held DETERMINISTICALLY by a different control (X-C): the
+        wait is flake-reduction, the assertion is the soundness guard. The
+        brief's test — 'an intermittent control is a finding if the mechanism
+        it guards is not otherwise held' — is answered by X-C, not waved at.
+    - id: X-C
+      mechanism: "INJECTION, the positive control X-B could not be: a redraw forced INSIDE the capture window (a 4 x RESIZE_SETTLE stall appended to the screenshot line inside the try), 985 -> 985 lines"
+      outcome: "KILLED — 2 failed, 2 passed"
+      cells: "fifth_rule.py:355 'the board was redrawn inside the capture window (draws 1 -> 2, stash restored: False), so this capture does not describe the table the geometry below is read off'"
+      proves: >-
+        The draw-count-plus-stash comparison CAN fail, deterministically and
+        with a named diagnosis, and it is the control for the one-generation
+        property. _UNSTICK's `stashed === undefined -> return false` is the
+        half that catches the table having been replaced; both halves fired.
+    - id: X-D
+      mechanism: "DELETED/MOVED: the room condition made total — `const STICK_MAX_SHARE = 0.4;` -> `0.01`, inside the `([0-9.]+)` domain on purpose so the harness cannot die at import, 1620 -> 1620 lines"
+      outcome: "KILLED — 1 failed"
+      cells: "zoom.py:1119 `[[False,False]]*6 != [[True,True]]*6`, WITH zoom.py:1115 (`assert _board_snapshot(page, puzzle) == before`, CON-021's own property) evaluated and GREEN"
+      proves: "F-004 fixed — the recording assertion is now judged first and the stickiness precondition last."
+    - id: X-E
+      mechanism: "DELETED: the mirrored crossing's row marker (cornerBox(true, { col: !duplicate, row: mirrored }) -> row: false), 1620 -> 1620 lines"
+      outcome: "KILLED — 2 failed, 1 passed"
+      cells: "phone.py:860 (NEW, behavioural: 'no .player-corner carries both stuck markers, so the mirrored crossing is not held on the row axis'); phone.py:885 (the pre-existing declaration equality)"
+      proves: "F-006 fixed — where cycle 1's R4 killed exactly one declaration cell, the same deletion now kills two, one of them behavioural."
+    - id: X-E2
+      mechanism: "DELETED: the CORNER's share of the side-swap rule only (`.player-board.is-keeping-rows .is-stuck-row.is-right` -> `… th.is-stuck-row.is-right`, so the td corner drops out), 1064 -> 1064 lines"
+      outcome: "KILLED — 2 failed, 1 passed"
+      cells: "phone.py:863 `{'inside': False, 'dTop': 0, 'dLeft': 431.72, …}` — the corner's own GEOMETRY reading; phone.py:885"
+      proves: "The new geometry reading bites on the corner specifically, not only through the marker's presence."
+    - id: X-F
+      mechanism: "DELETED: the whole F-001 fix, by putting solver.js at base 023157e3 (`git show 023157e3:<path> > <path>` — index verified clean), against the CORRECTED editor class"
+      outcome: "KILLED — 1 failed, 2 passed, EXIT=1"
+      cells: "editor_ui.py:4056 `assert [True, True] == [False, False]` (at_load band [409.5, 350.2] overflow [0,0]; loaded band [359.4, 307.3] overflow [372, 519]), with the three comparability assertions, the non-vacuity assertion and the two pre-existing readings green"
+      proves: "PG-3 closed — the editor clause is on a board whose resize takes the branch the defect was in, and the control fails."
+    - id: X-G
+      mechanism: "DELETED: the whole F-001 fix (base solver.js again), against the player's two new AC-5 cases"
+      outcome: "KILLED — 2 failed, 3 passed"
+      cells: "clues.py:2656 (shrink: keeping [True,True] vs verdict [False,False], band [376.3, 270.4], overflow [424, 518], port [724, 540], resized_hits {'visible': 140, 'blocked': 105}); clues.py:2696 (grow: [False,False] vs [True,True])"
+      proves: "F-001 certified against the mechanism-free state in BOTH directions, and the 105-of-140-blocked consequence reproduced a third time (reviewer cycle 1, orchestrator pre-gate, and now here)."
+    - id: X-H
+      mechanism: "DELETED: the branch SPLIT itself — `if (isBig) redraw(); else keepCluesInView();` -> `if (true) redraw(); else keepCluesInView();`, 1620 -> 1620 lines"
+      outcome: "KILLED — 1 failed, 11 passed"
+      cells: "zoom.py:908 `assert 2 == 1` (TestSolverZoom_SurvivesADoubledRedraw::test_a_board_too_small_to_double_is_not_redrawn_by_a_resize), with all five AC-5 cases green"
+      proves: "The two candidate designs for F-001 are separated by an EXISTING draw-count pin (G-5's real subject), so the cheap-vs-expensive argument is measured, not asserted — and G-7 is kept (a count, never a duration)."
+    - id: X-I
+      mechanism: "DELETED: the `keepCluesInView()` call in `redraw()` (replaced by a comment), 1620 -> 1620 lines"
+      outcome: "KILLED — 7 failed, 2 passed"
+      cells: "editor_ui.py:4003 (the editor's load-time room equality); clues.py:3103 x5 (the five-viewport room table); clues.py:3126 (test_sticking_changes_neither_the_band_nor_the_overflow)"
+      proves: "The editor class's FIRST clause is controlled too, not only its resize clause. (The card's D4 record cites editor_ui.py:3988, which was the pre-PG-3 line; it is :4003 now.)"
+
+# ---------------------------------------------------------------------------
+# Guardrails, re-derived on this head (ec42e6ea..c1f11264)
+# ---------------------------------------------------------------------------
+guardrails:
+  - "G-1 ✓ — the ONLY +/- line in the whole fork->HEAD solver.js diff naming DOUBLE_MIN_CELL, BIG_SIDE, layoutLadder or isMirrored is an added COMMENT saying they are untouched; `const isBig = payload.width > BIG_SIDE || …` carries no +/-. Re-derived by grep over the diff, not read off the card."
+  - "G-2 ✓ — admin.css is byte-identical to the implementation round's (sha256 04d40cc5…), so the fix round added no CSS at all; test_the_stylesheet_uses_tokens_not_literals and the six-entry right-hand-gutter equality are green in the 17-file gate, and my X-A injection confirmed both guards still bite."
+  - "G-3 ✓ — `git diff --stat ec42e6ea..c1f11264 -- src/nonogram/admin/static/solver_state.js` is EMPTY (byte-identical). ADR-0038/R2's named check (TestSolverMarking_NoRequestPerMark) green."
+  - "G-4 / CON-021 ✓ — and strengthened: X-D shows zoom.py:1115's whole-snapshot comparison is now evaluated BEFORE the stickiness precondition, which is the coupling cycle 1 filed as F-004."
+  - "G-5 ✓ on its real subject (the draw-count pins, as the card's own records correction restates it) — both pins carry no +/- line, and X-H shows one of them is what separates this round's two candidate designs: the guardrail doing its job, not conflicting with it."
+  - "G-6 ✓ as AMENDED by the owner — six PNGs in ~/Documents/nonogram-reviews/CARD-271/, including 06-resize-after-zoom-re-measured.png for the one configuration the fix changes. Existence verified; NOT filed as unsatisfied and NOT treated as a pre-merge eyeball gate (config visual: off)."
+  - "G-7 ✓ — no added line of the fix round names perf_counter / timeit / elapsed / duration / time.time (grep count 0). The performance claim behind the F-001 design is carried by a DRAW COUNT (X-H), and the two settle waits are derived from RESIZE_SETTLE rather than timed."
+
+acceptance_criteria:
+  - "AC-1 ✓ desktop plain big board — carried from cycle 1 (delta-clean) and re-exercised green in the gate; X-I reds its room table in 5 cells."
+  - "AC-2 ✓ with the owner's recorded bound at 390 px — NOT re-opened (settled on the card with a control that reds in both directions); the mirrored gutter's crossing is now held by two independent readings (X-E, X-E2)."
+  - "AC-3 ✓ with the owner's recorded bound at 300 % — NOT re-opened (the give-up ladder is an exact list equality); CON-021-under-panning is now verified independently of stickiness (X-D)."
+  - "AC-4 ✓ CARD-212 untouched — the ladder test's class body is byte-identical (pre-gate, re-derived by ast on both revisions) and the draw-count pins carry no +/- line."
+  - "AC-5 ✓ and this is where the card grew — the clause 'nothing OBSERVABLE changes' now covers a ZOOMED small board across a viewport change, in both directions, with the 105-of-140-blocked consequence reading (X-G)."
+  - "AC-6 ✓ visual integrity — carried from cycle 1; admin.css byte-identical since, and the corner's painting claim remains killed in `hit` and in pixels on the desktop board."

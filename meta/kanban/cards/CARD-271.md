@@ -1178,3 +1178,426 @@ it.
 `tests/test_card271_orch_f001.py`, my cycle-1 probe, was untracked in the
 worktree and would have been collected by a bare full-suite run at the merge
 gate. Removed from the worktree; it lives in the session scratchpad.
+
+### [F-101, review cycle 2] The cross-check compared a ROUNDED cover against the bar
+
+**Fixed.** `_ROOM` returned the cover only as `+Math.min(…).toFixed(1)`, and
+four sites compared THAT against `port * STICK_MAX_SHARE`, where
+`solver.js:863`'s `affords` compares the raw `Math.min(overflow, bandSize)`.
+`overflow` and `port` are integers on both sides, so the band's fractional
+part was the only divergence -- a +/-0.05 px window, one-sided toward agreeing
+with a page that sticks where the rule refuses: at port 980 the bar is 392.0,
+a true cover of 392.04 rounds to 392.0, and the rounded form answers KEEP
+where solver.js answers NOT-KEEP.
+
+It is my own F-003 edit's miss: that change touched this very expression under
+"it moves with it or it stops being a cross-check", tracked the VALUE and left
+the PRECISION. ADR-0039/R2 is about derivation rather than resemblance, and a
+figure that tracks one and not the other is resemblance.
+
+`_ROOM` now returns `coverRaw` beside `cover`. **All four** comparison sites
+read the raw value; the rounded one stays in the payload, which is what every
+failure message on this card prints:
+
+| site | what it holds |
+|------|---------------|
+| `tests/test_puzzle_solver_clues.py` `_verdict` | nine assertions, incl. both F-001 controls and both editor controls |
+| `tests/test_puzzle_solver_clues.py` the room table's own re-derivation | the five measured viewports |
+| `tests/test_puzzle_solver_zoom.py` the give-up ladder | **owner decision 2** (both axes give up at 300 %) |
+| `tests/test_puzzle_solver_phone.py` the 390 px refusal | **owner decision 1**, and it compares with `>`, so rounding errs the OTHER way -- a true cover of 392.04 reads as 392.0 and the assertion fails where the rule says it holds |
+
+Both directions of one root. Fixing `_verdict` alone would have left the two
+owner-decision controls re-deriving the rule from a rounded number.
+
+**No verdict moves on any measured board** -- the point of the fix is that
+raw and rounded agree everywhere this suite looks, so it is a correctness fix
+to the derivation and not a behaviour change. All 22 boards the four sites
+use, with both verdicts:
+
+| board | port | cover (rounded) | coverRaw | bar | raw / rounded |
+|-------|------|-----------------|----------|-----|---------------|
+| room table 30x30 1280x720 | [980, 492] | [0, 91] | [0, 91] | [392.0, 196.8] | [T,T] / [T,T] |
+| room table 30x30 1280x600 | [980, 372] | [0, 135.4] | [0, 135.390625] | [392.0, 148.8] | [T,T] / [T,T] |
+| room table 30x30 900x700 | [600, 472] | [104, 111] | [104, 111] | [240.0, 188.8] | [T,T] / [T,T] |
+| room table 30x30 390x844 | [358, 583] | [272.2, 0] | [272.15625, 0] | [143.2, 233.2] | [F,T] / [F,T] |
+| room table 30x30 600x844 | [568, 583] | [136, 0] | [136, 0] | [227.2, 233.2] | [T,T] / [T,T] |
+| zoom ladder @100% | [980, 492] | [0, 91] | [0, 91] | [392.0, 196.8] | [T,T] / [T,T] |
+| zoom ladder @125% | [980, 492] | [0, 168.6] | [0, 168.59375] | [392.0, 196.8] | [T,T] / [T,T] |
+| zoom ladder @150% | [980, 492] | [0, 201.7] | [0, 201.65625] | [392.0, 196.8] | [T,F] / [T,F] |
+| zoom ladder @175% | [980, 492] | [118, 234.7] | [118, 234.71875] | [392.0, 196.8] | [T,F] / [T,F] |
+| zoom ladder @200% | [980, 492] | [274, 267.9] | [274, 267.921875] | [392.0, 196.8] | [T,F] / [T,F] |
+| zoom ladder @225% | [980, 492] | [431, 301] | [431, 300.984375] | [392.0, 196.8] | [F,F] / [F,F] |
+| zoom ladder @250% | [980, 492] | [487.4, 334.2] | [487.390625, 334.1875] | [392.0, 196.8] | [F,F] / [F,F] |
+| zoom ladder @275% | [980, 492] | [535.8, 367.3] | [535.84375, 367.25] | [392.0, 196.8] | [F,F] / [F,F] |
+| zoom ladder @300% | [980, 492] | [584.3, 400.3] | [584.3125, 400.3125] | [392.0, 196.8] | [F,F] / [F,F] |
+| F-001 player 15x15 1920x1500 @200% at load | [1620, 1150] | [0, 0] | [0, 0] | [648.0, 460.0] | [T,T] / [T,T] |
+| F-001 player 15x15 -> 1024x768 @200% resized | [724, 540] | [376.3, 270.4] | [376.28125, 270.390625] | [289.6, 216.0] | [F,F] / [F,F] |
+| F-001 player 15x15 1024x768 @200% loaded | [724, 540] | [376.3, 270.4] | [376.28125, 270.390625] | [289.6, 216.0] | [F,F] / [F,F] |
+| F-001 player 15x15 1600x1200 @200% grow control | [1300, 972] | [0, 178] | [0, 178] | [520.0, 388.8] | [T,T] / [T,T] |
+| editor 30x30 1280x720 load-time | [980, 492] | [0, 91] | [0, 91] | [392.0, 196.8] | [T,T] / [T,T] |
+| editor 15x15 1920x1500 @200% at load | [1620, 1206] | [0, 0] | [0, 0] | [648.0, 482.4] | [T,T] / [T,T] |
+| editor 15x15 -> 1024x768 @200% resized | [724, 540] | [359.4, 307.3] | [359.359375, 307.28125] | [289.6, 216.0] | [F,F] / [F,F] |
+| editor 15x15 1024x768 @200% loaded | [724, 540] | [359.4, 307.3] | [359.359375, 307.28125] | [289.6, 216.0] | [F,F] / [F,F] |
+
+22 boards, the two verdicts identical on every one, the `>` comparison
+identical on every one, and `keeping` equal to the raw verdict on every one
+(all three asserted in the demonstration, not eyeballed). **Nearest approach
+to a bar anywhere in the suite: 4.86 px** (the 150 % column axis, 201.65625
+against 196.8) -- about a hundred times the window the rounding could have
+opened, which is why this closes as a correctness fix rather than a
+behaviour change.
+
+**Mutant M-101**, line-count preserving (1620 lines before and after),
+restored from a file copy and `sha256 77cc6c4c…` verified -- never
+`git checkout <rev> -- <path>`, which stages the path:
+
+| mechanism | outcome |
+|-----------|---------|
+| `affords`'s compared quantity halved (`Math.min(overflow, bandSize) / 2`), so the page keeps where the rule refuses | KILLED. 3 failed, 5 passed, 0 collection errors. `clues.py:2654` and `clues.py:2694` (both F-001 controls) and `editor_ui.py:4054` (the editor's), each `keeping [True, True]` against a verdict of `[False, False]` |
+
+All three cells are `_verdict`-based, so the changed expression bites.
+`src/` is unchanged: `solver.js` is `77cc6c4c…`, as it was at the certified
+head.
+
+### Records corrections -- two line figures, and what they are each a case of
+
+Both were flagged by review cycle 2 and both are mine. They are NOT the same
+mistake, and the difference is the interesting part:
+
+* **`zoom.py:1116` for the CON-021 snapshot assertion was simply wrong when
+  written.** Re-derived: at the fix round's own commit `29e019a7` the line
+  `assert _board_snapshot(page, puzzle) == before` is at **1115**; `:1114` is
+  its comment. A figure copied one line off from pytest's own failure line.
+* **`editor_ui.py:3988` for the D4 row was RIGHT when written and went stale.**
+  Re-derived: `assert at_load["keeping"] == _verdict(at_load)` is at 3988 in
+  `29e019a7` and at **4003** after the PG-3 commit moved it. Not a miscopy --
+  a correct figure invalidated by a later commit in the same round.
+
+And a third, created while writing this block: **the F-101 edit above moved
+the CON-021 assertion again**, from 1115 to **1119**, because it added four
+comment lines upstream of it. So the corrected figure was stale before this
+paragraph was finished.
+
+Which is the point, and the reason both are recorded by their ASSERTION TEXT
+here and not only by number: `assert _board_snapshot(page, puzzle) == before`
+in `test_zooming_and_panning_record_and_save_nothing`, and
+`assert at_load["keeping"] == _verdict(at_load)` in
+`test_the_editors_gutters_obey_the_room_condition`. A name survives the next
+commit; a line number is a copy of a figure the file already states, which is
+the PG-1 / F-005 family in its third shape this card. CARD-281 exists to
+mechanise the class and nothing here tries to pre-empt it.
+
+### [Merge gate] The browser family's registry — 27 node ids this card owed
+
+`tests/test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`
+was red: 27 node ids collected in the browser family and recorded nowhere.
+All 27 are this card's — 20 in `_clues.py`, 3 in `_phone.py`, 4 in `_zoom.py`
+— and **25 of them pre-date the fix rounds**: they are the implementation
+round's AC-1..AC-6 tests, so the guard has been red since `023157e3` and
+every gate this card ran was selected too narrowly to notice. The fix rounds
+added two (`test_a_resize_after_a_zoom_re_measures_the_room`,
+`test_a_grown_window_re_measures_the_room_too`). `_fifth_rule.py` contributes
+none — this card only edited tests there — and the editor's three are outside
+the family, whose prefix is `tests/test_puzzle_solver`.
+
+All 27 are now in `ADDED_SINCE_BEFORE`, each with `CARD-271` and the reason
+that test exists, in the file's own idiom (`f"{FAMILY_PREFIX}_clues.py::"`,
+one entry per parametrized node id, as CARD-270's block does). The guard
+alone: **29 collected, 29 passed, 0 skipped, EXIT=0** — it was 1 failed, 28
+passed.
+
+#### Sibling census guards, one by one — measured, not assumed
+
+A 24-minute suite found one; the point of this table is that it does not have
+to find a second. Every guard in `tests/` that holds a count, a node-id set,
+a file list or a tree snapshot, with whether this card's eight changed files
+enter its subject:
+
+| guard | its subject | this card in it? | evidence |
+|-------|-------------|------------------|----------|
+| `test_browser_fixture_scope.py` | node ids of `tests/test_puzzle_solver_*.py`, globbed live against CARD-217's artefact + `ADDED_SINCE_BEFORE` | **YES** | the failure above; fixed, 29 passed |
+| `test_suite_profile.py` | `regrep_render_set(tests/)` against `RENDER_HEAVY_SNAPSHOT`, plus the silence census over the tree | no | `RENDER_API_PATTERN` is the BOOK render API (`interior(`, `export_book`, `render_pages`…), not a browser screenshot: it matches **none** of this card's six test files, before or after, and none is in the snapshot (re-greped both revisions). The silence census needs an added skip; the diff adds none. **Ran anyway: 399 passed, EXIT=0** |
+| `test_guard_integrity.py` | the guards in `test_suite_profile.py`, judged from outside; rglobs `src/nonogram` and `tests` | no | nothing added or silenced at module scope. **Ran: 167 passed, EXIT=0** |
+| `test_db_engine_lifecycle.py` | every `*.py` under `tests/` (engine hand-set spellings) and CARD-252's docstring authority roots (`src/nonogram` + `tests`) — this card's docstrings ARE in its subject | in subject, unaffected | **Ran: 18 passed, 2 skipped, EXIT=0**; both skips are `conftest.py:207 DATABASE_URL`, the board's known DB skip, and the file is untouched by this card |
+| `test_impact_set.py` | every `*.py` under `tests/` — `.venv` strings reaching a spawner, and the derived always-on scanner set | in subject, unaffected | no changed test file contains `.venv`, and the diff adds no `rglob`/`glob(`/`os.walk`/`iterdir`, so neither derivation moves. **Ran: 34 passed, EXIT=0** |
+| `test_cli.py` | the component map in `src/nonogram/__init__.py`'s docstring against the modules on disk, `_ADAPTERS`, and the layering import walk over `src/nonogram/**/*.py` | no | `git diff ec42e6ea -- 'src/**/*.py'` is **empty** — this card's only production changes are `solver.js` and `admin.css`, which that walk cannot see, and no module was added or removed. **Ran: 135 passed, EXIT=0** |
+| `test_card_060_grid_renderer_surface.py` | `src/**/*.py` for two deleted symbol names | no | same empty `.py` diff; the card writes neither `grid_to_svg_bytes` nor `get_svg_filename` |
+| `test_admin_import_consistency.py` | `src/nonogram/admin/**/*.py` relative imports | no | same empty `.py` diff |
+| `test_fixture_integrity.py` | the committed images under `tests/fixtures/` | no | the card adds no fixture; `git diff --name-status` over `tests/` is all `M`, no add and no delete |
+| `test_naming.py` | exported puzzle FILENAMES (FR-015); its `iterdir` is over a `tmp_path` | no | no tree census; nothing of this card is in its reach |
+| `test_web_server.py` | the web server's own baseline | no | not a tree census over this card's files; also inside `test_guard_integrity`'s `_FILES`, which ran green |
+
+Also checked and unmoved: no new test FILE enters the family, so
+`PAGE_ISOLATION` and every file-list in the family guard are unchanged (that
+list's own tests are among the 29 that now pass).
+
+#### Runs
+
+| selection | result |
+|-----------|--------|
+| `tests/test_browser_fixture_scope.py` | **29 collected, 29 passed, 0 skipped, EXIT=0** (was 1 failed, 28 passed) |
+| `tests/test_suite_profile.py` | 399 passed, 0 skipped, EXIT=0 |
+| `tests/test_guard_integrity.py` | 167 passed, 0 skipped, EXIT=0 |
+| `tests/test_db_engine_lifecycle.py` | 18 passed, 2 skipped (`DATABASE_URL`), EXIT=0 |
+| `tests/test_impact_set.py` | 34 passed, 0 skipped, EXIT=0 |
+| `tests/test_cli.py` | 135 passed, 0 skipped, EXIT=0 |
+| the 16 selector-naming files + marking | **696 collected, 692 passed, 4 skipped, EXIT=0** — unmoved |
+
+No test added, removed or renamed by this change: `ADDED_SINCE_BEFORE` is a
+data table, and the 17-file selection collects exactly what it collected
+before. `src/` untouched: `solver.js 77cc6c4c…`, `admin.css 04d40cc5…`.
+
+### What this cost, and what it will cost the next card
+
+Stated for the backlog, as an observation rather than a change — the guard is
+not this card's to edit.
+
+**The registry is discoverable only by a run nobody makes in the inner loop.**
+`tests/test_browser_fixture_scope.py` names none of
+`player-board`/`player-clue`/`player-stage`/`admin.css`, so it is outside the
+17-file selection this card gated on four times; and it reaches the family
+through a `--collect-only` SUBPROCESS, so there is no import edge for
+`scripts/impact_set.py` to follow either. This card ran four gate selections
+and two full-depth review cycles — and a pre-gate and two fix-round
+re-derivations on top — and the first thing to see it was a 24-minute full
+suite at the merge gate. That is the same family as PG-2: a derivation that
+is blind to a real dependency and fails OPEN.
+
+**The cost is paid late and by the wrong round.** The 25 entries owed here
+were owed by the implementation round; they were registered in a fix round,
+by which point the reasons had to be reconstructed from the tests rather than
+written beside them. The entries are better for having the ACs settled, but
+nothing about the mechanism ensured that.
+
+**The measured observation.** The guard's expected set is a UNION of a frozen
+artefact and a hand-maintained table, and the half that must move is the hand
+one. Two cheaper derivations exist and neither needs the guard to weaken:
+
+1. the family's node ids are already derivable from the tree — the guard
+   derives the *live* set that way. What a card actually owes is the REASON,
+   not the id, and a reason has a natural home beside the test. A registry
+   keyed on ids that a `--collect-only` already enumerates is storing the
+   half that can be derived and asking a human for the half that cannot;
+2. whatever the registry's shape, the guard is reachable by a selector that
+   knows a changed `tests/test_puzzle_solver_*.py` implies it. That edge is a
+   one-line fact about the glob at `test_browser_fixture_scope.py:378`, and
+   it would have moved this from a merge-gate failure to an inner-loop one on
+   the first run of the implementation round.
+
+Neither is attempted here. Routed to the backlog beside PG-2, which it
+rhymes with: **both are impact-derivation gaps that fail open, and this one
+has now cost a card a red merge gate.**
+
+## [REVIEW CYCLE 2 2026-10-23] 9.5, CERTIFIED — and the family that cost cycle 1 does not recur
+
+`10 − 0 critical − 0 important − 0.5 (one medium) = 9.5`, against `min_score: 8`.
+Risk LOW. Report: `meta/review/20261023T173228Z-CARD-271-cycle2.yml`.
+
+Cycle 1 was 6.0. All eight of its findings are closed, **seven of them under a
+control the reviewer made FAIL**, and the eighth (F-003) on a derivation,
+because no control can exist for a dead branch. Ten directions attacked by
+deleting the mechanism each claim names; nine killed with cells. The one
+survivor is the `_quiet` settle, and the reviewer answered the brief's
+condition rather than waving at it: the property that wait guards — one board
+generation per reading pair — is held **deterministically** by
+`fifth_rule.py:355`, which the reviewer made fire with a named diagnosis
+(`draws 1 → 2, stash restored: False`), so the wait is flake-reduction and the
+assertion is the soundness guard.
+
+The headline is the system contract: **cycle 1's one `✗` (ADR-0039/R1, F-002)
+is now `✓`, and closed with a control that fails rather than a reworded
+claim** — an injection that moves a keeping board's cells relative to the
+table reds `fifth_rule.py:361` in four cells while all six tests of the
+control the shipped helper used to merely *cite* stay green. Two-sided,
+exactly as the rule requires. PG-3's instance of the same family is closed the
+same way. ADR-0039/R2 now holds better than before the card: the band fallback
+defaults to DENY and both derived constants name their own absence. 16 rules
+checked, 11 ✓, 5 ⚠ unchecked, 0 ✗, nothing carried forward — the delta touches
+`src/` and `tests/`, which every one of these rules' scope globs intersects,
+so carry-forward was refused fail-closed.
+
+### F-101 — the one medium, and the review's own premise for it was incomplete
+
+`_ROOM` returned `cover` rounded to a tenth and **every** comparison against
+the bar read that rounded figure, while `solver.js:862`'s `affords` compares
+the raw `Math.min`. `overflow` and `port` are integers on both sides, so the
+band's fraction was the only divergence, and it was one-sided toward agreeing
+with a page that sticks: at port 980 the bar is 392.0, and a true cover of
+392.04 rounds to 392.0, so the derived check answers KEEP where solver.js
+answers NOT-KEEP. A ±0.05 px window under nine assertions.
+
+**The review said nothing else read `cover` except failure messages. Four
+sites made the comparison**, and the orchestrator measured that before a round
+was spent on the stated fix: `_verdict`, the room table's own re-derivation,
+and — the two that matter — `test_puzzle_solver_phone.py:914` and
+`test_puzzle_solver_zoom.py:1061`, **the controls holding this card's two
+owner decisions**. The phone site compares with `>`, so rounding errs the
+other way there: a true cover of 392.04 reads as 392.0 and the assertion fails
+where the rule says it holds. Same root, both directions — the shape this
+board keeps paying for when only one direction gets a control. Fixed at all
+four (`47f7ea9d`); `grep '\["cover"\]' tests/*.py` now returns nothing.
+
+Closed as a correctness fix to the derivation and not a behaviour change, and
+that was asserted rather than eyeballed: on **22 boards** — the five-viewport
+room table, the nine-step zoom ladder, both F-001 controls in both directions
+and all four editor readings — the rounded and raw verdicts are identical, the
+`>` comparison is identical, and `keeping` equals the raw verdict. The nearest
+approach to a bar anywhere in the suite is **4.86 px** (150 %, column axis:
+201.65625 against 196.8), about a hundred times the window the rounding could
+have opened. One mutant certifies the changed expression still bites: halving
+the quantity `affords` compares reds `clues.py:2654`, `clues.py:2694` and
+`editor_ui.py:4054`, all three `_verdict`-based, line count preserved and
+`solver.js` sha256 verified after restore.
+
+It was routed as a narrow certification fix rather than a follow-up card
+deliberately: two lines in a test helper, against a card in a hotspot shared
+with CARD-267, CARD-268, CARD-269 and CARD-280 — a card here would have
+serialized behind all of them while the card's central cross-check stayed
+non-identical to its source.
+
+### Routed, not fixed here
+
+- **F-102** (low) — the capture settle doubles `fifth_rule.py`'s wall-clock,
+  measured 27.35 s against 13.84/13.40/12.96 s, about +4 % on the 17-file
+  gate. Not the flake-sleep ADR forbids: deleting it makes the file *flakier*,
+  and the obvious cheaper shape was refuted (the first `_board` of a test is
+  not exempt, because `set_viewport_size` itself fires `resize`). Backlogged
+  with the one deterministic cheaper form — poll the draw count until two
+  reads agree.
+- **F-104** (info) — the element-screenshot/`resize` interaction, backlogged
+  and **bounded by measurement**: four `.screenshot(` sites in `tests/`, and
+  exactly one is an element screenshot — the one this card fixes.
+- **F-105** (info) — F-001's residual class hunted and **refuted** in-tree:
+  the stage's `client` box is unmoved by marks, the brush menu and a hint, and
+  only `scrollHeight` moves on the zoom, which `zoomed()` already
+  re-measures. Backlogged with the durable shape: a `ResizeObserver` would
+  close the class by construction instead of by enumerating the events that
+  happen to change the stage — which is how F-001 existed in the first place.
+
+### Three record figures corrected, and they are not the same mistake
+
+`zoom.py:1116` → **`:1115`** was wrong when written (a figure copied one line
+off pytest's own output). The D4 row's `editor_ui.py:3988` → **`:4003`** was
+*right* when written and went stale when the PG-3 commit moved the assertion.
+And the orchestrator's own "105 of 141 blocked": the shipped control's reading
+at base is **105 of 140** — the 141 was the cycle-1 probe at a different
+scroll position, not this control. The round then moved the corrected 1115 to
+1119 while writing the correction, so both sites are now recorded by their
+**assertion text** as well as their number.
+
+### Stall judgement — the orchestrator's, not the machinery's
+
+`min_improvement` is `"off"` and `family_regression` is `warn` as of
+`ebedc757`, so no escalation check ran and none was owed. The judgement:
+6.0 → 9.5 at equal or greater depth — ten mutants against cycle 1's nine, plus
+a behaviour probe cycle 1 did not run — with no gating finding left and the
+one medium closed before the gate. Not a stall. The `[Family]` note the
+reviewer wrote is **record-only**: the PG-1/F-005 family (a figure copied
+beside a mechanism that already states it) recurs in a third shape, the
+authority this time being pytest's own failure line, with no code or test
+implicated. CARD-281 owns mechanising that class. Cycle 1's own family —
+a claim whose control cannot fail — does **not** recur anywhere in the delta.
+
+Aggregate round counter: 5 of 6 (implementation, pre-gate, cycle 1, fix round 1
+with its two corrections, cycle 2). No fatigue escalation.
+
+## [MERGE GATE 2026-10-23, orchestrator] Two full suites, two reds, both accounted for — merged on a UNION argument, stated rather than buried
+
+### AC/EC/G gate — 18 node ids, 65 collected, 65 passed, 0 skipped, EXIT=0
+
+Selected by explicit node id, never by `-k`: AC-1 `TestSolverClues_StayInViewOnAPlainBigBoard`,
+AC-2 `TestSolverPhone_MirroredGutterSticks`, AC-3 `TestSolverZoom_CluesStayInViewWhileZoomed`,
+AC-4 `TestSolverClues_TheLadderStopsAtTheFirstRungThatFits`, AC-5
+`TestSolverClues_SmallBoardsUnaffectedByStickiness`, AC-6
+`TestSolverClues_StickyGutterRendersCleanly`, plus the room table, the
+doubled-gutter class, `TestSolverClues_TheStageIsTheScrollContainer`, CON-021's
+`TestSolverZoom_IsNotSavedAndSendsNothing`, both draw-count pins
+(`TestSolverZoom_SurvivesADoubledRedraw`), ADR-0038/R2's
+`TestSolverMarking_NoRequestPerMark`, G-2's
+`test_the_stylesheet_uses_tokens_not_literals`, the selector equality
+`test_the_boards_second_clue_gutters_come_from_tokens`, and F-008's
+`TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule`. **Zero skips in this
+selection**, which matters because green-with-skips reports the same collected
+count and the same exit 0 as fully verified.
+
+### The lock, and a control that CAN fail
+
+Both full suites ran under a lock this gate WROTE — `holder`, `why`,
+`worktree`, `commit`, `at` — which is the provenance the board's own backlog
+item says a gate owes, and the correction to CARD-264's row in
+`suite-timing.log` two lines above these: that gate held no lock and nothing in
+the tree could notice, because the guard's subject is a FOREIGN lock and "no
+lock" and "my own lock, released" are one observation from inside the run.
+The lock was then demonstrated rather than asserted: asked from main's tree,
+`full_suite_lock.current_verdict()` **refused**, naming this holder. A lock
+that cannot refuse anybody is the board's own version of this card's subject.
+
+### Attempt 1 — `47f7ea9d`, 1452 s: `1 failed, 8953 passed, 27 skipped, EXIT=1`
+
+`tests/test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`
+reds at `:1294`: this card added **27** node ids to the browser-fixture family
+and registered none in `ADDED_SINCE_BEFORE`. The card's own, and **25 of the
+27 pre-date the fix rounds** — the guard had been red since the implementation
+commit `023157e3`.
+
+Nothing earlier could have caught it, and that is the finding: the file names
+none of `player-board`/`player-clue`/`player-stage`/`admin.css`, so it is
+outside the 17-file selection this card gated on FOUR times, and it reaches
+the family through a `--collect-only` **subprocess**, so `scripts/impact_set.py`
+has no import edge to follow. Four gate selections, two full-depth review
+cycles, a pre-gate and two fix-round re-derivations passed over it. PG-2's
+family in a second guise — a derivation blind to a real dependency, failing
+**open** — and backlogged beside it, with the eleven sibling census guards
+enumerated one by one rather than assumed (`git diff ec42e6ea -- 'src/**/*.py'`
+is EMPTY, so every guard that walks Python modules is out of scope by
+construction; the rest were run).
+
+Fixed in `cb18d45d`, guard re-run: **29 passed, 0 skipped, EXIT=0**.
+
+### Attempt 2 — `cb18d45d`, 1560 s: `1 failed, 8953 passed, 27 skipped, EXIT=1`
+
+A different test, and not this card's:
+`test_puzzle_solver_marking.py::TestSolverClickFollowsTheBrush::test_touch_taps_follow_the_brush[chromium]`
+— `Page.goto: Timeout 30000ms exceeded`. Diagnosed rather than dismissed: the
+page and three of its four assets returned 200 and **`solver_state.js` never
+completed**, so `load` never fired. This card does not touch
+`solver_state.js` (G-3: byte-identical to the fork point), and the machine was
+under load averages **5.12 / 17.00 / 18.48** — attempt 2's own wall clock was
+2114 s against pytest's 1560 s, i.e. 555 s of the box being busy elsewhere.
+Established as a flake rather than assumed: the class re-run **three times on
+the merged tree, 11 passed each time** (9.6 s / 7.1 s / 7.8 s).
+
+Skips, both runs, every one attributed: **26** `tests/conftest.py:207
+Database not reachable: DATABASE_URL is not set` and **1**
+`tests/test_book_pdf_memory.py:1296 setrlimit(RLIMIT_AS)` refused by this
+kernel. **Zero in a browser file.**
+
+### Why this merged, and on what
+
+A **union** argument, and it is not the coverage argument this gate refused
+earlier in the same session. That one would have left a delta unmeasured; this
+one leaves nothing unmeasured. Every one of the **8981** collected tests
+passed green in at least one of two full suites, on trees that differ **only**
+by an inert data table (`git diff --numstat 47f7ea9d..cb18d45d` is
+`229 0 tests/test_browser_fixture_scope.py`, and `git diff 47f7ea9d..HEAD --
+src/` is empty). Each run's single red is accounted for: attempt 1's was the
+card's own, is fixed, and its guard passes; attempt 2's is a load-induced
+flake in a file this card changes no behaviour in, reproduced green three
+times on the tree that merged. The suite grew 8904 → 8953 passed since
+CARD-264.
+
+A third suite was deliberately NOT run: at a 15-minute load average of 18 it
+would have measured the machine rather than the tree, and the honest
+alternative — wait for a quiet box — was offered to the owner, who said merge.
+
+### The merged tree IS the gated tree
+
+`git diff ec42e6ea..main -- . ':(exclude)meta/'` is one file,
+`ONLINE_GAME_SPECIFICATION.md` (70/22), and **no test reads it or globs
+repo-root markdown** (checked, not assumed). So main's nine commits since the
+fork point owe this card no coverage argument, unlike CARD-264's gate which
+had to re-run an interaction surface.
+
+The branch carried **no `meta/`** — `git diff --name-only
+ec42e6ea..card/271-clues-stay-in-view -- meta/` is empty — so the CARD SYNC
+PROTOCOL held end to end across five commits and three agent hand-backs.
