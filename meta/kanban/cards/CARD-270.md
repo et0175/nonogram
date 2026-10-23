@@ -1,6 +1,6 @@
 # CARD-270: Filled cells merge across the heavy fifth rules — ink-on-ink hides the cell divisions
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** ops
 **Estimate:** 0.5d
