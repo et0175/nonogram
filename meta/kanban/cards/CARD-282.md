@@ -1,6 +1,6 @@
 # CARD-282: The admin panel exports the player bundle — static JSON the public solver reads
 
-**Status:** blocked
+**Status:** ready
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** architect delta owed — the per-puzzle URL namespace (opaque slug vs row id vs grid hash) is an undecided design decision (backlog.md, CARD-210 reason 2: "a printed code cannot be re-pointed"). The bundle's file names ARE the printed URLs, so this card may not pick a key shape by default. Surface the DEC and resolve it at /forge:architect before starting; unblock with `/forge:kanban unblock CARD-282`.
+**Blocked by:** — (was: the URL-namespace DEC — resolved 2026-10-23 as DEC-044/ADR-0041, unblocked the same day)
 
 ## What to implement
 
@@ -43,8 +43,12 @@ the customer path, and the admin panel/Postgres stay private.
      would matter;
    - `book/<slug>.json` — one file per finalized book: its slug, display title,
      and the ordered list of its puzzle keys (for `/b/<slug>`, the QR landing).
-2. **Keys and slugs** come from the resolved URL-namespace DEC (this card's
-   blocker). Do not invent a second naming scheme anywhere in the tree.
+2. **Keys and slugs** per ADR-0041/R1 (DEC-044, resolved 2026-10-23): a
+   puzzle's public key is the first 10 lowercase hex characters of SHA-256
+   over the UTF-8 bytes of `"{width}x{height}:"` followed by the solution
+   grid's cells row-major, `'1'` filled / `'0'` empty. Implement it exactly —
+   any deviation is a breaking change requiring a new ADR. Book slugs per the
+   same ADR. Do not invent a second naming scheme anywhere in the tree.
 3. **Trigger.** An explicit owner action, not a side effect: a "Export player
    bundle" action on the book detail page (route lands in whatever module owns
    book routes after CARD-274's blueprint split), plus a callable entry point
@@ -60,29 +64,32 @@ split's route module — the Touches list above names today's paths.
 
 ## Acceptance criteria
 
-Spec-derived (owner doc 2026-10-23); the FR/AC registry entries are owed by the
-same architect delta that resolves the namespace DEC.
+FR-045 (registry entries minted by the 2026-10-23 architect delta, ADR-0041).
 
-- AC-1: Given a finalized book, when the owner exports the player bundle, then
+- AC-380: Given a finalized book, when the owner exports the player bundle, then
   the output tree contains `index.json`, `book/<slug>.json`, and one
   `puzzle/<key>.json` per published puzzle, and each puzzle file's clues equal
   `compute_clues` of the stored grid (test: tests/test_player_bundle.py::
   test_bundle_tree_and_clues_match_the_encoder).
-- AC-2: Given any exported bundle, when every file in it is scanned, then no
+- AC-381: Given any exported bundle, when every file in it is scanned, then no
   file contains a solution grid, a filled-cells encoding, or the picture name
   (test: tests/test_player_bundle.py::test_bundle_is_clean_of_answers — a
   property test over a seeded corpus of grids, not one example).
-- AC-3: Given an export run, when it completes, then the database is unchanged
+- AC-382: Given an export run, when it completes, then the database is unchanged
   (read-only — no INSERT/UPDATE/DELETE issued) and a second run over the same
   data produces byte-identical files (test: tests/test_player_bundle.py::
   test_export_is_readonly_and_deterministic).
 
 ## Engineering constraints
 
-- EC(ADR-0038/R6): no artifact this card produces may carry a puzzle's solution
-  grid to a public surface, for any puzzle, any book, any export path — not
-  just the AC-2 examples.
+- EC-048 (ADR-0038/R6, ADR-0041/R2): no artifact this card produces may carry a
+  puzzle's solution grid to a public surface, for any puzzle, any book, any
+  export path — not just the AC-381 examples.
   test: tests/test_player_bundle.py::test_bundle_is_clean_of_answers
+- EC-049 (ADR-0041/R5): the export is read-only against the database and
+  deterministic — same input, byte-identical output — for every input, not just
+  AC-382's example run.
+  test: tests/test_player_bundle.py::test_export_is_readonly_and_deterministic
 
 ## Guardrails
 
@@ -110,16 +117,19 @@ same architect delta that resolves the namespace DEC.
 - ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. (check: test_the_books_own_pages_carry_no_undeclared_round_mark)
 - ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. (check: test_no_module_types_a_round_mark_as_a_character)
 - ADR-0038/R1 — The puzzle player's client is hand-written JavaScript and CSS served as static files by the admin panel. (check: review-lens)
-- ADR-0038/R2 — Marking, undo, redo, the error count and the solved check run entirely in the browser. (check: TestSolverMarking_NoRequestPerMark)
 - ADR-0038/R3 — The player page's clues are embedded as JSON from compute_clues of the stored grid (the one encoder). (check: TestSolverPage_ShowsTheClues)
-- ADR-0038/R4 — The player's state logic (board, strokes, undo/redo history, error count, solved predicate) lives in a pure module with no DOM access, separate from rendering. (check: review-lens)
-- ADR-0038/R5 — pyproject.toml package-data for nonogram.admin includes static/*.js alongside templates/*.html and static/*.css, so the player's script ships in every built wheel. (check: review-lens)
 - ADR-0038/R6 — Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution grid to the browser. (check: review-lens)
 - ADR-0038/R7 — Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in pyproject.toml. (check: review-lens)
 - ADR-0038/R8 — Browser tests run locally, against Chromium installed by `playwright install chromium`. (check: review-lens)
 - ADR-0039/R1 — A set a guard consults needs a completeness test written before the set, and any claim the guard makes about what it catches needs a control that can fail: caught WITH the set member present, missed WITHOUT it. (check: test_the_control_for_each_spelling_depends_on_the_set)
 - ADR-0039/R2 — A guard's set is derived from an authority the runtime can enumerate, not hand-written. (check: test_the_guard_sets_are_derived_and_not_hand_written)
 - ADR-0039/R3 — An exemption is a claim. Every exemption a guard grants carries a control for what it must NOT absorb — caught with the exemption removed, missed with it in place — is held to an equality against the sites that exist ... (check: test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw)
+- ADR-0041/R1 — A puzzle's public key is the first 10 lowercase hexadecimal characters of SHA-256 over the UTF-8 bytes of "{width}x{height}:" followed by the solution grid's cells row-major, '1' for filled and '0' for empty. (check: tests/test_player_bundle.py::test_bundle_tree_and_clues_match_the_encoder)
+- ADR-0041/R2 — No public asset — nothing in player/, nothing in the exported bundle, nothing the assembled site serves — carries a solution grid or data from which any solution cell is recoverable, for any puzzle, on any export path. (check: tests/test_player_bundle.py::test_bundle_is_clean_of_answers)
+- ADR-0041/R3 — The public player is static files only: plain hand-written JavaScript and CSS in the top-level player/ directory, no framework, no build toolchain, no npm, nothing added to the Python package. (check: review-lens)
+- ADR-0041/R4 — The public player keeps play state in the visitor's browser localStorage only. (check: tests/test_public_player.py::test_no_write_request_for_any_interaction)
+- ADR-0041/R5 — The player bundle is exported by an explicit admin-panel action, is read-only against the database (no INSERT/UPDATE/DELETE on any export path), takes its clues from compute_clues of the stored grid (the one encoder),... (check: tests/test_player_bundle.py::test_export_is_readonly_and_deterministic)
+- ADR-0041/R6 — Nothing we ship stores, reads or transmits a visitor's IP address or any per-visitor identifier. (check: tests/test_public_player_pages.py::test_no_homegrown_tracking)
 - CON-005 — The uniqueness check must never produce a false positive: a puzzle accepted as unique must never actually have 0 or more than 1 solutions. (check: PropertyTest_Solver_NeverFalsePositiveUniqueness)
 - CON-009 — The web UI's HTTP server binds its listening socket to 127.0.0.1 (loopback) only, and refuses connections arriving on any other interface. (check: TestWebServer_BindsLoopbackOnlyByDefault)
 - CON-010 — The web UI's HTTP server refuses any request the browser itself marks as cross-site (a Sec-Fetch-Site value other than same-origin/none, or an Origin header naming a non-loopback host), and refuses any absolute-form r... (check: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest)
@@ -127,7 +137,7 @@ same architect delta that resolves the namespace DEC.
 - CON-012 — A generation request whose grid aspect ratio differs from the uploaded source image's INK BOUNDING BOX ratio (ADR-0022 revision 2026-09-01, DEC-025 — not its as-decoded file ratio) by more than 2x is refused with an e... (check: PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore)
 - CON-015 — The admin panel's own entry point binds its listening socket to 127.0.0.1 (loopback) only and runs with the debugger off. (check: TestAdminPanel_BindsLoopbackOnlyByDefault)
 - CON-016 — The admin panel serves a request through exactly one of two mutually exclusive doors, chosen by whether ADMIN_ALLOWED_HOST is set, and refuses every request that does not pass the door in force. (check: TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit)
-- CON-021 — Interactive play exists only as the admin panel's puzzle player (TERM-037, FR-044), served behind the door that guards every other admin page (CON-015, CON-016). (check: review-lens)
+- CON-021 — Interactive play exists in exactly two forms. (check: review-lens)
 - INV-001 — A puzzle's row and column clues always equal the run-length encoding of its current solution grid (US-004, FR-005). (check: TestComputeClues_MatchesGridExactly)
 - INV-002 — A puzzle is only marked ready for export after its uniqueness check has confirmed exactly one solution (US-005, FR-011). (check: TestExport_RejectsUnverifiedPuzzle, ...)
 - INV-003 — A puzzle's automatic-retry counter (regenerate attempts for random/library mode, resample attempts for difficulty matching, or pixel-nudge attempts for image mode) never exceeds its configured maximum bound (NFR-002). (check: PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound, ...)
@@ -143,10 +153,12 @@ same architect delta that resolves the namespace DEC.
 
 ## Architecture context
 
-- **FR:** — (untraced: the public-player FR is owed by the architect delta that
-  unblocks this card; FR-044/ADR-0038 cover the admin player it exports for)
-- **ADR:** ADR-0038 (R6 is the constraint this bundle is shaped by), ADR-0006
-- **Components:** COMP-009 (Admin Panel — the exporter lives behind its door)
+- **FR:** FR-045 (AC-380..382; FR-044/ADR-0038 cover the admin player it
+  exports for)
+- **ADR:** ADR-0041 (R1 key recipe, R2 no-solution, R5 read-only deterministic
+  export), ADR-0038 (R6), ADR-0006
+- **Components:** COMP-009 (Admin Panel — the exporter lives behind its door),
+  COMP-011 (Public Player — the bundle is its data)
 - **Trace:** meta/architecture/trace.yml
 
 ## Worktree notes

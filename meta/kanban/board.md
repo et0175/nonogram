@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-23 (decompose: CARD-282..CARD-285 added — the public player phase, from ONLINE_GAME_SPECIFICATION.md's agreed Technical Architecture)_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
+_Updated: 2026-10-23 (decompose: CARD-282..CARD-285 added — the public player phase; same day: the architect delta landed as ADR-0041 / FR-045 / COMP-011, CON-021 amended, and CARD-282/283 unblocked — all four READY, chain 282 → 283 → 284 → 285)_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -107,6 +107,8 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-272** P2 · The import guard gains the composite-capability rank (ADR-0040)  _(unscheduled — after CARD-265; delta carded 2026-10-22)_
 - **CARD-273** P2 · Book production moves to src/nonogram/book/ — the ADR-0040 rewrite  _(unscheduled — after CARD-272 and the book wave drains; 17 deps)_
 - **CARD-274** P3 · admin/app.py splits into route modules — the blueprint refactor  _(unscheduled — after CARD-273)_
+- **CARD-282** P2 · The admin panel exports the player bundle — static JSON the public solver reads  _(unscheduled — public player phase head; FR-045/ADR-0041, key recipe pinned by ADR-0041/R1; unblocked 2026-10-23 when DEC-044 resolved)_
+- **CARD-283** P2 · The public player page — the admin game served static, with no answer in the browser  _(unscheduled — after CARD-282; `architectural`; unblocked 2026-10-23 when CON-021 was amended / ADR-0041 landed)_
 - **CARD-284** P2 · The QR landing and the library — /b/<slug> and /library around the player  _(unscheduled — public player phase, after CARD-282 + CARD-283; owner architecture decision 2026-10-23)_
 - **CARD-285** P2 · Hosting and counting — the player goes public without storing anyone's IP  _(unscheduled — after CARD-283 + CARD-284; delivers the hosted URL base CARD-210's unblock needs; hosting account/provider choice is the owner's)_
 
@@ -123,8 +125,6 @@ _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
 - **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/for…
-- **CARD-282** 🔒 The admin panel exports the player bundle — static JSON the public solver reads  ← architect delta owed: the per-puzzle URL namespace DEC (opaque slug vs row id vs grid hash) — the bundle's file names ARE the printed URLs (same decision CARD-210's reason 2 names)
-- **CARD-283** 🔒 The public player page — the admin game served static, with no answer in the browser  ← architect delta owed: CON-021 and ADR-0038/R6 confine interactive play to the admin door; the owner's 2026-10-23 direction (ONLINE_GAME_SPECIFICATION.md) reopens both — amend at /forge:architect, then unblock
 
 ## Done
 _244 cards merged, waves 1–54 (plus 43 from before the `Wave:` field existed)._ Most recent:
