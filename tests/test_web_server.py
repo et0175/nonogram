@@ -191,10 +191,22 @@ MEASURED_PROSE_CITATIONS = (("submission.py", "validate_extent"),)
 #: the whole file, so ``"validate_" + "extent"`` escapes the AST sweep while
 #: ``"validate_extent"`` written anywhere -- comment included -- does not.
 #: What escapes **both** is a token no contiguous run of the file spells.
+#:
+#: The third entry was narrowed in review cycle 2 (M-2). It read "a name read
+#: from a lookup table, an environment variable or a request", and the lookup
+#: table was measured to be **caught**: ``{"extent": "validate_extent"}`` puts
+#: the token in a single ``ast.Constant`` like any other literal, so the AST
+#: arm reports it and the substring arm does too. What is left on the miss
+#: side is the shape the declaration is actually about -- a name the source
+#: never spells because it arrives from outside it. Both sides are held by
+#: ``test_a_name_supplied_from_outside_the_source_is_a_measured_miss``, which
+#: also reads the entry's own text, so gutting or widening the declaration
+#: reds rather than passing on the remaining entries.
 MEASURED_AST_SWEEP_MISSES = (
     'a name concatenated from literals -- getattr(m, "validate_" + "extent")',
     'a name interpolated at runtime -- getattr(m, f"validate_{what}")',
-    "a name read from a lookup table, an environment variable or a request",
+    "a name supplied from outside the source -- an environment variable or a"
+    " request field -- which no contiguous run of the file spells",
 )
 
 #: The names and literals a challenge is actually written with (AC-053).
@@ -2213,6 +2225,20 @@ def test_the_web_package_imports_no_domain_validator() -> None:
         where = _web_relative(path)
         hits = _domain_validator_hits(source, _DOMAIN_VALIDATORS, where)
         assert hits == [], hits
+        # The substring arm below carries **no unique detection**, measured by
+        # exhaustive partition over the two shapes a violation can take, with
+        # the arm fully disabled (review cycle 2, I-2): a *code*-shaped
+        # reference reds one line above, at the AST arm; a *prose*-shaped one
+        # reds in ``test_the_prose_exemption_is_exactly_the_sites_that_exist_today``,
+        # whose comprehension re-derives the prose mentions directly from each
+        # source and holds them to an equality against
+        # :data:`MEASURED_PROSE_CITATIONS` -- it does not route through this
+        # loop, so turning this loop off does not weaken it. The arm is kept
+        # because it is the breadth the hand-written triple had (G-2: nothing
+        # the guard caught is given up), not because anything depends on it,
+        # and it is deliberately left without a control of its own: a control
+        # here would pin a reach no other arm has. Do not read its presence as
+        # evidence that a prose mention is caught *here*.
         for token in _DOMAIN_VALIDATORS:
             if (where, token) in MEASURED_PROSE_CITATIONS:
                 continue
@@ -2326,9 +2352,21 @@ class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
         self,
     ) -> None:
         """AC-5's second half, in-memory: repairing the set did not reduce what
-        the guard already caught. Both arms fire on a real reference to
-        ``validate_density`` -- the AST one and the substring one -- so the
-        token this card removed was the only thing removed."""
+        the guard already caught. The **AST arm** fires on a real reference to
+        ``validate_density``, so the token this card removed was the only thing
+        removed.
+
+        Narrowed in review cycle 2 (I-2): this docstring used to claim "both
+        arms fire ... the AST one and the substring one", and the assertion
+        that stood for the substring arm was ``"validate_density" in planted``
+        -- both operands bound to the literal concatenation three lines above
+        it, so it could not fail for anything but an edit to that literal. The
+        claim is now the one this body measures, and the decorative assertion
+        is gone rather than replaced: the substring arm carries no unique
+        detection of its own (see the comment in
+        ``test_the_web_package_imports_no_domain_validator``), so a control
+        for it would pin nothing.
+        """
         planted = (
             "from nonogram.sourcing import random_grid\n"
             "def read(text):\n"
@@ -2338,7 +2376,6 @@ class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
         assert _domain_validator_hits(planted, _DOMAIN_VALIDATORS, "submission.py") == [
             "submission.py:3 calls .validate_density"
         ]
-        assert "validate_density" in planted
         assert ("submission.py", "validate_density") not in MEASURED_PROSE_CITATIONS
 
     def test_a_whole_literal_reference_is_caught_too(self) -> None:
@@ -2383,6 +2420,51 @@ class TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember:
         for token in _DOMAIN_VALIDATORS:
             assert token not in concatenated, token
             assert token not in interpolated, token
+
+        assert "concatenated from literals" in MEASURED_AST_SWEEP_MISSES[0]
+        assert "interpolated at runtime" in MEASURED_AST_SWEEP_MISSES[1]
+
+    def test_a_name_supplied_from_outside_the_source_is_a_measured_miss(self) -> None:
+        """:data:`MEASURED_AST_SWEEP_MISSES`' third entry, narrowed to what was
+        measured (review cycle 2, M-2).
+
+        The entry used to declare "a lookup table, an environment variable or a
+        request" as a miss. A lookup table of literal names is **caught** --
+        the first assertion below -- because the token still sits in one
+        ``ast.Constant``, and the substring arm sees it too. Only a name that
+        arrives from outside the source escapes both arms, because nothing in
+        the file spells it.
+
+        The entry's own text is read, so emptying or widening the declaration
+        reds here instead of passing on its two siblings.
+        """
+        lookup_table = (
+            '_NAMES = {"extent": "validate_extent"}\n'
+            "def read(m, key):\n"
+            "    return getattr(m, _NAMES[key])\n"
+        )
+        from_environment = (
+            "import os\n"
+            "def read(m):\n"
+            '    return getattr(m, os.environ["WHICH_VALIDATOR"])\n'
+        )
+        from_request = (
+            "def read(m, posted):\n"
+            '    return getattr(m, posted["validator"])\n'
+        )
+
+        assert _domain_validator_hits(lookup_table, _DOMAIN_VALIDATORS, "x.py") == [
+            "x.py:1 writes 'validate_extent' in a string literal"
+        ]
+
+        for missed in (from_environment, from_request):
+            assert _domain_validator_hits(missed, _DOMAIN_VALIDATORS, "x.py") == []
+            for token in _DOMAIN_VALIDATORS:
+                assert token not in missed, token
+
+        declared = MEASURED_AST_SWEEP_MISSES[2]
+        assert "an environment variable or a request field" in declared
+        assert "lookup table" not in declared
 
     def test_the_exemption_is_keyed_on_a_path_and_not_on_a_basename(self) -> None:
         """Review cycle 1, F-4: the exemption used to be keyed by basename, so

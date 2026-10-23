@@ -2990,7 +2990,7 @@ def _src_symbols() -> tuple[dict[str, set[str]], set[str], list[str]]:
         modules.add(path.stem)
         modules.update(part for part in path.relative_to(SRC_PACKAGE).parts[:-1])
         try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         except SyntaxError as exc:  # pragma: no cover - a broken checkout
             unparsable.append(f"{path.name}: {exc}")
             continue
@@ -3056,6 +3056,29 @@ def _declared_distributions() -> tuple[set[str], dict[str, set[str]]]:
     return runtime, extras
 
 
+#: What :func:`_dependency_claim_defects` is measured **not** to see, declared
+#: rather than implied (ADR-0039/R3, review cycle 2, M-4: AC-3's rule was the
+#: one new rule here with no declared reach). Both shapes were re-derived
+#: against the live function with pyproject.toml's own tables, and both are
+#: held on the miss side by
+#: ``TestClaudeMd_TheDependencyClaimMatchesPyproject.test_the_rule_names_what_it_cannot_see``.
+#:
+#: What is **not** declared away is the half that matters: a restatement by
+#: *member* is caught backtick-independently, because ``mentioned()`` matches
+#: on a word boundary and not on quoting -- "Flask, Werkzeug, reportlab and
+#: gunicorn are admin-only" reds once per member with no backtick anywhere.
+#: Only the restatement-by-*extra-name* arm is backtick-keyed, which is the
+#: first miss below.
+MEASURED_DEPENDENCY_CLAIM_MISSES = (
+    "an extra restated by name without backticks -- \"the dev, admin and db"
+    " extras sit outside it\" -- because the restatement arm looks for"
+    " f\"`{extra}`\" and nothing else",
+    "a denial of a runtime distribution -- \"`pyproject.toml` no longer"
+    " declares Pillow or NumPy at runtime\" -- because mentioned() asks"
+    " whether the name appears, not what the sentence says about it",
+)
+
+
 def _dependency_claim_defects(
     paragraph: str,
     runtime: set[str],
@@ -3073,6 +3096,10 @@ def _dependency_claim_defects(
 
     Takes the two tables rather than reading pyproject.toml itself, so the
     rule can be run against a fabricated one below and cannot pass vacuously.
+
+    What this is measured **not** to see is declared in
+    :data:`MEASURED_DEPENDENCY_CLAIM_MISSES` and held there, rather than left
+    for a later reader to discover.
     """
     defects: list[str] = []
 
@@ -3271,18 +3298,41 @@ class TestClaudeMd_EverySymbolItNamesExists:
         )
 
     def test_the_rule_names_what_it_cannot_see(self) -> None:
-        """ADR-0039/R3's last clause: the residual hole is declared, not implied."""
+        """ADR-0039/R3's last clause: the residual hole is declared, not implied.
+
+        Each case reads the entry it demonstrates (review cycle 2, M-3). The
+        demonstrations were already here and already executable, but none of
+        them touched :data:`MEASURED_CLAIM_MISSES`, so the tuple's *text* was
+        the one unguarded thing in a class about unguarded text: mutant
+        F6-DECL-GUTTED emptied the third entry's middle line and survived,
+        because ``assert MEASURED_CLAIM_MISSES`` was still satisfied by the
+        other two. Keying each case on a fragment of its own entry makes a
+        gutted or reworded declaration red here.
+        """
         assert MEASURED_CLAIM_MISSES
         symbols, modules, paths, distributions = self._authorities()
 
-        # The declared miss, demonstrated rather than asserted in prose: the
-        # same dead symbol unquoted is invisible to this rule, and quoted is
-        # not.
+        # The first declared miss, demonstrated rather than asserted in prose:
+        # the same dead symbol unquoted is invisible to this rule, and quoted
+        # is not.
         unquoted = "range validation happens in random_grid's validate_size"
         quoted = "range validation happens in `random_grid.validate_size`"
 
         assert _claim_defects(_claims(unquoted, 1), symbols, modules, paths, distributions) == []
         assert _claim_defects(_claims(quoted, 1), symbols, modules, paths, distributions)
+        assert "written without backticks" in MEASURED_CLAIM_MISSES[0]
+
+        # The second: the same quoted dead symbol under a lead-in that is not
+        # guarded is never reached at all, because _guarded_paragraphs finds
+        # no paragraph to hand on. Shown both ways round, so this is a
+        # statement about the lead-in and not about the paragraph's body.
+        unguarded = f"**Test style.** {quoted}\n"
+        guarded = f"{GUARDED_PARAGRAPHS[0]} {quoted}\n"
+
+        assert _guarded_paragraphs(unguarded)[0] == {}
+        assert sorted(_guarded_paragraphs(unguarded)[1]) == sorted(GUARDED_PARAGRAPHS)
+        assert set(_guarded_paragraphs(guarded)[0]) == {GUARDED_PARAGRAPHS[0]}
+        assert "lead-in is not in GUARDED_PARAGRAPHS" in MEASURED_CLAIM_MISSES[1]
 
         # The third declared miss, demonstrated the same way (F-6): a span
         # that parses and resolves in dir(builtins) is accepted for its shape,
@@ -3296,6 +3346,7 @@ class TestClaudeMd_EverySymbolItNamesExists:
         assert _claim_defects(
             _claims("`list[validate_size]`", 1), symbols, modules, paths, distributions
         )
+        assert "resolves in dir(builtins)" in MEASURED_CLAIM_MISSES[2]
 
     def test_a_fence_inside_a_guarded_paragraph_is_denied(self) -> None:
         """F-5, closed rather than declared: a fenced block that sits directly
@@ -3445,10 +3496,13 @@ class TestClaudeMd_TheDependencyClaimMatchesPyproject:
 
     **The shape that shipped is "do not restate".** CLAUDE.md's paragraph
     said "stdlib + Pillow + NumPy as runtime dependencies (plus ``pytest`` as
-    a dev-only extra)" while pyproject.toml carries three extras, enumerated
-    there and deliberately not repeated here: naming their members in this
-    docstring would be the same second copy AC-3 removed from CLAUDE.md, one
-    file over, and nothing reads a docstring (review cycle 1, F-10, and G-3).
+    a dev-only extra)" while pyproject.toml carries extras of its own,
+    enumerated there and deliberately not repeated here -- neither their
+    members nor how many of them there are (review cycle 2, M-6: a count in
+    prose that no control reads is the same shape as "closed at two names").
+    Naming their members in this docstring would be the same second copy AC-3
+    removed from CLAUDE.md, one file over, and nothing reads a docstring
+    (review cycle 1, F-10, and G-3).
     A corrected list in CLAUDE.md would have been a second copy of a table
     that has grown more than once, which is the disease CARD-261 treated in
     the component map, so the paragraph now names the runtime baseline
@@ -3546,6 +3600,46 @@ class TestClaudeMd_TheDependencyClaimMatchesPyproject:
 
         assert any("only in the 'imaging' extra" in defect for defect in defects), defects
 
+    def test_the_rule_names_what_it_cannot_see(self) -> None:
+        """ADR-0039/R3's last clause for AC-3 (review cycle 2, M-4): the two
+        shapes that evade this rule, each with a fabricated paragraph on the
+        miss side, and the member restatement that does **not** evade it.
+
+        The third assertion is the one that keeps the declaration from being
+        written wider than it was measured: the restatement arm is the only
+        backtick-keyed one, so a paragraph that lists an extra's *members*
+        unquoted still reds, once per member.
+        """
+        runtime, extras = _declared_distributions()
+        assert MEASURED_DEPENDENCY_CLAIM_MISSES
+        assert extras, "pyproject.toml declares no extras"
+
+        unquoted_extras = (
+            "`pyproject.toml` declares Pillow + NumPy as the runtime baseline;"
+            f" the {', '.join(sorted(extras))} extras sit outside it"
+        )
+        denial = "`pyproject.toml` no longer declares Pillow or NumPy at runtime"
+
+        assert _dependency_claim_defects(unquoted_extras, runtime, extras) == []
+        assert _dependency_claim_defects(denial, runtime, extras) == []
+
+        extra, members = next(
+            (name, sorted(declared - runtime))
+            for name, declared in sorted(extras.items())
+            if declared - runtime
+        )
+        caught = _dependency_claim_defects(
+            "`pyproject.toml` declares Pillow + NumPy; "
+            f"{', '.join(members)} are {extra}-only",
+            runtime,
+            extras,
+        )
+        assert len(caught) == len(members), caught
+        assert all(f"only in the {extra!r} extra" in defect for defect in caught), caught
+
+        assert "without backticks" in MEASURED_DEPENDENCY_CLAIM_MISSES[0]
+        assert "a denial of a runtime distribution" in MEASURED_DEPENDENCY_CLAIM_MISSES[1]
+
 
 class TestClaudeMd_TheTimeoutClaimNamesItsTest:
     """AC-6 (CARD-264): no surviving claim about the solver's timeout that no
@@ -3580,12 +3674,21 @@ class TestClaudeMd_TheTimeoutClaimNamesItsTest:
     #: clause welded onto the citation-bearing sentence is a sentence this
     #: rule reads as already cited -- which is weaker than it sounds, since
     #: the clause then sits inside the sentence that does carry the citation.
+    #:
+    #: The second entry was corrected in review cycle 2 (M-1). It claimed an
+    #: em-dash breaks the split; re-measured against ``_timeout_sentences``,
+    #: an em-dash-joined clause is **one** sentence, exactly like the colon
+    #: and the comma, because ``(?<=[.;])\s+`` looks behind for a full stop or
+    #: a semicolon and nothing else. The semicolon, which the entry did not
+    #: mention, is the second joiner that does break it. Both sides are held
+    #: per joiner by ``test_the_rule_names_what_its_two_words_cannot_reach``,
+    #: which also reads these entries' own text.
     MEASURED_TIMEOUT_CLAIM_MISSES = (
         'a claim phrased without "timeout" or "deadline" ("the solver also'
         ' gives up on its own after a while")',
-        "a second claim joined to the cited sentence by a colon or a comma,"
-        " which the sentence split does not break on (an em-dash or a full"
-        " stop does, and reds)",
+        "a second claim joined to the cited sentence by a colon, a comma or"
+        " an em-dash, none of which the sentence split breaks on (a full stop"
+        " or a semicolon does, and reds)",
     )
 
     @classmethod
@@ -3633,10 +3736,17 @@ class TestClaudeMd_TheTimeoutClaimNamesItsTest:
 
         AC-6 reads "no claim about the solver's timeout survives that no test
         pins", and the *selection* is narrower than that sentence: two words,
-        and a sentence split that does not break on a colon or a comma. Each
-        declared family gets a fabricated body on the miss side, and the four
-        shapes that **do** red get one on the caught side, so the declaration
-        states the reach rather than being a sentence beside it.
+        and a sentence split that breaks on a full stop or a semicolon and on
+        nothing else. Each declared family gets a fabricated body on the miss
+        side and each breaking joiner gets one on the caught side, so the
+        declaration states the reach rather than being a sentence beside it.
+
+        The em-dash body sits on the **miss** side as of review cycle 2 (M-1).
+        It used to sit on the caught side as ``f"{cited} \u2014 and the exporter
+        has a deadline of its own."``, which does read as two sentences -- but
+        on the full stop ``cited`` already ends with, not on the em-dash. With
+        the full stop removed, the em-dash joins the clause into one sentence
+        like the colon and the comma do.
         """
         assert self.MEASURED_TIMEOUT_CLAIM_MISSES
         cited = (
@@ -3650,15 +3760,21 @@ class TestClaudeMd_TheTimeoutClaimNamesItsTest:
             f"{cited} A time budget is also applied inside the exporter.",
             f"{cited[:-1]}: a second budget applies inside the exporter too.",
             f"{cited[:-1]}, and a second budget applies inside the exporter.",
+            f"{cited[:-1]} \u2014 and the exporter has a deadline of its own.",
         ):
             assert len(self._timeout_sentences(missed)) == 1, missed
 
         for caught in (
             f"{cited} A second deadline applies inside the exporter.",
-            f"{cited} \u2014 and the exporter has a deadline of its own.",
             f"{cited} The exporter enforces its own timeout.",
+            f"{cited[:-1]}; the exporter enforces its own timeout.",
         ):
             assert len(self._timeout_sentences(caught)) == 2, caught
+
+        assert 'without "timeout" or "deadline"' in self.MEASURED_TIMEOUT_CLAIM_MISSES[0]
+        joiners = self.MEASURED_TIMEOUT_CLAIM_MISSES[1]
+        assert "a colon, a comma or an em-dash" in joiners
+        assert "a full stop or a semicolon does" in joiners
 
     def test_no_guarded_paragraph_says_the_mechanism_is_unenforced(self) -> None:
         """The specific stale shape, denied by value. Deny-side, so the cost is

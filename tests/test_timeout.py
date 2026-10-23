@@ -13,9 +13,9 @@ moved: CON-011 narrowed the supported range to 10..30 for print legibility
 (NFR-005), so a 50x50 request is now rejected by ``validate_extent`` before the
 solver is ever entered, and a fixture built on one would be testing input
 validation while claiming to test the deadline. (The validator's name here was
-``validate_size`` until CARD-264, which has no definition anywhere in ``src/``:
-ADR-0022/R1 refused a one-integer public validator, so the extent is validated
-as a pair.)
+``validate_size`` until CARD-264; that name has no definition anywhere in
+``src/`` — ADR-0022/R1 refused a one-integer public validator, so the extent is
+validated as a pair.)
 
 The two halves of that "or" are tested separately, because they are different
 claims and only one of them is about the timeout at all:
