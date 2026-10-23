@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (c1, PASS, 0 gating) → polish `d5da18ff` (unreviewed) → narrowed → gate PASSED `99782837` → **5.5 (c2: 1 crit, 2 imp)** → fix round → c3/3 certifies
+**Review score:** 8.3 (c1) → polish `d5da18ff` → narrowed → **5.5 (c2: 1 crit, 2 imp; 2 of 3 refuted)** → fix 2 `e26e5473` → **9.6 (c3/3 FULL, 0 crit, 0 imp) PASSES** → 8h spot-check + AC/EC/G gate
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -1861,3 +1861,84 @@ of cycle 2's gating findings, two by refutation). I am declining it, deliberatel
    from a docs page no gate in the suite reads. Spending a full review here is the correct trade.
 
 Stated so the next reader knows it was a choice with a reason, not an omission.
+
+---
+
+### [Review 3/3] Score: **9.6 — PASSES** (0 critical, 0 important). Report `meta/review/20261023T015517Z-CARD-264-cycle3.yml`
+
+Baseline `10 − deductions`, the same baseline cycles 1 and 2 declared, so all three are comparable:
+four minors at 0.15 / 0.10 / 0.10 / 0.05 → **0.40 deducted**, no positive adjustment. **Nothing carried
+from cycle 1 or 2** — every verdict re-derived in this cycle, which is what the full-review decision
+bought.
+
+**Severity gate OPEN:** score 9.6 ≥ 8 and findings_count 0. The score trajectory across the card is
+8.3 → 5.5 → 9.6, and the dip is discovery rather than regression (see the stalled-check note above).
+
+#### The round's most load-bearing claim verified independently: both previously-surviving mutants are dead
+
+| mutant | FAIL cell | recording pass | re-raising pass |
+|---|---|---|---|
+| `F6-DECL-GUTTED` | `tests/test_guard_integrity.py:3349` | exit **0**, 1 FAIL of 64 reached | exit 1, 1 FAIL |
+| `AST-MISS-3-GUTTED` | `tests/test_web_server.py:2466` | exit **0**, 1 FAIL of 34 reached | exit 1, 1 FAIL |
+
+Both are **recording-pass-trap instances** — pytest exit 0 *with* a FAIL cell — which would have
+published two real kills as survivors on a test-level reading. That is the **eighth** instance of that
+trap on this card. 11 mutants fired in total, **11 killed, 0 survived**, every one with ≥1 FAIL cell (so
+none is the absent-`old` shape), line-count preserving, ANY-RED over both passes, SHIPPED re-run between
+mutants and FAIL-free each time. Domains stated and never conflated: `tests/test_guard_integrity.py`
+**149** `ast.Assert` nodes / 64 reached / 19 collected tests; `tests/test_web_server.py` **251** / 34 / 11.
+
+**The instrument refused one selection before any reading** (a method named as a module-level function →
+pytest exit 4 → `UnmeasuredRun`), and the reviewer **recorded the refusal rather than quietly retrying**.
+That is the README's own gate doing its job, and reporting it is the difference between a bound and a
+silence.
+
+#### Cycle 2's two ✗ contract verdicts re-judged to ✓, on re-measurement rather than on the fix's word
+
+**System contract: 10 rules checked, 8 ✓ holds, 2 ⚠ unchecked (typed: `no_eligible_fact` — CON-005 and
+CON-012), 0 ✗ violated.** ADR-0039/R1 and R3 were cycle 2's violations; both flip, and the flips are the
+ones I sent independent skeptics after rather than accepting (see the spot-check below).
+
+- **ADR-0039/R3** — all five narrowings re-measured independently, each no wider *and no narrower* than
+  measured, each with a committed case the reviewer **made red**. M-1's declaration was checked by an
+  **exhaustive single-character sweep** over `string.punctuation` plus U+2014/2013/2026: the breaking set
+  is exactly `{'.', ';'}`, which is precisely what the entry now names. That is a stronger check than the
+  fix round's own.
+- **ADR-0039/R2** — every set re-derived in-process from its authority; default-deny measured two ways
+  (`DERIVATION-RETURNS-ONE-NAME-ONLY` reds 6 cells including the floor pin at `:2302`;
+  `SET-CARRIES-A-HAND-ADDED-DEAD-MEMBER` reds 4).
+- **ADR-0038/R8** — the card's zero-skip claim verified mechanically: a grep of every added line for
+  `pytest.skip|mark.skip|skipif|importorskip|unittest.skip|xfail` returns nothing.
+
+**The reviewer also attacked a claim nobody had raised** — that
+`test_every_name_in_the_set_is_defined_in_the_package` cannot fail, because the set is derived from the
+same walk it consults — and **refuted it**: a hand-added dead member reds it on 4 cells, which is exactly
+how `validate_size` got there in the first place. No finding filed. A reviewer that tries to break a
+control and *fails* has produced evidence, not nothing.
+
+#### All ACs pass, and AC-6's shape is stated rather than implied
+
+AC-1 ✓ · AC-2 ✓ (both states on disk, the line **computed**) · AC-3 ✓ (the "do not restate" shape
+shipped **and the class docstring says so**) · AC-4 ✓ (stronger than worded — a dead member *and* a
+shrunken derivation both red) · AC-5 ✓ (both halves, both states, on disk) · AC-6 ✓ (objective 2's
+decision made and stated: *says what the code guarantees and names the test that pins it*) ·
+AC-7 **withdrawn, not scored**. Eight on-disk plants plus a baseline, all red, tree restored and verified
+three ways with the manifest built up front.
+
+#### Two corrections to my own brief, reported rather than reconciled
+
+1. **CON-009 + CON-010 collects 9, not 8.** 6 + 3. My arithmetic was off by one, in a brief whose whole
+   purpose was to stop a selection from under-collecting. Recorded here rather than quietly fixed.
+2. **The CON-010 trap reproduced exactly**, with the detail I had not measured: selecting by the declared
+   check name collects zero **and pytest exits 5**. An exit code that says "nothing was collected" was
+   available all along, and two rounds of this card read exit 0 from a *compound* selection that collected
+   CON-009's six instead.
+
+#### Guardrails: G-1..G-7 all PASS, and two were verified two independent ways
+
+G-1 — `git diff -U0 d90753df..HEAD -- CLAUDE.md` is exactly three single-line hunks at `@@ -46 +46 @@`,
+`@@ -48 +48 @@`, `@@ -50 +50 @@`; CARD-261's layout paragraph byte-identical on both sides by sha256
+(`3e767042…`); `grep -c COMP- CLAUDE.md` = 0. G-6 — structurally (no `src/` path in the diff, so the rule
+holds by construction) **and** by an independent per-codepoint sweep of all six files, 0 hits each; the
+`DINGBAT_EXEMPT_MODULES` exemption was deliberately **not** relied on. G-2 — both non-empty assertions
+present (`:2222`, `:2223`), and nothing given up, shown on the real tree rather than argued.

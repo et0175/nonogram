@@ -135,3 +135,61 @@ that someone measured its false-positive rate before proposing it.
   with 0 FAIL cells, so it announces itself rather than lying. On the backlog with a one-line fix; if a
   control you write here needs that pattern, exclude it from the selection and evidence it by plain runs
   and plants instead, the way CARD-264 did.
+
+---
+
+## [Routed in 2026-10-23, from CARD-264's cycle 3] Widen the reach to `docs/**`, and add the **quantity** half
+
+Two measured items from CARD-264's final review cycle. The first is the structural cause of that card's
+only gating finding, and the reviewer named it as **shipping uncertified** precisely so it would land
+here rather than close with that card.
+
+### 1. `docs/**` belongs in this check's reach, and the measurement is one grep
+
+**`grep -rn 'how-it-works' tests/` returns ZERO hits — no test reads that tree at all.** So every claim
+on every page under `docs/how-it-works/` is prose with no control whatsoever, which is this card's exact
+subject one directory over.
+
+**What it cost, measured rather than hypothesised.** CARD-264's cycle-2 finding C-1 was a
+`docs/how-it-works/` page carrying **three** false claims at once: a bold verbatim quotation of a comment
+that had been reverted out of the tree, a past-tense "all three sites now state the rule" that was true
+of one, and a citation of `TestAdapterAllowlist_NoProseClaimsAStaleCount` — a class with **zero** hits
+anywhere. It survived a **passing** review cycle (8.3, zero gating findings) and an elective fix round
+before a second cycle caught it, and it was caught by *reading*, not by any gate. A fourth defect of the
+same kind on the same page — a line citation off by nine, pushed there by the card's own edit — had been
+caught the same way one cycle earlier.
+
+**The cheap half is already in scope.** This card's sweep is a symbol-name scan over prose; adding
+`docs/**` to the trees it reads is a path-list change, and the two concrete shapes it would have caught
+are (a) `TestAdapterAllowlist_NoProseClaimsAStaleCount`, a named test class resolvable against the test
+tree exactly as a `validate_*` name is resolvable against `src/`, and (b) `src/nonogram/__init__.py:40`,
+a **line-number** citation into a file, which resolves or does not. Both are decidable.
+
+**The expensive half is out of scope and should stay out, with the boundary stated.** A *quotation* being
+verbatim, and a *tense* being right, are not decidable by a symbol scan. Do not try: declare them as a
+measured bound with their own failing control (ADR-0039/R3) and say what the check cannot see. The
+durable partial answer — and it is cheap — is a rule that **a `docs/` page may not quote a code comment
+verbatim unless the quoted string is found in the cited file**, which is a substring check and would have
+caught C-1's quotation directly.
+
+### 2. The **quantity** half: `tests/test_timeout.py:3651`'s "six sites" is an uncontrolled figure
+
+This card's framing sentence is *"a text names a symbol **or a quantity**, and nothing checks that the
+named thing exists"* — and the symbol half is what the measurement so far covers. A quantity instance,
+filed as a Minor on CARD-264's last cycle and re-derived there by an `ast.Call` walk rather than by grep:
+a docstring says the deadline is checked at **six sites across `propagate.py` and `search.py`**, and that
+is **accurate today** (`propagate.py:983`, `:1129`, `search.py:1180`, `:1259`, `:1418`, `:1728`) and read
+by nothing. A seventh site added, or one removed, leaves the sentence green and wrong.
+
+It is the same shape as *"this set is closed at two names"* one file over — the claim CARD-265 inherited —
+and the fix is the same shape too: a `check_deadline` call census held to an **equality**, two lines,
+which would also stop three consecutive review cycles having to re-derive that figure by hand. **Note
+what this is NOT:** it is not CARD-264's cycle-2 finding I-1, which was **refuted**, and it is no argument
+for touching `CLAUDE.md:50`. That sentence enumerates *two checkpoints*, both of which are pinned; this is
+the narrower object the refutation left behind — a count in a **docstring**, not a claim in the brief.
+
+### Dependency note
+
+This card already declares `Depends on: CARD-264`, and that dependency is satisfied by CARD-264's merge.
+The two items above arrive **from** that card's final cycle, so they are inputs to this one, not new
+blockers.

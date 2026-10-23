@@ -1,0 +1,697 @@
+version: 1
+card: CARD-264
+cycle: 3
+cycle_note: "LAST cycle of the budget. This verdict is the certification of record; there is no cycle after it."
+station: "forge:review"
+generated_at: "2026-10-23T01:55:17Z"
+target: "branch card/264-claude-md-outside-the-map @ e26e5473, diff main...HEAD (6 files, +1471/-26), in /Users/omelnikova/PycharmProjects/PythonProject4-card-264"
+reviewed_commit: e26e5473
+fix_round_reviewed: "99782837..e26e5473 (4 files, +247/-49)"
+base: main
+branch: card/264-claude-md-outside-the-map
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-264
+mode: "FULL review (confirmation mode declined on the caller's instruction; nothing carried from cycle 1 or 2 -- every verdict below was re-derived in this cycle)"
+min_score: 8
+overall_score: 9.6
+score: 9.6
+verdict: PASS
+risk_level: low
+review_lane: fast
+reviewer: "forge:review"
+reviewer_version: "2026.8.17"
+
+scoring_baseline: >-
+  10 minus deductions, the same baseline cycles 1 and 2 declared, so all three
+  cycles are comparable. No positive adjustment. Sum of weights 0.40, so
+  10 - 0.40 = 9.60.
+
+score_arithmetic:
+  baseline: 10
+  deductions:
+    - {id: m-1, weight: 0.15, note: "MEASURED_DEPENDENCY_CLAIM_MISSES: a third evading shape (a backticked extra name in another case, or quoted with \" instead of `) is not enumerated, and the comment's positive claim that a member restatement is 'caught backtick-independently' does not survive a hyphen/underscore respelling"}
+    - {id: m-2, weight: 0.10, note: "'The third assertion is the one that...' -- the third assert statement in the body is not the one described; only the 'third of the three things just enumerated' reading makes it true"}
+    - {id: m-3, weight: 0.10, note: "'six sites check it' in the AC-6 class docstring: re-derived as exactly 6 and read by no test -- an uncontrolled figure on a card about uncontrolled figures"}
+    - {id: m-4, weight: 0.05, note: "docs page quotes src/nonogram/__init__.py's docstring with the source's colon replaced by a full stop inside the quotation marks, truncating mid-sentence with no ellipsis"}
+  total_deductions: 0.40
+  arithmetic: "10 - 0.40 = 9.60"
+  final: 9.6
+
+test_discipline:
+  full_suite_run: false
+  lock_env: "NONOGRAM_FULL_SUITE_LOCK=/tmp/card264-cycle3.lock exported for every pytest, kill_matrix and plant invocation; every child run printed 'reading the lock from /tmp/card264-cycle3.lock, not the board's own ...' confirming it"
+  board_lock_touched: false
+  board_lock_path_never_read_written_or_created: meta/kanban/.full-suite.lock
+  timings_measured: false
+  durations_reported: false
+  durations_note: "pytest prints its own elapsed figures; every one was stripped before quoting a summary line, and no duration appears in this report (G-7)"
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python (interpreter only; every ad-hoc probe run with the worktree root and src prepended to sys.path, never as an import root)"
+  main_checkout_edited: false
+  sibling_worktrees_entered: false
+
+selections_run_note: "Every selection's COLLECTED count is stated. A selection that collects zero is an empty room, not a pass."
+selections_run:
+  - {selection: "tests/test_guard_integrity.py -k TestClaudeMd", collected: 26, deselected: 131, exit: 0, result: "26 passed"}
+  - {selection: "tests/test_web_server.py -k 'TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember or test_the_web_package_imports_no_domain_validator or test_the_prose_exemption_is_exactly_the_sites_that_exist_today or TestWebGuards_EveryStructuralLoopAssertsNonEmpty'", collected: 19, deselected: 147, exit: 0, result: "19 passed"}
+  - {selection: "tests/test_timeout.py", collected: 17, exit: 0, result: "17 passed"}
+  - {selection: "tests/test_sourcing_image.py", collected: 133, exit: 0, result: "133 passed"}
+  - {selection: "tests/test_guard_integrity.py::TestClaudeMd_EverySymbolItNamesExists", collected: 6, exit: 0, result: "6 passed"}
+  - {selection: "tests/test_guard_integrity.py::TestClaudeMd_TheDependencyClaimMatchesPyproject", collected: 8, exit: 0, result: "8 passed"}
+  - {selection: "tests/test_guard_integrity.py::TestClaudeMd_TheTimeoutClaimNamesItsTest", collected: 5, exit: 0, result: "5 passed"}
+  - {selection: "CON-009: tests/test_web_server.py -k TestWebServer_BindsLoopbackOnlyByDefault", collected: 6, deselected: 160, exit: 0, result: "6 passed"}
+  - {selection: "CON-010 BY ITS DECLARED CHECK NAME: -k PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest", collected: 0, exit: 5, result: "NOTHING COLLECTED -- the trap reproduced. That id appears in tests/test_web_server.py only as prose (:10, :1346, :1950); the property is written as module-level functions (comment at :1959). Both earlier rounds reported this security boundary as re-run and green on a selector that matches nothing."}
+  - {selection: "CON-010 BY ITS FUNCTIONS: -k 'test_the_corpora_are_large_and_cover_every_declared_signal or test_every_cross_origin_or_foreign_authority_request_is_refused or test_every_same_origin_or_metadata_free_request_is_served'", collected: 3, deselected: 163, exit: 0, result: "3 passed"}
+  - {selection: "CON-009 + CON-010 together, by class and by functions", collected: 9, deselected: 157, exit: 0, result: "9 passed"}
+
+disagreements_with_the_brief:
+  - item: "The brief predicts 'With CON-009's six that is 8 collected' for CON-009 + CON-010."
+    measured: "CON-009 alone collects 6; CON-010's three functions collect 3; together they collect 9, exit 0, 9 passed."
+    action: "Reported rather than quietly reconciled. The security boundary itself is intact and green; only the brief's arithmetic is off by one."
+  - item: "The brief cites AST-MISS-3-GUTTED at tests/test_web_server.py:2466 and F6-DECL-GUTTED at tests/test_guard_integrity.py:3349."
+    measured: "Both line numbers are exactly where the FAIL cell landed. Confirmed, no disagreement."
+
+claims_of_fix_round_2_re_derived:
+  "1_docs_page_C-1_and_M-7":
+    verdict: "CLOSED. The page is true of HEAD line for line, and still better than main's."
+    evidence: >-
+      tests/test_cli.py is byte-identical to main on both sides
+      (shasum -a 256 = f0a9dc3c24b62c0d57d09bf6eab15a3d9fb8232b85cfee35bd7ce8d5292c1ed3
+      for the worktree file and for `git show main:tests/test_cli.py`), so every
+      statement the page makes about that file was checked against main's bytes.
+      Checked one at a time:
+      (a) the bold verbatim quotation at :25-28 matches tests/test_cli.py:743-745
+      word for word, including "this set is closed at two names" and
+      "a third adapter is a decision, not a rename"; the comment does sit
+      immediately above _ADAPTERS (comment 743-747, _ADAPTERS at :748), so
+      "the comment above `_ADAPTERS`" is accurate.
+      (b) present tense restored: "The guard's prose contradicts its own code."
+      (c) the test is called test_the_adapter_allowlist_is_closed_at_the_two_known_adapters
+      (:905) and its docstring opens "ADR-0019's allowlist is two names" (:906);
+      the assertion underneath is `_ADAPTERS == {"cli", "web", "admin"}` (:915).
+      (d) TestAdapterAllowlist_NoProseClaimsAStaleCount: grep over src, tests and
+      docs returns ZERO hits. The citation is gone.
+      (e) the _ADAPTER_COUNT / _adapter_counts claim is true: _adapter_counts is
+      applied to _CLAUDE_MD at tests/test_cli.py:2388 and nowhere else, so it
+      denies a count in CLAUDE.md's text and reads nothing around _ADAPTERS.
+      (f) "the three sites inside tests/test_cli.py": grep for two-name claims in
+      that file returns :744 (comment), :905 (test name), :906 (docstring) around
+      the set -- exactly the three the page names. The other hits (:138, :1611,
+      :1628, :1642) are other subjects.
+      (g) "CARD-265's subject, which inherited that file by owner decision on
+      2026-10-22": meta/kanban/cards/CARD-265.md:17 says "Inherits: CARD-264's
+      _ADAPTER_COUNT work, folded here by owner decision 2026-10-22" and :18
+      "Touches: tests/test_cli.py".
+      (h) web/__init__.py's docstring does say the guard "knows exactly two
+      adapter names -- ``cli`` and ``web``" at :21, inside the module docstring
+      (ast: lines 1-90).
+      (i) M-7's :40 is gone; the page now says "src/nonogram/__init__.py's module
+      docstring", and the quoted sentence is at :71-72, inside that docstring
+      (ast: lines 1-84). The re-derivation the round reported (:71-73 / :78) is
+      correct.
+      Better than main: main's page carried src/nonogram/__init__.py:40 (actual
+      :71), tests/test_cli.py:742/:747/:760/:743/:740/:904/:914 (each off by one
+      against the file both sides share), and a CLAUDE.md:45 cross-reference that
+      is false -- main's CLAUDE.md:45 is the boundary-types paragraph and carries
+      no adapter count at all (CARD-261 removed it). All of those are gone and
+      the two improvements the round claimed to keep are kept.
+  "2_I-2_secondary":
+    verdict: "CLOSED."
+    evidence: >-
+      `assert "validate_density" in planted` is deleted (git diff 99782837..HEAD).
+      The docstring now claims only what the body measures -- "The **AST arm**
+      fires on a real reference to validate_density" -- and the body's two
+      remaining assertions are a _domain_validator_hits equality and a
+      MEASURED_PROSE_CITATIONS membership. No claim about the substring arm
+      survives in it. The zero-unique-detection measurement is recorded as a
+      comment at tests/test_web_server.py:2228-2238, and that comment's
+      load-bearing claim was verified TWO ways in this cycle rather than taken on
+      trust: structurally (test_the_prose_exemption_is_exactly_the_sites_that_exist_today
+      at :2312 builds prose_only by its own comprehension over each source and
+      holds it to an equality against MEASURED_PROSE_CITATIONS -- it does not
+      route through the loop) and ON DISK (plant PL5: with the substring arm
+      fully disabled by `if True: continue`, a prose-only plant in
+      src/nonogram/web/__init__.py still reds, at the exemption equality, exit 1).
+      No control for the arm was requested and none is suggested.
+  "3_five_declared_miss_narrowings":
+    verdict: "ALL FIVE re-measured independently and ALL FIVE hold -- no wider and no narrower than measured, each with a committed case I made red."
+    M-1_timeout:
+      declared: "a second claim joined to the cited sentence by a colon, a comma or an em-dash, none of which the sentence split breaks on (a full stop or a semicolon does, and reds)"
+      re_derived: >-
+        Measured against the live _timeout_sentences AND against an independent
+        hand-written splitter (no re module) that agreed on all five cases:
+        colon 1/1, comma 1/1, em-dash 1/1 (misses), full stop 2/2, semicolon 2/2
+        (caught). Then an EXHAUSTIVE single-character sweep over
+        string.punctuation plus U+2014/U+2013/U+2026: the set of joiners that
+        break the split is exactly {'.', ';'} -- precisely what the declaration
+        names. The cycle-2 defect (an em-dash claimed to break it) is corrected
+        and the semicolon it omitted is named.
+      control: "mutant TIMEOUT-JOINERS-REVERTED-TO-CYCLE2-TEXT -> KILLED, FAIL at tests/test_guard_integrity.py:3776 in both passes"
+    M-2_ast_sweep:
+      declared: "a name supplied from outside the source -- an environment variable or a request field -- which no contiguous run of the file spells"
+      re_derived: >-
+        Against the live _domain_validator_hits: a lookup table of literal names
+        ({"extent": "validate_extent"}) IS caught -- ["x.py:1 writes
+        'validate_extent' in a string literal"] -- and the substring arm spells it
+        too, so dropping "a lookup table" was the right narrowing. A keys-side
+        lookup table is caught for the same reason. os.environ["WHICH_VALIDATOR"]
+        and posted["validator"] are real misses on BOTH arms (ast hits [] and no
+        token spelled anywhere in the source).
+      control: >-
+        two mutants, both KILLED: AST-MISS-3-GUTTED (FAIL at
+        tests/test_web_server.py:2466, both passes -- cycle 2 measured this one
+        SURVIVED) and AST-MISS-3-REWIDENED-TO-CYCLE2-TEXT (FAIL at :2466 and
+        :2467), so the narrowing cannot silently revert either.
+    M-3_claim_misses:
+      re_derived: "each of the three cases now reads a fragment of its own entry (:3323, :3335, :3349)."
+      control: >-
+        F6-DECL-GUTTED -> KILLED, FAIL at tests/test_guard_integrity.py:3349 in
+        both passes (cycle 2 measured SURVIVED). CLAIM-MISS-1-GUTTED -> KILLED,
+        FAIL at :3335. Entry 0's keying assertion at :3323 is structurally
+        identical to the two I fired and was verified by reading, not by a mutant
+        -- recorded in could_not_check.
+    M-4_dependency:
+      declared: "MEASURED_DEPENDENCY_CLAIM_MISSES, two entries (new in this round)"
+      re_derived: >-
+        Against the live _dependency_claim_defects with pyproject's own tables
+        (runtime = {numpy, pillow}; extras = admin/db/dev):
+        "the admin, db, dev extras sit outside it" (unquoted) -> [] (real miss);
+        "`pyproject.toml` no longer declares Pillow or NumPy at runtime" -> []
+        (real miss); "`dev`" backticked -> caught; "Flask, Werkzeug, reportlab and
+        gunicorn are admin-only" with no backtick anywhere -> caught, 4 defects,
+        one per member, which is the positive half the comment keeps undeclared.
+      control: >-
+        two mutants, both KILLED: DEP-DECL-0-GUTTED (FAIL at
+        tests/test_guard_integrity.py:3640) and DEP-DECL-1-GUTTED (FAIL at :3641).
+      residual: "finding m-1 -- a third evading shape is not enumerated (case/quoting variance)."
+    M-6_three_extras:
+      re_derived: >-
+        The count is gone: the class docstring now says "pyproject.toml carries
+        extras of its own, enumerated there and deliberately not repeated here --
+        neither their members nor how many of them there are". A sweep of every
+        numeral and number-word added by fix round 2 found no new figure standing
+        in its place.
+  "4_the_two_SURVIVING_mutants_are_claimed_killed":
+    verdict: "BOTH CONFIRMED KILLED. This was the round's most load-bearing claim and it holds."
+    F6-DECL-GUTTED: "recording pass exit 0 with 1 FAIL of 64 reached; re-raising pass exit 1 with 1 FAIL -- the FAIL cell is tests/test_guard_integrity.py:3349, the entry-keyed assertion added for it. ANY-RED = KILLED. (A recording-pass-trap instance: exit 0 with a FAIL cell -- a test-level reading would have published this real kill as a survivor for the eighth time on this card.)"
+    AST-MISS-3-GUTTED: "recording pass exit 0 with 1 FAIL of 34 reached; re-raising pass exit 1 with 1 FAIL -- the FAIL cell is tests/test_web_server.py:2466. ANY-RED = KILLED. Same recording-pass trap."
+  "5_M-5_and_M-8":
+    M-5: "CLOSED. filename=str(path) is at tests/test_guard_integrity.py:2993, and the SyntaxWarning now prints the file: '.../src/nonogram/sourcing/templates/dog_in_house.py:6: SyntaxWarning' instead of '<unknown>:6'. Observed directly on every run of the TestClaudeMd selection."
+    M-8: "CLOSED. tests/test_timeout.py:16-18 now reads '...was ``validate_size`` until CARD-264; that name has no definition anywhere in ``src/`` -- ADR-0022/R1 refused...'. The dangling relative clause is gone and the ADR citation beside it is unchanged."
+
+mutation_check:
+  instrument: tests/kill_matrix.py
+  instrument_rebuilt: false
+  aggregation: "ANY-RED across the recording and the re-raising pass"
+  both_passes_run: true
+  arm_level_readings_only: true
+  shipped_rerun_between_mutants: true
+  line_count_preserving: true
+  no_op_mutants: "none -- every mutant produced at least 1 FAIL cell, stated per mutant below; kill_matrix refuses an absent `old`, so a silent no-op is not reachable"
+  refusals_observed:
+    - "One selection was REFUSED by the instrument before any reading: a node id naming a method as if it were a module-level function made pytest exit 4, and kill_matrix raised UnmeasuredRun ('pytest exited 4, which is not a reading'). The selection was corrected and re-run. This is the instrument's own trap firing, and it is recorded rather than quietly retried."
+  targets:
+    - target: tests/test_guard_integrity.py
+      domain: "149 ast.Assert nodes in the file (ast.Assert node count); 64 reached under the three-class selection. COLLECTED TESTS = 19, carried separately and never conflated with the denominator."
+      shipped: "0 FAIL of 64 reached, pytest exit 0, child instrumentation off; re-run between every mutant"
+      results:
+        - {mutant: "F6-DECL-GUTTED (MEASURED_CLAIM_MISSES[2] emptied, 3 lines)", outcome: KILLED, fail_cells: 1, detail: "recording exit 0 with 1 FAIL; re-raising exit 1 with 1 FAIL; cell = :3349"}
+        - {mutant: "CLAIM-MISS-1-GUTTED (MEASURED_CLAIM_MISSES[1] emptied)", outcome: KILLED, fail_cells: 1, detail: "cell = :3335, both passes"}
+        - {mutant: "TIMEOUT-JOINERS-REVERTED-TO-CYCLE2-TEXT", outcome: KILLED, fail_cells: 2, detail: "recording 2 FAIL (:3776, :3777); re-raising 1 FAIL (:3776)"}
+        - {mutant: "DEP-DECL-0-GUTTED (MEASURED_DEPENDENCY_CLAIM_MISSES[0] emptied)", outcome: KILLED, fail_cells: 1, detail: "cell = :3640, both passes"}
+        - {mutant: "DEP-DECL-1-GUTTED (MEASURED_DEPENDENCY_CLAIM_MISSES[1] emptied)", outcome: KILLED, fail_cells: 1, detail: "cell = :3641, both passes"}
+    - target: tests/test_web_server.py
+      domain: "251 ast.Assert nodes in the file; 34 reached under the selection. COLLECTED TESTS = 11, carried separately."
+      shipped: "0 FAIL of 34 reached, pytest exit 0, child instrumentation off; re-run between every mutant"
+      instrument_blind_exclusion: >-
+        TestWebGuards_EveryStructuralLoopAssertsNonEmpty was excluded from the
+        MEASUREMENT selections only (cycles 1 and 2 both recorded it as invisible
+        to the instrument). It is NOT skipped: it collects and passes in an
+        ordinary run -- it is inside the 19-passed selection above, exit 0.
+      results:
+        - {mutant: "AST-MISS-3-GUTTED (MEASURED_AST_SWEEP_MISSES[2] emptied)", outcome: KILLED, fail_cells: 1, detail: "recording exit 0 with 1 FAIL; re-raising exit 1 with 1 FAIL; cell = :2466"}
+        - {mutant: "AST-MISS-3-REWIDENED-TO-CYCLE2-TEXT", outcome: KILLED, fail_cells: 2, detail: "recording 2 FAIL (:2466, :2467); re-raising 1 FAIL (:2466) -- the narrowing cannot revert silently"}
+        - {mutant: "AST-MISS-0-GUTTED", outcome: KILLED, fail_cells: 1, detail: "cell = :2424"}
+        - {mutant: "AST-MISS-1-GUTTED", outcome: KILLED, fail_cells: 1, detail: "cell = :2425"}
+        - {mutant: "SET-CARRIES-A-HAND-ADDED-DEAD-MEMBER (_DOMAIN_VALIDATORS + ('validate_size',))", outcome: KILLED, fail_cells: 4, detail: "recording 4 FAIL (:2279, :2290, :2293, :2310); re-raising 3 FAIL. Fired to TEST A SUSPECTED FINDING of my own -- that test_every_name_in_the_set_is_defined_in_the_package is tautological because _DOMAIN_VALIDATORS is derived from the same walk it consults. REFUTED: the assertion reds for a set extended by hand, which is exactly how validate_size got there. No finding filed."}
+        - {mutant: "DERIVATION-RETURNS-ONE-NAME-ONLY (_DOMAIN_VALIDATORS[:1])", outcome: KILLED, fail_cells: 6, detail: "FAIL at :2302 (the floor pin) and five more, both passes -- a derivation that silently shrinks is caught"}
+  totals: "11 mutants fired, 11 KILLED, 0 SURVIVED. Every mutant produced >= 1 FAIL cell."
+
+plants:
+  restore_protocol: >-
+    Two plant rounds. In each: cp -p backups into a mktemp -d with the
+    shasum -a 256 manifest built UP FRONT (before any plant), restoration in a
+    trap on EXIT/INT/TERM, and verification three ways -- shasum -a 256 -c AND
+    diff -q on every manifest member AND git status --porcelain. Round 1's
+    manifest carried nine paths including src/nonogram/web/__init__.py,
+    src/nonogram/web/submission.py and meta/kanban/cards/CARD-264.md.
+  final_tree_state: >-
+    shasum -a 256 -c OK for every file in both manifests; diff -q reported no
+    difference; git status --porcelain shows exactly the two entries that were
+    there before this review began -- ' M meta/kanban/cards/CARD-264.md' (sha256
+    c948ec7712a4e8e96309373f22da1545d2ee278c27af0661448b0a6e2ff5bc76 before and
+    after, i.e. untouched by me) and the worktree-local cycle-2 report. The
+    tracked tree is byte-identical to e26e5473 for every path this review
+    touched, and git diff --stat main...HEAD is unchanged at 6 files,
+    +1471/-26. Every selection was re-run green afterwards.
+  results:
+    - {id: PL0, target: "SHIPPED baseline, no plant", observed: GREEN, exit: 0, printed: "26 passed, 131 deselected"}
+    - {id: PL1, target: "AC-2 on disk, line computed not hardcoded", plant: "`validate_extent` -> `validate_extentt` in CLAUDE.md's boundary-types paragraph", observed: RED, exit: 1, message: "CLAUDE.md:46: `validate_extentt` (symbol) names no symbol defined in src/nonogram", note: "names the symbol AND its line, as AC-2 requires; removed, it passes (PL0 and the final re-run)"}
+    - {id: PL2, target: "AC-6 citation arm on disk", plant: "'pinned by `tests/test_timeout.py`' -> 'pinned by the suite'", observed: RED, exit: 1, message: "CLAUDE.md claims something about the solver's deadline without naming the test that enforces it"}
+    - {id: PL3, target: "AC-5 second half on the real tree -- repairing the set did not weaken the guard", plant: "getattr(m, \"validate_density\") appended to src/nonogram/web/__init__.py", observed: RED, exit: 1, message: "__init__.py:100 writes 'validate_density' in a string literal"}
+    - {id: PL4, target: "a prose-only mention, substring arm ON", plant: "a bare comment naming parse_tier in src/nonogram/web/__init__.py, no code at all", observed: RED, exit: 1, arms: 2, message: "__init__.py references 'parse_tier' (substring arm) AND 'the prose exemption and the prose mentions in web/ have diverged' (exemption equality)"}
+    - {id: PL5, target: "I-2's exhaustive-partition claim, ON DISK", plant: "the same prose-only plant with the substring arm FULLY DISABLED (`if True: continue`)", observed: RED, exit: 1, message: "the prose exemption and the prose mentions in web/ have diverged: [('__init__.py', 'parse_tier'), ('submission.py', 'validate_extent')] vs [('submission.py', 'validate_extent')]", conclusion: "the comment at tests/test_web_server.py:2228-2238 is TRUE: a prose-shaped violation reds outside the loop, so the arm carries no unique detection and needs no control of its own"}
+    - {id: PL6, target: "CON-011 on disk", plant: "'near `limits.MAX_SIZE`' -> 'at 40x40+'", observed: RED, exit: 1, message: "**The solve...tside 10..30 (a guarded paragraph claims a grid size the limits forbid)"}
+    - {id: PL7, target: "AC-3 direction -- an extra restated by name", plant: "the pyproject pointer replaced by 'the `dev` extra carries pytest.'", observed: RED, exit: 1, message: "the dependency paragraph names 'pytest', which pyproject.toml declares only in the 'dev' extra"}
+    - {id: PL8, target: "AC-3 other direction -- a runtime dependency dropped", plant: "'exactly stdlib + Pillow + NumPy as runtime dependencies' -> 'exactly stdlib as runtime dependencies'", observed: RED, exit: 1, arms: 2, message: "the dependency paragraph no longer names the runtime dependency 'numpy'"}
+
+figure_re_derivation:
+  note: "No figure is repeated from the docstring it audits. Every one below was computed in this cycle."
+  reproduced:
+    six_check_sites:
+      claimed: "'six sites check it across propagate.py and search.py' (TestClaudeMd_TheTimeoutClaimNamesItsTest class docstring)"
+      re_derived: "6 -- by ast.Call walk, not grep: propagate.py:983, :1129 and search.py:1180, :1259, :1418, :1728"
+      domain: "check_deadline(...) CALL nodes whose func is a bare Name, not mentions of 'deadline'"
+      note: "accurate today and read by no test -- finding m-3"
+    adapter_count_sites_in_test_cli:
+      claimed: "'the three sites inside tests/test_cli.py' (docs page)"
+      re_derived: "3 -- :744 (comment), :905 (test name), :906 (docstring); the file's other two-name hits (:138, :1611, :1628, :1642) are other subjects"
+    guarded_paragraphs:
+      claimed: "three guarded lead-ins"
+      re_derived: "3 -- GUARDED_PARAGRAPHS at tests/test_guard_integrity.py:2896-2900, matching CLAUDE.md:46/:48/:50, which are exactly the card's three hunks"
+    limits_range:
+      claimed: "CLAUDE.md:50's 'near `limits.MAX_SIZE`'"
+      re_derived: "src/nonogram/limits.py: MIN_SIZE = 10, MAX_SIZE = 30 -- a size limits.py can produce, unlike the retired 40x40+"
+    declared_distributions:
+      re_derived: "runtime = ['numpy', 'pillow']; extras = admin(4), db(3), dev(2) -- read via tomllib in-process"
+    domain_validators:
+      re_derived: "6 -- _validate_side, parse_art, parse_tier, validate_aspect_ratio, validate_density, validate_extent, read out of the live module"
+    ast_assert_domains:
+      re_derived: "149 in tests/test_guard_integrity.py and 251 in tests/test_web_server.py, computed by ast.walk in this cycle (cycle 2 measured 132 and 245 before fix round 2 added assertions)"
+  not_re_derived:
+    - figure: "the 'about six weeks' / 2026-09-08 / 2026-10-22 git log -L date range in TestClaudeMd_EverySymbolItNamesExists' docstring"
+      why: "inert and reproducible in principle; cycle 2 made the same call and nothing in fix round 2 touched it"
+  no_new_unreproducible_figure_found: true
+  no_new_unreproducible_figure_evidence: "every numeral and number-word on an added line of 99782837..HEAD was enumerated and attributed; the only figures are the ones above plus ADR/card ids"
+
+system_contract:
+  projection: 10
+  kept: 5
+  dropped: 5
+  matches_card: true
+  rules_checked: 10
+  holds: 8
+  unchecked: 2
+  violated: 0
+  verdicts:
+    - "ADR-0038/R7 ✓ holds — pyproject.toml is absent from the diff and byte-identical to main (git diff --stat main...HEAD -- pyproject.toml is empty). Read via tomllib in this cycle: project.dependencies == ['Pillow>=10.0', 'numpy>=1.24']; pytest-playwright>=0.7 appears only in the dev extra; the admin extra is Flask/Werkzeug/reportlab/gunicorn and carries no test tooling. AC-3's rewritten CLAUDE.md:48 names no extra and no extra member, and the control reds on a planted one (plant PL7: 'the `dev` extra carries pytest.' -> exit 1, \"names 'pytest', which pyproject.toml declares only in the 'dev' extra\")."
+    - "ADR-0038/R8 ✓ holds — the card's zero-skip claim is verified: `git diff main...HEAD | grep '^+' | grep -E 'pytest\\.skip|mark\\.skip|skipif|importorskip|unittest\\.skip|xfail'` returns nothing across the whole diff. The one instrument-blind class was excluded from MEASUREMENT selections only and collects and passes in an ordinary run (inside the 19-passed selection, exit 0). Every failure this review induced was loud: nine plants and eleven mutants each printed a named reason, quoted in `plants` and `mutation_check`."
+    - "ADR-0039/R1 ✓ holds — re-judged from scratch, and this is the rule cycle 2 marked ✗. Both of its findings are closed: I-1 was refuted by adversarial verification and is not re-raised; I-2's secondary (the literal-vs-literal assert) is deleted and its docstring narrowed to what the body measures. Every claim in the diff now has a control I made fail: 11 mutants fired, 11 killed, 0 survived, each with >= 1 FAIL cell at a named lineno, ANY-RED over both passes with SHIPPED re-run between mutants; plus 8 on-disk plants, every one red with the message quoted. The two mutants cycle 2 measured as SURVIVING are killed at exactly the assertions added for them (:3349 and :2466). I also attacked a claim nobody had: that test_every_name_in_the_set_is_defined_in_the_package cannot fail because its set is derived from the walk it consults — mutant SET-CARRIES-A-HAND-ADDED-DEAD-MEMBER reds it on 4 cells, so the suspicion is refuted and no finding is filed."
+    - "ADR-0039/R2 ✓ holds — every set a guard consults is derived from an authority the runtime enumerates, re-derived independently in-process: _src_symbols/_repo_paths walk src/ and the repo with ast (and now pass filename=str(path), so their SyntaxWarnings name the file), _declared_distributions reads pyproject.toml via tomllib, _domain_validator_names walks src/nonogram/** minus cli_tests._ADAPTERS to 6 members I reproduced by name, and _DOMAIN_VALIDATORS = tuple(sorted(...)) of that walk. Default-deny is real and measured: an unparsable src file is returned and failed on; a derivation that shrinks reds on 6 cells (mutant DERIVATION-RETURNS-ONE-NAME-ONLY, FAIL at :2302, the floor pin); a hand-added dead member reds on 4 (SET-CARRIES-A-HAND-ADDED-DEAD-MEMBER); and both set-axis non-empty assertions are in place at tests/test_web_server.py:2222-2223."
+    - "ADR-0039/R3 ✓ holds — re-judged, and this is the second rule cycle 2 marked ✗, on its last clause (undeclared residuals). The equalities still hold (the prose exemption reds on divergence in both directions: plants PL4/PL5, and the keyword-span equality). The last clause is now satisfied: all five declared-miss narrowings were re-measured independently in this cycle and each is no wider and no narrower than what was measured — M-1's joiner set verified by an EXHAUSTIVE single-character sweep that returns exactly {'.', ';'}, M-2's lookup table verified CAUGHT so the narrowing was correct, M-4's two shapes verified as real misses with the member arm verified as the undeclared positive, M-3's three entries each keyed on their own text, M-6's count removed with no figure replacing it. Each has a committed case that fails if the declaration stops being true, and I made every one of them fail (6 declaration mutants, all killed, including a re-widening mutant so the narrowing cannot revert silently). The one residual is finding m-1: a third evading shape (case/quoting variance on a backticked extra name) is not enumerated — a Minor, not a violation, because the entry's mechanism sentence ('the restatement arm looks for f\"`{extra}`\" and nothing else') is accurate and complete."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver-uniqueness property. The diff contains no path under src/ (git diff --name-only main...HEAD lists six files, none of them src/), so nothing in it bears on the property. Its executing control, tests/property/test_solver_uniqueness.py, was not run in this review."
+    - "CON-009 ✓ holds — dropped as kind:test, run anyway because G-2 keeps it in scope. Selected by its class: tests/test_web_server.py -k TestWebServer_BindsLoopbackOnlyByDefault, COLLECTED 6, 160 deselected, pytest exit 0, 6 passed."
+    - "CON-010 ✓ holds — and selected correctly, which is this card's recorded trap. By its declared check name (PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest) the selection COLLECTS ZERO and pytest exits 5: that id is prose only (:10, :1346, :1950) and the comment at :1959 says the property is written as module-level functions. Selected by its three functions — test_the_corpora_are_large_and_cover_every_declared_signal, test_every_cross_origin_or_foreign_authority_request_is_refused, test_every_same_origin_or_metadata_free_request_is_served — COLLECTED 3, 163 deselected, exit 0, 3 passed. Together with CON-009: COLLECTED 9 (not the brief's 8), exit 0, 9 passed."
+    - "CON-011 ✓ holds — the 10..30 range: src/nonogram/limits.py MIN_SIZE=10 / MAX_SIZE=30, read directly. CLAUDE.md's 40x40+ figure is replaced by a pointer to limits.MAX_SIZE, and the control is not vacuous: plant PL6 put '40x40+' back into the solver paragraph and the suite red at exit 1 with 'outside 10..30'. tests/test_timeout.py, whose docstring restates CON-011 and which this card edits, runs exit 0, 17 collected, 17 passed."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the aspect-ratio refusal. Nothing in the diff bears on it; validate_aspect_ratio appears only as a derived member name in the web guard's token set (confirmed in the 6-member derivation), never as behaviour."
+
+guardrails:
+  G-1:
+    verdict: PASS
+    evidence: >-
+      git diff -U0 d90753df..HEAD -- CLAUDE.md is EXACTLY three single-line hunks,
+      at @@ -46 +46 @@, @@ -48 +48 @@ and @@ -50 +50 @@ against the merge base, as
+      required. CARD-261's layout paragraph is CLAUDE.md:40 and is byte-identical
+      across the merge base and HEAD (sha256
+      3e767042f9e57fd0192e4e85c209d0a5b5398a0b55aa823b54c9ecb2a566032b on both).
+      grep -c 'COMP-' over CLAUDE.md is 0: no component row reintroduced.
+  G-2:
+    verdict: PASS
+    evidence: >-
+      The guard is not weakened, and that is now held rather than asserted.
+      `assert _WEB_SOURCES` stays at tests/test_web_server.py:2222 and
+      `assert _DOMAIN_VALIDATORS` is on :2223. Nothing the guard caught was given
+      up, shown on the real tree: a getattr whole-literal of validate_density in
+      src/nonogram/web/__init__.py reds the AST arm (plant PL3) and a bare comment
+      naming parse_tier reds two arms (PL4) -- validate_density is a member the
+      retired hand-written triple carried, and parse_tier is the other. Cycle 2's
+      finding against this guardrail (the substring arm with no failing control)
+      is closed by exhaustive partition rather than by a new control, and I
+      verified that partition ON DISK: with the arm fully disabled, the prose-only
+      plant still reds, at the exemption equality (PL5). CON-009 and CON-010 both
+      run clean, selected by functions rather than by the dead id: 9 collected,
+      exit 0, 9 passed.
+  G-3:
+    verdict: PASS
+    evidence: >-
+      No second copy, and the one that cycle 2 flagged as a nit is gone. Every
+      control reads its source: the dependency control reads pyproject.toml via
+      tomllib, the symbol authority is walked from src/nonogram with ast, the
+      validator set is derived from the package minus cli_tests._ADAPTERS, and the
+      component map is untouched (zero COMP- rows in CLAUDE.md). M-6's 'three
+      extras' count is removed and the docstring now declines to state a number at
+      all; a sweep of every numeral added by fix round 2 found nothing standing in
+      its place.
+  G-4:
+    verdict: PASS
+    evidence: >-
+      Sweep of every added line in the whole diff for nonogram_poc, CREATE
+      DATABASE, DROP DATABASE, TRUNCATE, _refuse_unless_test_database,
+      create_engine and DATABASE_URL: zero hits. kill_matrix's own Edit refusal for
+      those two literals and for tests/conftest.py / tests/database_guard.py by
+      identity was never triggered, because no edit of mine went near them.
+  G-5:
+    verdict: PASS
+    evidence: >-
+      pyproject.toml is byte-identical to main and absent from the diff. Exactly
+      one real import is added across the six files: `import builtins` in
+      tests/test_guard_integrity.py -- stdlib, used for dir(builtins). The only
+      other added line containing the word 'import' is prose inside a docstring.
+  G-6:
+    verdict: PASS
+    evidence: >-
+      Verified structurally rather than assumed, both ways. (a) git diff
+      --name-only main...HEAD lists six paths and none is under src/, so no
+      src/nonogram/** string literal can have changed and the rule holds by
+      construction. (b) An independent per-codepoint sweep of all six changed
+      files for U+25A0..U+25FF, U+2022 and U+2219 returns 0 hits in every file.
+      The named DINGBAT_EXEMPT_MODULES exemption in
+      src/nonogram/admin/pdf_generator.py was not relied on, because no src/ file
+      is in the diff.
+    scope: "the six changed files plus the structural fact that src/ is untouched. No whole-tree claim."
+  G-7:
+    verdict: PASS
+    evidence: >-
+      No timing measurement was taken and no duration is quoted anywhere in this
+      report. pytest prints its own elapsed figures; every summary line quoted
+      above had them stripped. No mutant or plant was characterised by elapsed
+      time, and the one mutant class that could only be characterised that way
+      (every deadline check site removed at once) was not attempted at all.
+
+ac_verdicts:
+  AC-1: "PASS -- every backticked claim in the three guarded paragraphs resolves against a symbol set DERIVED from the code: _src_symbols walks src/nonogram with ast (now with filename=, M-5), and the control asserts the authorities non-empty, the unparsable list empty, and a floor of >= 10 claims so the corpus cannot silently shrink. Re-derived in-process. Coverage note: CLAUDE.md:40 (CARD-261's, G-1-protected) is outside the guarded set, which is AC-1's stated scope and declared miss #2 -- and that miss is now held by its own case (the lead-in demonstration at :3332-3335, keyed on the entry's own text; mutant CLAIM-MISS-1-GUTTED reds it)."
+  AC-2: "PASS, in both states, on disk. Plant PL1 ('validate_extent' -> 'validate_extentt' in the real CLAUDE.md) reds naming the symbol AND its computed line: 'CLAUDE.md:46: `validate_extentt` (symbol) names no symbol defined in src/nonogram'. Removed, it passes (PL0 and the final re-run, 26 collected / 26 passed). The line is computed, not hardcoded -- the committed case's own line differs from the plant's."
+  AC-3: "PASS. The shape that shipped is 'do not restate', and the class docstring SAYS SO and says why ('**The shape that shipped is \"do not restate\"**'), including why no count is given either. Both halves are driven from pyproject.toml via tomllib, never from a second list. Non-vacuous in both directions on disk: plant PL7 (an extra restated by name) reds, plant PL8 (a runtime dependency dropped) reds. Residual reach is now DECLARED (MEASURED_DEPENDENCY_CLAIM_MISSES, new this round) with a control I made fail twice. Residual: finding m-1."
+  AC-4: "PASS, and stronger than its wording asks. The dead validate_size member is gone; the set is derived from an ast walk of src/nonogram rather than hand-written; every member is held to a definition in src/. A token that names none is a FAILURE and not a silent pass, measured rather than argued: mutant SET-CARRIES-A-HAND-ADDED-DEAD-MEMBER reds on 4 cells (:2279, :2290, :2293, :2310), and mutant DERIVATION-RETURNS-ONE-NAME-ONLY reds on 6 including the floor pin at :2302, so a derivation that silently shrinks is caught too."
+  AC-5: "PASS, both halves, both states, on disk. First half: the planted-dead-token case reds naming it and passes without it (test_a_planted_dead_token_reds_naming_it, caught WITH / missed WITHOUT), confirmed on the real set by the SET-CARRIES mutant. Second half: a planted REAL reference to validate_density in src/nonogram/web/__init__.py still reds the original guard (plant PL3, exit 1, \"__init__.py:100 writes 'validate_density' in a string literal\") -- so repairing the set did not weaken what it already caught. Cycle 2's residual on this AC (the literal-vs-literal stand-in) is deleted, and the docstring no longer claims the substring arm."
+  AC-6: "PASS. The decision objective 2 asked for is MADE and SAID: the AC-6 class docstring states 'the clause now says what the code guarantees and **names the test that pins it**', and explains why correcting 'not yet enforced' to 'enforced' was rejected. CLAUDE.md:50 names tests/test_timeout.py in the same sentence as the claim; the sentence count is pinned at one and the cited path must exist, and the control is not vacuous (plant PL2: the citation replaced by 'the suite' reds at exit 1). Cycle 2's I-1 against this AC was refuted by adversarial verification -- the sentence enumerates two checkpoints, propagation-side pinned by a single-site mutant and branch-side collectively -- and is not re-raised. The 40x40+ figure is gone, replaced by limits.MAX_SIZE, with CON-011's control red on a plant."
+  AC-7: "WITHDRAWN 2026-10-23 -- not scored, and its absence is not treated as a gap. Its consequence, the docs page that described the withdrawn work, is the finding cycle 2 raised as C-1 and it is CLOSED: the page is now true of HEAD, verified clause by clause above."
+
+root_causes: []
+
+findings:
+  - id: m-1
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_guard_integrity.py
+    line: 3060
+    title: "MEASURED_DEPENDENCY_CLAIM_MISSES' headline examples are narrower than the arms behind them: a third evading shape is unenumerated, and the 'caught backtick-independently' positive does not survive a respelling"
+    description: |
+      The new declaration is accurate where it states its mechanism and
+      narrower where it states its example, and two shapes fall in the gap.
+      Measured against the live _dependency_claim_defects with pyproject's own
+      tables:
+
+        "... the `Dev` extra is dev-only"      -> []   (MISSED)
+        '... the "dev" extra is dev-only'      -> []   (MISSED)
+        "... `psycopg2_binary` is db-only"     -> []   (MISSED)
+
+      The first two are the restatement arm being both case-sensitive and
+      backtick-exact (`f"`{extra}`" in paragraph`), while mentioned() for
+      members is re.IGNORECASE. Entry [0] says "an extra restated by name
+      WITHOUT BACKTICKS", which does not describe either -- though the clause
+      that follows it ("because the restatement arm looks for f\"`{extra}`\"
+      and nothing else") does cover them, which is why this is Minor and not
+      a violation of ADR-0039/R3.
+
+      The third is the comment block's positive claim, at :3063-3066: "a
+      restatement by *member* is caught backtick-independently, because
+      mentioned() matches on a word boundary and not on quoting". True of
+      quoting; not true of spelling -- the pattern is
+      rf"(?<![\w-]){re.escape(name)}(?![\w-])", so 'psycopg2-binary' is caught
+      and the underscore spelling a reader may well write is not. The claim is
+      stated without that qualification.
+    suggestion: |
+      Two one-line changes, no new mechanism. (a) Reword entry [0]'s example to
+      the mechanism it already names -- "an extra restated by name in anything
+      but exact backticks, `{extra}` with that spelling and case" -- so the
+      example and the clause agree. (b) Qualify the positive claim: "caught
+      backtick-independently, for the distribution's own spelling". Either is
+      cheap, and the existing control (DEP-DECL-0-GUTTED, which reds at :3640)
+      already covers the reworded text.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: m-2
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_guard_integrity.py
+    line: 3608
+    title: "\"The third assertion is the one that...\" does not describe the third assertion"
+    description: |
+      test_the_rule_names_what_it_cannot_see's new docstring says "The third
+      assertion is the one that keeps the declaration from being written wider
+      than it was measured: the restatement arm is the only backtick-keyed
+      one, so a paragraph that lists an extra's *members* unquoted still reds,
+      once per member."
+
+      Counted in the body, the assert statements are:
+        1 assert MEASURED_DEPENDENCY_CLAIM_MISSES
+        2 assert extras, "pyproject.toml declares no extras"
+        3 assert _dependency_claim_defects(unquoted_extras, ...) == []
+        4 assert _dependency_claim_defects(denial, ...) == []
+        5 assert len(caught) == len(members), caught
+        6 assert all(f"only in the {extra!r} extra" in defect ...)
+        7 assert "without backticks" in ...[0]
+        8 assert "a denial of a runtime distribution" in ...[1]
+
+      The assertion the sentence describes is 5/6, not 3; 3 is one of the two
+      declared misses. The sentence is only true read as "the third of the
+      three things the previous paragraph just enumerated", which is a
+      defensible reading and is probably what was meant -- but "the third
+      assertion" invites a reader to count asserts, and a reader who counts
+      lands on the wrong one. On this card in particular, a prose pointer a
+      reader checks against the code and finds off by two is the exact defect
+      class the card exists to remove.
+    suggestion: "name it instead of numbering it: \"The member-restatement case is the one that keeps the declaration from being written wider than it was measured\". No control needed; the sentence stops being a figure."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: m-3
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_guard_integrity.py
+    line: 3651
+    title: "\"six sites check it across propagate.py and search.py\" is an uncontrolled figure in a docstring, on a card about uncontrolled figures"
+    description: |
+      TestClaudeMd_TheTimeoutClaimNamesItsTest's class docstring states the
+      count. Re-derived in this cycle by an ast.Call walk rather than grep, so
+      the domain is call nodes and not mentions: propagate.py:983, :1129 and
+      search.py:1180, :1259, :1418, :1728 -- exactly 6. Accurate today.
+
+      Nothing reads it. A seventh site added, or one of the six removed,
+      leaves this sentence green and wrong, which is the same shape as
+      "closed at two names" one file over -- the claim CARD-264 was opened to
+      remove. This is NOT cycle 2's I-1 and is not an argument for rewriting
+      CLAUDE.md:50: that claim was refuted on its merits and I accept the
+      refutation. It is the narrower object the refutation left behind -- a
+      figure in a test docstring, not a claim about enforcement.
+    suggestion: |
+      Either drop the number ("the sites that check it, across propagate.py
+      and search.py") or give it the two-line census the file already has the
+      vocabulary for: count check_deadline ast.Call nodes under
+      src/nonogram/solver and assert the count equals the figure. The second
+      also makes the figure re-derivable by the suite instead of by a
+      reviewer, which is what each of the last three cycles has had to do by
+      hand. Natural fit for CARD-265 or a follow-up; too small to hold this
+      card.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: m-4
+    severity: low
+    category: tech-debt
+    type: risk
+    file: docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md
+    line: 20
+    title: "the one remaining quotation on the page is truncated mid-sentence with the source's colon replaced by a full stop inside the quotation marks"
+    description: |
+      Lines 20-22 quote: "'There are exactly two adapters (ADR-0019)' below
+      describes the *pipeline's* adapters, not a count of every entry point in
+      the tree."
+
+      src/nonogram/__init__.py:71-72 reads "... not a count of every entry
+      point in the tree: ``admin/`` is a third". The quotation ends where the
+      source has a colon and supplies a full stop in its place, inside the
+      quotation marks, with no ellipsis.
+
+      Pre-existing from main and unchanged in substance by this card -- the
+      line was edited only to drop M-7's stale ':40'. Raising it anyway for
+      one reason: this card's gating finding was a fabricated verbatim
+      quotation, the fix round repaired the other quotation on the same page
+      to the byte, and this is the last unmarked quotation edit left in the
+      ten lines that work touched.
+    suggestion: "end the quotation with an ellipsis -- \"...not a count of every entry point in the tree …\" -- or extend it to the colon's clause. One character."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope:
+  - "NAMED AS SHIPPING UNCERTIFIED (the card's own rule, and this is the item): no control anywhere holds a docs/how-it-works claim to the code it cites. `grep -rn 'how-it-works' tests/` returns ZERO hits -- no test reads that tree. The page I verified clause by clause above is therefore certified by this review's manual re-derivation and by nothing else; the day tests/test_cli.py's comment or test name changes (which is CARD-265's explicit subject), the page goes stale with no red. This is the structural cause of cycle 2's C-1 and M-7, and the reason C-1 survived a passing review and an elective fix round. CARD-264's worktree notes propose a standing check for CLAUDE.md claims; it should cover docs/ claims too. Route to CARD-265 or a new card -- do not let it close with this card."
+  - "src/nonogram/web/__init__.py:21 still says the structural guard 'knows exactly two adapter names — ``cli`` and ``web``'. Measured and left, because editing it would put a src/ file in the diff and cost G-6 its by-construction proof. Cycle 1 (F-12) and cycle 2 both judged leaving it correct and I agree -- and unlike at cycle 2, the page now names this site as STILL OPEN rather than claiming it was repaired, so the reader harm cycle 2 flagged is gone."
+  - "src/nonogram/sourcing/templates/dog_in_house.py:6 carries an invalid escape sequence (',/A\\,' in a non-raw string), so every parse of the package raises a SyntaxWarning. Pre-existing and outside this card's six files. M-5's fix means the warning now names the file instead of '<unknown>:6', so it is finally diagnosable; fixing the escape itself is a one-character change for whichever card next touches that module."
+  - "tests/test_web_server.py's TestWebGuards_EveryStructuralLoopAssertsNonEmpty remains invisible to tests/kill_matrix.py. Cycles 1 and 2 both recorded the symptom and neither reproduced the cause; this cycle did not reproduce it either -- the class was excluded from measurement selections only, and it collects and passes in an ordinary run. So the set-axis vacuity case in that class cannot be certified by the committed instrument. Worth a card of its own: the instrument's blind spot, not this card's defect."
+  - "The requirement id PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest names no collectible test (pytest exit 5). That is a model/code mismatch on a SECURITY boundary and it has already cost this board two falsely-green re-run reports. Either rename the three functions into a class with that id or change the requirement's check to name the functions. Not this card's diff, but it should not be discovered a third time."
+
+coverage:
+  read:
+    - CLAUDE.md
+    - docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md (the whole page, plus main's version for comparison)
+    - "tests/test_guard_integrity.py (the CARD-264 block and every fix-round-2 hunk)"
+    - "tests/test_web_server.py (the guard loop, the whole TestWebAdapter_* class, and every fix-round-2 hunk)"
+    - tests/test_timeout.py
+    - tests/test_sourcing_image.py
+    - "tests/test_cli.py (read to re-derive every claim the docs page makes about it; byte-identical to main, shasum confirmed both sides)"
+    - "src/nonogram/__init__.py and src/nonogram/web/__init__.py (docstring spans resolved with ast)"
+    - "src/nonogram/solver/propagate.py and search.py (check_deadline call sites, re-derived by ast)"
+    - "src/nonogram/limits.py, pyproject.toml (via tomllib)"
+    - "tests/kill_matrix.py (Runner/Edit/Mutant/refusals) and tests/README.md from line 453"
+    - "meta/kanban/cards/CARD-265.md (to check the page's fold claim)"
+    - meta/review/20261022T114447Z-CARD-264-cycle1.yml
+    - meta/review/20261023T004419Z-CARD-264-cycle2.yml
+  not_reached:
+    - "the full suite (binding instruction; it ran at the build gate at e26e5473 -- 8921 executed / 8894 passed / 27 skipped / 0 failed -- and runs again at the merge gate)"
+    - "tests/property/test_solver_uniqueness.py (CON-005's control)"
+    - "the aggregate 'every deadline check site removed at once' mutant -- not attempted; it removes the bound the target proves, and G-7 forbids characterising it by elapsed time"
+    - "MEASURED_CLAIM_MISSES[0]'s keying assertion at :3323 -- verified by reading, not by a fired mutant (structurally identical to the two at :3335 and :3349 that I did fire and kill)"
+    - "the cause of TestWebGuards_EveryStructuralLoopAssertsNonEmpty's kill_matrix blindness (symptom only, third cycle running)"
+    - "the 'about six weeks' / git log -L date range in TestClaudeMd_EverySymbolItNamesExists' docstring"
+    - "CARD-261's and CARD-265's working trees -- never entered; the main checkout was read-only throughout"
+  confidence: high
+
+metrics:
+  diff: {files: 6, added: 1471, removed: 26}
+  fix_round_diff: {files: 4, added: 247, removed: 49}
+  max_fan_in:
+    symbol: "cli_tests._ADAPTERS (read by _domain_validator_names to exclude the adapter rank)"
+    callers: 18
+    note: "14 occurrences in tests/test_cli.py plus 4 in tests/test_web_server.py, by git grep -c; unchanged by this card, which does not edit tests/test_cli.py"
+  tests_cover_change: true
+  hotspots: ["tests/test_guard_integrity.py", "tests/test_web_server.py"]
+  cochange_missing: ["tests/test_cli.py"]
+  cochange_note: >-
+    tests/test_cli.py is the co-change peer this diff's history names and it is
+    absent by owner decision (folded to CARD-265), verified byte-identical to
+    main by shasum on both sides. At cycle 2 that absence WAS the Critical
+    finding, because the prose describing its changes stayed; fix round 2 closed
+    it and this cycle re-derived the closure clause by clause.
+  unmeasured:
+    churn: "not_applicable -- the six files' 12-month churn was not mined. The diff's provenance is fully known from the five named commits on the branch, which is a stronger signal here than a churn count."
+    defect_density: "not_applicable -- same reason"
+    bus_factor: "no_eligible_fact -- every commit in this repository carries the same author identity, so the signal cannot discriminate"
+    aggregate_check_site_mutant: "not_applicable -- removing every deadline check removes the bound the target proves, so termination cannot be expected, and G-7 forbids characterising it by elapsed time"
+
+could_not_check:
+  - "The full suite was not run (binding instruction). Every pytest, kill_matrix and plant invocation exported NONOGRAM_FULL_SUITE_LOCK=/tmp/card264-cycle3.lock, and each child run printed the confirmation that it read that path and not the board's own meta/kanban/.full-suite.lock, which was never read, written or created."
+  - "MEASURED_CLAIM_MISSES[0]'s entry-keying assertion (:3323) was verified by reading rather than by a fired mutant. Two of the three entries' keying assertions WERE fired and killed (:3335, :3349) and the third is the same construct; the residual risk is that one assertion's text does not match its entry, which a reading does establish."
+  - "The cause of TestWebGuards_EveryStructuralLoopAssertsNonEmpty's invisibility to kill_matrix was not reproduced -- third cycle in a row. The class's set-axis vacuity case therefore has no instrument-level certification, only an ordinary green run."
+  - "G-6's independent codepoint sweep covers the six changed files only. The whole-tree claim rests on the structural fact that no src/ path is in the diff, not on a tree-wide scan."
+  - "CON-005 and CON-012 were not exercised; their verdicts are ⚠ unchecked with the typed reason, never holds."
+  - "The docs page's truth is established by this review's manual re-derivation against tests/test_cli.py, src/nonogram/__init__.py and src/nonogram/web/__init__.py. NO committed control holds it. See the first out_of_scope entry -- this is what the card ships uncertified."
+  - "No review of CARD-265's content beyond the two lines the docs page cites. Whether the withdrawn controls arrived there intact is the orchestrator's question."
+
+restoration:
+  shasum_c: "OK for every file in both plant manifests, after every plant"
+  diff_q: "no difference for any manifest member, after every plant"
+  git_status_porcelain: "exactly the two entries present before this review began -- ' M meta/kanban/cards/CARD-264.md' and the untracked worktree-local cycle-2 report. Nothing added, nothing changed."
+  card_file_untouched: "meta/kanban/cards/CARD-264.md sha256 c948ec7712a4e8e96309373f22da1545d2ee278c27af0661448b0a6e2ff5bc76 before the first plant and after the last"
+  whole_diff_sanity: "git diff --stat main...HEAD unchanged at 6 files, +1471/-26 after every mutation and plant; git rev-parse HEAD = e26e54733fddd8942e67da664372b2129f727170"
+  src_files_touched_transiently: "src/nonogram/web/__init__.py only (plants PL3 and PL4), restored from the cp -p backup and verified three ways. No solver file was touched in this cycle."
+  report_committed: false
+  card_written_to: false
+
+verdict_section: |
+  ## Verdict
+
+  PASS at 9.6, and this is the certification of record.
+
+  Fix round 2 did what it claimed, and I re-derived every claim rather than
+  carrying one. The gating finding is closed: the docs page is now true of HEAD
+  clause by clause -- the quotation matches tests/test_cli.py:743-745 word for
+  word, the present tense is back, the fabricated test-class citation is gone
+  (zero hits in src, tests and docs), the _adapter_counts scoping claim is
+  accurate, the CARD-265 fold claim matches CARD-265.md, and M-7's stale :40 is
+  replaced by a by-name pointer that resolves. It is also still better than
+  main's version, whose seven line citations are each off by one against the
+  very file both sides share and whose CLAUDE.md:45 cross-reference is false.
+
+  The round's most load-bearing claim holds: both mutants cycle 2 measured as
+  SURVIVING are dead, each at the assertion added for it --
+  F6-DECL-GUTTED at tests/test_guard_integrity.py:3349 and AST-MISS-3-GUTTED at
+  tests/test_web_server.py:2466, both in both passes, both an instance of the
+  recording-pass trap that has misled this card seven times (exit 0 with a FAIL
+  cell). All five declared-miss narrowings were re-measured independently and
+  none overshoots: M-1's joiner set is exactly {'.', ';'} by an exhaustive
+  single-character sweep, matching the declaration; M-2's lookup table really is
+  caught, so dropping it was right, and a mutant that re-widens the entry to
+  cycle 2's text reds; M-4's two shapes are real misses and the member arm it
+  leaves undeclared really does catch; M-3's three entries are each keyed on
+  their own text; M-6's count is gone with nothing standing in its place. Eleven
+  mutants fired, eleven killed, zero survived. Eight on-disk plants, every one
+  red with its message quoted. Both rules cycle 2 marked ✗ -- ADR-0039/R1 and
+  ADR-0039/R3 -- now hold on re-judgement.
+
+  I also attacked two things nobody had. One was a suspected tautology in AC-4's
+  set check, since _DOMAIN_VALIDATORS is derived from the same walk the check
+  consults; a mutant that adds a dead member by hand reds it on four cells, so
+  the suspicion is refuted and no finding is filed. The other was the comment
+  recording the substring arm's zero unique detection: with the arm fully
+  disabled on disk, a prose-only plant still reds at the exemption equality, so
+  the comment is true and the arm correctly has no control of its own.
+
+  Two corrections to the brief, reported rather than reconciled. CON-009 plus
+  CON-010 collects 9, not 8 -- six plus three. And the CON-010 trap is real: by
+  its declared check name the selection collects ZERO and pytest exits 5, which
+  is how two earlier rounds reported a security boundary as green on an empty
+  room. Selected by its three functions it is green: 9 collected, exit 0.
+
+  Four Minor residuals remain, all prose: an unenumerated case/quoting variance
+  in the new dependency declaration, an ordinal that points two assertions off,
+  the uncontrolled "six sites" figure, and a truncated quotation. None of them
+  blocks the merge and none is worth another cycle.
+
+  **What ships uncertified, named here because naming it is this cycle's job:**
+  nothing in the tree holds a docs/how-it-works claim to the code it cites --
+  no test reads that directory at all. The page is correct today because I
+  checked it by hand; it has no control, and CARD-265 is about to change the
+  very lines it quotes. That gap must be carried onto CARD-265 or a new card
+  rather than closed with this one. Two smaller items also ship uncertified and
+  are listed in could_not_check: MEASURED_CLAIM_MISSES[0]'s keying assertion
+  was verified by reading rather than by a fired mutant, and
+  TestWebGuards_EveryStructuralLoopAssertsNonEmpty's blindness to kill_matrix is
+  unreproduced for the third cycle running, so the set-axis vacuity case inside
+  it has only an ordinary green run behind it.
