@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (c1) → 5.5 (c2; 2 of 3 refuted) → fix 2 → **9.6 (c3/3, 0 gating)** → 8h spot-check **FAILED 2 of 2 holds** → escalated → owner: fix+certify → fix 3 `098ecd91` → **cycle 4 (re-entry) certifies**
+**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → **7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3)** → owner decision pending
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -2681,3 +2681,98 @@ Three gates on this card now, each reconciling to its own round: **8919** (`9978
 own additions) → **8921** (`e26e5473`, +2 = fix 2's two new tests) → **8925** (`098ecd91`, +4 = fix 3's
 four). Cumulative against main: **+42**, every one of them accounted for. The 27 skips are the standing
 DB-mode skips throughout, unchanged.
+
+---
+
+### [Review 4/4] Score **7.65 — NOT CERTIFIED**. Report `meta/review/20261023T055002Z-CARD-264-cycle4.yml`
+
+Baseline `10 − deductions` as in all four cycles: F-1 1.00, F-2 1.00, four minors 0.35 → **2.35**.
+Trajectory **8.3 → 5.5 → 9.6 → 7.65**.
+
+#### What the escalation was actually about: both certified, with the strongest evidence in this review
+
+**S-1 ✓ CERTIFIED.** 4/4 mutants killed, FAIL at `:4020` (membership) and `:4022` (behaviour). And the
+**counterfactual was reproduced under a plant trap** rather than quoted: the pre-fix file with all three
+phrases rotted inline gives **157 collected, exit 0, zero failures** — the "157/157 green" that opened
+this whole escalation, re-derived independently.
+
+**S-2 ✓ CERTIFIED, and the independence question I planted was answered with a measurement.**
+`S2-DROP-optional-underscore` is killed **solely** by the new equality at `:2369`, with the floor pin at
+`:2356` still passing — exactly the claim, and the precise hole that previously survived. The predicate's
+independence was probed over **13** constructed names (`__validate_x`, `___parse_x`, `_parse_`,
+`Validate_x`, …): **13 agree, 0 disagree**, so the regex and the `removeprefix/startswith` predicate are
+genuinely equivalent *and* genuinely separate — and all four shape narrowings make them disagree.
+Counterfactual reproduced: pre-fix with `_?` dropped → **166 collected, exit 0, zero failures**.
+
+**S-4, W-1, B-1, B-2, B-3 ✓ CERTIFIED**, each from constructed inputs rather than the fix round's report.
+W-1's safety claim in particular: **zero** NxM matches in the three guarded paragraphs *and* zero in the
+whole of `CLAUDE.md`, so the widening reds on nothing that ships — the claim verified, not accepted.
+
+**m-2 CLOSED, confirmed from the file as instructed**: `grep -rn "The third assertion is the one"` returns
+nothing in the worktree, and `:3736` now reads *"The member-restatement **assertions** are what keep…"* —
+plural and non-positional, so the defect is gone rather than reworded around.
+
+#### And the two new findings, both introduced by fix round 3, both in this card's own family
+
+**F-1 (Important) — S-3's rewrite made a control *weaker than it was before*.** `MEASURED_CLAIM_MISSES[2]`
+spans `:2924-2929`; only `:2924` and `:2927` carry keyed fragments. **Lines 2925, 2926, 2928 and 2929 are
+keyed by nothing.** Measured: `GUT-CLAIM-MISS-2-middle-line` and `INV-CLAIM-MISS-2-reds-to-passes` each
+**survive — exit 0, 0 FAIL, in both passes** — while the *identical* gut at `e26e5473` gives **exit 1, 3
+failed of 157**. At fix 2 the key sat *on* the middle line; S-3 moved the text out from under its own
+control. **Three sibling entries the same round touched are in the same state** (B-2's text, S-4's text,
+B-3's text at two sites) — four inversions in total, each making an entry state the **opposite** of what
+fix 3 measured, all surviving. The docstring at `:3342` claims *"a gutted or reworded declaration reds
+here"*, and it does not. **ADR-0039/R1 ✗.**
+
+**F-2 (Important) — S-3's narrowing overshoots, which is the mirror of the defect it repaired.**
+`_is_type_expression` accepts **any** expression whose every `ast.Name` resolves in `dir(builtins)`,
+strictly wider than *"a subscript or a tuple display"*. Reproduced via `_classify`: `[]`, `{}`,
+`{'a': 1}`, `frozenset()`, `0`, `0.5` and **`int | None`** each return `('type-expression', '')` — accepted,
+no defect, and none is a subscript or a tuple display. **`int | None` is the live one**, because the entry
+is about the boundary-types paragraph. Worse, the new assert at `:3445` **pins** the under-wide wording
+and `:3450`'s `assert "dir(builtins)" not in …[2]` **blocks** the now-correct widening. **ADR-0039/R3 ✗.**
+
+**The correct bound is now known exactly, which it was not when S-3 was written:** *an expression that
+parses, whose every name resolves in `dir(builtins)`, **and which is not a bare identifier chain*** — the
+exclusion clause being what the original wording lacked and the narrowing over-corrected for.
+
+#### The stalled check fires again, the family detector reads **1**, and this one is not a premise failure
+
+`score_improvement = 7.65 − 9.6 = −1.95` (under the 0.5 floor) and
+`findings_reduction = 0 − 2 = −2` (not a decrease). **Both conditions met.** Unlike the override at cycle
+2, I am **not** arguing the premise away: cycles 3 and 4 reviewed the same card with one pure fix commit
+between them, which is exactly the comparison the check is built for.
+
+**FAMILY REGRESSION, signal present at streak 1 (escalation needs 2).** Both gating findings are
+attributed to the previous fix by signal (b): fix 3's own `DECLARATIONS S-3 — declared-miss table
+MEASURED_CLAIM_MISSES (entry 2 narrowed; CLAIM-MISS-2-GUTTED re-keyed…)` names the exact boundary both
+findings land on. The counter does not fire, and the substance does:
+
+> **[Family] The declared-miss tables' semantics were never decided, so each round re-derives them
+> differently — and a round that edits an entry's wording silently moves the text out from under the
+> control that keys it, or states a bound narrower than the guard it describes.**
+> F-3..F-11 (cycle 2) → S-3/S-4 (spot-check) → F-1/F-2 (cycle 4), three rounds in the same mechanism.
+
+**Aggregate round counter: 4** of the 6 that signal structural non-convergence. Two rounds left before
+the discipline says the problem is structural rather than one more fix away.
+
+#### Two gifts to whoever verifies next, and a G-6 note
+
+The reviewer recorded that **R3's equality clause kills at `:3307`, not at the equality at `:3328`** —
+both sides shrink together — so *"a spot-check re-deriving R3's equality clause must cite `:3307` or it
+will find `:3328` passing."* That is the first time on this card a reviewer has written down how to
+reproduce its own verdict against a named trap. And **O-1, an honest non-finding**: `_independently_derived`
+shares the entire traversal and only the predicate is independent — measured — but every `_ADAPTERS`
+widening that sheds a non-floor validator also sheds a floor one in today's tree, so the floor pin catches
+it. Recorded with the measurement so the next cycle does not re-litigate it. Finally: the three U+2022 in
+`src/nonogram/admin/pdf_generator.py:321` are **pre-existing and declared** (CARD-056, with its case at
+`tests/test_book_difficulty_dots.py:784`) — noted so the next structural G-6 check does not re-raise them.
+
+**Everything else holds.** AC-1..AC-6 all **MET** with a reproduction line each; AC-7 withdrawn, not
+scored. **G-1..G-7 all ✓**, with G-6 verified structurally *and* cross-checked by an AST scan of every
+`src/nonogram/**` string literal, and G-2 a **net widening** (the delta's one removed assertion is replaced
+by two narrower ones plus a new positive arm). CON-009 + CON-010 **9 collected / 9 passed**, with the
+selector trap reproduced rather than trusted (`-k` by the requirement id: **0 collected, exit 5**).
+15 mutants, both passes, ANY-RED, all 19 `old` strings pre-counted as occurring exactly once, SHIPPED's
+**exit code** read every time, and the exit-0-with-FAIL-cells reading occurring for **7 of 15** mutants —
+each confirmed at exit 1 in the re-raising pass.
