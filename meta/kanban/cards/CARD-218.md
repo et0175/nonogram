@@ -646,3 +646,409 @@ Nothing in the diff is wrong, nothing is unproven, and no fix round is owed.
 The two corrections are to figures — one of the round's and one of the card's —
 and both are recorded above rather than quietly amended, because a review
 cycle would otherwise inherit them. Next station: review cycle 1.
+## Review notes -- cycle 1
+
+**Verdict: NOT CERTIFIED. Score 6.0 / 10 against `min_score: 8`.**
+Report: `meta/review/20261024T223738Z-CARD-218-cycle1.yml` (worktree; `meta/` is
+never committed from here, so the merge station must sync it).
+Arithmetic: `10 - 2 (F-001, critical) - 1 (F-002) - 1 (F-003) = 6.0`. The four
+`low` findings carry no deduction.
+
+### The headline: nobody measured the card's own stated risk, and it is real
+
+Rule 2 prefers module scope over session scope *because* this project cares
+about peak memory. Three rounds have now reasoned about that rule and none of
+them put a number on it. Measured, base `c7cca514` vs HEAD `4ae0d825`, in two
+detached scratch worktrees so this tree was never touched:
+
+| | peak RSS base | peak RSS HEAD | delta |
+|---|---|---|---|
+| `tests/test_book_puzzle_frame.py` | 657.5 MB | 958.1 MB | **+300.6 MB (+45.7 %)** |
+| `tests/test_book_pdf_band.py` | 1215.9 MB | 1569.0 MB | **+353.2 MB (+29.0 %)** |
+| both, one run | 1327 / 1356 MB | 1781 / 1719 MB | **+~400 MB (+30 %)** |
+
+And read straight out of `sys.modules` at `pytest_sessionfinish`, **after both
+module fixtures have been finalised** (probe plugin kept outside `tests/`, so it
+could not join `rank_durations.py`'s frozen render set):
+
+```
+tests.test_book_puzzle_frame._SHARED_DIGEST:       10 entries, 252,450,000 B (240.8 MB)
+tests.test_book_pdf_band._SHARED_SNOWFLAKE_DIGEST:  8 entries, 201,960,000 B (192.6 MB)
+tests.test_book_pdf_band._FIFTH_RULE_RENDERS:       1 entry, 0 B
+```
+
+**433.4 MB alive for the rest of the session**, because pytest keeps test
+modules in `sys.modules`. In this project's own unit — `test_book_pdf_memory.py`
+line 38 records 25,245,000 B per 2550x3300 page, exactly the per-entry size
+above — that is **18.0 page bitmaps retained permanently**, in a repo whose
+memory module accepts a peak of **2.00** page bitmaps and exists because a page
+alive while the next is built was a real defect (CARD-145).
+
+So the conversion chose module scope to avoid holding bitmaps alive for the rest
+of the run, and then held an equal volume of the same bytes alive for the rest of
+the run by another route. Both fixture docstrings say *"Module, not session (the
+card's rule 2): a session fixture would hold this book's page bitmaps alive for
+the rest of the run"* — the fixture does not; the module-level list the fixture
+populates does.
+
+**AC-5 is substantively failed and has no live control.** Its named verifier is
+`test_book_pdf_memory.py`'s peak assertions, and that file says at line 84 that
+its measured peak *"is not the process's peak, and this module does not claim it
+is"* — it instruments its own `_live` dict (line 420). It cannot fail on a
+retention in two other modules. Nothing else guards process memory either:
+`grep RLIMIT_AS|peak_rss|max_rss|tracemalloc` over `tests/` hits that one file,
+whose `RLIMIT_AS` test is the skip this kernel refuses. The regression is
+invisible to every guard on the board.
+
+**The fix is one line per file and is strictly better.** The controls compare
+bytes for equality, so a `hashlib.sha256(page.tobytes()).digest()` is an
+equivalent witness at 32 B instead of 25 MB: 18 x 32 B = 576 B against
+454,410,000 B. `hashlib` is stdlib (ADR-0006/R1 untouched), every control keeps
+its discriminating power, and the docstrings' "module, not session" claim becomes
+true of everything the fixture leaves behind rather than only of its return value.
+
+### The controls are sound under the gate's selection and vacuous under three others
+
+4 x 10 matrix: three line-count-preserving scope mutants plus the intact tree,
+each under ten selections, driven by a script, both files' sha256 re-verified
+after every restore (`4e151282…` / `959bdff3…`). Cells, never exit codes.
+
+| mutant | whole-file | control-class | control-node |
+|---|---|---|---|
+| `pages` module -> function | 2 failed **KILL** | 1 failed **KILL** | 1 passed **VACUOUS** |
+| `snowflake_interior` module -> class | 1 failed **KILL** | 2 passed **VACUOUS** | 1 passed **VACUOUS** |
+| fifth-rule `page` class -> function | 1 failed **KILL** | 1 failed **KILL** | 1 passed **VACUOUS** |
+| intact | green | green | green |
+
+Plus, with `-k one_render` on `test_book_pdf_band.py` (2 selected, 35
+deselected): the class-scope mutant and the function-scope mutant **both pass**.
+
+**No spurious reds anywhere** — the intact tree is green under all ten
+selections, including the two files in reverse order and the `-k` subset. That is
+why this is Important and not Critical. But each control's docstring makes a
+universal claim it does not hold (*"Put the scope back to function and there are
+five, and this goes red"*), and under `-k one_render` — the most natural way a
+human re-checks a control called `test_one_render_served_the_whole_module` — the
+answer is a silent green where ADR-0039/R2 wants default-deny. The mechanism:
+all three assert an equality on a counter only the *selected* tests increment, so
+narrowing the selection narrows the denominator with it. Count fixture
+executions **and** consumer takings, held to a derived consumer count, and a
+narrowed selection reds with a message saying why.
+
+Related: the pre-gate's P3 claim that "the claim holds in both directions" is
+true only of the whole-file selection — row 2 above shows module -> class
+surviving a single-class run.
+
+### AC-vs-body: adjudicated, not inherited
+
+**AC-3 / AC-4 are NOT in tension — the round's framing is wrong.** AC-3's
+headline ("the collected test count for those files is unchanged") and its gloss
+("no test was merged, parametrised away, skipped or deleted") say different
+things: the first is a count equality, the second a removals check. The gloss is
+operative — AC-3's own label is *no coverage loss*, and adding tests cannot lose
+coverage. So the round reached the right answer, but the defect is AC-3's
+**wording**, not a conflict with AC-4. For CARD-219/220, replace the headline
+clause with what both the round and the pre-gate actually measured: *"no node id
+collected before the change is absent after it (set difference, removals = 0);
+additions are permitted and must be named."* Unambiguous, stronger, and already
+the practice.
+
+**AC-2: the suite-total clause is unshowable — sustained, for a corrected
+reason. The artefact clause is showable and was not done.**
+The round's argument rests on "a best-case solo-run reproducibility of 0.20 s",
+which has no provenance (`grep reproducib|0.20 s` over `meta/profiling/` and
+CARD-217 returns nothing) and is self-refuting as used: if a 1433 s suite really
+reproduced to +/-0.20 s, a 0.99 s gain would be 5x the floor and AC-2 *would* be
+showable. The pre-gate's own six base runs settle it the other way — 8.53-9.30 s
+on an 8.90 s selection, an 8.7 % spread, which at suite scale is tens of seconds.
+A ~1.55 s effect is two orders of magnitude under it. Same correction the round
+made to the Depends-on comment and the pre-gate made to the census headline.
+Separately, the card body and AC-2 both require the result recorded *"in the card
+and in `meta/profiling/`"*, and no `card-218-*` artefact exists there — while
+`card-236-admin-local-subprocess-cost.md`, `card-241-render-check-cost.md` and
+`card-243-two-threshold-cost.md` show the accepted per-card form costs almost
+nothing. AC-2's named test (`TestSuiteProfile_ArtefactExistsAndIsComplete`)
+guards the *hotspots* document, so it cannot verify AC-2's clause either.
+
+**And a third problem neither the round nor the pre-gate caught: three of the six
+ACs name verifiers that exist nowhere in the tree.**
+`TestCuration_ConvertedFilesKeepTheirTestCount` (AC-3),
+`TestCuration_SharedRenderIsNotMutatedAcrossTests` (AC-4) and
+`TestCuration_NoSharedInteriorStream` (AC-6) return no file from a grep over
+every `*.py` under `tests/`. They are `check_ref_missing` in the ADR-0039 sense:
+they look mechanically checked and are not. AC-3 is held by a one-off
+measurement with no standing guard; AC-4 is genuinely tested, under a different
+name, with F-002's caveat; **AC-6 has no control of any kind** and is satisfied
+by inspection only (both fixtures return `list[Image.Image]` — true, verified,
+and exactly what the AC said a test would do). The notes say *"the five are the
+controls AC-4 and AC-6 ask for"*, which renames one verifier silently and claims
+another among five tests none of which touches a stream. Decide this once before
+CARD-219/220 are dispatched, or three cards will invent three names.
+
+### What I agree with
+
+* **Close CARD-218 after this lands.** The 4.90 s ceiling is single-instrument
+  and was *not* independently re-derived (the pre-gate reproduced the premise
+  figures — 1426.16 s, 69.79 s, 4.89 % — not the duplicate table), and the one
+  subset that was cross-checked suggests it reads ~18 % low (it predicted 1.32 s
+  for the two converted files where the call counter measured 1.552 s removed).
+  None of that matters: even at 3x, the card's whole subject is 1.03 % of the
+  suite. The conclusion rests on the figure's order of magnitude, not its
+  hundredths, and it is safe.
+* **All three declined files are declined for stated and correct reasons**, each
+  verified independently: `test_book_pdf_memory.py` — AC-5 forbids it (and
+  F-001 is the proof that the concern was the right one);
+  `test_book_finalise_gutter.py` — `src/nonogram/admin/book_pdf_generator.py:6603`
+  does say *"None of it draws a pixel"*, so rule 5 hands it to CARD-219, and its
+  `panel` fixture (line 378) takes `monkeypatch` and so cannot be widened
+  anyway; `test_book_guide_page.py` — four module-scoped fixtures already exist
+  at lines 253-272, so "already converted" is true.
+* **Nothing outside the two files reads their module-level state.** Verified
+  independently: all three accumulator names grep only inside their own files;
+  the outside references to either module are prose in docstrings plus the module
+  *path* as a string literal in `meta/profiling/rank_durations.py:113`.
+* **Record the integer, not the stopwatch** — 11 renders / ~1.55 s removed, with
+  the `utcnow()`-warning count as the second instrument. The round's
+  −0.99 s / −11.3 % should not be the card's headline.
+
+### Gate, scope gate, and the pre-gate's misses
+
+`scripts/impact_set.py tests/test_book_puzzle_frame.py tests/test_book_pdf_band.py`
+re-derived in this worktree -> the same 24 files, run as derived, plus
+`tests/test_browser_fixture_scope.py` which the derivation does not select:
+**2916 collected, 2905 passed, 0 failed, 0 errors, 11 skipped, exit 0, 526.21 s.**
+`test_browser_fixture_scope.py` — 17 tests, all green, confirmed not hoped.
+
+All 11 skips attributed by node id (enumerated with `--collect-only -m
+db_required`, not inferred from the count): **nine** in
+`tests/test_admin_binding.py::TestUndefinedTableReport_NamesWhatTheFailingConnectionWasTalkingTo`
+(`test_the_report_carries_the_four_groups`,
+`…_names_the_database_the_failing_connection_was_on`,
+`…_names_the_engine_its_pool_and_the_reset_count`,
+`…_names_the_process_the_thread_and_the_werkzeug_question`,
+`test_the_capture_answers_while_the_failing_connection_cannot`,
+`test_the_original_traceback_is_intact_and_the_control_can_fail`,
+`test_a_connection_on_the_wrong_database_is_a_one_line_proof`,
+`test_the_verdict_does_not_call_a_correctly_bound_connection_a_mismatch`,
+`test_the_report_survives_the_suites_own_quiet_option`) and **two** in
+`tests/test_db_engine_lifecycle.py`
+(`TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema::test_no_engine_pool_or_backend_predating_the_rebuild_survives_it`,
+`TestEngineLifecycle_WhyTheHazardCannotBeForced::test_no_server_side_prepared_statement_is_ever_created`).
+One cause for all eleven: `tests/conftest.py:207`, `DATABASE_URL is not set`, via
+the `db_required` marker. Environmental, pre-existing, untouchable by this diff.
+Neither prior round attributed them, because neither ran the *derived* set.
+
+**Scope gate: PASS.** Two files, both in `Touches:`. No `src/`, no
+`tests/fixtures/`, no `tests/conftest.py`, no `tests/helpers/book_corpus.py`.
+Zero intersection with CARD-219's `Touches:`; CARD-220's is `tests/**` and so
+carries no signal either way. Zero added lines match `skip|xfail|pytest.mark`
+(re-derived).
+
+**System contract:** 20 rules assembled by `system_rules.py --card CARD-218
+--verify-refs`; 2 ✓ holds (ADR-0039/R1 with the F-002 qualification,
+ADR-0038/R8), 18 ⚠ unchecked (16 `no_eligible_fact`, 5 of those also
+`check_ref_missing` on ADR-0041/R1-R6's player-bundle tests), 0 ✗.
+
+**What the pre-gate got wrong or missed** — it certified PASSED without
+measuring the one risk its own rule 2 exists for (F-001); it did not check the
+ACs' named tests against the tree (F-003); it repeated an unsourced
+reproducibility figure its own data refutes (F-004); it wrote that it
+"reproduced" the 4.90 s ceiling, which it did not; its P3 bidirectionality claim
+holds only for whole-file selections; and its "0 skipped" belongs to the census
+set, not to the derived gate, which has 11.
+
+### What has to be true for cycle 2 to certify
+
+1. F-001 fixed: digest the pages, do not store them; re-measure peak RSS and
+   record the figure. Then the card's rule 2 has been checked with a memory
+   measurement for the first time.
+2. F-002: the controls must red, not pass, on a selection they cannot analyse,
+   and their docstrings narrowed to what they measure.
+3. F-003: the three dead AC `test:` refs resolved — written once as a shared
+   curation guard, or struck and replaced with what is actually relied on —
+   before CARD-219/220 are dispatched on the same wording.
+
+## [CYCLE 1 ADJUDICATION 2026-10-24, orchestrator] All three gating findings reproduced, the prescribed fix verified before being handed on, and FOUR corrections owed to my own pre-gate
+
+Score **6.0, NOT CERTIFIED** against `min_score: 8` — `10 − 2 (F-001 critical)
+− 1 (F-002) − 1 (F-003)`. Report:
+`meta/review/20261024T223738Z-CARD-218-cycle1.yml` (parses, `overall_score`
+present, `cycle: 1` agrees with its filename). Risk LOW→MEDIUM.
+
+I re-derived every gating finding before authorising a fix round, as on
+CARD-271. **All three reproduce. None was overstated.**
+
+### F-001 reproduced exactly — and the hard measurement is the RETENTION, not the peak
+
+My own probe plugin at `pytest_sessionfinish`, after every fixture is
+finalised, kept outside `tests/` (a probe there naming `interior(` would join
+`rank_durations.py`'s frozen render set):
+
+```
+_SHARED_DIGEST            10 entries, 252,450,000 B (240.8 MiB)
+_SHARED_SNOWFLAKE_DIGEST   8 entries, 201,960,000 B (192.6 MiB)
+_FIFTH_RULE_RENDERS        1 entry,             0 B
+TOTAL                        454,410,000 B = 433.4 MiB = 18.0 page bitmaps
+```
+
+Both modules still in `sys.modules`, so the lists outlive the fixtures that
+filled them. `tests/test_book_pdf_memory.py:210` defines
+`PAGE_BITMAP_BYTES = 2550 * 3300 * 3` = 25,245,000 — and the per-entry size is
+that figure **exactly**, so "18.0 page bitmaps" is the project's own unit, not
+a conversion. The review's central point stands on its own: both fixture
+docstrings justify module scope over session scope by saying a session fixture
+"would hold this book's page bitmaps alive for the rest of the run", and the
+module-level list the fixture populates does precisely that, by the same
+volume.
+
+**One qualification, and it changes what the fix must be certified on.** The
+review's per-file peak-RSS figures do not all reproduce here:
+
+| `/usr/bin/time -l` max RSS | base | HEAD | review's HEAD delta | my delta |
+|---|---|---|---|---|
+| `test_book_puzzle_frame.py` | 669.1 MB | 965.9 MB | +300.6 MB | **+296.7 MB** ✓ |
+| `test_book_pdf_band.py` | 1320.2 MB | 1396.3 MB | +353.2 MB | **+76.1 MB** ✗ |
+| both | 1294.3 MB | 1661.0 MB | ≈+400 MB | **+366.7 MB** ✓ |
+
+Band's base peak is already 1320 MB, set by its own renders, so its 192.6 MB
+digest largely fits under an existing high-water mark; frame's base peak is
+669 MB, so its 240.8 MB digest pushes the mark up almost in full. Peak RSS is
+therefore **allocation-order dependent and noisy** — under my trial fix below,
+band's peak went *up*, to 1491.9 MB. **So AC the fix on the retention, which is
+exact and reproducible, not on peak RSS, which is a stopwatch.** Same lesson as
+the pre-gate's render counter, in a second guise.
+
+### The prescribed fix verified, not relayed
+
+A reviewer's prescription is not a reviewed result (the brief rules' own
+`max_cycles` clause). Applied as a throw-away trial and reverted,
+sha256-digesting each page instead of storing its bytes:
+
+* retention **454,410,000 B → 576 B**, all three accumulators;
+* **134 passed**, unchanged;
+* the controls still kill: my P2 (digest never taken) reds both frame controls,
+  my P6 (a consumer draws on a shared page) reds the consumer and the band
+  control. So the fix does not buy memory with discriminating power.
+* `hashlib` is stdlib — ADR-0006/R1 untouched.
+
+Both files restored and verified at `4e151282…` / `959bdff3…`.
+
+### F-002 reproduced exactly, with the mechanism DELETED (module → class)
+
+| selection | cells |
+|---|---|
+| whole file | **1 failed** — KILL |
+| the control class alone | **2 passed** — VACUOUS |
+| the single control node id | **1 passed** — VACUOUS |
+| `-k one_render` (2 selected / 35 deselected) | **2 passed** — VACUOUS |
+
+Confirmed, including the review's point that **no selection produces a
+spurious red** — which is why this is Important and not Critical. The defect is
+the universal claim in the docstrings ("Put the scope back to `function` and
+there are five, and this goes red"), true only of the whole-file selection,
+and `-k one_render` is the obvious way a human re-checks a control called
+`test_one_render_served_the_whole_module`.
+
+### F-003 reproduced — and it is a clean miss by my pre-gate
+
+Grepped every `*.py` under `tests/`:
+
+| AC | named verifier | exists? |
+|---|---|---|
+| AC-3 | `TestCuration_ConvertedFilesKeepTheirTestCount` | **nowhere** |
+| AC-4 | `TestCuration_SharedRenderIsNotMutatedAcrossTests` | **nowhere** |
+| AC-6 | `TestCuration_NoSharedInteriorStream` | **nowhere** |
+| AC-2 | `TestSuiteProfile_ArtefactExistsAndIsComplete` | `tests/test_suite_profile.py` |
+
+Three of four AC `test:` references are dead. The AC-vs-body cross-check is in
+this board's own brief rules and my pre-gate did not run it.
+
+### FOUR corrections to my own pre-gate, all of which the review is right about
+
+1. **I wrote that the pre-gate "reproduced" the 4.90 s ceiling. It did not.**
+   It reproduced the *premise* figures — 1426.16 s attributed, 69.79 s / 4.89 %
+   / 131.9 ms-per-test over the nine files, the phase split — and the two
+   converted files' render counts. The nine-file recoverable-duplicate table
+   is still **single-instrument**. The review's cross-check suggests that
+   instrument reads ≈18 % low (it predicted 1.32 s for the two files where my
+   call counter measured 1.552 s removed). Immaterial to the conclusion — at
+   3× the ceiling this card's whole subject is ~1 % of the suite — but
+   "reproduced" was the wrong word for what I did, and it is the same family of
+   error I corrected in the round's census headline two sections above.
+2. **The "0.20 s solo-run reproducibility" is a full-suite figure and I applied
+   it to an 8.9 s measurement.** It is real — two solo runs of the whole suite
+   agreed to 0.20 s (1433.27 / 1433.47) — but it is not committed anywhere a
+   reviewer could find, and it is the wrong floor for a two-file arm, whose
+   spread I had myself measured at 8.53–9.30 s on an 8.90 s median, **8.7 %**.
+   Worse, the argument it was supporting is backwards: the round wrote that
+   0.99 s is small "against a best-case reproducibility of 0.20 s", and
+   0.99 > 0.20. AC-2's suite-total clause is unshowable because a *full suite's*
+   run-to-run spread is tens of seconds and detecting a 1.5 s effect costs
+   1433 s per arm — not because 0.99 s is below 0.20 s.
+3. **My P3 claim "the direction holds in both ways" is true only whole-file.**
+   Module → class reds on the whole file and passes on a single-class
+   selection, which is row 2 of the review's matrix.
+4. **My "0 skipped" belonged to the census set, not to the derived gate.**
+   The derived 24-file gate has **11** skips; neither the round nor the
+   pre-gate had run that set, so neither attributed them. The review did:
+   nine in `tests/test_admin_binding.py::TestUndefinedTableReport_*` and two in
+   `tests/test_db_engine_lifecycle.py`, one cause for all eleven —
+   `tests/conftest.py:207`, `DATABASE_URL is not set`, via the `db_required`
+   marker. Environmental and pre-existing.
+
+A fifth criticism I accept with a qualification: the review says the pre-gate
+"certified PASSED without measuring the one risk its own rule 2 exists for".
+I identified that risk and routed it to this cycle as question 1 rather than
+measuring it, which is why the cycle found it — but a pre-gate that names an
+unmeasured risk and returns PASSED has passed an unmeasured risk. The verdict
+should have been PASSED-WITH-ONE-OPEN-MEASUREMENT, or I should have spent the
+twenty seconds the probe took.
+
+### Gate, scope gate, and the derived set's price
+
+The review re-derived the impact set independently and got **the same 24
+files**: **2916 collected, 2905 passed, 0 failed, 0 errors, 11 skipped, exit 0,
+526.21 s** (against my 448.77 s price, on a busier box;
+`test_book_export_interior_cover.py` is 77 % of it and is unrelated to this
+diff — the figure that became CARD-287). `tests/test_browser_fixture_scope.py`,
+which the derivation does not select, run explicitly: **17 tests green**.
+Scope gate **PASS** — two files, both in `Touches:`, no `src/`, no
+`tests/fixtures/`, no `tests/conftest.py`, no `tests/helpers/book_corpus.py`,
+zero intersection with CARD-219's `Touches:`, and zero added lines matching
+`skip|xfail|pytest.mark`, re-derived rather than taken from the pre-gate.
+
+### The two adjudications that travel to CARD-219 and CARD-220
+
+Both rounds flagged the AC wording; the review ruled on it, and the ruling is
+the one that ships:
+
+* **AC-3 and AC-4 are NOT in tension.** The round's framing was wrong. AC-3's
+  label is *no coverage loss*, and additions cannot lose coverage, so its gloss
+  is operative and its headline count-equality is simply mis-worded. The
+  replacement wording, to be applied to all three cards: *"no node id collected
+  before the change is absent after it (set difference, removals = 0);
+  additions are permitted and must be named."* That is what both rounds in fact
+  measured.
+* **AC-2 splits in two.** The suite-total clause is struck (unshowable, for
+  correction 2's reason, not the round's). The artefact clause stays and **was
+  not satisfied**: no `meta/profiling/card-218-*` document exists, while
+  `card-236-…`, `card-241-…` and `card-243-…` show the accepted per-card form
+  costs almost nothing. AC-2's named test guards the *hotspots* document and so
+  cannot verify its own clause.
+
+**These edits wait for cycle 2.** Rewriting an AC under a card in flight is the
+CARD-172 shape; the wording goes into CARD-219 and CARD-220 before they are
+dispatched, and into this card when it closes.
+
+### Verdict and route
+
+NOT CERTIFIED, **fix round 1 authorised** on F-001, F-002 and F-003. The card's
+own recommendation — land these two conversions and close CARD-218 rather than
+converting the other five — is **endorsed by the review**, with all three
+declines independently verified, so the fix round is the last code round this
+card gets. Aggregate round counter after it: 4 of 6.
+
+Two items the review orphans by that closure, and it is right that they need
+cards: `test_book_guide_page.py`'s **9.69 s in `occurrences()`** over ten tests
+— template matching, roughly twice this card's entire ceiling — and
+`test_book_export_interior_cover.py`, now **CARD-287** (`d5795d86`).
