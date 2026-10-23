@@ -1601,3 +1601,24 @@ had to re-run an interaction surface.
 The branch carried **no `meta/`** — `git diff --name-only
 ec42e6ea..card/271-clues-stay-in-view -- meta/` is empty — so the CARD SYNC
 PROTOCOL held end to end across five commits and three agent hand-backs.
+
+## [POST-MERGE 2026-10-23] The union argument is superseded, not merely defended
+
+This card merged on a stated union argument because neither full suite was
+green end to end: attempt 1 failed on the card's own browser-family registry
+debt, attempt 2 on a load-induced `Page.goto` flake in an untouched file.
+
+A full suite run **after** the merge, on `ae164099` — merged main with this
+card in it — for CARD-220's duration profile, came back
+**8954 passed, 27 skipped, 0 failed, EXIT=0 in 1433 s**, essentially solo
+(1436 s of wall clock against pytest's 1433 s, against attempt 2's 555 s gap).
+So the tree this card produced now has one unbroken green full suite behind it,
+measured rather than argued, and the union argument stands only as the record
+of what was known at the moment of merging.
+
+Two figures worth carrying off this card, both for CARD-220: the suite is
+**8981 collected** and costs **160 ms/test** against the 2026-10-15 solo
+profile's **131 ms/test** (930.81 s / 7082 tests) — 21 % slower per test while
+growing 27 % — and the 18 browser-marked files are **646 tests at 734 ms each**
+against that profile's 422 at 868 ms, i.e. the family grew 53 % while per-test
+cost fell 15 %, which is CARD-235 showing up in the numbers.
