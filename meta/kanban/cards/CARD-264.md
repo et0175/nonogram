@@ -2858,6 +2858,12 @@ module-level block above `_MEASURED_TABLE_LINE_KEYS`, and applied uniformly.
    back out of the test source with `ast` and checks each phrase against the line it belongs to.
    Gutting a line, rewording it, moving a keyed phrase onto a neighbouring line of the same entry,
    adding a line or dropping one all red, **by line number**.
+   *(Corrected in fix round 5, cycle 5 F-001: as written in round 4 this was wider than any case or
+   mechanism held -- "adding one" was constructed nowhere and the span equality that implements both
+   count directions was deletable with the file green. The five directions now each have a constructed
+   case asserting the line the verdict names, and the one edit the arm cannot see -- a line dropped
+   together with its key phrase -- is declared and held by the census equality instead. See the round-5
+   section.)*
    *Why not the alternatives, by measurement and not by taste:* keying only the operative clause is
    cheaper and is what rounds 2 and 3 did -- a key that lives anywhere in the entry leaves every other
    line free text, which is exactly how both surviving mutants survived. Whole-entry equality is
@@ -2881,8 +2887,33 @@ state, so a sixth table added later is a red rather than a discovery for a fifth
 
 ### The complete enumeration, and the mutant that proves each
 
-`_measured_table_names` walks both files' AST and finds **nine** `MEASURED_*` assignments: four keyed
-per line (11 entries, **57 source lines**), five exempted with a reason.
+> **Corrected in fix round 5 (cycle 5, F-002).** This paragraph read "**nine** `MEASURED_*`
+> assignments: four keyed per line (11 entries, 57 source lines)". The tree holds **ten / five / twelve
+> / 57**, and the table three lines below already said so (3+3+2+1+3 = 12 entries, 18+16+5+9+9 = 57
+> lines). The cause is on the record: 9/4/11 is the tree **before m-A added
+> `MEASURED_UNENFORCED_PHRASE_MISSES` in that same round**, so the headline figure predated the round's
+> own last edit and was never recomputed. A figure in a card, a docstring or a failure matrix **is a
+> claim, and its control is recomputation** -- no mutant catches a stale number, which is why the
+> round's nine mutants all passed over it.
+
+`_measured_table_names` walks both files' AST and finds **ten** `MEASURED_*` assignments: **five** keyed
+per line (**12 entries**, **57 source lines**), five exempted with a reason.
+
+**The door each figure came through, re-derived in fix round 5 against the final tree and not copied
+from the brief or from the sentence being fixed** -- two independent doors, because reproducing a figure
+with its original method only confirms the method:
+
+* **the keys door** -- `_declaration_census(_MEASURED_TABLE_LINE_KEYS)`, which is what the new equality
+  in `test_every_line_of_every_declared_miss_entry_is_keyed` reads: `(5, 12, 57)`;
+* **the source door** -- the deployed enumerator's own walk, the `ast.Assign`/`ast.AnnAssign` pass of
+  `_unkeyed_declaration_lines` over both sources, summing `end_lineno - lineno + 1` per tuple element:
+  `(5, 12, 57)`, with per-table spans `1+4+13`, `3+3+10`, `2+3`, `9` and (in `tests/test_web_server.py`)
+  `6+1+2`;
+* **the split** -- `_measured_table_names` over both sources: ten names, five keyed per line and five in
+  `_MEASURED_TABLES_KEYED_ELSEWHERE`, `found == keyed | exempt` true;
+* and the deployed verdict on both files at the same moment: `[]` and `[]`, which is what makes the keys
+  door's three figures the sources' figures too (the per-line arm holds each entry's key count equal to
+  its span and each table's key-group count equal to its entry count).
 
 | table | entries | source lines | every line keyed | proved by |
 | --- | --- | --- | --- | --- |
@@ -2905,6 +2936,16 @@ number. Run against the deployed `_unkeyed_declaration_lines` rather than a copy
 pass of this sweep reported 55 survivors and the sweep was wrong, not the control: its "invert" built
 `"NOT" + word`, which still *contains* the keyed phrase as a substring. Recorded because a
 measurement instrument that cannot fail is this card's subject one level up.)
+
+**What the 216-variant sweep does NOT cover, stated because round 4 left it implied (cycle 5, F-001).**
+**None of its four mutations changes an entry's line count.** Gut-the-literal, drop-a-word,
+alter-a-character and swap-with-the-line-above each keep the entry's span *and* its key count where they
+were, so the only mechanism that reads an entry's line count -- the span equality
+`span != len(element_keys)` -- is **never exercised by any of the 216 variants**, and cycle 5 deleted it
+(`if False and span != ...`) with `tests/test_guard_integrity.py` at 167 collected, 167 passed, exit 0.
+The cycle-5 reviewer's 197-variant replication inherited the same blind spot. A sweep is a measurement
+over the mutations it enumerates, never over the mechanism; "0 survived" is a statement about the sweep's
+own domain. Fix round 5's add-a-line, entry-count and co-edited-drop cases are what close it.
 
 `tests/test_web_server.py`'s table is keyed **from** `tests/test_guard_integrity.py`, so the table is
 not copied (G-3) -- the same mutual arrangement that module's docstring opens with. A `#:` block above
