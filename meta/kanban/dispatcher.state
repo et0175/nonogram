@@ -33,7 +33,9 @@ active:
     review_cycle: 2
     at: 2026-10-23
     branch_head: 99782837
-    note: "Re-entered at the review cycle, not at implementation: Status was already `review`, cycle 1 passed at 8.3, and the polish commit d5da18ff has NEVER been reviewed. Two cycles of the budget remain. The gate owed since the narrowing runs first."
+    note: "Re-entered at the review cycle, not at implementation: Status was already `review`, cycle 1 passed at 8.3, and the polish commit d5da18ff has NEVER been reviewed. Two cycles of the budget remain. The gate owed since the narrowing ran first."
+    gate: "full suite PASSED at 99782837 -- exit 0, 8919 executed, 8892 passed, 27 skipped, 0 failed, 0 error, board lock taken and released. The +36 against CARD-270's gate reconciles EXACTLY to this card's per-file collection delta (test_guard_integrity.py 131->156, test_web_server.py 154->165), so non-vacuity is structural rather than asserted."
+    ac_7: "WITHDRAWN from CARD-264 2026-10-23 and moved to CARD-265 -- bookkeeping of the owner's 2026-10-22 fold, not a weakening taken at review time. Its control lives in tests/test_cli.py, which the narrowing resolved to main's version byte-identical, so the AC could only have scored `unverified` and this board routes a repeated unverified to the ARCHITECT station as a requirement defect. A correctly-executed owner decision would have come back as a spec bug."
 escalated: []
 merged_wave_54:
   - id: CARD-270

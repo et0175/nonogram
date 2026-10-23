@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (cycle 1, PASS) → polish `d5da18ff` → AC/EC/G gate pending
+**Review score:** 8.3 (cycle 1, PASS) → polish `d5da18ff` (unreviewed) → narrowed → build gate PASSED `99782837` → cycle 2/3 running
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -115,10 +115,30 @@ only its *input*.
   source still reds the original guard, so repairing the set did not weaken what it already caught.
 - **AC-6** *Given* the whole change, *then* no claim about the solver's timeout survives that no test
   pins. Either the clause is gone or the test that enforces it is named in the same sentence.
-- **AC-7** *Given* `tests/test_cli.py`'s adapter allowlist, *then* no prose around it claims a
-  count that disagrees with `_ADAPTERS`, and the test's **name** states the rule rather than a
-  number — held by a control that reads `len(_ADAPTERS)` rather than restating it.
+- ~~**AC-7**~~ **WITHDRAWN FROM THIS CARD 2026-10-23 — moved to CARD-265, and this is bookkeeping the
+  owner's 2026-10-22 decision already decided, not a weakening taken at review time.** It read:
+  *Given* `tests/test_cli.py`'s adapter allowlist, *then* no prose around it claims a count that
+  disagrees with `_ADAPTERS`, and the test's **name** states the rule rather than a number — held by a
+  control that reads `len(_ADAPTERS)` rather than restating it.
   (test: `TestAdapterAllowlist_NoProseClaimsAStaleCount`)
+
+  **Why it had to move with the file, and why leaving it here would have been worse than removing it.**
+  Option 1 of the escalation folded `tests/test_cli.py` into CARD-265 and the narrowing merge
+  `4f7263fb` resolved that file to **main's version, verified byte-identical**. So AC-7's named control
+  is not in this branch: `git diff main...HEAD` does not list `tests/test_cli.py` at all. An AC whose
+  test no longer exists in the diff can only be scored `✗ unverified` — and this board's own routing
+  reads a repeated `unverified` as *the criterion is unverifiable as written*, which would have sent a
+  correctly-executed owner decision back to the architect station as a requirement defect. The work
+  itself is not lost and is not weakened: all nine functions are named on CARD-265, recoverable at
+  `git show d5da18ff:tests/test_cli.py`, with the explicit condition that each must be **re-measured**
+  against whichever `_ADAPTER_COUNT` bound that card settles on. CARD-265 additionally carries the
+  two-way table showing neither bound dominates, which is more than this card ever knew.
+
+  **What this card is still answerable for, and it is not nothing.** AC-7's subject was prose claiming
+  a count; the *route* that made that prose reachable was `CLAUDE.md`'s pointer into `_ADAPTERS`, and
+  this card still closes the `CLAUDE.md` end of it (see AC-1/AC-3 and `## Guardrails` G-1). The
+  remaining open site is named on the card, measured, and deliberately left:
+  `src/nonogram/web/__init__.py:21`.
 
 ## Routed in from CARD-261's review cycle 1 — F-107, measured wider than it was filed
 
@@ -1238,3 +1258,82 @@ the same way, `PY=` pointing at main's interpreter as an interpreter only.
 This is the answer the card asked to be carried, and it is the benign half of the fork it named:
 the script falls back because `CLAUDE.md` is a repo-wide fact it cannot model, which is correct.
 Nothing was hand-picked — the gate runs the full suite, which is what `FULL` means.
+
+### [Review sync] cycle 1's report is in `meta/review/`; and **two of the polish round's own fixes left with the fold**
+
+`meta/review/20261022T114447Z-CARD-264-cycle1.yml` (63 KB) is in the main repo, so the evidence
+survives whatever happens to the worktree. Re-read for this re-entry: cycle 1 was **0 critical, 0
+important** — all twelve findings were minor / nit / zero, which is why it passed the severity gate at
+8.3. The polish round was therefore **elective**, not gate-forced, and that is exactly why it has never
+been reviewed: the procedure's success path goes from a passing cycle to the AC gate, and this card
+spent an extra round on minors before the narrowing interrupted it.
+
+**Measured, not assumed: which of the polish round's fixes are still in the diff.** `d5da18ff` touched
+four files; the narrowing merge resolved one of them (`tests/test_cli.py`) to main's version, so that
+file's share of the fix round left the branch with it:
+
+| finding | the polish fix | in this branch? |
+|---|---|---|
+| F-1 (the AC-7 bypass) | `_allowlist_prose` must find its subject in a `test_*` carrier | **gone** — `git grep _allowlist_prose HEAD` is empty; it is CARD-265's, by name |
+| F-2 (`_COUNT_CLAIM`'s undeclared reach) | `MEASURED_COUNT_CLAIM_MISSES`, 5 families / 8 miss cases / 4 caught | **gone** — same file, same fold |
+| F-3 (a name that lied) | the rename + `MEASURED_AST_SWEEP_MISSES` | **present** (`tests/test_web_server.py`) |
+| F-4 (basename-keyed exemption) | `_web_relative` at all three sites | **present** (`tests/test_web_server.py`) |
+| F-5 (fence blind spot) | **closed** rather than declared — `_classify` denies fence openers | **present** (`tests/test_guard_integrity.py`) |
+| F-6, F-8 | `MEASURED_CLAIM_MISSES` 3rd entry; `MEASURED_TIMEOUT_CLAIM_MISSES` | **present** |
+| F-9 (off-by-nine line citations) | the two numbers deleted, the fence cites by name | **present** (the docs page) |
+| F-10 (extras restated in a docstring) | the restatement dropped; a control built from pyproject's keys | **present** |
+| F-11 (the 575 figure) | `_repo_paths()` excludes `__pycache__`, with a control | **present** |
+| F-7 | needed nothing | n/a |
+
+So **nine of the eleven acted-on findings are in the tree for cycle 2 to read, and two are not** — and
+the two that are not are the two whose subject was the folded file. Nothing was silently dropped: both
+are named on CARD-265 (F-1's fix *is* `test_the_pin_has_to_live_in_a_test_and_not_in_a_helper` in that
+card's list of nine), with the standing condition that each must be re-measured against whichever
+`_ADAPTER_COUNT` bound that card settles on rather than adopted as written.
+
+**[System contract] re-assembled fresh for this re-entry — projection 10, unchanged.** `system_rules.py
+--card CARD-264 --root meta/architecture` returns exactly the same ten ids the card recorded at dispatch
+(ADR-0038/R7, R8; ADR-0039/R1, R2, R3; CON-005, CON-009, CON-010, CON-011, CON-012), so the card's
+section is **not** stale and needs no refresh. Checked rather than assumed, because the model did move
+underneath this card while it waited: **ADR-0040** landed on main (book production at a
+composite-capability rank) and the lens correctly does not project it here — this card's `Touches`
+reaches no book path.
+
+### [Build gate] **PASSED** at `99782837` — full suite, exit 0, and the delta reconciles to this card exactly
+
+The gate owed since the narrowing. Run in the worktree under the board's **real**
+`meta/kanban/.full-suite.lock` — not a redirected scratch path this time, because no sibling pipeline
+is live and the lock's job here is to stop one appearing beside it. Lock written with an absolute
+`worktree:` (CARD-255's guard refuses a relative one), released by the script and verified gone
+afterwards; the worktree is clean.
+
+| figure | value |
+|---|---|
+| pytest exit code | **0** |
+| executed | **8919** |
+| passed | **8892** |
+| skipped | **27** |
+| failed / error | **0 / 0** |
+| `FAILED`/`ERROR` node lines in the output | **0** |
+
+Counted from the progress rows (124 rows, character census), because this repo's `-q` output does not
+reliably print a pass-count line — the same reading discipline the last three gates on this board used,
+with the exit code as the authority either way. The 27 skips are the standing DB-mode skips (no
+`nonogram_test` database), unchanged from CARD-262's and CARD-270's gates.
+
+**Non-vacuity is structural here rather than asserted.** Against CARD-270's gate (8883 executed) this
+is **+36**, and the per-file collection delta between `main` and this branch is:
+
+```
+tests/test_guard_integrity.py   131 -> 156   (+25)
+tests/test_web_server.py        154 -> 165   (+11)
+tests/test_timeout.py            17 ->  17   (  0)
+tests/test_sourcing_image.py    133 -> 133   (  0)
+                                             -----
+                                              +36
+```
+
+**+36 and +36.** The gate's entire growth is this card's own additions and nothing else, which is a
+stronger statement than "the suite is green": a green suite that gained tests it cannot account for is
+how a vacuous gate reads from the outside. (The two files at +0 are the docstring corrections — one
+symbol name each — so a zero there is the right answer, not a missing one.)
