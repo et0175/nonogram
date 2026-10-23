@@ -224,7 +224,12 @@ this card's dead `validate_size` token, and CARD-261's two gating findings.
   member of every hand-written guard set still names something that exists"*, and this card is the
   natural place to propose it.
 
-## [Owner decision 2026-10-22] AC-7 stays here, and this card goes out next wave
+## [Owner decision 2026-10-22] AC-7 stays here, and this card goes out next wave  <!-- SUPERSEDED 2026-10-23 -->
+
+> **Superseded 2026-10-23 by the owner's fold decision**, recorded in the `Touches` comment at the top of
+> this card and in the `## Narrowed` section: AC-7 moved to **CARD-265**. The section below is kept as the
+> record of why it was *not* folded a day earlier, which is still the honest history — but it no longer
+> states what is true, and the AC block above marks AC-7 withdrawn.
 
 CARD-261's cycle 2 raised the question of folding AC-7 into that card's fix round, because CARD-261
 creates the first **reachable** pointer from the every-session file into `_ADAPTERS`. The owner's decision
@@ -3342,3 +3347,30 @@ control "reds", "survives" or that some list of directions "all red", and requir
 direction or narrow the claim to what is constructed.** Cycle 5 named one sibling in passing — the census
 comment's *"Dropping `.md` or `.py` reds, dropping `.yml` survives"* — and a brief that names a sibling
 gets that sibling checked while a brief that names the class gets every arm checked.
+
+## [Orchestrator] Cycle 5's two minors — one was already fixed in the copy that survives, and that is itself the finding
+
+**F-004 (AC-7 left live naming a test that exists nowhere) is a CARD SYNC artifact, not a stale AC.** The
+reviewer read `meta/kanban/cards/CARD-264.md` **in the worktree** — the agent-owned copy — where AC-7 is
+still live and unmarked at `:118`. In **main's** copy, the orchestrator-owned one that survives the merge,
+AC-7 has been struck through and marked *"WITHDRAWN FROM THIS CARD 2026-10-23 — moved to CARD-265"* since
+the fold, with the byte-identical-resolution evidence beside it. So the finding is accurate about the file
+it was pointed at and does not describe the card that merges.
+
+**What was genuinely stale in main's copy**, and is now fixed, is the *other* half: the
+`## [Owner decision 2026-10-22] AC-7 stays here` heading, which the 2026-10-23 fold superseded and which
+contradicted the AC block four screens above it. It is now marked `<!-- SUPERSEDED 2026-10-23 -->` with a
+blockquote naming what replaced it, and the section is **kept** rather than deleted: why AC-7 was *not*
+folded a day earlier is honest history, it just no longer states what is true.
+
+**The general shape, routed to the backlog.** The AC block, `Touches`, `Status` and the review-score field
+are **orchestrator-owned** and live in *both* copies, while the CARD SYNC PROTOCOL only syncs
+worktree→main, and only for the agent's own notes. So every reviewer reads orchestrator-owned fields from
+the copy that is never updated, and will keep filing findings against text the merging card does not
+contain. Cycle 5 is the second time this has cost a finding on this card.
+
+F-003 (m-4's untested line-number citation in the docs page) is **deferred to after fix round 5 hands
+back**: the file is in the worktree and the fix agent is live in it, and this board's standing rule is that
+a mutating agent gets its own tree or the work serializes. An edit of mine landing there now would also
+break the fixer's own `git status --porcelain` restore verification, which is the check that proves it put
+every mutated file back.
