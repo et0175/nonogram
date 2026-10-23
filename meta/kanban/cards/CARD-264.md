@@ -3374,3 +3374,287 @@ back**: the file is in the worktree and the fix agent is live in it, and this bo
 a mutating agent gets its own tree or the work serializes. An edit of mine landing there now would also
 break the fixer's own `git status --porcelain` restore verification, which is the check that proves it put
 every mutated file back.
+
+## [One-way sync] Fix round 5's own notes, pulled from the worktree
+
+Agent-owned text, copied verbatim at the end of the round. The orchestrator's pre-gate is the section after it.
+
+## Worktree notes -- fix round 5 (`forge:fix`, auto), 2026-10-23, on cycle 5 (7.6, NOT CERTIFIED)
+
+Scope: `tests/test_guard_integrity.py`, `tests/test_web_server.py` (the class audit reached it -- see
+below) and this card. `CLAUDE.md` untouched (G-1); no `src/` path touched (G-6). Two gating findings,
+plus the **class** of claim each belongs to.
+
+### The instruction this round exists for: a fix mutates by DELETING the mechanism its claims name
+
+Round 4 ran nine mutants. Eight mutate declaration text or a comment figure and the ninth reverts a
+behaviour change; **none deletes a mechanism**. That is a matrix that certifies the round's own
+additions and says nothing about whether they are load-bearing, and it is why F-001 survived a round
+that was otherwise good work. Every mutant below deletes a mechanism this round's claims name, and two
+more are required by shape: an **add-a-line** mutant on a real entry and a **co-edited-drop** mutant.
+
+### F-001 -- clause 2, narrowed to what is constructed and widened where a case was owed
+
+Cycle 5's three refutations, each answered with a case rather than a sentence:
+
+1. **The delete-the-mechanism mutant is now killed.** `if span != len(element_keys):` is the only code
+   implementing the add/delete directions; cycle 5 disabled it and got **exit 0, 210 reached, 0 FAIL**,
+   167/167 green. `M1-SPAN-EQ-DELETE` below is that same mutant; it now reds at two assertion nodes in
+   the recording pass (`:4954` on the added direction, `:4955` on the dropped one's misattribution) and
+   at one in the re-raising pass, which stops at the first direction that fails.
+2. **The add direction is constructed.** An unkeyed continuation line appended to the fabricated
+   entry; the verdict must *name* it, by line number -- `fabricated.py:2: MEASURED_FABRICATED_MISSES[0]
+   spans 3 source line(s) and carries 2 key(s)`. Appended at the **end** of the entry deliberately: the
+   keys of every earlier line still sit on their own line, so with the span equality disabled the
+   verdict is `[]` and this case is the only thing in the file that reds. A middle-line insertion would
+   red for a *different* reason (every later key mismatching its line) and could not tell the two
+   apart.
+3. **The co-edited drop is constructed, as the empty verdict it is, and given a control.** A
+   declaration line removed *together with* its key phrase: both counts fall by one, the span equality
+   is satisfied, every surviving key is still on its line. The case asserts `== []` -- the honest
+   reading -- and the control is the new **census equality**, which the round-4 floor could not be: at
+   `>= 45` against a measured 57 it had eleven lines of slack.
+
+**The equality, and the door each figure came through.** `assert _declaration_census(
+_MEASURED_TABLE_LINE_KEYS) == (5, 12, 57)` replaces `assert keyed >= 45`. **5 tables / 12 entries / 57
+source lines**, each figure re-derived against the final tree through **two independent doors** (see
+"The complete enumeration" above, which is where F-002 put them): the keys mapping via
+`_declaration_census`, and the deployed enumerator's own `ast.Assign`/tuple-element walk over both
+sources summing `end_lineno - lineno + 1`. `(5, 12, 57)` both ways, with the deployed verdict `[]` on
+both files at the same moment -- which is what makes the keys door's figures the *sources'* figures.
+Nothing was copied from the brief or from the sentence being fixed.
+
+**Every direction now has a constructed case, so clause 2 is widened rather than narrowed** -- seven of
+them, each asserting the line the verdict names and `len(verdict) == 1` so a misattribution cannot
+pass: gutted (`:3`), inverted (`:4`), moved (`:3`), dropped (`:2`, on the count), **added** (`:2`, on
+the count), **entry count** (naming the table) and renamed (naming the table). The one direction with
+no catch is the co-edited drop, and it is **declared** rather than claimed sound, in the contract block,
+in the class docstring and in `tests/test_web_server.py`'s pointer -- with the census named as what
+sees it. The existing `dropped` case, which cycle 5 correctly called a non-discriminating control,
+becomes one by having its *message* pinned: with the span equality deleted it still reds, but at `:3`
+for a key mismatch, and the `startswith` assert now fails on exactly that.
+
+### F-002 -- the headline figures re-derived, and what the 216-variant sweep cannot see
+
+Both are in "The complete enumeration" above, corrected in place with the cause on the record
+(9/4/11 is the tree *before* m-A added the tenth table in that same round). The sweep's blind spot is
+stated there in its own paragraph: **none of its four mutations changes an entry's line count**, so the
+span equality is outside the domain of all 216 variants -- and of the reviewer's 197-variant
+replication. A sweep is a measurement over the mutations it enumerates, never over the mechanism.
+
+### Mutants -- committed instrument only, both passes, ANY-RED, every one a DELETION
+
+`tests/kill_matrix.py`, target and selection `tests/test_guard_integrity.py` (one file: the instrument
+**cannot** measure `tests/test_web_server.py`'s `TestWebGuards_EveryStructuralLoopAssertsNonEmpty`, so
+that class was never in any measurement selection here -- stated rather than left to be inferred).
+**Domain of every figure: 214 `ast.Assert` nodes**, carried separately from the 167 collected tests;
+child instrumentation off.
+
+* **Trap (a)**: every `old` pre-counted -- **eleven edits across ten mutants, each occurring exactly
+  once, line-delta 0 for every one** (the two count-changing shapes are made line-count preserving by
+  spending a blank line inside the same edit, which is why the instrument accepted them at all).
+* **Trap (b)**: SHIPPED's **exit code read, not only its cells** -- `pytest exit 0`, `0 FAIL of 214
+  reached`, 167 collected, in **both** passes; and SHIPPED re-run **between** every mutant, `exit 0,
+  FAIL []`, ten times per pass.
+* **Seven of the ten had a recording-pass exit 0 while the matrix recorded FAIL cells**, which is the
+  reading the discipline warns about and why every row below states the pass, the exit code and the
+  denominator together.
+* **Measured three times, and only the reading against the FROZEN tree is quoted.** Every earlier run
+  was taken before a later prose edit, and each of those edits moved the asserts below it -- sixteen
+  lines, then three, then three more. The kill/survive verdicts were identical in all three runs, but a
+  **cell citation** from an earlier one would have been a stale figure of precisely the kind F-002 is
+  about, so the whole matrix was re-run once the file stopped changing, with all ten mutants
+  re-pre-counted against that exact tree first (eleven edits, one occurrence each, line-delta 0, zero
+  refusals). These are that run's figures, and no number below was carried over from the earlier ones.
+
+| mutant | the mechanism it **deletes** | recording | re-raising | FAIL cells |
+| --- | --- | --- | --- | --- |
+| `M1-SPAN-EQ-DELETE` | `if span != len(element_keys):` -> `if False and ...`: the only code in this module that reads an entry's line **count**. Cycle 5's surviving `M2-SPAN-EQ-DROP` | exit 1, 209 reached, 2 FAIL | exit 1, 209, 1 FAIL | `:4954` + `:4955` (recording); `:4955` alone re-raising, which stops at the first direction that fails |
+| `M2-PER-LINE-DELETE` | `if phrase not in line:`: the per-line phrase comparison | exit 1, 208, 1 | exit 1, 208, 1 | `:4954` |
+| `M3-ENTRY-COUNT-DELETE` | `if len(value.elts) != len(entry_keys):`: the entry-count arm | exit 1, 209, 1 | exit 1, 209, 1 | `:4954` |
+| `M4-ASSIGNED-NOWHERE-DELETE` | `if value is None:`: the keyed-here-but-assigned-nowhere arm | exit 0, 214, 1 | exit 1, 209, 1 | `:4955` -- the *message* assert, the defect becoming "is not a tuple display" instead |
+| `M5-CENSUS-LINES-DELETE` | the line counting **inside** `_declaration_census` (`len(group)` -> `len(group) * 0`) | exit 0, 214, 3 | exit 1, 211, 2 | `:4807`, `:4973`, `:4974` (recording); `:4807`, `:4973` (re-raising) |
+| `M5b-ADD-LINE-REAL` (**the add-a-line mutant**) | nothing deleted -- the shape the brief requires: a 14th, unkeyed line appended to the **real** `MEASURED_CLAIM_MISSES[2]` | exit 0, 214, 1 | exit 1, 213, 1 | `:4791` |
+| `M6-CO-EDITED-DROP` (**the co-edited-drop mutant**) | the real entry's path/keyword declaration line **and** its key phrase, in one mutant (two edits) | exit 0, 214, 1 | exit 1, **214**, 1 | `:4807` **only** |
+| `M7-MD-DROP` | `.md` out of `_PATH_SUFFIXES` | exit 0, 214, 7 | exit 1, 201, 4 | `:3875`, `:4011`, `:4058`, `:4070`, `:4071`, `:4101`, `:4102` |
+| `M8-YML-DROP` | `.yml` out of `_PATH_SUFFIXES` -- round 3's measured **survivor**, and no longer one | exit 0, 214, 3 | exit 1, 209, 1 | `:4058`, `:4070`, `:4071` |
+| `M9-PY-DROP` | `.py` out of `_PATH_SUFFIXES` | exit 0, 214, 6 | exit 1, 209, 4 | `:3702`, `:4009`, `:4011`, `:4025`, `:4058`, `:4070` |
+
+**10 of 10 killed, ANY-RED, in both passes.**
+
+**M6 is the row that matters most, and it is the one with a single cell.** The co-edited drop reds at
+`:4807`, the census equality, and **nowhere else**: `:4791`'s per-line verdict passes, and so do the
+three value-read asserts in that entry's own committed case (`:3889`-`:3891`). That is the asymmetry
+the contract states, measured: the per-line arm is blind to it by construction and the equality is the
+only thing that sees it. Before this round the same mutant took `keyed` from 57 to 56 against a floor
+of 45 and the file stayed green. Note its re-raising figure -- **214 reached**, nothing short-circuited
+past -- so the single cell is the whole reading rather than the first of several.
+
+**M5b is the row cycle 5 asked for.** Adding a line to a real entry reds at `:4791` through the span
+equality; under `M1` it would not red at all, which is the whole content of F-001.
+
+**Every assertion this round added or changed has a mutant that reds it**: `:4791` (`M5b`), `:4807`
+(`M6`, `M5`), `:4954` (`M1`, `M2`, `M3`), `:4955` (`M1`, `M4`), `:4973` and `:4974` (`M5`, the second
+of the two in the recording pass only, the re-raising pass stopping at the first). No decorative arm
+shipped.
+
+### The class, not the instance -- every direction-enumerating claim in `git diff d90753df..8727e519`
+
+The brief asked for the class rather than the sibling it named. Enumerated by grepping the diff's added
+lines for `reds`, `survive`/`survives` and "all red", then reading each hit for whether it *enumerates*
+directions, and finally checking each direction against the committed cases. Eleven claims, of which **two families** were defective -- clause 2 with its two
+restatements, and the census sentence:
+
+| the claim | directions | verdict |
+| --- | --- | --- |
+| contract clause 2 (module block above `_MEASURED_TABLE_LINE_KEYS`) | gut, invert, add, delete, move | **F-001.** Add constructed nowhere; delete non-discriminating. Now seven constructed directions, each asserting the line the verdict names, plus the co-edited drop **declared** with the census as its control |
+| the same clause in `test_the_rule_names_what_it_cannot_see`'s docstring | the same five | restated to match, with the declared exception named |
+| the same clause in `tests/test_web_server.py`'s `#:` block over `MEASURED_AST_SWEEP_MISSES` | gut, invert, move, entry count -- "by line number" | **corrected**: the entry-count defect names the **table**, not a line; add and drop named; the co-edited drop declared; the local figures removed in favour of the census. This is the one place the audit reached `tests/test_web_server.py` |
+| `_PATH_SUFFIXES`' census comment: "Dropping `.md` or `.py` reds, dropping `.yml` **survives**" | 3 | **REFUTED by measurement.** `.md` reds at 7 assertion nodes, `.py` at 6, `.yml` at **3** -- the W-2 survivor was closed by m-B's census in the same round that kept quoting it. Sentence rewritten with the three figures and the cause |
+| `MEASURED_TIMEOUT_CLAIM_MISSES[1]`: colon, comma, em-dash missed; full stop, semicolon caught | 5 | holds -- three missed and two caught bodies constructed in `test_the_rule_names_what_its_two_words_cannot_reach` |
+| the dependency comment: the member arm is independent of **quoting**, **case** and **spelling** | 3 | holds -- five spellings (canonical, `_`, `.`, upper, backticked) in `test_a_member_is_caught_however_it_is_spelled` |
+| "a paragraph that lists an extra's *members* unquoted still reds, **once per member**" | per member | holds -- `assert len(caught) == len(members)` over a real extra's real members |
+| `_UNENFORCED_PHRASES`: "rotting any single member red" | per member | holds -- a parametrised case per member, caught WITH and missed WITHOUT |
+| `MEASURED_UNENFORCED_PHRASE_MISSES`: six synonyms missed, each caught when a deny-list member replaces it | 6 x 2 | holds -- the loop covers all six on both sides |
+| the figure rule: "both spellings and both sides of the figure now have a case" | 2 x 2 | holds, with one thing stated rather than implied: the **first** side alone has no input of its own; what demonstrates it is read is the two-report verdict on `40x40`/`40×40`, and the second side alone has its own case |
+| the substring arm: a *code*-shaped reference reds at the AST arm, a *prose*-shaped one at the exemption equality (`tests/test_web_server.py:2257`-`:2270`) | 2 | **not touched** -- the brief puts the substring arm's declared zero unique detection out of scope. Flagged for the record: fix round 2 measured both directions **in memory**, and neither is a committed case; the declaration is honest about the arm's reach, but its two directions rest on a measurement nothing re-runs |
+
+**One mutant no control can kill, declared rather than papered over**: deleting the census assertion
+*line itself*. It is the control; nothing in the tree observes its absence, and no honest matrix can
+claim otherwise. What is measured instead is that the mechanism the assertion reads can fail
+(`M5-CENSUS-LINES-DELETE`) and that the assertion reds on the realistic edit (`M6`). The same is true
+of every terminal control in this module, and it is the reason the contract is written where a reader
+of the tables finds it.
+
+### Declarations re-derived (`forge:fix` step 6b)
+
+* **DECLARATIONS F-001** -- clause 2 in the module contract block, the same clause in
+  `TestTheDeclaredMissTables`' class docstring and in `test_the_rule_names_what_it_cannot_see`'s, the
+  pointer in `tests/test_web_server.py`, and this card's SEMANTICS 2 bullet: all five restated from the
+  mechanism as it now stands, each naming the constructed cases and the one declared blind spot. The
+  floor's own failure text ("the contract is reading too little") is gone with the floor.
+* **DECLARATIONS F-002** -- the card's "The complete enumeration" headline figures and the
+  216-variant sweep's stated coverage, both re-derived through the deployed enumerator; the contract
+  block's "Two other shapes" count **retired** to the dict that can be re-derived; the `_PATH_SUFFIXES`
+  census comment's survivor sentence corrected by measurement.
+* No behaviour changed in any guard this round: `_unkeyed_declaration_lines`, `_measured_table_names`,
+  `_classify`, `_is_type_expression`, `_PATH_SUFFIXES` and every `MEASURED_*` table are **byte-for-byte
+  as fix round 4 left them**. What changed is one new pure helper (`_declaration_census`), one floor
+  turned into an equality, three cases added to one control, and the declarations above.
+
+### Selections, collected **and** passed
+
+Every figure from a run that was **not** silenced (no `-q` passed, which would have stacked onto
+`addopts` to make `-qq` and printed no count line at all):
+
+| selection | collected | passed | pytest exit |
+| --- | --- | --- | --- |
+| `tests/test_guard_integrity.py` | 167 | **167** | 0 |
+| `tests/test_web_server.py` | 166 | **166** | 0 |
+| the three `TestTheDeclaredMissTables` tests by **explicit node id** | 3 | **3** | 0 |
+| SHIPPED under the instrument, both passes | 167 | 214 of 214 assertion nodes PASS, 0 FAIL | 0 |
+
+No skips hid in them: the passed count equals the collected count in every row, which is the only
+figure that separates a green run from a green-with-skips one.
+
+### Guardrails
+
+* **G-1:** `CLAUDE.md` **untouched** -- byte-identical through every plant (`shasum -a 256 -c` OK in
+  both manifests), and `git diff -U0 d90753df -- CLAUDE.md` still exactly the three single-line hunks
+  round 4 left.
+* **G-2:** the web guard not weakened. The only edit to `tests/test_web_server.py` is the `#:` comment
+  above `MEASURED_AST_SWEEP_MISSES`; `_WEB_SOURCES`' and `_DOMAIN_VALIDATORS`' non-empty assertions and
+  both sweeps are untouched. Whole-file run: **166 collected, 166 passed, exit 0**.
+* **G-3:** no second copy. The census reads `_MEASURED_TABLE_LINE_KEYS`, the one authority, and the
+  figures that were sitting in `tests/test_web_server.py`'s comment were **removed** rather than
+  updated.
+* **G-4:** `nonogram_poc` never named or touched; the instrument refuses such an edit by construction.
+* **G-5:** stdlib only; `_declaration_census` adds no import.
+* **G-6:** no `src/` path in the diff (`git diff --name-only` lists the two test files and this card),
+  and **zero** codepoints in U+25A0..U+25FF, U+2022 or U+2219 added anywhere in it -- verified rather
+  than assumed, since the rule's subject is `src/nonogram/**` and this round edits nothing there.
+* **G-7:** no timing measurement taken, no duration reported.
+* **The full suite was never run.** Impact-scoped only: the two test files, whole-file selections, plus
+  the instrument's own selection of `tests/test_guard_integrity.py`. Every pytest, script and mutant ran
+  with `NONOGRAM_FULL_SUITE_LOCK` pointing into this session's scratchpad
+  (`.../scratchpad/card264-fix5.lock`); the board's own `meta/kanban/.full-suite.lock` was never read,
+  written or created, and the suite printed the override line in every run.
+* Plants: manifest built **up front** (`shasum -a 256` over the files any plant could reach), `cp -p`
+  backups, and restoration verified **three ways** after each run -- `shasum -a 256 -c`, `diff -q`
+  against the backups, and `git status --porcelain`, which shows only the two test files and this card.
+* **Nothing committed**, per the brief: the orchestrator pre-gates and commits.
+
+### Not touched, named so the next reader does not look for them
+
+* `CLAUDE.md` (G-1), anything under `src/` (G-6), `tests/test_cli.py` (byte-identical to `main`;
+  `_ADAPTER_COUNT` is **CARD-265's**), `tests/test_timeout.py` (`_blind_propagation` is **CARD-278's**),
+  the `check_deadline` census (**CARD-266's**).
+* The substring arm's declared zero unique detection in `tests/test_web_server.py:2227`-`:2241` and the
+  two-direction comment under it -- out of scope by the brief, flagged in the class audit above.
+* Cycle 5's two minors -- m-4's untested line-number citation (F-003) and AC-7's presentation (F-004) --
+  are the orchestrator's, per the brief.
+* The review report `meta/review/20261023T103148Z-CARD-264-cycle5.yml` was **not** edited: the brief
+  scopes this round to the two test files and this card, and round 4 left its own findings `open` the
+  same way.
+
+## [Orchestrator pre-gate] Fix round 5 — three mutants re-derived, and my own instrument was wrong twice before it was right
+
+Run before the commit, in the worktree, with `NONOGRAM_FULL_SUITE_LOCK` redirected to a scratch path.
+
+**1. The enumeration first, by AST, because it decides what the gate should show.** Test methods in
+`tests/test_guard_integrity.py`: **66 → 66**. One test **renamed**, none added —
+`test_the_line_keying_control_reds_on_a_gutted_or_inverted_line` →
+`…_reds_on_every_direction_it_declares`. `ast.Assert` nodes **210 → 214**. So the full suite's collected
+count must **not move**: the prediction for this gate is 8931 executed again, unchanged.
+
+**2. The renamed test selected by node id — 3 collected, 3 passed, exit 0**, each named in `-rA`
+(`test_every_line_of_every_declared_miss_entry_is_keyed`,
+`test_every_measured_table_in_the_tree_is_accounted_for`, and the renamed one). **And the OLD name was
+run deliberately**: pytest answers `no match in any of [<Class TestTheDeclaredMissTables>]` rather than
+passing — the rename fails loudly, which is the property that makes a node-id selection trustworthy and
+that a `-k` would not have.
+
+**3. Both touched files whole:** `tests/test_guard_integrity.py` **167/167 exit 0**,
+`tests/test_web_server.py` **166/166 exit 0**. Exactly the round's figures.
+
+**4. Three mutants re-derived with a plain `pytest`, not with `tests/kill_matrix.py`** — on this card the
+instrument's trustworthiness is the subject, so checking its claim and re-running it are different acts. A
+plain run has no line-number topology to protect, so a deletion is spelled here **as a deletion** rather
+than being made line-count preserving. Trap (a) honoured: all four anchors pre-counted to exactly one
+occurrence. Trap (b): SHIPPED's exit code read, not only its failures.
+
+| mutant | verdict | reds at |
+| --- | --- | --- |
+| SHIPPED | clean — exit 0, 167 passed, no failures | — |
+| **M1 span-equality disabled** — *the mutant that SURVIVED cycle 5 at 167/167* | **KILLED**, exit 1, 1 failed | `…::test_the_line_keying_control_reds_on_every_direction_it_declares` |
+| **M6 co-edited drop** — the declaration line **and** its key phrase both deleted | **KILLED**, exit 1, 1 failed | `…::test_every_line_of_every_declared_miss_entry_is_keyed` |
+| **M8 `.yml` dropped from `_PATH_SUFFIXES`** — round 3 measured this as a **survivor** | **KILLED**, exit 1, 1 failed | `…::test_the_path_suffix_census_is_the_one_this_comment_states` |
+
+Target restored from a `cp -p` backup after every mutant, verified by `sha256` against the pre-run digest.
+
+**One honest difference from the round's own table, worth stating rather than smoothing:** the round's M6
+is line-count **preserving** (it spends a blank line in the same edit) and therefore reds at the *census
+equality* and nowhere else; mine is a true deletion and reds at the *per-line keying* test. Both are kills
+of the same direction, through different controls — which is the better outcome, because it shows the kill
+does not depend on the line-count compensation. And M8 confirms the round's claim **flip**: round 3's
+"dropping `.yml` survives" was true when it was measured and was closed by m-B's own census in the round
+that kept quoting it, so the sentence was stale rather than wrong. That is this card's subject exactly.
+
+**5. The equality's figures re-derived in a domain of my own** — my own `ast` walk over both sources,
+counting physical lines myself, with no import of the module, no `_declaration_census` and no reuse of the
+deployed enumerator: **10 `MEASURED_*` assignments, 5 keyed per line, 5 exempted by name,
+`found == keyed | exempt` TRUE (no third state), and the census `(5, 12, 57)`** — agreeing with the
+equality the test pins, and with per-table spans `1+4+13`, `3+3+10`, `2+3`, `9`, `6+1+2`.
+
+**And my instrument was wrong twice before it was right, both times silently.** The first pass handled only
+`ast.Assign` and so missed three tables and **both** registries — it reported `7 / 0 / 0` and a census of
+`(0, 0, 0)` without erroring, because the tables are **annotated** assignments (`ast.AnnAssign`). The
+second pass read `_MEASURED_TABLE_LINE_KEYS` one level too shallow and reported the two **file paths** as
+if they were table names (`2` keyed). Both were caught by comparing against the equality the code pins —
+**the control checked my measurement**, which is the inversion this whole card has been about, and the
+reason the figures above are stated with the door they came through.
+
+**6. Guardrails re-verified at the gate rather than taken from the round's note.** G-1: `git diff -U0
+d90753df -- CLAUDE.md` is exactly three single-line hunks, `@@ -46 +46 @@`, `@@ -48 +48 @@`, `@@ -50 +50 @@`.
+G-6: no `src/` path in the committed diff, and the working tree held only the three intended files.
+ADR-0036/R4: **0** codepoints in U+25A0..U+25FF, U+2022 or U+2219 across both test files.
