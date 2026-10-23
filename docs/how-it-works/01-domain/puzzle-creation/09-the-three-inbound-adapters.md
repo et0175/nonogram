@@ -17,9 +17,11 @@ and ADR-0008 kept exactly one `[project.scripts]` console entry point — so
 adapters behind them" (`cli.py:7`). The admin panel is a **third**, outside
 ADR-0019's scope as written, with its own entry point and its own process.
 
-`src/nonogram/__init__.py`'s module docstring is careful about that sentence:
+`src/nonogram/__init__.py:71-73`'s module docstring is careful about that
+sentence, and says so in the same breath that names the third:
 "'There are exactly two adapters (ADR-0019)' below describes the *pipeline's*
-adapters, not a count of every entry point in the tree."
+adapters, not a count of every entry point in the tree: `admin/` is a third
+one, outside ADR-0019's scope as written."
 
 The import guard lists the adapter rank by name rather than by pattern, and the
 comment above `_ADAPTERS` in `tests/test_cli.py` says why: **"A guard with an

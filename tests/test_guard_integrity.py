@@ -2908,6 +2908,268 @@ GUARDED_PARAGRAPHS = (
 #: a new keyword-shaped span is a red that has to be judged, not absorbed.
 MEASURED_KEYWORD_SPANS = ("choices=", "type=")
 
+
+# ---------------------------------------------------------------------------
+# THE ``MEASURED_*`` DECLARED-MISS CONTRACT
+#
+# Three fix rounds of CARD-264 each found a defect in these tables and each
+# re-derived their semantics differently, because the semantics were written
+# down nowhere. Fix round 3 left a control **weaker than it found it**: it
+# reworded ``MEASURED_CLAIM_MISSES[2]`` and the fragments its case keyed on
+# moved off the lines that carry the claim, so gutting that entry's middle
+# line went from ``1 failed`` at e26e5473 to green at 098ecd91. So the
+# contract is written here, once, and the tables follow it.
+#
+# **1. What an entry's text means.** An entry declares a bound on a guard:
+# *the guard does not catch the shapes this text describes.* The text is
+# therefore held to be **exactly** what was measured. Wider is a claimed
+# hole that does not exist -- a reader closes a gap already closed, or stops
+# trusting a rule that works. Narrower leaves a real hole undeclared, which
+# is this card's whole subject. Both directions have now occurred in one
+# entry in consecutive rounds: review cycle 1 found it wider than the branch
+# it describes, fix round 3 over-corrected it narrower, and fix round 4
+# restated it as the branch condition itself.
+#
+# **2. How an entry is keyed.** *Every physical source line of every entry
+# carries a required phrase, and the phrase is checked against **that**
+# line.* :data:`_MEASURED_TABLE_LINE_KEYS` holds one phrase per line, and
+# :func:`_unkeyed_declaration_lines` reads the tables back out of the test
+# source with ``ast`` and checks each phrase against the line it belongs to.
+# Gutting a line, inverting it, adding one, deleting one, or moving a keyed
+# phrase onto a neighbouring line of the same entry all red.
+#
+# The two alternatives were rejected by measurement rather than by taste.
+# *Keying only the operative clause* is what fix rounds 2 and 3 did; it is
+# cheaper, and it is exactly what let the two mutants above survive, because
+# a key that lives anywhere in the entry leaves every other line free text.
+# *Whole-entry equality* is strictly stronger, and was rejected because it
+# churns on every reword and reports the failure as the whole paragraph
+# printed twice, with nothing saying which line moved -- per-line keys fail
+# with the line number and the phrase that left it, which is the diagnosis a
+# later round actually needs.
+#
+# **3. What an entry's case must do.** A committed case on the correct side:
+# the declared shape constructed and shown **missed** by the deployed rule,
+# and, where the entry excludes a neighbouring shape, that shape constructed
+# and shown **caught**. A case that only asserts prose about the rule is the
+# vacuous arm this card exists to remove.
+#
+# The contract covers the tables that declare a bound **in prose**. Two other
+# shapes of ``MEASURED_*`` table in this tree are keyed differently and are
+# exempted by name in :data:`_MEASURED_TABLES_KEYED_ELSEWHERE`, so that a new
+# table named ``MEASURED_*`` with no keys is a red rather than a discovery
+# for a fifth round.
+# ---------------------------------------------------------------------------
+
+#: One required phrase per **source line** of every prose ``MEASURED_*``
+#: entry, per file. Keyed by repo-relative path because the contract spans
+#: two modules: ``tests/test_web_server.py``'s declared misses are read here
+#: rather than copied (G-3), which is the same mutual-eyes arrangement this
+#: module's own docstring opens with. Held by
+#: ``TestTheDeclaredMissTables.test_every_line_of_every_declared_miss_entry_is_keyed``.
+_MEASURED_TABLE_LINE_KEYS: dict[str, dict[str, tuple[tuple[str, ...], ...]]] = {
+    "tests/test_guard_integrity.py": {
+        "MEASURED_CLAIM_MISSES": (
+            ("written without backticks, anywhere in the file",),
+            (
+                "lead-in is not in GUARDED_PARAGRAPHS",
+                "including a continuation block under a guarded lead-in",
+                "_guarded_paragraphs splits on a blank line",
+                "its claims are read by nothing",
+            ),
+            (
+                "whose span reaches _is_type_expression",
+                "the three arms before it decline",
+                "no _PATH_SUFFIXES suffix), not read as a keyword",
+                "not a bare identifier chain",
+                "whose every ast.Name resolves in dir(builtins)",
+                "int | None, 0.5 and frozenset() are all accepted",
+                "never compared against the annotations in the code",
+                "branch order, not a hedge",
+                "_IDENTIFIER_CHAIN.fullmatch first, so `str` reds as a symbol",
+                "MEASURED_KEYWORD_SPANS are tested before that",
+                "declared this bound wider than the branch",
+                "narrowed it to subscripts and tuple displays",
+                "fix round 4, F-2, measured the branch",
+            ),
+        ),
+        "MEASURED_DEPENDENCY_CLAIM_MISSES": (
+            (
+                "an extra restated by name without backticks",
+                "because the restatement arm looks for",
+                "and nothing else",
+            ),
+            (
+                "a denial of a runtime distribution",
+                "because mentioned() asks",
+                "not what the sentence says about it",
+            ),
+            (
+                "the paragraph *invents*",
+                "because all four arms ask what pyproject.toml",
+                "none loops over the names the paragraph mentions",
+                "in no table of pyproject.toml's is invisible",
+                "in the guarded paragraph is therefore unenforced on the",
+                "live rather than hypothetical",
+                "AC-1's span rule cannot see them",
+                "measured, fix round 3, S-4",
+                "what counts as a distribution name in free",
+                "which is a different rule",
+            ),
+        ),
+        "MEASURED_TIMEOUT_CLAIM_MISSES": (
+            (
+                'without "timeout" or "deadline"',
+                "gives up on its own after a while",
+            ),
+            (
+                "joined to the cited sentence by a colon, a comma or",
+                "none of which the sentence split breaks on",
+                "or a semicolon does, and reds",
+            ),
+        ),
+        "MEASURED_UNENFORCED_PHRASE_MISSES": (
+            (
+                "any synonym this tuple does not spell",
+                '"currently unenforced", "not wired up yet", "still pending",',
+                '"present but inert", "advisory only", "checked nowhere"',
+                "measured to return [] against the deployed rule",
+                "the next synonym is always",
+                "the enforced half is the citation rule above",
+                'which reads every sentence saying "timeout" or "deadline" and',
+                "demands a test path that exists",
+                "still has to name a test",
+            ),
+        ),
+    },
+    "tests/test_web_server.py": {
+        "MEASURED_AST_SWEEP_MISSES": (
+            (
+                "concatenated from literals with +",
+                "The implicit adjacent-literal form",
+                "is **caught**: CPython folds adjacent string literals at",
+                "the token does sit in one ast.Constant",
+                "without naming the operator",
+                "covered the caught form too (measured, fix round 3, B-3)",
+            ),
+            ("a name interpolated at runtime",),
+            (
+                "a name supplied from outside the source",
+                "which no contiguous run of the file spells",
+            ),
+        ),
+    },
+}
+
+#: The ``MEASURED_*`` tables the per-line contract above does **not** apply
+#: to, each with the keying it has instead. Read by
+#: ``TestTheDeclaredMissTables.test_every_measured_table_in_the_tree_is_accounted_for``,
+#: so a new ``MEASURED_*`` table in either file is a red that has to be
+#: keyed per line or exempted here with a reason -- never left unkeyed,
+#: which is how each of this card's four rounds found one.
+_MEASURED_TABLES_KEYED_ELSEWHERE: dict[str, str] = {
+    "MEASURED_CHECK_LOG_MISSES": (
+        "not prose: every entry carries the SOURCE it was measured on, and "
+        "test_the_disclosed_check_log_misses_are_still_misses runs the "
+        "deployed rule over each one, so the declaration IS the measurement "
+        "and a closed route reds without any phrase being keyed (CARD-239/242)"
+    ),
+    "MEASURED_MODULE_SCOPE_MISSES": (
+        "the same (name, source) shape, held the same way by "
+        "test_the_disclosed_module_scope_misses_are_still_misses (CARD-239)"
+    ),
+    "MEASURED_MODULE_SCOPE_SILENCES": (
+        "a baseline, not a bound: empty, and held to an EQUALITY, which keys "
+        "every member by value (CARD-238/239)"
+    ),
+    "MEASURED_KEYWORD_SPANS": (
+        "an exemption table held to an equality against the spans that exist "
+        "today, which keys every member by value"
+    ),
+    "MEASURED_PROSE_CITATIONS": (
+        "the same: an exemption table in tests/test_web_server.py held to an "
+        "equality against the sites that exist today"
+    ),
+}
+
+
+def _measured_table_names(source: str) -> set[str]:
+    """Every ``MEASURED_*`` name ``source`` assigns, at any scope.
+
+    Walked rather than listed, for the reason ADR-0039/R2 gives everywhere
+    else in this module: a table nobody added to a list is the shape that
+    survives, and three of this card's four rounds found exactly that.
+    """
+    return {
+        target.id
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+        if isinstance(target, ast.Name) and target.id.startswith("MEASURED_")
+    }
+
+
+def _unkeyed_declaration_lines(
+    source: str,
+    keys: dict[str, tuple[tuple[str, ...], ...]],
+    where: str,
+) -> list[str]:
+    """Every line of a declared-miss entry in ``source`` that its key misses.
+
+    Takes the source text rather than reading a file, so the contract above
+    has a case on the correct side (a fabricated table with a gutted, an
+    inverted, a moved and a dropped line) and cannot pass vacuously --
+    requirement 3 of the contract, applied to the control that enforces it.
+    """
+    lines = source.split("\n")
+    defects: list[str] = []
+    seen: dict[str, ast.expr] = {}
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            if isinstance(target, ast.Name) and target.id in keys:
+                if target.id in seen:
+                    defects.append(f"{where}: {target.id} is assigned more than once")
+                seen[target.id] = node.value
+
+    for name, entry_keys in keys.items():
+        value = seen.get(name)
+        if value is None:
+            defects.append(f"{where}: {name} is keyed here but assigned nowhere")
+            continue
+        if not isinstance(value, ast.Tuple):
+            defects.append(f"{where}: {name} is not a tuple display")
+            continue
+        if len(value.elts) != len(entry_keys):
+            defects.append(
+                f"{where}: {name} holds {len(value.elts)} entries and "
+                f"{len(entry_keys)} key groups"
+            )
+            continue
+        for index, (element, element_keys) in enumerate(zip(value.elts, entry_keys)):
+            if not (isinstance(element, ast.Constant) and isinstance(element.value, str)):
+                defects.append(f"{where}: {name}[{index}] is not a string literal")
+                continue
+            first, last = element.lineno, element.end_lineno or element.lineno
+            span = last - first + 1
+            if span != len(element_keys):
+                defects.append(
+                    f"{where}:{first}: {name}[{index}] spans {span} source "
+                    f"line(s) and carries {len(element_keys)} key(s)"
+                )
+                continue
+            for offset, phrase in enumerate(element_keys):
+                line = lines[first - 1 + offset]
+                if phrase not in line:
+                    defects.append(
+                        f"{where}:{first + offset}: {name}[{index}] no longer "
+                        f"carries {phrase!r} on this line: {line.strip()!r}"
+                    )
+    return defects
+
+
 #: What this rule is measured **not** to see, declared rather than implied
 #: (ADR-0039/R3). It reads the three paragraphs above and no others, and
 #: within them only backtick-quoted spans: an unquoted claim ("the solver
@@ -2921,12 +3183,19 @@ MEASURED_CLAIM_MISSES = (
     " including a continuation block under a guarded lead-in, which has no"
     " lead-in of its own because _guarded_paragraphs splits on a blank line,"
     " so its claims are read by nothing (measured, fix round 3, B-2)",
-    "a false type claim written as a subscript or a tuple display:"
-    " list[list[bool]] and (0,) reach _is_type_expression, are accepted for"
-    " their *shape*, and are never compared against the annotations in the"
-    " code. A bare builtin does not reach it -- _IDENTIFIER_CHAIN matches"
-    " first, so `str` reds as a symbol (review cycle 1, F-6; narrowed by fix"
-    " round 3, S-3, which measured seven bare builtins all caught)",
+    "a false type claim whose span reaches _is_type_expression -- which is"
+    " any span the three arms before it decline: not read as a path (no"
+    " trailing / and no _PATH_SUFFIXES suffix), not read as a keyword, and"
+    " not a bare identifier chain -- and which then parses as an expression"
+    " whose every ast.Name resolves in dir(builtins). So list[list[bool]],"
+    " (0,), int | None, 0.5 and frozenset() are all accepted for their"
+    " *shape* and never compared against the annotations in the code."
+    " The exclusion clause is branch order, not a hedge: _classify tests"
+    " _IDENTIFIER_CHAIN.fullmatch first, so `str` reds as a symbol -- and"
+    " _PATH_SUFFIXES and MEASURED_KEYWORD_SPANS are tested before that."
+    " (Review cycle 1, F-6, declared this bound wider than the branch; fix"
+    " round 3, S-3, narrowed it to subscripts and tuple displays, which is"
+    " narrower than the branch; fix round 4, F-2, measured the branch.)",
 )
 
 _BACKTICK_SPAN = re.compile(r"`([^`\n]+)`")
@@ -2942,17 +3211,43 @@ _BACKTICK_SPAN = re.compile(r"`([^`\n]+)`")
 _FENCE = re.compile(r"^[ \t]*```.*$", re.MULTILINE)
 _IDENTIFIER_CHAIN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 
-#: The file suffixes :func:`_classify` reads a span as a path by. Three of
-#: them -- ``.yml``, ``.cfg``, ``.txt`` -- have no instance in the guarded
-#: paragraphs today, so there is nothing to key a completeness control on, and
-#: **the direction is why none is needed** (declared rather than controlled,
-#: fix round 3, W-2): :func:`_classify` is default-deny, so a suffix this
-#: tuple does *not* carry makes the rule **stricter** -- the span falls
-#: through to ``"unanalysable"`` and reds. The hazard of an incomplete tuple
-#: is therefore a false positive to be judged, never a missed catch, and a
-#: control over the members would pin a hazard that cannot cause a miss. The
-#: direction itself is held by
-#: ``test_a_suffix_outside_the_table_is_denied_not_accepted``.
+#: The file suffixes :func:`_classify` reads a span as a path by.
+#:
+#: The census, re-measured in fix round 4 (m-B) and **keyed rather than
+#: written beside the code**: an earlier wording said three of them have no
+#: instance in the guarded paragraphs, and the figure was four -- the same
+#: shape as the claims this module reads CLAUDE.md for, one file over. The
+#: two lines below are the declaration, and
+#: ``test_the_path_suffix_census_is_the_one_this_comment_states`` parses them
+#: out of this source and re-derives every figure in them, so a drift between
+#: this comment and the tree reds instead of ageing:
+#:
+#:     SPANS: .py 5 | .toml 3 | .md 0 | .yml 0 | .cfg 0 | .txt 0
+#:     REPO FILES: .cfg none | every other suffix at least one
+#:
+#: The reason the earlier wording gave ("no instance in the guarded
+#: paragraphs, so nothing to key a completeness control on") is **refuted by
+#: this module's own test**: ``test_a_suffix_outside_the_table_is_denied_not_accepted``
+#: keys ``.md``'s control on ``docs/GENERATION_ALGORITHM.md``, a **repo
+#: file** rather than a span, and :func:`_repo_paths` holds ``.yml`` and
+#: ``.txt`` files that would serve the same device. Only ``.cfg`` genuinely
+#: has no instance anywhere, which is what the second line above says.
+#:
+#: What is load-bearing is the **direction**, and that is measured (fix round
+#: 3, W-2, re-confirmed in round 4): :func:`_classify` is default-deny, so a
+#: suffix this tuple does *not* carry makes the rule **stricter** -- the span
+#: falls through to ``"unanalysable"`` and reds. The hazard of an incomplete
+#: tuple is therefore a false positive to be judged, never a missed catch, so
+#: a control over the members would pin a hazard that cannot cause a miss.
+#: That is why there is no member control -- and the census above is not one:
+#: it is a figure, keyed because it is a figure, and it decides nothing.
+#: Dropping ``.md`` or ``.py`` reds, dropping ``.yml`` survives, exactly as
+#: this direction predicts. The direction itself is held by
+#: ``test_a_suffix_outside_the_table_is_denied_not_accepted``. The opposite
+#: direction, where an incomplete table *is* a missed catch, is one screen
+#: down in :data:`TestClaudeMd_TheTimeoutClaimNamesItsTest
+#: .MEASURED_UNENFORCED_PHRASE_MISSES`, and it gets a bound rather than this
+#: paragraph's argument.
 _PATH_SUFFIXES = (".py", ".toml", ".md", ".yml", ".cfg", ".txt")
 
 
@@ -3082,11 +3377,24 @@ def _declared_distributions() -> tuple[set[str], dict[str, set[str]]]:
 #: ``TestClaudeMd_TheDependencyClaimMatchesPyproject.test_the_rule_names_what_it_cannot_see``.
 #:
 #: What is **not** declared away is the half that matters: a restatement by
-#: *member* is caught backtick-independently, because ``mentioned()`` matches
-#: on a word boundary and not on quoting -- "Flask, Werkzeug, reportlab and
-#: gunicorn are admin-only" reds once per member with no backtick anywhere.
-#: Only the restatement-by-*extra-name* arm is backtick-keyed, which is the
-#: first miss below.
+#: *member* is caught independently of **quoting**, of **case** and of
+#: **spelling**, because ``mentioned()`` matches on a word boundary rather
+#: than on any of the three -- "Flask, Werkzeug, reportlab and gunicorn are
+#: admin-only" reds once per member with no backtick anywhere. Only the
+#: restatement-by-*extra-name* arm is backtick-keyed, which is the first miss
+#: below.
+#:
+#: The spelling third of that sentence was **false until fix round 4** (m-1),
+#: and it is the direction that matters: ``psycopg2-binary`` red once,
+#: ``psycopg2_binary`` returned ``[]``, because ``re.escape`` pinned
+#: pyproject.toml's canonical separator and a PEP-503-equivalent spelling of
+#: the same distribution walked through undeclared. Normalised in
+#: ``mentioned()`` rather than declared, because a deny-side arm that a
+#: rename of the separator defeats is a missed catch, not a false positive.
+#: Both halves measured: the three equivalent spellings now red
+#: (``test_a_member_is_caught_however_it_is_spelled``) and the live paragraph
+#: still passes, which it must -- the two runtime names carry no separator at
+#: all, so the pattern they generate is byte-identical to the old one.
 MEASURED_DEPENDENCY_CLAIM_MISSES = (
     "an extra restated by name without backticks -- \"the dev, admin and db"
     " extras sit outside it\" -- because the restatement arm looks for"
@@ -3137,8 +3445,19 @@ def _dependency_claim_defects(
     defects: list[str] = []
 
     def mentioned(name: str) -> bool:
-        pattern = rf"(?<![\w-]){re.escape(name)}(?![\w-])"
-        return re.search(pattern, paragraph, re.IGNORECASE) is not None
+        # PEP 503 treats runs of ``-``, ``_`` and ``.`` as one separator, so
+        # ``psycopg2_binary`` names the distribution pyproject.toml spells
+        # ``psycopg2-binary``. Matched that way rather than escaped whole
+        # (fix round 4, m-1): the extras arm is deny-side, so a spelling it
+        # cannot see is a missed catch. A name with no separator -- both
+        # runtime names -- generates the pattern it generated before.
+        pattern = "[-_.]+".join(
+            re.escape(part) for part in re.split(r"[-_.]+", name)
+        )
+        return (
+            re.search(rf"(?<![\w-]){pattern}(?![\w-])", paragraph, re.IGNORECASE)
+            is not None
+        )
 
     for name in sorted(runtime):
         if not mentioned(name):
@@ -3333,21 +3652,30 @@ class TestClaudeMd_EverySymbolItNamesExists:
     def test_the_rule_names_what_it_cannot_see(self) -> None:
         """ADR-0039/R3's last clause: the residual hole is declared, not implied.
 
-        Each case reads the entry it demonstrates (review cycle 2, M-3). The
-        demonstrations were already here and already executable, but none of
-        them touched :data:`MEASURED_CLAIM_MISSES`, so the tuple's *text* was
-        the one unguarded thing in a class about unguarded text: mutant
-        F6-DECL-GUTTED emptied the third entry's middle line and survived,
-        because ``assert MEASURED_CLAIM_MISSES`` was still satisfied by the
-        other two. Keying each case on a fragment of its own entry makes a
-        gutted or reworded declaration red here.
+        Each case reads the entry it demonstrates (review cycle 2, M-3), and
+        what it reads is the **pairing**: the shape this case constructs on
+        the missed side, named in the sentence that declares it. That is all
+        this test claims, and the narrower claim is deliberate.
+
+        It used to claim more -- "a gutted or reworded declaration reds
+        here" -- and that was false, which is fix round 4's F-1. Keying a
+        case on *a* fragment of its entry leaves every other line of the
+        entry free text: at e26e5473 gutting the middle line of
+        ``MEASURED_CLAIM_MISSES[2]`` gave ``1 failed``, and at 098ecd91 the
+        identical gut survived, because the round in between reworded the
+        entry and the keyed fragments moved off the lines carrying the claim.
+        **Every line of every entry is keyed by**
+        :func:`_unkeyed_declaration_lines` **and**
+        :class:`TestTheDeclaredMissTables`, under the contract written out
+        above :data:`_MEASURED_TABLE_LINE_KEYS`; gutting, inverting, moving,
+        adding or dropping a line reds there, by line number.
 
         Fix round 3 narrowed the third entry (S-3) and widened the second
-        (B-2), and both narrowings are held **by value**: the third entry's
-        case keeps a bare builtin on the *caught* side and asserts the
-        over-wide wording is absent, so the entry cannot drift back to
-        declaring a shape the rule catches; the second entry's case shows the
-        continuation block it now names.
+        (B-2). The second entry's case shows the continuation block it names.
+        The third was narrowed **past the branch it describes** and is
+        restated in fix round 4 (F-2): its case now carries every shape the
+        branch accepts on the missed side -- a union annotation among them --
+        and all three preceding arms on the caught side.
         """
         assert MEASURED_CLAIM_MISSES
         symbols, modules, paths, distributions = self._authorities()
@@ -3402,15 +3730,24 @@ class TestClaudeMd_EverySymbolItNamesExists:
         )
         assert "continuation block" in MEASURED_CLAIM_MISSES[1]
 
-        # The third declared miss, narrowed in fix round 3 (S-3) to the forms
-        # it is really about. A **subscripted or parenthesised** builtin shape
-        # reaches _is_type_expression and is accepted for its shape, so a
-        # *false* boundary type passes. A **bare** builtin does not reach it:
-        # _IDENTIFIER_CHAIN.fullmatch runs first and the name resolves in no
-        # module under src/, so every one of the seven builtins this
-        # paragraph could name reds as a symbol -- which is why the entry no
-        # longer declares that half as a miss. A dead symbol smuggled inside
-        # a builtin-shaped subscript is denied too, because that branch is
+        # The third declared miss, restated in fix round 4 (F-2) as the
+        # branch condition it describes. Fix round 3 narrowed it to "a
+        # subscript or a tuple display", which is **narrower than the
+        # guard**: every span below reaches _is_type_expression and is
+        # accepted for its shape, and `int | None`, `0.5`, `frozenset()`,
+        # `[]` and `{}` are none of them a subscript or a tuple display. The
+        # live one is `int | None`, because this entry is about the
+        # boundary-types paragraph, where a union annotation is the next
+        # thing anyone would write.
+        #
+        # The exclusion clause is the three arms that run first, measured
+        # below rather than argued: a **bare** builtin does not reach
+        # _is_type_expression because _IDENTIFIER_CHAIN.fullmatch matches
+        # first and the name resolves in no module under src/, so all seven
+        # bare builtins this paragraph could name red as a symbol; a
+        # path-suffixed span is read as a path before either; and a keyword
+        # span is read as a keyword. A dead symbol smuggled inside a
+        # builtin-shaped subscript is denied too, because that branch is
         # tight about names and blind about truth.
         for missed in (
             "dict[str, frozenset[bytes]]",
@@ -3418,6 +3755,13 @@ class TestClaudeMd_EverySymbolItNamesExists:
             "tuple[tuple[int, ...], ...]",
             "(0,)",
             "()",
+            "int | None",
+            "0",
+            "0.5",
+            "[]",
+            "{}",
+            "{'a': 1}",
+            "frozenset()",
         ):
             assert _claim_defects(
                 _claims(f"clues cross the boundary as `{missed}`", 1),
@@ -3442,12 +3786,35 @@ class TestClaudeMd_EverySymbolItNamesExists:
         assert _claim_defects(
             _claims("`list[validate_size]`", 1), symbols, modules, paths, distributions
         )
-        assert "subscript or a tuple display" in MEASURED_CLAIM_MISSES[2]
-        assert "A bare builtin does not reach it" in MEASURED_CLAIM_MISSES[2]
-        # The over-wide wording this entry was narrowed from, kept out by
-        # value: "every name resolves in dir(builtins)" declared the bare
-        # builtins missed, and all seven are caught above.
-        assert "dir(builtins)" not in MEASURED_CLAIM_MISSES[2]
+
+        # The other two arms of the exclusion clause, so the entry's "the
+        # three arms before it decline" is a measurement and not a reading of
+        # the source. `list[bool].md` would satisfy _is_type_expression --
+        # it parses, and `list` and `bool` are both in dir(builtins) -- and
+        # never reaches it, because the path arm runs first and reds.
+        assert _is_type_expression("list[bool].md")
+        assert _classify("list[bool].md", symbols, modules, paths, distributions) == (
+            "path",
+            "names no file in the repo",
+        )
+        for keyword in MEASURED_KEYWORD_SPANS:
+            assert _classify(keyword, symbols, modules, paths, distributions) == (
+                "keyword",
+                "",
+            )
+
+        # The entry's text, keyed line by line by
+        # TestTheDeclaredMissTables. What is read here is the pairing the
+        # case demonstrates: the branch condition on the missed side and the
+        # exclusion clause that keeps the bare builtins on the caught side.
+        assert "whose span reaches _is_type_expression" in MEASURED_CLAIM_MISSES[2]
+        assert "whose every ast.Name resolves in dir(builtins)" in MEASURED_CLAIM_MISSES[2]
+        assert "not a bare identifier chain" in MEASURED_CLAIM_MISSES[2]
+        # The wording fix round 3 narrowed this entry to, kept out by value:
+        # it declared only subscripts and tuple displays missed, and
+        # `int | None`, `0.5`, `frozenset()`, `[]` and `{}` are missed above
+        # and are none of them either shape.
+        assert "written as a subscript or a tuple display" not in MEASURED_CLAIM_MISSES[2]
 
     def test_a_fence_inside_a_guarded_paragraph_is_denied(self) -> None:
         """F-5, closed rather than declared: a fenced block that sits directly
@@ -3580,13 +3947,68 @@ class TestClaudeMd_APlantedDeadSymbolReds:
             _claims(repaired, 46), symbols, modules, paths, distributions
         ) == []
 
+    def test_the_path_suffix_census_is_the_one_this_comment_states(self) -> None:
+        """m-B (fix round 4): the census above :data:`_PATH_SUFFIXES`, keyed.
+
+        The comment it replaced said three of the six suffixes have no
+        instance in the guarded paragraphs. Four do: ``.md`` has none either,
+        and only ``.py`` (5 spans) and ``.toml`` (3) appear there at all. A
+        figure in a comment that nothing reads is this card's own subject, so
+        the figures are written as two parseable lines and **re-derived**
+        here -- from CLAUDE.md's guarded paragraphs and from
+        :func:`_repo_paths`, the same authorities the rule itself uses (G-3).
+
+        A span count that moves is a red to be judged, deliberately: a new
+        ``.py``-suffixed span in a guarded paragraph is a new claim, which is
+        what this module exists to notice. The repo-file half is written as a
+        *presence* rather than a count, because the counts move with every
+        file anyone adds and would make this a churn alarm instead of a
+        control.
+        """
+        source = Path(__file__).read_text(encoding="utf-8")
+        spans_line = re.findall(r"^#:\s+SPANS: (.+)$", source, re.M)
+        files_line = re.findall(r"^#:\s+REPO FILES: (.+)$", source, re.M)
+
+        assert len(spans_line) == 1, spans_line
+        assert len(files_line) == 1, files_line
+
+        declared = {
+            suffix: int(count)
+            for suffix, count in re.findall(r"(\.\w+) (\d+)", spans_line[0])
+        }
+        assert sorted(declared) == sorted(_PATH_SUFFIXES), sorted(declared)
+
+        found, missing = _guarded_paragraphs(GUIDANCE.read_text(encoding="utf-8"))
+        assert not missing, missing
+        spans = [
+            span for line, body in found.values() for _, span in _claims(body, line)
+        ]
+        measured = {
+            suffix: sum(1 for span in spans if span.endswith(suffix))
+            for suffix in _PATH_SUFFIXES
+        }
+
+        assert declared == measured, f"declared {declared} vs measured {measured}"
+        assert sum(1 for count in measured.values() if count == 0) == 4, measured
+
+        paths = _repo_paths()
+        without = sorted(
+            suffix
+            for suffix in _PATH_SUFFIXES
+            if not any(path.endswith(suffix) for path in paths)
+        )
+
+        assert without == [".cfg"], without
+        assert re.findall(r"(\.\w+) none", files_line[0]) == without, files_line[0]
+
     def test_a_suffix_outside_the_table_is_denied_not_accepted(self) -> None:
         """The *direction* of :data:`_PATH_SUFFIXES`' incompleteness (fix
         round 3, W-2), demonstrated rather than controlled by member.
 
-        Three members (``.yml``, ``.cfg``, ``.txt``) have no instance in the
-        guarded paragraphs, so there is no completeness control to key on --
-        and the direction is why one is not wanted. :func:`_classify` is
+        Four members (``.md``, ``.yml``, ``.cfg``, ``.txt``) have no instance
+        in the guarded paragraphs -- the census one test up -- so there is no
+        completeness control to key on, and the direction is why one is not
+        wanted. :func:`_classify` is
         default-deny, so a suffix the tuple does **not** carry does not slip
         through: the span matches no recognised shape and falls to
         ``"unanalysable"``, which the caller reads as a defect. Losing a
@@ -3809,6 +4231,62 @@ class TestClaudeMd_TheDependencyClaimMatchesPyproject:
         assert "the paragraph *invents*" in MEASURED_DEPENDENCY_CLAIM_MISSES[2]
         assert "unenforced on the upper" in MEASURED_DEPENDENCY_CLAIM_MISSES[2]
 
+    def test_a_member_is_caught_however_it_is_spelled(self) -> None:
+        """The other half of the same sentence, closed rather than declared
+        (fix round 4, m-1).
+
+        The comment above :data:`MEASURED_DEPENDENCY_CLAIM_MISSES` says the
+        member arm is quoting-, case- and spelling-independent. Two thirds
+        were true: ``mentioned()`` searches case-insensitively and asks
+        nothing about backticks. The third was false -- it escaped
+        pyproject.toml's canonical separator, so ``psycopg2-binary`` red once
+        and ``psycopg2_binary`` returned ``[]``, a PEP-503-equivalent
+        spelling of the same distribution walking through an arm whose whole
+        job is to catch it. Closed rather than declared, because the arm is
+        deny-side: an incompleteness here is a missed catch.
+
+        The live paragraph is asserted clean in the same test, which is what
+        the widening had to be bought at: the two runtime names carry no
+        separator, so the pattern they generate is the one they generated
+        before, and the sentence this test backs is now true as written.
+        """
+        runtime, extras = _declared_distributions()
+        separated = sorted(
+            name
+            for declared in extras.values()
+            for name in declared - runtime
+            if re.search(r"[-_.]", name)
+        )
+        assert separated, (
+            "pyproject.toml declares no extra-only distribution with a PEP-503 "
+            "separator, so this control has nothing to key on and the "
+            "normalisation in mentioned() needs re-judging"
+        )
+        name = separated[0]
+        canonical, under, dotted = (
+            name,
+            re.sub(r"[-_.]+", "_", name),
+            re.sub(r"[-_.]+", ".", name),
+        )
+        assert {canonical, under, dotted} != {canonical}, name
+
+        for spelling in (canonical, under, dotted, canonical.upper(), f"`{canonical}`"):
+            caught = _dependency_claim_defects(
+                "`pyproject.toml` declares Pillow + NumPy as the runtime "
+                f"baseline; {spelling} is an extra",
+                runtime,
+                extras,
+            )
+            assert len(caught) == 1, (spelling, caught)
+            assert f"names {name!r}" in caught[0], (spelling, caught)
+
+        # The price of the widening, paid here: the paragraph that ships is
+        # still clean, and the runtime arm it has to satisfy is unmoved --
+        # neither runtime name carries a separator, so the pattern is the one
+        # it was before.
+        assert _dependency_claim_defects(self._paragraph(), runtime, extras) == []
+        assert all(not re.search(r"[-_.]", item) for item in runtime), sorted(runtime)
+
 
 class TestClaudeMd_TheTimeoutClaimNamesItsTest:
     """AC-6 (CARD-264): no surviving claim about the solver's timeout that no
@@ -3955,6 +4433,30 @@ class TestClaudeMd_TheTimeoutClaimNamesItsTest:
     #: ``test_the_phrase_rule_reds_on_the_clause_that_shipped``.
     _UNENFORCED_PHRASES = ("not yet enforced", "not enforced", "hook points")
 
+    #: What :meth:`_unenforced_claims` is measured **not** to see, declared
+    #: rather than implied (ADR-0039/R3, fix round 4, m-A). The direction is
+    #: the opposite of :data:`_PATH_SUFFIXES`', and that is why the same
+    #: argument does not serve: that tuple is read by a **default-deny**
+    #: classifier, so a member it loses makes the rule stricter and cannot
+    #: cause a miss; this one is a **deny-list over free prose**, so a phrase
+    #: it does not carry is a stale claim that ships unreported -- the
+    #: harmful direction, which needs a bound and a case rather than an
+    #: argument. Fix round 3 gave the harmless incompleteness a declared
+    #: bound and gave this one nothing. Held on the miss side, synonym by
+    #: synonym, by
+    #: ``test_the_phrase_rule_names_the_synonyms_it_does_not_carry``.
+    MEASURED_UNENFORCED_PHRASE_MISSES = (
+        "a stale claim phrased in any synonym this tuple does not spell --"
+        ' "currently unenforced", "not wired up yet", "still pending",'
+        ' "present but inert", "advisory only", "checked nowhere" -- all six'
+        " measured to return [] against the deployed rule (fix round 4, m-A)."
+        " Not closed by enumeration, because the next synonym is always"
+        " outside any list; the enforced half is the citation rule above,"
+        ' which reads every sentence saying "timeout" or "deadline" and'
+        " demands a test path that exists, so a stale claim reworded past"
+        " this deny-list still has to name a test",
+    )
+
     @classmethod
     def _unenforced_claims(cls, bodies: dict[str, str]) -> list[str]:
         """Every place ``bodies`` calls the mechanism unenforced.
@@ -4023,6 +4525,50 @@ class TestClaudeMd_TheTimeoutClaimNamesItsTest:
         assert self._unenforced_claims(
             {"solver": body.lower().replace(phrase, "pinned by tests/test_timeout.py")}
         ) == []
+
+    def test_the_phrase_rule_names_the_synonyms_it_does_not_carry(self) -> None:
+        """ADR-0039/R3's last clause for the deny-list (fix round 4, m-A).
+
+        A deny-list over prose cannot be complete, so its incompleteness is a
+        **missed catch** and gets a bound with a case on the miss side --
+        unlike :data:`_PATH_SUFFIXES`, whose incompleteness can only make its
+        default-deny classifier stricter.
+
+        The second half is why the bound is a bound and not a hole: a stale
+        claim reworded past this deny-list is still a sentence about the
+        solver's deadline, so the citation rule above selects it and demands
+        a test path. The six synonyms are each shown missed *here* and the
+        last of them shown selected *there*, on the same body.
+        """
+        assert self.MEASURED_UNENFORCED_PHRASE_MISSES
+
+        synonyms = (
+            "currently unenforced",
+            "not wired up yet",
+            "still pending",
+            "present but inert",
+            "advisory only",
+            "checked nowhere",
+        )
+        declared = self.MEASURED_UNENFORCED_PHRASE_MISSES[0]
+
+        for synonym in synonyms:
+            body = f"the solver's deadline is {synonym}."
+            assert self._unenforced_claims({"solver": body}) == [], synonym
+            assert synonym in declared, synonym
+            # ...and the same sentence with a member of the deny-list does
+            # red, so the misses above are the phrasing and not an inert rule.
+            member = body.replace(synonym, self._UNENFORCED_PHRASES[0])
+            assert self._unenforced_claims({"solver": member}) == [
+                f"solver: {self._UNENFORCED_PHRASES[0]}"
+            ], synonym
+
+        # The enforced half, on the last synonym's body: the citation rule
+        # still reads the sentence, because it selects on "deadline" rather
+        # than on this deny-list, so the reworded claim has to name a test.
+        reworded = f"the solver's deadline is {synonyms[-1]}."
+        assert len(self._timeout_sentences(reworded)) == 1
+        assert re.findall(r"`(tests/[\w./-]+\.py)`", reworded) == []
 
     @staticmethod
     def _supported_range() -> dict[str, int]:
@@ -4100,3 +4646,148 @@ class TestClaudeMd_TheTimeoutClaimNamesItsTest:
         assert self._figures_outside(
             {"solver": "random mid-density grids at 30x30 are hard"}, bounds
         ) == []
+
+
+class TestTheDeclaredMissTables:
+    """CARD-264 fix round 4: the declared-miss tables' own semantics, held.
+
+    Three fix rounds and a holds spot-check each found a defect in the same
+    place -- the ``MEASURED_*`` declared-miss tables and their controls --
+    and each re-derived their semantics differently, because the semantics
+    were written down nowhere. The contract is now written out above
+    :data:`_MEASURED_TABLE_LINE_KEYS`, and this class is the part of it that
+    executes: **every physical source line of every prose entry carries a
+    required phrase, checked against that line.**
+
+    Why per-line and not the two alternatives is argued where the contract
+    is, with the measurement that settles it: at ``e26e5473`` gutting the
+    middle line of ``MEASURED_CLAIM_MISSES[2]`` gave ``exit 1, 3 failed of
+    157``; at ``098ecd91`` the identical gut survived at ``exit 0, 0 FAIL``,
+    because the round in between reworded the entry and the fragments its
+    case keyed on moved off the lines carrying the claim. A key that lives
+    anywhere in the entry leaves every other line free text; a key bound to
+    its line does not.
+
+    The tables are read back out of the test sources with ``ast`` rather than
+    imported, for two reasons. ``tests/test_web_server.py``'s declared misses
+    are covered here without a second copy of them (G-3) -- the same mutual
+    arrangement this module's docstring opens with, two modules judging each
+    other's declarations. And a *line* is a fact about the source, which an
+    imported tuple has already lost: implicit concatenation folds the entry
+    into one string before any test can see where its lines were.
+    """
+
+    _FILES = ("tests/test_guard_integrity.py", "tests/test_web_server.py")
+
+    @classmethod
+    def _source(cls, where: str) -> str:
+        return (REPO_ROOT / where).read_text(encoding="utf-8")
+
+    def test_every_line_of_every_declared_miss_entry_is_keyed(self) -> None:
+        """The contract's clause 2, over both files.
+
+        A defect names the file, the line and the phrase that left it, which
+        is the diagnosis the three previous rounds did not have.
+        """
+        assert set(_MEASURED_TABLE_LINE_KEYS) == set(self._FILES), sorted(
+            _MEASURED_TABLE_LINE_KEYS
+        )
+
+        defects: list[str] = []
+        keyed = 0
+        for where, keys in _MEASURED_TABLE_LINE_KEYS.items():
+            assert keys, where
+            keyed += sum(len(group) for entry in keys.values() for group in entry)
+            defects.extend(_unkeyed_declaration_lines(self._source(where), keys, where))
+
+        assert keyed >= 45, (
+            f"only {keyed} declaration lines are keyed across "
+            f"{len(self._FILES)} files; the contract is reading too little"
+        )
+        assert defects == [], "\n".join(defects)
+
+    def test_every_measured_table_in_the_tree_is_accounted_for(self) -> None:
+        """The contract's closing clause: a new ``MEASURED_*`` table is a red.
+
+        Enumerated from the sources rather than listed, for the reason
+        ADR-0039/R2 gives everywhere else here -- a table nobody added to a
+        list is exactly the shape that survived three rounds. Every name is
+        either keyed per line above or exempted by name with the keying it
+        has instead; there is no third state.
+        """
+        found: set[str] = set()
+        for where in self._FILES:
+            found |= _measured_table_names(self._source(where))
+
+        keyed = {
+            name for keys in _MEASURED_TABLE_LINE_KEYS.values() for name in keys
+        }
+        exempt = set(_MEASURED_TABLES_KEYED_ELSEWHERE)
+
+        assert keyed <= found, sorted(keyed - found)
+        assert exempt <= found, sorted(exempt - found)
+        assert keyed.isdisjoint(exempt), sorted(keyed & exempt)
+        assert found == keyed | exempt, (
+            "a MEASURED_* table is neither keyed per line nor exempted with "
+            f"a reason: {sorted(found - (keyed | exempt))}"
+        )
+        assert all(_MEASURED_TABLES_KEYED_ELSEWHERE.values()), (
+            "an exemption with no reason is the shape this card is about"
+        )
+
+    def test_the_line_keying_control_reds_on_a_gutted_or_inverted_line(self) -> None:
+        """The contract's clause 3, applied to the control that enforces it.
+
+        A fabricated table rather than the real ones, because an assertion
+        built on the real sources is satisfied by the real sources: the four
+        ways a declaration can move out from under its key have to be
+        constructed. The **moved** case is the one that actually shipped --
+        the phrase is still somewhere in the entry, one line up.
+        """
+        intact = (
+            "MEASURED_FABRICATED_MISSES = (\n"
+            '    "a shape this rule cannot see --"\n'
+            '    " because the sweep reads one node at a time",\n'
+            '    "a second shape, caught instead",\n'
+            ")\n"
+        )
+        keys = {
+            "MEASURED_FABRICATED_MISSES": (
+                ("a shape this rule cannot see", "reads one node at a time"),
+                ("caught instead",),
+            )
+        }
+
+        assert _unkeyed_declaration_lines(intact, keys, "fabricated.py") == []
+
+        gutted = intact.replace(
+            '    " because the sweep reads one node at a time",\n', '    " ",\n'
+        )
+        inverted = intact.replace("caught instead", "missed instead")
+        moved = intact.replace(
+            '    "a shape this rule cannot see --"\n'
+            '    " because the sweep reads one node at a time",\n',
+            '    "a shape this rule cannot see, reads one node at a time --"\n'
+            '    " and that is the whole of it",\n',
+        )
+        dropped = intact.replace(
+            '    "a shape this rule cannot see --"\n'
+            '    " because the sweep reads one node at a time",\n',
+            '    "a shape this rule cannot see",\n',
+        )
+        renamed = intact.replace("MEASURED_FABRICATED_MISSES", "MEASURED_RENAMED")
+
+        for mutated, why in (
+            (gutted, "gutted"),
+            (inverted, "inverted"),
+            (moved, "moved onto the line above"),
+            (dropped, "one line shorter"),
+            (renamed, "renamed"),
+        ):
+            assert mutated != intact, why
+            assert _unkeyed_declaration_lines(mutated, keys, "fabricated.py"), why
+
+        # ...and the enumeration sees the fabricated table under either name,
+        # so the completeness arm above cannot be walked around by a rename.
+        assert _measured_table_names(intact) == {"MEASURED_FABRICATED_MISSES"}
+        assert _measured_table_names(renamed) == {"MEASURED_RENAMED"}

@@ -206,8 +206,20 @@ MEASURED_PROSE_CITATIONS = (("submission.py", "validate_extent"),)
 #: side is the shape the declaration is actually about -- a name the source
 #: never spells because it arrives from outside it. Both sides are held by
 #: ``test_a_name_supplied_from_outside_the_source_is_a_measured_miss``, which
-#: also reads the entry's own text, so gutting or widening the declaration
-#: reds rather than passing on the remaining entries.
+#: also reads the entry's own text.
+#:
+#: **Every line of every entry below is keyed**, under the declared-miss
+#: contract written out above ``_MEASURED_TABLE_LINE_KEYS`` in
+#: ``tests/test_guard_integrity.py``: that module holds one required phrase
+#: per source line of this table and checks each against the line it belongs
+#: to, so gutting a line, inverting it, moving a phrase onto a neighbouring
+#: line, or changing the entry count reds there, by line number
+#: (``TestTheDeclaredMissTables``). It is keyed from there rather than here so
+#: that this table is not copied (G-3) -- the same mutual arrangement that
+#: module's docstring opens with. Fix round 3 reworded the first entry's head
+#: (B-3) and the fragments its case keyed on moved off the lines carrying the
+#: claim, so inverting them survived; that is the defect the contract exists
+#: to stop, and fix round 4 is where it was closed.
 MEASURED_AST_SWEEP_MISSES = (
     'a name concatenated from literals with + -- getattr(m, "validate_" +'
     ' "extent"). The implicit adjacent-literal form, getattr(m, "validate_"'
