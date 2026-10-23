@@ -1942,3 +1942,62 @@ G-1 — `git diff -U0 d90753df..HEAD -- CLAUDE.md` is exactly three single-line 
 holds by construction) **and** by an independent per-codepoint sweep of all six files, 0 hits each; the
 `DINGBAT_EXEMPT_MODULES` exemption was deliberately **not** relied on. G-2 — both non-empty assertions
 present (`:2222`, `:2223`), and nothing given up, shown on the real tree rather than argued.
+
+#### [8h spot-check] CON-009 ✓ / CON-010 ✓ — **reproduced**, every figure, by an independent read-only skeptic
+
+Given the two verdict lines verbatim and the worktree, told to reproduce every cited element and default
+to `not_reproduced`, with the tree **read-only** to it. It reproduced all six selections exactly —
+CON-009 6 collected / 160 deselected / exit 0 / **6 passed**; the declared-check-name selection **0
+collected, exit 5**; the three functions 3 collected / exit 0 / 3 passed; combined **9 / exit 0 / 9
+passed** — and confirmed it modified nothing (`git status --porcelain` showing only the three `meta/`
+entries that predated it, run with `-p no:cacheprovider` so not even a cache was written).
+
+**The CON-010 trap is sharper than I had it, in two directions.** It is a **documented project
+convention**, not a broken reference: `meta/architecture/trace.yml:915-916` records the ref as resolving
+to *"the EC-004 section of tests/test_web_server.py"* — a file region, not a selector — and
+`tests/test_web_server.py:1963-1965` states the module-level-functions choice deliberately, naming the
+same convention at `tests/test_web_submission.py:6`. An `ast` walk of every `*.py` in the repo for a
+`ClassDef`/`FunctionDef` of that name, or any `Name`/`Attribute` referencing it, returns **zero**; of 148
+textual occurrences across 123 files, exactly **three** are in Python and all three are prose
+(`:10` the EC→check index, `:1346` a cross-reference, `:1950` a section banner).
+
+And the second direction, which **bounds the fix** rather than the defect: pytest's default
+`python_classes = Test*` is **not overridden anywhere** (`pyproject.toml:88-90` sets only `testpaths`,
+`addopts`, `pythonpath`), so even a class *named* `PropertyTest_…` would collect **nothing, silently**.
+The obvious repair reproduces the defect. That is now recorded as the second and stronger reason on
+CARD-279's G-3 and in the backlog item.
+
+**CON-010 is a genuine property, counted independently rather than taken from the file.** The skeptic
+rebuilt both corpora in-process: **294** refused rows (294 distinct ids, both GET and POST, generated as
+a *product* over authorities × fetch-sites × schemes × layouts × orderings) against the asserted floor of
+200, and **58** served rows against a floor of 40. "Never routed to a handler" is checked by its
+**consequence** — the POST rows carry a real `mode=library` submission with two export formats, and the
+sweep asserts `tmp_path` is empty afterwards — not merely by a status code. Two qualifications reported
+rather than smoothed: the floors sit **~32%** below the actual sizes, so a builder regression could drop
+a whole group and still clear them; and **32** of the 294 rows are `Host`-allowlist rows answered by a
+different check, which the code discloses at `:1646-1649` rather than hiding.
+
+**G-2 confirmed from the other side, by line ranges rather than by argument.** The diff's four new-side
+hunks are 95-213, 271-323, 2204-2487 and 2660-2688; CON-009's class is 507-607 and CON-010's arms and
+helpers are 1487-2070. **Intersection: none.** The diff removes exactly four lines, three of them inside
+the *domain-validation* guard, and the fourth is `_WEB_SOURCES`, replaced by an extract-variable refactor
+with identical semantics (same root, same `rglob("*.py")`, same `sorted`) — with CON-009's consuming test
+body **byte-identical to main** and its own non-vacuity assertion intact.
+
+#### The spot-check's independent question refuted a hypothesis of mine, and the replacement is better
+
+I had written on CARD-279 that CON-009's probe might **pass by probing nothing** on a host with no
+non-loopback address. **It does not.** `_non_loopback_address()` (`:453-469`) returns `None` on `OSError`
+or a `127.`-prefixed result, and both consumers `pytest.skip("host has no non-loopback IPv4 address to
+probe")` (`:521-532`, `:534-555`) — verified by driving the helper with four constructed conditions and
+both tests with it forced to `None`. ADR-0038/R8 is satisfied: the gap is a loud, named skip. **CARD-279's
+AC-3 is withdrawn** and replaced on that card.
+
+What the measurement found instead is worth more than what it refuted: **a green-with-skips run is
+indistinguishable from a fully-verified one by every figure this board records except the passed count.**
+On a loopback-only host the CON-009 selection still collects **6** and exits **0**, reporting
+`4 passed, 2 skipped`. This card has already been bitten once in the mirror-image direction — a `-k` that
+matched nothing, exit 0 inside a compound selection, a security constraint reported as re-run twice. Same
+defect class, opposite side: **exit code plus collected count does not establish that a constraint was
+verified; the passed count does.** The verdict line under test cites "6 passed", so it is sound — but the
+evidence idiom this board writes ("N collected, exit 0") is not, and that is now on CARD-279.

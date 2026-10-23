@@ -143,3 +143,61 @@ measuring, because it is the vacuous direction and nobody has looked at it.
 - **[Use the committed instrument]** `tests/kill_matrix.py`, `tests/README.md` from line 453. Both passes,
   ANY-RED, and report the **domain** of every figure — the denominator is the target file's `ast.Assert`
   node count, never the collected-test count.
+
+---
+
+## [Correction 2026-10-23, measured] The vacuous direction this card worried about **does not exist** — and what replaces it is sharper
+
+Written when this card was cut: *"on a host with no non-loopback address, does the test pass by probing
+nothing? If so, every green run there certified CON-009 by probing nothing."* An independent skeptic
+re-deriving CON-009's `✓ holds` for CARD-264 answered it by reading the code and exercising the helper
+in-process. **The hypothesis is wrong, and the card is corrected rather than quietly re-scoped.**
+
+`_non_loopback_address()` (`tests/test_web_server.py:453-469`) opens a `SOCK_DGRAM` socket, connects to
+`8.8.8.8:53` without sending a packet, reads `getsockname()[0]`, and returns `None` on `OSError` **or** if
+the address starts with `"127."`. Both consumers gate on it and **skip loudly**:
+
+- `test_no_other_interface_is_served` (`:521-532`) → `pytest.skip("host has no non-loopback IPv4 address to probe")`
+- `test_the_port_stays_free_on_every_other_interface` (`:534-555`) → the same skip
+
+Driven with the helper forced to `None`, both raise `Skipped` with that reason. Exercised with four
+constructed conditions: live host → `192.168.0.109`; `getsockname → "127.0.0.1"` → `None`; `connect`
+raising `OSError` → `None`; `getsockname → "192.168.1.5"` → that address. **So the test never passes by
+probing nothing.** ADR-0038/R8 is satisfied: the gap is a loud, named skip. AC-3 as originally written is
+therefore **already met by the code** and this card must not pretend otherwise — it is withdrawn below.
+
+### What the measurement found instead, and it is a better finding than the one it replaces
+
+**A green-with-skips run is indistinguishable from a fully-verified run by every figure this board
+records except one.** On a loopback-only host — a CI container in its own network namespace, say — the
+CON-009 selection still **collects 6 and exits 0**, and reports `4 passed, 2 skipped`. The *collected
+count* and the *exit code* are identical to a run that verified everything. Only the **passed count**
+separates them.
+
+That matters because this board's evidence lines are written as *"N collected, exit 0"*. CARD-264 has
+already been bitten once in the other direction by trusting a selection's exit code — a `-k` that
+matched nothing exited 0 inside a compound selection and two rounds reported a security constraint as
+re-run. This is the same defect class from the other side: **exit code plus collected count does not
+establish that a constraint was verified; the passed count does.** And there is a second, independent
+skip gate in each test — the `0.0.0.0` control server at `:397-403` must itself bind and refuse — so a
+firewall can silence the behavioural half while the four code-level checks stay green.
+
+### Revised scope for this card
+
+- **AC-3 is WITHDRAWN.** The vacuous-pass state it guards against is not reachable: the code already
+  fails-loudly via a named skip, verified four ways above. Replacing it:
+- **AC-3' (new)** *Given* a run in which either skip gate fires, *then* the evidence a reader sees
+  distinguishes it from a fully-verified run **without requiring them to read the skip reason** — i.e.
+  the constraint's verification is not reportable as satisfied on a run where its behavioural half
+  skipped. State the mechanism chosen (a `-rs`-style required reason in the gate note, an explicit
+  non-skip assertion for hosts that *do* have an address, or a refusal to report CON-009 green on a
+  skipped run) and demonstrate both states.
+- **AC-1 and AC-2 stand unchanged.** The observed red is unexplained and the conflation in
+  `_port_is_free_on` between *"another process holds this port"* and *"the server bound a LAN
+  interface"* is real — a security claim read off an unrelated bind failure. On the host where it was
+  seen, the probe was **live** (`192.168.0.109`), so the red was not a skip-path artefact.
+- **G-3 gains a second reason.** It already forbids fixing the CON-010 selector defect by renaming the
+  property into a class. The second reason is now measured and is stronger than the first: pytest's
+  default `python_classes = Test*` is not overridden anywhere (`pyproject.toml:88-90` sets only
+  `testpaths`, `addopts`, `pythonpath`), so a class named `PropertyTest_*` **would collect nothing,
+  silently** — the rename would reproduce the exact defect it was meant to fix.
