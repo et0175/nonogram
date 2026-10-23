@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → 7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner: fix both + narrow re-entry review → fix 5 `6c29d282` pre-gated + **gated (8931 exec, 0 failed, count flat as predicted)** → **narrow re-entry review in flight**
+**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → 7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner: fix both + narrow re-entry review → fix 5 `6c29d282` pre-gated + **gated (8931 exec, 0 failed, count flat as predicted)** → **re-entry review 8.5** (mechanism unbreakable; 2 imp, both prose of the class fix 5 fixed) → orchestrator corrected both as two sentence edits `6f09e29d` → AC/EC/G gate 46/46 → **merge gate in flight**
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -3413,7 +3413,7 @@ Cycle 5's three refutations, each answered with a case rather than a sentence:
    declaration line removed *together with* its key phrase: both counts fall by one, the span equality
    is satisfied, every surviving key is still on its line. The case asserts `== []` -- the honest
    reading -- and the control is the new **census equality**, which the round-4 floor could not be: at
-   `>= 45` against a measured 57 it had eleven lines of slack.
+   `>= 45` against a measured 57 it had **twelve** lines of slack -- 57 may fall to 45 inclusive and still pass.
 
 **The equality, and the door each figure came through.** `assert _declaration_census(
 _MEASURED_TABLE_LINE_KEYS) == (5, 12, 57)` replaces `assert keyed >= 45`. **5 tables / 12 entries / 57
@@ -3672,3 +3672,82 @@ back at exactly the previous figures — **8904 passed, 27 skipped, 8931 execute
 expected value is written down before it runs is the only kind that can be *wrong*; this one agrees.
 
 Card cumulative: **+48** collected across five rounds (fix 5 contributes 0), every one accounted for.
+
+## [Re-entry review] 8.5 — the mechanism could not be broken, and the two findings are the prose class again
+
+Report `meta/review/20261023T121204Z-CARD-264-reentry.yml` (synced, `yaml.safe_load` clean, 17 keys).
+**0 critical, 2 important, 3 minor.** Score ≥ 8, so the *score* gate passes; the **severity** gate does
+not, which is why there was something to do rather than something to decide.
+
+### What the review established by its own measurement
+
+* **All seven directions of the per-line arm have a control that CAN FAIL** — six mutants, *each deleting
+  a mechanism the round's claims name*, cross-derived with an in-memory harness. `gutted`, `inverted`,
+  `moved`, `added`, `extra_entry` red at `len(verdict) == 1`; `dropped` and `renamed` at the `startswith`
+  arm. Also verified: `end_lineno` occurs **exactly once** in the file, so *"the span equality is the only
+  mechanism in this module that reads an entry's line count"* is **true** rather than asserted.
+* **The census equality reds in BOTH directions** — a planted sixth keyed table gives `(6, 13, 58)` and
+  reds; a dropped keyed table gives `(4, 10, 52)` and reds; the realistic co-edited drop gives
+  `(5, 12, 56)` and reds **at the census only**, with `assert defects == []` passing — exactly the
+  asymmetry fix 5 declared.
+* **The "no control can kill this" declaration is HONEST.** Deleting the census assert statement leaves
+  167 and 166 passing, exit 0. A declared hole that is real, rather than a false bound — which ADR-0039
+  treats as the worse failure.
+* **The `.yml` claim flip reproduces byte-for-byte** (`.md` 7 cells, `.py` 6, `.yml` 3), and the rewritten
+  sentence states both halves correctly: the old wording *was* false as it stood, and the cause — the
+  survivor was real when measured and m-B closed it in the round that kept quoting it.
+* **Step 8h: 5 rules checked, 5 ✓ holds, 0 ✗**, three re-derived fresh (ADR-0039/R1, R2, R3); R7/R8
+  `carried(delta-clean)`, with `test_web_server.py` unchanged at 110 methods and 256 asserts.
+* Orchestrator figures independently reproduced: **66 → 66** test methods, **210 → 214** asserts.
+
+### The two Important findings — and both are the class fix 5 was written to fix
+
+**F-001 — a docstring wider than its mechanism.** `TestTheDeclaredMissTables`' class docstring claimed
+the arm *"reds on seven directions, each with a constructed case naming the line it reds on"*. Two of the
+seven name the **table**: `extra_entry` (*"holds 3 entries and 2 key groups"*) and `renamed` (*"is keyed
+here but assigned nowhere"*), and the committed cases' own `expected` prefixes carry no line number
+either — so the docstring was contradicted by the cases it describes. The contract block two screens up
+had it right all along.
+
+**F-002 — the figure was wrong, in the round that fixed a wrong figure.** *"Eleven lines of slack"* is
+**twelve**: the retired pin read `assert keyed >= 45` against a measured 57, and under `>=` the count may
+fall to 45 **inclusive** and still pass. It is load-bearing for the sentence carrying it, whose whole job
+is to quantify why a floor could not be the control. **The same wrong figure is in fix round 5's notes,
+in the orchestrator's fix-5 brief, and in three commit messages** (`099cf68a`, `5a3519ff`, `6c29d282`).
+Recorded here rather than pretending commits can be rewritten.
+
+### Fixed by the orchestrator as two sentence edits, not by a sixth round — `6f09e29d`
+
+Both are single sentences in the delta's own declarations; neither touches a mechanism, so the mutation
+matrix stands and was not re-run. The docstring now reads *"five cases name the line they red on, two
+name the table"*; both figure sites read **twelve**, each with the arithmetic beside it (*"57 may fall to
+45 inclusive and still pass"*) so the number is re-derivable rather than remembered.
+
+**Every edit is line-count preserving, deliberately.** This card and both review reports cite assert cells
+by line number — `:4954` and `:4955` among them — and a comment reflow that moved them would have made
+every citation stale: this card's own disease, committed while closing it. Verified after the edit: 4980
+lines as before, **214** `ast.Assert` nodes as before, `:4954`/`:4955` still landing on asserts.
+
+Verification on the final tree: `tests/test_guard_integrity.py` **167/167**, `tests/test_web_server.py`
+**166/166**, and the three other files that read this one by name — found by `grep` rather than assumed —
+`test_book_difficulty_dots.py` **150 passed**, `test_cli.py` **135 passed**, all exit 0.
+
+### [AC/EC/G verification gate] PASSED — 46 collected, 46 passed, exit 0
+
+Every AC's named class selected by **explicit node id**, never `-k`: `TestClaudeMd_EverySymbolItNamesExists`
+6, `TestClaudeMd_APlantedDeadSymbolReds` 9, `TestClaudeMd_TheDependencyClaimMatchesPyproject` 9,
+`TestClaudeMd_TheTimeoutClaimNamesItsTest` 9, `TestTheDeclaredMissTables` 3,
+`TestWebAdapter_TheForbiddenTokenSetHasNoDeadMember` 10 — and all six in one run: **46 passed**, the same
+46 cycle 5 measured. AC-5 and AC-6 name no test of their own by design: AC-5 is the planted-token
+behaviour inside AC-4's class, AC-6 the timeout claim inside the timeout class, both covered above.
+**AC-7 is WITHDRAWN to CARD-265** and is not scored here.
+
+### The three minors are one cluster and became CARD-281
+
+`5 / 12 / 57` restated in three prose copies that nothing re-derives plus a fourth as a literal inside the
+census assert's own failure message; and the new seven-directions count having no failing control
+(measured: delete the `added` case and the file is 167 passed, exit 0 — a **pre-existing** gap that fix 5
+narrowed rather than created). Closing these needs a mechanism that parses the figures out of the source,
+following this module's own precedent in
+`test_the_path_suffix_census_is_the_one_this_comment_states`. That is a card, not a sentence, so it is
+**CARD-281**, whose first table is the four figures this one card got wrong in a single day.
