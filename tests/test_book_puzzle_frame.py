@@ -896,6 +896,42 @@ def _book_pages() -> list[Image.Image]:
     return pages
 
 
+@pytest.fixture(scope="module")
+def pages() -> list[Image.Image]:
+    """This module's one book, drawn once for the whole module (CARD-218).
+
+    Five places used to ask for this interior — four class-scoped ``pages``
+    fixtures and one inline call — so the same three puzzles were laid out and
+    drawn five times to be measured five ways. The measurement that moved it
+    here: the four class renders plus the inline one cost 0.418 s of repeated
+    work, every byte of it identical, which was the largest single
+    identical-input render duplication anywhere in CARD-218's nine files.
+
+    **Module, not session** (the card's rule 2): a session fixture would hold
+    this book's page bitmaps alive for the rest of the run, and
+    ``test_book_pdf_memory.py`` exists because a page alive while the next is
+    built was a real defect (CARD-145).
+
+    **Read-only.** Every consumer measures ink through ``np.asarray`` /
+    ``drawings_of`` / ``drawing_of``, all of which read the image and return
+    something new; none draws on it. A test that needs to draw must take
+    ``page.copy()``, and
+    :meth:`TestPuzzleFrame_TheSharedInteriorIsNotMutated.test_the_shared_pages_are_handed_out_as_they_were_drawn`
+    is the control that fails if one forgets: it digests every page after the
+    module's measuring tests have run and compares it with the digest taken
+    when the book was drawn.
+    """
+    drawn = _book_pages()
+    _SHARED_DIGEST.extend(page.tobytes() for page in drawn)
+    return drawn
+
+
+#: The bytes of :func:`pages` as it was drawn, filled by the fixture and read
+#: back by its mutation control. A list rather than a module-level rebinding so
+#: the control cannot pass by reading a name the fixture never set.
+_SHARED_DIGEST: list[bytes] = []
+
+
 # --------------------------------------------------------------------------
 # FR-040's pair arithmetic, in millimetres, written out here
 # --------------------------------------------------------------------------
@@ -1106,11 +1142,6 @@ class TestPuzzleFrame_PairIsFramedOnThePrintedPage:
     where a frame is; it is found or it is not.
     """
 
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pages(cls) -> list[Image.Image]:
-        return _book_pages()
-
     def test_both_slots_read_back_as_framed_drawings(self, pages) -> None:
         """The gap, stated: before this card both slots read ``framed=False``."""
         upper, lower = drawings_of(pages[TWO_UP_PAGE - 1])
@@ -1233,11 +1264,6 @@ class TestPuzzleFrame_PairIsFramedOnThePrintedPage:
 
 class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
     """Every frame rule on a printed pair is the heavy weight, and pure black."""
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pages(cls) -> list[Image.Image]:
-        return _book_pages()
 
     @staticmethod
     def _weights(dark: np.ndarray, drawing) -> tuple[int, int]:
@@ -1363,11 +1389,6 @@ class TestPuzzleFrame_TwoUpStraddlesItsBoundaryLikeASinglePage:
     against boundaries worked out in millimetres.
     """
 
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pages(cls) -> list[Image.Image]:
-        return _book_pages()
-
     @staticmethod
     def _straddle(dark: np.ndarray, row: int, boundary: float) -> tuple[float, float]:
         """How far a rule's ink reaches either side of ``boundary``, in pixels.
@@ -1456,11 +1477,6 @@ class TestPuzzleFrame_TwoUpStraddlesItsBoundaryLikeASinglePage:
 
 class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
     """CARD-127's and CARD-118's measured figures, on the framed pair."""
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pages(cls) -> list[Image.Image]:
-        return _book_pages()
 
     def test_the_pair_still_prints_at_the_shared_cell_fr_040_measures(
         self, pages
@@ -2552,7 +2568,9 @@ class TestBookPuzzleFrame_GridClearsBothRules:
             floated,
         )
 
-    def test_a_real_books_pages_keep_their_ink_off_both_drawn_rules(self) -> None:
+    def test_a_real_books_pages_keep_their_ink_off_both_drawn_rules(
+        self, pages
+    ) -> None:
         """The ink-level half: a real interior, with the frame's rules drawn.
 
         The rules' rows are measured off the page too — each is the one run of
@@ -2560,7 +2578,6 @@ class TestBookPuzzleFrame_GridClearsBothRules:
         than the text block reaches — so neither side of this comparison is
         ``interior_frame``'s own answer.
         """
-        pages = _book_pages()
         spec = _spec()
         text_width = round((spec.width_mm - spec.gutter_mm - spec.outside_mm) * PX_PER_MM)
         area_top_mm, area_bottom_mm = _puzzle_area_mm(spec)
@@ -3042,3 +3059,62 @@ class TestBookPuzzleFrame_NoEmptyLowerThird:
         assert above == pytest.approx(BAND_MM * HEADER_RULE_LIFT_SHARE, abs=0.01)
         assert below > 1.4 * above, (above, below)
         assert abs(above / spare - SPARE_ABOVE) > 0.1
+
+
+# --------------------------------------------------------------------------
+# CARD-218 — the control on the shared render
+# --------------------------------------------------------------------------
+
+
+class TestPuzzleFrame_TheSharedInteriorIsNotMutated:
+    """CARD-218's AC-4, for the one book this module now draws once.
+
+    Sharing a render is only sound while every reader is a reader. Pillow
+    images are mutable and this file compares pages by their ink, so a test
+    that drew on a shared page — a debug marker, a crop written back, a
+    ``paste`` — would silently change what every later test measures, and the
+    failure would land on the later test rather than on the one that caused
+    it. This class is where it lands instead.
+
+    It runs last on purpose (pytest collects a module in file order), so by
+    the time it reads the pages every measuring test in the module has had
+    them.
+    """
+
+    def test_the_shared_pages_are_handed_out_as_they_were_drawn(
+        self, pages
+    ) -> None:
+        """Every page is byte for byte what the fixture drew.
+
+        The digest is taken *inside* the fixture, before any test sees the
+        pages, and this compares the pages as they stand now against it — so
+        the comparison is the drawn book against the handed-out book, not the
+        handed-out book against itself.
+        """
+        assert len(_SHARED_DIGEST) == INTERIOR_PAGES, (
+            "the shared-render digest was not taken: "
+            f"{len(_SHARED_DIGEST)} pages recorded, {INTERIOR_PAGES} drawn"
+        )
+        moved = [
+            number
+            for number, (page, drawn) in enumerate(zip(pages, _SHARED_DIGEST), start=1)
+            if page.tobytes() != drawn
+        ]
+        assert not moved, (
+            "a test in this module drew on the shared interior rather than on "
+            f"a copy of it: interior page(s) {moved} no longer match the bytes "
+            "the module fixture drew. Take `page.copy()` in the test that "
+            "needs to draw, or give that test a render of its own."
+        )
+
+    def test_one_render_served_the_whole_module(self, pages) -> None:
+        """The saving itself, asserted rather than assumed.
+
+        ``_SHARED_DIGEST`` is appended to once per execution of the module
+        fixture, so a digest holding exactly one book's pages is the statement
+        that the book was drawn once for the module. If the fixture's scope
+        were widened back to ``function`` or narrowed to a class, this holds
+        more than one book's worth of pages and goes red — which is what makes
+        it a control on the conversion and not a restatement of it.
+        """
+        assert len(_SHARED_DIGEST) == len(pages) == INTERIOR_PAGES

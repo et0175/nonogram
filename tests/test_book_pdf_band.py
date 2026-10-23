@@ -241,6 +241,51 @@ def _interior(puzzles: Sequence[dict], book: Book | None = None) -> list[Image.I
     )
 
 
+@pytest.fixture(scope="module")
+def snowflake_interior() -> list[Image.Image]:
+    """The one-puzzle "Snowflake" book, drawn once for the module (CARD-218).
+
+    AC-193's and AC-194's classes are two readings of the same printed book —
+    the puzzle page carries the identity and not the title, the answer page
+    carries both — and four tests across those two classes drew that book
+    again each time to read a different page of it: 0.286 s of byte-identical
+    repeated rendering, measured.
+
+    Module scope because the duplication spans two classes; not session scope,
+    which would keep this book's bitmaps alive for the rest of the run (the
+    card's rule 2, and CARD-145's peak-memory concern).
+
+    Read-only: every consumer compares ``page.tobytes()`` against a page built
+    beside it, and ``tobytes`` does not touch the image.
+
+    The two classes name their picture themselves (``NAME``), and this book is
+    :func:`_puzzle`'s default one — so the agreement is asserted here rather
+    than assumed. Rename the picture in one class and this goes red at the
+    fixture, which is where the divergence is, instead of leaving that class
+    silently measuring the other one's book.
+    """
+    shared = _puzzle()
+    for owner in (
+        TestBookPdf_PuzzlePageCarriesNoPictureTitle,
+        TestBookPdf_AnswerKeyCarriesPictureTitle,
+    ):
+        assert owner.NAME == shared["puzzle_name"], (
+            f"{owner.__name__} reads a book titled {owner.NAME!r}, and this "
+            f"fixture draws {shared['puzzle_name']!r}: it needs a render of "
+            "its own, or this fixture needs its name"
+        )
+    drawn = _interior([shared])
+    _SHARED_SNOWFLAKE_DIGEST.extend(page.tobytes() for page in drawn)
+    return drawn
+
+
+#: The bytes of :func:`snowflake_interior` as it was drawn, filled by the
+#: fixture and read back by its mutation control at the end of this module. A
+#: list rather than a module-level rebinding, so the control cannot pass by
+#: reading a name the fixture never set.
+_SHARED_SNOWFLAKE_DIGEST: list[bytes] = []
+
+
 #: Where each level sits in the book: easy, then medium, then hard (INV-009).
 #: Written out here, keyed on the *label* this module already derives from the
 #: stored word, so the print order below is this module's own reading of
@@ -481,7 +526,9 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
 
     NAME = "Snowflake"
 
-    def test_the_puzzle_page_is_the_page_of_a_nameless_payload(self) -> None:
+    def test_the_puzzle_page_is_the_page_of_a_nameless_payload(
+        self, snowflake_interior
+    ) -> None:
         """The page is, pixel for pixel, the page of a payload with no name.
 
         The band it *does* carry is "Puzzle 1 · Easy" — written out here — so
@@ -490,7 +537,7 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
         in the band or beside the grid, differs from this one.
         """
         puzzle = _puzzle(name=self.NAME)
-        page = _interior([puzzle])[puzzle_page_number([puzzle]) - 1]
+        page = snowflake_interior[puzzle_page_number([puzzle]) - 1]
 
         expected, _ = _pages_with_band(
             puzzle,
@@ -502,7 +549,9 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
         assert _has_ink(_band_strip(page)), "the band is blank"
         assert page.tobytes() == expected.tobytes()
 
-    def test_renaming_the_picture_leaves_the_puzzle_page_identical(self) -> None:
+    def test_renaming_the_picture_leaves_the_puzzle_page_identical(
+        self, snowflake_interior
+    ) -> None:
         """Rename the picture and not one pixel of its puzzle page moves.
 
         The control the previous test needs: the same book, the same position,
@@ -513,7 +562,7 @@ class TestBookPdf_PuzzlePageCarriesNoPictureTitle:
         snowflake = _puzzle(name=self.NAME)
         renamed = _puzzle(name="Iguanodon Skeleton")
 
-        theirs = _interior([snowflake])
+        theirs = snowflake_interior
         others = _interior([renamed])
         puzzle_page = puzzle_page_number([snowflake]) - 1
         answer_page = answer_page_number([snowflake]) - 1
@@ -536,7 +585,9 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
 
     NAME = "Snowflake"
 
-    def test_the_answer_page_carries_the_title_and_the_same_identity(self) -> None:
+    def test_the_answer_page_carries_the_title_and_the_same_identity(
+        self, snowflake_interior
+    ) -> None:
         """The title is on the answer page and is not on the puzzle page.
 
         Retargeted under G-2a (FR-042's packed key), and again under CARD-198
@@ -560,7 +611,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         """
         number = 1
         puzzle = _puzzle(name=self.NAME)
-        pages = _interior([puzzle])
+        pages = snowflake_interior
 
         expected_puzzle, _ = _pages_with_band(
             puzzle,
@@ -579,7 +630,9 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
             puzzle, number, answer_page_number([puzzle]), title=None
         ).tobytes(), "the title contributes no ink to the answer page"
 
-    def test_the_title_is_ink_the_answer_band_would_not_have_without_it(self) -> None:
+    def test_the_title_is_ink_the_answer_band_would_not_have_without_it(
+        self, snowflake_interior
+    ) -> None:
         """Withhold the title and the *same* answer page loses ink, in one place.
 
         Retargeted under G-2b (FR-042's packed key), and again under
@@ -614,7 +667,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         number = 1
         puzzle = _puzzle(name=self.NAME)
         page_number = answer_page_number([puzzle])
-        page = _interior([puzzle])[page_number - 1]
+        page = snowflake_interior[page_number - 1]
 
         untitled = _answer_page(puzzle, number, page_number, title=None)
         assert page.tobytes() != untitled.tobytes(), "the title changed nothing"
@@ -671,6 +724,13 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
 # --------------------------------------------------------------------------
 
 
+#: One entry per execution of :meth:`TestBookPdf_EveryFifthGridLineWider.page`.
+#: CARD-218's control on that conversion: the class's five tests pass whatever
+#: the fixture's scope is, so without a count there is nothing that fails when
+#: the page goes back to being drawn once per test.
+_FIFTH_RULE_RENDERS: list[tuple[int, int, int]] = []
+
+
 class TestBookPdf_EveryFifthGridLineWider:
     """AC-195 — measured on a Book 1 page holding a 30x30 at 4.97 mm.
 
@@ -689,15 +749,29 @@ class TestBookPdf_EveryFifthGridLineWider:
     #: Heavy rules: the borders and every 5th line of a 30-cell grid.
     HEAVY_INDICES = (0, 5, 10, 15, 20, 25, 30)
 
-    @staticmethod
-    def _page() -> Image.Image:
-        columns, rows, depth = TestBookPdf_EveryFifthGridLineWider.PUZZLE
+    @pytest.fixture(scope="class")
+    @classmethod
+    def page(cls) -> Image.Image:
+        """This class's one 30x30 page, drawn once for the class (CARD-218).
+
+        Five tests measured this page and each one drew the whole interior to
+        get it: 0.389 s of byte-identical repeated rendering, measured. Class
+        scope rather than module scope because this page is read by this class
+        alone — the card prefers the narrowest scope that removes the
+        duplication, so the bitmap is released when the class is done instead
+        of living to the end of the file (CARD-145's peak-memory concern).
+
+        Read-only: ``drawing_of`` and :meth:`_scan` both read the image
+        through ``np.asarray`` and return arrays of their own.
+        """
+        columns, rows, depth = cls.PUZZLE
         puzzle = _puzzle(columns, rows, depth)
+        _FIFTH_RULE_RENDERS.append(cls.PUZZLE)
         return _interior([puzzle])[puzzle_page_number([puzzle]) - 1]
 
-    def test_the_grid_is_the_thirty_by_thirty_at_the_stated_cell(self) -> None:
+    def test_the_grid_is_the_thirty_by_thirty_at_the_stated_cell(self, page) -> None:
         """The premise of the measurement, taken off the page itself."""
-        drawing = drawing_of(self._page())
+        drawing = drawing_of(page)
         assert (drawing.columns, drawing.rows) == (MAX_SIZE, MAX_SIZE)
         assert drawing.cell / PX_PER_MM == pytest.approx(
             self.CELL_MM, abs=self.CELL_TOLERANCE_MM
@@ -705,7 +779,7 @@ class TestBookPdf_EveryFifthGridLineWider:
 
     @pytest.mark.parametrize("axis", ["vertical", "horizontal"])
     def test_every_fifth_rule_is_wider_than_every_rule_between_them(
-        self, axis: str
+        self, axis: str, page: Image.Image
     ) -> None:
         """The heavy rules out-measure every thin one, down the page and across.
 
@@ -713,7 +787,6 @@ class TestBookPdf_EveryFifthGridLineWider:
         other axis — inside the grid, between two rules — so every run of ink
         it meets is a rule of this axis and nothing else.
         """
-        page = self._page()
         widths = _rule_widths(self._scan(page, axis))
 
         assert len(widths) == MAX_SIZE + 1, "a 30-cell grid is ruled 31 times"
@@ -729,7 +802,9 @@ class TestBookPdf_EveryFifthGridLineWider:
         assert set(heavy) == {2 * width for width in set(thin)}, "heavy = 2 x thin"
 
     @pytest.mark.parametrize("axis", ["vertical", "horizontal"])
-    def test_the_rules_are_pure_black_and_not_anti_aliased(self, axis: str) -> None:
+    def test_the_rules_are_pure_black_and_not_anti_aliased(
+        self, axis: str, page: Image.Image
+    ) -> None:
         """Every pixel the scanline crosses is #000 or the paper, never a grey.
 
         A rule softened to grey prints lighter than it measures, which is the
@@ -737,7 +812,6 @@ class TestBookPdf_EveryFifthGridLineWider:
         scanline is checked, not only the runs, so an anti-aliased *edge*
         beside a rule fails too.
         """
-        page = self._page()
         greys = set(np.unique(self._scan(page, axis)).tolist())
         assert greys <= {0, 255}, f"the scanline carries greys: {sorted(greys)}"
 
@@ -764,6 +838,23 @@ class TestBookPdf_EveryFifthGridLineWider:
             return pixels[row, drawing.grid_left : drawing.grid_right + past_last_rule]
         column = drawing.grid_left + round(drawing.cell / 2)
         return pixels[drawing.grid_top : drawing.grid_bottom + past_last_rule, column]
+
+    def test_one_render_served_the_whole_class(self, page: Image.Image) -> None:
+        """CARD-218's control on this class's conversion.
+
+        Last in the class, so every test above has taken the fixture by now.
+        :data:`_FIFTH_RULE_RENDERS` grows by one entry per execution of the
+        fixture, so exactly one entry is the statement that this 30x30 page
+        was drawn once for the five tests that measure it. Put the scope back
+        to ``function`` and there are five, and this goes red.
+        """
+        assert _FIFTH_RULE_RENDERS == [self.PUZZLE], (
+            "the 30x30 page was drawn "
+            f"{len(_FIFTH_RULE_RENDERS)} times for this class, not once"
+        )
+        assert drawing_of(page).columns == MAX_SIZE, (
+            "the shared page is not the 30x30 page this class measures"
+        )
 
 
 # --------------------------------------------------------------------------
@@ -1448,3 +1539,58 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
         """Only pages that had received a band before their write are watched
         (see :attr:`_BandDraws.late`)."""
         assert band_draws.late == []
+
+
+# --------------------------------------------------------------------------
+# CARD-218 — the control on this module's shared render
+# --------------------------------------------------------------------------
+
+
+class TestBookPdf_TheSharedSnowflakeInteriorIsNotMutated:
+    """CARD-218's AC-4 for :func:`snowflake_interior`.
+
+    Sharing a render is only sound while every reader is a reader. Pillow
+    images are mutable and this module compares pages by ``tobytes()``, so a
+    test that drew on a shared page would silently change what the other three
+    tests measure, and the failure would land on one of them rather than on
+    the test that caused it. This is where it lands instead.
+
+    It is the last class in the module, so by the time it reads the pages
+    every test that takes them has had them.
+    """
+
+    def test_the_shared_pages_are_what_the_fixture_drew(
+        self, snowflake_interior
+    ) -> None:
+        """Every page is byte for byte what the fixture drew.
+
+        The digest is taken inside the fixture, before any test sees the
+        pages, so this compares the drawn book against the handed-out book
+        rather than the handed-out book against itself.
+        """
+        assert _SHARED_SNOWFLAKE_DIGEST, "the shared-render digest was not taken"
+        moved = [
+            number
+            for number, (page, drawn) in enumerate(
+                zip(snowflake_interior, _SHARED_SNOWFLAKE_DIGEST), start=1
+            )
+            if page.tobytes() != drawn
+        ]
+        assert not moved, (
+            "a test in this module drew on the shared interior rather than on "
+            f"a copy of it: interior page(s) {moved} no longer match the bytes "
+            "the module fixture drew. Take `page.copy()` in the test that "
+            "needs to draw, or give that test a render of its own."
+        )
+
+    def test_one_render_served_the_whole_module(self, snowflake_interior) -> None:
+        """The saving itself, asserted rather than assumed.
+
+        The digest is appended to once per execution of the module fixture, so
+        a digest exactly one book long is the statement that the book was
+        drawn once for the module. Widen the fixture's scope back to
+        ``function``, or narrow it to ``class``, and this holds more than one
+        book's worth of pages and goes red — which is what makes it a control
+        on the conversion rather than a restatement of it.
+        """
+        assert len(_SHARED_SNOWFLAKE_DIGEST) == len(snowflake_interior)
