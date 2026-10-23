@@ -2659,3 +2659,25 @@ describe the third assertion), replacing the ordinal with *"The member-restateme
 keep…"*. The round did **not** claim m-2 as fixed, because m-2 had no id in its contract — correctly, and
 worth recording: m-2 is closed as a **by-product**, not as a tracked fix, and cycle 4 should confirm that
 rather than take this sentence for it.
+
+### [Build gate] **PASSED** at `098ecd91` (post-fix-3) — exit 0, and the +4 reconciles to fix 3 exactly
+
+| figure | value |
+|---|---|
+| pytest exit code | **0** |
+| executed | **8925** |
+| passed | **8898** |
+| skipped | **27** |
+| failed / error | **0 / 0** |
+
+Board lock taken and released, verified gone. **+4 against the post-fix-2 gate (8921)**, and the per-file
+collection delta is `tests/test_guard_integrity.py` **157 → 161** and `tests/test_web_server.py`
+**166 → 166**. Fix 3's own additions are exactly those four — three from S-1's per-member parametrization
+and one from W-2 — while S-2, S-3, S-4, W-1 and B-1/B-2/B-3 changed assertions, declarations and prose
+rather than adding tests, which is what a round of this shape should look like from outside. **+4 and
++4.**
+
+Three gates on this card now, each reconciling to its own round: **8919** (`99782837`, +36 = the card's
+own additions) → **8921** (`e26e5473`, +2 = fix 2's two new tests) → **8925** (`098ecd91`, +4 = fix 3's
+four). Cumulative against main: **+42**, every one of them accounted for. The 27 skips are the standing
+DB-mode skips throughout, unchanged.
