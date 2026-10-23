@@ -193,3 +193,24 @@ the narrower object the refutation left behind — a count in a **docstring**, n
 This card already declares `Depends on: CARD-264`, and that dependency is satisfied by CARD-264's merge.
 The two items above arrive **from** that card's final cycle, so they are inputs to this one, not new
 blockers.
+
+## [Routed in 2026-10-23, from CARD-264's cycle 5] A docs page's line-number citation, and why it is this card's
+
+Cycle 5 filed a **minor** against `docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md:20`:
+fix round 4's m-4 extended a quotation and **added a line-number citation** (`src/nonogram/__init__.py:71-73`)
+into a docstring that churns — in the same round that *removed* line-number citations from that page for
+being untestable. The citation is **accurate today**: both CARD-264's round and its reviewer verified the
+passage by hand, including the colon's clause.
+
+**It was deliberately not fixed on CARD-264, and the reason is this card's subject.** `grep -rn
+"09-the-three-inbound-adapters" tests/` finds **nothing** — no test reaches that page, which is exactly the
+docs-reach gap the section above routes here. Repairing the citation on CARD-264 would have meant either
+(a) deleting a true citation to satisfy a consistency argument, or (b) editing a file **after** its
+full-suite gate, breaking this board's rule that the gated tree *is* the merged tree, for a page no test
+covers. Both are worse than carrying it.
+
+**So it belongs with the reach:** once this card's standing check reads `docs/**`, a quotation-and-citation
+rule over that tree is the thing that makes the question decidable instead of a matter of taste — and the
+same mechanism answers whether a line-number citation into a churning source is allowed **at all** on these
+pages, which is the real question underneath the minor. If the answer is "no line numbers in docs
+citations", that is a rule with a control, and this page's `:20` is its first test case.

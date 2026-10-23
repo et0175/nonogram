@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → **7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner: fix both + narrow re-entry review**
+**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → 7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner: fix both + narrow re-entry review → fix 5 `6c29d282` pre-gated + **gated (8931 exec, 0 failed, count flat as predicted)** → **narrow re-entry review in flight**
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -3658,3 +3658,17 @@ reason the figures above are stated with the door they came through.
 d90753df -- CLAUDE.md` is exactly three single-line hunks, `@@ -46 +46 @@`, `@@ -48 +48 @@`, `@@ -50 +50 @@`.
 G-6: no `src/` path in the committed diff, and the working tree held only the three intended files.
 ADR-0036/R4: **0** codepoints in U+25A0..U+25FF, U+2022 or U+2219 across both test files.
+
+## [Gate] Post-fix full suite at `6c29d282` — PASSED, and the prediction was made before the run
+
+**Result: exit 0, 8931 executed, 8904 passed, 27 skipped, 0 failed, 0 error.** No duration recorded (G-7).
+The board's lock was **written by the gate** this time — `holder`, `at: 2026-10-23T11:24:47Z`, absolute
+`worktree:`, `commit: 6c29d282` — and verified gone afterwards.
+
+**The reconciliation is a prediction kept, not an arithmetic done afterwards.** The pre-gate recorded, in
+the commit that precedes this one, that the suite's collected count **must not move**: fix 5 **renamed** one
+test and added none (66 → 66 methods by AST), while raising `ast.Assert` nodes 210 → 214. The gate came
+back at exactly the previous figures — **8904 passed, 27 skipped, 8931 executed, unchanged**. A gate whose
+expected value is written down before it runs is the only kind that can be *wrong*; this one agrees.
+
+Card cumulative: **+48** collected across five rounds (fix 5 contributes 0), every one accounted for.
