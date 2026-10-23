@@ -113,6 +113,17 @@ conflict:
     - src/nonogram/export/layout.py        # shared page geometry — CARD-141/144
     - src/nonogram/admin/book_pdf_generator.py  # the streaming page writer (CARD-145)
     - src/nonogram/admin/book_manager.py
+    # Added 2026-10-23: tests/conftest.py, and ONLY that. The orchestrator came
+    # here to add tests/helpers/book_corpus.py after measuring that CARD-218 and
+    # CARD-219 both modify it at a predicted overlap of 0.21 against a 0.3
+    # threshold -- and it is ALREADY in this list, further down, with a comment
+    # that states that same pair and that same arithmetic. The measurement was
+    # right and the gap was not where it looked: the orchestrator had read the
+    # first twelve lines of this section and not the rest of it. The one path
+    # genuinely missing is the conftest -- CARD-218 declares it, it holds the
+    # fixtures every suite-cost card reshapes, and a second card editing it
+    # concurrently is the same collision as the corpus.
+    - tests/conftest.py                    # the one conftest; every fixture edit lands here
     - migrations/**                        # migration index; merged order is what runs
     - src/nonogram/db/**
     # Added 2026-10-22 (owner). The shared book corpus: 10 READY cards declare it

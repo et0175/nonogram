@@ -75,6 +75,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _Full list: [meta/kanban/backlog.md](backlog.md)_
 
 ## Ready
+- **CARD-286** P2 · The impact derivation cannot see a coupling no import edge carries — so it fails OPEN on the player, and wide on the book  _(unscheduled, from the owner's 2026-10-23 request + CARD-271's PG-2 and its red merge gate; prerequisite for trusting `test_scope: impact` board-wide)_
 - **CARD-281** P2 · The figures a guard module states about itself are copies, and copies are what drifted five times on one card  _(unscheduled, from CARD-264's re-entry review)_
 - **CARD-207** P2 · A book puzzle page's header splits — "Puzzle 37" flush left, "MEDIUM" flush right, a rule beneath  _(unscheduled, tier 1)_
 - **CARD-208** P2 · Printed clue numbers sit in ruled boxes, like the player's clue cells  _(unscheduled, tier 1)_
