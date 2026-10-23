@@ -178,3 +178,86 @@ was told are inert **are loaded and compared at runtime**. Both corrections poin
 
 **Recommend: park it** until CARD-235, CARD-218, CARD-219 and CARD-236 have run, and re-cut it
 from whatever duplication is still irritating then. Owner's call.
+
+## Re-measured and re-pointed 2026-10-23, on the owner's request to curate tests
+
+The owner asked for the suite to stop "testing everything several times"
+(2026-10-23), which re-opens this card. Measured before re-cutting it, on
+merged main at `ae164099` with the board's full-suite lock held:
+
+| | 2026-10-15 (CARD-217, solo) | 2026-10-23 (solo) | move |
+| --- | --- | --- | --- |
+| wall clock | 930.81 s | **1433 s** | +54 % |
+| tests | 7082 timed / 7073 passed | **8981 collected / 8954 passed** | +27 % |
+| ms per test | 131 | **160** | **+21 %** |
+| browser family | 366.19 s, 422 tests, 868 ms, 12 files | **474 s, 646 tests, 734 ms, 18 files** | grown 53 %, **15 % cheaper per test** |
+
+**The per-test regression is real and not contention.** The 2026-10-23 run had
+3 s of wall-clock overhead against pytest's own 1433 s and load averages
+falling from 3.78/6.64/11.85 to 5.44/4.36/5.96; the same tree measured earlier
+the same evening under load average 18 lost 555 s to the box and is recorded
+in `suite-timing.log` as measuring the machine. So the suite costs 21 % more
+per test than it did eight days ago, **while the browser family — the one
+thing CARD-235 attacked — got 15 % cheaper per test.** CARD-235 worked and
+something else grew. Where, is what the top-N rankings of
+`meta/profiling/suite-durations-20261023.txt` are for; the digest regenerated
+by `rank_durations.py --verify-render-set` is the source of truth for this
+card from here, replacing the 2026-10-15 document.
+
+### What today measured about the *kind* of waste, and it is not duplicate claims
+
+Three findings from CARD-271, all with figures, all pointing away from
+deleting tests:
+
+1. **The cost that bit was SETUP, not assertions.** One fixed capture settle
+   in `tests/test_puzzle_solver_fifth_rule.py` costs **13.5 s in a single
+   file** — 27.35 s with it against 13.84/13.40/12.96 s without, three runs —
+   and about +4 % on a 17-file selection. Deleting it is not an option (the
+   file gets *flakier*), the obvious cheaper shape was refuted (the first
+   capture of a test is not exempt, because `set_viewport_size` itself fires
+   `resize`), and the one deterministic cheaper form is to poll the draw count
+   until two reads agree. Backlogged. That is this card's thesis in one file:
+   **the suite pays for setup, and assertions are nearly free.**
+2. **The maintenance pain was hand-maintained CENSUSES, not duplicate
+   coverage.** CARD-271 had to teach a selector-list equality about a new rule
+   and register 27 node ids in the browser-fixture family's registry — 25 of
+   which had been owed since its implementation commit, discovered only by a
+   24-minute suite at the merge gate. That is duplicate *records of the tree*,
+   which is a different cost from duplicate tests and is **not this card's**:
+   it belongs to CARD-286 (reachability) and the registry's own @ops item
+   (shape).
+3. **The browser family is no longer the largest prize.** It was 39.78 % at
+   868 ms/test; it is now 474 s of 1433 s — **33 %** — at 734 ms. Still the
+   biggest single group, but CARD-235 took the easy half and the remaining
+   per-test cost is page lifecycle, not teardown.
+
+### The re-justification this card was told it needs
+
+Its 2026-10-15 correction says the cost premise is dead and the card must be
+re-justified on **maintenance** terms or parked. Today supplies the first real
+maintenance figure: CARD-271 changed one CSS file and two JS functions and had
+to edit **seven** test files plus a registry, and four of those seven were
+outside its drafted `Touches`. None of that was duplicate coverage — each file
+held a different claim — so even the maintenance case does not point at
+deletion. It points at **where a claim lives**: a card that changes one
+mechanism should not have to visit seven files to keep the tree honest.
+
+So this card's honest scope is now narrower than its title: **retire what a
+mutant proves is covered twice, and nothing else** — and the board already
+owns the arbiter for that, `tests/kill_matrix.py`, which answers "do these two
+tests die to the same mutant set" instead of "do they look alike". Everything
+else the owner's request touches is cost, and cost is CARD-218, CARD-219 and
+the setup items above.
+
+### Park conditions, as of 2026-10-23
+
+Of the four cards this card was told to wait for: **CARD-235 done**,
+**CARD-236 done**, **CARD-218 and CARD-219 still `ready`**. CARD-218 is
+dispatched into wave 56 on the owner's decision to override its scheduling
+dependency on CARD-207/208/209 (the override is recorded on CARD-218, and
+CARD-219 plus those three must be re-read against the refactored shape before
+any of them dispatch). So this card stays parked until CARD-218 and CARD-219
+land, and should then be re-cut from whatever duplication is still irritating —
+measured against `suite-durations-20261023.txt`, not against the counts in
+this card's own body, which are from wave 37 and are now wrong in both
+directions (3795 test functions then, 5131 now; 198 files then, 218 now).
