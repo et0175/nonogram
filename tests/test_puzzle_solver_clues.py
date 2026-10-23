@@ -35,10 +35,15 @@ What each tier shows:
 from __future__ import annotations
 
 import random
+import re
 
 import pytest
 
 from tests.helpers.brute_force_oracle import line_candidates
+# CARD-271, G-2: the token predicate the design-system sweep is built on, so
+# this card's one coloured value is judged by the same rule as every other.
+from tests.test_admin_design_tokens import _STATIC as _TOKENS_STATIC
+from tests.test_admin_design_tokens import _declared_values, _untokenised
 from tests.test_puzzle_solver_marking import E, F, U, _button, _cell, _centre, _drag, _states
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
@@ -2231,3 +2236,989 @@ class TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop:
         assert _lines(seen, "rows", duplicate=True) == []
         assert seen["feet"] == 0
         assert seen["cell"] == pytest.approx(24.59, abs=0.05), seen["cell"]
+
+
+# ==========================================================================
+# CARD-271 — the clues stay in view whatever the fit ladder decides
+#
+# Owner's bug report, 2026-10-22: "clues sometimes are missed at the bottom
+# and at the left for big puzzles". CARD-212's duplicates answer that only
+# while they FIT, and the biggest boards are the ones they do not fit: at
+# 1280 x 720 a 30 x 30 is drawn plain (one gutter per axis) and that one
+# gutter scrolls out of .player-stage. So each axis now keeps ONE gutter in
+# view — the labelled one, never the duplicate — by sticking it to the
+# stage's scrollport (solver.js .is-stuck-col / .is-stuck-row, admin.css
+# "Clue gutters that stay in view").
+#
+# .player-stage IS the scroll container these resolve against, measured
+# rather than assumed: see TestSolverClues_TheStageIsTheScrollContainer
+# below, which walks the table's ancestors and asserts the stage is the only
+# one of them that scrolls.
+#
+# The viewports below are measured choices (30 x 30, seed 19330, the board
+# the ladder draws plain at every one of them):
+#
+#   1280 x 720   stage overflow (0, 91) against a 135.39 px column band and
+#                a 272.16 px row band: the column band is scrolled PARTLY
+#                out, and nothing scrolls sideways at all
+#   1280 x 600   overflow (0, 211): the whole column band goes, which is the
+#                owner's "missed at the bottom" on a desktop
+#   900 x 700    overflow (104, 111): the only desktop viewport measured
+#                where a plain board scrolls SIDEWAYS too (above 820 px, so
+#                CARD-193's mirror does not hold — the row band is on the
+#                left, and 104 px of it is what scrolls away)
+#   390 x 844    the mirror: see tests/test_puzzle_solver_phone.py
+#   300 % zoom   overflow (900, 1220) on both axes: see
+#                tests/test_puzzle_solver_zoom.py
+# ==========================================================================
+
+#: The board every CARD-271 case here uses: a 30 x 30, which the ladder draws
+#: plain (one gutter per axis) at every viewport below — pinned by
+#: TestSolverClues_TheLadderStopsAtTheFirstRungThatFits's first row.
+GRID_30x30 = _unique_grid(30, 30, seed=19330)
+
+#: Desktop, column band partly scrolled out; the card's AC-1 viewport.
+LAPTOP_720 = DEFAULT_VIEWPORT
+#: Desktop, the whole column band scrolled out.
+SHORT_720 = {"width": 1280, "height": 600}
+#: The narrowest desktop measured: a plain big board scrolls on BOTH axes and
+#: is still not mirrored (900 > 820).
+NARROW_DESKTOP = {"width": 900, "height": 700}
+
+#: Where the clue boxes of one cell's row and column are, relative to
+#: ``.player-stage``'s own visible box, and what paints at their centre.
+#:
+#: Only the boxes that CARD-271 sticks are looked up (``.is-stuck-row`` /
+#: ``.is-stuck-col``): on a doubled board those are the labelled gutters and
+#: the duplicate is deliberately not one of them, so a selector that matched
+#: either would not say which box is being measured.
+#:
+#: ``inside`` is the card's "in view": the whole box is within the stage's
+#: visible box, to half a pixel (every number measured here is tens of
+#: pixels from the bound, so the tolerance is for sub-pixel rounding only).
+#: ``hit`` is what ``document.elementFromPoint`` finds at the box's centre,
+#: and it is how "the cells scrolled past are UNDER, not over, the gutters"
+#: is read. It is a CLASSIFICATION and not an element, because what may
+#: legitimately paint there is more than one thing:
+#:
+#: * ``"own box"`` — the measured box itself, the usual answer;
+#: * ``"another gutter box"`` — a different clue box or corner. Two stuck
+#:   bands cross at the corner, and at 300 % zoom a band is most of the
+#:   scrollport wide (a 30 x 25's row band measures 1073 px of a 1560 px
+#:   stage there), so a column box can sit behind the row band. Still a
+#:   gutter over a cell, which is the property;
+#: * ``"off-window"`` — the box is inside the STAGE but the stage itself is
+#:   past the browser window (the page scrolls on a phone, under the board),
+#:   so there is no point to hit-test. Reported rather than silently read as
+#:   a miss, since ``elementFromPoint`` answers null for both;
+#: * anything else is the tag and classes of what paints there — a cell over
+#:   a gutter reports itself.
+_IN_VIEW = """([row, col]) => {
+  const stage = document.querySelector('.player-stage');
+  const table = document.querySelector('.player-board');
+  const sr = stage.getBoundingClientRect();
+  const look = (el) => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const onWindow = cx >= 0 && cy >= 0 && cx <= innerWidth && cy <= innerHeight;
+    const hit = onWindow ? document.elementFromPoint(cx, cy) : null;
+    return {
+      inside: r.left >= sr.left - 0.5 && r.right <= sr.right + 0.5
+           && r.top >= sr.top - 0.5 && r.bottom <= sr.bottom + 0.5,
+      dTop: +(r.top - sr.top).toFixed(2), dLeft: +(r.left - sr.left).toFixed(2),
+      dBottom: +(sr.bottom - r.bottom).toFixed(2), dRight: +(sr.right - r.right).toFixed(2),
+      position: getComputedStyle(el).position,
+      zIndex: getComputedStyle(el).zIndex,
+      hit: !onWindow ? 'off-window'
+         : hit === null ? 'nothing'
+         : el.contains(hit) ? 'own box'
+         : hit.closest('th.player-clue, td.player-corner') !== null ? 'another gutter box'
+         : hit.tagName + '.' + hit.className,
+      numbers: [...el.querySelectorAll('.player-clue-num')].map((n) => n.textContent),
+    };
+  };
+  return {
+    scroll: [stage.scrollLeft, stage.scrollTop],
+    overflow: [stage.scrollWidth - stage.clientWidth, stage.scrollHeight - stage.clientHeight],
+    row: look(table.querySelector(`th.player-clue.is-row.is-stuck-row[data-line="${row}"]`)),
+    col: look(table.querySelector(`th.player-clue.is-col.is-stuck-col[data-line="${col}"]`)),
+    corner: look(table.querySelector('.player-corner.is-stuck-col.is-stuck-row')),
+  };
+}"""
+
+#: "A gutter paints here, not a cell" — the two readings of :data:`_IN_VIEW`'s
+#: ``hit`` that satisfy it.
+GUTTER_PAINTS = ("own box", "another gutter box")
+
+#: Scroll ``.player-stage`` to one of its four corners: ``x``/``y`` of 1 mean
+#: the far end of that axis, and the browser clamps to the real maximum so no
+#: number has to be computed here.
+_TO_CORNER = """([x, y]) => {
+  const stage = document.querySelector('.player-stage');
+  stage.scrollLeft = x ? stage.scrollWidth : 0;
+  stage.scrollTop = y ? stage.scrollHeight : 0;
+}"""
+
+
+def _in_view(page, row, col):
+    return page.evaluate(_IN_VIEW, [row, col])
+
+
+def _to_corner(page, x, y):
+    """Scroll the stage to one of its corners, with the stage itself brought
+    into the browser window first.
+
+    The window part is Playwright's and not this page's JS, and that is
+    measured rather than stylistic: in this headless Chromium the DOCUMENT
+    does not scroll from script at all — at 390 x 844 the solve page is
+    1256 px tall, ``document.scrollingElement.scrollTop = 300``,
+    ``window.scrollBy``, ``scrollIntoView`` and a synthesized wheel each
+    leave ``scrollY`` at 0, while Playwright's CDP-driven
+    ``scroll_into_view_if_needed`` moves it to 400. So on a phone viewport
+    the bottom of the stage is below the window, and
+    ``document.elementFromPoint`` — which takes WINDOW coordinates — answers
+    null for every box down there, which :data:`_IN_VIEW` would report as
+    ``off-window``. Bringing the stage into the window is what makes the
+    "cells scroll under the gutters" reading possible at all; it changes
+    nothing about the stage's own scroll, which is what the card is about.
+    """
+    page.locator(".player-stage").scroll_into_view_if_needed()
+    page.evaluate(_TO_CORNER, [1 if x else 0, 1 if y else 0])
+
+
+def _to_bottom_right(page):
+    _to_corner(page, 1, 1)
+
+
+@pytest.mark.browser
+class TestSolverClues_TheStageIsTheScrollContainer:
+    """"What to implement" item 3 — the card asks for this to be VERIFIED and
+    not assumed, because every sticky offset in admin.css resolves against
+    whichever ancestor scrolls: if the overflow lived on ``.main`` or on the
+    document, sticking against the stage would pin the gutters to the wrong
+    box and the fix would be silently inert.
+
+    Measured: of the table's seven ancestors, exactly one — ``.player-stage``
+    — has a scrolling ``overflow``, and it is the one that actually has
+    content past its visible box. The document scrolls vertically on this
+    page (the toolbar and the usage hint below the stage), which is why the
+    assertion is about the table's ANCESTOR CHAIN and not about the page.
+    """
+
+    def test_only_the_stage_scrolls_over_the_board(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(SHORT_720)
+        _open(page, live, live.store(GRID_30x30))
+
+        chain = page.evaluate(
+            """() => {
+              const out = [];
+              for (let el = document.querySelector('.player-board'); el; el = el.parentElement) {
+                const s = getComputedStyle(el);
+                out.push({ name: el.tagName + (el.className ? '.' + el.className : ''),
+                           scrolls: ['auto', 'scroll', 'overlay'].includes(s.overflowX)
+                                 || ['auto', 'scroll', 'overlay'].includes(s.overflowY),
+                           overflowX: el.scrollWidth - el.clientWidth,
+                           overflowY: el.scrollHeight - el.clientHeight });
+              }
+              return out;
+            }"""
+        )
+
+        assert len(chain) >= 6, chain  # table, stage, main, shell, body, html
+        scrollers = [box for box in chain if box["scrolls"]]
+        assert [box["name"] for box in scrollers] == ["DIV.player-stage"], chain
+        # And it is the box the board really does outgrow, so the question the
+        # card asked is answered by a measurement and not by a declaration.
+        assert scrollers[0]["overflowY"] == 211, scrollers
+
+
+@pytest.mark.browser
+class TestSolverClues_StayInViewOnAPlainBigBoard:
+    """AC-1 — the reported case, on the plain single-gutter board the ladder
+    actually draws for a 30 x 30 on a desktop.
+
+    Scrolled to the far bottom-right cell, that cell's row clue and column
+    clue are both wholly inside ``.player-stage``'s visible box, and what
+    paints at the centre of each is the gutter itself and not a cell: the
+    cells scrolled past go UNDER the gutters.
+
+    Each viewport states its own measured overflow, because that is what
+    makes the case the case. At 1280 x 720 (the card's viewport) the stage
+    scrolls 91 px down and NOT AT ALL sideways — the fit clamp is exactly
+    what keeps a 100 % board inside its stage's width — so the column half
+    of this AC is the live one there and the row half is asserted at
+    900 x 700, the one desktop viewport measured where a plain board scrolls
+    on both axes without CARD-193's mirror holding.
+    """
+
+    @pytest.mark.parametrize(
+        "name, viewport, overflow",
+        [
+            ("the card's 1280x720", LAPTOP_720, [0, 91]),
+            ("a short window, whole band gone", SHORT_720, [0, 211]),
+            ("a narrow window, both axes", NARROW_DESKTOP, [104, 111]),
+        ],
+        ids=lambda value: value if isinstance(value, str) else "",
+    )
+    def test_the_bottom_right_cells_clues_are_in_view(
+        self, browser_page, live, name, viewport, overflow
+    ) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        _open(page, live, live.store(GRID_30x30))
+        # The board really is the plain one — the case this AC is about.
+        assert _gutters(page)["feet"] == 0
+        assert page.evaluate(
+            "document.querySelectorAll('th.player-clue[aria-hidden=\"true\"]').length") == 0
+
+        _to_bottom_right(page)
+        seen = _in_view(page, 29, 29)
+
+        # The overflow is the case: if this window is not the one the numbers
+        # were measured on, the rest of the test is measuring something else.
+        assert seen["overflow"] == overflow, (name, seen["overflow"])
+        assert seen["scroll"] == overflow, (name, seen)
+
+        assert seen["row"]["inside"], (name, seen["row"])
+        assert seen["col"]["inside"], (name, seen["col"])
+        # Pinned to the scrollport's own edges, which is what "whatever the
+        # player scrolled to" means: without the stick these would read
+        # -{overflow} instead of 0.
+        assert seen["row"]["dLeft"] == 0, (name, seen["row"])
+        assert seen["col"]["dTop"] == 0, (name, seen["col"])
+        # The cells that scrolled past are under the gutters, not over them.
+        assert seen["row"]["hit"] == "own box", (name, seen["row"])
+        assert seen["col"]["hit"] == "own box", (name, seen["col"])
+        # And both carry the numbers they are supposed to be showing.
+        assert seen["row"]["numbers"] == [str(n) for n in _encode(GRID_30x30[29])], seen["row"]
+        assert seen["col"]["numbers"] == [
+            str(n) for n in _encode([row[29] for row in GRID_30x30])], seen["col"]
+
+    def test_the_corner_sticks_on_both_axes(self, browser_page, live) -> None:
+        """"What to implement" item 1's last clause: the corner box is where
+        the two bands cross, so it sticks on both axes and paints above both
+        (z-index 3 against the bands' 2 and 1) — otherwise the crossing is a
+        hole through which the cells show."""
+        page = browser_page
+        page.set_viewport_size(NARROW_DESKTOP)
+        _open(page, live, live.store(GRID_30x30))
+
+        _to_bottom_right(page)
+        seen = _in_view(page, 29, 29)
+
+        assert seen["corner"]["dTop"] == 0 and seen["corner"]["dLeft"] == 0, seen["corner"]
+        assert seen["corner"]["hit"] == "own box", seen["corner"]
+        assert [int(seen[k]["zIndex"]) for k in ("corner", "row", "col")] == [3, 2, 1], seen
+
+
+@pytest.mark.browser
+class TestSolverClues_SmallBoardsUnaffectedByStickiness:
+    """AC-5 — a 15 x 15 is past neither side's BIG_SIDE and fits its stage, so
+    stickiness has nothing to do: the stage does not scroll on either axis,
+    and every gutter box sits exactly where the static layout puts it.
+
+    "Exactly where" is read as the box's offset from the TABLE's own content
+    box, independently of the stage: a sticky box that had shifted would
+    move relative to the table, because sticky shifts a box out of its flow
+    position and nothing else does.
+
+    AC-5's clause is "nothing OBSERVABLE changes", and a 15 x 15 that fits at
+    100 % is only the easy half of it. The second and third tests here are the
+    half this card's review cycle 1 found missing (F-001): a small board that
+    is zoomed DOES scroll, so the room condition has a real answer for it, and
+    that answer is a property of the viewport. Before the fix the two viewport
+    triggers in solver.js were both gated on ``isBig`` — correct while every
+    viewport-dependent decision was a LAYOUT one, since a board big on neither
+    side can have neither CARD-193's mirror nor CARD-212's duplicate — so the
+    classes a small board was given at load survived any later resize, and a
+    stale stick floated a band over cells the player could then not tap. Both
+    directions are pinned below, each against the same board, viewport and
+    zoom reached by LOADING there, because the mechanism is right everywhere it
+    is reached and it is the reaching that was missing.
+    """
+
+    @pytest.mark.parametrize("viewport", [ROOMY, LAPTOP, {"width": 390, "height": 844}],
+                             ids=["roomy", "laptop", "phone"])
+    def test_a_15x15_moves_nothing(self, browser_page, live, viewport) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        _open_player(page, live)
+
+        offsets = """() => {
+          const table = document.querySelector('.player-board');
+          const t = table.getBoundingClientRect();
+          const stage = document.querySelector('.player-stage');
+          return {
+            overflow: [stage.scrollWidth - stage.clientWidth,
+                       stage.scrollHeight - stage.clientHeight],
+            boxes: [...table.querySelectorAll('th.player-clue, td.player-corner')].map((el) => {
+              const r = el.getBoundingClientRect();
+              return [el.className, +(r.left - t.left).toFixed(2), +(r.top - t.top).toFixed(2)];
+            }),
+          };
+        }"""
+        at_rest = page.evaluate(offsets)
+        # Nothing to scroll: the board fits, which is what makes this the
+        # edge case the AC names.
+        assert at_rest["overflow"] == [0, 0], at_rest["overflow"]
+        assert len(at_rest["boxes"]) == 15 + 15 + 1, at_rest["boxes"][:3]
+
+        # Scrolling a stage with nothing to scroll is a no-op, and so is
+        # every sticky box on it: the whole band is where it was.
+        _to_bottom_right(page)
+        assert page.evaluate(offsets) == at_rest
+
+        # Each box's flow position, read off the table's own geometry rather
+        # than off the box: the one corner at the origin, the column band
+        # across the top of the row band, the row band down the left.
+        band = [b for b in at_rest["boxes"] if "is-row" in b[0]]
+        above = [b for b in at_rest["boxes"] if "is-col" in b[0]]
+        corner = [b for b in at_rest["boxes"] if "player-corner" in b[0]]
+        assert len(corner) == 1 and corner[0][1] == 0 and corner[0][2] == 0, corner
+        assert {b[1] for b in band} == {0}, band
+        assert {b[2] for b in above} == {0}, above
+        assert sorted(b[2] for b in band) == [b[2] for b in band], band
+
+    #: The viewport a zoomed 15 x 15 is dragged BETWEEN, and the zoom. Measured
+    #: on this host, Chromium: at 1920 x 1500 nothing scrolls, so both axes
+    #: keep; at 1024 x 768 the same board has a 376.3 px row band and a
+    #: 270.4 px column band over a 724 x 540 scrollport and overflows past
+    #: both, so what each band could hide is 0.520 and 0.501 of its axis —
+    #: past STICK_MAX_SHARE, and neither axis may keep. Every assertion below
+    #: re-derives that from the page's own numbers; these two viewports are
+    #: chosen because the decision differs between them, which is what makes
+    #: the test able to see a missing re-measurement at all.
+    SHRINK_FROM = ROOMY
+    SHRINK_TO = {"width": 1024, "height": 768}
+    #: And the reverse: from a viewport that refuses both axes to one with the
+    #: room for both.
+    GROW_TO = {"width": 1600, "height": 1200}
+    STALE_ZOOM = 200
+
+    def test_a_resize_after_a_zoom_re_measures_the_room(
+        self, browser_page, live
+    ) -> None:
+        """The stale STICK, and what it costs the player.
+
+        A 15 x 15 zoomed to 200 % at 1920 x 1500 keeps both axes, because
+        nothing scrolls there and a band that covers nothing is free. Dragged
+        to 1024 x 768 the same board overflows on both axes and the bands are
+        half the scrollport, which is the configuration STICK_MAX_SHARE was
+        measured to refuse — solver.js:437-447 names this very board and
+        viewport, "where a 359.4 px row band over a 724 px stage swallowed the
+        cells a recorded touch drag was aimed at". Without a re-measurement
+        the refusal does not reach the resized page: the classes stay on, the
+        bands float, and most of the cells still visible do not take their own
+        tap.
+
+        The LOADED control is what makes this a missing call site rather than
+        a broken measurement — the same board at the same viewport and zoom,
+        reached by loading, decides correctly — and the hit count is read
+        scrolled to the far corner, because at scroll 0 a sticky box sits at
+        its flow position and covers nothing at all.
+        """
+        page = browser_page
+
+        page.set_viewport_size(self.SHRINK_FROM)
+        _open_player(page, live)
+        _zoom(page, self.STALE_ZOOM)
+        at_load = _room(page)
+        page.set_viewport_size(self.SHRINK_TO)
+        _settled(page)
+        resized = _room(page)
+        _to_bottom_right(page)
+        resized_hits = _blocked(page)
+
+        page.set_viewport_size(self.SHRINK_TO)
+        _open_player(page, live)
+        _zoom(page, self.STALE_ZOOM)
+        loaded = _room(page)
+        _to_bottom_right(page)
+        loaded_hits = _blocked(page)
+
+        report = {"at_load": at_load, "resized": resized, "loaded": loaded,
+                  "resized_hits": resized_hits, "loaded_hits": loaded_hits}
+        # One board at one viewport, measured twice: if the three inputs
+        # differed, the two readings would not be comparable and this test
+        # would be about two different pages.
+        assert resized["port"] == loaded["port"], report
+        assert resized["band"] == loaded["band"], report
+        assert resized["overflow"] == loaded["overflow"], report
+        # Not vacuous: the viewport really does change the answer, so a page
+        # that never re-measured would be caught by the next two assertions
+        # and not merely be unexercised.
+        assert at_load["keeping"] != _verdict(loaded), report
+        # The mechanism, where it is reached...
+        assert loaded["keeping"] == _verdict(loaded), report
+        # ...and where it has to be reached through a resize.
+        assert resized["keeping"] == _verdict(resized), report
+        assert resized["keeping"] == loaded["keeping"], report
+
+        # The consequence, in cells: a stuck band over the bottom-right cells
+        # takes their taps, and that is the whole reason the room condition
+        # exists. Both readings see cells, so neither zero is an empty count.
+        assert loaded_hits["visible"] > 0 and resized_hits["visible"] > 0, report
+        assert loaded_hits["blocked"] == 0, report
+        assert resized_hits["blocked"] == 0, report
+
+    def test_a_grown_window_re_measures_the_room_too(
+        self, browser_page, live
+    ) -> None:
+        """The same staleness in the other direction, which costs the clues
+        rather than the board: a zoomed 15 x 15 that was refused both axes at
+        1024 x 768 is given a window with the room for them, and without a
+        re-measurement it goes on scrolling its clues away where the card's own
+        rule says to keep them. One direction of a bar is not a control for
+        it (CARD-264's lesson), so both are pinned."""
+        page = browser_page
+
+        page.set_viewport_size(self.SHRINK_TO)
+        _open_player(page, live)
+        _zoom(page, self.STALE_ZOOM)
+        at_load = _room(page)
+        page.set_viewport_size(self.GROW_TO)
+        _settled(page)
+        resized = _room(page)
+
+        page.set_viewport_size(self.GROW_TO)
+        _open_player(page, live)
+        _zoom(page, self.STALE_ZOOM)
+        loaded = _room(page)
+
+        report = {"at_load": at_load, "resized": resized, "loaded": loaded}
+        assert resized["port"] == loaded["port"], report
+        assert resized["band"] == loaded["band"], report
+        assert resized["overflow"] == loaded["overflow"], report
+        assert at_load["keeping"] != _verdict(loaded), report
+        assert loaded["keeping"] == _verdict(loaded), report
+        assert resized["keeping"] == _verdict(resized), report
+        assert resized["keeping"] == loaded["keeping"], report
+
+
+#: --grid-ink as the browser resolves it, for the pixel sample below.
+_INK_RGB = """() => {
+  const probe = document.createElement('i');
+  probe.style.color = 'var(--grid-ink)';
+  document.querySelector('.player-board').append(probe);
+  const colour = getComputedStyle(probe).color;
+  probe.remove();
+  return colour;
+}"""
+
+
+def _rgb(text):
+    return tuple(int(n) for n in re.findall(r"\d+", text)[:3])
+
+
+@pytest.mark.browser
+class TestSolverClues_StickyGutterRendersCleanly:
+    """AC-6 — a stuck gutter with the board scrolled behind it renders as a
+    static one does: opaque, with its heavy rule toward the grid, and with
+    CARD-188's circles on its numbers.
+
+    Opacity is the one of the three that a computed style alone cannot
+    settle — a transparent box with an opaque ancestor also computes to
+    alpha 1 nowhere, and an opaque box that paints BELOW the cells looks the
+    same from the DOM — so it is sampled in pixels: all 900 cells filled
+    (``--grid-ink``), the board scrolled to its far corner, and the colour
+    at the centre of each stuck box read from a screenshot. The corner is
+    the strongest sample of the three, being blank by construction, and it
+    is also the box that had no background of its own before this card.
+    """
+
+    def test_a_stuck_gutter_is_opaque_over_the_cells(self, browser_page, live) -> None:
+        import io
+
+        from PIL import Image
+
+        page = browser_page
+        page.set_viewport_size(SHORT_720)
+        _open(page, live, live.store(GRID_30x30))
+        _set(page, [F] * (30 * 30))
+        _to_bottom_right(page)
+
+        ink = _rgb(page.evaluate(_INK_RGB))
+        spots = page.evaluate(
+            """() => {
+              const table = document.querySelector('.player-board');
+              const at = (el) => {
+                const r = el.getBoundingClientRect();
+                const look = getComputedStyle(el);
+                return { x: r.left + r.width / 2, y: r.top + r.height / 2,
+                         declared: look.backgroundColor };
+              };
+              return {
+                corner: at(table.querySelector('.player-corner.is-stuck-col.is-stuck-row')),
+                clue: at(table.querySelector('th.player-clue.is-col.is-stuck-col')),
+                page: getComputedStyle(document.body).backgroundColor,
+              };
+            }"""
+        )
+
+        # Every cell behind the gutters is ink, so a transparent box would
+        # read ink here.
+        assert page.evaluate(
+            "[...new Set([...document.querySelectorAll('td.player-cell')]"
+            ".map((td) => td.dataset.state))]") == ["filled"]
+
+        for name in ("corner", "clue"):
+            spot = spots[name]
+            shot = page.screenshot(
+                clip={"x": spot["x"] - 1, "y": spot["y"] - 1, "width": 3, "height": 3})
+            pixel = Image.open(io.BytesIO(shot)).convert("RGB").getpixel((1, 1))
+            assert pixel != ink, (name, pixel, ink)
+            assert pixel == _rgb(spot["declared"]), (name, pixel, spot)
+        # The corner's own colour is the one it used to show THROUGH itself:
+        # it was a blank td over the page, so making it opaque must not have
+        # repainted it (cross-checked against the page's own background
+        # rather than against the token's name).
+        assert spots["corner"]["declared"] == spots["page"], spots
+
+    def test_a_stuck_gutter_keeps_its_heavy_edge_and_its_circles(self, browser_page, live) -> None:
+        """The rule toward the grid and CARD-188's ring, read on the stuck
+        gutters while the board is scrolled behind them and compared with the
+        same boards' own thin rule — so this is the heavy/thin pattern of
+        TestSolverClues_DoubledFramesReadOnAllFourSides, re-read in the one
+        state that card never had: a gutter away from its flow position."""
+        page = browser_page
+        page.set_viewport_size(NARROW_DESKTOP)
+        _open(page, live, live.store(GRID_30x30))
+        # The whole solution: every line settles, so every number circles.
+        _set(page, [F if on else E for line in GRID_30x30 for on in line])
+        _to_bottom_right(page)
+
+        seen = page.evaluate(
+            """() => {
+              const px = (el, side) => parseFloat(getComputedStyle(el)[`border${side}Width`]);
+              const table = document.querySelector('.player-board');
+              const row = table.querySelector('th.player-clue.is-row.is-stuck-row[data-line="29"]');
+              const col = table.querySelector('th.player-clue.is-col.is-stuck-col[data-line="29"]');
+              const corner = table.querySelector('.player-corner.is-stuck-col.is-stuck-row');
+              const cell = table.querySelector('td.player-cell');
+              const rings = (box) => [...box.querySelectorAll('.player-clue-num')].map((span) => {
+                const look = getComputedStyle(span, '::before');
+                const r = span.getBoundingClientRect(), b = box.getBoundingClientRect();
+                return { circled: span.classList.contains('is-circled'),
+                         width: parseFloat(look.borderTopWidth), colour: look.borderTopColor,
+                         insideLeft: +(r.left - b.left).toFixed(2),
+                         insideRight: +(b.right - r.right).toFixed(2) };
+              });
+              return {
+                thin: px(cell, 'Right'),
+                rowToGrid: px(row, 'Right'), rowOuter: px(row, 'Left'),
+                colToGrid: px(col, 'Bottom'), colOuter: px(col, 'Top'),
+                cornerToGrid: [px(corner, 'Right'), px(corner, 'Bottom')],
+                rowRings: rings(row), colRings: rings(col),
+              };
+            }"""
+        )
+        ink = page.evaluate(_INK_RGB)
+
+        # The heavy rule, on the edge of each stuck box that faces the grid —
+        # the edge the scrolled cells arrive at.
+        heavy = seen["rowToGrid"]
+        assert heavy == pytest.approx(2 * seen["thin"], abs=0.01), seen
+        assert seen["colToGrid"] == heavy, seen
+        assert seen["cornerToGrid"] == [heavy, heavy], seen
+        # ...and the thin one on the outer edges, unchanged by sticking.
+        assert (seen["rowOuter"], seen["colOuter"]) == (seen["thin"], seen["thin"]), seen
+
+        # CARD-188's rings, on a stuck gutter: every number of the settled
+        # board is circled, in both bands, with a real ring in --grid-ink.
+        for name in ("rowRings", "colRings"):
+            rings = seen[name]
+            assert rings and all(r["circled"] for r in rings), (name, rings)
+            assert all(r["width"] > 0 and r["colour"] == ink for r in rings), (name, rings[0])
+        # And no ring crosses the edge that faces the grid — the property
+        # TestSolverClues_RowRingsStayInsideTheirOwnBand pins on a static
+        # band, re-read on a stuck one.
+        assert [r for r in seen["rowRings"] if r["insideRight"] < 0] == [], seen["rowRings"]
+
+
+@pytest.mark.browser
+class TestSolverClues_DoubledGuttersAreNotStuck:
+    """AC-4's other half, as a positive claim rather than only as the
+    unedited ladder gate: a duplicate NEVER sticks.
+
+    That is a measurement and not a preference. A 30 x 25 at 1920 x 1500 and
+    150 % zoom has a 567.9 px row band in a 1620 px stage, so a gutter stuck
+    at EACH end of that axis would spend 1136 px of it — and CARD-212's
+    duplicates are already at the far ends, which is the same job. So on a
+    doubled board the labelled gutter sticks and the duplicate, the <tfoot>
+    band and the duplicate's corner stay exactly where CARD-212 put them.
+
+    Asserted at 150 % zoom, where the stage overflows by (778, 487) — more
+    than either band, so every gutter of this board would scroll clean out of
+    view without the fix, and a stuck duplicate would be unmistakable. (At
+    100 % this board fits its stage in both directions, which is CARD-212's
+    own condition for drawing the duplicates at all, so nothing there could
+    tell a stuck box from a static one.)
+    """
+
+    def test_the_duplicate_the_tfoot_and_its_corner_stay_put(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(ROOMY)
+        _open(page, live, live.store(GRID_30x25))
+        assert _gutters(page)["feet"] == 1  # all four gutters: the doubled board
+        for _ in range(2):
+            page.locator('[data-player-zoom-action="in"]').click(force=True)
+        assert page.locator("[data-player-zoom-readout]").text_content() == "150%"
+
+        seen = page.evaluate(
+            """() => {
+              const table = document.querySelector('.player-board');
+              const stage = document.querySelector('.player-stage');
+              const pos = (sel) => [...table.querySelectorAll(sel)].map(
+                (el) => getComputedStyle(el).position);
+              return {
+                overflow: [stage.scrollWidth - stage.clientWidth,
+                           stage.scrollHeight - stage.clientHeight],
+                bands: [
+                  table.querySelector('th.player-clue.is-row.is-stuck-row')
+                    .getBoundingClientRect().width,
+                  table.querySelector('th.player-clue.is-col.is-stuck-col')
+                    .getBoundingClientRect().height,
+                ],
+                labelledRows: [...new Set(pos('tbody th.player-clue.is-row:not([aria-hidden])'))],
+                duplicateRows: [...new Set(pos('tbody th.player-clue.is-row[aria-hidden="true"]'))],
+                headColumns: [...new Set(pos('thead th.player-clue.is-col'))],
+                footColumns: [...new Set(pos('tfoot th.player-clue.is-col'))],
+                corners: [...table.querySelectorAll('.player-corner')].map((el) => {
+                  const s = getComputedStyle(el);
+                  return [el.className, s.position, s.top, s.left, s.right];
+                }),
+              };
+            }"""
+        )
+
+        # Both bands would scroll clean out of view without the fix: the
+        # overflow on each axis is past that axis's whole band (567.9 px and
+        # 347.4 px here), so this is a case and not a formality.
+        assert seen["overflow"] == [778, 487], seen["overflow"]
+        assert seen["bands"] == [pytest.approx(567.9, abs=0.5),
+                                 pytest.approx(347.4, abs=0.5)], seen["bands"]
+        assert seen["labelledRows"] == ["sticky"], seen
+        assert seen["duplicateRows"] == ["static"], seen
+        assert seen["headColumns"] == ["sticky"], seen
+        assert seen["footColumns"] == ["static"], seen
+        # Four corners, each sticking on exactly the axes whose band it
+        # closes — which is why a corner carries the two markers separately:
+        #   head + left    both bands stick, so it does too
+        #   head + right   its row band is the duplicate: the top only
+        #   foot + left    its column band is the duplicate: the left only
+        #                  (and it must, or the stuck row band would show a
+        #                  notch at the bottom row where this box used to be)
+        #   foot + right   both of its bands are duplicates: nothing
+        assert sorted(seen["corners"]) == sorted([
+            ["player-corner is-stuck-col is-stuck-row", "sticky", "0px", "0px", "auto"],
+            ["player-corner is-right is-stuck-col", "sticky", "0px", "auto", "auto"],
+            ["player-corner is-stuck-row", "sticky", "auto", "0px", "auto"],
+            ["player-corner is-right", "static", "auto", "auto", "auto"],
+        ]), seen["corners"]
+
+
+#: solver.js's own STICK_MAX_SHARE, read out of the file that declares it.
+#: The tests below re-derive the "does this axis keep its clues?" decision
+#: from the measurements rather than from the classes, which needs the
+#: number — and reading it here means the number has one home and a drift
+#: cannot pass as agreement.
+#:
+#: The absence is NAMED rather than left to the regex (CARD-271 review cycle
+#: 1, F-007): a value outside the ``([0-9.]+)`` domain makes ``re.search``
+#: answer ``None`` at IMPORT time, which takes this file, phone.py and zoom.py
+#: out of collection with ``AttributeError: 'NoneType' ... 'group'`` — loud
+#: (exit 2, three ERROR lines) but unattributable, and this card's own
+#: pre-gate paid for that exact shape twice, with two mutants that exited
+#: non-zero having run nothing. The idiom is the one already beside the
+#: row-gap derivation in tests/test_admin_design_tokens.py: derive the figure,
+#: and say what its absence means.
+_DECLARED_SHARE = re.search(
+    r"\nconst STICK_MAX_SHARE = ([0-9.]+);",
+    (_TOKENS_STATIC / "solver.js").read_text())
+assert _DECLARED_SHARE, "solver.js no longer declares STICK_MAX_SHARE as a decimal"
+STICK_MAX_SHARE = float(_DECLARED_SHARE.group(1))
+
+
+#: What solver.js's keepCluesInView measured, and the inputs it measured it
+#: from: the cover is what a stuck band could actually hide, min(this axis's
+#: overflow, the band's own size), against STICK_MAX_SHARE of the stage.
+#:
+#: It comes back TWICE, and the split is the point (CARD-271 review cycle 2,
+#: F-101). ``coverRaw`` is the number solver.js's ``affords`` actually
+#: compares; ``cover`` is that number rounded to a tenth, for failure messages
+#: and readable reports — 376.3 reads better than 376.29998779296875. EVERY
+#: comparison against the bar reads ``coverRaw``, and nothing re-derives the
+#: rule from the rounded one.
+#:
+#: ``overflow`` and ``port`` are integers on both sides, so the band's
+#: fraction was the only divergence — and it was one-sided toward agreeing
+#: with a page that sticks: at port 980 the bar is 392.0, and a true cover of
+#: 392.04 rounds to 392.0, so the rounded form answers KEEP where solver.js
+#: answers NOT-KEEP. The ``>`` site in tests/test_puzzle_solver_phone.py errs
+#: the other way for the same reason. A ±0.05 px window under nine
+#: assertions, including both F-001 controls, both editor controls and the
+#: controls holding this card's two owner decisions. ADR-0039/R2 is about
+#: derivation rather than resemblance, and a figure that tracks the value but
+#: not the precision is resemblance.
+_ROOM = """() => {
+  const stage = document.querySelector('.player-stage');
+  const table = document.querySelector('.player-board');
+  const size = (sel, side) => {
+    const box = table.querySelector(sel);
+    // Infinity, not 0, because solver.js's own fallback fails closed toward
+    // NOT sticking (CARD-271 review cycle 1, F-003) and this expression is a
+    // deliberate reimplementation of that one: it moves with it or it stops
+    // being a cross-check. Unreachable on every board the suite draws.
+    return box === null ? Infinity : box.getBoundingClientRect()[side];
+  };
+  const band = [size('th.player-clue.is-row.is-stuck-row', 'width'),
+                size('th.player-clue.is-col.is-stuck-col', 'height')];
+  const overflow = [stage.scrollWidth - stage.clientWidth,
+                    stage.scrollHeight - stage.clientHeight];
+  return {
+    keeping: [table.classList.contains('is-keeping-rows'),
+              table.classList.contains('is-keeping-cols')],
+    band: band.map((n) => +n.toFixed(1)),
+    overflow,
+    port: [stage.clientWidth, stage.clientHeight],
+    coverRaw: [Math.min(overflow[0], band[0]), Math.min(overflow[1], band[1])],
+    cover: [+Math.min(overflow[0], band[0]).toFixed(1),
+            +Math.min(overflow[1], band[1]).toFixed(1)],
+  };
+}"""
+
+
+def _room(page):
+    return page.evaluate(_ROOM)
+
+
+def _verdict(room):
+    """The decision ``keepCluesInView``'s OWN terms give for this reading —
+    re-derived from the measurements and solver.js's constant, never read off
+    the classes it set. ``_room(page)["keeping"] == _verdict(_room(page))`` is
+    the whole rule, and every test below that cares which axes keep its board
+    checks the two against each other rather than trusting either.
+
+    Reads ``coverRaw``, never the rounded ``cover``: see :data:`_ROOM`
+    (F-101). The rounded figure is for reading, not for deciding.
+    """
+    return [room["coverRaw"][axis] <= room["port"][axis] * STICK_MAX_SHARE
+            for axis in (0, 1)]
+
+
+#: solver.js's RESIZE_SETTLE, read out of the file that declares it so the
+#: wait below cannot drift from the debounce it is waiting out. Named on
+#: absence for the same reason STICK_MAX_SHARE is (F-007).
+_DECLARED_SETTLE = re.search(
+    r"\nconst RESIZE_SETTLE = (\d+);", (_TOKENS_STATIC / "solver.js").read_text())
+assert _DECLARED_SETTLE, "solver.js no longer declares RESIZE_SETTLE as an integer"
+RESIZE_SETTLE = int(_DECLARED_SETTLE.group(1))
+
+
+def _settled(page):
+    """Wait out the trailing debounce a viewport change is handled through.
+
+    Four times the declared settle, which is the wait
+    tests/test_puzzle_solver_zoom.py's resize tests already use: generous
+    rather than tight on purpose, because what is being read afterwards is a
+    settled state and a tight wait would turn a slow machine into a failure.
+    """
+    page.wait_for_timeout(4 * RESIZE_SETTLE)
+
+
+#: Every cell whose own centre lies inside ``.player-stage``'s visible box,
+#: and how many of them do not take their own tap: ``document.elementFromPoint``
+#: at the centre answering something that is not the cell means a stuck band
+#: is floating over it. This is the CONSEQUENCE reading of the room condition
+#: — the reason STICK_MAX_SHARE exists at all — and it is in window
+#: coordinates, so the stage has to be inside the window first (see
+#: :func:`_to_corner`, and note that at scroll 0 a sticky box sits at its flow
+#: position and covers nothing, so this must be read scrolled).
+_BLOCKED = """() => {
+  const stage = document.querySelector('.player-stage');
+  const port = stage.getBoundingClientRect();
+  let visible = 0, blocked = 0;
+  for (const cell of document.querySelectorAll('.player-board td.player-cell')) {
+    const box = cell.getBoundingClientRect();
+    const x = box.left + box.width / 2, y = box.top + box.height / 2;
+    if (x < port.left || x > port.right || y < port.top || y > port.bottom) continue;
+    visible += 1;
+    const hit = document.elementFromPoint(x, y);
+    if (hit !== cell && !cell.contains(hit)) blocked += 1;
+  }
+  return { visible, blocked };
+}"""
+
+
+def _blocked(page):
+    return page.evaluate(_BLOCKED)
+
+
+def _zoom(page, percent):
+    """Step the zoom buttons to ``percent``.
+
+    tests/test_puzzle_solver_zoom.py has the same helper; it imports this
+    module, so this one is written here rather than imported from there, in
+    the same spirit as the rest of this suite's one-directional test imports.
+    """
+    assert 100 <= percent <= 300 and percent % 25 == 0, percent
+    readout = page.locator("[data-player-zoom-readout]")
+    current = int(readout.text_content().rstrip("%"))
+    action = "in" if percent > current else "out"
+    for _ in range(abs(percent - current) // 25):
+        page.locator(f'[data-player-zoom-action="{action}"]').click(force=True)
+    assert readout.text_content() == f"{percent}%", readout.text_content()
+
+
+@pytest.mark.browser
+class TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted:
+    """A stuck band floats over the cells, so keeping the clues in view and
+    keeping the BOARD in view are the same space spent twice. solver.js
+    therefore sticks an axis only while the band could hide at most
+    ``STICK_MAX_SHARE`` of the stage, measured per axis as min(that axis's
+    overflow, the band) — so an axis that barely scrolls keeps its clues
+    however deep its band is, and one whose band would swallow the board
+    keeps today's rendering instead.
+
+    Two things here that nothing else says:
+
+    * the decision agrees with its own inputs at every viewport sampled, and
+      the sample spans the threshold from both sides (the row axis crosses it
+      between 390 px and 600 px of window, with CARD-193's mirror holding at
+      both);
+    * the measurement cannot oscillate. Sticking is layout-neutral, and in
+      Chromium a stuck box adds nothing to the scrollable overflow either —
+      so both of the terms it reads are the same before and after it is
+      applied. Read off the live board by toggling the classes by hand: if
+      sticking changed either term, this card's rule would feed back into
+      its own input and the board could flicker between the two answers on
+      every resize.
+    """
+
+    #: Measured on this host, Chromium, with GRID_30x30.
+    ROOMS = [
+        ("1280x720", {"width": 1280, "height": 720}, [True, True], [0, 91], [980, 492]),
+        ("1280x600", {"width": 1280, "height": 600}, [True, True], [0, 211], [980, 372]),
+        ("900x700", {"width": 900, "height": 700}, [True, True], [104, 111], [600, 472]),
+        # The mirror, and the one case at 100 % zoom where an axis gives up:
+        # 272.2 px of band over a 358 px stage is three quarters of it, so a
+        # stuck band would leave six columns of thirty visible.
+        ("390x844", {"width": 390, "height": 844}, [False, True], [346, 0], [358, 583]),
+        # The same board and the same mirror, 210 px wider: the row axis now
+        # scrolls by 136 px, so that is all the band can hide, and it keeps.
+        ("600x844", {"width": 600, "height": 844}, [True, True], [136, 0], [568, 583]),
+    ]
+
+    @pytest.mark.parametrize("name, viewport, keeping, overflow, port", ROOMS,
+                             ids=[case[0] for case in ROOMS])
+    def test_each_axis_keeps_its_clues_exactly_when_it_has_the_room(
+        self, browser_page, live, name, viewport, keeping, overflow, port
+    ) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        _open(page, live, live.store(GRID_30x30))
+
+        seen = _room(page)
+
+        assert (seen["overflow"], seen["port"]) == (overflow, port), (name, seen)
+        assert seen["keeping"] == keeping, (name, seen)
+        # The decision re-derived from its own inputs, here, rather than
+        # trusted from the class: each axis keeps exactly while what its band
+        # could hide is at most STICK_MAX_SHARE of the stage — two fifths,
+        # 0.4, as solver.js declares it and as the next line reads it out of
+        # that file. (It said "half" until CARD-271's pre-gate, PG-1; the
+        # assertion below was always derived from the constant, so the figure
+        # was a stale copy and not a second opinion. Nothing here restates it:
+        # the share is spelled once, in solver.js.) The RAW cover, not the
+        # rounded one the report above quotes — F-101; see _ROOM.
+        assert 0 < STICK_MAX_SHARE < 1, STICK_MAX_SHARE
+        assert seen["keeping"] == [
+            seen["coverRaw"][axis] <= seen["port"][axis] * STICK_MAX_SHARE
+            for axis in (0, 1)], (name, seen)
+
+    def test_sticking_changes_neither_the_band_nor_the_overflow(
+        self, browser_page, live
+    ) -> None:
+        page = browser_page
+        page.set_viewport_size(SHORT_720)
+        _open(page, live, live.store(GRID_30x30))
+        _to_bottom_right(page)
+
+        stuck = _room(page)
+        assert stuck["keeping"] == [True, True], stuck
+        loose = page.evaluate(
+            """() => {
+              const table = document.querySelector('.player-board');
+              table.classList.remove('is-keeping-rows', 'is-keeping-cols');
+              return null;
+            }"""
+        ) or _room(page)
+
+        # The classes really did come off — otherwise the comparison below is
+        # a tautology.
+        assert loose["keeping"] == [False, False], loose
+        assert page.evaluate(
+            "getComputedStyle(document.querySelector("
+            "'.player-board th.player-clue.is-row.is-stuck-row')).position") == "static"
+        # ...and neither input moved.
+        assert (loose["band"], loose["overflow"], loose["port"]) == (
+            stuck["band"], stuck["overflow"], stuck["port"]), (stuck, loose)
+
+
+def test_the_sticky_gutter_rules_declare_no_colour_but_the_one_token(
+) -> None:
+    """G-2 — CARD-271's one coloured value, pinned per rule.
+
+    The card's fix is positioning, and positioning declares no colour: the
+    four sticky rules must stay that way, because a background or a border
+    written into one of them would be a literal the whole-file hex sweep in
+    tests/test_admin_design_tokens.py cannot see when it is written as
+    ``rgb(...)``, as a named colour or as a bare length. The ONE coloured
+    value the card does add is ``.player-corner``'s background, and its value
+    has to be a token or a token-only expression.
+
+    Collected by selector, so a renamed, reformatted or deleted rule reds
+    this test instead of shrinking it. The predicate is driven over the rule
+    broken on purpose at the end (ADR-0039/R1), one break per way a literal
+    can get into it.
+    """
+    css = (_TOKENS_STATIC / "admin.css").read_text()
+    rules_only = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    sticky = re.findall(r"(?m)^(\.player-board\.is-keeping[^{]*?)\s*\{([^}]*)\}", rules_only)
+    corner = re.findall(r"(?m)^(\.player-corner)\s*\{([^}]*)\}", rules_only)
+
+    assert len(sticky) == 4, (
+        f"admin.css declares {len(sticky)} .is-keeping-* rules, not 4: {sticky}")
+
+    # The positioning rules say nothing about colour. (A property sweep, not
+    # a value one: `position: sticky` and `top: 0` carry no token and so
+    # cannot be judged by the token predicate at all.)
+    paints = ("background", "border", "color", "box-shadow", "outline")
+    for selector, body in sticky:
+        named = [part.split(":", 1)[0].strip() for part in body.split(";") if ":" in part]
+        assert [p for p in named if p.startswith(paints)] == [], (selector, named)
+        assert [p for p in named if p in ("position", "top", "left", "right", "z-index")], (
+            selector, named)
+
+    # ...and the one rule that does paint, paints from a token. There are two
+    # top-level `.player-corner` rules — the rule weights CARD-212 left, and
+    # this card's background — so the one that paints is picked by what it
+    # declares and not by where in the file it sits.
+    assert len(corner) == 2, f"admin.css declares {len(corner)} .player-corner rules, not 2"
+    painting = [body for _selector, body in corner if "background" in body]
+    assert len(painting) == 1, f"{len(painting)} .player-corner rules set a background"
+    values = _declared_values(f".player-corner {{{painting[0]}}}")
+    assert values == ["var(--color-bg)"], values
+    assert _untokenised(values) == [], values
+
+    # The control: each of these is a colour reaching into that rule in a
+    # form the whole-file hex sweep would NOT catch.
+    for label, value in {
+        "a colour function": "rgb(245, 240, 230)",
+        "a named colour": "beige",
+        "a literal inside the mix": "color-mix(in srgb, #f5f0e6 50%, var(--color-surface))",
+        "transparent, which is what the bug was": "transparent",
+    }.items():
+        assert _untokenised([value]) != [], f"{label}: {value!r} passed the token predicate"

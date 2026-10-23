@@ -572,6 +572,64 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   padding-bottom: calc(var(--player-cell) * 0.2);
 }
 .player-board tfoot .player-corner { border-bottom: none; }
+/* ----- Clue gutters that stay in view (CARD-271) -----
+   The owner's report: "clues sometimes are missed at the bottom and at the
+   left for big puzzles". CARD-212's duplicates answer that only while they
+   FIT, and the biggest boards are the ones they do not fit — a 30 x 30 at
+   1280 x 720 is drawn plain, and its one column gutter scrolls off the top of
+   .player-stage (measured there: 91 px of stage overflow against a 135 px
+   band; at 1280 x 600, 211 px against the same band, so the whole band goes;
+   at 300% zoom, 1220 px against a 400 px band and 900 px against a 584 px row
+   band, so both go). So each axis keeps ONE gutter in view by sticking it to
+   the scrollport. solver.js marks the box that sticks: .is-stuck-col for the
+   column axis (the head gutter — never the <tfoot> duplicate), .is-stuck-row
+   for the row axis (the first gutter, or the only one when CARD-193's mirror
+   put it on the right), and both on the corner where the two bands cross.
+
+   .player-stage is what these resolve against: it is the only scrolling
+   ancestor of the table (overflow:auto; .main, .shell, body and html are all
+   overflow:visible), and it is the box the zoom scroll formula already reads.
+
+   A duplicate never sticks, and that is a measurement rather than a
+   preference: a 30 x 30's row band at 300% zoom is 584 px of a 980 px stage,
+   so a gutter stuck at EACH end of that axis would leave no cells visible
+   between them. CARD-212's board therefore draws exactly the boxes it drew
+   before, in exactly the same places (sticky takes no part in layout) — the
+   duplicates simply scroll, as they always did, and the labelled gutter is
+   the one that stays.
+
+   Cells scroll UNDER the gutters, which needs three things, all of them here:
+   an opaque background (.player-clue already carries --color-surface; the
+   corner is given one below), a z-index above the cells (which are not
+   positioned, so any positioned box already paints over them, and these say
+   so anyway), and the gutter's own border on the edge that faces the grid.
+   That last one is already true of every box that sticks, which is why no
+   border moves here: the left row clue draws the heavy rule on its right, the
+   mirrored one on its left, the head column clue on its bottom, and a corner
+   on the two sides that face the grid. The circles (CARD-188) ride along —
+   the ring is a ::before inside the box's own stacking context, so it paints
+   with the box. The last rule is for the corner, the one place where two
+   stuck bands overlap: it has to be over both of them.
+
+   An axis sticks only while solver.js measured room for it — the band is
+   floating over the cells, so it spends the same space twice, and at 390 px
+   a mirrored 30 x 30's row band is 272 px of a 358 px stage. The table says
+   which axes it measured room for: .is-keeping-rows / .is-keeping-cols (see
+   keepCluesInView and STICK_MAX_SHARE there). So .is-stuck-row on a box is
+   "this is the box of the row axis's kept gutter" and the table's class is
+   "the row axis is keeping one" — the first never moves, the second follows
+   the window and the zoom. */
+.player-board.is-keeping-cols .is-stuck-col { position: sticky; top: 0; z-index: 1; }
+.player-board.is-keeping-rows .is-stuck-row { position: sticky; left: 0; z-index: 2; }
+.player-board.is-keeping-rows .is-stuck-row.is-right { left: auto; right: 0; }
+.player-board.is-keeping-cols.is-keeping-rows .is-stuck-col.is-stuck-row { z-index: 3; }
+/* The corner is the one box of a gutter band with no background of its own:
+   it is a blank td, and what showed through it was the page behind the stage.
+   Static that is invisible; stuck over the cells it would be a window onto
+   them. --color-bg is exactly the colour it was already showing (the page's
+   own --bs-body-bg), so this makes it opaque without changing what the corner
+   looks like on a board that does not scroll. */
+.player-corner { background: var(--color-bg); }
 /* A filled cell's own division (CARD-270). The fill is --grid-ink and so is
    every MAJOR rule: the every-fifth .major-right/.major-below below, the
    board's outer frame, and the clue gutters' edges. Ink on ink — so a run of

@@ -78,10 +78,15 @@ from tests.test_puzzle_edit_store import (
     solid_minus_corner,
     two_cell_diagonal,
 )
+# CARD-271 (review cycle 1, F-008): the editor reuses .player-stage and the
+# same solver.js, so it inherits the clue-gutter room condition — read here
+# with that card's own helpers rather than with a second copy of them.
+from tests.test_puzzle_solver_clues import _room, _settled, _verdict, _zoom
 from tests.test_puzzle_solver_marking import _button, _cell, _menu_item, _tool, _trigger
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
     _store,
+    _unique_grid,
     browser_page,
     browser_type,
     live,
@@ -3916,3 +3921,150 @@ class TestBookedEdit_TheSplitPairIsWordedAsAWarning:
         notes = browser_page.evaluate(_BOOK_NOTES, [[None]])
 
         assert notes == [""]
+
+
+# ==========================================================================
+# CARD-271 (review cycle 1, F-008) — the editor's board keeps its clues by
+# the same rule the player's does
+#
+# The card's Design context asks for a confirmation that the editor does not
+# regress, and the implementation round did not produce one: the editor reuses
+# ``.player-stage`` (puzzle_edit.html, the ``#puzzle-player`` div) and the same
+# ``static/solver.js``, so ``drawBoard`` marks its gutters ``is-stuck-*`` and
+# ``keepCluesInView`` runs on the editor board too — and no editor test read a
+# gutter box.
+#
+# One honest check rather than a suite: the room condition is the whole
+# mechanism, and what has to be true of the editor is that it obeys the same
+# one — on load, and after a viewport change, which the editor can reach
+# because its toolbar DOES ship the zoom control
+# (``[data-player-zoom-action]`` in puzzle_edit.html, beside the brush). That
+# last clause is measured here rather than taken from review cycle 1, which
+# bounded F-008's risk on the grounds that the editor ships no zoom.
+#
+# The two halves run on two different boards, and that is the correction PG-3
+# forced rather than a convenience: the room condition applies to every board,
+# but F-001's defect was in the branch a board small on BOTH sides takes, so a
+# 30 x 30 cannot exercise it. The marker census and the load-time equality
+# stay on the 30 x 30 (the reported case); the resize goes to a 15 x 15.
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestPuzzleEditor_TheBoardKeepsItsCluesByTheSameRule:
+
+    #: The same board as the player's own case: a 30 x 30 drawn plain at
+    #: 1280 x 720, cells under CARD-212's doubling bar.
+    GRID = _unique_grid(30, 30, seed=27130)
+    WIDE = {"width": 1280, "height": 720}
+
+    #: And, for F-001's path only, a board small on BOTH sides — the branch
+    #: the defect was in. Measured on this host, Chromium, on the EDITOR page:
+    #: at 1920 x 1500 and 200 % it does not overflow, so both axes keep; at
+    #: 1024 x 768 the same board has a 359.4 px row band and a 307.3 px column
+    #: band over a 724 x 540 scrollport and overflows past both, so neither
+    #: axis may. Every assertion re-derives that from the page's own numbers.
+    SMALL = _unique_grid(15, 15, seed=27115)
+    ZOOMED_WIDE = {"width": 1920, "height": 1500}
+    ZOOMED_NARROW = {"width": 1024, "height": 768}
+    ZOOM = 200
+
+    def test_the_editors_gutters_obey_the_room_condition(
+        self, browser_page, live
+    ) -> None:
+        page = browser_page
+        page.set_viewport_size(self.WIDE)
+        _open_editor(page, live, _seed_live(live, self.GRID))
+
+        # The mechanism is present on this page at all: the editor's stage is
+        # the scroll container, and solver.js marked the kept gutter of each
+        # axis — one box per line of that axis, which on this plain board is
+        # the whole band and no duplicate.
+        marked = page.evaluate(
+            """() => {
+              const stage = document.querySelector('.player-stage');
+              const table = document.querySelector('.player-board');
+              return {
+                stageId: stage.id,
+                overflowY: getComputedStyle(stage).overflowY,
+                rows: table.querySelectorAll('th.player-clue.is-row.is-stuck-row').length,
+                cols: table.querySelectorAll('th.player-clue.is-col.is-stuck-col').length,
+              };
+            }"""
+        )
+        side = len(self.GRID)
+        assert marked == {"stageId": "puzzle-player", "overflowY": "auto",
+                          "rows": side, "cols": side}, marked
+
+        # And it obeys the same rule, re-derived from the editor page's own
+        # measurements and solver.js's constant — not compared against the
+        # player's numbers, which would only say the two pages agree.
+        at_load = _room(page)
+        assert at_load["keeping"] == _verdict(at_load), at_load
+
+    def test_a_resize_after_a_zoom_re_measures_the_editors_room(
+        self, browser_page, live
+    ) -> None:
+        """F-001's own path, on the editor, on the board it can reach it with.
+
+        This clause used to run on the 30 x 30 above and could not fail
+        (CARD-271 fix round 1 pre-gate, PG-3): ``isBig`` is
+        ``width > BIG_SIDE || height > BIG_SIDE`` with ``BIG_SIDE`` 15, so a
+        30 x 30 is big on both sides and its resize always reached
+        ``redraw()`` — the one branch F-001 never touched. Measured: the whole
+        class, run with solver.js at the pre-fix revision, was 2 passed. A
+        claim whose control cannot fail is exactly what F-002 was raised about,
+        so it is replaced here rather than reworded.
+
+        The board is small on BOTH sides, so its resize reaches the branch the
+        defect was in, and it is zoomed until it scrolls, between two viewports
+        measured to decide differently — 1920 x 1500 affords both axes (a
+        15 x 15 at 200 % does not overflow there, and a band that covers
+        nothing is free), 1024 x 768 affords neither (359.4 px and 307.3 px of
+        band over a 724 x 540 scrollport). The same viewport and zoom reached
+        by LOADING is the control: the rule is right everywhere it is reached,
+        and it was the reaching that was missing.
+        """
+        page = browser_page
+        puzzle = _seed_live(live, self.SMALL)
+
+        page.set_viewport_size(self.ZOOMED_WIDE)
+        _open_editor(page, live, puzzle)
+        _zoom(page, self.ZOOM)
+        at_load = _room(page)
+        page.set_viewport_size(self.ZOOMED_NARROW)
+        _settled(page)
+        resized = _room(page)
+
+        page.set_viewport_size(self.ZOOMED_NARROW)
+        _open_editor(page, live, puzzle)
+        _zoom(page, self.ZOOM)
+        loaded = _room(page)
+
+        report = {"at_load": at_load, "resized": resized, "loaded": loaded}
+        # One board at one viewport, read twice: if the inputs differed the two
+        # readings would not be comparable.
+        assert resized["port"] == loaded["port"], report
+        assert resized["band"] == loaded["band"], report
+        assert resized["overflow"] == loaded["overflow"], report
+        # Not vacuous: the viewport really does change the answer here, so a
+        # page that never re-measured is caught rather than merely unexercised.
+        assert at_load["keeping"] != _verdict(loaded), report
+        # The rule where it is reached...
+        assert loaded["keeping"] == _verdict(loaded), report
+        # ...and where only a resize can reach it.
+        assert resized["keeping"] == _verdict(resized), report
+        assert resized["keeping"] == loaded["keeping"], report
+
+    def test_the_editor_ships_the_zoom_control(self, browser_page, live) -> None:
+        """The measurement behind the sentence above, because review cycle 1
+        bounded F-008's risk on the opposite reading of this page: the editor
+        DOES ship the zoom buttons, so every path that re-measures on the
+        player — zoom, and a resize after one — exists here as well."""
+        page = browser_page
+        page.set_viewport_size(self.WIDE)
+        _open_editor(page, live, _seed_live(live, self.GRID))
+
+        assert page.locator('[data-player-zoom-action="in"]').count() == 1
+        assert page.locator('[data-player-zoom-action="out"]').count() == 1
+        assert page.locator("[data-player-zoom-readout]").text_content() == "100%"

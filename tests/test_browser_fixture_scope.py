@@ -1034,6 +1034,235 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "specificity, so a cell that is filled AND hinted must still show "
         "CARD-183's paper ring and not this card's hairline",
     ),
+    # CARD-271 — the owner's "clues sometimes are missed at the bottom and at
+    # the left for big puzzles". CARD-212's duplicate gutters answer that only
+    # where they FIT, and the biggest boards are exactly where they do not, so
+    # each axis now keeps ONE gutter in view by sticking it to .player-stage's
+    # scrollport — while it has the room, because a stuck band floats over the
+    # cells it used to scroll away from and keeping the clues and keeping the
+    # BOARD are the same space spent twice. Three existing files, no new one;
+    # the room condition is what most of these entries are about, from one
+    # side of its bar or the other.
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_TheStageIsTheScrollContainer::"
+    "test_only_the_stage_scrolls_over_the_board": (
+        "CARD-271",
+        "\"What to implement\" item 3, which the card asks to be VERIFIED and "
+        "not assumed: of the table's seven ancestors exactly one scrolls, so "
+        "every sticky offset resolves against the box the fix intends",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_StayInViewOnAPlainBigBoard::"
+    "test_the_bottom_right_cells_clues_are_in_view[the card's 1280x720--]": (
+        "CARD-271",
+        "AC-1 at the reported viewport: a 30x30 drawn plain, scrolled to its "
+        "bottom-right cells, with that row's and that column's clues inside "
+        "the stage and the cells passing UNDER the gutters, not over",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_StayInViewOnAPlainBigBoard::"
+    "test_the_bottom_right_cells_clues_are_in_view[a short window, whole band gone--]": (
+        "CARD-271",
+        "AC-1 where the WHOLE column band scrolls off (211 px of overflow "
+        "against a 135 px band), so the axis cannot be kept by luck of a "
+        "partial scroll",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_StayInViewOnAPlainBigBoard::"
+    "test_the_bottom_right_cells_clues_are_in_view[a narrow window, both axes--]": (
+        "CARD-271",
+        "AC-1 with BOTH axes overflowing at once, the case the card's three "
+        "converging causes produce together and the one a single-axis fix "
+        "would pass",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_StayInViewOnAPlainBigBoard::"
+    "test_the_corner_sticks_on_both_axes": (
+        "CARD-271",
+        "AC-1's last clause: the corner is where the two bands cross, so it "
+        "sticks on both axes and paints above both (z-index 3 against 2 and "
+        "1) — otherwise the crossing is a hole the cells show through",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_DoubledGuttersAreNotStuck::"
+    "test_the_duplicate_the_tfoot_and_its_corner_stay_put": (
+        "CARD-271",
+        "AC-4 as a positive claim rather than only as the unedited ladder "
+        "gate: where CARD-212's duplicates fit, the duplicate, the tfoot band "
+        "and the duplicate's corner are `static` at every zoom",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::"
+    "test_each_axis_keeps_its_clues_exactly_when_it_has_the_room[1280x720]": (
+        "CARD-271",
+        "the room condition at the card's own viewport, with the decision "
+        "re-derived from the page's own cover/port and solver.js's constant "
+        "rather than read off the classes it set",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::"
+    "test_each_axis_keeps_its_clues_exactly_when_it_has_the_room[1280x600]": (
+        "CARD-271",
+        "the deepest case the card has to FIX (0.364 of the stage), which is "
+        "the lower edge the bar was measured against",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::"
+    "test_each_axis_keeps_its_clues_exactly_when_it_has_the_room[900x700]": (
+        "CARD-271",
+        "the narrowest desktop measured: a plain big board scrolling on BOTH "
+        "axes while still too wide to be mirrored",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::"
+    "test_each_axis_keeps_its_clues_exactly_when_it_has_the_room[390x844]": (
+        "CARD-271",
+        "the one viewport at 100 % zoom where an axis GIVES UP (272.2 px of "
+        "band over a 358 px stage), so the sample spans the bar from the "
+        "refusing side and not only from the keeping side",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::"
+    "test_each_axis_keeps_its_clues_exactly_when_it_has_the_room[600x844]": (
+        "CARD-271",
+        "the same board and mirror 210 px wider, where the same band CAN be "
+        "kept — the pair with 390x844 is what makes the threshold a measured "
+        "crossing rather than one viewport's answer",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted::"
+    "test_sticking_changes_neither_the_band_nor_the_overflow": (
+        "CARD-271",
+        "the rule must not feed back into its own input: sticking is "
+        "layout-neutral and adds nothing to the scrollable overflow, so the "
+        "board cannot flicker between the two answers on every resize",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_SmallBoardsUnaffectedByStickiness::"
+    "test_a_15x15_moves_nothing[roomy]": (
+        "CARD-271",
+        "AC-5: a board that fits its stage observes nothing — every gutter "
+        "box sits at its flow position, read as an offset from the TABLE so a "
+        "sticky shift would show",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_SmallBoardsUnaffectedByStickiness::"
+    "test_a_15x15_moves_nothing[laptop]": (
+        "CARD-271",
+        "AC-5 at a second viewport, so 'nothing changes' is not one window's "
+        "coincidence",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_SmallBoardsUnaffectedByStickiness::"
+    "test_a_15x15_moves_nothing[phone]": (
+        "CARD-271",
+        "AC-5 at phone width, where CARD-193's mirror would apply to a wider "
+        "board and must still change nothing for this one",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_SmallBoardsUnaffectedByStickiness::"
+    "test_a_resize_after_a_zoom_re_measures_the_room": (
+        "CARD-271",
+        "review cycle 1 F-001: a small board is `!isBig`, so before the fix "
+        "no viewport change re-measured it and the classes set at load "
+        "survived into a window refusing both axes — 105 of 140 visible cells "
+        "then failed to take their own tap. Red at the pre-fix revision",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_SmallBoardsUnaffectedByStickiness::"
+    "test_a_grown_window_re_measures_the_room_too": (
+        "CARD-271",
+        "F-001's other direction, because one direction of a bar is not a "
+        "control for it: a board grown wider kept today's rendering where the "
+        "rule says there is room, so the clues scrolled away",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_StickyGutterRendersCleanly::"
+    "test_a_stuck_gutter_is_opaque_over_the_cells": (
+        "CARD-271",
+        "AC-6 in PIXELS, because no computed style can settle it: a "
+        "transparent box under an opaque ancestor computes to alpha 1 too. "
+        "All 900 cells filled, the board at its far corner, the colour at "
+        "each stuck box's centre read out of a screenshot",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "TestSolverClues_StickyGutterRendersCleanly::"
+    "test_a_stuck_gutter_keeps_its_heavy_edge_and_its_circles": (
+        "CARD-271",
+        "AC-6's other two halves: the gutter's heavy rule toward the grid is "
+        "still drawn on a stuck band, and CARD-188's circled clue numbers "
+        "ride along with the box they are a ::before of",
+    ),
+    f"{FAMILY_PREFIX}_clues.py::"
+    "test_the_sticky_gutter_rules_declare_no_colour_but_the_one_token": (
+        "CARD-271",
+        "G-2 per rule: positioning declares no colour, so the four sticky "
+        "rules must stay colour-free, and the one coloured value the card "
+        "adds (.player-corner's background) must be a token — driven over the "
+        "rule broken four ways, since a literal written as rgb(), as a named "
+        "colour or inside color-mix is invisible to the whole-file hex sweep",
+    ),
+    f"{FAMILY_PREFIX}_phone.py::"
+    "TestSolverPhone_MirroredGutterSticks::"
+    "test_both_bands_are_in_view_at_every_corner": (
+        "CARD-271",
+        "AC-2: with CARD-193's mirror holding, the one row-clue gutter sticks "
+        "to the scrollport's RIGHT and the column gutter to its top, at every "
+        "corner including the one the board opens at, where the mirrored band "
+        "sits a whole band-width off-screen",
+    ),
+    f"{FAMILY_PREFIX}_phone.py::"
+    "TestSolverPhone_MirroredGutterSticks::"
+    "test_the_mirrored_corner_sticks_to_the_right_too": (
+        "CARD-271",
+        "AC-2's corner: the mirror leaves ONE corner and it is the corner of "
+        "both kept bands, so it carries both markers where a doubled board's "
+        "right corner carries only the column one",
+    ),
+    f"{FAMILY_PREFIX}_phone.py::"
+    "TestSolverPhone_MirroredGutterSticks::"
+    "test_a_390px_phone_keeps_its_cells_rather_than_its_row_clues": (
+        "CARD-271",
+        "the card's one UNFIXED case, pinned as an owner decision rather than "
+        "papered over: a 272.2 px band on a 358 px stage cannot be held in "
+        "view without hiding the board, and both halves are asserted — the "
+        "row clues really are gone, and a right-hand cell really does still "
+        "take its own tap",
+    ),
+    f"{FAMILY_PREFIX}_zoom.py::"
+    "TestSolverZoom_CluesStayInViewWhileZoomed::"
+    "test_every_corner_keeps_that_cells_clues_in_view[plain 30x30 at 900x700-----]": (
+        "CARD-271",
+        "AC-3 on a plain board: zoomed and panned to each of the four "
+        "corners, that cell's row clue and column clue are in view and a "
+        "gutter paints over the cells, not the other way round",
+    ),
+    f"{FAMILY_PREFIX}_zoom.py::"
+    "TestSolverZoom_CluesStayInViewWhileZoomed::"
+    "test_every_corner_keeps_that_cells_clues_in_view[doubled 30x25 at 1920x1500-----]": (
+        "CARD-271",
+        "AC-3 on a DOUBLED board, the other layout a big board can settle "
+        "on: the labelled gutter is the one that sticks and CARD-212's "
+        "duplicates still scroll, as they always did",
+    ),
+    f"{FAMILY_PREFIX}_zoom.py::"
+    "TestSolverZoom_CluesStayInViewWhileZoomed::"
+    "test_each_axis_keeps_its_clues_up_to_the_zoom_its_band_outgrows": (
+        "CARD-271",
+        "AC-3's BOUNDARY, recorded as a limitation rather than left as a "
+        "surprise: --player-zoom magnifies the band about as much as the "
+        "cells, so each axis keeps only up to the zoom its band outgrows "
+        "(rows to 225 %, columns to 150 % on this board). Owner decision 2",
+    ),
+    f"{FAMILY_PREFIX}_zoom.py::"
+    "TestSolverZoom_CluesStayInViewWhileZoomed::"
+    "test_zooming_and_panning_record_and_save_nothing": (
+        "CARD-271",
+        "G-4 / CON-021: a scroll and the sticky repaint it causes are not "
+        "state. The whole solve-state snapshot — cells, errors, progress, "
+        "hints, undo/redo aria, localStorage — is byte-identical across a "
+        "zoom, five pans and a zoom back",
+    ),
 }
 
 

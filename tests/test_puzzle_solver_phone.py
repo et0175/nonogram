@@ -30,6 +30,10 @@ import random
 import pytest
 
 from nonogram.solver import solve
+# CARD-271: the "is it in view?" reading and the scroll-to-the-far-corner
+# helper, written once beside that card's other cases rather than twice.
+from tests.test_puzzle_solver_clues import STICK_MAX_SHARE, GUTTER_PAINTS
+from tests.test_puzzle_solver_clues import _in_view, _room, _to_corner
 from tests.test_puzzle_solver_marking import _region, _tool
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     MAJOR_EVERY,
@@ -740,3 +744,198 @@ class TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit:
         assert seen["cell"] == pytest.approx(14.39, abs=0.05), seen["cell"]
         assert seen["cell"] < FLOOR, seen["cell"]
         assert seen["gutters"] == "11", seen["gutters"]
+
+
+# ==========================================================================
+# CARD-271 — the mirrored gutter stays in view, where there is room for it
+#
+# CARD-193's mirror is the third of that card's three converging causes: at
+# <= 820 px with width > 15 the ONE row-clue gutter is drawn on the right, so
+# a player scrolled to the left-hand cells has no row clues at all. Since
+# CARD-271 that gutter sticks to the right of .player-stage's scrollport —
+# while there is room for it, and on a 390 px phone there is not.
+#
+# Measured on the 30 x 30 ``BIG`` here, Chromium, this host:
+#
+#   390 x 844   stage 358 x 583, overflow (346, 0), row band 272.2 px.
+#               The band is three quarters of the stage's width, and the
+#               overflow is past the whole band, so a stuck band would float
+#               over the cells permanently: six columns of a thirty-column
+#               board visible, and the cells under it not even tappable
+#               (measured — see the control in this class). So the row axis
+#               does NOT stick here; the column axis does, which costs
+#               nothing, because at this height the stage does not scroll
+#               vertically at all.
+#   600 x 844   stage 568 x 583, overflow (136, 0), the same 272.2 px band.
+#               The mirror still holds (600 <= 820) and the band can now hide
+#               at most 136 px of a 568 px stage, so the row axis DOES stick
+#               and this is where AC-2's mechanism is asserted.
+#
+# That 390 px row is this card's one unfixed case, and it is recorded as an
+# owner decision on CARD-271 rather than papered over here: a 272 px band on
+# a 358 px stage is a question about the BAND (CARD-193's mirror, or how deep
+# a row band may be), not about stickiness.
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverPhone_MirroredGutterSticks:
+    """AC-2 — on a mirrored board with room for it, the one row-clue gutter
+    sticks to the RIGHT of the stage's scrollport and the column gutter to
+    its top, so both are in view at every scroll position, including the one
+    the board opens at (scrollLeft 0), where the mirrored band sits a whole
+    band-width off-screen to the right."""
+
+    def test_both_bands_are_in_view_at_every_corner(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size({"width": 600, "height": 844})
+        _open(page, live, live.store(BIG))
+
+        # The case: CARD-193's mirror holds, no duplicate was drawn, and the
+        # row axis measured the room to keep its gutter.
+        assert page.evaluate(
+            "document.querySelector('.player-board').classList.contains('is-mirrored')")
+        assert page.evaluate(
+            "document.querySelectorAll('th.player-clue[aria-hidden=\"true\"]').length") == 0
+        assert _room(page)["keeping"] == [True, True], _room(page)
+
+        side = len(BIG)
+        for corner, (row, col) in (
+            ("opened (top-left)", (0, 0)), ("top-right", (0, side - 1)),
+            ("bottom-left", (side - 1, 0)), ("bottom-right", (side - 1, side - 1)),
+        ):
+            _to_corner(page, col, row)
+            seen = _in_view(page, row, col)
+
+            assert seen["overflow"] == [136, 0], (corner, seen["overflow"])
+            assert seen["scroll"] == [136 if col else 0, 0], (corner, seen["scroll"])
+
+            # The mirrored row band is pinned to the scrollport's RIGHT edge
+            # and the column band to its top; both wholly inside it, at every
+            # corner — including the one the board OPENS at, where the
+            # mirrored band is 136 px off-screen to the right without this.
+            assert seen["row"]["inside"], (corner, seen["row"])
+            assert seen["col"]["inside"], (corner, seen["col"])
+            assert seen["row"]["dRight"] == pytest.approx(0, abs=0.5), (corner, seen["row"])
+            assert seen["col"]["dTop"] == 0, (corner, seen["col"])
+            # Cells go under, not over.
+            assert seen["row"]["hit"] in GUTTER_PAINTS, (corner, seen["row"])
+            assert seen["col"]["hit"] in GUTTER_PAINTS, (corner, seen["col"])
+            # Showing the clues of the cell at that corner.
+            assert seen["row"]["numbers"] == [str(n) for n in _encode(BIG[row])], (corner, seen)
+            assert seen["col"]["numbers"] == [
+                str(n) for n in _encode([line[col] for line in BIG])], (corner, seen)
+
+            # The CROSSING, read behaviourally and not only as a declaration
+            # (CARD-271 review cycle 1, F-006). The mirror leaves one corner
+            # and it is the corner of both kept bands, so it sticks on both
+            # axes: the row axis pins it to the scrollport's right edge and
+            # the column axis to its top, and a hit-test at its centre finds
+            # a gutter box rather than something painted over it. That marker
+            # used to be held by the computed-style equality in the next test
+            # alone — the review's mutant on it (cornerBox's `row: mirrored`
+            # -> `row: false`) reddened exactly one cell, a declaration one.
+            # Two independent readings are added here: geometry (is it pinned
+            # to the scrollport's edges, or scrolled away with the band?) and
+            # the hit-test. Both red on that mutant.
+            #
+            # What is NOT added, measured rather than skipped: the desktop
+            # corner's PIXEL control ("the crossing is a hole through which
+            # the cells show", tests/test_puzzle_solver_clues.py
+            # TestSolverClues_StickyGutterRendersCleanly) has no counterpart
+            # here, because on a mirrored board no cell is ever behind this
+            # corner. It lives in the <thead>, above every cell, and the row
+            # band is on the right: measured at 600 x 844 with all 900 cells
+            # filled, `document.elementsFromPoint` at the corner's centre
+            # returns [the corner, the table, the stage, .main] at BOTH scroll
+            # ends — nothing between it and the table, whether it is displaced
+            # 135.9 px from its flow position (scrollLeft 0) or sitting at it
+            # (scrollLeft 136). A pixel sample there is a reading of the
+            # table's own background, so an assertion on it would pass
+            # whatever the corner's opacity: deleting
+            # `.player-corner { background: var(--color-bg) }` from admin.css
+            # reds the DESKTOP sample (clues.py, corner reads --grid-ink) and
+            # leaves a mirrored one green. ADR-0039/R1 — a claim whose control
+            # cannot fail is narrative, so it is stated here instead.
+            assert seen["corner"] is not None, (
+                corner, "no .player-corner carries both stuck markers, so the "
+                        "mirrored crossing is not held on the row axis")
+            assert seen["corner"]["inside"], (corner, seen["corner"])
+            assert seen["corner"]["dRight"] == pytest.approx(0, abs=0.5), (corner, seen["corner"])
+            assert seen["corner"]["dTop"] == 0, (corner, seen["corner"])
+            assert seen["corner"]["hit"] in GUTTER_PAINTS, (corner, seen["corner"])
+
+    def test_the_mirrored_corner_sticks_to_the_right_too(self, browser_page, live) -> None:
+        """The mirror leaves ONE corner, the right-hand one, and it is the
+        corner of the band that sticks — so it carries both markers here,
+        where a non-mirrored doubled board's right corner carries only the
+        column one (tests/test_puzzle_solver_clues.py
+        TestSolverClues_DoubledGuttersAreNotStuck)."""
+        page = browser_page
+        page.set_viewport_size({"width": 600, "height": 844})
+        _open(page, live, live.store(BIG))
+
+        corners = page.evaluate(
+            """() => [...document.querySelectorAll('.player-board .player-corner')].map((el) => {
+                 const s = getComputedStyle(el);
+                 return [el.className, s.position, s.top, s.left, s.right];
+               })"""
+        )
+
+        assert corners == [
+            ["player-corner is-right is-stuck-col is-stuck-row", "sticky", "0px", "auto", "0px"],
+        ], corners
+
+    def test_a_390px_phone_keeps_its_cells_rather_than_its_row_clues(
+        self, browser_page, live
+    ) -> None:
+        """The refusal, and why — this card's one unfixed case, measured.
+
+        At 390 px the row band is 272.2 px of a 358 px stage and the stage
+        overflows sideways past the whole of it, so a stuck band would hang
+        over the cells at every scroll position. It is not stuck, and the
+        consequence is asserted from both sides: the row clues really are
+        gone at scrollLeft 0 (the bug, unfixed here), and a right-hand cell
+        really is still the thing that a tap at its centre lands on — which
+        is what a stuck band took away (the tap in
+        TestSolverPhone_TouchDragMarksOnAFittedBoard above went to the band
+        while this axis stuck unconditionally).
+        """
+        page = browser_page
+        page.set_viewport_size({"width": 390, "height": 844})
+        _open(page, live, live.store(BIG))
+
+        room = _room(page)
+        assert room["keeping"] == [False, True], room
+        assert room["band"][0] == pytest.approx(272.2, abs=0.5), room
+        assert room["port"] == [358, 583] and room["overflow"] == [346, 0], room
+        # Past the share the rule allows, re-derived here from solver.js's
+        # own constant rather than from the class it set — off the RAW cover
+        # (CARD-271 review cycle 2, F-101; see _ROOM). This comparison runs
+        # the OTHER way round, so rounding errs the other way too: a true
+        # cover of 392.04 reads as 392.0 and this would fail where the rule
+        # says it holds. Same root, both directions — and this is the control
+        # holding the 390 px owner decision.
+        assert room["coverRaw"][0] > room["port"][0] * STICK_MAX_SHARE, room
+
+        _to_corner(page, 0, 0)
+        seen = _in_view(page, 0, 0)
+        # The row clues are off to the right, unfixed: this is the case the
+        # owner is being asked about, stated as a measurement.
+        assert seen["row"]["inside"] is False, seen["row"]
+        assert seen["row"]["dRight"] == pytest.approx(-346, abs=1), seen["row"]
+        # The column clues ARE kept (that axis has the room), so the refusal
+        # is per axis and not a blanket one.
+        assert seen["col"]["inside"] and seen["col"]["dTop"] == 0, seen["col"]
+
+        # And the cells the band would have covered take their own taps.
+        landed = page.evaluate(
+            """() => {
+              const cell = document.querySelector('td.player-cell[data-row="12"][data-col="27"]');
+              cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+              const r = cell.getBoundingClientRect();
+              const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              return hit === null ? null : hit.tagName + '.' + hit.className;
+            }"""
+        )
+        assert landed == "TD.player-cell", landed

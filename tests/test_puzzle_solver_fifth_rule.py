@@ -55,6 +55,11 @@ from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used 
     browser_type,
     live,
 )
+# CARD-271 review cycle 1 (F-002): solver.js's own resize debounce, derived
+# from the file that declares it. An element screenshot makes the page fire
+# `resize`, so the length of that debounce is how long a capture's wake lasts
+# — see _quiet.
+from tests.test_puzzle_solver_clues import RESIZE_SETTLE as _RESIZE_SETTLE
 
 #: The board every pixel test marks up: 20 x 20, uniquely solvable, and it
 #: has at least one empty cell — so marking EVERY cell filled is never the
@@ -237,10 +242,133 @@ def _tokens(page) -> dict:
     return {**colours, **widths}
 
 
+#: Take the clue gutters off the scrollport for the duration of a capture
+#: (CARD-271), and put them back.
+#:
+#: A kept gutter is ``position: sticky`` against ``.player-stage``, so unless
+#: the stage happens to be at the far end of that axis the gutter is PAINTED
+#: away from its flow position — and an element screenshot of the table
+#: ignores the stage's own overflow clip, so the band then lands in the
+#: capture over cells the player cannot see at that scroll at all (measured
+#: at 390 px on this file's 20 x 20: 113 px of cells, columns 12 to 19,
+#: reading --color-surface instead of the fill). Every reading in this file
+#: is about the table's own RULES, so it is taken of the table alone.
+#:
+#: Sticking is layout-neutral, so this changes what is PAINTED and nothing
+#: else — and :func:`_board` now carries its own control for that instead of
+#: citing one (CARD-271 review cycle 1, F-002). The citation here was
+#: tests/test_puzzle_solver_clues.py
+#: ``TestSolverClues_TheRoomForAStuckBandIsMeasuredNotPredicted``, whose
+#: ``test_sticking_changes_neither_the_band_nor_the_overflow`` asserts the
+#: band, the overflow and the port — three terms ``_GEOMETRY`` does not read.
+#: ``_GEOMETRY`` reads the table's own width and height and every cell's
+#: offset from the table's rect, so had sticking ever moved a cell relative to
+#: the table, that control could not have reddened and the citation would have
+#: gone on licensing a capture taken in one class state against geometry read
+#: in another. ADR-0039/R1: a claim whose control cannot fail is narrative,
+#: not coverage.
+#:
+#: The classes go straight back, and so does the dataset the restore needs:
+#: ``keptClasses`` is deleted on the way out, so no later assertion in the
+#: same test sees an attribute this file invented either.
+#: The stash it leaves is read back on the way out, and a MISSING stash is a
+#: signal rather than a crash: ``redraw()`` replaces the whole table, so a
+#: stash that is gone means the table it was written on is gone. See
+#: :func:`_quiet` for the measurement of how that happens and :func:`_board`
+#: for what is done about it. (The implementation round's version of this
+#: helper met the same condition as ``TypeError: Cannot read properties of
+#: undefined (reading 'split')``, with nothing to say which table it had
+#: been handed.)
+_UNSTICK = """(on) => {
+  const table = document.querySelector('.player-board');
+  if (!on) {
+    const kept = [...table.classList].filter((c) => c.startsWith('is-keeping-'));
+    table.dataset.keptClasses = kept.join(' ');
+    table.classList.remove(...kept);
+    return true;
+  }
+  const stashed = table.dataset.keptClasses;
+  if (stashed === undefined) return false;
+  table.classList.add(...stashed.split(' ').filter(Boolean));
+  delete table.dataset.keptClasses;
+  return true;
+}"""
+
+
+#: The draw mark solver.js leaves behind, one per board built — the only
+#: observable that says whether the table under a reading is still the table
+#: that reading was taken of.
+_DRAWS = "() => performance.getEntriesByName('nonogram-player-board-draw').length"
+
+
+def _quiet(page):
+    """Wait out any debounced redraw already pending, and answer the draw count.
+
+    Needed because of a measured interaction between this file's captures and
+    CARD-212's resize listener, and it is a property of the two, not of
+    CARD-271: **a Playwright element screenshot makes the page fire
+    ``resize``**. Measured on this file's own 20 x 20 at 390 x 844 —
+    ``innerWidth``/``innerHeight`` never change (390 x 844 before and after),
+    one ``resize`` event is recorded, the draw count is 1 immediately after
+    the capture and 2 once ``RESIZE_SETTLE`` has passed. So every capture
+    leaves a redraw landing a moment later, and a redraw replaces the whole
+    table.
+
+    Left alone that makes the pair of readings in :func:`_board` unsound
+    rather than merely flaky: ``png`` describes the table the screenshot was
+    taken of and the geometry afterwards can describe its replacement. Waiting
+    here, before anything is read, is what keeps a capture window clean; the
+    draw-count comparison in :func:`_board` is what proves it was.
+    """
+    page.wait_for_timeout(4 * _RESIZE_SETTLE)
+    return page.evaluate(_DRAWS)
+
+
 def _board(page):
-    """An element screenshot of the table, and the cell boxes inside it."""
-    png = page.locator(".player-board").screenshot(scale="css")
-    return _image(png), page.evaluate(_GEOMETRY)
+    """An element screenshot of the table, and the cell boxes inside it.
+
+    The geometry is read TWICE — once inside the unstuck window the capture is
+    taken in, once after the classes are back — and the two readings are
+    asserted equal. That assertion IS this helper's licence to mix the two
+    states, held here rather than cited elsewhere (F-002). Measured on this
+    file's own board and viewport the two agree exactly (20 x 20 at 390 x 844,
+    the stage scrolled to mid-axis: table 471.453125 x 380.03125 both ways, 0
+    of 400 cells differing). If sticking ever did move a cell relative to the
+    table, every pixel reading in this file would be comparing a capture
+    against geometry that does not describe it — the one way this helper can
+    be wrong, and now the one thing it checks.
+
+    Everything is read inside ONE board generation, and that is asserted
+    rather than hoped: :func:`_quiet` waits out the redraw the previous
+    capture left pending, and the draw count is compared across the window
+    afterwards. Without it the pair of readings straddles a redraw — not a
+    flake to retry past but a reading of two different tables, which is the
+    very thing the geometry comparison below exists to rule out.
+    """
+    drew = _quiet(page)
+    page.evaluate(_UNSTICK, False)
+    try:
+        loose = page.evaluate(_GEOMETRY)
+        png = page.locator(".player-board").screenshot(scale="css")
+    finally:
+        restored = page.evaluate(_UNSTICK, True)
+    assert restored and page.evaluate(_DRAWS) == drew, (
+        f"the board was redrawn inside the capture window "
+        f"(draws {drew} -> {page.evaluate(_DRAWS)}, stash restored: "
+        f"{restored}), so this capture does not describe the table the "
+        f"geometry below is read off")
+    geometry = page.evaluate(_GEOMETRY)
+    assert loose == geometry, (
+        "sticking moved the table's own geometry, so the capture taken with "
+        "the gutters off and the geometry returned with them on do not "
+        "describe the same board")
+    # The other half of the same claim, and the one the docstring above used
+    # to make without checking: this helper leaves nothing of its own on the
+    # page for a later assertion in the same test to read.
+    assert page.evaluate(
+        "document.querySelector('.player-board').dataset.keptClasses") is None, (
+        "_UNSTICK left data-kept-classes on the table")
+    return _image(png), geometry
 
 
 def _is(pixel, reference) -> bool:

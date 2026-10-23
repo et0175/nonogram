@@ -33,6 +33,10 @@ import re
 import pytest
 
 from tests.test_puzzle_solver_brush_menu import _touch_drag_row_1_cols_2_to_6
+# CARD-271: the "is it in view?" reading, and CARD-212's own doubled board.
+from tests.test_puzzle_solver_clues import GRID_30x25 as _GRID_30x25
+from tests.test_puzzle_solver_clues import STICK_MAX_SHARE, GUTTER_PAINTS
+from tests.test_puzzle_solver_clues import _in_view, _room, _to_corner
 from tests.test_puzzle_solver_marking import (
     E,
     GRID,
@@ -903,3 +907,217 @@ class TestSolverZoom_SurvivesADoubledRedraw:
 
         assert page.evaluate(draws) == 1
         assert page.evaluate(_GUTTER_SHAPE)["duplicates"] == 0
+
+
+# ==========================================================================
+# CARD-271 — the clues stay in view while zoomed, up to where the band fits
+#
+# Zoom is where every big board loses its clues, doubled or not: the stage
+# overflows in both directions and both bands scroll clean out of it, and a
+# doubled board's duplicates — the whole point of which was the far edge —
+# end up thousands of pixels from wherever the player is working. Since
+# CARD-271 each axis keeps its labelled gutter stuck to the scrollport while
+# it has the room, so panning to any corner leaves that cell's row clue and
+# column clue in view.
+#
+# "While it has the room" is the whole story at high zoom, and it is this
+# card's second unfixed case. --player-zoom multiplies the cell, and the clue
+# numerals are 0.6 x the cell, so the BAND is magnified about as much as the
+# cells are: its share of the stage barely falls, and past STICK_MAX_SHARE of
+# the stage it would hide more board than it is worth. Measured on this host,
+# Chromium, stepping the zoom buttons (keepCluesInView runs after each):
+#
+#   30 x 30 at 1280 x 720, stage 980 x 492 (plain, one gutter per axis)
+#     zoom       100    125    150    175    200    225    250    275    300
+#     rows        y      y      y      y      y      n      n      n      n
+#     cols        y      y      n      n      n      n      n      n      n
+#     col band  135.4  168.6  201.7  234.7  267.9  301.0  334.2  367.3  400.3
+#
+#   30 x 25 at 1920 x 1500, stage 1620 x 1272 (doubled, all four gutters)
+#     zoom       100    125    150    175    200    225    250    275    300
+#     rows        y      y      y      n      n      n      n      n      n
+#     cols        y      y      y      y      y      n      n      n      n
+#
+# So the card's "any big board at 300 % zoom" is NOT delivered, and the reason
+# is the band's magnification rather than stickiness: at 300 % the plain
+# board's column band is 400.3 px of a 492 px stage — about nine cells of an
+# eleven-cell-tall view. Not magnifying the clue band with the cells would
+# turn every column of both tables above into a "y"; that is a CARD-195
+# decision about what zoom means, recorded as an owner decision on CARD-271.
+#
+# The two cases asserted below are the ones where the mechanism works hardest
+# — both axes keeping their clues while both axes really do scroll:
+#
+#   plain     30 x 30 at 900 x 700, 125 %: stage 600 x 472, overflow
+#             (212, 253) against bands (272.2, 168.6)
+#   doubled   30 x 25 at 1920 x 1500, 150 %: stage 1620 x 1272, overflow
+#             (778, 487) — past BOTH bands (567.9, 347.4), so without the
+#             stick every one of this board's four gutters leaves the view
+# ==========================================================================
+
+#: The 30 x 30 the plain cases use (the board CARD-271's desktop cases use
+#: too, over in tests/test_puzzle_solver_clues.py).
+_GRID_30x30 = _unique_grid(30, 30, seed=19330)
+
+
+@pytest.mark.browser
+class TestSolverZoom_CluesStayInViewWhileZoomed:
+    """AC-3 — zoomed in, panned to each corner of the stage, the clue boxes
+    of the row and the column under that corner are in view.
+
+    Four corners per board, and the corner the pan lands on decides which
+    cell is asked about: at the top-left the board's first row and column, at
+    the bottom-right its last. The two boards cover the two layouts a big
+    board can be in — plain (one gutter per axis, the commonest) and doubled
+    (CARD-212's four gutters, where the stuck gutter is the labelled one and
+    the duplicate deliberately scrolls) — each at the highest zoom that keeps
+    both axes, which is where the mechanism is working hardest.
+    """
+
+    @pytest.mark.parametrize(
+        "name, grid, viewport, feet, zoom, expected",
+        [
+            ("plain 30x30 at 900x700", _GRID_30x30, {"width": 900, "height": 700}, 0, 125,
+             [212, 253]),
+            ("doubled 30x25 at 1920x1500", _GRID_30x25, _ROOMY, 1, 150, [778, 487]),
+        ],
+        ids=lambda value: value if isinstance(value, str) else "",
+    )
+    def test_every_corner_keeps_that_cells_clues_in_view(
+        self, browser_page, live, name, grid, viewport, feet, zoom, expected
+    ) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        _open(page, live, live.store(grid))
+        # Which layout this is, asserted rather than assumed — the case is
+        # the layout, and the ladder measures.
+        assert page.evaluate("document.querySelectorAll('.player-board tfoot tr').length") == feet
+
+        _zoom_to(page, zoom)
+        height = len(grid)
+        width = len(grid[0])
+        room = _room(page)
+        assert room["keeping"] == [True, True], (name, room)
+        # Both axes really do scroll, so neither band could stay in view by
+        # accident: without the stick each one leaves the stage, wholly on
+        # the doubled board (whose overflow is past both of its bands) and in
+        # part on the plain one.
+        assert room["overflow"][0] > 0 and room["overflow"][1] > 0, (name, room)
+        assert room["overflow"] == expected, (name, room)
+
+        for corner, (row, col) in (
+            ("top-left", (0, 0)), ("top-right", (0, width - 1)),
+            ("bottom-left", (height - 1, 0)), ("bottom-right", (height - 1, width - 1)),
+        ):
+            _to_corner(page, col, row)
+            seen = _in_view(page, row, col)
+
+            assert seen["row"]["inside"], (name, corner, seen["row"])
+            assert seen["col"]["inside"], (name, corner, seen["col"])
+            assert seen["row"]["hit"] in GUTTER_PAINTS, (name, corner, seen["row"])
+            assert seen["col"]["hit"] in GUTTER_PAINTS, (name, corner, seen["col"])
+            # Pinned to the scrollport's own edge, whichever corner this is:
+            # the row band to the left (the mirror never holds at these
+            # widths) and the column band to the top.
+            assert seen["row"]["dLeft"] == 0, (name, corner, seen["row"])
+            assert seen["col"]["dTop"] == 0, (name, corner, seen["col"])
+
+    #: The table in this section's comment, as the assertion that keeps it
+    #: true: for the plain 30 x 30 at 1280 x 720, the zoom at which each axis
+    #: stops keeping its clues. ``None`` would mean "keeps all the way to
+    #: 300 %", which neither axis does on this board.
+    GIVES_UP_AT = {"rows": 225, "cols": 150}
+
+    def test_each_axis_keeps_its_clues_up_to_the_zoom_its_band_outgrows(
+        self, browser_page, live
+    ) -> None:
+        """The boundary of this card's fix, pinned so that it is a recorded
+        limitation and not a surprise: stepping 100 % to 300 %, each axis
+        keeps its gutter until its band would hide more than
+        ``STICK_MAX_SHARE`` of the stage, and from there on the board renders
+        exactly as it did before this card. A band that stopped being
+        magnified by zoom would move both numbers below to "never", which is
+        the owner decision this records.
+
+        The share is NAMED here rather than quantified, which is how CARD-271's
+        pre-gate finding PG-1 is fixed in a form that cannot drift again: this
+        sentence said "half" while solver.js declared two fifths, and the loop
+        below re-derives the decision from the imported constant — so the
+        figure in the prose was a stale copy and never a second opinion. The
+        number has one home, solver.js, and nothing restates it.
+        """
+        page = browser_page
+        page.set_viewport_size({"width": 1280, "height": 720})
+        _open(page, live, live.store(_GRID_30x30))
+
+        ladder = {}
+        for percent in range(100, 325, 25):
+            _zoom_to(page, percent)
+            room = _room(page)
+            ladder[percent] = room["keeping"]
+            # The rule, re-derived from this zoom's own measurements rather
+            # than read off the classes — off the RAW cover, the number
+            # solver.js actually compares, not the rounded one the report
+            # quotes (CARD-271 review cycle 2, F-101; see _ROOM). This is one
+            # of the two controls holding an owner decision, so a ±0.05 px
+            # window here is a window in the decision.
+            assert room["keeping"] == [
+                room["coverRaw"][axis] <= room["port"][axis] * STICK_MAX_SHARE
+                for axis in (0, 1)], (percent, room)
+
+        kept = {
+            "rows": [p for p, (rows, _cols) in ladder.items() if rows],
+            "cols": [p for p, (_rows, cols) in ladder.items() if cols],
+        }
+        for axis, gives_up in self.GIVES_UP_AT.items():
+            # Kept from 100 % up to the step before it gives up, and never
+            # again after — one contiguous run, so "it gives up at N" is a
+            # real boundary and not a hole in the middle.
+            assert kept[axis] == list(range(100, gives_up, 25)), (axis, kept)
+
+    def test_zooming_and_panning_record_and_save_nothing(self, browser_page, live) -> None:
+        """G-4 / CON-021 — a scroll, and the sticky repaint it causes, are not
+        state: the marks, the counters, undo/redo and the localStorage save
+        are byte-identical across zooming in, panning to every corner, and
+        coming back. (TestSolverZoom_IsNotSavedAndSendsNothing above says that
+        of the zoom itself; this adds the panning, which is what CARD-271
+        made the gutters respond to, and the re-measurement that each zoom
+        step now runs.)
+
+        The stickiness PRECONDITION is read where it has to be read and
+        JUDGED after the recording assertion, which is the point (CARD-271
+        review cycle 1, F-004). Asserted inside the pan loop it reddened this
+        test before ``_board_snapshot`` was ever compared, so a stickiness
+        regression — which is not a recording regression — was reported as a
+        CON-021 failure with CON-021's own property unevaluated: on exactly
+        the cycles where stickiness broke, panning's recording property went
+        unverified while the report said a CON-021 test red. The review's own
+        suggestion was to hoist it above the loop, which fixes the
+        attribution but still aborts before the snapshot; keeping the readings
+        and judging them last fixes both, and loses nothing the in-loop
+        assertion covered.
+        """
+        page = browser_page
+        page.set_viewport_size({"width": 900, "height": 700})
+        puzzle = live.store(_GRID_30x30)
+        _open(page, live, puzzle)
+        _set(page, [F if on else E for on in _GRID_30x30[0]] + ["unknown"] * (30 * 29))
+        before = _board_snapshot(page, puzzle)
+
+        _zoom_to(page, 125)
+        # Read, not yet judged: that both bands ARE stuck at this board,
+        # viewport and zoom is what makes the pans below drag the board under
+        # a kept gutter, rather than this being a test of a board where
+        # sticking never happened.
+        panned = [_room(page)["keeping"]]
+        for x, y in ((0, 0), (1, 0), (0, 1), (1, 1), (0, 0)):
+            _to_corner(page, x, y)
+            panned.append(_room(page)["keeping"])
+        _zoom_to(page, 100)
+
+        # The control's own subject, first and unconditionally.
+        assert _board_snapshot(page, puzzle) == before
+        # ...and then the precondition, at the zoom and through every pan — a
+        # scroll position is not one of the room condition's terms, so it
+        # cannot change the answer.
+        assert panned == [[True, True]] * 6, panned
