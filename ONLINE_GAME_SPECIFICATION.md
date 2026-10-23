@@ -179,23 +179,65 @@ These need discussion to finalize the spec:
 
 ---
 
-## Technical Architecture (Preliminary)
+## Technical Architecture
 
-### **Frontend** (React/Next.js)
-- [ ] Game board component (grid rendering, cell interaction)
-- [ ] Game state management (which cells are marked, undo history)
-- [ ] Puzzle library page
-- [ ] Leaderboard page (if included)
-- [ ] User profile page (if included)
+**Status:** agreed 2026-10-23 (Ольга + Claude). Key decision: **one player app** serves both
+the QR codes printed in books and online library browsing — same game, different entry points.
+No login, no live database in the customer path, no new backend stack.
 
-### **Backend API** (Python/Flask)
-- [ ] GET `/api/games/puzzles` — list available puzzles
-- [ ] GET `/api/games/puzzles/{id}` — get puzzle details
+### One app, three routes
+
+| Route | Purpose | Reached from |
+|-------|---------|--------------|
+| `/play/<puzzle-id>` | The game board itself (the only hard part to build; identical for every entry point) | Book landing, library, shared links |
+| `/b/<book-slug>` | Per-book landing: "Puzzles from this book", tap one to play | **QR code printed in the book** |
+| `/library` | Browse/filter all published puzzles (section 1.1) | Direct visits |
+
+The book player and the online game are the same product at different entry points; the v3
+features (library, progress, scores) grow inside this app, not beside it.
+
+### **Frontend** — static, client-side, mobile-first
+- [ ] Static client-side app (small React/Preact or vanilla TS — pick for maintainability; the
+      empty `nonogram-web/` has only build leftovers, so this is a fresh small build either way)
+- [ ] **Static hosting** (Cloudflare Pages / Vercel / Render static site): free, scales, and
+      **no cold starts** — a QR scan from a book must load instantly. (The admin service on
+      Render's free plan spins down when idle; a 30–60s cold start on first scan is the normal
+      case there, not the edge case. Customer traffic therefore never touches the admin service.)
+- [ ] All solve validation is **client-side**: checking a grid against clues/solution is trivial
+      JS. The Python solver is only needed at *generation* time, which happened before the book
+      was printed — it is not in the play path at all.
+- [ ] Game board component (grid rendering, cell interaction, three states, undo history)
+- [ ] Mobile-first touch UI from day one — nearly every QR scan is a phone (thumb-sized cells,
+      pinch-zoom; see Question 5)
+- [ ] Progress tracking via `localStorage` (section 1.5), no accounts
+
+### **Puzzle data** — static JSON exported on publish, no live DB reads
+- [ ] Admin panel exports static JSON when a puzzle is published / a book is finalized:
+  - [ ] library index (id, size, difficulty, preview metadata)
+  - [ ] one file per puzzle (clues + solution + metadata)
+  - [ ] one file per book (slug → ordered list of its puzzle ids)
+- [ ] A printed book is frozen: its puzzles never change, so its JSON and QR links never break
+- [ ] The admin panel and its Postgres stay private; a deploy there remains a deliberate
+      decision (see `render.yaml` notes) and can never take the player down
+
+### **Usage tracking** — no login, no stored IPs
+- [ ] **Book slug in the QR URL** (`/b/<book-slug>`, distinct per book/edition) is the primary
+      signal: which book drives visits, scans per book over time
+- [ ] Privacy-friendly analytics script — Plausible (~€9/mo) or GoatCounter (free): visits,
+      estimated uniques, country, device — cookieless, no consent banner needed
+- [ ] Raw IPs are **not** stored: an IP is personal data under GDPR, and it's inaccurate anyway
+      (mobile carrier NAT shares one IP across many people; one phone changes IPs constantly)
+- [ ] Optional later: `play_events` table (append-only) + tiny endpoint, if game-level events
+      (started / solved / gave up / solve time) are wanted beyond page analytics
+
+### **Write-only API** — deferred until December features need it
+Only scores / leaderboard / daily puzzle require a backend, and only for **writes**. These are
+fire-and-forget POSTs after a puzzle is solved: a cold start delays a score submission by a few
+seconds, never gameplay. The play path stays static and never depends on this service.
 - [ ] POST `/api/games/solve` — submit completed puzzle (for scoring)
 - [ ] GET `/api/games/leaderboard` — top scores (if included)
-
-### **Database** (PostgreSQL)
 - [ ] games_scores table: user_id, puzzle_id, time_seconds, difficulty, status (solved/failed)
+      — in the **existing** Postgres (`nonogram_poc`); no separate database
 - [ ] games_daily_puzzle table: date, puzzle_id
 
 ---
@@ -221,16 +263,18 @@ These need discussion to finalize the spec:
 - **Bottleneck**: If solver validation is slow, needs optimization
 
 ### **Solver Integration**
-- [ ] Should game use existing solver to validate moves?
-  - Validate after each cell mark? (slow if grid is large)
-  - Validate only on submit? (faster, but less feedback)
-- [ ] Performance: Can solver handle 100+ validation checks per puzzle?
+- [x] **Answered (2026-10-23, see Technical Architecture):** the Python solver is not used at
+      play time. Validation is comparing the player's grid against the clues / stored solution —
+      trivial client-side JS, instant at any grid size, works offline. The solver's job
+      (guaranteeing unique solvability) is done at generation time, before the book is printed.
 
 ### **Backend Work Needed**
-- [ ] New tables in database (games_scores, daily_puzzle)
-- [ ] API endpoints for puzzle fetching + scoring
-- [ ] Leaderboard query (if included)
-- [ ] Periodic task: pick daily puzzle each day (if included)
+- [ ] Admin panel: static JSON export on puzzle publish / book finalization (library index,
+      per-puzzle files, per-book files) — this replaces puzzle-fetching API endpoints
+- [ ] Deferred to the write-API phase (December, see Technical Architecture):
+  - New tables in existing Postgres (games_scores, daily_puzzle)
+  - API endpoint for scoring; leaderboard query (if included)
+  - Periodic task: pick daily puzzle each day (if included)
 
 ---
 
