@@ -203,9 +203,9 @@ features (library, progress, scores) grow inside this app, not beside it.
       **no cold starts** — a QR scan from a book must load instantly. (The admin service on
       Render's free plan spins down when idle; a 30–60s cold start on first scan is the normal
       case there, not the edge case. Customer traffic therefore never touches the admin service.)
-- [ ] All solve validation is **client-side**: checking a grid against clues/solution is trivial
-      JS. The Python solver is only needed at *generation* time, which happened before the book
-      was printed — it is not in the play path at all.
+- [ ] All solve validation is **client-side**: checking a grid against the clues is trivial
+      JS (no solution is sent — ADR-0038/R6). The Python solver is only needed at *generation*
+      time, which happened before the book was printed — it is not in the play path at all.
 - [ ] Game board component (grid rendering, cell interaction, three states, undo history)
 - [ ] Mobile-first touch UI from day one — nearly every QR scan is a phone (thumb-sized cells,
       pinch-zoom; see Question 5)
@@ -214,7 +214,10 @@ features (library, progress, scores) grow inside this app, not beside it.
 ### **Puzzle data** — static JSON exported on publish, no live DB reads
 - [ ] Admin panel exports static JSON when a puzzle is published / a book is finalized:
   - [ ] library index (id, size, difficulty, preview metadata)
-  - [ ] one file per puzzle (clues + solution + metadata)
+  - [ ] one file per puzzle (clues + metadata — **no solution**: ADR-0038/R6
+        forbids any public surface from shipping a puzzle's answer to the
+        browser; the player detects completion as "every clue satisfied",
+        which for a uniquely-solvable puzzle *is* the solution)
   - [ ] one file per book (slug → ordered list of its puzzle ids)
 - [ ] A printed book is frozen: its puzzles never change, so its JSON and QR links never break
 - [ ] The admin panel and its Postgres stay private; a deploy there remains a deliberate
@@ -264,8 +267,9 @@ seconds, never gameplay. The play path stays static and never depends on this se
 
 ### **Solver Integration**
 - [x] **Answered (2026-10-23, see Technical Architecture):** the Python solver is not used at
-      play time. Validation is comparing the player's grid against the clues / stored solution —
-      trivial client-side JS, instant at any grid size, works offline. The solver's job
+      play time. Validation is comparing the player's grid against the clues —
+      trivial client-side JS, instant at any grid size, works offline. (Not against a stored
+      solution: ADR-0038/R6 keeps the answer out of any public page.) The solver's job
       (guaranteeing unique solvability) is done at generation time, before the book is printed.
 
 ### **Backend Work Needed**
