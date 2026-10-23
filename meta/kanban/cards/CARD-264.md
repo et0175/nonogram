@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → **7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3)** → owner decision pending
+**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 pre-gated (7/7 named, 167+166 whole-file, 2 of 9 mutants re-derived) → cycle 5 owed
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -2822,3 +2822,320 @@ repo file), and m-4 (the docs quotation's colon replaced by a full stop inside t
 `_IDENTIFIER_CHAIN` are correct and measured; every item is a declaration or a keying defect. The one
 permitted exception is m-1's `mentioned()` normalisation, which the round must flag as a behaviour change
 if it takes it.
+
+## [One-way sync] Fix round 4's own notes, pulled from the worktree
+
+Agent-owned text, copied verbatim from the card's worktree copy at the end of the round. The orchestrator's
+own pre-gate of this round is the section *after* it.
+
+## Worktree notes -- fix round 4 (`forge:fix`, auto), 2026-10-23, FINAL, on cycle 4 (7.65, NOT CERTIFIED)
+
+Scope: `tests/test_guard_integrity.py`, `tests/test_web_server.py`,
+`docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md`. `CLAUDE.md` untouched.
+
+### SEMANTICS -- the decision this round starts with, because a fifth patch would produce a fifth finding
+
+Rounds 2, 3 and a holds spot-check each found a defect in the same place: the `MEASURED_*` declared-miss
+tables and their controls. Round 3 left one **weaker than it found it** -- at `e26e5473` gutting the
+middle line of `MEASURED_CLAIM_MISSES[2]` gave exit 1, 3 failed of 157; at `098ecd91` the identical gut
+survives at exit 0, 0 FAIL in both passes, because the round reworded the entry and the fragments its
+case keyed on moved off the lines carrying the claim. So the semantics are now **written down**, as a
+module-level block above `_MEASURED_TABLE_LINE_KEYS`, and applied uniformly.
+
+1. **What an entry's text means.** An entry declares a bound on a guard: *the guard does not catch the
+   shapes this text describes*. The text is held to be **exactly** what was measured. Wider claims a
+   hole that does not exist; narrower leaves a real hole undeclared. Both directions have now occurred
+   in one entry in consecutive rounds (cycle 1 over-wide -> round 3 under-wide -> round 4 the branch
+   condition itself).
+2. **How an entry is keyed -- decided: per source line.** *Every physical source line of every prose
+   entry carries a required phrase, and the phrase is checked against **that** line.*
+   `_MEASURED_TABLE_LINE_KEYS` holds one phrase per line; `_unkeyed_declaration_lines` reads the tables
+   back out of the test source with `ast` and checks each phrase against the line it belongs to.
+   Gutting a line, rewording it, moving a keyed phrase onto a neighbouring line of the same entry,
+   adding a line or dropping one all red, **by line number**.
+   *Why not the alternatives, by measurement and not by taste:* keying only the operative clause is
+   cheaper and is what rounds 2 and 3 did -- a key that lives anywhere in the entry leaves every other
+   line free text, which is exactly how both surviving mutants survived. Whole-entry equality is
+   strictly stronger, and was rejected because it churns on every reword and reports the failure as the
+   paragraph printed twice, with nothing saying which line moved; per-line keys fail with the line
+   number and the phrase that left it, which is the diagnosis three rounds did not have.
+3. **What an entry's case must do.** A committed case on the correct side: the declared shape
+   constructed and shown **missed** by the deployed rule, and, where the entry excludes a neighbouring
+   shape, that shape constructed and shown **caught**.
+
+**Scope, and what is exempt.** Three `MEASURED_*` tables in `tests/test_guard_integrity.py` are not
+this card's and are **not prose**: `MEASURED_CHECK_LOG_MISSES` and `MEASURED_MODULE_SCOPE_MISSES` carry,
+per entry, the *source* they were measured on and are already run through the deployed rule by a
+parametrised test -- the declaration **is** the measurement -- and `MEASURED_MODULE_SCOPE_SILENCES` is
+an empty baseline held to an equality. The two exemption tables (`MEASURED_KEYWORD_SPANS`,
+`MEASURED_PROSE_CITATIONS`) are held to equalities, which key every member by value. All five are
+exempted **by name with a reason** in `_MEASURED_TABLES_KEYED_ELSEWHERE`, and
+`test_every_measured_table_in_the_tree_is_accounted_for` enumerates every `MEASURED_*` assignment in
+both files from the AST and requires each to be either keyed per line or exempted -- there is no third
+state, so a sixth table added later is a red rather than a discovery for a fifth round.
+
+### The complete enumeration, and the mutant that proves each
+
+`_measured_table_names` walks both files' AST and finds **nine** `MEASURED_*` assignments: four keyed
+per line (11 entries, **57 source lines**), five exempted with a reason.
+
+| table | entries | source lines | every line keyed | proved by |
+| --- | --- | --- | --- | --- |
+| `MEASURED_CLAIM_MISSES` | 3 | 1 + 4 + 13 = 18 | yes | `F1-GUT-SHAPE`, `F1-INVERT-STR`, `F2-DECL-NARROW`, `B2-GUT` |
+| `MEASURED_DEPENDENCY_CLAIM_MISSES` | 3 | 3 + 3 + 10 = 16 | yes | `S4-GUT` |
+| `MEASURED_TIMEOUT_CLAIM_MISSES` | 2 | 2 + 3 = 5 | yes | the 216-variant sweep below |
+| `MEASURED_UNENFORCED_PHRASE_MISSES` (new, m-A) | 1 | 9 | yes | `MA-GUT` |
+| `MEASURED_AST_SWEEP_MISSES` (`test_web_server.py`) | 3 | 6 + 1 + 2 = 9 | yes | `B3-INVERT-WEB` |
+| `MEASURED_KEYWORD_SPANS` | -- | -- | exempt: equality over the spans that exist | -- |
+| `MEASURED_PROSE_CITATIONS` | -- | -- | exempt: equality over the sites that exist | -- |
+| `MEASURED_CHECK_LOG_MISSES` | -- | -- | exempt: each entry carries its measured source | -- |
+| `MEASURED_MODULE_SCOPE_MISSES` | -- | -- | exempt: same shape | -- |
+| `MEASURED_MODULE_SCOPE_SILENCES` | -- | -- | exempt: empty baseline, held to an equality | -- |
+
+**The exhaustive measurement** (every line, not only the four the findings named): for each of the 57
+lines, three mechanical mutations -- gut the line's literal, drop one load-bearing word of its keyed
+phrase, alter one character of it -- plus, for every line after an entry's first, a swap with the line
+above. **216 variants, 0 survived, 0 misattributed**: every gut/reword defect names the mutated line
+number. Run against the deployed `_unkeyed_declaration_lines` rather than a copy of it. (An earlier
+pass of this sweep reported 55 survivors and the sweep was wrong, not the control: its "invert" built
+`"NOT" + word`, which still *contains* the keyed phrase as a substring. Recorded because a
+measurement instrument that cannot fail is this card's subject one level up.)
+
+`tests/test_web_server.py`'s table is keyed **from** `tests/test_guard_integrity.py`, so the table is
+not copied (G-3) -- the same mutual arrangement that module's docstring opens with. A `#:` block above
+the table points at the contract, so a reader of either file finds it.
+
+### F-1 -- the control that was weaker than before round 3
+
+The docstring at the old `:3342` claimed "a gutted or reworded declaration reds here". It did not.
+That claim is **narrowed to what the test holds** -- the pairing of each case's constructed shape with
+the sentence that declares it -- and the per-line claim now sits where it is true, naming
+`_unkeyed_declaration_lines` and `TestTheDeclaredMissTables`. The two measured survivors and the three
+siblings in the same state all red now, and `MA-GUT`, `F1-GUT-SHAPE`, `F1-INVERT-STR` and
+`B3-INVERT-WEB` red at **exactly one** assert -- `:4707`, the keying control -- which is the point:
+nothing else in the suite can see them.
+
+### F-2 -- the bound restated as the branch condition, clause by clause
+
+Round 3's wording ("a false type claim written as a subscript or a tuple display") is **narrower than
+the guard**. Measured with `_classify(span, *TestClaudeMd_EverySymbolItNamesExists._authorities())`:
+each of `[]`, `{}`, `{'a': 1}`, `frozenset()`, `0`, `0.5` and `int | None` returns
+`('type-expression', '')` -- accepted, no defect -- and none of the seven is a subscript or a tuple
+display. `int | None` is the live one, because the entry is about the boundary-types paragraph.
+
+The restated bound:
+
+> *a span that reaches `_is_type_expression`: not read as a path (no trailing `/` and no
+> `_PATH_SUFFIXES` suffix), not read as a keyword, and not a bare identifier chain -- and which then
+> parses as an expression whose every `ast.Name` resolves in `dir(builtins)`.*
+
+* **"parses as an expression whose every `ast.Name` resolves in `dir(builtins)`"** -- that function's
+  body, verbatim; the seven spans above are the measurement.
+* **"not a bare identifier chain"** -- branch order, not a hedge: `_classify` tests
+  `_IDENTIFIER_CHAIN.fullmatch(span)` before `_is_type_expression(span)`, which is *why* a bare builtin
+  is caught. Measured: all seven of `bool`, `int`, `str`, `list`, `tuple`, `dict`, `frozenset` return
+  `('symbol', 'names no symbol defined in src/nonogram')`.
+* **"not read as a path, not read as a keyword"** -- the two arms the brief's version of this bound
+  omits; see the disagreement below. Measured: `_is_type_expression("list[bool].md")` is `True` and
+  `_classify` returns `('path', 'names no file in the repo')`, i.e. **caught**; both
+  `MEASURED_KEYWORD_SPANS` members return `('keyword', '')`.
+
+Both asserts round 3 added are gone: the one pinning `"subscript or a tuple display"` and
+`assert "dir(builtins)" not in MEASURED_CLAIM_MISSES[2]`, which blocked the now-correct widening. The
+case carries twelve shapes on the missed side (`int | None`, `0`, `0.5`, `[]`, `{}`, `{'a': 1}`,
+`frozenset()` added), the seven bare builtins and the path and keyword arms on the caught side.
+`_classify`, `_is_type_expression` and `_IDENTIFIER_CHAIN` are **untouched**.
+
+### The fifth disagreement with the brief, stated rather than worked around
+
+The brief gives F-2's correct bound as *"an expression that parses, whose every name resolves in
+`dir(builtins)`, and which is not a bare identifier chain"*, and calls the exclusion clause a statement
+about the code's own branch order. It is -- but it names **one** of the **three** arms that run first.
+`_classify` tests the path arm (trailing `/`, or any `_PATH_SUFFIXES` suffix) and the keyword arm
+*before* `_IDENTIFIER_CHAIN`. Measured: `_is_type_expression("list[bool].md")` is `True` (it parses,
+`list` and `bool` are both in `dir(builtins)`, it is not an identifier chain) and `_classify` returns
+`('path', 'names no file in the repo')` -- **caught**. So the brief's three-clause bound would declare
+a hole that does not exist, in the same direction as cycle 1's over-wide wording and for the same
+reason: it reads the arm it is interested in and not the ones above it. Four rounds, four briefs right
+about the defect and one clause off about the fix.
+
+### m-1 -- normalised, which is a behaviour change, and taken deliberately
+
+`mentioned()` now treats runs of `-`, `_` and `.` as one separator (PEP 503) instead of `re.escape`-ing
+pyproject.toml's canonical name whole. **This is the round's only behaviour change.** Measured before:
+`psycopg2-binary` -> 1 defect, `psycopg2_binary` -> `[]`, `psycopg2.binary` -> `[]`. Case and quoting
+were already independent (`PSYCOPG2-BINARY` -> 1, `` `psycopg2-binary` `` -> 1), so the comment's
+three-part claim was two-thirds true; it is now true as written. Closed rather than declared because
+the extras arm is **deny-side**: a spelling it cannot see is a missed catch, not a false positive.
+
+No new false positive: the two runtime names are `pillow` and `numpy`, neither carries a separator, so
+the pattern they generate is byte-identical to the old one -- asserted in the control -- and the live
+paragraph is asserted clean in the same test. `M1-REVERT` (`"[-_.]+".join(` -> `"[-]".join(`, the old
+behaviour for a hyphenated name) reds at `:4280`.
+
+### m-A -- the bound the harmful direction needed
+
+`_UNENFORCED_PHRASES` is a **deny-list over free prose**, so a member it does not carry is a **missed
+catch**. Six synonyms measured missed (`_unenforced_claims` -> `[]`): "currently unenforced", "not
+wired up yet", "still pending", "present but inert", "advisory only", "checked nowhere". Declared in
+the new `MEASURED_UNENFORCED_PHRASE_MISSES`, with a case on the miss side per synonym, each synonym
+also shown **caught** when the deny-list's own first member replaces it (so the misses are the phrasing
+and not an inert rule), and the entry's enforced half measured too: the citation rule selects on
+"timeout"/"deadline", so a claim reworded past the deny-list is still a sentence that must name an
+existing test. Round 3 gave `_PATH_SUFFIXES` -- whose incompleteness is **harmless**, its reader being
+default-deny -- a declared bound, and gave this one nothing; both comments now name their direction and
+say why the other's argument does not transfer.
+
+### m-B -- both the count and the reason, and the figure is now keyed
+
+(i) The census is **four**, not three. Measured over the 24 backtick spans the guarded paragraphs
+carry: `.py` 5, `.toml` 3, and `.md`, `.yml`, `.cfg`, `.txt` **zero each**. (ii) The reason ("no
+instance in the guarded paragraphs, so nothing to key a control on") is refuted by the same commit's
+own test, which keys `.md`'s control on `docs/GENERATION_ALGORITHM.md` -- a **repo file**, not a span --
+and `_repo_paths()` holds 1 `.yml` and 8 `.txt` files for the same device. Only `.cfg` has no instance
+anywhere.
+
+One step past the brief, deliberately: *correcting* a figure in a comment that nothing reads reproduces
+this card's own disease one file over. The census is two parseable lines in the comment, and
+`test_the_path_suffix_census_is_the_one_this_comment_states` parses them out of this module's own source
+and re-derives every figure from CLAUDE.md's guarded paragraphs and from `_repo_paths()`. The
+repo-file half is a **presence** (".cfg none | every other suffix at least one") rather than counts,
+because counts move with every file anyone adds and would make it a churn alarm. `MB-CENSUS`
+(`.md 0` -> `.md 1`) reds at `:3991`. The load-bearing **direction** claim is unchanged and still held
+by `test_a_suffix_outside_the_table_is_denied_not_accepted`.
+
+### m-4 -- the quotation extended to the colon's clause
+
+The page ended the quotation *"...every entry point in the tree."* where `src/nonogram/__init__.py:71`-`:73`
+reads *"...in the tree: ``admin/`` is a third one, outside ADR-0019's scope as written."* -- the
+source's colon replaced by a full stop **inside** the quotation marks, which stops the sentence just
+before the clause that names the third adapter. Extended to the colon's clause rather than elided,
+since that clause is the page's own subject, and the citation now carries the line range. The page's
+other quotation (`web/server.py:9`-`:10`) was re-verified accurate at cycle 3 and is untouched.
+**No test**: `grep -rn "09-the-three-inbound-adapters" tests/` finds nothing, and a guard that checks a
+how-it-works page's quotations against their sources is a different card.
+
+### Mutants -- committed instrument only, both passes, ANY-RED
+
+`tests/kill_matrix.py`, target `tests/test_guard_integrity.py`, selection the whole file.
+**Domain of every figure below: 210 `ast.Assert` nodes** (the target file's node count, carried
+separately from the 167 collected tests); child instrumentation off.
+
+* **Trap (a)**: every mutant's `old` pre-counted -- **each occurs exactly once**, and every edit is
+  line-count-preserving (delta 0 for all nine).
+* **Trap (b)**: SHIPPED's **exit code read, not only its cells** -- `pytest exit 0`, `0 FAIL of 210
+  reached`, 167 collected, in **both** passes. `tests/test_guard_integrity.py` contains no
+  `pytest.raises`, so the selection cannot hit the swallowed-raise shape.
+* SHIPPED re-run between mutants, held cell-for-cell by the instrument's own gate.
+
+| mutant | recording | re-raising | FAIL cells |
+| --- | --- | --- | --- |
+| `F1-GUT-SHAPE` gut `MEASURED_CLAIM_MISSES[2]`'s "never compared against the annotations" line | exit 0, 210 reached, 1 FAIL | exit 1, 210 reached, 1 FAIL | `:4707` |
+| `F1-INVERT-STR` "`str` reds as a symbol" -> "passes as a symbol" | exit 0, 210, 1 FAIL | exit 1, 210, 1 FAIL | `:4707` |
+| `F2-DECL-NARROW` entry 2's head back to "written as a subscript or a tuple display" | exit 0, 210, 3 FAIL | exit 1, 207, 2 FAIL | `:3810`, `:3817`, `:4707` |
+| `B2-GUT` gut `MEASURED_CLAIM_MISSES[1]`'s continuation-block line | exit 0, 210, 2 FAIL | exit 1, 200, 2 FAIL | `:3731`, `:4707` |
+| `S4-GUT` gut `MEASURED_DEPENDENCY_CLAIM_MISSES[2]`'s "live rather than hypothetical" line | exit 0, 210, 2 FAIL | exit 1, 210, 2 FAIL | `:4232`, `:4707` |
+| `MA-GUT` gut `MEASURED_UNENFORCED_PHRASE_MISSES`' "measured to return []" line | exit 0, 210, 1 FAIL | exit 1, 210, 1 FAIL | `:4707` |
+| `M1-REVERT` `"[-_.]+".join(` -> `"[-]".join(` | exit 1, 208, 1 FAIL | exit 1, 208, 1 FAIL | `:4280` |
+| `MB-CENSUS` census line `.md 0` -> `.md 1` | exit 0, 210, 1 FAIL | exit 1, 207, 1 FAIL | `:3991` |
+| `B3-INVERT-WEB` `test_web_server.py` "is **caught**: CPython folds" -> "is **missed**:" | exit 0, 210, 1 FAIL | exit 1, 210, 1 FAIL | `:4707` |
+
+**9 of 9 killed, ANY-RED, in both passes.** Seven of the nine had a recording-pass **exit 0** while the
+matrix recorded FAIL cells -- the reading the discipline warns about, and the reason the per-mutant
+figure above states the pass, the exit code and the denominator together.
+
+### Guardrails
+
+* **G-1:** `CLAUDE.md` untouched. `git diff -U0 d90753df HEAD -- CLAUDE.md` -> exactly three
+  single-line hunks, `:46`, `:48`, `:50`. `shasum -a 256 -c` confirms it was not touched by any plant.
+* **G-2:** the web guard not weakened; `_WEB_SOURCES`' and `_DOMAIN_VALIDATORS`' non-empty assertions
+  untouched. Selections, collected **and** passed: `-k "CON-010"` -> **0 collected, pytest exit 5**
+  (the measured trap); `-k "TestWebServer_BindsLoopbackOnlyByDefault or
+  test_the_corpora_are_large_and_cover_every_declared_signal or
+  test_every_cross_origin_or_foreign_authority_request_is_refused or
+  test_every_same_origin_or_metadata_free_request_is_served"` -> **9 collected, 9 passed, exit 0**
+  (CON-009's six plus CON-010's three, named individually in the `-rA` listing). Whole-file runs:
+  `tests/test_web_server.py` **166 collected, 166 passed, exit 0**; `tests/test_guard_integrity.py`
+  **167 collected, 167 passed, exit 0**.
+* **G-3:** no second copy. The contract's keys read `tests/test_web_server.py` from disk instead of
+  restating its table; the census control re-derives from CLAUDE.md and `_repo_paths()`; `mentioned()`
+  still reads pyproject.toml through `_declared_distributions`.
+* **G-4:** `nonogram_poc` never named or touched; the instrument refuses such an edit by construction.
+* **G-5:** stdlib only -- `ast`, `re`, `pathlib`, all already imported in the files that use them.
+* **G-6:** no `src/` path in the diff. `git diff --name-only d90753df HEAD` lists six files, none under
+  `src/`; the working tree adds only the three scoped files plus this card.
+* **G-7:** no timing measurement taken, no duration reported.
+* Plants: manifest built **up front** (`shasum -a 256` over all four files), `cp -p` backups, and
+  restoration verified three ways after the run -- `shasum -a 256 -c` (4/4 OK), `diff -q` on both test
+  files (identical), and `git status --porcelain` (only the three scoped files and this card). Every
+  pytest, script and mutant ran with `NONOGRAM_FULL_SUITE_LOCK=/tmp/card264-fix4.lock`, so the board's
+  own lock was never read, written or created; the instrument confirmed the override in every run.
+
+### Not touched, named so the next reader does not look for them
+
+* `CLAUDE.md` (G-1), `tests/test_cli.py` (byte-identical to main, folded to CARD-265),
+  `tests/test_timeout.py`, `tests/test_sourcing_image.py`, anything under `src/`.
+* **No control for the substring arm** in `tests/test_web_server.py` -- its zero unique detection is
+  measured by exhaustive partition and declared at `:2227`-`:2241`.
+* `CLAUDE.md:50`'s timeout sentence -- refuted at cycle 2; its two checkpoints are both pinned.
+* The `check_deadline` census ("six sites") -- **CARD-266's**, routed with its measurement.
+* `tests/test_timeout.py:479`-`:485`'s `_blind_propagation` -- **CARD-278's**.
+* `src/nonogram/admin/pdf_generator.py:321`'s three U+2022 -- pre-existing from CARD-056, declared at
+  `tests/test_book_difficulty_dots.py:784`.
+
+## [Orchestrator pre-gate] Fix round 4, 2026-10-23 — the round's own figures re-derived, not accepted
+
+Run before the commit, in the worktree, with `NONOGRAM_FULL_SUITE_LOCK` redirected to a scratch path, so
+the board's own lock was never read, written or created.
+
+**1. The seven tests the FIXED ids name, selected by explicit node id.** Not by `-k`: this card has
+recorded twice that a hand-written `-k` selecting nothing exits 0 and reads as a pass, and a node id that
+does not exist exits 4 instead of passing silently. **7 collected, 7 passed, exit 0**, each named
+individually in the `-rA` listing:
+
+* `TestTheDeclaredMissTables::test_every_line_of_every_declared_miss_entry_is_keyed`
+* `TestTheDeclaredMissTables::test_every_measured_table_in_the_tree_is_accounted_for`
+* `TestTheDeclaredMissTables::test_the_line_keying_control_reds_on_a_gutted_or_inverted_line`
+* `TestClaudeMd_EverySymbolItNamesExists::test_the_rule_names_what_it_cannot_see` (F-2's restated bound)
+* `TestClaudeMd_TheDependencyClaimMatchesPyproject::test_a_member_is_caught_however_it_is_spelled` (m-1)
+* `TestClaudeMd_TheTimeoutClaimNamesItsTest::test_the_phrase_rule_names_the_synonyms_it_does_not_carry` (m-A)
+* `TestClaudeMd_APlantedDeadSymbolReds::test_the_path_suffix_census_is_the_one_this_comment_states` (m-B)
+
+**2. Both touched files whole, counts compared against the round's claims.**
+`tests/test_guard_integrity.py` → **167 collected, 167 passed, exit 0**; `tests/test_web_server.py` →
+**166 collected, 166 passed, exit 0**. Both figures match the round's notes exactly.
+
+**3. Two of the nine mutants re-derived with an instrument written here, not with `tests/kill_matrix.py`.**
+The point of a pre-gate on this card is to check the instrument's claim rather than re-run it, so the
+spot-check is a separate script that honours both measured traps explicitly: every `old` **pre-counted**
+(each occurs exactly once) and every edit **line-count preserving** — trap (a) — and the SHIPPED
+baseline's **exit code read, not only its FAIL cells**, refusing to measure against a red baseline —
+trap (b).
+
+| | exit | failed / passed | FAIL cell | the round claimed |
+| --- | --- | --- | --- | --- |
+| SHIPPED | 0 | 0 / 167 | — | clean |
+| `MB-CENSUS` (`.md 0` → `.md 1`) | 1 | 1 / 166 | `:3991` | `:3991` ✓ |
+| `F1-GUT-SHAPE` (gut `MEASURED_CLAIM_MISSES[2]`'s shape line) | 1 | 1 / 166 | `:4707` | `:4707` ✓ |
+
+Both killed, each reddening at **exactly** the cell the round's table names and at no other — which is
+the load-bearing half of the round's argument, since `:4707` is the new per-line keying control and
+nothing else in the suite can see those two defects. The target file was restored from a `cp -p` backup
+and the restore verified by `sha256` against the pre-run digest (`eeedc7da…`); `git status --porcelain`
+after the run lists the same four paths as before it.
+
+**4. G-6 re-verified at the gate rather than taken from the round's own note:** no `src/` path appears in
+the working diff — the four modified paths are the three scoped files plus this card.
+
+### One thing the pre-gate found that the round did not report
+
+**An explicit `-q` on this project's pytest silently removes the pass/fail count line.** `pyproject.toml:89`
+already sets `addopts = "-q"`, so a `-q` written on the command line **stacks to `-qq`**, and at that
+verbosity pytest prints no `N passed` line at all. Measured both ways on the same file: default run → the
+count line present; `-qq` → absent, exit code unchanged. The first version of the spot-check script ran
+`pytest -q --no-header` and parsed `N passed` out of the output; it matched nothing, and the mutant rows
+read `passed=?` while the exit codes and FAIL cells were correct. Harmless here because the
+exit code was read too — trap (b)'s discipline catching its own instrument — but it is this card's family
+one level out: **evidence that is absent reads the same as evidence that is zero.** Every figure above
+comes from a non-quiet run. Routed to the backlog beside the two sibling items (`-k` selecting nothing,
+and green-with-skips being indistinguishable from fully verified).
