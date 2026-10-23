@@ -1,0 +1,302 @@
+version: 1
+generated_at: "2026-10-23T10:31:48Z"
+target: "CARD-264 review cycle 5 -- worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-264, branch card/264-claude-md-outside-the-map, HEAD 8727e519; whole-card diff d90753df..8727e519 (6 files), cycle-5 delta 098ecd91..8727e519 (3 files: tests/test_guard_integrity.py, tests/test_web_server.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md)"
+overall_score: 7.6
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - "tests/test_guard_integrity.py (the declared-miss contract, _MEASURED_TABLE_LINE_KEYS, _unkeyed_declaration_lines, _measured_table_names, _MEASURED_TABLES_KEYED_ELSEWHERE, TestTheDeclaredMissTables, the five prose tables, mentioned(), _classify, _is_type_expression, _PATH_SUFFIXES census, MEASURED_UNENFORCED_PHRASE_MISSES and its control)"
+    - "tests/test_web_server.py (the cycle-5 comment delta at :206-:222, MEASURED_AST_SWEEP_MISSES, MEASURED_PROSE_CITATIONS and their equalities)"
+    - "docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md (the m-4 quotation hunk)"
+    - "CLAUDE.md:46, :48, :50 (the three single-line hunks only -- G-1)"
+    - "src/nonogram/__init__.py:66-78 (read-only, to verify the m-4 quotation)"
+    - "meta/kanban/cards/CARD-264.md (full), meta/architecture/decisions/adr/0038, 0039"
+    - "tests/README.md:453-540 (kill_matrix contract)"
+  not_reached:
+    - "the ~1100 lines of tests/test_guard_integrity.py predating CARD-264 (CARD-238/239/242 machinery) beyond the five MEASURED_* exemption tables and their controls"
+    - "tests/test_web_server.py outside the declared-miss and domain-validator regions"
+    - "everything under src/ (G-6) and tests/test_cli.py (folded to CARD-265; verified byte-identical to main)"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 2518, removed: 27 }
+  diff_cycle5_delta: { files: 3, added: 764, removed: 59 }
+  max_fan_in: { symbol: "_MEASURED_TABLE_LINE_KEYS", callers: 9, files: 2 }
+  tests_cover_change: true
+  hotspots:
+    - "tests/test_web_server.py (16 commits/12m, 7 fix-shaped)"
+    - "tests/test_guard_integrity.py (10 commits/12m, 3 fix-shaped)"
+  cochange_missing:
+    - "tests/test_cli.py (5 of 16 co-changes) -- excluded by the owner's narrowing, folded to CARD-265, verified byte-identical to main"
+    - "src/nonogram/web/pages.py (5), src/nonogram/web/handler.py (4) -- forbidden by G-6, no src/ path in the diff"
+  unmeasured:
+    fan_in_classify: "tooling_failure -- 13 textual references to `_classify` span tests/test_db_isolation.py and tests/test_difficulty_tiers.py, which define their own same-named helpers; a name match is not a caller count, so the figure for this symbol is not reported"
+    suite_duration: "not_applicable -- G-7 forbids timing measurements; no duration was taken or reported"
+    full_suite: "not_applicable -- test_scope: impact. The full suite already passed at 8727e519 (exit 0, 8931 executed, 8904 passed, 27 skipped); this review ran impact-scoped selections only"
+
+system_contract:
+  rules_checked: 5
+  holds: 4
+  unchecked: 1
+  violated: 0
+  verdicts:
+    - "ADR-0038/R7 (mandatory, review-lens) ✓ holds — re-derived through tomllib: _declared_distributions() returns runtime {numpy, pillow} and extras {dev: [pytest, pytest-playwright], admin: [flask, gunicorn, reportlab, werkzeug], db: [alembic, psycopg2-binary, sqlalchemy]}; pytest-playwright appears only under the dev extra, never in project.dependencies nor the admin extra, and the diff adds no dependency (G-5: the only added import in the whole diff is stdlib `builtins`)"
+    - "ADR-0038/R8 (mandatory, review-lens) ⚠ unchecked — no_eligible_fact: the cycle-5 delta adds no browser test and touches no skip path; both impact-scoped whole-file runs report zero skips (tests/test_guard_integrity.py 167 collected / 167 passed, tests/test_web_server.py 166 collected / 166 passed), so no test in scope could pass silently"
+    - "ADR-0039/R1 (mandatory, kind: test, reach-limited) ✓ holds — re-derived twice by measurement, not by reading: (a) an independent 197-variant per-line sweep over the 52 keyed source lines the round's named mutants do NOT cover, run against the deployed _unkeyed_declaration_lines, 0 survivors and 0 misattributions; (b) a planted sixth MEASURED_* assignment reds test_every_measured_table_in_the_tree_is_accounted_for naming MEASURED_PLANTED_SIXTH at :4731 (1 failed, 2 passed), so the completeness arm can fail. Scoped caveat: finding F-001 records one claim in the same contract whose control cannot fail -- filed as a finding rather than as a rule violation, since R1's remedy (narrow the claim or add the case) is the finding's own fix"
+    - "ADR-0039/R2 (mandatory, kind: test, reach-limited) ✓ holds — _measured_table_names walks both files' AST (it found the planted table under both its original and a renamed id) rather than reading a list, and _classify is default-deny: measured, 'a sentence with spaces', '40x40+', 'list[', '###' and '-- what' all return ('unanalysable', 'is a shape this rule cannot read, so it is denied'), a FAILURE for the caller rather than a silent pass"
+    - "ADR-0039/R3 (mandatory, kind: test, reach-limited) ✓ holds — all five exemptions in _MEASURED_TABLES_KEYED_ELSEWHERE carry the keying their reason states (verified at tests/test_guard_integrity.py:2468-2482 parametrised over MEASURED_CHECK_LOG_MISSES, :2213-:2216 over MEASURED_MODULE_SCOPE_MISSES, :1970 equality over the empty MEASURED_MODULE_SCOPE_SILENCES, :3647 equality over MEASURED_KEYWORD_SPANS, tests/test_web_server.py:2401 equality over MEASURED_PROSE_CITATIONS) and the exemption table itself is held to an equality against today's sites: measured, found == keyed | exempt is True at 10 == 10, adding a stale exemption makes exempt <= found False, and dropping a table from the tree makes it False too"
+
+root_causes:
+  - id: RC-1
+    title: "the per-line declared-miss contract claims five mutation directions; its cases construct four, and the fifth's only mechanism is not load-bearing"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "the round's headline figures were written before its own last edit (m-A's tenth table) and never re-derived against the final state"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_guard_integrity.py
+    line: 3157
+    title: "The declared-miss contract's \"adding one, deleting one ... all red\" is wider than any case or mechanism holds: deleting the span-equality check leaves 167/167 green"
+    description: |
+      The contract written above `_MEASURED_TABLE_LINE_KEYS` states, as clause 2:
+      "Gutting a line, inverting it, adding one, deleting one, or moving a keyed phrase
+      onto a neighbouring line of the same entry all red." The card repeats it
+      (`## Worktree notes -- fix round 4`, SEMANTICS 2: "adding a line or dropping one
+      all red, by line number"). Three measurements refute the claim as stated.
+
+      (a) MUTANT SURVIVES. `tests/test_guard_integrity.py:3157` --
+      `if span != len(element_keys):` -- is the only code that implements the
+      add/delete directions. Mutating it to `if False and span != len(element_keys):`
+      (line-count preserving, `old` pre-counted at exactly 1 occurrence) leaves the
+      suite green: `tests/kill_matrix.py`, target `tests/test_guard_integrity.py`,
+      selection the whole file, 210 ast.Assert nodes, SHIPPED 0 FAIL of 210 reached at
+      pytest exit 0 with 167 collected -- mutant M2-SPAN-EQ-DROP reports exit 0, 210
+      reached, **0 FAIL**. Confirmed at test level by a plain run of the mutated file:
+      **167 collected, 167 passed, exit 0**. `_unkeyed_declaration_lines` has no reader
+      outside this file (grep over tests/*.py), so that run is the complete reading.
+
+      (b) THE ADD DIRECTION HAS NO CASE AT ALL. Appending an unkeyed continuation line
+      to the fabricated entry used by
+      `test_the_line_keying_control_reds_on_a_gutted_or_inverted_line` gives, from the
+      deployed function, `['fab.py:2: MEASURED_FABRICATED_MISSES[0] spans 3 source
+      line(s) and carries 2 key(s)']` -- and `[]` once :3157 is bypassed. That test's
+      own docstring enumerates "the four ways a declaration can move out from under its
+      key" (gutted / inverted / moved / dropped); "adding one" is the fifth way the
+      contract claims and it is constructed nowhere. The round's 216-variant sweep does
+      not cover it either -- its four mutations are gut, drop-a-word, alter-a-character
+      and swap-with-the-line-above, none of which changes an entry's line count. My own
+      197-variant replication inherited the same blind spot.
+
+      (c) THE DELETE DIRECTION IS SILENT WHEN BOTH HALVES ARE CO-EDITED, which is the
+      realistic edit. Dropping the declaration line
+      `" trailing / and no _PATH_SUFFIXES suffix), not read as a keyword, and"` from
+      `MEASURED_CLAIM_MISSES[2]` **together with its key phrase** gives a deployed
+      verdict of `[]`, and every value-read assert in the entry's committed case still
+      passes (`"whose span reaches _is_type_expression"`,
+      `"whose every ast.Name resolves in dir(builtins)"`, `"not a bare identifier
+      chain"` are all still present). The floor pin at `:4703` (`assert keyed >= 45`)
+      reads 56 after the co-edit and does not notice -- the measured figure is 57, so
+      the pin carries 11 lines of slack. The clause that silently leaves is the path/
+      keyword arm this very round added as F-2, i.e. the contract permits the entry to
+      shrink back to exactly the round-3 wording that round 4 exists to correct.
+
+      The `dropped` case does not discriminate the mechanism: with :3157 bypassed it
+      still reds, but at `fab.py:3` instead of `fab.py:2` and for a different reason (a
+      neighbouring line failing a phrase check) -- a misattribution, not a control.
+
+      Diagnosis of why the round did not find this: 8 of its 9 mutants mutate
+      declaration text or a comment figure, and the 9th reverts one behaviour change.
+      None deletes a mechanism the contract's claims name -- the board's own rule ("a
+      fix must mutate by DELETING each mechanism its claims name") is what this
+      survivor is the price of.
+    suggestion: |
+      Two halves, both in the same commit (widening a claim and pinning its shape are
+      the same edit):
+      1. Narrow the claim, or hold it. Either restate clause 2 (and the card's SEMANTICS
+         2, and `test_the_line_keying_control_...`'s docstring) to the four directions
+         that are constructed, or keep the five and add the two missing cases to the
+         fabricated table: a line appended with no key (reds via :3157) and a line
+         dropped together with its key (needs the next item to red at all).
+      2. Pin each entry's key shape to a measured equality rather than a floor. Replace
+         `assert keyed >= 45` with an equality against a per-table
+         `{name: (entries, lines)}` declaration re-derived from
+         `_MEASURED_TABLE_LINE_KEYS` -- today 5 tables / 12 entries / 57 lines -- so a
+         co-edited shrink has to be a deliberate edit to that figure. A floor cannot
+         see a shrink, which is the whole of (c).
+      What would still be uncertified if this shipped on my word alone: that the new
+      equality itself can fail (it needs its own mutant -- shed one key group and
+      confirm the red names the table), and that the two added cases are not satisfied
+      by the same accidental neighbour-line mismatch that carries `dropped` today. Both
+      require a measurement no reviewer's prescription supplies.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-264.md
+    line: 1604
+    title: "\"The complete enumeration\" states nine MEASURED_* assignments, four keyed per line, 11 entries; measured: ten, five, twelve -- and the card's own table beneath it says ten, five, twelve"
+    description: |
+      `## The complete enumeration, and the mutant that proves each` opens:
+      "`_measured_table_names` walks both files' AST and finds **nine** `MEASURED_*`
+      assignments: four keyed per line (11 entries, **57 source lines**), five exempted
+      with a reason."
+
+      Re-derived through the deployed enumerator -- `_measured_table_names` over both
+      files, then `_MEASURED_TABLE_LINE_KEYS` and `_MEASURED_TABLES_KEYED_ELSEWHERE`:
+        * MEASURED_* assignments found by AST: **10**, not nine
+          (MEASURED_AST_SWEEP_MISSES, MEASURED_CHECK_LOG_MISSES, MEASURED_CLAIM_MISSES,
+          MEASURED_DEPENDENCY_CLAIM_MISSES, MEASURED_KEYWORD_SPANS,
+          MEASURED_MODULE_SCOPE_MISSES, MEASURED_MODULE_SCOPE_SILENCES,
+          MEASURED_PROSE_CITATIONS, MEASURED_TIMEOUT_CLAIM_MISSES,
+          MEASURED_UNENFORCED_PHRASE_MISSES)
+        * keyed per line: **5**, not four (4 in tests/test_guard_integrity.py plus
+          MEASURED_AST_SWEEP_MISSES in tests/test_web_server.py)
+        * entries: **12**, not 11 (3 + 3 + 2 + 1 + 3)
+        * source lines: 57 -- the one figure that is right (18 + 16 + 5 + 9 + 9)
+      The card's own table at :1607-:1618 enumerates ten rows, five of them keyed, with
+      3 + 3 + 2 + 1 + 3 = 12 entries, so the sentence is refuted by the table three
+      lines under it.
+
+      The arithmetic names the cause: 9 tables / 4 keyed / 11 entries is exactly the
+      state of the tree **before m-A added MEASURED_UNENFORCED_PHRASE_MISSES in this
+      same round**. The headline figure was written before the round's last edit and
+      never recomputed -- "a figure committed to a card is a claim, and its control is
+      recomputation". It is also the shape this card was opened for: the dispatch brief
+      put the deadline at four check sites where there are six, and the card's own
+      Worktree note calls that "a subset presented as complete".
+
+      Blast radius is a reader, not the suite: no docstring or comment in the tree
+      carries the census (grep for "nine", "11 entries", "four keyed" over
+      tests/test_guard_integrity.py returns only an unrelated historical "157/157"
+      record), and `test_every_measured_table_in_the_tree_is_accounted_for` holds the
+      real figure by enumeration. The cost is that the next round reading "nine" to
+      decide whether a table is missing is reading a stale subset.
+    suggestion: |
+      Re-derive the sentence from the enumerator and state the door: ten MEASURED_*
+      assignments, five keyed per line (12 entries, 57 source lines), five exempted
+      with a reason -- the figures the card's own table already carries. While there,
+      check the two neighbouring repetitions of the same figures (the module-level
+      contract block says only "Two other shapes of MEASURED_* table ... are exempted",
+      where `_MEASURED_TABLES_KEYED_ELSEWHERE` holds five).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md
+    line: 20
+    title: "m-4 adds an untested line-number citation into src/, in the round that removed line-number citations for being untestable"
+    description: |
+      The m-4 hunk changes "`src/nonogram/__init__.py`'s module docstring" to
+      "`src/nonogram/__init__.py:71-73`'s module docstring". The quotation itself is
+      correct -- verified by hand against the source: lines 71-73 are exactly the
+      passage quoted, the colon's clause is now included, and the only departures are a
+      nested-quote adaptation (inner `"` -> `'`) and RST ``admin/`` -> Markdown
+      `admin/`. The round declares the absence of a test honestly ("No test:
+      `grep -rn "09-the-three-inbound-adapters" tests/` finds nothing" -- confirmed).
+      The inconsistency is with the card's own stated principle one section up: this
+      page's "line-number citations into `tests/test_cli.py` were replaced with by-name
+      citations, since a line number in prose is this card's own subject". A citation
+      into `src/nonogram/__init__.py`'s docstring is a worse bet than one into
+      test_cli.py, not a better one: that docstring was rewritten by CARD-261 and is
+      CARD-265's territory next.
+    suggestion: |
+      Either drop the line range and keep the quotation (which already identifies the
+      passage), or cite the passage by its first words. If the range stays, say on the
+      card that it is an uncontrolled pointer into a churning docstring and name the
+      card that would guard how-it-works quotations.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-264.md
+    line: 118
+    title: "AC-7 is still live in the Acceptance criteria block with a test that exists nowhere, and the heading above the superseded decision still reads \"AC-7 stays here\""
+    description: |
+      The withdrawal is recorded, and recorded well: `Touches` at :17 carries
+      `<!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->`, and
+      `### [Narrowed] 2026-10-22` at :1109 proves the fold from the diff
+      (`tests/test_cli.py` absent entirely; verified here -- `git diff main --
+      tests/test_cli.py` is empty, so the file is byte-identical to main). So this is
+      owner bookkeeping, not a weakening taken at review time, and it is not Important.
+      What is left stale is the presentation: AC-7 at :118-:121 is unmarked and names
+      `TestAdapterAllowlist_NoProseClaimsAStaleCount`, which exists in no file under
+      tests/ -- a dead check ref in the block the AC/EC/G gate reads -- while the
+      section heading at :207 still asserts the superseded decision ("AC-7 stays here,
+      and this card goes out next wave").
+    suggestion: |
+      Mark AC-7 in place -- `**AC-7** [WITHDRAWN 2026-10-22 -> CARD-265]` with the
+      named test struck -- and add one clause to the :207 heading saying it was
+      superseded by the Narrowed decision at :1109. One edit each; the trail already
+      exists and only the top of the card disagrees with it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope_observations:
+  - file: CLAUDE.md
+    line: 48
+    note: |
+      The shipped dependency paragraph introduces a new unquoted historical quantity --
+      "the optional extras declared beside them are outside it, **have grown more than
+      once**" -- into the very paragraph whose guard declares unquoted claims invisible
+      (`MEASURED_CLAIM_MISSES[0]`: "a claim written without backticks, anywhere in the
+      file"). Verified TRUE rather than assumed: the `[project.optional-dependencies]`
+      key count over pyproject.toml's history goes 1 (fb2ec7fb, 2026-09-06) -> 2
+      (5b54450b, same day) -> 3 (5d5eda86, 2026-09-09), i.e. two growths. Not a finding
+      -- the claim is true and the miss is declared -- but worth naming because fix
+      rounds 2 and 3 removed the identical quantity ("grown three times") from two
+      docstrings as uncontrolled, and this one survives in the file the card is about.
+  - file: tests/test_guard_integrity.py
+    line: 3447
+    note: |
+      m-1's `mentioned()` normalisation is used by BOTH arms of
+      `_dependency_claim_defects`, and the comment's justification names only the deny
+      side ("the extras arm is deny-side"). The require arm (every runtime
+      distribution must be named) is widened by the same edit. No finding: today's
+      runtime set is {numpy, pillow}, neither carries a separator, and `:4288`
+      (`assert all(not re.search(r"[-_.]", item) for item in runtime)`) reds the day a
+      hyphenated runtime dependency is added, which forces the re-judgement. For a
+      PEP-503-equivalent spelling the widening also makes the require arm more correct,
+      not less.

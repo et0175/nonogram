@@ -15,7 +15,7 @@
 **Wave:** 54
 **Depends on:** CARD-261 (**it rewrites the layout block, so every line number below will move — see the first Worktree note**)
 **Touches:** CLAUDE.md, tests/test_web_server.py, tests/test_timeout.py, tests/test_sourcing_image.py, tests/test_guard_integrity.py, docs/how-it-works/01-domain/puzzle-creation/09-the-three-inbound-adapters.md  <!-- tests/test_cli.py REMOVED 2026-10-22: folded into CARD-265 -->
-**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 pre-gated (7/7 named, 167+166 whole-file, 2 of 9 mutants re-derived) → cycle 5 owed
+**Review score:** 8.3 (c1) → 5.5 (c2) → 9.6 (c3) → 8h spot-check FAILED 2 of 2 holds → owner: fix+certify → fix 3 `098ecd91` → 7.65 (c4: NOT CERTIFIED, 2 imp, both introduced BY fix 3) → **owner: one more fix + cycle 5** → fix 4 `8727e519` pre-gated + gated (8931 exec, 0 failed) → **7.6 (c5: NOT CERTIFIED, 2 imp, both introduced BY fix 4) — ⚠ improvement stalled, family regression streak 2 → owner decision pending**
 **Started:** 2026-10-22T13:55Z
 **Closed:** —
 **Actual:** —
@@ -3190,3 +3190,99 @@ from here. Routed to the backlog with the fix stated as **default-deny** (ADR-00
 lock guard already applies to an unresolvable `worktree:`): a full-suite run must be *requirable* to be
 covered, so a gate that forgot is a red rather than a green with a footnote — plus the cheap half, that a
 gate's evidence line should quote the lock it wrote.
+
+## [Cycle 5] 7.6 — NOT CERTIFIED, and the two signals that have never both fired on this card before
+
+Report `meta/review/20261023T103148Z-CARD-264-cycle5.yml` (synced; `yaml.safe_load` clean, 15 keys).
+**0 critical, 2 important, 2 minor.** Score trajectory **8.3 → 5.5 → 9.6 → [8h spot-check failed] → 7.65 → 7.6**.
+
+### What CONVERGED, and it is most of the round
+
+The mechanism fix 4 decided and built **held under independent re-derivation**. The reviewer could not
+break the per-line keying, the completeness arm, the exemptions or the enumeration:
+
+* An independent **197-variant** per-line sweep over the **52 keyed lines the round's named mutants do not
+  cover** → 0 survivors, 0 misattributions, run against the deployed `_unkeyed_declaration_lines`.
+* A **planted sixth `MEASURED_*` assignment** reds `test_every_measured_table_in_the_tree_is_accounted_for`
+  at `:4731` naming the plant — so the "no third state" claim **can fail**, which is the round's central one.
+* **All five exemption reasons are TRUE**, each verified at its cited control, and the exemption table is
+  itself held to an equality (`found == keyed | exempt`, 10 == 10; a stale exemption or a dropped table
+  both break it).
+* `_classify` is **default-deny** by measurement (five unanalysable shapes all refused), and
+  `_measured_table_names` found the plant under both its original and a renamed id.
+* **m-1 VERIFIED SOUND.** The byte-identity claim is independently confirmed — for both runtime names the
+  new pattern equals `re.escape(name)` exactly; of 11 declared distributions only `psycopg2-binary` and
+  `pytest-playwright` widen, both extras-only, i.e. deny-side. No false positive constructible on real
+  prose. The round's one behaviour change is good.
+* **The fifth disagreement: the ROUND IS RIGHT and the brief — mine — was wrong.** Re-derived
+  independently: `_classify` runs **three** arms before `_is_type_expression`, and
+  `_is_type_expression("list[bool].md")` is `True` while `_classify` returns `('path', …)` — caught. The
+  brief's three-clause bound would have declared a hole that does not exist. The clause the round added
+  *against* the objection is also controlled: deleting the path arm is killed with 6 FAIL cells.
+* m-B's census re-derived **in a new domain** (the reviewer's own CLAUDE.md parse + `git ls-files`): 24
+  backtick spans, `.py` 5, `.toml` 3, the other four zero each — "four, not three" is right. m-4's
+  quotation verified by hand against `src/nonogram/__init__.py:71-73`, exact including the colon's clause.
+* G-1..G-7 all clear, **0 banned codepoints** across all six changed files, additions enumerated by AST
+  (6 new tests, 3 new helpers/tables, nothing removed), AC-1..AC-6's named tests all selected by node id
+  and passed. Baselines 167/167 and 166/166, final post-check 333/333, exit 0. Hygiene verified three ways;
+  the board's own lock never read, written or created.
+
+### What did NOT converge — and it is the family, one level out
+
+**F-001 (Important) — `tests/test_guard_integrity.py:3157`: the contract's own clause 2 is wider than any
+case or mechanism holds.** Clause 2 claims *"gutting a line, inverting it, adding one, deleting one, or
+moving a keyed phrase … all red"*. Three measurements refute it:
+
+1. **A delete-the-mechanism mutant SURVIVES.** `:3157` (`if span != len(element_keys):`) is the only code
+   implementing the add/delete directions. Disabling it → kill_matrix **exit 0, 210 reached, 0 FAIL**, and
+   at test level **167 collected, 167 passed, exit 0**. `_unkeyed_declaration_lines` has no reader outside
+   the file, so that is the complete reading.
+2. **The "adding one" direction is constructed nowhere** — the test's own docstring enumerates four ways,
+   the contract claims five, and the round's 216-variant sweep cannot reach it because none of its four
+   mutations changes an entry's line count. The reviewer's 197-variant replication inherited the same
+   blind spot.
+3. **The "deleting one" direction is silent on the realistic edit** — a declaration line dropped
+   *together with its key phrase* gives verdict `[]` with every value-read assert still passing, and the
+   floor pin `assert keyed >= 45` reads 56 against a measured 57, i.e. **11 lines of slack**. The clause
+   that can silently leave is the path/keyword arm **this round just added as F-2** — so the contract
+   permits the entry to shrink back to exactly the round-3 wording round 4 exists to correct.
+
+**Why the round missed it, and it is my brief's fault as much as the round's:** 8 of its 9 mutants mutate
+declaration text or a comment figure and the 9th reverts a behaviour change — **none deletes a mechanism
+its claims name.** That is a standing rule of this board (*"a fix must mutate by DELETING each mechanism
+its claims name; a mutant that only breaks what the fix added certifies the addition and says nothing
+about whether the mechanism is load-bearing"*), and `grep` over the fix-4 brief confirms **the brief did
+not restate it**. I restated it to the cycle-5 reviewer and not to the round that was writing the controls.
+
+**F-002 (Important) — `meta/kanban/cards/CARD-264.md:1604`: "The complete enumeration" says nine/four/11
+where the tree holds ten/five/twelve.** Refuted by the deployed enumerator *and by the card's own table
+three lines below* (ten rows, five keyed, 3+3+2+1+3 = 12 entries, 57 lines). The arithmetic names the
+cause: 9/4/11 is exactly the tree **before m-A added `MEASURED_UNENFORCED_PHRASE_MISSES` in this same
+round** — the headline figure predates the round's own last edit and was never recomputed. It is the
+shape this card was opened for: a subset presented as complete.
+
+**Minors (non-gating):** m-4 adds an untested line-number citation into a churning docstring in the same
+round that *removed* line-number citations from this page for being untestable; and AC-7 is still live in
+the AC block naming a test that exists in no file, while its withdrawal is recorded honestly at `:17` and
+`:1109` — presentation, not a weakening.
+
+### Both escalation checks fire, and this time neither premise fails
+
+* **STALLED CHECK — FIRES, not overridden.** Δscore **7.65 → 7.6 = −0.05** (< `min_improvement` 0.5) **AND**
+  Δgating findings **2 → 2 = 0** (≤ 0). Cycles 4 and 5 reviewed the same card with **one pure fix commit**
+  between them, which is exactly the comparison the check is built for — unlike cycle 2, where the premise
+  failed and the override was taken. The literal marker is therefore written, because it is now true:
+  **⚠ improvement stalled**
+* **FAMILY REGRESSION CHECK — FIRES at streak 2.** Cycle 4's two gating findings were attributed to fix 3;
+  cycle 5's two are attributed to **fix 4**, and both land in one family. `family_regression: on` → escalate
+  with the family and let the owner pick the source.
+
+**The family sentence, updated by this cycle — the code converged and the record did not:** *each round
+now builds the mechanism correctly and then writes its claims about the mechanism before its own last
+edit, without re-deriving either against the final tree.* Clause 2's five directions and the 9/4/11 census
+were both written before m-A landed. That is a different defect from the one cycle 4 described, and it is
+cheaper to fix — but it is the fifth consecutive round in the family, and the aggregate round counter
+stands at **5 of the 6** that signal structural non-convergence.
+
+**Escalated to the owner.** Both fixes are small and local. The reviewer's own condition on a sixth round:
+its matrix **must** include an add-a-line mutant and a co-edited-drop mutant, or it reproduces this cycle.
