@@ -59,7 +59,7 @@ _Updated: 2026-10-23 (decompose: CARD-282..CARD-285 added — the public player 
 | 52 | CARD-206 P2, CARD-259 P2 | ✅ done |
 | 53 | CARD-261 P2, CARD-262 P2 | ✅ done (CARD-261 `ac63e17a`; CARD-262 `faea50a5` — escalated at cycle 2/3, re-entered on the owner's declare route, landed) |
 | 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 ✅ `066ddc1f` | ▶ active. **CARD-264's escalation CLOSED 2026-10-23 — owner chose option 1:** fix the four controls-that-cannot-fail (S-1..S-4) the 8h spot-check found, then a **re-entry cycle 4** to certify, then re-gate and merge. **Cycle 4 then scored 7.65 NOT CERTIFIED — the fix round introduced two defects of the card's own kind — and the owner chose one more fix + cycle 5.** Fix 4 decided the declared-miss tables' semantics before touching an entry and applied them tree-wide (216 line-level variants, 0 survived; 9/9 mutants killed), committed `8727e519` and **pre-gated** (7/7 named tests by node id, 167+166 whole-file, 2 of 9 mutants re-derived at the gate). The gate passed (8931 executed, 0 failed) and **cycle 5 scored 7.6, NOT CERTIFIED — 2 important, both introduced by fix 4.** The mechanism itself held under independent re-derivation (197-variant sweep, 0 survivors; all five exemption reasons true; m-1 sound; the round's disagreement with its brief adjudicated in the round's favour) — both findings are in the *claims about* it. **⚠ improvement stalled** and **family regression at streak 2** both fire, neither premise failing, so this is with the owner. Aggregate round counter **5 of 6**. Queue behind it: CARD-271, CARD-267, CARD-269, CARD-268.|
-| 55 | CARD-271 P2 ▶ implementation | ▶ active. Owner's bugs-first order: CARD-271 first (big boards lose their bottom and left clues), then CARD-267, CARD-269, CARD-268. One card at a time while it holds `solver.js`/`admin.css`, which all four touch. |
+| 55 | CARD-271 P2 ✅ `476abf18` | ▶ active. Owner's bugs-first order: **CARD-271 merged 2026-10-23** — 6.0 cycle 1 (NOT CERTIFIED on one real player-visible bug, re-derived by the orchestrator before a fix round was spent on it) → fix round 1 + two gate-found corrections → **9.5 cycle 2, CERTIFIED**, cycle 1's one ADR-0039/R1 violation closed with a control that FAILS. AC/EC/G 65/65 by node id, zero skips. Two full suites, both reds accounted for: attempt 1 the card's own browser-family registry debt (27 node ids, 25 owed since the implementation commit, unreachable by any scoped gate), attempt 2 a load-induced `Page.goto` timeout in an untouched file, reproduced green 3x. Merged on a stated union argument. Next: CARD-267, then CARD-269, CARD-268 — one at a time while they hold `solver.js`/`admin.css`. |
 | unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2, CARD-282 P2, CARD-283 P2, CARD-284 P2, CARD-285 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
@@ -92,7 +92,6 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-219** P2 · Positional assertions read the page plan instead of rendering pixels  _(unscheduled, tier 2)_
 - **CARD-230** P2 · The guide's worked example runs as four steps, and the rows/columns tip becomes a callout  _(unscheduled, tier 2)_
 - **CARD-233** P2 · A solution tile gets one header — number, picture name, dots — and the page a running head  _(unscheduled, tier 2)_
-- **CARD-271** P2 · Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides  _(wave 54 queue, quick — owner bug report 2026-10-22)_
 - **CARD-267** P2 · Crosshair — the player highlights the hovered cell's row, column and their clues  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-269** P2 · Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks  _(wave 54 queue, quick — owner decision 2026-10-22)_
 - **CARD-268** P2 · Probe mode — hypothesis marks in their own tint, abandoned or committed as one transaction  _(wave 54 queue, quick — owner decision 2026-10-22)_
@@ -116,18 +115,16 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 
 ## Review
-- **CARD-264** P2 · CLAUDE.md's three remaining false claims, and the dead symbol one of them has already fed into a live guard
-  `worktree: ../PythonProject4-card-264` · `branch: card/264-claude-md-outside-the-map` · `head: e26e5473`
-  `8.3 (c1) → 5.5 (c2, 2 of 3 refuted) → fix 2 → 9.6 (c3/3, 0 gating) → 8h spot-check FAILED 2 of 2 holds → escalated → owner: FIX + CERTIFY`
-  `fix 3 ✓ 098ecd91 (9 ids, 20/20 mutants, pre-gate 11/11) → gate ✓ 8925 exec / 8898 pass / 0 fail (+4 reconciles) → cycle 4 re-entry CERTIFYING`
-  `three gates, three reconciled deltas: 8919 (+36 the card's own) → 8921 (+2 fix 2) → 8925 (+4 fix 3). Cumulative +42, every one accounted for.`
+_(none — CARD-264 merged `066ddc1f` and CARD-271 merged `476abf18`; the board holds no card in flight.)_
 
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
 - **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/for…
 
 ## Done
-_244 cards merged, waves 1–54 (plus 43 from before the `Wave:` field existed)._ Most recent:
+_246 cards merged, waves 1–55 (plus 43 from before the `Wave:` field existed)._ Most recent:
+
+- **CARD-271** Big boards lose their bottom and left clues — the clues stay in view where there is room, and the board says where there is not  _(wave 55, 6.0 → **9.5** cycle 2/2 CERTIFIED; merge `476abf18`, 9 files +2173/−14. Two full suites, 8953 passed / 27 skipped each, both reds accounted for and re-verified; 38 mutant directions across the card; six renders handed to the owner where three were required, with **two owner decisions deliberately not taken** — the 390 px phone's band, and whether `--player-zoom` should magnify the clue band at all (CARD-195))_
 
 - **CARD-270** A filled cell draws its own division, so runs stop merging across every ink rule  _(wave 54, 8.4 → **9.6** cycle 2/3; merge `64da37f6`, gate 8856 passed / 27 skipped / 0 failed — the owner's reported defect, fixed by one CSS declaration)_
 - **CARD-262** The page-position guard's door axis, **declared** rather than claimed closed  _(wave 53, 5.7 → 5.2 ⚠ stalled → escalated → owner chose DECLARE → AC/EC/G gate PASSED; merge `faea50a5`, gate 8837 passed / 27 skipped / 0 failed)_

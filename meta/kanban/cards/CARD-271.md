@@ -1,6 +1,6 @@
 # CARD-271: Big boards lose their bottom and left clues — keep clues in view whatever the fit ladder decides
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** ops
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/271-clues-stay-in-view
-**Worktree:** ../PythonProject4-card-271
+**Worktree:** — (removed at merge)
 **Source:** quick — owner bug report 2026-10-22: "clues sometimes are missed at the bottom and at the left for big puzzles"; no handoff increment
 **Idea:** —
 **Wave:** 55
 **Depends on:** —
-**Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py
-**Review score:** 6.0 (cycle 1, NOT CERTIFIED — fix round 1 complete at `c1f11264`, its pre-gate PASSED, review cycle 2 dispatched)
+**Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_zoom.py <!-- AS MERGED, which is wider than drafted: tokens.css was NOT touched (no token added), and four files outside this list were -- tests/test_admin_design_tokens.py (the selector-list equality had to gain the new rule), tests/test_puzzle_solver_fifth_rule.py (F-002's helper plus the screenshot/resize interaction), tests/test_puzzle_editor_ui.py (F-008's editor control) and tests/test_browser_fixture_scope.py (the 27 node ids the family's registry owed). None of the four is a production file; the production pair is exactly as drafted. -->
+**Review score:** 9.5 (cycle 2, CERTIFIED; cycle 1 was 6.0)
 **Started:** 2026-10-23T15:05Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-23
+**Actual:** 1d (dispatched 15:05Z, merged 22:14Z — one implementation round, a pre-gate, two review cycles, one fix round with three corrections, two full suites)
+**Merge commit:** 476abf18
 **Blocked by:** —
 
 ## The defect, with its mechanism verified in the code
