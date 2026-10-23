@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-22 (decompose: CARD-272..CARD-274 added)_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
+_Updated: 2026-10-23 (decompose: CARD-282..CARD-285 added — the public player phase, from ONLINE_GAME_SPECIFICATION.md's agreed Technical Architecture)_  ·  <!-- forge:run wave=54 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -60,7 +60,7 @@ _Updated: 2026-10-22 (decompose: CARD-272..CARD-274 added)_  ·  <!-- forge:run 
 | 53 | CARD-261 P2, CARD-262 P2 | ✅ done (CARD-261 `ac63e17a`; CARD-262 `faea50a5` — escalated at cycle 2/3, re-entered on the owner's declare route, landed) |
 | 54 | CARD-262 P2 ✅ `faea50a5`, CARD-270 P2 ✅ `64da37f6`, CARD-264 P2 ✅ `066ddc1f` | ▶ active. **CARD-264's escalation CLOSED 2026-10-23 — owner chose option 1:** fix the four controls-that-cannot-fail (S-1..S-4) the 8h spot-check found, then a **re-entry cycle 4** to certify, then re-gate and merge. **Cycle 4 then scored 7.65 NOT CERTIFIED — the fix round introduced two defects of the card's own kind — and the owner chose one more fix + cycle 5.** Fix 4 decided the declared-miss tables' semantics before touching an entry and applied them tree-wide (216 line-level variants, 0 survived; 9/9 mutants killed), committed `8727e519` and **pre-gated** (7/7 named tests by node id, 167+166 whole-file, 2 of 9 mutants re-derived at the gate). The gate passed (8931 executed, 0 failed) and **cycle 5 scored 7.6, NOT CERTIFIED — 2 important, both introduced by fix 4.** The mechanism itself held under independent re-derivation (197-variant sweep, 0 survivors; all five exemption reasons true; m-1 sound; the round's disagreement with its brief adjudicated in the round's favour) — both findings are in the *claims about* it. **⚠ improvement stalled** and **family regression at streak 2** both fire, neither premise failing, so this is with the owner. Aggregate round counter **5 of 6**. Queue behind it: CARD-271, CARD-267, CARD-269, CARD-268.|
 | 55 | CARD-271 P2 ▶ implementation | ▶ active. Owner's bugs-first order: CARD-271 first (big boards lose their bottom and left clues), then CARD-267, CARD-269, CARD-268. One card at a time while it holds `solver.js`/`admin.css`, which all four touch. |
-| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2 | ⏳ not yet dispatched to a wave |
+| unscheduled | CARD-207 P2, CARD-208 P2, CARD-209 P2, CARD-210 P2, CARD-215 P2, CARD-216 P2, CARD-218 P2, CARD-219 P2, CARD-220 P2, CARD-226 P2, CARD-227 P2, CARD-229 P2, CARD-230 P2, CARD-231 P2, CARD-232 P2, CARD-233 P2, CARD-249 P2, CARD-263 P2, CARD-265 P2, CARD-266 P2, CARD-282 P2, CARD-283 P2, CARD-284 P2, CARD-285 P2 | ⏳ not yet dispatched to a wave |
 
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
@@ -107,6 +107,8 @@ _Full list: [meta/kanban/backlog.md](backlog.md)_
 - **CARD-272** P2 · The import guard gains the composite-capability rank (ADR-0040)  _(unscheduled — after CARD-265; delta carded 2026-10-22)_
 - **CARD-273** P2 · Book production moves to src/nonogram/book/ — the ADR-0040 rewrite  _(unscheduled — after CARD-272 and the book wave drains; 17 deps)_
 - **CARD-274** P3 · admin/app.py splits into route modules — the blueprint refactor  _(unscheduled — after CARD-273)_
+- **CARD-284** P2 · The QR landing and the library — /b/<slug> and /library around the player  _(unscheduled — public player phase, after CARD-282 + CARD-283; owner architecture decision 2026-10-23)_
+- **CARD-285** P2 · Hosting and counting — the player goes public without storing anyone's IP  _(unscheduled — after CARD-283 + CARD-284; delivers the hosted URL base CARD-210's unblock needs; hosting account/provider choice is the owner's)_
 
 ## In Progress
 _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
@@ -121,6 +123,8 @@ _(none — both wave-54 cards are in their review↔fix cycles, see Review)_
 ## Blocked
 - **CARD-210** 🔒 Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver  ← owner decision 2026-10-13 — "keep the placeholder until infra exists". Real QR pixels wait on the next phase's infrastructure: a public solver that is actually hosted, and a per-puzzle URL namespace stable enough to p…
 - **CARD-263** 🔒 The error count becomes the first hint, not a free one — and the player stops being told  ← FR-044 **AC-354** pins the error counter's DOM presence and order, and **AC-312..315**'s verifying browser test asserts the counter `is_visible()` before reading it. The requirement must change before the code — `/for…
+- **CARD-282** 🔒 The admin panel exports the player bundle — static JSON the public solver reads  ← architect delta owed: the per-puzzle URL namespace DEC (opaque slug vs row id vs grid hash) — the bundle's file names ARE the printed URLs (same decision CARD-210's reason 2 names)
+- **CARD-283** 🔒 The public player page — the admin game served static, with no answer in the browser  ← architect delta owed: CON-021 and ADR-0038/R6 confine interactive play to the admin door; the owner's 2026-10-23 direction (ONLINE_GAME_SPECIFICATION.md) reopens both — amend at /forge:architect, then unblock
 
 ## Done
 _244 cards merged, waves 1–54 (plus 43 from before the `Wave:` field existed)._ Most recent:
