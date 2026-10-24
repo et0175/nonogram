@@ -455,3 +455,56 @@ set difference that silently returns 0.
 checkout's so the configured `./.venv/bin/python -m pytest` works verbatim.
 Verified: 15 tests collected from `tests/test_book_pdf_levels.py`, matching the
 artefact.
+
+### 9. CORRECTION to §2, 2026-10-24, same day — the fenced "prize" is not this card's prize at all
+
+The owner asked whether CARD-208 should run before this card, since §2 above
+said the largest prize in CARD-219's subject sits behind it. **I had not read
+the four tests when I wrote that. Having read them, the claim is wrong and the
+recommendation it implied is withdrawn.**
+
+All four tests in `tests/property/test_book_pdf_geometry.py` render the book and
+then **measure the ink**: each calls `generator.interior_pages(...)` and reads
+its expectations out of the rendered bitmap through
+`drawing_of(page: Image.Image)` (`tests/helpers/page_ink.py:326`), recovering
+`drawing.columns/rows/cell/left/top/grid_right/grid_bottom`. Those measurements
+are then compared against **`Sheet`** (`:124`), a deliberate *independent
+re-implementation* of the page geometry inside the test file — the project's
+documented style ("prefer an independent second implementation", CLAUDE.md), the
+same precedent as `brute_force_oracle.py`.
+
+So the claim these tests make is **"the ink actually lands where an independent
+geometry says it should"**, asserted on pixels, over 220 cases. That is a
+**pixel** claim in this card's own taxonomy, and **this card's G-1 protects
+exactly this shape**: *"the baseline digest tests, the `pdf_pages` round trips…
+are not converted"*. Every one of the four is named `*_pdf_pages` /
+`*_two_up_pages`.
+
+Converting them would replace an independent-oracle-against-ink comparison with
+a layout-against-layout comparison, discarding the only proof that the renderer
+consumes the numbers `compute_layout` returns. **That is a weakening, not a
+conversion.** §2's framing — "exactly the shape this card exists for", inherited
+from the 2026-10-15 re-pointing and repeated by me without checking — is
+withdrawn. **The 51.82 s is expensive; it is not recoverable by this card's
+mechanism.** The fence stands, and now for the right reason: not "CARD-208 owns
+it" but **"this card's own G-1 forbids it"**.
+
+**And CARD-208 would make the file dearer, not cheaper.** Six of its seven ACs
+are pixel claims (clue numbers enclosed by four rules, rule weights following the
+grid, both two-up slots, the `(0,)` clue boxed, digits clearing their boxes at
+the type floor), and its **G-1 adds a new test to this very file**
+(`PropertyTest_BookPdfGeometry_GridUnchangedByClueBoxes`). It adds ink and adds
+render-verified tests to the most expensive render-verified file in the suite.
+
+**Where the real saving in that file is**, recorded so the next reader does not
+re-derive it: each case calls `interior_pages(...)` for the **whole book** —
+`6 + toc_page_count` pages — and measures the drawing on **one** of them. The
+other pages are rendered to assert their pixel dimensions ("every page of the
+book's PDF is the trim", EC-019). That claim is uniform across page kinds and is
+re-asserted 220 times, so **sampling it** (every page for a sample of cases, the
+puzzle page for the rest) would preserve its coverage shape and remove the large
+majority of the renders without touching a single geometry assertion. That is a
+**coverage-narrowing-with-a-named-survivor** move, i.e. **CARD-220's mechanism,
+not this card's**, and it is worth a card of its own. If the saving needs the
+generator to yield one page without building the book, that is a G-5 finding to
+raise, not a change to make in a test-only card.
