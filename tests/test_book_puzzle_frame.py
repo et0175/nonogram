@@ -3372,7 +3372,7 @@ class TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind:
     — which returns exactly ``tests/test_book_pdf_memory.py`` and
     ``tests/helpers/book_corpus.py``, **plus the two files this card converts,
     because this very paragraph names the tokens**. Re-run it with
-    ``--include='*.py' tests/ | grep -v 'puzzle_frame\|pdf_band'`` to see the
+    ``--include='*.py' tests/ | grep -vE 'puzzle_frame|pdf_band'`` to see the
     two that matter, or read the four and note that two of them are this
     sentence talking about itself. (Cycle 2, F-004: the sentence this replaces
     said "at all", and one grep refuted it. The orchestrator's pre-gate then
