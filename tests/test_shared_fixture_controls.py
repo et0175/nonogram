@@ -226,7 +226,20 @@ def _locally_defined_names(source: str) -> set[str]:
     variable or a method that happens to carry a shared helper's name is
     reported too, although it is not a copy of anything. The remedy the
     message prescribes (rename it) is cheap; the alternative is the blindness
-    F-003 found. Measured 2026-10-24: zero such names in the tree.
+    F-003 found.
+
+    **That measurement was re-run 2026-10-24 (cycle 2, F-202) and the first
+    reading was wrong. It said "zero such names in the tree"; there is one.**
+    ``tests/helpers/book_corpus.py:757`` defines its own
+    ``page_digest(page) -> Dict[str, Any]`` -- a hex sha256 in a dict -- beside
+    this package's ``page_digest(page) -> bytes``, the raw 32 bytes. Two
+    readings of one question, in the same package, in a module that is in
+    CARD-219's own ``Touches``. It is **pre-existing** (present at the fork
+    point ``808cf51f``) and it is not a live defect here:
+    ``tests/test_book_puzzle_frame.py:138`` imports from this home, so the
+    figures measured against it hold. The collision is routed to a successor
+    card; what was defective was the sentence claiming there were none -- a
+    figure stated as a measurement, which is the one thing no mutant can catch.
     """
     found: set[str] = set()
     for node in ast.walk(ast.parse(source)):
@@ -1183,6 +1196,39 @@ class TestSharedControls_TheRetentionWalkSeesEveryChannel:
         assert sum(blind.values()) == 0, (
             f"CARD-218's walk already saw the {label} channel, so widening it "
             "certifies nothing and the claim must be narrowed"
+        )
+
+    def test_a_memoryview_held_page_is_counted_once_not_twice(self) -> None:
+        """``memoryview`` in ``_SCALAR`` is a mechanism, not an optimisation.
+
+        Cycle 2, F-201. The comment on ``controls._SCALAR`` used to call all
+        nine of its types "a cheap short-circuit and **not** a mechanism: the
+        collector reports no referents for any of these either". That is true
+        of eight of them and **false of ``memoryview``**:
+        ``gc.get_referents(memoryview(b"abcdef"))`` returns
+        ``[<managedbuffer object>]``, and the collector reaches the view's own
+        buffer -- the same pixels -- through it.
+
+        So the entry is load-bearing in the direction that *inflates* a figure
+        rather than hiding one, which is why no channel row caught it: remove
+        it and a memoryview-held page is measured twice. This is that control,
+        and it is what makes the deletion mutant killable. It is kept out of
+        :data:`HOLE_TWO_CHANNELS` on purpose -- that table's second assertion
+        requires the channel to have been invisible to CARD-218's walk, and
+        CARD-218's ``_flat_bytes`` has a memoryview arm, so it measured this
+        one at ``SHEET_BYTES`` and not 0 (verified 2026-10-24).
+        """
+        page = memoryview(bytearray(SHEET_BYTES))
+        namespace = {"__name__": "synthetic", "_HELD": [page]}
+
+        found = controls.retained_bitmap_bytes(namespace)
+
+        assert sum(found.by_name.values()) == SHEET_BYTES, (
+            f"a page held through a memoryview measures "
+            f"{sum(found.by_name.values()):,} B, not the {SHEET_BYTES:,} B it "
+            "holds -- if it is exactly double, the walk followed the view's "
+            "managedbuffer and counted the same pixels twice, which is what "
+            "`memoryview` in `controls._SCALAR` exists to prevent"
         )
 
     def test_the_walk_does_not_leave_the_module_s_own_data(self) -> None:

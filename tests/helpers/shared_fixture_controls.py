@@ -739,10 +739,25 @@ _OPAQUE = (
     types.BuiltinMethodType,
 )
 
-#: A cheap short-circuit and **not** a mechanism: the collector reports no
-#: referents for any of these either (measured 2026-10-24), so skipping them
-#: changes no figure -- it only keeps the frontier short. Nothing claims they
-#: are a channel, and no mutant on them could kill anything.
+#: Types the walk measures but never steps into. **Eight of the nine are a
+#: cheap short-circuit. ``memoryview`` is a mechanism, and the comment that
+#: stood here said otherwise about all nine.**
+#:
+#: Measured 2026-10-24 (cycle 2, F-201): ``gc.get_referents`` returns ``[]``
+#: for the other eight, so skipping those changes no figure and only keeps the
+#: frontier short. For a memoryview it returns ``[<managedbuffer object>]``,
+#: and the collector reaches the **same pixels again** through it. Removing
+#: ``memoryview`` from this tuple therefore **doubles** a memoryview-held page:
+#: 25,245,000 -> 50,490,000 B on a real page, 21,000 -> 42,000 B on this
+#: module's stand-in. Its control is
+#: ``test_a_memoryview_held_page_is_counted_once_not_twice``.
+#:
+#: It is deliberately **not** a ``HOLE_TWO_CHANNELS`` row, and the reason is
+#: that table's second assertion: CARD-218's walk already measured a memoryview
+#: (its ``_flat_bytes`` has a memoryview arm -- verified 2026-10-24 at
+#: 21,000 B, not 0), so this is not a channel that was invisible before. It is
+#: a **double count this tuple prevents**, which is a different claim and needs
+#: a different control.
 _SCALAR = (str, bytes, bytearray, memoryview, int, float, complex, bool, type(None))
 
 
