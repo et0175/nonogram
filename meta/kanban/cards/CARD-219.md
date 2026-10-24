@@ -977,3 +977,179 @@ on `InteriorStream` — and that is a `src/` change this card may not make.
   files, and `pyproject.toml:88` sets `testpaths = ["tests"]` so they cannot be
   collected even by a bare `pytest`. Left in place rather than deleted — they are
   not mine to remove — and flagged to the owner.
+
+## [CYCLE 1 ADJUDICATION — 2026-10-24, orchestrator] 6.0, NOT CERTIFIED, all four gating findings reproduced
+
+Report: `meta/review/20261024T053055Z-CARD-219-cycle1.yml` (synced to main; passes
+`yaml.safe_load`; 6 findings, 5 gating, score 6, `certified: false`).
+**Aggregate round counter: 3 of 6** — implementation (1), fix pre-gate (2),
+cycle 1 (3). So **fix round 1 is round 4, its pre-gate 5, and cycle 2 is round
+6**: this is the only fix round this card can afford before its last cycle, and
+the brief is written accordingly.
+
+**I reproduced every gating finding independently before authorising a round.**
+Two of my reproductions came out differently from the reviewer's and both
+differences are recorded below, because each one changes what the fix must do.
+
+### F-001 — the retention walk's claim is universal and false. CONFIRMED, and narrowed to the right three shapes.
+
+The reviewer's R1 mutant parked pages in a live file; mine asks the walk directly,
+which removes the confounding my first attempt had (see below). One page bitmap
+is 25,245,000 B:
+
+| where the page is parked | walk reports | |
+|---|---|---|
+| instance `__dict__` (plain non-`Test` object attribute) | **0 B** | ** invisible ** |
+| `collections.deque` | **0 B** | ** invisible ** |
+| `@lru_cache` bound **inside a list** (never bound to a name) | **0 B** | ** invisible ** |
+| `Test*` class attribute | 25,245,000 B | SEEN ✅ |
+| plain list (the documented shape) | 25,245,000 B | SEEN ✅ |
+
+So **three further hiding places hold 75,735,000 B = 3.00 page bitmaps invisibly**
+— and the two channels the card *declared* are genuinely closed. **This is an
+over-claim, not a broken channel**, which is the ADR-0039/R1 family this board
+has gated on fifteen times running. The false sentences are `Retention.by_name`'s
+*"however deeply nested and whatever form the pixels are in"* and
+`tests/test_book_pdf_band.py:1789`'s *"a page parked anywhere that is not a
+cache… reds"*.
+
+**My first attempt at this mutant was confounded and I am recording it as the
+trap it is.** I appended a probe class that took `snowflake_interior`, which made
+it a *new consumer* — so the ordering and denominator guards fired (2 cells) and
+the retention control never got to be the thing under test. The identical trap
+bit me on CARD-218's Q5. **A mutant aimed at one guard must not also trip the
+guard in front of it**; asking the mechanism directly, outside pytest, is the
+cheap way out.
+
+### F-002 — the denominator cannot see an `autouse` fixture. CONFIRMED, and it is worse than the finding says in one direction and milder in another.
+
+Reproduced twice, in a probe module kept outside `tests/`:
+
+1. **The denominator empties.** With `@pytest.fixture(autouse=True) def _always(shared)`, pytest's own `request.fixturenames` contains `shared` (**True**) while `declared_consumers(globals(), "shared")` returns **`[]`**.
+2. **And therefore the DECLINE never fires.** Narrowed to the control alone — `-k one_render_served`, **1 passed, 2 deselected** — the control **passed** with `_RENDERS=[1]` and no refusal. That is **CARD-218 cycle 1's F-002 defect exactly**, the one this whole default-deny mechanism was built to prevent, reappearing in the **pass** direction, which is the direction ADR-0039/R2 does not tolerate.
+
+**Milder than stated, in one respect that matters for the fix.** `autouse` is live
+in four modules — `test_admin_serving.py`, `test_admin_auth.py`,
+`test_card_037_upload_retry.py`, `test_card_044_preview_after_submit.py` — and
+**none of them is band or frame**, and **`tests/conftest.py` injects no autouse
+fixture**. So the shipped controls are not false *today*. What is false today is
+the module's **declared bound** at `:301`, which enumerates what the guard cannot
+see and does not mention autouse. The defect is live as a **claim**; the false
+negative is **latent**, and it arms itself the day anyone adds an autouse fixture
+to either file — or one to `tests/conftest.py`, which would arm it for every
+module at once.
+
+The remedy is executable and the reviewer verified the handle: the fixture marker
+the module **already reads** carries `.autouse`. The second half —
+`python_functions` is unconfigured so pytest's default `test` *prefix* collects
+`def testCamelCase(self, shared)`, which a hard-coded `test_` misses — is the same
+ADR-0039/R2 point: `config.getini` is an enumerable authority and the guard
+hand-wrote the prefix instead.
+
+### F-003 — the agreement guard is blind to an alias. CONFIRMED, and my first mutant was weaker than the reviewer's.
+
+The card's headline Half-B deliverable is the guard CARD-218's two copies never
+had. It reads only `tree.body` and only `FunctionDef`/`AsyncFunctionDef`/
+`ClassDef` — the one spelling it was written from. All three of its own controls
+(M21/M22/M23) are `def` shapes.
+
+* My first attempt bound an alias to a **broken** stub (a constant digest) →
+  1 cell red, but in `test_no_module_level_accumulator_retains_a_page_bitmap`,
+  an unrelated control tripping on the broken semantics. **The agreement guard
+  itself stayed green.**
+* Re-run with a **faithful** copy — `def _probe_own_digest(page): return hashlib.sha256(page.tobytes()).digest()` then `_page_digest = _probe_own_digest`, so every call site uses the third copy → **65 passed, 0 cells.**
+
+**A byte-for-byte third copy of a shared helper ships completely green.** The
+reviewer's mutant was the sharper one and the lesson is mine: *a mutant that also
+breaks behaviour cannot tell you whether the guard saw the structure.*
+
+### F-004 — a sibling of the pre-gate's own finding, in the same file. CONFIRMED to the cell.
+
+`M29`, line-count preserving at `book_pdf_generator.py:6923`
+(`range(toc_page_count)` → `range(toc_page_count + 1)`, so the walk yields one
+TOC page more than planned): **base 21 red cells, HEAD 14** (4 errors in **both**
+arms, so not introduced here). **The 7 lost cells are exactly the seven converted
+tests.**
+
+**Six of those seven losses are the fair price of a plan assertion and are not
+defects** — a test that reads the plan cannot witness a drawn count, which is
+what conversion *means*, and the mutant is still killed **14 times**. The defect
+is the one test that **claimed** to have kept the tie:
+`test_a_hundred_and_fifty_puzzles_take_one_toc_page` says *"the same call at the
+same two arguments. The two agreeing is what the drawn count used to witness"* —
+and it is not, because `section_plan` (`src:6450`) makes the same call, so the
+pair can only witness `structural_toc_entry_count` against
+`structural_toc_entries` and `dpi == DPI`.
+
+So this card now has **two** false tie-claims of the identical shape — F-004's and
+the pre-gate's F-006 — which is one defect **class**, not two incidents. Per the
+wave-50 rule, the fix brief names the class and not the two instances.
+
+### F-006 — the pre-gate's open finding: I accept the reviewer's ruling, and it found the mechanism I had missed
+
+My pre-gate said the remedy was to narrow the claim. The reviewer agrees that
+narrowing satisfies AC-1 **but only with a fence**, and supplies the part I did
+not have: `_planned_rows` must *supply* the solutions page, and it supplies
+`_solutions_divider_page(decided)` — **a test-side re-spelling of production's
+`first_answer_page`** (`src:6718`, used by production at `:6786` to build the same
+rows). The row therefore carries a test-authored number, and **that**, not the
+docstring, is why Q6 escapes. The term is carried on no returned value, so it is
+unreachable from any pure surface — which is the round's own G-5 finding read
+forwards.
+
+Accepted in full, including the fence and including its scoping: exposing
+`toc_entries`/`first_answer_page` on `InteriorStream` is **a successor card to
+CARD-219, not CARD-220's** (CARD-220 has no `src` mandate), and CARD-220 must be
+told which three tests are the sole carriers **because it is chartered to prune
+this very file for redundancy**.
+
+### F-005 — minor, accepted on inspection
+
+Band's `set(retained.by_cache) <= _lru_cache_names(globals())` cannot fail by
+construction: both sides come from `_caches_of` on the same namespace. Its sibling
+conjunct `caches == {…}` *is* failable and did bite in the reviewer's spy arm. This
+is the **same unfailable-conjunct shape CARD-218 cycle 2 deleted** — and this card
+wrote a test to prevent it, then shipped one. Delete the conjunct, keep the
+sibling.
+
+### Both of my open questions closed by the reviewer, and one of them beautifully
+
+* **`puzzle_pages` 106 → 109: fully attributed, and it is not a render.**
+  `puzzle_pages` (`src:6040`) returns `List[PuzzlePagePlan]` — pure, draws
+  nothing — and is called once per level from `puzzle_section`. On the single node
+  id `test_each_row_points_at_the_page_the_walk_planned`: base `section_plan=3,
+  puzzle_pages=9, create_toc_page=1, solved_puzzle_page=150` → HEAD
+  `section_plan=4, puzzle_pages=12, create_toc_page=0, solved_puzzle_page=0`. The
+  converted test makes **one more `section_plan` call**, and on a three-level book
+  that is **exactly +3 `puzzle_pages`**. The whole tree-wide delta, from one test,
+  with no render in it. My concern is answered and the entry point is misleadingly
+  named rather than mis-measured.
+* **The 25,192,439 B byte-agreement — the one figure on this card nobody had
+  re-derived — is now verified in a second domain with no `gc` in it at all:** a
+  call-time recorder on `_set_once` summing each returned array's own `.nbytes`
+  gives 666 distinct keys at currsize 666 = **24,435,107 B**, and
+  `len(_font_bytes())` = **757,076 B**. All four figures hold to the byte.
+
+### What the reviewer did not check, carried forward rather than dropped
+
+`mutation_check` Step 8f was **`deferred(cost)`** — correct per the cost ladder,
+since four findings rewrite the bodies it would certify; it runs in cycle 2. No
+per-assertion recording instrument was built, so all cells above are plain-pass:
+for R1 we know *neither* retention assert fired, not which would have fired
+first. The four declined files were not re-profiled, the eight render idioms were
+not independently re-grepped, and **whether `_set_once`'s boolean ink masks are
+the right unit for the exemption's 24.4 MB figure was not examined** — that last
+one is a live question about what the exemption's number *means* and it goes into
+the fix brief.
+
+### Scope gate: NO ESCALATION, and cycle 2 may not re-open it
+
+The reviewer ruled all three extra edit shapes inside the nine-helper subject,
+with hunk evidence (band `:48/:79/:252/:1594-1999`, frame
+`:89/:130/:905/:3095-3477` — the docstring/import block, the digest helper, the
+control section). The comment block asserted a now-false claim, so leaving it
+would itself have been the ADR-0039/R1 defect; the control-body change is forced
+by `retained_bitmap_bytes` returning a `Retention` split, which this card's own
+mandate assigns here; the added `_lru_cache_names` assertion is the ADR-0039/R3
+control the exemption requires. Nothing touches CARD-207's band-header split or
+CARD-208's clue boxes. **Agreed and recorded as settled.**

@@ -1,0 +1,549 @@
+card: CARD-219
+cycle: 1
+reviewer: review agent (wave 57)
+timestamp: "2026-10-24T05:30:55Z"
+commit: 6677cbf0
+fork_point: 808cf51f
+branch: card/219-assert-the-plan-not-the-pixels
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-219
+config:
+  min_score: 8
+  max_cycles: 3
+  mutation_check: true
+  scope_gate: "on"
+  family_regression: warn
+  visual: "off"
+  test_scope: impact
+
+score: 6
+certified: false
+verdict: >-
+  Not ready to merge as-is. Nothing ships broken -- src/** is untouched, AC-4 is
+  259 = 259 with zero removals, and the impact set is 964 passed / 0 failed /
+  0 skipped on a clean tree, all three independently reproduced here. The three
+  gating findings are all in the ADR-0039/R1 family the board gates on, and all
+  three are in mechanisms THIS card added: the widened retention walk, the
+  widened consumer denominator, and the new agreement guard each state a claim
+  wider than the mechanism, and each has a measured counter-shape that passes
+  green. Every remedy is a docstring narrowing plus a small, bounded widening;
+  none needs a src change.
+
+# --------------------------------------------------------------------------
+# What reproduced independently (not findings)
+# --------------------------------------------------------------------------
+reproduced:
+  - claim: "src/** untouched (G-5)"
+    method: "git diff 808cf51f..6677cbf0 -- src/ | wc -l"
+    result: "0 lines. Confirmed."
+  - claim: "AC-4: 259 node ids over the six in-scope files, set-identical"
+    method: >-
+      pytest -o addopts='' -q --collect-only over the six files as a zsh array
+      at HEAD and with tests/test_book_toc.py replaced by git show
+      808cf51f:tests/test_book_toc.py (the only one of the six the diff touches);
+      sorted, comm'd.
+    result: "HEAD 259, base 259, removals 0, additions 0."
+  - claim: "the new control module collects 25"
+    result: "25."
+  - claim: "gate sweep over eleven files: 964 passed, 0 failed, 0 skipped"
+    method: "pytest -o addopts='' -p no:randomly over the 11-file impact set, clean tree"
+    result: "964 passed, 1409 warnings, 70.12 s. Zero skips, zero failures."
+  - claim: "rank_durations.py touched for a comment only"
+    result: "one hunk at :121, 16 added lines, 0 deletions; the snapshot tuple is byte-identical."
+  - claim: "tests/property/test_book_export_interior.py is PIXEL, not positional"
+    method: "read :652, :731, :734, :736-737, :845-850 and the corpus minimums at :78, :870, :894, :901"
+    result: >-
+      Confirmed independently, and I agree with the orchestrator's self-correction.
+      same_page against the cover and an independently built guide page, a
+      min() == 255 blank-title check, page.size == TRIM_PX per page, per-column
+      ink scans. CASES = 28 / >= 20 / >= FINALISE_CASES >= 18 are untouched (the
+      diff does not touch the file at all), so G-3 was never in play. G-1 covers it.
+  - claim: "the round's retention figures (the one figure the pre-gate did not re-derive)"
+    method: >-
+      TWO arms, both via a pytest plugin kept outside tests/. Arm 1 reads the
+      instrument at sessionfinish over the real band and frame modules. Arm 2
+      installs a call-time recorder on band's _set_once before the tests run and
+      sums each returned array's own .nbytes over distinct (text, size) keys --
+      a different door, with no gc walk in it at all.
+    result: >-
+      Arm 1: band by_name _SHARED_SNOWFLAKE_DIGEST 256 B; by_cache _font_bytes
+      757,076 B + _set_once 24,435,107 B = 25,192,183 B; grand total 25,192,439 B.
+      frame by_name _SHARED_DIGEST 320 B, by_cache {}. Arm 2: _set_once 666
+      distinct keys recorded at call time, lru currsize 666, sum of nbytes
+      24,435,107 B -- identical to the walk; _font_bytes len() 757,076 B; caches
+      25,192,183 B. 25,192,183 + 256 = 25,192,439 B, CARD-218's hand-measured
+      total to the byte. ALL FOUR FIGURES VERIFIED, in a second domain.
+  - claim: "the exemption control's named-set conjunct is failable"
+    method: >-
+      arm 2 above replaces _set_once with a non-lru_cache spy, which is a
+      deletion of one entry from the derived cache set
+    result: >-
+      1 failed -- TestBookPdf_TheSharedRenderLeavesNoBitmapBehind::test_no_module_level_accumulator_retains_a_page_bitmap.
+      The `caches == {"_font_bytes", "_set_once"}` half bites. (The second half
+      does not -- see F-005.)
+
+answered_open_questions:
+  - question: "puzzle_pages rose 106 -> 109 and is unattributed. Attribute it."
+    answer: >-
+      ATTRIBUTED, in full, to one converted test, and it is not a render.
+      `puzzle_pages` (src/nonogram/admin/book_pdf_generator.py:6040) returns
+      List[PuzzlePagePlan] -- pure, sheet-free, draws nothing -- and is called
+      once per level from `puzzle_section` (:6308), which `section_plan` drives.
+      Counting the generator's own methods on the single node id
+      TestBookToc_PageNumbersMatchTheWalk::test_each_row_points_at_the_page_the_walk_planned
+      (plugin outside tests/, -o addopts='' -p no:randomly):
+      base  -> section_plan=3, puzzle_pages=9,  create_toc_page=1, solved_puzzle_page=150
+      HEAD  -> section_plan=4, puzzle_pages=12, create_toc_page=0, solved_puzzle_page=0.
+      The converted test calls `_planned_rows` (one section_plan) AND
+      `generator.section_plan` AND `generator.interior_stream` (one more
+      internally) AND `_divider_pages`, i.e. one section_plan more than the base
+      test, and on a three-level book one section_plan is exactly three
+      puzzle_pages calls. +1 section_plan = +3 puzzle_pages = the whole 106 -> 109.
+      A render-named entry point moving up is not a counter-example to the card's
+      claim: this one is a plan method whose name only looks render-y, and the
+      same test's solved_puzzle_page went 150 -> 0.
+  - question: "the 25,192,183 + 256 = 25,192,439 byte agreement was accepted on the round's measurement"
+    answer: "Re-derived in a second domain. See `reproduced` above. It holds to the byte."
+
+scope_gate:
+  ruling: "NO ESCALATION. The diff stays inside the nine-helper subject."
+  detail: >-
+    The three extra edit shapes the round reported are all forced by the
+    nine-helper move and none of them covers a sibling's subject.
+    (1) The duplication-rationale comment block: the old text asserted "the two
+    copies are cross-checked against each other by nothing but this comment",
+    which is false the moment there is one copy. Leaving a false claim standing
+    in the tree is itself the ADR-0039/R1 defect this board gates on, so
+    rewriting it is not scope creep, it is the deletion's other half.
+    (2) The retention control's body and docstring: `retained_bitmap_bytes` now
+    returns a `Retention` split instead of a dict, which is an API change to one
+    of the nine, mandated by hole 2 -- which the card's own mandate assigns here.
+    The added `_lru_cache_names` assertion is the ADR-0039/R3 control that
+    exemption requires; an exemption shipped without its control would be the
+    finding instead.
+    (3) The two stale `:func:` cross-references and the two now-unused imports
+    (hashlib, inspect) are dead references to the deleted locals.
+    Hunk evidence (git diff 808cf51f..6677cbf0, @@ headers only): band touches
+    :48, :79, :252 and :1594-:1999; frame touches :89, :130, :905 and
+    :3095-:3477. Those are the module docstring/import block, the `_page_digest`
+    / `_book_pages` helper region, and the control section at the end of each
+    file. Nothing in CARD-207's band-header split or CARD-208's ruled-clue-box
+    geometry is touched in either file. Recording this explicitly so cycle 2
+    does not re-open it.
+
+# --------------------------------------------------------------------------
+# Findings
+# --------------------------------------------------------------------------
+findings:
+
+  - id: F-001
+    severity: important
+    gating: true
+    confidence: high
+    title: >-
+      Hole 2's widened walk claims "however deeply nested and whatever form the
+      pixels are in"; three real page bitmaps parked at band module level are
+      invisible to it and red nothing
+    file: tests/helpers/shared_fixture_controls.py
+    line: 537
+    also:
+      - "tests/helpers/shared_fixture_controls.py:555 (_step: the honest declaration, in a private helper)"
+      - "tests/helpers/shared_fixture_controls.py:653 (retained_bitmap_bytes: \"a container nested arbitrarily deep\")"
+      - "tests/test_book_pdf_band.py:1789 (\"a page parked anywhere that is not a cache, lands in the equality above and reds\")"
+      - "tests/test_book_puzzle_frame.py:3266 (\"a page retained any of those ways reds here\")"
+    claim: >-
+      Retention.by_name is documented as "the module's own accumulators and
+      anything they reach, however deeply nested and whatever form the pixels are
+      in"; band's control says a page "parked anywhere that is not a cache ...
+      reds"; frame's says "a page retained any of those ways reds here".
+    mechanism: >-
+      `_step` enters exactly: Mapping, list, tuple, set, frozenset, a
+      module-level `functools._lru_cache_wrapper` (only with enter_caches=True),
+      and `Test*` classes. Everything else returns []. An instance's __dict__ is
+      never entered, `collections.abc.Collection` types outside the five
+      concrete ones are not entered, and a cache not bound to a module-level
+      name is in neither half (`_caches_of` reads module-level names only, and
+      `_step` refuses to enter a wrapper when enter_caches=False).
+    evidence: >-
+      PROBE (script outside tests/, ./.venv/bin/python): with a 2550x3300x3
+      stand-in, `retained_bitmap_bytes` reports 25,245,000 B for a module-level
+      list (A), a container two deep (B) and a Test-class attribute (C) -- the
+      card's M24/M25/M26 -- and reports 0 B for: a plain object's attribute (D),
+      a dataclass field (E), a collections.deque (F), the SAME lru_cache held
+      inside a module-level list (H), the same cache on a Test-class attribute
+      (I), a functools.cached_property on an instance (J), and a default-argument
+      closure (K).
+      MUTANT R1 (addition-shaped, in the REAL file, pristine copy kept outside
+      the worktree): parked three genuine page bitmaps at
+      tests/test_book_pdf_band.py module level -- one numpy (3300,2550,3) uint8
+      array on a plain (non-Test) object's attribute, one in a
+      collections.deque, and one behind an @lru_cache bound inside a list rather
+      than to a name -- 75,735,000 B in total, three whole page bitmaps.
+      Ran `pytest -o addopts='' -p no:randomly tests/test_book_pdf_band.py`:
+      "40 passed, 250 warnings in 6.30s". ZERO FAILURE CELLS. File restored from
+      the pristine copy; `git status --short -- tests/ src/` clean afterwards.
+    why_it_matters: >-
+      D/E/F/J are not exotic: `_set_once` already produces numpy arrays, and the
+      module-level holder-object and cached_property shapes are the obvious next
+      refactor of exactly these files. Hole 2's declared channel was "a bitmap
+      behind an @lru_cache", and that channel is closed only for a cache bound to
+      a module-level name -- the claim "All four are walked now" is wider than
+      what was built. This is the same false-negative-in-a-default-deny shape as
+      hole 2 itself, re-created one level out, and the private `_step` docstring
+      that states the truth is not the claim a reader of the control sees.
+    remedy: >-
+      One pass, two parts, no src change. (a) Widen `_step` cheaply and
+      measurably: enter `collections.abc.Collection` instead of the five
+      concrete container types (closes F), enter `vars(value)` for an instance of
+      a user class that is not in `_OPAQUE` and is not a type (closes D, E, J),
+      and when the walk meets an `_lru_cache_wrapper` that is NOT one of
+      `_caches_of(namespace)`'s named module-level caches, enter it into by_name
+      rather than skipping it -- an unnamed cache holding a page is unexempted
+      retention by the exemption's own definition (closes H, I). Re-run the band
+      and frame files to confirm the real globals() do not red, and add one
+      found-now / missed-before control pair per new channel in
+      TestSharedControls_TheRetentionWalkSeesEveryChannel, so the widening ships
+      with its controls as the card's own rule demands. (b) Whatever is NOT
+      closed, state it as a declared bound in `Retention.by_name`,
+      `retained_bitmap_bytes`, band:1789 and frame:3266, and delete the three
+      universal phrasings ("however deeply nested and whatever form the pixels
+      are in", "arbitrarily deep", "parked anywhere that is not a cache").
+
+  - id: F-002
+    severity: important
+    gating: true
+    confidence: high
+    title: >-
+      The widened consumer denominator cannot see an AUTOUSE fixture -- the
+      shape that defeats the default-deny guard completely -- and the enumeration
+      of what it "still cannot see" does not mention it
+    file: tests/helpers/shared_fixture_controls.py
+    line: 301
+    also:
+      - "tests/helpers/shared_fixture_controls.py:287 (declared_consumers)"
+      - "tests/helpers/shared_fixture_controls.py:207 (_fixture_graph: the marker it reads carries .autouse and it is not read)"
+      - "tests/test_shared_fixture_controls.py:359 (HOLE_ONE_SHAPES -- the five shapes, hand-written)"
+    claim: >-
+      declared_consumers:301 -- "What it still cannot see: a fixture taken at run
+      time with ``request.getfixturevalue``, and a transitive chain whose middle
+      link is defined outside ``namespace``. Both are declared". The card's
+      §2 states three declared bounds and no fourth. The module docstring says
+      "All four are closed".
+    mechanism: >-
+      A test counts as a consumer only if it ASKS: `asked = _parameters(member) |
+      _marked_fixtures(...)`, intersected with the transitive closure. An autouse
+      fixture is injected without being asked, so it contributes nothing to
+      `asked` -- while pytest puts the shared fixture in EVERY item's
+      `fixturenames`. In a module whose autouse fixture chains to the shared
+      render, `declared_consumers` returns the empty set, so
+      `absent = declared - collected` is empty for ANY selection and
+      `refuse_unless_every_consumer_is_collected` passes unconditionally. That is
+      not an under-count of the denominator, it is the denominator going to zero:
+      the guard stops guarding, silently, in the pass direction.
+    evidence: >-
+      PROBE (pytest module kept outside tests/, in the scratchpad, run with
+      ./.venv/bin/python -m pytest -p no:randomly -s): a module-scoped `shared`
+      fixture plus `@pytest.fixture(autouse=True) def _always(shared)` and a test
+      that asks for nothing. The test asserts, and it PASSES:
+      `"shared" in request.fixturenames` is TRUE (pytest's own authority says the
+      test consumes it) while `declared_consumers(module.__dict__, "shared")`
+      prints `[]`. Same probe, second shape: `def testCamelCaseIsCollectedToo(self, shared)`
+      in a `TestCamel` class IS collected by pytest (python_functions is
+      unconfigured in pyproject.toml, so the default `test` PREFIX applies) and
+      `declared_consumers` prints `[]` for it too, because
+      `declared_consumers`/`_test_members` hard-code `startswith("test_")`.
+      3 collected, 3 passed. (A third shape I probed -- a `Test` class nested
+      inside a NON-Test class -- is NOT a gap: pytest does not collect it either.
+      Recorded so cycle 2 does not chase it.)
+      LIVE IN THIS TREE: `grep -rc "autouse=True" tests/` -> 5 occurrences in
+      4 modules (test_admin_auth.py x2, test_admin_serving.py,
+      test_card_037_upload_retry.py, test_card_044_preview_after_submit.py).
+      The controls module's own words are "a module which starts importing the
+      shared home is covered the day it does", so the denominator's completeness
+      is a claim about every module, not only band and frame.
+    why_it_matters: >-
+      The card exists because a false negative in a default-deny guard is the one
+      direction ADR-0039/R2 does not tolerate. Four declared-side shapes were
+      closed and a fifth, of the same kind and strictly worse in effect, was
+      neither closed nor declared. The shape set in `HOLE_ONE_SHAPES` is
+      hand-written, and the predicate under it is default-ALLOW: a request shape
+      the reading does not recognise makes a test a non-consumer. That is the
+      CARD-245 pattern the brief names -- derived set, allow-list predicate.
+    remedy: >-
+      One pass, no src change. `_fixture_marker` already returns pytest's own
+      `FixtureFunctionMarker`, and that object carries `.autouse` (verified:
+      `FixtureFunctionMarker {'scope': 'module', 'autouse': True, ...}`). So:
+      record autouse fixtures in `_fixture_graph`, and in `declared_consumers`,
+      if any name in `_implying_fixtures(fixture, graph)` is autouse at module
+      level (or at the class level in scope), return EVERY test in that scope as
+      a consumer. Add the found-now / missed-before control pair to
+      HOLE_ONE_SHAPES exactly as the four existing rows do -- the WITHOUT arm
+      (`_as_card_218_read_it`) misses it, so the pair is real. Separately, derive
+      the `test_`/`Test` prefixes from pytest's own `python_functions` /
+      `python_classes` ini values instead of hard-coding them, or state the
+      prefix assumption as a declared bound. Then re-state the enumeration at
+      :301 and the card's §2 bound list so it names everything left open.
+
+  - id: F-003
+    severity: important
+    gating: true
+    confidence: high
+    title: >-
+      The new agreement guard reads only `def`/`class` statements, so a copy put
+      back as an assignment or an alias is not refused -- and the claim is
+      "never both"
+    file: tests/test_shared_fixture_controls.py
+    line: 224
+    also:
+      - "tests/test_shared_fixture_controls.py:209-237 (test_no_importer_defines_its_own_copy_of_a_shared_helper)"
+      - "tests/helpers/shared_fixture_controls.py:14 (module docstring: \"refuses any consumer module that redefines a name this module exports\")"
+    claim: >-
+      shared_fixture_controls:14 -- the guard "refuses any consumer module that
+      redefines a name this module exports". The test's own docstring -- "A
+      module may import a helper or write its own -- never both."
+    mechanism: >-
+      `local = {node.name.lstrip("_") for node in tree.body if isinstance(node,
+      (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}`. Two narrowings in
+      one line: only `tree.body` (so a definition inside `if TYPE_CHECKING:` or a
+      `try:` block is out of view), and only the three definition node types (so
+      a module-level `ast.Assign`/`ast.AnnAssign` to the name, a `lambda` bound
+      to it, or `from x import y as case_of` is out of view). The CARD-218 state
+      the guard exists to make impossible -- two readings of one question in one
+      file -- is reachable by any of those spellings.
+    evidence: >-
+      MUTANT R2 (addition-shaped, in the REAL file; the card's M21/M23 are the
+      same shape in the spelling the guard WAS written from): added to
+      tests/test_book_pdf_band.py at module level a `def _probe_own_digest(page)`
+      returning its own sha256, then `_page_digest = _probe_own_digest`, which
+      rebinds the aliased import to a local second reading of the same question.
+      Ran `pytest -o addopts='' -p no:randomly tests/test_book_pdf_band.py
+      tests/test_shared_fixture_controls.py`: "65 passed, 250 warnings in 8.41s".
+      ZERO FAILURE CELLS -- the file now has a local copy AND the import, and
+      every call site uses the copy. File restored from the pristine copy;
+      `git status --short -- tests/ src/` clean afterwards.
+    why_it_matters: >-
+      This is the card's headline Half-B mechanism and the thing the whole
+      de-duplication rests on. ADR-0039/R2's durable form is that "the controls
+      are the shapes the guard was NOT written from"; M21/M22/M23 are all `def`
+      shapes, which is the one shape it was written from. A bypass this cheap
+      means the guard certifies agreement it cannot see.
+    remedy: >-
+      One pass, no src change. Either (a) extend the AST reading to every binding
+      form -- walk the whole tree rather than `tree.body`, and collect
+      `ast.FunctionDef`/`AsyncFunctionDef`/`ClassDef` names, `ast.Assign` /
+      `ast.AnnAssign` / `ast.AugAssign` Name targets, walrus targets, and
+      `alias.asname` on `ast.ImportFrom`/`ast.Import` whose module is not the
+      shared home -- or (b) better and derived (ADR-0039/R2): for each importer
+      module already in `sys.modules` after collection, compare
+      `getattr(mod, name).__module__` against `controls.__name__` for every
+      shared name the module binds, which answers from the object itself rather
+      than from a list of syntax shapes. Either way, add R2 above as a control
+      alongside M21/M23, and narrow the "never both" / "redefines" wording to
+      whatever the final reading really covers.
+
+  - id: F-004
+    severity: important
+    gating: true
+    confidence: high
+    title: >-
+      "The two agreeing is what the drawn count used to witness" is false -- the
+      converted KDP test's two assertions are the same production call at the
+      same arguments, and the drawn-vs-planned tie it replaced is measurably gone
+      from that test
+    file: tests/test_book_toc.py
+    line: 716
+    also:
+      - "tests/test_book_toc.py:709 (test_a_hundred_and_fifty_puzzles_take_one_toc_page)"
+      - "src/nonogram/admin/book_pdf_generator.py:6450 (section_plan's own call)"
+    claim: >-
+      The converted test's docstring: "The book was rendered to count the
+      ``create_toc_page`` calls. The same number is on the plan
+      (SectionPlan.toc_page_count), and the *reason* it is 1 is on the production
+      function the stream itself asks -- ``measured_toc_page_count`` over this
+      book's own frame, the same call at the same two arguments. The two agreeing
+      is what the drawn count used to witness; neither is this test's own
+      arithmetic."
+    mechanism: >-
+      The test asserts `measured_toc_page_count(len(rows), frame, DPI) == 1` and
+      `decided.toc_page_count == 1`. `section_plan` computes
+      `toc_page_count = measured_toc_page_count(toc_entry_count,
+      page_frame(self.page_spec(1)), self.dpi)` (src:6450). The two are the same
+      function at the same arguments, differing only in `len(rows)` vs
+      `toc_entry_count` and `DPI` vs `self.dpi`; their agreement witnesses only
+      that `structural_toc_entry_count` agrees with
+      `len(structural_toc_entries(...))` and that the generator's dpi is DPI --
+      which is already the subject of
+      TestBookToc_TheRowCountIsWhatTheCountFunctionPredicts. What the drawn count
+      `len(pages) == 1` witnessed -- that the number of TOC pages the WALK
+      actually produces equals the number the plan laid out -- is not witnessed
+      by either of them, and production's own tripwire (src:6825) re-measures
+      `measured_toc_page_count` rather than counting the pages the walk yields,
+      so it does not witness it either.
+    evidence: >-
+      MUTANT M29 (deletion/edit-shaped, line-count preserving, src, pristine copy
+      kept outside the worktree): `for index in range(toc_page_count):` ->
+      `for index in range(toc_page_count + 1):` at
+      src/nonogram/admin/book_pdf_generator.py:6923 -- the walk yields one TOC
+      page more than the plan laid out. Ran the whole toc file on both trees with
+      `pytest -o addopts='' -p no:randomly tests/test_book_toc.py -q`:
+      BASE (git show 808cf51f:tests/test_book_toc.py) -> 21 failed, 28 passed, 4 errors, 16.27 s
+      HEAD -> 14 failed, 35 passed, 4 errors, 4.89 s
+      The 7 lost cells are EXACTLY the seven converted tests, this one among them.
+      The mutant is still killed 14 times (test_an_empty_book_draws_no_toc_page,
+      test_the_numbers_move_with_the_tocs_own_length,
+      test_the_named_pages_really_are_those_pages, the RowsDeclare trio, the
+      SkipsEmptyLevels trio, ...), so NO DEFECT ESCAPES and `_rows_of`'s 13
+      surviving call sites really do carry the drawn tie. src restored from the
+      pristine copy; `git status --short -- src/ tests/` clean afterwards.
+    why_it_matters: >-
+      Six of the seven lost cells are the expected and acceptable price of a plan
+      assertion (M29 does not change the plan, so AC-1 is not violated by them).
+      The seventh is different, because its docstring explicitly claims to have
+      KEPT what the drawn count witnessed, and it has not. This is the exact
+      sibling of the pre-gate's open finding that the brief asked to be hunted,
+      found in the same file by the same method, and it is the fifteen-findings
+      family: a comment stating what a test catches, wider than what it catches.
+    remedy: >-
+      One pass, no src change. Replace the sentence with what the pair really
+      witnesses (that `structural_toc_entry_count` and `structural_toc_entries`
+      agree, and that the generator's dpi is DPI -- M18 on the card is the mutant
+      that kills it), and name the surviving carriers of the drawn-vs-planned tie
+      with the M29 measurement:
+      TestBookToc_EmptyBookHasNoTocPage::test_an_empty_book_draws_no_toc_page,
+      TestBookToc_PageNumbersMatchTheWalk::test_the_numbers_move_with_the_tocs_own_length
+      and ::test_the_named_pages_really_are_those_pages. Record M29 on the card
+      as the measurement, next to M18.
+
+  - id: F-005
+    severity: minor
+    gating: false
+    confidence: high
+    title: >-
+      Band's exemption control carries a conjunct that cannot fail by
+      construction -- `set(retained.by_cache) <= _lru_cache_names(globals())`
+    file: tests/test_book_pdf_band.py
+    line: 1825
+    claim: >-
+      band:1789 -- "The second assertion is the exemption's own control
+      (ADR-0039/R3) -- the allowance covers exactly the names ``functools`` made
+      caches of, so a third cache, or a page parked anywhere that is not a cache,
+      lands in the equality above and reds."
+    mechanism: >-
+      `Retention.by_cache` is built as `{name: ... for name, cache in
+      _caches_of(namespace).items()}` (shared_fixture_controls:696) and
+      `lru_cache_names(namespace)` is `set(_caches_of(namespace))`
+      (:641) -- the same function, the same namespace. `by_cache`'s key set is
+      therefore a subset of `lru_cache_names` for every possible input, so the
+      `<=` conjunct is a line that cannot fail. The first conjunct,
+      `caches == {"_font_bytes", "_set_once"}`, IS failable and does bite
+      (measured: see `reproduced` above).
+    evidence: >-
+      Probe: `set(r.by_cache) <= lru_cache_names(ns)` -> True, with
+      `by_cache keys {'_cached'}` and `lru_cache_names {'_cached'}`, for a
+      namespace holding one cache; and by construction for any other. CARD-218's
+      own cycle 2 (F-005) was a conjunct deleted for exactly this reason, and
+      THIS card wrote
+      `TestSharedControls_TheCopiesCannotComeBack::test_a_denominator_read_off_another_module_is_refused`
+      to stop it recurring -- then re-introduced one in band.
+    remedy: >-
+      Drop the `<=` conjunct, or give the claim a reachable subject: assert what
+      actually could go wrong, which is that a page is reported in by_cache for a
+      name that is not an lru_cache (unreachable today) or -- the useful version,
+      and F-001's remedy (a) makes it reachable -- that a cache NOT bound to a
+      module-level name lands in by_name rather than vanishing. Narrow the
+      docstring sentence either way.
+
+  - id: F-006
+    severity: important
+    gating: true
+    confidence: high
+    carried_from: "[FIX PRE-GATE on 6677cbf0] -- the open finding, ruled on here rather than re-discovered"
+    title: >-
+      Ruling on the open finding: narrowing the claim IS sufficient for AC-1, but
+      only together with a fence on the three tests that now carry the lost term
+      alone -- and CARD-220 is chartered to prune exactly those
+    file: tests/test_book_toc.py
+    line: 429
+    evidence: >-
+      The pre-gate's Q6 (off-by-one in `interior_stream`'s `first_answer_page`,
+      src:6718) measured 4 red cells on the base tree and 3 on the converted
+      tree, the lost one being
+      TestBookToc_PageNumbersMatchTheWalk::test_each_row_points_at_the_page_the_walk_planned.
+      I did not re-run Q6; I accepted it and instead verified its METHOD and its
+      generality with a second, independent src mutant in the same two-arm shape
+      (M29, F-004's evidence: base 21 cells, HEAD 14, the 7 lost being exactly
+      the seven converted tests). I then traced the cause in the code rather than
+      in the docstring: `_planned_rows` at tests/test_book_toc.py:231 passes
+      `_solutions_divider_page(decided)` into `structural_toc_entries`, where
+      production at src:6786 passes its own `first_answer_page - 1` computed at
+      src:6718 -- and `grep -n first_answer_page src/nonogram/admin/book_pdf_generator.py`
+      shows it is read at :6734 (an inert page_spec probe, per the code's own
+      comment), :6786, :6976 and :6978 and is carried on no returned value, so no
+      pure surface exposes it.
+    ruling: >-
+      I accept the pre-gate's measurement and its diagnosis, and I add the
+      mechanism and one condition it did not state.
+      THE MECHANISM: the term was lost because `_planned_rows` (tests/test_book_toc.py:231)
+      must SUPPLY the solutions page to `structural_toc_entries`, and it supplies
+      `_solutions_divider_page(decided)` -- a test-side re-spelling of production's
+      `first_answer_page` (src:6718). Production builds the same rows at src:6786
+      with its OWN `first_answer_page - 1`. So on the converted tree the solutions
+      row carries a test-authored number where it used to carry production's, and
+      that -- not the docstring -- is why Q6's off-by-one no longer reds it. It is
+      structurally unreachable from any pure surface: `InteriorStream` carries
+      neither `toc_entries` nor `first_answer_page` (the round's own G-5 finding),
+      and `page_count` / `answer_page_count` do not read it.
+      SUFFICIENCY: AC-1's "it fails if the plan changes" reads on the plan terms
+      the test asserts, and those are mutant-covered (the card's M17b reds it). The
+      defect is the docstring asserting coverage the test does not have --
+      ADR-0039/R1, not AC-1. So narrowing is enough for AC-1. It is NOT enough on
+      its own, because the pre-gate's own "no defect escapes" now rests on a single
+      class, in a file CARD-220 is chartered to prune for redundancy. That is the
+      half that gets forgotten.
+    remedy: >-
+      One pass, four edits, no src change.
+      (1) Replace the last sentence of
+      TestBookToc_PageNumbersMatchTheWalk::test_each_row_points_at_the_page_the_walk_planned's
+      docstring ("Both are pure and neither draws; an off-by-one in either reds
+      this.") with the two terms it really covers (`page_count`,
+      `answer_page_count`) plus an explicit statement that `interior_stream`'s own
+      `first_answer_page` (src:6718) is NOT covered here.
+      (2) Say in `_solutions_divider_page`'s docstring that it is a test-side
+      re-spelling of a production term, that the row's page is therefore
+      test-authored on this tree, and that the production term's coverage lives in
+      the rendering class -- with the Q6 cell counts (4 on base, 3 on HEAD).
+      (3) FENCE: name, on CARD-219's AC-3 record and on CARD-220's card,
+      TestBookToc_PageNumbersSurviveTheTitlePage::test_the_solutions_row_points_at_the_solutions_divider,
+      ::test_the_comparison_would_have_caught_a_one_page_drift and
+      TestBookToc_PageNumbersMatchTheWalk::test_the_named_pages_really_are_those_pages
+      as the sole carriers of the `first_answer_page` term, with the Q6
+      measurement, so the next card cannot prune them as redundant renders.
+      (4) RAISE, do not make: exposing `toc_entries` and `first_answer_page` on
+      `InteriorStream` is the durable fix -- it would delete `_solutions_divider_page`
+      outright and restore the lost cell -- and it is a src change G-5 forbids
+      here. It is NOT CARD-220's (that card is test deletion and has no src
+      mandate): cut it as a successor card to CARD-219, with Q6's two-arm cell
+      counts as its acceptance evidence.
+    disagreement_with_pre_gate: >-
+      Only one, and it is additive rather than corrective: the pre-gate frames the
+      remedy as "either the claim narrows ... or `first_answer_page` gets exposed".
+      Narrowing alone leaves the coverage standing on one class that a sibling card
+      is chartered to delete, so the fence (3) is part of the remedy, not
+      housekeeping.
+
+not_checked:
+  - "Step 8f mutation check: DEFERRED(cost), per the cycle config. Four of the findings above change the tests it would certify (F-001 widens the retention walk and adds controls, F-002 widens the denominator and adds a control, F-003 rewrites the agreement guard's reading, F-004 and F-006 rewrite two docstrings), so certifying today's bodies buys nothing. What it would have covered and what I covered instead: I ran five mutants by hand on the real files -- R1 and R2 (addition-shaped, in the real band file), M29 (line-count-preserving, in src, two arms) -- plus a call-time second-domain re-derivation of all four retention figures, and I accepted the pre-gate's Q1-Q5 rather than re-running them."
+  - "I did not re-run the pre-gate's Q1-Q5 or the round's M1-M26. I re-derived their SUBJECT figures instead and I hunted the shapes they were not written from, which is where all three new gating findings came from."
+  - "I did not build a per-assertion recording instrument. Every measurement above is a plain-pass cell count, so attribution past a test's first failing assert is not available -- in particular, band's retention control has two asserts and I know only that R1 reached neither as a failure, not which of them would have fired first had the walk seen the parked pages."
+  - "Full suite: not run (test_scope: impact; the full-suite lock is the merge gate's). The 964-test impact set is what I verified."
+  - "The four other in-scope files the round declined to convert on cost (finalise_gutter, two_up, levels, page_numbers): I accepted the round's measurement (no test over 0.71 s) and did not re-profile them."
+  - "tests/test_suite_profile.py's RENDER_HEAVY_SNAPSHOT: it passes inside the 964 and the snapshot tuple is byte-identical in the diff, so the three-direction check holds, but I did not independently re-grep the eight idioms over tests/**/*.py."
+  - "The ten untracked files at the worktree root: confirmed present and not in the commit's six files; not this card's, left alone as the pre-gate ruled."
+  - "I did not examine whether `bitmap_bytes` counting a bool ink mask's nbytes (`_set_once` returns a cropped boolean array) as \"page-bitmap bytes\" is the right unit for the exemption's figure. It makes the 24,435,107 B honest as a retention number but it is not 24.4 MB of page pixels."
+
+guardrails:
+  G-1: "respected -- export_interior and the geometry file left rendering; verified by reading the pixel assertions, see `reproduced`"
+  G-2: "respected -- 0 node ids removed over the six in-scope files; 25 added in the new module, all named on the card"
+  G-3: "respected -- test_book_export_interior.py is not touched by the diff at all; CASES = 28, >= 20, >= FINALISE_CASES >= 18 unchanged"
+  G-4: "respected -- none of the three untouchable classes is in the diff"
+  G-5: "respected -- git diff 808cf51f..6677cbf0 -- src/ is empty (0 lines); F-006(4) raises the needed production change rather than prescribing it here"
+  G-6: "respected -- nothing narrowed, lowered or dropped to improve a figure"
