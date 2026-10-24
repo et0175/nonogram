@@ -188,9 +188,14 @@ FR-046 (to be minted by the delta above).
 - **Regrade** keeps reporting `guess` without demoting anyone (G-1). A regrade
   that *discovers* guess on an approved puzzle is a report for the owner — a
   demotion policy, if wanted, is a separate decision.
-- **The grader's inversion** (branch-heavy puzzles scoring bottom-of-Medium)
-  stays as is: with the gate in place no such puzzle reaches a buyer, and a
-  score re-scale is an ADR-0029/ADR-0031 revision with its own blast radius.
+- **The grader's inversion is CLOSED** — same day, by ADR-0029/R6 (owner
+  follow-up decision, commit ccac87e5): a branching solve now scores the
+  ceiling (100, tier hard) before any rung is read, with
+  tests/test_difficulty.py::test_a_branching_solve_pins_the_ceiling_and_outranks_every_ladder_score
+  as its control. The gate is still needed and unchanged in scope: *hard* is a
+  publishable tier and "needs guessing" must **refuse**, not re-label — the
+  score's job is to not lie, the gate's job is to not sell it. G-2 stands:
+  this card does not touch difficulty.py further.
 
 ## Worktree notes
 
