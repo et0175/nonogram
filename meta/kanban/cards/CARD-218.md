@@ -21,7 +21,7 @@
 **Started:** 2026-10-23
 **Closed:** 2026-10-24
 **Actual:** 1d (dispatched 2026-10-23; implementation round + fix pre-gate + cycle 1 + fix round 1 + fix pre-gate + cycle 2 + fix round 2 + fix pre-gate + merge gate = aggregate round counter 6 of 6)
-**Merge commit:** —
+**Merge commit:** 3d2664f7
 **Blocked by:** —
 
 ## What to implement
@@ -2922,3 +2922,24 @@ fork point; nothing in the product moved. `Merge commit` is recorded below and
 merge** rather than left to be discovered in a retro: if the owner would rather
 spend a seventh round and a third cycle on a 0.7 s saving, this merge is the
 thing to revert.
+
+## [POST-MERGE 2026-10-24] Green on main, and the lock refused the orchestrator's own run
+
+`3d2664f7`, two files, **+1210 / −39** against the fork point.
+`git diff c7cca514..HEAD -- src/` is **empty** — nothing in the product moved.
+
+Re-run on main after the merge: the two converted files plus
+`test_suite_profile.py`, `test_guard_integrity.py`, `test_impact_set.py`,
+`test_fixture_integrity.py` and `test_browser_fixture_scope.py` →
+**783 passed, zero skips**, and the retention probe reads **576 B** (320 + 256)
+with both modules still in `sys.modules`.
+
+One thing worth keeping, because it is the lock working on its author: the
+first attempt at this post-merge run was **refused by the lock this gate had
+written**, since the lock named the card's worktree and the run came from main.
+That is the mechanism CARD-255 built and CARD-271's gate demonstrated,
+catching the orchestrator rather than a stranger. The lock was then released
+and the run repeated.
+
+Worktree removed, branch `card/218-render-once-per-module` deleted (was
+`72438595`), `git worktree list` back to main alone.
