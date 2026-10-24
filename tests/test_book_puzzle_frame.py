@@ -89,6 +89,8 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import hashlib
+import inspect
 import random
 import warnings
 from fractions import Fraction
@@ -128,6 +130,13 @@ from nonogram.export.layout import _placed_drawing_top
 from nonogram.export.png import BACKGROUND, render_image
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.two_up_ink import drawings_of
+# The project's own figure for one book page — 2550 x 3300 RGB, 25,245,000 B.
+# Imported rather than restated so the retention bound at the end of this file
+# is the unit this repo already reasons in, and cross-checked against the
+# pages this module actually draws by
+# ``TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind.test_the_page_bitmap_unit_is_this_modules_own_page``,
+# so it cannot quietly come to mean something else.
+from tests.test_book_pdf_memory import PAGE_BITMAP_BYTES
 from tests.test_book_qr_slot import (
     UNEQUAL_GUTTER_MM,
     UNEQUAL_OUTSIDE_MM,
@@ -896,6 +905,64 @@ def _book_pages() -> list[Image.Image]:
     return pages
 
 
+def _page_digest(page: Image.Image) -> bytes:
+    """A 32-byte witness for exactly which pixels a page carries.
+
+    The control on the shared render compares pages for *equality*, so a
+    sha256 of the page's bytes discriminates exactly as well as the
+    25,245,000 bytes themselves — and here that is not a micro-optimisation.
+    pytest keeps a test module in ``sys.modules`` for the rest of the session,
+    so whatever :data:`_SHARED_DIGEST` holds outlives the module-scoped
+    fixture that filled it: holding the bytes held **10 page bitmaps
+    (252,450,000 B) alive to the end of every run that touched this file**
+    (CARD-218 cycle 1, F-001), which is the very thing the fixture below
+    chooses module over session scope to avoid. 32 B says the same thing.
+
+    ``hashlib`` is stdlib, so ADR-0006/R1's dependency baseline is untouched.
+    """
+    return hashlib.sha256(page.tobytes()).digest()
+
+
+@pytest.fixture(scope="module")
+def pages() -> list[Image.Image]:
+    """This module's one book, drawn once for the whole module (CARD-218).
+
+    Five places used to ask for this interior — four class-scoped ``pages``
+    fixtures and one inline call — so the same three puzzles were laid out and
+    drawn five times to be measured five ways. The measurement that moved it
+    here: the four class renders plus the inline one cost 0.418 s of repeated
+    work, every byte of it identical, which was the largest single
+    identical-input render duplication anywhere in CARD-218's nine files.
+
+    **Module, not session** (the card's rule 2): a session fixture would hold
+    this book's page bitmaps alive for the rest of the run, and
+    ``test_book_pdf_memory.py`` exists because a page alive while the next is
+    built was a real defect (CARD-145).
+
+    **Read-only.** Every consumer measures ink through ``np.asarray`` /
+    ``drawings_of`` / ``drawing_of``, all of which read the image and return
+    something new; none draws on it. A test that needs to draw must take
+    ``page.copy()``, and
+    :meth:`TestPuzzleFrame_TheSharedInteriorIsNotMutated.test_the_shared_pages_are_handed_out_as_they_were_drawn`
+    is the control that fails if one forgets: it digests every page after the
+    module's measuring tests have run and compares it with the digest taken
+    when the book was drawn.
+    """
+    drawn = _book_pages()
+    _SHARED_DIGEST.extend(_page_digest(page) for page in drawn)
+    return drawn
+
+
+#: A sha256 per page of :func:`pages` as it was drawn, filled by the fixture
+#: and read back by its mutation control. A list rather than a module-level
+#: rebinding so the control cannot pass by reading a name the fixture never
+#: set — and a *digest* rather than the bytes, because this list outlives the
+#: fixture (see :func:`_page_digest`, and the retention control at the end of
+#: this file, which holds every module-level accumulator of this file to
+#: exactly 32 B per page of the book it signed).
+_SHARED_DIGEST: list[bytes] = []
+
+
 # --------------------------------------------------------------------------
 # FR-040's pair arithmetic, in millimetres, written out here
 # --------------------------------------------------------------------------
@@ -1106,11 +1173,6 @@ class TestPuzzleFrame_PairIsFramedOnThePrintedPage:
     where a frame is; it is found or it is not.
     """
 
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pages(cls) -> list[Image.Image]:
-        return _book_pages()
-
     def test_both_slots_read_back_as_framed_drawings(self, pages) -> None:
         """The gap, stated: before this card both slots read ``framed=False``."""
         upper, lower = drawings_of(pages[TWO_UP_PAGE - 1])
@@ -1233,11 +1295,6 @@ class TestPuzzleFrame_PairIsFramedOnThePrintedPage:
 
 class TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly:
     """Every frame rule on a printed pair is the heavy weight, and pure black."""
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pages(cls) -> list[Image.Image]:
-        return _book_pages()
 
     @staticmethod
     def _weights(dark: np.ndarray, drawing) -> tuple[int, int]:
@@ -1363,11 +1420,6 @@ class TestPuzzleFrame_TwoUpStraddlesItsBoundaryLikeASinglePage:
     against boundaries worked out in millimetres.
     """
 
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pages(cls) -> list[Image.Image]:
-        return _book_pages()
-
     @staticmethod
     def _straddle(dark: np.ndarray, row: int, boundary: float) -> tuple[float, float]:
         """How far a rule's ink reaches either side of ``boundary``, in pixels.
@@ -1456,11 +1508,6 @@ class TestPuzzleFrame_TwoUpStraddlesItsBoundaryLikeASinglePage:
 
 class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
     """CARD-127's and CARD-118's measured figures, on the framed pair."""
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def pages(cls) -> list[Image.Image]:
-        return _book_pages()
 
     def test_the_pair_still_prints_at_the_shared_cell_fr_040_measures(
         self, pages
@@ -2552,7 +2599,9 @@ class TestBookPuzzleFrame_GridClearsBothRules:
             floated,
         )
 
-    def test_a_real_books_pages_keep_their_ink_off_both_drawn_rules(self) -> None:
+    def test_a_real_books_pages_keep_their_ink_off_both_drawn_rules(
+        self, pages
+    ) -> None:
         """The ink-level half: a real interior, with the frame's rules drawn.
 
         The rules' rows are measured off the page too — each is the one run of
@@ -2560,7 +2609,6 @@ class TestBookPuzzleFrame_GridClearsBothRules:
         than the text block reaches — so neither side of this comparison is
         ``interior_frame``'s own answer.
         """
-        pages = _book_pages()
         spec = _spec()
         text_width = round((spec.width_mm - spec.gutter_mm - spec.outside_mm) * PX_PER_MM)
         area_top_mm, area_bottom_mm = _puzzle_area_mm(spec)
@@ -3042,3 +3090,490 @@ class TestBookPuzzleFrame_NoEmptyLowerThird:
         assert above == pytest.approx(BAND_MM * HEADER_RULE_LIFT_SHARE, abs=0.01)
         assert below > 1.4 * above, (above, below)
         assert abs(above / spare - SPARE_ABOVE) > 0.1
+
+
+# --------------------------------------------------------------------------
+# CARD-218 fix round 1 — what the controls below are allowed to conclude
+#
+# Reimplemented natively here and again in ``tests/test_book_pdf_band.py``
+# rather than hoisted into a shared helper: the two converted files are this
+# card's whole subject, and the house precedent for two places needing the
+# same small check is to write it twice (CLAUDE.md, ``solver/propagate.py``'s
+# ``mask_runs``). The two copies are cross-checked against each other by
+# nothing but this comment, which is the honest cost of that choice; each is
+# ~40 lines and reads only pytest's own collection data.
+# --------------------------------------------------------------------------
+
+
+#: The module fixture the controls at the end of this file are controls *on*.
+SHARED_RENDER = "pages"
+
+
+def _case_of(item: object) -> str:
+    """``Class::function`` for a collected item, parametrised cases collapsed.
+
+    One name per test *function*, so a set read off collected items compares
+    with a set read off the module's signatures: ``test_x[a]`` and
+    ``test_x[b]`` are one consumer, because one function declares the fixture.
+    """
+    name = getattr(item, "originalname", None) or item.name
+    owner = getattr(item, "cls", None)
+    return f"{owner.__name__}::{name}" if owner is not None else name
+
+
+def _declares(member: object, fixture: str) -> bool:
+    """Does this test function take ``fixture`` as an argument?"""
+    function = getattr(member, "__func__", member)
+    if not callable(function):
+        return False
+    try:
+        return fixture in inspect.signature(function).parameters
+    except (TypeError, ValueError):  # not a Python callable
+        return False
+
+
+def _declared_consumers(namespace: dict[str, object], fixture: str) -> set[str]:
+    """Every test in this module that asks for ``fixture``, read off signatures.
+
+    The controls' denominator, **derived rather than written down**: a consumer
+    added or taken away moves it without anyone having to remember a number.
+    """
+    found: set[str] = set()
+    for name, value in namespace.items():
+        if isinstance(value, type) and name.startswith("Test"):
+            found.update(
+                f"{name}::{attr}"
+                for attr, member in vars(value).items()
+                if attr.startswith("test_") and _declares(member, fixture)
+            )
+        elif name.startswith("test_") and _declares(value, fixture):
+            found.add(name)
+    return found
+
+
+def _consumers_among(items: object, fixture: str) -> set[str]:
+    """The consumers of ``fixture`` *from this module* among collected items."""
+    return {
+        _case_of(item)
+        for item in items
+        if getattr(getattr(item, "function", None), "__module__", None) == __name__
+        and fixture in getattr(item, "fixturenames", ())
+    }
+
+
+def _refuse_unless_every_consumer_is_collected(
+    request: pytest.FixtureRequest, namespace: dict[str, object], fixture: str
+) -> None:
+    """Default-deny (ADR-0039/R2) on a denominator this control cannot see.
+
+    The render-count controls read a counter that only the tests pytest
+    actually runs increment, so a selection narrower than the module narrows
+    the denominator with it: with one consumer selected, *one render* and *one
+    render per test* are the same observation, and the control passes whatever
+    the fixture's scope is. That is cycle 1's F-002, where ``-k one_render`` —
+    the obvious way to re-check a test called
+    ``test_one_render_served_the_whole_module`` — returned a silent green with
+    the mechanism deleted.
+
+    So the control refuses to answer instead of answering wrongly. The cost is
+    stated rather than hidden: selecting one of these controls on its own now
+    reds, with a message saying what it could not evaluate and how to. The
+    whole-file runs the gates use are unaffected.
+    """
+    declared = _declared_consumers(namespace, fixture)
+    collected = _consumers_among(request.session.items, fixture)
+    absent = sorted(declared - collected)
+    assert not absent, (
+        f"this control cannot evaluate its own denominator: {len(collected)} "
+        f"of this module's {len(declared)} {fixture!r} consumers were "
+        f"collected by this selection, so one render and one render per test "
+        f"are the same observation here. Not collected: {absent}. Select at "
+        "least every consumer listed — the whole file always does, and for a "
+        "class-scoped render its own class does — because a narrower run "
+        "cannot see the fixture's scope, and passing would be the vacuous "
+        "green ADR-0039/R2 forbids."
+    )
+
+
+def _refuse_unless_nothing_takes_it_later(
+    request: pytest.FixtureRequest, fixture: str, *, siblings_excepted: bool
+) -> None:
+    """A control on a shared render must be the last thing that takes it.
+
+    Both read-only controls said in prose that they run last "because pytest
+    collects a module in file order", and nothing asserted it — cycle 1's
+    F-006. This asserts it off the collected order of *this* run rather than
+    off the premise: a consumer collected after the control is a test the
+    control cannot speak for, because it had not yet had its chance to draw on
+    the shared pages.
+
+    ``siblings_excepted`` drops this control's own class from the question.
+    The other tests in a control class are controls too — they digest and
+    measure, and a reader cannot mutate — so a sibling collected after the
+    control is not a gap. The class-scoped control passes ``False``: there its
+    consumers *are* its classmates.
+    """
+    items = list(request.session.items)
+    try:
+        mine = items.index(request.node)
+    except ValueError:  # the node is always in the session
+        mine = len(items)
+    later = sorted(
+        {_case_of(item)
+        for item in items[mine + 1 :]
+        if getattr(getattr(item, "function", None), "__module__", None) == __name__
+        and fixture in getattr(item, "fixturenames", ())
+        and not (siblings_excepted and getattr(item, "cls", None) is request.cls)}
+    )
+    assert not later, (
+        f"this control reads the shared render before {len(later)} test(s) "
+        f"that also take {fixture!r}, so it cannot speak for them: {later}. "
+        "A control on a shared render goes after everything that takes it — "
+        "move its class to the end of the file, or run the file in its own "
+        "order rather than naming node ids in another one."
+    )
+
+
+def test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue() -> None:
+    """The one consumer shape *both* guards above are blind to, held to zero.
+
+    :func:`_declared_consumers` reads signatures and
+    :func:`_consumers_among` reads ``item.fixturenames``; a test that takes
+    the shared render with ``request.getfixturevalue("pages")`` appears in
+    neither, so it is in no denominator and in no later-consumer set. Cycle 2
+    measured the consequence on this helper's twin, with one mutation drawn
+    two ways: a late class putting a 9 px line on the shared interior is
+    **caught** (2 failed) when it takes the fixture as a parameter and
+    **missed** (40 passed, 0 cells) when it takes it that way. The idiom is
+    live in this tree — 9 sites, one of them
+    ``tests/test_puzzle_solver_page.py:671``,
+    ``return request.getfixturevalue("page")``.
+
+    So it becomes a **declared bound with its own failing control**
+    (ADR-0039/R3) rather than a silent gap: this file uses it **0 times**
+    (measured), and this says so to pytest. Anyone who adds one reds here
+    immediately, which is the point — the message below is the handover.
+
+    This is deliberately a *check* and not a model. The shapes that would need
+    one — a consumer reached through another fixture, an inherited method, a
+    nested ``Test`` class, ``@pytest.mark.usefixtures`` — stay open, have no
+    instance in these two files today (measured: for all three shared
+    fixtures, collected minus declared is empty, with declared = collected =
+    22 / 8 / 4), and are CARD-219's, where the transitive-fixture closure that
+    actually answers them is being written against a shared copy of these
+    helpers.
+    """
+    taken = sorted(
+        node.lineno
+        for node in ast.walk(ast.parse(Path(__file__).read_text(encoding="utf-8")))
+        if isinstance(node, ast.Attribute) and node.attr == "getfixturevalue"
+    )
+    assert not taken, (
+        f"{len(taken)} test(s) in this module take a fixture through "
+        f"`request.getfixturevalue`, at line(s) {taken}: a consumer taken "
+        "that way is invisible to both halves of the selection guard above — "
+        "to `_declared_consumers`, which reads signatures, and to "
+        "`_consumers_among`, which reads `item.fixturenames` — so the "
+        "controls on the shared render would pass without covering it "
+        "(cycle 2 F-002, measured: 2 cells when declared, 0 when taken this "
+        "way). Take the fixture as a parameter, or close this guard properly "
+        "with the transitive-fixture closure CARD-219 owns."
+    )
+
+
+def _bitmap_bytes(value: object) -> int:
+    """The page-bitmap bytes ``value`` is holding; 0 if it holds none.
+
+    An image is measured from its geometry rather than through ``tobytes()``,
+    so asking the question allocates nothing.
+    """
+    if isinstance(value, memoryview):
+        return value.nbytes
+    if isinstance(value, (bytes, bytearray)):
+        return len(value)
+    width = getattr(value, "width", None)
+    height = getattr(value, "height", None)
+    bands = getattr(value, "getbands", None)
+    if isinstance(width, int) and isinstance(height, int) and callable(bands):
+        return width * height * len(bands())
+    return 0
+
+
+def _retained_bitmap_bytes(namespace: dict[str, object]) -> dict[str, int]:
+    """Per module-level name, the bitmap bytes it will outlive the fixtures with.
+
+    Covered: a module-level image or bytes object, and one level inside a
+    module-level list, tuple, set or dict — which is where a hoisted render
+    lands, and where F-001's 433.4 MB was found.
+
+    **Not** covered. Each channel below is *measured* rather than reasoned
+    about (cycle 2, F-001), because a blind spot asserted in prose and never
+    measured is how cycle 1's 433.4 MB stayed invisible in the first place:
+
+    * a page's pixels as a **numpy** array: ``_bitmap_bytes`` returns ``0``
+      for ``np.asarray(page)`` while that array's ``nbytes`` is 25,245,000
+      (measured 2026-10-24) — and numpy arrays taken off a page are this
+      module's working form: :func:`_dark` is ``np.asarray(page.convert("L"))``
+      thresholded, 8,415,000 B of mask per page, also invisible here;
+    * a bitmap held on a ``Test*`` **class attribute**: this walk reads
+      module-level names, and a class body is not one (measured: a namespace
+      holding a class whose ``pages`` is a real page returns ``{}``);
+    * containers nested deeper than one level (measured: ``{'N': [[page]]}``
+      returns ``{}``);
+    * a bitmap behind an ``@lru_cache``, whose store ``functools`` does not
+      expose — **a channel this module does not have**, corrected from the
+      copy this helper was written beside (cycle 2, F-001: the frame copy
+      declared the blind spot anyway). Measured: zero ``@lru_cache``
+      decorators in this file, and an independent deep walk to depth 8 over
+      this module at session end returns **320 B**, equal to what this
+      instrument itself reports. ``tests/test_book_pdf_band.py``, which
+      carries the twin of this helper, has two such caches and 25,192,183 B
+      behind them; this file has neither.
+
+    A render retained any of those ways needs a control of its own. What this
+    instrument *can* answer is stated below as an equality over the names it
+    walks, and as nothing wider, so it cannot be read as covering them.
+    """
+    found: dict[str, int] = {}
+    for name, value in sorted(namespace.items()):
+        if name.startswith("__"):
+            continue
+        held = _bitmap_bytes(value)
+        if isinstance(value, dict):
+            held += sum(_bitmap_bytes(item) for item in value.values())
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            held += sum(_bitmap_bytes(item) for item in value)
+        if held:
+            found[name] = held
+    return found
+
+
+# --------------------------------------------------------------------------
+# CARD-218's AC-5 — the control it was missing (cycle 1, F-001)
+# --------------------------------------------------------------------------
+
+
+class TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind:
+    """AC-5, with a verifier that can fail on this module's **accumulators**.
+
+    AC-5 says the fixture "must not keep more pages alive at once than the
+    single-test path did", and named ``test_book_pdf_memory.py``'s peak
+    assertions as its verifier. Those assertions instrument that module's own
+    ``_live`` dict, so they cannot fail on bytes retained by this one: the
+    conversion shipped **10 page bitmaps (252,450,000 B) held to the end of
+    every session that collected this file**, and no guard on the board could
+    see it: no module under ``tests/`` *asserts a shape* on this process's own
+    memory (``tests/helpers/book_corpus.py``'s ``resident_bytes`` reads
+    ``ru_maxrss``, but only as the quantity a child's cap is enforced
+    against), and the one module that instruments page memory at all measures
+    its own live-page dict (deliberately — it says so at its line 84). That
+    sentence is held to a grep over every token it claims about —
+    ``ru_maxrss|getrusage|RLIMIT_AS|peak_rss|max_rss|tracemalloc|resident_bytes``
+    — which returns exactly ``tests/test_book_pdf_memory.py`` and
+    ``tests/helpers/book_corpus.py``, **plus the two files this card converts,
+    because this very paragraph names the tokens**. Re-run it with
+    ``--include='*.py' tests/ | grep -vE 'puzzle_frame|pdf_band'`` to see the
+    two that matter, or read the four and note that two of them are this
+    sentence talking about itself. (Cycle 2, F-004: the sentence this replaces
+    said "at all", and one grep refuted it. The orchestrator's pre-gate then
+    found that recording the grep had changed what the grep returns — four
+    files, not two — which is why the count is written out here rather than
+    left to be rediscovered.)
+
+    pytest keeps a test module in ``sys.modules``, so a module-level
+    accumulator outlives the module-scoped fixture that filled it, which is
+    exactly what :func:`pages` chose module over session scope to avoid.
+
+    **Scope, stated as the measurement rather than as a universal.** This
+    control's subject is the module-level accumulators
+    :func:`_retained_bitmap_bytes` walks — not everything this module leaves
+    behind. Here the two happen to coincide, and that is measured rather than
+    assumed: an independent deep walk to depth 8 over this module at session
+    end on 2026-10-24 returns **320 B**, all of it :data:`_SHARED_DIGEST`,
+    equal to what this instrument reports, and this file has **no**
+    ``@lru_cache`` at all. Its twin ``tests/test_book_pdf_band.py`` is the
+    file where the two figures diverge — 256 B of accumulator against
+    25,192,439 B really retained, the difference being two pre-existing
+    ``@lru_cache(maxsize=None)`` stores that predate CARD-218 (25,192,183 B at
+    the fork point ``c7cca514``) and are backlogged. The equality below is
+    stated so that if this file ever grows such a channel, the claim does not
+    silently widen to cover it.
+
+    This control is **selection-independent** — unlike the render-count
+    controls below it, it needs no denominator: whatever ran, an accumulator
+    holding more than its digests is holding more than its digests. One node
+    id of it is enough to red the regression.
+
+    It is placed immediately *before* the module's mutation control rather
+    than after it, because that control must be the last thing in the file
+    that takes :func:`pages` (its own ordering guard says so), and nothing
+    after this point can add to an accumulator: every fixture that fills one
+    has run.
+    """
+
+    def test_the_page_bitmap_unit_is_this_modules_own_page(self, pages) -> None:
+        """The unit the bound below is stated in is this book's real page.
+
+        ``PAGE_BITMAP_BYTES`` is ``test_book_pdf_memory.py``'s definition of a
+        page — 2550 x 3300 RGB, 25,245,000 B — and the unit cycle 1 reported
+        the retention in. The pages this module draws are measured against it
+        here instead of being assumed to match, so a change of trim or
+        resolution fails this rather than quietly making the bound mean
+        something else. Two instruments, one figure: the project's constant
+        and the geometry of a page as drawn.
+        """
+        measured = {_bitmap_bytes(page) for page in pages}
+        assert measured == {PAGE_BITMAP_BYTES}, (
+            "this module's pages are no longer the page the retention bound "
+            f"is stated in: measured {sorted(measured)} B against "
+            f"test_book_pdf_memory.PAGE_BITMAP_BYTES = {PAGE_BITMAP_BYTES} B. "
+            "Re-derive the bound below from the page this module now draws."
+        )
+
+    def test_no_module_level_accumulator_retains_a_page_bitmap(self, pages) -> None:
+        """The accumulators hold one 32-byte digest per page they signed — exactly.
+
+        The node id is unchanged on purpose: the card's mutant tables (M7, M8)
+        and three sets of review notes are keyed to it, and the name is still
+        true — it is now the weaker half of what is asserted.
+
+        An **equality**, not a bound, and that is the correction cycle 2 asked
+        for (F-001). ``total < one page bitmap`` was a threshold its twin in
+        ``tests/test_book_pdf_band.py`` sat 0.21 % under once everything that
+        module retains is counted, and it invited a comparison against a
+        quantity the instrument above cannot see. The equality invites none:
+        the accumulators hold ``32 B x pages`` or they are wrong, and they go
+        red the instant any byte comes back — a digest store turned into
+        ``page.tobytes()``, a second accumulator holding a page, a fixture
+        that never signed, a book of a different length.
+
+        Both sides are derived. ``32`` is sha256's digest size written out by
+        hand here rather than read back off :func:`_page_digest`, so this is a
+        second statement of the digest's width and not that function run
+        twice; the page count is the book the fixture actually handed out. The
+        page-bitmap unit still appears, in the message and in the test above,
+        because the figure a reader needs when this reds is how many pages the
+        accumulator is now worth.
+        """
+        digest_bytes = 32
+        unit = _bitmap_bytes(pages[0])
+        retained = _retained_bitmap_bytes(globals())
+        total = sum(retained.values())
+        expected = digest_bytes * len(pages)
+        detail = (
+            ", ".join(
+                f"{name} {held:,} B ({held / unit:.4f} pages)"
+                for name, held in sorted(retained.items(), key=lambda row: -row[1])
+            )
+            or "no module-level name holds any measurable bytes"
+        )
+        assert total == expected, (
+            f"this module's module-level accumulators will leave {total:,} B "
+            f"({total / unit:.4f} page bitmaps) alive after its fixtures are "
+            f"finalised, rather than the {expected:,} B of one "
+            f"{digest_bytes}-byte digest per page of the {len(pages)}-page "
+            f"book they signed: {detail}. pytest keeps a test module in "
+            "sys.modules for the rest of the session, so a module-level "
+            "accumulator outlives the module-scoped fixture that filled it — "
+            "the retention module scope was chosen to avoid (CARD-218 AC-5, "
+            "F-001). Store a 32-byte `_page_digest(page)`, not "
+            "`page.tobytes()`. This says nothing about the channels the "
+            "instrument declares it cannot see: numpy arrays, Test-class "
+            "attributes, and containers nested deeper than one level."
+        )
+
+
+# --------------------------------------------------------------------------
+# CARD-218 — the control on the shared render
+# --------------------------------------------------------------------------
+
+
+class TestPuzzleFrame_TheSharedInteriorIsNotMutated:
+    """CARD-218's AC-4, for the one book this module now draws once.
+
+    Sharing a render is only sound while every reader is a reader. Pillow
+    images are mutable and this file compares pages by their ink, so a test
+    that drew on a shared page — a debug marker, a crop written back, a
+    ``paste`` — would silently change what every later test measures, and the
+    failure would land on the later test rather than on the one that caused
+    it. This class is where it lands instead.
+
+    It runs last on purpose, and since cycle 1's F-006 it *says so to pytest*
+    rather than to the reader: both tests below open by asserting, off this
+    run's own collected order, that no other test takes :func:`pages` after
+    them.
+    """
+
+    def test_the_shared_pages_are_handed_out_as_they_were_drawn(
+        self, request, pages
+    ) -> None:
+        """Every page is byte for byte what the fixture drew.
+
+        The digest is taken *inside* the fixture, before any test sees the
+        pages, and this compares the pages as they stand now against it — so
+        the comparison is the drawn book against the handed-out book, not the
+        handed-out book against itself.
+
+        The two guards first: this control's verdict covers exactly the tests
+        that ran, so it refuses a selection that leaves a consumer out, and
+        refuses an order that puts one after it (F-002, F-006).
+        """
+        _refuse_unless_every_consumer_is_collected(request, globals(), SHARED_RENDER)
+        _refuse_unless_nothing_takes_it_later(
+            request, SHARED_RENDER, siblings_excepted=True
+        )
+        assert len(_SHARED_DIGEST) == INTERIOR_PAGES, (
+            "the shared-render digest was not taken: "
+            f"{len(_SHARED_DIGEST)} pages recorded, {INTERIOR_PAGES} drawn"
+        )
+        moved = [
+            number
+            for number, (page, drawn) in enumerate(zip(pages, _SHARED_DIGEST), start=1)
+            if _page_digest(page) != drawn
+        ]
+        assert not moved, (
+            "a test in this module drew on the shared interior rather than on "
+            f"a copy of it: interior page(s) {moved} no longer match the bytes "
+            "the module fixture drew. Take `page.copy()` in the test that "
+            "needs to draw, or give that test a render of its own."
+        )
+
+    def test_one_render_served_the_whole_module(self, request, pages) -> None:
+        """The saving itself, asserted rather than assumed.
+
+        ``_SHARED_DIGEST`` is appended to once per execution of the module
+        fixture, so a digest holding exactly one book's pages is the statement
+        that the book was drawn once for the module. Widen the fixture's scope
+        back to ``function``, or narrow it to a class, **and run this whole
+        file**, and this holds more than one book's worth of digests and goes
+        red.
+
+        The scope of that claim, corrected in fix round 1 (F-002): it is a
+        statement about a run that collected every consumer, and only about
+        such a run. The counter cannot distinguish one render from one render
+        per test when one test took the fixture, so the first guard refuses
+        that selection rather than returning the silent green cycle 1 measured
+        under ``-k one_render``. The second guard is why "one book's worth" can
+        be read as "the last word on the module": nothing takes the pages
+        after this.
+
+        The assertion below carried a third conjunct, ``== INTERIOR_PAGES``,
+        until fix round 2 dropped it (cycle 2, F-005). It was unfailable:
+        :func:`_book_pages` already asserts ``len(pages) == INTERIOR_PAGES``
+        before the fixture returns, so nothing could red it — and had anything
+        been able to, this message would have diagnosed a wrong page count as
+        a scope regression. :meth:`test_the_shared_pages_are_handed_out_as_they_were_drawn`
+        holds the digest length to ``INTERIOR_PAGES`` in its own right, so
+        nothing is given up. Three live assertions remain in this control —
+        the two guard calls and this equality — and none is unfailable.
+        """
+        _refuse_unless_every_consumer_is_collected(request, globals(), SHARED_RENDER)
+        _refuse_unless_nothing_takes_it_later(
+            request, SHARED_RENDER, siblings_excepted=True
+        )
+        assert len(_SHARED_DIGEST) == len(pages), (
+            f"{len(_SHARED_DIGEST)} page digests were recorded for a book of "
+            f"{len(pages)} pages, across a run that collected every consumer "
+            "of the module fixture: the book was drawn more than once, so the "
+            "fixture is no longer module-scoped"
+        )
