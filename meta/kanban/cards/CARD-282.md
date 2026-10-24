@@ -224,3 +224,28 @@ This card is the **data layer only** — the bundle writer, the keys, the trigge
 and the output tree. `player/**` does not exist yet and is **CARD-283's**; this
 card creates nothing under it. The chain is 282 → 283 → 284 → 285, strictly
 serial, and only this first card touches `src/`.
+
+### Correction, same day — I under-reported this card's gate by 16 %
+
+The 39.5 % figure above came from **my grep** for admin-app importers (75 files,
+563.58 s). The **committed tool** disagrees and is right: `scripts/impact_set.py
+src/nonogram/admin/app.py` reports **98 files = 654.16 s over 5,739 tests =
+45.9 %** of a 1426.16 s suite. Its own docstring says why — it prints "a
+superset", and it includes unconditionally the ~22 tests that **scan the tracked
+tree** (`git ls-files`, `git grep`, `rglob`) rather than importing what they
+judge, which no import-graph grep can see.
+
+So **five gate runs is ~55 minutes, of which ~29 is
+`tests/test_book_export_interior_cover.py` alone** (344.29 s, **52.6 % of the
+impact set**). The decision does not change; the number it was taken on was
+light, and a figure is a claim whose control is recomputation — through the
+project's own instrument, not a grep that approximates it.
+
+**And the reason CARD-274 would not have helped, measured 2026-10-24 when the
+owner asked whether to run it first:** the gate cost comes from tests importing
+`nonogram.admin.app` **itself** — 82 `from nonogram.admin.app import`, 10
+`import nonogram.admin.app`, 8 `from nonogram.admin import app`, and **zero
+naming a route module**. After the blueprint split `app` still imports the
+blueprints, so a change to `routes/book.py` keeps `app` in its
+reverse-dependency closure and this set does not shrink. **The split moves code,
+not the import graph the gate reads.**

@@ -15,7 +15,7 @@
 **Wave:** —
 **Created wave:** 54
 **Deferred waves:** 0
-**Depends on:** CARD-272, CARD-207, CARD-208, CARD-209, CARD-216, CARD-218, CARD-219, CARD-220, CARD-226, CARD-227, CARD-229, CARD-230, CARD-231, CARD-232, CARD-233, CARD-249, CARD-262
+**Depends on:** CARD-276, CARD-287, CARD-288, CARD-289, CARD-272, CARD-207, CARD-208, CARD-209, CARD-216, CARD-218, CARD-219, CARD-220, CARD-226, CARD-227, CARD-229, CARD-230, CARD-231, CARD-232, CARD-233, CARD-249, CARD-262
 **Touches:** src/nonogram/book/**, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/book_membership.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_plan.py, src/nonogram/admin/book_proof.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/__init__.py, src/nonogram/admin/app.py, src/nonogram/admin/puzzle_review.py, src/nonogram/__init__.py, src/nonogram/errors.py, src/nonogram/export/layout.py, src/nonogram/export/png.py, src/nonogram/db/models.py, tests/test_cli.py, meta/architecture/c4/components-CTX-001.puml, meta/architecture/trace.yml, tests/**  <!-- tests/**: the import lines of the 83 test files that import nonogram.admin.book_* (measured 2026-10-22 by grep; re-derive) — one-line changes each, listed as the glob because naming 83 files hides more than it shows -->
 **Review score:** —
 **Started:** —
@@ -201,3 +201,22 @@ its resident.
 - **[Mechanics]** `git mv` preserves history. Run the guard first after the
   move — it is the fastest honest signal that an import edge is wrong. The
   suite's full runs take the flock on `meta/kanban/.full-suite.lock`.
+
+## Dependency list extended 2026-10-24 — it predated four cards that edit what this card relocates
+
+The list was written 2026-10-22 and is stale. Added, with the overlap each one
+has against this card's own `Touches`:
+
+- **CARD-276** (in flight, wave 58) — edits `tests/test_book_export_interior_cover.py`, inside this card's `tests/**`.
+- **CARD-287** — the same file, and it is sized against the class CARD-276 is measuring.
+- **CARD-288** — `tests/property/test_book_pdf_geometry.py`, inside `tests/**`.
+- **CARD-289** — `src/nonogram/admin/book_pdf_generator.py`, named **explicitly** in this card's `Touches`.
+
+Found while answering the owner's question "maybe we need 273–274 first?" on
+2026-10-24. The answer was no — this card depends on seventeen others and
+CARD-274 depends on this one, so the pair is **terminal** to the book phase
+rather than an alternative ordering for it — and checking that turned up the
+staleness. **A relocation card's dependency list is not documentation; it is the
+thing that stops the relocation landing under a card that is mid-flight.** It
+needs re-deriving at dispatch, not trusting: every card whose `Touches` meets
+this one's belongs in it.
