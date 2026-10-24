@@ -2235,3 +2235,449 @@ the board: the review skill resolves its own manifest at
 box — the real one is a level deeper, `forge/.claude-plugin/plugin.json`,
 version 2026.8.17 — so a review following it literally records
 `reviewer_version: unknown`.
+## Fix round 2 notes (2026-10-24) -- the last round
+
+Cycle 2 scored **7.0, NOT CERTIFIED** on two gating findings, both in code fix
+round 1 wrote. This round closes F-001, F-002, F-004 and F-005 **by narrowing
+claims to what the instruments measure**, and adds exactly one new mechanism:
+a three-line AST check. Both subject files only; `src/**` untouched.
+
+### The scope decision, and why it is narrower than cycle 2's prescription
+
+Cycle 2 prescribed widening `_bitmap_bytes` over numpy and
+`_retained_bitmap_bytes` over the lru_cache store, then re-deriving the bound
+as an explicit allowance for the two pre-existing caches; and closing F-002
+with a transitive-fixture closure over the module's own fixtures. **Both are
+new derivations, and this is the last round: there is no cycle 3 to review
+them.** Cycle 2's own risk_6 ruling warns against putting "a brand-new third
+derivation in front of a review that no longer exists, which is the trade that
+produced both of this cycle's findings". That warning applies to its own
+prescription, so it was taken.
+
+What decided F-001 is a measurement, re-derived here independently rather than
+taken from the review. **The retention is pre-existing.** Walking this file's
+module namespace at session end with `gc.get_referents` through both
+`@lru_cache` wrappers (instrument kept outside `tests/`, in the session
+scratchpad):
+
+| retained by | bytes | page bitmaps |
+|---|---|---|
+| `_set_once` lru_cache, `maxsize=None`, currsize **666**, ndarrays | 24,435,107 | 0.9679 |
+| `_font_bytes` lru_cache, `maxsize=None`, currsize 1 | 757,076 | 0.0300 |
+| `_SHARED_SNOWFLAKE_DIGEST` | 256 | 0.0000 |
+| **total** | **25,192,439** | **0.9979** |
+
+and the identical walk against this file at the fork point `c7cca514`, in a
+detached worktree, gives **25,192,183 B** -- identical but for the 256 B of new
+digest, with both `@lru_cache(maxsize=None)` decorators already present at
+`:1111` and `:1116`. **CARD-218 did not create this retention; it wrote a claim
+that is false about it.** The defect is therefore the claim, not the memory, and
+a false universal is fixed by making it true -- not by enlarging the machine
+until it is. `tests/test_book_puzzle_frame.py` is clean on this point: no
+`@lru_cache` at all, and an independent deep walk to depth 8 returns **320 B**,
+equal to what its own instrument reports.
+
+F-002 was closed the same way. The one channel invisible to **both** halves of
+the guard -- `request.getfixturevalue` -- became a declared bound with its own
+failing control (ADR-0039/R3), an equality-to-zero AST assertion scoped to
+these two files. Measured, so the bound is real and not assumed: `getfixturevalue`
+is at **9 sites** under `tests/` (one of them
+`tests/test_puzzle_solver_page.py:671`, `return request.getfixturevalue("page")`
+-- the same fixture name as band's class-scoped render) and at **0 sites** in
+these two files. The transitive-fixture closure, `pytestmark`/`usefixtures`
+handling, inherited methods and nested `Test` classes are **not** built here:
+they stay open and are routed to **CARD-219**, where the helpers are being
+hoisted into a shared home and a review will see them.
+
+### What changed, claim by claim -- before and after
+
+**1. Band's retention bound -> a derived equality (F-001).**
+
+*Before* -- `assert total < unit`, i.e. "total retained bitmap bytes < one page
+bitmap (25,245,000 B)". Real headroom 52,561 B = **0.21 %**.
+
+*After* -- `assert total == expected` where `expected = 32 * len(snowflake_interior)`:
+the accumulators hold exactly one 32-byte digest per page of the book they
+signed. 32 is sha256's digest size written out by hand, not read back off
+`_page_digest`, so it is a second statement of the digest's width rather than
+that function run twice. Exact, not a threshold; it reds the instant any byte
+comes back, and it cannot invite a comparison against a quantity the instrument
+cannot see. The frame copy is the same with `32 * len(pages)` = 320 B. The
+failure message still names the accumulator, its bytes and its page-bitmap
+equivalent (now at 4 decimal places, because 2 was what printed "0.00 pages"
+for a 1,536 B regression).
+
+*An unplanned strengthening, measured:* the equality also reds the retention
+control under the **scope** mutant, which the old bound never could --
+1,536 B (band) and 6,400 B (frame) both sail under one page bitmap. See A3/A5
+in the mutant table.
+
+**2. The two false universals, narrowed in both copies.**
+
+*Before* (class docstring): "Nothing this module leaves behind is as big as one
+page bitmap." False by 0.21 %.
+*After*: the class docstring's first line is "AC-5, with a verifier that can
+fail on this module's **accumulators**", and a new **Scope** paragraph states
+the three measured figures above, the fork-point comparison, that the two
+caches are out of scope, and that they are backlogged. It claims nothing about
+them. The test docstring's "Digests sail under it by five orders of magnitude"
+is gone -- against what the module really retains it is 0.21 %.
+
+*Before* (both files, identically): "no module under ``tests/`` instruments the
+process's own memory at all". **False**: `tests/helpers/book_corpus.py:857` is
+`def resident_bytes()` reading `resource.getrusage(RUSAGE_SELF).ru_maxrss`.
+Round 1 verified this sentence with a grep (`RLIMIT_AS|peak_rss|max_rss|tracemalloc`)
+**narrower than the claim it was checking**.
+*After*: "no module under ``tests/`` *asserts a shape* on this process's own
+memory (``tests/helpers/book_corpus.py``'s ``resident_bytes`` reads
+``ru_maxrss``, but only as the quantity a child's cap is enforced against), and
+the one module that instruments page memory at all measures its own live-page
+dict". Verified with a grep covering **every token the new sentence claims
+about** -- `ru_maxrss|getrusage|RLIMIT_AS|peak_rss|max_rss|tracemalloc|resident_bytes`
+-- which returns exactly `tests/test_book_pdf_memory.py` and
+`tests/helpers/book_corpus.py`. The grep string is written into the docstring
+beside the sentence, so the next reader re-derives it rather than trusting it.
+
+**3. The declared blind spots, each measured (F-001d).**
+
+Added to both copies of `_retained_bitmap_bytes`:
+
+* **numpy** -- `_bitmap_bytes(np.asarray(page))` is **0** while that array's
+  `nbytes` is **25,245,000**. In band, numpy page arrays are what `_set_once`
+  and `TestBookPdf_EveryFifthGridLineWider._scan` produce; in frame, `_dark` is
+  `np.asarray(page.convert("L"))` thresholded, 8,415,000 B of mask per page.
+* **`Test*` class attribute** -- the walk reads module-level names and a class
+  body is not one (measured: `_retained_bitmap_bytes({'TestX': Holder})` with
+  `Holder.pages = [page]` returns `{}`).
+* **containers nested deeper than one level** (measured: `{'N': [[page]]}` -> `{}`).
+* **`@lru_cache`** -- kept in band with the figure 25,192,183 B attached;
+  **corrected in frame**, which declared the blind spot for a channel that file
+  does not have (zero `@lru_cache` in it, 320 B measured both ways).
+
+**4. The third unfailable arm (F-005).** `tests/test_book_puzzle_frame.py`'s
+count control was `assert len(_SHARED_DIGEST) == len(pages) == INTERIOR_PAGES`
+-- a chained comparison whose second conjunct `len(pages) == INTERIOR_PAGES` is
+already asserted by `_book_pages()` at `:902` before the fixture returns, so
+nothing could red it; and had anything been able to, the message would have
+diagnosed a wrong page count as a scope regression. The dead conjunct is
+**dropped**; the control is now `len(_SHARED_DIGEST) == len(pages)`, the same
+shape as its band twin, and the docstring records why. Nothing is given up:
+`test_the_shared_pages_are_handed_out_as_they_were_drawn` holds the digest
+length to `INTERIOR_PAGES` in its own right.
+
+**5. The one new mechanism (F-002).** `test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue`
+in each file: `ast.walk` over the module's own source, equality to zero on
+`ast.Attribute` nodes named `getfixturevalue`. No model of consumers, no
+runtime, default-deny. AST and not grep on purpose -- both new docstrings
+discuss the idiom by name and do not self-match. Its message points at the
+transitive-fixture closure as the real fix and names CARD-219.
+
+The node id `::test_no_module_level_accumulator_retains_a_page_bitmap` is
+**deliberately unchanged** in both files although the assertion is now stronger
+than the name: the card's M7/M8 mutant rows and three sets of review notes are
+keyed to it, and the name is still true, now as the weaker half of what is
+asserted. Both docstrings say so.
+
+### The complete arms table, and how it was derived
+
+Derivation, in two steps, because a `FAILED` line says nothing about arms that
+never ran. (1) The arms were **enumerated with `ast`**, not by eye: every
+`ast.Assert` inside the controls in scope, plus every call to
+`_refuse_unless_every_consumer_is_collected` / `_refuse_unless_nothing_takes_it_later`
+(each of which is one assert, counted once under its own name). That walk
+returns **14 arms in band and 10 in frame, 24 in all**. (2) Each arm was
+attributed to a mutant **by the assertion message captured in the output**, not
+by the node id, since several arms live in one node. Cells are test cells, never
+exit codes.
+
+| # | control | arm (line at HEAD) | redded by | cells |
+|---|---|---|---|---|
+| B1 | band retention `::test_the_page_bitmap_unit_is_this_modules_own_page` | `measured == {PAGE_BITMAP_BYTES}` (:1935) | A1 | 1 failed / 39 passed |
+| B2 | band retention `::test_no_module_level_accumulator_retains_a_page_bitmap` | `total == expected` (:1980) **NEW** | R1, R3a, X2b, A3 | 1/39, 1/39, 2/38, 2/38 |
+| B3 | band `::test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue` **NEW** | `not taken` (:1777) | R7 | 1 failed / 39 passed |
+| B4 | band NotMutated `::test_the_shared_pages_are_what_the_fixture_drew` | denominator guard (:2030) | R4 | 2 failed / 36 passed / 2 deselected |
+| B5 | " | ordering guard (:2031) | R5 | 2 failed / 7 passed |
+| B6 | " | `assert _SHARED_SNOWFLAKE_DIGEST` (:2034) | **nothing -- unfailable** | -- |
+| B7 | " | `assert not moved` (:2042) | A6 | 2 failed / 38 passed |
+| B8 | band NotMutated `::test_one_render_served_the_whole_module` | denominator guard (:2070) | R4 | 2 failed / 36 passed |
+| B9 | " | ordering guard (:2071) | R5 | 2 failed / 7 passed |
+| B10 | " | `len(digest) == len(interior)` (:2074) | A3 | 2 failed / 38 passed |
+| B11 | band FifthRule `::test_one_render_served_the_whole_class` | denominator guard (:895) | A8 | 1 failed / 4 passed / 1 deselected |
+| B12 | " | ordering guard, `siblings_excepted=False` (:898) | R6 (= cycle 2's X1) | 1 failed / 5 passed |
+| B13 | " | `_FIFTH_RULE_RENDERS == [self.PUZZLE]` (:901) | A4 | 1 failed / 39 passed |
+| B14 | " | `drawing_of(page).columns == MAX_SIZE` (:905) | **nothing -- unfailable** | -- |
+| F1 | frame retention `::test_the_page_bitmap_unit_is_this_modules_own_page` | `measured == {PAGE_BITMAP_BYTES}` (:3419) | A2 | 1 failed / 99 passed |
+| F2 | frame retention `::test_no_module_level_accumulator_retains_a_page_bitmap` | `total == expected` (:3463) **NEW** | R2, R3c, A5, A7 | 1/99, 1/99, 3/97, 2/98 |
+| F3 | frame `::test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue` **NEW** | `not taken` (:3271) | R7f | 1 failed / 99 passed |
+| F4 | frame NotMutated `::test_the_shared_pages_are_handed_out_as_they_were_drawn` | denominator guard (:3514) | R4f | 2 failed / 94 passed / 4 deselected |
+| F5 | " | ordering guard (:3515) | R5f | 2 failed / 24 passed |
+| F6 | " | `len(_SHARED_DIGEST) == INTERIOR_PAGES` (:3518) | A5 | 3 failed / 97 passed |
+| F7 | " | `assert not moved` (:3527) | A7 | 2 failed / 98 passed |
+| F8 | frame NotMutated `::test_one_render_served_the_whole_module` | denominator guard (:3563) | R4f | 2 failed / 94 passed |
+| F9 | " | ordering guard (:3564) | R5f | 2 failed / 24 passed |
+| F10 | " | `len(_SHARED_DIGEST) == len(pages)` (:3567) | A5 | 3 failed / 97 passed |
+
+**22 live arms, 2 declared unfailable, and the honest list is now complete.**
+Round 1 named two unfailable arms, cycle 2 found a third (F-005). That third is
+**gone** -- the dead conjunct was dropped, not merely documented -- so the frame
+file has none. The two that remain are both in band and both stay, with the
+reason:
+
+* **B6**, `assert _SHARED_SNOWFLAKE_DIGEST`: the module fixture extends eight
+  digests before any test in the module runs, so the list is never empty when
+  this executes. The only mutation that empties it -- deleting the `extend` --
+  reds **B10** and **B7** too, so B6 is dominated and can never be the arm that
+  reports. Kept because it costs one line and documents the premise.
+* **B14**, `drawing_of(page).columns == MAX_SIZE`: the class fixture always
+  draws the 30x30 puzzle, and any mutation of *which* puzzle it draws reds B13
+  first. Declared, not claimed to be live.
+
+### Mutants -- every one line-count preserving, both files' sha256 verified after every restore
+
+Restores come from pristine copies held **outside** the worktree, in the
+session scratchpad, and the harness prints both files' sha256 and line count
+after each restore. Fixed-revision hashes, constant across all 22 runs:
+`test_book_pdf_band.py` **b3ba8032...1967** (2079 lines),
+`test_book_puzzle_frame.py` **00797b25...b50b** (3572 lines). Baseline before
+the round: band **e5de8b92...bba8** / frame **ad7cc1f2...6d87**, both verified
+against the brief.
+
+| id | mutation (deletion / substitution) | selection | cells | verdict |
+|---|---|---|---|---|
+| R1 | band `_page_digest` body -> `page.tobytes()` | band whole file | **1 failed** / 39 | B2 reds |
+| R2 | frame, same | frame whole file | **1 failed** / 99 | F2 reds |
+| R3a | band `_retained_bitmap_bytes` container branch -> `(complex, slice)` | band whole file | **1 failed** / 39 | B2 reds on 0 B |
+| R3c | frame, same, + bytes restored | frame whole file | **1 failed** / 99 | F2 reds |
+| **X2a** | band `_SHARED_SNOWFLAKE_DIGEST.extend(page.tobytes() ...)`, branch **intact** -- cycle 2's own mutant | band whole file | **2 failed** / 38 | reproduces cycle 2's "2 failed" |
+| **X2b** | the same **plus** the container branch neutered -- cycle 2's X2 exactly | band whole file | **2 failed** / 38, **the retention control among them** | **X2 is killed.** Cycle 2 got 1 failed with the retention control GREEN on 201,960,000 B; the equality reds it on `0 B != 256 B` |
+| R4 | band `_declared_consumers` -> `return set()` | band, `--deselect ::TestBookPdf_PuzzlePageCarriesNoPictureTitle` | intact **2 failed** / 36 / 2 desel; mutant **38 passed** | vacuous green returns -- B4, B8 load-bearing |
+| R4f | frame, same | frame, `--deselect ::TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly` | intact **2 failed** / 94 / 4 desel; mutant **96 passed** | F4, F8 load-bearing |
+| R5 | band ordering slice `items[mine + 1 :]` -> `items[:0]` | 4 class node ids, control class **first** | intact **2 failed** / 7; mutant **9 passed** | the reds vanish -- B5, B9 load-bearing |
+| R5f | frame, same | 7 class node ids, control class **first** | intact **2 failed** / 24; mutant **26 passed** | F5, F9 load-bearing |
+| R6 | band `siblings_excepted=False` -> `True` (cycle 2's X1) | fifth-rule control node id **first**, then its 5 classmates by node id | intact **1 failed** / 5; mutant **6 passed** | the red stops under a reordered class selection -- reproduces cycle 2's 1-vs-6 exactly |
+| R7 | band: `assert _SHARED_SNOWFLAKE_DIGEST, ...` -> `request.getfixturevalue(SHARED_SNOWFLAKE)` | band whole file | **1 failed** / 39, message names line 2034 | B3 reds on the real channel |
+| R8 | R7 **plus** `node.attr == "getfixturevalue"` -> `"getfixturevalue_X"` | band whole file | **40 passed** | the red in R7 is the AST check and nothing else |
+| R7f | frame: `len(pages)` -> `len(request.getfixturevalue("pages"))` | frame whole file | **1 failed** / 99 | F3 reds |
+| R8f | R7f plus the neutered attr name | frame whole file | **100 passed** | mechanism confirmed |
+| A1 | band `_bitmap_bytes`: drop `* len(bands())` | band whole file | **1 failed** / 39, "measured [8415000] B against ... 25245000 B" | B1 |
+| A2 | frame, same | frame whole file | **1 failed** / 99 | F1 |
+| A3 | band `snowflake_interior` scope module -> function (`:274`) | band whole file | **2 failed** / 38 | B2 **and** B10 -- B2 on 1,536 B, which the old `< unit` bound could not see |
+| A4 | band fifth-rule `page` scope class -> function (`:785`) | band whole file | **1 failed** / 39, "drawn 6 times for this class, not once" | B13 |
+| A5 | frame `pages` scope module -> function (`:926`) | frame whole file | **3 failed** / 97 | F2 (6,400 B), F6 ("210 pages recorded, 10 drawn"), F10 ("220 page digests ... book of 10 pages") |
+| A6 | band bytes-store (= X2a) | band whole file | **2 failed** / 38 | B7, by "drew on the shared interior" |
+| A7 | frame bytes-store | frame whole file | **2 failed** / 98 | F7 and F2 |
+| A8 | no mutation -- a selection | fifth-rule class, `--deselect ::test_the_grid_is_the_thirty_by_thirty_at_the_stated_cell` | intact **1 failed** / 4 / 1 desel; with R4 **5 passed** | B11 |
+
+### Gates
+
+1. **Both files whole: 140 passed** (138 before). The two additions, by node id:
+   `tests/test_book_pdf_band.py::test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue`
+   and
+   `tests/test_book_puzzle_frame.py::test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue`.
+   Per file: band 40, frame 100.
+2. **The derived gate.** `scripts/impact_set.py tests/test_book_puzzle_frame.py tests/test_book_pdf_band.py`
+   returns **24 files**; running them: **2882 passed, 11 skipped in 456.73 s**.
+   All 11 skips are `tests/conftest.py:207` "Database not reachable: DATABASE_URL
+   is not set" via `db_required`, attributed by node id: **9** in
+   `tests/test_admin_binding.py::TestUndefinedTableReport_NamesWhatTheFailingConnectionWasTalkingTo`
+   (`::test_the_report_carries_the_four_groups`,
+   `::test_the_report_names_the_database_the_failing_connection_was_on`,
+   `::test_the_report_names_the_engine_its_pool_and_the_reset_count`,
+   `::test_the_report_names_the_process_the_thread_and_the_werkzeug_question`,
+   `::test_the_capture_answers_while_the_failing_connection_cannot`,
+   `::test_the_original_traceback_is_intact_and_the_control_can_fail`,
+   `::test_a_connection_on_the_wrong_database_is_a_one_line_proof`,
+   `::test_the_verdict_does_not_call_a_correctly_bound_connection_a_mismatch`,
+   `::test_the_report_survives_the_suites_own_quiet_option`) and **2** in
+   `tests/test_db_engine_lifecycle.py`
+   (`TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema::test_no_engine_pool_or_backend_predating_the_rebuild_survives_it`,
+   `TestEngineLifecycle_WhyTheHazardCannotBeForced::test_no_server_side_prepared_statement_is_ever_created`).
+   The 344 s inside that total is `tests/test_book_export_interior_cover.py`,
+   unrelated to this card (CARD-287).
+3. `tests/test_browser_fixture_scope.py` explicitly: **29 passed**.
+4. Census guards -- `test_browser_fixture_scope.py test_suite_profile.py
+   test_guard_integrity.py test_impact_set.py test_fixture_integrity.py`:
+   **643 passed**.
+5. **The retention probe, before and after**, with the instrument held outside
+   `tests/`: accumulators **256 B** (band) and **320 B** (frame) in both runs,
+   deep totals **25,192,439 B** and **320 B** in both. The round changed the
+   claims and not one byte of what is retained.
+6. `rank_durations.py`'s render-idiom census is unchanged: frame **0** matches,
+   band **23**, before and after. No instrument was added under `tests/` beyond
+   the two test functions themselves.
+
+### What stays open, and where it is routed
+
+* The nine duplicated helpers, and now the tenth control, are two copies ->
+  **CARD-219** (already backlogged by the round-1 pre-gate).
+* The transitive-fixture closure, `pytestmark`/`usefixtures`, inherited methods,
+  nested `Test` classes, and pytest's own `python_functions`/`python_classes`
+  prefixes -> **CARD-219**. Measured today: no instance in either file
+  (`collected - declared` empty for all three shared fixtures, declared =
+  collected = 22 / 8 / 4).
+* `_set_once`'s unbounded `@lru_cache(maxsize=None)` holding 24,435,107 B at
+  currsize 666 for the rest of every session that collects
+  `tests/test_book_pdf_band.py`, and `_font_bytes`'s 757,076 B -> **its own
+  card**. Pre-existing (25,192,183 B at `c7cca514`), not CARD-218's, and this
+  round deliberately claims nothing about it.
+* The five figure corrections on this card (F-003's 302/393 executable lines,
+  F-006's impact-set half-correction, F-007's +55 ms) are the **orchestrator's**
+  and are not touched here.
+
+### DECLARATIONS
+
+* `DECLARATIONS F-001 -- updated.` The retention bound became an equality, so
+  every statement of the old bound was re-derived from the code written: the
+  class docstring's scope paragraph (new, with the three measured figures and
+  the fork-point comparison), the test docstring, the assertion message, and
+  the `#:` comment on `_SHARED_SNOWFLAKE_DIGEST` / `_SHARED_DIGEST`, which said
+  the control "holds it to one page bitmap" and now says what it holds it to.
+  The blind-spot list in `_retained_bitmap_bytes` was re-derived in both copies.
+* `DECLARATIONS F-002 -- updated.` One new mechanism and one new declaration:
+  the AST control's own docstring states the bound (0 sites), the measurement
+  behind it (9 sites in the tree), and the shapes that remain open with their
+  owner. No existing declaration about the guards' coverage became stale --
+  the guards themselves are unchanged.
+* `DECLARATIONS F-004 -- updated.` The census sentence was narrowed in both
+  copies and the verifying grep string written in beside it.
+* `DECLARATIONS F-005 -- updated.` The dead conjunct was dropped and the
+  control's own docstring records the arm count and why the conjunct could not
+  fail; the card's arms table above is re-derived with `ast`, not re-worded.
+* `DECLARATIONS -- none (local branch)` for the frame copy's `@lru_cache`
+  blind-spot correction: it removes a declaration rather than changing a
+  mechanism.
+
+### Two things in the record I believe are wrong, with the measurement
+
+1. **Cycle 2's X2 cell count for the intact arm is right, but its claim that
+   the retention control is the *only* thing standing between the suite and a
+   silent 201,960,000 B is now false, and the mutant it built to show that no
+   longer survives.** Measured above: X2b gives **2 failed** with the retention
+   control among them, where cycle 2 recorded 1 failed and the retention
+   control green. The reason is the fix, not a measurement disagreement -- an
+   equality on 256 B reds on `0 B`, whereas `0 < 25,245,000` was true.
+2. **Cycle 2's F-001 suggestion (b) would have made the control *less* able to
+   fail, not more.** Its proposed `assert cached == PRE_EXISTING_CACHE_BYTES`
+   pins 25,192,183 B as a constant. Measured: `_set_once`'s currsize is **666**
+   and its content depends on which tests ran -- the figure is stable for a
+   whole-file run and is **not** stable for a partial one, so that equality
+   would have been a selection-dependent red in a control explicitly documented
+   as selection-independent. Narrowing the claim avoids inventing that
+   dependency. This is a disagreement with the prescription, not with any
+   figure in the review: every figure cycle 2 reported about the retention was
+   re-derived here and reproduced exactly (24,435,107 / 757,076 / 256 /
+   25,192,439 / 25,192,183, and 0 for `_bitmap_bytes(np.asarray(page))`
+   against 25,245,000 for its `nbytes`).
+
+Everything else in cycle 2 that this round could check reproduced: the 9
+`getfixturevalue` sites and the one at `tests/test_puzzle_solver_page.py:671`;
+`declared = collected = 22 / 8 / 4`; `tests/helpers/book_corpus.py:857`
+`resident_bytes`; `_book_pages()`'s `len(pages) == INTERIOR_PAGES` at `:902`;
+X1's 1-vs-6; and the two-channel blind spots (`{'TestX': Holder}` -> `{}`,
+`{'N': [[page]]}` -> `{}`).
+
+## [FIX ROUND 2 PRE-GATE 2026-10-24, orchestrator] PASSED — cycle 2's X2 is dead, the equality is stronger than anyone predicted, and one correction of mine
+
+Tree: the branch at `ed63caa1`. Files as shipped —
+`tests/test_book_pdf_band.py` `316e85fe389be852cf067c905d9324439a6c20fa92f722cd624d123aeb36431e`,
+`tests/test_book_puzzle_frame.py` `381440d4cdea3509c2604e82c7f0112edc19e7bff4324f000ffd29614d996f10`.
+(The round reported `b3ba8032…` / `00797b25…`; those are its own hand-back
+values, before the one correction below, and both are recorded so neither looks
+like a mismatch later.)
+
+### What reproduced
+
+| claim | reproduced |
+|---|---|
+| 138 → **140** collected | **yes** — set difference: removals **0**, additions exactly the two `test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue` checks |
+| render-idiom census frame **0** / band **23** | **yes**, unchanged |
+| retention unchanged by this round: 256 B / 320 B | **yes** |
+| both files green | **140 passed** |
+
+### Four mutants of my own, against what round 2 added
+
+Line-count preserving, restored from pristine copies **outside** the worktree,
+both hashes verified after each.
+
+| # | mutant | cells |
+|---|---|---|
+| **Y1** | **cycle 2's X2 replayed** — bytes restored **and** the container-summation branch of `_retained_bitmap_bytes` neutered | **2 failed / 38**, and `TestBookPdf_TheSharedRenderLeavesNoBitmapBehind::test_no_module_level_accumulator_retains_a_page_bitmap` **is among them** |
+| **Y2** | `snowflake_interior` scope `"module"` → `"function"` | **2 failed / 38** — the **retention** control reds beside the count control |
+| **Y3** | a real `request.getfixturevalue("snowflake_interior")` consumer inserted | **1 failed / 40** — the AST check |
+| **Y4** | the same consumer **plus** `node.attr == "getfixturevalue"` neutered | **41 passed** — so Y3's red is the AST check and nothing else |
+
+**Y1 is the verification this round turned on.** Cycle 2's X2 left the old
+control **green on 201,960,000 B retained** — the single point of failure for
+all of AC-5. The derived equality reds it on `0 B != 256 B`. Dead.
+
+**Y2 confirms the round's unpredicted strengthening, and it is real.** The
+replaced bound `total < one page bitmap` could never see a fixture-scope
+regression from the accumulator side; the equality reds on 1,536 B against
+256 B. A narrowing that made the control *catch more* is worth naming, because
+the intuition runs the other way.
+
+### The round's disagreement with cycle 2's prescription — I side with the round
+
+Cycle 2 asked for `cached == PRE_EXISTING_CACHE_BYTES`, pinning 25,192,183 B.
+The round refused on a measurement: `_set_once`'s currsize is **666** and its
+contents depend on which tests ran, so that equality is stable for a whole-file
+run and **not** for a partial one — it would have introduced a
+selection-dependent red into a control whose selection-independence is
+documented and was the one good property of F-002's fix. Narrowing the claim
+avoids inventing the dependency. Every retention figure cycle 2 reported
+reproduced here exactly, so this is a disagreement with the remedy, not with
+the evidence.
+
+### FINDING (mine) — the round made its own verification irreproducible, and I corrected it
+
+The new passage replacing F-004's false universal is held "to a grep over every
+token it claims about",
+`ru_maxrss|getrusage|RLIMIT_AS|peak_rss|max_rss|tracemalloc|resident_bytes`,
+and records that it "returns exactly `tests/test_book_pdf_memory.py` and
+`tests/helpers/book_corpus.py`". That was true when the round ran it. **It is
+not true of the tree the round shipped**: writing the token list into the
+docstring means the grep now returns **four** files — the two it names plus the
+two this card converts, each matching itself. At `60cbc0f0` the band file had
+**0** matches.
+
+Harmless to the claim, costly to the next reader, who would run the quoted grep,
+get four, and doubt either the sentence or themselves. And it is the **same
+self-matching trap the round had just designed around** one paragraph earlier —
+it chose `ast.walk` over grep for the `getfixturevalue` check *precisely* so the
+prose discussing the idiom would not self-match.
+
+Corrected in both copies, prose only, no assertion touched: the passage now
+states the four, says two of them are the sentence talking about itself, and
+gives the filter that shows the two that matter. Re-verified after:
+**140 passed**, census frame 0 / band 23 unchanged, filtered grep returns
+exactly `tests/test_book_pdf_memory.py` and `tests/helpers/book_corpus.py`.
+I made this edit myself rather than spending a seventh round on prose, and it
+changes no assertion, so the four mutants above still stand on the shipped
+bytes.
+
+### The arms table, and the two that remain unfailable
+
+24 arms, **22 live, 2 declared unfailable**, each named with the mutant that
+dominates it: band's `assert _SHARED_SNOWFLAKE_DIGEST` truthiness (the only
+mutation that empties the list reds two other arms first) and
+`drawing_of(page).columns == MAX_SIZE` (any change to which puzzle the class
+fixture draws reds the render-count arm first). Cycle 2's third unfailable arm
+is **deleted, not documented** — the chained conjunct was already guaranteed by
+`_book_pages()` at `:902`, and its message would have misdiagnosed it. Round 1
+reported two arms and the honest count was three; it is now two of 24, and the
+frame file has none.
+
+### Verdict
+
+PASSED. Both gating findings closed, both closures certified load-bearing by my
+own mutants, the one unplanned strengthening verified, and the round's refusal
+of a bad prescription upheld on its measurement. Round 6 of 6 consumed — no
+round remains, and nothing is left for one: what stays open is routed to
+CARD-219 on its `Touches:` line, and the pre-existing 24.4 MB cache retention
+is backlogged with an explicit instruction not to absorb it into this control.
+
+Next: the merge gate. Two notes on its method, both earned this card —
+the AC/EC/G selection takes the two subject files **whole** rather than by node
+id, because a control that cannot evaluate its denominator refuses by design;
+and the gate must **not** pass `--tb=no`, or a refusal and a real leak collapse
+into the same `FAILED <nodeid>` line.
