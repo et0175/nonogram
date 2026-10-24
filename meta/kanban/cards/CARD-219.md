@@ -17,6 +17,60 @@
 **Deferred waves:** 0
 **Depends on:** CARD-217, CARD-205, CARD-206, CARD-207, CARD-208, CARD-209
 **Touches:** tests/test_book_pdf_levels.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/test_book_pdf_two_up.py, tests/test_book_solved_answer_key.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py, tests/helpers/book_corpus.py
+<!-- SHARED CURATION HELPERS ARE THIS CARD'S TO CREATE, added 2026-10-24 from
+CARD-218's fix-round pre-gate. CARD-218's fix round 1 had to put nine helper
+functions in BOTH of its two files -- 8 of the 9 byte-identical in code, 53
+executable lines, nothing asserting the copies agree, and the ninth's assertion
+message already prescribing two different remedies for one condition. The cause
+was a scope fence: the orchestrator fenced tests/conftest.py out of that round,
+although it sits in CARD-218's own Touches and the tree already imports a
+shared helper from it (tests/test_card_156_db_fixture.py:14). This card
+converts SIX more files and needs the same machinery, so it is where the third
+copy would appear and where the shared home belongs -- tests/conftest.py (a
+declared conflict hotspot, so this card serializes against anything else
+touching it) or tests/helpers/. Take the two existing copies with it rather
+than adding a third, and give the result the agreement guard they lack. The
+helpers: _page_digest, _case_of, _declares, _declared_consumers,
+_consumers_among, _refuse_unless_every_consumer_is_collected,
+_refuse_unless_nothing_takes_it_later, _bitmap_bytes, _retained_bitmap_bytes.
+Backlogged in full under @tech-debt.
+
+AND TWO OPEN HOLES IN THOSE HELPERS COME WITH THEM, from CARD-218's review
+cycle 2 (2026-10-24), both reproduced by the orchestrator:
+
+(1) THE DENOMINATOR GUARD IS DEFAULT-DENY ONLY OVER CONSUMERS WRITTEN IN A
+TEST'S OWN SIGNATURE. `_declared_consumers` reads `inspect.signature` and
+`_consumers_among` reads `item.fixturenames`; a consumer taking the fixture
+through `request.getfixturevalue` is invisible to BOTH. Measured with an
+identical late class drawing on a shared page: taken as a parameter it is
+CAUGHT (2 cells), taken via `getfixturevalue` it is MISSED (40 passed, 0
+cells) -- so AC-4's no-mutation guarantee is void for that consumer. The idiom
+is live in this tree: 9 sites, one of them tests/test_puzzle_solver_page.py:671
+`return request.getfixturevalue("page")`, the same fixture name as band's
+class-scoped render. CARD-218's fix round 2 closed only that one channel, and
+only in its own two files, with an equality-to-zero AST check that neither file
+uses `getfixturevalue`. STILL OPEN and this card's to close when it builds the
+shared home: the transitive-fixture closure (a consumer that takes the fixture
+via another fixture), an inherited consumer on a subclass, a consumer in a
+nested Test class, and `@pytest.mark.usefixtures` / `pytestmark`. A false
+negative in a default-deny guard is the one direction ADR-0039/R2 does not
+tolerate, so this is not optional polish.
+
+(2) `_retained_bitmap_bytes` CANNOT SEE A BITMAP REACHED THROUGH NUMPY, behind
+an `@lru_cache`, on a `Test*` class attribute, or nested deeper than one
+container level. `_bitmap_bytes(np.asarray(page))` is 0 while `arr.nbytes` is
+25,245,000, and a numpy page array is exactly what band's `_scan`/`_set_once`
+produce. CARD-218 narrowed its control's claim to the module-level
+accumulators it really walks and declared all four channels rather than
+widening the instrument -- deliberately, because round 6 had no review left
+after it. When the shared home is built WITH a review in front of it, widen the
+walk over numpy and `functools._lru_cache_wrapper` via `gc.get_referents`
+(stdlib, ADR-0006/R1 untouched) and derive the bound rather than asserting a
+threshold. Note before you do: band's two pre-existing caches hold 25,192,439 B
+= 0.9979 page bitmaps, so a `< one page bitmap` bound CANNOT survive the
+widening -- it becomes a measured allowance held to an equality plus a strict
+bound on everything else. That retention is pre-existing (identical at
+c7cca514) and backlogged separately; do not let this card absorb it. -->
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -72,14 +126,37 @@ assert an integer.
 
 ## Acceptance criteria
 
+<!-- DEAD `test:` REFS RESOLVED 2026-10-24, orchestrator, from CARD-218's review
+cycle 1 (F-003) and the orchestrator's follow-up count. The finding: EIGHT
+distinct `TestCuration_*` verifiers are named across CARD-218, CARD-219 and
+CARD-220, and ZERO of them exist — there is no `tests/test_curation.py` and no
+class whose name begins `TestCuration` anywhere under `tests/`. A planned
+shared guard module was never written and three cards' ACs were written against
+it, which reads as mechanically checked and is not (`check_ref_missing` in the
+ADR-0039 sense).
+
+The resolution, taken once for all three cards rather than three times: SIX of
+the eight are **diff properties, not test properties** — "the count is
+unchanged", "no minimum was lowered", "these paths are untouched", "this
+mechanism keeps a rendering test" all compare the tree BEFORE the card with the
+tree after it, and no standing test can know "before this card". A standing
+test that tried would be a hand-maintained census that every later card breaks,
+which is the artefact class this board's guardrails forbid. Those six move to
+the AC/EC/G gate station as explicit gate-time measurements, which is what both
+CARD-218 rounds actually did. The two that ARE derivable keep a test, named
+below. No AC's substance changed; only what verifies it, and each now names
+something that exists or something that will be run. -->
+
 - **AC-1** (happy): *Given* a converted positional test, *when* it runs, *then*
   it asserts the same fact about the same book with no page rendered, and it
   fails if the plan changes. (test: the converted tests themselves, names
   unchanged)
 - **AC-2** (guard, plan-to-pixel tie): *Given* each file this card converts,
   *when* the card is reviewed, *then* it names a surviving rendering test in
-  that file's mechanism, and that test is still present and green. (test:
-  `TestCuration_EveryConvertedMechanismKeepsARenderingTest`)
+  that file's mechanism, and that test is still present and green. (**gate**: the card names the
+  surviving rendering test per converted mechanism by node id and the gate runs
+  each one -- recorded, not asserted; "converted" is card knowledge that no
+  standing test has)
 - **AC-3** (guard, mutation): *Given* a deliberate off-by-one injected into the
   page-plan arithmetic (`interior_page_count`, the divider's position, the
   answer-section count), *when* the suite runs, *then* the converted tests
@@ -88,16 +165,20 @@ assert an integer.
   `review.mutation_check`)
 - **AC-4** (guard, no coverage loss): *Given* the converted files, *when* the
   suite runs, *then* their collected test count is unchanged — conversion never
-  deletes or merges a test. (test:
-  `TestCuration_ConvertedFilesKeepTheirTestCount`)
+  deletes or merges a test. (**gate**: set difference over sorted
+  node ids between the fork point and HEAD -- removals must be 0; additions are
+  permitted and must each be named on the card. A standing test cannot know the
+  pre-card count; see the resolution note above.)
 - **AC-5** (happy, measured): *Given* a solo profile before and after, *then*
   the card records both wall-clocks and the per-file deltas. (recorded, not
   asserted)
 - **AC-6** (edge, no second implementation): *Given* a converted geometric
   test, *when* it computes its expectation, *then* it reads the layout
   function's own returned numbers and does not re-derive them with a copy of
-  the formula under test. (test:
-  `TestCuration_NoReDerivedGeometryInConvertedTests`)
+  the formula under test. (**gate**: reviewed per
+  converted test, each named on the card with the call site it reads its
+  expectation from. A tree-wide derived version of this check is possible and is
+  its own card, not this one's.)
 
 ## Guardrails
 

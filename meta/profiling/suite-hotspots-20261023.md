@@ -1,3 +1,63 @@
+# Suite hotspots — 2026-10-23
+
+Generated from `meta/profiling/suite-durations-20261023.txt` by
+`meta/profiling/rank_durations.py`. Every figure here is that script's own
+output: the markdown table below is derived from the same parse in one pass,
+the script's deciding-table block is quoted verbatim further down, and nothing
+is hand-counted. `rank_durations.py --verify-render-set tests` reports
+**render-set drift: none**, so the frozen render-heavy set still matches the
+tree eight days and ~1900 tests after it was frozen.
+
+## The deciding table, as markdown
+
+| family | time | share | tests | ms/test |
+|---|---|---|---|---|
+| browser family (Chromium) | 353.06 s | 24.76 % | 488 | 723 |
+| render-heavy frozen set | 554.47 s | 38.88 % | 1391 | 399 |
+| property corpora | 151.54 s | 10.63 % | 185 | 819 |
+| property AND render | 81.69 s | 5.73 % | 12 | 6808 |
+| property OR render | 624.32 s | 43.78 % | 1564 | 399 |
+| admin-local script trio | 11.98 s | 0.84 % | 86 | 139 |
+| everything but the browser family | 1073.10 s | 75.24 % | 8493 | 126 |
+Shares are of attributed time (1426.16 s), not of wall clock.
+
+## What this profile settles
+
+**CARD-235 worked.** The browser family was 366.19 s / 39.78 % at 868 ms/test
+across 12 files on 2026-10-15 (`suite-hotspots-20261015.md`); above it is
+353.06 s / 24.76 % at 723 ms/test across 18 files — **grown 53 % in test count
+and 15 % cheaper per test**. Teardown is 1.42 % of attributed time where
+CARD-217 measured browser teardown as 96 % of the suite's. The hypothesis that
+card was cut on is closed.
+
+**The suite is nonetheless 21 % more expensive per test**: 1433.47 s / 8981
+collected = 160 ms/test, against 930.81 s / 7082 = 131 ms/test on 2026-10-15,
+while growing +27 % in tests.
+
+**And the growth is essentially one file.**
+`tests/test_book_export_interior_cover.py` holds **344.29 s, 24.14 % of
+attributed time, 90 tests at 3.825 s each** — against 14.09 s / 55 tests /
+0.256 s per test on 2026-10-15. That is +330 s and 15× the cost *per test* on
++35 tests: about two thirds of the suite's entire +503 s, in a file named in no
+curation card's `Touches`. Its five slowest tests hold ~255 s between them and
+are ADR-0039-shaped completeness guards (door/arm matrices, "read or refused
+and never silent"). **CARD-218's implementation round measured that file
+read-only with its own instrument: of the 344.29 s only 9.25 s is rendering at
+all, and only 2.52 s of that is recoverable duplicate — 0.7 %.** So "render
+once per module" is not its fix shape; whatever is, it concerns the guard
+matrix and not the renders.
+
+**What the curation cards are worth, measured rather than assumed.** CARD-218's
+nine `Touches` files are **69.79 s = 4.89 % of attributed time, 529 tests at
+131.9 ms/test** — below the suite mean — and its mechanism's measured ceiling
+across all nine is **4.90 s**, of which 2.35 s is in scope once AC-5's memory
+classes, CARD-219's plan-not-pixel work and one false duplicate are removed.
+Two un-carded things dwarf it: the 344 s file above, and
+`test_book_guide_page.py`'s **9.69 s of `occurrences()` template matching in 10
+tests**, where the render is 6 % of the file.
+
+## The script's own output, verbatim
+
 # Suite duration rankings
 # source: suite-durations-20261023.txt
 # sha256: 1f31d5ba36bb3f1a3dcfe8b96d2436492589ea74ff58e844d1d06e39d8c55d3c
