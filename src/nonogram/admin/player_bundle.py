@@ -69,22 +69,26 @@ for:
 The output goes outside the Python package, under ``build/`` (gitignored) by
 default — see :func:`default_output_dir`.
 
-The slug recipe is this card's, not ADR-0041's
-----------------------------------------------
-ADR-0041 pins the *puzzle* key as R1 and calls any change to it a breaking
-change. It specifies **no book-slug recipe at all** — it names ``/b/<slug>``,
-"keyed by the book slug" and "distinct per book/edition", and stops there;
-neither does FR-045, TERM-040 or the owner spec. CARD-282's "Book slugs per
-the same ADR" therefore points at something that is not in the ADR, and
-:func:`book_slug` below is this card's choice filling that hole, recorded here
-and on the card rather than presented as the ADR's. It is deliberately the
-*same* scheme as R1 applied to the book's own content rather than a second
-naming scheme: the same algorithm, the same truncation, the same case, a
-prefix naming the domain and then a fixed-width payload. It is content
-addressed for R1's reason — a printed QR code cannot be re-pointed, and the
-title on the cover plus the puzzles inside are exactly what survives a
-database loss. **An ADR revision should pin it before a book is printed**; no
-QR code uses it yet (CARD-210 is still blocked).
+Both recipes are the ADR's, and R7 excludes the title on purpose
+----------------------------------------------------------------
+ADR-0041 pins the *puzzle* key as R1 and the *book slug* as **R7** (DEC-044b,
+owner decision 2026-10-24); any change to either is a breaking change to every
+printed book and needs a new ADR. Both are the same
+prefix-then-fixed-width-payload shape, and :func:`puzzle_key` and
+:func:`book_slug` are the one implementation each of them calls for.
+
+R7's **title exclusion is the part to read twice**: a book's slug hashes its
+puzzle keys and nothing else. The title is not an input, deliberately — the
+slug is printed in a QR code that cannot be re-pointed, and a title is
+editorial, so a one-character typo fix in the admin panel must not silently
+break every code in an already-printed run. (CARD-282 shipped a
+``"book:{title}:"`` variant in the commit before R7 existed, and R7's own text
+names that variant as the alternative the owner decided against; this is the
+revision to R7.) What the slug *does* move with is the book's puzzle
+membership, which is a change of content rather than an editorial one and is
+already an explicit confirmed act on a book that has left draft (INV-012).
+Both directions are held by R7's own control,
+``tests/test_player_bundle.py::test_the_slug_does_not_move_when_the_title_is_edited``.
 """
 
 from __future__ import annotations
@@ -215,28 +219,39 @@ def puzzle_key(grid: Sequence[Sequence[bool]]) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:KEY_LENGTH]
 
 
-def book_slug(title: str, puzzle_keys: Iterable[str]) -> str:
-    """A finalized book's public slug — **this card's recipe, not the ADR's**.
+def book_slug(puzzle_keys: Iterable[str]) -> str:
+    """A finalized book's public slug — ADR-0041/R7, DEC-044b.
 
     The first :data:`KEY_LENGTH` lowercase hexadecimal characters of SHA-256
-    over the UTF-8 bytes of ``"book:{title}:"`` followed by the book's puzzle
-    keys in book order, concatenated. Every key is exactly
-    :data:`KEY_LENGTH` characters, so the concatenation needs no separator to
-    be unambiguous — the same shape as :func:`puzzle_key`'s prefix-then-fixed-
-    width-payload, which is the point: one naming scheme in the tree, applied
-    once to a grid's cells and once to a book's content.
+    over the UTF-8 bytes of ``"book:"`` followed by the book's puzzle keys in
+    book order, concatenated **with no separator** — every key is exactly
+    :data:`KEY_LENGTH` characters by R1, so the concatenation is unambiguous
+    without one, and the shape is R1's own: a prefix naming the domain, then a
+    fixed-width payload. This is the one implementation (R7: "Exactly one
+    implementation computes it"), and any change to the prefix, the ordering,
+    the absence of a separator, the algorithm, the truncation length or the
+    case is a breaking change to every printed book requiring a new ADR.
 
-    Content addressed for the reason ADR-0041 rejected a stored slug: a
-    printed QR code cannot be re-pointed, and the title on the cover together
-    with the puzzles inside are exactly what survives a database re-seed or
-    loss. Two books with the same title and the same puzzles in the same order
-    therefore share a slug, and share it harmlessly — the file's whole content
-    is that pair, so either book writes the same bytes.
+    **The title is not a parameter, let alone an input.** R7 excludes it
+    because the slug is printed in a QR code that cannot be re-pointed and a
+    title is editorial: a typo fix would otherwise move every code in an
+    already-printed run. Nothing else here needs the title either — the book
+    file's ``title`` field is read straight from the book by :func:`_book_title`
+    — so it is gone from the signature rather than accepted and ignored, which
+    is the only version of "not an input" a caller cannot get wrong.
 
-    See the module docstring: ADR-0041 specifies no slug recipe, so this one
-    wants pinning by an ADR revision before any book is printed.
+    Content addressed for the reason ADR-0041 rejected a stored slug for
+    puzzles: a content hash survives a database re-seed because the printed
+    book preserves its puzzles.
+
+    One consequence of excluding the title that is **not** harmless and is
+    handled rather than noted: two finalized books holding the same puzzles in
+    the same order now share a slug *even when their titles differ*, so one
+    file has to speak for both. :func:`_book_file` settles that, so which title
+    it carries is a function of the titles and not of the order the books were
+    read in — see there.
     """
-    text = f"{_BOOK_PREFIX}{title}:" + "".join(puzzle_keys)
+    text = _BOOK_PREFIX + "".join(puzzle_keys)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:KEY_LENGTH]
 
 
@@ -325,7 +340,11 @@ def export_bundle(
     # grid are one public puzzle.
     candidates: dict[str, list[Mapping[str, Any]]] = {}
     skipped: dict[str, str] = {}
-    book_keys: list[tuple[str, str, tuple[str, ...]]] = []
+    # Keyed by slug, because ADR-0041/R7 makes the slug the name of the book's
+    # *content* too: two finalized books holding the same puzzles in the same
+    # order are one public book file, and :func:`_book_file` settles the one
+    # thing they can still disagree about.
+    book_keys: dict[str, list[tuple[str, tuple[str, ...]]]] = {}
     for book in books:
         records = puzzle_store.get_puzzles(book.puzzle_ids)
         keys: list[str] = []
@@ -341,8 +360,9 @@ def export_bundle(
                 continue
             keys.append(key)
             candidates.setdefault(key, []).append(record)
-        title = _book_title(book)
-        book_keys.append((book_slug(title, keys), title, tuple(keys)))
+        book_keys.setdefault(book_slug(keys), []).append(
+            (_book_title(book), tuple(keys))
+        )
 
     entries = [_index_entry(key, candidates[key]) for key in sorted(candidates)]
 
@@ -350,16 +370,13 @@ def export_bundle(
     _dump(root / "index.json", {"puzzles": entries})
     for entry in entries:
         _dump(root / "puzzle" / f"{entry['key']}.json", _puzzle_file(entry, candidates))
-    for slug, title, keys in sorted(book_keys):
-        _dump(
-            root / "book" / f"{slug}.json",
-            {"slug": slug, "title": title, "puzzle_keys": list(keys)},
-        )
+    for slug in sorted(book_keys):
+        _dump(root / "book" / f"{slug}.json", _book_file(slug, book_keys[slug]))
 
     return BundleReport(
         output_dir=root,
         puzzle_count=len(entries),
-        book_count=len({slug for slug, _, _ in book_keys}),
+        book_count=len(book_keys),
         skipped=tuple(sorted(skipped.items())),
     )
 
@@ -405,6 +422,28 @@ def _puzzle_file(
             "rows": [list(clue) for clue in found.rows],
             "columns": [list(clue) for clue in found.columns],
         },
+    }
+
+
+def _book_file(slug: str, books: Sequence[tuple[str, tuple[str, ...]]]) -> dict[str, Any]:
+    """One ``book/<slug>.json`` payload, carrying exactly :data:`BOOK_FILE_FIELDS`.
+
+    ``books`` is every finalized book whose puzzle keys hash to ``slug``.
+    Before ADR-0041/R7 that was always one book, because the title was in the
+    hash; R7 excluded the title, so two books with the same puzzles in the same
+    order are now one public book under one slug, and their titles can differ.
+
+    The keys are the same for all of them — the slug *is* their hash — and the
+    title is reduced by :func:`_settled`, a pure function of the candidate
+    titles. That matters for EC-049 rather than for editorial reasons: writing
+    "whichever book was read last" would make the bundle's bytes depend on the
+    store's row order, which is exactly the determinism the byte diff at deploy
+    time rests on.
+    """
+    return {
+        "slug": slug,
+        "title": _settled(title for title, _ in books),
+        "puzzle_keys": list(min(books)[1]),
     }
 
 

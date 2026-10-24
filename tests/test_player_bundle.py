@@ -558,7 +558,7 @@ def test_bundle_tree_and_clues_match_the_encoder(shelf, tmp_path):
     # The tree: index.json, one book file, one puzzle file per published key.
     assert sorted(path.relative_to(root).as_posix() for path in root.rglob("*.json")) == sorted(
         ["index.json"]
-        + [f"book/{player_bundle.book_slug('Winter pictures', _book_order(store, manager, book_id))}.json"]
+        + [f"book/{player_bundle.book_slug(_book_order(store, manager, book_id))}.json"]
         + [f"puzzle/{key}.json" for key in expected_keys]
     )
 
@@ -1139,29 +1139,125 @@ def test_the_key_refuses_a_grid_row_major_order_has_no_meaning_for(grid, why):
 
 
 def test_the_slug_is_content_addressed_and_not_the_books_row_id(shelf, tmp_path):
-    """The slug is a function of the title and the ordered keys, nothing else.
+    """ADR-0041/R7's material, asserted as material: ``"book:"`` then the keys.
 
-    ADR-0041 specifies no slug recipe (see ``player_bundle``'s docstring), and
-    this is what the recipe it does use claims: recomputable from the printed
-    book — its cover title and its puzzles — and independent of the database
-    row, which is the property ADR-0041 rejected a stored slug for.
+    The hashed string is written out rather than re-derived through the
+    function under test, for R1's reason and R7's: the recipe's text is the
+    rule, and a digest computed the same wrong way agrees with itself. The
+    *absence* of a separator is part of the material, so it is part of this
+    string.
     """
     store, manager = shelf
     ids = [add_rectangle(store, index, name=f"P{index}") for index in range(3)]
     book_id = finalized_book(manager, store, ids, title="Winter pictures")
     keys = _book_order(store, manager, book_id)
 
-    slug = player_bundle.book_slug("Winter pictures", keys)
+    slug = player_bundle.book_slug(keys)
     assert slug == hashlib.sha256(
-        ("book:Winter pictures:" + "".join(keys)).encode("utf-8")
+        ("book:" + "".join(keys)).encode("utf-8")
     ).hexdigest()[:10]
     assert book_id not in slug
-    assert slug != player_bundle.book_slug("Winter pictures", list(reversed(keys)))
-    assert slug != player_bundle.book_slug("Winter picture", keys)
+    assert slug != player_bundle.book_slug(list(reversed(keys)))
+    assert slug == slug.lower() and len(slug) == player_bundle.KEY_LENGTH
 
     root = tmp_path / "bundle"
     player_bundle.export_bundle(manager, store, root)
     assert (root / "book" / f"{slug}.json").is_file()
+
+
+def test_the_slug_does_not_move_when_the_title_is_edited(shelf, tmp_path):
+    """ADR-0041/R7's own control, and it runs in both directions.
+
+    R7 excludes the title from the slug because the slug is printed in a QR
+    code that cannot be re-pointed and a title is editorial: a typo fix must
+    not move an already-printed code. The paired direction is asserted too —
+    changing the book's **puzzle membership** *does* move the slug — because a
+    test that only checks stability would pass just as well on a slug that is
+    a constant, and R7's whole claim is that one input matters and the other
+    does not.
+
+    **Why these titles and not an empty one.** The mutant this control exists
+    to kill reintroduces the title into the hashed material. Whether it is
+    visible depends on the fixture: a book titled ``""`` would hash
+    ``"book:" + keys`` either way under a mutant that adds the title without a
+    separator, and would hide it completely — the same shape as the ADR's
+    *square* worked example hiding a reversed extent in
+    :func:`test_the_key_is_the_adrs_worked_example`. So both titles here are
+    non-empty, differ from each other, and are asserted to be so before the
+    export, which is what makes a green reading mean something.
+    """
+    store, manager = shelf
+    before_title, after_title = "Winter pictures", "Winter pictures, corrected"
+    assert before_title and after_title and before_title != after_title
+
+    ids = [add_rectangle(store, index, name=f"P{index}") for index in range(3)]
+    book_id = finalized_book(manager, store, ids, title=before_title)
+    root = tmp_path / "bundle"
+    player_bundle.export_bundle(manager, store, root)
+    # Read by index with the count asserted, not unpacked: an unpacking raises
+    # before the arms below it and they then report NOT-REACHED, which a
+    # per-assertion reading cannot tell from arms that never ran at all.
+    first = sorted((root / "book").glob("*.json"))
+    assert len(first) == 1
+    assert json.loads(first[0].read_text(encoding="utf-8"))["title"] == before_title
+
+    # Naming a book is not a membership change, so it stays finalized
+    # (BookManager.update_book_details' own rule) — the book that re-exports
+    # here is the same book, out of draft, with a new title.
+    assert manager.update_book_details(
+        book_id, after_title, "Pictures of winter.", "generic", "adults"
+    )
+    player_bundle.export_bundle(manager, store, root)
+    second = sorted((root / "book").glob("*.json"))
+
+    assert len(second) == 1
+    assert second[0].name == first[0].name, "an editorial title change moved the slug"
+    assert json.loads(second[0].read_text(encoding="utf-8"))["title"] == after_title
+
+    # The other direction: membership is content, so it does move the slug.
+    manager.books[book_id].puzzle_ids.pop()
+    assert manager.save_plan(
+        manager.books[book_id].book_id,
+        matching_plan([store.get_puzzle(pid) for pid in manager.books[book_id].puzzle_ids]),
+    )
+    assert manager.set_book_status(book_id, BookStatus.READY_FOR_PDF.value) is True
+    player_bundle.export_bundle(manager, store, root)
+    third = sorted((root / "book").glob("*.json"))
+
+    assert len(third) == 1
+    assert third[0].name != first[0].name, "a membership change left the slug unmoved"
+
+
+def test_two_books_with_the_same_puzzles_are_one_public_book(shelf, tmp_path):
+    """R7's consequence of excluding the title, handled rather than noted.
+
+    Before R7 the title was in the hash, so two books could only share a slug
+    by sharing a title as well and the file's content was the same either way.
+    With the title excluded, two finalized books holding the same puzzles in
+    the same order are **one** slug with **two** candidate titles, and the one
+    file has to carry a title chosen by something that is a function of the
+    titles rather than of the order the store returned the books in — or the
+    bundle's bytes would depend on row order and EC-049's byte diff would stop
+    meaning anything.
+    """
+    store, manager = shelf
+    ids = [add_rectangle(store, index, name=f"P{index}") for index in range(3)]
+    first = finalized_book(manager, store, ids, title="Zebra edition")
+    second = finalized_book(manager, store, ids, title="Aardvark edition")
+    assert manager.books[first].puzzle_ids == manager.books[second].puzzle_ids
+    root = tmp_path / "bundle"
+
+    report = player_bundle.export_bundle(manager, store, root)
+
+    # Read with an index rather than an unpacking: an unpacking raises before
+    # the asserts below it, and a per-assertion reading cannot tell that from
+    # arms that never ran (the same lesson as M9/M11 on this card).
+    written = sorted((root / "book").glob("*.json"))
+    assert report.book_count == len(written) == 1
+    payload = json.loads(written[0].read_text(encoding="utf-8"))
+    assert written[0].stem == player_bundle.book_slug(_book_order(store, manager, first))
+    assert payload["title"] == "Aardvark edition"  # settled, not last-read
+    assert payload["puzzle_keys"] == _book_order(store, manager, second)
 
 
 def test_identical_grids_are_one_public_puzzle(shelf, tmp_path):
