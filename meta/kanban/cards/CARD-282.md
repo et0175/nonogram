@@ -1,6 +1,6 @@
 # CARD-282: The admin panel exports the player bundle — static JSON the public solver reads
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 58
 **Depends on:** —
 **Touches:** src/nonogram/admin/player_bundle.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_detail.html, tests/test_player_bundle.py
-**Review score:** —
+**Review score:** 7.5 (cycle 2, NOT CERTIFIED; cycle 1 was 7.0) — merged on a recorded gate decision, all four of cycle 2's gating findings taken inline at `51a1b6bb`
 **Started:** 2026-10-24
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-24
+**Actual:** 1d (implementation + an ADR-R7 revision + 2 cycles + 1 fix round + 1 inline fix; aggregate round counter 6 of 6)
+**Merge commit:** 05396f46
 **Blocked by:** — (was: the URL-namespace DEC — resolved 2026-10-23 as DEC-044/ADR-0041, unblocked the same day)
 
 ## What to implement
@@ -1166,3 +1166,51 @@ Cycle 1's **F-8** (a mid-write `_dump` failure leaving `index.json` advertising
 files that do not exist) is in the review YAML and routed to CARD-284 in my
 adjudication — **but CARD-284's own card body does not carry it yet.** Mine to
 write, and I am writing it before this card merges rather than after.
+
+## [MERGE GATE — 2026-10-24, orchestrator] GREEN
+
+Lock written naming this card's worktree, **demonstrated refusing a foreign
+run** before the suite started, and released after the merge. Load average
+recorded at both ends, which is the convention CARD-292's AC-6 asks for — this
+gate is its first instance.
+
+| gate | result |
+|---|---|
+| **AC/EC/G** by explicit node id — the three ACs, R7's title-independence control, the shared-slug test, the exemption-premises test | **6 passed** |
+| **G-2** — the admin player untouched | **0 files changed**; its suite + `test_cli.py` **202 passed** |
+| **G-3** — the dependency baseline | **1 passed** |
+| **AC-5** — node ids | **55 → 98, removals 0, additions 43** (collected at both revisions by the orchestrator) |
+| the card's own file | **98 passed, 0 skipped** |
+| **full suite** | **9122 passed, 27 skipped, 0 failed, EXIT=0, 1880.81 s**, load 4.43 → 3.71 |
+
+**The skip count is the baseline exactly: 26 `conftest.py:207` (`DATABASE_URL is
+not set`) + 1 `test_book_pdf_memory.py:1296` (`setrlimit` refused by this
+kernel) = 27.** CARD-218's merge gate saw **101** here and spent a round proving
+74 of them were transient; this one needed no re-run. And **9122 against
+CARD-219's 9024 is exactly the 98 tests this card adds.**
+
+## [GATE DECISION — merged at 7.5 against `min_score: 8`]
+
+1. **All four of cycle 2's gating findings were TAKEN, not overridden** —
+   inline at `51a1b6bb`: one fixture and three claim corrections.
+2. **The fixture is certified by the mutant it was written for.** `clues.py`'s
+   `tuple(runs) → tuple(reversed(runs))` left AC-380 **green** before and
+   **reds** it now.
+3. **The 7.5 scored the tree before that commit**, and the round budget (6 of 6)
+   cannot buy the cycle that would re-score it.
+4. **What remains open is named and routed**: F-5 (the stored-title channel) and
+   F-6 (both scans glob `*.json` only) to **CARD-283**, with F-5 also carrying an
+   **ADR-0041/R2 scope question** for the architect; F-8 to **CARD-284**.
+5. `src/` is confined to this card's own new module plus 46 lines of route and 8
+   of template; revertible via `/kanban revert CARD-282`.
+
+## [POST-MERGE — 2026-10-24]
+
+On `main` at `05396f46`: `tests/test_player_bundle.py` → **98 passed, zero
+skips**. Worktree `/Users/omelnikova/PycharmProjects/PythonProject4-card-282`
+removed, branch `card/282-player-bundle-export` deleted (was `51a1b6bb`), lock
+released. `PycharmProjects` holds the repo and CARD-276's worktree.
+
+**Owed to CARD-274 at its dispatch, and it is mine to write:** this card put
+`POST /book/<book_id>/export-player-bundle` in `app.py`, and CARD-274 splits that
+file. Its brief must say to carry the route into the split's route module.

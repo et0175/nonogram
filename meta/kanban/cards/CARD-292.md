@@ -47,6 +47,36 @@ Taken 2026-10-24 on Mac15,6 (Apple M3 Pro, 11 cores, 18 GB, macOS 26.7.1, Python
 | the whole file, loaded machine, **both revisions** | `[ 57%]` + 5 dots, exit 1, **no summary line** — 6 runs, byte-identical |
 | machine state when the runs died | **load average 12–20**, **zero python processes**; top consumers PyCharm 19.9 %, a `claude` process up 2d 2h 15.4 %, IntelliJ IDEA 12.2 % |
 
+**THE MECHANISM, identified 2026-10-24 after four wrong attributions by the
+orchestrator — read this before the table above, because the table's load
+column is a red herring.** The test completes **inside a full suite** and dies
+as a **single-file run**, at *both* revisions, independent of load:
+
+* CARD-282's merge gate ran the whole suite at load 4.43 → 3.71 — **9122 passed,
+  0 failed, 1880.81 s** — and that suite **includes this file in its entirety**.
+  The test passed there.
+* The same file, run alone in CARD-276's worktree at load 3.04, stops **inside**
+  that test at 77 of 126 reported, with every earlier test green.
+* Verified with the arms identifying themselves (`collected 104` = pre-fix,
+  `collected 126` = post-fix): **both arms stop in the same test at the same
+  77.**
+
+So the cost is **~99 s warm against ~121 s cold**, straddling a ceiling near
+120 s: inside a suite the module's 306 KB source is in the page cache by the
+time this file runs, and standalone it is not. ``_plant`` reads it from disk
+**144 times** in that one test.
+
+**Four attributions I made and withdrew**, recorded because the method error is
+the card's real subject: (1) "the round pushed the test over" — false, it fails
+at the pre-fix revision; (2) "the whole file passed before and not after" —
+false, the pre-fix bytes fail too; (3) "it is machine load" — false, it fails at
+load 3.0 where it passed at similar load; and (4) "both arms are identical,
+therefore exonerated" — the right conclusion on a **broken measurement**, since
+both arms printed `[ 57%]`, meaning 126 collected, so arm 2 was never the
+pre-fix file. **Every one of those comparisons lacked a check that the arm was
+the arm.** The run that settled it printed the placed sha *and* the collected
+count before testing anything.
+
 **Ruled out:** memory (166 MB peak against 18 GB), a `pytest-timeout` plugin (not installed), a `timeout` in `pyproject.toml` (absent), a signal (`0 signals received`), and the card's diff (both arms identical).
 
 **Not established, and this card's first job:** *what* the ~120 s ceiling actually is. A per-test watchdog, a harness limit on a child process, or a coincidence of two independent 120 s figures. **Do not assume; measure it.**
@@ -60,7 +90,7 @@ Taken 2026-10-24 on Mac15,6 (Apple M3 Pro, 11 cores, 18 GB, macOS 26.7.1, Python
 
 ## Acceptance criteria
 
-- **AC-1** (the ceiling is measured, not assumed): *Given* a parameterised probe outside `tests/`, *then* the card states what the ~120 s boundary is, with the bisection that found it and whether it is wall clock or CPU. (**gate**: the probe and its readings recorded; no new standing test — a test that asserts a host property would red on a different machine.)
+- **AC-1** (the ceiling is measured, not assumed): *Given* a parameterised probe outside `tests/`, *then* the card states what the ~120 s boundary is, with the bisection that found it and whether it is wall clock or CPU — **and confirms or refutes the warm/cold mechanism above by measuring `_plant`'s 144 reads directly** (time them with the page cache warm and after dropping it, or count the syscalls). A hypothesis with a test beats a cause with a story: the orchestrator produced four of the latter. (**gate**: the probe and its readings recorded; no new standing test — a test that asserts a host property would red on a different machine.)
 - **AC-2** (the distribution is derived): *Given* the committed duration artefact, *then* every test within 50 % of the ceiling is listed with its file and duration, **derived by parsing the artefact** rather than by extending a hand-written list. (test: `TestSuiteCeiling_TheCliffEdgeListIsDerived` in `tests/test_suite_profile.py`'s style — an equality against a live derivation, like `RENDER_HEAVY_SNAPSHOT`, so the list cannot go stale silently.)
 - **AC-3** (the over-the-line test completes): *Given* `tests/test_book_export_interior_cover.py` on a **quiet** machine, *then* the whole file completes with every test under the ceiling, and the previously-over test is **named with its before and after cost**. (**gate**: a whole-file run with the load average recorded at both ends; "quiet" is defined in the card as a measured figure, not a feeling.)
 - **AC-4** (guard, no coverage bought back cheap): *Given* the cheapened test, *then* **its claims are unchanged** — the four equalities it asserts (`callee identity` 23, `door spelling` 1, both arms off 30, `kept` 6) still hold and are still asserted. (test: the test itself, node id unchanged; **gate**: the four figures re-derived.)
