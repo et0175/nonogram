@@ -291,3 +291,53 @@ land, and should then be re-cut from whatever duplication is still irritating �
 measured against `suite-durations-20261023.txt`, not against the counts in
 this card's own body, which are from wave 37 and are now wrong in both
 directions (3795 test functions then, 5131 now; 198 files then, 218 now).
+
+## DO NOT RETIRE THESE THREE — fence added 2026-10-24 from CARD-219's review cycle 1
+
+CARD-219 converted seven positional tests in **`tests/test_book_toc.py`** from
+rendering a book to reading the page plan. That conversion is correct and it
+merged with a measured cost: **a plan assertion cannot witness a drawn count.**
+Measured both ways, on both arms of the diff:
+
+* an off-by-one in `interior_stream`'s `first_answer_page`
+  (`src/nonogram/admin/book_pdf_generator.py:6718`) reds **4 cells before the
+  conversion and 3 after**;
+* an off-by-one in the TOC page walk (`:6923`, `range(toc_page_count)` →
+  `range(toc_page_count + 1)`) reds **21 cells before and 14 after**, and **the
+  7 lost cells are exactly the seven converted tests**.
+
+Nothing escapes, because the drawn tie survives in **three tests and nowhere
+else**. After CARD-219 these are the sole carriers, and **this card is the one
+most likely to delete them**, because it is chartered to retire tests whose
+coverage another test already provides — and seven tests in that file now *look*
+like they cover the same ground while no longer carrying the tie:
+
+- `tests/test_book_toc.py::TestBookToc_PageNumbersSurviveTheTitlePage::test_the_solutions_row_points_at_the_solutions_divider`
+- `tests/test_book_toc.py::TestBookToc_PageNumbersSurviveTheTitlePage::test_the_comparison_would_have_caught_a_one_page_drift`
+- `tests/test_book_toc.py::TestBookToc_PageNumbersMatchTheWalk::test_the_named_pages_really_are_those_pages`
+
+**None of the three may be retired by this card**, and a "named survivor" that is
+one of the seven converted tests is **not** a survivor for this coverage —
+that is precisely the substitution the measurement above rules out. If this card
+wants to retire one anyway, the test is the mutants above: re-run both, on both
+arms, and show the cell count does not fall.
+
+Also inherited from CARD-219, and **not this card's to fix**: `InteriorStream`
+carries neither `toc_entries` nor `first_answer_page`, so the tie cannot be
+re-expressed on a pure surface. Exposing them is a **successor card to
+CARD-219** with a `src/` mandate; this card has none. Two further items CARD-219
+raised and could not touch under G-2 are genuinely this card's:
+
+- `TestBookToc_PageNumbersMatchTheWalk::test_the_named_pages_really_are_those_pages`
+  carries a **pre-existing over-stated docstring** — it says "the walk is
+  replayed page by page and each named position is checked against what was
+  actually yielded there", and the body builds its map from `section_plan` and
+  never looks at a yielded page. Note the tension: it is **one of the three
+  carriers above**, so narrow the claim, do not retire the test.
+- The two per-file `test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue`
+  tests in `tests/test_book_pdf_band.py` and `tests/test_book_puzzle_frame.py`
+  are now redundant with the shared home's every-importer version
+  (`tests/test_shared_fixture_controls.py`). Verified redundant: a mutant adding
+  a `getfixturevalue` consumer reds **both** the per-file guard and the shared
+  one. CARD-219's G-2 forbade deleting them; retiring them here needs the shared
+  version named as the survivor.
