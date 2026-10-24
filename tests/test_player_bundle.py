@@ -316,8 +316,26 @@ def object_keys(payload) -> set[str]:
 # this value one that a named good source produces?" — and an answer of "no
 # source claims it" is a violation. That is default-DENY by construction: a
 # leak has to BE a width, a stored tier, a stored title, a published key, the
-# ADR's clues or the ADR's slug to pass, and none of those is a solution cell
-# except through the two projections ADR-0041 requires by name.
+# ADR's clues or the ADR's slug to pass.
+#
+# THE BOUNDARY THAT FOLLOWS FROM THAT, stated because the sentence here used
+# to deny it (cycle 2, F-3): "and none of those is a solution cell except
+# through the two projections ADR-0041 requires by name" was FALSE. A **stored
+# title** is in the pass-list and is free text the owner types. Cycle 2
+# reproduced it end to end through the real storage boundary and the real
+# exporter: `rename_puzzle(pid, base64(packed bits))` stores a name that this
+# scan accounts for as "a stored title", `answer_violations` is empty too, and
+# the published `index.json` title base64-decodes back to the exact 144-cell
+# bit string. Every solution cell recovered from the public bundle, suite
+# green. `difficulty_tier` is the same shape, narrower.
+#
+# That is defensible for a whitelist on PROVENANCE — the value did come from a
+# named source, and a provenance guard is not a content classifier — but it is
+# a REACHABLE PATH past ADR-0041/R2's "or data from which any solution cell is
+# recoverable", so it is a declared bound here and not a gap nobody measured.
+# The owner can leak the answers by naming a puzzle badly. Whether the
+# exporter should refuse or neutralise such a title is an R2 scope question
+# and CARD-283's; it is not something this scan can decide.
 #
 # Three properties to keep if this is ever rewritten:
 #
@@ -627,18 +645,34 @@ def provenance_violations(root: Path, records, books) -> list[str]:
       it. A name with neither is a violation;
     * **the value** — every scalar leaf must have been *accounted for* by a
       rule that accepted it. The leaves are enumerated from the parsed file
-      and the accounted ones subtracted, so a value in a place no branch
-      visits, or one a rule accepted without checking every scalar inside it,
-      is a violation rather than an oversight.
+      and the accounted ones subtracted, so **a value in a place no branch
+      visits** is a violation rather than an oversight. (It does *not* catch a
+      value a rule accepted without looking inside it — see the note on the
+      fourth level below, which used to claim otherwise.)
 
     The fourth level is a **backstop with no reachable case of its own
     today**, and says so rather than taking credit: every rule above accounts
     for exactly what it accepts, so deleting the subtraction changes no
     reading in this file — measured, and recorded as an unkilled mutant (L4)
-    rather than as a mutant nobody tried. It is the construction that keeps
-    the guarantee default-deny *as rules are added*: a rule that later accepts
-    a value with more structure than it checks becomes a violation instead of
-    a hole, which is the failure mode F-1 was.
+    rather than as a mutant nobody tried.
+
+    **It does NOT backstop a future under-checking rule, and the sentence here
+    used to say it did.** Cycle 2 reproduced the counterexample:
+    :func:`_check_object` marks a field accounted for with
+    ``accounted |= set(leaf_paths(payload[field], at))`` — over **every** leaf
+    of **every** accepted field — so the subtraction can never see a rule that
+    accepted a value without looking inside it. With the ``title`` rule
+    replaced by ``lambda value, ctx: None`` and a structured
+    ``{"bits": "<144 cells>"}`` title written through :func:`_dump`,
+    ``provenance_violations`` returns ``[]``. The retired claim was *"a rule
+    that later accepts a value with more structure than it checks becomes a
+    violation instead of a hole"*; it is false, and leaving it would have told
+    the next card to add a rule that it was covered when it is not.
+
+    What the level **does** do is catch a value in a place **no branch visits
+    at all** — a field outside every schema tuple, or a shape the recursion
+    does not reach. Adding a rule therefore still requires its own control;
+    the subtraction is not one.
 
     Reads the files back as JSON, so the serialiser's own choices — indent,
     key order, escaping — cannot open a hole in the scan the way they did in
@@ -870,6 +904,75 @@ def rectangle(width, height, left, top, right, bottom):
     ]
 
 
+def two_bars(side, top, bottom, a0, a1, b0, b1):
+    """Two separated vertical bars — **more than one run on a line**.
+
+    Every :func:`rectangle` grid has at most ONE run per line, which made
+    AC-380's cross-check against :func:`independent_clues` vacuous: a run
+    *order* defect is invisible when there is nothing to order. Cycle 2's
+    Step 8f measured it — ``clues.py:84``'s ``tuple(runs)`` mutated to
+    ``tuple(reversed(runs))`` left
+    ``test_bundle_tree_and_clues_match_the_encoder`` **green** while its
+    docstring claimed the independent encoder "is the only thing that makes
+    'equals ``compute_clues`` of the stored grid' a meaningful equality here".
+
+    Two bars give 2 runs on every filled row, so the order is observable.
+    Verified **uniquely solvable before it was added** (the solver reports
+    ``is_unique=True``, ``solution_count=1`` for the three parameter sets
+    tried), because the storage boundary refuses anything else (ADR-0032/R1)
+    and a fixture that cannot be stored is not a fixture.
+    """
+    return [
+        [((a0 <= x < a1) or (b0 <= x < b1)) and top <= y < bottom for x in range(side)]
+        for y in range(side)
+    ]
+
+
+def lines_visible_under_run_reversal(grid):
+    """How many of ``grid``'s lines have a clue that is not its own reverse.
+
+    **The property that makes a run-ORDER defect observable**, and not the
+    proxy it is tempting to use. "More than one run per line" is *not* enough:
+    the orchestrator's first attempt at cycle 2's F-1 used two bars of equal
+    width, whose clue is ``(3, 3)`` — two runs, and a palindrome, so
+    ``tuple(reversed(runs))`` is the same value and the mutant stayed green
+    exactly as it had with the rectangles. Measured: 0 lines differing.
+
+    Bars of *unequal* width give ``(2, 4)`` and 8 differing lines. A guard on
+    the fixture has to assert the property the mutant exercises rather than
+    something that usually comes with it.
+    """
+    found = clues.compute_clues(grid)
+    return sum(
+        1
+        for line in list(found.rows) + list(found.columns)
+        if tuple(line) != tuple(reversed(line))
+    )
+
+
+def add_two_bars(store, index, *, tier="easy", name=None, picture=None, side=12):
+    """One stored multi-run puzzle, through the real storage boundary."""
+    grid = two_bars(side, 2, side - 2, 1 + (index % 2), 3, 6, 10)
+    found = clues.compute_clues(grid)
+    puzzle_id = store.add_puzzle(
+        grid=grid,
+        clues_rows=[list(c) for c in found.rows],
+        clues_cols=[list(c) for c in found.columns],
+        width=side,
+        height=side,
+        theme="winter",
+        difficulty_score=10,
+        difficulty_tier=tier,
+        quality_score=50,
+        recognizability="medium",
+        strategies_used=[],
+        source_image=picture,
+    )
+    if name is not None:
+        assert store.rename_puzzle(puzzle_id, name)
+    return puzzle_id
+
+
 def add_rectangle(store, index, *, tier="easy", name=None, picture=None, side=12):
     """One stored puzzle, through the real storage boundary (ADR-0032/R1)."""
     grid = rectangle(side, side, index, index, side - 2, side - 1 - index)
@@ -1066,12 +1169,39 @@ def test_bundle_tree_and_clues_match_the_encoder(shelf, tmp_path):
     itself. ``compute_clues`` is then cross-checked against the independent
     encoder as INV-001's own tests do, which is the only thing that makes
     "equals ``compute_clues`` of the stored grid" a meaningful equality here.
+
+    **That sentence was false for this fixture until cycle 2 measured it, and
+    the fifth puzzle is the correction.** Every :func:`rectangle` grid carries
+    at most ONE run per line, so ``tuple(runs)`` and ``tuple(reversed(runs))``
+    are the same value and a run-order defect in ``compute_clues`` was
+    invisible here: Step 8f mutated ``clues.py:84`` that way and this test
+    stayed **green** while ``test_bundle_is_clean_of_answers`` caught it. A
+    cross-check against an independent encoder is only a cross-check over
+    inputs where the two could disagree. :func:`add_two_bars` supplies one,
+    and ``max_runs_per_line`` below holds the fixture to still containing it —
+    so the vacuity cannot come back by someone editing the grid list.
     """
     store, manager = shelf
     ids = [
         add_rectangle(store, index, name=name)
         for index, name in enumerate(("Snowflake", "Angel", "Reindeer", "Star"))
     ]
+    ids.append(add_two_bars(store, 0, name="Lantern"))
+
+    # The fixture must contain an input on which the two encoders COULD
+    # disagree, or the clue equality below is an identity (cycle 2, F-1).
+    # Asserted as "a clue that is not its own reverse", which is the property
+    # the run-order mutant exercises — NOT "more than one run", which is a
+    # proxy that two equal-width bars satisfy while staying invisible.
+    assert any(
+        lines_visible_under_run_reversal(store.get_puzzle(pid)["grid"]) for pid in ids
+    ), (
+        "no fixture grid has a clue that differs from its own reversal, so "
+        "comparing compute_clues against independent_clues cannot see a "
+        "run-order defect — add a grid with unequal run lengths on a line "
+        "rather than deleting this assertion"
+    )
+
     book_id = finalized_book(manager, store, ids)
     root = tmp_path / "bundle"
 
@@ -1710,13 +1840,26 @@ def test_the_exemptions_two_premises_are_measured_not_cited(shelf):
     EC-048 allows the clues and the key because of two claims, and a claim is
     only as good as its reading:
 
-    * **the clues are injective on the published set.** They determine the
-      solution of a uniquely solvable puzzle, which is why publishing them is
-      the point rather than a leak (ADR-0041's Context: the player's solved
-      check *is* clue satisfaction). Measured here over the corpus as the
-      property that actually matters for a bundle — no two distinct published
-      grids share an extent *and* a clue pair, so the clues the bundle ships
-      identify at most the grid they came from and nothing further;
+    * **the clues are injective on the published set — by CONSTRUCTION, not
+      by the sample this test used to take.** A published puzzle has been
+      proved uniquely solvable at the storage boundary (ADR-0032/R1), and
+      unique solvability *is* "these clues determine this grid", so two
+      distinct published grids cannot share an extent and a clue pair. That is
+      why publishing the clues is the point rather than a leak (ADR-0041's
+      Context: the player's solved check *is* clue satisfaction).
+
+      **Cycle 2's F-4 corrected this bullet twice over.** The property is
+      **false in general over the extent** — two distinct 10×10 grids with
+      cells {(0,0),(1,1)} and {(0,1),(1,0)} have identical row clues, column
+      clues and extent, confirmed with this file's own
+      :func:`independent_clues` — so it holds only *because* of ADR-0032/R1
+      and not as a fact about clues. And the sample was drawn from the wrong
+      population: :func:`corpus` injects past the storage boundary, and the
+      solver reports **5 of the 10 smallest corpus grids as NOT uniquely
+      solvable** (``solution_count=2``), so they could never be in a book and
+      measuring over them proves nothing about published puzzles. The claim is
+      therefore stated from the ADR it rests on, with the counterexample
+      recorded so nobody reinstates the sampling;
     * **the key adds nothing to a reader who has the clues.** It is
       ``KEY_LENGTH`` hex characters — 40 bits — over a grid of at least
       ``MIN_SIZE * MIN_SIZE`` cells by CON-011, so it cannot name one grid
