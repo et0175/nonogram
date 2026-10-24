@@ -84,28 +84,96 @@ should be reverted rather than argued for.
 - **AC-1** (happy): *Given* a converted file, *when* its tests run, *then* the
   book is rendered once for the module, and every assertion that previously
   held still holds — same test names, same assertions. (test: the converted
-  files' own existing tests, unchanged in name and intent)
-- **AC-2** (happy, measured): *Given* the suite, *when* it is profiled solo
-  before and after, *then* the card records both wall-clocks and the per-file
-  deltas for every converted file, and the total is lower. (test:
-  `TestSuiteProfile_ArtefactExistsAndIsComplete` for the new artefact; the
-  delta is recorded, not asserted)
+  files' own existing tests, unchanged in name and intent, plus the three
+  render-count controls
+  `test_book_puzzle_frame.py::TestPuzzleFrame_TheSharedInteriorIsNotMutated::test_one_render_served_the_whole_module`,
+  `test_book_pdf_band.py::TestBookPdf_TheSharedSnowflakeInteriorIsNotMutated::test_one_render_served_the_whole_module`
+  and
+  `test_book_pdf_band.py::TestBookPdf_EveryFifthGridLineWider::test_one_render_served_the_whole_class`
+  — each of which answers **only for a run that collected every consumer of
+  its fixture that it can see, and refuses otherwise**. The two qualifications
+  are load-bearing: a narrowed selection makes the control refuse rather than
+  pass (cycle 1 F-002), and a consumer taking the fixture through
+  `request.getfixturevalue` is invisible to it, which is closed here only by an
+  equality-to-zero AST check that these two files contain no such call and is
+  otherwise CARD-219's (cycle 2 F-002).)
+- **AC-2** (happy, measured): *Given* the two converted files, *when* they are
+  measured before and after, *then* the card records a per-card profiling
+  artefact holding the render counts, the interleaved wall-clocks and the
+  retention figures. (artefact:
+  `meta/profiling/card-218-render-sharing.md`, the accepted per-card form that
+  `card-236-…`, `card-241-…` and `card-243-…` already use; guard:
+  `tests/test_suite_profile.py::TestSuiteProfile_ArtefactExistsAndIsComplete`
+  for the committed duration artefacts this one reads from. The deltas are
+  recorded, not asserted.)
+  <!-- THE SUITE-TOTAL CLAUSE IS STRUCK, review cycle 2, 2026-10-24. It read
+  "the suite is profiled solo before and after … and the total is lower", and
+  it is unshowable: the effect is ~1.5 s, each arm costs 1433 s of solo
+  wall-clock, and a full suite's run-to-run spread is tens of seconds. The
+  implementation round struck it for a DIFFERENT and wrong reason — it cited a
+  "0.20 s solo-run reproducibility" against a 0.99 s gain five times larger
+  than it, and the orchestrator's pre-gate repeated that figure without
+  checking the argument it supported. The artefact clause was showable all
+  along and simply had not been done. -->
 - **AC-3** (guard, no coverage loss): *Given* the converted files, *when* the
   suite runs, *then* the collected test count for those files is unchanged —
   no test was merged, parametrised away, skipped or deleted by this card.
-  (test: `TestCuration_ConvertedFilesKeepTheirTestCount`)
+  (**gate**: set difference over sorted `--collect-only` node ids between the
+  fork point and HEAD — `removals` must be 0; additions are permitted and each
+  is named on the card. Measured at every station: 129 → 134 → 138 → 140, with
+  removals 0 each time.)
+  <!-- The ref this replaces named `TestCuration_ConvertedFilesKeepTheirTestCount`,
+  which exists nowhere — one of EIGHT fictional `TestCuration_*` verifiers
+  across CARD-218/219/220 (cycle 1 F-003). It cannot exist as a standing test:
+  "unchanged from before this card" is a property of the DIFF, and a standing
+  test that tried to hold it would be a hand-maintained count that the next
+  card breaks. -->
 - **AC-4** (edge, mutation): *Given* a shared rendered page, *when* one test
   mutates its copy, *then* the other tests in the module see the unmutated
-  page. (test: `TestCuration_SharedRenderIsNotMutatedAcrossTests`)
-- **AC-5** (edge, memory): *Given* the converted files, *when*
-  `test_book_pdf_memory.py`'s peak-memory assertions run, *then* they still
-  hold — the fixture must not keep more pages alive at once than the
-  single-test path did. (test: `test_book_pdf_memory.py`'s existing peak
-  assertions)
+  page. (test:
+  `test_book_puzzle_frame.py::TestPuzzleFrame_TheSharedInteriorIsNotMutated::test_the_shared_pages_are_handed_out_as_they_were_drawn`
+  and
+  `test_book_pdf_band.py::TestBookPdf_TheSharedSnowflakeInteriorIsNotMutated::test_the_shared_pages_are_what_the_fixture_drew`,
+  each comparing every page against a digest taken **inside** the fixture
+  before any test saw it. Guarantee bounded by cycle 2's F-002: it holds for
+  every consumer the derivation can see, and a `request.getfixturevalue`
+  consumer is not one — measured, CAUGHT as a parameter and MISSED that way.)
+- **AC-5** (edge, memory): *Given* the converted files, *when* their modules
+  are finalised, *then* no module-level accumulator either file adds retains a
+  page bitmap. (test:
+  `test_book_puzzle_frame.py::TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind::test_no_module_level_accumulator_retains_a_page_bitmap`
+  and its band twin, each a **derived equality** — 32 B per page of the book it
+  signed, 320 B and 256 B — with
+  `::test_the_page_bitmap_unit_is_this_modules_own_page` cross-checking the
+  unit against `test_book_pdf_memory.PAGE_BITMAP_BYTES` so neither can go stale
+  alone.)
+  <!-- REF REPLACED, NOT SUPPLEMENTED, review cycle 2, 2026-10-24. The old ref
+  named `test_book_pdf_memory.py`'s peak assertions, which instrument THAT
+  module's own `_live` dict and structurally cannot fail on bytes retained by
+  another module — which is exactly how the implementation round shipped
+  454,410,000 B (18.0 page bitmaps) held to the end of every session, through a
+  review and a pre-gate, with no guard on the board able to see it (cycle 1
+  F-001). SCOPE, stated because the AC's wording invites a bigger reading than
+  the control supports: the subject is the ACCUMULATORS these two files add.
+  `tests/test_book_pdf_band.py` also retains 25,192,439 B in two pre-existing
+  `@lru_cache(maxsize=None)` stores — 0.9979 of one page bitmap — which is
+  identical at the fork point `c7cca514` (25,192,183 B), is NOT this card's,
+  is deliberately outside this control, and is backlogged on its own. The
+  instrument's declared blind spots are numpy, an lru_cache store, a `Test*`
+  class attribute, and nesting deeper than one container level; widening it is
+  CARD-219's, with a review in front of it. -->
 - **AC-6** (guard, stream semantics): *Given* any test that walks an
   `InteriorStream`, *when* it runs, *then* it walks a stream of its own — no
-  fixture hands the same generator to two tests. (test:
-  `TestCuration_NoSharedInteriorStream`)
+  fixture hands the same generator to two tests. **STRUCK HERE AND CARRIED TO
+  CARD-219**, measured: `grep -c interior_stream` over both converted files is
+  **0 and 0**, so this AC is vacuous for everything this card actually
+  converted, while the idiom lives in `test_book_toc.py` (19),
+  `test_book_solved_answer_key.py` (16), `test_book_pdf_memory.py` (9) and
+  `test_book_finalise_gutter.py` (9) — three of which are in CARD-219's
+  `Touches:`. (no control, and deliberately none: one confined to these two
+  files would cover 2 of 30 render-heavy files and would make the ref *look*
+  satisfied, which is the `check_ref_missing` shape cycle 1's F-003 was
+  about.)
 
 ## Guardrails
 
