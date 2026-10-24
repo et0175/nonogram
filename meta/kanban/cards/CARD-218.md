@@ -1,6 +1,6 @@
 # CARD-218: Each book renders once per module, not once per test
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -17,10 +17,10 @@
 **Deferred waves:** 0
 **Depends on:** CARD-217, CARD-205, CARD-206 <!-- CARD-207, CARD-208 and CARD-209 REMOVED 2026-10-23 by owner decision. The dependency was SCHEDULING, not functional -- this card's own Architecture context says so ("it edits the same book test files that CARD-205..209 add tests to") -- i.e. it existed to avoid a rebase, not because anything here needs those three to have shipped. The owner chose to take the suite-cost work first, on the measurement that this card's subject (setup, paid once per test) is where the time actually is: 160 ms/test today against 131 ms/test on 2026-10-15. THE COST OF THE OVERRIDE, stated so it is not discovered later: CARD-207, CARD-208 and CARD-209 are drafted with acceptance criteria naming tests in the CURRENT shape, so each must be re-read at the decompose station before dispatch or it gates against a claim that moved -- the CARD-172 failure shape. Same for CARD-219. -->
 **Touches:** tests/conftest.py, tests/helpers/book_corpus.py, tests/test_book_pdf_memory.py, tests/test_book_solved_answer_key.py, tests/test_book_puzzle_frame.py, tests/test_book_proof_pages.py, tests/test_book_pdf_band.py, tests/test_book_guide_page.py, tests/test_book_finalise_gutter.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
+**Review score:** 7.0 (cycle 2, NOT CERTIFIED; cycle 1 was 6.0) — merged on a recorded gate decision, see the merge note below
+**Started:** 2026-10-23
+**Closed:** 2026-10-24
+**Actual:** 1d (dispatched 2026-10-23; implementation round + fix pre-gate + cycle 1 + fix round 1 + fix pre-gate + cycle 2 + fix round 2 + fix pre-gate + merge gate = aggregate round counter 6 of 6)
 **Merge commit:** —
 **Blocked by:** —
 
@@ -2749,3 +2749,176 @@ the AC/EC/G selection takes the two subject files **whole** rather than by node
 id, because a control that cannot evaluate its denominator refuses by design;
 and the gate must **not** pass `--tb=no`, or a refusal and a real leak collapse
 into the same `FAILED <nodeid>` line.
+
+## [MERGE GATE 2026-10-24, orchestrator] GREEN — and the gate's own skip count was the finding
+
+### AC/EC/G gate — 783 collected, 783 passed, **zero skips**, EXIT=0
+
+Selected as **whole files**, deliberately, not by node id: `test_book_puzzle_frame.py`,
+`test_book_pdf_band.py`, `test_suite_profile.py` (AC-2's guard),
+`test_browser_fixture_scope.py` (29 tests, reachable by no scoped selection),
+`test_guard_integrity.py`, `test_impact_set.py`, `test_fixture_integrity.py`.
+**Two method notes this card earned, both recorded before the gate ran:**
+
+* the subject files go in **whole**, because a control that cannot evaluate its
+  own denominator **refuses** by design — so a gate naming the five controls by
+  node id would report red on a correct tree, which is what this board's usual
+  "explicit node ids, never `-k`" practice would have done;
+* the gate must **not** pass `--tb=no`, or a refusal and a real leak collapse
+  into the same `FAILED <nodeid>` line. The diagnoses live in the assertion
+  messages.
+
+Zero skips in this selection, which matters because green-with-skips reports the
+same collected count and the same exit 0 as fully verified.
+
+AC-2's artefact exists on the merged tree (`meta/profiling/card-218-render-sharing.md`,
+10,357 B). AC-6 confirmed vacuous: `grep -c interior_stream` is **0 and 0**.
+
+### The lock, demonstrated and not asserted
+
+Written by this gate with `holder`, `why`, `worktree`, `commit`, `at`, and then
+**shown to refuse**: `full_suite_lock.current_verdict()` asked from main's tree
+returned `(False, …)` naming this holder, this worktree, this commit and an age
+against the 21600 s staleness bound. `ps -Ao command | grep -c "[m] pytest"` was
+**0** immediately before the run.
+
+### Full suite — `8897 passed, 101 skipped, 0 failed, EXIT=0, 1447.44 s`
+
+`/usr/bin/time -p`: real 1450.44, user 1078.28, sys 89.12. Load averages
+5.28 / 5.44 / 5.76 at the end. 1447 s against the committed profile's 1433 s —
+14 s of growth across a card that added 11 tests, main's commits and this run's
+busier box.
+
+**And the gate's real finding is in the skip count, not the failure count: 101,
+against the committed profile's 27.** Exit 0 and no failures look identical
+either way, which is why the number was summed rather than glanced at — by its
+own bracketed counts, not by counting `SKIPPED` lines:
+
+| file | skips | baseline? |
+|---|---|---|
+| `tests/test_print_specs.py` | 29 | **no** |
+| `tests/conftest.py` (`:207`, `DATABASE_URL is not set`) | 26 | yes |
+| `tests/test_puzzle_review_bulk_read.py` | 18 | **no** |
+| `tests/test_wave3_image_generation.py` | 16 | **no** |
+| `tests/test_book_trim_persistence.py` | 6 | **no** |
+| `tests/test_wave3_e2e.py` | 4 | **no** |
+| `tests/test_db_engine_lifecycle.py` | 1 | **no** |
+| `tests/test_book_pdf_memory.py` (`setrlimit(RLIMIT_AS)`) | 1 | yes |
+
+The baseline 27 are present intact — **26 + 1** — and the **74** others are one
+cause: `psycopg2.OperationalError … port 5432 failed: timeout expired`, from
+five files that build their own test database rather than going through the
+conftest's `db_required` path, so `DATABASE_URL` being unset does not reach
+them. **74 tests that executed in the committed profile did not execute here.**
+
+**Resolved rather than argued away.** `pg_isready` afterwards: `localhost:5432 -
+accepting connections`, 20 postgres processes — the timeouts were transient
+under a load average near 5.8, not a configuration. The six affected files were
+re-run with Postgres answering: **398 passed, 2 skipped**, and both remaining
+skips are `conftest.py:207`, i.e. part of the baseline 26. So every one of the
+74 passes on this tree. A second 24-minute suite would have measured the box.
+
+### A defect of my own, found by the gate's own re-run
+
+The re-run's output carried `tests/test_book_puzzle_frame.py:3375: SyntaxWarning:
+"\|" is an invalid escape sequence` — from **my** fix-2 pre-gate correction,
+which wrote `grep -v 'puzzle_frame\|pdf_band'` inside a non-raw docstring. Two
+new warnings, one per file, **six occurrences in the full-suite log**. Rewritten
+as `grep -vE 'puzzle_frame|pdf_band'`, which needs no backslash; both files now
+compile with zero `SyntaxWarning` (`72438595`).
+
+**The suite's result still carries, and it is checkable rather than asserted:**
+with docstrings stripped, both files' ASTs are **identical** to the tree the
+suite ran on. A docstring cannot change a test's behaviour and this proves the
+change is confined to one — a far smaller claim than CARD-271's union argument
+had to make. The AC/EC/G selection was re-run on the corrected bytes:
+**783 passed, zero skips**.
+
+### The merged tree IS the gated tree
+
+`git diff c7cca514..main -- . ':(exclude)meta/'` was **empty** before the merge —
+main's commits since the fork point are all `meta/` — so unlike CARD-271 this
+card owes no coverage argument for main's movement. `main` was merged into the
+branch before the suite ran, bringing `meta/profiling/suite-hotspots-20261023.md`'s
+repair in properly, and the merge left both test files **byte-identical**
+(`git diff --stat ed63caa1..HEAD -- tests/` empty).
+
+The branch carried **no `meta/`** of its own: every note synced one-way into
+main at each station, and the CARD SYNC PROTOCOL held across five agent
+hand-backs and six commits.
+
+## [GATE OVERRIDE 2026-10-24, orchestrator] Merged at 7.0 against `min_score: 8` — stated, not slipped
+
+`review.min_score` is **8**. The last recorded score is **7.0, NOT CERTIFIED**
+(cycle 2). This card merged anyway, on the orchestrator's decision, and the
+reasoning belongs on the record rather than in a commit message.
+
+**What the 7.0 is a score of.** Cycle 2 scored the tree at `60cbc0f0`. Its two
+gating findings were then **closed** by fix round 2 (`ed63caa1`), and **no
+review cycle has scored the tree that is merging.** That is exactly the
+`max_cycles`-is-a-budget-not-a-last-mile-rule problem this board already wrote
+down: *either leave a cycle unspent for the last mile, or state on the card
+that the final edit shipped uncertified and what the merge gate alone
+establishes about it.* The budget is spent — aggregate round counter **6 of 6**
+— so this is the second branch, taken deliberately.
+
+**What the merge gate alone establishes**, all of it in the sections above and
+all of it the orchestrator's own measurement rather than an agent's report:
+
+* **F-001 closed and its closure certified load-bearing.** Y1 replays cycle 2's
+  X2 — bytes restored *and* the container-summation branch neutered — which had
+  left the old control **green on 201,960,000 B retained**, the single point of
+  failure for all of AC-5. It now reds. And Y2 shows the narrowing is *stronger*
+  than the threshold it replaced: the equality also reds under the
+  fixture-scope mutant, on 1,536 B, which `total < one page bitmap` could never
+  see.
+* **F-002's one channel invisible to both halves closed and certified.** Y3 reds
+  on a real `request.getfixturevalue` consumer; Y4 shows that red is the AST
+  check and nothing else (41 passed with it neutered).
+* **F-003 closed by the orchestrator** — all six ACs now name something that
+  exists or something that is run, and AC-5's ref is *replaced* rather than
+  supplemented, because the one it replaced structurally could not fail.
+* **The arms table is complete and honest**: 24 arms, 22 live, 2 declared
+  unfailable with the mutant that dominates each. Cycle 2's third unfailable arm
+  was deleted, not documented.
+* **AC/EC/G 783 passed, zero skips.** **Full suite 8897 passed, 0 failed**, with
+  all **101** skips attributed by file and cause, the baseline 27 identified
+  intact, and every one of the **74** non-baseline skips — transient Postgres
+  timeouts under load — **re-run green** (398 passed, 2 skipped, both baseline).
+* **The final prose edit cannot change behaviour, proved not asserted**: with
+  docstrings stripped, both files' ASTs are identical to the tree the suite ran
+  on.
+
+**What a cycle 3 would have cost and bought.** It would be round 7, past the
+fatigue bound, on a card whose entire measured benefit is **11 renders removed
+and ~0.7 s of wall clock**, against guard machinery of 302 executable lines —
+and whose own conclusion, endorsed by **both** review cycles, is *close
+CARD-218 rather than converting more files*. Cycle 2 itself argued against
+putting new work in front of a review that no longer exists. A third cycle
+would have had to be paid for with a seventh round of fixes it could not then
+re-certify, which is the loop it also diagnosed.
+
+**What is NOT being waved through.** The residue is routed with its
+measurements, not dropped:
+
+* the **instrument widening** (numpy, `functools._lru_cache_wrapper` via
+  `gc.get_referents`) and the **transitive-fixture closure** (indirect
+  consumers, inherited methods, nested `Test` classes, `usefixtures`) are on
+  **CARD-219's `Touches:` line**, where the nine helpers get a shared home
+  **with a review in front of them**;
+* the **pre-existing 24.4 MB `_set_once` retention** — 25,192,439 B total,
+  0.9979 of a page bitmap, identical at the fork point — is **backlogged** with
+  an explicit instruction not to absorb it into this card's accumulator
+  control;
+* the **53 duplicated lines of guard logic**, and the one copy that has already
+  drifted in its assertion message, are **backlogged** and pointed at CARD-219
+  before a third copy exists;
+* `forge:review`'s unresolvable manifest path is **backlogged** (it silently
+  records `reviewer_version: unknown`).
+
+**This is a revertible, test-only change.** `src/**` is byte-identical to the
+fork point; nothing in the product moved. `Merge commit` is recorded below and
+`/kanban revert CARD-218` undoes it in one step. **Flagged to the owner at the
+merge** rather than left to be discovered in a retro: if the owner would rather
+spend a seventh round and a third cycle on a 0.7 s saving, this merge is the
+thing to revert.
