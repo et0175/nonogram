@@ -13,6 +13,8 @@ pytest-idiomatic function names:
                 -> test_requires_guessing_attribute_clear_for_line_solvable*
     AC-122  TestScoreDifficulty_IgnoresElapsedSeconds
                 -> test_ignores_elapsed_seconds*
+    ADR-0029/R6  TestScoreDifficulty_BranchingSolvePinsTheCeiling
+                -> test_a_branching_solve_pins_the_ceiling_and_outranks_every_ladder_score
 
 Superseded by the above and deliberately not re-used as names (the FR-003 /
 AC-009 convention): AC-022 ``TestScoreDifficulty_CombinesSignals`` and AC-023
@@ -755,3 +757,36 @@ def test_an_unknown_rung_name_is_ignored_rather_than_crashing_the_scorer() -> No
     )
 
     assert score_difficulty(signals) == EASY_MAX_SCORE
+
+
+def test_a_branching_solve_pins_the_ceiling_and_outranks_every_ladder_score() -> None:
+    """``TestScoreDifficulty_BranchingSolvePinsTheCeiling`` (ADR-0029/R6).
+
+    A solve that branched sits outside the ladder: its cells were settled by
+    search, not by a technique a human can be asked to apply, so it scores
+    :data:`SCORE_MAX` whatever its rung histogram says — including the
+    histogram that used to produce the inversion (measured 2026-10-24 on
+    seven production puzzles): a tiny probe share atop an otherwise empty
+    ladder, which the band formula scored into the *bottom* of Medium.
+
+    The second assertion is the rule's point, not a restatement of the first:
+    the ceiling must outrank the best score any non-branching histogram can
+    reach, so the one branch node below separates two otherwise IDENTICAL
+    signal records. The third pins the tier: :func:`classify` needs no second
+    argument (ADR-0031 retired it) because the ceiling lands in Hard's band.
+    """
+    # The owner's own puzzle: 15x15, 19 probe cells, 133 branch nodes.
+    ornament = _signals(225, probe_contradiction=19, branch_nodes=133)
+    assert score_difficulty(ornament) == SCORE_MAX
+
+    # One branch node is enough, and it beats the full-share probe histogram
+    # (the strongest line-solvable score there is) from strictly below ties:
+    # the ceiling equals it and nothing branching scores under it.
+    all_probe = _signals(225, probe_contradiction=225)
+    one_branch = _signals(225, probe_contradiction=19, branch_nodes=1)
+    assert score_difficulty(one_branch) == SCORE_MAX >= score_difficulty(all_probe)
+    assert score_difficulty(one_branch) > score_difficulty(
+        _signals(225, probe_contradiction=19)
+    )
+
+    assert classify(score_difficulty(ornament)) is Tier.HARD

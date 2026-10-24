@@ -614,3 +614,11 @@ CARD-283 are blocked on exactly this delta.
   the existing /regrade mechanism (snapshot to meta/ops/ first, CARD-084), not a standing rule —
   the standing rule is the gate above. Source: owner, 2026-10-24.
 # processed: 2026-10-24 → operational (no FR; executed via the admin panel's regrade + curation actions; outcome recorded in the ops snapshot and the session record)
+- OWNER DECISION (same session, follow-up): the score formula itself also changes — a solve that
+  branched scores the ceiling (SCORE_MAX = 100, tier Hard) before any rung is read, in code and in
+  every description of the formula. This amends DEC-047's "rejected: re-tune the score" — what was
+  rejected there was re-scaling the BANDS; the ceiling adds a case for an input the bands never
+  graded honestly, moves no line-solvable grade, and its one-time blast radius (stored scores of
+  branching rows) lands inside the same day's full regrade. ADR-0029/R3 already named branch_nodes
+  a legal score input. Source: owner, 2026-10-24.
+# processed: 2026-10-24 → ADR-0029 revision R6 (code: src/nonogram/difficulty.py score_difficulty; docs: GENERATION_ALGORITHM.md §7, module docstring; test: TestScoreDifficulty_BranchingSolvePinsTheCeiling)

@@ -24,9 +24,20 @@ Within a rung, puzzles are ordered by ADR-0029's secondary count: the share of
 the grid that rung settled. The 0..100 number is a derived *presentation* of
 that pair, not the grade itself::
 
+    if branch_nodes > 0: score = 100                 (ADR-0029/R6, 2026-10-24)
     rung  = the hardest rung with at least one cell settled at it
     share = rung_cells[rung] / total_cells
     score = band_low(rung) + share * band_width(rung)
+
+The first line is the ceiling rule (ADR-0029/R6): a solve that **branched**
+sits outside the ladder entirely — its cells were settled by search, not by a
+technique a human can be asked to apply — so it pins to the top of the scale
+rather than taking a band. Before R6 such a solve scored by its probe share,
+which *inverts* for branching puzzles: the heavier the search, the fewer
+probe-settled cells, the lower the score — measured 2026-10-24 on seven
+production puzzles (63–97 % of cells settled only by search, every one at the
+bottom of Medium). There is deliberately no ordering *among* branching solves:
+ADR-0032/R3 makes them unpublishable, so the number's only job is to not lie.
 
 Monotone propagation is confluent, so the set of cells a rung settles is a
 function of the clue set alone — which is what makes the grade a fact about
@@ -430,11 +441,15 @@ def score_difficulty(signals: SolverSignals) -> float:
         :func:`classify`'s to decide, and rounding here would only lose
         information the resample loop's comparisons might want.
 
-    The number is ``band_low(rung) + share * band_width(rung)`` for the hardest
+    A solve that branched (``branch_nodes > 0``) returns :data:`SCORE_MAX`
+    before any rung is read — the ceiling rule (ADR-0029/R6, 2026-10-24): its
+    cells were settled by search, outside the ladder, and scoring it by its
+    probe share inverts (the module docstring has the measurement). Otherwise
+    the number is ``band_low(rung) + share * band_width(rung)`` for the hardest
     rung present, over :data:`RUNG_BANDS` — the *ladder's* table, not the tier
-    table, and the one CARD-137 deliberately did not touch so that no stored
-    grade moves. See the module docstring for why those edges are 33/66 and
-    not thirds.
+    table, and the one CARD-137 deliberately did not touch so that no
+    line-solvable stored grade moves. See the module docstring for why those
+    edges are 33/66 and not thirds.
 
     Pure and total: no I/O, no clock, no randomness, no solver re-entry, and no
     input it refuses. A candidate with no rung attribution at all scores
@@ -448,6 +463,8 @@ def score_difficulty(signals: SolverSignals) -> float:
     reach its band's floor. Two puzzles at different top rungs therefore never
     overlap, whatever their extents.
     """
+    if signals.branch_nodes > 0:
+        return SCORE_MAX
     rung = hardest_rung(signals.rung_cells)
     if rung is None:
         return SCORE_MIN
