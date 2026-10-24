@@ -1,0 +1,598 @@
+card: CARD-219
+cycle: 2
+wave: 57
+reviewed_commit: f418f3e6
+fork_point: 808cf51f
+branch: card/219-assert-the-plan-not-the-pixels
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-219
+reviewer_round: 6
+aggregate_round_counter: "6 of 6 (fatigue limit, no fix round after this)"
+date: 2026-10-24T07:26:22Z
+config:
+  min_score: 8
+  max_cycles: 3
+  min_improvement: "off"
+  family_regression: warn
+  scope_gate: "on (settled by cycle 1, not re-opened)"
+  visual: "off"
+  mutation_check: true
+  test_scope: impact
+
+score: 7.5
+certified: false
+certified_rationale: >-
+  A large and genuine improvement on cycle 1's 6.0: all five cycle-1 mechanisms
+  work, the retention walk is now complete against nine independently chosen
+  hiding places (only the one it declares is invisible), the FIX 4 narrowed
+  claims hold at both the inside and the edge of their claimed region, and
+  AC-3's one unmeasured mechanism is killed with a converted test among the
+  cells. Not certified because two statements the new code presents as
+  measurements are false, reproducibly, and one of them also makes the round's
+  and the pre-gate's ruling on survived mutant C9 wrong. Both remedies are
+  sentence-level plus one parametrised row; no mechanism needs changing. With
+  F-201 and F-202 taken (or overridden), this is an 8.5.
+
+gate_reproduced:
+  impact_set_files: 11
+  result: "991 passed, 0 failed, 0 skipped"
+  wall_clock_s: 69.29
+  command: >-
+    ./.venv/bin/python -m pytest -o addopts='' -q -p no:randomly tests/test_book_toc.py
+    tests/property/test_book_export_interior.py tests/test_book_finalise_gutter.py
+    tests/test_book_pdf_two_up.py tests/test_book_pdf_levels.py tests/test_book_page_numbers.py
+    tests/test_book_pdf_band.py tests/test_book_puzzle_frame.py
+    tests/test_shared_fixture_controls.py tests/test_suite_profile.py tests/test_cli.py
+  skips_attributed: "zero SKIPPED lines, so nothing to attribute"
+  full_suite_run: false
+  full_suite_reason: "forbidden by brief; meta/kanban/.full-suite.lock belongs to the merge gate"
+
+guardrails_verified:
+  G5_src_untouched:
+    verdict: PASS
+    evidence: >-
+      `git diff 808cf51f..f418f3e6 --stat -- src/` prints nothing (0 lines),
+      verified by me in the worktree, not taken from the report. After all
+      mutation work `git diff --stat -- src/` is also empty and sha256 of both
+      mutated files matches the pristine copies kept outside the worktree
+      (book_pdf_generator.py d8b9ece8..., book_kdp.py 2f68424c...).
+  G2_no_test_removed:
+    verdict: PASS
+    evidence: "AC-4 set difference below: removals 0."
+  G3_corpus_minimums:
+    verdict: PASS
+    evidence: "No file under tests/fixtures/** in the diff; diff touches 6 files, 5 under tests/ and meta/profiling/rank_durations.py."
+  G4_untouchables:
+    verdict: PASS
+    evidence: >-
+      None of PropertyTest_Solver_NeverFalsePositiveUniqueness,
+      TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden or
+      PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry appears in any
+      of the diff's five test files (grep -l over all five: no match).
+  G6_no_guarding_less:
+    verdict: PASS
+    evidence: "No narrowed selection, lowered corpus, dropped control or --tb=no in the diff. Two controls were deleted in fix round 1; both were measured unfailable (cycle 1 F-005) and both files kept a failable sibling."
+  fenced_drawn_tie_carriers:
+    verdict: PASS
+    evidence: >-
+      The three fenced carriers plus the new fence test run green:
+      `pytest -o addopts='' -q -p no:randomly <4 node ids>` -> "4 passed".
+  no_runtime_dependency: "PASS - the diff adds no import outside stdlib + numpy/pytest, both already in the tree's dev baseline."
+
+ac4_measured_independently:
+  method: >-
+    Collected the six in-scope files at HEAD; then placed the fork point's
+    tests/test_book_toc.py with `git show 808cf51f:tests/test_book_toc.py >
+    tests/test_book_toc.py` (the only one of the six that the diff touches) and
+    collected again; then restored from a pristine copy kept outside the
+    worktree and verified sha256 (0f316124... before and after) and
+    `git diff --stat -- tests/` empty.
+  head_collected: 260
+  base_collected: 259
+  removals: 0
+  additions:
+    - tests/test_book_toc.py::test_the_drawn_tie_is_still_carried_here
+  control_module_collected: 51
+  verdict: "AC-4 as reported, confirmed by a second measurement."
+
+step_8f_mutation_check:
+  ran: true
+  rationale: >-
+    cycle 1 emitted deferred(cost); this is the confirmation cycle, so the
+    deferral was spent here. Capped at three src/ mutants, each targeted at an
+    AC-3 / claim-critical line and each line-count preserving. Pristine copies
+    of both mutated src files were kept at
+    /private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/f7b1d54a-8309-4e9b-8cf1-e8633015b556/scratchpad/pristine/
+    and the restore verified by sha256 plus a `grep -rn MUT8F src/ tests/` that
+    returned nothing.
+  mutants:
+    - id: 8F-1
+      target: "src/nonogram/admin/book_pdf_generator.py:7043 `answer_page_count=len(answer_plan)` -> `+ 1`"
+      why: >-
+        AC-3 names three mechanisms - interior_page_count, the divider's
+        position, the answer-section count. The first two have recorded mutants
+        (M17b 15 cells; M15/M29). The answer-section count had NONE in any of
+        the card's three mutant tables, so AC-3's third leg was unmeasured.
+      result: "KILLED - 7 failed, 253 passed over the six in-scope files"
+      cells:
+        - "tests/test_book_toc.py::TestBookToc_PageNumbersMatchTheWalk::test_each_row_points_at_the_page_the_walk_planned (a CONVERTED test)"
+        - "tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage"
+        - "tests/test_book_finalise_gutter.py::TestBookFinalise_PageCountIncludesAnswerKeyPages::test_the_answer_key_is_what_crosses_the_boundary"
+        - "tests/test_book_finalise_gutter.py::TestBookFinalise_PageCountIncludesAnswerKeyPages::test_the_screen_reports_the_answer_page_count"
+        - "tests/test_book_finalise_gutter.py::TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling::test_the_real_book_now_exceeds_the_modelled_ceiling"
+        - "tests/test_book_finalise_gutter.py::TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking::test_answer_pages_equals_the_drawable_puzzle_count"
+        - "tests/test_book_pdf_levels.py::TestBookPdf_DifficultyOrderWithDividerPerLevel::test_the_interior_is_that_section_between_the_guide_and_the_key"
+      verdict: >-
+        AC-3's third mechanism is covered, and covered by one of the seven
+        converted tests - which also confirms the narrowed claim in
+        test_each_row_points_at_the_page_the_walk_planned that it covers the
+        `answer_page_count` term. All three of AC-3's named mechanisms now have
+        a kill on record.
+    - id: 8F-2a
+      target: "src/nonogram/admin/book_kdp.py:545 `structural_toc_entry_count(...)` -> `+ 60` (ONE call site diverges)"
+      why: "Inside the claimed region of FIX 4's rewritten claim in test_kdp_reports_the_same_toc_length_the_export_wrote: 'the two call sites agree'."
+      result: "KILLED at the FIRST assertion (line 954): `assert 309 == 308`, message 'KDP's gutter-band page count and the generator's own unpaired baseline must agree term for term'."
+    - id: 8F-2b
+      target: "src/nonogram/admin/book_pdf_generator.py:3277 `return -(-entry_count // per_page)` -> `+ 1` (the SHARED arithmetic, both call sites move together)"
+      why: >-
+        The same claim's EDGE. The rewritten docstring says the pair 'says
+        nothing about whether that arithmetic is right; the second assertion is
+        what keeps the pair from being vacuous'. ADR-0039/R1 asks for exactly
+        this second mutant.
+      result: >-
+        KILLED at the SECOND assertion (line 961) only: `assert 5 == 4` on
+        measured_toc_page_count(150, frame, DPI). The first assertion passed, so
+        the two call sites did agree while the shared arithmetic was wrong -
+        which is precisely what the narrowed claim says, and the second
+        assertion is what caught it.
+      verdict: "FIX 4's narrowing of this claim is correct at both the inside and the edge. This is the strongest thing in the diff."
+  coverage_statement: >-
+    What 8f covered: AC-3's three named page-plan mechanisms (two already on
+    record, the third measured here for the first time) and both arms of the
+    one FIX 4 claim whose wording is a per-assertion statement. What it did not
+    cover: M13/M14/M17b/M18/M19 were not re-run (measured in the
+    implementation round and not disturbed since - `git diff` on src/ is empty),
+    and no mutant was aimed at the pairing or packing arithmetic, which this
+    card converted nothing against.
+
+rulings_requested_by_the_brief:
+
+  survived_mutant_B3c:
+    round_verdict: "declared, not a mechanism; pytest's reason is cost; condition kept for fidelity"
+    my_ruling: CORRECT
+    evidence: >-
+      Verified against the installed pytest, not from memory:
+      `inspect.getsourcelines(_pytest.python.Class._matches_prefix_or_glob_option)`
+      on pytest 9.1.1 starts at line 385 - the version and line the docstring
+      names - and its own comment reads "Check that name looks like a
+      glob-string before calling fnmatch because this is called for every name
+      in each collected module, and fnmatch is somewhat expensive to call",
+      i.e. cost, exactly as claimed. And `gc`-free reasoning confirmed by
+      measurement: on this POSIX box os.path.normcase is the identity, so
+      fnmatch on a glob-free pattern is exact equality, which `startswith`
+      already subsumes. Keeping a verbatim copy of an upstream matcher with
+      "no mutant kills this" written beside it is the right call; deleting it
+      would substitute a matcher of the round's own that happens to agree.
+    gating: false
+
+  survived_mutant_C9:
+    round_verdict: "the `_SCALAR` short-circuit is a frontier-length optimisation and not a mechanism; recorded as dead rather than claimed"
+    my_ruling: WRONG - and this is finding F-201
+    evidence: "See F-201. The mutant's survival is real and I reproduced it (191 passed, 0 cells); the diagnosis is not. _SCALAR's `memoryview` entry is load-bearing and the survival is a control gap, not a dead mechanism."
+    gating: true
+
+  survived_mutants_C8_and_C6b:
+    round_verdict: "the brief's own FIX 3 prescription produced two unfailable mechanisms; replaced by gc.get_referents plus three edits, which makes the fence load-bearing"
+    my_ruling: CORRECT, and the round understated its own result
+    evidence: >-
+      C8's premise verified: `gc.get_referents(view)` is `[]` and
+      `gc.get_referents(object_array)` is `[]` on numpy 2.5.2 / Python 3.14.3,
+      so the measured-leaf gate had no `.base` edge to block - the prescription
+      really was the defect. C6b re-run by me (types.FunctionType removed from
+      _OPAQUE, line-count preserving) over the control module plus both real
+      files: **9 failure cells**, not the 7 the card records - the card's 7 is
+      the control module alone; the two extra are band's and frame's own
+      `test_no_module_level_accumulator_retains_a_page_bitmap`. The fence is
+      unambiguously load-bearing. Restored and sha256-verified
+      (c67baa4c...), `grep -rn MUTC6b tests/` empty.
+    gating: false
+
+  orchestrator_ruling_on_the_4_5x_figure_error:
+    orchestrator_ruling: "neither CARD-218 nor CARD-219 is falsified, because both exemption controls ask which cache NAMES are exempt and never how many bytes"
+    my_ruling: CONFIRMED - the ruling stands, and I could not falsify it
+    evidence: >-
+      Checked three ways. (1) grep for every byte figure that appears anywhere
+      in the five changed files (24,435,107 / 110,882,067 / 25,192,183 /
+      25,192,439 / 757,076 / 25,245,000 / 0.9979): every single occurrence is
+      inside a docstring, a comment or an assertion *message* - none is in an
+      assertion expression. (2) Read both real controls' assertion expressions:
+      band's `test_no_module_level_accumulator_retains_a_page_bitmap` asserts
+      `sum(retained.by_name.values()) == 32 * len(snowflake_interior)` and
+      `_lru_cache_names(globals()) == {"_font_bytes", "_set_once"}`; frame's
+      asserts the same equality and `_lru_cache_names(globals()) == set()`.
+      Both byte-valued sides are derived live, and neither mentions a cache's
+      bytes. (3) The one control that does touch array bytes,
+      `test_the_bound_on_a_numpy_arrays_contents_is_the_collectors`, compares
+      against `view.nbytes`/`boxed.nbytes` computed in the test body, not
+      against a literal. No surviving assertion anywhere in the diff depends on
+      a byte count that the 4.5x correction moves.
+    note: >-
+      One cosmetic residue, not a finding and not this diff's: the HTML comment
+      at meta/kanban/cards/CARD-219.md:69-70 (orchestrator prose in main) still
+      attributes 25,192,439 B to "band's two pre-existing caches"; the caches
+      are 25,192,183 B and the remaining 256 B is the digest accumulator. The
+      shipped code gets this right in both places
+      (shared_fixture_controls.py:920 and test_shared_fixture_controls.py:1280
+      both say 25,192,183 and explain the 256 B).
+
+  parametrise_instead_of_stacking_claim:
+    claim_as_the_round_made_it: >-
+      "`test_the_fence_holds_at_each_edge_that_could_leave_it` adds three arms,
+      one per edge, parametrised rather than three asserts in one body"
+      (CARD-219.md:1331-1334)
+    verdict_on_that_claim: TRUE
+    evidence: "tests/test_shared_fixture_controls.py:1206-1210 is a @pytest.mark.parametrize over three labels; the three arms are three node ids, and C6b kills exactly one of them ([a function's own globals])."
+    verdict_on_the_generalised_claim: "OVERSTATED module-wide, but no reported figure depends on it"
+    evidence_detail: >-
+      AST census over the new control module (every ast.Assert at any depth
+      inside a test function): nine tests carry 2-3 stacked asserts
+      (test_a_copy_in_this_spelling_is_caught_now_and_was_missed_before,
+      test_the_shape_is_found_now_and_was_missed_before,
+      test_the_fallbacks_are_still_what_this_pytest_collects_by,
+      test_a_configured_pattern_is_honoured_and_the_default_is_not_assumed,
+      test_the_graph_names_the_fixtures_this_pytest_builds,
+      test_the_channel_is_measured_now_and_was_invisible_before,
+      test_the_exemption_admits_exactly_the_cache_stores,
+      test_the_two_halves_do_not_double_count,
+      test_the_bound_on_a_numpy_arrays_contents_is_the_collectors) and one
+      asserts inside a loop over all seven shapes
+      (test_a_test_that_asks_for_nothing_is_not_a_consumer, line 677). So the
+      module does stack. BUT every cell count the round reported is at node-id
+      granularity, and each parametrised arm is its own node id, so no figure
+      is corrupted by the stacking. I also checked per-assertion coverage where
+      it mattered and found it present by construction: in band's two-assert
+      retention control, C4 fails assert 1 (the equality) and E1 fails assert 2
+      (the cache name set), so both arms are separately exercised; and for the
+      KDP test my 8F-2a/8F-2b pair lands on assert 1 and assert 2 respectively.
+      The stacking is therefore an honest-shape criticism, not a measurement
+      defect.
+    gating: false
+
+findings:
+
+  - id: F-201
+    severity: major
+    title: >-
+      `_SCALAR` is declared a non-mechanism on three measured grounds, and all
+      three are false for `memoryview` - deleting it doubles a page figure, and
+      the mutant survives only because no control covers the one type it is
+      live for
+    file: tests/helpers/shared_fixture_controls.py
+    line: 742
+    family: ADR-0039/R1 (a claim about a mechanism, not the mechanism)
+    evidence: >-
+      The comment at :742-746 reads "A cheap short-circuit and **not** a
+      mechanism: the collector reports no referents for any of these either
+      (measured 2026-10-24), so skipping them changes no figure -- it only keeps
+      the frontier short. Nothing claims they are a channel, and no mutant on
+      them could kill anything." `_SCALAR` is
+      (str, bytes, bytearray, memoryview, int, float, complex, bool, NoneType).
+      MEASURED, Python 3.14.3 / numpy 2.5.2, each type asked directly:
+      `gc.get_referents(memoryview(b"abcdef"))` -> `[<managedbuffer object at
+      0x102f6d3c0>]`, `gc.is_tracked` True. Every other one of the nine
+      returns `[]`. So clause 1 is false.
+      CONSEQUENCE MEASURED, with a line-count-preserving deletion mutant on the
+      type tuple alone: for `{"__name__": "probe_module", "kept":
+      memoryview(np.zeros((2550,3300,3), np.uint8))}`,
+      `retained_bitmap_bytes(ns).by_name` is `{'kept': 25245000}` WITH
+      memoryview in `_SCALAR` and `{'kept': 50490000}` WITHOUT it - exactly
+      double, because `gc.get_referents(managedbuffer)` -> `[ndarray]` and the
+      walk then measures the same pixels a second time through the array. So
+      clause 2 ("skipping them changes no figure") is false, by 25,245,000 B.
+      WHY THE MUTANT SURVIVED: I reproduced C9 myself (the whole
+      `if isinstance(value, _SCALAR): return []` disabled, line-count
+      preserving) over the control module + band + frame -> **191 passed, 0
+      cells**. It survives because `HOLE_TWO_CHANNELS`
+      (test_shared_fixture_controls.py:1126-1151) has nine rows and none of them
+      is a `memoryview`, although `bitmap_bytes` at :682 recognises memoryview
+      as a page carrier in its very first branch. A surviving mutant and an
+      uncovered channel look identical - the board's own rule - and here the
+      round read the first where it was the second. Clause 3 is therefore false
+      too: a `[memoryview]` row would make C9 killable.
+      Restored from the pristine copy outside the worktree; sha256
+      c67baa4cc55b8ae1c9889ce6912e1749933bfd20e5ac49f6fba0cc4c74e3b396 before
+      and after, `git diff --stat -- tests/` empty, `grep -rn MUTC9 tests/`
+      empty.
+    remedy: >-
+      Two sentences and one tuple. (1) Correct the comment: the collector
+      reports no referents for eight of the nine, and for `memoryview` the
+      short-circuit is what keeps a page from being counted twice through its
+      managedbuffer. (2) Add a `("memoryview", builder, SHEET_BYTES, False)` row
+      to `HOLE_TWO_CHANNELS` whose builder parks a page-sized buffer in a
+      memoryview - it reds the C9 mutant at 2x and turns a declared dead
+      mechanism into a controlled live one. No production change, no new
+      dependency, no node id removed.
+    confidence: high
+    gating: true
+    gating_rationale: >-
+      ADR-0039/R1 is the family that produced fifteen consecutive gating
+      findings across three waves, and this is its exact shape: a statement
+      presented as "measured 2026-10-24" that a one-line probe refutes, which
+      then propagated into the round's survived-mutant ruling and into the
+      pre-gate's acceptance of it. The error direction is conservative (an
+      over-count would make the guard louder, not quieter), which is why this is
+      major and not critical - but the claim reads as having been checked and
+      was not, and there is no fix round in which it could be caught later.
+
+  - id: F-202
+    severity: major
+    title: >-
+      "Measured 2026-10-24 over the whole tree: zero such names" is false -
+      `tests/helpers/book_corpus.py:757` defines `page_digest`, a second reading
+      of the shared home's own question, in the same package
+    file: tests/test_shared_fixture_controls.py
+    line: 229
+    also_at:
+      - "tests/helpers/shared_fixture_controls.py:1190-1193 (the same claim in the card's FIX 1 notes, meta/kanban/cards/CARD-219.md:1190-1193)"
+    family: ADR-0039/R1 (a figure committed to a docstring is a claim; its control is recomputation)
+    evidence: >-
+      `_locally_defined_names`' docstring states the cost of being depth-blind
+      and then bounds it: "Measured 2026-10-24: zero such names in the tree."
+      RECOMPUTED, in the same domain the guard uses - `_copies_among(
+      _locally_defined_names(src), _shared_names())` over every
+      `tests/**/*.py`: TWO files carry a clashing name, and one of them is not
+      the shared home itself:
+        tests/helpers/book_corpus.py -> ['page_digest']   (not an importer)
+        tests/helpers/shared_fixture_controls.py -> all 13 (it is the home)
+      `tests/helpers/book_corpus.py:757` is `def page_digest(page) ->
+      Dict[str, Any]` returning `{"size", "mode", "sha256": hexdigest}`, while
+      `shared_fixture_controls.py:101` is `def page_digest(page) -> bytes`
+      returning the raw 32-byte digest. Both are "one page's identity, sha256 of
+      `page.tobytes()`". By the guard's own criterion for a copy -
+      underscore-stripped name identity - the tree has one, it sits in
+      `tests/helpers/`, the very directory this card chose for the one home, and
+      in a module that is in CARD-219's own `Touches` list. Present at the fork
+      point (`git show 808cf51f:tests/helpers/book_corpus.py` has it at :757),
+      so the divergence is pre-existing; the false measurement is this round's.
+      The guard stays silent today only because `book_corpus.py` does not
+      import the shared home - and `tests/test_book_pdf_memory.py:195-196`
+      imports `page_digest`/`page_digests` from it while
+      `tests/test_book_puzzle_frame.py:138` imports `page_digest as
+      _page_digest` from the shared home, so the tree already has two different
+      `page_digest`s reached under one name from two files. I checked the live
+      risk and there is none today: frame's import is from
+      `shared_fixture_controls` (verified at :131-141), so its retention
+      control really does accumulate 32-byte values and its 320 B figure holds.
+    remedy: >-
+      Correct the sentence to what is true ("one, `tests/helpers/
+      book_corpus.py:757`'s `page_digest`, which is not an importer, so the
+      guard does not see it") and raise the consolidation as a successor item -
+      `book_corpus.page_digest` is the dict-shaped envelope around the same
+      sha256 and belongs either beside the shared one under a distinct name or
+      derived from it. Test-tree only; no `src/**` change, so G-5 is not in play.
+    confidence: high
+    gating: true
+    gating_rationale: >-
+      Same family as F-201 and the same cost: a reader takes "measured over the
+      whole tree: zero" as having been recomputed. It is one sentence to fix and
+      the orchestrator can take it inline. The underlying consolidation is NOT
+      gating and is routed below as F-205.
+
+  - id: F-203
+    severity: minor
+    title: >-
+      The agreement guard's derived set is 13 of the 15 names the module itself
+      declares exportable; the two it omits are the hand-written pattern
+      fallbacks, and an importer may redefine either one locally with no refusal
+    file: tests/test_shared_fixture_controls.py
+    line: 153
+    family: ADR-0039/R2 (derived from an enumerable authority - but from a narrower one than exists)
+    evidence: >-
+      `_shared_names()` derives from `vars(controls)` filtered to
+      `inspect.isfunction or inspect.isclass` with
+      `__module__ == controls.__name__`. MEASURED: it returns 13 names;
+      `controls.__all__` enumerates 15; the difference is exactly
+      `['DEFAULT_CLASS_PATTERNS', 'DEFAULT_FUNCTION_PATTERNS']`. Fed to the
+      guard's own comparison:
+        source `DEFAULT_FUNCTION_PATTERNS = ("test_",)`  -> caught: NOTHING
+        source `DEFAULT_CLASS_PATTERNS = ("Test",)`      -> caught: NOTHING
+        control: `def _case_of(item): ...`               -> caught: ['_case_of']
+      So an importer of the shared home may bind its own
+      `DEFAULT_FUNCTION_PATTERNS = ("test_",)` - reinstating cycle 1's F-002
+      defect verbatim, a hard-coded `test_` prefix that misses
+      `testCamelCase` - and `test_no_importer_defines_its_own_copy_of_a_shared_helper`
+      reports nothing. A more complete authority (`__all__`) is in the same
+      module and is what `DEFAULT_*` were put there for. The bound is also
+      undeclared: `_shared_names`' docstring says "every public function and
+      class", which is true, but nothing anywhere says a duplicated *value* is
+      outside the guard - and the module's own rationale for existing is that
+      CARD-218's ninth helper drifted on a value, not on code.
+    remedy: >-
+      Derive from `controls.__all__` (or union it in) so the set is 15, and keep
+      one control that is a value rather than a callable. One line plus one row.
+    confidence: high
+    gating: false
+    routing: >-
+      Successor card to CARD-219, same card as F-205 (both are "the one home is
+      not quite one home yet"). Latent, not live: the guard passes today over
+      both importers, so nothing ships broken.
+
+  - id: F-204
+    severity: info
+    title: >-
+      The "parametrised rather than stacked asserts" property is true where the
+      round claimed it and false module-wide; no reported figure depends on it
+    file: tests/test_shared_fixture_controls.py
+    line: 677
+    family: measurement hygiene (per-assertion attribution)
+    evidence: >-
+      AST census of every `ast.Assert` at any depth inside every `test*`
+      function in the diff's test files. In the new control module: nine tests
+      carry 2-3 stacked asserts and one,
+      `test_a_test_that_asks_for_nothing_is_not_a_consumer` (:677), asserts
+      INSIDE a `for` loop over all seven `HOLE_ONE_SHAPES`, so one node id
+      stands for six effective arms and short-circuits at the first. The same
+      shape is at :481 (`test_no_importer_reaches_for_a_fixture_at_run_time`
+      loops over importers). The specific claim the round made - the fence test
+      has three parametrised arms, not three asserts - is TRUE
+      (:1206-1210, and C6b kills exactly one arm). And no cell count the round
+      reported is corrupted, because all of them are at node-id granularity and
+      each parametrised arm is its own node id; where a body does stack, the
+      arms are separately exercised by different mutants (band: C4 -> assert 1,
+      E1 -> assert 2; KDP: my 8F-2a -> assert 1, 8F-2b -> assert 2).
+    remedy: "None required. If CARD-220 touches this module, parametrising :677 over HOLE_ONE_SHAPES would cost one decorator and buy six cells of attribution."
+    confidence: high
+    gating: false
+    routing: "Observation; fold into CARD-220's pass over these files if convenient."
+
+  - id: F-205
+    severity: minor
+    title: >-
+      Two sibling modules in `tests/helpers/` export the same page-identity
+      function name with different return types - the "one home" premise is not
+      yet true of the package
+    file: tests/helpers/book_corpus.py
+    line: 757
+    family: the card's own premise (one definition per question)
+    evidence: >-
+      See F-202's measurement. `book_corpus.page_digest` -> dict with a hex
+      sha256; `shared_fixture_controls.page_digest` -> raw 32-byte sha256.
+      `tests/test_book_pdf_memory.py:195-196` takes the first,
+      `tests/test_book_puzzle_frame.py:138` takes the second under the alias
+      `_page_digest`. Pre-existing (present at 808cf51f), so not a regression
+      this card introduced, and no live defect: I confirmed frame's import
+      resolves to the shared home, so its 32-B-per-page equality is sound.
+    remedy: >-
+      Successor card (with F-203): either name them apart or define
+      `book_corpus.page_digest` in terms of the shared one. Not this card's -
+      `tests/helpers/book_corpus.py` is a declared conflict hotspot in
+      meta/kanban/config.yml and is out of this diff.
+    confidence: high
+    gating: false
+    routing: "Successor card to CARD-219."
+
+  - id: F-206
+    severity: info
+    title: "G-5 remedy already has a card - pointing at it rather than re-deriving it"
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 6718
+    evidence: >-
+      The round raises (correctly, and without making the change) that
+      `interior_stream` computes `toc_entries` (:6786) and `first_answer_page`
+      (:6718-6720) locally and `InteriorStream` carries neither, which is why
+      `_solutions_divider_page` re-spells a production term and why
+      `test_each_row_points_at_the_page_the_walk_planned` cannot cover the
+      `first_answer_page` term. CARD-289 already exists for exposing
+      `toc_entries`/`first_answer_page` on `InteriorStream`. Nothing to add; the
+      raise is correct and complete.
+    confidence: high
+    gating: false
+    routing: CARD-289
+
+claims_checked_and_found_TRUE:
+  - claim: "`gc.get_referents` returns [] for a numpy view's `.base` and for an object array's elements, asserted as the premise so the bound reds if numpy ever changes"
+    verified: >-
+      `gc.get_referents(arr[10:50,10:50])` -> `[]` with `view.base is arr` True;
+      `gc.get_referents(np.empty(3, dtype=object))` -> `[]`; both untracked.
+      numpy 2.5.2, Python 3.14.3. The bound is honest and its premise is
+      asserted live in test_the_bound_on_a_numpy_arrays_contents_is_the_collectors.
+  - claim: "declared_consumers bound 3: tests/conftest.py declares no autouse fixture, and the four modules in this tree that do declare theirs locally"
+    verified: >-
+      `grep -rln autouse tests/ --include='*.py'` returns exactly six files: the
+      shared home, its control module, and test_admin_auth.py,
+      test_admin_serving.py, test_card_037_upload_retry.py,
+      test_card_044_preview_after_submit.py - the four named, no more.
+      `grep -n autouse tests/conftest.py` returns nothing. Exact.
+  - claim: "the condition and both arms are _pytest.python.Class._matches_prefix_or_glob_option (pytest 9.1.1, python.py:385), copied rather than approximated"
+    verified: "pytest.__version__ is 9.1.1; the function's source begins at line 385; the arms and the cost comment match the copy character for character in substance."
+  - claim: "DEFAULT_FUNCTION_PATTERNS/DEFAULT_CLASS_PATTERNS are still what this pytest collects by"
+    verified: "`request.config.getini('python_functions')` == ('test',) and ('python_classes') == ('Test',) in this tree, and the control test_the_fallbacks_are_still_what_this_pytest_collects_by asserts it."
+  - claim: "the retention walk is a bounded reading and `_step` is the authority on what it enters"
+    verified: >-
+      Probed nine hiding places of my own choosing, none of them a row in
+      HOLE_TWO_CHANNELS, each parking one 25,245,000 B page: a suspended
+      generator's frame SEEN, functools.partial SEEN, types.SimpleNamespace
+      SEEN, MappingProxyType SEEN, an exception object's attribute SEEN, a
+      traceback-carrying exception SEEN, a memoryview SEEN (exactly once - see
+      F-201), a plain list SEEN. The ONLY one invisible was a function's default
+      argument (0 B) - which is the bound `_step` declares ("anything reachable
+      only through a function, a method or a module"). The walk's completeness
+      is real and its declared bounds are accurate.
+  - claim: "the fence's FunctionType entry is load-bearing after the collapse"
+    verified: "9 cells on my own line-count-preserving deletion (card records 7, which is the control module alone; band's and frame's real controls are the other two)."
+
+not_checked:
+  - "I did not build the per-assertion recording instrument (every ast.Assert rewritten into a try/except keyed on its lineno). I used an AST census of assert counts plus pytest's own failing-line attribution on single-failure runs, so I have true per-assertion attribution only where exactly one assertion fired. A plain-only kill that an assert past the first would also have produced is an observation I cannot rule out for the nine stacked bodies - though see F-204 for why no reported figure depends on it."
+  - "I did not re-run cycle 1's five findings' own probes. The brief declared them verified closed with the orchestrator's unchanged instruments and told me not to re-report them; I re-probed only the F-001 territory (independently, and more widely - see the completeness entry above)."
+  - "I did not run the full suite. Forbidden by the brief (the lock and tests/conftest.py:207's UsageError); the merge gate is the orchestrator's."
+  - "I did not re-measure AC-5's profiling figures (2712 -> 556 page bitmaps, median wall clock 18.03 s -> 7.21 s). They are recorded-not-asserted and I spent the budget on 8f instead."
+  - "I did not read tests/test_book_pdf_band.py's and tests/test_book_puzzle_frame.py's non-retention diff line by line. Their 339 + 321 changed lines are overwhelmingly deletion of the nine duplicated helpers plus import rewiring; I verified the rewiring (frame :131-141), both retention controls' bodies, and that both files are green in the gate - but I did not audit every converted geometric assertion in them against AC-6."
+  - "I did not probe declared_consumers beyond the seven parametrised shapes and the two over-count controls. Specifically unexamined: a `usefixtures` mark applied as a class decorator on a nested class, a staticmethod/classmethod test, and a test wrapped by a decorator that rewrites its signature."
+  - "I did not examine meta/profiling/rank_durations.py's comment-only change beyond confirming tests/test_suite_profile.py passes inside the 991."
+  - "I did not re-litigate the scope gate (settled, per the brief), the puzzle_pages 106 -> 109 attribution, the classification of tests/property/test_book_export_interior.py as pixel, or the two redundant per-file getfixturevalue tests (CARD-220's)."
+
+disagreements_with_the_brief:
+  - subject: "survived mutant C9"
+    brief_position: "declared, not a mechanism - and the question is whether a declared non-mechanism is dead code that should go"
+    my_position: >-
+      Neither. It is a live mechanism with a control gap, and the declaration is
+      false on all three of the grounds it gives. Deleting it would double a
+      page figure for the one page-carrying type `bitmap_bytes` handles in its
+      first branch. The remedy is a control, not a deletion. F-201.
+  - subject: "the generalised parametrise claim"
+    brief_position: "the round says it avoided stacked asserts by parametrising, so each arm is its own node id - verify it, it is load-bearing for every cell count"
+    my_position: >-
+      The round made that claim about one test, and about that test it is true.
+      Module-wide it is false - nine stacked bodies and one assert inside a loop
+      - but the conclusion the brief feared does not follow: every figure the
+      round reported is at node-id granularity, so none of them is corrupted.
+      The claim is overstated, not the measurement.
+  - subject: "the 4.5x figure error"
+    brief_position: "check my ruling; if any surviving assertion depends on a byte count now wrong by 4.5x, that is gating and I got it wrong"
+    my_position: "The ruling is right. I tried three ways to falsify it and could not; every byte figure in the diff is prose or a message, and both real controls assert a live-derived equality and a cache NAME set."
+  - subject: "C6b's cell count"
+    brief_position: "the round says the fence is load-bearing in 7 cells"
+    my_position: "9, on the selection that includes the two real files. The round understated its own strongest result; the direction is in its favour."
+
+family_regression:
+  family: "ADR-0039/R1 - claims about a mechanism rather than the mechanism"
+  status: WARN
+  detail: >-
+    Both of this card's cycle-1 tie findings and both of its pre-gate findings
+    were this family, fix round 1 rewrote a great many claims, and both of this
+    cycle's gating findings are in that rewritten prose - F-201 in a comment
+    added by the fix, F-202 in a docstring added by the fix. The brief predicted
+    this exactly ("a fix's own additions are where this board's defects live";
+    "fix round 1 rewrote a great many claims; that is exactly where the next one
+    will be"). Sixteen consecutive, and the pattern is now that the *measurement
+    sentence* is the artefact that is not recomputed. Worth the retrospective's
+    attention: a claim that contains a date and a number should be required to
+    name the one-line probe that produced it, so the next reader recomputes in
+    seconds instead of trusting it.
+
+mutation_residue_check:
+  verdict: CLEAN
+  evidence: >-
+    Five mutants applied in total (3 to src/, 2 to tests/helpers/). After each,
+    the file was restored from a pristine copy kept outside the worktree and
+    verified by sha256:
+    src/nonogram/admin/book_pdf_generator.py d8b9ece88324101554caf25697e5acb152fb608c237f3c00dcd294d09607ded9,
+    src/nonogram/admin/book_kdp.py 2f68424c719220f8e959a19bbd5f64fcf4a95572a48b040c1ef0f7172d0c5ba5,
+    tests/helpers/shared_fixture_controls.py c67baa4cc55b8ae1c9889ce6912e1749933bfd20e5ac49f6fba0cc4c74e3b396,
+    tests/test_book_toc.py 0f31612428036f24643cf06cb99d8f214c98b8fc342f5f0345313c7b0130db5b.
+    `git diff --stat -- src/` and `git diff --stat -- tests/` are both empty;
+    `grep -rn 'MUT8F\|MUTC9\|MUTC6b' src/ tests/` returns nothing. The working
+    tree holds only the pre-existing modification to
+    meta/kanban/cards/CARD-219.md, which I did not touch. All probe scripts were
+    written to the scratchpad, never under tests/ (trap 9).
+
+recommendation: >-
+  Do not merge as-is, but do not spend a card on this. The two gating findings
+  are F-201 (three false sentences in a comment, plus one parametrised row that
+  turns a declared dead mechanism into a controlled live one) and F-202 (one
+  false sentence, in two places). Neither touches a mechanism, neither touches
+  src/**, neither moves a node id except by addition, and both are reproducible
+  in one command each. The orchestrator can take them inline in minutes and
+  merge, or record a gate override on both with the measurements above attached
+  - but it should not route them to a fix round that does not exist. F-203 and
+  F-205 go to one successor card ("the one home is not quite one home"), F-204
+  to CARD-220 if it passes through, F-206 to CARD-289.

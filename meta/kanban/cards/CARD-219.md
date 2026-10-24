@@ -1610,3 +1610,178 @@ would have been a false claim, and two of the three fenced carriers now say they
 kill M29 **by erroring** and one **by failing**. Exactly the distinction this
 board's "an exit code is not a verdict; the failure cells are" rule exists for,
 caught one level deeper than the rule states it.
+
+## [CYCLE 2 ADJUDICATION — 2026-10-24, orchestrator] 7.5, NOT CERTIFIED — both gating findings TAKEN INLINE (`a3f9dc41`)
+
+Report: `meta/review/20261024T072622Z-CARD-219-cycle2.yml` (synced; `yaml.safe_load`
+OK, 26 keys; 6 findings — 2 gating `major`, 2 `minor`, 2 `info`; score 7.5,
+`certified: false`). **Aggregate round counter: 6 of 6.** There is no fix round
+left, which is why the two gating findings were taken here rather than
+prescribed.
+
+**Score 6.0 → 7.5**, and the shape of the improvement is the point: cycle 1's
+five findings were in **mechanisms** (a guard blind to an alias, a denominator
+that emptied, a walk that missed three hiding places). Cycle 2's two are in
+**sentences**. Nothing in cycle 2 reported a false negative in a shipped guard.
+
+### Both reproduced before I touched anything
+
+**F-201 — `_SCALAR` is declared a non-mechanism on three grounds and `memoryview`
+falsifies all three.** Measured here:
+
+```
+_SCALAR = (str, bytes, bytearray, memoryview, int, float, complex, bool, NoneType)
+  int/float/bool/str/bytes/bytearray/complex/NoneType  get_referents -> []
+  memoryview                                           get_referents -> [<managedbuffer object>]
+```
+
+and deleting it from the tuple **doubles** a memoryview-held page:
+
+```
+  with memoryview in _SCALAR : 25,245,000 B
+  with it DELETED            : 50,490,000 B
+```
+
+So the entry is **load-bearing in the direction that inflates a figure rather
+than hiding one** — which is exactly why no channel row caught it, and why fix
+round 1 read a surviving mutant as "not a mechanism" when it was "an uncovered
+channel". That ambiguity is this board's own rule (*a surviving mutant and an
+uncovered arm look identical*) biting one level deeper than the rule states it.
+
+**F-202 — "Measured 2026-10-24: zero such names in the tree" is false.** There is
+one: `tests/helpers/book_corpus.py:757` defines `page_digest(page) -> Dict[str, Any]`
+(a hex sha256 in a dict) beside the shared home's `page_digest(page) -> bytes`
+(the raw 32). Two readings of one question, same package, and `book_corpus.py` is
+in **this card's own `Touches`**. Pre-existing at `808cf51f`; not a live defect,
+because `tests/test_book_puzzle_frame.py:138` imports from the shared home, so the
+320 B figure holds.
+
+### What I did, and the one place I overrode cycle 2's prescription
+
+Taken inline at **`a3f9dc41`**, two files, +66/−5, **prose plus one control** —
+no mechanism changed, no `src/`, no node id removed:
+
+1. F-201's three false clauses corrected, and **a control added** that makes the
+   deletion mutant killable: `test_a_memoryview_held_page_is_counted_once_not_twice`.
+2. F-202's sentence corrected, naming the collision, its pre-existence and why it
+   is not live here.
+
+**Certified against my own edit** — the only certification available, and stated
+as such:
+
+| mutant | at fix round 1 | at `a3f9dc41` |
+|---|---|---|
+| C9: delete `memoryview` from `_SCALAR` | **191 passed, 0 cells** | **reds `test_a_memoryview_held_page_is_counted_once_not_twice`** |
+
+Control module 51 → **52 tests**.
+
+**I did not add the `("memoryview", …)` row to `HOLE_TWO_CHANNELS` that cycle 2
+prescribed, and the reason is measured.** That table's second assertion is
+*"CARD-218's walk already saw the {label} channel, so widening it certifies
+nothing and the claim must be narrowed"* — i.e. a row must have been **invisible
+before**. CARD-218's `_flat_bytes` has a memoryview arm; asked directly it
+measures the stand-in at **21,000 B, not 0**. A memoryview row would therefore
+have had to assert something false to pass. **The finding is "a declared
+non-mechanism is load-bearing", not "a new channel"** — a different claim needing
+a different control, which is where it went. Cycle 2 was right about the defect
+and wrong about its home.
+
+### Cycle 2's three rulings on fix round 1's survived mutants
+
+* **B3c — CORRECT**, and verified against the install rather than from memory:
+  pytest 9.1.1, `_matches_prefix_or_glob_option` at `python.py:385`, whose own
+  comment says "fnmatch is somewhat expensive to call". Cost, not semantics.
+  Keeping the verbatim copy is right.
+* **C9 — WRONG**, and that became F-201 above. Accepted.
+* **C8/C6b — CORRECT and understated.** My brief's prescription genuinely had no
+  edge to block (`gc.get_referents` is `[]` for a numpy view and an object
+  array under numpy 2.5.2), and cycle 2's own deletion gives **9 cells, not the
+  7 the round claimed** — the round counted its control module alone and left
+  out band's and frame's real controls. **The round under-reported its own best
+  result**, which is the opposite of the failure mode this board usually gates on.
+
+### My 4.5 % ruling: checked three ways and CONFIRMED
+
+Cycle 2 could not falsify it. Every one of the seven byte figures in the five
+files is in a docstring, comment or assertion *message* — **none in an assertion
+expression**; both real controls assert `sum(by_name) == 32 * len(pages)` and a
+cache **name**-set equality; the one control touching array bytes compares against
+`view.nbytes`/`boxed.nbytes` computed live. **No surviving assertion depends on a
+byte count the 110,882,067 B correction moves.** One cosmetic residue it found,
+which I accept: this card's own HTML comment at `CARD-219.md:69-70` still
+attributes 25,192,439 B to the two caches, where the caches are 25,192,183 B and
+the remaining 256 B is CARD-218's digest. The shipped code gets this right in
+both places.
+
+### Step 8f ran — the deferral was spent, and it found the gap in my own gate
+
+Cycle 1 deferred the mutation check on cost; cycle 2 executed it and aimed it at
+**the one AC-3 mechanism with no mutant on record in any of this card's three
+tables** — the answer-section count. Three src mutants, all killed:
+
+* `answer_page_count = len(answer_plan) + 1` → **7 cells**, one a converted test.
+  AC-3's three named mechanisms now all have a kill.
+* the kdp call site alone diverging → kills at **assertion 1** of
+  `test_kdp_reports_the_same_toc_length_the_export_wrote`.
+* the **shared** arithmetic wrong, both sites moving together → kills at
+  **assertion 2 only**; assertion 1 passed.
+
+That third one is the strongest single result on this card: it is exactly what fix
+round 1's narrowed claim says — *"one arithmetic called twice, so it says nothing
+about whether that arithmetic is right; the second assertion is what does"* —
+**certified at both the inside and the edge of the claim.**
+
+### The parametrise claim: true where made, overstated module-wide, no figure corrupted
+
+Fix round 1 said it parametrised rather than stacked asserts so each arm is its
+own node id. **True of the claim as made** (the fence test: three arms, and C6b
+kills exactly one). **False module-wide**: an AST census finds nine tests with 2–3
+stacked asserts and one asserting inside a loop over all seven shapes. But every
+cell count the round reported is at node-id granularity, each parametrised arm is
+its own node id, and where a body does stack, the arms are separately exercised by
+different mutants (band: C4→assert 1, E1→assert 2; kdp: 8F-2a→assert 1,
+8F-2b→assert 2). **The claim is overstated; no measurement is corrupted.** Recorded
+rather than fixed.
+
+### Non-gating findings, routed with their measurements
+
+* **F-203 (minor) — NOT taken inline, deliberately.** The agreement guard's
+  derived set is **13 of the 15 names `controls.__all__` declares**; the two
+  omitted are `DEFAULT_FUNCTION_PATTERNS`/`DEFAULT_CLASS_PATTERNS`, and an
+  importer binding `DEFAULT_FUNCTION_PATTERNS = ("test_",)` locally would
+  reinstate cycle 1's F-002 **verbatim** with the guard silent. One-line remedy
+  (derive from `__all__`). **I took the two prose findings and refused this one,
+  and the distinction is the whole reason the last-mile rule exists:** this is a
+  **mechanism** change to a derived-set guard — the exact class that produced a
+  gating finding on this card in both cycles — and there is no reviewer left to
+  check it. A card, not a last-mile edit.
+* **F-205 (minor)** — the `page_digest` collision itself. Same successor as F-203.
+* **F-204 (info)** — the parametrise overstatement → CARD-220 if it passes through.
+* **F-206 (info)** — the `InteriorStream` raise is correct and complete →
+  **CARD-289**, which already exists and which cycle 2 did not re-derive.
+
+### `[Family] WARN` — accepted, and it is the sixteenth
+
+`family_regression: warn` fires: **sixteen consecutive gating findings in the
+ADR-0039/R1 family across four waves**, and both of cycle 2's are in prose that
+fix round 1 wrote — which is what I predicted in its brief and what the brief
+told it to expect. Not escalated (`warn`), because neither finding is in a
+mechanism and the mechanisms converged: cycle 1's five were real guard holes,
+cycle 2's two are sentences about them.
+
+Cycle 2's own proposal for the retrospective, which I endorse and am carrying
+forward: **a claim containing a date and a number should have to name the
+one-line probe that produced it.** Three of this card's findings — F-202,
+F-201's "measured 2026-10-24", and my own 842-dropped-node-id parser at dispatch
+— were figures asserted in the past tense with no reproducible probe attached.
+
+### What cycle 2 did not check, carried forward
+
+No per-assertion recording instrument (AST census plus pytest's failing-line
+attribution, so true per-assert attribution only where one assert fired); cycle
+1's five probes not re-run (my call — I re-ran them myself at the pre-gate); no
+full suite (mine); AC-5's profiling deltas not re-measured; band's and frame's
+non-retention diff not line-by-line audited against AC-6; and
+`declared_consumers` unprobed for a class-decorator `usefixtures` on a nested
+class, a staticmethod test, or a signature-rewriting decorator. That last trio is
+the honest residue of hole 1 and belongs on F-203's successor card.
