@@ -11,26 +11,28 @@ one able to fail, with its failing state constructed rather than imagined
 
 Where each mechanism lives, so a mutant can delete it
 -----------------------------------------------------
-* :func:`answer_violations` is AC-381's scan. It is a pure function of a
-  written bundle and the records it was written from, so
-  ``test_the_answer_scan_catches_each_leak_shape`` can hand it a bundle with a
-  leak planted in it and watch it fire. Without that control the AC test would
-  be a claim; with it, "no file carries the answer" has a measured failing
-  state.
-* The scan's two halves are deliberately different in kind, because a mutant
-  can widen one of them:
-
-  - :func:`forbidden_encodings` derives, **from the grid itself at runtime**,
-    the encodings a solution could leave in a file: both cell alphabets, both
-    traversal orders, each reversed, several separators, the JSON form, the
-    hex and base-64 forms of the bit string, and the untruncated digest.
-    Nothing is written out as a literal, so it covers a grid nobody has seen.
-  - :func:`object_keys` walks every JSON object in the bundle and the scan
-    holds the result to :data:`DECLARED_FIELDS`, which is derived from
-    ``player_bundle``'s own schema tuples. **An unrecognised field is a
-    violation, not a pass** — and because that authority is code a mutant
-    could widen, ``test_the_declared_schema_is_the_field_set_the_criteria_name``
-    holds those tuples to the literal field list AC-380 and FR-045 spell out.
+* :func:`provenance_violations` is AC-381's scan, and EC-048's guarantee. It
+  is a **whitelist on provenance**, not a denylist of leak shapes: every
+  scalar in every written file must be accounted for by a named good source —
+  the extent, a stored tier, a stored title or its neutral fallback, a
+  published key, ADR-0041/R5's clues, ADR-0041/R7's slug — and a value no
+  source claims is a violation. It is default-deny at the tree, the object,
+  the field and the value; ``player_bundle.SOLUTION_DERIVED_FIELDS`` is its
+  routing table, so EC-048's declared exemption decides which check a field
+  gets. ``test_the_answer_scan_catches_each_leak_shape`` plants each of
+  :data:`LEAK_SHAPES` **through the exporter's own writer** and watches it
+  fire; the leak that shipped green past the denylist this replaced is one of
+  them.
+* :func:`answer_violations` is the belt beside it: the old denylist, kept
+  because it is free and reads bytes, claiming nothing. Its two measured
+  limits are written into :func:`forbidden_encodings`' own docstring, and
+  ``test_the_belt_runs_on_the_bytes_the_exporter_writes`` both proves it can
+  fail on bytes the exporter really writes and pins the hole it cannot close.
+* :func:`object_keys` and :data:`DECLARED_FIELDS` serve the belt only.
+  ``test_the_declared_schema_is_the_field_set_the_criteria_name`` holds
+  ``player_bundle``'s schema tuples to the literal field list AC-380 and
+  FR-045 spell out, because those tuples are the whitelist's per-file
+  authority and are code a mutant could widen alongside the writer.
 * :func:`recorded_statements` is EC-049's read-only mechanism: a listener on
   SQLAlchemy's ``Engine`` class that records every statement and *refuses*
   anything whose leading verb is not in :data:`READ_ONLY_VERBS`. Default-deny,
@@ -47,8 +49,10 @@ That the bundle is *playable*. The public player is CARD-283 and does not
 exist; nothing here reads ``player/``.
 
 No ``hypothesis`` (ADR-0006/R1 keeps it out of the baseline): AC-381's corpus
-is built with stdlib :class:`random.Random` from a fixed seed and the test
-asserts its own size, so the corpus cannot silently shrink.
+is built with stdlib :class:`random.Random` from a fixed seed, and the test
+asserts its size against :data:`MIN_CORPUS_GRIDS` — a floor the builder does
+not read, which is the part that stops the corpus shrinking silently and the
+part that was missing (cycle 1, F-2).
 """
 
 from __future__ import annotations
@@ -57,6 +61,7 @@ import base64
 import hashlib
 import itertools
 import json
+import math
 import os
 import random
 import re
@@ -83,6 +88,23 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 #: The corpus AC-381 scans. Large enough that a leak shape has to survive
 #: every grid in it, and asserted inside the test so it cannot shrink.
 CORPUS_SEED = 282
+
+#: How many grids :func:`corpus` **builds**. Read by the builder and by
+#: nothing else.
+CORPUS_GRIDS = 52
+
+#: The floor AC-381 refuses to go below — a literal, and deliberately *not*
+#: the constant the corpus is built from.
+#:
+#: Until CARD-282's first fix round these were one constant: the corpus looped
+#: ``range(MIN_CORPUS_GRIDS + 4)`` and was then asserted to be at least
+#: ``MIN_CORPUS_GRIDS`` long, so the assertion could not fail and the corpus
+#: was silently shrinkable to 9 grids with the suite green (cycle 1, F-2) —
+#: which is the one thing EC-048's registry statement names explicitly, "with
+#: the minimum corpus size asserted in the test". A bound that moves with the
+#: thing it bounds asserts nothing. Lowering this number is not a remedy for
+#: anything; :func:`test_the_corpus_floor_is_a_bound_the_corpus_does_not_set`
+#: measures both directions of the separation.
 MIN_CORPUS_GRIDS = 48
 
 #: The picture names the corpus stores, so the scan has a real value to look
@@ -114,6 +136,10 @@ CRITERIA_FIELDS = {
 
 #: Every field name any bundle file may carry, derived from the exporter's own
 #: declared schema — the authority the runtime can enumerate (ADR-0039/R2).
+#: It is the **union** of the five per-file tuples, which is all the belt can
+#: use: it walks every object in every file without knowing which file it is
+#: in. The per-file equality — the check a leak reusing another file's
+#: declared name has to get past — is in :func:`provenance_violations`.
 DECLARED_FIELDS = frozenset(
     name
     for declared in (
@@ -175,6 +201,27 @@ def independent_clues(grid):
 
 def forbidden_encodings(grid) -> dict[str, str]:
     """Encodings of ``grid``'s cells that must appear in no bundle file.
+
+    **This is the belt, not the guarantee** — read
+    :func:`provenance_violations` for the guarantee. A denylist of encodings
+    cannot be complete, because the set of encodings of a grid is not
+    enumerable, and this one was measured incomplete: 7 of 7 recoverable
+    encodings planted in the declared ``title`` field survived it (CARD-282
+    cycle 1, F-1). Two further limits, stated because a reader would otherwise
+    assume them away:
+
+    * every form below is **compact text**, while
+      :func:`player_bundle._dump` writes with ``indent=2``, so no *structured*
+      leak can match one of these strings in a real bundle file. The
+      ``"\\\\n"`` in the separators is the two-character escape, not a
+      newline — measured: 0 of the forms contain a newline character. The
+      reach that remains is a leak inside a single JSON **string** value,
+      which is where it does catch things, and
+      :func:`test_the_belt_runs_on_the_bytes_the_exporter_writes` plants one
+      through ``_dump`` to prove that much can fail;
+    * it is kept because it is free and because it reads *bytes*, so it is
+      blind to nothing the JSON parser normalises. It is believed to add
+      nothing the whitelist misses, and nothing rests on it.
 
     Derived from the grid at run time: the product of two cell alphabets, four
     traversals (row-major and column-major, each forwards and reversed) and
@@ -238,8 +285,478 @@ def object_keys(payload) -> set[str]:
     return names
 
 
+# --------------------------------------------------------------------------
+# EC-048's guarantee: the provenance whitelist
+# --------------------------------------------------------------------------
+#
+# This is the inversion CARD-282's cycle 1 asked for, and the reason it had
+# to be an inversion rather than a bigger denylist.
+#
+# What was here before was two denylists: a set of encodings a solution could
+# leave in a file, and a set of field *names* a file may carry. Both were
+# derived rather than hand-written, and both were still default-ALLOW
+# underneath, which was measured three ways:
+#
+#   * the field set was the flat UNION of the five per-file schemas, and
+#     nothing held a written file's object to its OWN schema — so one edit on
+#     the production path put the whole 144-cell solution grid into
+#     ``index.json`` under the already-declared name ``clues``, with every
+#     test green;
+#   * ``forbidden_encodings`` enumerates encodings, and the set of encodings
+#     of a grid is not enumerable: 7 of 7 recoverable encodings planted in the
+#     declared ``title`` field (base64 and base85 of the packed bits, a
+#     diagonal traversal, run-length, per-row hex, row-reversed, '-'-joined)
+#     were missed;
+#   * every form it derives is compact text while :func:`player_bundle._dump`
+#     writes ``indent=2``, so the one control that proved it could fail was
+#     planting bytes the exporter cannot produce.
+#
+# So the polarity is inverted here. Instead of asking "is this one of the
+# shapes we thought of?", the scan asks of **every value in every file**: "is
+# this value one that a named good source produces?" — and an answer of "no
+# source claims it" is a violation. That is default-DENY by construction: a
+# leak has to BE a width, a stored tier, a stored title, a published key, the
+# ADR's clues or the ADR's slug to pass, and none of those is a solution cell
+# except through the two projections ADR-0041 requires by name.
+#
+# Three properties to keep if this is ever rewritten:
+#
+#   1. it reads the files back with :mod:`json` and whitelists the **parsed
+#      values**, so what the exporter's serialiser does to the bytes cannot
+#      open a hole in it (that was the indent gap, closed by construction
+#      rather than by remembering it);
+#   2. every object is held to **its own** schema tuple, never to the union;
+#   3. ``player_bundle.SOLUTION_DERIVED_FIELDS`` is the *routing table*, so
+#      the declared exemption decides which of the two checks a field gets and
+#      is load-bearing in both directions.
+
+
+#: The ADR's own recipe for each field EC-048 exempts. Consulted **only** for
+#: a field ``player_bundle.SOLUTION_DERIVED_FIELDS`` names; a name in the
+#: exemption with no recipe here has nothing checking its value, which the
+#: scan reports as a violation rather than passing over.
+_ADR_RECIPES: dict = {}
+
+#: The named source for every declared field the exemption does *not* cover.
+#: A value a source does not produce is a violation, and a declared field with
+#: no entry here and no recipe above is a violation too.
+_PLAIN_SOURCES: dict = {}
+
+#: Declared fields whose own leaves are accounted for by the recursion into
+#: them rather than by their rule (the rule checks the container's shape, the
+#: recursion checks each member). ``rows`` and ``columns`` are not routed at
+#: all: they are the ``clues`` object's own fields and are checked with it.
+_CONTAINER_FIELDS = frozenset({"puzzles"})
+
+
+def leaf_paths(payload, where: str = "") -> dict[str, object]:
+    """Every scalar in ``payload``, keyed by its JSON path.
+
+    The unit the whitelist accounts for. A container is not a leaf — it is
+    accounted for by its members — so "every value is accounted for" means
+    every string, number, boolean and null that a bundle file actually
+    carries.
+    """
+    found: dict[str, object] = {}
+    if isinstance(payload, dict):
+        for name, value in payload.items():
+            found |= leaf_paths(value, f"{where}.{name}")
+    elif isinstance(payload, list):
+        for index, value in enumerate(payload):
+            found |= leaf_paths(value, f"{where}[{index}]")
+    else:
+        found[where or "<root>"] = payload
+    return found
+
+
+def independent_slug(puzzle_keys) -> str:
+    """ADR-0041/R7's recipe, written out rather than called.
+
+    The slug the whitelist accepts is this one, so a book file's ``slug`` is
+    compared with the rule's text and not with the function under test.
+    """
+    material = bytearray(b"book:")
+    for key in puzzle_keys:
+        material += key.encode("utf-8")
+    return hashlib.sha256(bytes(material)).hexdigest()[:10]
+
+
+def bundle_sources(records, books) -> dict:
+    """Every value the bundle is allowed to carry, by where it may come from.
+
+    Built from the *stored* rows and books alone — never from the written
+    tree — so it is an independent statement of what a clean bundle holds.
+    Only puzzles a **finalized** book carries are published, which is why a
+    draft book's key and title have no source here and are caught by the same
+    default-deny as any other unaccounted value.
+    """
+    by_id = {record["id"]: record for record in records}
+    grids: dict[str, list] = {}
+    rows_by_key: dict[str, list] = {}
+    book_sources: dict[str, dict] = {}
+
+    for book in books:
+        if book.status not in player_bundle.FINALIZED_STATUSES:
+            continue
+        keys = []
+        for puzzle_id in book.puzzle_ids:
+            record = by_id.get(puzzle_id)
+            if record is None:
+                continue
+            grid = [[bool(cell) for cell in row] for row in record["grid"]]
+            if not grid or not grid[0] or any(len(r) != len(grid[0]) for r in grid):
+                continue  # the exporter's named skip; no key, so nothing published
+            key = independent_key(grid)
+            keys.append(key)
+            grids[key] = grid
+            rows_by_key.setdefault(key, []).append(record)
+        slug = independent_slug(keys)
+        settled = book_sources.setdefault(slug, {"keys": keys, "titles": set()})
+        stored = (getattr(getattr(book, "metadata", None), "title", None) or "").strip()
+        settled["titles"].add(stored or "Untitled book")
+
+    titles: dict[str, set] = {}
+    tiers: dict[str, set] = {}
+    clue_sets: dict[str, dict] = {}
+    for key, found in rows_by_key.items():
+        allowed = set()
+        for record in found:
+            name = record.get("puzzle_name")
+            if isinstance(name, str) and name.strip():
+                allowed.add(name.strip())
+            else:
+                # The exporter's neutral fallback, allowed only because a row
+                # with this key really has no stored name — never as a free
+                # pass for any title shaped like it.
+                allowed.add(f"Puzzle {key}")
+        titles[key] = allowed
+        tiers[key] = {record.get("difficulty_tier") for record in found}
+        encoded_rows, encoded_columns = independent_clues(grids[key])
+        clue_sets[key] = {"rows": encoded_rows, "columns": encoded_columns}
+
+    return {
+        "grids": grids,
+        "extent": {key: (len(grid[0]), len(grid)) for key, grid in grids.items()},
+        "titles": titles,
+        "tiers": tiers,
+        "clues": clue_sets,
+        "books": book_sources,
+    }
+
+
+def _recipe_key(value, ctx):
+    """ADR-0041/R1 — the key is the published grid's key and nothing else."""
+    if not isinstance(value, str):
+        return f"is {type(value).__name__}, not a key"
+    if value not in ctx["sources"]["grids"]:
+        return f"{value!r} is not R1's key of any published grid"
+    if ctx["key"] is not None and value != ctx["key"]:
+        return f"{value!r} is not the key this entry is filed under ({ctx['key']!r})"
+    return None
+
+
+def _recipe_clues(value, ctx):
+    """ADR-0041/R5 — the clues are the one encoder's output for that grid."""
+    expected = ctx["sources"]["clues"].get(ctx["key"])
+    if expected is None:
+        return "no published grid for this key, so no sanctioned clues either"
+    if not isinstance(value, dict):
+        return f"is {type(value).__name__}, not a clues object"
+    if set(value) != set(player_bundle.PUZZLE_CLUES_FIELDS):
+        return (
+            f"clues fields {sorted(value)} are not this object's own schema "
+            f"{sorted(player_bundle.PUZZLE_CLUES_FIELDS)}"
+        )
+    if value != expected:
+        return "is not the independent run-length encoding of the stored grid"
+    return None
+
+
+def _recipe_puzzle_keys(value, ctx):
+    """ADR-0041/R1 + R7 — the book's members' keys, in book order."""
+    book = ctx["sources"]["books"].get(ctx["slug"])
+    if book is None:
+        return f"no finalized book hashes to the slug {ctx['slug']!r}"
+    if value != book["keys"]:
+        return "is not this book's members' keys in book order"
+    return None
+
+
+def _source_puzzles(value, ctx):
+    """The index's entry list: one entry per published key, sorted by key."""
+    if not isinstance(value, list):
+        return f"is {type(value).__name__}, not a list of entries"
+    found = [entry.get("key") if isinstance(entry, dict) else entry for entry in value]
+    expected = sorted(ctx["sources"]["grids"])
+    if found != expected:
+        return f"lists {found!r}, not the published keys in order ({expected!r})"
+    return None
+
+
+def _source_width(value, ctx):
+    extent = ctx["sources"]["extent"].get(ctx["key"])
+    if extent is None:
+        return "no published grid for this key"
+    return None if value == extent[0] else f"{value!r} is not the grid's width {extent[0]}"
+
+
+def _source_height(value, ctx):
+    extent = ctx["sources"]["extent"].get(ctx["key"])
+    if extent is None:
+        return "no published grid for this key"
+    return None if value == extent[1] else f"{value!r} is not the grid's height {extent[1]}"
+
+
+def _source_tier(value, ctx):
+    allowed = ctx["sources"]["tiers"].get(ctx["key"])
+    if allowed is None:
+        return "no published grid for this key"
+    if not any(value == tier for tier in allowed):
+        return f"{value!r} is no difficulty_tier stored on a row with this key"
+    return None
+
+
+def _source_title(value, ctx):
+    # ``any(value == allowed)`` rather than ``value in allowed`` throughout:
+    # the sets are sets, and a planted dict or list is unhashable, so ``in``
+    # would raise ``TypeError`` out of a scan whose docstring says it never
+    # raises. A scan that crashes on a hostile shape is not a scan that
+    # rejected it.
+    if ctx["kind"] == "book file":
+        book = ctx["sources"]["books"].get(ctx["slug"])
+        if book is None:
+            return f"no finalized book hashes to the slug {ctx['slug']!r}"
+        if not any(value == title for title in book["titles"]):
+            return f"{value!r} is no stored title of a book with this slug"
+        return None
+    allowed = ctx["sources"]["titles"].get(ctx["key"])
+    if allowed is None:
+        return "no published grid for this key"
+    if not any(value == title for title in allowed):
+        return (
+            f"{value!r} is neither a stored puzzle_name of a row with this key "
+            "nor its neutral fallback"
+        )
+    return None
+
+
+def _source_slug(value, ctx):
+    if not isinstance(value, str):
+        return f"is {type(value).__name__}, not a slug"
+    if value != ctx["slug"]:
+        return f"{value!r} is not the file's own name {ctx['slug']!r}"
+    if value != independent_slug(ctx["payload"].get("puzzle_keys") or []):
+        return "is not R7's book_slug of this file's own puzzle_keys"
+    if value not in ctx["sources"]["books"]:
+        return "names no finalized book"
+    return None
+
+
+_ADR_RECIPES.update(
+    key=_recipe_key, clues=_recipe_clues, puzzle_keys=_recipe_puzzle_keys
+)
+_PLAIN_SOURCES.update(
+    puzzles=_source_puzzles,
+    width=_source_width,
+    height=_source_height,
+    tier=_source_tier,
+    title=_source_title,
+    slug=_source_slug,
+)
+
+
+def _object_fields_are_its_own(violations, where, payload, declared) -> bool:
+    """Hold one written object to **its own** schema tuple, not to the union.
+
+    The union was the first of F-1's two causes: ``clues``, ``slug`` and
+    ``puzzles`` are all declared *somewhere*, so a value under any of those
+    names passed in any file.
+    """
+    if not isinstance(payload, dict):
+        violations.append(f"{where}: is {type(payload).__name__}, not a JSON object")
+        return False
+    if set(payload) != set(declared):
+        violations.append(
+            f"{where}: field set {sorted(payload)} is not this file's own schema "
+            f"{sorted(declared)}"
+        )
+        return False
+    return True
+
+
+def _check_object(violations, accounted, where, payload, declared, ctx) -> None:
+    """One written object: its own field set, then each value's provenance."""
+    if not _object_fields_are_its_own(violations, where, payload, declared):
+        return
+    inner = dict(ctx, payload=payload)
+    for field in sorted(payload):
+        at = f"{where}.{field}"
+        exempt = field in player_bundle.SOLUTION_DERIVED_FIELDS
+        rule = (_ADR_RECIPES if exempt else _PLAIN_SOURCES).get(field)
+        if rule is None:
+            violations.append(
+                f"{at}: {field!r} is "
+                + (
+                    "exempt by SOLUTION_DERIVED_FIELDS but no ADR recipe checks it"
+                    if exempt
+                    else "declared but has no named non-solution source"
+                )
+            )
+            continue
+        complaint = rule(payload[field], inner)
+        if complaint:
+            violations.append(f"{at}: {complaint}")
+        elif field not in _CONTAINER_FIELDS:
+            accounted |= set(leaf_paths(payload[field], at))
+
+
+def provenance_violations(root: Path, records, books) -> list[str]:
+    """Every value in the bundle under ``root`` that no good source accounts for.
+
+    EC-048's guarantee, and AC-381's primary scan. Default-DENY at four
+    levels, each one a level the denylist it replaced was default-ALLOW at:
+
+    * **the tree** — a file whose path is not ``index.json``, a published
+      key's ``puzzle/<key>.json`` or a finalized book's ``book/<slug>.json``
+      is a violation, and so is a missing one;
+    * **the object** — every object's field set must equal **its own** schema
+      tuple from ``player_bundle``, never the union of the five;
+    * **the field** — a declared name is routed by
+      ``player_bundle.SOLUTION_DERIVED_FIELDS``: exempt names to the ADR's own
+      recipe for them, every other name to a source with no solution cell in
+      it. A name with neither is a violation;
+    * **the value** — every scalar leaf must have been *accounted for* by a
+      rule that accepted it. The leaves are enumerated from the parsed file
+      and the accounted ones subtracted, so a value in a place no branch
+      visits, or one a rule accepted without checking every scalar inside it,
+      is a violation rather than an oversight.
+
+    The fourth level is a **backstop with no reachable case of its own
+    today**, and says so rather than taking credit: every rule above accounts
+    for exactly what it accepts, so deleting the subtraction changes no
+    reading in this file — measured, and recorded as an unkilled mutant (L4)
+    rather than as a mutant nobody tried. It is the construction that keeps
+    the guarantee default-deny *as rules are added*: a rule that later accepts
+    a value with more structure than it checks becomes a violation instead of
+    a hole, which is the failure mode F-1 was.
+
+    Reads the files back as JSON, so the serialiser's own choices — indent,
+    key order, escaping — cannot open a hole in the scan the way they did in
+    the byte-level one.
+
+    Returns a list and never short-circuits, and no value or shape a bundle
+    file can carry makes it raise — hostile shapes included, which is what the
+    "a nested object as the title" and "a list as the key" leak cases read
+    (``value in a_set`` raises on an unhashable value, and a scan that crashes
+    on a shape has not rejected it). An unparsable file would still raise, and
+    that is deliberate: there is nothing to scan and nothing to report.
+    """
+    sources = bundle_sources(records, books)
+    violations: list[str] = []
+    files = sorted(root.rglob("*.json"))
+    if not files:
+        return ["no bundle files to scan: the scan would pass vacuously"]
+
+    found_tree = {path.relative_to(root).as_posix() for path in files}
+    expected_tree = (
+        {"index.json"}
+        | {f"puzzle/{key}.json" for key in sources["grids"]}
+        | {f"book/{slug}.json" for slug in sources["books"]}
+    )
+    if found_tree != expected_tree:
+        violations.append(
+            "the tree is not the published set: unaccounted "
+            f"{sorted(found_tree - expected_tree)}, missing "
+            f"{sorted(expected_tree - found_tree)}"
+        )
+
+    for path in files:
+        relative = path.relative_to(root).as_posix()
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        # Prefixed with the file's own path, so a violation names the file and
+        # the path inside it in one string — and so the accounted paths the
+        # rules below produce are the same strings as these.
+        found_leaves = leaf_paths(payload, relative)
+        leaves = set(found_leaves)
+        accounted: set[str] = set()
+        parent = path.parent.name
+
+        if relative == "index.json":
+            ctx = {"sources": sources, "kind": "index file", "key": None, "slug": None}
+            _check_object(
+                violations,
+                accounted,
+                relative,
+                payload,
+                player_bundle.INDEX_FILE_FIELDS,
+                ctx,
+            )
+            for index, entry in enumerate(
+                payload.get("puzzles", []) if isinstance(payload, dict) else []
+            ):
+                _check_object(
+                    violations,
+                    accounted,
+                    f"{relative}.puzzles[{index}]",
+                    entry,
+                    player_bundle.INDEX_ENTRY_FIELDS,
+                    {
+                        "sources": sources,
+                        "kind": "index entry",
+                        "key": entry.get("key") if isinstance(entry, dict) else None,
+                        "slug": None,
+                    },
+                )
+        elif parent == "puzzle":
+            _check_object(
+                violations,
+                accounted,
+                relative,
+                payload,
+                player_bundle.PUZZLE_FILE_FIELDS,
+                {
+                    "sources": sources,
+                    "kind": "puzzle file",
+                    "key": path.stem,
+                    "slug": None,
+                },
+            )
+        elif parent == "book":
+            _check_object(
+                violations,
+                accounted,
+                relative,
+                payload,
+                player_bundle.BOOK_FILE_FIELDS,
+                {
+                    "sources": sources,
+                    "kind": "book file",
+                    "key": None,
+                    "slug": path.stem,
+                },
+            )
+        else:
+            violations.append(f"{relative}: no bundle file belongs at this path")
+            continue
+
+        unaccounted = sorted(leaves - accounted)
+        if unaccounted:
+            violations.append(
+                f"{relative}: no source accounts for "
+                + ", ".join(f"{at} = {found_leaves[at]!r}" for at in unaccounted[:4])
+                + (f" (+{len(unaccounted) - 4} more)" if len(unaccounted) > 4 else "")
+            )
+    return violations
+
+
 def answer_violations(root: Path, records) -> list[str]:
-    """Every way the bundle under ``root`` fails EC-048, named.
+    """The belt beside :func:`provenance_violations`: a denylist over the bytes.
+
+    Kept because it costs nothing and reads the bytes rather than the parsed
+    values, but **EC-048 does not rest on it** — see
+    :func:`forbidden_encodings` for what it provably misses and
+    :func:`provenance_violations` for the default-deny guarantee that
+    replaced it as AC-381's scan.
 
     ``records`` is every stored puzzle record the bundle was written from. The
     three checks, in the order they would catch a leak:
@@ -248,8 +765,11 @@ def answer_violations(root: Path, records) -> list[str]:
        record's grid;
     2. no file's bytes contain any record's ``source_image`` — the picture
        name, which the public surface must not carry at all;
-    3. every field name in every file is in :data:`DECLARED_FIELDS`
-       (default-deny: an unrecognised field is a violation).
+    3. every field name in every file is in :data:`DECLARED_FIELDS` — which
+       is the **union** of the five per-file schemas, so this catches only a
+       name no file may carry at all. Holding an object to *its own* schema is
+       :func:`provenance_violations`' job, and the difference between the two
+       is F-1's first cause.
 
     Returns a list, never raises, and never short-circuits: every file is
     checked against every record, so one leak cannot mask another.
@@ -416,11 +936,20 @@ def finalized_book(manager, store, puzzle_ids, title="Winter pictures"):
     return book_id
 
 
-@pytest.fixture
-def shelf():
-    """A real store and a real book manager, in the panel's in-memory mode."""
+def new_shelf():
+    """A real store and a real book manager, in the panel's in-memory mode.
+
+    A plain function as well as a fixture, because the corpus-floor control
+    needs two independent shelves inside one test and a fixture can only hand
+    it one.
+    """
     store = PuzzleReviewService(session_factory=None)
     return store, BookManager(session_factory=None, puzzle_store=store)
+
+
+@pytest.fixture
+def shelf():
+    return new_shelf()
 
 
 # --------------------------------------------------------------------------
@@ -448,7 +977,7 @@ def corpus(store, manager):
     shape = store.get_puzzle(add_rectangle(store, 1, name="Shape", side=10))
 
     records = []
-    for index in range(MIN_CORPUS_GRIDS + 4):
+    for index in range(CORPUS_GRIDS):
         width = rng.randint(MIN_SIZE, MAX_SIZE)
         height = rng.randint(MIN_SIZE, MAX_SIZE)
         density = rng.choice((0.1, 0.35, 0.5, 0.65, 0.9))
@@ -601,15 +1130,45 @@ def _book_order(store, manager, book_id):
 # ==========================================================================
 
 
+def corpus_floor_violations(records, report, root) -> list[str]:
+    """Why ``records`` is too small a corpus for AC-381 to mean anything.
+
+    The floor, as a function, so it has a failing state a control can
+    construct — and compared against :data:`MIN_CORPUS_GRIDS`, which the
+    corpus builder does not read (cycle 1, F-2).
+    """
+    found = len(list(root.rglob("*.json")))
+    failures = []
+    if len(records) < MIN_CORPUS_GRIDS:
+        failures.append(
+            f"the corpus is {len(records)} records, below the floor of {MIN_CORPUS_GRIDS}"
+        )
+    if report.puzzle_count < MIN_CORPUS_GRIDS - 1:
+        failures.append(
+            f"only {report.puzzle_count} published puzzles, below {MIN_CORPUS_GRIDS - 1}"
+        )
+    if found < MIN_CORPUS_GRIDS:
+        failures.append(f"only {found} bundle files, below {MIN_CORPUS_GRIDS}")
+    return failures
+
+
 def test_bundle_is_clean_of_answers(shelf, tmp_path):
     """AC-381 / EC-048 — no bundle file carries the answer, over a corpus.
 
     One assertion per category of violation, each one taken over the **whole**
     corpus and the whole tree, so a leak in one grid cannot hide a leak in
-    another: :func:`answer_violations` collects and returns, and the assert is
-    on the collection. The corpus size is asserted here, in the test, so it
-    cannot shrink without this failing (CLAUDE.md's rule for property tests
-    without ``hypothesis``).
+    another: each scan collects and returns, and the assert is on the
+    collection.
+
+    The guarantee is :func:`provenance_violations` — every value in every file
+    accounted for by a named non-solution source, or by the ADR's own recipe
+    for one of the three fields EC-048 exempts. :func:`answer_violations` runs
+    beside it as a belt and proves nothing on its own.
+
+    The corpus size is asserted here, in the test, so it cannot shrink without
+    this failing (CLAUDE.md's rule for property tests without ``hypothesis``)
+    — through :func:`corpus_floor_violations`, against a floor the corpus
+    builder does not read.
     """
     store, manager = shelf
     records, draft_id = corpus(store, manager)
@@ -617,10 +1176,8 @@ def test_bundle_is_clean_of_answers(shelf, tmp_path):
 
     report = player_bundle.export_bundle(manager, store, root)
 
-    assert len(records) >= MIN_CORPUS_GRIDS, "the corpus has shrunk"
-    assert report.puzzle_count >= MIN_CORPUS_GRIDS - 1, report.puzzle_count
-    assert len(list(root.rglob("*.json"))) >= MIN_CORPUS_GRIDS
-
+    assert corpus_floor_violations(records, report, root) == []
+    assert provenance_violations(root, records, manager.get_all_books()) == []
     assert answer_violations(root, records) == []
 
     # The draft book's puzzle is not published, so neither its key nor its
@@ -637,24 +1194,172 @@ def test_bundle_is_clean_of_answers(shelf, tmp_path):
     assert all(record["source_image"].endswith(PICTURE_SUFFIX) for record in records)
 
 
-@pytest.mark.parametrize(
-    "shape",
-    [
-        "grid as a field",
-        "grid bits in the title",
-        "grid bits column-major",
-        "grid as dots and hashes",
-        "picture name as the title",
-        "undeclared field",
-        "the untruncated digest",
-    ],
+#: Every leak the whitelist is claimed to catch, as the material to plant.
+#: Each one is a *fully recoverable* encoding of every solution cell unless
+#: its name says otherwise, and the seven marked (cycle 1) are the seven the
+#: denylist this replaced was measured to miss.
+LEAK_SHAPES = (
+    "grid as a field",
+    "the whole grid in index.json under clues",  # F-1's own single-edit mutant
+    "another file's declared names in a puzzle file",
+    "grid bits in the title",
+    "grid bits column-major",
+    "grid as dots and hashes",
+    "picture name as the title",
+    "undeclared field",
+    "the untruncated digest",
+    "base64 of the packed bits in the title",  # cycle 1
+    "base85 of the packed bits in the title",  # cycle 1
+    "a diagonal traversal in the title",  # cycle 1
+    "run-length of the cells in the title",  # cycle 1
+    "per-row hex in the title",  # cycle 1
+    "each row reversed in the title",  # cycle 1
+    "the bits joined by dashes in the title",  # cycle 1
+    "the untruncated digest as the key",
+    "the bits in a book's puzzle_keys",
+    "the bits in the tier",
+    "a puzzle file under a key nothing published",
+    "a width that is not the grid's extent",
+    "an index entry with its tier dropped",
+    "a published puzzle's file removed",
+    "a nested object as the title",
+    "a list as the key",
 )
+
+
+def _encodings_of(grid, record) -> dict[str, object]:
+    """The material each leak shape plants, derived from ``grid`` at run time."""
+    height, width = len(grid), len(grid[0])
+    bits = "".join("1" if cell else "0" for row in grid for cell in row)
+    packed = int(bits, 2).to_bytes((len(bits) + 7) // 8, "big")
+    runs = []
+    for value, group in itertools.groupby(bits):
+        runs.append(f"{len(list(group))}{'F' if value == '1' else 'E'}")
+    return {
+        "bits": bits,
+        "column bits": "".join(
+            "1" if grid[y][x] else "0" for x in range(width) for y in range(height)
+        ),
+        "dots and hashes": "".join("#" if c else "." for row in grid for c in row),
+        "picture": record.get("source_image"),
+        "digest": hashlib.sha256(f"{width}x{height}:{bits}".encode("utf-8")).hexdigest(),
+        "base64 packed": base64.b64encode(packed).decode("ascii"),
+        "base85 packed": base64.b85encode(packed).decode("ascii"),
+        "diagonal": "".join(
+            "1" if grid[y][x] else "0"
+            for total in range(width + height - 1)
+            for y in range(height)
+            for x in range(width)
+            if x + y == total
+        ),
+        "run-length": ",".join(runs),
+        "row hex": ":".join(
+            f"{int(''.join('1' if c else '0' for c in row), 2):x}" for row in grid
+        ),
+        "rows reversed": "".join(
+            "1" if cell else "0" for row in grid for cell in reversed(row)
+        ),
+        "dash joined": "-".join(bits),
+        "grid as ints": [[1 if c else 0 for c in row] for row in grid],
+    }
+
+
+def _plant(shape, root, grid, record, key):
+    """Plant ``shape`` into the written bundle **through the exporter's writer**.
+
+    ``player_bundle._dump``, not ``json.dumps``: the control this replaces
+    rewrote its file compactly, which is a byte shape the exporter cannot
+    produce, so the one reading that proved the scan could fail was taken on
+    bytes nothing writes (cycle 1, F-1, second cause). Planting through
+    ``_dump`` means a shape that passes here passes against the real thing.
+    """
+    material = _encodings_of(grid, record)
+    puzzle_path = root / "puzzle" / f"{key}.json"
+    index_path = root / "index.json"
+    book_path = sorted((root / "book").glob("*.json"))[0]
+    puzzle = json.loads(puzzle_path.read_text(encoding="utf-8"))
+    titles = {
+        "grid bits in the title": material["bits"],
+        "grid bits column-major": material["column bits"],
+        "grid as dots and hashes": material["dots and hashes"],
+        "picture name as the title": material["picture"],
+        "the untruncated digest": material["digest"],
+        "base64 of the packed bits in the title": material["base64 packed"],
+        "base85 of the packed bits in the title": material["base85 packed"],
+        "a diagonal traversal in the title": material["diagonal"],
+        "run-length of the cells in the title": material["run-length"],
+        "per-row hex in the title": material["row hex"],
+        "each row reversed in the title": material["rows reversed"],
+        "the bits joined by dashes in the title": material["dash joined"],
+    }
+
+    if shape in titles:
+        puzzle["title"] = titles[shape]
+    elif shape == "grid as a field":
+        puzzle["clues"]["rows"] = material["grid as ints"]
+    elif shape == "another file's declared names in a puzzle file":
+        puzzle.update(slug="a" * 10, puzzles=[])
+    elif shape == "undeclared field":
+        puzzle["filled_cells"] = material["bits"].count("1")
+    elif shape == "the untruncated digest as the key":
+        puzzle["key"] = material["digest"]
+    elif shape == "the bits in the tier":
+        puzzle["tier"] = material["bits"]
+    elif shape == "a width that is not the grid's extent":
+        puzzle["width"] = len(grid[0]) + 1
+    elif shape == "a nested object as the title":
+        # Hostile shapes as well as hostile values: the scan's docstring says
+        # it never raises, and ``value in a_set`` raises on an unhashable one.
+        puzzle["title"] = {"bits": material["bits"]}
+    elif shape == "a list as the key":
+        puzzle["key"] = [material["bits"]]
+    elif shape == "an index entry with its tier dropped":
+        # Not a leak: an omission. It is the one shape only the per-file field
+        # *equality* can see, which is why it is here — a file that does not
+        # carry what its own schema says it carries is as much a provenance
+        # failure as one that carries something else.
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        for entry in index["puzzles"]:
+            entry.pop("tier")
+        player_bundle._dump(index_path, index)
+        return
+    elif shape == "the whole grid in index.json under clues":
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        for entry in index["puzzles"]:
+            entry["clues"] = {"rows": material["grid as ints"], "columns": []}
+        player_bundle._dump(index_path, index)
+        return
+    elif shape == "the bits in a book's puzzle_keys":
+        book = json.loads(book_path.read_text(encoding="utf-8"))
+        book["puzzle_keys"] = [material["bits"]]
+        player_bundle._dump(book_path, book)
+        return
+    elif shape == "a puzzle file under a key nothing published":
+        player_bundle._dump(root / "puzzle" / "0123456789.json", puzzle)
+        return
+    elif shape == "a published puzzle's file removed":
+        # The other direction of the tree check, and the only shape only it can
+        # see: the index still advertises the key, every value left in the tree
+        # still has its source, and the file the player would fetch is gone.
+        # Measured: without the tree check this is the one case that survives
+        # (mutant L8), which is why it is a case rather than a comment.
+        puzzle_path.unlink()
+        return
+    else:  # pragma: no cover - a shape named in LEAK_SHAPES with no planting
+        raise AssertionError(f"no planting for {shape!r}")
+    player_bundle._dump(puzzle_path, puzzle)
+
+
+@pytest.mark.parametrize("shape", LEAK_SHAPES)
 def test_the_answer_scan_catches_each_leak_shape(shelf, tmp_path, shape):
     """ADR-0039/R1's control for EC-048: the scan has a failing state.
 
-    A real bundle, then one leak planted in one file, then the scan. Each
-    shape is its own case, so a shape the scan is blind to is one red cell and
-    not a silently unreached assert.
+    A real bundle, then one leak planted in one file through the exporter's
+    own writer, then the scan. Each shape is its own case, so a shape the scan
+    is blind to is one red cell and not a silently unreached assert — and the
+    reading is taken on :func:`provenance_violations` alone, not on the union
+    of it and the belt, because a surviving hole in the guarantee must not be
+    masked by the thing that guarantees nothing.
     """
     store, manager = shelf
     ids = [
@@ -665,37 +1370,148 @@ def test_the_answer_scan_catches_each_leak_shape(shelf, tmp_path, shape):
     root = tmp_path / "bundle"
     player_bundle.export_bundle(manager, store, root)
     records = [store.get_puzzle(pid) for pid in ids]
-    assert answer_violations(root, records) == [], "the clean bundle must be clean"
+    books = manager.get_all_books()
+    assert provenance_violations(root, records, books) == [], "the clean bundle is clean"
 
     grid = records[0]["grid"]
-    bits = "".join("1" if cell else "0" for row in grid for cell in row)
-    column_bits = "".join(
-        "1" if grid[y][x] else "0"
-        for x in range(len(grid[0]))
-        for y in range(len(grid))
-    )
-    key = independent_key(grid)
-    target = root / "puzzle" / f"{key}.json"
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    if shape == "grid as a field":
-        payload["clues"]["rows"] = [[1 if c else 0 for c in row] for row in grid]
-    elif shape == "grid bits in the title":
-        payload["title"] = bits
-    elif shape == "grid bits column-major":
-        payload["title"] = column_bits
-    elif shape == "grid as dots and hashes":
-        payload["title"] = "".join("#" if c else "." for row in grid for c in row)
-    elif shape == "picture name as the title":
-        payload["title"] = records[0]["source_image"]
-    elif shape == "undeclared field":
-        payload["filled_cells"] = bits.count("1")
-    elif shape == "the untruncated digest":
-        payload["title"] = hashlib.sha256(
-            f"{len(grid[0])}x{len(grid)}:{bits}".encode("utf-8")
-        ).hexdigest()
-    target.write_text(json.dumps(payload), encoding="utf-8")
+    _plant(shape, root, grid, records[0], independent_key(grid))
 
-    assert answer_violations(root, records) != [], shape
+    assert provenance_violations(root, records, books) != [], shape
+
+
+@pytest.mark.parametrize(
+    "legitimate",
+    [
+        "a name that looks like an encoding but is the stored one",
+        "no stored name at all, so the neutral fallback",
+        "no stored tier at all",
+        "a non-ascii name with surrounding whitespace",
+        "two books with the same puzzles and different titles",
+    ],
+)
+def test_a_legitimate_value_stays_green(shelf, tmp_path, legitimate):
+    """The whitelist's edge: what it must NOT reject (ADR-0039/R1's other arm).
+
+    A default-deny guard is only worth having if its accept side is right: a
+    whitelist that reds on a nameless puzzle, a null tier or a stored name
+    full of digits would be turned off within a week, and "the bundle is
+    clean" would then be a statement about a disabled scan. Each of these is a
+    value the exporter really writes, and each is one case so a wrongly
+    rejected one is a single red cell.
+    """
+    store, manager = shelf
+    name, tier = f"Picture {legitimate}", "easy"
+    if legitimate == "a name that looks like an encoding but is the stored one":
+        name = "1010101010101010101010"
+    elif legitimate == "no stored name at all, so the neutral fallback":
+        name = None
+    elif legitimate == "no stored tier at all":
+        tier = None
+    elif legitimate == "a non-ascii name with surrounding whitespace":
+        name = "  Ёлка под снегом  "
+
+    first = add_rectangle(store, 0, name=name, tier=tier or "easy")
+    second = add_rectangle(store, 1, name="Another", tier="easy")
+    book_id = finalized_book(manager, store, [first, second], title="Winter pictures")
+    if tier is None:
+        # After the readiness gate, which reads the tier as a Tier: an
+        # unmeasured tier is ADR-0032/R2's None, and the bundle writes it as
+        # null, so the whitelist has to accept it (and does not accept a
+        # *different* tier -- that is the leak-shape control's "bits in the
+        # tier" case).
+        store.puzzles[first]["difficulty_tier"] = None
+    if legitimate == "two books with the same puzzles and different titles":
+        finalized_book(manager, store, [first, second], title="Aardvark edition")
+    root = tmp_path / "bundle"
+
+    player_bundle.export_bundle(manager, store, root)
+
+    records = [store.get_puzzle(first), store.get_puzzle(second)]
+    assert provenance_violations(root, records, manager.get_all_books()) == [], (
+        legitimate,
+        manager.get_book(book_id).metadata.title,
+    )
+
+
+def test_the_belt_runs_on_the_bytes_the_exporter_writes(shelf, tmp_path):
+    """ADR-0039/R1 for the belt — and the hole it provably cannot close.
+
+    Both readings are taken on bytes written by :func:`player_bundle._dump`,
+    because the control this replaces planted its leak with compact
+    ``json.dumps`` while the exporter writes ``indent=2``: the scan was shown
+    catching a shape no bundle file can have (cycle 1, F-1).
+
+    The second reading asserts the belt **misses** a structured leak, which is
+    not a weakness being tolerated but a measured fact being pinned: the
+    guarantee is the whitelist, and the same bundle is caught by it in the
+    same breath. If a later change makes the belt catch this too, this goes
+    red — restate it then, rather than quietly letting the belt look like the
+    thing EC-048 rests on.
+    """
+    store, manager = shelf
+    ids = [
+        add_rectangle(store, index, name=f"P{index}", picture=f"secret-{index}.png")
+        for index in range(2)
+    ]
+    finalized_book(manager, store, ids)
+    root = tmp_path / "bundle"
+    player_bundle.export_bundle(manager, store, root)
+    records = [store.get_puzzle(pid) for pid in ids]
+    books = manager.get_all_books()
+    grid = records[0]["grid"]
+    key = independent_key(grid)
+    assert answer_violations(root, records) == [], "the clean bundle is clean"
+
+    # (a) a leak inside one JSON string value — the belt's real reach.
+    _plant("grid bits in the title", root, grid, records[0], key)
+    assert answer_violations(root, records) != [], "the belt caught nothing at all"
+
+    # (b) the same cells, structured. Indented by the writer, so no compact
+    # form the belt derives can match them.
+    player_bundle.export_bundle(manager, store, root)
+    _plant("grid as a field", root, grid, records[0], key)
+    assert answer_violations(root, records) == [], (
+        "the belt now catches a structured leak: restate this control, and do "
+        "not take it as a reason to lean on the belt"
+    )
+    assert provenance_violations(root, records, books) != []
+
+
+def test_the_corpus_floor_is_a_bound_the_corpus_does_not_set(monkeypatch, tmp_path):
+    """F-2's remedy, measured in both directions.
+
+    The corpus size and the floor it is refused below are two different
+    things, and until this round they were one constant: the corpus looped
+    ``range(MIN_CORPUS_GRIDS + 4)`` and was then asserted ``>=
+    MIN_CORPUS_GRIDS``, so lowering it to 4 left a 9-grid corpus with 55 tests
+    green. Separated, each direction has a reading:
+
+    * **lowering the floor must not shrink the corpus** — the builder does not
+      read :data:`MIN_CORPUS_GRIDS`, so the corpus is the same size with the
+      floor at 4;
+    * **shrinking the corpus must red** — with :data:`CORPUS_GRIDS` at 4 the
+      floor check returns violations instead of passing.
+
+    Both are needed: the first alone would hold for a floor nothing compares
+    against, and the second alone would hold for the tautology that was there.
+    """
+    module = sys.modules[__name__]
+
+    store, manager = new_shelf()
+    monkeypatch.setattr(module, "MIN_CORPUS_GRIDS", 4)
+    lowered, _ = corpus(store, manager)
+    monkeypatch.undo()
+    assert len(lowered) == CORPUS_GRIDS + 1
+    assert len(lowered) >= MIN_CORPUS_GRIDS > 4
+
+    store, manager = new_shelf()
+    monkeypatch.setattr(module, "CORPUS_GRIDS", 4)
+    small, _ = corpus(store, manager)
+    root = tmp_path / "small"
+    report = player_bundle.export_bundle(manager, store, root)
+    monkeypatch.undo()
+    assert len(small) == 5
+    assert corpus_floor_violations(small, report, root) != []
 
 
 def test_an_undeclared_field_is_a_violation_and_not_a_pass(shelf, tmp_path):
@@ -718,7 +1534,7 @@ def test_an_undeclared_field_is_a_violation_and_not_a_pass(shelf, tmp_path):
     target = next((root / "puzzle").glob("*.json"))
     payload = json.loads(target.read_text(encoding="utf-8"))
     payload["filled_cells"] = 0  # a value that leaks nothing; the FIELD is the leak
-    target.write_text(json.dumps(payload), encoding="utf-8")
+    player_bundle._dump(target, payload)  # the exporter's writer, not json.dumps
 
     # Asserted on the list rather than unpacked into one name: an unpacking
     # raises before the assert runs, and an error reports the arm as
@@ -758,9 +1574,176 @@ def test_the_solution_derived_exemption_is_the_three_fields_the_adr_sanctions():
     kinds of it (the key, in three places, and the clues). Those are the whole
     exemption. A fourth name here is an ADR touch, and this is what makes
     adding one a red rather than a quiet widening.
+
+    This is the exemption's *size*. What it must not absorb is
+    :func:`test_each_sanctioned_source_absorbs_only_the_adrs_own_recipe`, and
+    the premises it rests on are
+    :func:`test_the_exemptions_two_premises_are_measured_not_cited` — the
+    three together are ADR-0039/R3's reading, and until this round only this
+    one existed, which made the exemption a control for its own spelling
+    (cycle 1, F-3).
     """
     assert player_bundle.SOLUTION_DERIVED_FIELDS == {"clues", "key", "puzzle_keys"}
     assert player_bundle.SOLUTION_DERIVED_FIELDS <= DECLARED_FIELDS
+
+
+def test_every_declared_field_has_one_source_and_the_exemption_picks_which():
+    """The whitelist's routing table is total, and the exemption is the switch.
+
+    The property that makes :data:`player_bundle.SOLUTION_DERIVED_FIELDS`
+    load-bearing rather than decorative: it *partitions* the declared fields
+    into the ones checked against the ADR's own recipe and the ones checked
+    against a source with no solution cell in it. Removing a name from it
+    leaves that field with no accepted source at all; adding one leaves it
+    with no recipe. Either way the scan reports a violation on every file
+    carrying the field — which is what "an exemption carries a control"
+    means, as against stating its own spelling.
+    """
+    assert set(_ADR_RECIPES) == set(player_bundle.SOLUTION_DERIVED_FIELDS)
+    assert set(_ADR_RECIPES).isdisjoint(_PLAIN_SOURCES)
+    # ``rows`` and ``columns`` are the clues object's own fields, checked with
+    # it by ``_recipe_clues`` and never routed on their own — stated here so
+    # the partition covers every declared name and a new one has nowhere to
+    # hide.
+    assert set(_ADR_RECIPES) | set(_PLAIN_SOURCES) | {"rows", "columns"} == DECLARED_FIELDS
+    assert set(player_bundle.PUZZLE_CLUES_FIELDS) == {"rows", "columns"}
+    assert _CONTAINER_FIELDS < set(_PLAIN_SOURCES)
+
+
+#: The three sanctioned projections of a solution grid, as the whitelist sees
+#: them: the two names EC-048 exempts outright plus the slug, which R7 derives
+#: from the keys. Each needs a reading of what it must NOT absorb.
+SANCTIONED_SOURCES = ("clues", "key", "puzzle_keys", "slug")
+
+
+@pytest.mark.parametrize("field", SANCTIONED_SOURCES)
+def test_each_sanctioned_source_absorbs_only_the_adrs_own_recipe(shelf, tmp_path, field):
+    """ADR-0039/R3 — what each exemption must NOT absorb, one cell each.
+
+    An exemption that let *any* value through in its field would be a hole the
+    size of the field: ``clues`` would carry the grid, ``key`` the untruncated
+    digest, ``puzzle_keys`` anything at all. So each exempt field is checked
+    against the ADR's own recipe for it and against nothing weaker, and each
+    case here plants solution material in one of them, through the exporter's
+    writer, and requires the scan to say so.
+    """
+    assert set(SANCTIONED_SOURCES) - {"slug"} == set(
+        player_bundle.SOLUTION_DERIVED_FIELDS
+    ), "the exemption changed size without a case here"
+
+    store, manager = shelf
+    ids = [add_rectangle(store, index, name=f"P{index}") for index in range(2)]
+    finalized_book(manager, store, ids)
+    root = tmp_path / "bundle"
+    player_bundle.export_bundle(manager, store, root)
+    records = [store.get_puzzle(pid) for pid in ids]
+    books = manager.get_all_books()
+    grid = records[0]["grid"]
+    key = independent_key(grid)
+    material = _encodings_of(grid, records[0])
+    assert provenance_violations(root, records, books) == [], "the clean bundle is clean"
+
+    if field == "clues":
+        target = root / "puzzle" / f"{key}.json"
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        payload["clues"]["rows"] = material["grid as ints"]
+    elif field == "key":
+        target = root / "puzzle" / f"{key}.json"
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        payload["key"] = material["digest"]
+    else:
+        target = sorted((root / "book").glob("*.json"))[0]
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        if field == "puzzle_keys":
+            payload["puzzle_keys"] = [material["bits"]]
+        else:
+            payload["slug"] = material["digest"][:10]
+    player_bundle._dump(target, payload)
+
+    violations = provenance_violations(root, records, books)
+    assert [found for found in violations if field in found] != [], violations
+
+
+@pytest.mark.parametrize(
+    "exemption, complaint",
+    [
+        (frozenset({"clues", "key", "puzzle_keys", "title"}), "no ADR recipe"),
+        (frozenset({"key", "puzzle_keys"}), "no named non-solution source"),
+        (frozenset(), "no named non-solution source"),
+    ],
+)
+def test_a_wrong_exemption_is_loud_in_the_scan(shelf, tmp_path, monkeypatch, exemption, complaint):
+    """ADR-0039/R3's own words: caught with the exemption changed, missed with
+    the right one in place — and in **both** directions.
+
+    This is what makes :data:`player_bundle.SOLUTION_DERIVED_FIELDS` a
+    mechanism rather than a spelling. As shipped in 3f6b57a0 the only reading
+    of it was a test comparing the constant with its own literal, so emptying
+    it reded one tautological cell and changed nothing about what was caught
+    or written (cycle 1, F-3).
+
+    Now the scan *routes* on it: a name in it is checked against the ADR's own
+    recipe and a name outside it against a source with no solution cell in it.
+    So **widening** the exemption leaves a field with no recipe, and
+    **narrowing** it leaves a field with no source — each loud on every file
+    carrying that field, which is the difference between an exemption that is
+    declared and one that is absorbed.
+    """
+    store, manager = shelf
+    ids = [add_rectangle(store, index, name=f"P{index}") for index in range(2)]
+    finalized_book(manager, store, ids)
+    root = tmp_path / "bundle"
+    player_bundle.export_bundle(manager, store, root)
+    records = [store.get_puzzle(pid) for pid in ids]
+    books = manager.get_all_books()
+    assert provenance_violations(root, records, books) == [], "the clean bundle is clean"
+
+    monkeypatch.setattr(player_bundle, "SOLUTION_DERIVED_FIELDS", exemption)
+    violations = provenance_violations(root, records, books)
+
+    assert [found for found in violations if complaint in found] != [], violations
+
+
+def test_the_exemptions_two_premises_are_measured_not_cited(shelf):
+    """ADR-0039/R3 — the exemption's premises, recomputed rather than quoted.
+
+    EC-048 allows the clues and the key because of two claims, and a claim is
+    only as good as its reading:
+
+    * **the clues are injective on the published set.** They determine the
+      solution of a uniquely solvable puzzle, which is why publishing them is
+      the point rather than a leak (ADR-0041's Context: the player's solved
+      check *is* clue satisfaction). Measured here over the corpus as the
+      property that actually matters for a bundle — no two distinct published
+      grids share an extent *and* a clue pair, so the clues the bundle ships
+      identify at most the grid they came from and nothing further;
+    * **the key adds nothing to a reader who has the clues.** It is
+      ``KEY_LENGTH`` hex characters — 40 bits — over a grid of at least
+      ``MIN_SIZE * MIN_SIZE`` cells by CON-011, so it cannot name one grid
+      among the 2**100 the smallest allowed extent admits. The grid floor is
+      measured over the corpus rather than cited from CON-011, and the bit
+      arithmetic is computed rather than asserted as a sentence.
+    """
+    store, manager = shelf
+    records, _ = corpus(store, manager)
+    sources = bundle_sources(records, manager.get_all_books())
+    published = sources["grids"]
+
+    assert len(published) >= MIN_CORPUS_GRIDS - 1, len(published)
+    fingerprints = {
+        (
+            len(grid[0]),
+            len(grid),
+            json.dumps(independent_clues(grid), sort_keys=True),
+        )
+        for grid in published.values()
+    }
+    distinct = {json.dumps(grid) for grid in published.values()}
+    assert len(fingerprints) == len(distinct) == len(published)
+
+    smallest = min(len(grid[0]) * len(grid) for grid in published.values())
+    assert smallest >= MIN_SIZE * MIN_SIZE == 100
+    assert 4 * player_bundle.KEY_LENGTH == 40 < smallest
 
 
 def test_the_title_never_falls_back_to_the_picture_name(shelf, tmp_path):
@@ -1288,6 +2271,49 @@ def test_identical_grids_are_one_public_puzzle(shelf, tmp_path):
     assert book["puzzle_keys"] == [entry["key"]] * 2
 
 
+@pytest.mark.parametrize(
+    "candidates, settled",
+    [
+        ([], "None"),
+        ([None, None], "None"),
+        ([None, "easy"], "'easy'"),
+        (["hard", "easy", "medium"], "'easy'"),
+        (["  a", "a"], "'  a'"),
+        (["1", 1], "1"),
+        ([True, 1], "1"),
+        ([["b"], ["a"]], "['a']"),
+    ],
+)
+def test_settled_is_a_function_of_its_candidates_and_of_nothing_else(candidates, settled):
+    """EC-049's reduction, per candidate set — and under every input order.
+
+    ``_settled`` exists so that two stored rows sharing a key cannot make the
+    bundle's bytes depend on which row was read first, so a tie decided by
+    arrival order is a defect in the mechanism that exists to prevent exactly
+    that. One was measured: ``_settled(["1", 1])`` returned ``1`` under
+    ``PYTHONHASHSEED`` 0/1/12345 and ``'1'`` under 99999, because the distinct
+    values went through a ``set`` whose iteration order broke the tie between
+    two candidates with the same ``str()`` (cycle 1, F-5).
+
+    Read over **every permutation** of the candidates rather than under a few
+    hash seeds: order-independence is the property, and permutations measure
+    it directly instead of sampling the one input that happens to expose it.
+    The last three cases are the ones the old reduction got wrong or could not
+    take at all — the ``str()`` tie, ``True``/``1`` (equal *and* differently
+    typed), and unhashable candidates, which raised ``TypeError`` from the set.
+    Each reading is compared by ``repr`` rather than by value, because ``1 ==
+    True == 1.0``: a comparison by value cannot tell which of a tie's two
+    candidates came back, which is the whole question here.
+    """
+    readings = [
+        repr(player_bundle._settled(list(order)))
+        for order in itertools.permutations(candidates)
+    ]
+
+    assert len(readings) == math.factorial(len(candidates))
+    assert readings == [settled] * len(readings)
+
+
 def test_a_member_with_an_unreadable_grid_is_named_not_silently_dropped(shelf, tmp_path):
     store, manager = shelf
     good = add_rectangle(store, 0, name="Fine")
@@ -1390,6 +2416,68 @@ def test_the_book_page_offers_the_action_and_it_writes_the_bundle(panel, tmp_pat
     root = tmp_path / "bundle"
     assert (root / "index.json").is_file()
     assert len(list((root / "puzzle").glob("*.json"))) == len(ids)
+
+
+@pytest.fixture
+def db_panel(monkeypatch, tmp_path):
+    """The admin panel in **DB mode**, wired to this test's SQLite file.
+
+    The in-memory ``panel`` above issues no SQL at all, so a read-only
+    measurement taken around it would pass vacuously — which is why EC-049's
+    route reading needs this fixture and not that one. Built the way the
+    suite's other DB-mode panels are (``tests/test_book_plan_storage.py``):
+    ``DATABASE_URL`` set so ``create_app`` chooses DB mode, and
+    ``nonogram.db.session_scope`` pointed at the SQLite scope it then imports.
+    """
+    import nonogram.db
+
+    from nonogram.admin.app import create_app
+
+    scope = sqlite_session_scope(tmp_path, "route-readonly.db")
+    monkeypatch.setenv("TESTING", "true")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///card-282-test-only")
+    monkeypatch.setattr(nonogram.db, "session_scope", scope)
+    app = create_app()
+    app.config["TESTING"] = True
+    app.config["PLAYER_BUNDLE_DIR"] = str(tmp_path / "bundle")
+    with app.app_context():
+        yield app, scope
+
+
+def test_the_route_the_owner_posts_is_read_only_too(db_panel, tmp_path):
+    """EC-049 "on any export path" — including the only path the owner has.
+
+    AC-382 drives ``export_bundle`` directly. That is the callable entry
+    point, not the action: the POST route does a ``get_book`` read of its own
+    before the export and is the only way an owner can trigger one, so EC-049
+    was proven on everything except the thing it is about (cycle 1, F-6).
+
+    Measured with the same two mechanisms AC-382 uses, against a real
+    database: the default-deny statement log, and a row snapshot from
+    ``Base.metadata``. The log is asserted non-empty first, because a
+    read-only verdict over an empty log is the vacuous pass this fixture
+    exists to avoid.
+    """
+    app, scope = db_panel
+    store, manager = app.puzzle_review_service, app.book_manager
+    ids = [
+        add_rectangle(store, index, name=f"P{index}", side=10) for index in range(3)
+    ]
+    book_id = finalized_book(manager, store, ids)
+    client = app.test_client()
+    before = table_rows(scope)
+
+    with recorded_statements() as statements:
+        posted = client.post(f"/book/{book_id}/export-player-bundle")
+
+    assert posted.status_code == 302
+    assert statements, "the route issued no statement: it did not read the database"
+    assert forbidden_statements(statements) == []
+    assert table_rows(scope) == before
+    root = tmp_path / "bundle"
+    assert len(list((root / "puzzle").glob("*.json"))) == len(ids)
+    records = [store.get_puzzle(pid) for pid in ids]
+    assert provenance_violations(root, records, manager.get_all_books()) == []
 
 
 @pytest.mark.parametrize(

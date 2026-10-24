@@ -35,9 +35,12 @@ only as two lossy projections, each one sanctioned by name:
   one-way, so the URL reveals nothing about the solution".
 
 Those two are the only solution-derived values any bundle file carries, and
-:data:`SOLUTION_DERIVED_FIELDS` names them so the scan behind AC-381 can state
-the exemption instead of absorbing it (ADR-0039/R3). Everything else written
-here is extent, tier, title or book order. The **picture name is not written
+:data:`SOLUTION_DERIVED_FIELDS` names them. The scan behind AC-381 *reads*
+that set rather than being told about it: it is the routing table deciding
+which of two checks each declared field gets, so the exemption is stated and
+falsifiable instead of absorbed (ADR-0039/R3 — see the set's own comment for
+how, and for the two premises it rests on). Everything else written here is
+extent, tier, title or book order. The **picture name is not written
 at all**: the title falls back from the stored ``puzzle_name`` to a neutral
 string built from the key, never to ``source_image`` the way the admin panel's
 own solve page does (``app.py``'s ``puzzle_solve``) — this is the public
@@ -161,6 +164,33 @@ BOOK_FILE_FIELDS: tuple[str, ...] = ("puzzle_keys", "slug", "title")
 #: ``compute_clues``); ``key`` and ``puzzle_keys`` are the one-way hash
 #: ADR-0041/R1 requires every public URL and filename to use. A fourth name
 #: appearing here is an architecture decision, not a worktree one.
+#:
+#: **This set is read by the guard, not only declared to it.** AC-381's scan
+#: (``tests/test_player_bundle.py``'s provenance whitelist) routes each
+#: declared field by this set: a name in it is checked against the ADR's own
+#: recipe for that field and nothing else, and a name *not* in it is checked
+#: against a source with no solution cell in it. A field in neither place has
+#: no source and is a violation. So removing a name from this set does not
+#: widen what may be written — it leaves that field with no accepted source at
+#: all, and adding one leaves it with no recipe. That is what makes the
+#: exemption falsifiable rather than decorative (it was decorative as shipped
+#: in 3f6b57a0; CARD-282 cycle 1, F-3).
+#:
+#: **The two premises the exemption rests on, stated here because they are
+#: what a reader has to accept**, both measured by
+#: ``tests/test_player_bundle.py::test_the_exemptions_two_premises_are_measured_not_cited``
+#: rather than cited:
+#:
+#: * the clues determine the solution of a *uniquely solvable* puzzle, which
+#:   is the whole point of publishing them (ADR-0041's Context: the public
+#:   player's solved check *is* clue satisfaction) and every published puzzle
+#:   is uniquely solvable by ADR-0032/R1. Publishing them is therefore
+#:   sanctioned, not merely tolerated;
+#: * the key adds nothing to a reader who already has the clues: it is
+#:   :data:`KEY_LENGTH` hex characters — 40 bits — over a grid of at least
+#:   ``MIN_SIZE * MIN_SIZE`` = 100 cells (CON-011), so it cannot name one grid
+#:   among the 2**100 the extent allows, and it is one-way in ADR-0041/R1's own
+#:   words.
 SOLUTION_DERIVED_FIELDS = frozenset({"clues", "key", "puzzle_keys"})
 
 # --------------------------------------------------------------------------
@@ -172,8 +202,13 @@ SOLUTION_DERIVED_FIELDS = frozenset({"clues", "key", "puzzle_keys"})
 #: to it is a breaking change to every printed book.
 KEY_LENGTH = 10
 
-#: The prefix :func:`book_slug` hashes under. See the module docstring: the
-#: book slug is this card's recipe, not ADR-0041's.
+#: The prefix :func:`book_slug` hashes under — **ADR-0041/R7's own**, not this
+#: module's choice (DEC-044b, owner decision 2026-10-24). R7 names the prefix a
+#: part of the recipe, so changing this string is a breaking change to every
+#: printed QR code and needs a new ADR, exactly as :data:`KEY_LENGTH` is for
+#: R1. (The comment that stood here until CARD-282's first fix round said the
+#: opposite — "this card's recipe, not ADR-0041's" — which was true of the
+#: commit before R7 existed and false from R7 onwards.)
 _BOOK_PREFIX = "book:"
 
 
@@ -471,21 +506,43 @@ def _book_title(book: Any) -> str:
     return "Untitled book"
 
 
+def _settle_key(value: Any) -> tuple[bool, str, str]:
+    """:func:`_settled`'s total order over the values a bundle field may hold.
+
+    ``None`` last, then by ``str(value)``, then by the type's name — and the
+    type name is the part with a measured reason. Without it two candidates
+    with the same ``str()`` and different types (``"1"`` and ``1``) tie, and a
+    tie is decided by the order the candidates arrive in. The key is a total
+    order on every type :data:`_SERIALISABLE` admits, because within one of
+    those types ``str()`` is injective — so the reduction below is a function
+    of the candidate *values* and of nothing else.
+    """
+    return (value is None, "" if value is None else str(value), type(value).__name__)
+
+
 def _settled(values: Iterable[Any]) -> Any:
     """One value for a field several rows sharing a key disagree about.
 
     ADR-0041's "identical grids share a key by design" means two stored rows
     can land in one public puzzle, and nothing stops their tier or name from
-    differing. The reduction is the first of the distinct values in sort
-    order, with ``None`` last — a pure function of the *set* of candidates, so
-    the output cannot depend on which row was read first. Not a merge policy
-    anybody asked for; a determinism requirement (EC-049) met explicitly
-    rather than by accident of iteration order.
+    differing. The reduction is the first candidate in :func:`_settle_key`'s
+    order, with ``None`` last — a pure function of the candidate values, so the
+    output cannot depend on which row was read first. Not a merge policy
+    anybody asked for; a determinism requirement (EC-049) met explicitly rather
+    than by accident of iteration order.
+
+    **Total, and with no set in it.** The reduction used to put the candidates
+    through a ``set`` first, which bought nothing — the first of the distinct
+    values in sort order *is* the first of all of them — while costing two
+    things: a tie between two candidates with the same ``str()`` fell through
+    to hash-randomised set iteration order (measured by CARD-282's review:
+    ``_settled(["1", 1])`` was ``1`` under ``PYTHONHASHSEED`` 0 and ``'1'``
+    under 99999, which is exactly the dependency this function exists to
+    remove), and an unhashable candidate raised ``TypeError`` from the set
+    rather than being ordered. Both are gone with the set. Empty in, ``None``
+    out.
     """
-    distinct = {value for value in values}
-    ordered = sorted(
-        distinct, key=lambda value: (value is None, "" if value is None else str(value))
-    )
+    ordered = sorted(values, key=_settle_key)
     return ordered[0] if ordered else None
 
 
