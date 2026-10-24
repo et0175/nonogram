@@ -1,0 +1,565 @@
+card: CARD-282
+cycle: 1
+reviewer: review agent (wave 58, nonogram-generator, forge:kanban)
+reviewed_at: "2026-10-24T11:51:36Z"
+branch: card/282-player-bundle-export
+fork_point: c2cb8e3e
+commits: [58327b53, 3f6b57a0]
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-282
+test_command: ./.venv/bin/python -m pytest
+config:
+  min_score: 8
+  max_cycles: 3
+  mutation_check: true
+  test_scope: impact
+  scope_gate: on
+
+score: 7
+certified: false
+verdict: >-
+  The exporter is right and the bundle it writes is clean: a provenance audit
+  over the 53-grid corpus (56 files) finds zero values that are not the R1 key,
+  the extent, a stored tier, a stored title, a R7 slug or compute_clues of the
+  stored grid. Determinism is built rather than hoped for and the read-only
+  proof is a real mechanism with no bypass path. What does not hold is the
+  guard EC-048 rests on: AC-381's scan is default-ALLOW on the VALUE of any
+  declared field and on which file a declared name may appear in, so one
+  single-edit mutant on the production path puts an entire 144-cell solution
+  grid into index.json with all 55 tests green; and the corpus minimum EC-048
+  explicitly requires to be asserted is a tautology, lowerable to 9 grids with
+  the suite still green. Both are the ADR-0039/R2 shape this board gates on,
+  both are fixable inside this card's four paths, and they share one remedy.
+
+findings:
+  - id: F1
+    severity: high
+    gating: true
+    title: >-
+      AC-381/EC-048's scan is default-ALLOW on a declared field's value and on
+      which file a declared name may appear in: the whole solution grid reaches
+      index.json with 55/55 green
+    file: tests/test_player_bundle.py
+    line: 241
+    confidence: certain
+    evidence: |
+      Leak mutant L1 - ONE edit on the production path, in
+      src/nonogram/admin/player_bundle.py::_index_entry, adding
+        "clues": {"rows": [[1 if c else 0 for c in row] for row in grid],
+                  "columns": []}
+      to the index entry. No schema tuple widened, no new field name invented:
+      "clues", "rows" and "columns" are already in DECLARED_FIELDS.
+
+        $ ./.venv/bin/python -m pytest tests/test_player_bundle.py -o addopts='' -q
+        55 passed, 131 warnings in 5.32s
+
+      Probe (scratchpad/probe_leak.py) against the same mutant:
+        index entry fields: ['clues', 'height', 'key', 'tier', 'title', 'width']
+        recovered grid == stored solution grid: True
+        cells recovered: 144
+        answer_violations(bundle) -> []
+      index.json's first lines show the grid as a pretty-printed nested array.
+      So EC-048's second clause ("data from which any solution cell is
+      recoverable") is broken with every control, both ACs and the EC green.
+
+      TWO independent causes, each measured separately.
+
+      (a) DECLARED_FIELDS is a FLAT UNION of the five per-file tuples -
+      ['clues','columns','height','key','puzzle_keys','puzzles','rows','slug',
+      'tier','title','width'] - and nothing anywhere asserts that a written
+      file's object equals ITS OWN tuple. Probe (scratchpad/probe_union.py):
+      planting "slug" and "puzzles" into a puzzle/<key>.json gives
+        violations: []
+      grep confirms INDEX_ENTRY_FIELDS / PUZZLE_FILE_FIELDS / BOOK_FILE_FIELDS
+      are read only at tests/test_player_bundle.py:120-124 (collapsed into the
+      union) and 746-750 (compared to CRITERIA_FIELDS). Never per file.
+
+      (b) All 69 forms forbidden_encodings() derives are COMPACT text, while
+      _dump writes with indent=2, so a structured leak can never match.
+      Probe (scratchpad/probe_indent.py), same leak, same field, same file:
+        compact json.dumps (what the control uses)             -> violations: 1  CAUGHT
+        player_bundle._dump (what the exporter uses, indent=2) -> violations: 0  MISSED
+        forbidden_encodings count: 69
+        forms containing a real newline: 0
+        bundle file bytes use indent: '{\n  "puzzles": [\n    {\n      "height": 1'
+      This is also an ADR-0039/R1 defect in the control itself:
+      test_the_answer_scan_catches_each_leak_shape plants its "grid as a field"
+      leak and rewrites the file with bare json.dumps(payload) at line 696 -
+      a byte shape the exporter cannot produce. The control demonstrates the
+      scan catching something no real bundle file can look like.
+
+      The scan's remaining reach is string values, and it is not complete there
+      either. Probe (scratchpad/probe_encodings.py) plants each of these in the
+      declared "title" field through player_bundle._dump; each is a fully
+      recoverable encoding of every solution cell:
+        MISSED len=   24  base64 of PACKED bits (not the ascii bit string)
+        MISSED len=   23  base85 of packed bits
+        MISSED len=  144  diagonal traversal bits
+        MISSED len=   77  run-length of cells (12F,3E,...)
+        MISSED len=   45  per-row hex joined by ':'
+        MISSED len=  144  each row reversed, rows forward
+        MISSED len=  287  bits joined by '-'
+      7 of 7 missed. ADR-0039/R2 requires a shape the guard cannot analyse to
+      be a FAILURE, not a silent pass; here it is a pass.
+
+      Adjacent, same cause: the draft book's puzzle is checked only for its key
+      and the literal "Still a draft" (lines 628-633), never against
+      forbidden_encodings, because it is not in `records`.
+
+      NOT a defect in the shipped product. Provenance audit
+      (scratchpad/probe_provenance.py) over the real corpus:
+        files: 56 | puzzles: 52 | books: 3
+        corpus grids: 53
+        UNACCOUNTED VALUES: none - every value is key, extent, stored tier,
+        stored title, or compute_clues
+      The bundle that ships is clean. The guard that must keep it clean as
+      CARD-283/284/285 build on it is not default-deny.
+    remedy_direction: >-
+      Inside this card's four paths. Turn the scan from a denylist of encodings
+      into a whitelist on provenance, which is what the audit above already is
+      in 30 lines: assert each file's object set equals its own schema tuple
+      (not the union); then for every declared field NOT in
+      SOLUTION_DERIVED_FIELDS assert its value's provenance (title equals the
+      stored name stripped or "Puzzle <key>", width/height equal the extent,
+      tier is a stored tier or null); for the exempt three assert key ==
+      puzzle_key(grid), clues == compute_clues(grid), puzzle_keys are 10-hex.
+      Keep forbidden_encodings as the belt, and plant the leak-shape control's
+      cases through player_bundle._dump rather than compact json.dumps so the
+      control runs against the bytes the exporter actually writes.
+
+  - id: F2
+    severity: medium
+    gating: true
+    title: >-
+      The AC-381 corpus minimum is a tautology - the corpus is generated from
+      the same constant it is compared against, so it IS silently shrinkable,
+      and EC-048 requires that minimum asserted
+    file: tests/test_player_bundle.py
+    line: 86
+    confidence: certain
+    evidence: |
+      MIN_CORPUS_GRIDS = 48 is both the corpus's size (corpus() loops
+      `range(MIN_CORPUS_GRIDS + 4)`, line 451) and the bound it is checked
+      against (`assert len(records) >= MIN_CORPUS_GRIDS`, line 620;
+      `report.puzzle_count >= MIN_CORPUS_GRIDS - 1`, 621;
+      `len(list(root.rglob("*.json"))) >= MIN_CORPUS_GRIDS`, 622). The
+      assertion can never fail.
+
+      Measured - MIN_CORPUS_GRIDS 48 -> 4, single edit, nothing else changed:
+        $ ./.venv/bin/python -m pytest tests/test_player_bundle.py -o addopts='' -q
+        55 passed, 131 warnings in 2.20s
+        MIN_CORPUS_GRIDS = 4 -> corpus size = 9
+
+      The corpus fell from 53 grids to 9 with the suite green. This is not
+      only a claim defect: EC-048's own registry statement
+      (meta/architecture/requirements.yml:4903-4913) ends "- verified over a
+      seeded corpus of generated grids, not single examples, with the minimum
+      corpus size asserted in the test", and CLAUDE.md's no-hypothesis rule is
+      "asserting a minimum case count inside the test itself so the corpus
+      can't silently shrink". The file's own docstring (lines 49-51) and
+      test_bundle_is_clean_of_answers' docstring (611-612) both claim it
+      cannot shrink.
+
+      Confirmed the brief's figure while here: the corpus really is 53 grids
+      at MIN_CORPUS_GRIDS = 48 (52 generated + the nameless duplicate).
+    remedy_direction: >-
+      Separate the two roles: a literal CORPUS_GRIDS = 52 that builds the
+      corpus and a MIN_CORPUS_GRIDS = 48 it is asserted against, so shrinking
+      one reds. A G-6 note: lowering MIN_CORPUS_GRIDS is not the remedy.
+
+  - id: F3
+    severity: medium
+    gating: true
+    title: >-
+      SOLUTION_DERIVED_FIELDS is a decorative constant - no scan and no
+      production path reads it, so the declared EC-048 exemption is absorbed,
+      which is what three docstrings say it is not
+    file: src/nonogram/admin/player_bundle.py
+    line: 164
+    confidence: certain
+    evidence: |
+      grep over the whole worktree:
+        src/nonogram/admin/player_bundle.py:38  (docstring claim)
+        src/nonogram/admin/player_bundle.py:115 (__all__)
+        src/nonogram/admin/player_bundle.py:164 (the definition)
+        tests/test_player_bundle.py:192 (docstring claim)
+        tests/test_player_bundle.py:762-763 (the only assertions)
+      answer_violations / forbidden_encodings / object_keys never consult it;
+      neither does any writer.
+
+      Mutant X1 - SOLUTION_DERIVED_FIELDS = frozenset(), i.e. the exemption
+      removed entirely:
+        $ ./.venv/bin/python -m pytest tests/test_player_bundle.py -o addopts='' -q
+        FAILED tests/test_player_bundle.py::test_the_solution_derived_exemption_is_the_three_fields_the_adr_sanctions
+        1 failed, 54 passed
+
+      One cell, and it is the tautological test comparing the constant to its
+      own literal. ADR-0039/R3 requires an exemption's control to be "caught
+      with the exemption removed, missed with it in place"; here nothing is
+      caught differently in either state, because the real exemption is
+      implicit in what forbidden_encodings chooses NOT to generate. The claims
+      that contradict this:
+        player_bundle.py:38 - "SOLUTION_DERIVED_FIELDS names them so the scan
+        behind AC-381 can state the exemption instead of absorbing it
+        (ADR-0039/R3)"
+        tests/test_player_bundle.py:190-192 - "the exemption is the three
+        names in player_bundle.SOLUTION_DERIVED_FIELDS, no more"
+        CARD-282.md:332-334 - "both named in SOLUTION_DERIVED_FIELDS so the
+        exemption is a declaration rather than an omission (ADR-0039/R3)"
+    remedy_direction: >-
+      Shares F1's remedy: the provenance whitelist is where the constant
+      becomes load-bearing - every declared field not in
+      SOLUTION_DERIVED_FIELDS gets its value checked against a non-solution
+      source, the three exempt names get checked against the ADR's own
+      recipes. Then removing a name from the exemption reds a leak check and
+      adding one is visible.
+
+  - id: F4
+    severity: low
+    gating: true
+    title: >-
+      A stale claim survives the R7 revision in the shipped code: _BOOK_PREFIX
+      still says the slug is "this card's recipe, not ADR-0041's", and the card
+      and the pre-gate both state zero occurrences remain
+    file: src/nonogram/admin/player_bundle.py
+    line: 176
+    confidence: certain
+    evidence: |
+      src/nonogram/admin/player_bundle.py:175-177, shipped on 3f6b57a0:
+        #: The prefix :func:`book_slug` hashes under. See the module docstring: the
+        #: book slug is this card's recipe, not ADR-0041's.
+        _BOOK_PREFIX = "book:"
+
+        $ grep -rn "card's recipe\|not ADR-0041's\|not the ADR's" src/ tests/
+        src/nonogram/admin/player_bundle.py:176:#: book slug is this card's recipe, not ADR-0041's.
+
+      It contradicts, in order: ADR-0041/R7 and DEC-044b (the prefix is the
+      ADR's, and changing it requires a new ADR); the module docstring it
+      points the reader at, lines 72-91, "Both recipes are the ADR's"; the
+      card's own statement at CARD-282.md:465, "The module docstring no longer
+      says 'this card's recipe, not the ADR's' - that was true when written and
+      is now false"; and the FIX PRE-GATE verdict at CARD-282.md:550-552,
+      "zero occurrences of 'this card's recipe, not the ADR's' remain".
+
+      The pre-gate's grep was for the phrase spelled "not the ADR's"; the
+      surviving text spells it "not ADR-0041's", so the check passed on a
+      measurement artifact. The comment sits on exactly the constant R7 pins
+      (the prefix), and tells a reader that a value printed into QR codes is a
+      worktree choice - the confusion R7 was added to end.
+    remedy_direction: >-
+      One line: cite ADR-0041/R7 / DEC-044b on _BOOK_PREFIX as the rest of the
+      module now does. The card's and the pre-gate's "zero occurrences" claims
+      should be corrected rather than left as the record.
+
+  - id: F5
+    severity: low
+    gating: false
+    title: >-
+      _settled is not a pure function of its candidate set when two candidates
+      share a str(): its tie-break falls through to hash-randomised set
+      iteration order
+    file: src/nonogram/admin/player_bundle.py
+    line: 485
+    confidence: certain
+    evidence: |
+      _settled builds `distinct = {value for value in values}` and sorts by
+      `(value is None, "" if value is None else str(value))`. Two distinct
+      candidates with the same str() tie, and sorted() then preserves the
+      SET's iteration order, which for strings is hash-randomised.
+
+        $ for s in 0 1 12345 99999; do PYTHONHASHSEED=$s python -c "...
+              print('seed=$s ->', repr(_settled(iter(['1', 1]))))"; done
+        seed=0     -> 1
+        seed=1     -> 1
+        seed=12345 -> 1
+        seed=99999 -> '1'
+
+      Totality, checked while there (scratchpad/probe_settled.py):
+        empty                  -> None
+        all None               -> None
+        None + value           -> 'easy'
+        whitespace variants    -> '  a'   (candidates differing only by
+                                           whitespace are distinct; _title_of
+                                           strips, _book_title strips)
+        mixed types            -> 1       (the tie above)
+        bool vs int            -> True
+        unhashable             -> TypeError: cannot use 'list' as a set element
+
+      Not a live EC-049 breach: reachable only through the in-memory mode,
+      because difficulty_tier and puzzle_name are varchar in DB mode and
+      str() is the identity on str. But the docstring's "a pure function of
+      the *set* of candidates" is stronger than the code, and AC-382's
+      PYTHONHASHSEED instrument - which is the right instrument - can only see
+      it if such a pair is in the corpus, and none is.
+
+      Checked for other seed-invisible inputs and found none: player_bundle
+      imports no time/datetime/locale; every written collection is derived
+      from sorted(candidates) / sorted(book_keys), never from filesystem or
+      pathlib iteration; ensure_ascii=True makes title bytes locale-free.
+    remedy_direction: >-
+      Add the type name to the sort key -
+      (value is None, str(value), type(value).__name__) - or refuse a
+      non-string candidate the way _refuse_unless_serialisable refuses a float.
+
+  - id: F6
+    severity: low
+    gating: false
+    title: >-
+      The only export path the owner can trigger is never measured under the
+      statement log, while EC-049 says "on any export path"
+    file: src/nonogram/admin/app.py
+    line: 5802
+    confidence: high
+    evidence: |
+      test_export_is_readonly_and_deterministic drives
+      player_bundle.export_bundle directly, against SQLite through
+      sqlite_session_scope, with recorded_statements wrapped around it. The
+      route test, test_the_book_page_offers_the_action_and_it_writes_the_bundle
+      (line 1377), runs the panel through the `panel` fixture, which deletes
+      DATABASE_URL and builds BookManager(session_factory=None) - in-memory
+      mode, no engine, no statements, no log. So POST
+      /book/<id>/export-player-bundle - the path the owner actually uses, and
+      the one that adds a book_mgr.get_book(book_id) read of its own before
+      the export - has no read-only measurement.
+
+      No live breach: I checked both read methods the export path uses for
+      writes and found none -
+        grep -n "    def get_book\b" -A 45 src/nonogram/admin/book_manager.py
+          | grep -E "commit|add\(|flush|utcnow|setattr|page_count ="   -> no output
+        same for get_all_books                                         -> no output
+      and src/nonogram/** has zero raw_connection / .cursor() /
+      dbapi_connection, so there is no path around the Engine-class listener
+      either. The gap is measurement coverage, not behaviour.
+    remedy_direction: >-
+      Cheapest version inside this card's paths: give the route test a
+      sqlite_session_scope-backed panel and wrap the POST in
+      recorded_statements, or simply assert forbidden_statements == [] around
+      the POST. It also closes the one EC-049 arm AC-382's single fixture
+      state leaves open.
+
+  - id: F7
+    severity: low
+    gating: false
+    title: >-
+      M9 is labelled as "the one error-kill, 0 cells" in the card and the
+      pre-gate; reproduced, it is an ordinary failure cell on a named test
+    file: meta/kanban/cards/CARD-282.md
+    line: 388
+    confidence: certain
+    evidence: |
+      Mutant M9 reproduced - the float branch of
+      _refuse_unless_serialisable deleted:
+        $ ./.venv/bin/python -m pytest tests/test_player_bundle.py -o addopts='' -q
+        FAILED tests/test_player_bundle.py::test_the_export_writes_no_float_and_refuses_one
+        1 failed, 54 passed, 131 warnings in 4.58s
+
+      One red cell on a named test, not "exit 1, 0 cells". The "0 cells" is an
+      artifact of tests/kill_matrix.py not attributing a pytest.raises
+      match-mismatch to an assert node. The claim understates its own control,
+      which matters because the card uses M9 as its worked example of "an
+      error is a third thing" - the example does not hold at the level a
+      reader checks it (plain pytest).
+
+      M12 verified honest, same instrument:
+        truncation KEY_LENGTH 10 -> 16 -> 13 failed, 42 passed, with the
+        downstream arms raising FileNotFoundError on the renamed key files.
+        The NOT-REACHEDs really are that mutant's nature, not a blind spot.
+    remedy_direction: >-
+      Report M9 as a failure cell and keep the lesson (the original
+      match="float" survived); or say explicitly that "0 cells" is the
+      instrument's attribution and not pytest's verdict.
+
+  - id: F8
+    severity: low
+    gating: false
+    successor_card: CARD-284
+    title: >-
+      A _dump failure part-way through an export leaves a half-written tree
+      whose index.json lists puzzle files that do not exist
+    file: src/nonogram/admin/player_bundle.py
+    line: 369
+    confidence: high
+    evidence: |
+      export_bundle calls _reset(root) at line 369, then writes index.json,
+      then one puzzle file per entry, then the book files. Any raise in a later
+      _dump - _refuse_unless_serialisable on a tier the store starts returning
+      as a non-allowlisted type, or an I/O error - leaves the previous bundle
+      already deleted and the new one partial, with index.json advertising
+      keys whose puzzle/<key>.json was never written. app.py's route catches
+      Exception and flashes, so the owner is told the export failed but is left
+      with a tree that is deployable and wrong. No test covers a mid-write
+      failure. This is the same class as the ADR's own Negative about a
+      finalized-but-unexported book, whose mitigation is named as CARD-284's
+      soft not-found page - which is why this belongs there rather than here.
+    remedy_direction: >-
+      Write into a sibling temp directory and move it into place, or validate
+      every payload before _reset. Either is more than this card needs; route
+      it to CARD-284 with the not-found page.
+
+verified_no_defect:
+  - claim: >-
+      Every test: / check: reference this card and ADR-0041/R7 make resolves.
+    evidence: >-
+      pytest -o addopts='' --collect-only -q on the five named node ids
+      (AC-380 test_bundle_tree_and_clues_match_the_encoder, AC-381/EC-048
+      test_bundle_is_clean_of_answers, AC-382/EC-049
+      test_export_is_readonly_and_deterministic, R7's title control
+      test_the_slug_does_not_move_when_the_title_is_edited, G-3's
+      tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed)
+      -> "5 tests collected in 0.14s". ADR-0039/R1-R3's three named controls
+      exist (tests/test_suite_profile.py x2,
+      tests/test_book_difficulty_dots.py). requirements.yml's AC-380/381/382
+      and EC-048/049 test: fields name the same five. ADR-0041/R4's and R6's
+      checks point at tests/test_public_player*.py, CARD-283/285's files -
+      expected and not this card's. No check_ref_missing.
+  - claim: None of this card's own tests can be green by skipping.
+    evidence: >-
+      pytest tests/test_player_bundle.py -o addopts='' -rs -q -> "55 passed",
+      no SKIPPED section. No skip / xfail / importorskip / db_required marker
+      in the file (grep hits are all report.skipped and prose).
+      tests/helpers/db.py::sqlite_session_scope builds its own SQLite engine
+      and never skips, so AC-382 runs against a real database as claimed.
+  - claim: The bundle that ships carries nothing recoverable beyond the two
+      ADR-sanctioned projections.
+    evidence: >-
+      scratchpad/probe_provenance.py over the real 53-grid corpus: 56 files,
+      52 puzzles, 3 books; every file's object set equals its own schema tuple;
+      every key equals puzzle_key(grid); every extent matches; every tier is a
+      stored tier; every title is a stored puzzle_name stripped or "Puzzle
+      <key>"; every clues object equals compute_clues; every slug equals
+      book_slug of its own puzzle_keys; all puzzle_keys 10-hex. UNACCOUNTED
+      VALUES: none.
+  - claim: The declared schema really is a mutant-resistant authority when a
+      NEW name is involved (the round's V4).
+    evidence: >-
+      V4 reproduced as "cells" added to PUZZLE_FILE_FIELDS and written by
+      _puzzle_file -> 9 failed, 46 passed, including
+      test_the_declared_schema_is_the_field_set_the_criteria_name. The pin
+      works; F1 is the case that needs no new name at all.
+  - claim: The _grid_fingerprint tripwire discriminates and has no M11-style
+      square-example trap.
+    evidence: >-
+      PuzzleReviewService._grid_fingerprint is f"{len(grid)}x{len(grid[0])}:"
+      + bits, i.e. height-first and untruncated (puzzle_review.py:665-676).
+      Mutant T1 - puzzle_key delegating to _grid_fingerprint(grid)[:KEY_LENGTH]
+      - reds 2 cells: test_the_stores_internal_fingerprint_is_not_the_public_key
+      and test_the_key_is_the_adrs_worked_example. The tripwire's grid is
+      [[T,F,F],[F,T,F]], 3 wide and 2 tall, so the reversed extent is visible.
+  - claim: The statement log sees every write path the exporter can reach the
+      database by.
+    evidence: >-
+      before_cursor_execute on the Engine CLASS fires for every statement
+      SQLAlchemy issues through a Connection, autoflush and flush included -
+      its own control catches add_puzzle's INSERT, which IS a flush-generated
+      write. grep for raw_connection / .cursor() / dbapi_connection over
+      src/nonogram/** returns nothing, so there is no DBAPI bypass. The
+      Base.metadata.sorted_tables row snapshot is a content-level backstop.
+      Default-deny on the verb is real (the verdict is on the complement of
+      READ_ONLY_VERBS, and an unparsable statement is forbidden).
+  - claim: The writer's type allowlist is default-deny.
+    evidence: >-
+      _refuse_unless_serialisable refuses float explicitly, then refuses
+      anything outside (str, bool, int, NoneType, list, dict), recursing into
+      dicts and lists and refusing non-string field names. Measured as M9
+      above and as the second pytest.raises arm ("not a bundle value").
+  - claim: G-2 holds.
+    evidence: >-
+      git diff --stat c2cb8e3e..HEAD on static/solver.js, static/solver_state.js
+      and templates/puzzle_solve.html -> empty. tests/test_player_bundle.py +
+      tests/test_cli.py + tests/test_puzzle_solver_page.py on the restored
+      pristine tree -> 257 passed, no skips, no failures.
+  - claim: The component-map question (the brief's own correction).
+    evidence: >-
+      Accepted as settled per the pre-gate; not re-raised. Not independently
+      re-measured.
+
+brief_disagreements:
+  - >-
+    The FIX PRE-GATE's "zero occurrences of 'this card's recipe, not the ADR's'
+    remain" is wrong - see F4. One occurrence remains, at
+    player_bundle.py:176, spelled "not ADR-0041's". The grep that cleared it
+    matched the other spelling.
+  - >-
+    The pre-gate's reading of the two scans as "two halves of deliberately
+    different kinds", with the field half being "the half that catches a leak
+    which is not a cell encoding at all", holds only for a leak that invents a
+    NEW field name. The field half is a flat union across all five per-file
+    schemas, so a leak that reuses a name from another file's schema passes
+    both halves - which is F1, and it is the CARD-245 default-ALLOW shape the
+    brief predicted a Critical would have.
+  - >-
+    "M9 as the one error-kill (exit 1, 0 cells)" does not reproduce under plain
+    pytest - it is one failure cell on a named test (F7). M12's 10 NOT-REACHED
+    does reproduce and is honest.
+  - >-
+    The brief asked whether anything reaches the output that PYTHONHASHSEED
+    variation cannot see. The answer is the other way round: PYTHONHASHSEED
+    does reach the output, through _settled's tie-break (F5), on a shape
+    AC-382's corpus does not contain. Locale, filesystem iteration, pathlib
+    order and time are all clear.
+
+ec048_verdict: >-
+  No recoverable solution cell ships. I attacked the second clause from both
+  ends. Against the exemptions: the clues are injective on the published set by
+  construction and the ADR sanctions that explicitly (the public player's
+  solved check IS clue satisfaction), and the 40-bit key adds nothing a reader
+  who already has the clues does not have, with every published grid at least
+  10x10 by CON-011 so the key is not brute-forceable on its own; the
+  untruncated digest is scanned for and absent. Against the written bytes: the
+  provenance audit over the 53-grid corpus accounts for every value in all 56
+  files. What I did find is that the GUARD cannot fail for the leak class it
+  exists to catch - a structured leak in a declared field, and seven of seven
+  string encodings in a declared field - which is F1, gating, and the thing to
+  fix before CARD-283 builds a public site on this contract.
+
+scan_default_deny_answer: >-
+  Neither scan is default-deny all the way down. The field scan is default-deny
+  on NAMES against a flat union of eleven, and default-ALLOW on which file a
+  name may appear in and on every value. The content scan is a denylist of 69
+  derived forms over an open set of encodings, all of them compact while the
+  writer writes indent=2, so it is default-ALLOW on any structured shape and on
+  any string encoding outside its 69. The determinism allowlist
+  (_SERIALISABLE) IS default-deny, genuinely. The statement verdict IS
+  default-deny, genuinely, on the complement of READ_ONLY_VERBS.
+
+not_checked:
+  - >-
+    The 100-file impact gate. Not re-run: the pre-gate ran it unnarrowed at
+    5842 passed / 15 skipped / 660.63 s, I changed nothing that ships (every
+    mutant was reverted and the three files verified by sha256 -
+    player_bundle.py 7802bda9..., test_player_bundle.py 48631d98...,
+    app.py 72101776...), and CARD-276 is editing 52.6 % of that set
+    concurrently. A fix round must re-run it.
+  - >-
+    The full suite. Deliberately not run - meta/kanban/.full-suite.lock and
+    tests/conftest.py's foreign-holder guard would red CARD-276's runs.
+  - >-
+    The round's kill matrix as a table. Per mutation_check I verified the
+    weakest mechanism instead (the forbidden-encoding scan's completeness and
+    the field deny, F1) and spot-checked V4, M9, M12, the fingerprint tripwire
+    and the exemption. M1-M8, M10, M11, M13-M16, V1-V3 were not re-run.
+  - >-
+    EC-049 over store states other than AC-382's one fixture (4 puzzles, one
+    READY_FOR_PDF book). I read get_book / get_all_books for write branches and
+    found none, but "for any store state" is not measured.
+  - >-
+    The component-map question, taken as settled from the pre-gate.
+  - >-
+    Anything in player/ - it does not exist; CARD-283.
+  - >-
+    No visual check (visual: off, and this card renders nothing).
+
+gate_runs:
+  - command: ./.venv/bin/python -m pytest tests/test_player_bundle.py -o addopts='' -rs -q
+    result: 55 passed, no skips
+  - command: >-
+      ./.venv/bin/python -m pytest tests/test_player_bundle.py tests/test_cli.py
+      tests/test_puzzle_solver_page.py -o addopts='' -q -rs
+    result: 257 passed, no skips, no failures (restored pristine tree)
+
+worktree_left_as_found: >-
+  Yes. git status at exit: only the pre-existing modification to
+  meta/kanban/cards/CARD-282.md (untouched by me) and the untracked .venv
+  symlink. All three source files verified by sha256 against pristine copies
+  held outside the worktree in the scratchpad. All probes live in
+  /private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/f7b1d54a-8309-4e9b-8cf1-e8633015b556/scratchpad,
+  never under tests/.

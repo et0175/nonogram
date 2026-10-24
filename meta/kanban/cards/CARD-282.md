@@ -624,3 +624,152 @@ asserted**, so those arms now report cells instead of NOT-REACHED — an unpacki
 raises before the assert, and a never-reached assert is indistinguishable from a
 surviving mutant. M9 remains the one **error-kill** (exit 1, 0 cells, a
 `pytest.raises` mismatch), reported as such rather than as a failure cell.
+
+## [CYCLE 1 ADJUDICATION — 2026-10-24, orchestrator] 7.0, NOT CERTIFIED — four gating findings, and the exporter is right while the guard is not
+
+Report: `meta/review/20261024T115136Z-CARD-282-cycle1.yml` (synced; `yaml.safe_load`
+OK; 8 findings — 4 gating; score 7, `certified: false`). **Aggregate round
+counter: 3 of 6** (implementation including its R7 revision, pre-gate, cycle 1),
+so one fix round, its pre-gate and a cycle 2 all fit.
+
+**The shape of this review is the opposite of the usual one and worth naming: the
+shipped artefact is clean and the thing that proves it clean is not.** EC-048
+holds — the reviewer ran a provenance whitelist over the real 53-grid corpus (56
+files) and every value in every file is accounted for as the R1 key, the extent,
+a stored tier, a stored title, a R7 slug, or `compute_clues` of the stored grid:
+**`UNACCOUNTED VALUES: none`**. No recoverable solution cell ships. Four of the
+findings are about the guard that is supposed to keep it that way.
+
+### F1 (high, gating) — the scan cannot fail for the leak class it names. Reproduced.
+
+One edit on the production path in `_index_entry`, adding
+`"clues": {"rows": <the grid as ints>, "columns": []}` — **no schema tuple
+widened, no new field name** — puts the **entire 144-cell solution grid into
+`index.json`**, exactly recoverable, with `answer_violations → []` and **55
+passed**. Two independent causes, each isolated by the reviewer:
+
+1. **`DECLARED_FIELDS` is a flat union** of the five per-file tuples (11 names),
+   and **nothing asserts a written file's object equals its OWN tuple** — a
+   puzzle file carrying `slug` and `puzzles` scans clean too. The derived set is
+   real; the predicate underneath is default-ALLOW. **This is the CARD-245 shape
+   exactly** — there the method *set* was derived while the write *predicate* was
+   a four-shape allow-list, so eight of nine real write shapes were silently
+   exempt.
+2. **The scan looks for byte shapes the exporter cannot produce.** Verified
+   independently here: `_dump` writes **`indent=2`** (`player_bundle.py:558`) and
+   **every one of `forbidden_encodings`' forms is compact — 0 of 56 contain a
+   newline** on a 2×3 grid. So the same leak, in the same field, in the same
+   file, is **CAUGHT** when planted with compact `json.dumps` (which is what the
+   leak-shape control at `:696` does) and **MISSED** when planted with
+   `player_bundle._dump`.
+
+**That second cause is the purest instance of ADR-0039/R1's violation this board
+has produced: the control demonstrates the scan catching a shape the production
+path never emits.** It is not that the control is weak — it is that the control
+and the writer disagree about what a file looks like, and the control's version
+is the one the scan was built for.
+
+And the reach that remains is string values, where it is also incomplete: **7 of
+7 recoverable encodings planted in `title` were missed** — base64 and base85 of
+*packed* bits, a diagonal traversal, run-length, per-row hex, row-reversed, and
+`-`-joined.
+
+Rated **high rather than critical** because the shipped bundle is clean. **But it
+is the contract CARD-283, CARD-284 and CARD-285 build on**, and EC-048's own
+words are "for ANY puzzle, ANY book, ANY export path".
+
+### F2 (medium, gating) — the corpus minimum is a tautology. Reproduced.
+
+`MIN_CORPUS_GRIDS = 48` (`:86`) **both builds the corpus** —
+`for index in range(MIN_CORPUS_GRIDS + 4)` at `:451` — **and is the bound it is
+compared against** (`:620`, `:621`, `:622`). Lowered to 4: **corpus 9 grids, 55
+passed.** EC-048's registry statement ends explicitly *"with the minimum corpus
+size asserted in the test"*, and a bound that moves with the thing it bounds
+asserts nothing. The corpus really is 53 at 48, as briefed — the count is right
+and the guard on it is not.
+
+### F3 (medium, gating) — `SOLUTION_DERIVED_FIELDS` is decorative
+
+No scan and no production path reads it. Emptying it to `frozenset()` reds
+**exactly one cell** — the test comparing it to its own literal — and changes
+nothing about what is caught or written. Three docstrings
+(`player_bundle.py:38`, `test_player_bundle.py:190-192`, and **this card at
+`:332-334`**) claim it is how the scan "states the exemption instead of
+absorbing it". ADR-0039/R3: an exemption is a claim and carries a control for
+what it must NOT absorb. This one carries a control for its own spelling.
+
+**F1 and F3 share one remedy**, and the reviewer has already built it as a probe:
+**the provenance whitelist**. Instead of enumerating forbidden encodings —
+default-allow underneath, by construction — assert that **every value in every
+file is accounted for by a named good source**, with the exemption as the list of
+those sources. That inverts the polarity, which is the only thing that closes a
+default-allow guard.
+
+### F4 (low, gating) — and it corrects ME
+
+**`player_bundle.py:176` still ships `#: book slug is this card's recipe, not
+ADR-0041's.`** on `_BOOK_PREFIX` — the very constant R7 pins.
+
+My pre-gate reported *"zero occurrences of 'this card's recipe, not the ADR's'
+remain"*, and this card repeats it at `:465`. **Both are false, and the way they
+are false is the lesson: I verified a claim's absence by grepping for one
+spelling of it.** The surviving text says "not **ADR-0041's**" where my pattern
+said "not **the ADR's**", so the grep returned 0 and I read that as the claim
+being gone. A looser `grep -niE "this card's recipe"` finds it at once.
+
+**That is a measurement whose domain did not cover its claim — the exact defect
+class I have spent this whole session finding in other people's work**, and it is
+the fifth of my own that a round has caught today. Recorded here rather than
+quietly fixed, because the pattern matters more than the line: **an absence
+verified against one spelling is not an absence.**
+
+### Non-gating, routed
+
+* **F5** — `_settled` is not a pure function of its candidate set when two
+  candidates share `str()`: `_settled(["1", 1])` returns `1` under
+  `PYTHONHASHSEED` 0/1/12345 and `'1'` under 99999. Reachable only in in-memory
+  mode. Small, real, and in the mechanism that exists *because* determinism must
+  not depend on ordering — so it belongs in the fix round even though it is
+  non-gating.
+* **F6** — the only export path the owner can actually trigger (the POST route)
+  is never run under the statement log. EC-049 is proven on the callable entry
+  point and not on the route. Worth closing in the same round; it is cheap.
+* **F7 — the reviewer corrects the ROUND, and me.** **M9 is not an error-kill.**
+  Reproduced: it is `1 failed, 54 passed`, **an ordinary failure cell**. The "0
+  cells" was `kill_matrix.py`'s *attribution*, not pytest's verdict. The round
+  reported it as an error-kill and I repeated that on this card. **Correct the
+  claim; the kill stands either way.** (M12 verified honest: 13 failed, and its
+  NOT-REACHEDs genuinely downstream of its own `FileNotFoundError`s.)
+* **F8** — a mid-write `_dump` failure leaves `index.json` advertising files that
+  do not exist. **Routed to CARD-284**, which owns the pages that read the index.
+
+### What checked out, and one of them answers a question I asked
+
+* **Every `test:`/`check:` reference resolves** — the five named node ids collect,
+  ADR-0039/R1–R3's controls exist, and R4/R6 point at CARD-283/285 files as
+  expected. **No `check_ref_missing`** — notable, since this board has found that
+  ten times and twice today on CARD-276's ACs.
+* **No test can be green by skipping**: 55 passed with `-rs`, no SKIPPED section,
+  no skip/xfail/importorskip/`db_required` marker, and `sqlite_session_scope`
+  never skips. The round's choice to make AC-382 run against a real database was
+  right and is now verified.
+* **The statement log has no bypass** — `before_cursor_execute` on the Engine
+  class sees flush-generated writes, its control proves it, and `src/nonogram/**`
+  has zero `raw_connection`/`.cursor()`. `_SERIALISABLE` and the verb verdict are
+  **genuinely default-deny**.
+* **The `_grid_fingerprint` tripwire discriminates** — delegating `puzzle_key` to
+  `_grid_fingerprint(grid)[:10]` reds 2 cells including the tripwire, and its
+  grid is **3×2**, so it does not have the M11 square-example trap.
+* **V4 verified** (9 cells including the schema pin). **G-2: 0 lines.**
+* **Nothing besides `_settled` reaches the output that `PYTHONHASHSEED` cannot
+  see** — no time or locale import, no filesystem iteration, `ensure_ascii=True`.
+  That answers the question I put in the brief.
+
+### What cycle 1 did not check, carried forward
+
+The 100-file impact gate (it changed nothing that ships; **a fix round must
+re-run it**, and CARD-276 is editing 52.6 % of it concurrently). The full suite
+(mine). The kill matrix as a table — per the cost ladder it verified the weakest
+mechanism and spot-checked V4/M9/M12/the tripwire/the exemption, leaving M1–M8,
+M10–M11, M13–M16 and V1–V3 un-re-run. EC-049 over store states other than
+AC-382's one fixture.
