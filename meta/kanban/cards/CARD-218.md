@@ -1737,3 +1737,501 @@ let 433 MB through in the first place.
 Next: review cycle 2 on the 514 new executable lines — nine helpers, four new
 tests and three reworked controls that no reviewer has yet seen. Aggregate round
 counter after it: 5 of 6.
+## Review notes -- cycle 2 (2026-10-24)
+
+**7.0 — NOT CERTIFIED** against `min_score: 8`. Two gating findings, both in
+code **fix round 1 wrote**, both the same root cause, both duplicated across
+the two files: a derivation that answers from an authority narrower than the
+one available to it at the same moment, and resolves the unmodelled case to a
+silent **pass**. Everything the orchestrator certified reproduced; what fails
+is what nobody had yet attacked — the new guards' own claims.
+
+Tree reviewed: `60cbc0f0`, `tests/test_book_puzzle_frame.py`
+`ad7cc1f2e1f954b7160829f665ed13667d1319ec77dac7c17e01250ea3e36d87`,
+`tests/test_book_pdf_band.py`
+`e5de8b9202209173ee49867d9d42d3f431da319bc7878b33c5fb6e186b18bba8` — verified
+before and after every mutant. **All mutants were run in a separate detached
+checkout outside this worktree**, so the tree under review was never edited;
+its two hashes are unchanged.
+
+Report: `meta/review/20261024T235219Z-CARD-218-cycle2.yml` (worktree; needs the
+card sync to reach main).
+
+### The score
+
+```
+10.0
+ -1.0  F-001 high   AC-5's band retention control is 0.21 % from its own bound and cannot see it
+ -1.0  F-002 high   the denominator guard is default-deny only over consumers in a test's own signature
+ -0.5  F-003 medium "514 added lines are executable" does not reproduce -- it is 302
+ -0.5  F-004 medium "no module under tests/ instruments the process's own memory at all" is false
+ ----
+  7.0           (F-005, F-006, F-007 are low and deduct nothing)
+```
+
+### F-001 (high) — the AC-5 retention control is at 99.79 % of its bound and its instrument reports 0.001 %
+
+`TestBookPdf_TheSharedRenderLeavesNoBitmapBehind::test_no_module_level_accumulator_retains_a_page_bitmap`
+asserts `total < one page bitmap (25,245,000 B)` and its docstring states
+**"Nothing this module leaves behind is as big as one page bitmap."** Its
+instrument reports **256 B**.
+
+What `tests/test_book_pdf_band.py` really leaves alive in `sys.modules` after
+every fixture is finalised, measured by walking the two `@lru_cache` stores
+with `gc.get_referents` (the store `functools` "does not expose" is three
+lines of stdlib away):
+
+| retained by | bytes | page bitmaps |
+|---|---|---|
+| `_set_once` lru_cache (`maxsize=None`, currsize **666**, ndarrays) | 24,435,107 | 0.9679 |
+| `_font_bytes` lru_cache (`maxsize=None`, currsize 1, bytes) | 757,076 | 0.0300 |
+| `_SHARED_SNOWFLAKE_DIGEST` | 256 | 0.0000 |
+| **TOTAL** | **25,192,439** | **0.9979** |
+
+The bound is `< 1.0000`. **Real headroom: 52,561 B — 0.21 %**, not the "five
+orders of magnitude" the round's notes and the control's docstring claim.
+Deterministic: two consecutive runs gave 24,435,107 B / 666 entries byte for
+byte, and the band file **at the fork point `c7cca514`** gives the identical
+figure — so this retention is **pre-existing and not CARD-218's**, which is
+why this is high and not critical.
+
+It gates on the orchestrator's own criterion. **ADR-0039/R3**: an exemption
+must record "whatever it still cannot see as a **measured bound with its own
+failing control**". It records prose, with no figure and no control. And "a
+declared bound is acceptable only when it cannot hide a real instance" fails
+on measurement: there is one, it is **98,400x** larger than everything the
+instrument can see, and it sits at 99.79 % of the bound.
+
+Three things make it more than bookkeeping:
+
+* **The control's failure message prints the false total.** Verbatim, under the
+  bytes-restored mutant: *"this module will leave 201,960,000 B (8.00 page
+  bitmaps) alive after its fixtures are finalised"* — while the true figure in
+  that arm is 226,395,083 B. A guard whose diagnosis is 24 MB wrong is the
+  displaced-diagnosis shape this card's rule 2 exists to prevent.
+* **The hiding channel is reachable with this module's own idioms.** Measured:
+  `_bitmap_bytes(np.asarray(page)) = 0` while `arr.nbytes = 25,245,000`. A
+  numpy array of page pixels is invisible — and that is exactly what `_scan`
+  and `_set_once` produce. The **numpy channel is not in the declared
+  blind-spot list at all**; nor is a bitmap on a Test class attribute
+  (`_retained_bitmap_bytes({'TestX': Holder})` with `Holder.pages=[page]`
+  returns `{}`).
+* **The instrument's blindness is the single point of failure for all of
+  AC-5**, shown with a mutant nobody had run (X2 below): neuter the
+  container-summation branch of `_retained_bitmap_bytes` *and* put the bytes
+  back, and the control goes **GREEN on 201,960,000 B retained**.
+
+The frame file is clean here and the finding does not touch it:
+`tests/test_book_puzzle_frame.py` has **no** `@lru_cache` (the only hit is the
+docstring naming the channel), and an independent deep walk gives 320 B —
+equal to its own control's figure. One file's declaration is honest; the
+other's hides 25 MB.
+
+**Fix:** widen `_bitmap_bytes` over numpy (`.nbytes` guarded on
+`type(v).__module__`) and `_retained_bitmap_bytes` over
+`functools._lru_cache_wrapper` via `gc.get_referents` — both stdlib, ADR-0006/R1
+untouched — then **re-derive the bound**, because `< one page bitmap` cannot
+survive the widening at 0.9979. ADR-0039/R3's own shape: a measured allowance
+for the two pre-existing caches held to an **equality** (so a growing cache
+reds), plus the strict accumulator bound on everything else. And strike both
+universals: the class docstring's "Nothing this module leaves behind…" and the
+message's "this module will leave {total} B alive" are false as written.
+`_set_once`'s unbounded cache is a separate, pre-existing backlog item.
+
+### F-002 (high) — the denominator guard is default-deny only over consumers written in a test's own signature
+
+`_declared_consumers` reads `inspect.signature` over the module's `Test*`
+classes' own `test_*` attributes; `_consumers_among` reads pytest's own
+`item.fixturenames`. Two authorities, both available at the same moment, and
+the guard defaults-deny on the **narrower** one. ADR-0039/R2: *"a shape it
+cannot analyse is a FAILURE, never a silent pass."*
+
+Enumerated and tested against the real helper (synthetic namespaces, run under
+pytest):
+
+| consumer shape | seen by `_declared_consumers`? |
+|---|---|
+| direct method | **yes** (baseline) |
+| `@staticmethod` / `@classmethod` test | **yes** |
+| indirect — takes it through another fixture | **NO** |
+| `request.getfixturevalue("name")` | **NO — and invisible to `_consumers_among` too** |
+| inherited method on a subclass | **NO** (`vars()` sees no inherited attr) |
+| nested `Test*` class | **NO** (pytest collects it; the one-level walk does not) |
+| method named `testX` (no underscore) | **NO** (pytest's prefix is `test`, the helper's `test_`) |
+| `@pytest.mark.usefixtures` | **NO** to signature; yes in `fixturenames` |
+| class aliased in the namespace | declared name can never be collected → **permanent red** |
+
+**There is no instance today, and I measured that rather than assuming it.** An
+independent `pytest_collection_finish` probe comparing the two authorities over
+a whole-file run of both files reports `collected − declared = []` for all
+three fixtures, with declared = collected = **22** (`pages`), **8**
+(`snowflake_interior`), **4** (`page`) — which independently confirms the
+round's three derived counts and the fifth-rule docstring's claim that only
+`TestBookPdf_EveryFifthGridLineWider` declares `page` (all four names are in
+that class).
+
+**What gates is the consequence, with a control that can fail.** Two arms,
+identical mutation, measured:
+
+| arm | how the late class takes the shared render | cells |
+|---|---|---|
+| B | as a **parameter** (`def test(self, snowflake_interior)`) | **2 failed** — `::test_the_shared_pages_are_what_the_fixture_drew`, `::test_one_render_served_the_whole_module` — **CAUGHT** |
+| A | via `request.getfixturevalue("snowflake_interior")` | **40 passed, 0 cells** — **MISSED** |
+
+In arm A the shared render is drawn on **after** the mutation control has
+already signed it off, and neither guard sees it: no signature, so the
+denominator does not refuse; not in `fixturenames`, so the ordering guard
+reports nothing later. **AC-4's guarantee is silently void for that consumer.**
+And `request.getfixturevalue` is a live idiom in this tree — **9 sites**, one of
+them literally `tests/test_puzzle_solver_page.py:671: return
+request.getfixturevalue("page")`, the same fixture name as the band module's
+class-scoped render.
+
+The denominator's own asymmetry, measured with an added consumer:
+
+| selection | verdict |
+|---|---|
+| deselect a **direct** consumer's class | **2 failed** (refuses — correct default-deny) |
+| deselect an **indirect** consumer's class | **39 passed, 1 deselected** (accepts) |
+
+**Fix (minimum for one round):** the transitive closure over the module's own
+fixtures' signatures; `getattr(member, "pytestmark", ())` for `usefixtures`;
+and `getfixturevalue`, which cannot be seen at all, as a **declared bound with
+its own failing control** — an AST scan of the two files held to an equality
+against the **0** sites that exist today. The inherited/nested/`testX` shapes
+have no instance in this tree and can take the same equality-to-zero treatment.
+
+### Rulings on risks 1–7
+
+1. **Helper duplication — PROSE ONLY, no behavioural divergence. Not re-filed.**
+   Re-derived independently with `ast` (each helper unparsed, docstrings
+   stripped, re-unparsed, compared byte for byte): **8 of 9 identical**, and
+   those 8 are 2+4+8+8+2+5+11+13 = **53 normalised executable lines** — the
+   pre-gate's 53 reproduces exactly. All nine together are **61**. The ninth
+   differs in exactly one token sequence. **One precision correction:** that
+   token sequence is the f-string of `assert …, <msg>` — an *executable string
+   literal*, not prose, so a docstring-stripping AST comparison still catches
+   it (mine did). The drift is detectable by the cheapest possible guard, which
+   is an argument for writing that guard on CARD-219. Behaviour is identical in
+   every pass/fail outcome; the only per-copy difference in all nine is the
+   intended one — `_consumers_among` and the ordering guard close over
+   `__name__`, so the same source filters each module to its own items.
+2. **Derivation blind spots — GATING, F-002.**
+3. **Retention declaration — GATING, F-001.** The declared bound *does* hide a
+   real instance, at **99.79 %** of the bound. Measured, not reasoned.
+4. **The test-to-test import — SAFE, with two figure corrections.** No cycle
+   (`test_book_pdf_memory.py` imports no `tests/test_*`; the two subject files
+   import it, not each other). **No layering violation:** `tests/test_cli.py`'s
+   structural guard walks `_PACKAGE_DIR.rglob("*.py")` with `_PACKAGE_DIR =
+   <repo>/src/nonogram` (`:768`, `:781`) — scope is `src/nonogram/**`,
+   **confirmed by reading it**, so `tests/**` is outside it entirely. Survives
+   any selection (resolved at module import). Cost **+55 ms median**, not
+   0.01 s (F-007). Impact-set blind spot real for band, non-existent for frame
+   (F-006).
+5. **Refusal vs real failure — DISTINGUISHABLE; none of the five could be
+   mistaken for the other kind.** Judged on captured output, four families:
+   *(DECLINE-1)* "this control cannot evaluate its own denominator: 1 of this
+   module's 8 … Select at least every consumer listed … passing would be the
+   vacuous green ADR-0039/R2 forbids"; *(DECLINE-2)* "this control reads the
+   shared render before 6 test(s) that also take … move it below them, or run
+   the file in its own order rather than naming node ids in another one";
+   *(REAL-1)* "32 page digests were recorded for a book of 8 pages, **across a
+   run that collected every consumer** of the module fixture: the book was
+   drawn more than once"; *(REAL-2)* "a test in this module drew on the shared
+   interior rather than on a copy of it: interior page(s) [8] no longer match
+   the bytes the module fixture drew". **REAL-1 settles it** — the real
+   failure's message explicitly asserts the condition the decline denies, so
+   the two cannot be confused even by a reader who knows nothing about the
+   mechanism. Two caveats, neither a finding: DECLINE-2 conflates "the file's
+   class order is wrong" with "you named node ids out of order" (both
+   operator-actionable, neither readable as a leak); and the whole diagnosis
+   lives in the assertion message, so under `--tb=no` the summary is a bare
+   `FAILED <nodeid>` and a decline and a leak **are** indistinguishable. The
+   project's `addopts` is `-q` only, so this does not bite — **a gate must not
+   add `--tb=no`.**
+6. **Proportion — proportionate for what it buys, disproportionate as a
+   pattern.** Corrected arithmetic: **302** new executable lines, not 514
+   (F-003), of which **122** are the nine helpers written twice (61 × 2) and
+   ~60 are the four new tests, against 11 renders and ~1.5 s. The 2 call sites
+   + 1 import that close F-001 are unambiguously right; the ~240 lines of
+   selection/ordering/retention machinery buy default-deny on three controls
+   that cycle 1 measured returning *silent greens with their mechanism
+   deleted*, which is what ADR-0039/R2 requires here — and I re-verified two of
+   those mechanisms load-bearing with mutants nobody had run. Nothing misleads
+   a reader about the **product**: all 302 lines are plainly CARD-218 controls,
+   `src/**` untouched, no production docstring edited. Dead weight worth
+   naming: the frame copy's `_retained_bitmap_bytes` docstring declares a blind
+   spot for an `@lru_cache` channel the frame module **does not have** (zero
+   lru_cache in that file), plus F-005's dead conjunct. What makes the pattern
+   wrong going forward is the duplication, not the line count: 2 copies today,
+   3 after CARD-219 — already backlogged.
+7. **A mechanism neither mutated — found two, mutated both, both
+   load-bearing.** Line-count preserving (1953 → 1953, printed), separate
+   detached checkout, both hashes verified after every restore.
+
+| # | mechanism DELETED (untouched by M1-M14 and Q1-Q6) | selection | cells |
+|---|---|---|---|
+| X1 | the fifth-rule control's `siblings_excepted=False` → `True` (the only site passing False, and the only one whose consumers **are** its classmates) | its class, control named FIRST | **6 passed** — the intact tree's **1 failed** VANISHES. Whole band file green in both arms, so only a reordered selection kills it |
+| X2 | the container-summation branch of `_retained_bitmap_bytes` (`elif isinstance(value, (list, tuple, set, frozenset))` → a type pair that cannot match), **with the bytes restored at the store site** | band whole file | **1 failed** (the read-only control) vs **2 failed** with the branch intact — the AC-5 retention control goes **GREEN on 201,960,000 B retained** |
+
+   Still unmutated and judged not worth a run, **with the reason**: the
+   `__module__ == __name__` filter in `_consumers_among` (neutering it can only
+   *enlarge* `collected`, and the guard asserts `declared − collected == set()`,
+   so it cannot flip a verdict in the dangerous direction), and `_case_of`'s
+   `originalname` collapse (a partially-selected parametrised consumer still
+   leaves ≥ 4 executions of the fifth-rule fixture under the function-scope
+   mutant — derived from 4 declared consumers and 6 collected items — so the
+   count arm reds regardless).
+
+### The four figures that did not reproduce
+
+| claim | where | re-measured |
+|---|---|---|
+| "514 added lines are executable rather than prose" | pre-gate | **302** code lines of 709 added (143 frame + 159 band); 256 docstring + 58 comment + 93 blank. No definition yields 514: added-blank=616, added-docstring=453, added-blank-docstring=360. Whole card: 939 added, **393** code |
+| "no module under `tests/` instruments the process's own memory at all" | both new retention docstrings | **false** — `tests/helpers/book_corpus.py:857` is `def resident_bytes()` reading `ru_maxrss`. The round verified the claim with a grep (`RLIMIT_AS|peak_rss|max_rss|tracemalloc`) **narrower than the claim**; `ru_maxrss` is the token that refutes it. The substance survives (it is a helper, not a guard asserting a shape, and the RLIMIT_AS cap is enforced in a child) — the universal does not |
+| "a change to `test_book_pdf_memory.py` will not select these two files" | fix notes | **half wrong, in the safe direction**. `tests/test_book_puzzle_frame.py` **is** in that file's 24-file impact set, through shared `src` reach. The mechanism claim is right: the set is byte-identical with the two files at HEAD and reverted to base, so the import edge moves the derivation not at all. Only band is unselected |
+| import cost "0.01 s" | fix notes | **+55 ms median** over five fresh-interpreter pairs (540 vs 482 ms, ranges overlapping); 82-103 ms for the memory module alone once `book_corpus` is warm. "Constants-only at module scope" is right — its module-level bitmap retention measures 0 B |
+
+### One arm the round's "arms nothing reds" table misses (F-005)
+
+`tests/test_book_puzzle_frame.py:3436` is
+`assert len(_SHARED_DIGEST) == len(pages) == INTERIOR_PAGES` — a **chained**
+comparison, two conjuncts, short-circuiting. M1 reds the first. The second,
+`len(pages) == INTERIOR_PAGES`, is redded by nothing **and cannot be**:
+`_book_pages()` already asserts it at `:902` before the fixture returns. So the
+honest count is 3 arms of which one is unfailable. Worse, if it ever could
+fail the message is wrong for it — it prints only the first two numbers and
+concludes *"the book was drawn more than once, so the fixture is no longer
+module-scoped"*, so a 12-page book with 12 digests would be diagnosed as a
+scope regression. The message was added this round. The band twin has no chain
+and is unaffected.
+
+### Gates — all run, all green
+
+| gate | result |
+|---|---|
+| derived cycle gate, `scripts/impact_set.py` → **24** files (array length printed, not hand-narrowed) | **2891 collected, 2880 passed, 0 failed, 0 errors, 11 skipped, exit 0, 458.73 s** |
+| the 11 skips | **enumerated by node id** with `--collect-only -q -m db_required` over the derived array (the run's `-rs` prints only the aggregate): **9** in `tests/test_admin_binding.py::TestUndefinedTableReport_NamesWhatTheFailingConnectionWasTalkingTo`, **2** in `tests/test_db_engine_lifecycle.py`. One cause for all eleven: `tests/conftest.py:207` `Database not reachable: DATABASE_URL is not set`. Same 11 as cycle 1's and the round's |
+| `tests/test_browser_fixture_scope.py` **explicitly** | `--collect-only -q` → **29 tests collected**; run → **29 passed, 0 skipped, 55.70 s**. Confirms the round's correction of cycle 1's and the adjudication's "17" |
+| census guards (5 files) | **643 passed, 0 failed, 0 skipped, 89.33 s** — the same 643 |
+| both subject files whole, with an independent `sessionfinish` probe attached | **138 collected, 138 passed, 0 skipped, 8.02 s** — reproduces 138 |
+| scope gate | **PASS** — exactly 2 files, both in `Touches:`; zero intersection with CARD-219's; CARD-220's `tests/**` overlaps by construction and carries no signal. The new import names `tests/test_book_pdf_memory.py`, which is **also** in this card's `Touches:`. Zero added lines match `skip|xfail|pytest.mark` |
+
+### System contract — 20 rules: 1 ✓ holds, 17 ⚠ unchecked, **2 ✗ violated**
+
+`ADR-0039/R2 ✗` (F-002) and `ADR-0039/R3 ✗` (F-001). `ADR-0039/R1 ✓ holds`,
+re-derived rather than carried — every claim the round makes about what its
+controls catch has a control that can fail, including X1 and X2 above; the two
+R1-adjacent defects here are claims that are **false** (F-001, F-004), filed
+against R3 and as prose, not double-counted. `ADR-0038/R8 ✓
+carried(cycle 1, delta-clean)`. The other 16 are `⚠ unchecked —
+no_eligible_fact` or `check_ref_missing`, carried from cycle 1 with their ids,
+all in the YAML's `system_contract.verdicts` verbatim.
+
+### [Family] — YES, and it is the loop-feeding-on-itself shape
+
+Both gating findings are attributable to fix round 1, are defects in code the
+round **wrote**, share one root cause (RC-1: a derivation whose authority is
+narrower than the one available to it, resolving an unmodelled case to a silent
+pass), and each is duplicated across both files — **one function family, two
+copies**. Waves 48-49 produced six consecutive gating findings each created by
+the fix for the previous one, and both of wave 49's were in a control a fix had
+just written; cycle 2 is that shape at one lower amplitude. `family_regression:
+warn`, so this records and does not escalate. The score moved **6.0 → 7.0**, so
+the loop is converging rather than spinning; `min_improvement` is `"off"` and no
+escalation check ran.
+
+### What round 6 — the last one — must do, and must not
+
+**Must**, in this order, and nothing else:
+
+1. Close **F-001**: widen `_bitmap_bytes` over numpy and
+   `_retained_bitmap_bytes` over `functools._lru_cache_wrapper` (stdlib,
+   ADR-0006/R1 untouched), then **re-derive the bound** — the strict `< one
+   page bitmap` cannot survive the widening at 0.9979, so it becomes a measured
+   allowance for the two pre-existing caches held to an **equality**, plus the
+   strict accumulator bound on everything else. Narrow both universals.
+2. Close **F-002** at least to: the transitive-fixture closure, `pytestmark`,
+   and an equality-to-zero AST guard on `getfixturevalue` in these two files.
+3. Correct the four figures and add F-005's arm to the arms table.
+4. Re-run the three gates.
+
+**Must not** hoist the nine helpers into a shared home. That is CARD-219's, it
+is already backlogged, and doing it in round 6 would put a brand-new third
+derivation in front of a review that no longer exists — the exact trade that
+produced this cycle's two findings.
+
+### For the orchestrator, on F-003 (yours, deliberately open)
+
+Not re-reported. What this round **changes** about it: **AC-5's `test:` ref must
+be replaced, not supplemented** — it names `test_book_pdf_memory.py`'s peak
+assertions, which structurally cannot fail on another module's retention, and
+the four new node ids are the real verifiers. **But do not write that ref until
+F-001 is closed**: as it stands the band half of AC-5's new verifier asserts a
+bound it cannot evaluate to within 0.21 %, so pointing the AC at it would mint
+a ref that *looks* mechanically checked out of a control whose claim is false —
+`check_ref_missing` one layer further in. **AC-1**'s ref should carry the
+round's own wording ("each answers only for a run that collected every consumer
+of its fixture, and declines otherwise"), and after F-002 it needs one more
+clause: *every consumer it can see*. AC-3, AC-4 and AC-6 are unchanged by this
+round.
+
+## [CYCLE 2 ADJUDICATION 2026-10-24, orchestrator] 7.0 — both gating findings reproduced, the prescription DELIBERATELY NOT followed, and my own "514" was never a measurement
+
+Score **7.0, NOT CERTIFIED** against `min_score: 8` —
+`10 − 1 (F-001) − 1 (F-002) − 0.5 (F-003) − 0.5 (F-004)`, with F-005/F-006/F-007
+low and undeducted. Report `meta/review/20261024T235219Z-CARD-218-cycle2.yml`
+(parses, `cycle: 2`, `overall_score: 7.0`). 6.0 → 7.0; `min_improvement` is
+`"off"`, so no escalation check ran.
+
+I re-derived both gating findings before deciding how to spend the last round.
+**Both reproduce.** One of them changes shape under measurement, and that
+changed the prescription.
+
+### F-001 reproduced to the byte — and the retention is PRE-EXISTING
+
+My own `gc.get_referents` walk at `pytest_sessionfinish`, numpy and PIL sized
+by `nbytes`/`tobytes`:
+
+| `tests/test_book_pdf_band.py` retains | bytes | page bitmaps |
+|---|---|---|
+| `_set_once` lru_cache, `maxsize=None`, currsize **666** | 24,435,107 | 0.9679 |
+| `_font_bytes` lru_cache, `maxsize=None`, currsize 1 | 757,076 | 0.0300 |
+| `_SHARED_SNOWFLAKE_DIGEST` | 256 | 0.0000 |
+| **total** | **25,192,439** | **0.9979** |
+
+against a control that asserts `total < 25,245,000` and claims *"Nothing this
+module leaves behind is as big as one page bitmap."* Headroom **52,561 B,
+0.21 %** — not the five orders of magnitude the instrument reports.
+`tests/test_book_puzzle_frame.py` is clean: **320 B**, no `@lru_cache` at all.
+
+**And the fact that decides the fix, which I measured rather than inheriting:
+the same walk at the fork point `c7cca514` gives 25,192,183 B** — identical but
+for the 256 B of new digest — and both `@lru_cache(maxsize=None)` decorators
+are already at `:1111` and `:1116` there. **CARD-218 did not create this
+retention. It wrote a claim that is false about it.** The defect is the claim,
+not the memory. That is why this is a narrowing job and not an instrument job.
+
+### F-002 reproduced exactly, with the WITH/WITHOUT pair run here
+
+An identical late class drawing on `snowflake_interior[0]`:
+
+| arm | how it takes the fixture | cells |
+|---|---|---|
+| B | as a parameter | **2 failed — CAUGHT** |
+| A | `request.getfixturevalue("snowflake_interior")` | **40 passed, 0 cells — MISSED** |
+
+In arm A the shared render is mutated *after* the control signed it off and
+neither half of the derivation sees it, so **AC-4's guarantee is void for that
+consumer**. `getfixturevalue` is live here — **9 sites**, one of them
+`tests/test_puzzle_solver_page.py:671`, `return request.getfixturevalue("page")`,
+the same fixture name as band's class-scoped render. The review is also right
+that there is **no instance in these two files today**: declared = collected =
+22 / 8 / 4 for the three fixtures.
+
+### Why the prescription was NOT followed, and this is the judgement the record needs
+
+Cycle 2 asked round 6 to widen `_bitmap_bytes` over numpy and
+`_retained_bitmap_bytes` over the lru_cache store, and to close F-002 with a
+transitive-fixture closure. **Both are new derivations, and round 6 is the last
+round — nothing reviews it.** Cycle 2 argues this itself, against the shared
+hoist: *"a brand-new third derivation in front of a review that no longer
+exists, which is the trade that produced both of this cycle's findings."* That
+argument applies to its own two prescriptions with equal force, and the
+aggregate round counter (5 of 6) is what makes it binding rather than
+cautious.
+
+**A false universal is fixed by making it true, not by enlarging the machine
+until it is.** So round 6 narrows the claims to what the instruments measure,
+records the pre-existing retention as a measured figure the control explicitly
+does not cover, adds the two missing blind spots (numpy, and a bitmap on a
+`Test*` class attribute), and closes F-002's one channel invisible to **both**
+halves with an **equality-to-zero AST check** that neither file uses
+`getfixturevalue` — three lines, no model of consumers, default-deny, scoped to
+two files. The remaining shapes — indirect-via-fixture, inherited, nested
+class, `usefixtures` — stay **open and routed to CARD-219**, where the nine
+helpers are being hoisted into a shared home and a review will see the
+closure. That routing is on CARD-219's `Touches:` line and in the backlog.
+
+### [Family] — I accept the reviewer's YES, and it is the honest reading
+
+Both gating findings are defects in code **fix round 1 wrote**, they share one
+root cause — *a derivation whose authority is narrower than the one available
+to it, resolving an unmodelled case to a silent pass* — and each is duplicated
+across both files. Cycle 1's findings were about the conversion; cycle 2's are
+about the guards written for cycle 1. `family_regression: warn`, so this is
+recorded rather than escalated, and 6.0 → 7.0 says converging rather than
+spinning. **But it is the second consecutive cycle whose gating findings were
+created by the previous fix, and it is the reason round 6 adds nothing that
+needs reviewing.**
+
+### FIVE FIGURE CORRECTIONS, and the first is mine
+
+1. **"514 added lines are executable rather than prose" was never a
+   measurement.** I produced it with a regex that dropped blanks, `#` lines,
+   lines opening `"""` and sentence-shaped lines — but **not docstring body
+   lines** — labelled it "rough code volume" in the command, and then wrote it
+   on this card and into cycle 2's own brief as a precise figure, where it
+   sized the review. Re-derived: of **709** added lines, 93 blank, 58 whole-line
+   comment, **256 docstring**, leaving **302 code** (143 frame + 159 band). No
+   definition yields 514. **The round is 57 % prose by line, not 27 %** — which
+   reframes the proportion question cycle 2 was asked to judge, in the
+   direction of the round being more modest than I described it.
+2. **"no module under `tests/` instruments the process's own memory at all"
+   (both new docstrings) is false.** `tests/helpers/book_corpus.py:857` is
+   `def resident_bytes()` reading `resource.getrusage(RUSAGE_SELF).ru_maxrss`.
+   Confirmed here. The round verified that claim with a grep
+   (`RLIMIT_AS|peak_rss|max_rss|tracemalloc`) **narrower than the claim it was
+   checking**, and I repeated the grep rather than the claim. The substance
+   survives — a helper, not a guard asserting a shape — the universal does not.
+3. **"a change to `test_book_pdf_memory.py` will not select these two files" is
+   half wrong, in the safe direction.** Re-derived:
+   `scripts/impact_set.py tests/test_book_pdf_memory.py` returns 24 files and
+   `tests/test_book_puzzle_frame.py` **is among them** via shared `src` reach;
+   only `tests/test_book_pdf_band.py` is unselected.
+4. **The new import costs +55 ms median, not 0.01 s** (cycle 2's five
+   fresh-interpreter pairs).
+5. **"two arms nothing reds" was three.** `tests/test_book_puzzle_frame.py:3436`
+   is a chained comparison whose second conjunct is already guaranteed by
+   `_book_pages()` at `:902`, so nothing can red it — and were it to fail, the
+   message would misdiagnose it as a scope regression. Round 6 drops or splits
+   it.
+
+### What cycle 2 found that neither earlier round nor I had touched
+
+Two mutants of its own, both load-bearing: the fifth-rule control's
+`siblings_excepted=False` (intact 1 failed, mutant 6 passed under a reordered
+class selection), and the container-summation branch of
+`_retained_bitmap_bytes` neutered **with the bytes restored** — which leaves
+the AC-5 control **green on 201,960,000 B retained**. Round 6's derived
+equality must kill that one, and it is on the round's gate list.
+
+Also accepted: the refusals **are** distinguishable from real failures by their
+messages alone, with the real failure explicitly asserting the condition the
+refusal denies — plus the caveat that the diagnosis lives in the assertion
+message, so **a gate must not add `--tb=no`** or decline and leak become one
+`FAILED <nodeid>` line. That goes into the merge gate's own method.
+
+### Gates, cycle 2
+
+Derived gate as derived: **24 files, 2891 collected, 2880 passed, 0 failed,
+11 skipped, exit 0, 458.73 s** — the 2891 reproduces fix round 1's exactly.
+All 11 skips named by node id, one cause: `tests/conftest.py:207`
+`DATABASE_URL is not set` via `db_required`.
+`tests/test_browser_fixture_scope.py` **29 collected, 29 passed** — confirming
+the correction to cycle 1's "17", which I had repeated. Census guards **643
+passed**. Both subject files whole: **138 passed**, retention **576 B**
+reproduced by a deeper walk too. Scope gate **PASS**. System contract: 20 rules,
+1 ✓, 17 ⚠ unchecked, **2 ✗** (ADR-0039/R2 and /R3, the two gating findings).
+
+### Out of scope, and filed
+
+`_set_once`'s `lru_cache(maxsize=None)` retains **24,435,107 B** for the rest of
+every session that touches `tests/test_book_pdf_band.py`, and it is
+**pre-existing** — identical at `c7cca514`. Not CARD-218's to fix and
+deliberately not fixed here; backlogged with the measurement. One more item for
+the board: the review skill resolves its own manifest at
+`skills/review/../../.claude-plugin/plugin.json`, which does not exist on this
+box — the real one is a level deeper, `forge/.claude-plugin/plugin.json`,
+version 2026.8.17 — so a review following it literally records
+`reviewer_version: unknown`.

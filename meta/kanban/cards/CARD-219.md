@@ -33,7 +33,44 @@ than adding a third, and give the result the agreement guard they lack. The
 helpers: _page_digest, _case_of, _declares, _declared_consumers,
 _consumers_among, _refuse_unless_every_consumer_is_collected,
 _refuse_unless_nothing_takes_it_later, _bitmap_bytes, _retained_bitmap_bytes.
-Backlogged in full under @tech-debt. -->
+Backlogged in full under @tech-debt.
+
+AND TWO OPEN HOLES IN THOSE HELPERS COME WITH THEM, from CARD-218's review
+cycle 2 (2026-10-24), both reproduced by the orchestrator:
+
+(1) THE DENOMINATOR GUARD IS DEFAULT-DENY ONLY OVER CONSUMERS WRITTEN IN A
+TEST'S OWN SIGNATURE. `_declared_consumers` reads `inspect.signature` and
+`_consumers_among` reads `item.fixturenames`; a consumer taking the fixture
+through `request.getfixturevalue` is invisible to BOTH. Measured with an
+identical late class drawing on a shared page: taken as a parameter it is
+CAUGHT (2 cells), taken via `getfixturevalue` it is MISSED (40 passed, 0
+cells) -- so AC-4's no-mutation guarantee is void for that consumer. The idiom
+is live in this tree: 9 sites, one of them tests/test_puzzle_solver_page.py:671
+`return request.getfixturevalue("page")`, the same fixture name as band's
+class-scoped render. CARD-218's fix round 2 closed only that one channel, and
+only in its own two files, with an equality-to-zero AST check that neither file
+uses `getfixturevalue`. STILL OPEN and this card's to close when it builds the
+shared home: the transitive-fixture closure (a consumer that takes the fixture
+via another fixture), an inherited consumer on a subclass, a consumer in a
+nested Test class, and `@pytest.mark.usefixtures` / `pytestmark`. A false
+negative in a default-deny guard is the one direction ADR-0039/R2 does not
+tolerate, so this is not optional polish.
+
+(2) `_retained_bitmap_bytes` CANNOT SEE A BITMAP REACHED THROUGH NUMPY, behind
+an `@lru_cache`, on a `Test*` class attribute, or nested deeper than one
+container level. `_bitmap_bytes(np.asarray(page))` is 0 while `arr.nbytes` is
+25,245,000, and a numpy page array is exactly what band's `_scan`/`_set_once`
+produce. CARD-218 narrowed its control's claim to the module-level
+accumulators it really walks and declared all four channels rather than
+widening the instrument -- deliberately, because round 6 had no review left
+after it. When the shared home is built WITH a review in front of it, widen the
+walk over numpy and `functools._lru_cache_wrapper` via `gc.get_referents`
+(stdlib, ADR-0006/R1 untouched) and derive the bound rather than asserting a
+threshold. Note before you do: band's two pre-existing caches hold 25,192,439 B
+= 0.9979 page bitmaps, so a `< one page bitmap` bound CANNOT survive the
+widening -- it becomes a measured allowance held to an equality plus a strict
+bound on everything else. That retention is pre-existing (identical at
+c7cca514) and backlogged separately; do not let this card absorb it. -->
 **Review score:** —
 **Started:** —
 **Closed:** —
