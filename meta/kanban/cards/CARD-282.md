@@ -249,3 +249,378 @@ naming a route module**. After the blueprint split `app` still imports the
 blueprints, so a change to `routes/book.py` keeps `app` in its
 reverse-dependency closure and this set does not shrink. **The split moves code,
 not the import graph the gate reads.**
+## Worktree notes (CARD-282, 2026-10-24)
+
+### The card's restatement of ADR-0041/R1 matches the ADR. Its slug sentence does not.
+
+Read out of the ADR itself, not the card: R1 is *"the first 10 lowercase
+hexadecimal characters of SHA-256 over the UTF-8 bytes of `"{width}x{height}:"`
+followed by the solution grid's cells row-major, `'1'` for filled and `'0'` for
+empty"*, with the worked example `"2x2:1000"` and "exactly one implementation
+computes it". The card's paragraph 2 says the same thing in the same order, so
+there is no deviation and nothing to stop for. `puzzle_key` implements it and
+`tests/test_player_bundle.py::test_the_key_is_the_adrs_worked_example` asserts
+the **hashed material** (`b"2x2:1000"` and, for a non-square grid, `b"3x1:100"`),
+not just a digest computed the same way twice.
+
+**But "Book slugs per the same ADR" points at something that is not there.**
+ADR-0041 names `/b/<slug>`, "keyed by the book slug" and (in the owner spec)
+"distinct per book/edition", and specifies **no slug recipe at all** — nor does
+FR-045, TERM-040, TERM-041 or the glossary. So `book_slug` is **this card's
+choice**, recorded as such in `player_bundle.py`'s docstring and here rather
+than passed off as the ADR's:
+
+> first 10 lowercase hex of SHA-256 over the UTF-8 bytes of `"book:{title}:"`
+> followed by the book's puzzle keys in book order, concatenated.
+
+Deliberately the *same* scheme as R1 applied to a book's own content (same
+algorithm, truncation and case; a domain prefix then a fixed-width payload —
+every key is exactly 10 characters, so no separator is needed) rather than a
+second naming scheme, and content addressed for R1's own reason: a printed QR
+code cannot be re-pointed, and the cover title plus the puzzles inside are what
+survives a database re-seed. **This wants pinning by an ADR revision (an R7)
+before any book is printed.** Nothing is printed yet — CARD-210 is still
+blocked — so the window is open, and `book_slug` is the one function to change.
+
+> **Superseded the same day.** The owner resolved this as **ADR-0041/R7** +
+> DEC-044b (main `f32520a6`) and chose a **keys-only** recipe, explicitly
+> against the `"book:{title}:"` variant above. See "## Worktree notes —
+> revision to ADR-0041/R7" at the end of this file; the paragraph above is kept
+> as the record of what was shipped in `58327b53` and why it was flagged, not
+> as a description of the code.
+
+### Two defects found in the brief, both measured
+
+1. **"A new module under `src/nonogram/admin/` needs its row in
+   `src/nonogram/__init__.py`'s docstring or the suite reds" is backwards.**
+   The canonical map's row unit is the *top-level name under `nonogram`*:
+   `tests/test_cli.py`'s `_component()` returns `module.split(".")[1]`, so
+   `nonogram.admin.player_bundle` **is** the `admin` component, which already
+   has its row (`admin/ COMP-009`). No row was added, and `tests/test_cli.py`
+   is green (135 tests) without one. Measured the other way too: planting a
+   `player_bundle    COMP-012 ...` row reds **5 cells** —
+   `test_the_docstring_map_parses_into_rows`,
+   `test_every_component_the_walk_finds_appears_exactly_once`,
+   `test_the_maps_adapter_count_is_the_other_hole_that_stays_open`,
+   `test_removing_the_planted_module_passes` and
+   `test_the_two_row_readers_accept_exactly_the_same_lines` — because the row
+   names no component the walk finds. The row was reverted and the file
+   verified by sha256 (`ba2a58cd…`, 0 occurrences of the marker).
+2. **The dispatch's impact figure needed recomputing again.** `scripts/impact_set.py`
+   on this card's four changed paths reports **100 files**, not the 98 the
+   dispatch quotes (the extra two are this card's own new test file and
+   `tests/test_player_bundle.py`'s entry into the derived always-on scanning
+   set — it uses `.rglob(`). The gate ran at **5840 passed, 15 skipped,
+   661.64 s**, against the dispatch's predicted 654.16 s / 5739 tests.
+
+### What is in the bundle, and the one thing that is not from the ADR's wording
+
+`index.json` → `{"puzzles": [{key,width,height,tier,title}, …]}` sorted by key;
+`puzzle/<key>.json` → the same entry plus `clues: {rows, columns}` from
+`compute_clues` of the stored grid; `book/<slug>.json` →
+`{slug,title,puzzle_keys}`. AC-380 writes "difficulty tier"; the field is named
+`tier`, and `CRITERIA_FIELDS` in the test file is the literal pin for that
+choice.
+
+*Published* = carried by a finalized book; *finalized* = every `BookStatus`
+except draft, derived from the enum (`FINALIZED_STATUSES`). A draft book's
+puzzles never reach the bundle, and `test_bundle_is_clean_of_answers` asserts
+their key and title are absent from the whole tree (M10 reds those two cells).
+
+### EC-048's second clause — "data from which any solution cell is recoverable"
+
+Two solution-derived values are written, both *required* by the ADR, and both
+named in `SOLUTION_DERIVED_FIELDS` so the exemption is a declaration rather
+than an omission (ADR-0039/R3): the clues (R5) and the one-way key (R1, in
+three places). The scan behind AC-381 has two halves of different kinds:
+
+* **derived forbidden material** — `forbidden_encodings(grid)` builds, from
+  each grid at run time, 4 alphabets x 4 traversals x 4 separators plus the
+  JSON forms, the hex and base-64 forms, and the **untruncated** digest (54
+  more characters of the same material nothing has a reason to carry);
+* **default-DENY on field names** — every JSON object key in the tree must be
+  in `DECLARED_FIELDS`, derived from the exporter's own schema tuples. **An
+  unrecognised field is a violation.** This is the half that catches a leak
+  which is not a cell encoding at all: M3 adds `filled_cells` and is killed by
+  it. And because that authority is code a mutant could widen alongside the
+  writer, `test_the_declared_schema_is_the_field_set_the_criteria_name` holds
+  the tuples to the literal field list the ACs name — V4 does exactly that
+  widening and reds there.
+
+The picture name is written nowhere: the title chain stops at `puzzle_name` and
+falls back to `"Puzzle <key>"`, never to `source_image` the way `app.py`'s own
+solve page does (M2 restores that fallback and reds 2 cells).
+
+### EC-049 — proved by mechanism, over a real database
+
+`test_export_is_readonly_and_deterministic` runs against SQLite through
+`sqlite_session_scope`, so it **does not skip** (the suite's `db_required`
+tests do, silently). Three kinds of evidence: an `Engine`-class statement log
+whose verdict is taken on the *complement* of a read-only verb set (TRUNCATE,
+MERGE, UPSERT, DROP, GRANT and an unparsable statement are all writes —
+`test_the_statement_verdict_is_default_deny`, 15 cases); a row snapshot taken
+from `Base.metadata.sorted_tables`; and a four-way byte comparison where two
+runs are **subprocesses under different `PYTHONHASHSEED`** values, which is the
+only way set iteration order reaching the output can be seen at all (M5 proves
+it: `set(candidates)` reds the four-way comparison).
+
+Determinism is built, not hoped for: explicit sorts everywhere, `sort_keys` /
+`ensure_ascii` / fixed indent / explicit LF / `allow_nan=False`, **no floats at
+all** (the writer refuses one), and `_settled` as a pure reduction for the
+metadata of two rows that share one key by ADR-0041's design (M13 reds when
+read order decides instead).
+
+### Kill matrix — 17 mutants, 17 kills, 91 assertion nodes
+
+Instrument: `tests/kill_matrix.py`, recording pass, child instrumentation off.
+SHIPPED 0 FAIL of 91 reached, 53 collected tests.
+
+| mutant (mechanism deleted) | cells red |
+|---|---|
+| M1 leak the solution grid into the puzzle file | 3 |
+| M2 title falls back to `source_image` | 2 |
+| M3 undeclared field carrying `filled_cells` | 2 |
+| M4 export writes to the database (`rename_puzzle`) | 6 |
+| M5 set iteration order into the output | 2 |
+| M6 `sort_keys=False` | 1 |
+| M7 `ensure_ascii=False` | 1 |
+| M8 the owned tree is not reset | 2 |
+| M9 the float refusal | 0 cells, **exit 1** (a `pytest.raises` mismatch — an error, not a cell) |
+| M10 draft books exported too | 2 |
+| M11 key material `{height}x{width}` | 2 |
+| M12 truncation 10 -> 16 | 10 |
+| M13 `_settled` reduction deleted | 1 |
+| V1 the scan's deny-default deleted | 2 |
+| V2 the forbidden-encoding derivation emptied | 1 |
+| V3 the statement verdict always says clean | 3 |
+| V4 schema widened together with the writer | 1 |
+
+**Two of my own tests were weak and the instrument is how I know:**
+
+* **M9 survived at first** (exit 0, 0 cells): `pytest.raises(TypeError,
+  match="float")` passed with the float branch deleted, because the
+  deny-default arm's message *prints the type name* and therefore contains the
+  word "float". Now matched against the branch's own sentence.
+* **M11 killed only 1 cell at first**, and not the one that should have caught
+  it: the ADR's worked example is **square**, so `2x2` cannot tell
+  `{width}x{height}` from `{height}x{width}`, and
+  `test_the_key_separates_the_recipes_parts` compares two keys for inequality —
+  both move together under the swap. A non-square material assertion
+  (`b"3x1:100"`) was added and the blind spot is now written into that test's
+  docstring instead of being implied away.
+
+V1/V2/V3 are the ADR-0039/R1 readings for the three mechanisms: with the
+mechanism present the leak is caught (M1/M3/M4), with it deleted the control
+that depends on it reds — and V3 in particular shows AC-382's own
+`forbidden_statements(...) == []` passing **vacuously** while
+`test_the_statement_log_catches_a_write` reds, which is the whole reason that
+control exists.
+
+### Also pinned, because it is a trap a refactor would walk into
+
+`PuzzleReviewService._grid_fingerprint` hashes a string of the *same shape* as
+R1's — extent, colon, bits — with the extent **the other way round** and **no
+truncation**. For any non-square grid it is a different value for the same
+cells. `test_the_stores_internal_fingerprint_is_not_the_public_key` holds them
+apart, so reusing the memo key as the public key is a red rather than a
+breaking change to every printed book that looked like a refactor.
+
+### Raised rather than fixed
+
+* **ADR-0041 has no book-slug rule.** Proposed R7 above; needs the owner.
+* **A book's slug moves if its title is edited or a member changes.** Both are
+  frozen in practice for a printed book (INV-008, INV-012), and the ADR's own
+  Negative already records that a finalized-but-unexported book has QR codes
+  pointing at keys the site does not serve. Worth one sentence in
+  `docs/deploy/player.md` (CARD-285) rather than code here.
+* **CARD-274 carries this route forward.** `POST /book/<id>/export-player-bundle`
+  is registered in `app.py`; the blueprint split must move it with the other
+  book routes.
+
+## Worktree notes — revision to ADR-0041/R7 (2026-10-24, second commit)
+
+The slug gap this card raised was resolved by the owner as **DEC-044b +
+ADR-0041/R7** (main `f32520a6`), and the recipe is **keys-only**:
+
+> the first 10 lowercase hex characters of SHA-256 over the UTF-8 bytes of
+> `"book:"` followed by the book's puzzle keys in book order, concatenated with
+> no separator.
+
+**The title is not an input.** That is the change from what `58327b53` shipped,
+and R7's own text names the `"book:{title}:"` variant as the alternative
+decided against, for the reason the first commit's docstring was circling: a
+printed QR code cannot be re-pointed and a title is editorial, so a
+one-character typo fix in the admin panel would otherwise break every code in
+an already-printed run. The accepted remaining sensitivity is that the slug
+*does* move on a membership change — content, not editorial, and already an
+explicit confirmed act outside draft (INV-012).
+
+### What changed in the code
+
+* `book_slug(title, puzzle_keys)` → **`book_slug(puzzle_keys)`**. The title is
+  gone from the *signature*, not merely from the hash: nothing else needed it
+  (the book file's `title` comes straight off the book through `_book_title`),
+  and a parameter accepted and ignored is a version of "not an input" a caller
+  can get wrong.
+* The module docstring no longer says "this card's recipe, not the ADR's" —
+  that was true when written and is now false. It cites R7 and carries R7's
+  breaking-change clause verbatim in substance: the prefix, the ordering, the
+  absence of a separator, the algorithm, the truncation length, the case.
+* **A consequence of the exclusion that needed handling, not a note.** With the
+  title in the hash, two books could only share a slug by sharing a title, so
+  the file content was the same either way. Keys-only means two finalized books
+  with the same puzzles in the same order are **one** slug with **two**
+  candidate titles. `export_bundle` now groups books by slug and `_book_file`
+  reduces the title through `_settled` — a function of the titles, not of the
+  store's row order. Writing "whichever book was read last" would have made the
+  bundle's bytes depend on row order and quietly cost EC-049. Held by
+  `test_two_books_with_the_same_puzzles_are_one_public_book`, and M16 reds it.
+
+### R7's `check` control now exists (it named a test that did not)
+
+`tests/test_player_bundle.py::test_the_slug_does_not_move_when_the_title_is_edited`
+— export, edit the title through `BookManager.update_book_details` (which by
+its own rule is not a membership change, so the book stays out of draft),
+re-export, assert the slug file name is unchanged **and** that the file's
+`title` field followed the edit. Then the paired direction: drop a member,
+re-pass the readiness gate, re-export, assert the slug **did** move. A
+stability-only test would pass just as well on a slug that is a constant.
+
+**Applying this card's own M11 lesson to the fixture.** M11 showed the ADR's
+*square* worked example could not distinguish `{width}x{height}` from
+`{height}x{width}`. The same trap exists here: a book titled `""` would hash
+`"book:" + keys` either way under a mutant that injects the title without a
+separator, hiding it completely. So both titles in the control are non-empty,
+differ from each other, and are **asserted** to be so before the export.
+
+### Mutants for R7, cells red
+
+| mutant | cells |
+|---|---|
+| **M14 title reintroduced into the slug material** | **4** — `test_the_slug_is_content_addressed_and_not_the_books_row_id` L1156 (the material assertion), **`test_the_slug_does_not_move_when_the_title_is_edited` L1214** (R7's own control: "an editorial title change moved the slug"), `test_two_books_with_the_same_puzzles_are_one_public_book` L1256, L1259 |
+| M15 a `-` separator between the keys | 1 — L1156, the material assertion (R7's "absence of a separator") |
+| M16 book-file title settled by read order | 1 — L1259 |
+
+M14 is implemented as a three-edit mutant so the title really reaches the hash
+on the production path (a module-level holder set in `export_bundle`), rather
+than as a signature change the call site would not compile against.
+
+### Everything re-run at this state
+
+* **Full kill matrix re-run**: 20 mutants, **20 kills**, 107 assertion nodes,
+  SHIPPED 0 FAIL of 107 reached, 55 collected tests. M9 is still the one
+  error-kill (exit 1, 0 cells — a `pytest.raises` mismatch). M8 rose from 2
+  cells to 4, because the new slug control also reds without `_reset`; three
+  tuple-unpackings were turned into indexed reads with the count asserted, so
+  those arms report cells instead of NOT-REACHED (the same lesson as M9/M11).
+  M12 still carries 10 NOT-REACHED downstream of its own early errors.
+* **AC-380 / AC-381 / AC-382 green**, `tests/test_player_bundle.py` 55 passed.
+* **Impact set re-derived** with `scripts/impact_set.py` for the *new* changed
+  set (`player_bundle.py`, `test_player_bundle.py`) — **still 100 files, byte
+  identical to the first gate's selection**, because `app.py` imports
+  `player_bundle`, so every test importing the admin app is in
+  `player_bundle.py`'s reverse-dependency closure. There was no cheaper subset
+  to run. Gate: **5842 passed, 15 skipped, 660.63 s**, 0 failures, 0 errors —
+  the same 15 `db_required` skips at `tests/conftest.py:207`, two more passes
+  than the first gate because this commit adds two tests.
+
+## [FIX PRE-GATE on `3f6b57a0` — 2026-10-24, orchestrator] PASSED
+
+Two commits on the branch: `58327b53` (the bundle) then `3f6b57a0` (the R7
+revision). Diff across both is **exactly the four `Touches` paths, 2044 pure
+insertions, no deletions**.
+
+### R7 is implemented, and the rule is falsifiable by its own named control
+
+The recipe, recomputed **independently** of the shipped helper — `sha256("book:"
++ "".join(keys))[:10]` written out by hand against `book_slug(keys)`:
+
+```
+independent : 773df54c6b
+shipped     : 773df54c6b
+agree       : True | KEY_LENGTH = 10
+signature   : (puzzle_keys: 'Iterable[str]') -> 'str'
+title-free  : True
+```
+
+**The title is gone from the signature, not merely from the hash** — which is
+better than asked for. A parameter accepted and ignored is a version of "not an
+input" a caller can get wrong; a removed parameter makes the old call site raise
+`TypeError` instead, and the round confirmed that failure before fixing it. And
+the docstring no longer claims the recipe: **zero occurrences** of "this card's
+recipe, not the ADR's" remain, replaced by a citation of **ADR-0041/R7,
+DEC-044b** carrying R7's breaking-change clause item by item.
+
+**My own mutant, independent of the round's M14.** Its M14 was a three-edit
+mutant using a module-level holder. Mine is a **single edit at the call site on
+the production path** — `book_slug([_book_title(book)] + list(keys))` — so the
+title genuinely reaches the hashed material with no signature change:
+
+| | cells |
+|---|---|
+| **reds `test_the_slug_does_not_move_when_the_title_is_edited`** (R7's `check`) | ✅ |
+| reds `test_bundle_tree_and_clues_match_the_encoder` (AC-380, R7's other check) | ✅ |
+| reds `test_the_slug_is_content_addressed_and_not_the_books_row_id` | ✅ |
+| reds `test_two_books_with_the_same_puzzles_are_one_public_book` | ✅ |
+| **total** | **4 failed, 51 passed** |
+
+So **R7 does not ship as a rule whose control does not exist** — which is the
+`check_ref_missing` defect this board has now found **ten** times, twice today on
+CARD-276's own ACs. I wrote R7's `check` field pointing at a test that did not
+exist yet; it exists, it is two-directional (the title edit must *not* move the
+slug; a membership change *must*), and it fails when the mechanism is broken.
+
+### The consequence of the owner's decision that nobody foresaw — handled, not noted
+
+**With the title in the hash, two books could only share a slug by sharing a
+title, so the file's content was identical either way. Keys-only breaks that:**
+two finalized books with the same puzzles in the same order are now **one** slug
+with **two** candidate titles, and one file has to speak for both.
+
+The round found this itself and did the right thing with it. Its first commit's
+`for slug, title, keys in sorted(book_keys)` would have resolved it **by sort
+order** — deterministic, but *by accident*, and silently dropping a title. It now
+groups by slug and reduces the title through the existing `_settled`, a pure
+function of the candidate titles rather than of the store's row order, held by
+`test_two_books_with_the_same_puzzles_are_one_public_book` with **M16** (settle
+by read order) redding it. Without that, EC-049's byte-diff guarantee would have
+depended on row order and nobody would have known.
+
+**And it raised the product half rather than inventing a second rule one commit
+after being pulled up for inventing the first.** Which title gets published, or
+whether such a pair should be refused at export or disambiguated, is an ADR-level
+question. **Routed to CARD-284**, which owns `/b/<slug>` and `/library` — the
+pages that actually render a book's title — and flagged to the owner. The current
+behaviour is deterministic, tested, and defensible (the slug names content, and
+two books with identical content resolve to identical content), so it is not a
+blocker.
+
+### The structural fact CARD-283's brief needs
+
+**`app.py` imports `player_bundle`, so any future change confined to
+`player_bundle.py` alone still derives the same 100-file impact set.** The round
+re-derived it for the narrowed changed set as asked and got a **byte-identical
+listing** — `diff` of the two is empty. That is the tool being right, not a
+defect, but it kills the assumption that touching only the new module is cheap.
+**CARD-283/284/285 must not be scoped on that assumption**, and I will put this
+on CARD-283 at dispatch.
+
+### Gate
+
+| | |
+|---|---|
+| `tests/test_player_bundle.py` | **55 passed**, no skips (53 + the two new) |
+| the three ACs + R7's control, by node id | **4 passed** |
+| impact set, re-derived, **100 files, unnarrowed** | **5842 passed, 15 skipped, 0 failed**, 660.63 s |
+| skips | the **same 15**, one reason (`conftest.py:207`, `DATABASE_URL is not set`), all `db_required`, none in this card's footprint |
+| **G-1** seven forbidden paths | **0** files touched |
+| **G-2** the three admin-player files | **0** lines changed across both commits |
+| kill matrix | **20 mutants, 20 kills**, 107 assertion nodes, SHIPPED 0 FAIL of 107 reached |
+
+Two matrix changes worth recording because they are the round applying its own
+earlier lessons: **M8 rose 2 → 4 cells** (the new slug control also reds without
+`_reset`), and **three tuple-unpackings became indexed reads with the count
+asserted**, so those arms now report cells instead of NOT-REACHED — an unpacking
+raises before the assert, and a never-reached assert is indistinguishable from a
+surviving mutant. M9 remains the one **error-kill** (exit 1, 0 cells, a
+`pytest.raises` mismatch), reported as such rather than as a failure cell.
