@@ -1,6 +1,6 @@
 # CARD-219: Positional assertions read the page plan instead of rendering pixels
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,10 +9,10 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/219-assert-the-plan-not-the-pixels
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-219
 **Source:** owner request 2026-10-13 ("make cards for tests curation"); the structural half of the dispatcher's cost analysis
 **Idea:** —
-**Wave:** —
+**Wave:** 57
 **Created wave:** 37
 **Deferred waves:** 0
 **Depends on:** CARD-217, CARD-205, CARD-206, CARD-207, CARD-208, CARD-209
@@ -72,7 +72,7 @@ widening -- it becomes a measured allowance held to an equality plus a strict
 bound on everything else. That retention is pre-existing (identical at
 c7cca514) and backlogged separately; do not let this card absorb it. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-24
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -250,3 +250,208 @@ The profile points this card at one file above all others:
 **`tests/property/test_book_pdf_geometry.py`, 48.66 s in four tests** — the densest spot in the
 suite and exactly the shape this card exists for (positional claims paid for in rendered pixels).
 Start there and measure the saving by `rank_durations.py` on a solo run.
+
+## [DISPATCH 2026-10-24 — wave 57, orchestrator]
+
+Fork point **`808cf51f`** (main, CARD-218 closed). Branch
+`card/219-assert-the-plan-not-the-pixels`, worktree
+`../PythonProject4-card-219`. Nothing else in progress; no full-suite lock held.
+
+### 1. The dependency override, and what it actually costs
+
+`Depends on:` names six cards. **CARD-217, CARD-205, CARD-206 are `done`;
+CARD-207, CARD-208, CARD-209 are `ready` and undispatched.** The owner
+dispatched this card anyway — the same standing scheduling override that put
+CARD-218 into wave 56 ("we can take 218 and 219 to work", then "dispatch 219").
+Recorded here rather than left implicit, because unlike CARD-218's override this
+one has a measured price and it is paid in two specific places:
+
+| ready sibling | file it shares with this card | measured | why it is not merely a merge conflict |
+|---|---|---|---|
+| CARD-209 | `tests/test_book_solved_answer_key.py` | 4.33 s / 67 tests | CARD-209 **changes the answer-section page arithmetic** (wide-but-short solutions pack 3 to a page). That arithmetic is exactly what a positional conversion here would assert, so the conversion would be rewritten by 209, not merged with it. |
+| CARD-209 | `tests/helpers/book_corpus.py` | 0.00 s | declared `conflict.hotspots` entry; 209 edits it. |
+| CARD-208 | `tests/property/test_book_pdf_geometry.py` | **51.82 s / 4 tests** | CARD-208 **changes `layout.py`** (printed clue numbers in ruled boxes) — the geometry this file asserts. |
+
+**Decision: all three are fenced out of this card.** The first two cost 4.33 s
+and are an easy call. **The third is not**, and is stated plainly below because
+it is the biggest single number on this card.
+
+### 2. The card is aimed at a file it does not declare, and that file is the prize
+
+The `Re-pointed 2026-10-15` section says "this card is no longer the biggest
+prize" and sends it to **`tests/property/test_book_pdf_geometry.py`, 48.66 s in
+four tests** — "the densest spot in the suite and exactly the shape this card
+exists for". That figure is **live**: recomputed from
+`suite-durations-20261023.txt` it is **51.82 s in 4 tests = 3.63 % of the suite
+at 12,955 ms/test**, the two largest being
+`test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages`
+(21.11 s) and `test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_pages`
+(20.45 s) — both *geometric* claims paid for in rendered pixels, i.e. branch two
+of this card's own classification.
+
+**That file is not in this card's `Touches:` line.** A card re-pointed at a file
+it never declared is a card whose scope fence and whose plan disagree, and this
+board's `scope_gate: on` resolves that disagreement mechanically and expensively:
+a diff that covers a ready sibling's `Touches` **escalates to the decompose
+station** on cycle 1. Taking the 51.82 s here buys an escalation to be told what
+is already written down.
+
+So it is **left for a successor cut after CARD-208 lands**, and the owner has a
+scheduling fact to act on: *the largest prize in CARD-219's subject is behind
+CARD-208, and CARD-208 is `ready` and undispatched.* Dispatching 208 unblocks
+more of this card's value than anything inside this card does.
+
+### 3. The premise, recomputed before a line is converted — the CARD-218 lesson applied
+
+From `suite-durations-20261023.txt`, parsed from its own
+`<secs>s <phase> <nodeid>` records. Attributed total **1426.16 s over 8981
+tests** → suite mean **158.8 ms/test**; phase split **setup 6.79 % / call
+91.79 % / teardown 1.42 %**. (The total and the phase split reproduce CARD-218's
+recorded figures exactly, which is how the parse below was caught being wrong —
+see the correction note at the end of this section.)
+
+| | secs | tests | % suite | ms/test |
+|---|---|---|---|---|
+| the 8 declared `Touches:` files | 54.82 | 326 | 3.84 % | 168.2 |
+| **in scope after the fence (6 files)** | **50.49** | **259** | **3.54 %** | **194.9** |
+| `tests/test_book_toc.py` | 16.76 | 53 | 1.18 % | 316.2 |
+| `tests/property/test_book_export_interior.py` | 17.71 | 3 | 1.24 % | 5903.3 |
+| `tests/test_book_finalise_gutter.py` | 7.47 | 126 | 0.52 % | 59.3 |
+| `tests/test_book_pdf_two_up.py` | 4.15 | 45 | 0.29 % | 92.2 |
+| `tests/test_book_pdf_levels.py` | 2.50 | 15 | 0.18 % | 166.7 |
+| `tests/test_book_page_numbers.py` | 1.90 | 17 | 0.13 % | 111.8 |
+
+**Two files hold 34.47 s of the 50.49 s — 68.3 %. The other four are 16.02 s
+over 203 tests = 78.9 ms/test, half the suite mean.** Those four are not worth a
+conversion round on cost grounds and the round is authorised to say so; CARD-218
+closed on exactly this shape and both of its review cycles endorsed the closure.
+
+Unlike CARD-218, though, **this card's declared subject is NOT below the suite's
+per-test mean** — 168.2 ms against 158.8 — and that is worth stating in the
+direction it actually points: the cost is not spread thin over many cheap tests,
+it is concentrated in **eight tests** (toc's seven at 1.69–1.81 s and
+export_interior's one at 16.16 s) that together are **27.34 s, 54 % of the
+in-scope total**. A card converting eight tests has a far better churn-per-second
+ratio than CARD-218's did. That is the argument for dispatching this at all, and
+it is the one the round should test first.
+
+> **Correction, same section, 2026-10-24.** The first version of this table read
+> 1413.18 s / 8139 tests / mean 173.6 ms, and said the eight `Touches:` files
+> were "below the mean". Both were artefacts of **my own parser**: its node-id
+> group was `(\S+)$`, which cannot match a parametrised id **containing a
+> space** — and this tree has 842 of them. It silently dropped 842 tests and
+> 12.98 s, inflating the suite mean by 9.3 % and **reversing the direction** of
+> the only comparison drawn from it. Found by reconciling one file: pytest
+> collected 126 ids in `test_book_finalise_gutter.py` where the parse reported
+> 124, and the two missing were
+> `…test_the_screen_names_the_reason_and_points_to_print_setup[gutter_margin_cm-0.60-book gutter_margin_cm is 0.6 cm, …]`
+> and its `trim_width_cm` twin. The corrected parse agrees with the live collect
+> exactly (259 = 259) and with CARD-218's committed total to the cent. Recorded
+> because it is the wave-50 rule in its own words — *a figure committed to a card
+> is a claim and its control is recomputation* — and because the cheap check that
+> caught it (collect the files and compare cardinality against the artefact) is
+> now a standing step for anything derived from these artefacts.
+
+Where the two real targets are, named so the round does not have to find them:
+
+* **`test_book_toc.py`** — seven tests at 1.69–1.81 s *call* each, **11.18 s of
+  the file's 16.76 s (67 %)**, and every one of the seven is a pure positional /
+  arithmetic claim by its own name: `test_each_row_points_at_the_page_the_walk_planned`,
+  `test_a_hundred_and_fifty_puzzles_take_one_toc_page`,
+  `test_the_ranges_tile_the_book_with_no_gap_or_overlap`,
+  `test_the_rows_are_exactly_the_books_sections`,
+  `test_no_row_names_an_individual_puzzle`,
+  `test_kdp_reports_the_same_toc_length_the_export_wrote`,
+  `test_the_three_ranges_are_the_cards_own_sample`.
+* **`tests/property/test_book_export_interior.py`** — **one test is 16.16 s of
+  the file's 17.71 s**: `test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`.
+  A parity/page-count claim, i.e. positional. G-3 applies: its corpus minimum is
+  not lowered to make it cheap.
+
+### 4. The trap this card walks into by succeeding — `RENDER_HEAVY_SNAPSHOT`
+
+`meta/profiling/rank_durations.py:45` defines the render-heavy set by grepping
+eight idioms (`interior\(|solved_puzzle_page|interior_stream|render_pages|puzzle_pages|export_book|create_guide_page|proof_pages`)
+over `tests/**/*.py`, and `tests/test_suite_profile.py:482` asserts the live grep
+**equal** to the 33-entry `RENDER_HEAVY_SNAPSHOT`. **All six in-scope files are
+in that snapshot**, with 9–44 idiom mentions each (two_up 44, toc 21, levels 16,
+page_numbers 12, finalise_gutter 10, property/export_interior 9).
+
+Two consequences, in opposite directions, and the round must check both:
+
+1. **A file converted thoroughly enough to lose its last mention drops out of the
+   live grep and reds `test_suite_profile.py`.** `page_numbers` (12) and `levels`
+   (16) are the plausible ones. The remedy is to update the snapshot in the same
+   commit with a restated reason — `rank_durations.py` is **not** in this card's
+   `Touches:` and is hereby added for that purpose only.
+2. **More likely, the opposite:** the conversion target *is* `interior_stream`,
+   which is itself one of the eight idioms — so a converted file keeps its
+   snapshot membership while losing its render cost, and the snapshot goes on
+   claiming it as render-heavy *cost*. `rank_durations.py:126` already carries
+   exactly this note for CARD-251 ("neither mention draws… a share computed from
+   this file's whole runtime over-states it"). Record the same for every file
+   converted here. **The set is a MENTION grep by construction**; do not read it
+   as a cost set after this card.
+
+### 5. The shared helper home — the half of this card that is NOT blocked
+
+The `SHARED CURATION HELPERS` mandate above (nine functions, 53 executable
+lines, 8 of 9 byte-identical, duplicated across CARD-218's two files) and its two
+open holes are **unblocked by 207/208/209** and carry the review value here:
+hole (1) is a **false negative in a default-deny guard**, the one direction
+ADR-0039/R2 does not tolerate.
+
+Two constraints the mandate does not state, derived at dispatch:
+
+* **Prefer a new module under `tests/helpers/` over `tests/conftest.py`.** Both
+  `tests/conftest.py` and `tests/helpers/book_corpus.py` are declared
+  `conflict.hotspots`; `tests/helpers/` is an importable package
+  (`tests/helpers/__init__.py` exists) and the nine functions are plain
+  module-level helpers, not fixtures, so they need no conftest injection. This
+  avoids a hotspot for no loss.
+* **The new helper module must not name any of the eight render idioms, in code
+  or in a docstring** — `tests/helpers/` is under `tests/`, so a mention there
+  *adds* a file to the live grep and reds the same equality from the other side.
+  This is the trap CARD-218 designed around by keeping its render counter outside
+  `tests/` entirely.
+* Importing the shared home from `tests/test_book_puzzle_frame.py` (CARD-208's
+  `Touches`) and `tests/test_book_pdf_band.py` (CARD-207's) is **allowed here**
+  and expected to raise a scope-gate flag. The adjudication is written in advance
+  so cycle 1 rules rather than escalates: the edit is nine function *deletions*
+  plus one import line per file, it covers neither sibling's subject (207's band
+  header split, 208's ruled clue boxes), and the alternative is a **third copy**
+  of the defect this card exists to remove.
+
+### 6. Scope as dispatched
+
+**In:** `tests/test_book_toc.py`, `tests/property/test_book_export_interior.py`,
+`tests/test_book_finalise_gutter.py`, `tests/test_book_pdf_two_up.py`,
+`tests/test_book_pdf_levels.py`, `tests/test_book_page_numbers.py`,
+a new shared-helper module under `tests/helpers/`, the two CARD-218 files for
+the de-duplication import only, and `meta/profiling/rank_durations.py` for the
+snapshot restatement only.
+
+**Out, with the reason recorded:** `tests/test_book_solved_answer_key.py` and
+`tests/helpers/book_corpus.py` (CARD-209), `tests/property/test_book_pdf_geometry.py`
+(CARD-208 — and the largest prize on the card), `src/**` (G-5).
+
+### 7. AC-4's baseline, captured at the fork point
+
+`pytest -o addopts='' --collect-only -q` over the six in-scope files at
+`808cf51f` collects **259 node ids**: toc 53, property/export_interior 3,
+finalise_gutter 126, two_up 45, levels 15, page_numbers 17. Saved sorted to
+`/private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/f7b1d54a-8309-4e9b-8cf1-e8633015b556/scratchpad/card-219-nodeids-forkpoint.txt`
+and re-derivable at the gate from the fork point. `test_book_finalise_gutter.py`
+runs **126 passed, zero skips** solo in 7.72 s, so AC-4's set difference is being
+taken over a baseline with no skip ambiguity in it.
+
+Note the `-o addopts=''`: `pyproject.toml:89` already supplies `-q`, a second one
+stacks to `-qq`, and `--collect-only -q` then prints **no node ids at all** — a
+set difference that silently returns 0.
+
+### 8. The worktree
+
+`../PythonProject4-card-219` at `808cf51f`, with `.venv` symlinked to the main
+checkout's so the configured `./.venv/bin/python -m pytest` works verbatim.
+Verified: 15 tests collected from `tests/test_book_pdf_levels.py`, matching the
+artefact.
