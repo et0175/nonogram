@@ -49,6 +49,7 @@ page's own font.
 
 from __future__ import annotations
 
+import inspect
 from typing import Dict, List, Optional, Tuple
 
 import pytest
@@ -188,6 +189,169 @@ def _rows_of(
     return [row for page in _spy_toc_pages(generator, puzzles, monkeypatch) for row in page]
 
 
+#: **The three node ids in this file that still tie the plan to the pixels.**
+#:
+#: Seven tests here were converted to read the page plan instead of drawing the
+#: book (CARD-219). A plan reading cannot witness what the drawing walk did, so
+#: the tie is carried by these three and by nothing else -- measured, not
+#: assumed:
+#:
+#: * ``M29`` (``book_pdf_generator.py:6923``, ``range(toc_page_count)`` ->
+#:   ``range(toc_page_count + 1)``, so the walk yields one TOC page more than
+#:   the plan says) reds **21 cells before the conversion and 14 after**, plus
+#:   **4 errors in both arms**: the four
+#:   ``TestBookToc_PageNumbersSurviveTheTitlePage`` node ids, whose shared
+#:   rendering fixture raises under this mutant rather than reaching an
+#:   assertion. An error is a kill and not a pass, but it is not a *failure
+#:   cell*, so two of the three carriers below kill M29 by erroring and the
+#:   third (``test_the_named_pages_really_are_those_pages``) by failing. The
+#:   7 cells the conversion cost are **exactly** the seven converted tests,
+#:   name for name.
+#: * ``Q6``/``M15`` (an off-by-one in ``interior_stream``'s
+#:   ``first_answer_page``, ``:6718``-``:6720``) reds **4 cells before and 3
+#:   after** -- the lost one being
+#:   ``TestBookToc_PageNumbersMatchTheWalk::test_each_row_points_at_the_page_the_walk_planned``
+#:   -- and the three survivors are exactly the node ids below.
+#:
+#: Both pairs re-measured 2026-10-24 by CARD-219's fix round, in both arms (the
+#: fork point's own copy of this file against this one, the same ``src`` mutant
+#: over each), and both reproduce cycle 1's figures to the cell.
+#:
+#: So: **do not delete, narrow or convert these three without replacing the
+#: tie.** CARD-220 is chartered to prune this file for redundancy and this is
+#: the list it must read first. :func:`test_the_drawn_tie_is_still_carried_here`
+#: holds each one to being present, so pruning one reds rather than passing.
+DRAWN_TIE_CARRIERS = (
+    "TestBookToc_PageNumbersSurviveTheTitlePage::test_the_solutions_row_points_at_the_solutions_divider",
+    "TestBookToc_PageNumbersSurviveTheTitlePage::test_the_comparison_would_have_caught_a_one_page_drift",
+    "TestBookToc_PageNumbersMatchTheWalk::test_the_named_pages_really_are_those_pages",
+)
+
+#: The three spellings by which a test in this file reaches a **drawn** page:
+#: the spy on the drawing call, the rendered-interior fixture, and the page
+#: comparison. Read off the three carriers above rather than invented.
+DRAWN_PAGE_IDIOMS = ("_rows_of", "_same_page", "rendered")
+
+
+def test_the_drawn_tie_is_still_carried_here() -> None:
+    """The fence on the list above, so that pruning it reds instead of passing.
+
+    Added by CARD-219's fix round (cycle 1, F-004/F-006). Narrowing seven
+    docstrings to the terms they really cover is only safe while the tests
+    that cover the rest are still here, and the card that is chartered to
+    prune this file for redundancy (CARD-220) would otherwise have nothing but
+    prose to warn it. A prose fence that nothing runs is the shape this card
+    exists to stop shipping, so this is the fence as a test.
+
+    Two readings, in order: the node id resolves on this module, and its body
+    still reaches a drawn page by one of :data:`DRAWN_PAGE_IDIOMS`. The second
+    is a **name check and not a proof** — it cannot know a page was rasterised
+    — but it reds on the one edit that matters, converting a carrier to a plan
+    reading, because a plan reading has no reason to name any of the three.
+    """
+    resolved: dict[str, object] = {}
+    missing: list[str] = []
+    for node_id in DRAWN_TIE_CARRIERS:
+        class_name, _, test_name = node_id.partition("::")
+        owner = globals().get(class_name)
+        member = getattr(owner, test_name, None) if isinstance(owner, type) else None
+        if member is None:
+            missing.append(node_id)
+        else:
+            resolved[node_id] = member
+
+    assert not missing, (
+        f"{len(missing)} of this file's drawn-tie carriers no longer exist: "
+        f"{missing}. These are the only tests here that witness the page plan "
+        "against the pages actually yielded — measured: 14 of M29's 21 cells "
+        "and 3 of Q6's 4 — and seven converted tests' docstrings point at "
+        "them for the claims they gave up. Replace the tie before removing a "
+        "carrier, and update DRAWN_TIE_CARRIERS with the measurement."
+    )
+
+    plan_only = sorted(
+        node_id
+        for node_id, member in resolved.items()
+        if not any(
+            idiom in inspect.getsource(member) for idiom in DRAWN_PAGE_IDIOMS
+        )
+    )
+    assert not plan_only, (
+        f"{plan_only} no longer reach a drawn page by any of "
+        f"{list(DRAWN_PAGE_IDIOMS)}, so this file may have converted its last "
+        "plan-to-pixel tie away. If the tie moved, move this list with it."
+    )
+
+
+def _solutions_divider_page(decided) -> int:
+    """The SOLUTIONS divider's own interior position, from the plan's own terms.
+
+    **This is a test-side re-spelling of a production term, and that has a
+    measured cost.** Production computes the same number as
+    ``first_answer_page - 1`` at ``book_pdf_generator.py:6718`` and builds its
+    own TOC rows with it at ``:6786``; the five terms below are that
+    arithmetic written out again here. So a row read through
+    :func:`_planned_rows` carries a **test-authored** page number, and an
+    off-by-one injected into ``first_answer_page`` cannot red a comparison
+    against it: measured, that mutant reds **4 cells on the pre-card tree and
+    3 on this one** (CARD-219 fix pre-gate Q6, cycle 1 F-006). The lost cell is
+    ``test_each_row_points_at_the_page_the_walk_planned``; the three that
+    survive are :data:`DRAWN_TIE_CARRIERS`.
+
+    It is re-spelled rather than read because ``first_answer_page`` is carried
+    on no returned value -- ``interior_stream`` computes it locally and
+    ``InteriorStream`` does not expose it -- so there is no pure surface to ask.
+    Exposing it (and ``toc_entries``) would make the claim direct and is a
+    ``src/`` change CARD-219 may not make (G-5); it is raised as a successor
+    card, with those two line numbers.
+
+    The terms, for the record: the front matter (page 1 plus
+    :data:`TITLE_PAGE_COUNT` and :data:`GUIDE_PAGE_COUNT`), the table of
+    contents' measured length, and the puzzle section's length.
+    :attr:`SectionPlan.toc_page_count` exists for exactly this reading -- its
+    own docstring says it is carried "so a caller that needs the interior's own
+    ``first_answer_page`` arithmetic does not re-derive it from the entry count
+    a second time".
+
+    CARD-219 wrote it here once. Three tests in this file spelled the same five
+    terms out inline, which is three chances for one of them to drift away from
+    the production term it mirrors.
+    """
+    return (
+        1
+        + TITLE_PAGE_COUNT
+        + GUIDE_PAGE_COUNT
+        + decided.toc_page_count
+        + len(decided.pages)
+    )
+
+
+def _planned_rows(generator: BookPDFGenerator, puzzles: List[dict]) -> List[TocEntry]:
+    """Every TOC row of a book, in order, **with no page drawn** (CARD-219).
+
+    The same rows :func:`_rows_of` reads off the drawing calls, read instead
+    off the seam that decides them. ``structural_toc_entries`` is the
+    production builder ``interior_stream`` hands to ``create_toc_page``: pure,
+    sheet-free, and settled before a pixel exists. Asking it directly costs a
+    plan walk instead of a whole rendered book — measured at 1.6-1.8 s per test
+    for the seven this card converted.
+
+    **What a plan reading gives up, stated as what it no longer witnesses.**
+    Two things: the tie between *what the builder produced* and *what the
+    drawing was handed*, and the tie between the plan's page counts and the
+    pages the walk actually yields. Neither is given up in this file --
+    :func:`_rows_of` still reads the first from eleven cheaper tests, and
+    :data:`DRAWN_TIE_CARRIERS` names the three node ids that carry the second,
+    with the mutant cell counts that establish it -- but neither is witnessed
+    by a test that calls this function, including the one it carries the
+    solutions page for (:func:`_solutions_divider_page`).
+    """
+    decided = generator.section_plan(list(puzzles))
+    return structural_toc_entries(
+        decided.pages, decided.payloads, _solutions_divider_page(decided)
+    )
+
+
 def _divider_pages(generator: BookPDFGenerator, puzzles: List[dict]) -> List[Tuple[str, int]]:
     """``(level label, its divider's interior page)`` from the walk itself."""
     decided = generator.section_plan(list(puzzles))
@@ -207,12 +371,20 @@ class TestBookToc_ListsSectionsNotPuzzles:
     """One guide row, a heading + a range row per level, one solutions row —
     and no row naming an individual puzzle."""
 
-    def test_the_rows_are_exactly_the_books_sections(self, monkeypatch) -> None:
+    def test_the_rows_are_exactly_the_books_sections(self) -> None:
+        """Converted by CARD-219: a positional claim, read off the plan.
+
+        It witnesses the rows ``structural_toc_entries`` produces, and not
+        that those are the rows a drawn page carried: that tie is
+        :func:`_rows_of`'s, in the eleven tests of this file that still spy on
+        the drawing call, and the plan-to-pixel tie is
+        :data:`DRAWN_TIE_CARRIERS`'.
+        """
         easy, medium, hard = AC3_SPLIT
         puzzles = _puzzles(easy=easy, medium=medium, hard=hard)
         generator = BookPDFGenerator(_book("card-205-ac1"))
 
-        rows = _rows_of(generator, puzzles, monkeypatch)
+        rows = _planned_rows(generator, puzzles)
 
         assert [row.label for row in rows] == [
             GUIDE_TITLE,
@@ -228,17 +400,22 @@ class TestBookToc_ListsSectionsNotPuzzles:
             "a three-level book lists eight rows however many puzzles it holds"
         )
 
-    def test_no_row_names_an_individual_puzzle(self, monkeypatch) -> None:
+    def test_no_row_names_an_individual_puzzle(self) -> None:
         """The owner's decision, stated as the thing that must not be there.
 
         Every one of these puzzles carries a distinct picture name, and
         CARD-200's listing printed all 150 of them ("Puzzle 37 — Easy 36").
         Not one may appear now — nor the per-puzzle caption's own shape.
+
+        Converted by CARD-219: a claim about which labels the rows carry, read
+        off the plan. It witnesses the labels ``structural_toc_entries``
+        produces and not that a page printed them; see
+        :data:`DRAWN_TIE_CARRIERS` for what still ties plan to pixels here.
         """
         puzzles = _puzzles(easy=60, medium=60, hard=30)
         generator = BookPDFGenerator(_book("card-205-ac1-names"))
 
-        labels = [row.label for row in _rows_of(generator, puzzles, monkeypatch)]
+        labels = [row.label for row in _planned_rows(generator, puzzles)]
         blob = "\n".join(labels)
 
         for row in puzzles:
@@ -359,12 +536,49 @@ class TestBookToc_RowsDeclareTheGroupsTheyOpen:
 class TestBookToc_PageNumbersMatchTheWalk:
     """Every row's number is the interior position of the page it names."""
 
-    def test_each_row_points_at_the_page_the_walk_planned(self, monkeypatch) -> None:
+    def test_each_row_points_at_the_page_the_walk_planned(self) -> None:
+        """Converted by CARD-219, and the solutions row **re-aimed** with it.
+
+        The book used to be rendered to read its rows, which were then compared
+        against the plan the render came from. The rows come off that plan now.
+
+        That conversion cannot be made naively, and this is the one test in
+        this file where it could have gone wrong silently. A plan reading has
+        to *supply* the solutions page to ``structural_toc_entries``
+        (:func:`_planned_rows` passes :func:`_solutions_divider_page`), so
+        comparing the row back against that same term would assert nothing at
+        all — the exact tautology AC-6 is about, arrived at from the positional
+        side. The solutions row is therefore compared against a derivation that
+        shares no term with it: ``page_count - answer_page_count`` off the
+        stream's own counts, which is the position of the last page that is not
+        an answer page, i.e. the divider that opens the section.
+
+        **What that covers, and what it does not.** Both derivations are pure
+        and neither draws, and an off-by-one in either of *those two terms* --
+        ``page_count`` or ``answer_page_count`` -- reds this. This docstring
+        used to say "an off-by-one in either reds this" without naming the
+        terms, and read as a general claim it is **false**: the third term the
+        pre-conversion test covered, ``interior_stream``'s own
+        ``first_answer_page`` (``src:6718``), is not read by either side, so an
+        off-by-one in it leaves this test green (measured: 4 cells red before
+        the conversion, 3 after, this one being the cell that was lost --
+        CARD-219 fix pre-gate Q6, cycle 1 F-006). The reason is mechanical and
+        is written up in :func:`_solutions_divider_page`: the row this test
+        reads carries a page number *this file* computed, so comparing the row
+        against production's term was never on offer here.
+
+        That term, and the plan-to-pixel tie generally, is carried by
+        :data:`DRAWN_TIE_CARRIERS` — three rendering node ids in this file,
+        named there with the cell counts that prove it.
+        """
         puzzles = _puzzles(easy=60, medium=60, hard=30)
         generator = BookPDFGenerator(_book("card-205-ac2"))
 
-        rows = _rows_of(generator, puzzles, monkeypatch)
+        rows = _planned_rows(generator, puzzles)
         decided = generator.section_plan(list(puzzles))
+        # The three counts are settled eagerly by this call; nothing is drawn
+        # unless `.pages` is walked, and it is not walked here.
+        counted = generator.interior_stream(list(puzzles))
         dividers = _divider_pages(generator, puzzles)
 
         by_label = {row.label: row.page for row in rows}
@@ -378,17 +592,20 @@ class TestBookToc_PageNumbersMatchTheWalk:
         assert [row.page for row in ranges] == [page for _, page in dividers]
         assert [label for label, _ in dividers] == ["Easy", "Medium", "Hard"]
 
-        # The solutions row against the SOLUTIONS divider: the interior's own
-        # `first_answer_page - 1`, recomputed here from the walk's own terms
-        # rather than read back out of the generator.
-        solutions_divider = (
-            1
-            + TITLE_PAGE_COUNT
-            + GUIDE_PAGE_COUNT
-            + decided.toc_page_count
-            + len(decided.pages)
+        # The solutions row against the SOLUTIONS divider, derived from the two
+        # counts the stream settles for itself: the last page that is not an
+        # answer page is the divider that opens the answer section. No term of
+        # this is a term of `_solutions_divider_page`, which is what keeps it
+        # from being a restatement of the number the rows were built with.
+        assert by_label[TOC_SOLUTIONS_LABEL] == (
+            counted.page_count - counted.answer_page_count
+        ), (
+            f"the solutions row names interior page "
+            f"{by_label[TOC_SOLUTIONS_LABEL]}, but this book's "
+            f"{counted.page_count} pages end with {counted.answer_page_count} "
+            "answer pages, so the divider that opens them is page "
+            f"{counted.page_count - counted.answer_page_count}"
         )
-        assert by_label[TOC_SOLUTIONS_LABEL] == solutions_divider
 
     def test_the_named_pages_really_are_those_pages(self, monkeypatch) -> None:
         """Not just "the numbers agree with an arithmetic", but "the page at
@@ -468,12 +685,17 @@ class TestBookToc_PageNumbersMatchTheWalk:
 class TestBookToc_RangeRowsFollowTheLevelRuns:
     """60/60/30 reads ``Puzzles 1–60``, ``61–120``, ``121–150``."""
 
-    def test_the_three_ranges_are_the_cards_own_sample(self, monkeypatch) -> None:
+    def test_the_three_ranges_are_the_cards_own_sample(self) -> None:
+        """Converted by CARD-219: the range labels are a plan value.
+
+        A claim about the strings the plan settles, not about ink and not
+        about a drawn row count (:data:`DRAWN_TIE_CARRIERS`).
+        """
         easy, medium, hard = AC3_SPLIT
         puzzles = _puzzles(easy=easy, medium=medium, hard=hard)
         generator = BookPDFGenerator(_book("card-205-ac3"))
 
-        labels = [row.label for row in _rows_of(generator, puzzles, monkeypatch)]
+        labels = [row.label for row in _planned_rows(generator, puzzles)]
 
         assert [label for label in labels if label.startswith("Puzzles ")] == [
             "Puzzles 1–60",
@@ -481,7 +703,7 @@ class TestBookToc_RangeRowsFollowTheLevelRuns:
             "Puzzles 121–150",
         ]
 
-    def test_the_ranges_tile_the_book_with_no_gap_or_overlap(self, monkeypatch) -> None:
+    def test_the_ranges_tile_the_book_with_no_gap_or_overlap(self) -> None:
         """A second, independent reading: the ranges parsed back out of the
         labels must be exactly 1..150, each puzzle in one level's range.
 
@@ -489,12 +711,17 @@ class TestBookToc_RangeRowsFollowTheLevelRuns:
         arithmetic that produced it — an off-by-one in
         ``toc_range_label``'s own ``start + 1`` would pass a test that
         rebuilt the expected strings the same way.
+
+        Converted by CARD-219. "Printed text" here always meant the string the
+        row carries, not ink: the parse is of ``row.label``, which the plan
+        settles. Nothing about this reading needed the page it ends up on —
+        and nothing in it witnesses one either (:data:`DRAWN_TIE_CARRIERS`).
         """
         puzzles = _puzzles(easy=60, medium=60, hard=30)
         generator = BookPDFGenerator(_book("card-205-ac3-tiling"))
 
         covered: List[int] = []
-        for row in _rows_of(generator, puzzles, monkeypatch):
+        for row in _planned_rows(generator, puzzles):
             if not row.label.startswith("Puzzles "):
                 continue
             first, last = row.label.removeprefix("Puzzles ").split("–")
@@ -627,16 +854,48 @@ class TestBookToc_KdpAgreesWithTheExportedCount:
         easy, medium, hard = AC3_SPLIT
         return _puzzles(easy=easy, medium=medium, hard=hard)
 
-    def test_a_hundred_and_fifty_puzzles_take_one_toc_page(self, monkeypatch) -> None:
+    def test_a_hundred_and_fifty_puzzles_take_one_toc_page(self) -> None:
+        """Converted by CARD-219: one page, eight rows, both plan values.
+
+        The book was rendered to count the ``create_toc_page`` calls. The same
+        number is on the plan (:attr:`SectionPlan.toc_page_count`), and the
+        *reason* it is 1 is on the production function the stream itself asks
+        — ``measured_toc_page_count`` over this book's own frame, the same call
+        at the same two arguments. Neither figure is this test's own
+        arithmetic.
+
+        **What the two agreeing witnesses, narrowed to the truth of it.**
+        ``section_plan`` (``src:6450``) makes that same call at those same
+        arguments, so the pair is not independent and it does **not** stand in
+        for the drawn count — this docstring used to say "the two agreeing is
+        what the drawn count used to witness", and that sentence was false
+        (CARD-219 cycle 1, F-004). What it does witness is the two terms that
+        are not shared: ``structural_toc_entry_count`` (the row count
+        ``section_plan`` measures the split from) against
+        ``structural_toc_entries`` (the rows actually built, counted here as
+        ``len(rows) == 8``), and that the frame and ``dpi`` the plan measured
+        at are this book's own.
+
+        **What it no longer witnesses**, measured: ``M29``, which makes the
+        walk yield one TOC page more than the plan says, reds 21 cells on the
+        pre-card tree and 14 here — and this test is one of the seven cells it
+        lost. A test that reads the plan cannot see a drawn count; that is what
+        conversion means, and the mutant is still killed 14 times over, plus
+        four errors. The node ids that kill it *by drawing* are
+        :data:`DRAWN_TIE_CARRIERS`.
+        """
         puzzles = self._corpus()
         generator = BookPDFGenerator(_book("card-205-ac5"))
 
-        pages = _spy_toc_pages(generator, puzzles, monkeypatch)
+        rows = _planned_rows(generator, puzzles)
         decided = generator.section_plan(list(puzzles))
+        frame = page_frame(generator.page_spec(1))
 
-        assert len(pages) == 1, "the structural list fits one page"
+        assert measured_toc_page_count(len(rows), frame, DPI) == 1, (
+            "the structural list fits one page"
+        )
         assert decided.toc_page_count == 1
-        assert len(pages[0]) == 8
+        assert len(rows) == 8
 
     def test_the_split_is_still_measured_and_not_hardcoded(self) -> None:
         """"One page" must be a verdict of the same arithmetic, not a literal.
@@ -654,25 +913,43 @@ class TestBookToc_KdpAgreesWithTheExportedCount:
             "fed to it, not the arithmetic"
         )
 
-    def test_kdp_reports_the_same_toc_length_the_export_wrote(
-        self, monkeypatch
-    ) -> None:
+    def test_kdp_reports_the_same_toc_length_the_export_wrote(self) -> None:
         """The cross-check, through both functions' real entry points.
 
         Every other term of the two page counts (puzzle pages, dividers,
         answer pages) is independent of the TOC, and the KDP estimate is
         defined as the generator's own *unpaired* baseline (EC-034), so the
-        two totals agreeing is exactly the statement that they agree about
-        the TOC. The second assertion keeps that from being vacuous: under
-        CARD-200's rule this book's TOC was four pages, so the pre-card entry
-        rule would put the two totals four apart.
+        two totals agreeing is the statement that they agree about the TOC.
+        Narrowly, and the narrow version is the true one: the two **call
+        sites** agree — ``book_kdp.py:544`` and
+        ``book_pdf_generator.py:6450`` each call ``measured_toc_page_count``
+        over ``structural_toc_entry_count`` for themselves, and the pre-card
+        defect was one of them not passing the term at all. It is *one*
+        arithmetic called twice, so this says nothing about whether that
+        arithmetic is right; the second assertion is what keeps the pair from
+        being vacuous: under CARD-200's rule this book's TOC was four pages, so
+        the pre-card entry rule would put the two totals four apart.
+
+        Converted by CARD-219. The TOC length the export "wrote" was read by
+        rendering the book and counting the drawing calls; it is read off the
+        plan the drawing walk is driven by instead
+        (:attr:`SectionPlan.toc_page_count`, the same term
+        ``interior_stream`` bakes into every page position). The export's
+        *own* figure — ``unpaired_page_count`` — is still read through its real
+        entry point, and that call settles its three counts without drawing a
+        page unless ``.pages`` is walked, which it is not here.
+
+        **So "wrote" now means "planned to write".** That the walk then yields
+        that many TOC pages is not witnessed here — ``M29``, which makes it
+        yield one more, no longer reds this test — and is carried by
+        :data:`DRAWN_TIE_CARRIERS`.
         """
         puzzles = self._corpus()
         book = _book("card-205-ac5-kdp")
         generator = BookPDFGenerator(book)
 
         stream = generator.interior_stream(list(puzzles))
-        toc_pages_written = len(_spy_toc_pages(generator, puzzles, monkeypatch))
+        toc_pages_written = generator.section_plan(list(puzzles)).toc_page_count
 
         assert unpaired_interior_page_count(puzzles, book=book) == (
             stream.unpaired_page_count

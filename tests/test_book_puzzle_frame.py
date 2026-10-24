@@ -89,8 +89,6 @@ from __future__ import annotations
 
 import ast
 import dataclasses
-import hashlib
-import inspect
 import random
 import warnings
 from fractions import Fraction
@@ -130,6 +128,18 @@ from nonogram.export.layout import _placed_drawing_top
 from nonogram.export.png import BACKGROUND, render_image
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.two_up_ink import drawings_of
+# CARD-219: the readers the shared-render controls at the end of this file are
+# built on, which CARD-218 had to write out here and again in
+# ``tests/test_book_pdf_band.py``. Aliased to the names those controls already
+# call, so this file's call sites are unchanged.
+from tests.helpers.shared_fixture_controls import (
+    bitmap_bytes as _bitmap_bytes,
+    lru_cache_names as _lru_cache_names,
+    page_digest as _page_digest,
+    refuse_unless_every_consumer_is_collected as _refuse_unless_every_consumer_is_collected,
+    refuse_unless_nothing_takes_it_later as _refuse_unless_nothing_takes_it_later,
+    retained_bitmap_bytes as _retained_bitmap_bytes,
+)
 # The project's own figure for one book page — 2550 x 3300 RGB, 25,245,000 B.
 # Imported rather than restated so the retention bound at the end of this file
 # is the unit this repo already reasons in, and cross-checked against the
@@ -903,24 +913,6 @@ def _book_pages() -> list[Image.Image]:
     assert len(drawings_of(pages[TWO_UP_PAGE - 1])) == 2, "the pair really shares a page"
     assert len(drawings_of(pages[SINGLE_PAGE - 1])) == 1, "and the 20x20 prints alone"
     return pages
-
-
-def _page_digest(page: Image.Image) -> bytes:
-    """A 32-byte witness for exactly which pixels a page carries.
-
-    The control on the shared render compares pages for *equality*, so a
-    sha256 of the page's bytes discriminates exactly as well as the
-    25,245,000 bytes themselves — and here that is not a micro-optimisation.
-    pytest keeps a test module in ``sys.modules`` for the rest of the session,
-    so whatever :data:`_SHARED_DIGEST` holds outlives the module-scoped
-    fixture that filled it: holding the bytes held **10 page bitmaps
-    (252,450,000 B) alive to the end of every run that touched this file**
-    (CARD-218 cycle 1, F-001), which is the very thing the fixture below
-    chooses module over session scope to avoid. 32 B says the same thing.
-
-    ``hashlib`` is stdlib, so ADR-0006/R1's dependency baseline is untouched.
-    """
-    return hashlib.sha256(page.tobytes()).digest()
 
 
 @pytest.fixture(scope="module")
@@ -3095,13 +3087,16 @@ class TestBookPuzzleFrame_NoEmptyLowerThird:
 # --------------------------------------------------------------------------
 # CARD-218 fix round 1 — what the controls below are allowed to conclude
 #
-# Reimplemented natively here and again in ``tests/test_book_pdf_band.py``
-# rather than hoisted into a shared helper: the two converted files are this
-# card's whole subject, and the house precedent for two places needing the
-# same small check is to write it twice (CLAUDE.md, ``solver/propagate.py``'s
-# ``mask_runs``). The two copies are cross-checked against each other by
-# nothing but this comment, which is the honest cost of that choice; each is
-# ~40 lines and reads only pytest's own collection data.
+# The nine readers these controls are built on used to be written out here and
+# again in ``tests/test_book_pdf_band.py``, on the house precedent for two
+# places needing the same small check (CLAUDE.md, ``solver/propagate.py``'s
+# ``mask_runs``). That precedent is for a check a module can cross-check
+# natively; these nine read pytest's collection data, which neither file can
+# check the other's reading of, and the comment that used to stand here said so
+# as "the honest cost of that choice". CARD-219 paid the cost instead: they live
+# in ``tests/helpers/shared_fixture_controls.py``, with the agreement guard the
+# two copies lacked in ``tests/test_shared_fixture_controls.py``, and with both
+# of the holes CARD-218's review left open closed there.
 # --------------------------------------------------------------------------
 
 
@@ -3109,136 +3104,11 @@ class TestBookPuzzleFrame_NoEmptyLowerThird:
 SHARED_RENDER = "pages"
 
 
-def _case_of(item: object) -> str:
-    """``Class::function`` for a collected item, parametrised cases collapsed.
-
-    One name per test *function*, so a set read off collected items compares
-    with a set read off the module's signatures: ``test_x[a]`` and
-    ``test_x[b]`` are one consumer, because one function declares the fixture.
-    """
-    name = getattr(item, "originalname", None) or item.name
-    owner = getattr(item, "cls", None)
-    return f"{owner.__name__}::{name}" if owner is not None else name
-
-
-def _declares(member: object, fixture: str) -> bool:
-    """Does this test function take ``fixture`` as an argument?"""
-    function = getattr(member, "__func__", member)
-    if not callable(function):
-        return False
-    try:
-        return fixture in inspect.signature(function).parameters
-    except (TypeError, ValueError):  # not a Python callable
-        return False
-
-
-def _declared_consumers(namespace: dict[str, object], fixture: str) -> set[str]:
-    """Every test in this module that asks for ``fixture``, read off signatures.
-
-    The controls' denominator, **derived rather than written down**: a consumer
-    added or taken away moves it without anyone having to remember a number.
-    """
-    found: set[str] = set()
-    for name, value in namespace.items():
-        if isinstance(value, type) and name.startswith("Test"):
-            found.update(
-                f"{name}::{attr}"
-                for attr, member in vars(value).items()
-                if attr.startswith("test_") and _declares(member, fixture)
-            )
-        elif name.startswith("test_") and _declares(value, fixture):
-            found.add(name)
-    return found
-
-
-def _consumers_among(items: object, fixture: str) -> set[str]:
-    """The consumers of ``fixture`` *from this module* among collected items."""
-    return {
-        _case_of(item)
-        for item in items
-        if getattr(getattr(item, "function", None), "__module__", None) == __name__
-        and fixture in getattr(item, "fixturenames", ())
-    }
-
-
-def _refuse_unless_every_consumer_is_collected(
-    request: pytest.FixtureRequest, namespace: dict[str, object], fixture: str
-) -> None:
-    """Default-deny (ADR-0039/R2) on a denominator this control cannot see.
-
-    The render-count controls read a counter that only the tests pytest
-    actually runs increment, so a selection narrower than the module narrows
-    the denominator with it: with one consumer selected, *one render* and *one
-    render per test* are the same observation, and the control passes whatever
-    the fixture's scope is. That is cycle 1's F-002, where ``-k one_render`` —
-    the obvious way to re-check a test called
-    ``test_one_render_served_the_whole_module`` — returned a silent green with
-    the mechanism deleted.
-
-    So the control refuses to answer instead of answering wrongly. The cost is
-    stated rather than hidden: selecting one of these controls on its own now
-    reds, with a message saying what it could not evaluate and how to. The
-    whole-file runs the gates use are unaffected.
-    """
-    declared = _declared_consumers(namespace, fixture)
-    collected = _consumers_among(request.session.items, fixture)
-    absent = sorted(declared - collected)
-    assert not absent, (
-        f"this control cannot evaluate its own denominator: {len(collected)} "
-        f"of this module's {len(declared)} {fixture!r} consumers were "
-        f"collected by this selection, so one render and one render per test "
-        f"are the same observation here. Not collected: {absent}. Select at "
-        "least every consumer listed — the whole file always does, and for a "
-        "class-scoped render its own class does — because a narrower run "
-        "cannot see the fixture's scope, and passing would be the vacuous "
-        "green ADR-0039/R2 forbids."
-    )
-
-
-def _refuse_unless_nothing_takes_it_later(
-    request: pytest.FixtureRequest, fixture: str, *, siblings_excepted: bool
-) -> None:
-    """A control on a shared render must be the last thing that takes it.
-
-    Both read-only controls said in prose that they run last "because pytest
-    collects a module in file order", and nothing asserted it — cycle 1's
-    F-006. This asserts it off the collected order of *this* run rather than
-    off the premise: a consumer collected after the control is a test the
-    control cannot speak for, because it had not yet had its chance to draw on
-    the shared pages.
-
-    ``siblings_excepted`` drops this control's own class from the question.
-    The other tests in a control class are controls too — they digest and
-    measure, and a reader cannot mutate — so a sibling collected after the
-    control is not a gap. The class-scoped control passes ``False``: there its
-    consumers *are* its classmates.
-    """
-    items = list(request.session.items)
-    try:
-        mine = items.index(request.node)
-    except ValueError:  # the node is always in the session
-        mine = len(items)
-    later = sorted(
-        {_case_of(item)
-        for item in items[mine + 1 :]
-        if getattr(getattr(item, "function", None), "__module__", None) == __name__
-        and fixture in getattr(item, "fixturenames", ())
-        and not (siblings_excepted and getattr(item, "cls", None) is request.cls)}
-    )
-    assert not later, (
-        f"this control reads the shared render before {len(later)} test(s) "
-        f"that also take {fixture!r}, so it cannot speak for them: {later}. "
-        "A control on a shared render goes after everything that takes it — "
-        "move its class to the end of the file, or run the file in its own "
-        "order rather than naming node ids in another one."
-    )
-
-
 def test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue() -> None:
     """The one consumer shape *both* guards above are blind to, held to zero.
 
-    :func:`_declared_consumers` reads signatures and
-    :func:`_consumers_among` reads ``item.fixturenames``; a test that takes
+    ``shared_fixture_controls.declared_consumers`` reads this module's own
+    definitions and ``consumers_among`` reads ``item.fixturenames``; a test that takes
     the shared render with ``request.getfixturevalue("pages")`` appears in
     neither, so it is in no denominator and in no later-consumer set. Cycle 2
     measured the consequence on this helper's twin, with one mutation drawn
@@ -3272,80 +3142,13 @@ def test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue() -> Non
         f"{len(taken)} test(s) in this module take a fixture through "
         f"`request.getfixturevalue`, at line(s) {taken}: a consumer taken "
         "that way is invisible to both halves of the selection guard above — "
-        "to `_declared_consumers`, which reads signatures, and to "
-        "`_consumers_among`, which reads `item.fixturenames` — so the "
+        "to `declared_consumers`, which reads this module's definitions, "
+        "and to `consumers_among`, which reads `item.fixturenames` — so the "
         "controls on the shared render would pass without covering it "
         "(cycle 2 F-002, measured: 2 cells when declared, 0 when taken this "
         "way). Take the fixture as a parameter, or close this guard properly "
         "with the transitive-fixture closure CARD-219 owns."
     )
-
-
-def _bitmap_bytes(value: object) -> int:
-    """The page-bitmap bytes ``value`` is holding; 0 if it holds none.
-
-    An image is measured from its geometry rather than through ``tobytes()``,
-    so asking the question allocates nothing.
-    """
-    if isinstance(value, memoryview):
-        return value.nbytes
-    if isinstance(value, (bytes, bytearray)):
-        return len(value)
-    width = getattr(value, "width", None)
-    height = getattr(value, "height", None)
-    bands = getattr(value, "getbands", None)
-    if isinstance(width, int) and isinstance(height, int) and callable(bands):
-        return width * height * len(bands())
-    return 0
-
-
-def _retained_bitmap_bytes(namespace: dict[str, object]) -> dict[str, int]:
-    """Per module-level name, the bitmap bytes it will outlive the fixtures with.
-
-    Covered: a module-level image or bytes object, and one level inside a
-    module-level list, tuple, set or dict — which is where a hoisted render
-    lands, and where F-001's 433.4 MB was found.
-
-    **Not** covered. Each channel below is *measured* rather than reasoned
-    about (cycle 2, F-001), because a blind spot asserted in prose and never
-    measured is how cycle 1's 433.4 MB stayed invisible in the first place:
-
-    * a page's pixels as a **numpy** array: ``_bitmap_bytes`` returns ``0``
-      for ``np.asarray(page)`` while that array's ``nbytes`` is 25,245,000
-      (measured 2026-10-24) — and numpy arrays taken off a page are this
-      module's working form: :func:`_dark` is ``np.asarray(page.convert("L"))``
-      thresholded, 8,415,000 B of mask per page, also invisible here;
-    * a bitmap held on a ``Test*`` **class attribute**: this walk reads
-      module-level names, and a class body is not one (measured: a namespace
-      holding a class whose ``pages`` is a real page returns ``{}``);
-    * containers nested deeper than one level (measured: ``{'N': [[page]]}``
-      returns ``{}``);
-    * a bitmap behind an ``@lru_cache``, whose store ``functools`` does not
-      expose — **a channel this module does not have**, corrected from the
-      copy this helper was written beside (cycle 2, F-001: the frame copy
-      declared the blind spot anyway). Measured: zero ``@lru_cache``
-      decorators in this file, and an independent deep walk to depth 8 over
-      this module at session end returns **320 B**, equal to what this
-      instrument itself reports. ``tests/test_book_pdf_band.py``, which
-      carries the twin of this helper, has two such caches and 25,192,183 B
-      behind them; this file has neither.
-
-    A render retained any of those ways needs a control of its own. What this
-    instrument *can* answer is stated below as an equality over the names it
-    walks, and as nothing wider, so it cannot be read as covering them.
-    """
-    found: dict[str, int] = {}
-    for name, value in sorted(namespace.items()):
-        if name.startswith("__"):
-            continue
-        held = _bitmap_bytes(value)
-        if isinstance(value, dict):
-            held += sum(_bitmap_bytes(item) for item in value.values())
-        elif isinstance(value, (list, tuple, set, frozenset)):
-            held += sum(_bitmap_bytes(item) for item in value)
-        if held:
-            found[name] = held
-    return found
 
 
 # --------------------------------------------------------------------------
@@ -3386,18 +3189,24 @@ class TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind:
 
     **Scope, stated as the measurement rather than as a universal.** This
     control's subject is the module-level accumulators
-    :func:`_retained_bitmap_bytes` walks — not everything this module leaves
-    behind. Here the two happen to coincide, and that is measured rather than
-    assumed: an independent deep walk to depth 8 over this module at session
-    end on 2026-10-24 returns **320 B**, all of it :data:`_SHARED_DIGEST`,
-    equal to what this instrument reports, and this file has **no**
-    ``@lru_cache`` at all. Its twin ``tests/test_book_pdf_band.py`` is the
-    file where the two figures diverge — 256 B of accumulator against
-    25,192,439 B really retained, the difference being two pre-existing
-    ``@lru_cache(maxsize=None)`` stores that predate CARD-218 (25,192,183 B at
-    the fork point ``c7cca514``) and are backlogged. The equality below is
-    stated so that if this file ever grows such a channel, the claim does not
-    silently widen to cover it.
+    :func:`_retained_bitmap_bytes` walks, along the edges that walk follows —
+    **not everything this module leaves behind**, and CARD-219's fix round
+    withdrew the sentence that said the two "happen to coincide" here. Two
+    instruments agree, which is a smaller statement and the true one: an
+    independent deep walk to depth 8 over this module at session end on
+    2026-10-24 returns **320 B**, all of it :data:`_SHARED_DIGEST`, equal to
+    what this instrument reports, and this file has **no** ``@lru_cache`` at
+    all. Both walks have a blind side —
+    ``shared_fixture_controls._step`` lists the edges this one declines, among
+    them a class attribute of an imported class and a numpy view's uncropped
+    base — so "equal to 320 B" means equal as far as two readings can see, not
+    "nothing else is retained". Its twin
+    ``tests/test_book_pdf_band.py`` is the file where the two figures diverge
+    — 256 B of accumulator against 25,192,439 B found by the walk, the
+    difference being two pre-existing ``@lru_cache(maxsize=None)`` stores that
+    predate CARD-218 (25,192,183 B at the fork point ``c7cca514``) and are
+    backlogged. The equality below is stated so that if this file ever grows
+    such a channel, the claim does not silently widen to cover it.
 
     This control is **selection-independent** — unlike the render-count
     controls below it, it needs no denominator: whatever ran, an accumulator
@@ -3454,16 +3263,33 @@ class TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind:
         page-bitmap unit still appears, in the message and in the test above,
         because the figure a reader needs when this reds is how many pages the
         accumulator is now worth.
+
+        **CARD-219 widened the walk under it.** :func:`_retained_bitmap_bytes`
+        asks the garbage collector what every value refers to, fenced off from
+        modules, functions and methods, so the three channels this module's old
+        instrument could only declare — numpy arrays, ``Test`` class
+        attributes, deep nesting — and the three CARD-219's cycle 1 found still
+        open — a deque, an instance's own attributes, a cache nothing named —
+        are inside the equality above rather than beside it. It
+        is a **bounded** reading all the same: ``_step``'s own docstring is the
+        authority on which edges it follows and which it declines, and a page
+        parked behind a declined edge does not red this. The second assertion
+        is the exemption's control from the other side: this file declares
+        **no** ``@lru_cache`` at all, so its allowance is empty, and the day it
+        grows one the allowance has to be granted deliberately instead of
+        appearing.
         """
         digest_bytes = 32
         unit = _bitmap_bytes(pages[0])
         retained = _retained_bitmap_bytes(globals())
-        total = sum(retained.values())
+        total = sum(retained.by_name.values())
         expected = digest_bytes * len(pages)
         detail = (
             ", ".join(
                 f"{name} {held:,} B ({held / unit:.4f} pages)"
-                for name, held in sorted(retained.items(), key=lambda row: -row[1])
+                for name, held in sorted(
+                    retained.by_name.items(), key=lambda row: -row[1]
+                )
             )
             or "no module-level name holds any measurable bytes"
         )
@@ -3477,9 +3303,24 @@ class TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind:
             "accumulator outlives the module-scoped fixture that filled it — "
             "the retention module scope was chosen to avoid (CARD-218 AC-5, "
             "F-001). Store a 32-byte `_page_digest(page)`, not "
-            "`page.tobytes()`. This says nothing about the channels the "
-            "instrument declares it cannot see: numpy arrays, Test-class "
-            "attributes, and containers nested deeper than one level."
+            "`page.tobytes()`. The walk now follows numpy arrays, deep "
+            "containers, Test-class attributes and `@lru_cache` stores, so "
+            "this no longer excuses any of them."
+        )
+        # One conjunct, because the other could not fail: `by_cache` is built
+        # from `_caches_of` on this namespace, so an empty `_lru_cache_names`
+        # makes `retained.by_cache == {}` true by construction. The name set
+        # is the failable half (CARD-219 cycle 1, F-005 — the same shape
+        # CARD-218's cycle 2 deleted, shipped again beside its twin).
+        assert _lru_cache_names(globals()) == set(), (
+            "this module has grown an `@lru_cache`, and a cache store is the "
+            "one channel the equality above exempts: "
+            f"{sorted(_lru_cache_names(globals()))} declared, "
+            f"{retained.by_cache} holding measurable bytes. Its twin "
+            "`tests/test_book_pdf_band.py` has two such caches holding "
+            "25,192,183 B and names them as a deliberate allowance; this file "
+            "had none, so the allowance here is empty and a new cache must be "
+            "admitted on purpose rather than by arriving."
         )
 
 

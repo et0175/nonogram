@@ -121,6 +121,22 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_scaffolding.py",
     "tests/test_book_solved_answer_key.py",
     "tests/test_book_solved_page.py",
+    # MEMBERSHIP UNCHANGED, COST NO LONGER WHAT THIS ENTRY IMPLIES (CARD-219,
+    # 2026-10-24) -- the same caveat this file already records for CARD-251
+    # below, now with a measured figure. CARD-219 converted seven positional
+    # tests in this file from rendering a whole book to reading the page plan
+    # (`section_plan` + `structural_toc_entries`, both pure and sheet-free).
+    # The file KEEPS its place in this set, because `interior_stream` is itself
+    # one of the eight idioms the grep looks for and the converted tests still
+    # name it -- one of them now calls it precisely because it settles its
+    # three counts WITHOUT drawing. Measured on a solo run, interleaved A/B
+    # three times each: page bitmaps allocated at trim size fell from 2712 to
+    # 556 (-79.5 %, the same integer on every run), and wall clock from a
+    # median 18.03 s to 7.21 s. So a share computed from this file's whole
+    # runtime over-states its render cost by roughly a factor of three. The set
+    # is a MENTION grep by construction ("a test file is render-heavy if it
+    # mentions any of them"); the entry is correct by that definition and must
+    # not be read as a cost ranking after this card.
     "tests/test_book_toc.py",
     "tests/test_export_pdf.py",
     "tests/test_layout_page_spec.py",
