@@ -115,6 +115,7 @@ from nonogram.admin.book_pdf_generator import (
 )
 from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_proof import render_proof_pdf
+from nonogram.admin import player_bundle
 
 # Import the professional export PDF module
 from nonogram.export.pdf import render_pages
@@ -5796,6 +5797,51 @@ def create_app(debug=None):
         except ValueError as e:
             flash(f"Error: {str(e)}", "error")
 
+        return redirect(url_for("book_detail", book_id=book_id))
+
+    @app.route("/book/<book_id>/export-player-bundle", methods=["POST"])
+    def export_player_bundle(book_id):
+        """Write the public player's bundle — the owner's explicit action.
+
+        CARD-282, FR-045, ADR-0041/R5: the bundle is exported *only* by this
+        action and never as a side effect of finalising, generating a PDF or
+        changing a status. The action lives on the book detail page, but the
+        bundle it writes is the whole library — ``index.json`` is one file for
+        every finalized book's puzzles, so there is nothing per-book to write
+        on its own; the book id here says where to go back to, and lets the
+        page say whether *this* book reached the bundle.
+
+        Read-only against the database (EC-049) because
+        :func:`~nonogram.admin.player_bundle.export_bundle` is: this route
+        adds no write of its own and hands it the same two services every
+        other book route reads through.
+        """
+        book = book_mgr.get_book(book_id)
+        if not book:
+            flash("Book not found", "error")
+            return redirect(url_for("books_list"))
+
+        target = app.config.get("PLAYER_BUNDLE_DIR") or player_bundle.default_output_dir()
+        try:
+            report = player_bundle.export_bundle(book_mgr, puzzle_review, target)
+        except Exception as e:  # pragma: no cover - defensive, like its siblings
+            app.logger.exception("Player bundle export failed for book %s", book_id)
+            flash(f"Could not export the player bundle: {e}", "error")
+            return redirect(url_for("book_detail", book_id=book_id))
+
+        flash(
+            f"Exported {report.puzzle_count} puzzles from {report.book_count} "
+            f"finalized books to {report.output_dir}",
+            "success",
+        )
+        if book.status not in player_bundle.FINALIZED_STATUSES:
+            flash(
+                "This book is still a draft, so its puzzles are not in the "
+                "bundle. Take it out of draft and export again.",
+                "warning",
+            )
+        for puzzle_id, reason in report.skipped:
+            flash(f"Left out puzzle {puzzle_id}: {reason}", "warning")
         return redirect(url_for("book_detail", book_id=book_id))
 
     @app.route("/book/<book_id>/generate-pdf", methods=["POST"])

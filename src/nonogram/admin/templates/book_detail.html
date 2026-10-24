@@ -103,6 +103,14 @@
                         <button type="submit" class="btn btn-outline-secondary" data-export-part="cover">{{ icons.icon('download') }} Download cover</button>
                     </form>
                     {% endif %}
+                    {#- CARD-282 (FR-045, ADR-0041/R5): the player bundle is
+                        written only by this explicit owner action, never as a
+                        side effect of finalising or of a status change. It
+                        exports every finalized book, which is why it is
+                        offered whatever this book holds. -#}
+                    <form method="POST" action="/book/{{ book.book_id }}/export-player-bundle">
+                        <button type="submit" class="btn btn-outline-secondary" data-export-part="player-bundle">{{ icons.icon('download') }} Export player bundle</button>
+                    </form>
                 </div>
                 {% if book.puzzle_ids|length == 0 %}
                 <p class="text-muted small mt-2 mb-0">Add puzzles first.</p>
