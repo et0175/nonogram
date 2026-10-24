@@ -1,6 +1,6 @@
 # CARD-276: Close the door axis for real — anchoring as a fixed point, and the residue CARD-262 declared
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/276-anchoring-as-a-fixed-point
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-276
 **Source:** CARD-262's owner decision of 2026-10-22 (**declare the axis, land the card**) named this card as the place the closure goes, and CARD-262's AC/EC/G gate added four items that are written down nowhere else. Both are carried below verbatim in substance.
 **Idea:** —
-**Wave:** —
+**Wave:** 58
 **Depends on:** CARD-262 (it edits the guard that card declared; do not start before it merges)
 **Touches:** tests/test_book_export_interior_cover.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-24
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -212,3 +212,39 @@ not rewrite them: `test_every_door_shape_is_read_or_refused_and_never_silent`,
   matrix before code — the discipline whose absence escalated CARD-206.
 - **[Do not start before CARD-262 merges]** `Depends on` is load-bearing here: this card edits the same
   single file, and CARD-262's merge gate re-verifies its sha.
+
+## [DISPATCH 2026-10-24 — wave 58, orchestrator]
+
+Fork point **`cef9f619`** (main). Worktree `../PythonProject4-card-276`, branch
+`card/276-anchoring-as-a-fixed-point`, `.venv` symlinked so the configured
+`./.venv/bin/python -m pytest` works verbatim.
+
+**Dependency satisfied, for once without an override.** `Depends on: CARD-262`,
+and CARD-262 is `done` at `faea50a5`. Its note — *"this card edits the same
+single file, and CARD-262's merge gate re-verifies its sha"* — is honoured: this
+dispatch is after that merge, not around it.
+
+**Dispatched in parallel with CARD-282 on the owner's instruction, and the
+conflict graph agrees** rather than being overridden. `Touches` intersection is
+**empty**: this card edits exactly `tests/test_book_export_interior_cover.py`;
+CARD-282 touches `src/nonogram/admin/{player_bundle.py,app.py}`,
+`templates/book_detail.html` and `tests/test_player_bundle.py`. No declared
+`conflict.hotspots` entry is shared. They are genuinely concurrent, not
+serialized-in-the-same-wave.
+
+**One cost interaction the owner should know is real, and it runs the other
+way.** CARD-282's *impact set* contains this card's file, because 75 test files
+import the admin app — **563.58 s over 2,942 tests, 39.5 % of a 1426.16 s
+suite** — and **344.29 s of that 564 s, 61 %, is this one file.** So CARD-282
+pays this file's cost on every cycle while this card is still in flight. That is
+not a conflict and needs no serialization; it is the measured reason CARD-287
+exists, and the reason the owner was given the option of ordering 287 first.
+
+**The cross-card obligation CARD-287 is waiting on, restated here because it is
+cheap now and expensive later.** CARD-287 asks this card to **record this
+class's per-test durations before and after its change**. The class is
+**95.3 % (327.94 s) of the file at 14,258 ms/test**, and CARD-287 is sized
+against it. Take the measurement; G-6 forbids reporting *durations as this
+card's claim*, and this is a different thing — a datum handed to a successor,
+recorded as such. If the two obligations seem to collide, record the figure and
+say that G-6 governs the card's own claims rather than a successor's input.

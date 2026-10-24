@@ -1,6 +1,6 @@
 # CARD-282: The admin panel exports the player bundle — static JSON the public solver reads
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/282-player-bundle-export
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-282
 **Source:** ONLINE_GAME_SPECIFICATION.md#technical-architecture (owner decision 2026-10-23, commit 8b0ca0e2); backlog.md "A public online solver" / "A stable per-puzzle URL namespace" (both @enabler, both "Blocks CARD-210")
 **Idea:** —
-**Wave:** —
+**Wave:** 58
 **Depends on:** —
 **Touches:** src/nonogram/admin/player_bundle.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_detail.html, tests/test_player_bundle.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-24
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -164,3 +164,63 @@ FR-045 (registry entries minted by the 2026-10-23 architect delta, ADR-0041).
 ## Worktree notes
 
 —
+
+## [DISPATCH 2026-10-24 — wave 58, orchestrator]
+
+Fork point **`cef9f619`** (main). Worktree `../PythonProject4-card-282`, branch
+`card/282-player-bundle-export`, `.venv` symlinked.
+
+**No dependency, and the `Blocked by:` is genuinely resolved** — the URL-namespace
+DEC landed 2026-10-23 as DEC-044/ADR-0041, and
+`meta/architecture/decisions/adr/0041-public-player-static-bundle-and-hash-urls.md`
+exists. Read the key recipe out of **ADR-0041/R1 itself**, not out of this card's
+paraphrase of it: the card says "implement it exactly — any deviation is a
+breaking change requiring a new ADR", and a paraphrase is exactly how a recipe
+drifts.
+
+### The moving floor is resolved: use today's paths
+
+The card hedges — *"CARD-273 relocates book modules to `src/nonogram/book/` and
+CARD-274 splits `app.py`. If those have merged by the time this card runs…"*.
+**Checked at dispatch: CARD-273 and CARD-274 are both `ready` and
+undispatched.** So the hedge resolves to **today's paths**, which is what
+`Touches` already names: read books through `src/nonogram/admin/`'s existing
+public API and register the route in `app.py` (53 route/blueprint sites today).
+No conditional left for the round to guess at.
+
+**And the obligation that creates, recorded now rather than discovered later:
+CARD-274 splits `app.py`, so whichever of the two lands second carries the
+other's work through.** If this card merges first, **CARD-274's brief must say
+to carry the "Export player bundle" route into the split's route module** — I
+will write that onto CARD-274 at this card's merge, not afterwards.
+
+### Dispatched in parallel with CARD-276, and the graph agrees
+
+`Touches` intersection with CARD-276 is **empty** (CARD-276 edits only
+`tests/test_book_export_interior_cover.py`). No shared `conflict.hotspots`
+entry. Genuinely concurrent.
+
+**What is not free, and is the one thing the owner weighed before choosing
+this:** `src/nonogram/admin/app.py` is in this card's `Touches`, and **75 test
+files import the admin app — 563.58 s over 2,942 tests = 39.5 % of a 1426.16 s
+suite.** Under `test_scope: impact` that is this card's per-cycle gate.
+**344.29 s of it — 61 % — is `tests/test_book_export_interior_cover.py`**, a
+file this card has nothing to do with, whose cost is CARD-287's subject and
+which CARD-276 is editing right now. Expect ~5 gate runs across the card's
+cycles, so **roughly 47 minutes of test time, ~29 of it in one unrelated file.**
+
+**Do not narrow the impact set to make this cheaper.** That file is in the set
+*because* it imports `app.py` more heavily than almost anything else, so
+excluding it would remove precisely the coupling the impact scope exists to
+catch. The owner was offered the alternative (run CARD-287 first and let this
+card's cycles run cheap) and chose to pay the machine time instead, because this
+chain unblocks **CARD-210**, which has been `blocked` since 2026-10-13 on
+exactly this infrastructure: *"a public solver that is actually hosted, and a
+per-puzzle URL namespace"*.
+
+### Scope note the round should not have to infer
+
+This card is the **data layer only** — the bundle writer, the keys, the trigger
+and the output tree. `player/**` does not exist yet and is **CARD-283's**; this
+card creates nothing under it. The chain is 282 → 283 → 284 → 285, strictly
+serial, and only this first card touches `src/`.
