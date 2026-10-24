@@ -112,8 +112,12 @@ capabilities:
     events: [EVT-010, EVT-011]
     commands: [CMD-009, CMD-010]
     aggregates: [AGG-001]
-    stories: [US-008]
-    requirements: [FR-008, FR-009, FR-010, FR-026, FR-029, NFR-002, NFR-007]
+    # FR-046 / US-029 added 2026-10-24 (DEC-047, ADR-0032/R3): the
+    # human-solvability gate joins this capability — it is the same
+    # solver-signals question ("requires guessing", FR-026/FR-029) made
+    # load-bearing at the approval door; the score itself is untouched.
+    stories: [US-008, US-029]
+    requirements: [FR-008, FR-009, FR-010, FR-026, FR-029, FR-046, NFR-002, NFR-007]
 
   - id: CAP-005
     name: Puzzle export

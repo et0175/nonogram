@@ -4936,6 +4936,103 @@ functional:
         instances: [AC-385]
         test: tests/test_public_player.py::test_no_write_request_for_any_interaction
 
+  - id: FR-046
+    # New 2026-10-24 (raw-requirements.md "## Delta 2026-10-24"; OWNER
+    # DECISION 2026-10-24, DEC-047 resolved the same day by ADR-0032
+    # revision R3; US-029; CARD-291 implements). The human-solvability
+    # gate: unique (CON-005, ADR-0032/R1) is not the same fact as humanly
+    # solvable — a solve can prove exactly one solution while finding it
+    # only by branching search. Measured this session: 7 production
+    # puzzles carry the `guess` strategy (branch_nodes 59-283, 63-97% of
+    # cells settled only by search), all graded medium by the probe-share
+    # formula, 6 approved and all 6 in book c1.
+    # Relations:
+    #  - FR-029 / ADR-0025/R2: `guess` is already read off branch_nodes of
+    #    the one verifying solve; this FR makes it load-bearing at the
+    #    approval door instead of only reportable/filterable.
+    #  - ADR-0029/R2: one verifying solve per grade — the gate reads the
+    #    stored solver-written strategies list when one exists and
+    #    re-solves (budgeted) only when it does not; never a second solve
+    #    on the happy path.
+    #  - INV-002 / FR-011: the same fail-closed posture one door earlier —
+    #    an approval is a claim of publishability and an unverifiable
+    #    claim refuses.
+    #  - ADR-0031 / difficulty.py: deliberately untouched — "needs
+    #    guessing" is not a harder tier (the score's probe-share metric
+    #    inverts for branching puzzles, which is how all seven landed at
+    #    the bottom of Medium); re-scaling grades was rejected in DEC-047.
+    #  - INV-008 / INV-012: nothing demotes an approved or in-book puzzle
+    #    automatically; the 2026-10-24 stock remediation (regrade all,
+    #    remove the guess-level rows) was the owner's explicit one-time
+    #    operation, not part of this rule.
+    #  - ADR-0039/R1-R2: the set of gated doors is derived (AST walk over
+    #    writes of PuzzleStatus.APPROVED), default-DENY on an unlisted
+    #    writer, each door's control reds with the gate deleted there.
+    statement: >-
+      No puzzle that needs guessing is publishable: every path that moves a
+      puzzle into the approved status (the per-puzzle action, the bulk
+      batch action, either store mode) and every store of a replacement
+      grid onto an approved or in-book puzzle refuses a puzzle whose
+      verifying solve branched (branch_nodes > 0 — the guess strategy,
+      FR-029), with a message naming the reason; a puzzle whose verdict
+      cannot be obtained (unreadable grid, non-unique grid, or a solve not
+      concluded within budget) is refused with its own distinct
+      could-not-verify message rather than approved. The verdict is read
+      from the stored solver-written strategies list when one exists, else
+      from one budgeted re-solve. A draft puzzle may hold a branching
+      grid; it cannot leave draft carrying one. Nothing demotes an
+      already-approved or in-book puzzle automatically.
+    source: [US-029]
+    _meta:
+      source: authored
+      decided_by: "owner, 2026-10-24 — DEC-047 resolved by ADR-0032/R3 after this session's measurement (7 branching puzzles in production, 6 approved in book c1)"
+      priority: must
+      relates_to: [FR-029, FR-011, CON-005, ADR-0025, ADR-0029, ADR-0031, ADR-0032, ADR-0039]
+      assumptions: >-
+        The stored strategies_used list tracks the stored grid (generation
+        and the two-phase edit both write it from the grading solve) — the
+        implementer verifies that at the edit seam rather than restating
+        it. "Remove the existing guess-level stock" is the 2026-10-24
+        operation, already executed outside this FR.
+      evidence: ["meta/kanban/cards/CARD-291.md", "meta/architecture/inputs/raw-requirements.md ## Delta 2026-10-24"]
+    acceptance:
+      - id: AC-393
+        given: a draft puzzle whose verifying solve branched
+        when: the owner approves it (route or service, either store mode)
+        then: the approval is refused with a message naming that the puzzle needs guessing, and the status stays draft
+        kind: negative
+        test: tests/test_approval_guess_gate.py::test_approve_refuses_a_branching_puzzle
+      - id: AC-394
+        given: a batch holding branching and non-branching puzzles
+        when: the batch is approved
+        then: the non-branching puzzles approve, the branching ones keep their status, and the report states how many were held back and why
+        kind: happy
+        test: tests/test_approval_guess_gate.py::test_batch_approve_holds_back_branching_puzzles
+      - id: AC-395
+        given: a puzzle whose strategies cannot be determined (unreadable grid, non-unique grid, or a solve that does not conclude in budget)
+        when: approval is attempted
+        then: it is refused with the could-not-verify message — never approved
+        kind: negative
+        test: tests/test_approval_guess_gate.py::test_unknown_verdict_fails_closed
+      - id: AC-396
+        given: an approved or in-book puzzle and a verified replacement grid that needs guessing
+        when: the edit is stored
+        then: the store refuses and the stored grid is unchanged; the same replacement stores onto a draft
+        kind: boundary
+        test: tests/test_approval_guess_gate.py::test_edit_refuses_a_branching_grid_behind_the_approved_door
+    engineering_constraints:
+      - id: EC-051
+        statement: >-
+          Every write of PuzzleStatus.APPROVED in src/nonogram/** passes
+          the gate (ADR-0032/R3): the writer set is derived by an AST walk
+          over the tree, default-DENY on a writer the gate does not cover,
+          and each gated door carries a control that reds with the gate
+          deleted at that door — caught WITH the mechanism, missed WITHOUT
+          it (ADR-0039/R1-R2), measured per assertion.
+        kind: consistency
+        instances: [AC-393, AC-394, AC-396]
+        test: tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate
+
 non_functional:
   - id: NFR-001
     category: performance

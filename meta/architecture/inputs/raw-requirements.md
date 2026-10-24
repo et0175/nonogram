@@ -588,3 +588,29 @@ CARD-283 are blocked on exactly this delta.
   decided (DEC-044) and needs NO persisted mapping at all, because the key is recomputable from the
   grid. The QR codes on the printed page remain CARD-210's scope, now one unblock away. Source:
   this session, 2026-10-23.
+
+## Delta 2026-10-24 — the human-solvability gate (owner session)
+
+- OWNER DECISION (elicited 2026-10-24, DEC-047): a puzzle whose verifying solve needed branching
+  (`branch_nodes > 0` — the `guess` strategy, FR-029) is uniquely solvable but NOT humanly
+  solvable, and must never be publishable: every door into the approved state (per-puzzle action,
+  bulk batch action, either store mode) and every store of a replacement grid onto an approved or
+  in-book puzzle refuses it; a verdict that cannot be obtained (unreadable, non-unique, solve not
+  concluded in budget) refuses with its own distinct message — default-DENY, the INV-002 posture
+  one door earlier. Measured this session: 7 production puzzles branch (59-283 branch nodes,
+  63-97% of cells settled only by search), all graded medium (66-77) by the probe-share formula,
+  6 approved and all 6 in book c1; the one the owner played (15x15) has zero line-logic cells from
+  the empty board. Rejected: re-tuning score bands (re-scales every stored grade — ADR-0029/
+  ADR-0031 blast radius — and CARD-098's GUESS-tier retirement was evidenced on random draws only,
+  while the image pipeline is the source that branches); choose_givens repair (its contract is
+  uniqueness, which these puzzles already have — measured: zero cells revealed); demote-on-regrade
+  (a gate that silently unpicks a book is worse than the hole). Source: owner, 2026-10-24.
+# processed: 2026-10-24 → FR-046 / AC-393..396 / EC-051 / US-029 (DEC-047 resolved same day by ADR-0032 revision R3)
+- OWNER DECISION (same session): the existing stock is remediated now, not grandfathered — regrade
+  every production puzzle (fresh verifying solve per row; stored tiers may be stale in general,
+  "others may be also not medium or not hard", not only the guess hunt) and REMOVE the guess-level
+  puzzles from production: pull the six from book c1, then reject them (reject, not hard-delete —
+  reversible, and the grids stay as source material for manual repair). One-time operation under
+  the existing /regrade mechanism (snapshot to meta/ops/ first, CARD-084), not a standing rule —
+  the standing rule is the gate above. Source: owner, 2026-10-24.
+# processed: 2026-10-24 → operational (no FR; executed via the admin panel's regrade + curation actions; outcome recorded in the ops snapshot and the session record)

@@ -242,3 +242,20 @@ resolved:
     resolved_by: ADR-0041
     resolution_label: goatcounter_cookieless
     date: 2026-10-23
+  # DEC-047: the human-solvability gate (FR-046, owner decision 2026-10-24,
+  # this session's finding — 7 branching puzzles in production, 6 approved
+  # and all in book c1). Decided by the owner in-session, recorded directly
+  # as resolved (the DEC-026/027/028 precedent); resolved by an ADR-0032
+  # revision (R3) rather than a new ADR because the rule is one more
+  # guarantee of the same storage/curation boundary that ADR records — what
+  # the admin panel promises about a stored (now: an approved) puzzle.
+  - id: DEC-047
+    question: >
+      What stops a uniquely-solvable but not humanly-solvable puzzle — one
+      whose verifying solve needed branching (the guess strategy) — from
+      reaching a buyer: re-tune the difficulty score so it classifies hard,
+      repair it with revealed givens, demote it when a regrade notices, or
+      refuse it at every door into the approved state?
+    resolved_by: ADR-0032
+    resolution_label: approval_gate_refuses_branch_nodes
+    date: 2026-10-24
