@@ -786,3 +786,383 @@ re-run it**, and CARD-276 is editing 52.6 % of it concurrently). The full suite
 mechanism and spot-checked V4/M9/M12/the tripwire/the exemption, leaving M1–M8,
 M10–M11, M13–M16 and V1–V3 un-re-run. EC-049 over store states other than
 AC-382's one fixture.
+## Worktree notes — FIX ROUND 1 (cycle 1's four gating findings), 2026-10-24
+
+Cycle 1's verdict reads the same way from here: the exporter is right and the
+guard is not. **Nothing about what the bundle carries changed in this round** —
+the diff is the guard, one comment, and `_settled`. What changed is that the
+leak cycle 1 planted can no longer be green.
+
+### F-1 + F-3 — the scan is a provenance whitelist, and the polarity is inverted
+
+`provenance_violations(root, records, books)` is AC-381's scan.
+`answer_violations` stays beside it as a belt that claims nothing. The whitelist
+asserts that **every scalar in every written file is accounted for by a named
+good source**, and is default-DENY at four levels, each one a level the denylist
+was default-ALLOW at:
+
+| level | what it holds | what it closes | mutant |
+|---|---|---|---|
+| the tree | every file is `index.json`, a published key's `puzzle/<key>.json` or a finalized book's `book/<slug>.json` — **and none is missing** | a file under an unpublished key; a published file deleted | **L8**, 1 cell |
+| the object | each object's field set equals **its own** schema tuple, never the union of the five | F-1's first cause — `clues`/`slug`/`puzzles` are declared *somewhere*, so a value under any of them passed in any file | **L3**, 1 cell |
+| the field | a declared name is routed by `player_bundle.SOLUTION_DERIVED_FIELDS`: exempt names to the ADR's own recipe, every other name to a source with no solution cell in it; a name in neither place is a violation | F-3 — the exemption is the switch, not a spelling | **L5**, 9 cells; **L6**, 1 cell |
+| the value | every leaf must have been *accounted for* by a rule that accepted it; leaves are enumerated from the parsed file and the accounted ones subtracted | a rule that accepts more structure than it checks | **L4, 0 cells — the one survivor**, see below |
+
+The sources are built **from the stored rows and books alone** (`bundle_sources`),
+never from the written tree, and through the independent second implementations
+— `independent_key`, `independent_clues`, and a new `independent_slug` that
+writes R7's material out by hand — so an agreement is about the recipe and not
+about a function compared with itself.
+
+**The indent gap is closed by construction rather than by remembering it.** The
+scan parses each file and whitelists the *parsed values*, so what the serialiser
+does to the bytes cannot open a hole in it. That was F-1's second cause: `_dump`
+writes `indent=2`, every form `forbidden_encodings` derives is compact, and the
+control that "proved" the scan could fail planted bytes the exporter cannot
+produce. Every leak in this round's control is planted **through
+`player_bundle._dump`**.
+
+**The belt's limits are now written where the belt is.** `forbidden_encodings`'
+docstring states that it is not the guarantee, that no form it derives contains
+a newline (the `"\n"` separator is the two-character escape), and that 7 of 7
+string encodings were measured missed. `test_the_belt_runs_on_the_bytes_the_exporter_writes`
+reads it in both directions through `_dump`: a string leak it does catch, and a
+structured leak it **cannot**, caught by the whitelist in the same breath. The
+second arm pins a weakness on purpose and says so, with a message telling a
+later round to restate it rather than lean on the belt.
+
+### L4 — the one survivor, reported as one rather than described as a control
+
+Deleting the unaccounted-leaves subtraction changes **no reading in this file**
+(98 passed). Every rule accounts for exactly what it accepts, so the fourth
+level has no reachable case today. It is kept because it is the construction
+that keeps the guarantee default-deny *as rules are added* — a rule that later
+accepts a value with more structure than it checks becomes a violation instead
+of a hole, which is the failure mode F-1 was — and
+`provenance_violations`' docstring says exactly that instead of claiming four
+controlled levels.
+
+### F-2 — the corpus floor separated from the corpus size
+
+`CORPUS_GRIDS = 52` builds the corpus and is read by `corpus()` only;
+`MIN_CORPUS_GRIDS = 48` is the floor and is read by `corpus_floor_violations`
+only — a function with a failing state, called from AC-381's own test.
+`test_the_corpus_floor_is_a_bound_the_corpus_does_not_set` reads both
+directions, which is the pair the tautology satisfied neither of:
+
+* **lowering the floor must not shrink the corpus** — with `MIN_CORPUS_GRIDS`
+  monkeypatched to 4 the corpus is still `CORPUS_GRIDS + 1` records (**L9**
+  reds this, 2 cells);
+* **shrinking the corpus must red** — with `CORPUS_GRIDS` monkeypatched to 4
+  the floor check returns violations (**L10**, 3 cells, including AC-381's own
+  floor assertion).
+
+### F-4 — the stale claim, and how it was looked for this time
+
+`_BOOK_PREFIX`'s comment said the book slug is "this card's recipe, not
+ADR-0041's" — on the very constant R7 pins. It now cites ADR-0041/R7 + DEC-044b,
+says why changing the string is a breaking change, and records in one sentence
+that the old comment was true before R7 and false after.
+
+Looked for with a **loose** pattern over the card's four paths rather than the
+exact string anybody remembered writing:
+`grep -niE "this card|not the ADR|not ADR-0041|card's recipe|error.kill|worktree choice"`.
+Three hits: the `_BOOK_PREFIX` comment (fixed) and two references to "this
+card's kill matrix" as a *lesson* (M11's square-example trap, M9/M11's
+indexed-read lesson), which are accurate and are left. **An absence verified
+against one spelling is not an absence.**
+
+### F-5 — `_settled` has no set in it, and the totality question answered
+
+The set bought nothing: the first of the distinct values in sort order *is* the
+first of all of them. It cost two things — a tie between candidates sharing a
+`str()` fell through to hash-randomised iteration order, and an unhashable
+candidate raised from the set rather than being ordered. Both are gone.
+`_settle_key` is `(value is None, str(value), type(value).__name__)`, a total
+order on every type `_SERIALISABLE` admits because `str()` is injective within
+one of them.
+
+`test_settled_is_a_function_of_its_candidates_and_of_nothing_else` reads every
+case over **every permutation** of its candidates — order-independence measured
+directly rather than sampled under a few `PYTHONHASHSEED` values — and compares
+by `repr`, because `1 == True` and a comparison by value cannot say which of a
+tie's candidates came back:
+
+| candidates | settled | why it is in the table |
+|---|---|---|
+| `[]` | `None` | total at the bottom |
+| `[None, None]` | `None` | |
+| `[None, "easy"]` | `'easy'` | `None` sorts last |
+| `["hard", "easy", "medium"]` | `'easy'` | the ordinary case |
+| `["  a", "a"]` | `'  a'` | whitespace-differing candidates are distinct; both callers strip before they get here |
+| `["1", 1]` | `1` under all orderings | cycle 1's F-5 — was `1` under seeds 0/1/12345 and `'1'` under 99999 |
+| `[True, 1]` | `1` | equal *and* differently typed |
+| `[["b"], ["a"]]` | `['a']` | unhashable, and no longer a `TypeError` |
+
+**L11** (the type name dropped from the key) reds it.
+
+### F-6 — the route the owner actually posts, under the statement log
+
+`db_panel` builds the panel in **DB mode** against SQLite the way the suite's
+other DB-mode panels do (`DATABASE_URL` set, `nonogram.db.session_scope` pointed
+at the test's scope), because the in-memory `panel` issues no SQL at all and a
+read-only verdict over an empty log is the vacuous pass this fixture exists to
+avoid — the log is asserted non-empty before the verdict is taken.
+`test_the_route_the_owner_posts_is_read_only_too` wraps the POST in
+`recorded_statements`, snapshots `Base.metadata`'s rows either side, and scans
+the tree the route wrote with the whitelist. **L12** (a write added to the
+route) reds it, 2 cells.
+
+### F-7 — M9 is a failure cell. This card and the pre-gate both said otherwise.
+
+**Reproduced under plain pytest, independently of cycle 1:** the float-refusal
+mutant is `1 failed, 97 passed` — an ordinary red cell on
+`test_the_export_writes_no_float_and_refuses_one`. The "0 cells, exit 1" in the
+tables above is `tests/kill_matrix.py`'s *attribution* of a `pytest.raises`
+match-mismatch, not pytest's verdict, and this card used it as its worked
+example of "an error is a third thing" — an example that does not hold at the
+level a reader checks it. The kill stands; the label was wrong. (M12's
+NOT-REACHEDs reproduced and are honest: exit 1, 124 of 137 reached.)
+
+### F-8 — not this round's
+
+A mid-write `_dump` failure leaving `index.json` advertising files that do not
+exist is routed to **CARD-284** by cycle 1 and is untouched here. Worth noting
+for the orchestrator: the routing is in the review YAML, and CARD-284's card
+body does not carry it yet.
+
+### Kill matrix — 32 mutants, 31 kills, 1 documented survivor, 137 assertion nodes
+
+Instrument: `tests/kill_matrix.py`, recording pass, child instrumentation off,
+SHIPPED **0 FAIL of 137 reached**, 98 collected tests. The 20 mutants the
+implementation round ran are re-pointed at the text as it now stands and
+**re-run** (cycle 1 re-ran none of them); M13 is re-pointed at the new
+`_settled`. Two readings to carry: a **parametrized test contributes one cell
+per assert line, not one per case**, so L2's single cell is 13 red *cases* and
+the per-case counts are quoted from plain pytest; and a cell count is not a
+quality ranking — L1's 6 and M6's 1 are both kills.
+
+| mutant (mechanism deleted) | cells |
+|---|---|
+| M1 leak the solution grid into the puzzle file | 11 |
+| M2 title falls back to `source_image` | 2 |
+| M3 undeclared field carrying `filled_cells` | 10 |
+| M4 export writes to the database | 9 |
+| M5 set iteration order into the output | 3 |
+| M6 `sort_keys=False` | 1 |
+| M7 `ensure_ascii=False` | 1 |
+| M8 the owned tree is not reset | 4 |
+| M9 the float refusal | 0 cells under the instrument, **exit 1** — and `1 failed, 97 passed` under plain pytest (F-7) |
+| M10 draft books exported too | 3 |
+| M11 key material `{height}x{width}` | 3 |
+| M12 truncation 10 -> 16 | 19, exit 1, 124 of 137 reached |
+| M13 `_settled` reduction deleted (read order decides) | 2 |
+| M14 title reintroduced into the slug material | 10 |
+| M15 a `-` separator between the keys | 7 |
+| M16 book-file title settled by read order | 1 |
+| V1 the belt's deny-default on field names deleted | 1 |
+| V2 the belt's encoding derivation emptied | 1 |
+| V3 the statement verdict always says clean | 3 |
+| V4 schema widened together with the writer | 8 |
+| **L1 THE CYCLE-1 LEAK — the whole grid into `index.json` under `clues`, one edit on the production path** | **6**, including AC-381's own `test_bundle_is_clean_of_answers` |
+| L2 the title's provenance check neutered | 1 cell / **13 of 25 leak cases**, and those 13 are every title encoding including **all 7 cycle 1 planted** |
+| L3 the per-file field equality deleted | 1 cell / 1 case (`an index entry with its tier dropped` — the omission only equality can see) |
+| **L4 the unaccounted-leaves backstop deleted** | **0 — the survivor, documented in the docstring** |
+| L5 the exemption emptied (cycle 1's X1) | **9**, across 8 tests including AC-381's own — it was **1 tautological cell** before |
+| L6 the exemption stops being the switch (union routing) | 1 |
+| L7 the clues recipe always accepts | 3 |
+| L8 the tree check deleted | 1 cell / 1 case (`a published puzzle's file removed`) |
+| L9 the corpus FLOOR lowered to 4 | 2 |
+| L10 the corpus SIZE lowered to 4 | 3 |
+| L11 `_settle_key` without the type name (F-5) | 1 |
+| L12 the POST route writes to the database (F-6) | 2 |
+
+### Gate
+
+| | |
+|---|---|
+| `tests/test_player_bundle.py` | **98 passed**, no skips (`-rs`, no SKIPPED section) |
+| node ids, before -> after | **55 -> 98: removals 0, additions 43** (all seven original `test_the_answer_scan_catches_each_leak_shape` param ids kept verbatim) |
+| impact set, re-derived on the changed set | **100 files, byte-identical** to the pre-gate's selection |
+| the 100-file impact gate, unnarrowed | **5885 passed, 15 skipped, 0 failed, 677.64 s** |
+| skips | the **same 15**, one reason, all `db_required` at `tests/conftest.py:207` (`DATABASE_URL is not set`), none in this card's footprint — the new DB-mode route test runs on SQLite and does not skip |
+| **G-1** seven forbidden paths | **0** files touched |
+| **G-2** the three admin-player files | **0** lines changed |
+| **G-3** | stdlib only; no `hypothesis`; `pyproject.toml` untouched |
+| trap 9 | the render-set grep finds no match in this file, so the frozen `RENDER_HEAVY_SNAPSHOT` equality is unaffected |
+
+### What the brief got wrong, or left ambiguous
+
+1. **The brief's "three sanctioned sources" and the constant's three names are
+   not the same three.** The brief says *"clues per R5, the one-way key per R1,
+   the slug per R7"*; `SOLUTION_DERIVED_FIELDS` is `{clues, key, puzzle_keys}` —
+   the key in its two spellings, with the slug *outside* the set. The constant
+   was kept (changing it would contradict its own pin, the module docstring and
+   cycle 1's own reading, and the slug carries no solution material beyond the
+   keys it hashes), and the slug was given its own R7 recipe check plus its own
+   "what it must not absorb" case. `SANCTIONED_SOURCES` is the four-name tuple
+   with an assertion that the first three *are* the exemption, so a fourth
+   exempt name added without a case reds there.
+2. **The guardrail "no test renamed" covers parametrize ids, and the brief
+   should say so.** This round first renamed the leak-shape control to
+   `test_the_whitelist_catches_each_leak_shape` and reworded its seven param
+   ids — which would have *removed* eight node ids from AC-5's baseline while
+   adding more. Reverted: the function keeps its name and the seven original id
+   strings are kept verbatim. A reworded param id is a deleted cell.
+3. **F-2's remedy as written is right but is only half the control.** With the
+   two constants separated, a later round can still restore the tautology by
+   writing `CORPUS_GRIDS = MIN_CORPUS_GRIDS + 4`. What rules that out is the
+   *first* arm of the control — the corpus's size measured while the floor is
+   patched down — not the separation itself.
+4. **One level of the new guard has no reachable case, and this round says so
+   rather than claiming four.** See L4 above. The brief asked for a control that
+   fails for "the new guard"; three of its four levels have one, the fourth is
+   reported as an unkilled mutant with a reason. A claim of four would have been
+   this board's sixteen-finding family again.
+
+## [FIX ROUND 1 PRE-GATE on `70a43ef7` — 2026-10-24, orchestrator] PASSED
+
+All four gating findings closed, verified with my own instruments rather than the
+round's. Diff across the branch is **exactly the four `Touches` paths, 3189 pure
+insertions**; G-1 zero of seven forbidden paths, G-2 zero lines.
+
+### F-1 closed — I replanted cycle 1's leak myself, through the real writer
+
+The same edit: the 144-cell grid into `index.json` under a `clues` key, **written
+through `player_bundle._dump`**, no schema tuple widened.
+
+| | cells |
+|---|---|
+| at `3f6b57a0` (cycle 1) | **0 — 55 passed, `answer_violations → []`** |
+| at `70a43ef7` | **39 failed, 59 passed** |
+
+and the first red is **`test_bundle_is_clean_of_answers` — AC-381 itself**, which
+is the cell that matters: the criterion now fails on the leak it is written
+about. (My 39 exceeds the round's reported 6 because my plant puts `clues`
+*first* in the entry, which also trips the per-object field-set checks. Either
+plant kills; the difference is in my plant, not in the guard.)
+
+**The indent gap is closed by construction, not by remembering it.** The scan
+parses each file and whitelists the **parsed values**, so the serialiser cannot
+open a hole in it. That is the right shape: cycle 1's defect was not that the
+denylist was short, it was that **the control and the writer disagreed about what
+a file looks like**, and a fix that patched the newline case would have hit the
+same wall at the next encoding.
+
+**And the polarity is genuinely inverted.** `bundle_sources` builds the accepted
+values **from the stored rows and finalized books alone, never from the written
+tree**, through independent second implementations (`independent_key`,
+`independent_clues`, and a new `independent_slug` writing R7's material out by
+hand). A draft book's key and title therefore have **no source** and fall to the
+same default-deny as any other unaccounted value — which is a stronger property
+than was asked for.
+
+### F-3 closed — the exemption is load-bearing, and both its premises are measured
+
+`SOLUTION_DERIVED_FIELDS` is now the scan's **routing table**. Emptying it —
+cycle 1's X1, which reded exactly one tautological cell — now reds **9 cells
+across 8 tests**, AC-381 among them.
+
+**And the two premises the exemption rests on are measured rather than cited**,
+which is more than cycle 1 asked for: the smallest published area is
+`MIN_SIZE * MIN_SIZE` = **100 cells against 40 bits of key**, and the clues'
+injectivity is measured over the corpus (no two distinct published grids share
+extent *and* clue pair). Cycle 1 argued both from CON-011 and from construction;
+they are now derived.
+
+### F-2 closed, and the round found the half my brief got wrong
+
+`CORPUS_GRIDS = 52` builds (read by `corpus()` only); `MIN_CORPUS_GRIDS = 48` is
+the floor (read by `corpus_floor_violations` only). Verified separated. Lowering
+the floor leaves the corpus at `CORPUS_GRIDS + 1` (**L9** reds); shrinking the
+corpus reds the floor check (**L10** reds, including AC-381's own floor
+assertion).
+
+**The round's correction stands: my remedy as written was only half the
+control.** Separating the constants does not stop a later round writing
+`CORPUS_GRIDS = MIN_CORPUS_GRIDS + 4` and restoring the tautology. What rules
+that out is the **first arm** — the corpus size measured while the floor is
+patched down — not the separation. That is the arm to keep if either is ever
+dropped.
+
+### F-4 closed, and found the way I should have looked for it
+
+`player_bundle.py:176`'s stale comment is **deleted** and replaced with a
+citation of ADR-0041/R7 + DEC-044b. Re-checked with a **loose** pattern —
+`grep -niE "this card's recipe|not the ADR|not ADR-0041"` — the way my pre-gate
+should have: one hit remains, at `:210`, and it is a **deliberate reference to
+the retired wording** inside the comment explaining why the exemption is no
+longer decorative. That is provenance, not a live claim.
+
+### F-5, F-6, F-7
+
+* **F-5**: `_settled` has **no set in it at all** — the set bought nothing, since
+  the first distinct in sort order is the first of all. Verified seed-independent
+  where it was not: `["1", 1] → 1` under `PYTHONHASHSEED` 0/1/12345/**99999**
+  (it returned `'1'` under 99999 before). Totality answered and checked:
+  `[] → None`, `[['b'], ['a']] → ['a']` — **unhashable candidates now work**,
+  where they previously raised `TypeError`. Read over **every permutation** and
+  compared by `repr`, since `1 == True`.
+* **F-6**: a `db_panel` fixture plus `test_the_route_the_owner_posts_is_read_only_too`
+  — the POST wrapped in `recorded_statements`, the log asserted **non-empty
+  before the verdict** (so the verdict cannot pass on an empty log), rows
+  snapshotted either side, the tree scanned with the whitelist. **L12** reds it.
+* **F-7 corrected independently**: M9 is `1 failed, 97 passed` under plain pytest
+  — **an ordinary failure cell**, not an error-kill. The "0 cells / exit 1" was
+  `kill_matrix.py`'s attribution. Corrected in the round's notes and its matrix,
+  and the claim on this card.
+
+### AC-5 and the gate
+
+* **AC-5 verified by me**, collecting both revisions: **55 → 98 node ids,
+  removals 0, additions 43.**
+* **The impact set re-derived and run unnarrowed: 100 files, 5885 passed, 15
+  skipped, 0 failed, 677.64 s.** The **same 15** skips, one reason, all
+  `db_required` at `tests/conftest.py:207`, none in this card's footprint — and
+  the new DB-mode route test runs on SQLite and **does not skip**.
+* `tests/test_player_bundle.py` alone: **98 passed, no SKIPPED section** under
+  `-rs`. The G-2 trio plus `test_cli.py`: 300 passed.
+* **32 mutants, 31 kills**, 137 assertion nodes, SHIPPED 0 FAIL. The
+  implementation round's 20 were **re-pointed at today's text and re-run**, which
+  cycle 1 had not done.
+
+### L4 is reported as a survivor, and that is the right call
+
+Deleting the leaf-accounting subtraction changes no reading (98 passed): every
+rule accounts for exactly what it accepts, so the fourth level has **no reachable
+case today**. The round kept it — it keeps the guarantee default-deny *as rules
+are added* — and **says so in the docstring instead of claiming four controlled
+levels**. My brief asked for "a control that FAILS" for the new guard; three of
+four levels have one and the fourth does not, and claiming otherwise would have
+been this board's sixteen-finding family again. **Declared, not dressed up.**
+
+### FIVE corrections to my brief, and one is a standing-rule change
+
+1. **The "three sanctioned sources" are not the constant's three.** I wrote
+   *clues / key / slug*; `SOLUTION_DERIVED_FIELDS` is `{clues, key, puzzle_keys}`
+   — the key in **two spellings**, with the **slug outside** the set. The round
+   kept the constant (changing it would contradict its own pin, the module
+   docstring and cycle 1's reading) and gave the slug its own R7 recipe check and
+   its own must-not-absorb case, with `SANCTIONED_SOURCES` asserting that the
+   first three *are* the exemption so a fourth exempt name added without a case
+   reds. Better than what I asked for.
+2. **"No test deleted, renamed, skipped or merged" does not obviously cover
+   parametrize ids, and it must.** The round first renamed the leak-shape control
+   and reworded its seven param ids — **which would have deleted eight node ids
+   while adding more** — then caught and reverted it. **A reworded param id is a
+   deleted cell.** This goes into the standing brief rules; it is not inferable
+   from the guardrail as I have been writing it, and AC-5's set difference is the
+   only thing that would have caught it.
+3. **F-2's remedy as written was half a control** — recorded above.
+4. **My "a control that FAILS" demand was unmeetable at one of four levels** —
+   recorded above.
+5. **The kill instrument does not take the full-suite lock**; it only refuses to
+   start when another worktree holds it. So running it beside CARD-276 is safe,
+   and my brief left that for each round to work out instead of saying it.
+
+### One thing routed on, which the round correctly noticed I had not done
+
+Cycle 1's **F-8** (a mid-write `_dump` failure leaving `index.json` advertising
+files that do not exist) is in the review YAML and routed to CARD-284 in my
+adjudication — **but CARD-284's own card body does not carry it yet.** Mine to
+write, and I am writing it before this card merges rather than after.

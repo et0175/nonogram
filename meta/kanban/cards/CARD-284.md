@@ -128,3 +128,61 @@ FR-045 (registry entries minted by the 2026-10-23 architect delta, ADR-0041).
 ## Worktree notes
 
 —
+
+## Routed in from CARD-282's review cycle 1 (2026-10-24) — two items, one product question
+
+CARD-282 builds the bundle this card's pages read. Two things surfaced there
+belong here rather than on it, and are written down now rather than at that
+card's merge.
+
+### 1. F-8 — a half-written bundle advertises files that do not exist
+
+A `_dump` failure part-way through an export leaves `index.json` listing puzzle
+keys whose `puzzle/<key>.json` was never written. CARD-282's export is
+**deterministic and read-only against the database**, and that is all it claims;
+it does not claim **atomicity**, and cycle 1 did not ask it to.
+
+**This card's pages are where that becomes visible**, because `/library` reads
+`index.json` and `/b/<slug>` reads a book file, and either can name a file that
+is absent. So decide it here, with the shapes stated so nobody re-derives them:
+a 404 on a listed puzzle, a book page listing a puzzle that will 404, or a
+library index that silently drops entries it cannot resolve. **Whatever is
+chosen, the claim belongs in a test** — "the player degrades rather than
+breaking on an incomplete bundle" is a claim like any other and needs a control
+that fails.
+
+Not CARD-282's to fix: making the export atomic is a change to the writer with
+its own failure modes (a temp tree and a rename, which is not free on every
+filesystem), and it would have landed in that card's last cycle with no review
+left. Raised there, routed here.
+
+### 2. The product question ADR-0041/R7 opened and does not answer
+
+R7 excludes the book's **title** from the slug on purpose, so that an editorial
+title edit cannot break a printed QR code (owner decision 2026-10-24, DEC-044b).
+A consequence nobody foresaw: **two finalized books with identical puzzle
+membership in identical order are now ONE slug with TWO candidate titles**, and
+one `book/<slug>.json` has to speak for both.
+
+CARD-282 made that **deterministic** — the title is reduced by a pure function of
+the candidate values rather than of the store's read order, held by
+`test_two_books_with_the_same_puzzles_are_one_public_book` with a mutant redding
+a read-order settle. **The engineering is settled. The product answer is not**,
+and CARD-282's round deliberately refused to invent a second rule one commit
+after being pulled up for inventing the first.
+
+**This card owns the pages that render a book's title**, so the decision is
+here. The options, with what each costs:
+
+* **Publish one title** (what ships today — the first in a stable order). Cheap,
+  deterministic, and one book's title never appears publicly.
+* **Refuse such a pair at export.** Arguably right if identical membership is a
+  data error, but it makes a legitimate second edition unpublishable.
+* **Disambiguate.** Needs a discriminator in the slug, which **re-opens R7** and
+  is therefore an ADR touch, not a code change.
+
+Worth knowing before choosing: a plausible real case is a reprint or second
+edition with the same puzzles and a changed title — in which case one public
+book with one title is arguably **correct**, since the slug names content and
+the QR code resolves to the right puzzles. Only the displayed title is
+ambiguous.
