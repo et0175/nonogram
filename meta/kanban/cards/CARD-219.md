@@ -1,6 +1,6 @@
 # CARD-219: Positional assertions read the page plan instead of rendering pixels
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -71,11 +71,11 @@ threshold. Note before you do: band's two pre-existing caches hold 25,192,439 B
 widening -- it becomes a measured allowance held to an equality plus a strict
 bound on everything else. That retention is pre-existing (identical at
 c7cca514) and backlogged separately; do not let this card absorb it. -->
-**Review score:** —
+**Review score:** 7.5 (cycle 2, NOT CERTIFIED; cycle 1 was 6.0) — merged on a recorded gate decision, both of cycle 2's gating findings taken inline at `a3f9dc41`
 **Started:** 2026-10-24
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-24
+**Actual:** 1d (implementation + 2 cycles + 1 fix round + 1 inline fix; aggregate round counter 6 of 6)
+**Merge commit:** b678b67f
 **Blocked by:** —
 
 ## What to implement
@@ -1785,3 +1785,93 @@ non-retention diff not line-by-line audited against AC-6; and
 `declared_consumers` unprobed for a class-decorator `usefixtures` on a nested
 class, a staticmethod test, or a signature-rewriting decorator. That last trio is
 the honest residue of hole 1 and belongs on F-203's successor card.
+
+## [MERGE GATE — 2026-10-24, orchestrator] GREEN
+
+Lock written at `meta/kanban/.full-suite.lock` naming this card's worktree, and
+**demonstrated refusing a foreign run** from main before the suite started (the
+guard printed the holder, the age and the override, exit non-zero). Released
+after the merge — on CARD-218 the first post-merge run on main was refused by my
+own lock, so releasing it is now part of the gate rather than an afterthought.
+
+| gate | result |
+|---|---|
+| **AC-1** — the seven converted tests, explicit node ids | **7 passed in 0.78 s** |
+| **AC-2 / G-1** — the three fenced drawn-tie carriers + the fence test | **4 passed** |
+| **G-4** — the three untouchables (`PropertyTest_Solver_NeverFalsePositiveUniqueness`, `TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden`, `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`) | **180 passed, zero skips** — and none of the three appears in any of the five changed files |
+| **AC-4** — node-id set difference over the six in-scope files | **260 vs 259, removals 0**, one named addition |
+| **G-5** — `git diff 808cf51f..HEAD -- src/` | **0 lines**, re-verified after the merge |
+| impact set, eleven files | **992 passed, 0 failed, 0 skipped** |
+| **full suite** | **9024 passed, 27 skipped, 0 failed, EXIT=0, 1426.08 s** |
+
+**The skip count is the baseline exactly: 26 `conftest.py:207` (`DATABASE_URL is
+not set`) + 1 `test_book_pdf_memory.py:1296` (`setrlimit(RLIMIT_AS)` refused by
+this kernel) = 27.** Attributed by reason, not counted. CARD-218's merge gate saw
+**101** here and that was its finding; this one needed no re-run.
+
+**AC-1's 0.78 s is the card in one number** — those same seven tests were 11.8 s
+of rendering at the fork point.
+
+**One honest observation about the full-suite total, recorded because it would
+otherwise look like a contradiction.** The suite came in at **1426.08 s** against
+the committed artefact's **1426.16 s** — unchanged, although this card removed
+~12 s from `test_book_toc.py`. That is not a failure of the measurement; it is
+the reason CARD-218's AC-2 suite clause was struck: **a full suite's run-to-run
+spread is tens of seconds, two orders above the effect**, and the artefact was
+taken on a different day with a different tree. The saving is established by the
+integers and the interleaved solo pairs, both of which this card has; the suite
+total is not an instrument that can see it.
+
+## [GATE DECISION — merged at 7.5 against `min_score: 8`]
+
+Recorded rather than slipped, and the position is materially stronger than
+CARD-218's 7.0 override:
+
+1. **Cycle 2's two gating findings were TAKEN, not overridden** — inline at
+   `a3f9dc41`, prose plus one control, no mechanism touched, no `src/`, no node
+   id removed.
+2. **That edit is certified by the mutant it was written for.** C9 (delete
+   `memoryview` from `_SCALAR`) was **191 passed, 0 cells** at fix round 1 and
+   **reds** at `a3f9dc41`. The last edit on this branch is the one edit on it
+   with a purpose-built failing control.
+3. **The 7.5 scored the tree BEFORE that edit**, and the round budget (6 of 6)
+   cannot buy the cycle that would re-score it — `max_cycles` is a budget, not a
+   last-mile rule, taken on its stated second branch for the second card running.
+4. **What remains open is prose-free and named**: F-203, F-205, F-204, F-206, all
+   non-gating, all routed with their measurements. **F-203 was refused inline on
+   purpose** — a mechanism change to a derived-set guard, the exact class that
+   gated this card in both cycles, with no reviewer left to check it.
+5. Test-only, `src/` byte-identical to the fork point across all three commits,
+   revertible in one step via `/kanban revert CARD-219`.
+
+**Flagged to the owner at the merge** rather than left for a retro. If the owner
+would rather spend a seventh round and a third cycle on two corrected sentences,
+this merge is the thing to revert.
+
+## [POST-MERGE — 2026-10-24]
+
+On `main` at `b678b67f`: `tests/test_book_toc.py`, `tests/test_book_pdf_band.py`,
+`tests/test_book_puzzle_frame.py`, `tests/test_shared_fixture_controls.py` and
+`tests/test_suite_profile.py` → **651 passed, zero skips**, 39.14 s.
+`git diff 808cf51f..b678b67f -- src/` is **0 lines**.
+
+Worktree `/Users/omelnikova/PycharmProjects/PythonProject4-card-219` removed,
+branch `card/219-assert-the-plan-not-the-pixels` deleted (was `a3f9dc41`), lock
+released. `PycharmProjects` holds only the repo and wave 58's two worktrees.
+
+**Residue routed, each with its measurement rather than a pointer:**
+
+* **CARD-220** — the three drawn-tie carriers fenced by name (`fcfc8a78`), with
+  the rule that a converted test is **not** an acceptable named survivor for that
+  coverage, and the two mutants to re-run if it wants to argue otherwise. Plus the
+  pre-existing over-stated docstring in `test_the_named_pages_really_are_those_pages`
+  (narrow it — it is one of the three carriers) and the two now-redundant
+  per-file `getfixturevalue` tests.
+* **CARD-289** (new, cut this session) — `interior_stream` decides
+  `first_answer_page` and `toc_entries` and carries neither, which is *why* the
+  conversion cost coverage. Its AC-3 is to buy that coverage back and show the
+  cell count rise.
+* **Backlog** (`be17e42d`) — `_set_once`'s retention corrected: the unit was
+  1-byte ink masks counted as 3-byte RGB pixels, and the real figure is
+  **110,882,067 B, 4.54×** the 24,435,107 B three documents had been quoting.
+* **A successor card for F-203/F-205** — the shared home's remaining gaps.
