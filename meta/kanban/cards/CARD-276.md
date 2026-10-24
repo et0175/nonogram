@@ -755,3 +755,177 @@ cross-class spelling collision and it refuses; the remaining untested shapes are
 `__getattr__`/metaclass-provided attributes, a decorator link, a `*args`
 forwarder, a callback parameter used as a callee, and anything crossing a module
 boundary. **Cycle 1's plants go there.**
+
+## [CYCLE 1 ADJUDICATION — 2026-10-24, orchestrator] 5.5, NOT CERTIFIED — the level is NOT resolved, and this is the family's fifth appearance
+
+Report: `meta/review/20261024T120140Z-CARD-276-cycle1.yml` (synced; `yaml.safe_load`
+OK; 5 findings, 3 gating). **Aggregate round counter: 3 of 6** — a fix round, its
+pre-gate and a cycle 2 all fit.
+
+The card asked one question and the cycle answered it with plants rather than
+reading: **the chain-LENGTH half is genuinely resolved and the edge holds; the
+KEY half is not.** Two shapes reach the real geometry door with a bare literal
+page position and the walk reports nothing, and both sit **exactly one level of
+indirection beyond the one this card closed** — which is this family's signature
+across all five attempts.
+
+### F-1 (Critical, gating) — reproduced here, first command
+
+`bound` (`:1928`) and `anchor_key` (`:2154`) key an attribute by **spelling
+alone**, across every receiver, class and scope. So
+`anchored_to_a_fixed_point` returns True for a spelling as soon as **one** binding
+occurrence of it resolves *anywhere in the module*, and the attribute branch at
+`:2455-2459` **`continue`s** — skipping the own-instance surface rule, the
+mechanism whose own comment (`:2029-2035`) claims it covers *"`setattr`,
+`__set_name__`, a metaclass … F-401's P1/P5/P8"*.
+
+```
+setattr-installed door, NO laundering occurrence      -> ('refusal',)
+the SAME door + one unrelated `self._d = <resolving>`  -> ()
+```
+
+**One unrelated resolving occurrence of the spelling, in a different class, is
+the whole difference.** Three further shapes share the mechanism and are all
+silent — a `__set_name__`+`setattr` install, a metaclass `__getattr__`, and a
+`__getattr__` installed by `setattr` — and the second of those is
+**`DOOR_SHAPES` row W29, a row this card asserts refuses, silenced by appending
+one assignment.**
+
+**And it corrects my brief exactly where I was most confident.** I named the
+mixed-key and externally-installed-door cases as the shapes to attack and
+predicted both would fail closed via `opaque`. The **mixed** key does — any
+opaque occurrence of the spelling refuses first, which is why laundering W28/W29
+by *adding* a resolving occurrence beside an opaque one fails. The
+**externally-installed-door** case does **not**, and it is **not R3** as the
+round reasoned: `setattr` creates no `ast.Store`, so the spelling's only
+occurrence is the resolving one and the receiver stays `self`. My prediction was
+wrong in the one direction that matters.
+
+### The accountability regression — the reviewer's substance is right and its wording is wrong, measured
+
+Cycle 1 said *"neither has any lever — exhaustive search over all 16
+`CALLEE_EXEMPTIONS` subsets … leaves both silent."* **Exhaustively re-measured
+with `_plant_refusals` (the attributing instrument) over every subset at both
+revisions:**
+
+| | subsets exposing the plant's own lines | minimal single drops |
+|---|---|---|
+| **fork point `c2cb8e3e`** (5 exemptions, 32 subsets) | **24** | `a callee anchored one step and no further`, `builtins` |
+| **HEAD `ced5e648`** (4 exemptions, 16 subsets) | **8** | `builtins` **only** |
+
+So a lever does survive at HEAD, and the finding's wording overstates. **But the
+substance is sharper than it claimed, not weaker:** the fork point had a lever
+that **names the mechanism** — `a callee anchored one step and no further`, i.e.
+`ONE_STEP_ANCHOR` — and this card **deleted that class**. HEAD's only surviving
+single-drop lever is `builtins`, which fires because **the plant's own three
+lines happen to call `getattr`**, not because anything can see a
+`setattr`-installed door. A lever that fires on an unrelated feature of the
+plant's text is not accountability for the door axis.
+
+**That is verbatim what CARD-262's own `ONE_STEP_ANCHOR` docstring recorded about
+"Fix 1"**: *"it was in no exemption list, cost nothing in the sequence below and
+no control could see it."* This card deleted the class — correctly, on cost — and
+left the silent pass that the class had been accidentally accounting for.
+
+### I nearly contradicted a correct Critical with a confounded instrument, and the card had warned me
+
+My **first** lever search dropped each exemption and read `_outcome`. It reported
+`('refusal',)` for **every** drop at both revisions, which reads as "levers
+everywhere, the finding is wrong". It is wrong because `_outcome` reads the
+**module's total** refusals, and this card's own `_plant_refusals` docstring
+(`:3709`) says so in as many words: *"removing `builtins` costs this module 251
+of its own and removing the external-attribute class 201, so an
+`== ("refusal",)` on the module's total is satisfied by the module and says
+nothing about the plant."*
+
+**This is the third time this session an instrument of mine answered a different
+question than the one I asked** — after CARD-218's Q5 (a mutant that tripped the
+guard in front of the one under test) and CARD-282's F4 (an absence verified
+against one spelling). Here it would have cost a true Critical its severity.
+Recorded as the pattern: **before reading a measurement as a contradiction,
+check that the instrument attributes to the thing in question.**
+
+### F-2 (Major, gating) — the terminal, and a second removed lever
+
+The closure's stated safety argument (`:2168-2173`, repeated in the card's §1) is
+*"a geometry door cannot stand at a `def`/`import` terminal without being
+spelled."* A **decorator** does exactly that: `@_mk def _deco_door(...)` where
+`_mk` returns `getattr(sys.modules[__name__], "book_page_" + _S)` puts the real
+imported door at a `def` with its name assembled. Resolved chain → **silent**.
+
+**And the lever is gone the same way:** the *direct* call is gated (dropping
+"definitions and imports" reds it), but one alias away the resolving branch
+`continue`s at `:2415` first and dropping that gate reds nothing. **A second R3
+lever that existed at the fork point and does not now.**
+
+Cycle 1 also measured that the naive symmetric `Name`-branch fix is **not** free
+— it breaks E1/E2 into the fall-through refusal. **So F-2's remedy needs design,
+and it is the half I expect to slip to a successor.**
+
+### F-3 (Major, gating) — AC-6's own deliverable, falsified
+
+The rewritten opening sentence — *"fails closed on the **whole** door axis"*,
+*"every `ast.Call` is refused unless this walk can positively anchor its
+callee"* — and the axis table's *"closed by CARD-276: the sentence is true
+again"* are both false under F-1 and F-2.
+
+The same paragraph says why that matters here more than anywhere: *"it was
+re-asserted as true twice while it was false, and a reader of the third version
+should be able to see what that cost."* **This diff is the third
+re-assertion.** AC-6 commissioned `test_no_docstring_names_a_test_that_does_not_exist`
+to stop prose drifting from mechanism, and the prose about the mechanism drifted
+in the same commit.
+
+### F-4 / F-5 (minor, non-gating)
+
+`REFERENCES_AT_LEAST`'s doc says the prose names "fifteen distinct controls";
+recomputed with the module's own resolver it is **17** (the floor of 14 is fine,
+and the card's §8 says 17 — only the rationale sentence is stale, **in the class
+built to catch stale prose**). And `MEASURED_BLIND_SPOTS`' VALUE row 2 enumerates
+three defeaters of `module_integers` and omits `len(_FRONT_MATTER_PAGES)`, which
+**this card's own §2 names** — measured silent, as are `int(3.0)` and four others.
+
+### My three rulings, answered
+
+* **Container-step bound: covered in substance, non-gating.** Q3 reproduced
+  exactly, and the shipped file already forestalls the claim I was guarding
+  against — `CALLEE_EXEMPTION_COST`'s doc (`:3182-3190`) states the 0 as *"not one
+  of this module's 816 calls reaches a callee key with an `anchored` binding
+  occurrence at all"*. Cycle 1 **verified that independently** by instrumenting
+  both anchored branches: **0 hits each over 816 `ast.Call` nodes.** One sentence
+  for the precision loss; do not gate it.
+* **Parametrise-per-row: holds.** 14 node ids in the two new classes including
+  `[I1]`…`[I7]` and `[E1]`/`[E2]`; whole file 104. Every cell count is
+  per-assertion-addressable.
+* **Zero-cost-class second half: holds.** Tuple empty, vacuity stated at
+  `:3209-3212`, and the sequence strictly drops at every step so the first
+  equality does carry the claim.
+
+### What checks out — and a negative result worth as much as a finding
+
+**Every committed figure reproduces in a second domain** (recomputed by calling
+`_page_positions` directly rather than through the tests): 760/509/203/201/0;
+blind spots 11 → 4, all `()`; 36/36 `DOOR_SHAPES`;
+`SILENT_WITHOUT_THE_DOOR_ARMS` 30; `SILENT_WITHOUT_ONE_ARM` 23 and **1**; 17
+prose references, 0 missing. **G-1** re-verified at 0 lines. **G-5 holds by AST
+extraction of each definition's exact source span** — not grep — all eight
+byte-identical, which is a better instrument than the one I used at the pre-gate.
+**G-7's letter holds**: no silent cap anywhere in the new mechanism. The M7 fix
+is sound.
+
+**And three of the shapes nobody had executed found nothing silent** — a
+decorator link *in the chain*, a `with … as` link, and a module-boundary chain
+**all refuse through `opaque`**. Cycle 1 recorded that as a useful negative
+result rather than padding, which is the right instinct and is noted here so a
+successor does not re-plant them.
+
+### What cycle 1 did not check
+
+The 393 s full-file run (the pre-gate established 104/0/0; it ran **419 passed, 0
+skipped** over the two new classes plus `tests/test_suite_profile.py`, which keeps
+trap 9 clear). No full suite; the lock was never taken, with CARD-282 concurrent.
+The CON-019 tripwires (G-2 holds structurally: one file, `src/` 0 lines).
+`kill_matrix.py` itself. The MODULE axis census equality.
+`SILENT_WITHOUT_ONE_ARM` row **membership** (counts only). And it **could not
+build a local-name-storage analogue of F-1**, and says why — which is a bound on
+the finding, not a gap in it.
