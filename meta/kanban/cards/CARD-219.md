@@ -1153,3 +1153,460 @@ by `retained_bitmap_bytes` returning a `Retention` split, which this card's own
 mandate assigns here; the added `_lru_cache_names` assertion is the ADR-0039/R3
 control the exemption requires. Nothing touches CARD-207's band-header split or
 CARD-208's clue boxes. **Agreed and recorded as settled.**
+## Worktree notes — fix round 1 (2026-10-24, wave 57)
+
+Cycle 1's five gating findings, in the brief's order. Every mechanism named in a
+claim has a mutant that **deletes** it below, and the two that could not be
+killed are recorded as mine rather than hidden.
+
+### FIX 1 — F-003, the agreement guard was blind to an alias
+
+`test_no_importer_defines_its_own_copy_of_a_shared_helper` now reads
+`_locally_defined_names(source)`: every `def`/`async def`/`class` **and** every
+`ast.Name` in a store context, at **any** depth, which is the grammar's own
+notion of a binding and therefore covers `x = ...`, `x: T = ...`, `x += ...`,
+`for x in ...`, `with ... as x` and `(x := ...)` without listing statement
+kinds. An `import ... as` binding is deliberately *not* a definition (it is an
+`ast.alias`, not a stored `Name`) — it is the spelling this module asks
+importers to use, nine names each in band and frame.
+
+The controls are the spellings the guard was **not** written from (ADR-0039/R1),
+paired against `_as_the_guard_first_read_it`, which is CARD-219's first reading
+written out again as the missed-WITHOUT arm:
+
+| row | caught now | missed before |
+|---|---|---|
+| faithful alias (cycle 1's F-003 mutant verbatim) | ✅ | ✅ |
+| annotated alias (`_case_of: object = None`) | ✅ | ✅ |
+| alias bound in a `try` | ✅ | ✅ |
+| alias bound in an `if` | ✅ | ✅ |
+| a method of a class | ✅ | ✅ |
+| a function inside a function | ✅ | ✅ |
+
+and three at the claim's **edge**, which must stay green in both readings: the
+sanctioned import alias, a near miss (`_case_of_the_band`), and an alias to
+something that is not a shared helper.
+
+**Depth-blindness has a cost and the docstring states it:** a local variable or
+a method that happens to carry a shared helper's name is reported too.
+Measured 2026-10-24 over the whole tree: zero such names, and the remedy in the
+message (rename it) is cheap.
+
+| # | deletes | reds | passes |
+|---|---|---|---|
+| A1 | the stored-`Name` arm (assignments) | 4 cells: faithful alias, annotated alias, alias in a try, alias in an if | 47 |
+| A2 | the any-depth walk (back to `tree.body`) | **all 6** caught rows | 45 |
+| A4 | vacuity: the clash reading reports every name | 3 edge rows + the real-tree guard | 45 |
+| **E3** | **cycle 1's F-003 mutant verbatim** — a faithful third copy of `_page_digest` appended to the real band file, every call site using it | `test_no_importer_defines_its_own_copy_of_a_shared_helper` | 90 |
+
+E3 is the one that matters: the same mutation was **65 passed, 0 cells** in
+cycle 1 and is now caught, in the real file, with nothing else disturbed.
+
+### FIX 2 — F-002, the denominator could not see an `autouse` fixture
+
+Both halves closed, each with a found-now/missed-before pair:
+
+* `_autouse_fixtures(namespace)` reads `.autouse` off the marker the module
+  already reads. An autouse fixture that (transitively) implies the shared
+  fixture makes **every test in its scope** a consumer, resolved per class
+  (module-level autouse covers the module; a class's own covers that class and
+  its nested classes).
+* `python_functions` / `python_classes` come from `config.getini` at the guard,
+  with `DEFAULT_FUNCTION_PATTERNS`/`DEFAULT_CLASS_PATTERNS` as the fallback for
+  callers with no config. pytest's matching is prefix **or** fnmatch, so both
+  arms are reproduced; `def testCamelCase(self, shared)` is now in the
+  denominator.
+
+| # | deletes | reds | passes |
+|---|---|---|---|
+| B1 | the `autouse` reading | `[autouse]`, `test_an_autouse_fixture_on_a_class_covers_only_that_class` | 49 |
+| B2 | the **guard's** `getini` (fall back to the defaults) | `test_the_guard_itself_reads_the_rules_off_the_config` | 50 |
+| B3a | the fnmatch arm of the name matching | `[glob]` parametrisation | 51 |
+| B3b | the prefix arm | 12 cells (every shape, both configured arms, the stub guard) | 40 |
+| B3c | pytest's glob-character condition on the fnmatch call | **SURVIVED, and the docstring says so** | 52 with the control that could not fail, 51 without it |
+| B4 | the patterns argument (hard-code `test_`/`Test`) | `[configured name prefix]`, both configured arms, the stub guard | 46 |
+
+**B3c is the second dead mechanism I found in my own work, and the control I
+first wrote for it could not fail either.** I had reasoned that `fnmatch` on a
+plain prefix would fold case on this filesystem and over-count the denominator,
+wrote a control asserting it does not, and the mutant survived: on POSIX
+`os.path.normcase` is the identity (measured), so `fnmatch` with a glob-free
+pattern is exact equality and the prefix arm already covers it. pytest's own
+reason for the condition is cost, not semantics — its comment says so. The
+unfailable control is deleted and the condition stays with "no mutant kills
+this" written next to it, because copying pytest's matcher exactly is still
+worth more than a matcher of mine that happens to agree.
+
+**B2 is the one worth reading.** Today's tree configures neither option, so a
+guard that went back to a hard-coded prefix would behave identically on it and
+no run over this tree could tell — the `getini` call was a mechanism no mutant
+could kill. `test_the_guard_itself_reads_the_rules_off_the_config` hands the
+guard a **stub request** whose config says `check`, in both directions, which is
+the only way to put the two apart. Without it I would have shipped a derived-set
+claim with no control, which is the CARD-225 shape.
+
+**Still not closed, as four numbered bounds in `declared_consumers`' own
+docstring** (the enumeration cycle 1 found incomplete — it did not mention
+autouse at all):
+
+1. `request.getfixturevalue` — the fixture name is a run-time expression; held
+   to zero across every importer instead, with its own failing control.
+2. a transitive chain whose middle link is defined outside the namespace (a
+   `conftest.py` or plugin fixture). The collected half does see it.
+3. **an `autouse` fixture defined outside the namespace** — a `conftest.py` or
+   plugin one. pytest resolves such a fixture's arguments against the
+   *requesting* item, so a `conftest.py` autouse fixture taking `pages` would
+   make every test in every module a consumer and this reading would not know.
+   Measured 2026-10-24: `tests/conftest.py` declares **no** autouse fixture, and
+   the four modules in this tree that do (`test_admin_serving.py`,
+   `test_admin_auth.py`, `test_card_037_upload_retry.py`,
+   `test_card_044_preview_after_submit.py`) declare theirs locally, where bound
+   1's arm reads them.
+4. a name bound into the namespace later than this reading runs
+   (`globals()[name] = ...` after import).
+
+The declared enumeration now matches reality: autouse is listed, in both
+directions (closed locally, open through a conftest), and nothing else changed
+about what the two halves can see.
+
+### FIX 3 — F-001, the retention walk's claim was universal and false
+
+**First, every universal phrasing is gone.** The three:
+
+1. `Retention.by_name`'s *"anything they reach, however deeply nested and
+   whatever form the pixels are in"*;
+2. `tests/test_book_pdf_band.py`'s *"a page parked anywhere that is not a
+   cache … reds"*;
+3. **the third, found as the brief asked:** `tests/test_book_puzzle_frame.py`'s
+   class docstring saying the control's subject and *everything this module
+   leaves behind* "happen to coincide" — a universal about all retention,
+   asserted from one walk plus one depth-8 probe. It now says two instruments
+   agree, names their shared blind side, and points at `_step`.
+
+`_step`'s own docstring is the single place the walk's reach is written down:
+the edges it follows and the edges it declines.
+
+**Then the widening — and it is smaller than the brief asked for, on purpose.**
+The brief said to enter `collections.abc.Collection` and an instance's `vars()`.
+I wrote exactly that, and **two of my own mutants survived**:
+
+| # | deletes | verdict |
+|---|---|---|
+| C6b | `types.FunctionType` from the `_OPAQUE` fence | **SURVIVED** — reading an instance with `vars()` never reaches `__globals__`, so the fence's function entry was dead |
+| C8 | the measured-leaf gate (`if bitmap_bytes(value): return []`) | **SURVIVED** — `gc.get_referents` returns `[]` for a numpy view *and* for an object array, so there was no `.base` edge for it to block |
+
+That is the M11/M11b shape this card already paid for once: several spellings of
+one exclusion, each making the others unnecessary. So the walk is now **the
+collector plus three edits**, and no container type is named anywhere in it:
+
+1. **the fence** — `_OPAQUE` (module, function, method, builtins) is not
+   entered. A function's referents include its `__globals__`, and a module *is*
+   a namespace.
+2. **the exemption** — an `@lru_cache` wrapper is entered on the `by_cache`
+   pass, and on the `by_name` pass **only when `namespace` does not name it**,
+   because an unnamed cache is nobody's declared allowance. The exemption is by
+   object id, not by name: a cache the walk meets inside a container has no
+   module-level name, so a name-based skip would have exempted it silently.
+3. **classes** — read with `vars()`, dunders excluded, when `python_classes`
+   would collect the name or the module being walked defined it.
+
+Everything else is one `gc.get_referents` call. That closes the three channels
+cycle 1 measured at 0 B, plus `__slots__` for free, and makes the fence
+load-bearing:
+
+| # | deletes | reds | passes |
+|---|---|---|---|
+| C1 | the collector fallback (every other edge) | **11 cells**: `[lru_cache store]`, `[nested two deep]`, `[deque]`, `[instance attribute]`, `[slotted instance]`, `[unnamed lru_cache]`, 3 exemption controls, **and both real files'** `test_no_module_level_accumulator_retains_a_page_bitmap` | 180 |
+| C3 | the routing of an unnamed cache into `by_name` | `[unnamed lru_cache]` | 190 |
+| C4 | the exemption itself (enter every cache) | 2 exemption controls + **band's real control** | 188 |
+| C5 | the module's-own-class arm | `[a plain class of the module's own]` | 50 |
+| C5b | the `python_classes` arm of the class edge | `[Test class attribute]` | 50 |
+| C6a | `ModuleType` out of the fence | `test_the_walk_does_not_leave_the_module_s_own_data`, `[an instance holding a module]` | 49 |
+| C6b | `FunctionType` out of the fence (**after** the collapse) | **7 cells**, incl. `[a function's own globals]` and three exemption controls | 44 |
+| C7 | the declared bound closed (enter every class) | `[an imported class]` — the bound's own control fails when the bound closes | 50 |
+| C9 | vacuity: the `_SCALAR` short-circuit | **SURVIVED, and the docstring says so** — the collector reports no referents for those types either, so it is a frontier-length optimisation and not a mechanism. Recorded as dead rather than claimed. |
+
+**The fence, extended as the brief required.** The old
+`test_the_walk_does_not_leave_the_module_s_own_data` is unchanged (same node
+id), and `test_the_fence_holds_at_each_edge_that_could_leave_it` adds three
+arms, one per edge, parametrised rather than three asserts in one body — a
+plain pass stops at its first failure, so three arms in one test would make a
+surviving mechanism and an unreached assert look identical. Both carriers
+really hold a page (a probe module with a page in its namespace; a function
+compiled into a globals dict holding one), because pointing them at this module
+would have made them **unfailable** — the F-005 shape, avoided by construction
+and proved by C6a/C6b/C7 killing one arm each.
+
+**Still not closed, declared in `_step`:**
+
+* a class attribute of an **imported** class whose name no pattern collects
+  (edit 3's bound; its own control is `[an imported class]`, which C7 kills);
+* anything reachable only through a function, a method or a module (the fence,
+  deliberately);
+* a numpy array's contents — a view's uncropped `.base` and an object-dtype
+  array's elements. **Not a choice but a measured limit:**
+  `gc.get_referents` returns `[]` for both, which
+  `test_the_bound_on_a_numpy_arrays_contents_is_the_collectors` asserts as the
+  premise, so the day numpy changes it, the bound reds and can be closed;
+* anything a C extension exposes to neither the collector nor `vars()`.
+
+**Band's and frame's figures are unchanged by the widening**, measured through
+the same session-end instrument before and after: band `by_name`
+`_SHARED_SNOWFLAKE_DIGEST` 256 B, `by_cache` `_font_bytes` 757,076 B and
+`_set_once` 24,435,107 B; frame 320 B and no cache. The collapse to the
+collector reproduces all four figures to the byte through a different code
+path.
+
+### The open question cycle 1 named and did not answer: the exemption's unit
+
+Answered by measurement, not by argument. At session end on 2026-10-24,
+`_set_once`'s 666 cached values are **all `dtype('bool')`** — cropped ink
+masks at one byte a **cell**, while a page of this book is 2550x3300 **RGB** at
+three bytes a **pixel**. So "0.9979 of a page bitmap", which three docstrings
+carried, divided 1-byte cells by 3-byte pixels. Every instance of that ratio is
+gone; the figures stay, in the one unit the instrument has — *bytes of image or
+array memory*.
+
+**And the figure is not the ceiling it reads like.** Each cached mask is a numpy
+**view** of an uncropped mask (`_cropped` is a basic slice), and the 666
+distinct bases those views keep alive measure **110,882,067 B — 4.5x the
+24,435,107 B reported**. The walk cannot see them (the collector offers no
+edge), so this is a declared bound with an asserted premise rather than a
+silent one. The exemption's *mechanism* is untouched, as the brief required;
+only what its number means is now written down.
+
+### FIX 4 — F-004 + F-006, one class: a converted test claiming a tie it does not have
+
+**Every one of the seven converted tests was checked, not the two cycle 1
+found.** Five made no tie claim and now say which terms they cover; two
+claimed a tie they do not have and are narrowed:
+
+| converted test | claim before | claim after |
+|---|---|---|
+| `…MatchTheWalk::test_each_row_points_at_the_page_the_walk_planned` | "Both are pure and neither draws; **an off-by-one in either reds this**." | names the two terms it covers (`page_count`, `answer_page_count`), states that the third term the pre-conversion test covered — `first_answer_page` — leaves it **green**, with the 4-vs-3 measurement and the mechanical reason |
+| `…KdpAgrees::test_a_hundred_and_fifty_puzzles_take_one_toc_page` | "the same call at the same two arguments. **The two agreeing is what the drawn count used to witness**" | states that `section_plan` (`src:6450`) makes the same call so the pair is not independent, and narrows the claim to the two unshared terms (`structural_toc_entry_count` against `structural_toc_entries`, and the frame/`dpi`) |
+| `…KdpAgrees::test_kdp_reports_the_same_toc_length_the_export_wrote` | "the two totals agreeing is **exactly** the statement that they agree about the TOC" | narrowed to what it is: the two **call sites** (`book_kdp.py:544`, `book_pdf_generator.py:6450`) agree, which is one arithmetic called twice — so it says nothing about whether that arithmetic is right (the second assertion is what does), and "wrote" now means "planned to write" |
+| `…ListsSections::test_the_rows_are_exactly_the_books_sections` | — | names `_rows_of`'s eleven tests for the builder/drawing tie and `DRAWN_TIE_CARRIERS` for the plan/pixel one |
+| `…ListsSections::test_no_row_names_an_individual_puzzle` | — | same |
+| `…RangeRows::test_the_three_ranges_are_the_cards_own_sample` | — | same |
+| `…RangeRows::test_the_ranges_tile_the_book_with_no_gap_or_overlap` | — | same |
+
+`_solutions_divider_page` now says in its first sentence that it **re-spells a
+production term**, names `first_answer_page` (`src:6718`-`:6720`, used by
+production at `:6786`), records 4 cells on base against 3 here, and says why it
+is re-spelled rather than read (the term is on no returned value).
+`_planned_rows` states the two ties a plan reading gives up.
+
+**The fence, as a test and not as prose.** `DRAWN_TIE_CARRIERS` is a
+module-level constant naming the three node ids, and
+`tests/test_book_toc.py::test_the_drawn_tie_is_still_carried_here` (the one node
+id this round adds to an in-scope file) holds each one to (a) resolving on the
+module and (b) still reaching a drawn page by one of
+`DRAWN_PAGE_IDIOMS = ("_rows_of", "_same_page", "rendered")`. The second is a
+name check and not a proof, and says so, but it reds on the edit that matters.
+
+**Both pairs re-measured, in both arms, with the fork point's own copy of the
+file placed by `git show` and `src` restored from a pristine copy kept outside
+the worktree:**
+
+| mutant | base (`808cf51f` tests) | HEAD | lost |
+|---|---|---|---|
+| M29 (`:6923`, `range(toc_page_count + 1)`) | **21 failed + 4 errors** | **14 failed + 4 errors** | exactly the seven converted tests, name for name |
+| Q6/M15 (`:6718`, `first_answer_page + 1`) | **4 failed** | **3 failed** | `test_each_row_points_at_the_page_the_walk_planned` |
+
+Cycle 1's figures reproduce to the cell. **One correction to cycle 1's reading:**
+under M29 the four `TestBookToc_PageNumbersSurviveTheTitlePage` node ids are
+**errors, not failures**, in both arms — their shared rendering fixture raises
+before any assertion. An error is a kill and not a pass, but it is not a failure
+cell, so of the three carriers two kill M29 by erroring and one
+(`test_the_named_pages_really_are_those_pages`) by failing. The brief's phrasing
+"the 7 lost are exactly the seven converted tests" is confirmed; "the
+`PageNumbersSurviveTheTitlePage` renders are among the 14" would not have been,
+and the docstring says what is actually true.
+
+| # | deletes | reds | passes |
+|---|---|---|---|
+| E4 | a carrier pruned (renamed) away | `test_the_drawn_tie_is_still_carried_here` | 53 |
+| E5 | a carrier converted to a plan reading (`_rows_of` → `_planned_rows`) | `test_the_drawn_tie_is_still_carried_here` | 53 |
+
+**Raised, not made (G-5).** `interior_stream` computes `toc_entries` (`:6786`)
+and `first_answer_page` (`:6718`) locally and `InteriorStream` carries neither.
+Exposing them would make the solutions-row claim direct and would let
+`test_each_row_points_at_the_page_the_walk_planned` cover the term it lost. It
+is a `src/` change this card may not make, and per cycle 1's ruling it is a
+**successor card to CARD-219**, not CARD-220's (which has no `src` mandate).
+
+### FIX 5 — F-005, an unfailable conjunct
+
+Band's `set(retained.by_cache) <= _lru_cache_names(globals())` is deleted: both
+sides come from `_caches_of` on the same namespace, so the subset holds by
+construction. The failable sibling (`caches == {"_font_bytes", "_set_once"}`)
+stays.
+
+**The brief asked me to check the frame file and the shared home for others of
+the shape, and frame had one.** `retained.by_cache == {}` beside
+`_lru_cache_names(globals()) == set()`: `by_cache` is built *from*
+`_caches_of`, so an empty name set makes it empty by construction. Deleted; the
+name-set equality stays. Audited the rest of the new code for the same shape:
+the control module's remaining multi-conjunct asserts
+(`test_the_exemption_admits_exactly_the_cache_stores`,
+`test_the_walk_does_not_leave…`, `test_the_two_halves_do_not_double_count`,
+the fence arms) are each failable in both halves — C1/C4/C6a/C6b/C7 kill one
+half or the other.
+
+| # | adds | reds | passes |
+|---|---|---|---|
+| E1 | a third `@lru_cache` in band | band's `test_no_module_level_accumulator_retains_a_page_bitmap` (the kept conjunct) | 90 |
+| E2 | an `@lru_cache` in frame, whose allowance is empty | frame's `test_no_module_level_accumulator_retains_a_page_bitmap` | 150 |
+
+### The gate
+
+* **Impact set** (the eleven files): **991 passed, 0 failed, 0 skipped** in
+  73.96 s, against the brief's 964 baseline (+27 = +26 in the control module,
+  +1 in `test_book_toc.py`). Every skip attributed by name: there are none.
+* **The denominator closures are a measured no-op on today's tree**, which is
+  what cycle 1 said they would be (the false negative is latent, not live):
+  declared = collected = **22 / 8 / 4** for frame's `pages`, band's
+  `snowflake_interior` and band's `page`, with `declared - collected` empty in
+  all three — the same figures CARD-218 cycle 2 recorded, now through a reading
+  that also sees `autouse` and the configured name prefix. So nothing in either
+  file is over-counted by the widening.
+* **AC-4**: the six in-scope files collect **260** node ids against the fork
+  point's **259** — the set difference is one-directional: **removals 0**, one
+  addition, `tests/test_book_toc.py::test_the_drawn_tie_is_still_carried_here`
+  (FIX 4's fence).
+* **Additions, each named**: `tests/test_shared_fixture_controls.py` 25 → 51
+  (+26) and `tests/test_book_toc.py` 53 → 54 (+1,
+  `test_the_drawn_tie_is_still_carried_here`). The 26:
+  `TheCopiesCannotComeBack` +9 (6 caught spellings, 3 edge rows),
+  `TheDenominatorSeesEveryConsumerShape` +2 (`[autouse]`,
+  `[configured name prefix]`), `TheCollectedNameRulesComeFromTheConfig` +6 (new
+  class: fallback-vs-config, 2 configured arms, the stub guard, 2 autouse
+  scoping controls), `TheRetentionWalkSeesEveryChannel` +8 (4 channels:
+  `[deque]`, `[instance attribute]`, `[slotted instance]`,
+  `[unnamed lru_cache]`, `[a plain class of the module's own]` — 5 — plus 3
+  fence arms), `TheCacheAllowanceIsAnExemptionWithAControl` +1 (the numpy
+  bound).
+* **G-5**: `git diff 808cf51f..HEAD -- src/` is empty. `src/` mutants were
+  applied to the worktree and restored from a pristine copy outside it;
+  sha256 verified identical afterwards.
+* **G-2**: no test deleted, renamed, skipped or merged. The two redundant
+  per-file `getfixturevalue` tests are still there.
+* **Trap 9**: `tests/helpers/shared_fixture_controls.py` and
+  `tests/test_shared_fixture_controls.py` name **0** of the eight render
+  idioms. `tests/test_book_toc.py` went 25 → 27 mentions (two more
+  `interior_stream` in prose), so its membership in the grep set is unchanged;
+  `test_suite_profile.py` passes inside the gate.
+
+## [FIX ROUND 1 PRE-GATE on `f418f3e6` — 2026-10-24, orchestrator] PASSED
+
+Clean this time, and the verdict is a flat PASSED because the one thing the last
+pre-gate had to route onward is closed and nothing new is open.
+
+### Cycle 1's three gating mechanisms, re-run with MY OWN unchanged instruments
+
+Not the round's mutants — the exact probes I used to reproduce cycle 1 before
+authorising the round, re-pointed at `f418f3e6` without a character changed. That
+is the only arrangement in which "fixed" means something, because an instrument
+rewritten alongside the fix measures the fix's opinion of itself.
+
+| finding | at cycle 1 | at `f418f3e6` |
+|---|---|---|
+| **F-003** — a **faithful** third `_page_digest` appended to the real band file, bound by alias, every call site using it | **65 passed, 0 cells** | **reds `TestSharedControls_TheCopiesCannotComeBack::test_no_importer_defines_its_own_copy_of_a_shared_helper`** ✅ |
+| **F-002a** — `declared_consumers(globals(), "shared")` with an `autouse` consumer | **`[]`** (while pytest's own `fixturenames` said `True`) | **`['TestProbe_A::test_one', 'TestProbe_A::test_two', 'test_what_the_two_halves_see']`** ✅ |
+| **F-002b** — the consequence: the DECLINE under `-k one_render_served`, 2 deselected | **1 passed** — the control passed with `_RENDERS=[1]`, no refusal | **1 failed** at `shared_fixture_controls.py:554` ✅ |
+| **F-001** — the retention walk asked directly about six hiding places | **3 of 6 invisible** (75,735,000 B hideable) | **6 of 6 SEEN** ✅ |
+
+F-001's table in full, each at 25,245,000 B — and note the fourth row, which
+**nobody asked for**: the round replaced the type-by-type walk with the
+collector plus three edits, and `__slots__` closed as a side effect, which is
+the shape of a real fix rather than a patched enumeration.
+
+| where a page is parked | cycle 1 | now |
+|---|---|---|
+| instance `__dict__` (plain non-`Test` object) | 0 B | **25,245,000 B** |
+| `collections.deque` | 0 B | **25,245,000 B** |
+| `@lru_cache` bound inside a list, never named | 0 B | **25,245,000 B** |
+| `__slots__` instance (**not in any finding**) | — | **25,245,000 B** |
+| `Test*` class attribute | 25,245,000 B | 25,245,000 B |
+| plain list | 25,245,000 B | 25,245,000 B |
+
+### The gate, AC-4, and G-5
+
+* **Impact set, eleven files: 991 passed, 0 failed, 0 skipped**, 77.37 s. Baseline
+  964 + 27. **Zero `SKIPPED` lines**, so there is nothing to attribute — the
+  `DATABASE_URL` skip at `tests/conftest.py:207` never fires in this set.
+* **AC-4 over the six in-scope files: 260 collected against the fork point's 259.
+  Removals 0.** The single addition is named: `tests/test_book_toc.py::test_the_drawn_tie_is_still_carried_here`, FIX 4's fence. The control module went 25 → **51**.
+* **G-5: `git diff 808cf51f..HEAD -- src/` is 0 lines.** Verified by me, not taken
+  from the report. Working tree holds **only** the modified card.
+* **No mutant residue.** The round flagged that a cancelled mutation run had left
+  a mutant in the tree and reverted a later edit; it says it repaired both. I
+  grepped for every marker either of us used — the only hits are
+  `_probe_own_digest` **inside string literals in the new control module**, which
+  is the fixture source for the alias controls, not live code. Clean.
+
+### The round's own best finding, verified to the byte — and it corrects two cards
+
+Cycle 1 asked whether `_set_once`'s boolean ink masks are the right unit for the
+exemption's 24,435,107 B. They are not, and the answer is worse than a unit slip.
+Measured independently at session end over `tests/test_book_pdf_band.py`:
+
+```
+currsize: 666    values_found: 666    dtypes: {'bool': 666}
+direct_nbytes:  24,435,107      distinct_bases: 666
+base_nbytes:   110,882,067      → 4.54x
+```
+
+1. **The unit was apples to oranges.** All 666 values are `dtype('bool')` —
+   cropped ink masks at **one byte a cell** — while a page bitmap is 2550×3300
+   **RGB at three bytes a pixel**. So **"0.9979 of one page bitmap", a figure
+   CARD-218's card, this card and the backlog all quoted, divided 1-byte cells by
+   3-byte pixels.**
+2. **And 24.4 MB is not the retention — it is the part of it the views can see.**
+   Each cached mask is a numpy **view**; its 666 distinct bases hold
+   **110,882,067 B**. The floor this one test module charges every full suite is
+   **~111 MB**, because `maxsize=None` keyed by page geometry holds whole
+   uncropped arrays to serve cropped slices of them.
+
+**Neither CARD-218 nor this card is falsified**, and the reason is a decision I
+argued for against CARD-218's cycle 2: both exemption controls ask **which cache
+names** are exempt and **never how many bytes**. A byte-valued control would have
+been wrong by 4.5× and nobody would have known. Backlog item corrected (`be17e42d`)
+with the remedy that falls out of it — storing a `.copy()` of the crop cuts 78 %
+before any bound is considered. Still pre-existing; still not this card's.
+
+### Three mutants survived, all three declared, and two were the round's own dead mechanisms
+
+This is the part I would have gated on if the round had hidden it, so it is
+recorded as the round's credit rather than buried:
+
+* **B3c** — the round copied pytest's glob-character condition onto the
+  `fnmatch` call and justified it by case-folding. Wrong: `os.path.normcase` is
+  the identity on POSIX, so `fnmatch` on a glob-free pattern is exact equality,
+  which the prefix arm already covers. **The mutant survived AND the control the
+  round wrote to kill it passed either way** — the exact F-005 unfailable-conjunct
+  shape it had just been sent to delete. Control deleted; the condition kept with
+  "no mutant kills this, pytest's reason is cost" written beside it.
+* **C9** (`_SCALAR` short-circuit) — same treatment, recorded as a
+  frontier-length optimisation and not a mechanism.
+* **C8 / C6b** — the brief's own FIX 3 prescription ("enter `abc.Collection` and
+  an instance's `vars()`") **produced two mechanisms that could not fail**:
+  reading an instance with `vars()` never reaches `__globals__`, so the fence's
+  `FunctionType` entry was dead, and `gc.get_referents` returns `[]` for both a
+  numpy view and an object array, so the measured-leaf gate had no `.base` edge to
+  block. **My prescription was the defect**; the round replaced it with the
+  collector plus three edits, which makes the fence load-bearing (7 cells), closes
+  `__slots__` for free, and reproduces band's and frame's figures to the byte
+  through a different code path.
+
+### And one correction to cycle 1 that I accept
+
+The four `TestBookToc_PageNumbersSurviveTheTitlePage` node ids in the M29 arms are
+**errors, not failure cells**, in *both* arms — their shared rendering fixture
+raises before any assertion. An error is still a kill, so M29 remains killed and
+the 21-vs-14 counts stand. But "those renders are among the 14 failure cells"
+would have been a false claim, and two of the three fenced carriers now say they
+kill M29 **by erroring** and one **by failing**. Exactly the distinction this
+board's "an exit code is not a verdict; the failure cells are" rule exists for,
+caught one level deeper than the rule states it.
