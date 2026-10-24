@@ -3189,18 +3189,24 @@ class TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind:
 
     **Scope, stated as the measurement rather than as a universal.** This
     control's subject is the module-level accumulators
-    :func:`_retained_bitmap_bytes` walks — not everything this module leaves
-    behind. Here the two happen to coincide, and that is measured rather than
-    assumed: an independent deep walk to depth 8 over this module at session
-    end on 2026-10-24 returns **320 B**, all of it :data:`_SHARED_DIGEST`,
-    equal to what this instrument reports, and this file has **no**
-    ``@lru_cache`` at all. Its twin ``tests/test_book_pdf_band.py`` is the
-    file where the two figures diverge — 256 B of accumulator against
-    25,192,439 B really retained, the difference being two pre-existing
-    ``@lru_cache(maxsize=None)`` stores that predate CARD-218 (25,192,183 B at
-    the fork point ``c7cca514``) and are backlogged. The equality below is
-    stated so that if this file ever grows such a channel, the claim does not
-    silently widen to cover it.
+    :func:`_retained_bitmap_bytes` walks, along the edges that walk follows —
+    **not everything this module leaves behind**, and CARD-219's fix round
+    withdrew the sentence that said the two "happen to coincide" here. Two
+    instruments agree, which is a smaller statement and the true one: an
+    independent deep walk to depth 8 over this module at session end on
+    2026-10-24 returns **320 B**, all of it :data:`_SHARED_DIGEST`, equal to
+    what this instrument reports, and this file has **no** ``@lru_cache`` at
+    all. Both walks have a blind side —
+    ``shared_fixture_controls._step`` lists the edges this one declines, among
+    them a class attribute of an imported class and a numpy view's uncropped
+    base — so "equal to 320 B" means equal as far as two readings can see, not
+    "nothing else is retained". Its twin
+    ``tests/test_book_pdf_band.py`` is the file where the two figures diverge
+    — 256 B of accumulator against 25,192,439 B found by the walk, the
+    difference being two pre-existing ``@lru_cache(maxsize=None)`` stores that
+    predate CARD-218 (25,192,183 B at the fork point ``c7cca514``) and are
+    backlogged. The equality below is stated so that if this file ever grows
+    such a channel, the claim does not silently widen to cover it.
 
     This control is **selection-independent** — unlike the render-count
     controls below it, it needs no denominator: whatever ran, an accumulator
@@ -3259,14 +3265,19 @@ class TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind:
         accumulator is now worth.
 
         **CARD-219 widened the walk under it.** :func:`_retained_bitmap_bytes`
-        now follows numpy arrays, containers at any depth, ``Test`` class
-        attributes and ``@lru_cache`` stores, so the three channels this
-        module's old instrument could only declare — numpy, class attributes,
-        deep nesting — are inside the equality above rather than beside it, and
-        a page retained any of those ways reds here. The second assertion is
-        the exemption's control from the other side: this file has **no**
-        ``@lru_cache`` at all, so its allowance is empty, and the day it grows
-        one the allowance has to be granted deliberately instead of appearing.
+        asks the garbage collector what every value refers to, fenced off from
+        modules, functions and methods, so the three channels this module's old
+        instrument could only declare — numpy arrays, ``Test`` class
+        attributes, deep nesting — and the three CARD-219's cycle 1 found still
+        open — a deque, an instance's own attributes, a cache nothing named —
+        are inside the equality above rather than beside it. It
+        is a **bounded** reading all the same: ``_step``'s own docstring is the
+        authority on which edges it follows and which it declines, and a page
+        parked behind a declined edge does not red this. The second assertion
+        is the exemption's control from the other side: this file declares
+        **no** ``@lru_cache`` at all, so its allowance is empty, and the day it
+        grows one the allowance has to be granted deliberately instead of
+        appearing.
         """
         digest_bytes = 32
         unit = _bitmap_bytes(pages[0])
@@ -3296,15 +3307,20 @@ class TestPuzzleFrame_TheSharedRenderLeavesNoBitmapBehind:
             "containers, Test-class attributes and `@lru_cache` stores, so "
             "this no longer excuses any of them."
         )
-        assert _lru_cache_names(globals()) == set() and retained.by_cache == {}, (
+        # One conjunct, because the other could not fail: `by_cache` is built
+        # from `_caches_of` on this namespace, so an empty `_lru_cache_names`
+        # makes `retained.by_cache == {}` true by construction. The name set
+        # is the failable half (CARD-219 cycle 1, F-005 — the same shape
+        # CARD-218's cycle 2 deleted, shipped again beside its twin).
+        assert _lru_cache_names(globals()) == set(), (
             "this module has grown an `@lru_cache`, and a cache store is the "
             "one channel the equality above exempts: "
             f"{sorted(_lru_cache_names(globals()))} declared, "
-            f"{retained.by_cache} holding page bytes. Its twin "
-            "`tests/test_book_pdf_band.py` has two such caches holding 0.9979 "
-            "of a page bitmap and names them as a deliberate allowance; this "
-            "file had none, so the allowance here is empty and a new cache "
-            "must be admitted on purpose rather than by arriving."
+            f"{retained.by_cache} holding measurable bytes. Its twin "
+            "`tests/test_book_pdf_band.py` has two such caches holding "
+            "25,192,183 B and names them as a deliberate allowance; this file "
+            "had none, so the allowance here is empty and a new cache must be "
+            "admitted on purpose rather than by arriving."
         )
 
 

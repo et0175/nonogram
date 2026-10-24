@@ -1697,7 +1697,7 @@ class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
     the digest: :data:`_FIFTH_RULE_RENDERS` is walked by the same instrument
     and holds tuples of three ints, which is why it was never implicated. It
     is *not* a statement about everything this module leaves behind. Measured
-    at session end on 2026-10-24, what this file really retains is:
+    at session end on 2026-10-24, what the walk finds this file retaining is:
 
         _set_once   lru_cache(maxsize=None), currsize 666 → 24,435,107 B
         _font_bytes lru_cache(maxsize=None), currsize 1   →    757,076 B
@@ -1705,17 +1705,30 @@ class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
         ---------------------------------------------------------------
         total                                                25,192,439 B
 
-    i.e. 0.9979 page bitmaps, of which **the accumulator is 256 B and the two
-    caches are everything else**. That retention is **pre-existing and not
-    this card's**: the same walk against this file at the fork point
-    ``c7cca514`` gives **25,192,183 B** — identical but for the 256 B of new
-    digest — and both ``@lru_cache(maxsize=None)`` decorators are already
-    there, at ``:1111`` and ``:1116`` of that revision. The caches are out of
-    this control's scope, and it claims nothing about them; ``_set_once``'s
-    unbounded cache holding 24.4 MB for the rest of every session is
-    backlogged in its own right (cycle 2, F-001). This docstring records the
-    figure so the next reader measures from it instead of from a bound that
-    was 0.21 % away from the truth.
+    of which **the accumulator is 256 B and the two caches are everything
+    else**. That retention is **pre-existing and not this card's**: the same
+    walk against this file at the fork point ``c7cca514`` gives
+    **25,192,183 B** — identical but for the 256 B of new digest — and both
+    ``@lru_cache(maxsize=None)`` decorators are already there, at ``:1111``
+    and ``:1116`` of that revision. The caches are out of this control's
+    scope, and it claims nothing about them; ``_set_once``'s unbounded cache
+    is backlogged in its own right (cycle 2, F-001).
+
+    **Those bytes are not page-bitmap bytes, and CARD-219's fix round stopped
+    dividing them into one another.** This docstring used to call the caches
+    "0.9979 page bitmaps". A page here is 2550x3300 **RGB**, three bytes a
+    pixel; ``_set_once`` caches cropped **boolean ink masks**, one byte a cell
+    (measured 2026-10-24: all 666 cached values are ``dtype('bool')``), and
+    ``_font_bytes`` holds a TrueType file. One byte of mask is not one byte of
+    page, so the ratio compared two units and is gone — the figures above are
+    in the one unit the instrument has, *bytes of image or array memory*. Nor
+    is 24,435,107 B the ceiling it reads like: each cached mask is a numpy
+    **view** of an uncropped mask, and the 666 distinct bases those views keep
+    alive hold **110,882,067 B**, 4.5x the figure above, through an edge the
+    walk declines (it never descends into something it has already measured).
+    Both numbers belong to that backlogged cache and neither is this card's to
+    fix; the larger one is recorded here because the smaller one was being
+    read as a bound.
 
     This control is **selection-independent** — unlike the render-count
     controls below it, it needs no denominator: whatever ran, an accumulator
@@ -1777,19 +1790,32 @@ class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
         accumulator is now worth.
 
         **CARD-219 widened the walk under it, and with it the exemption.**
-        :func:`_retained_bitmap_bytes` now follows numpy arrays, containers at
-        any depth, ``Test`` class attributes and ``@lru_cache`` stores, so the
-        equality above covers three channels CARD-218 could only declare. The
-        fourth is the one this module has, and it is held apart rather than
-        absorbed: the two pre-existing caches hold 0.9979 of a page bitmap
+        :func:`_retained_bitmap_bytes` asks the garbage collector what every
+        value refers to, fenced off from modules, functions and methods, with
+        the ``@lru_cache`` exemption and the class rule as its only other
+        edits, so the equality above covers the three channels CARD-218 could
+        only declare and the three more CARD-219's cycle 1 found still open. **It
+        is a bounded reading and not a universal**, and the authority on which
+        edges it follows and which it declines is
+        ``shared_fixture_controls._step``'s own docstring — this one used to
+        say "a page parked anywhere that is not a cache … reds", which was
+        false three ways at once (cycle 1, F-001: an instance attribute, a
+        deque and a cache inside a list each held a 25,245,000 B page and
+        measured 0 B). Read that list before concluding this control covers a
+        new hiding place.
+
+        The fourth channel is the one this module has, and it is held apart
+        rather than absorbed: the two pre-existing caches hold 25,192,183 B
         between them, so adding them to the total would have forced the bound
-        up to where nothing else is checked either. The second assertion is the
-        exemption's own control (ADR-0039/R3) — the allowance covers exactly
-        the names ``functools`` made caches of, so a third cache, or a page
-        parked anywhere that is not a cache, lands in the equality above and
-        reds. It asks *which* names and never how many bytes, because a
-        cache's ``currsize`` depends on content and on selection and this
-        control's claim does not.
+        up to where nothing else is checked either. The second assertion is
+        the exemption's own control (ADR-0039/R3): the allowance is granted to
+        exactly the two names ``functools`` made caches of **and asked for by
+        name**, so a third cache reds here. It asks *which* names and never
+        how many bytes, because a cache's ``currsize`` depends on content and
+        on selection and this control's claim does not. A cache the walk meets
+        that this module does not name at all is not in the allowance at all —
+        its contents land in the equality above, where an unnamed allowance
+        belongs.
         """
         digest_bytes = 32
         unit = _bitmap_bytes(snowflake_interior[0])
@@ -1820,19 +1846,25 @@ class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
             "docstring, which measures them at 25,192,183 B and leaves them "
             "to their own card."
         )
+        # One conjunct, because the other could not fail. CARD-219 shipped
+        # `set(retained.by_cache) <= caches` beside this, and both sides of it
+        # come from `_caches_of` on this same namespace — `by_cache` is built
+        # *from* those names, so the subset holds by construction (cycle 1,
+        # F-005; CARD-218's cycle 2 deleted the same shape). The named-set
+        # equality below is the failable half and it did bite in cycle 1's spy
+        # arm, so it is what stays.
         caches = _lru_cache_names(globals())
-        assert caches == {"_font_bytes", "_set_once"} and set(
-            retained.by_cache
-        ) <= caches, (
+        assert caches == {"_font_bytes", "_set_once"}, (
             "the retention allowance is granted to exactly the two "
             "`@lru_cache` stores this module had before CARD-218 "
-            "(`_font_bytes`, `_set_once`, together 0.9979 of a page bitmap and "
-            "backlogged in their own right), and this module now declares "
-            f"{sorted(caches)} with {sorted(retained.by_cache)} holding page "
-            "bytes. A new cache is not covered by that allowance: either it "
-            "holds no page bitmap, in which case give it its own named "
-            "exemption here, or it does, in which case it is the retention "
-            "this control exists to refuse."
+            "(`_font_bytes`, `_set_once`, together 25,192,183 B of boolean "
+            "ink masks and font bytes, backlogged in their own right), and "
+            f"this module now declares {sorted(caches)}, with "
+            f"{sorted(retained.by_cache)} of them holding measurable bytes. A "
+            "new cache is not covered by that allowance: either it holds no "
+            "page bitmap, in which case give it its own named exemption here, "
+            "or it does, in which case it is the retention this control "
+            "exists to refuse."
         )
 
 
