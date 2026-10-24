@@ -47,6 +47,7 @@ so the two agree on where the grid is before either measures anything in it.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import inspect
 import random
@@ -54,6 +55,7 @@ from collections import Counter
 from functools import lru_cache
 from importlib import resources
 from io import BytesIO
+from pathlib import Path
 from typing import Iterable, Iterator, NamedTuple, Sequence
 
 import numpy as np
@@ -312,7 +314,8 @@ def snowflake_interior() -> list[Image.Image]:
 #: A list rather than a module-level rebinding, so the control cannot pass by
 #: reading a name the fixture never set — and a *digest* rather than the bytes,
 #: because this list outlives the fixture (see :func:`_page_digest`, and the
-#: retention control at the end of this file that holds it to one page bitmap).
+#: retention control at the end of this file, which holds every module-level
+#: accumulator of this file to exactly 32 B per page of the book it signed).
 _SHARED_SNOWFLAKE_DIGEST: list[bytes] = []
 
 
@@ -1737,6 +1740,53 @@ def _refuse_unless_nothing_takes_it_later(
     )
 
 
+def test_no_test_in_this_module_takes_a_fixture_through_getfixturevalue() -> None:
+    """The one consumer shape *both* guards above are blind to, held to zero.
+
+    :func:`_declared_consumers` reads signatures and
+    :func:`_consumers_among` reads ``item.fixturenames``; a test that takes
+    the shared render with ``request.getfixturevalue("snowflake_interior")``
+    appears in neither, so it is in no denominator and in no later-consumer
+    set. Cycle 2 measured the consequence with one mutation drawn two ways: a
+    late class putting a 9 px line on ``snowflake_interior[0]`` is **caught**
+    (2 failed) when it takes the fixture as a parameter and **missed**
+    (40 passed, 0 cells) when it takes it that way. The idiom is live in this
+    tree — 9 sites, one of them ``tests/test_puzzle_solver_page.py:671``,
+    ``return request.getfixturevalue("page")``, the same fixture name as this
+    module's class-scoped render.
+
+    So it becomes a **declared bound with its own failing control**
+    (ADR-0039/R3) rather than a silent gap: this file uses it **0 times**
+    (measured), and this says so to pytest. Anyone who adds one reds here
+    immediately, which is the point — the message below is the handover.
+
+    This is deliberately a *check* and not a model. The shapes that would need
+    one — a consumer reached through another fixture, an inherited method, a
+    nested ``Test`` class, ``@pytest.mark.usefixtures`` — stay open, have no
+    instance in these two files today (measured: for all three shared
+    fixtures, collected minus declared is empty, with declared = collected =
+    22 / 8 / 4), and are CARD-219's, where the transitive-fixture closure that
+    actually answers them is being written against a shared copy of these
+    helpers.
+    """
+    taken = sorted(
+        node.lineno
+        for node in ast.walk(ast.parse(Path(__file__).read_text(encoding="utf-8")))
+        if isinstance(node, ast.Attribute) and node.attr == "getfixturevalue"
+    )
+    assert not taken, (
+        f"{len(taken)} test(s) in this module take a fixture through "
+        f"`request.getfixturevalue`, at line(s) {taken}: a consumer taken "
+        "that way is invisible to both halves of the selection guard above — "
+        "to `_declared_consumers`, which reads signatures, and to "
+        "`_consumers_among`, which reads `item.fixturenames` — so the "
+        "controls on the shared render would pass without covering it "
+        "(cycle 2 F-002, measured: 2 cells when declared, 0 when taken this "
+        "way). Take the fixture as a parameter, or close this guard properly "
+        "with the transitive-fixture closure CARD-219 owns."
+    )
+
+
 def _bitmap_bytes(value: object) -> int:
     """The page-bitmap bytes ``value`` is holding; 0 if it holds none.
 
@@ -1760,12 +1810,31 @@ def _retained_bitmap_bytes(namespace: dict[str, object]) -> dict[str, int]:
 
     Covered: a module-level image or bytes object, and one level inside a
     module-level list, tuple, set or dict — which is where a hoisted render
-    lands, and where F-001's 433.4 MB was found. **Not** covered, stated here
-    rather than left to be discovered later: a bitmap behind an
-    ``@lru_cache`` (this module has two, :func:`_font_bytes` and
-    :func:`_set_once`), whose store ``functools`` does not expose, and
-    containers nested deeper than one level. A render retained either of those
-    ways needs a control of its own.
+    lands, and where F-001's 433.4 MB was found.
+
+    **Not** covered. Each channel below is *measured* rather than reasoned
+    about (cycle 2, F-001), because a blind spot asserted in prose and never
+    measured is how cycle 1's 433.4 MB stayed invisible in the first place:
+
+    * a bitmap behind an ``@lru_cache``, whose store ``functools`` does not
+      expose. This module has two — :func:`_font_bytes` and :func:`_set_once`
+      — and they really do hold **25,192,183 B** at session end. The control
+      class below states that figure, says it is out of its own scope, and
+      says why;
+    * a page's pixels as a **numpy** array: ``_bitmap_bytes`` returns ``0``
+      for ``np.asarray(page)`` while that array's ``nbytes`` is 25,245,000
+      (measured 2026-10-24) — and a numpy page array is exactly what
+      :func:`_set_once` and :meth:`TestBookPdf_EveryFifthGridLineWider._scan`
+      produce;
+    * a bitmap held on a ``Test*`` **class attribute**: this walk reads
+      module-level names, and a class body is not one (measured: a namespace
+      holding a class whose ``pages`` is a real page returns ``{}``);
+    * containers nested deeper than one level (measured: ``{'N': [[page]]}``
+      returns ``{}``).
+
+    A render retained any of those ways needs a control of its own. What this
+    instrument *can* answer is stated below as an equality over the names it
+    walks, and as nothing wider, so it cannot be read as covering them.
     """
     found: dict[str, int] = {}
     for name, value in sorted(namespace.items()):
@@ -1787,7 +1856,7 @@ def _retained_bitmap_bytes(namespace: dict[str, object]) -> dict[str, int]:
 
 
 class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
-    """AC-5, with a verifier that can fail on *this* module's retention.
+    """AC-5, with a verifier that can fail on this module's **accumulators**.
 
     AC-5 says the fixture "must not keep more pages alive at once than the
     single-test path did", and named ``test_book_pdf_memory.py``'s peak
@@ -1795,21 +1864,59 @@ class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
     ``_live`` dict, so they cannot fail on bytes retained by this one: the
     conversion shipped **8 page bitmaps (201,960,000 B) held to the end of
     every session that collected this file**, and no guard on the board could
-    see it: no module under ``tests/`` instruments the process's own
-    memory at all, and the one that instruments any measures its own live-page
-    dict (deliberately — it says so at its line 84). pytest keeps a test module in ``sys.modules``, so a
-    module-level accumulator outlives the module-scoped fixture that filled
-    it, which is exactly what :func:`snowflake_interior` chose module over
-    session scope to avoid.
+    see it: no module under ``tests/`` *asserts a shape* on this process's own
+    memory (``tests/helpers/book_corpus.py``'s ``resident_bytes`` reads
+    ``ru_maxrss``, but only as the quantity a child's cap is enforced
+    against), and the one module that instruments page memory at all measures
+    its own live-page dict (deliberately — it says so at its line 84). That
+    sentence is held to a grep over every token it claims about —
+    ``ru_maxrss|getrusage|RLIMIT_AS|peak_rss|max_rss|tracemalloc|resident_bytes``
+    — which returns exactly ``tests/test_book_pdf_memory.py`` and
+    ``tests/helpers/book_corpus.py``, **plus the two files this card converts,
+    because this very paragraph names the tokens**. Re-run it with
+    ``--include='*.py' tests/ | grep -v 'puzzle_frame\|pdf_band'`` to see the
+    two that matter, or read the four and note that two of them are this
+    sentence talking about itself. (Cycle 2, F-004: the sentence this replaces
+    said "at all", and one grep refuted it. The orchestrator's pre-gate then
+    found that recording the grep had changed what the grep returns — four
+    files, not two — which is why the count is written out here rather than
+    left to be rediscovered.)
 
-    It covers every module-level accumulator this file has, not only the
-    digest: :data:`_FIFTH_RULE_RENDERS` is walked by the same instrument and
-    holds tuples of three ints, which is why it was never implicated.
+    pytest keeps a test module in ``sys.modules``, so a module-level
+    accumulator outlives the module-scoped fixture that filled it, which is
+    exactly what :func:`snowflake_interior` chose module over session scope to
+    avoid.
+
+    **Scope, stated as the measurement rather than as a universal.** This
+    control's subject is the module-level accumulators
+    :func:`_retained_bitmap_bytes` walks — every one this file has, not only
+    the digest: :data:`_FIFTH_RULE_RENDERS` is walked by the same instrument
+    and holds tuples of three ints, which is why it was never implicated. It
+    is *not* a statement about everything this module leaves behind. Measured
+    at session end on 2026-10-24, what this file really retains is:
+
+        _set_once   lru_cache(maxsize=None), currsize 666 → 24,435,107 B
+        _font_bytes lru_cache(maxsize=None), currsize 1   →    757,076 B
+        _SHARED_SNOWFLAKE_DIGEST                          →        256 B
+        ---------------------------------------------------------------
+        total                                                25,192,439 B
+
+    i.e. 0.9979 page bitmaps, of which **the accumulator is 256 B and the two
+    caches are everything else**. That retention is **pre-existing and not
+    this card's**: the same walk against this file at the fork point
+    ``c7cca514`` gives **25,192,183 B** — identical but for the 256 B of new
+    digest — and both ``@lru_cache(maxsize=None)`` decorators are already
+    there, at ``:1111`` and ``:1116`` of that revision. The caches are out of
+    this control's scope, and it claims nothing about them; ``_set_once``'s
+    unbounded cache holding 24.4 MB for the rest of every session is
+    backlogged in its own right (cycle 2, F-001). This docstring records the
+    figure so the next reader measures from it instead of from a bound that
+    was 0.21 % away from the truth.
 
     This control is **selection-independent** — unlike the render-count
     controls below it, it needs no denominator: whatever ran, an accumulator
-    holding a page-sized entry is a page-sized entry. One node id of it is
-    enough to red the regression.
+    holding more than its digests is holding more than its digests. One node
+    id of it is enough to red the regression.
 
     It is placed immediately *before* the module's mutation control rather
     than after it, because that control must be the last thing in the file
@@ -1842,29 +1949,55 @@ class TestBookPdf_TheSharedRenderLeavesNoBitmapBehind:
     def test_no_module_level_accumulator_retains_a_page_bitmap(
         self, snowflake_interior
     ) -> None:
-        """Nothing this module leaves behind is as big as one page bitmap.
+        """The accumulators hold one 32-byte digest per page they signed — exactly.
 
-        The bound is derived, not chosen: one page of this module's own book,
-        as drawn (the test above ties that to the project's figure). Digests
-        sail under it by five orders of magnitude — 8 x 32 B = 256 B — while
-        the bytes they replaced were 8.00 of these units, so the bound
-        separates the two without being tuned to either.
+        The node id is unchanged on purpose: the card's mutant tables (M7, M8)
+        and three sets of review notes are keyed to it, and the name is still
+        true — it is now the weaker half of what is asserted.
+
+        An **equality**, not a bound, and that is the correction cycle 2 asked
+        for (F-001). ``total < one page bitmap`` was a threshold this module
+        sat 0.21 % under once everything it retains is counted, and it invited
+        a comparison against a quantity the instrument above cannot see. The
+        equality invites none: the accumulators hold ``32 B x pages`` or they
+        are wrong, and they go red the instant any byte comes back — a digest
+        store turned into ``page.tobytes()``, a second accumulator holding a
+        page, a fixture that never signed, a book of a different length.
+
+        Both sides are derived. ``32`` is sha256's digest size written out by
+        hand here rather than read back off :func:`_page_digest`, so this is a
+        second statement of the digest's width and not that function run
+        twice; the page count is the book the fixture actually handed out. The
+        page-bitmap unit still appears, in the message and in the test above,
+        because the figure a reader needs when this reds is how many pages the
+        accumulator is now worth.
         """
+        digest_bytes = 32
         unit = _bitmap_bytes(snowflake_interior[0])
         retained = _retained_bitmap_bytes(globals())
         total = sum(retained.values())
-        detail = ", ".join(
-            f"{name} {held:,} B ({held / unit:.2f} pages)"
-            for name, held in sorted(retained.items(), key=lambda row: -row[1])
+        expected = digest_bytes * len(snowflake_interior)
+        detail = (
+            ", ".join(
+                f"{name} {held:,} B ({held / unit:.4f} pages)"
+                for name, held in sorted(retained.items(), key=lambda row: -row[1])
+            )
+            or "no module-level name holds any measurable bytes"
         )
-        assert total < unit, (
-            f"this module will leave {total:,} B ({total / unit:.2f} page "
-            f"bitmaps) alive after its fixtures are finalised: {detail}. "
+        assert total == expected, (
+            f"this module's module-level accumulators will leave {total:,} B "
+            f"({total / unit:.4f} page bitmaps) alive after its fixtures are "
+            f"finalised, rather than the {expected:,} B of one "
+            f"{digest_bytes}-byte digest per page of the "
+            f"{len(snowflake_interior)}-page book they signed: {detail}. "
             "pytest keeps a test module in sys.modules for the rest of the "
             "session, so a module-level accumulator outlives the "
             "module-scoped fixture that filled it — the retention module "
             "scope was chosen to avoid (CARD-218 AC-5, F-001). Store a "
-            "32-byte `_page_digest(page)`, not `page.tobytes()`."
+            "32-byte `_page_digest(page)`, not `page.tobytes()`. This says "
+            "nothing about the two `@lru_cache` stores: see the class "
+            "docstring, which measures them at 25,192,183 B and leaves them "
+            "to their own card."
         )
 
 
