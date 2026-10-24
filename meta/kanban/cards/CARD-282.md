@@ -547,9 +547,22 @@ title-free  : True
 better than asked for. A parameter accepted and ignored is a version of "not an
 input" a caller can get wrong; a removed parameter makes the old call site raise
 `TypeError` instead, and the round confirmed that failure before fixing it. And
-the docstring no longer claims the recipe: **zero occurrences** of "this card's
-recipe, not the ADR's" remain, replaced by a citation of **ADR-0041/R7,
-DEC-044b** carrying R7's breaking-change clause item by item.
+`book_slug`'s own docstring now cites **ADR-0041/R7, DEC-044b** and carries R7's
+breaking-change clause item by item.
+
+> **This sentence used to read "the docstring no longer claims the recipe: zero
+> occurrences of 'this card's recipe, not the ADR's' remain." That was FALSE and
+> cycle 1's F-4 caught it.** `player_bundle.py:176` still shipped
+> `#: book slug is this card's recipe, not ADR-0041's.` on `_BOOK_PREFIX` — the
+> very constant R7 pins. My grep looked for "not **the ADR's**"; the surviving
+> text says "not **ADR-0041's**", so it returned 0 and I read that as the claim
+> being gone. A looser `grep -niE "this card's recipe"` finds it immediately.
+> **An absence verified against one spelling is not an absence** — the claim and
+> the pattern have to be allowed to differ, because the thing you are looking for
+> is a *statement*, not a string. Corrected here rather than quietly deleted,
+> because the pattern is the reusable part and it is the same defect class I
+> spent this wave finding in other people's work. Fix round 1 removes the code
+> line; this is the card's half.
 
 **My own mutant, independent of the round's M14.** Its M14 was a three-edit
 mutant using a module-level holder. Mine is a **single edit at the call site on
