@@ -250,13 +250,14 @@ cards must not run concurrently. `Depends on:` is deliberately left empty so the
 order stays the owner's, and each order carries one obligation:
 
 * **CARD-208 first** (cleaner): this card then converts five tests in one pass.
-  But CARD-208 is **not dispatch-ready** as written — its 2026-10-14 amendment
-  added 5 % grey clue-area shading to its scope and **none of its seven ACs
-  covers the shading**, its `Depends on:` was never updated as the amendment
-  instructs (CARD-222, now `done`, so satisfied but stale), and its body rests on
-  an owner doc image the drafter could not read, with its own instruction to
-  **re-slice at decompose rather than reinterpret in a worktree**. Gating a
-  measured 20.4 s saving on that is a real cost.
+  **Resolved 2026-10-24, same day:** CARD-208 was decomposed on the owner's
+  request and is now dispatch-ready — seven ACs became **thirteen** (AC-8..AC-13
+  cover the 5 % grey shading, which previously had none, so its gate could have
+  passed green with the shading absent), `Depends on:` gained CARD-222 as its own
+  amendment had instructed, and the missing mockup is recorded as settled by
+  measurement under ADR-0037/R2's precedent rather than as a blocker. One
+  non-blocking owner question is flagged on it (whether "clue areas shaded" means
+  each number's box or the whole gutter band).
 * **This card first:** then **CARD-208's brief must say to write its new test on
   the lazy walk**, not on `interior_pages`, or this card's work is partly undone
   by the next one. Write that into CARD-208 at dispatch, not afterwards.
