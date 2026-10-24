@@ -929,3 +929,446 @@ The CON-019 tripwires (G-2 holds structurally: one file, `src/` 0 lines).
 `SILENT_WITHOUT_ONE_ARM` row **membership** (counts only). And it **could not
 build a local-name-storage analogue of F-1**, and says why — which is a bound on
 the finding, not a gap in it.
+## [FIX ROUND 1 on cycle 1 — 2026-10-24, fix agent] F-1 closed, F-2 half closed and half declared with a lever, F-3 rewritten to the mechanism that shipped
+
+Scope: one file, `tests/test_book_export_interior_cover.py`.
+`git diff c2cb8e3e..HEAD -- src/` is **0** lines (re-verified; `src/nonogram/admin/book_pdf_generator.py`
+sha256 `d8b9ece8…` unchanged, working tree and index both clean under `src/`).
+
+### FIX 1 (F-1, Critical) — the conditional, and cycle 1's five claims re-derived here
+
+The attribute branch's `continue` is now inside `if blocked is not None:`, so a
+chain the fixed point **resolves** falls through to the own-instance surface rule
+instead of past it. Four lines of mechanism; the rest of the hunk is the comment
+that says what stood there.
+
+**Every one of cycle 1's five claims re-derived by driving `_page_positions`
+directly against the edited bytes, not taken from the review:**
+
+| claim | re-derived |
+|---|---|
+| A2 refuses | `('refusal',)`, at the surface rule — `"an attribute of this module's own instance that BookPDFGenerator never spells"` |
+| module cost 0 refusals | **23 sites, 6 vocabulary, 0 refusals** — identical to `ced5e648` |
+| 36 `DOOR_SHAPES` unchanged | 36 rows, **0 mismatches** against their declared outcomes |
+| both `CHAINS_THAT_RESOLVE` | E1 `[]`, E2 `['a geometry door referenced without being called']` — both as declared |
+| all 7 `CHAINS_THAT_MUST_NOT_BE_SILENT` | I1–I7 all `('refusal',)` |
+
+Also unchanged and re-measured: `PLANTED_SHAPES` 0 mismatches; the cost sequence
+**760 / 509 / 203 / 201 / 0**; all `MEASURED_BLIND_SPOTS` rows still `()`.
+
+**The three further shapes, each with its own refusing control.** `SURFACE_SHAPES_LAUNDERED`
+is parametrised S1/S2/S3 and each row is read **twice** — without the laundering
+occurrence and with it — because a row that stops reaching a call at all would
+satisfy a bare "it refuses" for the wrong reason. At `ced5e648` every pair read
+`('refusal',)` then `()`; all three now read `('refusal',)` / `('refusal',)`.
+S1 is the Critical's own plant A2, S2 the metaclass `__getattr__`, S3 the
+`__getattr__` installed by `setattr`. Cycle 1's B1 is `DOOR_SHAPES` W25 and is
+laundered there instead, by the rule below, so it is not paid for twice.
+
+**W29's launderability — and the brief's row number is wrong, measured.** The
+control is not written for one row: `test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`
+derives, from each `DOOR_SHAPES` row's own AST, an unrelated `_UnrelatedResolver`
+class that resolves every **attribute** callee the row spells, and asserts the
+row's declared outcome is unchanged. The derivation reaches **14 of the 36** rows
+and is held to an equality against `LAUNDERABLE_DOOR_SHAPE_LABELS`, so a row that
+gains or loses an attribute callee reds rather than silently entering or leaving
+the reading; `test_the_laundering_derivation_parsed_every_planted_body` makes a
+body it cannot parse a FAILURE instead of an empty laundering.
+
+Measured at `ced5e648`, **three** rows could be switched off from outside
+themselves: **W21, W23 and W25**. **W29 cannot** — its installer's store is
+*spelled* (`owner._door = getattr(...)`), so the `opaque` branch refuses it
+before the anchor is consulted, with or without a resolving occurrence. W29 is
+the row cycle 1 and the brief both named; the launderable `__set_name__` row is
+**W25**, the `setattr` one. All 14 rows keep their declared outcome now.
+
+The 22 rows with no attribute callee are **not** read here, and that is stated on
+the derivation rather than skipped quietly: their laundering text is empty, so
+the reading would be byte-identical to
+`test_every_door_shape_is_read_or_refused_and_never_silent`'s. The local-name
+storage has no laundering analogue — cycle 1 could not build one and said why.
+
+### FIX 2 (F-2, Major) — route taken: **close the decorator, declare the residue, and give it a lever**
+
+Not the naive symmetric `Name`-branch fix cycle 1 warned about, and not a
+declaration that leaves the premise standing. Two changes:
+
+1. **The terminal rule.** A definition's binding occurrence now carries its own
+   AST node, and a **decorated** definition is not a fixed point: the decorator
+   replaces what the `def` binds, so the identity read off the text is not the
+   identity at the call. T1 (`@_mk def _deco_door` where `_mk` returns
+   `getattr(sys.modules[__name__], "book_page_" + _S)`) and T2 (the same
+   returning `getattr(BookPDFGenerator, "page_" + _S)`) were both **silent** at
+   `ced5e648` and both refuse now. **Module cost: 0** — the anchored branch is
+   unreachable on this module, which cycle 1 measured independently as 0 hits
+   over 816 `ast.Call` nodes, and I re-derived as 0 refusals and an unchanged
+   cost sequence.
+2. **The lever, which is FIX 4.** A **fifth** `CALLEE_EXEMPTIONS` class,
+   `a chain whose terminal is a definition or an import`, gates the resolved
+   pass in **both** storages. With it in place a resolved chain passes; with it
+   removed every resolved chain refuses and names itself.
+
+`CHAINS_THAT_RESOLVE` did not move and gained a row: **E3**, an attribute callee
+whose chain resolves and whose calling class spells it, silent as declared. E1
+and E2 are both local-name rows, so a cap in the *attribute* branch would have
+closed every counterexample and red nothing; E3 is the edge that reds instead.
+
+### FIX 4 — accountability, per row still open
+
+| row | lever | measured with `_plant_refusals` |
+|---|---|---|
+| R8 `the TERMINAL class: a definition rebound where this walk can see no store` | **its own class**, `a chain whose terminal is a definition or an import` | silent with all five classes (`()`); with that one class dropped → `[(…, "a callee whose alias chain this walk resolved to a definition or an import in this module's own text…")]`, attributed to the plant's own lines |
+| the `CALLEE_EXEMPTION_REACH` row for the same class | the class | silent with all five; without it, refusal naming `_d2` |
+| the two VALUE rows, the CALL-GRAPH row | **none**, as before | `_page_positions` exposes no lever for either axis; declared, unchanged |
+
+**No row's lever is `builtins`.** R8's plant is split across the two storages on
+purpose: the gate is written once per storage, so a single reading would have
+certified one gate and left a mutant on the other with no cell. The
+`CALLEE_EXEMPTION_REACH` row reads the **attribute** branch's gate (X6 below) and
+R8 reads the **local** branch's (X5 below).
+
+The class's own step is **0**, so it is listed in
+`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` and kept **only** because it
+absorbs R8. That un-vacuums the second half of the narrowed rule, which the
+previous commit had to declare vacuous.
+
+### FIX 3 — the sentence, before and after
+
+**Before** (`_page_positions`, the opening paragraph): *"It fails closed on the
+**whole** door axis — callee identity resolved to a **fixed point** over the
+alias chain, door spellings closed over the grammar"*, and the axis table:
+*"**closed by CARD-276**: the sentence is true again, of a fixed point rather
+than of one step"*.
+
+**After**: *"On the door axis it refuses every `ast.Call` whose callee it cannot
+anchor to a **fixed point** over the alias chain, and every `GEOMETRY_DOORS`
+spelling held outside the grammar it reads. What it does **not** close is the far
+side of a chain it *can* resolve: a terminal's identity is read off the `def`,
+`class` or `import` this module's text shows. A **decorator** puts an unspelled
+door at exactly such a terminal, so a decorated definition is not read as one and
+the chain onto it refuses; a definition rebound where this walk can see no store
+at all — `globals()`, a module `__dict__` store, an importer's monkeypatch — is
+**not** reached, and that residue is the ADR-0039/R3 exemption class `a chain
+whose terminal is a definition or an import`, with a `MEASURED_BLIND_SPOTS` row
+read in both directions. This sentence said "fails closed on the whole door axis"
+for exactly one commit and was false when it shipped, for the third time in this
+family."*
+
+And the axis table's bullet now reads **"narrowed — not closed — by CARD-276"**,
+names which half is closed and which is declared, and ends: *"**So the sentence
+is still false**, of exactly that residue — and the residue has a named exemption
+class, its own step of the measured cost sequence (0, listed … and kept only by
+the blind-spot row it absorbs) and a lever that names it … re-asserted as true
+**three** times while it was false, and a reader of the **fourth** version should
+be able to see what that cost."*
+
+Why it is true of this commit: every clause is a reading above. "Refuses every
+call it cannot anchor" — the cost sequence's 760 with no exemption and the 36 +
+14 + 7 + 3 + 2 refusing rows. "A decorated definition refuses" — T1, T2.
+"A rebind it cannot see is not reached" — R8, asserted silent. "With a lever" —
+R8's second reading.
+
+### FIX 5 — F-4 and F-5
+
+* **F-4.** The stale "fifteen distinct controls" sentence is **not** restated with
+  a corrected number. A figure nothing recomputes goes stale again, and this
+  file's own rule is that a figure's control is recomputation — so the rationale
+  now records what the stale figure cost, points at the reading
+  `test_no_docstring_names_a_test_that_does_not_exist` prints, and carries no
+  count. (`REFERENCES_AT_LEAST = 14` is untouched; the live reading is **19**
+  after this diff, 0 missing, against an authority of 5,155 test names.)
+* **F-5.** `MEASURED_BLIND_SPOTS`' VALUE row 2 now states its enumeration as
+  **partial**, says what bounds it (*anything that is not a top-level `ast.Assign`
+  of a bare int `Constant`*), and names all five measured defeaters including
+  `len(_FRONT_MATTER_PAGES)` and `int(3.0)`.
+
+### The mutant table — nine mutants, each DELETING a mechanism this round's claims name
+
+**Domain, stated because a figure without one is not a figure.** Instrument:
+the committed `tests/kill_matrix.py`. Target
+`tests/test_book_export_interior_cover.py`, **203 `ast.Assert` nodes** (node
+count, not a collected-test count). Child instrumentation **off**. Every mutant
+is line-count-preserving and was validated present by the instrument, which
+refuses a mutant whose `old` is absent — and every one produced a changed
+reading, so none is a no-op. Batch A selection:
+`TestDoorAxis_TheNextIndirectionIsNotSilentEither` (33 collected). Batch B
+selection: the three exemption/blind-spot tests (3 collected). **SHIPPED: 0 FAIL
+of 14 reached, pytest exit 0**, in every reading.
+
+| mutant | the mechanism it DELETES | FAIL | cells red | cells passing / notes |
+|---|---|---|---|---|
+| **X1** | FIX 1's conditional — the attribute branch's `continue` becomes unconditional again | **2** | `:5619` (`test_a_door_installed_from_outside_the_text_survives_one_resolving_occurrence`, S1–S3), `:5691` (`test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`, W21/W23/W25) | the chains, the edge rows, the terminal rows — a one-step-or-fixed-point mechanism satisfies all of them, which is why F-1 needed its own controls |
+| **X2** | the whole fixed point's **resolve** path (`return True` → `return False`): every anchored callee refuses — a cap | **3** | `:5590` (`CHAINS_THAT_RESOLVE`, E1/E2/E3), `:5780`, `:5791` (the bound's "inside resolves" and "raised past it resolves") | `:5549`, `:5691`, `:5619` — a cap closes every counterexample in this class, which is exactly why the edge rows exist (G-7) |
+| **X3** | the terminal rule — the decorator check (`decorator_list` → an attribute no node has) | **1** | `:5716` (`test_a_decorated_definition_is_not_a_terminal_this_walk_can_read`, T1/T2) | everything else; F-2's closure has exactly one control and this is it |
+| **X4** | the **edge** of the terminal rule — `is not None`, so *every* definition terminal refuses | **3** | `:5590` (E1 and E3; E2 is an `import` and still resolves), `:5780`, `:5791` | `:5716` passes — refusing every `def` also closes T1/T2, which is the pair ADR-0039/R1 asks for: one mutant inside the claimed region, one at its edge |
+| **X7** | the laundering **derivation** (`if not spelled:` → always) | **1** | `:5654` (`test_the_laundering_derivation_reaches_the_rows_it_declares`) | and `:5691` goes **NOT-REACHED** with 13 reached instead of 14: with the derivation empty the 14 parametrised readings stop existing. That is the vacuity the derivation test is for, and the NOT-REACHED cell is the evidence that nothing else would have noticed |
+| **X5** | the **local**-storage half of the terminal lever (`not in exempt` → `not in cls.CALLEE_EXEMPTIONS`, so the gate never fires) | **1** | `:5089` (`test_the_declared_blind_spots_are_still_silent`'s *absorbed* reading — R8's lever) | the silence reading itself passes, which is the point: a row that is silent with the class and silent without it has no lever |
+| **X6** | the **attribute**-storage half of the same lever | **1** | `:4430` (`test_every_callee_exemption_is_read_twice_on_its_own_branch`) | X5 and X6 red **different** cells, which is why the lever's two plants are in different storages — one plant would have certified one gate |
+| **X8** | the zero-cost-class equality in the "listed but paying" direction (`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` emptied) | **1** | `:4329` | AC-4's *"the zero-cost-class equality still reds when emptied"*, re-fired against this round's bytes |
+| **X9** | R8's `absorbed_by`, so the 0-cost class absorbs no blind-spot row | **1** | `:4336` (the subset assertion) | this is the **second half of the narrowed rule carrying a claim** rather than being vacuous, which is what the previous commit had to declare it was |
+
+**Which kills are instrumented-only: none of batch B's.** The recording pass
+reports exit 0 by construction, so the same four mutants were re-fired under
+`Pass.RERAISING`: **all four give pytest exit 1 with the same cells** (X8's
+`:4336` becomes NOT-REACHED, which is the re-raising pass short-circuiting at
+`:4329`, not a changed verdict). Batch A's re-raising reading is recorded
+below.
+
+**Batch A's re-raising reading: every one of the five is a real kill, not an
+instrument attribution.** `Pass.RERAISING`, same selection and same 203-node
+denominator: X1 **exit 1**, 14 reached, 2 FAIL (`:5619`, `:5691`); X2 exit 1, 12
+reached, 2 FAIL (`:5590`, `:5780` — `:5791` is NOT-REACHED because the test
+short-circuits at `:5780`); X3 exit 1, 14 reached, 1 FAIL (`:5716`); X4 exit 1,
+12 reached, 2 FAIL (`:5590`, `:5780`); X7 exit 1, 13 reached, 1 FAIL (`:5654`).
+The only differences from the recording pass are short-circuited siblings, which
+is the pass's documented cost and not a changed verdict. SHIPPED is 0 FAIL of 14
+reached at exit 0 in both passes.
+
+**Restores.** The file was restored from a pristine copy kept **outside** the
+worktree after every mutation run and the restore verified with `diff -q` **and**
+`shasum -a 256` (`07e8e1e7…`), never with `git checkout`. A grep for this round's
+own mutant markers (`no_decorator_here`, `not in cls.CALLEE_EXEMPTIONS`,
+`spelled or 1`) finds none. `src/nonogram/admin/book_pdf_generator.py` is
+`d8b9ece8…` and `src/nonogram/export/layout.py` is `3a384f33…`, both unchanged
+(G-1, G-2).
+
+### Figures this round moved, re-measured and published
+
+| figure | was | is |
+|---|---|---|
+| `tests/test_book_export_interior_cover.py` collected | 104 | **126** |
+| the two door-axis classes' node ids | 14 | **36** |
+| `CHAINS_THAT_RESOLVE` rows | 2 (E1, E2) | **3** (E1, E2, **E3**) |
+| `CALLEE_EXEMPTIONS` | 4 | **5** |
+| `CALLEE_EXEMPTION_REACH` rows | 4 | **5** |
+| `CALLEE_EXEMPTION_COST` steps | 5 | **6** — `((), 760)`, `509`, `203`, `201`, `0`, `0` |
+| `CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` | `()` | **1 member**, and the second half of the narrowed rule is no longer vacuous |
+| `MEASURED_BLIND_SPOTS` rows | 4 | **5** (R8 added) |
+| prose references resolved by `TestGuardProse` | 17 | **19**, 0 missing, authority 5,155 |
+| `def test_` in the file | 75 | **80** — five added, **none** removed, renamed, skipped or merged |
+
+**Unchanged and re-measured, not assumed:** 23 sites / 6 vocabulary / 0 refusals;
+the cost sequence 760 / 509 / 203 / 201 / 0; `DOOR_SHAPES` 36 rows, 36 labels, 0
+mismatches; `PLANTED_SHAPES` 0 mismatches; all 7 `CHAINS_THAT_MUST_NOT_BE_SILENT`
+`('refusal',)`; E1 `[]` and E2's one reference-arm shape; every
+`MEASURED_BLIND_SPOTS` row `()`; `SILENT_WITHOUT_THE_DOOR_ARMS` 30 and
+`SILENT_WITHOUT_ONE_ARM` 23 / 1 (green in the file run — the arms' internals only
+ever gained refusals, and no row changed arm).
+
+**G-5 re-verified by AST source-span extraction against `c2cb8e3e`**, not by
+grep: `BINDERS_READ`, `STRING_FIELDS_READ`, `EXEMPTION`, `BINDER_BINDINGS`,
+`POSITION_LITERALS`, `GEOMETRY_DOORS`, `POSITION_PARAMETER` and
+`RECEIVER_RESOLUTION_DEPTH` are **all eight byte-identical**.
+
+### Cost, as plant counts rather than durations (G-6)
+
+The round adds **27 plant readings**: 14 (the derived `DOOR_SHAPES` laundering,
+one per attribute-callee row) + 6 (`SURFACE_SHAPES_LAUNDERED`, three rows read
+twice) + 2 (`TERMINAL_SHAPES`) + 1 (E3) + 2 (R8, silent and with its lever
+dropped) + 2 (the new `CALLEE_EXEMPTION_REACH` row, both readings). Two of the
+five new nodes cost **no** plants at all (the derivation's parse check and its
+label equality). The 22 `DOOR_SHAPES` rows with no attribute callee are
+deliberately **not** re-planted: their laundering text is empty, so the reading
+would be byte-identical to the existing table's. That choice is stated on the
+derivation rather than left to be found.
+
+### Section 8 of this card is superseded by FIX 3
+
+§8's first bullet describes the opening sentence as *"closed on the whole door
+axis … four exemption classes, one of which absorbs a door-reaching shape
+(R3)"*. That sentence is gone; see FIX 3 above for what replaced it and why.
+§11's "plant shapes NOT tried" list loses three more entries:
+`__getattr__`/metaclass-provided attributes (S2, S3) and a chain **whose
+terminal** is a decorator (T1, T2) — a chain with a decorator *link*, which §11
+also names, was executed by cycle 1 and refuses through `opaque`, and is a
+recorded negative result that should not be re-planted.
+
+### Three things this round found wrong in cycle 1, the adjudication and the fix brief
+
+1. **The launderable `DOOR_SHAPES` row is W25, not W29 — and the metaclass shape
+   is not a `DOOR_SHAPES` row at all.** Cycle 1's evidence block says B1 is *"W29
+   with the installer's spelled store replaced by `setattr`"*, which is **W25**;
+   the adjudication and the fix brief compressed that to "W29 … silenced by
+   appending one assignment" and the brief additionally attributed it to the
+   metaclass `__getattr__` (cycle 1's B2), which has no row anywhere. Measured
+   at `ced5e648`, appending a resolving occurrence of the callee's spelling to
+   each of the 14 attribute-callee rows silences **W21, W23 and W25** and
+   **not W29**: W29's installer store is *spelled* (`owner._door = getattr(…)`),
+   so `opaque` refuses it before the anchor is consulted. The brief's W23 was
+   nobody's finding. Closing it by rule over the derived set rather than by row
+   is what caught the third one and the false one.
+2. **There is no M9 on this card.** The brief asks for "M9's actual pytest
+   output" and says the error-kill label was repeated on the card. CARD-276's
+   mutant table is **M1–M8** plus the inherited N-cells (N8/N8h, N12b, N13/N13h,
+   N14, N16, N18); no cell is labelled an error-kill and `grep -n "M9"` over the
+   card (both copies) and over `meta/review/20261024T120140Z-CARD-276-cycle1.yml`
+   returns nothing. The item looks carried over from CARD-282's brief. The one
+   label worth restating here is M7, and the card already states it correctly:
+   **a genuine survivor** at 0 FAIL of 10 reached, exit 0 — not an error — in a
+   control the same round had just written.
+3. **F-2's "close it properly" half was affordable, against the brief's
+   expectation.** The brief predicted the design work would slip to a successor
+   and offered declaration as the likely right call. The naive symmetric
+   `Name`-branch fix cycle 1 measured *is* unfree, as stated — but
+   discriminating the terminal (a decorated definition is not one) costs **0
+   refusals**, moves no declared table, and leaves E1/E2 untouched, because the
+   anchored branch is unreachable on this module. So the decorator is closed and
+   only the unseeable rebind is declared. The brief's framing of FIX 1 and FIX 4
+   as separable is also slightly off: they share one mechanism — the resolved
+   pass — and closing F-1 without gating that pass would have left exactly the
+   accountability hole F-4 bills.
+
+### What this round did NOT check
+
+* **No full suite, and `meta/kanban/.full-suite.lock` was never written or
+  taken** — CARD-282 is concurrent in `../PythonProject4-card-282` and
+  `tests/conftest.py`'s guard raises on a foreign holder, which would red every
+  run that card's agents make. The merge gate's full suite is the
+  orchestrator's.
+* The **MODULE** axis's census equality, unchanged and still inheriting the
+  weakness the card already states.
+* The per-arm tables' **row membership** (`SILENT_WITHOUT_ONE_ARM`): the file
+  run exercises the equalities, and nothing in this diff can move a row between
+  arms — the callee arm only ever gained refusals — but no per-arm reading was
+  taken by hand.
+* `scripts/impact_set.py`'s set beyond the five files run below. `test_scope` is
+  impact and this diff is one test file with `src/` at 0 lines.
+
+### Runs taken
+
+* `tests/test_book_export_interior_cover.py` — **126 passed, 0 failed, 0
+  skipped** (exit 0), on bytes differing from the commit's only in prose; the
+  authoritative re-run on the committed bytes `07e8e1e7…` is recorded below.
+  Collection on the committed bytes: **126**, and **36** node ids over the two
+  door-axis classes, including `[I1]`–`[I7]`, `[E1]`–`[E3]`, `[S1]`–`[S3]`,
+  `[T1]`/`[T2]` and the 14 `[W…]` laundering ids.
+* `tests/test_suite_profile.py` — **405 passed**, 0 skipped. The frozen
+  render-set grep is in there, so **trap 9 is clear**: this file still mentions
+  `puzzle_pages` (row I7) and the snapshot equality holds.
+* `tests/test_guard_integrity.py` — **167 passed**.
+* `tests/test_kill_matrix.py` — **76 passed**, so the instrument this round's
+  figures come from is green on these bytes.
+* The three CON-019 tripwires plus the byte-identity property test —
+  `tests/test_export_a4_golden.py tests/test_book_puzzle_frame.py
+  tests/test_book_qr_slot.py` **269 passed**, and
+  `tests/property/test_cli_exports_byte_identity.py` **3 passed**, both without
+  being edited (G-2).
+* **0 skips in every run above.** Green-with-skips reads the same as green, so
+  the passed counts are quoted and not the exit codes.
+
+### The authoritative run on the committed bytes, and the one test pytest could not finish here
+
+`tests/test_book_export_interior_cover.py` on `07e8e1e7…`, in three
+class-partitions that sum to **126** collected (verified by
+`--collect-only`: 67 + 23 + 36):
+
+| partition | result |
+|---|---|
+| everything but the three guard/door classes (67) | **67 passed**, 59 deselected, 0 skipped |
+| `TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage` minus one test (22) | **22 passed**, 1 deselected, 0 skipped |
+| `TestDoorAxis_…` + `TestGuardProse_…` (36) | **36 passed**, 0 skipped |
+
+**125 of 126 passed under pytest here, 0 failed, 0 skipped.** The one test not
+run to completion by pytest in this round is
+`test_each_door_axis_arm_catches_a_shape_the_other_misses`, and the reason is
+**environmental, not a failure**: this sandbox reaps a long-running shell, and
+that test's 144 plant readings now exceed what it allows — four whole-file
+attempts were each cut off *inside* that test with no FAIL cell and no summary
+line, which is precisely the "exit code is not a verdict" trap. An **exit 1 with
+no summary is not a red test**, and it is not a green one either, so it is not
+reported as either.
+
+What it asserts was verified instead by recomputing all four of its equalities
+in a second domain, driving `_page_positions` directly with each `door_arms`
+setting: **`callee identity` 23 silent (declared 23), `door spelling` 1 (declared
+1), both arms removed 30 (declared 30), `kept` 6.** All four hold, so those
+figures are unchanged. The test also passed in a complete **126 passed, 0
+failed, 0 skipped** whole-file run taken earlier in this round, against bytes
+differing from the commit's only inside docstrings and comments.
+
+**That is a cost datum a successor needs, and it is stated as a count, not a
+duration (G-6):** the single most expensive control in this file makes
+**3 × 36 + 36 = 144** plant readings, which is more than this round's whole
+addition (27). CARD-287 is sized against this class; if anything in it should be
+cheapened first, it is that test's three-readings-per-row shape, not the tables
+this round added.
+
+## [FIX ROUND 1 PRE-GATE on `31897571` — 2026-10-24, orchestrator] PASSED — and I attributed a phantom to this card twice before measuring both arms
+
+### The mechanism work, verified with my own instruments
+
+| check | result |
+|---|---|
+| **F-1** — my own unchanged A2 plant (`setattr`-installed door + one unrelated resolving occurrence) | bare `('refusal',)`, laundered **`('refusal',)`** — **closed** (it was `()` at `ced5e648`) |
+| **the launderable rows**, by a **derived** resolver over all 36 `DOOR_SHAPES` | before: **W21, W23, W25**; after: **none**. 14 rows carry an attribute callee |
+| **G-1** `git diff c2cb8e3e..HEAD -- src/` | **0 lines** |
+| footprint | one file, **+1515/−256** |
+| **partition B** — the 33 tests this round added | **33 passed, 119.51 s** |
+
+**The round's correction of my adjudication is confirmed to the row, and my own
+probe then reproduced the error it was correcting.** I had written "W29 …
+silenced by appending one assignment"; cycle 1's evidence actually said *"W29
+with the installer's spelled store replaced by `setattr`"*, which **is W25**.
+Measured: W25 installs with `setattr` (no `ast.Store`, so the spelling's only
+occurrence is the resolving one) and **W29 installs with a spelled store, so
+`opaque` refuses first and it never laundered.** **W23 was nobody's finding** —
+the round found it by closing the property as a **rule over a derived set**
+rather than for the named row. And my first hand-written laundering probe
+**missed W23 because it used one spelling** (`_door`, where W23's callee is
+`self.text`). *The instinct my brief had — name the row — is the instinct that
+misses the third row.*
+
+### THE PHANTOM: I blamed this card twice for a machine-load artefact
+
+Recorded in full because the error is more instructive than the finding.
+
+**What I claimed, and retracted, twice:**
+
+1. *"The round pushed `test_each_door_axis_arm_catches_a_shape_the_other_misses` past the point where it can run."* **False** — the test run alone dies at **`ced5e648` too** (120.98 s) as well as at `31897571` (120.93 s).
+2. *"The whole file completed before the round and not after, and that is the round's delta."* **Also false** — the pre-fix whole file, from bytes hashing `4a2a28eba300`, **dies now as well**, although those same bytes gave **104 passed in 393.54 s** at my own pre-gate hours earlier.
+
+**The controlled experiment I should have run first** — both revisions, back to
+back, nothing of mine running:
+
+```
+ARM 1 POST-fix (31897571): exit=1 -> [ 57%] .....
+ARM 2 PRE-fix  (ced5e648): exit=1 -> [ 57%] .....
+```
+
+**Byte-identical stopping points.** And the round's own three attempts
+(`finalrun.txt` 17:21, `finalrun2.txt` 17:32, `finalrun3.txt` 17:41) are
+byte-identical to both. **Six runs, two revisions, three hours apart, the same
+`[ 57%]` and five dots.** The diff is not implicated.
+
+**The cause**, measured: **zero python processes running, load average 12–20 on
+an 11-core box.** Top consumers are PyCharm (19.9 %), a `claude` process up
+2d 2h (15.4 %), IntelliJ IDEA (12.2 %), WindowServer and Chrome. A test costing
+~99 s warm on a quiet machine stretches past a hard **~120 s** per-test ceiling
+under that load, and every run containing it stops in the same place.
+
+**Why I got it wrong, which is the reusable part:** both of my readings compared
+**a quiet run from hours earlier against a loaded run from minutes earlier** —
+two arms measured under different conditions. That is the exact confound this
+card's own `_plant_refusals` docstring warns about in another guise, the one I
+caught in cycle 1's "no lever" claim, and the one I have written into every
+brief this wave. **I policed it in four other agents' measurements and committed
+it twice in my own diagnosis inside an hour.**
+
+Also found and cleaned: two orphaned polling shells (`until grep -qE …; sleep`)
+left by this round waiting on its own `finalrun*.txt`. Cheap, but litter.
+
+### What this pre-gate therefore does and does not establish
+
+**Establishes:** F-1 closed, the launderable rows closed as a derived rule, G-1
+clean, the round's own 33 tests green at 119.51 s, and its corrections to my
+adjudication confirmed.
+
+**Does NOT establish:** a whole-file green at this commit. The last whole-file
+green on this file is **104 passed / 393.54 s at `ced5e648`**, taken when the
+machine was quiet. **A whole-file run at `31897571` is owed and must be taken on
+a quiet machine** — it is the merge gate's precondition, not this pre-gate's,
+and it is a condition of the host rather than of the diff.
+
+**Routed out:** the per-test ceiling and this file's proximity to it are not this
+card's defect and not its to fix. **CARD-292** carries them with these
+measurements.

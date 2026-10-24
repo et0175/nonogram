@@ -1,0 +1,91 @@
+# CARD-292: One test completes only on a quiet machine — the suite has a per-test ceiling nobody has measured, and this board has paid for it three times
+
+**Status:** ready
+**Priority:** P1
+**Category:** tech-debt
+**Estimate:** 1d
+**Complexity:** standard
+**Revision pending:** false
+**Skill:** python-pro
+**TDD:** false
+**Branch:** card/292-measure-the-per-test-ceiling
+**Worktree:** —
+**Source:** orchestrator, 2026-10-24, from CARD-276's fix-round pre-gate. Found by chasing a phantom: I twice attributed a dying test run to CARD-276's diff before measuring both arms under the same conditions. The diff was never implicated; the host was.
+**Idea:** —
+**Wave:** —
+**Created wave:** 58
+**Deferred waves:** 0
+**Depends on:** —
+**Touches:** tests/test_book_export_interior_cover.py, meta/profiling/card-292-per-test-ceiling.md, meta/kanban/config.yml
+**Review score:** —
+**Started:** —
+**Closed:** —
+**Actual:** —
+**Merge commit:** —
+**Blocked by:** —
+
+## Why this is P1 when it is nobody's feature
+
+**This board has paid for this condition three times and never named it.**
+
+* **CARD-218's merge gate** reported **101 skips against a baseline of 27** — 74 transient Postgres timeouts under load average ~5.8. Every one re-ran green. The gate's own finding was its skip count, and an orchestrator spent a round establishing the 74 were noise.
+* **CARD-271's merge gate** red on a `Page.goto` timeout in a file the card never touched, reproduced green three times afterwards.
+* **CARD-276's fix-round pre-gate, 2026-10-24**: a whole-file run that had passed at **104 passed / 393.54 s** hours earlier stopped at `[ 57%]` with no summary line, **at both revisions of the card**, six runs, identical stopping point. I attributed it to the card's diff **twice** before measuring both arms under the same conditions.
+
+Three cards, three gates, one underlying condition: **the suite's cost per test is close enough to a hard ceiling that whether a run completes depends on what else is running on the machine.** Nobody has measured the ceiling, and nothing on the board states how close anything sits to it. That is why a measurement card is P1: **until the ceiling is known, every gate verdict on this board carries an unquantified chance of being about the host rather than the tree.**
+
+## What is measured already — the premise, so this card starts from numbers
+
+Taken 2026-10-24 on Mac15,6 (Apple M3 Pro, 11 cores, 18 GB, macOS 26.7.1, Python 3.14.3, pytest 9.1.1):
+
+| observation | measurement |
+|---|---|
+| `test_each_door_axis_arm_catches_a_shape_the_other_misses` run **alone** | **120.93 s** at `31897571`, **120.98 s** at `ced5e648` — then exit 1, **zero bytes of output**, `0 signals received`, 166 MB / 141 MB peak RSS |
+| the same test **warm, inside a whole-file run** | **99.21 s** (the fix round's own `--durations` reading) |
+| the file's 33-test sibling partition | **119.51 s, 33 passed** — half a second under |
+| the whole file, quiet machine, earlier the same day | **104 passed, 393.54 s** ✅ |
+| the whole file, loaded machine, **both revisions** | `[ 57%]` + 5 dots, exit 1, **no summary line** — 6 runs, byte-identical |
+| machine state when the runs died | **load average 12–20**, **zero python processes**; top consumers PyCharm 19.9 %, a `claude` process up 2d 2h 15.4 %, IntelliJ IDEA 12.2 % |
+
+**Ruled out:** memory (166 MB peak against 18 GB), a `pytest-timeout` plugin (not installed), a `timeout` in `pyproject.toml` (absent), a signal (`0 signals received`), and the card's diff (both arms identical).
+
+**Not established, and this card's first job:** *what* the ~120 s ceiling actually is. A per-test watchdog, a harness limit on a child process, or a coincidence of two independent 120 s figures. **Do not assume; measure it.**
+
+## What to implement
+
+1. **Find the ceiling and name it.** Write a throwaway probe **outside `tests/`** that sleeps or spins for a parameterised duration under pytest, and bisect the boundary. Report what it is (per-test? per-process? per-shell?), whether it is wall clock or CPU, and whether it moves with load. **If it turns out not to be a fixed ceiling at all** — e.g. the test is simply load-sensitive and the 120 s figures coincide — say so; that is a finding, not a failure, and it changes the remedy.
+2. **Publish the suite's distribution against it.** From `meta/profiling/suite-durations-20261023.txt`, list **every test within 50 % of the ceiling**, with its file and its duration. The board needs to know how many cliff-edge tests exist, not just that one does. (`test_each_door_axis_arm_catches_a_shape_the_other_misses` at ~99 s and `tests/test_book_export_interior_cover.py`'s guard class at 14,258 ms/test are the known candidates; **derive the list, do not extend this one by hand.**)
+3. **Cheapen the one test that is over the line.** Its cost is **three readings per row** over a table the previous card grew. CARD-276's own round proposed this and had no budget: *"that test's three-readings-per-row shape cheapened — it is more expensive on its own than this round's entire addition."* The card's G-6 forbids durations as *its* claim; this card's subject **is** the duration, so that guardrail does not apply here.
+4. **Make a gate verdict say whether the host was quiet.** A merge gate that reds under load and greens idle is not a verdict. Record the load average at gate start and end beside the result, so the next orchestrator spends minutes rather than an hour distinguishing a tree failure from a host one. (`meta/kanban/config.yml` is in `Touches` for this and nothing else.)
+
+## Acceptance criteria
+
+- **AC-1** (the ceiling is measured, not assumed): *Given* a parameterised probe outside `tests/`, *then* the card states what the ~120 s boundary is, with the bisection that found it and whether it is wall clock or CPU. (**gate**: the probe and its readings recorded; no new standing test — a test that asserts a host property would red on a different machine.)
+- **AC-2** (the distribution is derived): *Given* the committed duration artefact, *then* every test within 50 % of the ceiling is listed with its file and duration, **derived by parsing the artefact** rather than by extending a hand-written list. (test: `TestSuiteCeiling_TheCliffEdgeListIsDerived` in `tests/test_suite_profile.py`'s style — an equality against a live derivation, like `RENDER_HEAVY_SNAPSHOT`, so the list cannot go stale silently.)
+- **AC-3** (the over-the-line test completes): *Given* `tests/test_book_export_interior_cover.py` on a **quiet** machine, *then* the whole file completes with every test under the ceiling, and the previously-over test is **named with its before and after cost**. (**gate**: a whole-file run with the load average recorded at both ends; "quiet" is defined in the card as a measured figure, not a feeling.)
+- **AC-4** (guard, no coverage bought back cheap): *Given* the cheapened test, *then* **its claims are unchanged** — the four equalities it asserts (`callee identity` 23, `door spelling` 1, both arms off 30, `kept` 6) still hold and are still asserted. (test: the test itself, node id unchanged; **gate**: the four figures re-derived.)
+- **AC-5** (guard, no test deleted, renamed, skipped or merged — **including parametrize ids**): *Given* the touched files, *then* the collected node-id set loses nothing. (**gate**: set difference with `-o addopts=''`, removals 0, additions named. **Param ids count**: a reworded id is a deleted cell, which CARD-282's fix round nearly shipped.)
+- **AC-6** (the gate records the host): *Given* a merge gate or wave smoke test, *then* its recorded result carries the load average at start and end. (**gate**: the convention documented and used once in this card's own gate.)
+
+## Guardrails
+
+- **G-1: do not cheapen a test by guarding less.** AC-4 is the whole point: the four equalities stay, their figures stay derived, and the controls that kill on them stay killable. A cheaper test that checks less is a regression wearing a speed-up.
+- **G-2: do not assert a host property in a standing test.** The ceiling is a fact about this machine; a test that encodes it reds on a different one. Measure it in the card, derive the cliff-edge list from the artefact, and let the standing test guard the *derivation* rather than the *value* (AC-2's shape).
+- **G-3: probes stay OUT of `tests/`.** `meta/profiling/rank_durations.py:45` defines the frozen render set by grepping eight idioms over `tests/**/*.py`, and `tests/test_suite_profile.py:482` asserts the live grep **equal** to a 33-entry snapshot — a probe under `tests/` naming `interior(` reds the suite, and `tests/test_book_export_interior_cover.py` is **in** that snapshot.
+- **G-4: do not edit `src/**`.** This is a test-cost card. A production change is a finding to raise.
+- **G-5: no new runtime dependency** (ADR-0006/R1: stdlib + Pillow + NumPy). **No `pytest-timeout`** — adding a plugin to measure a limit changes the thing being measured, and it is not in the dependency baseline.
+- **G-6: corpus minimums are never lowered**; `tests/fixtures/**` is never regenerated.
+- **G-7: measure both arms under the same conditions.** The card exists because I did not. Every before/after figure here is taken back to back on one machine state, with the load average recorded, or it is not a comparison.
+
+## Architecture context
+
+- **FR/CON:** none. Suite cost and gate honesty; no requirement's verifying test changes.
+- **ADR:** ADR-0039/R1 (AC-4's claims need controls that can fail), ADR-0039/R2 (AC-2's derived list).
+- **Components:** none — test tree and the kanban config.
+- **Trace:** not applicable.
+
+## Worktree notes
+
+- **Scheduling.** `tests/test_book_export_interior_cover.py` is also CARD-276's (in flight), CARD-287's (344.29 s, 24.4 % of the suite) and inside CARD-273's `tests/**`. **This card serializes against all three**, and the natural order is **after CARD-276 merges** — it is the card that grew the test, and this one cheapens it. CARD-287's own subject is the same file's dominant class, so these two should be read together before either is dispatched.
+- **Why P1 and not P2.** Nothing here is a feature and nothing a customer sees. It is P1 because it is **about whether this board's verdicts mean anything**: three gates have already been argued about on evidence that turned out to be the host, and the next one will be too. The cheapest fix is to know the number.
+- **The phantom, recorded as the method lesson.** Both of my wrong attributions compared **a quiet run from hours earlier against a loaded run from minutes earlier**. The controlled version — both revisions back to back, nothing else running — took one command and settled it immediately. Running both arms under one machine state is not a refinement; it is the measurement.
