@@ -89,12 +89,27 @@ STRAIGHT_PRIMITIVE_NAMES = (
     "ContentStream.rectangle",
 )
 
+#: The font work's price in lines. **Every top-level name of the module is
+#: classified here or in :data:`NOT_FONT_NAMES`, and the partition is checked
+#: against the module's own AST** (:func:`check_name_partition`) — a top-level
+#: name in neither raises, so the script cannot report a font total that has
+#: silently stopped covering the module.
+#:
+#: Why it is a partition and not a list: review cycle 2 found this tuple had
+#: been TRANSCRIBED and then drifted. `_cap_height` (25 lines) and `_table` (5)
+#: were added to `book_vector.py` by fix round 1 and never added here, so the
+#: artefact reported the face at **216 lines when it was 246** — in a document
+#: whose own §1 asserts "every figure in this table is re-derived and none is
+#: transcribed". The figure WAS derived; its scope was hand-held. Deriving the
+#: scope is what closes that, rather than correcting the number.
 FONT_NAMES = (
     "FontMetrics",
     "_sfnt_tables",
+    "_table",
     "_cmap_format_4",
     "_unicode_cmap",
     "_advances",
+    "_cap_height",
     "_encoded_codepoints",
     "encode_text",
     "font_metrics",
@@ -102,6 +117,58 @@ FONT_NAMES = (
     "interior_face_metrics",
     "_write_face",
 )
+
+#: The module's other top-level names, declared so the partition above is
+#: total. Each is here for a stated reason rather than by omission:
+#: `ContentStream` and `Layout` are the drawing vocabulary (priced by
+#: :data:`CURVE_PRIMITIVE_NAMES` / :data:`STRAIGHT_PRIMITIVE_NAMES` at method
+#: granularity, so counting the class whole would double-count), `_number`,
+#: `_escape` and `_PLACES`' helpers are stream serialisation shared by every
+#: primitive, `write_vector_pdf` is the document writer, and
+#: `ContentStreamError` / `UnrepresentableText` are the error types.
+NOT_FONT_NAMES = (
+    "ContentStream",
+    "ContentStreamError",
+    "UnrepresentableText",
+    "_number",
+    "_grey",
+    "_paint_operator",
+    "_escape",
+    "_exactly",
+    "write_vector_pdf",
+)
+
+
+def check_name_partition(source: str) -> tuple[int, int]:
+    """``(font, other)`` counts, after proving the partition covers the module.
+
+    Raises when a top-level ``def``/``class`` of ``book_vector.py`` is in
+    neither tuple, or is in both, or names something the module does not
+    define. The whole point is that adding a function to the module and not
+    classifying it here is a FAILURE rather than a quietly smaller total.
+    """
+    import ast as _ast
+
+    top = {
+        node.name
+        for node in _ast.parse(source).body
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef))
+    }
+    font, other = set(FONT_NAMES), set(NOT_FONT_NAMES)
+    both = font & other
+    if both:
+        raise SystemExit(f"classified twice: {sorted(both)}")
+    phantom = (font | other) - top
+    if phantom:
+        raise SystemExit(f"classified but not defined in book_vector.py: {sorted(phantom)}")
+    unclassified = top - font - other
+    if unclassified:
+        raise SystemExit(
+            "top-level name(s) in neither FONT_NAMES nor NOT_FONT_NAMES: "
+            f"{sorted(unclassified)} — classify them, or the font total below "
+            "stops covering the module (review cycle 2's N-1)"
+        )
+    return len(font), len(other)
 
 
 # --------------------------------------------------------------------------
@@ -276,7 +343,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     source = Path(book_vector.__file__).read_text(encoding="utf-8")
     curve = code_lines(source, CURVE_PRIMITIVE_NAMES)
     straight = code_lines(source, STRAIGHT_PRIMITIVE_NAMES)
+    n_font, n_other = check_name_partition(source)
     font = code_lines(source, FONT_NAMES)
+    print(
+        f"<!-- scope checked: {n_font} font + {n_other} other = "
+        f"{n_font + n_other} top-level names, partition total -->\n"
+    )
 
     print("## Lines of code (blanks, comments and docstrings excluded)\n")
     print("| piece | code lines |")

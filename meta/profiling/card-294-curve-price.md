@@ -54,24 +54,39 @@ the way CARD-293's §1 table was counted, over
 | `ContentStream.line_to` (for scale) | 2 |
 | `ContentStream.rectangle` (for scale) | 6 |
 | the straight-line vocabulary, total | 12 |
-| the embedded face, total (CARD-293 estimated 163) | 216 |
+| the embedded face, total (CARD-293 estimated 163) | 246 |
 
 **24 lines, of which 13 are the circle itself.** Read it against the two
 numbers beside it: the whole straight-line vocabulary CARD-293 already proved
-is 12 lines, and the font work it priced at 163 came in at **216**. So the
-unpriced primitive is **twice the straight-line vocabulary and a ninth of
+is 12 lines, and the font work it priced at 163 came in at **246**. So the
+unpriced primitive is **twice the straight-line vocabulary and a tenth of
 the font work** — the smallest of the three pieces of this card, not the
 largest.
 
-The face's figure was **171** when this document was first written and is 216
-now. Review cycle 1's fix round added 45 code lines to the face and nothing to
+The face's figure was **171** when this document was first written and is 246
+now. Review cycle 1's fix round added 75 code lines to the face and nothing to
 the round shape: the sfnt reader's four refusals (version tag, offset-table
 self-consistency, per-table extent, missing tag) and the real cap height read
 from `H`'s own `glyf` bounding box in place of a seven-tenths-of-the-ascender
-guess that was measured 10.8 % low. Every figure in this table is re-derived by
-`scripts/card294_curve_price.py` on each run and none is transcribed; the
-round-shape and straight-line rows are **unchanged**, which is the claim this
-section exists to make.
+guess that was measured 10.8 % low. The round-shape and straight-line rows are
+**unchanged**, which is the claim this section exists to make.
+
+**⚠ This paragraph said 216 and "45 code lines" until review cycle 2, and the
+correction is worth keeping rather than quietly applying.** Both figures were
+derived by the enumerator, exactly as the sentence below promises — but the
+enumerator's *scope* was a hand-transcribed tuple, and fix round 1 added
+`_cap_height` (25 lines) and `_table` (5) to the module without adding them to
+it. So the document asserted "none is transcribed" while its own scope was,
+and the face read 30 lines light. The remedy was not to correct the number:
+`FONT_NAMES` and `NOT_FONT_NAMES` are now a **partition over every top-level
+name of `book_vector.py`, checked against the module's own AST**, so a name in
+neither raises instead of shrinking the total. Controlled: dropping
+`_cap_height` from the classification exits **1** naming it. The run prints the
+partition it checked — `13 font + 9 other = 22 top-level names`.
+
+Every figure in this table is re-derived by `scripts/card294_curve_price.py` on
+each run, and **its scope is now derived too**, which is the part this section
+got wrong the first time.
 
 The 13 lines are: a radius refusal, the kappa product, four coordinate names,
 and then one `begin_path`, four `curve`s, a `close_path` and a `paint`. There
