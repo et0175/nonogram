@@ -275,6 +275,25 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   rather than CARD-227's unlanded 0.48/1.28/2.08 pt, and the load-bearing
   precedent is `_write_pdf` itself rather than `export/svg.py`.
 
+- 2026-10-25: **R7 discharged the same day it was written — the owner looked at
+  the proof and chose their own 0.3 / 0.8 / 1.3 pt.** R7 deferred the grid's rule
+  weights to a printed proof; the owner read `card293-proof-vector.pdf`
+  (*"I looked at the pdf and I like it (vector versions)"*) and picked page 1,
+  their artifact's unscaled figures, over page 2's x1.6-scaled 0.48 / 1.28 /
+  2.08 pt. ADR-0037/R2 is amended with them. R7's statement was rewritten rather
+  than left standing, because both of its operative clauses — "the weights wait"
+  and "until ADR-0037 is revised, the interior ships the weights COMP-007
+  computes today" — became false, and a rule that reads false is worse than one
+  that is silent.
+
+  **Two things worth keeping visible.** First, the ratios never moved: 1 : 2.667 :
+  4.333 were the owner's in both candidates, and the x1.6 between them was an
+  arithmetic correction for a device floor, not a design opinion — so removing it
+  overturned no judgement. Second, the decision was made **on screen**, while
+  ADR-0037's Decision section asks for paper; dot gain at 0.1058 mm and whether
+  35% grey reads as guidance in print are still unmeasured, and that caveat now
+  lives in ADR-0037's History with the first printed book as its revisit trigger.
+
 - 2026-10-25: **Section dividers carved out of the interior scope before this ADR
   was committed** (owner, same session). Not a technique judgement: **CARD-231
   redesigns that page outright**, so the new design is born vector and the old
@@ -381,13 +400,27 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # which is raster by R2, and the independent oracles R6's statement exempts.
   severity: mandatory
 - id: ADR-0042/R7
+  # DISCHARGED 2026-10-25, hours after this ADR was accepted. This rule said
+  # the weights "wait on a printed proof the owner has seen"; the owner looked
+  # at the CARD-293 proof the same day, chose their own 0.3 / 0.8 / 1.3 pt over
+  # CARD-227's x1.6-scaled 0.48 / 1.28 / 2.08 pt, and ADR-0037/R2 was amended
+  # accordingly (see that ADR's History, 2026-10-25). The statement is rewritten
+  # rather than left standing, because "the weights wait" and "until ADR-0037 is
+  # revised, the interior ships the weights COMP-007 computes today" are both
+  # now false, and a rule that reads false is worse than one that is silent.
+  # One honest caveat carried forward: the owner judged the RENDERS, not paper.
+  # Dot gain at 0.1058 mm and whether 35% grey reads as guidance in print are
+  # still measured by nobody; the revisit trigger is the first printed book or
+  # proof, and that lives in ADR-0037 now, not here.
   statement: >-
-    This ADR does not set the grid's rule weights and does not revise
-    ADR-0037. It makes ADR-0037/R2's device floor inapplicable to the
-    interior, and nothing more: the weights wait on a printed proof the owner
-    has seen, because dot gain on real stock and whether 35% grey reads as
-    guidance cannot be judged from a screen. Until ADR-0037 is revised, the
-    interior ships the weights COMP-007 computes today.
+    This ADR does not set the grid's rule weights itself. What it does is make
+    ADR-0037/R2's device floor inapplicable to the interior -- because a
+    content-stream line has no device pixel to clear -- and nothing more. The
+    weights are ADR-0037/R2's to state, and as of 2026-10-25 that rule states
+    the owner's 0.3 / 0.8 / 1.3 pt, bound to the vector medium: the same
+    figures through a raster generator round to 1 / 3 / 5 px, the one-pixel
+    cell grid R2's 2026-10-17 amendment refused. So this ADR's removal of the
+    floor is what made those figures available, and R2 is where they live.
   scope: {code: ["src/nonogram/export/**", "src/nonogram/admin/**"]}
   check: {kind: review-lens}
   severity: mandatory

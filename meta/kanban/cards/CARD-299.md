@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** ADR-0042/R6 (DEC-048), 2026-10-25; CARD-293's spike §4 and §6 item 6; the surface counted in `meta/profiling/adr-0042-migration-census.md`. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
-**Wave:** 64
+**Wave:** 65
 **Created wave:** 60
 **Deferred waves:** 0
 **Depends on:** CARD-298, CARD-276

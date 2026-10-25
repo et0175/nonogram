@@ -12,10 +12,10 @@
 **Worktree:** —
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 4 (the non-puzzle pages, less the guide — CARD-296 — and less the dividers, which the owner left raster). Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
-**Wave:** 62
+**Wave:** 63
 **Created wave:** 60
 **Deferred waves:** 0
-**Depends on:** CARD-294, CARD-295
+**Depends on:** CARD-294, CARD-295, CARD-227
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_answer_key.py, tests/test_book_toc.py, tests/test_book_answer_key.py, tests/test_book_qr_slot.py, tests/test_layout_answer_tiles.py
 **Review score:** —
 **Started:** —

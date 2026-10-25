@@ -4,15 +4,16 @@ _Two plans live in this file. Each states what it covers; neither is the whole b
 
 1. **Book generator (Increments 13–16)** — waves 20–27, CARD-113..CARD-135. Historical;
    all `done`. Kept because `waves.yml`'s increment checkpoints refer to it.
-2. **The vector interior (ADR-0042 / DEC-048)** — waves 60–64, CARD-294..CARD-299.
-   Added by the 2026-10-25 decompose pass.
+2. **The vector interior (ADR-0042 / DEC-048)** — waves 60–65, CARD-294..CARD-299 plus
+   **CARD-227** at wave 62. Added by the 2026-10-25 decompose pass; CARD-227 joined it the
+   same day when the owner decided the grid weights.
 
 _Not drawn, deliberately:_ CARD-001..CARD-112 (`done`, waves 1–19); the 2026-10-03,
 2026-10-17 and 2026-10-22 deltas (the last being CARD-272 → CARD-273 → CARD-274, a
 strict chain in which CARD-273 additionally waits on 16 open book/admin cards); and the
 public-player cards CARD-282..CARD-285. Also not drawn: the **12 queued print-layout
-cards**, because 11 of them are now `Revision pending: true` and therefore gated rather
-than scheduled — see "What is gated, and why it is not on this chart" below.
+cards**, because 10 of them are now `Revision pending: true` and therefore gated rather
+than scheduled (the eleventh, CARD-227, was ungated the same day and IS drawn) — see "What is gated, and why it is not on this chart" below.
 
 _Within a wave, cards are ordered uncertainty-first (`architectural` first, then the
 card carrying the most unpriced work). P1 cards carry `crit`._
@@ -32,12 +33,35 @@ gantt
     CARD-296 P2 Guide page as operators       :card296, after card294, 1d
     CARD-295 P2 Puzzle page as operators      :card295, after card294, 1d
   section Wave 62
-    CARD-297 P2 TOC and answer pages          :card297, after card294 card295, 1d
+    CARD-227 P2 Owner grid weights            :card227, after card295, 12h
   section Wave 63
-    CARD-298 P2 Per-page medium and guards    :card298, after card295 card296 card297, 1d
+    CARD-297 P2 TOC and answer pages          :card297, after card295 card227, 1d
   section Wave 64
+    CARD-298 P2 Per-page medium and guards    :card298, after card296 card297 card227, 1d
+  section Wave 65
     CARD-299 P2 Claims read the stream        :card299, after card298 card276, 1d
 ```
+
+### CARD-227 joined the phase on 2026-10-25, and where it sits is a measured choice
+
+The owner read `card293-proof-vector.pdf` and chose page 1 — their artifact's own
+**0.3 / 0.8 / 1.3 pt** — over page 2's ×1.6-scaled figures. That ungated CARD-227,
+and it belongs **inside** the phase rather than after it, at wave 62, for two
+reasons that are about cost rather than tidiness:
+
+1. **One baseline recording instead of two.** CARD-298 re-records the 21 book
+   baselines once. If the weights changed after it, the baselines would move a
+   second time, and nobody could tell afterwards which change moved which bytes.
+2. **The answer tiles are born at the right weights.** CARD-227's G-1 says the
+   answer grids follow the puzzle grid's weights. With CARD-227 before CARD-297,
+   the tiles are drawn correctly the first time instead of retrofitted.
+
+It cannot come *earlier* than CARD-295: at these widths a **raster** grid rounds
+to **1 / 3 / 5 px**, the one-pixel grey grid ADR-0037/R2's 2026-10-17 amendment
+refused on the evidence of 7 of 17 reviews. The figures are only safe once the
+grid is a content stream — which is why the card gained AC-7, asserting that
+these widths can never reach a raster grid, with a control that fails on the
+mutant.
 
 ### Why this order
 
@@ -87,16 +111,19 @@ the chart rather than drawn with invented waves.
 
 | cards | treatment | why |
 |---|---|---|
-| CARD-227, 208, 215, 226 | **rewritten** | their *decision* changes, not just their tests — each leaned on ADR-0037/R2's device floor, which ADR-0042/R7 makes inapplicable to the interior |
+| CARD-208, 215, 226 | **rewritten**, still gated | their *decision* changes, not just their tests — each leaned on ADR-0037/R2's device floor, which ADR-0042/R7 makes inapplicable to the interior |
+| **CARD-227** | **rewritten and UNGATED 2026-10-25** | was the fourth of these; the owner read the proof and chose their own 0.3 / 0.8 / 1.3 pt, so it is scheduled at **wave 62** and is drawn in the chart above |
 | CARD-207, 209, 229, 230, 232, 233 | **retargeted** | page composition and type; the design is unchanged and only the verifying instrument moves from ink to the content stream |
 | CARD-231 | **born vector** | the dividers stay raster by owner decision 2026-10-25, so this redesign is drawn as operators from the start — and **landing it expires ADR-0042/R2's divider exception** |
 | CARD-216 | untouched | storage and the web player; no print ink |
 
-**CARD-227 is additionally blocked on the owner, not on code.** ADR-0042/R7 defers the
-grid's rule weights to a printed proof — dot gain on real stock, and whether 35% grey
-reads as guidance, cannot be judged from a screen. The proof is at
-`~/Documents/nonogram-reviews/CARD-293/card293-AC2-side-by-side.pdf` and must be printed
-at 100%. Only after that is ADR-0037 revised, and only then is CARD-227 rewritten.
+**CARD-227 is no longer blocked.** The owner decided on 2026-10-25 from the vector
+renders — not from paper, which this ADR's own Decision section had asked for. ADR-0037/R2
+is amended with the figures and binds them to the vector medium. What remains unmeasured,
+recorded rather than waved past: **dot gain** at 0.1058 mm on uncoated cream stock, and
+whether **35 % grey** reads as light guidance or as faded in print. The owner accepted that
+by deciding now, and the revisit trigger is the first printed book or proof — a change there
+is an ADR-0037 amendment, not drift.
 
 ### Two P1s that are not in this phase and should not wait for it
 

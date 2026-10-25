@@ -183,7 +183,7 @@ below carry the weight.
 - ADR-0042/R3 — the vector writer consumes positions and derives none (check: review-lens)
 - ADR-0042/R4 — hand-rolled, no new dependency; ADR-0006/R1 stays closed (check: tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed)
 - ADR-0042/R5 — DejaVuSans embedded whole and Flated once per file; no base-14 (check: review-lens → this card's AC-1)
-- ADR-0042/R7 — this card sets no rule weight and does not revise ADR-0037 (check: review-lens)
+- ADR-0042/R7 — this ADR does not set the grid's weights itself; it removed the device floor, and ADR-0037/R2 is where the weights live (as of 2026-10-25, the owner's 0.3 / 0.8 / 1.3 pt, bound to the vector medium). This card sets no weight either — CARD-227 lands them in wave 62 (check: review-lens)
 - ADR-0006/R1 — the runtime dependency set is exactly stdlib + Pillow + NumPy; a font shipping as package data is not a dependency change (check: TestDependencyBaseline_IsExactlyPillowAndNumpy)
 - ADR-0036/R2 — book page geometry is COMP-007's `compute_layout` with a PageSpec (check: review-lens)
 - ADR-0039/R1 — a claim needs a control that CAN fail (check: review-lens)

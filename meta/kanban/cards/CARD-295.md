@@ -90,12 +90,20 @@ to raise, not a number to compute here.
 
 ## Guardrails
 
-- **G-1: do not change a single rule weight or tone.** ADR-0042/R7 is explicit:
-  this phase does **not** revise ADR-0037, and the weights wait on a printed proof
-  the owner has not yet seen. The interior ships **the weights COMP-007 computes
-  today**. CARD-227 is the card that changes them, it is gated, and its figures
-  are decided-but-unlanded. A card that quietly ships 0.3 pt because vector makes
-  it possible has pre-empted the owner's decision.
+- **G-1: do not change a single rule weight or tone.** The instruction is
+  unchanged by the owner's 2026-10-25 decision, but its **reason** is now the
+  opposite of what it was, so read it again rather than from memory.
+  **It was:** the weights were undecided, so nobody could ship them.
+  **It now is:** the weights **are** decided — the owner chose 0.3 / 0.8 / 1.3 pt
+  on CARD-293's proof, and ADR-0037/R2 carries them — but **CARD-227 is the card
+  that lands them**, one wave after this one (wave 62). This card draws the grid
+  at **the weights COMP-007 computes today**, so that the weight change arrives
+  as one reviewable diff in one place instead of being smuggled into the medium
+  change where no test is watching for it.
+  There is also a concrete cost to grabbing it: **CARD-298 records the book
+  baselines once**, deliberately after CARD-227, so a single recording captures
+  both the medium and the widths. Shipping 0.3 pt here makes the phase pay for
+  two baseline recordings and muddles which change moved which bytes.
 - **G-2: do not touch `src/nonogram/export/**`.** The `Layout` is consumed, never
   changed. CON-019 holds the CLI and web exports byte-identical.
 - **G-3: do not touch the cover or the dividers.** Raster by ADR-0042/R2 and by

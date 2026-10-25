@@ -12,10 +12,10 @@
 **Worktree:** —
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 5. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
-**Wave:** 63
+**Wave:** 64
 **Created wave:** 60
 **Deferred waves:** 0
-**Depends on:** CARD-295, CARD-296, CARD-297
+**Depends on:** CARD-295, CARD-296, CARD-297, CARD-227
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf.py, tests/fixtures/book_baselines/**, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** —
 **Started:** —
