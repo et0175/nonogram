@@ -1,0 +1,594 @@
+card: CARD-276
+cycle: 2
+reviewer: review agent (wave 58, forge:kanban)
+date: 2026-10-24
+revision_reviewed: "31897571"
+fork_point: c2cb8e3e
+branch: card/276-anchoring-as-a-fixed-point
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-276
+target_file_sha256_prefix: 07e8e1e716944ea5
+aggregate_round: 6
+round_limit: 6
+fix_round_available: false
+
+score: 6.5
+certified: false
+min_score: 8
+
+verdict: >-
+  The question this card exists to answer is answered NO. Fix round 1 closed
+  every shape cycle 1 named -- F-1, F-2 and F-3 all reproduce as closed here,
+  with my own plants, and the three cycle-1 corrections the round made to the
+  adjudication are confirmed. But the hole moved one level of indirection
+  again, which is this family's signature across all six appearances. FIX 1
+  closed cycle 1's Critical by routing a resolved attribute chain into the
+  own-instance surface rule; that rule's authority is built with ast.walk over
+  the ClassDef, so every nested def/class ANYWHERE inside the class -- locals
+  inside methods included -- is claimed as part of the class's attribute
+  surface. Nine such names already stand on BookPDFGenerator. A geometry door
+  installed on self from outside the text under any of those nine spellings is
+  SILENT, with a bare literal page position, needing no plant scaffolding at
+  all: the module's own text already supplies the laundering occurrence. The
+  shipped control for exactly this shape (DOOR_SHAPES W21 / SURFACE_SHAPES_LAUNDERED
+  S1) refuses only because its plant spells the attribute `_d`. Exhaustive over
+  all 32 exemption subsets the shape has NO lever -- the only refusal ever
+  attributable to the plant is the `builtins` one on its own getattr -- which is
+  the exact condition this card's own docstring at :5035 calls "no lever".
+  So: sixth appearance, not a resolved level. The mechanism work is otherwise
+  strong and every committed figure reproduces; the card fails min_score on its
+  central claim, not on its craft.
+
+one_question_answered: sixth appearance -- the level is NOT resolved
+family_regression: >-
+  WARN -> confirmed. ADR-0039/R1/R2 family, instance 6. The hole moved from
+  "one resolving occurrence of the spelling anywhere in the module" (cycle 1's
+  F-1) to "the spelling already standing on the calling class's surface"
+  (this cycle's F-1). Each prior instance needed something appended; this one
+  needs nothing appended.
+
+instrument_domain: >-
+  All plant readings were taken by driving the guard's own classmethods
+  directly outside pytest: _GUARD._plant / _outcome / _plant_refusals, with the
+  module read from disk by _plant exactly as the suite reads it. Every arm
+  printed its own identity before measuring (file sha256 prefix, len(DOOR_SHAPES),
+  len(CALLEE_EXEMPTIONS), len(MEASURED_BLIND_SPOTS)) so no two revisions could
+  be confused: HEAD reads 07e8e1e716944ea5 / 36 / 5 / 5 and ced5e648 reads
+  4a2a28eba300268e / 36 / 4 / 4. Lever searches used _plant_refusals (the
+  attributing instrument), never _outcome, for the reason this card's docstring
+  at :3709 states. Structural figures were recomputed by an independent ast
+  reimplementation in a separate process, not by calling the guard.
+
+host_condition_respected: >-
+  tests/test_book_export_interior_cover.py was not run as a single file and no
+  full suite was run; meta/kanban/.full-suite.lock was never written or taken.
+  The per-test ceiling on
+  TestBookPdfStructure_...::test_each_door_axis_arm_catches_a_shape_the_other_misses
+  is CARD-292's and is not billed here, investigated, or read as a red.
+
+findings:
+
+  - id: F-1
+    severity: critical
+    title: >-
+      The own-instance surface rule's authority counts every nested def/class
+      inside the class, so nine spellings the module already contains launder a
+      setattr-installed geometry door -- silent, undeclared, and with no lever
+    file: tests/test_book_export_interior_cover.py
+    line: 2089
+    gating: true
+    confidence: high
+    evidence: |
+      MECHANISM (a reading of :2089-2115). `surface[holder]` is built with
+      `for node in ast.walk(holder)`, adding `node.name` for every FunctionDef /
+      AsyncFunctionDef / ClassDef found anywhere beneath the ClassDef. ast.walk
+      descends into method bodies, so a function defined LOCALLY inside a method
+      enters the class's claimed attribute surface. The own-instance rule at
+      :2613-2615 then passes any `self.X(...)` whose X is in that set.
+
+      INDEPENDENT STRUCTURAL MEASUREMENT (own ast reimplementation, separate
+      process, over src/nonogram/admin/book_pdf_generator.py, 816 ast.Call nodes):
+        class BookPDFGenerator: shipped surface = 50 names
+                                narrowed to direct members = 40 names
+        the 9 names on the surface ONLY because of a nested local def,
+        with where each one actually lives:
+          line_image      :4342  inside create_guide_page
+          technique_rows  :4350  inside create_guide_page
+          set_page        :4389  inside create_guide_page
+          fits_width      :4580  inside create_guide_page
+          produce         :6869  inside interior_stream
+          paragraph       :4432  inside set_page inside create_guide_page
+          picture         :4438  inside set_page inside create_guide_page
+          space           :4443  inside set_page inside create_guide_page
+          technique       :4448  inside set_page inside create_guide_page
+        attribute-callee sites in the real module that would newly refuse
+        if the authority were narrowed to direct members: 0
+      (Same measurement over all 15 classes: BookPDFGenerator is the only one
+      with a non-empty difference.)
+
+      THE CONVERSE THE PASS RESTS ON IS THE FALSE ONE. The refusal's own text at
+      :2619-2627 reads "an attribute of this module's own instance that
+      <Class> never spells, so it was installed from outside this text and may
+      be a geometry door". The branch's `continue` at :2632 is UNCONDITIONAL, so
+      being on the surface is taken as proof the attribute was NOT installed
+      from outside the text. Both plant families above falsify that inference.
+
+      PLANTS -- no scaffolding at all, body only, extra only `_S = "spec"`:
+            setattr(self, "<name>", getattr(self, "page_" + _S))
+            self.<name>(3 + len(section))
+            first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+      _outcome, arm 07e8e1e716944ea5 / 36 / 5 / 5:
+        self.produce         ()  SILENT
+        self.set_page        ()  SILENT
+        self.paragraph       ()  SILENT
+        self.picture         ()  SILENT
+        self.space           ()  SILENT
+        self.fits_width      ()  SILENT
+        self.line_image      ()  SILENT
+        self.technique       ()  SILENT
+        self.technique_rows  ()  SILENT
+        CONTROL self._d      ('refusal',)   <- DOOR_SHAPES W21 / S1, same shape
+      The door reached is the real one: `getattr(self, "page_" + _S)` with
+      _S = "spec" is self.page_spec, GEOMETRY_DOORS' own member, and the
+      position is `3 + len(section)` -- the bare front-matter literal this
+      guard exists to report. Nothing is reported.
+
+      NO LEVER, exhaustively. _plant_refusals over all 32 subsets of the five
+      CALLEE_EXEMPTIONS, on the `produce` plant:
+        subsets exposing the plant's own lines: 16/32
+        minimal single drops: ['builtins']
+        the complete set of refusal shapes seen under ANY subset:
+          "a callee that is a builtin and is bound nowhere in this module"
+        with all five classes in place: []
+      That is the plant's own setattr/getattr, not anything that can see a
+      door. This card's own docstring at :5035 states the standard: "A row
+      whose only lever is `builtins` has no lever". By that standard this
+      shape has none -- strictly worse than R8, which at least has a class and
+      a named lever.
+
+      BREADTH IS ALSO UNCONSTRAINED, measured with the committed instrument.
+      Step 8f fired a line-count-preserving mutant (Y1) that narrows the
+      authority to the holder's own direct members, over the 33-test door-axis
+      class: pytest exit 0, 14 of 203 assertion nodes reached, 0 FAIL, every
+      cell IDENTICAL to SHIPPED. Proven non-no-op first -- with Y1 live the
+      three plants above read ('refusal',) instead of (), and the module cost is
+      still sites=23 / vocabulary=6 / refusals=0. So the mutant moves the walk's
+      verdict on nine shapes, costs this module nothing, and no assertion in the
+      file can see it: the ADR-0039/R1 edge pair this claim has never had. Full
+      domain in step_8f below.
+
+      THE SYMMETRIC GAP TO FIX 2 (a reading, not a plant). The same `surface`
+      loop adds a method's name with no `decorator_list` check, while
+      `anchored_to_a_fixed_point` at :2295 refuses a DECORATED definition
+      terminal for the stated reason that "the decorator replaces what the `def`
+      binds, so the identity this walk reads off the text is not the identity at
+      the call". BookPDFGenerator carries four decorated methods --
+      interior_bitmap_mode (property), _grid_size, _payload, _puzzle_payload
+      (staticmethod) -- all on its surface. FIX 2 added the terminal rule in one
+      of the two places a definition terminal is read.
+
+      NOT DECLARED: MEASURED_BLIND_SPOTS' five rows are the two VALUE rows, the
+      CALL-GRAPH parameter-callee row, R3 (receiver this module does not define
+      -- the plant above is on `self`, so R3 does not reach it) and R8 (a
+      DEFINITION rebound where no store is visible -- the plant rebinds an
+      attribute, not a definition). None covers this shape.
+    remedy: |
+      Either (a) close it, which step 8f measured as FREE: constrain the
+      def/class branch at :2095-2098 to members of the holder's own body --
+      `if parent.get(node) is holder and isinstance(...)`. Line-count-preserving,
+      one line, test file only, G-1 unaffected, measured cost on this module 0
+      refusals, and no test reds.
+      Then add a decorator check to that branch for the same reason FIX 2 added
+      one to the module-level terminal, and add a DOOR_SHAPES / SURFACE_SHAPES
+      row whose spelling is one of the nine, so the control stops depending on
+      the plant's choice of name. Or (b) declare it as a MEASURED_BLIND_SPOTS
+      row with absorbed_by empty and the "no lever" asymmetry stated, as the
+      VALUE and CALL-GRAPH rows already are. What it must not do is ship silent
+      and unmentioned while the axis table says the axis is closed on callees
+      this walk can anchor.
+    disposition: gating -- orchestrator takes inline or records a gate override
+
+  - id: F-2
+    severity: major
+    title: >-
+      Cycle 1's F-1 is narrowed, not closed: one innocent RESOLVING store of the
+      same spelling inside the CALLING class still launders a setattr-installed
+      door, because the occurrence that resolves the chain is the occurrence that
+      puts the spelling on the surface
+    file: tests/test_book_export_interior_cover.py
+    line: 2568
+    gating: true
+    confidence: high
+    evidence: |
+      FIX 1 made the attribute branch's `continue` conditional on a refusal
+      (:2568-2582), so a RESOLVED chain falls through to the own-instance
+      surface rule instead of past it. But the surface rule's authority is the
+      same spelling stored in the class, and a resolving `self.X = <def>` store
+      satisfies both conditions at once: it resolves the chain AND it puts X on
+      the surface. So the fallback FIX 1 installed is defeated by construction
+      whenever the laundering occurrence sits in the calling class.
+
+      CONTROLLED TRIPLE, both arms self-identified:
+        arm HEAD      07e8e1e716944ea5  DOOR_SHAPES=36 EXEMPTIONS=5 BLIND=5
+        arm ced5e648  4a2a28eba300268e  DOOR_SHAPES=36 EXEMPTIONS=4 BLIND=4
+        (fork point c2cb8e3e not measurable with this driver -- the class under
+         test does not exist there; stated as a bound, not read as a result)
+
+        A  S1 verbatim, no laundering                 HEAD ('refusal',)  ced5e648 ('refusal',)
+        B  S1 + resolving store in an UNRELATED class HEAD ('refusal',)  ced5e648 ()
+        C  S1 + resolving store of the SAME spelling
+           in the CALLING class                       HEAD ()            ced5e648 ()
+        E3 the declared edge row                      HEAD ()            ced5e648 ()
+      B is cycle 1's F-1 and it IS closed -- that reproduces. C is the same
+      Critical one indirection in, and it is silent at both revisions.
+
+      C's body (extra = '\n_S = "spec"\n'):
+            self._d = interior_page_count
+            setattr(self, "_d", getattr(self, "page_" + _S)); self._d(3 + len(section))
+            first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+      The setattr runs after the store, so at run time self._d IS self.page_spec
+      and the call reaches the real door with the bare literal 3.
+      A two-link variant (self._y = interior_page_count; self._d = self._y) is
+      also silent.
+
+      ATTRIBUTION CONTROL -- the silence is specifically the resolved pass, not
+      the surface rule in general: the same plant with an OPAQUE innocent store
+      refuses before the anchor is consulted.
+        self._d = None    ('refusal',)  "an attribute bound to an expression at line 6718"
+        self._d = 1 + 2   ('refusal',)  same
+        self._d = interior_page_count  ()  SILENT
+
+      LEVER: this one HAS a lever that names its mechanism. Exhaustive over 32
+      subsets, dropping only "a chain whose terminal is a definition or an
+      import" yields exactly one refusal attributed to the plant:
+        (6719, "a callee whose alias chain this walk resolved to a definition or
+         an import in this module's own text, whose run-time value it therefore
+         reads off that terminal", '_d', 'self._d(3 + len(section))')
+      So it is accountable -- but it is absorbed by a class whose declared
+      residue (R8) is "a definition rebound where this walk can see no store",
+      and this is an ATTRIBUTE installed from outside the text under a spelled
+      name, which the surface rule's own comment at :2082-2088 claims as its
+      territory ("setattr, __set_name__, a metaclass ... F-401's P1/P5/P8").
+      This is the same pattern as CARD-262's F-502: a class absorbing a shape
+      its reach statement does not name.
+
+      WHY THE SHIPPED CONTROLS CANNOT SEE IT: `_attribute_callee_laundering`
+      (:5227-5262) emits its laundering into `class _UnrelatedResolver`, and its
+      own docstring says so -- "deliberately in a class with nothing to do with
+      the call". Both laundering controls (:5601, :5672) therefore read exactly
+      one of the two vehicles. They are honest about their own scope; the
+      overclaim is in the prose (F-3).
+    remedy: |
+      Declare it: a MEASURED_BLIND_SPOTS row, absorbed_by "a chain whose
+      terminal is a definition or an import", with the two-directional reading
+      the table already supports (it passes, measured above). Correct the
+      exemption class's reach statement in `anchored_to_a_fixed_point`'s
+      docstring and in CALLEE_EXEMPTION_REACH's doc so the residue is not
+      stated as the unseeable-rebind case alone. Closure is a successor's.
+    disposition: gating -- declaration inline; closure to a successor card
+
+  - id: F-3
+    severity: major
+    title: >-
+      The fourth version of the sentence is false in two clauses -- "One of the
+      two is closed" and "still false, of exactly that residue" -- and AC-6's
+      own deliverable is falsified for the fourth consecutive round
+    file: tests/test_book_export_interior_cover.py
+    line: 1203
+    gating: true
+    confidence: high
+    evidence: |
+      Clause by clause against the code, in the axis-2 bullet at :1155-1262 and
+      `_page_positions`' opening at :1530-1600.
+
+      VERIFIED TRUE:
+        - ":1156 closed on callees this walk can anchor to a FIXED POINT over
+           the alias chain, with five named exemptions, each with a reading of
+           its own" -- CALLEE_EXEMPTIONS is 5, CALLEE_EXEMPTION_REACH is 5 rows.
+        - ":1159-1161 a callee it can anchor is one whose EVERY binding
+           occurrence holds a name or attribute that is itself anchored, down to
+           a binding this module's own text shows" -- matches :2275-2299.
+        - ":1166 a decorated definition is not a terminal here and the chain
+           onto it refuses" -- T1 ('refusal',), T2 ('refusal',), and my own
+           P5 (terminal decorated by an ALIASED decorator) ('refusal',),
+           P6 (two decorators, one a no-op) ('refusal',). The check is on
+           decorator PRESENCE, so the brief's "aliased decorator / two
+           decorators" do not reopen it.
+        - ":1167-1170 a definition rebound where this walk can see no store at
+           all is passed, declared as the exemption class, and exposed by
+           removing it" -- R8 silent with all five classes, refused and named
+           with that one dropped (reproduced, see F-2's lever block for the
+           refusal text).
+        - ":1175-1176 the chain's own bound and its cycle check refuse and
+           report" -- reproduced; and G-7 holds, no silent cap found anywhere
+           in the new mechanism.
+        - the cost sequence 760 / 509 / 203 / 201 / 0 / 0 recomputed in a second
+           domain by calling _page_positions directly: identical.
+
+      MEASURABLY FALSE:
+        - ":1203 'One of the two is CLOSED: an attribute is keyed by spelling
+           alone, so one unrelated resolving occurrence of the spelling used to
+           skip the own-instance surface rule and silence a setattr-installed
+           door'". It is NARROWED. The word doing the work is "unrelated": with
+           the occurrence inside the calling class the same Critical shape is
+           silent (F-2), and with the spelling already on the class's surface it
+           is silent with nothing appended at all (F-1).
+        - ":1213 'So the sentence is still false, of EXACTLY that residue'".
+           The residue also contains F-1's nine spellings and F-2's same-class
+           vehicle. "Exactly" is the clause that fails.
+        - the same overclaim in TestDoorAxis_...'s class docstring at
+           :5293-5307: "Cycle 1 then found the level again, twice ... and this
+           class holds both answers". It holds the answer for the
+           unrelated-class vehicle of the first one.
+
+      This is the fourth round in which this sentence ships asserting a reach it
+      does not have, on the card whose stated purpose is to end that. The
+      paragraph's own closing clause -- "a reader of the fourth version should be
+      able to see what that cost" -- is the reason this is gating rather than a
+      successor's: the remedy is prose, it is cheap, and shipping a fifth false
+      assertion is the one outcome this card cannot afford.
+    remedy: >-
+      Replace "One of the two is closed" with the measurement: the unrelated-class
+      vehicle is closed; the same-class vehicle and the class-surface vehicle are
+      not. Drop "exactly" from :1213 and point at the new blind-spot rows. Correct
+      :5293-5307 to say which answer the class holds.
+    disposition: gating -- prose only, no mechanism change, no src edit
+
+  - id: F-4
+    severity: minor
+    title: >-
+      FIX 4's own standard -- "a lever has to name the mechanism it exposes" --
+      is prose, not a control: the absorbed reading asserts only that SOME
+      refusal appears
+    file: tests/test_book_export_interior_cover.py
+    line: 5070
+    gating: false
+    confidence: high
+    evidence: |
+      :5031-5036 states the standard that FIX 4 exists to meet: "a lever has to
+      name the mechanism it exposes ... A row whose only lever is `builtins` has
+      no lever, and R8's is its own class." The reading that implements it
+      (:5070-5097) is
+        bool(self._plant_refusals(body, extra, callee_exemptions=<all but absorbed_by>))
+      compared against True per row. Any refusal attributable to the plant's own
+      lines satisfies it, including an incidental one -- which is precisely the
+      failure mode the docstring above it declares worthless. The sibling table
+      CHAINS_THAT_RESOLVE does carry an expected refusal-shape tuple per row
+      (:5379-5412) and is held to it; MEASURED_BLIND_SPOTS does not.
+      This is ADR-0039/R1 in the accountability machinery fix round 1 wrote,
+      which is where the brief said to look. It is minor because the two rows
+      that currently use it both produce a correctly-naming refusal (verified
+      above for R8, and for R3 by cycle 1), so nothing is wrong today -- the
+      control is weaker than the claim it carries.
+    remedy: >-
+      Give MEASURED_BLIND_SPOTS a sixth field holding a fragment of the refusal
+      shape the lever must produce, and assert it, as CHAINS_THAT_RESOLVE does.
+    disposition: successor card
+
+  - id: F-5
+    severity: minor
+    title: >-
+      Axis 5's bullet names three shapes as "neither read nor refused"; two of
+      the three are measurably refused since the fixed point landed
+    file: tests/test_book_export_interior_cover.py
+    line: 1277
+    gating: false
+    confidence: high
+    evidence: |
+      :1277-1283 reads "a position forwarded through an alias of a non-door
+      function, through a callback parameter used as a callee, or through a
+      *args forwarder is neither read nor refused".
+      Measured (plants, arm 07e8e1e716944ea5 / 36 / 5 / 5):
+        an alias of a non-door ATTRIBUTE function
+          `_f = self.puzzle_pages` / `_f([], 3 + len(section))`      ('refusal',)
+        a *args forwarder
+          `_fwd(getattr(self, "page_" + _S), 3 + len(section))`
+          with `def _fwd(*args): return args[0](*args[1:])`          ('refusal',)
+        the same through **kwargs                                    ('refusal',)
+        an alias of a module-level non-door def
+          `_f = interior_page_count` / `_f(3 + len(section))`         ()  silent
+        a callback parameter used as a callee (the declared row)      ()  silent
+      So the bullet is conservative -- it declares more open than the walk is,
+      which is the safe direction, and the brief asked whether the declaration is
+      honest rather than for closure. It is honest in direction and stale in
+      fact for two of its three named shapes. The *args forwarder had never been
+      executed by any round; it refuses.
+    remedy: >-
+      Re-measure the bullet and name only the shapes that are still silent (the
+      callback-parameter callee and the module-level alias), or state which of
+      the three the fixed point now refuses.
+    disposition: successor card
+
+step_8f:
+  mutation_check: run
+  chosen_mechanism: >-
+    The `surface` authority, which is the mechanism FIX 1's closure of cycle 1's
+    Critical now rests on and the one with the weakest control. Deliberately NOT
+    a re-fire of the round's own nine mutants: the brief asked for verification
+    rather than duplication, and the round's X1-X9 table plus its re-raising pass
+    is already internally consistent and reproduces where I checked it.
+  instrument: tests/kill_matrix.py (committed), Pass.RECORDING
+  selection: "tests/test_book_export_interior_cover.py::TestDoorAxis_TheNextIndirectionIsNotSilentEither"
+  mutant: >-
+    Y1 -- narrow the surface authority to the holder's own direct members:
+    `if isinstance(node, (FunctionDef, AsyncFunctionDef, ClassDef)):` becomes
+    `if parent.get(node) is holder and isinstance(...)`. Line-count-preserving,
+    one occurrence, `old` validated present by the instrument.
+  prediction: >-
+    No cell reds. An independent ast measurement says narrowing costs the real
+    module 0 refusals, so no assertion in the file can tell the two authorities
+    apart -- the ADR-0039/R1 edge mutant this claim has never had.
+  result: |
+    SURVIVOR, confirmed, and proven non-no-op first.
+      instrument header: 1 mutant / recording pass, 203 assertion nodes
+        (ast.Assert node count, not a collected-test count); SHIPPED 0 FAIL of
+        14 reached, pytest exit 0, collected tests 33; child instrumentation off
+      Y1: pytest exit 0, 14 reached, 0 FAIL -- every one of the 203 cells
+        IDENTICAL to SHIPPED, cell for cell. The 14 reached are :3881, :3885,
+        :5549, :5590, :5619, :5635, :5654, :5691, :5716, :5735, :5774, :5780,
+        :5791, :5797, all PASS in both columns.
+      (Incidentally this corroborates the round's own batch-A domain figure:
+       "SHIPPED 0 FAIL of 14 reached, pytest exit 0" over this selection.)
+
+    NON-NO-OP PROOF, because CARD-262 had three "survivors" that were defects in
+    its mutants. Three readings with Y1 LIVE on disk, the arm identifying itself
+    as sha 2cf6f58d7b288ea1 (shipped is 07e8e1e716944ea5):
+      self.produce    ()  ->  ('refusal',)
+      self.set_page   ()  ->  ('refusal',)
+      self.paragraph  ()  ->  ('refusal',)
+      module cost with Y1 live: sites=23 vocabulary=6 refusals=0, identical to
+        the shipped reading
+    So the mutant moves the walk's verdict on nine shapes, costs this module 0,
+    and NOT ONE of the 36 door-axis assertions can see the difference.
+
+    CONCLUSION, two for one:
+      1. the breadth of the authority FIX 1's closure depends on has no control
+         at its edge -- the ADR-0039/R1 pair this claim has never had;
+      2. the remedy for F-1 is measured free: one line, line-count-preserving,
+         test file only, 0 module refusals, no test reds.
+    RESTORES: the file was restored from a pristine copy held outside the
+    worktree after every mutation run, verified with shasum -a 256
+    (07e8e1e716944ea5...) and diff -q, never with git checkout. A grep for this
+    review's own marker ("parent.get(node) is holder") returns 0.
+  what_it_covers: >-
+    Whether the breadth of the authority FIX 1 depends on is measured by
+    anything in this file. It is not.
+  deferred: >-
+    Nothing deferred that this step was asked for. NOT re-fired: the round's own
+    X1-X8 and the AC-5 N-cells -- see not_checked, and the brief's instruction
+    to verify rather than duplicate.
+
+verified_closed_from_cycle_1:
+  - "F-1 (Critical) -- reproduced closed. A2/S1 bare ('refusal',) and laundered
+    by an unrelated class ('refusal',); at ced5e648 the laundered reading is ()."
+  - "the launderable DOOR_SHAPES rows -- none launder at HEAD via the derived
+    resolver; the derivation reaches 14 of 36 rows and the label equality holds."
+  - "F-2 (Major) -- T1/T2 refuse; my own aliased-decorator and two-decorator
+    variants refuse too, so the terminal rule is on decorator presence and the
+    brief's further decorator shapes do not reopen it."
+  - "F-3 (Major) -- the sentence was rewritten; see F-3 above for which clauses
+    of the rewrite hold and which do not."
+  - "F-4, F-5 (minor) -- the stale 'fifteen controls' sentence carries no count
+    now and the live reading is 19 references / 0 missing, recomputed
+    independently; the VALUE row's enumeration is stated partial and names
+    len(_FRONT_MATTER_PAGES)."
+
+negative_results_recorded:
+  - "an aliased decorator at the terminal -- refuses"
+  - "two decorators at the terminal, one a no-op -- refuses"
+  - "a decorator applied after the fact by setattr on the module -- silent, but
+    this is R8's declared class (an invisible rebind of a definition), not new"
+  - "an undecorated CLASS terminal whose metaclass __call__ is the door -- refuses"
+  - "__set_name__ installing the door through a THIRD indirection -- refuses"
+  - "a from-import aliased terminal -- refuses"
+  - "a *args forwarder and a **kwargs forwarder -- both refuse; never executed
+    by any prior round"
+  - "the reference scan drops nothing dead-claim-shaped -- 19 marked-up
+    references resolve, and the four it drops are 'def test_*', 'test_*',
+    'tests/test_book_cover.py', 'tests/test_timeout.py', all inside the bound
+    its docstring states"
+
+guardrails:
+  G-1: "PASS -- git diff c2cb8e3e..HEAD -- src/ is 0 lines; footprint is one file, +1515/-256"
+  G-2: "PASS structurally -- src/ is 0 lines, so layout.py is untouched; the three CON-019 tripwires were not re-run here (see not_checked)"
+  G-3: "PASS -- nonogram_poc never created, dropped, connected to or truncated"
+  G-4: "PASS -- no dependency change; no hypothesis; all probes stdlib"
+  G-5: "PASS by AST source-span extraction against c2cb8e3e: BINDERS_READ,
+    STRING_FIELDS_READ, EXEMPTION, BINDER_BINDINGS, POSITION_LITERALS,
+    GEOMETRY_DOORS, POSITION_PARAMETER, RECEIVER_RESOLUTION_DEPTH -- all eight
+    byte-identical"
+  G-6: "PASS -- no duration is used as a claim of this review"
+  G-7: "PASS -- no silent cap found. The bound and the cycle check both raise
+    AnchorNotAFixedPoint and the call loop turns either into a refusal naming
+    the call; reproduced."
+  no_test_lost: "PASS -- AST comparison of class::test names: c2cb8e3e 65 ->
+    ced5e648 72 -> HEAD 77, removed 0 at both steps, and no parametrize
+    decorator's text changed between ced5e648 and HEAD. No DOOR_SHAPES
+    parametrize id prefix was lost (30 -> 36 labels, 0 lost). The seven
+    BLIND_SPOT_LABELS that left are AC-3's deliverable."
+  no_skips: "PASS -- no skip or xfail marker anywhere in the file"
+
+figures_recomputed:
+  collected: "126 (pytest --collect-only -q -o addopts='')"
+  door_axis_node_ids: "36 over the two door-axis classes"
+  def_test_count: >-
+    80 by grep, 77 by AST. The card's '80' is a grep figure and its delta claim
+    (five added, none removed) holds in BOTH domains (grep 75 -> 80, AST 72 ->
+    77). Noted rather than billed: the figure is correct, its domain is unstated.
+  cost_sequence: "((), 760), 509, 203, 201, 0, 0 -- six steps, recomputed"
+  callee_exemptions: 5
+  callee_exemption_reach_rows: 5
+  zero_cost_classes: "1 -- 'a chain whose terminal is a definition or an import'"
+  measured_blind_spots: 5
+  chains_that_resolve: "3 rows -- E1 (), E2 ('refusal',) via the reference arm, E3 ()"
+  door_shapes: "36 rows, 36 labels"
+  launderable_rows: "14 derived, equal to LAUNDERABLE_DOOR_SHAPE_LABELS"
+  silent_without_the_door_arms: 30
+  silent_without_one_arm: "callee identity 23, door spelling 1"
+  position_site_count: 23
+  prose_references: "19 resolved, 0 missing"
+  anchor_resolution_depth: 4
+
+zero_cost_class_ruling: >-
+  A real lever, not a hook for a declaration. The subset assertion at :4336 is
+  set(ZERO_COST) <= {absorbed_by of MEASURED_BLIND_SPOTS}, so X9's deletion of
+  R8's absorbed_by does red it, and the absorbed reading at :5070 drops exactly
+  that class and requires a refusal attributed to the plant -- which I
+  reproduced, with the refusal naming the terminal mechanism. The two plants
+  being in different storages (R8 local, CALLEE_EXEMPTION_REACH attribute) is
+  also real: the gate is written twice, at :2432 and :2583. The weakness is
+  F-4, not vacuity.
+
+container_step_bound: >-
+  Still correctly worded. CALLEE_EXEMPTION_COST's doc (:3326-3357) states the 0
+  as "not one of this module's 816 calls reaches a callee key with an anchored
+  binding occurrence at all -- the unreadable and opaque branches run first", and
+  fix round 1's sixth step carries the same rationale ("the branch it gates is
+  unreachable on this module"). Fix round 1 did not invalidate it.
+
+not_checked:
+  - "No full-file run and no full suite. The 23-test guard class was not run
+    (CARD-292's host condition). A whole-file green at 31897571 is still owed and
+    is the merge gate's precondition."
+  - "AC-5's six cells against ac479658 were NOT re-fired. The round's correction
+    of CARD-262's N8 from 2 FAIL to 1 remains an unverified figure on a merged
+    card's behalf, exactly as the brief said. This is the largest single thing I
+    did not measure."
+  - "The round's own X1-X8 cells were not re-fired; only X9's assertion target
+    and the X5/X6 two-storage claim were verified by reading the mechanism and
+    reproducing the lever. The re-raising pass was not reproduced."
+  - "The MODULE axis's census equality -- unchanged, still inheriting the
+    weakness the card states."
+  - "SILENT_WITHOUT_ONE_ARM row MEMBERSHIP (counts only, recomputed statically)."
+  - "The three CON-019 tripwires and the byte-identity property test were not
+    re-run; G-2 is asserted structurally from src/ being 0 lines."
+  - "tests/kill_matrix.py itself, beyond using it for step 8f."
+  - "The fork point c2cb8e3e could not be driven for F-2's third arm: the class
+    the driver imports does not exist there. Stated as a bound."
+  - "No local-name-storage analogue of F-1 was attempted; cycle 1 explained why
+    one cannot be built, and F-1 is specifically an attribute-storage property."
+
+corrections_to_the_brief:
+  - >-
+    The brief's framing of the terminal rule's next indirection -- "a definition
+    decorated by an ALIASED decorator? Two decorators? A decorator applied with
+    setattr after the fact?" -- is answered and none of it reopens the rule. The
+    check at :2295 is `getattr(value, "decorator_list", None)`, i.e. decorator
+    PRESENCE, so decorator identity cannot matter. The after-the-fact setattr
+    case is R8's declared class. The brief expected the sixth appearance there;
+    it is one storage over, in the surface authority FIX 1 made load-bearing.
+  - >-
+    The brief predicted the laundering derivation (X7) or the terminal rule's
+    edge (X4) as step 8f's best target. Both are sound where I checked them. The
+    weaker mechanism is the `surface` authority, which no mutant on this card
+    touches and which FIX 1's whole closure depends on.
+  - >-
+    The brief asked whether the *args forwarder's and callback-parameter
+    callee's declaration is honest. It is honest in direction and stale in fact:
+    the *args forwarder REFUSES, and so does the attribute-alias case. Only the
+    callback-parameter row is still silent.
+  - >-
+    I agree with the brief that `_outcome` must not be used for a lever reading
+    and I used `_plant_refusals` throughout. One addition: on the F-1 shape even
+    `_plant_refusals` reports a refusal under 16 of 32 subsets, all of them the
+    plant's own `builtins` call. A non-empty attributed reading is still not a
+    lever; the refusal's SHAPE is what settles it. That is F-4.

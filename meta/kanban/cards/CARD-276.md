@@ -1,6 +1,6 @@
 # CARD-276: Close the door axis for real — anchoring as a fixed point, and the residue CARD-262 declared
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/276-anchoring-as-a-fixed-point
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-276
+**Worktree:** —
 **Source:** CARD-262's owner decision of 2026-10-22 (**declare the axis, land the card**) named this card as the place the closure goes, and CARD-262's AC/EC/G gate added four items that are written down nowhere else. Both are carried below verbatim in substance.
 **Idea:** —
 **Wave:** 58
 **Depends on:** CARD-262 (it edits the guard that card declared; do not start before it merges)
 **Touches:** tests/test_book_export_interior_cover.py
-**Review score:** —
+**Review score:** 6.5 (cycle 2/3) — NOT CERTIFIED; merged on a recorded gate decision, AC-1 unmet and AC-5 unverified, both routed to CARD-300
 **Started:** 2026-10-24
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-25
+**Actual:** 3.0d
+**Merge commit:** f794d5a8
 **Blocked by:** —
 
 ## Why — a hole that moved one level of indirection four times, and was then priced and declared
@@ -1372,3 +1372,212 @@ and it is a condition of the host rather than of the diff.
 **Routed out:** the per-test ceiling and this file's proximity to it are not this
 card's defect and not its to fix. **CARD-292** carries them with these
 measurements.
+
+## [CYCLE 2 — 2026-10-24, review agent] 6.5, NOT CERTIFIED — the sixth appearance, and the round budget is spent
+
+`meta/review/20261024T213626Z-CARD-276-cycle2.yml`, reviewed `31897571`,
+`aggregate_round: 6`, `round_limit: 6`, **`fix_round_available: false`**.
+Score **6.5** against `min_score: 8`. Verdict: *"the question this card exists
+to answer is answered NO."*
+
+**What converged, and the review says so plainly:** fix round 1 closed every
+shape cycle 1 named — F-1, F-2 and F-3 all reproduce as closed under the
+reviewer's own plants — the cost sequence 760/509/203/201/0/0 re-derived
+identically in a second domain by calling `_page_positions` directly, the
+chain's bound and cycle check refuse and report (G-7 holds, no silent cap
+anywhere in the new mechanism), and the decorated-terminal rule survives the
+brief's two attempts to reopen it (the check is on decorator **presence**, so
+decorator identity cannot matter).
+
+**What did not:** the hole moved one indirection again, which is this family's
+signature across all six appearances. Fix 1 closed cycle 1's Critical by
+routing a resolved attribute chain into the own-instance surface rule — and
+that rule's authority was built with `ast.walk` over the `ClassDef`, so every
+nested `def` anywhere inside the class counted as the class's attribute
+surface. Nine such names already stand on `BookPDFGenerator`. **That one
+needed nothing appended at all**, because the module's own text supplied the
+laundering occurrence, and step 8f's mutant aimed at the authority's breadth
+**survived** — proving no assertion in the file could see it.
+
+| cycle 2 finding | severity | disposition |
+|---|---|---|
+| **F-1** the class's attribute surface is built with `ast.walk`, so nine nested names launder a `setattr` door with no scaffolding and no lever | critical | **CLOSED inline** at `084fa6d7` |
+| **F-2** the same Critical one indirection in — a resolving store of the same spelling *inside the calling class* | major | **DECLARED inline** (R9) |
+| **F-3** two clauses of the fourth version of the axis-2 sentence are measurably false | major | **CORRECTED inline** |
+| F-4 a lever reporting a refusal that is only the plant's own `getattr` | minor | recorded, not taken |
+| F-5 | minor | recorded, not taken |
+
+## [CYCLE 2's GATING FINDINGS TAKEN INLINE — 2026-10-25, orchestrator] F-1 at `084fa6d7`, F-2 and F-3 after it
+
+The round budget is exhausted, so these were taken by the orchestrator rather
+than by a seventh round. Each is recorded with the measurement that certifies
+it, and the one place my own instrument was wrong is recorded too.
+
+### F-1 — closed at `084fa6d7`, free, with the control its surviving mutant proved missing
+
+One condition: the definition must be a **direct member** of the holder. Cost
+on this module: **unchanged** — `sites=23 vocabulary=6 refusals=0`, all 36
+`DOOR_SHAPES` rows matching their declared outcomes, and all nine spellings
+now refusing. The control is
+`test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface`: it
+derives the nested names from the module's own AST, asserts a non-vacuity
+floor, and reds **naming all nine spellings** when the authority is widened
+back. Certified in both arms — intact passes, widened fails.
+
+**Not taken, on a measurement:** this arm admits a *decorated* method while
+the module-level terminal rule refuses a decorated definition, so the terminal
+rule is applied in one of the two places a definition is read. True — but
+adding the `decorator_list` gate costs this module **4 refusals on a tree with
+no defect in it** (four decorated methods on `BookPDFGenerator`). By CARD-262's
+own precedent for choosing a shape by cost, a shape that fires on a clean
+module is the wrong shape. Routed to the successor, not absorbed.
+
+### F-2 — DECLARED as R9, re-measured against this card's own HEAD rather than inherited
+
+The cycle-2 report measured F-2 at `31897571`. **`084fa6d7` then narrowed the
+surface rule's authority, which is the same mechanism F-2's vehicle travels
+through**, so the reading had to be retaken before the declaration could be
+written. Taken by driving `_GUARD._plant` / `_outcome` / `_plant_refusals`
+outside pytest, every arm printing its own identity first (test file
+`9cb9dbf994defb1f`, subject `d8b9ece883241015`, `DOOR_SHAPES` 36,
+`CALLEE_EXEMPTIONS` 5):
+
+| arm | outcome at `084fa6d7` |
+|---|---|
+| C — the same-class resolving store | `()` **silent** |
+| C2 — the two-link variant | `()` **silent** |
+| attribution control `self._d = None` | `('refusal',)` |
+| attribution control `self._d = 1 + 2` | `('refusal',)` |
+| lever — drop **only** the terminal class | **exactly 1** attributed refusal, `:6719`, naming its own mechanism |
+| module cost | `sites=23 vocabulary=6 refusals=0` — the declaration is **free** |
+| all 36 `DOOR_SHAPES` rows | **0 mismatches** |
+
+So F-2 stands at HEAD: `084fa6d7` did not close it as a side effect. The
+attribution control is what says the silence is specifically the **resolved
+pass** and not the surface rule in general, and the two-link variant is what
+says it is the level and not the step count.
+
+**The lever is measured, not asserted.** Exhaustive over all 32 exemption
+subsets: **24 expose it**, with exactly **two minimal sets** — `builtins`,
+which fires on the plant's own `getattr` and is therefore no lever by cycle
+1's F-4 standard, and the terminal class itself, which yields the single
+refusal above. That is what makes R9 two-directional rather than an assertion
+of silence.
+
+**R9's own two directions certified by mutation**, each killed by its *aimed*
+assertion with R9's exact row in the failure cell, target restored and the
+restore verified by sha256 (`9be1e17a5c9123fc` before and after):
+
+| mutant | aimed at | result |
+|---|---|---|
+| M1 — R9's resolving store → an opaque one | the silence assertion | **KILLED**, `At index 5 diff: (…R9…, ('refusal',)) != (…R9…, ())` |
+| M2 — R9's `absorbed_by` → a different class | the absorbed assertion | **KILLED**, `At index 2 diff: (…R9…, False) != (…R9…, True)` |
+
+**A defect of my own instrument, recorded because it is this card's family one
+level out.** My first certification script reported "SILENCE assert fired" for
+M2 as well, and concluded M2 was not killed by its aimed assertion alone. That
+was **false, and false in the direction of a finding**: pytest echoes the
+*source* of the asserts above a failure, so the silence assertion's message
+text appeared in M2's output as echoed source rather than as a fired
+assertion. Each failure carries exactly one `AssertionError` and M2's is the
+absorbed one. A substring search over pytest output cannot tell a fired
+assertion from a printed one — which is the same shape as reading absent
+evidence as zero evidence, the trap this card's fix-4 pre-gate recorded.
+
+### F-3 — the fifth version of the sentence, and it counts vehicles instead of claiming an axis
+
+Cycle 2 named two clauses measurably false. Both are corrected, and so is the
+third site the report found carrying the same overclaim:
+
+- **`:1203` "One of the two is closed"** — false because the KEY axis has
+  **three vehicles, not one**. Two are closed (the unrelated-class vehicle by
+  fix 1; the class-surface vehicle by `084fa6d7`) and the third is declared
+  (R9). The fifth version states the count and names which mechanism answers
+  which vehicle.
+- **`:1213` "still false, of exactly that residue"** — `exactly` is the clause
+  that failed. The residue is now **two declared rows**, R8 and R9, both
+  absorbed by the same exemption class. The word is gone and the rows are
+  named.
+- **`TestDoorAxis_…`'s class docstring, "this class holds both answers"** —
+  corrected to **two of the KEY one's three vehicles**, plus the TERMINAL one.
+
+**Also corrected, which is F-2's remedy item 2 and the reason the prose was
+false in three places at once:** the exemption class's reach statement said
+its residue was the unseeable-rebind case **alone**. It is two shapes. Fixed
+in `anchored_to_a_fixed_point`'s docstring, in `_page_positions`' opening
+docstring, and in `CALLEE_EXEMPTION_REACH`'s doc — the class absorbing a shape
+its reach statement does not name is CARD-262's F-502 pattern, which is why
+all three sites moved rather than the one the finding cited.
+
+**Verified, by node id rather than `-k`** (this board has twice recorded a `-k`
+selection collecting nothing and reading as a pass): **19 passed, 0 failed,
+175.79 s** across `test_the_declared_blind_spots_are_still_silent`,
+`test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`,
+`test_every_door_shape_is_read_or_refused_and_never_silent`,
+`test_no_docstring_names_a_test_that_does_not_exist` (AC-6's own standing
+check, which accepts the new references — every test the new prose names
+exists), `test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface`
+and all 14 parametrisations of
+`test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`.
+
+**One claim of mine corrected mid-edit by the file itself:** I first wrote that
+`test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface` lives
+in the guard class. It lives in `TestDoorAxis_TheNextIndirectionIsNotSilentEither`
+— the very class whose docstring I was correcting — so the docstring now says
+"below" and points at it in place rather than across classes. Caught by
+reading the class boundaries, not by the prose check, which only verifies that
+a named test exists and not that it is where the sentence says.
+
+## [MERGE GATE on `f94e52b5` — 2026-10-25, orchestrator] PASSED
+
+Commit `10a7c324` (one file, **+160/−50**), then main merged in at `f94e52b5`.
+
+**Integration measured before it was taken.** Main had moved **32 commits**
+since the fork point `c2cb8e3e`, touching six code paths — `admin/app.py`,
+`admin/player_bundle.py`, `admin/templates/book_detail.html`,
+`difficulty.py`, `tests/test_difficulty.py`, `tests/test_player_bundle.py`.
+**None is this card's file and none is the guard's subject module**
+(`admin/book_pdf_generator.py`), so every figure the guard asserts about that
+module survives the integration rather than needing re-derivation. The merge
+was clean and the branch's only diff against main is still the one test file.
+
+| gate check | result |
+|---|---|
+| **full suite** at `f94e52b5`, lock written by the gate | **9160 passed, 27 skipped, 0 failed**, exit 0, 26:07 |
+| skip count against the baseline | **27 — the baseline exactly** (26 DB + 1 `setrlimit`), where CARD-218's gate saw 101 |
+| suite reconciliation | 9160 + 27 = **9187** = the branch's collection count |
+| **collection delta** vs main | **+37**, reconciling exactly to this file's 90 → 127 |
+| whole-file run at `084fa6d7` | **127 passed, 467.30 s**, exit 0 — the green cycle 2 named as this gate's precondition, owed since `ced5e648` |
+| **G-1** `git diff --name-only main...HEAD -- src/` | **0 files** |
+| **G-2** `export/layout.py` in the branch diff | 0 — CON-019's tripwires green without being edited |
+| **G-4** `pyproject.toml` in the branch diff | 0 |
+| **G-5** position-axis structures in `10a7c324` | **no line** touching `BINDERS_READ`, `STRING_FIELDS_READ`, `BINDER_BINDINGS` or `EXEMPTION =` |
+| lock hygiene | written by the gate with absolute `worktree:` and `commit:`, trap scoped to a subshell, verified **gone** afterwards |
+
+**The per-commit collection ladder**, which is what makes the +37 structural
+rather than asserted: main **90**, fork point `c2cb8e3e` **90** (identical, so
+there is no hidden drift under the branch), `ced5e648` **104**, `31897571`
+**126**, `084fa6d7` **127**, `10a7c324` **127**. This commit adds **no**
+collected test, which is the right answer for a table row and prose —
+`test_the_declared_blind_spots_are_still_silent` iterates the table rather than
+being parametrised over it.
+
+**A figure of this card's own, corrected at the gate.** The fix-round-1
+pre-gate note above calls partition B *"the 33 tests this round added"*. The
+collection delta for `31897571` is **+22**. The reconcilable reading is
+CARD-264's — 11 of the 33 node ids were *modified* existing tests rather than
+added ones — but **only the 22 is verified here**; the split is not. Routed to
+CARD-300 rather than restated. It is a small instance of this card's own
+family and it is recorded as one.
+
+**G-6, stated rather than quietly resolved.** The guardrail reads *"take no
+timing measurements and report no durations"*, and this record reports several
+(175.79 s, 467.30 s, 26:07). The reading applied: G-6 bars timing as a
+**deliverable or a claim** — CARD-287's scope, which this card must not stray
+into — and not gate bookkeeping, since the card's own fix-round-1 pre-gate
+recorded `119.51 s` and `393.54 s` under the same guardrail. On the stricter
+literal reading the guardrail was already breached before this round and is
+breached again here. Either way it is the orchestrator's call being recorded,
+not an unnoticed violation: **no duration in this card is used as evidence for
+anything**, and the one timing question that matters — the per-test ceiling —
+is CARD-292's by name.
