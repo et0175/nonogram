@@ -1,6 +1,6 @@
 # CARD-294: The interior's drawing vocabulary — the embedded face and the operator set, curves included, proved by an engine that did not write them
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/294-interior-drawing-vocabulary
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-294
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §1 and §6 item 2. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 60
@@ -18,7 +18,7 @@
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_vector_primitives.py, tests/test_book_pdf.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-25
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -199,6 +199,25 @@ below carry the weight.
 - **Trace:** not applicable — no requirement's verifying test changes in this card. CARD-299 is where the registry's verifying tests move.
 
 ## Worktree notes
+
+[Env] forge 2026.8.17 (executing manifest: forge/.claude-plugin/plugin.json). No
+`meta/.skills.yml` exists, so the project declares no `forge.min_version` and no
+comparison was made; the note is written because it is what makes a later
+diagnosis of the evidence possible at all. No `models:` block either, so the
+implementation agent was spawned WITHOUT a model override — per the skill, the
+session model may be stronger than the profile's `heavy`, so forcing one would
+be a downgrade.
+
+[Dispatch 2026-10-25, wave 60 — orchestrator] Opened the moment wave 58 closed
+(CARD-276 merged `f794d5a8`). Fork point `9b0d245d`. **Sole active card**: the
+owner's standing cap is 2, and the second slot is deliberately left empty
+because every other ready card in this phase (CARD-295, CARD-296, and later
+CARD-297/298) declares `src/nonogram/admin/book_pdf_generator.py` — a declared
+`conflict.hotspots` path — so the whole vector phase serializes on it regardless
+of the cap. Dispatched as `general-purpose`, not the `python-pro` agent:
+`config.yml`'s own caveat records that the agent of that name in this
+environment is scoped to another project's FastAPI/SQLAlchemy services, and
+`Skill:` is to be read as "a Python card" rather than as an agent name.
 
 - **Start from the probe, don't restart from scratch.**
   `scripts/card293_vector_probe.py` is 1,099 lines of *proven* code — the font
