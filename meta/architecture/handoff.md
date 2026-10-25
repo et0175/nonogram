@@ -1,3 +1,19 @@
+<!-- stale: delta 2026-10-25 — ADR-0042 / DEC-048 (book interior as PDF operators, cover and dividers raster).
+     Registry delta LANDED the same day: CON-020 (check note — mechanism retired, kind/ref deliberately
+     NOT flipped: the test is green today because the interior still ships raster, so the flip belongs on
+     the converting card), FR-043/EC-034 (four interior pixel readings named by line; :652's cover
+     comparison explicitly OUT of scope per ADR-0042/R2), FR-030/EC-019, FR-032/EC-022, FR-032/EC-032,
+     FR-040/EC-028 (probe co-location recorded, obligation attributed to FR-033 — see the CORRECTION in
+     raw-requirements.md), FR-033 (resolved_question rewritten: the device-floor rationale behind the
+     x1.6 scaling is retired for the interior, the figures themselves unchanged and recorded as DECIDED
+     but UNLANDED), ADR-0042 added to FR-040/FR-043 relates_to. 0 IDs created, 0 statements changed.
+     Validators: 0 errors, 124 warnings (128 before the ADR's four dead check refs became review-lens).
+     PHASE CARDS NOT YET CUT — re-run /forge:kanban decompose. Scope is 5-7 cards (CARD-293 §6), and the
+     migration surface is measured in meta/profiling/adr-0042-migration-census.md: 32 files, 315 pixel
+     sites, where the spike estimated 21 files. The 12 queued print-layout cards need revision before
+     dispatch — 4 rewritten (CARD-227, 208, 215, 226), 6 retargeted (207, 209, 229, 230, 232, 233),
+     CARD-231 born vector (and its landing expires ADR-0042/R2's divider exception), CARD-216 untouched.
+     CARD-276 is in flight at wave 58 and must NOT be re-slotted. -->
 <!-- decomposed: 2026-10-23 — delta carded OUTSIDE the architecture pipeline: the public player phase (owner decision 2026-10-23, ONLINE_GAME_SPECIFICATION.md "Technical Architecture", commit 8b0ca0e2) → CARD-282 (static JSON player bundle, BLOCKED on the URL-namespace DEC), CARD-283 (public /play page, BLOCKED on the CON-021 / ADR-0038/R6 reopen), CARD-284 (/b/<slug> + /library), CARD-285 (static hosting + privacy-first analytics; produces the URL base CARD-210 waits on). ARCHITECT DELTA OWED before the blocked pair can start: amend CON-021, revisit ADR-0038/R6's public clause, resolve the namespace DEC, register the public-surface component, ADR the static-export/hosting choice, and mint the FR/ACs the four cards carry as spec-derived placeholders. Until that delta lands these cards trace to the owner spec, not to requirements.yml.
      DELTA LANDED the same day (2026-10-23, commit 17459f6f): ADR-0041 (DEC-044 grid-hash key, DEC-045 Vercel, DEC-046 GoatCounter), CON-021 amended to the two-player form, ADR-0038 amendment note (R6 unchanged), FR-045 with AC-380..392 + EC-048..050, COMP-011 registered, TERM-040/041. Cards regenerated against the registry (ACs renumbered to AC-380..392, System contract re-projected) and CARD-282/283 unblocked. Nothing owed. -->
 <!-- decomposed: 2026-10-22 — delta carded: ADR-0040 (DEC-043, composite-capability rank; Migration: rewrite) → CARD-272 (guard rank tier), CARD-273 (nine-module move to src/nonogram/book/, incl. print_specs.py), CARD-274 (app.py route split, no ADR — pure refactor). Small-tier delta, carded directly; no new increment section. CARD-210/CARD-263 (blocked indefinitely) overlap CARD-273 and are NOT its dependencies — re-point their Touches to src/nonogram/book/ if they unblock after the move. -->

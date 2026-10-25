@@ -622,3 +622,56 @@ CARD-283 are blocked on exactly this delta.
   branching rows) lands inside the same day's full regrade. ADR-0029/R3 already named branch_nodes
   a legal score input. Source: owner, 2026-10-24.
 # processed: 2026-10-24 → ADR-0029 revision R6 (code: src/nonogram/difficulty.py score_difficulty; docs: GENERATION_ALGORITHM.md §7, module docstring; test: TestScoreDifficulty_BranchingSolvePinsTheCeiling)
+
+## Delta 2026-10-25 — the book interior becomes PDF operators (ADR-0042 / DEC-048)
+
+- ARCHITECTURE DELTA (not a new owner requirement): ADR-0042 was accepted and DEC-048 resolved
+  2026-10-25 — the book interior (puzzle pages, answer pages, table of contents, guide) is written
+  as PDF content-stream operators; the cover stays raster because it is a photograph, and the
+  section dividers stay raster for now by owner decision the same day ("I'd left dividers out for
+  now - I think I can come out with a 'nicer' design for them"), so CARD-231's redesign is born
+  vector rather than converting today's page. Measured on the spike (CARD-293,
+  meta/profiling/card-293-vector-interior-comparison.md): 22.4x smaller, 8.5x faster per page,
+  page-bitmap retention 0.000246 against 1.00, DejaVuSans embedded whole costs 379,441 B Flate —
+  less than ONE raster page — so glyph subsetting is pointless. No new runtime dependency;
+  ADR-0006/R1's baseline stays closed. Source: ADR-0042, owner session 2026-10-25.
+# processed: 2026-10-25 → no model change — no FR/NFR/CON is owed (the decision already lives in ADR-0042 / DEC-048, and ADR-0006/R1's closed baseline is unchanged); the delta's registry consequences are formalised by bullets 2-5 below, and ADR-0042 added to the relates_to of FR-040 and FR-043 (the only two entries in the affected set that already carry the field)
+- CONSEQUENCE FOR CON-020 (the 10 pt interior type floor) — the constraint's STATEMENT is
+  unaffected: a reader-facing type floor is a physical measure and is medium-independent. What
+  breaks is its VERIFYING TEST. TestInteriorType_EveryFaceHoldsTheFloor works by spying on
+  `ImageDraw.ImageDraw.text` (tests/test_book_interior_type_floor.py:233,261) and a vector interior
+  makes no such call. Measured 2026-10-25: the floor assertion itself is `below_floor(...) == []`
+  (:353), which would be VACUOUSLY TRUE on an empty recording — but its sibling
+  `test_the_recording_covers_every_kind_of_interior_lettering` (:355) asserts
+  `{"guide","divider","band","footer label","answer caption"} <= kinds`, so the conversion reds
+  LOUDLY instead of passing silently. That non-vacuity floor is the part that must survive the
+  rewrite: re-expressed against the written PDF's text-showing operators and their `Tf` sizes per
+  ADR-0042/R6. `divider` stays raster and keeps its current reading. Source: this session, derived
+  from the registry's own check refs.
+# processed: 2026-10-25 → CON-020 (statement BYTE-IDENTICAL; check comment amended in the shape of its own 2026-10-06 precedent — the ADR-0042/R6 mechanism retirement, the :353 vacuity hazard, the :355 non-vacuity floor that must survive the rewrite, and `divider` staying raster). check kept as `kind: test` ref TestInteriorType_EveryFaceHoldsTheFloor, NOT flipped to review-lens: the ref exists and is green today (CARD-231 unmerged, the interior still ships raster), and a live gate beats a lens — see that check's own 2026-10-06 note
+- CONSEQUENCE FOR FR-043/EC-034 — tests/property/test_book_export_interior.py reads the interior as
+  pixels in four places that ADR-0042/R6 retires: `min() == 255` on the blank title page (:731),
+  `same_page` against the expected GUIDE page (:734), `not same_page` against the cover (:736), and
+  the ink scan (:848). Its page-count assertions already read the written PDF and are unchanged,
+  and `same_page(cover_page, expected_cover)` (:652) compares the COVER, which stays raster by
+  ADR-0042/R2 and must NOT be converted. Source: this session.
+# processed: 2026-10-25 → FR-043/EC-034 (statement unchanged; verification re-expressed per ADR-0042/R6 with the four retired interior pixel readings named at :731, :734, :736, :848, the page-count assertions noted as already PDF-level, and the cover comparison at :652 recorded as explicitly OUT of scope per ADR-0042/R2); FR-043 relates_to += ADR-0042
+- CONSEQUENCE FOR FR-030/EC-019, FR-032/EC-022, FR-032/EC-032, FR-040/EC-028 — one `getpixel` probe
+  each (tests/property/test_book_layout.py:364, tests/property/test_book_two_up.py:682),
+  re-expressed per ADR-0042/R6. Small, named here so the set is derived rather than hand-written.
+  Source: this session.
+# processed: 2026-10-25 → EC-019 (FR-030), EC-022 + EC-032 (FR-032), EC-028 (FR-040) — statements unchanged; each carries the ADR-0042/R6 re-expression note with the probe's file:line; FR-040 relates_to += ADR-0042
+# CORRECTION recorded with it (measured 2026-10-25, grep of both files): there are exactly TWO getpixel probes across them, not "one each", and NEITHER belongs to these four ECs' own property tests — both sit in PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin (`..._pixels` at test_book_layout.py:364, `..._two_up_pixels` at test_book_two_up.py:682), which both files' headers attribute to ADR-0037/R2, i.e. FR-033. The four ECs' own tests read millimetres and page sizes, never drawn ink, so they are unaffected on their own terms. The probes are named on all four entries because they are co-located in those files, and the conversion obligation is recorded on FR-033 where it belongs
+- CONSEQUENCE FOR FR-033 (the grid's three rule weights) — NO figure changes in this delta, and
+  this is deliberate: ADR-0042/R7 states the ADR does not revise ADR-0037 and the weights wait on a
+  printed proof the owner has not yet seen (~/Documents/nonogram-reviews/CARD-293/
+  card293-AC2-side-by-side.pdf, to be printed at 100%). What DOES change is the live RATIONALE the
+  registry records. FR-033's resolved_question (line 2570) closes on "0.48 pt / 1.28 pt / 2.08 pt —
+  the owner's own 1 : 2.667 : 4.333 ratios, scaled so the thinnest line is 2 device pixels at 300
+  DPI rather than one". That scaling premise is exactly ADR-0037/R2's device floor, and ADR-0042/R7
+  makes it INAPPLICABLE to the interior: a content-stream line has no device pixel to clear, so the
+  x1.6 that moved the owner's 0.3/0.8/1.3 pt to 0.48/1.28/2.08 pt no longer has a reason behind it.
+  The registry must stop recording a retired premise as live. Note also that those thresholds are
+  DECIDED but UNLANDED — CARD-227 is the delivery card and has not merged; what ships today is
+  COMP-007's 3 px / 6 px. Source: this session, from ADR-0042/R7 and the CARD-293 spike's AC-2.
+# processed: 2026-10-25 → FR-033 (NO figure changed, statement unchanged; _meta.resolved_question amended to stop recording the retired device-floor premise as live, and to record DECIDED-but-UNLANDED — CARD-227 unmerged, COMP-007's 3 px / 6 px ships; comment block records ADR-0042/R7, that the 1 : 2.667 : 4.333 ratios never rested on the premise, that the figures stand pending the 100% printed proof, and that the two interior pixel probes the bullet above files on EC-019/EC-022/EC-032/EC-028 are in fact ADR-0037/R2's and so this requirement's)
