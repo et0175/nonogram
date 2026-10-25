@@ -370,9 +370,44 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     is forbidden because every type measurement in this tree — type_px, the
     band face, the guide face, CON-020's floor — is DejaVu's.
   scope: {code: ["src/nonogram/admin/**", "src/nonogram/export/**", "tests/**"]}
-  check: {kind: review-lens}
-  # PLANNED TEST, owed by the card that writes the font embedding (see R1's note):
-  #   tests/test_book_pdf.py::test_the_interior_embeds_the_projects_own_face
+  check: {kind: test, ref: test_the_interior_embeds_the_projects_own_face}
+  # The node id is tests/test_book_pdf.py::test_the_interior_embeds_the_projects_own_face.
+  #
+  # FLIPPED FROM review-lens 2026-10-25 by CARD-294, the card that wrote the
+  # font embedding, in the same change as the test — on CON-020's precedent
+  # (2026-10-06, "was `kind: review-lens` ... CARD-184 wrote it"). The lens
+  # was a placeholder for exactly this card, and merging with it in place
+  # would have shipped a rule whose delivery card was closed and whose check
+  # was still a placeholder (CARD-294 G-8).
+  #
+  # WRITTEN AS THE BARE TEST NAME, not as the `file::name` node id the lens's
+  # old comment named, and the difference is not cosmetic: the validators'
+  # `split_check_ref` splits a ref on COMMAS only, so a `file::name` ref is
+  # searched for by `git grep -w` as one literal symbol and finds nothing —
+  # which reports the rule as a DEAD check ref, the state the model treats as
+  # strictly worse than a lens. Measured on this very edit: the node-id
+  # spelling added exactly that warning, the bare name clears it. Every other
+  # live `kind: test` ref in this model is a bare name for the same reason.
+  # (R4 above is spelled as a node id and is *not* flagged — but only because
+  # that exact string happens to appear in a tracked `meta/review/*.yml` and
+  # in tests/test_admin_serving.py, so it resolves by coincidence rather than
+  # by naming a definition. That is worth fixing the next time R4 is touched.)
+  #
+  # What the ref reaches, and what it does not. The test makes R5's three
+  # claims — embedded, embedded ONCE per file, and no base-14 reference —
+  # against a PDF written by `nonogram.admin.book_vector`, comparing the
+  # embedded bytes to the face `importlib.resources` returns. The per-page
+  # slope those claims rest on (a face embedded per page would also be
+  # "exactly one per page") is
+  # tests/test_book_pdf_vector_primitives.py::PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts,
+  # and the control that each claim can fail is
+  # tests/test_book_pdf.py::test_the_face_check_above_can_fail.
+  #
+  # It does NOT yet reach a real interior page, because no page is drawn with
+  # this vocabulary yet — CARD-295/296/297 are the page cards. When the first
+  # of them lands, this ref should be re-read against the shipped interior
+  # rather than against the vocabulary's own file; the rule is unchanged, the
+  # artefact it is asserted on grows.
   severity: mandatory
 - id: ADR-0042/R6
   statement: >-
