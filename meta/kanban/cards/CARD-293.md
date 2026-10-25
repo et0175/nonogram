@@ -160,9 +160,41 @@ produce, so the comparison is of the thing that ships.
   `tests/test_export_a4_golden.py`. Those are deliberate and regenerating them
   runs against the standing rule that **`tests/fixtures/**` is never
   regenerated** — an owner decision, not an implementation detail.
-* **The ink-measurement apparatus mostly retires**, and some of it is the **only**
-  proof the renderer consumes the layout's numbers rather than deriving its own
-  (ADR-0036/R2). That needs *replacing*, not deleting — name what would replace it.
+* **The ink-measurement apparatus mostly retires, and the replacement is
+  SMALLER and STRONGER — not like-for-like.** This bullet said "needs replacing,
+  not deleting" and implied comparable effort; the owner challenged it on
+  2026-10-25 — *"but do we need measure ink for vector?"* — and was right.
+
+  Everything `drawing_of` recovers, it recovers **by counting pixels**: its own
+  docstring says `columns` is *"how many columns the grid is drawn with, counted
+  from its vertical rules"* and `grid_right` is *"measured at the same edge of
+  the rule as `grid_left`"*. Those are **reconstructions of numbers the generator
+  knew exactly**. A vector content stream **states** them —
+  `0.48 w 100 200 m 100 900 l S` is a line of width 0.48 between two points —
+  with no inference, no anti-aliasing and no JPEG ringing to reason about.
+
+  **The requirement survives; the instrument changes.** The artefact must still
+  be checked against the plan, because asserting only on `Layout` proves the
+  geometry computes and nothing about whether the drawing used it (ADR-0036/R2).
+  But the check becomes an **exact read of the shipped file** rather than a lossy
+  measurement of a photograph of it.
+
+  **And the pattern CLAUDE.md actually cares about is untouched**: `Sheet`, the
+  independent geometry reimplementation, stays as it is — compared against the
+  content stream instead of against measured ink. "Prefer an independent second
+  implementation" is preserved; only the reading of the artefact changes.
+
+  **What genuinely stays raster is small**: the **cover** (a photograph, where ink
+  measurement is the right instrument), and **one or two "does this PDF actually
+  render" smoke tests**, because a valid content stream can still be a broken PDF
+  — a bad resource dictionary, a missing font. One or two, against the 21 files
+  and 100-plus call sites today. **And some of it disappears outright rather than
+  migrating**: the JPEG round trip has nothing to round-trip, and the ink-mode
+  tests get *easier* (a `g` versus `rg` operator rather than pixel levels).
+
+  **So this is a smaller cost than the cost-of-delay table above implies, which
+  strengthens the case rather than weakening it.** AC-4 is where the spike has to
+  show it rather than assert it.
 * **Pillow does not leave**: the cover, uploaded-image fitting and the PNG export
   all still need it. This is not a dependency removal.
 * **Scope**: if the answer is yes, this is a phase. Say roughly how many cards,
@@ -186,8 +218,12 @@ produce, so the comparison is of the thing that ships.
   verified.)
 - **AC-4** (the test replacement is demonstrated, not asserted): *Given* one
   existing ink-measuring test, *then* the card shows the content-stream assertion
-  that would replace it and says whether it is **more exact or merely different**.
-  (**gate**: the pair, side by side, in the document.)
+  that would replace it and says whether it is **more exact or merely different**
+  — **and states the line count of each side**, because the claim being tested is
+  that the replacement is *smaller and stronger*, not merely possible. Pick a test
+  that reads several of `Drawing`'s fields, so the comparison is of a real
+  reconstruction and not of one number. (**gate**: the pair side by side, with
+  both line counts, in the document.)
 - **AC-5** (the hard part is priced): *Given* font embedding, *then* the card
   states the size of that job with what it is based on, or states that it could
   not be determined and why. (**gate**: recorded.)
