@@ -5,7 +5,7 @@
 **Category:** feature
 **Complexity:** standard
 **Estimate:** 1d
-**Revision pending:** false
+**Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/230-guide-worked-example-steps
@@ -195,3 +195,30 @@ _52 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
   saying what changed" is only true if something changed. Asserting the grids differ is cheap
   and it is the only assertion here that tests the teaching rather than the layout.
 - [Pre-dispatch defect, found at the 2026-10-17 widening pass] ⚠ **This card's "current behaviour" is factually wrong, and the error makes the card look bigger than it is.** It states that the worked example is today "a single figure under `GUIDE_EXAMPLE_HEADING`". Verified against the source: `WORKED_EXAMPLE_STEPS` (`src/nonogram/admin/book_pdf_generator.py:735`) already holds **four** `ExampleStep` entries with captions, `:3666` already draws one per step, `:2410`'s own comment calls them "the four original worked-example steps", and the Finalise preview already renders them step by step (`app.py:4716` exposes `guide_steps`; `book_finalize.html:151-161` renders an `<ol class="guide-steps">` with `.guide-step-caption` styled in `admin.css:333-335`). So **AC-1, AC-3 and AC-7 look like they pass against shipped code**, and the genuine delta is the callout at the foot of page 2 plus the fit at the shortest trim. This is the "an AC can be true, green and evidence nothing, when an earlier card already delivered its outcome" pattern the board already tracks (CARD-221's AC-2). Re-cut the ACs at the decompose station before dispatch, so the card evidences what it actually changes; its `Touches` was widened only 5 → 10 for this reason.
+
+## Architecture revision (2026-10-25)
+
+**Reason:** ADR-0042 (DEC-048) accepted 2026-10-25 — the book interior is written
+as PDF content-stream operators; the cover stays raster because it is a
+photograph, and the section dividers stay raster for now by owner decision the
+same day. The phase that converts the interior is CARD-294..CARD-299 (waves
+60-64), and this card is scheduled after it.
+
+**Was:** the design implemented on a raster interior, with its acceptance criteria
+verified by measuring ink on a rendered bitmap.
+
+**Should be:** the same design, unchanged — **the card's instrument moves, not its
+decision**. CARD-293 §6 classifies this card as *written, tests retargeted*: the guide's worked example as four steps — page composition and type.
+
+**Delta:**
+- The design is **not** reopened. Nothing about what the page should look like
+  changes here.
+- The acceptance criteria's verifying tests move from ink measurement to
+  assertions against the written PDF's content stream (ADR-0042/R6). The spike
+  measured that replacement at **168 -> 41 lines, 4.1x smaller**, strictly more
+  exact, and still discriminating under mutation.
+- Scheduled **after** the vector phase (CARD-294..CARD-299) so the card is written
+  against a vector page from the start. That ordering is the whole reason the
+  phase runs first: dispatching this card before it would mean writing
+  pixel-measuring tests and then converting them.
+

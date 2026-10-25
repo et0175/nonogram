@@ -5,7 +5,7 @@
 **Category:** feature
 **Complexity:** standard
 **Estimate:** 0.5d
-**Revision pending:** false
+**Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/227-grid-rule-weights
@@ -187,3 +187,39 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
   migrate the fixtures. Do **not** edit twelve fixtures by reflex; say which you chose and why.
 
 - [Residue, recorded not waved past] The three weights are **absolute points**, so they no longer scale with the cell — this supersedes COMP-007's proportional `cell / 30` rule under the book spec only. At NFR-008's 4.75 mm floor a 0.48 pt rule is 3.6 % of the cell; at the 7.5 mm cap 2.3 %. Large puzzles therefore get a *relatively* heavier grid than small ones, the opposite of the proportional rule's behaviour. ADR-0037's Consequences note about "about 5%" describes the superseded two-weight scheme. Whether this reads well is a proof-page question, and a proof page is already required before a book is finalised.
+
+## Architecture revision (2026-10-25)
+
+**Reason:** ADR-0042 (DEC-048) accepted 2026-10-25 — the book interior is written
+as PDF content-stream operators; the cover stays raster because it is a
+photograph, and the section dividers stay raster for now by owner decision the
+same day. The phase that converts the interior is CARD-294..CARD-299 (waves
+60-64), and this card is scheduled after it.
+
+**This card's DECISION changes, not just its tests.**
+
+**Was:** three rule weights at 0.48 pt / 1.28 pt / 2.08 pt — the owner's own
+1 : 2.667 : 4.333 ratios, scaled x1.6 "so the thinnest line is 2 device pixels at
+300 DPI rather than one". ADR-0037/R2 refused the owner's actual design
+(0.3 / 0.8 / 1.3 pt) because 0.3 pt = 0.1058 mm = a ONE-PIXEL line at 300 DPI.
+
+**Should be:** re-decided. ADR-0042/R7 makes ADR-0037/R2's device floor
+**inapplicable to the interior** — a content-stream line has no device pixel to
+clear — so the x1.6 scaling has no reason behind it any more, and the owner's own
+numbers are available. CARD-293 measured them: the 0.3 pt line renders at
+**2 px / grey 89 at 300 DPI and 5 px / grey 89 at 1200** (tone exact, width
+scaling), and on the printed proof it is **the best of the four panels**.
+
+**Delta:**
+- The thresholds are an OPEN QUESTION again, not a closed one. FR-033's
+  `resolved_question` was rewritten 2026-10-25 to stop recording the device-floor
+  rationale as live, and to record the figures as DECIDED but UNLANDED.
+- **Blocked on the owner, not on code.** ADR-0042/R7 is explicit that the weights
+  wait on a printed proof: dot gain on real stock, and whether 35% grey reads as
+  guidance, cannot be judged from a screen. The proof is at
+  `~/Documents/nonogram-reviews/CARD-293/card293-AC2-side-by-side.pdf` and must be
+  printed at 100%.
+- Once the owner has seen it, ADR-0037 is revised (that is an architect-station
+  step) and only then is this card rewritten against the revised rule.
+- The spike's AC-4 replacement test **passes at 0.48 pt and fails at 0.3 pt**, so
+  whichever figures win, the assertion that checks them already discriminates.
