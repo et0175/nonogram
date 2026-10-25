@@ -118,8 +118,15 @@ round trip greys a rule's edges.
 - **AC-4** (the exemptions did not swallow the subject): *Given* the guard's
   exemption list, *then* a control shows each exemption does **not** absorb what
   it must not — the cover's readings stay asserted, the dividers' stay asserted,
-  `Sheet`'s oracle role stays intact and compared against. (test:
-  `TestInkGuard_NoExemptionAbsorbsAnInteriorClaim` — ADR-0039/R3.)
+  `Sheet`'s oracle role stays intact and compared against, **and the
+  device-fact exemption (G-3b) does not admit a test that reads a STATED width
+  off a render**. (test: `TestInkGuard_NoExemptionAbsorbsAnInteriorClaim` —
+  ADR-0039/R3.) The device-fact arm is the one with a live mutant available:
+  take `TestBookGridRules_WeightsSurviveTheFloor`, change its conclusion from
+  "these two render differently" to "this line measures 0.3 pt", and the guard
+  must stop exempting it. An exemption keyed on the test's *name* or *file*
+  instead of its *conclusion* will pass that mutant, which is the whole reason
+  this AC exists.
 - **AC-5** (the replacement is smaller and no weaker): *Given* the converted
   assertions, *then* the line count before and after is recorded, and each
   converted claim is shown to still discriminate — a mutant that the ink version
@@ -145,6 +152,24 @@ round trip greys a rule's edges.
   unaffected and still compared against — only the reading of the artefact
   changes."* An oracle that recomputes the page independently is the second
   implementation this project's test style asks for, not ink archaeology.
+- **G-3b: do not convert the DEVICE-fact tests, and expect your guard to want
+  to.** R6 gained a **second declared exemption** on 2026-10-25 when the owner's
+  grid weights landed: a claim about what the device does with a declared width
+  or tone — that two distinct declared widths resolve to distinguishable
+  rendered widths, that none drops out, that grey 89 survives — is asserted on a
+  **render**, because the content stream is precisely what it does not test.
+  Reading 0.3 pt back out of the operator that set it says nothing about whether
+  0.3 pt is *visible*, and that visibility is what the whole 0.3 / 0.8 / 1.3
+  decision rests on.
+  **Concretely, your default-DENY guard will flag these and must not:**
+  `TestBookGridRules_WeightsSurviveTheFloor` (FR-033/AC-374) and
+  `TestBookGridRules_PointsNotPixels` — both CARD-227's, both landing in wave 62,
+  before you. **The discriminator to encode** is what the assertion *concludes*:
+  "these two render differently" and "this tone survives" are device facts;
+  "this line is 0.3 pt" is a stated number and belongs to the stream. Per
+  ADR-0039/R3 this exemption carries a control for what it must **not** absorb —
+  a test that reads a **stated** width off a render is still a violation, and
+  AC-4 must prove the exemption cannot swallow one.
 - **G-4: do not touch COMP-007's CLI/web surface.** `tests/test_export_image.py`
   (4 pixel sites, **1** interior reference) and
   `tests/test_layout_page_spec.py` (10 sites, **3**) are that surface — the low

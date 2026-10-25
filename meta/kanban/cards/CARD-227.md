@@ -132,6 +132,37 @@ that is still a bitmap, stop — that is a finding, not a task.**
   0.3 pt figure" and the control must red on it. Without this AC the card's whole
   medium argument is a comment.
 
+### Which of these criteria read the stream, and which read a render — ADR-0042/R6
+
+Three of this card's criteria measure a **render**, and that is correct rather
+than a lapse. R6 gained a **second declared exemption** on 2026-10-25 for exactly
+this card's shape: a claim about what the device does with a declared width or
+tone is asserted on a render, because the content stream is precisely what it
+does not test. Reading 0.3 pt back out of the operator that set it says nothing
+about whether 0.3 pt is **visible** — and visibility is what this whole decision
+rests on.
+
+| criterion | reads | why |
+|---|---|---|
+| **AC-1** (the three weights) | **stream** | the widths are stated; recovering them from ink is the reconstruction R6 forbids |
+| **AC-2** (grey ordering) | stream | the tones are stated |
+| AC-3, AC-4 (axes, ragged band) | stream | positions and counts are stated |
+| **AC-5** (distinct at the smallest cell) | **render** — exempt | "these two resolve differently" is a device fact |
+| **AC-6** (300 vs 1200 DPI) | **render** — exempt | the pixel scaling and tone survival ARE the claim |
+| **AC-7** (never reaches a raster grid) | both | reads the medium, then shows the refusal |
+
+**The discriminator, because CARD-299's R6 guard is default-DENY over `tests/**`
+and will see these tests:** what the assertion *concludes*. "These two render
+differently" and "this tone survives" are device facts. "This line is 0.3 pt" is
+a stated number and belongs to the stream. An exemption keyed on a test's name
+or file rather than its conclusion is the defect CARD-299's AC-4 exists to catch,
+and its mutant is built from AC-5.
+
+**One figure nobody has measured, recorded so it is not mistaken for evidence:**
+poppler measured the **cell line** (2 px at grey 89 at 300 DPI, 5 px at 1200).
+The **0.8 pt and 1.3 pt** vector spans are measured by nobody. This card owes
+those two measurements along with the tests — do not cite CARD-293 for them.
+
 ## Guardrails
 
 - **G-1: the answer pages' grids follow the same weights** — the artifact wants

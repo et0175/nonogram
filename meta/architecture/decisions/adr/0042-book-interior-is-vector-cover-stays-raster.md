@@ -381,9 +381,18 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     bitmap. Measuring ink to recover a number the generator stated exactly is
     forbidden for interior pages: it is a reconstruction, it needs tolerances,
     and today's pure-black assertions cannot even be made against the shipped
-    file because the DCT round trip greys a rule's edges. Independent
-    second-implementation oracles (Sheet and its kind) are unaffected and
-    still compared against — only the reading of the artefact changes.
+    file because the DCT round trip greys a rule's edges. Two kinds of claim
+    are DECLARED EXEMPT, and each is exempt for a reason that names what it
+    could not otherwise assert. First, independent second-implementation
+    oracles (Sheet and its kind) are unaffected and still compared against —
+    only the reading of the artefact changes. Second, a claim about what the
+    DEVICE does with a declared width or tone — that two distinct declared
+    widths resolve to distinguishable rendered widths, that none drops out,
+    that a declared tone survives — is asserted on a render, because the
+    content stream is precisely the thing it does not test: reading 0.3 pt back
+    out of the operator that set it says nothing about whether 0.3 pt is
+    visible. Such a claim must state the resolution it was measured at and must
+    not be used to recover a width the generator stated.
   scope: {code: ["tests/**"]}
   check: {kind: review-lens}
   # PLANNED TEST, owed by the card that converts the last interior pixel reader
@@ -398,6 +407,23 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # tests/property/test_book_two_up.py:682, one `getpixel` probe each.
   # NOT in the set and must stay out of it: :652's `same_page` on the COVER,
   # which is raster by R2, and the independent oracles R6's statement exempts.
+  #
+  # SECOND EXEMPTION ADDED 2026-10-25, when the owner's grid weights landed.
+  # FR-033/AC-374 and CARD-227's AC-5/AC-6 assert that the three declared
+  # widths resolve to distinguishable rendered widths, that none drops out, and
+  # that grey 89 survives at 300 and 1200 DPI. Those claims CANNOT be made
+  # against the content stream — reading 0.3 pt back out of the operator that
+  # set it says nothing about whether 0.3 pt is visible — and they are the
+  # claims the whole 0.3/0.8/1.3 decision rests on. They are therefore exempt,
+  # and the exemption is declared here rather than left for the guard's author
+  # to discover, because CARD-299's R6 guard is default-DENY over tests/** and
+  # would otherwise fail on `TestBookGridRules_WeightsSurviveTheFloor` and
+  # `TestBookGridRules_PointsNotPixels`.
+  # Per ADR-0039/R3 an exemption is a claim and carries a control for what it
+  # must NOT absorb: this one must not absorb a test that reads a STATED width
+  # off a render. The discriminator is what the assertion concludes — "these two
+  # render differently" and "this tone survives" are device facts; "this line is
+  # 0.3 pt" is a stated number and belongs to the stream.
   severity: mandatory
 - id: ADR-0042/R7
   # DISCHARGED 2026-10-25, hours after this ADR was accepted. This rule said

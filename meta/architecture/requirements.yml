@@ -2560,56 +2560,97 @@ functional:
     # AMENDED 2026-10-17 (owner decision, CARD-227) — the open question below
     # is CLOSED, and ADR-0037/R2 is amended with it (see that ADR's History).
     # The grid gets THREE weights, not two, stated in points so they do not
-    # depend on the render resolution: 0.48 pt ordinary cell lines in GREY,
-    # 1.28 pt every 5th line, 2.08 pt outer border.
-    #   Provenance: the owner's artifact "Puzzle page layout" (2026-10-14)
-    #   specified 0.3 / 0.8 / 1.3 pt. Those RATIOS are kept exactly
-    #   (1 : 2.667 : 4.333); the figures are scaled up by 1.6 so the thinnest
-    #   line is 2 device pixels at 300 DPI. Why, measured rather than assumed:
-    #   0.3 pt is 0.1058 mm = 1.25 px, i.e. a ONE-pixel grey line, which can
-    #   dither or drop out on press -- and it is THINNER than the 0.17 mm that
-    #   ADR-0037 explicitly rejected as "exactly where faint lines hurt most"
-    #   on the evidence of 7 of 17 reviews of the 450-puzzle book complaining
-    #   of faint grid lines (research section 5). Shipping the artifact's
-    #   figures literally would have re-opened the complaint ADR-0037 exists
-    #   to close. 0.48 pt = 0.1693 mm = exactly 2 px, which is the same
-    #   0.17 mm the package already prints at its small cells today.
-    #   Rendered widths 2 / 5 / 9 px at 300 DPI are all distinct, so the three
-    #   weights stay distinguishable (AC-374).
-    #   The obvious middle path is arithmetically DEAD and was ruled out, not
-    #   skipped: lifting only the cell line to ADR-0037's old 0.25 mm floor
-    #   (0.709 pt) puts it at 2.95 px against the 5th line's 0.8 pt = 3.33 px,
-    #   and BOTH round to 3 px -- indistinguishable.
-    # Two things this amendment deliberately changes in ADR-0037/R2: the thin
-    # minimum (0.25 -> 0.17 mm, grey cell lines only) and "pure black" (cell
-    # lines are grey; the 5th lines and border stay dark). The heavy rule is
-    # no longer "2 x thin" -- it is the owner's ratio.
-    # NOT re-decided here: NFR-008's cell band, and the cell GEOMETRY. This
-    # changes stroke widths only.
+    # depend on the render resolution. Three things that amendment settled
+    # which the 2026-10-25 amendment below leaves standing: the cell lines
+    # are GREY rather than pure black (the 5th lines and the border stay
+    # dark); the heavy rule is no longer "2 x thin" but the owner's ratio;
+    # and the ratios 1 : 2.667 : 4.333 are the owner's own, from the artifact
+    # "Puzzle page layout" (2026-10-14), which specified 0.3 / 0.8 / 1.3 pt.
+    # NOT re-decided then and not re-decided now: NFR-008's cell band, and
+    # the cell GEOMETRY. This changes stroke widths only.
     #
-    # RATIONALE RETIRED 2026-10-25 (raw-requirements.md "## Delta 2026-10-25",
-    # bullet 5; ADR-0042/R7). NO FIGURE CHANGES HERE, deliberately:
-    # ADR-0042/R7 states the ADR does not revise ADR-0037, and the weights
-    # wait on a printed proof the owner has not yet seen
-    # (~/Documents/nonogram-reviews/CARD-293/card293-AC2-side-by-side.pdf, to
-    # be printed at 100%). 0.48 / 1.28 / 2.08 pt therefore STAND.
-    # What changes is the live PREMISE this registry records behind them. The
-    # x1.6 that moved the owner's own 0.3 / 0.8 / 1.3 pt to 0.48 / 1.28 /
-    # 2.08 pt existed for exactly one reason — "so the thinnest line is 2
-    # device pixels at 300 DPI rather than one" — and that is ADR-0037/R2's
-    # DEVICE FLOOR. ADR-0042/R7 makes the device floor INAPPLICABLE to the
-    # interior: a content-stream line has no device pixel to clear, so it can
-    # neither dither nor drop out the way a 1-px raster grey line can. The
-    # scaling premise is retired; the figures outlive it pending the proof.
-    # The 1 : 2.667 : 4.333 ratios were always the owner's and are untouched
-    # by this — only the absolute scale rested on the retired premise.
-    # Also recorded, because the registry read as if it had shipped: these
-    # thresholds are DECIDED but UNLANDED. CARD-227 is the delivery card and
-    # has NOT merged; what ships today is COMP-007's 3 px / 6 px. A reviewer
-    # must not read a passing grid-weight test as evidence of 0.48 / 1.28 /
-    # 2.08 pt.
-    # Verification: the two interior PIXEL probes the 2026-10-25 delta names
-    # (tests/property/test_book_layout.py:364 and
+    # SUPERSEDED 2026-10-25 — the FIGURES that amendment carried, kept here
+    # dated because they are the record of why the scale ever moved, NOT a
+    # live threshold. From 2026-10-17 to 2026-10-25 this entry read
+    # 0.48 / 1.28 / 2.08 pt: the owner's figures scaled by x1.6 so the
+    # thinnest line was 2 device pixels at 300 DPI (0.48 pt = 0.1693 mm =
+    # exactly 2 px) rather than the 1.25 px a 0.3 pt line rasterises to,
+    # which can dither or drop out on press and is thinner than the 0.17 mm
+    # ADR-0037 rejected as "exactly where faint lines hurt most" on the
+    # evidence of 7 of 17 reviews of the 450-puzzle book (research section
+    # 5). Rendered widths were then 2 / 5 / 9 px at 300 DPI, all distinct.
+    # The obvious middle path was arithmetically DEAD and was ruled out
+    # rather than skipped: lifting only the cell line to ADR-0037's old
+    # 0.25 mm floor (0.709 pt) puts it at 2.95 px against the 5th line's
+    # 0.8 pt = 3.33 px, and BOTH round to 3 px -- indistinguishable. Every
+    # number in this paragraph is a RASTER measurement, and the device floor
+    # it serves is exactly the premise ADR-0042/R7 retired. None of it
+    # describes what this requirement now states.
+    #
+    # AMENDED AGAIN 2026-10-25 (owner decision on the CARD-293 proof;
+    # raw-requirements.md "## Delta 2026-10-25 (b)"). THIS ONE CHANGES THE
+    # FIGURES: the grid's three weights are the owner's own
+    # 0.3 / 0.8 / 1.3 pt, and the statement below is amended with them.
+    # ADR-0037/R2 was amended the same day and its new statement is the
+    # authority on the wording (see that ADR's History, 2026-10-25). The
+    # owner read ~/Documents/nonogram-reviews/CARD-293/
+    # card293-proof-vector.pdf and chose page 1 — their own figures — over
+    # page 2, CARD-227's x1.6-scaled ones. The x1.6 existed for exactly one
+    # reason, the device floor in the paragraph above, and ADR-0042/R7
+    # removed that reason by making the interior a content stream, so the
+    # scaled figures had nothing left behind them. This closes the question
+    # ADR-0042/R7 deferred and discharges that rule's "the weights wait on a
+    # printed proof" clause; R7 was rewritten the same day. The ratios never
+    # moved — 1 : 2.667 : 4.333 in both.
+    #
+    # THE FIGURES ARE BOUND TO THE VECTOR MEDIUM, and that is the
+    # load-bearing part of the amendment. Measured by poppler on the
+    # rendered vector file (CARD-293 AC-2): the 0.3 pt cell line occupies
+    # 2 px at grey 89 at 300 DPI and 5 px at grey 89 at 1200 DPI — grey 89
+    # being round(255 x 0.35), so the declared tone is hit exactly at both
+    # and the width scales with the device. A RASTER generator does not
+    # antialias a declared width; it rounds each stroke to an integer pixel
+    # count, and at 300 DPI 0.3 / 0.8 / 1.3 pt rounds to 1 / 3 / 5 px --
+    # the one-pixel cell grid the 2026-10-17 amendment refused on those 7 of
+    # 17 reviews. That is the REFUSED CONFIGURATION and the statement below
+    # records it as such rather than dropping it: no puzzle grid is
+    # rasterised at these weights, and a raster grid stays held to at least
+    # 2 device pixels per rule, which at 300 DPI means it cannot use these
+    # figures at all. R2's device-pixel clause is thereby RE-EXPRESSED, not
+    # deleted — its PURPOSE (no dropout) still binds, its MECHANISM (a
+    # generator choosing an integer pixel count) does not exist in a content
+    # stream, where the RIP resolves a declared width at its own resolution.
+    #
+    # DECIDED ON SCREEN, NOT ON PAPER. ADR-0037's Decision section asks that
+    # these weights "become final only after the owner has seen them on
+    # printed proof pages"; what happened is that the owner judged the vector
+    # RENDERS. Two things therefore remain measured by nobody: dot gain —
+    # whether a 0.1058 mm grey line spreads, darkens or breaks up on
+    # uncoated cream stock under offset or toner — and whether 35% grey
+    # reads as "light guidance" or as "faded" on paper. The owner accepted
+    # that risk by deciding now; the revisit trigger is the first printed
+    # book or proof, and a revision there is an ADR-0037 amendment, not
+    # drift.
+    #
+    # THE PAGE-FURNITURE FLOOR IS NOT DECIDED HERE — flagged, not answered.
+    # R2 has never bound furniture: its 2026-10-17 scope clarification holds
+    # the interior header rule, the footer hairline and a divider to the same
+    # 2-device-pixel floor "for the dropout reason directly and not through
+    # R2". The interior going vector raises for furniture the same question
+    # this amendment answers for the grid, and CARD-222, CARD-225 and
+    # CARD-248 all cite that floor directly and keep today's figures. Nobody
+    # has asked about the furniture, so it stays as it is and the question
+    # stays open.
+    #
+    # STATUS, recorded because the registry otherwise reads as if it had
+    # shipped: these thresholds are DECIDED but UNLANDED. CARD-227 is the
+    # delivery card and has NOT merged; what ships today is COMP-007's
+    # 3 px / 6 px. A reviewer must not read a passing grid-weight test as
+    # evidence of 0.3 / 0.8 / 1.3 pt either — AC-372..AC-375 name tests
+    # CARD-227 still owes, so those refs are phantom by design until it
+    # lands, and this delta deliberately adds and changes no test name.
+    # Verification: the two interior PIXEL probes the 2026-10-25 (a) delta
+    # names (tests/property/test_book_layout.py:364 and
     # tests/property/test_book_two_up.py:682) are BOTH inside
     # PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin —
     # ADR-0037/R2's property, i.e. THIS requirement's, not EC-019's /
@@ -2629,14 +2670,24 @@ functional:
       In a book, a puzzle's picture title appears only on its answer-key
       page, never on its puzzle page. The puzzle grid is printed in three
       rule weights, stated in points so they do not depend on the render
-      resolution: 0.48 pt for ordinary cell lines, drawn in grey; 1.28 pt
-      for every 5th grid line on both axes; and 2.08 pt for the outer
+      resolution: 0.3 pt for ordinary cell lines, drawn in grey; 0.8 pt
+      for every 5th grid line on both axes; and 1.3 pt for the outer
       border. The cell lines are lighter in ink than the 5th lines and the
-      border, so the grid reads through its heavier rules.
+      border, so the grid reads through its heavier rules. These are
+      PHYSICAL widths and they hold only where the grid is drawn as PDF
+      content-stream operators, because only there does the renderer
+      resolve a declared width and a declared tone at whatever resolution
+      it runs. A generator that RASTERISES a puzzle grid rounds each stroke
+      to an integer pixel count instead, and at 300 DPI these widths round
+      to 1 / 3 / 5 px — the one-pixel cell grid refused on 2026-10-17 — so
+      no puzzle grid is rasterised at these weights: a raster grid remains
+      held to at least 2 device pixels per rule at its own render
+      resolution, which at 300 DPI means it cannot use these figures at
+      all.
     source: [US-024]
     _meta:
       source: authored
-      resolved_question: "CLOSED 2026-10-17 by owner decision (CARD-227): the thresholds are 0.48 pt grey cell lines, 1.28 pt every 5th line, 2.08 pt outer border — the owner's own 1 : 2.667 : 4.333 ratios. Was an open question from 2026-09-22 to 2026-10-17; ADR-0037/R2 is amended with it. PREMISE RETIRED 2026-10-25 by ADR-0042/R7: the scale (the x1.6 from the owner's 0.3 / 0.8 / 1.3 pt) existed only 'so the thinnest line is 2 device pixels at 300 DPI rather than one', which is ADR-0037/R2's device floor, and a content-stream interior line has no device pixel to clear. The three FIGURES stand unchanged — ADR-0042 does not revise ADR-0037 and the weights wait on a printed proof the owner has not yet seen — but the device-floor reason behind the scale is no longer live and is not recorded as such. STATUS: decided but UNLANDED; CARD-227 has not merged and what ships today is COMP-007's 3 px / 6 px."
+      resolved_question: "CLOSED 2026-10-25 on the owner's own figures, by owner decision on the CARD-293 proof: the three rule weights are 0.3 pt grey cell lines, 0.8 pt every 5th line, 1.3 pt outer border — ratios 1 : 2.667 : 4.333, the owner's throughout. The owner read ~/Documents/nonogram-reviews/CARD-293/card293-proof-vector.pdf and chose PAGE 1, their own 0.3 / 0.8 / 1.3 pt, over PAGE 2, CARD-227's x1.6-scaled 0.48 / 1.28 / 2.08 pt ('I looked at the pdf and I like it (vector versions)'). ADR-0037/R2 was amended the same day and its statement is the authority on the wording. HOW IT GOT HERE: open from 2026-09-22; closed once on 2026-10-17 on the scaled figures, whose x1.6 existed only 'so the thinnest line is 2 device pixels at 300 DPI rather than one' — ADR-0037/R2's device floor; ADR-0042/R7 made that floor inapplicable to a content-stream interior on 2026-10-25, retiring the premise, and this decision closes the question hours later on the unscaled figures, discharging R7's deferral. BOUND TO THE MEDIUM: measured by poppler (CARD-293 AC-2) the 0.3 pt cell line is 2 px at grey 89 at 300 DPI and 5 px at grey 89 at 1200 DPI — grey 89 = round(255 x 0.35), the declared tone hit exactly at both — but the same figures through a RASTER generator round to 1 / 3 / 5 px, the one-pixel cell grid the 2026-10-17 amendment refused on 7 of 17 reviews, so a raster puzzle grid keeps the 2-device-pixel floor and cannot use these figures at all. DECIDED ON SCREEN, NOT ON PAPER: ADR-0037 asks that the weights become final only on printed proof pages, and the owner judged the vector RENDERS; dot gain at 0.1058 mm on uncoated stock and whether 35% grey reads as guidance or as faded in print are measured by nobody, accepted by the owner in deciding now, revisit trigger the first printed book or proof. STILL OPEN, deliberately not answered here: the page-furniture floor, which R2 has never bound and which CARD-222 / CARD-225 / CARD-248 cite directly, keeping today's figures. STATUS: decided but UNLANDED; CARD-227 has not merged and what ships today is COMP-007's 3 px / 6 px."
       evidence: ["src/nonogram/export/layout.py:233-252", "src/nonogram/export/layout.py:406-500", "src/nonogram/admin/book_pdf_generator.py:185-210"]
     acceptance:
       - id: AC-193
@@ -2652,10 +2703,12 @@ functional:
         kind: happy
         test: TestBookPdf_AnswerKeyCarriesPictureTitle
       # AC-195 survives the 2026-10-17 three-weight amendment unchanged in
-      # SUBSTANCE: indices 0 and 30 are now the outer border (2.08 pt) and
-      # 5/10/15/20/25 the 5th lines (1.28 pt), and both are still wider than
-      # the 0.48 pt cell lines between them, so the assertion holds as
-      # written. Its `given` figure is STALE and deliberately not guessed:
+      # SUBSTANCE, and survives the 2026-10-25 figure change for the same
+      # reason — the ratios did not move: indices 0 and 30 are the outer
+      # border (1.3 pt) and 5/10/15/20/25 the 5th lines (0.8 pt), and both
+      # are still wider than the 0.3 pt cell lines between them, so the
+      # assertion holds as written. Its `given` figure is STALE and
+      # deliberately not guessed:
       # "printed at 4.97 mm" predates CON-018's amended margins (outside
       # 0.5 in, top 0.55 in, bottom 0.47 in), which shrink the usable area
       # and push a 30x30 cell to roughly 4.54-4.65 mm. Those margins are in
@@ -2671,8 +2724,17 @@ functional:
         test: TestBookPdf_EveryFifthGridLineWider
       - id: AC-372
         given: a book puzzle page's drawn grid
-        when: its rules are measured off the ink at the page's own resolution
-        then: ordinary cell lines are 0.48 pt, every 5th line is 1.28 pt and the outer border is 2.08 pt
+        # 2026-10-25 (b): `when` was "its rules are measured off the ink at the
+        # page's own resolution". That is the reading ADR-0042/R6 forbids for an
+        # interior page — recovering by pixel-counting a width the generator
+        # stated exactly is a reconstruction, it needs tolerances, and at these
+        # figures it cannot even be done on the shipped file, since the DCT round
+        # trip greys a rule's edges. The width is read from the operator that
+        # sets it. CARD-227's AC-1 carries the same wording, so the card and this
+        # criterion agree; CARD-299's derived R6 guard would have flagged an ink
+        # reading here.
+        when: its rules are read from the content stream of the written PDF
+        then: ordinary cell lines are 0.3 pt, every 5th line is 0.8 pt and the outer border is 1.3 pt
         kind: happy
         test: TestBookGridRules_HasThreeWeights
       - id: AC-373
@@ -2681,10 +2743,23 @@ functional:
         then: the cell lines are lighter than the 5th lines and the border — asserted as an ink-value ordering, not as one literal colour
         kind: happy
         test: TestBookGridRules_CellLinesAreLighterThanTheFifths
+      # AC-374's figures were re-measured 2026-10-25 with the weights
+      # themselves. It used to read "measured 2, 5 and 9 px", which were the
+      # retired 0.48 / 1.28 / 2.08 pt rasterised at 300 DPI; those numbers
+      # are recorded as history in this entry's comment block and are not a
+      # live expectation. The one measurement that exists for the figures
+      # this requirement now states is poppler's on the rendered VECTOR file
+      # (CARD-293 AC-2): the 0.3 pt cell line at 2 px, grey 89. The 5th
+      # line's and the border's vector spans are not measured by anybody
+      # yet and are deliberately not guessed here — CARD-227 owes this
+      # criterion's test and owes the measurement with it. The `when` now
+      # names the medium, because at these figures the medium decides the
+      # answer: rasterised they round to 1 / 3 / 5 px, which is the refused
+      # configuration, not a passing render.
       - id: AC-374
         given: a puzzle printed at the smallest cell the book admits (NFR-008's 4.75 mm floor)
-        when: the three weights are rendered at 300 DPI
-        then: each is at least one device pixel and no two round to the same width — measured 2, 5 and 9 px
+        when: the three weights are rendered at 300 DPI from the page's content stream
+        then: no two weights render to the same width and none drops out — the 0.3 pt cell line measures 2 px at grey 89
         kind: boundary
         test: TestBookGridRules_WeightsSurviveTheFloor
       - id: AC-375

@@ -675,3 +675,46 @@ CARD-283 are blocked on exactly this delta.
   DECIDED but UNLANDED — CARD-227 is the delivery card and has not merged; what ships today is
   COMP-007's 3 px / 6 px. Source: this session, from ADR-0042/R7 and the CARD-293 spike's AC-2.
 # processed: 2026-10-25 → FR-033 (NO figure changed, statement unchanged; _meta.resolved_question amended to stop recording the retired device-floor premise as live, and to record DECIDED-but-UNLANDED — CARD-227 unmerged, COMP-007's 3 px / 6 px ships; comment block records ADR-0042/R7, that the 1 : 2.667 : 4.333 ratios never rested on the premise, that the figures stand pending the 100% printed proof, and that the two interior pixel probes the bullet above files on EC-019/EC-022/EC-032/EC-028 are in fact ADR-0037/R2's and so this requirement's)
+
+## Delta 2026-10-25 (b) — the grid's three rule weights are the owner's own figures (owner decision)
+
+- OWNER DECISION (2026-10-25, on the CARD-293 proof): the book interior's puzzle grid ships the
+  owner's artifact figures **0.3 pt grey cell lines / 0.8 pt every fifth line / 1.3 pt outer
+  border** — page 1 of `~/Documents/nonogram-reviews/CARD-293/card293-proof-vector.pdf` — and NOT
+  CARD-227's 0.48 / 1.28 / 2.08 pt. The owner's words: *"I looked at the pdf and I like it (vector
+  versions)"* and *"I also like card-proof-vector"*. This closes the question ADR-0042/R7 deferred
+  and discharges that rule's "the weights wait on a printed proof" clause. The x1.6 scaling that
+  produced 0.48 / 1.28 / 2.08 existed for exactly one reason — to lift the thinnest line off the
+  300 DPI pixel floor — and ADR-0042/R7 removed that reason, so the scaled figures no longer have
+  anything behind them. The ratios are unchanged either way: 1 : 2.667 : 4.333, the owner's own.
+  Source: owner, 2026-10-25.
+# processed: 2026-10-25 → FR-033 (statement AMENDED — the three weights are now 0.3 pt grey cell lines / 0.8 pt every 5th line / 1.3 pt outer border, replacing 0.48 / 1.28 / 2.08 pt; AC-372's `then` re-stated to the same three figures; _meta.resolved_question rewritten to CLOSE the question on the owner's own figures, naming card293-proof-vector.pdf page 1 chosen over page 2, the discharge of ADR-0042/R7's deferral, and the unchanged 1 : 2.667 : 4.333 ratios; the 2026-10-17 comment block's figures and its x1.6 / 2-device-pixel reasoning kept as a dated SUPERSEDED paragraph so the record survives without reading as live). No id created, no `test:` added or changed.
+- DECIDED ON SCREEN, NOT ON PAPER — recorded because ADR-0037 itself says the weights "become final
+  only after the owner has seen them on printed proof pages", and that is not what happened. The
+  owner judged the **vector renders**. Two questions therefore remain measured by nobody: (1) dot
+  gain — whether a 0.1058 mm grey line spreads, darkens or breaks up on uncoated cream stock under
+  offset or toner; (2) whether 35% grey reads as "light guidance" or as "faded" on paper. The owner
+  accepted that risk by deciding now; the revisit trigger is the first printed book or proof, and a
+  revision there is an ADR-0037 amendment, not drift. Source: this session.
+# processed: 2026-10-25 → FR-033 (no statement change; recorded in the comment block as "DECIDED ON SCREEN, NOT ON PAPER" — ADR-0037's Decision section asked for printed proof pages and the owner judged the vector renders, dot gain at 0.1058 mm on uncoated stock and the 35%-grey guidance-vs-faded question are measured by nobody, the owner accepted that by deciding now, revisit trigger is the first printed book or proof and a revision there is an ADR-0037 amendment rather than drift — and carried into _meta.resolved_question so the caveat travels with the closure). No NFR is owed: dot gain has no metric, threshold or measuring instrument here, so inventing one would be a fabricated threshold.
+- THE TRAP, stated as a standing constraint because it is the refused configuration: **these weights
+  are safe only because the interior is vector.** Measured by poppler on the rendered vector file,
+  the 0.3 pt cell line occupies **2 px at grey 89 at 300 DPI and 5 px at grey 89 at 1200 DPI** — the
+  declared tone hit exactly at both, the width scaling with the device. But a RASTER generator does
+  not antialias a declared width, it rounds the stroke to an integer pixel count, and at 300 DPI
+  0.3 / 0.8 / 1.3 pt rounds to **1 / 3 / 5 px** — the one-pixel cell grid ADR-0037/R2's 2026-10-17
+  amendment refused on the evidence of 7 of 17 reviews. So any future surface that rasterises a
+  puzzle grid at these weights reintroduces exactly the defect that amendment exists to prevent.
+  R2's "at least 2 device pixels at the render resolution" clause must therefore be re-expressed
+  rather than deleted: its PURPOSE (no dropout) still binds; its MECHANISM (a generator choosing an
+  integer pixel count) does not exist in a content stream. Source: this session, from CARD-293's AC-2
+  measurements.
+# processed: 2026-10-25 → FR-033 (statement extended with the medium binding — the figures are PHYSICAL widths that hold only where the grid is drawn as PDF content-stream operators, a rasterising generator rounds to 1 / 3 / 5 px at 300 DPI which is the cell grid refused on 2026-10-17, so no puzzle grid is rasterised at these weights and a raster grid stays held to at least 2 device pixels per rule; the poppler measurements, 2 px at grey 89 at 300 DPI and 5 px at grey 89 at 1200 DPI with grey 89 = round(255 x 0.35), recorded in the comment block and in _meta.resolved_question; AC-374 re-measured — its "2, 5 and 9 px" were the retired figures rasterised, its `when` now names the content stream, its `then` carries the one measurement that exists). Stated inside FR-033 rather than as a new CON: no id created per this delta's instruction, and the registry's home for the rule is ADR-0037/R2, which carries the same clause.
+- NOT DECIDED HERE, and deliberately left open: the **page furniture** floor. R2's 2026-10-17 scope
+  clarification holds furniture — the interior header rule, the footer hairline, a divider — to the
+  same 2-device-pixel floor "for the dropout reason directly and not through R2". The interior going
+  vector raises the same question for furniture that this delta answers for the grid, and CARD-222,
+  CARD-225 and CARD-248 all cite that floor. The owner decided the GRID's weights; nobody has asked
+  about the furniture, so it keeps today's figures and the question is flagged rather than answered.
+  Source: this session.
+# processed: 2026-10-25 → no model change, FLAGGED AND LEFT OPEN by instruction. Recorded on FR-033's comment block as "THE PAGE-FURNITURE FLOOR IS NOT DECIDED HERE" and in _meta.resolved_question's "STILL OPEN" clause: R2 has never bound furniture, its 2026-10-17 scope clarification holds the interior header rule / footer hairline / divider to the 2-device-pixel floor for the dropout reason directly, CARD-222 / CARD-225 / CARD-248 cite that floor directly and keep today's figures, and nobody has asked. No DEC surfaced — the question is not blocking synthesis and the owner has not been asked it; raising it is intake work, not formalisation.
