@@ -111,6 +111,26 @@ alternatives. requirements.yml, trace.yml and capabilities.yml carry the rows;
 validators ran 0 errors (FR-046's planned-test warnings are the FR-045
 precedent and are this card's job to clear).
 
+**AMENDED 2026-10-25 — ADR-0032/R3's check is now a `review-lens`, and this card
+owes the flip.** R3 was written naming
+`tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate`
+as a `kind: test` ref. That file does not exist — it is the test **this card
+writes** — and a `kind: test` ref to a nonexistent test is read as mechanically
+checked by `system_rules.py` and `forge:review` Step 8h. The consequence was
+pointed at this card specifically: **the review of the card writing the guard
+would have been told the guard already exists**, so a gap in it would have drawn
+no flag. R3 is therefore held as a lens until this card lands, with the planned
+name in a comment beside it.
+
+**What this card must do about it:** write that test under exactly that path and
+node id, then flip R3's check back to
+`{kind: test, ref: tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate}`
+in the ADR, in the same change. The flip is part of the card, not a follow-up —
+an ADR rule whose check is a lens after its delivery card merged is a rule that
+quietly stopped being verified. Repaired alongside the same defect in ADR-0042's
+four planned refs (commit `c12c33ce`); CON-020's own check comment carries the
+precedent for the flip's shape.
+
 ## Acceptance criteria
 
 FR-046 (to be minted by the delta above).
