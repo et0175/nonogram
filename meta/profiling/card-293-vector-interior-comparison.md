@@ -536,6 +536,18 @@ Item 4 is the real unknown. Everything in §1–§5 says the *mechanism* is chea
 nobody has priced redrawing the guide's worked example, the pipeline diagram and
 the difficulty legend as operators.
 
+> **The one *primitive* of item 4 has since been priced, and not here.**
+> CARD-294 built the interior's drawing vocabulary and measured the round
+> shape: **24 code lines, 7 operators per mark, and a worst radial error of
+> 2.7253e-4 of the radius — 1/44 of a device pixel at 1200 DPI on the largest
+> dot the book prints.** The figures are in
+> **`meta/profiling/card-294-curve-price.md`**, a sibling rather than an
+> appendix to this file: this one is a spike report whose diff against `src/`
+> is empty by its own AC-6, and CARD-294 ships code. Nothing measured above
+> or below is changed by it. The rest of item 4 — the *page composition* of
+> the guide, the TOC and the answer tiles — is still unpriced and is
+> CARD-295/296/297's.
+
 ---
 
 ## 7. Recommendation

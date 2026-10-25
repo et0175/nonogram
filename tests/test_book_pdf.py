@@ -59,18 +59,23 @@ to keep. See their own docstrings for what they are and are not evidence of.
 
 from __future__ import annotations
 
+from importlib import resources
+
 import numpy as np
 import pytest
 
 from nonogram import clues
+from nonogram.admin import book_vector
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     page_frame,
     puzzle_page_plan,
 )
+from nonogram.export import pdf as export_pdf
 from nonogram.export.layout import DEFAULT_PAGE_SPEC
 from nonogram.limits import MAX_SIZE, MIN_SIZE
+from tests.helpers import pdf_vector
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
 from tests.helpers.pdf_pages import pdf_pages
 
@@ -1379,3 +1384,96 @@ def test_the_measured_extents_are_inside_con_011() -> None:
     for columns, rows, _ in ((30, 30, 9), (15, 15, 7), (30, 15, 5), (20, 20, 6)):
         assert MIN_SIZE <= columns <= MAX_SIZE
         assert MIN_SIZE <= rows <= MAX_SIZE
+
+
+# --------------------------------------------------------------------------
+# ADR-0042/R5 — the interior's face (CARD-294, AC-1)
+# --------------------------------------------------------------------------
+
+
+def test_the_interior_embeds_the_projects_own_face() -> None:
+    """AC-1 / ADR-0042/R5 — the node id that rule's check now names.
+
+    Until this card, R5's check was ``{kind: review-lens}`` with this test's
+    name written in a comment beside it, as a placeholder for the card that
+    would write the font embedding. CARD-294 is that card, so the lens is
+    flipped to ``{kind: test, ref: …}`` pointing here, in the same change —
+    a lens left in place after its delivery card merges is a rule that
+    quietly stopped being verified.
+
+    Three claims, because R5 makes three:
+
+    * the face is **embedded**, and the embedded bytes are *this repository's*
+      ``src/nonogram/export/fonts/DejaVuSans.ttf`` — compared byte for byte,
+      so a different build of DejaVu, a subset, or a table-stripped sfnt all
+      fail here;
+    * it is embedded **exactly once per file**, not once per page — the
+      interior writes three font objects however many pages show text (the
+      slope across page counts is
+      ``PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts``'s);
+    * and **no base-14 face is referenced**, which is the half R5 states as a
+      prohibition. Every ``/BaseFont`` the file names is checked against the
+      fourteen, rather than only the one this writer sets, because the
+      prohibition is about the file and not about one object.
+
+    The face bytes are read here through :mod:`importlib.resources` — the
+    same mechanism the writer uses and the one ``export/pdf.py`` and
+    ``export/png.py`` publish — rather than by a filesystem path, so this test
+    does not become the second place that knows where the file lives.
+    """
+    on_disk = (
+        resources.files(export_pdf.FONT_PACKAGE)
+        .joinpath(export_pdf.FONT_RESOURCE)
+        .read_bytes()
+    )
+    assert on_disk[:4] == b"\x00\x01\x00\x00", "that is not a TrueType file"
+
+    pages = []
+    for index in range(3):
+        sheet = book_vector.ContentStream(width_px=600, height_px=600, dpi=300)
+        sheet.text(f"Puzzle {index + 1} · Easy", 20, 40, 10.0)
+        pages.append(sheet)
+    data = book_vector.write_vector_pdf(pages, len(pages)).getvalue()
+
+    embedded = pdf_vector.embedded_faces(data)
+    assert len(embedded) == 1, f"{len(embedded)} faces in a three-page interior"
+    assert embedded[0] == on_disk
+
+    names = pdf_vector.base_font_names(data)
+    assert names == [book_vector.FACE_BASE_FONT], names
+    assert not set(names) & book_vector.BASE_14_FACES, names
+    # And the prohibition stated over the whole file, not only its font
+    # objects: a base-14 name cannot appear anywhere in the bytes. The
+    # embedded face is Flate-compressed, so its own internal `name` table
+    # cannot smuggle one of these in uncompressed.
+    for forbidden in sorted(book_vector.BASE_14_FACES):
+        assert f"/{forbidden}".encode("ascii") not in data, forbidden
+
+
+def test_the_face_check_above_can_fail() -> None:
+    """Control for AC-1: each of its three claims, broken on purpose.
+
+    ADR-0039/R1 — a claim needs a control that can fail. Without this, a
+    reader cannot tell "the face is embedded once and is ours" from "the
+    reader returned an empty list".
+    """
+    sheet = book_vector.ContentStream(width_px=600, height_px=600, dpi=300)
+    sheet.text("Puzzle 1", 20, 40, 10.0)
+
+    # A different face: still exactly one, still not base-14, and the byte
+    # comparison is what catches it.
+    other = (
+        resources.files(export_pdf.FONT_PACKAGE)
+        .joinpath(export_pdf.FONT_RESOURCE)
+        .read_bytes()
+    )
+    swapped = book_vector.write_vector_pdf(
+        [sheet], 1, face_bytes=other[:-4] + b"XXXX", metrics=book_vector.interior_face_metrics()
+    ).getvalue()
+    faces = pdf_vector.embedded_faces(swapped)
+    assert len(faces) == 1
+    assert faces[0] != other, "the byte comparison would not notice a changed face"
+
+    # And the reader is not simply returning nothing: the real file has one.
+    real = book_vector.write_vector_pdf([sheet], 1).getvalue()
+    assert pdf_vector.embedded_faces(real) == [other]
