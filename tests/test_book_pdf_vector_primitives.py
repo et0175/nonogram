@@ -10,7 +10,12 @@
           TestVectorPrimitives_PointSizeIsIndependentOfDpi
     EC(ADR-0042/R5)  the face is embedded once per document, whatever the
           page count
-          PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts
+          TestPropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts
+    F-2   the widths the viewer lays glyphs out from are the face's own, read
+          back by FreeType rather than by this project
+          TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader
+    F-4   every /FontDescriptor and /Font entry states the face's own metric
+          TestVectorFontObjects_TheDescriptorStatesTheFacesOwnMetrics
 
 Why this file is shaped the way it is
 -------------------------------------
@@ -18,10 +23,29 @@ Why this file is shaped the way it is
 **The control is poppler, and that is the point of the card.** CARD-293 proved
 the mechanism cheap but proved it with its own reader; AC-2 is explicit that a
 writer checked only against its own reader demonstrates that two of this
-project's functions agree. So every shape claim here is made on a raster
-produced by ``pdftoppm`` and a text layer produced by ``pdftotext`` — a second
-implementation of the whole PDF specification, written by other people — and
-``tests/helpers/pdf_vector.py`` keeps the two kinds of reader visibly apart.
+project's functions agree. ``tests/helpers/pdf_vector.py`` keeps the two kinds
+of reader visibly apart, and which instrument each claim rests on is stated per
+claim rather than once for the file:
+
+* **where a shape lands and how it is inked** — AC-2 — is measured on a raster
+  ``pdftoppm`` produced and a text layer ``pdftotext`` produced: a second
+  implementation of the whole PDF specification, written by other people;
+* **the operator prices and the radial-error figures** — AC-3 — are measured on
+  the *emitted stream*, re-parsed by a second implementation of the scanner
+  (the regular expressions here against the hand-written one in
+  ``scripts/card294_curve_price.py``);
+* **the face's own metrics** are measured against **FreeType**, through
+  :mod:`PIL.ImageFont`, because the ``/Widths`` poppler lays glyphs out from
+  are the writer's own numbers — so a poppler render cannot falsify them. That
+  is review cycle 1's F-2, and
+  ``TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader`` is the answer;
+* **the descriptor's entries against those metrics** are read back with
+  ``PIL.PdfParser``, the convenient reader, because the claim there is that the
+  writer states what the reader read — a question about this project only.
+
+The sentence this paragraph replaced said every shape claim here was made on a
+poppler raster. Review cycle 1 measured that as false of AC-3, which is why the
+instrument is now named per claim.
 
 **Nothing here draws a page** (G-1). The fixtures are a line, a rectangle, a
 tone, a round mark and one string on an otherwise empty sheet, which is the
@@ -38,10 +62,12 @@ from __future__ import annotations
 import math
 import random
 import re
+from io import BytesIO
 from pathlib import Path
 
 import numpy as np
 import pytest
+from PIL import ImageFont
 
 from nonogram.admin import book_vector
 from nonogram.admin.book_vector import (
@@ -90,6 +116,22 @@ def _pdf(*pages: ContentStream) -> bytes:
 
 def _mm_to_px(millimetres: float, dpi: float = DPI) -> float:
     return millimetres * dpi / MM_PER_INCH
+
+
+def _encoded_characters() -> dict[int, str]:
+    """``{byte code: character}`` for every byte the interior's codec defines.
+
+    Derived from the codec here as well, rather than imported from
+    ``book_vector._encoded_codepoints`` — the whole point of the FreeType
+    comparison is that neither side of it is the module under test.
+    """
+    found: dict[int, str] = {}
+    for code in range(32, 256):
+        try:
+            found[code] = bytes([code]).decode(book_vector.TEXT_ENCODING)
+        except UnicodeDecodeError:
+            continue
+    return found
 
 
 # --------------------------------------------------------------------------
@@ -287,7 +329,13 @@ class TestVectorPrimitives_AnIndependentEngineFindsEachShape:
         sheet.round_mark(300, 300, 20)
         sheet.text("x", 10, 10, 10.0)
 
-        for keys in pdf_vector.page_resource_keys(_pdf(sheet)):
+        keys_per_page = pdf_vector.page_resource_keys(_pdf(sheet))
+        # The floor, which review cycle 1's F-6 is about: a bare ``for`` over
+        # this list asserts nothing at all if the reader hands back an empty
+        # one, and the reader is ``PIL.PdfParser`` — the convenient half. One
+        # page in, one page's resources out.
+        assert len(keys_per_page) == 1, keys_per_page
+        for keys in keys_per_page:
             assert keys == {"ProcSet", "Font"}, keys
 
     def test_the_engine_disagrees_when_the_writer_is_wrong(self, tmp_path):
@@ -633,26 +681,65 @@ class TestVectorPrimitives_PointSizeIsIndependentOfDpi:
                 1.3,
             ]
 
+    #: The DPI the comparison renders at. Fixed, so that the only thing
+    #: varying between the two files is the DPI their *writer* was built with.
+    RENDER_DPI = 300
+
     @needs_poppler
-    def test_the_same_page_renders_the_same_type_at_two_resolutions(self, tmp_path):
-        """And poppler agrees: the ink's height scales with the device exactly.
+    def test_two_writers_at_different_dpis_print_the_same_physical_type(self, tmp_path):
+        """The independent half of AC-4, and the writer is what varies.
 
-        The independent half of AC-4. The *measurement* is a device fact — how
-        many pixels a 24 pt capital covers — which is the kind of claim
-        ADR-0042/R6's second exemption is about, and it is made on a render for
-        that reason. It does not recover the stated size; it checks that the
-        stated size means the same physical thing at both resolutions.
+        **The version this replaces could not fail on a writer defect.** It
+        built one ``ContentStream``, wrote one ``data``, and rendered *that
+        same byte string* at 300 and at 600, asserting the ink doubled — a
+        property of poppler's rasteriser, true of any PDF that renders text
+        at all. Measured in review cycle 1: multiplying the ``Tf`` operand by
+        ``self.dpi / 72`` — the exact "multiplied by DPI somewhere
+        downstream" defect AC-4 exists to exclude — redded three tests in
+        this file and not that one.
+
+        Here the two files come from two *writers*, at 300 and 1200 DPI, with
+        the same page in millimetres, the same baseline in millimetres and
+        the same ``size_pt``; each is rendered at the same
+        :attr:`RENDER_DPI`, and the cap height has to come out the same
+        number of pixels. A writer that let its DPI into the point size
+        writes 100 pt on one and 400 pt on the other, and the two renders
+        disagree by a factor of four.
+
+        The expected height is the face's own ``cap_height`` at the stated
+        size, so the claim is not merely "the two agree" — two equally wrong
+        writers agree — but "they agree *on the number the face states*".
         """
-        sheet = _sheet()
-        sheet.text("HARD", 50, 400, 24.0)
-        data = _pdf(sheet)
+        page_mm, left_mm, baseline_mm, size_pt = 100.0, 20.0, 60.0, 24.0
+        heights = {}
+        for writer_dpi in (300, 1200):
+            sheet = ContentStream(
+                width_px=_mm_to_px(page_mm, writer_dpi),
+                height_px=_mm_to_px(page_mm, writer_dpi),
+                dpi=writer_dpi,
+            )
+            sheet.text(
+                "HARD",
+                _mm_to_px(left_mm, writer_dpi),
+                _mm_to_px(baseline_mm, writer_dpi),
+                size_pt,
+            )
+            page = pdf_vector.rendered_page(
+                _pdf(sheet), self.RENDER_DPI, out_dir=tmp_path / str(writer_dpi)
+            )
+            _, top, _, bottom = pdf_vector.ink_box(page)
+            heights[writer_dpi] = bottom - top
 
-        low = pdf_vector.ink_box(pdf_vector.rendered_page(data, 300, out_dir=tmp_path / "a"))
-        high = pdf_vector.ink_box(pdf_vector.rendered_page(data, 600, out_dir=tmp_path / "b"))
-
-        low_height = low[3] - low[1]
-        high_height = high[3] - high[1]
-        assert high_height == pytest.approx(2 * low_height, abs=2), (low_height, high_height)
+        cap_px = (
+            interior_face_metrics().cap_height
+            / 1000.0
+            * size_pt
+            / POINTS_PER_INCH
+            * self.RENDER_DPI
+        )
+        assert heights[300] == pytest.approx(heights[1200], abs=2), heights
+        for writer_dpi, height in heights.items():
+            assert height == pytest.approx(cap_px, abs=2), (writer_dpi, height, cap_px)
 
 
 # --------------------------------------------------------------------------
@@ -660,8 +747,20 @@ class TestVectorPrimitives_PointSizeIsIndependentOfDpi:
 # --------------------------------------------------------------------------
 
 
-class PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts:
+class TestPropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts:
     """EC(ADR-0042/R5): one embedded face per *file*, never per page.
+
+    **The name is ``TestPropertyTest_…`` and the prefix is load-bearing.**
+    This repository configures no ``python_classes``, so pytest's default
+    ``Test*`` applies, and review cycle 1 measured this class — spelled
+    ``class PropertyTest_…`` — as collecting **zero tests**: no skip, no
+    error, just absent from a green total, with the card's test table and
+    ADR-0042/R5's own comment citing a node id that did not exist. The
+    collectable spelling for a class-shaped property test in this tree is
+    ``tests/test_print_specs.py``'s
+    ``TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted``, and this
+    follows it. ``tests/test_collected_names.py`` is what makes the next one
+    of these fail instead of pass.
 
     A corpus of books across page counts, built by hand with stdlib
     :class:`random.Random` because this tree carries no ``hypothesis``, with
@@ -681,8 +780,8 @@ class PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts:
     #: enough different counts that one slope fits all of them.
     PAGE_COUNTS = (1, 2, 3, 5, 8, 13, 21, 34)
 
-    @staticmethod
-    def _corpus(seed: int, cases: int) -> list[list[ContentStream]]:
+    @classmethod
+    def _corpus(cls, seed: int, cases: int) -> list[list[ContentStream]]:
         """``cases`` books of random page counts, each page carrying text.
 
         Text on every page matters: a face embedded per *text object* rather
@@ -693,7 +792,7 @@ class PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts:
         books = []
         for _ in range(cases):
             pages = []
-            for _ in range(rng.choice(PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts.PAGE_COUNTS)):
+            for _ in range(rng.choice(cls.PAGE_COUNTS)):
                 sheet = _sheet()
                 for index in range(rng.randint(1, 6)):
                     sheet.text(f"Puzzle {rng.randint(1, 450)} · page", 20, 40 + 20 * index, 10.0)
@@ -767,6 +866,239 @@ class PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts:
 
 
 # --------------------------------------------------------------------------
+# F-2 — the face's metrics, against an engine that did not read them
+# --------------------------------------------------------------------------
+
+
+class TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader:
+    """The sfnt reader's numbers, re-derived by FreeType.
+
+    **Why a second engine and not a render.** ``FontMetrics.advance`` and the
+    PDF ``/Widths`` array are built from one dictionary, and the only
+    measurement of a string's width compares the writer's advance against a
+    poppler render that poppler laid out *from the writer's own*
+    ``/Widths``. Both sides of that comparison therefore move together.
+    Review cycle 1 measured the consequence: replacing every entry of
+    ``/Widths`` with a constant **600** left the whole claim-bearing suite at
+    89 passed, 0 failed, and 300 redded exactly one test — a discrimination
+    window of about a factor of two on the primary product of 934 lines of
+    hand-written sfnt parsing, under a docstring that says the advance is
+    "the width the viewer will use, not an estimate of it".
+
+    FreeType is the independent implementation, reached through
+    :mod:`PIL.ImageFont` — Pillow is already in the dependency baseline
+    (stdlib + Pillow + NumPy), so ADR-0006/R1 is untouched. It reads the same
+    ``hmtx``/``cmap`` with other people's code, and at ``size=1000`` its
+    advances are PDF's own glyph-space unit, so the comparison needs no
+    scaling of this project's own devising.
+
+    What it cannot check: ``FontBBox``, which FreeType exposes per glyph
+    rather than per face through this API. That one is controlled only as
+    "the descriptor states what the reader read" —
+    :class:`TestVectorFontObjects_TheDescriptorStatesTheFacesOwnMetrics` —
+    and is named here rather than left to look covered.
+    """
+
+    #: Every encoded code must agree to the unit. Not a tolerance: both sides
+    #: round the same integer ``hmtx`` entry by the same scale, so any
+    #: disagreement at all is a disagreement about the table.
+    EXACT = 0.5
+
+    #: FreeType reports ascent and descent as whole pixels at the size asked
+    #: for, rounding outwards from the ``hhea`` values this reader scales, so
+    #: one unit of slack is the rounding and not slack for the reader.
+    ROUNDING = 1
+
+    @staticmethod
+    def _freetype():
+        return ImageFont.truetype(BytesIO(interior_face_bytes()), 1000)
+
+    def test_every_encoded_width_is_the_width_freetype_measures(self):
+        metrics = interior_face_metrics()
+        face = self._freetype()
+        compared = {}
+        for code, character in _encoded_characters().items():
+            compared[code] = (metrics.widths_1000[code], face.getlength(character))
+
+        # The floor: cp1252 defines 219 of the 224 codes in 32..255, and the
+        # five it leaves undefined are the ones `encode_text` cannot produce.
+        # Without this a reader that returned nothing would pass.
+        assert len(compared) == 219, len(compared)
+        wrong = {
+            code: pair for code, pair in compared.items() if abs(pair[0] - pair[1]) > self.EXACT
+        }
+        assert wrong == {}, wrong
+
+    def test_the_comparison_above_would_notice_a_constant_width_array(self):
+        """Control: the mutation that passed 89/89 in cycle 1 reds here.
+
+        The defect is applied to a *copy* of the metrics rather than to the
+        module, because a control that edits the module under test is not a
+        control. 600 is the constant cycle 1 used; it is within a factor of
+        two of this face's mean advance, which is why nothing else caught it.
+        """
+        face = self._freetype()
+        constant = {code: 600 for code in _encoded_characters()}
+        disagreements = [
+            code
+            for code, character in _encoded_characters().items()
+            if abs(constant[code] - face.getlength(character)) > self.EXACT
+        ]
+        assert len(disagreements) > 100, len(disagreements)
+
+    def test_the_ascent_descent_and_cap_height_are_the_faces_own(self):
+        """And the vertical metrics, which position every baseline.
+
+        ``cap_height`` is the one that was wrong. The reader used to fall back
+        to seven tenths of the ascender when ``OS/2`` carried no
+        ``sCapHeight`` — which is this face's case, its ``OS/2`` being
+        version 1 — giving 650/1000 em where FreeType measures 729. The
+        0.15 relative tolerance of
+        ``test_the_text_is_inked_on_the_baseline_the_writer_named`` absorbs a
+        10.8 % error, so nothing caught it in round 1. It is now read from
+        the ``H`` glyph's own ``yMax`` and asserted here to the unit.
+        """
+        metrics = interior_face_metrics()
+        face = self._freetype()
+        ascent, descent = face.getmetrics()
+        assert abs(metrics.ascent - ascent) <= self.ROUNDING, (metrics.ascent, ascent)
+        assert abs(abs(metrics.descent) - descent) <= self.ROUNDING, (metrics.descent, descent)
+        # FreeType's own box for a flat capital, in the same 1000-unit em:
+        # `getbbox` counts down from the ascender, so the cap height is the
+        # ascent less the box's top edge.
+        _, top, _, _ = face.getbbox("H")
+        assert metrics.cap_height == pytest.approx(ascent - top, abs=self.ROUNDING), (
+            metrics.cap_height,
+            ascent - top,
+        )
+
+    def test_the_two_winansi_divergences_are_the_measured_ones(self):
+        """F-5: ``cp1252`` is ``/WinAnsiEncoding`` **except** at two codes.
+
+        The module used to state the identity as exact, twice. PDF 1.7 Annex
+        D.2 differs from CP-1252 at ``0xA0`` (``space``, not ``nbspace``) and
+        ``0xAD`` (``hyphen``, not ``softhyphen``). There is no stdlib table
+        of WinAnsi to enumerate against, so the set is explicit with a reason
+        per member — and each member gets a control: the inkless one here,
+        the inking one in
+        ``TestVectorVocabulary_RefusesWhatItCannotDraw``.
+        """
+        assert set(book_vector.WINANSI_DIVERGENCES) == {0xA0, 0xAD}
+        metrics = interior_face_metrics()
+        # The accepted divergence is accepted *because* it inks nothing
+        # different: WinAnsi's `space` and the codec's `nbspace` set the same
+        # blank at the same advance, measured off the face rather than
+        # asserted from the comment that says so.
+        assert metrics.widths_1000[0xA0] == metrics.widths_1000[0x20]
+        assert book_vector.REFUSED_BY_WINANSI == {"\u00ad"}
+
+
+# --------------------------------------------------------------------------
+# F-4 — the font objects state the face's own numbers
+# --------------------------------------------------------------------------
+
+
+class TestVectorFontObjects_TheDescriptorStatesTheFacesOwnMetrics:
+    """Every ``/FontDescriptor`` and ``/Font`` entry, read back and compared.
+
+    Review cycle 1's F-4: each of these entries carried a prose rationale and
+    none had a control. Measured there, one mutation at a time:
+    ``Flags=32`` -> ``4``, ``CapHeight`` -> ``1000``, ``Ascent``/``Descent``
+    -> ``0``, ``Length1`` -> ``1`` each left 89 passed. Only ``Encoding`` was
+    controlled, by ``pdftotext``.
+
+    The instrument is ``PIL.PdfParser`` — the convenient reader — and that is
+    the right choice *here*, because the claim is "the writer states what the
+    reader read", a question about two of this project's own functions. That
+    the reader read the face correctly is
+    :class:`TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader`'s, against
+    FreeType. The two together are what makes the chain
+    face -> reader -> descriptor checked end to end.
+
+    What a control cannot reach from this host is named rather than implied:
+    poppler renders and extracts identically with ``Flags=4``, and ``qpdf``,
+    ``mutool`` and ``gs`` are not installed, so the *behavioural* claim in
+    ``_write_face``'s docstring — that a viewer needs the non-symbolic bit to
+    honour ``/WinAnsiEncoding`` — is untested against the viewers it is about
+    (Acrobat, a press RIP). What is tested is that the value this writer
+    emits is 32 and stays 32.
+    """
+
+    @staticmethod
+    def _written() -> bytes:
+        sheet = _sheet()
+        sheet.text("Puzzle 12 · Easy", 20, 40, 10.0)
+        return _pdf(sheet)
+
+    def test_the_descriptor_states_the_metrics_the_reader_read(self):
+        data = self._written()
+        metrics = interior_face_metrics()
+        descriptors = pdf_vector.font_objects(data, "FontDescriptor")
+        assert len(descriptors) == 1, descriptors
+        descriptor = descriptors[0]
+
+        assert descriptor["FontName"] == book_vector.FACE_BASE_FONT
+        assert descriptor["Ascent"] == metrics.ascent
+        assert descriptor["Descent"] == metrics.descent
+        assert descriptor["CapHeight"] == metrics.cap_height
+        assert descriptor["FontBBox"] == list(metrics.bbox)
+        assert descriptor["ItalicAngle"] == 0
+        # PDF 1.7 §9.8.2, bit 6 (value 32) is Nonsymbolic. A viewer that read
+        # 4 (Symbolic) is told to consult the font's own (3, 0) cmap instead
+        # of /WinAnsiEncoding. Pinned, not verified against such a viewer —
+        # the class docstring says which instruments are absent.
+        assert descriptor["Flags"] == 32, (
+            "Flags must be the non-symbolic bit for /WinAnsiEncoding to be "
+            "honoured; got %r" % (descriptor["Flags"],)
+        )
+        assert descriptor["StemV"] == 80
+
+    def test_the_embedded_stream_declares_the_faces_real_length(self):
+        """``/Length1`` is the uncompressed size, and it is checkable.
+
+        A viewer that trusts ``/Length1`` over the Flate stream's own end
+        reads a truncated face; ``1`` passed every test in cycle 1.
+        """
+        lengths = pdf_vector.font_file_lengths(self._written())
+        assert lengths == [len(interior_face_bytes())], lengths
+
+    def test_the_font_dictionary_states_every_encoded_width(self):
+        """The ``/Widths`` array itself, entry by entry, against the reader.
+
+        With :class:`TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader`
+        holding the reader against FreeType, this closes the chain: the array
+        a viewer lays glyphs out from is FreeType's own numbers, by two
+        independent steps rather than by one self-consistent one.
+        """
+        fonts = pdf_vector.font_objects(self._written(), "Font")
+        assert len(fonts) == 1, fonts
+        font = fonts[0]
+        metrics = interior_face_metrics()
+
+        assert font["Subtype"] == "TrueType"
+        assert font["Encoding"] == "WinAnsiEncoding"
+        assert font["BaseFont"] == book_vector.FACE_BASE_FONT
+        assert font["BaseFont"] not in book_vector.BASE_14_FACES
+        assert font["FirstChar"] == metrics.first_char
+        assert font["LastChar"] == metrics.last_char
+        widths = font["Widths"]
+        assert len(widths) == metrics.last_char - metrics.first_char + 1 == 224
+        assert widths == [
+            metrics.widths_1000.get(code, 0)
+            for code in range(metrics.first_char, metrics.last_char + 1)
+        ]
+        # The five codes cp1252 leaves undefined are the zeroes, and no more
+        # than those — so "0 is fine, nothing can reach it" stays checkable.
+        assert {code for code, width in enumerate(widths, metrics.first_char) if width == 0} == {
+            0x81,
+            0x8D,
+            0x8F,
+            0x90,
+            0x9D,
+        }
+
+
+# --------------------------------------------------------------------------
 # The vocabulary's own refusals
 # --------------------------------------------------------------------------
 
@@ -784,6 +1116,73 @@ class TestVectorVocabulary_RefusesWhatItCannotDraw:
         sheet = _sheet()
         with pytest.raises(UnrepresentableText, match="U\\+043A"):
             sheet.text("кот", 10, 10, 10.0)
+
+    def test_a_soft_hyphen_is_refused_because_winansi_would_ink_it(self):
+        """F-5's decision, and it is a refusal.
+
+        ``U+00AD`` SOFT HYPHEN is invisible in a source string and
+        ``cp1252`` encodes it happily to ``0xAD`` — which
+        ``/WinAnsiEncoding`` sets as ``hyphen``. A conforming viewer
+        therefore prints a visible hyphen nobody asked for, and a page card's
+        strings come from puzzle names and titles that may be pasted or
+        imported. That is neither refused nor faithful, and it is ink that
+        cannot be fixed after the book is printed — which is
+        :class:`UnrepresentableText`'s whole argument, so the third case is
+        resolved into the first.
+        """
+        sheet = _sheet()
+        with pytest.raises(UnrepresentableText, match="U\\+00AD"):
+            sheet.text("co\u00adoperate", 10, 10, 10.0)
+
+    def test_the_other_winansi_divergence_is_accepted_and_sets_nothing(self):
+        """Control, the other way: the inkless divergence is *not* refused.
+
+        ``0xA0`` is WinAnsi's ``space`` against the codec's ``nbspace``, so
+        the glyph differs in name and in nothing a reader can see. Refusing
+        it would be the refusal over-reaching, which is what this case
+        catches.
+        """
+        sheet = _sheet()
+        sheet.text("Puzzle\u00a012", 10, 10, 10.0)
+        assert len(sheet.operators) == 1
+
+    @pytest.mark.parametrize(
+        "mangle, expected",
+        [
+            pytest.param(lambda face: face[:2048], "'GPOS' table runs to", id="truncated"),
+            pytest.param(lambda face: b"", "too short to hold", id="empty"),
+            pytest.param(
+                lambda face: b"OTTO" + face[4:], "sfnt version is b'OTTO'", id="a CFF sfnt"
+            ),
+            pytest.param(
+                lambda face: face[:4] + (5000).to_bytes(2, "big") + face[6:],
+                "not self-consistent",
+                id="an inflated table count",
+            ),
+            pytest.param(
+                lambda face: face.replace(b"OS/2", b"XXXX", 1),
+                "carries no 'OS/2' table",
+                id="a table the reader needs, missing",
+            ),
+        ],
+    )
+    def test_a_face_that_is_not_a_truetype_sfnt_is_refused(self, mangle, expected):
+        """F-7: loudly, and as this module's own error type.
+
+        Measured in review cycle 1, before this existed: a face truncated to
+        2 KB and an empty one each raised a raw ``struct.error`` from inside
+        private parsing, and an ``OTTO``-tagged (CFF) sfnt and an inflated
+        table count were accepted **silently** — the OTTO case writing a
+        381,528-byte file with CFF bytes inside ``/FontFile2``, which is for
+        TrueType outlines only.
+
+        The reach is test-only today: ``face_bytes`` exists so AC-1's control
+        can embed something else, and no page card can reach it. The bound is
+        closed rather than declared because it is two checks, and because the
+        silent half produced a spec-invalid file.
+        """
+        with pytest.raises(ContentStreamError, match=re.escape(expected)):
+            book_vector.font_metrics(mangle(interior_face_bytes()))
 
     def test_the_characters_the_interior_really_sets_are_all_carried(self):
         """Control: the refusal above is not simply "non-ASCII is refused".

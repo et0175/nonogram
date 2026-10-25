@@ -54,14 +54,24 @@ the way CARD-293's §1 table was counted, over
 | `ContentStream.line_to` (for scale) | 2 |
 | `ContentStream.rectangle` (for scale) | 6 |
 | the straight-line vocabulary, total | 12 |
-| the embedded face, total (CARD-293 estimated 163) | 171 |
+| the embedded face, total (CARD-293 estimated 163) | 216 |
 
 **24 lines, of which 13 are the circle itself.** Read it against the two
 numbers beside it: the whole straight-line vocabulary CARD-293 already proved
-is 12 lines, and the font work it priced at 163 came in at 171. So the
-unpriced primitive is **twice the straight-line vocabulary and a seventh of
+is 12 lines, and the font work it priced at 163 came in at **216**. So the
+unpriced primitive is **twice the straight-line vocabulary and a ninth of
 the font work** — the smallest of the three pieces of this card, not the
 largest.
+
+The face's figure was **171** when this document was first written and is 216
+now. Review cycle 1's fix round added 45 code lines to the face and nothing to
+the round shape: the sfnt reader's four refusals (version tag, offset-table
+self-consistency, per-table extent, missing tag) and the real cap height read
+from `H`'s own `glyf` bounding box in place of a seven-tenths-of-the-ascender
+guess that was measured 10.8 % low. Every figure in this table is re-derived by
+`scripts/card294_curve_price.py` on each run and none is transcribed; the
+round-shape and straight-line rows are **unchanged**, which is the claim this
+section exists to make.
 
 The 13 lines are: a radius refusal, the kappa product, four coordinate names,
 and then one `begin_path`, four `curve`s, a `close_path` and a `paint`. There
@@ -260,9 +270,29 @@ tests/test_book_pdf.py::test_the_interior_embeds_the_projects_own_face
                                                       from review-lens by this card
 pdftoppm / pdftotext (poppler)                       — the engine that did not
                                                       write the file
+PIL.ImageFont (FreeType)                             — the engine that did not
+                                                      read the face's metrics
 ```
 
-Every shape claim in the test file is made on a raster poppler produced, not on
-a stream this project parsed. Where poppler is absent the tests **skip with
-that reason named** rather than passing — a missing engine is a missing
-control, and the figure above was taken on a host that had it.
+Every claim about **where a shape lands and how it is inked** is made on a
+raster poppler produced. The **operator prices of §2 and the radial-error
+figures of §4** are measured on the *emitted stream*, re-parsed by a second
+implementation — §2 by `TestVectorPrimitives_TheRoundMarkCostsSevenOperators`'s
+regular expressions against `scripts/card294_curve_price.py`'s hand-written
+scanner, §4 by `_emitted_curves`' `re.finditer` over the operands, which §4
+states in those words. The **face's own metrics** go through a third engine
+again — FreeType, via `PIL.ImageFont` — because the `/Widths` poppler lays
+glyphs out from are this writer's own numbers, so no poppler render can
+falsify them.
+
+Review cycle 1 measured this paragraph's earlier sentence — "every shape claim
+in the test file is made on a raster poppler produced, not on a stream this
+project parsed" — as **false of §2 and §4, contradicted by those two sections
+of this same document**. It was true of §3's roundness and placement and of
+nothing else. It is corrected rather than deleted, because a summary sentence
+that overstates the instrument is the same defect as a claim wider than its
+control.
+
+Where poppler is absent the tests **skip with that reason named** rather than
+passing — a missing engine is a missing control, and the figures above were
+taken on a host that had it.

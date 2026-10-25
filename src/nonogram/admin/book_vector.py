@@ -103,7 +103,10 @@ __all__ = [
     "ContentStream",
     "FontMetrics",
     "POINTS_PER_INCH",
+    "REFUSED_BY_WINANSI",
+    "SFNT_TRUETYPE_VERSIONS",
     "TEXT_ENCODING",
+    "WINANSI_DIVERGENCES",
     "ContentStreamError",
     "UnrepresentableText",
     "FACE_BASE_FONT",
@@ -119,13 +122,60 @@ __all__ = [
 #: One PDF point is 1/72 in. The page's own unit.
 POINTS_PER_INCH = 72.0
 
-#: The PDF encoding the embedded face is declared with, and the Python codec
-#: that *is* it. ``WinAnsiEncoding`` is CP-1252, so the byte a character takes
-#: in a content stream is ``chr.encode(TEXT_ENCODING)`` and nothing is
+#: The Python codec the interior's text is encoded with, and the one the
+#: embedded face's ``/WinAnsiEncoding`` is read against. The byte a character
+#: takes in a content stream is ``chr.encode(TEXT_ENCODING)`` and nothing is
 #: hand-tabulated: the codec is the authority (ADR-0039/R2 — a guard's set
 #: comes from an enumerable authority, and a character the codec cannot
 #: represent is a loud failure rather than a silent ``.notdef`` box).
+#:
+#: **CP-1252 is ``/WinAnsiEncoding`` at every code except two**, and the
+#: earlier spelling of this comment — "``WinAnsiEncoding`` *is* CP-1252" —
+#: was measured false in review cycle 1. The exceptions are
+#: :data:`WINANSI_DIVERGENCES`, and one of them prints ink, so the
+#: divergence is not cosmetic. See :func:`encode_text`, which refuses the
+#: inking one.
 TEXT_ENCODING = "cp1252"
+
+#: Where CP-1252 and ``/WinAnsiEncoding`` name different glyphs for the same
+#: byte: ``{byte code: (the codec's character, WinAnsi's glyph name)}``.
+#:
+#: **Two explicit members with reasons, not a derived set**, because the
+#: authority is PDF 1.7 **Annex D.2**'s encoding table and no codec in the
+#: stdlib carries it — there is nothing to enumerate against. The honest
+#: shape for that is the one ``tests/test_guard_integrity.py`` uses for its
+#: own non-enumerable half: name the members, give each a reason, and give
+#: each a control.
+#:
+#: * ``0xA0`` — the codec says U+00A0 NO-BREAK SPACE, WinAnsi says ``space``.
+#:   **Inkless either way**: both glyphs set blank, and the face gives them
+#:   the same advance, which
+#:   ``test_the_one_divergence_that_inks_nothing_really_inks_nothing``
+#:   measures off :func:`interior_face_metrics` rather than asserting from
+#:   this comment. Accepted.
+#: * ``0xAD`` — the codec says U+00AD SOFT HYPHEN, WinAnsi says ``hyphen``.
+#:   **A conforming viewer therefore prints a visible hyphen for a character
+#:   that is invisible in the source string**, which is neither a refusal nor
+#:   a faithful rendering, and is ink that cannot be fixed after the book is
+#:   printed — the whole of :class:`UnrepresentableText`'s rationale.
+#:   :func:`encode_text` refuses it.
+#: ``{byte code: (the codec's character, WinAnsi's glyph name, WinAnsi inks
+#: where the codec does not)}``.
+WINANSI_DIVERGENCES = {
+    0xA0: ("\u00a0", "space", False),
+    0xAD: ("\u00ad", "hyphen", True),
+}
+
+#: ``{character: the WinAnsi glyph it would print as}`` for the inking half
+#: of :data:`WINANSI_DIVERGENCES`, derived from that mapping rather than
+#: restated so the two cannot drift apart.
+_REFUSED_GLYPH = {
+    character: glyph for character, glyph, inks in WINANSI_DIVERGENCES.values() if inks
+}
+
+#: The characters :func:`encode_text` refuses although :data:`TEXT_ENCODING`
+#: can carry them.
+REFUSED_BY_WINANSI = frozenset(_REFUSED_GLYPH)
 
 #: The resource name the font dictionary is reachable by inside a page's
 #: ``/Resources``. One face, one name; the page cards do not get to choose it,
@@ -160,6 +210,13 @@ BASE_14_FACES = frozenset(
         "ZapfDingbats",
     }
 )
+
+#: The sfnt version tags that mean "this face has TrueType outlines", which
+#: is the only kind ``/FontFile2`` may carry (PDF 1.7 §9.9, Table 126).
+#: ``\x00\x01\x00\x00`` is the usual tag and ``true`` is the one older Apple
+#: tools wrote; ``OTTO`` (CFF outlines) and ``ttcf`` (a collection) are
+#: deliberately **not** here — see :func:`_sfnt_tables`, which refuses them.
+SFNT_TRUETYPE_VERSIONS = frozenset({b"\x00\x01\x00\x00", b"true"})
 
 #: The control-point offset, as a fraction of the radius, that makes four
 #: cubic Béziers approximate a circle.
@@ -276,19 +333,97 @@ class FontMetrics:
         the viewer will use, not an estimate of it — which is what lets a
         caller centre a string without either side knowing the other's
         rasteriser.
+
+        **That claim has a control that can fail, and did not until review
+        cycle 1 said so.** :attr:`widths_1000` and the PDF ``/Widths`` array
+        are built from the same dictionary, so a poppler render laid out from
+        the emitted ``/Widths`` agrees with :meth:`advance` whatever this
+        reader got wrong — measured: every width replaced by a constant 600
+        left the whole claim-bearing suite green. The second, independent
+        implementation is FreeType, reached through
+        :mod:`PIL.ImageFont` — already in the dependency baseline, so no
+        revisit of ADR-0006/R1 — and
+        ``TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader`` holds all
+        219 encoded codes against it.
         """
         return sum(self.widths_1000.get(byte, 0) for byte in encode_text(text)) / 1000.0
 
 
 def _sfnt_tables(data: bytes) -> dict[str, tuple[int, int]]:
-    """``{tag: (offset, length)}`` for every table in ``data``."""
-    count = struct.unpack(">H", data[4:6])[0]
+    """``{tag: (offset, length)}`` for every table in ``data``.
+
+    Three things are checked, because review cycle 1 measured what happens
+    without them, and two of the three answers were worse than a crash:
+
+    * the **sfnt version tag**. A face tagged ``OTTO`` — CFF outlines — read
+      through here produced entirely plausible metrics and was then embedded
+      as ``/FontFile2``, which carries TrueType outlines only: a
+      spec-invalid file written with no complaint at all.
+    * the **table directory's own self-consistency**. ``searchRange``,
+      ``entrySelector`` and ``rangeShift`` are each a function of
+      ``numTables`` (sfnt spec, the offset table), so they are *derived and
+      compared* rather than skipped — which is the only cheap way to notice
+      an inflated count. With the bundled face's 20 tables rewritten to
+      5000, nothing complained and the metrics came back unchanged.
+    * every table's **extent**. A face truncated to 2 KB kept a directory
+      that parsed and offsets that pointed past the end, so the failure
+      arrived as a raw :exc:`struct.error` from inside this module's private
+      parsing rather than as its own declared error type.
+
+    Raises:
+        ContentStreamError: any of the three.
+    """
+    if len(data) < 12:
+        raise ContentStreamError(
+            f"the face is {len(data)} bytes, too short to hold an sfnt header"
+        )
+    version = data[:4]
+    if version not in SFNT_TRUETYPE_VERSIONS:
+        raise ContentStreamError(
+            f"the face's sfnt version is {version!r}, not one of "
+            f"{sorted(SFNT_TRUETYPE_VERSIONS)} — /FontFile2 carries TrueType "
+            f"outlines only, and a CFF face ('OTTO') belongs in /FontFile3"
+        )
+    count, search_range, entry_selector, range_shift = struct.unpack(">HHHH", data[4:12])
+    if count == 0:
+        raise ContentStreamError("the face declares no tables")
+    selector = count.bit_length() - 1
+    expected = (2**selector * 16, selector, count * 16 - 2**selector * 16)
+    if (search_range, entry_selector, range_shift) != expected:
+        raise ContentStreamError(
+            f"the face declares {count} tables but its offset table's "
+            f"(searchRange, entrySelector, rangeShift) is "
+            f"{(search_range, entry_selector, range_shift)} where {count} "
+            f"tables derive {expected} — the directory is not self-consistent"
+        )
+    if len(data) < 12 + 16 * count:
+        raise ContentStreamError(
+            f"the face declares {count} tables, which its {len(data)} bytes "
+            f"cannot hold"
+        )
     tables: dict[str, tuple[int, int]] = {}
     for index in range(count):
         base = 12 + 16 * index
         tag, _checksum, offset, length = struct.unpack(">4sIII", data[base : base + 16])
+        if offset + length > len(data):
+            raise ContentStreamError(
+                f"the face's {tag.decode('latin-1')!r} table runs to "
+                f"{offset + length} bytes in a face of {len(data)}"
+            )
         tables[tag.decode("latin-1")] = (offset, length)
     return tables
+
+
+def _table(tables: Mapping[str, tuple[int, int]], tag: str) -> tuple[int, int]:
+    """``tables[tag]``, as a :class:`ContentStreamError` rather than a KeyError.
+
+    The tag is named in the message, because "which table is missing" is the
+    whole of what a reader of a malformed face needs to be told.
+    """
+    try:
+        return tables[tag]
+    except KeyError:
+        raise ContentStreamError(f"the face carries no {tag!r} table") from None
 
 
 def _cmap_format_4(data: bytes, offset: int) -> dict[int, int]:
@@ -319,7 +454,7 @@ def _cmap_format_4(data: bytes, offset: int) -> dict[int, int]:
 
 def _unicode_cmap(data: bytes) -> dict[int, int]:
     """The Windows/Unicode BMP ``cmap`` — the one a ``/TrueType`` font uses."""
-    offset, _ = _sfnt_tables(data)["cmap"]
+    offset, _ = _table(_sfnt_tables(data), "cmap")
     count = struct.unpack(">H", data[offset + 2 : offset + 4])[0]
     chosen: int | None = None
     for index in range(count):
@@ -343,11 +478,11 @@ def _advances(data: bytes) -> list[int]:
     the list is extended rather than indexed short.
     """
     tables = _sfnt_tables(data)
-    hhea, _ = tables["hhea"]
+    hhea, _ = _table(tables, "hhea")
     recorded = struct.unpack(">H", data[hhea + 34 : hhea + 36])[0]
-    maxp, _ = tables["maxp"]
+    maxp, _ = _table(tables, "maxp")
     glyphs = struct.unpack(">H", data[maxp + 4 : maxp + 6])[0]
-    hmtx, _ = tables["hmtx"]
+    hmtx, _ = _table(tables, "hmtx")
     widths = [
         struct.unpack(">H", data[hmtx + 4 * index : hmtx + 4 * index + 2])[0]
         for index in range(recorded)
@@ -378,9 +513,20 @@ def encode_text(value: str) -> bytes:
 
     Raises:
         UnrepresentableText: ``value`` holds a character
-            :data:`TEXT_ENCODING` cannot carry. Loudly, and with the
-            character named: the alternative is a printed box.
+            :data:`TEXT_ENCODING` cannot carry, **or** one of
+            :data:`REFUSED_BY_WINANSI` — a character the codec carries
+            happily and ``/WinAnsiEncoding`` then sets as different, inking
+            glyph. Loudly, and with the character named: the alternative is
+            ink on a printed page that nobody asked for.
     """
+    for character in value:
+        glyph = _REFUSED_GLYPH.get(character)
+        if glyph is not None:
+            raise UnrepresentableText(
+                f"{character!r} (U+{ord(character):04X}) encodes to the byte "
+                f"/WinAnsiEncoding sets as {glyph!r}, so it would print "
+                f"visible ink the caller did not ask for"
+            )
     try:
         return value.encode(TEXT_ENCODING)
     except UnicodeEncodeError as problem:
@@ -391,25 +537,69 @@ def encode_text(value: str) -> bytes:
         ) from problem
 
 
-def font_metrics(data: bytes) -> FontMetrics:
-    """Read ``data``'s five tables into what a PDF font dictionary states."""
+def _cap_height(data: bytes, cmap: Mapping[int, int]) -> int:
+    """The top of this face's flat capitals, in font units.
+
+    ``OS/2``'s ``sCapHeight`` when the table carries it (version 2 and up),
+    and otherwise the ``yMax`` of the ``H`` glyph's own bounding box — which
+    is what "the vertical coordinate of the top of flat capital letters"
+    (PDF 1.7, Table 122) means, read rather than guessed.
+
+    **The guess it replaces was measured wrong.** The bundled DejaVuSans
+    ships an ``OS/2`` **version 1** table, 86 bytes long, with no
+    ``sCapHeight`` at all, so the value this function returns is always the
+    fallback for the face this interior actually embeds. The previous
+    fallback — seven tenths of the ascender, the usual rule of thumb — gives
+    650/1000 em against the 729/1000 em FreeType measures for the same face,
+    **10.8 % low**; the 0.15 relative tolerance of
+    ``test_the_text_is_inked_on_the_baseline_the_writer_named`` absorbed it,
+    which is how it survived round 1. ``H``'s ``yMax`` reproduces FreeType's
+    figure exactly, and
+    ``TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader`` is where that
+    agreement is asserted against an engine that did not write this reader.
+
+    Raises:
+        ContentStreamError: the face has neither an ``sCapHeight`` nor an
+            ``H`` with an outline. A descriptor cannot state a cap height it
+            does not have, and guessing one is what this function exists to
+            stop.
+    """
     tables = _sfnt_tables(data)
-    head, _ = tables["head"]
+    os2, length = _table(tables, "OS/2")
+    if struct.unpack(">H", data[os2 : os2 + 2])[0] >= 2 and length >= 90:
+        return struct.unpack(">h", data[os2 + 88 : os2 + 90])[0]
+    glyph = cmap.get(ord("H"))
+    if glyph is None:
+        raise ContentStreamError(
+            "the face has no OS/2 sCapHeight and no 'H', so no cap height "
+            "can be read from it"
+        )
+    head, _ = _table(tables, "head")
+    long_loca = struct.unpack(">h", data[head + 50 : head + 52])[0] == 1
+    loca, _ = _table(tables, "loca")
+    if long_loca:
+        at = loca + 4 * glyph
+        start, end = struct.unpack(">II", data[at : at + 8])
+    else:
+        at = loca + 2 * glyph
+        short_start, short_end = struct.unpack(">HH", data[at : at + 4])
+        start, end = short_start * 2, short_end * 2
+    if end <= start:
+        raise ContentStreamError("the face's 'H' has no outline to measure")
+    glyf, _ = _table(tables, "glyf")
+    return struct.unpack(">h", data[glyf + start + 8 : glyf + start + 10])[0]
+
+
+def font_metrics(data: bytes) -> FontMetrics:
+    """Read ``data``'s tables into what a PDF font dictionary states."""
+    tables = _sfnt_tables(data)
+    head, _ = _table(tables, "head")
     upem = struct.unpack(">H", data[head + 18 : head + 20])[0]
     box = struct.unpack(">hhhh", data[head + 36 : head + 44])
-    hhea, _ = tables["hhea"]
+    hhea, _ = _table(tables, "hhea")
     ascent, descent = struct.unpack(">hh", data[hhea + 4 : hhea + 8])
-    os2, _ = tables["OS/2"]
-    version = struct.unpack(">H", data[os2 : os2 + 2])[0]
-    # sCapHeight arrived in OS/2 version 2. Below that the usual fallback is
-    # seven tenths of the ascender, and it is only ever a hint to a viewer
-    # choosing a substitute face — which this interior never asks it to do.
-    cap = (
-        struct.unpack(">h", data[os2 + 88 : os2 + 90])[0]
-        if version >= 2
-        else round(ascent * 0.7)
-    )
     cmap = _unicode_cmap(data)
+    cap = _cap_height(data, cmap)
     advances = _advances(data)
     scale = 1000.0 / upem
     encoded = _encoded_codepoints()
@@ -871,11 +1061,28 @@ def _write_face(
 ) -> None:
     """The three objects that embed the face, once per document.
 
-    ``Flags=32`` is the non-symbolic bit, which is what a ``/TrueType`` font
-    with ``/WinAnsiEncoding`` has to set for a viewer to use the encoding
-    rather than the font's own ``(3, 0)`` cmap. ``StemV`` is required by the
-    spec and consulted only when a viewer substitutes a face it does not have
-    — which, the face being embedded, it never does here.
+    ``Flags=32`` is the non-symbolic bit, which is what PDF 1.7 §9.8.2 says
+    a ``/TrueType`` font with ``/WinAnsiEncoding`` sets so that a viewer
+    consults the encoding rather than the font's own ``(3, 0)`` cmap.
+    ``StemV`` is required by the spec and consulted only when a viewer
+    substitutes a face it does not have — which, the face being embedded, it
+    never does here.
+
+    **What is controlled and what is only asserted.** Every value written
+    below is read back out of the finished file and compared against
+    :func:`interior_face_metrics` by
+    ``TestVectorFontObjects_TheDescriptorStatesTheFacesOwnMetrics``, so a
+    descriptor that drifts from the face reds — ``Flags``, ``CapHeight``,
+    ``Ascent``, ``Descent``, ``FontBBox``, ``Length1``, ``StemV``,
+    ``Encoding`` and the whole ``/Widths`` array. What is **not** controlled
+    is the *behavioural* half of the ``Flags`` sentence above — that a
+    viewer which saw ``Flags=4`` would read the font's own cmap instead of
+    ``/WinAnsiEncoding``. Measured in review cycle 1: poppler, the only PDF
+    engine on this host, extracts and renders the text identically with
+    ``Flags=4``, and ``qpdf``, ``mutool`` and ``gs`` are not installed, so no
+    instrument here can falsify it. It is therefore stated as what it is: the
+    spec's rule, assumed and unverified against Acrobat or a press RIP, with
+    the emitted value pinned so it cannot change unnoticed.
     """
     pdf.write_obj(
         file_ref,

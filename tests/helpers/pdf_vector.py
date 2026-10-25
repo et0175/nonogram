@@ -115,6 +115,63 @@ def embedded_faces(data: bytes) -> list[bytes]:
     return faces
 
 
+def _plain(value):
+    """A ``PdfParser`` value as a plain Python one.
+
+    ``PdfName`` holds its bytes in ``.name``; a ``/Name`` that came off the
+    writer's side of the parser may arrive as raw bytes instead. Both become
+    ``str``, numbers stay numbers, and a list becomes a list of the same —
+    because a descriptor entry compared against a metric has to be compared
+    as the number or the name it is, not as whichever wrapper it arrived in.
+    """
+    if isinstance(value, list):
+        return [_plain(item) for item in value]
+    raw = getattr(value, "name", value)
+    if isinstance(raw, bytes):
+        return raw.decode("latin-1")
+    return raw
+
+
+def font_objects(data: bytes, kind: str) -> list[dict[str, object]]:
+    """Every object whose ``/Type`` is ``kind``, as plain-keyed dictionaries.
+
+    Written for the ``/FontDescriptor`` and ``/Font`` dictionaries, whose
+    entries CARD-294 review cycle 1 found stated with a rationale and no
+    control (F-4). Indirect references arrive as they are — the caller asks
+    about numbers and names, not about the object graph.
+
+    Reads with :mod:`PIL.PdfParser`, so it is the **convenient** half: it
+    checks this writer against the metrics this project read, which is the
+    right instrument for "the descriptor states the face's own numbers" and
+    the wrong one for "the face's numbers are right". The second is
+    FreeType's job, in the test module.
+    """
+    found: list[dict[str, object]] = []
+    for _, obj in _objects(data):
+        if isinstance(obj, Mapping) and _plain(obj.get(b"Type")) == kind:
+            found.append(
+                {
+                    getattr(key, "name", key).decode("latin-1"): _plain(obj[key])
+                    for key in obj
+                }
+            )
+    return found
+
+
+def font_file_lengths(data: bytes) -> list[int]:
+    """Every ``/FontFile2``'s declared ``/Length1``, one per embedded face.
+
+    Separate from :func:`font_objects` because ``/Length1`` lives on the
+    *stream* object the descriptor points at, not on the descriptor.
+    """
+    lengths: list[int] = []
+    for parser, obj in _objects(data):
+        if isinstance(obj, Mapping) and _plain(obj.get(b"Type")) == "FontDescriptor":
+            stream = parser.read_indirect(obj[b"FontFile2"])
+            lengths.append(_plain(stream.dictionary[b"Length1"]))
+    return lengths
+
+
 def base_font_names(data: bytes) -> list[str]:
     """Every ``/BaseFont`` the file names — so a base-14 reference is visible."""
     names: list[str] = []

@@ -388,10 +388,24 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # strictly worse than a lens. Measured on this very edit: the node-id
   # spelling added exactly that warning, the bare name clears it. Every other
   # live `kind: test` ref in this model is a bare name for the same reason.
-  # (R4 above is spelled as a node id and is *not* flagged — but only because
-  # that exact string happens to appear in a tracked `meta/review/*.yml` and
-  # in tests/test_admin_serving.py, so it resolves by coincidence rather than
-  # by naming a definition. That is worth fixing the next time R4 is touched.)
+  # (R4 above is spelled as a node id and is *not* flagged — by coincidence,
+  # and CARD-294 round 1 understated how wide the coincidence is. Measured
+  # under the validator's own pathspec, `code_search` excluding the arch root
+  # and all `*.md`:
+  #   git grep -lw "tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed" \
+  #     -- . ":(exclude)meta/architecture" ":(exclude)*.md"
+  # returns 54 TRACKED files — meta/kanban/backlog-scored.yml, four
+  # meta/profiling/*.txt, 48 meta/review/*.yml and tests/test_admin_serving.py
+  # — and 55 with `--untracked`, the extra being CARD-294's own cycle-1 review
+  # report, which was untracked when the reviewer measured it. NONE of them is
+  # a definition: the only `def` is tests/test_export_pdf.py:1249, and the
+  # node-id spelling does not resolve to it.
+  # The latent harm is a false *alive*: delete or rename
+  # `test_the_dependency_baseline_is_still_closed` and R4 goes on reading as a
+  # live, mechanically-checked ref forever — the standing rule about honest
+  # check refs seen from the other side, on AC-5's own declared check. The fix
+  # is deleting the 26-character `tests/test_export_pdf.py::` prefix. It was
+  # left outside CARD-294 and is recorded here for whoever next touches R4.)
   #
   # What the ref reaches, and what it does not. The test makes R5's three
   # claims — embedded, embedded ONCE per file, and no base-14 reference —
@@ -399,9 +413,22 @@ one remaining lever (width) for distinguishing furniture from grid ink.
   # embedded bytes to the face `importlib.resources` returns. The per-page
   # slope those claims rest on (a face embedded per page would also be
   # "exactly one per page") is
-  # tests/test_book_pdf_vector_primitives.py::PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts,
+  # tests/test_book_pdf_vector_primitives.py::TestPropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts,
   # and the control that each claim can fail is
   # tests/test_book_pdf.py::test_the_face_check_above_can_fail.
+  #
+  # That node id was DEAD as first written. CARD-294's review cycle 1 (F-1)
+  # measured the class it named — then spelled `class PropertyTest_…` — as
+  # collecting ZERO tests, because this repository configures no
+  # `python_classes` and pytest's default `Test*` applies. The slope, the
+  # 24-book corpus and the corpus's own "a per-page face would be caught"
+  # control all silently did not run, and the ref read as live. The class is
+  # now `TestPropertyTest_…` (the spelling
+  # tests/test_print_specs.py::TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted
+  # already uses), the file collects 52 tests where it collected 35, and
+  # tests/test_collected_names.py is the guard that makes the next
+  # uncollectible test-declaring name in tests/** FAIL instead of pass. The
+  # node id above was verified by running it, not by a green total.
   #
   # It does NOT yet reach a real interior page, because no page is drawn with
   # this vocabulary yet — CARD-295/296/297 are the page cards. When the first
