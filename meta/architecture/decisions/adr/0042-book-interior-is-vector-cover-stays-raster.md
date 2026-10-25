@@ -294,7 +294,15 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     or any future one. The cover and the section dividers are the declared
     raster exceptions and are governed by R2.
   scope: {code: ["src/nonogram/admin/**", "tests/**"]}
-  check: {kind: test, ref: "tests/test_book_pdf.py::test_no_interior_page_carries_an_image_xobject"}   # planned, the phase's first card
+  check: {kind: review-lens}
+  # PLANNED TEST, owed by the phase's first card:
+  #   tests/test_book_pdf.py::test_no_interior_page_carries_an_image_xobject
+  # Flip this check to `kind: test` with that ref when the card lands, on
+  # CON-020's precedent (2026-10-06, "was `kind: review-lens` ... CARD-184 wrote
+  # it"). Held as a lens until then because a `kind: test` ref naming a test that
+  # does not exist is read as mechanically checked by system_rules.py and
+  # forge:review Step 8h: a card violating R1 would draw NO flag, which is
+  # strictly worse than a lens, which at least makes a human look.
   severity: mandatory
 - id: ADR-0042/R2
   statement: >-
@@ -307,7 +315,14 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     declaration is a defect, and so is a declaration whose reason has expired:
     once CARD-231 lands, the divider's exception goes with it.
   scope: {code: ["src/nonogram/admin/**", "tests/**"]}
-  check: {kind: test, ref: "tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason"}   # planned
+  check: {kind: review-lens}
+  # PLANNED TEST, owed by the phase's first card (see R1's note on why this is a
+  # lens and not a dead `kind: test` ref):
+  #   tests/test_book_pdf.py::test_every_raster_page_is_declared_with_its_reason
+  # Per ADR-0039/R2 that test must be DERIVED and default-DENY: a page whose
+  # medium it cannot classify is a FAILURE, never a silent pass. The declared set
+  # it checks against is {cover, section dividers} and shrinks to {cover} when
+  # CARD-231 lands — the expiry in the statement above is the test's business.
   severity: mandatory
 - id: ADR-0042/R3
   statement: >-
@@ -336,7 +351,9 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     is forbidden because every type measurement in this tree — type_px, the
     band face, the guide face, CON-020's floor — is DejaVu's.
   scope: {code: ["src/nonogram/admin/**", "src/nonogram/export/**", "tests/**"]}
-  check: {kind: test, ref: "tests/test_book_pdf.py::test_the_interior_embeds_the_projects_own_face"}   # planned
+  check: {kind: review-lens}
+  # PLANNED TEST, owed by the card that writes the font embedding (see R1's note):
+  #   tests/test_book_pdf.py::test_the_interior_embeds_the_projects_own_face
   severity: mandatory
 - id: ADR-0042/R6
   statement: >-
@@ -349,7 +366,19 @@ one remaining lever (width) for distinguishing furniture from grid ink.
     second-implementation oracles (Sheet and its kind) are unaffected and
     still compared against — only the reading of the artefact changes.
   scope: {code: ["tests/**"]}
-  check: {kind: test, ref: "tests/test_book_pdf.py::test_no_interior_claim_is_made_by_measuring_ink"}   # planned, derived and default-deny per ADR-0039/R2
+  check: {kind: review-lens}
+  # PLANNED TEST, owed by the card that converts the last interior pixel reader
+  # (see R1's note on why this is a lens and not a dead `kind: test` ref):
+  #   tests/test_book_pdf.py::test_no_interior_claim_is_made_by_measuring_ink
+  # Derived and default-DENY per ADR-0039/R2 — it enumerates the interior pixel
+  # idioms over tests/** rather than holding a hand-written list, and a test
+  # shape it cannot classify is a FAILURE. Measured 2026-10-25, the live set it
+  # must drive to empty: tests/property/test_book_export_interior.py (FR-043/
+  # EC-034) at :731 `min() == 255`, :734 and :736 `same_page` on an INTERIOR
+  # page, :848 the ink scan; tests/property/test_book_layout.py:364 and
+  # tests/property/test_book_two_up.py:682, one `getpixel` probe each.
+  # NOT in the set and must stay out of it: :652's `same_page` on the COVER,
+  # which is raster by R2, and the independent oracles R6's statement exempts.
   severity: mandatory
 - id: ADR-0042/R7
   statement: >-

@@ -1,6 +1,6 @@
 # CARD-293: SPIKE — one book rendered both ways, so the raster-vs-vector interior is decided on measurements
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/293-vector-interior-spike
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-293
+**Worktree:** — (removed at merge)
 **Source:** owner, 2026-10-25 — *"I'm thinking about pdf generation and tests - maybe it makes sense to use another libraries for it or another technique?"* and, on the cost of change, *"sometimes the earlier we introduce changes - the better"*. The orchestrator's answer was that the test-cost half is a test-design problem already being solved, and the PDF half is a real question whose strongest argument is print quality the owner was already refused.
 **Idea:** —
 **Wave:** 59
@@ -19,9 +19,9 @@
 **Touches:** meta/profiling/card-293-vector-interior-comparison.md, scripts/**
 **Review score:** —
 **Started:** 2026-10-25
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-25
+**Actual:** 1d (spike; measurement only, nothing shipped to src/ or tests/)
+**Merge commit:** ef49d656
 **Blocked by:** —
 
 ## THIS CARD SHIPS NOTHING
