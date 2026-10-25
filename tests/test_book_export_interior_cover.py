@@ -1153,17 +1153,33 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
        default, a module function's return value. One declared exemption,
        :data:`EXEMPTION`, removable with ``follow_terms``.
     2. **DOOR** — which calls are geometry doors (ADR-0036/R2). **Closed on
-       callees whose own binding this walk can anchor in ONE STEP**, with
-       five named exemptions, each with a reading of its own. The arm
+       callees this walk can anchor to a FIXED POINT over the alias chain**,
+       with five named exemptions, each with a reading of its own. The arm
        **defaults to deny** (ADR-0039/R2), and what it denies by default is
-       a callee it cannot anchor at all; a callee it *can* anchor one step is
-       passed, by the named exemption :data:`ONE_STEP_ANCHOR`, and that pass
-       is **declared, not closed**.
+       a callee it cannot anchor; a callee it *can* anchor is one whose every
+       binding occurrence holds a name or attribute that is itself anchored,
+       down to a binding this module's own text shows. What that terminal
+       does **not** establish is the identity of what stands there at run
+       time, and the sentence that used to be here — *"a geometry door cannot
+       stand at such a terminal without being spelled, which the reference
+       arm refuses"* — was false: a **decorator** puts an unspelled door at a
+       ``def`` (CARD-276 cycle 1's F-2). A decorated definition is therefore
+       not a terminal here and the chain onto it refuses; a definition
+       rebound where this walk can see no store at all is passed, declared
+       as the ``a chain whose terminal is a definition or an import``
+       exemption class, and exposed by removing it. CARD-262 closed this
+       axis **one step** only and
+       declared the rest as the exemption class ``ONE_STEP_ANCHOR`` with six
+       silent plants; CARD-276 deleted the class, which cost this module 0
+       refusals, and the six plants are W30–W35 of :data:`DOOR_SHAPES`. The
+       chain's own bound and its cycle check **refuse and report**
+       (:data:`ANCHOR_RESOLUTION_DEPTH`), because a cap is not a closure.
 
        **Two sentences this axis claimed and no longer claims, kept visible
        beside the correction** — a docstring edited to match the code it was
        meant to constrain is worth nothing, and this axis has now been
-       narrowed three times by measurement rather than by argument:
+       narrowed **four** times by measurement rather than by argument, the
+       fourth being CARD-276's own cycle 1:
 
        - *"Closed on every callee this module's own text binds"* (fix 1).
          FALSE. ``getattr`` installs a door on a name this module's text
@@ -1176,11 +1192,54 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
          "page_" + "spec"); _d = _x`` anchors ``_d`` to ``_x`` and the walk
          never follows ``_x``, so appending one assignment to any shape the
          arms refuse buys silence. The counterexample is the cross of this
-         class's own rows W1 and W9 — each refuses alone, the cross does
+         class's own rows W1 and W9 — each refuses alone, the cross did
          not — and it reaches the real geometry door with the literal.
-         Measured, executed, and declared in
-         :data:`MEASURED_BLIND_SPOTS` with six siblings. Resolving the alias
-         chain to a fixed point is a follow-up card's work.
+         Measured, executed, declared in :data:`MEASURED_BLIND_SPOTS` with
+         six siblings, and **narrowed — not closed — by CARD-276**. The fixed
+         point made it true of the chain's *length*: the seven rows are
+         refusals (W30–W35, plus the call-graph alias row) and so are chains
+         two and three links longer. Cycle 1 then falsified it twice more,
+         one level further in each time, which is this family's whole
+         signature. The first of the two was the **KEY** the chain is keyed
+         on, and it had **three vehicles, not one** — which is the correction
+         cycle 2 made to the fourth version of this sentence, where this
+         clause read *"one of the two is closed"* and counted only the
+         vehicle that had been fixed. An attribute is keyed by spelling
+         alone, so a resolving occurrence of the spelling skipped the
+         own-instance surface rule and silenced a ``setattr``-installed door.
+         Two of the three are **closed**: the occurrence in an *unrelated*
+         class, by making the attribute branch's ``continue`` conditional on
+         a refusal, with no row of :data:`DOOR_SHAPES` switchable off from
+         outside itself
+         (:meth:`test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`);
+         and the spelling *already standing on the class's surface*, which
+         was silent with **nothing appended at all** because the authority
+         was built with ``ast.walk`` over the ``ClassDef`` and so claimed
+         nine names nested inside ``BookPDFGenerator``'s own methods — closed
+         by reading the holder's **direct** members, with the control cycle
+         2's surviving mutant proved missing
+         (:meth:`test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface`).
+         The third is **declared**, not closed, and this card's own fix round
+         is what opened the fallback it defeats: a resolving store of the
+         same spelling **inside the calling class**, where one line both
+         resolves the chain and puts the spelling on the surface, so neither
+         condition of the fallback can fail independently
+         (:data:`MEASURED_BLIND_SPOTS`' R9).
+         The second of the two is **declared** likewise: the chain's terminal
+         is read as the ``def``/``class``/``import`` this module's text
+         shows, so a decorator at the terminal refuses but a definition
+         rebound where this walk sees no store does not (R8). **So the
+         sentence is still false** — of that residue, which is **two**
+         declared rows and not one, both absorbed by the same named exemption
+         class, which has its own step of the measured cost sequence (**0**,
+         listed in :data:`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING`
+         and kept only by the blind-spot rows it absorbs) and a lever that
+         names it, which is what the deleted ``ONE_STEP_ANCHOR`` had and
+         what its deletion left unreplaced. The reason the sentence is kept is that it was
+         re-asserted as true three times while it was false, and a reader of
+         the fifth version should be able to see what that cost — including
+         that the fourth version was itself one of the four, which is why
+         this one counts vehicles instead of claiming an axis.
 
        That polarity is nonetheless the whole of the rest of it: the first
        version
@@ -1206,16 +1265,22 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
        each catches a shape the other misses, as an equality per arm
        (:data:`SILENT_WITHOUT_ONE_ARM`). What that per-arm equality does
        **not** say — and what nothing said until CARD-262 cycle 2 — is the
-       complement: *no shape escapes both arms*. One does, and the cross of
-       W1 and W9 is it, so the complement is declared as a blind-spot row
-       rather than asserted as a claim. The exemptions are
+       complement: *no shape escapes both arms*. One did, the cross of W1 and
+       W9 was it, and CARD-262 declared the complement as a blind-spot row
+       rather than asserting it. CARD-276's fixed point is what makes the
+       complement a claim with a control instead:
+       :class:`TestDoorAxis_TheNextIndirectionIsNotSilentEither` reads the
+       cross, the six declared rows and chains **two** assignments longer,
+       and reads the edge too — a chain that resolves must be read and not
+       refused, or the closure is a cap. The exemptions are
        :data:`CALLEE_EXEMPTIONS`, each removable through
        ``callee_exemptions``, each with its own step of the measured refusal
-       cost (760 → 0 on this module, and the fifth class's own step is **0**)
-       and each read twice on its own branch
+       cost (760 → 0 on this module, every remaining step a strict drop) and
+       each read twice on its own branch
        (:meth:`test_every_callee_exemption_is_read_twice_on_its_own_branch`).
        What this axis does **not** close is a door that reaches a callee
-       through a parameter or a ``*args`` forwarder: that is axis 5.
+       through a parameter used as a callee or a ``*args`` forwarder: that is
+       axis 5, still open and still declared.
     3. **MODULE** — which text the walk reads at all. **Declared, not
        closed:** it parses one module, so a position computed elsewhere and
        passed in is outside the enumeration rather than refused by it.
@@ -1238,13 +1303,14 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
        independent reviewer's plants, not by this walk's author, and bounded
        in :data:`MEASURED_BLIND_SPOTS`.
 
-    Axes 3, 4 and 5 are open **by declaration**, and so is one class of
-    axis 2 — the one-step anchor. Each has a control that fails:
-    :meth:`test_the_module_axis_bound_is_measured_rather_than_declared` for
-    axis 3, and :meth:`test_the_declared_blind_spots_are_still_silent` for
-    axes 4 and 5 and for the two axis-2 exemption classes that absorb a
+    Axes 3, 4 and 5 are open **by declaration**. Each has a control that
+    fails: :meth:`test_the_module_axis_bound_is_measured_rather_than_declared`
+    for axis 3, and :meth:`test_the_declared_blind_spots_are_still_silent`
+    for axes 4 and 5 and for the one axis-2 exemption class that absorbs a
     door-reaching shape, which asserts those shapes **are** silent so the
-    bound reds when the code starts catching one.
+    bound reds when the code starts catching one — as it did on seven rows
+    the moment CARD-276's fixed point landed, which is the whole point of
+    writing a bound down that way.
 
     The site set is held to an equality rather than a floor.
     :data:`PLANTED_SHAPES` and :data:`DOOR_SHAPES` are **regression nets over
@@ -1481,10 +1547,37 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         its own — which is how every control below measures this analyser
         without a file on disk being mutated.
 
-        The walk fails closed on the door axis and on the position axis's
-        **binding occurrences** (ADR-0039/R2, and the class docstring's axis
-        table, which is the authority -- three of its five axes are open by
-        declaration and this sentence is not a substitute for it). On the
+        **The reach this walk actually has, in the opening sentence rather
+        than fifteen lines further down -- and no longer the word "whole".**
+        On the door axis it refuses every ``ast.Call`` whose callee it cannot
+        anchor to a **fixed point** over the alias chain, and every
+        :data:`GEOMETRY_DOORS` spelling held outside the grammar it reads.
+        What it does **not** close is the far side of a chain it *can*
+        resolve: a terminal's identity is read off the ``def``, ``class`` or
+        ``import`` this module's text shows. A **decorator** puts an
+        unspelled door at exactly such a terminal, so a decorated definition
+        is not read as one and the chain onto it refuses. Two shapes on that
+        far side are **not** reached: a definition rebound where this walk can
+        see no store at all -- ``globals()``, a module ``__dict__`` store, an
+        importer's monkeypatch -- and a resolving store of the same spelling
+        inside the **calling** class, where the store that resolves the chain
+        is the store that puts the spelling on the own-instance surface. That
+        residue is the ADR-0039/R3 exemption class ``a chain whose terminal is
+        a definition or an import``, with one :data:`MEASURED_BLIND_SPOTS` row
+        per shape (R8, R9), each read in both directions. This sentence said *"fails closed on the whole door
+        axis"* for exactly one commit and was false when it shipped, for the
+        third time in this family; the word it is missing now is **whole**.
+        The position axis is closed on its **binding occurrences** only. The
+        **module**, **value** and **call-graph** axes are open by
+        declaration, with :data:`MEASURED_BLIND_SPOTS` and
+        :meth:`test_the_module_axis_bound_is_measured_rather_than_declared`
+        as their controls, and the door axis keeps five named ADR-0039/R3
+        exemption classes, of which two -- an attribute of a receiver this
+        module does not define, and the chain terminal above -- absorb a
+        door-reaching shape and declare it (rows R3 and R8). The class
+        docstring's axis table is the authority on all
+        of it and this sentence is a pointer to that table, never a
+        substitute for it. On the
         position axis, binding occurrences come from the module's own store
         contexts
         rather than from a list of statement kinds, so every shape a
@@ -1493,24 +1586,39 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         **deny**: every ``ast.Call`` is refused unless this walk can
         positively anchor its callee from the constructs in this module's own
         text that bind a name, and no :data:`GEOMETRY_DOORS` name may be
-        spelled, or imported under another name, where it cannot read it. A
+        spelled, or imported under another name, where it cannot read it.
+        *"Anchor"* means a fixed point over the alias chain down to a
+        terminal this module's text shows, and what it does not establish is
+        that terminal's run-time value, which is the one reach stated above
+        and declared as an exemption class rather than left to be found a
+        sixth time. A
         callee with no binding occurrence at all is therefore refused rather
         than anchored by default, which is cycle 1's F-401 (CARD-262; cycle
         3's F-301 before it).
 
-        **Anchoring is ONE STEP, and the axis is closed only that far.** This
-        docstring said *"closed on every callee this module's own text
-        binds"*; the sentence is kept here beside its correction because the
-        measurement that falsified it is worth more than the sentence.
-        "Anchored" means that some binding occurrence of **that one name**
-        holds a syntactic ``Name`` or ``Attribute`` — it says nothing about
-        what the name it holds holds, and this walk does not follow it. So
-        one appended assignment makes any shape the arms refuse silent again.
-        That pass is the named exemption :data:`ONE_STEP_ANCHOR`, its cost
-        step on this module is **0**, and the shapes it absorbs are asserted
-        **silent** in :data:`MEASURED_BLIND_SPOTS` so that closing the hole
-        reds the declaration. The class docstring's axis table is the
-        authority on all of this.
+        **Anchoring is a FIXED POINT** (CARD-276). Two sentences died here
+        in turn and both are kept beside the correction, because the
+        measurement that falsified each is worth more than the sentence:
+        *"closed on every callee this module's own text binds"* — false,
+        ``getattr`` installs a door on a name this module's text never binds
+        — and *"a call whose callee's identity this walk cannot derive is a
+        refusal"*, which was false for as long as "anchored" meant that
+        **some binding occurrence of that one name** holds a syntactic
+        ``Name`` or ``Attribute``. That says nothing about what the name it
+        holds holds, and the walk did not follow it, so one appended
+        assignment made any shape the arms refuse silent again — CARD-262
+        cycle 2's F-501, declared then as the exemption class
+        ``ONE_STEP_ANCHOR`` with six plants asserted silent.
+
+        ``anchored_to_a_fixed_point`` follows the chain instead, which is the
+        **level** rather than the instance: anchored only if every binding
+        occurrence holds a name or attribute that is itself anchored, down to
+        a binding this module's own text shows. The exemption class is
+        **deleted**, its six declared plants are refusals and
+        :data:`DOOR_SHAPES`' W30--W35, and the chain's own bound and its
+        cycle check REFUSE rather than capping
+        (:data:`ANCHOR_RESOLUTION_DEPTH`; a cap is not a closure). The class
+        docstring's axis table is the authority on all of this.
 
         ``follow_terms`` removes the one :data:`EXEMPTION`; ``door_arms``
         removes either door-axis closure and ``callee_exemptions`` removes
@@ -1521,7 +1629,9 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         its own control: the **module** axis (this walk reads one module's
         text), the **value** axis (a position spelled ``0`` or ``1``, or a
         count this walk does not read as an integer) and the **call-graph**
-        axis (a position forwarded past a callee resolved by name).
+        axis (a position forwarded past a callee resolved by name — narrowed
+        but not closed by the fixed point, which refuses an alias chain it
+        cannot resolve and says nothing about a parameter used as a callee).
         """
         import ast
         import builtins
@@ -1852,7 +1962,7 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         # ADR-0039/R3 exemptions in :data:`CALLEE_EXEMPTIONS`, each removable
         # on its own (``callee_exemptions``) so that each one's cost is an
         # equality and not a sentence -- the raw inversion costs 760
-        # refusals on this module's 816 calls, and the four classes take that
+        # refusals on this module's 816 calls, and the five classes take that
         # to 0.
         # ------------------------------------------------------------------
         if "callee identity" in arms:
@@ -1926,7 +2036,13 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                         ("a local name", node.name),
                         "defined in this module's own text",
                         node.lineno,
-                        None,
+                        # The NODE, not None: the terminal rule in
+                        # `anchored_to_a_fixed_point` reads its
+                        # `decorator_list`, because a decorated definition is
+                        # a terminal whose run-time value is not what this
+                        # text shows (CARD-276 cycle 1's F-2). `value` is
+                        # read nowhere else for this status.
+                        node,
                         f"{'class' if isinstance(node, ast.ClassDef) else 'def'} "
                         f"{node.name}",
                     )
@@ -1999,8 +2115,44 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             ]:
                 spelled = set()
                 for node in ast.walk(holder):
-                    if isinstance(
-                        node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                    if (
+                        isinstance(
+                            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                        )
+                        # A DIRECT member only. `ast.walk` reaches every nested
+                        # `def` in every method, and nine such names already
+                        # stand inside `BookPDFGenerator` (`produce` in
+                        # `interior_stream`; `set_page`, `line_image`,
+                        # `technique_rows`, `fits_width` in
+                        # `create_guide_page`; `paragraph`, `picture`, `space`,
+                        # `technique` in `set_page`). Claiming them as the
+                        # class's attribute surface made
+                        # `setattr(self, "produce", <a door>)` SILENT with no
+                        # scaffolding at all -- cycle 2's F-1, the family's
+                        # sixth appearance, and the comment above this loop
+                        # already said "in its body" while the code walked
+                        # everything. The `self.x` arm below stays broad on
+                        # purpose: a store inside a method is how an instance
+                        # attribute is really set.
+                        and parent.get(node) is holder
+                        # NOT also gated on `decorator_list`, and the reason is
+                        # a measurement. Cycle 2 observed that `:2295` refuses
+                        # a decorated module-level terminal while this arm
+                        # admits a decorated method, and that the terminal rule
+                        # is therefore applied in one of the two places a
+                        # definition is read. True -- but adding `and not
+                        # node.decorator_list` here costs this module **4
+                        # refusals** on a tree with no defect in it (measured
+                        # 2026-10-25; `BookPDFGenerator` has four decorated
+                        # methods). By CARD-262's own precedent for choosing a
+                        # shape by cost -- one shared opaque table cost 51
+                        # refusals where keying on `(storage, spelling)` cost 0
+                        # -- a shape that fires on a clean module is the wrong
+                        # shape, and it needs either an exemption with its own
+                        # control or a different formulation. That is a
+                        # successor's decision with a review in front of it,
+                        # not a last-mile edit: the narrowing above is free and
+                        # closes F-1, and this would not be.
                     ):
                         spelled.add(node.name)
                     elif isinstance(node, ast.Attribute) and isinstance(
@@ -2093,6 +2245,158 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                 2,500 lines from the defect and pointed the reader at it)."""
                 return sorted(found, key=lambda site: (abs(site[0] - line), site[0]))
 
+            class AnchorNotAFixedPoint(Exception):
+                """The alias resolution's bound and its cycle check, both
+                REPORTED rather than capped (CARD-276, G-7).
+
+                The same discipline as :class:`DepthBoundReached` above, for
+                the same reason: a resolution that ran out of steps, or went
+                round in a circle, is a shape this walk could not analyse,
+                which ADR-0039/R2 makes a FAILURE. A cap that returns a
+                verdict -- either verdict -- is the fail-open shape CARD-262
+                cycle 2's F-503 found twice over, and a cap is not a closure.
+                """
+
+            def anchor_key(value):
+                """The ``bound`` key a syntactic ``Name``/``Attribute`` points
+                at, in the storage it is held in."""
+                return (
+                    ("a local name", value.id)
+                    if isinstance(value, ast.Name)
+                    else ("an attribute", value.attr)
+                )
+
+            def anchored_to_a_fixed_point(key, depth=0, chain=()):
+                """Whether every binding occurrence of ``key`` holds a name or
+                attribute that is **itself** anchored, to a fixed point.
+
+                This is CARD-276's whole subject. ``anchored`` was a
+                **one-step** syntactic property -- some binding occurrence of
+                that one name holds a ``Name`` or an ``Attribute`` -- which
+                says nothing about what the name it holds holds, so appending
+                one assignment to any shape the arms refuse bought silence
+                (CARD-262 cycle 2's F-501, declared then as a bound). The
+                remedy a *level* resolves is a fixed point and not a second
+                step: the chain is followed until it reaches a binding this
+                module's own text shows -- a ``def``, a ``class`` or an
+                ``import`` -- or until it reaches something this walk cannot
+                see, which is False and a refusal.
+
+                **What a terminal does and does not establish** (CARD-276
+                cycle 1's F-2, which falsified the sentence that stood here).
+                It read: a ``def``/``class``/``import`` terminal's *"identity
+                is therefore visible, and a geometry door cannot stand at
+                [it] without being spelled, which the pre-existing reference
+                arm refuses"*. A **decorator** does exactly that:
+                ``@_mk`` on ``def _deco_door(...)``, where ``_mk`` returns
+                ``getattr(sys.modules[__name__], "book_page_" + _S)``, puts
+                the real imported door at a ``def`` whose name is assembled
+                and never spelled, so the door-spelling arm never sees it. So
+                a **decorated** definition is not a fixed point here and the
+                chain onto it refuses
+                (:data:`TestDoorAxis_TheNextIndirectionIsNotSilentEither.TERMINAL_SHAPES`).
+                What is left is **two** shapes, and stating it as one is what
+                cycle 2's F-2 falsified in this very paragraph. The first is a
+                definition rebound where this walk can see no store at all --
+                ``globals()[...]``, a module ``__dict__`` store, an importer's
+                monkeypatch -- which no reading of this module's text can tell
+                from the ``def`` itself; a rebind it *can* see as a store is
+                already refused by the ``opaque`` branch. The second is a
+                resolving store of the same spelling **inside the calling
+                class**: fix round 1 made the attribute branch's ``continue``
+                conditional on a refusal, so a resolved chain falls through to
+                the own-instance surface rule instead of past it -- and that
+                fallback is defeated by construction exactly there, because
+                the store that resolves the chain *is* the store that puts the
+                spelling on the surface. Both are the ADR-0039/R3 exemption
+                class ``a chain whose terminal is a definition or an import``:
+                with it in place a resolved chain passes, with it removed
+                **every** resolved chain refuses and names itself, and each
+                has its own :data:`MEASURED_BLIND_SPOTS` row -- R8 and R9 --
+                read in both directions by
+                :meth:`test_the_declared_blind_spots_are_still_silent`. That
+                lever is what the deleted ``ONE_STEP_ANCHOR`` class used to
+                supply by accident and what its deletion left unreplaced.
+                Neither shape is closed by this card; R9 is the one its own
+                fix round opened the fallback for, and closing it is a
+                successor's.
+
+                A parameter is deliberately **not** a terminal here: its
+                callers are the call-graph axis, so a chain that ends in one
+                has not been resolved, and saying so is the fail-closed
+                direction. It is what refuses the declared R4 and R5 plants.
+
+                Neither the bound nor a cycle returns a verdict: both raise,
+                and the call loop turns the raise into a refusal naming the
+                call.
+                """
+                if key in chain:
+                    raise AnchorNotAFixedPoint(
+                        "whose alias chain closes a cycle, so this walk cannot "
+                        "resolve it to a fixed point: "
+                        + " -> ".join(spelled for _, spelled in chain + (key,))
+                    )
+                if depth > cls.ANCHOR_RESOLUTION_DEPTH:
+                    raise AnchorNotAFixedPoint(
+                        "whose alias chain did not resolve to a fixed point "
+                        f"within {cls.ANCHOR_RESOLUTION_DEPTH} steps: "
+                        + " -> ".join(spelled for _, spelled in chain + (key,))
+                    )
+                occurrences = bound.get(key, ())
+                if not occurrences:
+                    return False
+                for status, _, value, _ in occurrences:
+                    if status == "anchored":
+                        if not anchored_to_a_fixed_point(
+                            anchor_key(value), depth + 1, chain + (key,)
+                        ):
+                            return False
+                    elif status == "defined in this module's own text":
+                        # A DECORATED definition is not a fixed point: the
+                        # decorator replaces what the `def` binds, so the
+                        # identity this walk reads off the text is not the
+                        # identity at the call. `@_mk def _deco_door(...)`
+                        # where `_mk` returns
+                        # `getattr(sys.modules[__name__], "book_page_" + _S)`
+                        # puts the real imported door at a `def` with its
+                        # name assembled, which is cycle 1's F-2, and the
+                        # sentence it falsified is kept in this method's
+                        # docstring beside the correction.
+                        if getattr(value, "decorator_list", None):
+                            return False
+                    elif status != "imported by this module's own text":
+                        return False
+                return True
+
+            def anchor_refusal(key, call):
+                """The refusal an unresolved alias chain earns, or ``None``
+                when the chain reached a fixed point.
+
+                One helper for both storages, because the one-step check was
+                written twice and CARD-262's own declaration had to say so --
+                blind-spot row R2 was *"the sibling copy of the `anchored`
+                check"*, measured silent in the attribute storage alone.
+                """
+                try:
+                    if anchored_to_a_fixed_point(key):
+                        return None
+                except AnchorNotAFixedPoint as reached:
+                    return (
+                        call.lineno,
+                        f"a callee {reached}, so this walk reports the "
+                        "resolution rather than capping it",
+                        key[1],
+                        segment(call),
+                    )
+                return (
+                    call.lineno,
+                    "a callee whose alias chain this walk followed to a name "
+                    "it cannot anchor in turn, so it cannot tell whether the "
+                    "chain starts at a geometry door",
+                    key[1],
+                    segment(call),
+                )
+
             def receiver_seen(node, depth=0):
                 """Whether this walk can see every construct that binds this
                 receiver. A receiver bound where the walk cannot read it may
@@ -2176,31 +2480,45 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                     )
                     continue
                 if isinstance(func, ast.Name):
-                    # ONE STEP, and no further (CARD-262 cycle 2's F-501).
-                    # A binding occurrence holding a syntactic name or
-                    # attribute says what THAT OCCURRENCE holds and nothing
-                    # about what the name it holds holds: `_x = getattr(self,
-                    # "page_" + "spec"); _d = _x` anchors `_d` to `_x`, while
-                    # `_x` -- which this walk did prove opaque -- is never a
-                    # callee and so is never consulted. The comment that used
-                    # to stand here read "a door could only have reached it
-                    # by being SPELLED, which the door-spelling arm then
-                    # sees"; that premise is FALSE, and the cross of this
-                    # card's own W1 and W9 is the two-line counterexample
-                    # (:data:`MEASURED_BLIND_SPOTS`). Resolving the alias to a
-                    # fixed point is the follow-up card's work; this walk does
-                    # not do it, so the pass is DECLARED as the named
-                    # ADR-0039/R3 exemption :data:`ONE_STEP_ANCHOR`, with a
-                    # cost step of its own, and is no longer ungated.
+                    # A FIXED POINT, not one step (CARD-276; CARD-262 cycle
+                    # 2's F-501 is what made it necessary). What stood here
+                    # read the binding occurrence and stopped: a binding
+                    # occurrence holding a syntactic name or attribute says
+                    # what THAT OCCURRENCE holds and nothing about what the
+                    # name it holds holds, so `_x = getattr(self, "page_" +
+                    # "spec"); _d = _x` anchored `_d` to `_x` while `_x` --
+                    # which this walk did prove opaque -- was never a callee
+                    # and so was never consulted. Two sentences died of that
+                    # in turn ("closed on every callee this module's own text
+                    # binds", then "a door could only have reached it by being
+                    # SPELLED"), and the hole moved one level of indirection
+                    # each time it was patched. `anchored_to_a_fixed_point`
+                    # follows the chain instead, so appending assignments
+                    # buys nothing; its bound and its cycle check REFUSE.
                     if "anchored" in statuses(key):
-                        if cls.ONE_STEP_ANCHOR not in exempt:
+                        blocked = anchor_refusal(key, call)
+                        if blocked is not None:
+                            refusals.append(blocked)
+                        elif (
+                            "a chain whose terminal is a definition or an "
+                            "import" not in exempt
+                        ):
+                            # The RESOLVED pass, gated. What stood here was
+                            # an ungated silent pass: the one mechanism in
+                            # this walk with no exemption class, no cost step
+                            # and no control -- which is verbatim what
+                            # CARD-262's `ONE_STEP_ANCHOR` docstring recorded
+                            # about the hole it inherited, and what deleting
+                            # that class left behind (CARD-276 cycle 1's
+                            # F-2/F-4).
                             refusals.append(
                                 (
                                     call.lineno,
-                                    "a callee anchored one step and no "
-                                    "further: this walk read the binding "
-                                    "occurrence and did not follow the name "
-                                    "it holds",
+                                    "a callee whose alias chain this walk "
+                                    "resolved to a definition or an import "
+                                    "in this module's own text, whose "
+                                    "run-time value it therefore reads off "
+                                    "that terminal",
                                     key[1],
                                     segment(call),
                                 )
@@ -2312,23 +2630,41 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                         )
                     )
                     continue
-                # The same one-step anchor as the sibling branch above, in the
+                # The same fixed point as the sibling branch above, in the
                 # attribute storage: `self._x = getattr(self, "page_" + _S);
-                # self._d = self._x` anchors `_d` to `self._x` and stops.
-                # Declared, not closed (:data:`ONE_STEP_ANCHOR`).
+                # self._d = self._x` anchored `_d` to `self._x` and stopped,
+                # which is CARD-262's declared row R2. One helper serves both
+                # branches now, so the two storages cannot drift apart.
                 if "anchored" in statuses(key):
-                    if cls.ONE_STEP_ANCHOR not in exempt:
+                    blocked = anchor_refusal(key, call)
+                    if blocked is not None:
+                        refusals.append(blocked)
+                        # `continue` on a REFUSAL only (CARD-276 cycle 1's
+                        # F-1). What stood here continued on either outcome,
+                        # so a resolved chain skipped the own-instance
+                        # surface rule below -- and an attribute is keyed by
+                        # spelling alone, across every receiver, class and
+                        # scope. One unrelated resolving occurrence of the
+                        # spelling, in a class with nothing to do with the
+                        # call, therefore silenced a `setattr`-installed door
+                        # on `self`: measured, four shapes, each refused
+                        # without that one assignment and silent with it.
+                        continue
+                    if (
+                        "a chain whose terminal is a definition or an import"
+                        not in exempt
+                    ):
                         refusals.append(
                             (
                                 call.lineno,
-                                "a callee anchored one step and no further: "
-                                "this walk read the binding occurrence and "
-                                "did not follow the name it holds",
+                                "a callee whose alias chain this walk "
+                                "resolved to a definition or an import in "
+                                "this module's own text, whose run-time "
+                                "value it therefore reads off that terminal",
                                 key[1],
                                 segment(call),
                             )
                         )
-                    continue
                 try:
                     is_own = own_instance(func.value)
                 except DepthBoundReached as reached:
@@ -2981,8 +3317,18 @@ class Generator:
     #: removable on its own through ``callee_exemptions``, which is what
     #: makes its cost an equality
     #: (:meth:`test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`)
-    #: and what gives each one a control for what it must **not** absorb
-    #: (:meth:`test_no_callee_exemption_absorbs_a_door_it_must_not`).
+    #: and what gives each one a reading of its own on its own branch
+    #: (:meth:`test_every_callee_exemption_is_read_twice_on_its_own_branch`).
+    #: That reference named a per-class "must not absorb" control that
+    #: CARD-262's final round **deleted** -- F-502 measured it as certifying
+    #: a mechanism that runs before any exemption branch -- and replaced with
+    #: :data:`CALLEE_EXEMPTION_REACH` and
+    #: :meth:`test_each_door_reaching_shape_is_refused_by_the_mechanism_that_refuses_it`.
+    #: The dead name stood here for a whole card: a claim pointing at a
+    #: control that does not exist, ADR-0039/R1's own family in kind, and
+    #: nothing could tell. Which is why
+    #: :meth:`TestGuardProse_EveryNamedControlExists.test_no_docstring_names_a_test_that_does_not_exist`
+    #: is a standing check now rather than something somebody notices.
     #: How many steps the two receiver resolvers (``own_instance``,
     #: ``receiver_seen``) follow a chain of local aliases before the bound is
     #: **reported**. It was a hand-written ``4`` inside each resolver, and
@@ -2996,27 +3342,55 @@ class Generator:
     #: which also reads a five-alias plant at two different bounds.
     RECEIVER_RESOLUTION_DEPTH = 4
 
-    #: The fifth exemption class, and the one CARD-262 **declares** rather
-    #: than closes: a callee whose own binding occurrence holds a syntactic
-    #: ``Name`` or ``Attribute``, which this walk reads **one step** and does
-    #: not follow. "Anchored" is a syntactic check, not a derivation of
-    #: identity, so appending one assignment to any shape the arms refuse
-    #: buys silence -- CARD-262 cycle 2's F-501, whose plainest counterexample is the
-    #: cross of this card's own W1 and W9 (:data:`MEASURED_BLIND_SPOTS`).
-    #: Fix 1 let that pass **ungated**: it was in no exemption list, cost
-    #: nothing in the sequence below and no control could see it. It is named
-    #: here instead, with its own cost step and its own silent plants, so a
-    #: later card that resolves the alias chain to a fixed point reds this
-    #: declaration instead of leaving it standing. Closing it is a follow-up
-    #: card's work and is deliberately not attempted here.
-    ONE_STEP_ANCHOR = "a callee anchored one step and no further"
+    #: How many links of an **alias chain** ``anchored_to_a_fixed_point``
+    #: follows before the bound is **reported**. Same discipline and same
+    #: value as :data:`RECEIVER_RESOLUTION_DEPTH`, and for the same reason
+    #: (CARD-262 cycle 2's F-503, extended by CARD-276's G-7): the resolution
+    #: raises on reaching it, the call loop turns the raise into a refusal
+    #: naming the call, and a chain that closes a **cycle** raises before the
+    #: bound can be reached at all. A cap that returned a verdict -- either
+    #: verdict -- would be the fail-open shape this board has now filed
+    #: twice. Its cost on this module is asserted at 0, and the pair that
+    #: measures it (a chain one link past the bound refusing by name, the
+    #: same chain one link inside it resolving) is
+    #: :meth:`TestDoorAxis_TheNextIndirectionIsNotSilentEither.test_the_anchor_resolution_bound_is_reported_rather_than_capped`.
+    ANCHOR_RESOLUTION_DEPTH = 4
 
+    #: CARD-262's fifth exemption class, ``ONE_STEP_ANCHOR`` -- *"a callee
+    #: anchored one step and no further"* -- is **gone** (CARD-276 AC-4), not
+    #: retired in place. It was the declared pass that made appending one
+    #: assignment enough to silence any shape the arms refuse, its own step of
+    #: the cost sequence below was **0**, and by this class's own narrowed
+    #: rule a class that costs this module nothing is kept only by its
+    #: blind-spot rows. ``anchored_to_a_fixed_point`` closes the axis those
+    #: rows declared, so the rows left :data:`MEASURED_BLIND_SPOTS` in the
+    #: same commit as the mechanism that closes them and the class left all
+    #: three of its tables. Deleting it cost this module **0** refusals,
+    #: measured, and turned six of its seven declared plants into refusals.
+    #:
+    #: **There is a fifth class again, and it is not that one back.**
+    #: ``ONE_STEP_ANCHOR`` gated a callee by *how far* the chain had been
+    #: followed; fix round 1's class gates the **terminal** the chain lands
+    #: on, which is where cycle 1 measured the residue. The reason it exists
+    #: at all is cycle 1's F-4: deleting ``ONE_STEP_ANCHOR`` on cost was
+    #: right and left the silent pass it had been accidentally accounting for
+    #: with no lever of its own. See the comment on the member itself.
     CALLEE_EXEMPTIONS = (
         "builtins",
         "definitions and imports",
         "parameters",
         "an attribute of a receiver this module does not define",
-        ONE_STEP_ANCHOR,
+        # CARD-276 fix round 1, for cycle 1's F-2 and F-4. The RESOLVED pass
+        # was the one mechanism in this walk with no class, no cost step and
+        # no control: with the one-step anchor deleted, a callee bound by a
+        # `def` was gated by "definitions and imports" while the same callee
+        # one alias away was gated by nothing. This class is that lever, at
+        # the level the fixed point actually works at -- the terminal, not
+        # the step count. Its step is **0** on this module, so it is listed
+        # in :data:`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` and
+        # kept only by the blind-spot row it absorbs, which is the narrowed
+        # rule doing its job rather than being vacuous.
+        "a chain whose terminal is a definition or an import",
     )
 
     #: The **refusal cost** of default deny on this module, measured before
@@ -3024,7 +3398,7 @@ class Generator:
     #: sequence, and the 51 -> 0 measurement is its precedent): the raw
     #: inversion, then the remainder after each exemption class is added, in
     #: this order. **760** distinct refusals with no exemption at all, on a
-    #: module of 816 calls with no defect in it, and the four classes take
+    #: module of 816 calls with no defect in it, and the five classes take
     #: that to **0** -- which is what says which classes are load-bearing
     #: rather than decorative. The figure counts distinct refusal entries,
     #: which is what the walk returns (identical `(line, shape, name, text)`
@@ -3032,38 +3406,62 @@ class Generator:
     #: equalities, so a class that stops being needed (its step no longer
     #: drops) and a class that starts absorbing more than it did both red
     #: here.
-    #: The whole sequence re-derived with the fifth class in it. Its own step
-    #: is **0**: the raw inversion still refuses 760, and not one of this
-    #: module's 816 calls takes the one-step-anchored path, so the class that
-    #: F-501's seven plants need buys the shipped module nothing at all. That
-    #: is the honest headline of this round and it is reported rather than
-    #: smoothed: refusing instead of exempting -- deleting this class -- would
-    #: cost this module **0** refusals today and would turn six of the seven
-    #: declared plants into refusals. It is not done here, because the owner's
-    #: route for CARD-262 cycle 3 is to declare the bound rather than to move the
-    #: mechanism, and because a bound declared with its plants asserted is
-    #: what the follow-up card re-measures against.
+    #: **Re-measured end to end by CARD-276**, with CARD-262's fifth class
+    #: deleted and the anchor resolved to a fixed point. The sequence is
+    #: unchanged through its four inherited steps and the transitive step's
+    #: own number is **0**: not one of this module's 816 calls reaches a
+    #: callee key with an ``anchored`` binding occurrence at all -- the
+    #: ``unreadable`` and ``opaque`` branches run first and catch every one of
+    #: them -- so following the chain further cannot refuse what stopping did
+    #: not. The number is the deliverable and not a footnote, and it is 0 in
+    #: both directions: deleting the class cost 0 and closing the level cost
+    #: 0.
+    #:
+    #: The fifth step is the terminal class added by fix round 1, and it is
+    #: **0 for the same measured reason** -- the branch it gates is
+    #: unreachable on this module. That is why it is listed in
+    #: :data:`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING`: a class whose
+    #: step is 0 is deletable unless it absorbs a declared blind-spot row,
+    #: and this one absorbs R8. The alternative was to leave the resolved
+    #: pass ungated, which is the accountability hole cycle 1 billed.
     CALLEE_EXEMPTION_COST = (
         ((), 760),
         (("builtins",), 509),
         (("builtins", "definitions and imports"), 203),
         (("builtins", "definitions and imports", "parameters"), 201),
-        (CALLEE_EXEMPTIONS[:4], 0),
+        (
+            (
+                "builtins",
+                "definitions and imports",
+                "parameters",
+                "an attribute of a receiver this module does not define",
+            ),
+            0,
+        ),
         (CALLEE_EXEMPTIONS, 0),
     )
 
     #: The classes whose own step of :data:`CALLEE_EXEMPTION_COST` is **0**,
     #: held as an equality. The strict-drop rule -- *a class that costs this
     #: module nothing is a class that is no longer needed* -- is right for a
-    #: class that exists to make the shipped module analysable, and it is
-    #: **narrowed** here rather than quietly dropped: a class may cost this
-    #: module 0 only if it is listed here AND it absorbs at least one row of
-    #: :data:`MEASURED_BLIND_SPOTS`, so what keeps it is a measured silent
-    #: shape and not a sentence. Every other class must strictly drop the
-    #: count. A class added here with no blind-spot row reds; a class that
-    #: starts costing something reds; and a paying class that stops paying
-    #: reds.
-    CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING = (ONE_STEP_ANCHOR,)
+    #: class that exists to make the shipped module analysable, and CARD-262
+    #: **narrowed** it rather than dropping it: a class may cost this module 0
+    #: only if it is listed here AND it absorbs at least one row of
+    #: :data:`MEASURED_BLIND_SPOTS`. CARD-276 applied that rule to the one
+    #: class it kept alive and the tuple was **empty** for one commit, which
+    #: made the second half of the narrowed rule vacuous -- stated at the
+    #: time rather than left to be discovered.
+    #:
+    #: It is not vacuous now. Fix round 1 added the terminal class, whose own
+    #: step is 0 and which is kept **only** because it absorbs
+    #: :data:`MEASURED_BLIND_SPOTS`' R8: delete that row and
+    #: :meth:`test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`
+    #: reds on the subset assertion, which is the second half of the rule
+    #: carrying a claim rather than describing one. The first equality still
+    #: reds the moment any *unlisted* class's step is 0.
+    CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING = (
+        "a chain whose terminal is a definition or an import",
+    )
 
     #: Shapes that reach the real geometry door, with the outcome this walk
     #: must produce. **A regression net over the door shapes measured so
@@ -3337,10 +3735,71 @@ class Generator:
             '        owner._door = getattr(owner, "page_" + _S)\n',
             ("refusal",),
         ),
+        # W30-W35 are the FOURTH author's plants, and they arrive here from
+        # :data:`MEASURED_BLIND_SPOTS` (CARD-276 AC-3). CARD-262 measured all
+        # six silent, absorbed by the one-step anchor, and DECLARED them as a
+        # bound with a control asserting that silence. CARD-276's fixed point
+        # refuses every one, so the declaration red -- which is what a
+        # falsifiable bound is for -- and the rows moved, in the same commit
+        # as the mechanism that closes them, into the table that FORBIDS a
+        # silent outcome rather than recording one. Their old row ids are
+        # kept in the labels so the two tables can be read against each
+        # other.
+        (
+            "W30 the cross of W1 and W9, one appended assignment (R1b)",
+            """        _x = getattr(self, "page_" + "spec"); _d = _x
+        _d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+            ("refusal",),
+        ),
+        (
+            "W31 an assembled name aliased once (R1)",
+            """        _x = getattr(self, "page_" + _S); _d = _x
+        _d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
+        (
+            "W32 the same in the attribute storage (R2)",
+            """        self._x = getattr(self, "page_" + _S); self._d = self._x
+        self._d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
+        (
+            "W33 a door held by a constructor parameter (R4)",
+            """        _h = _Hold2(getattr(self, "page_" + _S))
+        _h.door(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n\n\nclass _Hold2:\n'
+            "    def __init__(self, door):\n        self.door = door\n",
+            ("refusal",),
+        ),
+        (
+            "W34 a door forwarded as a parameter and aliased once (R5)",
+            """        _install(getattr(self, "page_" + _S), 3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+        #""",
+            '\n_S = "spec"\n\n\ndef _install(door, position):\n'
+            "    _d = door\n    _d(position)\n",
+            ("refusal",),
+        ),
+        (
+            "W35 a two-step alias chain (R7)",
+            """        _x = getattr(self, "page_" + _S); _y = _x; _d = _y
+        _d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n',
+            ("refusal",),
+        ),
     )
 
     #: The rows of :data:`DOOR_SHAPES` that fall **silent** when both
-    #: door-axis closures are removed -- 24 of 30, measured. This is the
+    #: door-axis closures are removed -- 30 of 36, measured, the six added by
+    #: CARD-276 (W30--W35) among them. This is the
     #: "missed WITHOUT" half of ADR-0039/R1 for the door axis as a whole, and
     #: it is an equality rather than a floor so it reds in both directions:
     #: a row that stops falling silent means an arm is carrying it for a
@@ -3375,6 +3834,12 @@ class Generator:
         "W27 an opaque door in a local named text (cycle 1's P4)",
         "W28 a type()-built class attribute door (cycle 1's P6)",
         "W29 __set_name__ with a spelled store (cycle 1's P7)",
+        "W30 the cross of W1 and W9, one appended assignment (R1b)",
+        "W31 an assembled name aliased once (R1)",
+        "W32 the same in the attribute storage (R2)",
+        "W33 a door held by a constructor parameter (R4)",
+        "W34 a door forwarded as a parameter and aliased once (R5)",
+        "W35 a two-step alias chain (R7)",
     )
 
     #: The rows each arm carries ON ITS OWN, measured by removing the other
@@ -3383,10 +3848,20 @@ class Generator:
     #: without reddening (F-403). The division of labour is not symmetric and
     #: it is not decoration: the callee-identity arm carries every door whose
     #: name is never spelled -- assembled at run time, installed by `setattr`,
-    #: captured by `match`/`case` or by `except ... as` -- and the
-    #: door-spelling arm carries the two where the name IS spelled but the
-    #: callee is anchorable: W9's chained alias, and W19's `import ... as`
-    #: rename, which is refused by the arm's own `alias` clause.
+    #: captured by `match`/`case` or by `except ... as`, **and now every door
+    #: behind an alias chain it cannot resolve** -- and the door-spelling arm
+    #: carries the one row where the name IS spelled and nothing at the call
+    #: site names it: W19's `import ... as` rename, refused by that arm's own
+    #: `alias` clause.
+    #:
+    #: **W9 moved, and the move is the measurement.** Before CARD-276 the
+    #: chained alias of a `getattr` door was the door-spelling arm's own row,
+    #: silent with the callee arm alone; the fixed point refuses it too, so it
+    #: is now carried by BOTH arms and is in neither per-arm list. That is the
+    #: equality doing its job in the direction the docstring warns about -- a
+    #: row that stops falling silent means an arm's reach moved -- and it
+    #: narrows the door-spelling arm's exclusive reach to one row, which is
+    #: stated rather than smoothed.
     SILENT_WITHOUT_ONE_ARM = {
         "callee identity": (
             "W1 getattr with an assembled name",
@@ -3406,9 +3881,14 @@ class Generator:
             "W27 an opaque door in a local named text (cycle 1's P4)",
             "W28 a type()-built class attribute door (cycle 1's P6)",
             "W29 __set_name__ with a spelled store (cycle 1's P7)",
+            "W30 the cross of W1 and W9, one appended assignment (R1b)",
+            "W31 an assembled name aliased once (R1)",
+            "W32 the same in the attribute storage (R2)",
+            "W33 a door held by a constructor parameter (R4)",
+            "W34 a door forwarded as a parameter and aliased once (R5)",
+            "W35 a two-step alias chain (R7)",
         ),
         "door spelling": (
-            "W9 a chained alias of a getattr door",
             "W19 the imported door renamed by its own import (cycle 1's Q2)",
         ),
     }
@@ -3450,6 +3930,12 @@ class Generator:
         "W27 an opaque door in a local named text (cycle 1's P4)",
         "W28 a type()-built class attribute door (cycle 1's P6)",
         "W29 __set_name__ with a spelled store (cycle 1's P7)",
+        'W30 the cross of W1 and W9, one appended assignment (R1b)',
+        'W31 an assembled name aliased once (R1)',
+        'W32 the same in the attribute storage (R2)',
+        'W33 a door held by a constructor parameter (R4)',
+        'W34 a door forwarded as a parameter and aliased once (R5)',
+        'W35 a two-step alias chain (R7)',
     )
 
     @classmethod
@@ -3559,12 +4045,20 @@ class Generator:
         The two closures are not one mechanism written twice. The
         callee-identity arm closes a door whose name is **never spelled** --
         assembled at run time (W1, W5, W8) or taken from data (W10) -- and the
-        door-spelling arm closes a door reached by spelling its name as
-        **data** past a callee the other arm can anchor (W9). So each arm has
-        a row the other leaves silent, which is asserted here rather than
-        read off the code, and with **both** arms removed F-301's four shapes
-        are silent again -- which is the "missed WITHOUT" direction stated as
-        a reproduction of the finding rather than as a sentence.
+        door-spelling arm closes a door whose name is spelled where nothing at
+        the call site names it: W19's `import ... as` rename. So each arm
+        still has a row the other leaves silent, which is asserted here rather
+        than read off the code, and with **both** arms removed F-301's four
+        shapes are silent again -- the "missed WITHOUT" direction stated as a
+        reproduction of the finding rather than as a sentence.
+
+        **CARD-276 moved one row and shrank one arm's exclusive reach to a
+        single row.** W9's chained alias used to be the door-spelling arm's
+        own; the fixed point refuses it as well, so it is carried twice and
+        appears in neither list. One row is enough for the per-arm claim and
+        the equality is what noticed the move, but it is worth saying plainly:
+        if W19's clause were ever deleted, this arm would have nothing left
+        that is only its own.
         """
         assert tuple(self.SILENT_WITHOUT_ONE_ARM) == self.DOOR_ARMS, (
             "an arm with no measured per-arm list of its own"
@@ -3763,18 +4257,33 @@ class Generator:
     #: "caught with the exemption removed, missed with it in place" measured
     #: on the class rather than on a mechanism that precedes it.
     #:
-    #: Two of the five reach the real geometry door (the external-attribute
-    #: class's and :data:`ONE_STEP_ANCHOR`'s, both executed against a
-    #: recording ``page_spec``). The other three cannot, and that is stated
-    #: rather than implied: what the ``builtins`` class absorbs is a call to a
+    #: One of the five reaches the real geometry door (the
+    #: external-attribute class's, executed against a recording
+    #: ``page_spec``). CARD-262's fifth row, the one-step anchor's, is gone
+    #: with the class; fix round 1's terminal row stands in its place, one
+    #: level further in -- a chain that **resolves**, silent with the class
+    #: and refused without it, which is the reading the deleted class used to
+    #: supply and the shipped walk then had for nothing. Its plant is in the
+    #: **attribute** storage because the gate is written once per storage and
+    #: :data:`MEASURED_BLIND_SPOTS`' R8 reads the local one; a single reading
+    #: would have certified one gate and left a mutant on the other with no
+    #: cell. The attribute storage therefore carries **both** readings of this
+    #: class -- this row, which passes, and R9, the residue cycle 2 measured
+    #: there -- so the gate's two directions and its declared hole sit in the
+    #: same storage rather than being inferred across them. The other three cannot reach a door, and that is
+    #: stated rather than implied: what the ``builtins`` class absorbs is a call to a
     #: **builtin name with no binding occurrence in this module**, and no door
     #: can hide behind one -- asserted below as
     #: ``set(GEOMETRY_DOORS).isdisjoint(dir(builtins))`` rather than argued.
     #: What ``definitions and imports`` and ``parameters`` absorb is a call to
     #: a name this module defines, imports or takes as a parameter; a door
     #: *behind* such a callee is the CALL-GRAPH axis, declared open in
-    #: :data:`MEASURED_BLIND_SPOTS` (row R5 is exactly that, and it shows the
-    #: `parameters` cost of 2 understating its reach).
+    #: :data:`MEASURED_BLIND_SPOTS`. CARD-262's row R5 said the same of the
+    #: `parameters` class's cost of 2 understating its reach; that row is a
+    #: refusal now (W34), because the fixed point will not follow an alias
+    #: chain into a parameter, so the understatement it recorded is closed in
+    #: the one direction a door-axis closure can close it — the class's cost
+    #: is still 2 and the call-graph axis is still open.
     CALLEE_EXEMPTION_REACH = (
         (
             "builtins",
@@ -3804,10 +4313,16 @@ class Generator:
             '\n_S = "spec"\n\n\nclass _Box:\n    pass\n',
         ),
         (
-            ONE_STEP_ANCHOR,
-            "_d",
-            """        _x = getattr(self, "page_" + "spec"); _d = _x
-        _d(3 + len(section))
+            # The ATTRIBUTE storage, deliberately. The gate is written once
+            # per storage, and a reading taken in the local storage alone
+            # certifies one of the two: a mutant on the attribute branch's
+            # gate would red nothing. This row is the attribute branch's
+            # reading and :data:`MEASURED_BLIND_SPOTS`' R8 is the local
+            # branch's, so each gate has one.
+            "a chain whose terminal is a definition or an import",
+            "_d2",
+            """        self._d2 = interior_page_count
+        self._d2(toc_page_count)
         first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
             "",
         ),
@@ -3831,13 +4346,34 @@ class Generator:
 
         Both directions red. A class that stops being needed no longer drops
         the count, which the strict-drop assertion catches; a class that
-        starts absorbing more than it did moves its own step. The fifth class
-        (:data:`ONE_STEP_ANCHOR`, this round's declaration) is the one class
-        whose step is **0**, which is asserted as an equality through
-        :data:`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` rather than by
-        relaxing the rule for everybody: it costs this module nothing, it is
-        kept only because it absorbs declared blind spots, and that is
-        asserted here too.
+        starts absorbing more than it did moves its own step.
+
+        **CARD-276 re-measured the sequence end to end and deleted a class.**
+        CARD-262's fifth class, the one-step anchor, had a step of **0**: not
+        one of this module's 816 calls reaches a callee key with an
+        ``anchored`` binding occurrence at all, so the class its seven plants
+        needed bought the shipped module nothing. By this class's own
+        narrowed rule that made it deletable, and
+        :data:`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` was **empty**
+        for one commit: the four inherited classes strictly drop the count
+        (251, 306, 2, 201), and a class whose step falls to 0 reds here
+        rather than being excused. Closing the axis to a fixed point cost 0
+        for the same reason, which is stated on
+        :data:`CALLEE_EXEMPTION_COST` and asserted by the first equality
+        below.
+
+        **Fix round 1 put a fifth class back, and its step is 0.** Cycle 1's
+        F-4 measured what the deletion cost: at the fork point a
+        ``setattr``-installed door had a lever that *named* the mechanism
+        (``ONE_STEP_ANCHOR``), and at HEAD the only surviving single-drop
+        lever was ``builtins``, which fires on the plant's own ``getattr``
+        call and not on anything that can see a door. A lever that fires on
+        an unrelated feature of the plant's text is not accountability. So
+        the terminal class gates the **resolved** pass, which is where the
+        residue actually is, and the narrowed rule is what keeps it honest:
+        it is listed as costing 0 **and** it absorbs R8, so deleting that row
+        reds the subset assertion below rather than leaving a 0-cost class
+        standing on nothing.
         """
         measured = [
             (
@@ -4366,7 +4902,7 @@ class Generator:
                 f"shape into a refusal, so that member is inert: {without}"
             )
 
-    #: The measured bounds of the two axes this guard leaves open, each a
+    #: The measured bounds of the axes this guard leaves open, each a
     #: shape an **independent** reviewer planted (AC-3) and this walk neither
     #: reads nor refuses. They are asserted to **be** silent, which is what
     #: gives a declared bound a control that can fail in **both** directions
@@ -4374,6 +4910,40 @@ class Generator:
     #: forces the bound to be re-measured, instead of leaving a docstring
     #: claiming a reach nobody checked. That is the discipline whose absence
     #: escalated CARD-206 -- the bound is declared, never claimed sound.
+    #:
+    #: **Seven rows left this table in CARD-276, and the table is what said
+    #: so.** Six were the one-step-anchor class's (R1, R1b, R2, R4, R5, R7)
+    #: and one was the call-graph axis's alias row; the fixed point reaches
+    #: all seven, ``test_the_declared_blind_spots_are_still_silent`` red on
+    #: each of them, and they came out in the same commit as the mechanism
+    #: that closes them (AC-3) rather than outliving their hole. The six are
+    #: :data:`DOOR_SHAPES`' W30--W35 now, where a silent outcome is
+    #: forbidden rather than declared; the alias row is
+    #: :data:`TestDoorAxis_TheNextIndirectionIsNotSilentEither.CHAINS_THAT_MUST_NOT_BE_SILENT`'s
+    #: I7. The call-graph **axis** stays open regardless, and the
+    #: parameter-callee row below is what still witnesses it: the door axis's
+    #: closure refuses a chain it cannot resolve, which is not the same thing
+    #: as resolving the call graph.
+    #:
+    #: **Three of the six rows have no lever**, and that asymmetry
+    #: is stated here rather than papered over: :meth:`_page_positions`
+    #: exposes ``doors=``, ``follow_terms=``, ``door_arms=`` and
+    #: ``callee_exemptions=`` and nothing for the VALUE or CALL-GRAPH axes, so
+    #: those three rows assert silence only, with no "caught with the
+    #: mechanism removed" direction. CARD-276 closed neither axis and so built
+    #: neither lever; R3's row has one, because an exemption class is what
+    #: absorbs it, and fix round 1's R8 and cycle 2's R9 have one for the same
+    #: reason -- the same class absorbs both, which is why its reach statement
+    #: had to name two shapes instead of one.
+    #:
+    #: **A lever has to name the mechanism it exposes.** Cycle 1's F-4
+    #: measured that a ``setattr``-installed door, silent at the fork point,
+    #: was exposed there by dropping ``ONE_STEP_ANCHOR`` -- the class that
+    #: named the mechanism -- and at HEAD only by dropping ``builtins``,
+    #: which fires because the plant's own three lines call ``getattr``. That
+    #: is not accountability for the door axis, and the lesson is recorded
+    #: here rather than on the card alone: a row whose only lever is
+    #: ``builtins`` has no lever.
     MEASURED_BLIND_SPOTS = (
         (
             "the VALUE axis: the count spelled in ones",
@@ -4394,20 +4964,16 @@ class Generator:
             "\n\n_HIDDEN_FRONT_MATTER: int = 3\n",
             "",
             "`module_integers` reads only a top-level `ast.Assign` of a bare "
-            "int Constant, so V15's mechanism is defeated by an AnnAssign, by "
-            "`= 1 + 2`, and by a constant inside an `if` block",
-        ),
-        (
-            "the CALL-GRAPH axis: an alias of a non-door position method",
-            """        _f = self.puzzle_pages
-        _f([], 3 + len(section))
-        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
-            "",
-            "",
-            "`puzzle_pages`' `first_page` is in the vocabulary, but callees "
-            "are resolved by name against the module's own `defs`, so an "
-            "alias of a NON-door function that carries a position is neither "
-            "read nor refused -- the door axis refuses exactly this (W4)",
+            "int Constant. The enumeration below is **PARTIAL and bounded by "
+            "the mechanism rather than by the list** (cycle 1's F-5: the "
+            "first version named three defeaters and omitted a fourth this "
+            "card's own body named): anything that is not a top-level "
+            "`ast.Assign` of a bare int Constant defeats V15's mechanism. "
+            "Measured silent, each planted: an AnnAssign (`_HFM: int = 3`), "
+            "`= 1 + 2`, a constant inside an `if` block, "
+            "`len(_FRONT_MATTER_PAGES)` and `int(3.0)`. The VALUE axis is "
+            "declared open with no lever, so none of them is a silent pass "
+            "beyond declaration",
         ),
         (
             "the CALL-GRAPH axis: a parameter used as a callee",
@@ -4427,55 +4993,17 @@ class Generator:
             "specifically a nested `def` reached through a parameter",
         ),
         # ------------------------------------------------------------------
-        # CARD-262 cycle 2's F-501, DECLARED: the seven shapes a fourth plant
-        # author measured silent, every one of which reaches the real
-        # geometry door with the literal-derived position (executed, not
-        # argued -- each one was compiled and run against a `page_spec` that
-        # records its argument, and each called it with 5). Six are absorbed
-        # by :data:`ONE_STEP_ANCHOR`, this round's declared class; one (R3) is
-        # absorbed by the external-attribute class, which is the honest
-        # measurement of that class's real reach and the reason its old
-        # "must-not-absorb" control was mis-attributed (F-502).
+        # CARD-262 cycle 2's F-501, DECLARED then and CLOSED now: of the
+        # seven shapes a fourth plant author measured silent -- every one of
+        # which reaches the real geometry door with the literal-derived
+        # position, executed rather than argued -- six were absorbed by the
+        # one-step anchor and are refusals under CARD-276's fixed point, so
+        # they are :data:`DOOR_SHAPES`' W30--W35 now. The seventh, R3, is
+        # absorbed by the external-attribute class, which the fixed point
+        # does not touch: it is the honest measurement of that class's real
+        # reach and the reason its old "must-not-absorb" control was
+        # mis-attributed (F-502), and it stays declared here.
         # ------------------------------------------------------------------
-        (
-            "the ONE-STEP ANCHOR: the cross of this card's own W1 and W9 (R1b)",
-            """        _x = getattr(self, "page_" + "spec"); _d = _x
-        _d(3 + len(section))
-        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
-            "",
-            ONE_STEP_ANCHOR,
-            "the complement this card never asserted: W1 alone refuses (the "
-            "opaque branch) and W9 alone refuses (the door-spelling arm), and "
-            "their CROSS -- W1's assembled name with W9's one extra "
-            "assignment, no scaffolding at all -- is silent, because "
-            "`anchored` is one step and the walk never follows `_x`. The card "
-            "proved per arm that each arm catches a shape the other misses; "
-            "the claim that matters is that no shape escapes both, and this "
-            "row is that claim stated in the form that is true",
-        ),
-        (
-            "the ONE-STEP ANCHOR: an assembled name aliased once (R1)",
-            """        _x = getattr(self, "page_" + _S); _d = _x
-        _d(3 + len(section))
-        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
-            '\n_S = "spec"\n',
-            ONE_STEP_ANCHOR,
-            "the same with the suffix in a module-level name, which is the "
-            "shape with `callee_exemptions=()` measured at 761 refusals none "
-            "of which named the planted callee -- i.e. the pass was ungated "
-            "and uncounted before this round named it",
-        ),
-        (
-            "the ONE-STEP ANCHOR: the same in the attribute storage (R2)",
-            """        self._x = getattr(self, "page_" + _S); self._d = self._x
-        self._d(3 + len(section))
-        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
-            '\n_S = "spec"\n',
-            ONE_STEP_ANCHOR,
-            "the sibling copy of the `anchored` check, so the declaration is "
-            "one class over both storages rather than a claim about locals "
-            "that happens to be false of attributes",
-        ),
         (
             "the EXTERNAL-ATTRIBUTE class: a setattr install on a receiver "
             "this module does not define (R3)",
@@ -4491,42 +5019,84 @@ class Generator:
             "it must NOT absorb. It does absorb it. The claim is withdrawn "
             "and the reach declared here instead",
         ),
+        # ------------------------------------------------------------------
+        # CARD-276 cycle 1's F-2, the half that is DECLARED rather than
+        # closed, and fix round 1's answer to F-4: the residue of the
+        # resolved pass, with a lever that NAMES its mechanism instead of a
+        # `builtins` drop that fires on the plant's own `getattr`.
+        # ------------------------------------------------------------------
         (
-            "the ONE-STEP ANCHOR: a door held by a constructor parameter (R4)",
-            """        _h = _Hold(getattr(self, "page_" + _S))
-        _h.door(3 + len(section))
+            "the TERMINAL class: a definition rebound where this walk can "
+            "see no store (R8)",
+            """        _a = _plain_door; _b = _a
+        _b(None, 3 + len(section))
         first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
-            '\n_S = "spec"\n\n\nclass _Hold:\n'
-            "    def __init__(self, door):\n        self.door = door\n",
-            ONE_STEP_ANCHOR,
-            "W24 with a plain assignment instead of `except ... as`: the "
-            "receiver is seen, and `door` is anchored by `self.door = door`, "
-            "so the attribute branch passes one step from the door",
+            '\n_S = "spec"\nimport sys as _sys\n\n\n'
+            "def _plain_door(spec, position):\n    return position\n\n\n"
+            '_sys.modules[__name__].__dict__["_plain_door"] = getattr(\n'
+            '    _sys.modules[__name__], "book_page_" + _S\n'
+            ")\n",
+            "a chain whose terminal is a definition or an import",
+            "the chain resolves onto `def _plain_door`, which this module's "
+            "text does show, and the rebind that puts the real imported door "
+            "there is a `__dict__` subscript store -- no `ast.Store` on the "
+            "name, so no binding occurrence at all. The two neighbouring "
+            "shapes ARE refused and that is what bounds this one: a "
+            "DECORATED definition is refused by the terminal rule "
+            "(TERMINAL_SHAPES), and a rebind this walk can see as a store is "
+            "refused by the `opaque` branch (W20). What is left is a rebind "
+            "it cannot see, which no reading of this module's text can tell "
+            "from the `def` itself",
         ),
+        # ------------------------------------------------------------------
+        # CARD-276 cycle 2's F-2, DECLARED here rather than closed, and the
+        # reason this card's own fix round is implicated in it. Fix round 1
+        # made the attribute branch's `continue` conditional on a refusal, so
+        # a RESOLVED chain falls through to the own-instance surface rule
+        # instead of past it -- and that fallback is defeated by construction
+        # whenever the laundering occurrence sits in the CALLING class,
+        # because the store that resolves the chain is the store that puts
+        # the spelling on the surface. The row is the same exemption class's
+        # second shape (R8 is the first), which is what made the class's
+        # one-shape reach statement false in three places.
+        #
+        # RE-MEASURED AGAINST THIS CARD'S OWN HEAD, not inherited from the
+        # cycle-2 report: 084fa6d7 narrowed the surface rule's authority to
+        # DIRECT members, which is the same mechanism this vehicle travels
+        # through, so the reading had to be retaken after it. Silent at both
+        # revisions, module cost unchanged (sites=23 vocabulary=6 refusals=0)
+        # and all 36 DOOR_SHAPES rows still matching their declared outcomes.
+        # ------------------------------------------------------------------
         (
-            "the ONE-STEP ANCHOR: a door forwarded as a parameter and "
-            "aliased once (R5)",
-            """        _install(getattr(self, "page_" + _S), 3 + len(section))
-        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
-        #""",
-            '\n_S = "spec"\n\n\ndef _install(door, position):\n'
-            "    _d = door\n    _d(position)\n",
-            ONE_STEP_ANCHOR,
-            "the `parameters` class is never consulted, because `_d` is "
-            "anchored before any exemption branch is reached -- so that "
-            "class's asserted cost of 2 of 816 understates its real reach, "
-            "and this row is where that is recorded rather than in its cost",
-        ),
-        (
-            "the ONE-STEP ANCHOR: a two-step alias chain (R7)",
-            """        _x = getattr(self, "page_" + _S); _y = _x; _d = _y
-        _d(3 + len(section))
+            "the TERMINAL class: a resolving store of the same spelling "
+            "inside the CALLING class (R9)",
+            """        self._d = interior_page_count
+        setattr(self, "_d", getattr(self, "page_" + _S)); self._d(3 + len(section))
         first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
             '\n_S = "spec"\n',
-            ONE_STEP_ANCHOR,
-            "one step is one step whatever the chain's length, which is why "
-            "the remedy is a fixed point and not a second step -- and why "
-            "that remedy is a follow-up card rather than this one",
+            "a chain whose terminal is a definition or an import",
+            "the `setattr` runs after the store, so at run time `self._d` IS "
+            "`self.page_spec` and the call reaches the real door with the bare "
+            "literal 3. The store that makes the chain resolvable is the same "
+            "store that puts `_d` on the class's attribute surface, so the "
+            "fallback fix round 1 installed cannot fire: both of its "
+            "conditions are met by one line. The ATTRIBUTION CONTROL is what "
+            "says this is the resolved pass and not the surface rule in "
+            "general -- the same plant with an OPAQUE store refuses before "
+            "the anchor is consulted (`self._d = None` and `self._d = 1 + 2` "
+            "both give ('refusal',), `self._d = interior_page_count` is "
+            "silent) -- and a two-link variant "
+            "(`self._y = interior_page_count; self._d = self._y`) is silent "
+            "too, so it is the level and not the step count. Exhaustive over "
+            "all 32 exemption subsets, 24 expose it and exactly two minimal "
+            "sets do: `builtins`, which fires on the plant's own `getattr` "
+            "and is therefore no lever, and this class, which yields exactly "
+            "one refusal naming its own mechanism. Unlike R8 this shape is an "
+            "ATTRIBUTE installed from outside the text under a spelled name "
+            "-- territory the surface rule's own comment claims -- so the "
+            "class absorbs a shape its reach statement did not name, which is "
+            "CARD-262's F-502 pattern and is corrected in all three places "
+            "rather than here alone",
         ),
     )
 
@@ -4535,17 +5105,13 @@ class Generator:
     BLIND_SPOT_LABELS = (
         'the VALUE axis: the count spelled in ones',
         'the VALUE axis: an annotated module constant',
-        'the CALL-GRAPH axis: an alias of a non-door position method',
         'the CALL-GRAPH axis: a parameter used as a callee',
-        "the ONE-STEP ANCHOR: the cross of this card's own W1 and W9 (R1b)",
-        'the ONE-STEP ANCHOR: an assembled name aliased once (R1)',
-        'the ONE-STEP ANCHOR: the same in the attribute storage (R2)',
         'the EXTERNAL-ATTRIBUTE class: a setattr install on a receiver this '
         'module does not define (R3)',
-        'the ONE-STEP ANCHOR: a door held by a constructor parameter (R4)',
-        'the ONE-STEP ANCHOR: a door forwarded as a parameter and aliased '
-        'once (R5)',
-        'the ONE-STEP ANCHOR: a two-step alias chain (R7)',
+        'the TERMINAL class: a definition rebound where this walk can see '
+        'no store (R8)',
+        'the TERMINAL class: a resolving store of the same spelling inside '
+        'the CALLING class (R9)',
     )
 
     def test_the_declared_blind_spots_are_still_silent(self):
@@ -4561,21 +5127,45 @@ class Generator:
         what the assertions do.
 
         An honest bound must be **declared, not claimed sound**. Every row
-        here was planted by someone who did not write this walk, and every
-        one of the seven F-501 rows reaches the real geometry door with a
-        literal-derived position. Asserting the silence is what makes the
-        bound falsifiable: narrow the value axis, close the call-graph axis
-        or follow the alias chain to a fixed point and this reds, naming the
-        row, so the declaration is re-measured instead of standing while the
-        code moves underneath it.
+        here was planted by someone who did not write this walk. Asserting
+        the silence is what makes the bound falsifiable: narrow the value
+        axis, close the call-graph axis or follow the alias chain to a fixed
+        point and this reds, naming the row, so the declaration is
+        re-measured instead of standing while the code moves underneath it.
+
+        **That is not hypothetical any more.** CARD-276 followed the alias
+        chain to a fixed point and this test red on **seven** rows at once --
+        six of CARD-262's F-501 rows and the call-graph axis's alias row --
+        each of which had been measured silent and reaching the real geometry
+        door with a literal-derived position. The rows left the table in the
+        same commit as the mechanism that closes them (CARD-276 AC-3), which
+        is the behaviour this table exists to force: a declaration must not
+        outlive its hole.
 
         **Read twice where a lever exists.** A row absorbed by a named
         exemption class is read a second time with that class removed, and
         must then produce a refusal **attributable to the plant itself** --
         which is what says the silence is the class's doing and not the
-        plant's inertness. The four original rows have no such lever: they are
-        open axes rather than exemption classes, and that asymmetry is stated
-        rather than papered over with a reading that cannot fail.
+        plant's inertness. R3 has that lever, and so do R8 and R9 -- fix
+        round 1's row and cycle 2's, whose shared class gates the resolved
+        pass and whose removal refuses every resolved chain by name. The
+        other three rows -- two
+        VALUE, one CALL-GRAPH -- do **not**: they are open axes rather than
+        exemption classes, :meth:`_page_positions` exposes no lever for
+        either axis, and CARD-276 closed neither, so it built neither. That
+        asymmetry is stated here and on the table rather than papered over
+        with a second reading that cannot fail.
+
+        **And a lever has to name the mechanism it exposes.** Cycle 1's F-4
+        measured a ``setattr``-installed door whose only surviving
+        single-drop lever at ``ced5e648`` was ``builtins`` -- which fires
+        because the plant's own three lines call ``getattr``, not because
+        anything could see the door. A row whose only lever is ``builtins``
+        has no lever, and R8's and R9's is its own class -- for R9 that is
+        measured rather than asserted: 24 of the 32 exemption subsets expose
+        it, and of the two minimal sets that do, one is ``builtins`` firing on
+        the plant's own ``getattr`` and the other is the class itself,
+        yielding exactly one refusal that names its own mechanism.
 
         It is deliberately **not** a row of :data:`DOOR_SHAPES` or
         :data:`PLANTED_SHAPES`: those tables forbid a silent outcome, and a
@@ -4746,4 +5336,900 @@ class Generator:
             "a module outside the generator now computes a geometry-door "
             "position of its own, which is outside this walk's enumeration "
             f"rather than refused by it: {with_position}"
+        )
+
+
+# --------------------------------------------------------------------------
+# CARD-276 — the door axis's anchor is a FIXED POINT, so the next
+# indirection is not silent either
+# --------------------------------------------------------------------------
+
+#: The guard this class measures. Named rather than inherited on purpose: a
+#: subclass would re-collect every one of that class's own tests, and this
+#: file's guard class is already 95 % of its wall clock.
+_GUARD = TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage
+
+#: Every planted body whose text would not parse, so a derivation over the
+#: plant tables cannot swallow a row (an error is a third thing, neither a
+#: failure nor a pass, and a ``SyntaxError`` at import time would be a
+#: collection error attributed to nothing).
+_UNPARSED_PLANT_BODIES: list[str] = []
+
+
+def _attribute_callee_laundering(body):
+    """An unrelated class that resolves the alias chain of every
+    **attribute** callee ``body`` spells, derived from the plant's own text.
+
+    This is CARD-276 cycle 1's F-1 turned into an instrument. ``bound`` and
+    ``anchor_key`` key an attribute as ``("an attribute", node.attr)`` --
+    spelling alone, across every receiver, class and scope -- so one
+    assignment of that spelling, anywhere in the module, used to make the
+    attribute branch's ``continue`` skip the own-instance surface rule. The
+    laundering text is deliberately in a class with nothing to do with the
+    call: its only connection to the plant is the spelling.
+
+    Returns ``""`` for a body with no attribute callee. The local-name
+    storage has no analogue -- a bare local callee with no local binding
+    other than a module-level resolving one *is* that resolved value, and the
+    ``global``/``nonlocal`` routes are recorded unreadable and refuse -- so
+    those rows are the ones the equality below excludes by name.
+    """
+    import ast
+    import textwrap
+
+    try:
+        tree = ast.parse(textwrap.dedent(body))
+    except SyntaxError:
+        _UNPARSED_PLANT_BODIES.append(body)
+        return ""
+    spelled = sorted(
+        {
+            node.func.attr
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        }
+    )
+    if not spelled:
+        return ""
+    return "\n\nclass _UnrelatedResolver:\n    def __init__(self):\n" + "".join(
+        f"        self.{name} = interior_page_count\n" for name in spelled
+    )
+
+
+class TestDoorAxis_TheNextIndirectionIsNotSilentEither:
+    """CARD-276 AC-1: the **level**, not the instance.
+
+    Four gating findings on this board share one sentence — *the guard keeps
+    claiming a reach it has not measured* — and each time the hole moved
+    exactly **one level of indirection**: a list of shapes, then a storage,
+    then a quantifier over an empty set, then one step of alias resolution.
+    CARD-262 measured and declared the fourth: ``anchored`` held when *some*
+    binding occurrence of one name held a syntactic ``Name``/``Attribute``,
+    and the walk never followed the alias, so **appending one assignment to
+    any shape the arms refuse bought silence**.
+
+    The remedy a level resolves is a fixed point, not a second step, and the
+    control for *that* is a chain the next card's counterexample would have
+    to be longer than. So every row of
+    :data:`CHAINS_THAT_MUST_NOT_BE_SILENT` is the same door reached through a
+    chain of **two or more** further assignments, in both storages and across
+    them, and each must be read or refused and never silent.
+
+    What stops that from being the blanket refusal of every anchored callee —
+    which would close the same counterexamples and be a *cap*, not a closure
+    (G-7) — is :data:`CHAINS_THAT_RESOLVE`, the edge of the claim: a chain
+    whose terminal **is** a binding this module's own text shows resolves, so
+    the fixed point passes it. Both directions are measured here, so a mutant
+    that refuses everything reds as loudly as one that refuses nothing.
+
+    **Cycle 1 then found the level again, twice, one indirection further in
+    each time.** This class holds the answer for the TERMINAL one and for
+    **two of the KEY one's three vehicles** -- not "both answers", which is
+    what it claimed until cycle 2 measured the third and found it silent with
+    nothing appended. The correction is recorded here rather than quietly
+    widened, because the claim being wider than the controls is this card's
+    whole subject.
+
+    The KEY the chain is keyed on: an attribute is keyed by spelling alone, so
+    a resolving occurrence silenced a ``setattr``-installed door --
+    :data:`SURFACE_SHAPES_LAUNDERED` and
+    :meth:`test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`,
+    which also reads every attribute-callee row of
+    :data:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage.DOOR_SHAPES`
+    so no row can be switched off from outside it. That is the
+    unrelated-class vehicle. The class-surface vehicle is the second, answered
+    by the direct-member authority and
+    :meth:`test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface`
+    below. The third -- a resolving store of the same spelling inside the
+    **calling** class -- is answered **not at all**, and
+    :data:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage.MEASURED_BLIND_SPOTS`'
+    R9 declares it instead.
+
+    And the TERMINAL the chain lands on: the sentence *"a door cannot stand at
+    a ``def`` terminal without being spelled"* was false, because a decorator
+    can -- :data:`TERMINAL_SHAPES`. What is left of that second one is a
+    definition rebound where this walk can see no store at all, which is
+    **declared** (R8), with a lever that names its own mechanism rather than
+    one that fires on the plant's ``getattr``.
+    """
+
+    #: One row per indirection shape, each reaching the module's real geometry
+    #: door through an alias chain the one-step anchor passed. A regression net
+    #: over the shapes measured, never a completeness argument: the
+    #: completeness claim is the fixed point's own quantifier (*every* binding
+    #: occurrence, *to a fixed point*), and these rows are what says the
+    #: quantifier is the one running.
+    CHAINS_THAT_MUST_NOT_BE_SILENT = (
+        (
+            "I1 the cross of W1 and W9, one appended assignment (the card's own)",
+            """        _x = getattr(self, "page_" + "spec"); _d = _x
+        _d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+        ),
+        (
+            "I2 TWO further assignments, local storage (the next indirection)",
+            """        _x = getattr(self, "page_" + "spec"); _y = _x; _z = _y; _d = _z
+        _d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+        ),
+        (
+            "I3 TWO further assignments, attribute storage",
+            """        self._x = getattr(self, "page_" + _S); self._y = self._x; self._z = self._y
+        self._z(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n',
+        ),
+        (
+            "I4 a chain that crosses the two storages",
+            """        _x = getattr(self, "page_" + _S); self._y = _x; _d = self._y
+        _d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n',
+        ),
+        (
+            "I5 two further assignments past a constructor parameter (R4 + 2)",
+            """        _h = _Hold(getattr(self, "page_" + _S)); _m = _h.door; _d = _m
+        _d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n\n\nclass _Hold:\n'
+            "    def __init__(self, door):\n        self.door = door\n",
+        ),
+        (
+            "I6 two further assignments past a forwarded parameter (R5 + 2)",
+            """        _install(getattr(self, "page_" + _S), 3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT
+        #""",
+            '\n_S = "spec"\n\n\ndef _install(door, position):\n'
+            "    _d = door\n    _e = _d\n    _f = _e\n    _f(position)\n",
+        ),
+        (
+            "I7 the alias of a non-door position method, aliased twice more",
+            """        _f = self.puzzle_pages; _g = _f; _h = _g
+        _h([], 3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+        ),
+    )
+
+    #: The **edge** of the fixed point's claim, and the reason a blanket
+    #: refusal of every anchored callee would red here (ADR-0039/R1: a mutant
+    #: inside the claimed region and a mutant at its edge). A chain whose
+    #: terminal is a ``def`` or an ``import`` in this module's own text is
+    #: resolved rather than refused, because the terminal's own identity is
+    #: visible — and a **door** at such a terminal is spelled, so the
+    #: pre-existing "door referenced without being called" arm refuses it.
+    #: Each row carries the plant's expected refusal shapes, so a row that
+    #: starts refusing for a new reason reds rather than drifting.
+    CHAINS_THAT_RESOLVE = (
+        (
+            "E1 a four-link chain onto a module-level def",
+            """        _a = interior_page_count; _b = _a; _c = _b; _d2 = _c
+        _d2(toc_page_count)
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+            (),
+        ),
+        (
+            "E2 the same chain onto an imported name",
+            """        _a = book_page_spec; _b = _a; _c = _b; _d2 = _c
+        _d2(None, toc_page_count)
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+            ("a geometry door referenced without being called",),
+        ),
+        (
+            # The edge of FIX 1 as well as of the fixed point. E1 and E2 are
+            # both in the LOCAL-name storage, so a cap in the attribute
+            # branch -- refuse every anchored attribute callee -- closed
+            # every counterexample and red nothing. This row is an attribute
+            # callee whose chain resolves AND whose spelling the calling
+            # class spells, so the surface rule passes it: a cap reds here,
+            # and so does a surface rule that stops reading its own class.
+            "E3 an attribute callee the calling class spells, onto a "
+            "module-level def",
+            """        self._d2 = interior_page_count
+        self._d2(toc_page_count)
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            "",
+            (),
+        ),
+    )
+
+    #: CARD-276 cycle 1's **F-1**, the Critical: a geometry door installed on
+    #: ``self`` from outside this module's text, reached with a bare literal
+    #: page position, refused by the own-instance surface rule -- and
+    #: **silent** the moment one unrelated assignment of the same spelling
+    #: resolved the alias chain. One occurrence, in a class with nothing to
+    #: do with the call, was the whole difference.
+    #:
+    #: Each row is read **twice**, without its laundering text and with it,
+    #: because a row that stopped reaching a call at all would satisfy a
+    #: single "refuses" assertion for the wrong reason. At ``ced5e648`` the
+    #: pair read ``('refusal',)`` then ``()``; both are ``('refusal',)``.
+    #:
+    #: Cycle 1 named four shapes. Its B1 **is** :data:`DOOR_SHAPES`' W25 and
+    #: A2's near-twin is W21, so both are laundered over there instead, by
+    #: :meth:`test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`
+    #: -- which found a **third** row the finding did not name (W23, the
+    #: colliding ``text`` spelling) and found that **W29 is not launderable
+    #: at all**: its installer's store is *spelled*, so the ``opaque`` branch
+    #: refuses it before the anchor is consulted, with or without a resolving
+    #: occurrence. Cycle 1 and the fix brief both named W29 as the switchable
+    #: row; the measurement says W25. S1 here is the Critical's own plant,
+    #: kept under its own id, and S2/S3 are the two shapes with no
+    #: :data:`DOOR_SHAPES` row anywhere.
+    SURFACE_SHAPES_LAUNDERED = (
+        (
+            "S1 a setattr-installed door on self (cycle 1's own plant A2)",
+            """        setattr(self, "_d", getattr(self, "page_" + "spec"))
+        self._d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n',
+        ),
+        (
+            "S2 a metaclass __getattr__ returning the door (cycle 1's B2)",
+            """        self._d(3 + len(section))
+        #
+        #""",
+            '\n_S = "spec"\n\n\nclass _Meta(type):\n'
+            "    def __getattr__(cls, name):\n"
+            '        return getattr(cls, "page_" + _S)\n',
+        ),
+        (
+            "S3 a __getattr__ installed by setattr (cycle 1's B3)",
+            """        self._d(3 + len(section))
+        #
+        #""",
+            '\n_S = "spec"\n\n\ndef _fallback(self, name):\n'
+            '    return getattr(self, "page_" + _S)\n\n\n'
+            'setattr(BookPDFGenerator, "__getattr__", _fallback)\n',
+        ),
+    )
+
+    #: CARD-276 cycle 1's **F-2**: a decorator puts the real imported door at
+    #: a ``def`` terminal with its name assembled, so the chain resolves and
+    #: the door-spelling arm never sees it. The sentence that made passing a
+    #: resolved chain safe -- *"a geometry door cannot stand at such a
+    #: terminal without being spelled"* -- was false, and these rows are what
+    #: says it is no longer: a decorated definition is not a terminal and the
+    #: chain onto it refuses.
+    #:
+    #: The **edge** is :data:`CHAINS_THAT_RESOLVE`: refusing every definition
+    #: terminal would close both of these rows and reds E1 and E3, which is
+    #: what tells the terminal rule from a cap. What the rule does **not**
+    #: reach is a definition rebound where this walk can see no store at all,
+    #: declared as row R8 of
+    #: :data:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage.MEASURED_BLIND_SPOTS`,
+    #: with a lever that names its own class.
+    TERMINAL_SHAPES = (
+        (
+            "T1 a decorator putting the imported door at a `def` terminal",
+            """        _a = _deco_door; _b = _a
+        _b(None, 3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '_S = "spec"\nimport sys as _sys\n\n'
+            "def _mk(f):\n"
+            '    return getattr(_sys.modules[__name__], "book_page_" + _S)\n\n'
+            "@_mk\ndef _deco_door(spec, position):\n    return position\n",
+        ),
+        (
+            "T2 the same decorator returning a class-attribute door",
+            """        _a = _cls_door; _b = _a
+        _b(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '_S = "spec"\n\n'
+            "def _mk2(f):\n"
+            '    return getattr(BookPDFGenerator, "page_" + _S)\n\n'
+            "@_mk2\ndef _cls_door(position):\n    return position\n",
+        ),
+    )
+
+    #: The rows of :data:`DOOR_SHAPES` the laundering derivation reaches,
+    #: spelled here so a row that gains or loses an attribute callee reds
+    #: rather than silently leaving the reading. Derived from the table by
+    #: ``ast``, held to this equality: ADR-0039/R2's "the set comes from an
+    #: enumerable authority" with the authority named and the derivation's
+    #: own residue (the 22 rows with no attribute callee) stated rather than
+    #: skipped quietly.
+    LAUNDERABLE_DOOR_SHAPES = tuple(
+        label
+        for label, body, _, _ in _GUARD.DOOR_SHAPES
+        if _attribute_callee_laundering(body)
+    )
+
+    LAUNDERABLE_DOOR_SHAPE_LABELS = (
+        "W3 operator.methodcaller",
+        "W7 operator.attrgetter",
+        "W12 an attribute-stored getattr door, name never spelled",
+        "W13 an attribute-stored door laundered through a helper",
+        "W14 a __call__ object on an attribute, wrapping the door",
+        "W21 a setattr-installed attribute door (cycle 1's P1)",
+        "W23 a setattr-installed door on the colliding spelling text "
+        "(cycle 1's P5)",
+        "W24 a door carried by an except ... as name (cycle 1's P9)",
+        "W25 __set_name__ installing the door with setattr (cycle 1's P8)",
+        "W26 a door on the class through self.__class__ (cycle 1's P3)",
+        "W28 a type()-built class attribute door (cycle 1's P6)",
+        "W29 __set_name__ with a spelled store (cycle 1's P7)",
+        "W32 the same in the attribute storage (R2)",
+        "W33 a door held by a constructor parameter (R4)",
+    )
+
+    @pytest.mark.parametrize(
+        "label,body,extra",
+        CHAINS_THAT_MUST_NOT_BE_SILENT,
+        ids=[row[0].split()[0] for row in CHAINS_THAT_MUST_NOT_BE_SILENT],
+    )
+    def test_a_chain_of_any_length_is_read_or_refused_and_never_silent(
+        self, label, body, extra
+    ):
+        """AC-1, parametrised so each chain is its own node id.
+
+        One ``FAILED`` line on a stacked assertion says nothing about the arms
+        that never ran, and this is the table where a per-row reading is the
+        whole point: the defect family is *one* shape going silent, not all of
+        them.
+        """
+        assert _GUARD._outcome(_GUARD._plant(body, extra)) == ("refusal",), (
+            f"{label} is silent: the alias chain was followed one step and "
+            "stopped, which is this family's fifth appearance"
+        )
+
+    @pytest.mark.parametrize(
+        "label,body,extra,shapes",
+        CHAINS_THAT_RESOLVE,
+        ids=[row[0].split()[0] for row in CHAINS_THAT_RESOLVE],
+    )
+    def test_a_chain_whose_terminal_this_module_shows_is_resolved_not_refused(
+        self, label, body, extra, shapes
+    ):
+        """The edge of the claim, which a cap cannot satisfy (G-7).
+
+        A fixed point that refuses every anchored callee closes every row of
+        :data:`CHAINS_THAT_MUST_NOT_BE_SILENT` and is not a closure at all.
+        These three rows are what tells the two apart: the chain's terminal is
+        an **undecorated** ``def`` or an ``import``, and the anchored branch
+        therefore **passes** it. E2's door is refused by the pre-existing
+        reference arm rather than by the anchor, and that attribution is
+        asserted rather than argued.
+
+        **What passing a resolved chain is NOT.** It used to be documented
+        here as *safe*, on the ground that a door at such a terminal would
+        have to be spelled; cycle 1's F-2 falsified that with a decorator and
+        the rows are now split three ways rather than two. A **decorated**
+        terminal refuses
+        (:data:`TERMINAL_SHAPES`); an undecorated one passes, which is these
+        rows; and what the pass still cannot see -- a definition rebound where
+        this walk finds no store -- is declared, absorbed by the
+        ``a chain whose terminal is a definition or an import`` exemption
+        class, and read in both directions by
+        :meth:`test_the_declared_blind_spots_are_still_silent`. E3 is in the
+        **attribute** storage on purpose: E1 and E2 are both local names, so a
+        cap in the attribute branch would have closed every counterexample in
+        this class and red nothing.
+        """
+        measured = sorted(
+            {shape for _, shape, _, _ in _GUARD._plant_refusals(body, extra)}
+        )
+        assert measured == sorted(shapes), (
+            f"{label} no longer refuses exactly what this card measured: the "
+            "fixed point is either refusing a chain it resolved (a cap, not a "
+            f"closure) or passing a door: {measured}"
+        )
+
+    @pytest.mark.parametrize(
+        "label,body,extra",
+        SURFACE_SHAPES_LAUNDERED,
+        ids=[row[0].split()[0] for row in SURFACE_SHAPES_LAUNDERED],
+    )
+    def test_a_door_installed_from_outside_the_text_survives_one_resolving_occurrence(
+        self, label, body, extra
+    ):
+        """CARD-276 cycle 1's F-1, the Critical, parametrised per shape.
+
+        The attribute branch's ``continue`` used to fire on either outcome of
+        the fixed point, so a **resolved** chain skipped the own-instance
+        surface rule rather than falling through to it -- and an attribute is
+        keyed by spelling alone, so one unrelated occurrence of the spelling
+        anywhere in the module resolved it. Both readings are in one equality
+        on purpose: a row that stops reaching a call at all would satisfy a
+        bare "it refuses" for the wrong reason, and the pair is what makes
+        the laundering the thing under measurement.
+        """
+        bare = _GUARD._outcome(_GUARD._plant(body, extra))
+        laundered = _GUARD._outcome(
+            _GUARD._plant(body, extra + _attribute_callee_laundering(body))
+        )
+        assert (bare, laundered) == (("refusal",), ("refusal",)), (
+            f"{label}: a geometry door installed on `self` from outside this "
+            "module's text is read differently with one unrelated assignment "
+            "of its spelling appended, which is cycle 1's F-1 -- the pair is "
+            f"{(bare, laundered)}"
+        )
+
+    def test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface(self):
+        """CARD-276 cycle 2's F-1 — the family's **sixth** appearance, closed.
+
+        FIX 1 made the own-instance surface rule load-bearing: a chain the
+        fixed point *resolves* now falls through to it instead of past it. But
+        that rule's authority was built with ``ast.walk`` over the ``ClassDef``,
+        so **every nested ``def`` in every method** was claimed as part of the
+        class's attribute surface — while the comment above the loop already
+        said "the names that class spells as a ``def``, **in its body**". The
+        claim and the code disagreed, in the one mechanism the fix had just
+        made load-bearing.
+
+        **Nine such names already stand inside ``BookPDFGenerator``** —
+        ``produce`` in ``interior_stream``; ``set_page``, ``line_image``,
+        ``technique_rows``, ``fits_width`` in ``create_guide_page``;
+        ``paragraph``, ``picture``, ``space``, ``technique`` in ``set_page`` —
+        so ``setattr(self, "produce", <a geometry door>)`` was **silent with no
+        scaffolding at all**, where the shipped row W21/S1 refuses only because
+        its plant happens to spell the name ``_d``. Every earlier appearance of
+        this family needed something appended; this one needed nothing,
+        because the module's own text already supplied the laundering
+        occurrence. And it had **no lever**: under all 32 exemption subsets the
+        only refusal shape is the plant's own ``builtins`` call, which by this
+        file's own standard is not a lever at all.
+
+        **Why this control exists and not just the fix.** Cycle 2's Step 8f
+        aimed a mutant at the authority's breadth and it **SURVIVED** — 0 FAIL
+        of 203 nodes, every cell identical to SHIPPED — after being proved
+        non-no-op first. Narrowing or widening that authority changed the
+        walk's verdict on nine shapes and **no assertion in this file could
+        see it**. So the fix without this test would leave the next widening
+        exactly as invisible as this one was.
+
+        The names are **derived from the module's own AST**, never listed
+        (ADR-0039/R2): a nested name added to any class tomorrow is covered
+        here without anyone remembering to add it, and a tree where the walk
+        finds none at all is a FAILURE rather than a vacuous pass.
+        """
+        import ast
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parents[1] / _GUARD.MODULE
+        ).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        definition = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        owner = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+        nested = set()
+        for holder in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
+            for node in ast.walk(holder):
+                if isinstance(node, definition) and node is not holder:
+                    if owner.get(node) is not holder:
+                        nested.add(node.name)
+
+        assert len(nested) >= 9, (
+            "the walk finds fewer than the nine nested definitions measured "
+            f"inside this module's classes on 2026-10-25, so this control "
+            f"would pass vacuously: {sorted(nested)}"
+        )
+
+        silent = sorted(
+            name
+            for name in nested
+            if not _GUARD._outcome(
+                _GUARD._plant(
+                    f'        setattr(self, "{name}", getattr(self, "page_" + _S))\n'
+                    f"        self.{name}(3 + len(section))\n"
+                    "        #",
+                    '\n_S = "spec"\n',
+                )
+            )
+        )
+        assert silent == [], (
+            "a geometry door installed with `setattr` under the name of a "
+            "definition nested inside a method is SILENT, which is cycle 2's "
+            "F-1: the class's attribute surface is being read with `ast.walk` "
+            "rather than over its direct members, so the module's own nested "
+            f"names launder the door for free. Silent spellings: {silent}"
+        )
+
+    def test_the_laundering_derivation_parsed_every_planted_body(self):
+        """The derivation's own failure mode is a FAILURE, never a skip.
+
+        ``_attribute_callee_laundering`` parses each plant's body to find its
+        attribute callees. A body it cannot parse would silently contribute
+        no laundering and drop out of the equality below, which is the
+        default-ALLOW shape ADR-0039/R2 forbids, so it records the body
+        instead and this is where that record reds.
+        """
+        assert _UNPARSED_PLANT_BODIES == [], (
+            "a planted body no longer parses, so the laundering derivation "
+            "is silently contributing nothing for it: "
+            f"{_UNPARSED_PLANT_BODIES}"
+        )
+
+    def test_the_laundering_derivation_reaches_the_rows_it_declares(self):
+        """ADR-0039/R2 on the derivation: the authority is
+        :data:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage.DOOR_SHAPES`
+        and the set it yields is held to an equality.
+
+        14 of the 36 rows spell an attribute callee. The other 22 have no
+        laundering analogue -- the local-name storage has none, which cycle 1
+        measured and said why -- so their reading here would be byte-identical
+        to :meth:`test_every_door_shape_is_read_or_refused_and_never_silent`'s
+        and is not paid for twice. A row that gains or loses an attribute
+        callee moves this equality rather than quietly entering or leaving
+        the reading.
+        """
+        assert (
+            self.LAUNDERABLE_DOOR_SHAPES == self.LAUNDERABLE_DOOR_SHAPE_LABELS
+        ), (
+            "the rows the laundering derivation reaches are no longer the "
+            "rows this class declares, so either a DOOR_SHAPES row changed "
+            "its callee or the derivation stopped reading one: "
+            f"{self.LAUNDERABLE_DOOR_SHAPES}"
+        )
+
+    @pytest.mark.parametrize(
+        "label,body,extra,outcome",
+        [row for row in _GUARD.DOOR_SHAPES if _attribute_callee_laundering(row[1])],
+        ids=[
+            row[0].split()[0]
+            for row in _GUARD.DOOR_SHAPES
+            if _attribute_callee_laundering(row[1])
+        ],
+    )
+    def test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence(
+        self, label, body, extra, outcome
+    ):
+        """A row of
+        :data:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage.DOOR_SHAPES`
+        that can be switched off from outside itself is not an assertion
+        about anything (CARD-276 cycle 1's F-1).
+
+        Measured at ``ced5e648``: **three** rows went silent when one
+        unrelated assignment of their callee's spelling was appended -- W21,
+        W23 and W25. Cycle 1 named one of them and attributed it to W29;
+        W29 is in fact **not** launderable, because its installer's spelled
+        store is opaque and the ``opaque`` branch runs before the anchor.
+        That is why this reading is derived over every attribute-callee row
+        rather than written for the row the finding named.
+        """
+        measured = _GUARD._outcome(
+            _GUARD._plant(body, extra + _attribute_callee_laundering(body))
+        )
+        assert measured == outcome, (
+            f"{label} no longer produces its declared outcome once an "
+            "unrelated resolving occurrence of its callee's spelling is "
+            f"appended, so the row can be switched off from outside it: "
+            f"{measured} (declared {outcome})"
+        )
+
+    @pytest.mark.parametrize(
+        "label,body,extra",
+        TERMINAL_SHAPES,
+        ids=[row[0].split()[0] for row in TERMINAL_SHAPES],
+    )
+    def test_a_decorated_definition_is_not_a_terminal_this_walk_can_read(
+        self, label, body, extra
+    ):
+        """CARD-276 cycle 1's F-2: the premise that made passing a resolved
+        chain safe, falsified and then narrowed.
+
+        The sentence was *"a geometry door cannot stand at a ``def``/``import``
+        terminal without being spelled"*. A decorator stands exactly there
+        with its name assembled. The chain onto a decorated definition
+        refuses now; the chain onto an undecorated one still resolves, which
+        is :data:`CHAINS_THAT_RESOLVE`'s E1 and E3 and is what tells this
+        rule from a cap (G-7).
+        """
+        assert _GUARD._outcome(_GUARD._plant(body, extra)) == ("refusal",), (
+            f"{label} is no longer refused: a decorator puts the real "
+            "imported door at a `def` terminal with its name assembled, so "
+            "the door-spelling arm never sees it and the chain resolves"
+        )
+
+    def test_a_cycle_in_the_alias_chain_is_refused_rather_than_capped(self):
+        """A cycle is a shape the walk cannot analyse, so it REFUSES (G-7).
+
+        ``_p = _q; _q = _p`` is two anchored binding occurrences and no
+        terminal. A fixed point computed without a cycle check either loops
+        forever or needs a cap, and a cap that returns a verdict is the
+        fail-open shape ADR-0039/R2 forbids. It raises and the call loop names
+        it, exactly as the two receiver resolvers do.
+        """
+        body = """        _p = _q; _q = _p
+        _p(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT"""
+        shapes = [shape for _, shape, _, _ in _GUARD._plant_refusals(body)]
+        assert [self.CYCLE in shape for shape in shapes] == [True], (
+            "a cyclic alias chain is no longer refused by name, so the fixed "
+            f"point is capping it or looping: {shapes}"
+        )
+
+    #: The two substrings the refusals above and below are read by. Spelled
+    #: once here rather than in each assertion, because a refusal renamed in
+    #: the walk and in one control is a control that stops measuring.
+    CYCLE = "whose alias chain closes a cycle"
+    BOUND = "did not resolve to a fixed point within"
+
+    def test_the_anchor_resolution_bound_is_reported_rather_than_capped(self):
+        """The fixed point's own bound, failing CLOSED, with the pair that
+        measures it (G-7, and CARD-262's F-503 discipline extended).
+
+        CARD-262 moved two hand-written ``depth > 4`` caps from fail-open to a
+        reported bound; re-introducing one here would fail this card whatever
+        else it achieved. So the readings are a pair at the bound's edge:
+
+        * a chain one link **past** the bound refuses, naming the bound;
+        * the same chain one link **inside** it resolves, so the bound is what
+          the deeper reading reports and not some other mechanism;
+        * raise the bound past the deep chain and it resolves too, which is
+          what says the refusal is the bound's and nothing else's;
+        * and the bound costs this module **0** refusals, asserted.
+        """
+        terminal = "interior_page_count"
+        inside = (
+            f"        _a = {terminal}; _b = _a; _c = _b; _d2 = _c\n"
+            "        _d2(toc_page_count)\n"
+            "        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT"
+        )
+        past = (
+            f"        _a = {terminal}; _b = _a; _c = _b; _d2 = _c; _e = _d2\n"
+            "        _e(toc_page_count)\n"
+            "        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT"
+        )
+
+        deep = [shape for _, shape, _, _ in _GUARD._plant_refusals(past)]
+        assert [self.BOUND in shape for shape in deep] == [True], (
+            "a chain past the anchor resolution bound is no longer refused by "
+            f"the bound: {deep}"
+        )
+
+        shallow = [shape for _, shape, _, _ in _GUARD._plant_refusals(inside)]
+        assert shallow == [], (
+            "a chain inside the bound no longer resolves, so the deeper "
+            f"reading above is not the bound's doing: {shallow}"
+        )
+
+        original = _GUARD.ANCHOR_RESOLUTION_DEPTH
+        try:
+            _GUARD.ANCHOR_RESOLUTION_DEPTH = original + 4
+            raised = [shape for _, shape, _, _ in _GUARD._plant_refusals(past)]
+        finally:
+            _GUARD.ANCHOR_RESOLUTION_DEPTH = original
+        assert raised == [], (
+            "with the bound raised past it the deep chain still refuses, so "
+            f"what refused it was never the bound: {raised}"
+        )
+
+        _, _, refusals = _GUARD._page_positions()
+        assert [
+            shape for _, shape, _, _ in refusals if self.BOUND in shape
+        ] == [], (
+            "the anchor resolution bound now costs this module refusals, so "
+            "its cost is no longer the 0 this card measured"
+        )
+
+
+class TestGuardProse_EveryNamedControlExists:
+    """CARD-276 AC-6: a claim that points at a control that does not exist.
+
+    CARD-262's final round deleted the per-class "must not absorb" control
+    and replaced it with :data:`CALLEE_EXEMPTIONS`' own reach table; the
+    ``CALLEE_EXEMPTIONS`` attribute doc went on naming the deleted test for
+    a whole card, and its AC/EC/G gate is what found it. Cosmetic in effect
+    and ADR-0039/R1's own family in kind: a reader cannot check a claim whose
+    control does not exist, and nothing in this suite could tell.
+
+    So the check is standing and **default-deny**: every ``test_*`` name this
+    module's prose names in a Sphinx role or in backticks must resolve
+    against a test this suite actually defines. Two details earn their place:
+
+    * the references come from the module's **docstrings and its comments**,
+      because the defect was in a ``#:`` attribute doc, which no docstring
+      walk sees;
+    * the authority is every ``def test_*`` under ``tests/``, derived by
+      ``ast`` rather than listed, since a control named here may well live in
+      another module of the suite.
+    """
+
+    #: A floor on the reference count, so the check cannot pass by finding
+    #: nothing. A floor rather than an equality on purpose -- an equality
+    #: here reds every time a docstring gains a cross-reference, which is the
+    #: opposite of what this wants to encourage.
+    #: :meth:`test_the_reference_scan_is_default_deny` is what says a *low*
+    #: reading cannot be a vacuous pass.
+    #:
+    #: **The rationale sentence here used to carry a count of its own** --
+    #: "this file's prose names fifteen distinct controls today and the one
+    #: defect was one of sixteen" -- and cycle 1 recomputed it with this
+    #: class's own resolver as **seventeen**: a stale figure inside the class
+    #: built to catch stale prose (F-4). It is not restated with a corrected
+    #: number, because a number nothing recomputes goes stale again and this
+    #: file's own rule is that a figure's control is recomputation. The
+    #: reading is printed by
+    #: :meth:`test_no_docstring_names_a_test_that_does_not_exist` when the
+    #: floor reds, which is where to read it.
+    REFERENCES_AT_LEAST = 14
+
+    @staticmethod
+    def _prose(source):
+        """Every docstring and every comment in ``source``, as one list.
+
+        ``ast`` for the docstrings, ``tokenize`` for the comments. A ``#:``
+        attribute doc is a comment, so a docstring-only walk would have
+        missed the one defect this check exists for.
+        """
+        import ast
+        import io
+        import tokenize
+
+        found = []
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(
+                node,
+                (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
+            ):
+                text = ast.get_docstring(node, clean=False)
+                if text:
+                    found.append(text)
+        for token in tokenize.generate_tokens(io.StringIO(source).readline):
+            if token.type == tokenize.COMMENT:
+                found.append(token.string)
+        return found
+
+    @classmethod
+    def _named_tests(cls, source):
+        """The ``test_*`` names ``source``'s prose names in a Sphinx role or
+        in backticks, de-duplicated and sorted.
+
+        Marked-up references only, and anchored: a bare mention of a path
+        like ``tests/test_timeout.py`` is not a claim about a control and
+        does not resolve to one.
+        """
+        import re
+
+        marked = re.compile(
+            r":(?:meth|func|class):`~?([^`]+)`|``([^`\n]+)``|`([^`\n]+)`"
+        )
+        anchored = re.compile(r"(?:[A-Za-z_][A-Za-z0-9_]*\.)?(test_[A-Za-z0-9_]+)\Z")
+        named = set()
+        for text in cls._prose(source):
+            for groups in marked.findall(text):
+                for reference in groups:
+                    hit = anchored.match(reference.strip())
+                    if hit:
+                        named.add(hit.group(1))
+        return sorted(named)
+
+    @staticmethod
+    def _tests_this_suite_defines():
+        """Every ``def test_*`` under ``tests/``, derived rather than listed."""
+        import ast
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1] / "tests"
+        defined = set()
+        for path in sorted(root.rglob("*.py")):
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(
+                    node, (ast.FunctionDef, ast.AsyncFunctionDef)
+                ) and node.name.startswith("test_"):
+                    defined.add(node.name)
+        return defined
+
+    @classmethod
+    def _unresolved(cls, source):
+        """``(named, defined, missing)`` for ``source``'s prose.
+
+        **One resolution, used by the check and by its control**, which is
+        the ADR-0039/R1 shape this card's own kill-instrument run caught in
+        the first draft of this class: the control computed the missing list
+        itself, so a mutant that emptied the *check's* list survived both.
+        Now a mutant on this one line reds the control by name.
+        """
+        named = cls._named_tests(source)
+        defined = cls._tests_this_suite_defines()
+        return named, defined, [name for name in named if name not in defined]
+
+    def test_no_docstring_names_a_test_that_does_not_exist(self):
+        """The standing check (AC-6), default-deny over this module's prose."""
+        from pathlib import Path
+
+        source = Path(__file__).resolve().read_text(encoding="utf-8")
+        named, defined, missing = self._unresolved(source)
+        assert len(named) >= self.REFERENCES_AT_LEAST, (
+            f"this module's prose names only {len(named)} controls, so the "
+            "check below is measuring almost nothing and the reference scan "
+            f"itself is the thing to look at: {named}"
+        )
+
+        assert len(defined) > 500, (
+            f"the authority came back with {len(defined)} test names, so it "
+            "is not the suite and every name below would resolve or fail for "
+            "the wrong reason"
+        )
+
+        assert missing == [], (
+            "this module's prose names a control this suite does not define, "
+            "which is a claim its reader cannot check: "
+            f"{missing}"
+        )
+
+    def test_the_authority_holds_tests_and_only_tests(self):
+        """The authority's **membership**, not just its size.
+
+        ``len(defined) > 500`` is satisfied by an authority that holds every
+        function in ``tests/``, and this card's own instrument measured that
+        mutant surviving (`M7`): widening the derivation to every ``def``
+        changed nothing any assertion read. So the pair is asserted directly
+        -- a test this class defines is in, and a helper of this very module
+        is **not** -- which is the one reading that can fail in both
+        directions.
+        """
+        _, defined, _ = self._unresolved("")
+        assert "test_no_docstring_names_a_test_that_does_not_exist" in defined, (
+            "the authority no longer holds a test this very class defines, so "
+            "every name the check reads would be reported missing"
+        )
+        assert "_plant" not in defined, (
+            "the authority holds `_plant`, a helper of this module and not a "
+            "test, so it is no longer `every def test_* under tests/` and a "
+            "dead claim could resolve against a helper's name"
+        )
+
+    def test_the_reference_scan_is_default_deny(self):
+        """The control for the control, in both directions.
+
+        A resolver that found no references, or one that resolved an unknown
+        name, would pass the check above on a file full of dead claims. So
+        **the same resolution** the check uses is read on prose this test
+        owns: a name this suite does not define is **reported**, and the real
+        name beside it is not. Without that pair the floor above is the only
+        thing standing between this check and a default-allow scan.
+        """
+        source = (
+            '"""A docstring naming '
+            ":meth:`test_a_control_this_suite_does_not_define` and "
+            ":meth:`test_no_docstring_names_a_test_that_does_not_exist`.\n"
+            '"""\n'
+            "#: And an attribute doc naming "
+            "``test_another_control_this_suite_does_not_define``.\n"
+            "FIELD = 1\n"
+        )
+        named, _, missing = self._unresolved(source)
+        assert named == [
+            "test_a_control_this_suite_does_not_define",
+            "test_another_control_this_suite_does_not_define",
+            "test_no_docstring_names_a_test_that_does_not_exist",
+        ], (
+            "the reference scan no longer reads a Sphinx role, a `#:` "
+            f"attribute doc, or both: {named}"
+        )
+
+        assert missing == [
+            "test_a_control_this_suite_does_not_define",
+            "test_another_control_this_suite_does_not_define",
+        ], (
+            "the resolution the check uses no longer reports a name this "
+            "suite does not define, so that check is default-ALLOW and would "
+            "pass on any dead claim"
         )
