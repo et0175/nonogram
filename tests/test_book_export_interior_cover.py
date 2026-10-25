@@ -2092,8 +2092,44 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             ]:
                 spelled = set()
                 for node in ast.walk(holder):
-                    if isinstance(
-                        node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                    if (
+                        isinstance(
+                            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                        )
+                        # A DIRECT member only. `ast.walk` reaches every nested
+                        # `def` in every method, and nine such names already
+                        # stand inside `BookPDFGenerator` (`produce` in
+                        # `interior_stream`; `set_page`, `line_image`,
+                        # `technique_rows`, `fits_width` in
+                        # `create_guide_page`; `paragraph`, `picture`, `space`,
+                        # `technique` in `set_page`). Claiming them as the
+                        # class's attribute surface made
+                        # `setattr(self, "produce", <a door>)` SILENT with no
+                        # scaffolding at all -- cycle 2's F-1, the family's
+                        # sixth appearance, and the comment above this loop
+                        # already said "in its body" while the code walked
+                        # everything. The `self.x` arm below stays broad on
+                        # purpose: a store inside a method is how an instance
+                        # attribute is really set.
+                        and parent.get(node) is holder
+                        # NOT also gated on `decorator_list`, and the reason is
+                        # a measurement. Cycle 2 observed that `:2295` refuses
+                        # a decorated module-level terminal while this arm
+                        # admits a decorated method, and that the terminal rule
+                        # is therefore applied in one of the two places a
+                        # definition is read. True -- but adding `and not
+                        # node.decorator_list` here costs this module **4
+                        # refusals** on a tree with no defect in it (measured
+                        # 2026-10-25; `BookPDFGenerator` has four decorated
+                        # methods). By CARD-262's own precedent for choosing a
+                        # shape by cost -- one shared opaque table cost 51
+                        # refusals where keying on `(storage, spelling)` cost 0
+                        # -- a shape that fires on a clean module is the wrong
+                        # shape, and it needs either an exemption with its own
+                        # control or a different formulation. That is a
+                        # successor's decision with a review in front of it,
+                        # not a last-mile edit: the narrowing above is free and
+                        # closes F-1, and this would not be.
                     ):
                         spelled.add(node.name)
                     elif isinstance(node, ast.Attribute) and isinstance(
@@ -5621,6 +5657,87 @@ class TestDoorAxis_TheNextIndirectionIsNotSilentEither:
             "module's text is read differently with one unrelated assignment "
             "of its spelling appended, which is cycle 1's F-1 -- the pair is "
             f"{(bare, laundered)}"
+        )
+
+    def test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface(self):
+        """CARD-276 cycle 2's F-1 — the family's **sixth** appearance, closed.
+
+        FIX 1 made the own-instance surface rule load-bearing: a chain the
+        fixed point *resolves* now falls through to it instead of past it. But
+        that rule's authority was built with ``ast.walk`` over the ``ClassDef``,
+        so **every nested ``def`` in every method** was claimed as part of the
+        class's attribute surface — while the comment above the loop already
+        said "the names that class spells as a ``def``, **in its body**". The
+        claim and the code disagreed, in the one mechanism the fix had just
+        made load-bearing.
+
+        **Nine such names already stand inside ``BookPDFGenerator``** —
+        ``produce`` in ``interior_stream``; ``set_page``, ``line_image``,
+        ``technique_rows``, ``fits_width`` in ``create_guide_page``;
+        ``paragraph``, ``picture``, ``space``, ``technique`` in ``set_page`` —
+        so ``setattr(self, "produce", <a geometry door>)`` was **silent with no
+        scaffolding at all**, where the shipped row W21/S1 refuses only because
+        its plant happens to spell the name ``_d``. Every earlier appearance of
+        this family needed something appended; this one needed nothing,
+        because the module's own text already supplied the laundering
+        occurrence. And it had **no lever**: under all 32 exemption subsets the
+        only refusal shape is the plant's own ``builtins`` call, which by this
+        file's own standard is not a lever at all.
+
+        **Why this control exists and not just the fix.** Cycle 2's Step 8f
+        aimed a mutant at the authority's breadth and it **SURVIVED** — 0 FAIL
+        of 203 nodes, every cell identical to SHIPPED — after being proved
+        non-no-op first. Narrowing or widening that authority changed the
+        walk's verdict on nine shapes and **no assertion in this file could
+        see it**. So the fix without this test would leave the next widening
+        exactly as invisible as this one was.
+
+        The names are **derived from the module's own AST**, never listed
+        (ADR-0039/R2): a nested name added to any class tomorrow is covered
+        here without anyone remembering to add it, and a tree where the walk
+        finds none at all is a FAILURE rather than a vacuous pass.
+        """
+        import ast
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parents[1] / _GUARD.MODULE
+        ).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        definition = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        owner = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+        nested = set()
+        for holder in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
+            for node in ast.walk(holder):
+                if isinstance(node, definition) and node is not holder:
+                    if owner.get(node) is not holder:
+                        nested.add(node.name)
+
+        assert len(nested) >= 9, (
+            "the walk finds fewer than the nine nested definitions measured "
+            f"inside this module's classes on 2026-10-25, so this control "
+            f"would pass vacuously: {sorted(nested)}"
+        )
+
+        silent = sorted(
+            name
+            for name in nested
+            if not _GUARD._outcome(
+                _GUARD._plant(
+                    f'        setattr(self, "{name}", getattr(self, "page_" + _S))\n'
+                    f"        self.{name}(3 + len(section))\n"
+                    "        #",
+                    '\n_S = "spec"\n',
+                )
+            )
+        )
+        assert silent == [], (
+            "a geometry door installed with `setattr` under the name of a "
+            "definition nested inside a method is SILENT, which is cycle 2's "
+            "F-1: the class's attribute surface is being read with `ast.walk` "
+            "rather than over its direct members, so the module's own nested "
+            f"names launder the door for free. Silent spellings: {silent}"
         )
 
     def test_the_laundering_derivation_parsed_every_planted_body(self):
