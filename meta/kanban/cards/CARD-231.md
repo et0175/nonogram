@@ -5,7 +5,7 @@
 **Category:** feature
 **Complexity:** standard
 **Estimate:** 1d
-**Revision pending:** false
+**Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/231-section-openers
@@ -131,3 +131,38 @@ _52 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
   project has already had one card (CARD-205) whose whole risk was a page count feeding a
   printed margin, and one (CARD-221) cut because a page count was host-dependent. Treat AC-4 as
   the gating criterion.
+
+## Architecture revision (2026-10-25)
+
+**Reason:** ADR-0042 (DEC-048) accepted 2026-10-25 — the book interior is written
+as PDF content-stream operators; the cover stays raster because it is a
+photograph, and the section dividers stay raster for now by owner decision the
+same day. The phase that converts the interior is CARD-294..CARD-299 (waves
+60-64), and this card is scheduled after it.
+
+**Was:** a section opener names its section in large type, with dots — to be
+implemented on today's raster divider page, whose own docstring is *"one word on
+the book's trim, one page"*.
+
+**Should be:** **born vector.** The owner left the dividers raster on 2026-10-25 —
+*"I'd left dividers out for now - I think I can come out with a 'nicer' design for
+them"* — precisely so this card's redesign is drawn as operators from the start
+rather than converting the old page and then redesigning it.
+
+**Delta:**
+- This card is the **only** print-layout card whose page is still raster when it
+  starts, and it is raster deliberately. It does not convert the existing divider;
+  it replaces it with a vector design.
+- **Landing this card EXPIRES ADR-0042/R2's divider exception.** R2 declares two
+  raster exceptions, the cover and the dividers, and states that *"a declaration
+  whose reason has expired"* is a defect: *"once CARD-231 lands, the divider's
+  exception goes with it."* So this card must also **remove the divider from the
+  declared raster set** and leave the cover as the only exception.
+- CARD-298's `test_every_raster_page_is_declared_with_its_reason` reads the
+  declaration rather than hard-coding the pair, and its AC-3 specifically tests
+  that an expired declaration reds — so the guard is already built to catch this
+  card forgetting the removal.
+- `divider` is one of the lettering kinds CON-020's non-vacuity floor requires
+  (`tests/test_book_interior_type_floor.py:355`). When the divider goes vector,
+  that kind's reading must move to the stream with it — CARD-299 left it on the
+  raster path precisely because this card had not run.

@@ -5,7 +5,7 @@
 **Category:** feature
 **Complexity:** standard
 **Estimate:** 1d
-**Revision pending:** false
+**Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/226-two-up-equal-slots
@@ -127,3 +127,27 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 - [Why AC-3 is the keystone] Aligned bottoms is the only assertion in the set that fails if
   *any* of CARD-224, CARD-225 or this card drifts. It is cheap to write and it is the one to
   keep green.
+
+## Architecture revision (2026-10-25)
+
+**Reason:** ADR-0042 (DEC-048) accepted 2026-10-25 — the book interior is written
+as PDF content-stream operators; the cover stays raster because it is a
+photograph, and the section dividers stay raster for now by owner decision the
+same day. The phase that converts the interior is CARD-294..CARD-299 (waves
+60-64), and this card is scheduled after it.
+
+**Was:** a two-up page becomes two equal slots split by a **light rule** — and
+the card cites ADR-0037/R2 directly, which is the rule that says the
+furniture-vs-grid distinction "can no longer be solved by width" because "width
+has reached the device floor" and "now rests on tone".
+
+**Should be:** the same design, with width available again. In a vector interior a
+light rule can genuinely be light — ADR-0042/R7 removes the floor that forced the
+distinction onto tone alone.
+
+**Delta:**
+- The "light rule" is re-derivable as a width, not only as a grey. Re-decide which
+  it is rather than inheriting the tone-only workaround.
+- This card's citation of ADR-0037/R2 must be re-read against ADR-0042/R7 before
+  the card is rewritten; the clause it leans on is the one R7 narrows.
+- Its tests move from ink measurement to content-stream assertions.

@@ -408,13 +408,19 @@ until CARD-137 (2026-09-23); they are not any more.
 | `probe_contradiction` | `(66, 90]` | Medium | some cells needed a refuted probe — at most 70.6% of the grid |
 | `probe_contradiction` | `(90, 100]` | Hard | probing settled more than 70.6% of the grid; line logic got nowhere |
 
-A solve with `branch_nodes >= 1` had a Guess tier of its own until ADR-0031; it now takes whichever
-band its score falls in, and reports the `guess` strategy beside it.
+A solve with `branch_nodes >= 1` had a Guess tier of its own until ADR-0031, and then took
+whichever band its probe share landed in — which **inverted**: search settles the cells probing
+never gets to, so the heavier the search, the smaller the probe share and the *lower* the score
+(measured 2026-10-24: seven production puzzles, 63–97 % of cells settled only by search, every one
+at the bottom of Medium). Since **ADR-0029/R6** (2026-10-24) a branching solve scores `SCORE_MAX`
+= 100 outright — outside the ladder, top of the scale, tier Hard — and still reports the `guess`
+strategy, which ADR-0032/R3 makes unpublishable: no door into the approved status accepts it.
 
 The 0..100 number is a derived presentation (`difficulty.score_difficulty`), kept so the export,
 the DB column and POL-004's predicate survive unchanged in type:
 
 ```
+if branch_nodes > 0: score = 100                                (ADR-0029/R6 — the ceiling)
 rung  = the hardest rung with at least one cell settled at it   (rung_cells, §6.5)
 share = rung_cells[rung] / total_cells                          (ADR-0029's secondary count)
 score = band_low(rung) + share * band_width(rung)

@@ -170,3 +170,18 @@ US-028: As a Puzzle Creator, I want to open any stored puzzle from the admin
         live count of my current mistakes and seeing the picture's name and a
         short animation when I finish — so I can play Book 1's puzzles the way
         a reader will before any public solver exists.
+
+## Human-solvability gate (2026-10-24)
+
+<!-- Written by forge:architect (delta, 2026-10-24) from the owner's decision
+     in raw-requirements.md "## Delta 2026-10-24" (DEC-047, ADR-0032/R3).
+     Restates owner scope, adds none. Background: the owner played a stored
+     15x15 graded medium and could not make one logical move; the solver
+     confirmed 7 production puzzles need branching search, 6 of them approved
+     and in book c1. -->
+
+US-029: As a Puzzle Creator, I want the panel to refuse to approve any puzzle
+        that cannot be solved by pure deduction — one whose verifying solve
+        had to guess — so that no puzzle a buyer meets in a printed book or
+        the public player ever requires trial-and-error, whatever its
+        difficulty score says.

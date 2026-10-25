@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-09-22
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-10-24 (R3 — the human-solvability gate; DEC-047)
 **Migration:** on-touch
 **Pattern:** —
 **API-Posture:** —
@@ -60,6 +60,29 @@ measurement or explicitly absent.**
    templates, the admin API and the printed book alike. `recognizability`
    follows the same rule with its own vocabulary.
 
+3. *(R3, 2026-10-24.)* **An approved puzzle is humanly solvable.** Unique
+   (R1, CON-005) is not the same fact: a solve can prove exactly one solution
+   while finding it only by branching search — stacked guesses no human can
+   be asked to make. Measured the day this was decided: 7 production puzzles
+   carried the `guess` strategy (`branch_nodes` 59–283; 63–97 % of their
+   cells settled only by search; the one the owner played had **zero**
+   line-logic cells from the empty board), all graded medium by the
+   probe-share formula, 6 approved and all 6 in a book. So every door into
+   the approved state — the per-puzzle action, the bulk batch action, either
+   store mode — and every store of a replacement grid onto an approved or
+   in-book puzzle, refuses a puzzle whose verifying solve branched
+   (`branch_nodes > 0`), naming the reason. A verdict that cannot be
+   obtained — unreadable grid, non-unique, or a solve that did not conclude
+   in budget — refuses with its own distinct message rather than approving:
+   an approval is a claim of publishability and an unverifiable claim fails
+   closed, the same posture as INV-002 one door earlier. The verdict is read
+   from the stored solver-written strategies list when there is one, else
+   from one budgeted re-solve (ADR-0029/R2 — no second solve on the happy
+   path). A draft may hold a branching grid; it cannot leave draft carrying
+   one. Nothing demotes an already-approved or in-book puzzle automatically
+   — the one-time remediation of the existing stock (regrade all, remove the
+   guess-level rows) was the owner's explicit operation, not this rule.
+
 ## Consequences
 
 - A caller that wants a puzzle stored has to give the boundary a real grid; the
@@ -93,6 +116,37 @@ answering a different question. It would also have made the in-memory and DB
 paths disagree in a new way, since SQL `NULL` cannot be talked into passing a
 `>=` without rewriting the predicate.
 
+### Re-tune the difficulty score so branching puzzles classify hard (R3)
+
+Rejected. `score_difficulty` reads `rung_cells` and deliberately not
+`branch_nodes` (ADR-0025/R2 keys `guess` on the latter as a *strategy*, not a
+difficulty), and within the probe band the share metric **inverts** for
+branching puzzles — the heavier the search, the fewer probe-settled cells, the
+*lower* the score, which is how all seven landed at the bottom of Medium. A
+re-tune re-scales every stored grade (the ADR-0029/ADR-0031 blast radius) to
+express what is not a gradation at all: "needs guessing" is not a harder
+tier, it is not a puzzle a human can be sold. And CARD-098's retirement of
+the GUESS tier remains sound on its own evidence — random draws never branch;
+the image pipeline, which did not exist in that evidence, is the source that
+does.
+
+### Repair branching puzzles with revealed givens (R3)
+
+Rejected. `choose_givens`' contract is uniqueness, which these puzzles
+already have — measured: it reveals zero cells for every one of the seven.
+Making a 15×15 line-solvable took ~20–30 random reveals (9–13 % of the grid
+pre-filled), a different product, not a repair. A givens policy targeting
+line-solvability may still be built someday; it would be a feature decision,
+not a substitute for the gate.
+
+### Demote on regrade instead of gating approval (R3)
+
+Rejected. A regrade that silently flips an approved or in-book puzzle's
+status unpicks a book behind the owner's back (INV-008/INV-012 make
+membership changes explicit and confirmed). The regrade keeps *reporting*
+`guess`; what it finds is the owner's decision to act on, and the gate makes
+the stock it guards clean going forward.
+
 ### Leave the guarantees in the cards that made them
 
 Rejected — that is the arrangement this ADR exists to end. CARD-080's guard and
@@ -120,10 +174,36 @@ nobody has a reason to open.
   scope: {code: ["src/nonogram/admin/**"]}
   check: {kind: test, ref: TestUnmeasuredQuality_SurvivesTheFilter}
   severity: mandatory
+- id: ADR-0032/R3
+  statement: A puzzle reaches the approved status, and a stored grid replaces an approved or in-book puzzle's, only when its verifying solve needed no branching (branch_nodes == 0). Every path that writes PuzzleStatus.APPROVED — the per-puzzle action, the bulk batch action, either store mode — and the edit store onto an approved or in-book puzzle refuses a branching puzzle with a message naming the reason; a verdict that cannot be obtained (unreadable grid, non-unique, or a solve not concluded in budget) refuses with its own distinct message rather than approving. The verdict comes from the stored solver-written strategies list when one exists, else one budgeted re-solve. Nothing demotes an already-approved or in-book puzzle automatically.
+  scope: {code: ["src/nonogram/admin/**"]}
+  check: {kind: review-lens}
+  # PLANNED TEST, owed by CARD-291 (the delivery card for FR-046 / EC-051):
+  #   tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate
+  # Flip this check to `kind: test` with that ref when CARD-291 lands, on
+  # CON-020's precedent (2026-10-06, "was `kind: review-lens` ... CARD-184 wrote
+  # it"). Held as a lens until then: the file does not exist, and a `kind: test`
+  # ref naming a test that does not exist is read as mechanically checked by
+  # system_rules.py and forge:review Step 8h. That matters here more than most,
+  # because CARD-291 is the card whose review would be told R3 is already
+  # guarded while it is the card writing the guard. Repaired 2026-10-25,
+  # alongside the same defect in ADR-0042's four planned refs.
+  severity: mandatory
 ```
 
 ## History
 
+- 2026-10-24: Revised — R3 added (DEC-047, FR-046/AC-393..396/EC-051,
+  US-029; CARD-291 implements). The owner played a stored 15×15 graded
+  medium and could not make one logical move; this session's measurement
+  found 7 production puzzles whose verifying solve branched, 6 approved and
+  all 6 in book c1, every one scored into Medium by the probe-share formula
+  precisely *because* search did the work the score never saw. R3 closes
+  the door the grader cannot: approved now also means humanly solvable.
+  The existing stock was remediated the same day by the owner's explicit
+  operation (snapshot, regrade of every row, the guess-level rows pulled
+  from book c1 and rejected) — an operation, deliberately not part of the
+  rule, so the rule never silently unpicks a book.
 - 2026-09-22: Created — Accepted. Records two guarantees that were already
   decided but never written down: CARD-080's uniqueness guard at the storage
   boundary, and CARD-050's definition of `quality_score`. R2 was written

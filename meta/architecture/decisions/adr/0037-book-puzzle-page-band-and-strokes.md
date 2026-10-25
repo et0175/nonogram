@@ -60,6 +60,52 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
 
 ## History
 
+- 2026-10-25: **R2 amended again — the grid's three weights are the owner's own
+  0.3 / 0.8 / 1.3 pt, and the 2-device-pixel clause is re-expressed rather than dropped.**
+  Owner decision on the CARD-293 proof (*"I looked at the pdf and I like it (vector versions)"*,
+  *"I also like card-proof-vector"*), page 1 of
+  `~/Documents/nonogram-reviews/CARD-293/card293-proof-vector.pdf`. This discharges
+  ADR-0042/R7's deferral and closes the question the 2026-10-17 amendment opened.
+
+  **What changed and what did not.** The figures moved from 0.48 / 1.28 / 2.08 pt to
+  0.3 / 0.8 / 1.3 pt. The **ratios did not move at all** — 1 : 2.667 : 4.333 were the owner's in
+  both. The x1.6 between them was never a design choice: the 2026-10-17 amendment applied it
+  "so the thinnest line is 2 device pixels at 300 DPI rather than one", and ADR-0042/R7 made that
+  floor inapplicable to the interior by making the interior a content stream. So this amendment
+  does not overturn a judgement; it removes an arithmetic correction whose premise expired.
+
+  **The clause that had to be re-expressed, and why deleting it would have been wrong.** R2's
+  statement carried "each of them at least 2 device pixels at the render resolution". That clause's
+  *purpose* — no dropout — still binds. Its *mechanism* — a generator rounding a stroke to an
+  integer pixel count — does not exist in a content stream. Measured by poppler on the rendered
+  vector file (CARD-293 AC-2): the 0.3 pt cell line occupies **2 px at grey 89 at 300 DPI and 5 px
+  at grey 89 at 1200 DPI** — grey 89 being `round(255 × 0.35)`, the declared tone hit exactly at
+  both, with the width scaling ×4 and the tone not moving. That is what "no device floor in vector"
+  means, measured. But the same figures through a **raster** generator round to **1 / 3 / 5 px**,
+  which is precisely the one-pixel cell grid the 2026-10-17 amendment refused on the evidence of
+  7 of 17 reviews. The refused configuration is therefore still refused, and R2 now says so by
+  binding the figures to the medium: a raster puzzle grid keeps the 2-device-pixel floor and
+  consequently cannot use these numbers at all.
+
+  **Decided on screen, not on paper, and this ADR's own Decision section asked for paper** — it
+  says the weights "become final only after the owner has seen them on printed proof pages". The
+  owner judged the vector renders instead. Two things remain measured by nobody: dot gain on
+  uncoated cream stock at 0.1058 mm, and whether 35% grey reads as light guidance or as faded in
+  print. The owner accepted that by deciding now; the revisit trigger is the first printed book or
+  proof, and a change there is an amendment here rather than drift.
+
+  **What the 2026-10-17 entry below said that is now obsolete.** That entry recorded, as "a real
+  loss of room and not a bookkeeping fix", that the grid's thinnest cell line and the footer
+  hairline would both become 2 px — *"the same width"* — so that "width has reached the device
+  floor" and "the furniture/grid distinction now rests on tone, not weight". **For the interior
+  that is no longer true.** At 0.3 pt the cell line is physically *lighter* than a 0.4 pt
+  hairline, so width is available again as a distinction. The entry's reasoning stands for any
+  raster surface and for the record of why CARD-227 was ever scaled; it no longer describes the
+  interior. **The furniture's own floor is NOT decided here** — nobody asked about it. R2 has
+  never bound furniture (see that entry), CARD-222 / CARD-225 / CARD-248 all cite the
+  2-device-pixel floor for furniture directly, and they keep today's figures until someone decides
+  otherwise. Flagged, not answered.
+
 - 2026-10-17: **R2's scope clarified — it binds the puzzle grid, not page furniture — and a
   consequence of the amendment above is recorded.** No decision changed. CARD-222's review
   surfaced that the card had read R2 as binding the interior footer's hairline and had written
@@ -178,12 +224,49 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   # check-ref. CARD-227 upgrades this check to that test as part of its
   # landing — recorded on the card, not left to memory (ADR-0039/R1: a
   # coverage claim needs a control that can fail).
+  #
+  # AMENDED AGAIN 2026-10-25 (owner decision on the CARD-293 proof) — the
+  # figures are now the owner's own 0.3 / 0.8 / 1.3 pt, not the x1.6-scaled
+  # 0.48 / 1.28 / 2.08 pt. The scaling existed for exactly one reason, "so the
+  # thinnest line is 2 device pixels at 300 DPI rather than one", and
+  # ADR-0042/R7 removed that reason by making the interior a content stream.
+  # The ratios never changed: 1 : 2.667 : 4.333, the owner's throughout.
+  #
+  # THE 2-DEVICE-PIXEL CLAUSE IS RE-EXPRESSED, NOT DELETED, and this is the
+  # load-bearing part of the amendment. Its PURPOSE — no dropout — still
+  # binds. Its MECHANISM — a generator choosing an integer pixel count — does
+  # not exist in a content stream, where the RIP resolves a declared width at
+  # its own resolution. Measured by poppler on the rendered vector file
+  # (CARD-293 AC-2): the 0.3 pt cell line occupies 2 px at grey 89 at 300 DPI
+  # and 5 px at grey 89 at 1200 DPI — the declared tone hit exactly at both,
+  # the width scaling with the device. A RASTER generator at the same figures
+  # rounds to 1 / 3 / 5 px, which is the one-pixel cell grid the 2026-10-17
+  # amendment refused on the evidence of 7 of 17 reviews. Hence the statement
+  # now binds the figures to the medium instead of carrying a pixel minimum
+  # that a vector writer cannot meaningfully satisfy or violate.
+  #
+  # DECIDED ON SCREEN, NOT ON PAPER. The Decision section above says these
+  # weights "become final only after the owner has seen them on printed proof
+  # pages"; what happened is that the owner judged the vector RENDERS. Dot
+  # gain on uncoated cream stock, and whether 35% grey reads as guidance or as
+  # faded on paper, remain measured by nobody. The owner accepted that by
+  # deciding now; the revisit trigger is the first printed book or proof, and a
+  # change there is an amendment to this rule, not drift.
   statement: >-
     Under the book PageSpec the puzzle grid has exactly three rule weights --
-    0.48 pt ordinary cell lines in grey, 1.28 pt every fifth line on both
-    axes, 2.08 pt outer border -- each of them at least 2 device pixels at the
-    render resolution, with the cell lines lighter in ink than the fifth lines
-    and the border; the default PageSpec's strokes are unchanged.
+    0.3 pt ordinary cell lines in grey, 0.8 pt every fifth line on both axes,
+    1.3 pt outer border -- with the cell lines lighter in ink than the fifth
+    lines and the border, and the default PageSpec's strokes unchanged. These
+    are PHYSICAL widths and they hold only where the grid is drawn as PDF
+    content-stream operators (ADR-0042/R1), because only there does the
+    renderer resolve a declared width and a declared tone at whatever
+    resolution it runs. A generator that RASTERISES a puzzle grid rounds each
+    stroke to an integer pixel count instead, and at 300 DPI these widths
+    round to 1 / 3 / 5 px -- the one-pixel cell grid this rule's 2026-10-17
+    amendment refused. So no puzzle grid is rasterised at these weights: a
+    raster grid remains held to at least 2 device pixels per rule at its own
+    render resolution, which at 300 DPI means it cannot use these figures at
+    all.
   scope: {code: ["src/nonogram/export/layout.py", "src/nonogram/admin/book_page_spec.py"]}
   check: {kind: review-lens}
   severity: mandatory

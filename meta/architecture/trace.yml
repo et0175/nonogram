@@ -2307,6 +2307,32 @@ links:
     the cards ship.
   status: partial
 
+- req: FR-046
+  description: "The human-solvability gate: every path into the approved status, and the edit store onto an approved/in-book puzzle, refuses a puzzle whose verifying solve branched (branch_nodes > 0, the guess strategy); an unobtainable verdict refuses with its own message (fail closed); verdict from the stored solver-written strategies list, else one budgeted re-solve"
+  capabilities: [CAP-004]
+  contexts: [CTX-001]
+  components: [COMP-009]
+  adrs: [ADR-0032, ADR-0029, ADR-0025, ADR-0039]
+  tests:
+  - tests/test_approval_guess_gate.py::test_approve_refuses_a_branching_puzzle
+  - tests/test_approval_guess_gate.py::test_batch_approve_holds_back_branching_puzzles
+  - tests/test_approval_guess_gate.py::test_unknown_verdict_fails_closed
+  - tests/test_approval_guess_gate.py::test_edit_refuses_a_branching_grid_behind_the_approved_door
+  - tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate
+  notes: >-
+    New 2026-10-24 (raw-requirements.md Delta 2026-10-24; DEC-047 resolved
+    by ADR-0032/R3; US-029; CARD-291 implements). Entirely COMP-009's:
+    the gate sits at the curation doors (_set_status APPROVED transition,
+    set_batch_status, the edit store) and reads the FR-029 strategies
+    answer; COMP-005 and difficulty.py are deliberately untouched (DEC-047
+    rejected re-tuning the score — the probe-share metric inverts for
+    branching puzzles). Planned test names from CARD-291; no code yet.
+    Status partial until the card ships (the FR-045 precedent: planned
+    test names, no code yet). The 2026-10-24 stock remediation (regrade
+    all rows, remove the guess-level ones from book c1 and production)
+    was the owner's one-time operation, outside this row.
+  status: partial
+
 - req: NFR-008
   description: "Every puzzle printed in a book has 4.75 mm <= cell <= 7.5 mm, chosen per grid size per book on the book's own trim and fitted to the deepest-clued member of that size; below 4.75 mm only by explicit override"
   capabilities: [CAP-006]

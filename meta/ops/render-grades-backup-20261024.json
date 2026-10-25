@@ -1,0 +1,3298 @@
+{
+  "taken_at": "2026-10-24T13:45:51.039467+00:00",
+  "database": "nonogram-admin (Render, production)",
+  "note": "Pre-regrade snapshot, owner-ordered run of 2026-10-24 (ADR-0029/R6 ceiling formula; DEC-047 remediation). status/book_id included beside the three graded columns because the same day's operation also rejected the seven guess-level rows and removed them from book c1.",
+  "rows": [
+    {
+      "id": "00987326-61ce-407e-9645-976c91d5c4d1",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "00a95851-cbe5-4d30-ad5e-c0f718f2154c",
+      "difficulty_score": 83,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "0119b8fa-3c8c-4dd4-abf3-496a5f208a2b",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "01d5d4f9-24dc-44ab-87fb-52ddca8be577",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "026a3f89-2a03-4da7-b4ec-9e44b1a1b5cd",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "03ea3e6f-56f7-4da5-87da-0cc50b7d12e1",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "05265810-9c68-46e8-b0f5-72b72682eaa5",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "052c8c4c-2807-4896-8a33-187313316d5b",
+      "difficulty_score": 73,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction",
+        "guess"
+      ],
+      "status": "rejected",
+      "book_id": null
+    },
+    {
+      "id": "0680e772-6e29-45ad-8986-cc544e5ca8a2",
+      "difficulty_score": 96,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "06b2b753-a7ec-4514-92e0-c1e25f685e9f",
+      "difficulty_score": 87,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "076c3fe1-897d-4bc0-acbb-aa3c93beead9",
+      "difficulty_score": 70,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "0825dd8d-df8d-41e1-871e-7c39fa9e6fab",
+      "difficulty_score": 70,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "08399121-56fa-4303-9aa7-e99a52d70c49",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "0841ea6e-431c-4464-849d-9ea51ee8ca63",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "084294e8-6aa8-4efb-b62f-ebafe0bcb7d6",
+      "difficulty_score": 69,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "probe_contradiction",
+        "guess"
+      ],
+      "status": "rejected",
+      "book_id": null
+    },
+    {
+      "id": "093a3b64-5b14-43f3-a8f8-0f7313a3afb1",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "099f2323-c2c7-44e0-aa6e-57b11051bace",
+      "difficulty_score": 67,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "0ac94547-c513-4af0-a110-ef35dd893069",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "0c4d692e-873c-45ea-ba7f-c4b59a19a591",
+      "difficulty_score": 43,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "0d7c3f5b-19fa-4abf-9897-3debdbccb0c5",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "0e56d1bb-7bad-4527-a433-404fef21dddf",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "10a8281b-f04d-4aa2-9907-fb803d247270",
+      "difficulty_score": 67,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction",
+        "guess"
+      ],
+      "status": "rejected",
+      "book_id": null
+    },
+    {
+      "id": "1102f23f-d810-4285-907e-41a748546900",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "111add21-187b-4456-be61-188eabb9d09a",
+      "difficulty_score": 67,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "11636cb9-e95a-448c-8d88-cee55fca4594",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "1177ef1c-41dc-4be2-9767-90efc76e4b8a",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "12a733ad-d2ad-49d5-937f-ac0b525e35dd",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "1445cd22-168b-46fb-8f8e-f735f1f9fc71",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "144c0a8a-9406-469d-8fff-b08cdcd79a54",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "14d1a0f2-a293-4f0f-ba22-ca53b3e44514",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "1541c915-867e-476f-976a-85106f89692a",
+      "difficulty_score": 36,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "15468b12-ddb8-4046-86bc-de662b0f7bb9",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "16a6d588-c315-4eee-aa33-bf6a132a38cf",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "16f5c356-c457-4e6e-8c6f-d5d7e17441b7",
+      "difficulty_score": 74,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "1750b436-5669-4ed0-9bc0-56aa2f7e34be",
+      "difficulty_score": 67,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "1768ac95-05f7-42d0-8d2a-9bccad003804",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "1785adbf-82c8-40be-b4a1-1ff4b0575994",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "1972870a-3d09-40f5-bd92-b0d89cd154b4",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "199121e9-9052-4d66-b798-2897118919ee",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "1a176f26-c8f3-4902-8666-81ea1da3dbed",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "1a9e338d-e1c2-40df-b5cd-495ab06f2478",
+      "difficulty_score": 74,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "1b833b79-a471-4ecf-a3cd-335cf09f0768",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "1b9509d1-6315-404e-9630-4be5215fa413",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "2165f821-b336-4bc5-9d56-9290a3a58313",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "227b3034-8186-4ba9-8d31-94477bb7843a",
+      "difficulty_score": 60,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "22838baf-d2d0-4adb-809f-a6fcd59201ca",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "22bd10f0-139a-4256-a8ec-d1b20ad5a110",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "2339cdb0-c335-4a50-bd07-b7bfbb4ca134",
+      "difficulty_score": 87,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "23ab2d80-2e6c-4b1a-9157-6b193965d250",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "26453e8f-e539-43b0-845e-89f080d7b4c4",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "26740895-0411-4c1d-9548-e6c89111f5c3",
+      "difficulty_score": 71,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "26ca2390-cb31-4bcf-9017-111bc5606918",
+      "difficulty_score": 71,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "272cef3a-5759-49b4-81d8-1a0aa4507ba2",
+      "difficulty_score": 96,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "277b58a6-2ff4-41c8-9394-00d0a9cff9d8",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "28f9fa4c-6ebb-400d-8d2b-fe531943f4b5",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "29cf5dac-1c4c-4f25-9960-3b2468a23639",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "29d0e8e5-9c20-4b56-99cd-2cd1d81ca989",
+      "difficulty_score": 68,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "2becbd6c-f9f6-47c0-9df6-6e470be9b7b0",
+      "difficulty_score": 68,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "2c4bd524-b916-4918-81e9-58f0b937a7a2",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "2e19a0bd-ec48-4b1d-bc63-f9c1e15e0123",
+      "difficulty_score": 60,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "2f65b269-b9c4-490d-86b8-ddafc12b6cdc",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "2f80bc68-6452-4351-a676-79574633072a",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "32861a84-0750-44f7-b0b1-f7502368f0dc",
+      "difficulty_score": 60,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "32fd703f-ce22-4412-b3bc-3f436b0508e5",
+      "difficulty_score": 87,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "338ab19d-27d9-4a75-8427-c495d80d7467",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "35f1711b-e0a8-45bb-b243-db8c110dae6e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "37be6b19-ce26-49e4-b09d-12456b5efddd",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "37efb25c-be61-443a-805c-4438123bc717",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "383389b5-9cb6-42cf-99ad-2a0d76a05a00",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "38ee3cab-0038-4d53-8c56-2c536edafced",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "3968e74d-9374-4a7e-9e83-47be6e764d48",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "39864744-7eb6-435f-b858-226d9f8f9f42",
+      "difficulty_score": 96,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "39ae09ba-5aaa-4dd7-b31a-3a6ff361521f",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "39df69bd-fcb1-4ba7-bf27-e8f1a97578c6",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "39e280d7-4984-4c8e-9a85-45819ec3c6e4",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "3ae2fb52-d2d6-4d3d-acac-1f18185240b2",
+      "difficulty_score": 67,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "3b7bc789-d907-4319-ac8c-77c4e37832af",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "3c5f1f3f-875d-4722-b2d8-de1253f819eb",
+      "difficulty_score": 67,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "3c7da7e0-b3c8-43f2-aba8-bfced037b9ab",
+      "difficulty_score": 64,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "3c861059-6462-4c69-a7a6-97c8e41f1952",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "3cc81a2e-222d-45d8-9439-760eb9c8d24a",
+      "difficulty_score": 40,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "3d99dbac-b230-4c20-a8ce-5dbf95deacca",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "3f099ee8-bd99-4206-834a-e74908f5a28e",
+      "difficulty_score": 97,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "40563d27-3d3e-4bfc-8a16-b25d0419ac53",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "412148f7-7221-4664-b9fb-d6cd5fe65769",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "4190bc76-d6d9-4359-a66c-d2a4ef0c4baa",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "41ba83ab-a80c-4afa-b5d7-2ad9c5297bd4",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "466dfc9c-959a-4a7f-aecf-32cdc1cbe22a",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "480799af-65dc-417d-9f27-8d89c4ae8e87",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "489b902f-d107-4d84-a4b3-3fd7b3dab047",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "48b9cd08-ecb6-4a6f-a783-17d54f4722cf",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "48f19228-2d95-4c06-acb5-b983c94553ab",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "49df26fc-4a94-4787-9eb5-40fb553c6cb9",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "4abc5dc4-1a33-48ee-af1f-a1812c16aede",
+      "difficulty_score": 97,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "4aec9c1a-08e4-4e9d-b995-27583643cf96",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "4be40f69-ed9d-44f2-b26f-31569631380c",
+      "difficulty_score": 98,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "4db020b6-0754-4653-baac-86e4ec8a5663",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "4f07ecde-2623-4490-aefc-bde136e95d0e",
+      "difficulty_score": 88,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "4f2361f4-9440-4333-9f79-1577959c2da6",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "505398e7-9e3a-42ee-9a9f-420b82b7fb27",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "51d3717b-450b-42f5-8fef-5d00b7410070",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "5267ec29-7c8b-482c-9c5e-407105c39b18",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "52a30f97-8eea-4b60-a9f7-050e412902df",
+      "difficulty_score": 98,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "5307daae-924a-4b88-abb4-14e24d9bb1fa",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "5339d9c1-8351-41b1-8d91-c5ef8aeb4e9e",
+      "difficulty_score": 94,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "54300034-2725-449c-8e4c-bf6e66c054b7",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "54c9e8f5-3879-4c91-acef-5371339099ba",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "56ba37da-6d9c-4e52-b389-32692f418e8b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "56fe392c-76eb-4f5e-87d9-9db9f605761e",
+      "difficulty_score": 97,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "5795a885-d5c5-46b1-a0bf-c9a7039a050b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "58103926-6c44-40dd-a2fd-5ce9e3828cb3",
+      "difficulty_score": 98,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "58f74309-a046-46ce-b075-034b541019de",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "5a66915b-f556-4429-9661-fbb7e19e19d7",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "5b85e951-da1d-49db-9a06-8c11ab303e95",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "5bbd0c17-bf00-4629-a54b-93e130170e35",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "5d90c2df-6873-4bd8-a363-39ef95961f45",
+      "difficulty_score": 93,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "5dba6c79-a8ff-4c6c-bfde-014a5d7da4b8",
+      "difficulty_score": 85,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "5dcbfcc3-465d-4f97-95a5-8c7b1b81013a",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "5e61232a-117f-482b-b9da-1788afe60461",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "5ef4045e-1f02-4b93-b253-e134676f5e52",
+      "difficulty_score": 75,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "5f76c53d-43f9-4b6e-96a6-1632309f04b9",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "6254e7a1-edbf-4694-a97a-810a03099c0e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "627acbb6-21da-4632-a1c9-9aa3a84273d5",
+      "difficulty_score": 91,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "6344ef28-62b6-45d6-b46b-80b47f7a7281",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6375f750-640a-465b-ba24-2130d92c5e71",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "6553de90-8028-4107-b763-362ca9ee0ee4",
+      "difficulty_score": 98,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "665e31eb-6003-45a7-81fd-2127eb0f87b9",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "66d10553-b7cb-44aa-9ae6-b9a3a1daff77",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "67d36814-4800-462b-a2c0-5d339f7ad6a2",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "698f66be-6dc7-4083-a16e-ab605300ced5",
+      "difficulty_score": 94,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6ad55bc6-ce59-4111-a6e1-4e53a03beffb",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6add24c7-968a-4f38-ae09-92cb8babe646",
+      "difficulty_score": 57,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6bde98c9-2541-43f9-9006-aa66950d0ccb",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6c22023e-5ec6-43cf-8d86-075db77cc50e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "6d27aa0d-7fca-49cd-b2f9-33e821138adf",
+      "difficulty_score": 87,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6df2b7ec-d66d-4efb-87fc-61d58b3b0da8",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "6e4b7c99-4cad-4840-b25a-2ba19a4666ff",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6e72a696-e109-4dae-8ed6-c6d4e871d925",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6eabf364-ab98-4da1-89cf-b9a90cd09fd5",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "6f9c974b-a167-4dbb-8b9c-ae84a257dc9b",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "71275130-5fe1-42b0-b6ef-86cb699d10d4",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "7345c690-8d4b-44bc-b069-c1cf3780421f",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "7443b49f-4a0a-42fb-8bba-fabb693a1896",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "744a7e69-ce45-4147-b0ad-92cb74bb3ec5",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "746bc93a-ba28-46b8-9a8c-a209e74fd5da",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "76a46175-bcb0-4a8a-8bc6-518cbde5c77e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "76e079f3-1eea-4e9d-9ce6-a16355343355",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "7962a3ac-347a-478c-a102-0b2513b8a092",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "79d9c9ff-195f-4118-a70c-17d07f1df205",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "7a83c396-861a-4baa-879d-4b2dd562d541",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "7bf83ab4-1f1f-4950-af87-7bacacbbc91d",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "7da34563-638a-46ec-a82a-47661ea19c73",
+      "difficulty_score": 98,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "7e807998-2d31-48bd-ad54-518816f30ed2",
+      "difficulty_score": 92,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "7ed30dc7-9709-465f-82a4-02f8eaac313b",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "802ae0e4-ad17-4e70-b087-c9ef0f24df4e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "80996cec-9a3e-4f4c-927e-cf39aa05febe",
+      "difficulty_score": 77,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "81ca6b1e-ab30-4fbe-95af-1758485272fe",
+      "difficulty_score": 98,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "837673e7-15b9-4a68-be0b-31fd858c05ef",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "83eb5e05-c07d-4b76-8633-9b3f811ccec2",
+      "difficulty_score": 47,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "859b9bd2-93b0-4778-b3b0-d9575551dfe6",
+      "difficulty_score": 37,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "85c15c58-31f0-49b1-af8a-fc23d1adf02e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "862b59e0-6058-4ddf-8713-6c5135f5698a",
+      "difficulty_score": 68,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "882769f9-adb8-4288-84a8-7f6f9fa53346",
+      "difficulty_score": 86,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "886182b2-b074-4805-a540-a28a038e1c15",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "88faa971-3ddc-4101-9008-ce99321e47bf",
+      "difficulty_score": 83,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "894f0405-19d6-49f5-aaea-d14eaf73bfe6",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "8b20226d-e7c6-4adf-9683-eef5aae484fd",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "8b7841aa-0485-49a3-a0c1-3ec8d05fc337",
+      "difficulty_score": 98,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "8ce513a1-64c3-4283-b5a3-1536ea99a81c",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "8d7019b9-5ff1-4a3f-8a17-38e3e9c79e8b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "8ea07ff4-7d8d-460d-bd0e-71dac112f4b0",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "8fb68fbf-23d4-4212-91c9-5a72deb2d26f",
+      "difficulty_score": 81,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "915e40ad-18ad-4086-af42-a8d43077d635",
+      "difficulty_score": 69,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "927c06eb-71f9-4338-b1a6-de58cd512cdf",
+      "difficulty_score": 91,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "9298add7-c007-482f-9f2b-0eb440e4660a",
+      "difficulty_score": 97,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "92c29f81-8187-457c-9938-67c25a2363db",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "92dbcf80-8f79-4189-adfc-be4d153f6f30",
+      "difficulty_score": 87,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "937974fc-5a6d-4b9f-a0a9-db87c9af24d7",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "94a95d14-c7c1-4fa6-a89c-b1e08fcd73fa",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "94bba119-e470-4014-8df1-8f56c98f8438",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "94ebac03-e254-4d64-af1e-6c135ee32c93",
+      "difficulty_score": 86,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "9520121d-d519-4b52-9e28-e0672b3a5b88",
+      "difficulty_score": 71,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "98439d8e-1b57-4e73-adaa-503bc0981910",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "9b208ba0-fdb9-4dd7-ade7-61506d63572b",
+      "difficulty_score": 95,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "9b954a52-91a9-4ef4-89c5-079d4b4bd17f",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "9cad7b97-fab3-41b7-b3fc-c9a603263a14",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "9cf3149e-dde8-48cf-8e43-1439bae508f2",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "9db0cf60-a1a9-4e9c-ba2a-e2e6641c73ec",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "9e3d3923-6c33-46ca-be29-979b897ccba8",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "9efe9ab8-9c7f-478c-a3e3-6ebf27e43713",
+      "difficulty_score": 92,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "9f38bf57-308f-4b14-a6fa-b841e7d2862e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "a04f4eba-39fe-48f0-ba55-20a630d32b04",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "a3908764-9ea8-48f2-9f21-0bc00d7dc916",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "a3dd97ec-9e2a-48ea-8f5a-fee73682c10d",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "a3ea79a8-7292-44e6-b80b-1a80c6f06e4d",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "a55e55c4-cdc3-49d6-8794-5f3dc7b7e857",
+      "difficulty_score": 73,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "a63c253a-f17e-4aca-9c88-ac71d929ca65",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "a67ee7ac-2d4a-4e31-b856-a6123a0020d1",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "a735c49b-db85-44e8-807d-e380fedf5f72",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "a90591ec-5b69-4586-9221-d5e8f8ba4fa0",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "a9093e7e-6a82-4c32-8fbb-b486eb797c8f",
+      "difficulty_score": 83,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "aaacf007-22b9-4020-90c3-67634498350e",
+      "difficulty_score": 61,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "ab36d9db-e04b-4e01-90df-3e279acceac0",
+      "difficulty_score": 78,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ac2b1f6b-255b-4747-91c0-598f7b8788c2",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ac63431d-ff6f-49e8-ac9b-c3a3fe6352c6",
+      "difficulty_score": 71,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ac816d51-ce61-4d1e-aaf9-b7e274e17a82",
+      "difficulty_score": 55,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "aca8efb9-f8f7-4a2b-afcb-b2085d256d92",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "acc38720-e656-4741-8281-e4f45a3108cd",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "ad9f4d9a-1c8c-4e95-81c0-91d3906c6740",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "adb2048c-2a10-45e0-9dc1-a791f83f2efb",
+      "difficulty_score": 90,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ae836bd0-0524-49f6-9484-ac634ef0cf2f",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "aeb23db9-6424-4769-8370-1a97807f5889",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "aef7e770-82a7-475a-8ee6-ea9fa967c66e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b041743c-413c-43bb-ab4a-4b0ddb9124ef",
+      "difficulty_score": 74,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction",
+        "guess"
+      ],
+      "status": "rejected",
+      "book_id": null
+    },
+    {
+      "id": "b0642f23-9357-41a6-8489-18a37230e05a",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "b06fa8a3-73f3-4760-a06d-2375c021d877",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "b0999342-b4d4-403d-ba2b-fb4abf0cba47",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b0c0d475-7121-4fa7-b594-8b34acbb68b2",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "b0c16705-6c42-4215-8db5-4855976015b9",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b0d44cba-55b3-47a4-bd63-29e4062be44f",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b13d87b9-0f06-49e4-8e7f-5d52dc787894",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b17bea8a-7282-427c-bcb7-e677f31ab3e1",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b22b68ac-ee2a-491c-bb5c-d9b37239efde",
+      "difficulty_score": 67,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b4073048-9249-4d3a-b8ed-3dc751aa219a",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "b40ddabd-04f1-4239-aaef-11cc0f7f166a",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b47baf62-9553-4d19-a7d3-2b42197d6ff6",
+      "difficulty_score": 91,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "b4fa91dc-cfc0-4c65-87ff-f01cdb17bd42",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b7327290-e12a-4865-9958-9197d51fb001",
+      "difficulty_score": 66,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction",
+        "guess"
+      ],
+      "status": "rejected",
+      "book_id": null
+    },
+    {
+      "id": "b7415652-ace6-4411-95cb-21967dd10834",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "b76c0b85-43f4-4605-8061-a2b05bbe1662",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "b797ca6c-4820-4226-8356-f63b7a4218e4",
+      "difficulty_score": 97,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "b82538aa-ad6e-41d2-94d6-97417a86b452",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "b840efb7-e886-41a0-a179-467a1cb4c888",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "b9386ba2-cd23-446c-b38a-f8e764723ad7",
+      "difficulty_score": 89,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ba22f62e-1777-4c25-a7a9-bfc5259c68f3",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "baba36ae-1f6f-4e7e-a79d-3850d319316e",
+      "difficulty_score": 92,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "bd3cb7aa-75ec-435b-bc97-53aced0b21d4",
+      "difficulty_score": 78,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "be523221-a831-4cb0-8a15-cc13e4419429",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "bf990c76-344a-492c-ba8a-68ef35dc4f85",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "c087076e-9879-4418-b899-c0fc0960d200",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "c0adad32-3881-499e-a92d-a5b9bf109540",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "c0f2d3b9-a343-4b7d-8442-fe625eeee34e",
+      "difficulty_score": 96,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "c15a5ef0-09a5-4d38-8acf-9cdfa0c96922",
+      "difficulty_score": 68,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction",
+        "guess"
+      ],
+      "status": "rejected",
+      "book_id": null
+    },
+    {
+      "id": "c2f1c046-ae28-427e-bde1-0c55f6270663",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "c34159fb-c34f-477f-bb96-0d2747687b42",
+      "difficulty_score": 97,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "c3cb67cc-f859-4bd2-b3a9-ca344047cfcc",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "c4eda781-fd4f-41c5-8d8c-2f3b956cb188",
+      "difficulty_score": 69,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "c714ff5c-b396-4a20-8e47-c78d72b5023d",
+      "difficulty_score": 95,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "c71901d7-339b-4426-97c1-7616f0a068b8",
+      "difficulty_score": 96,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "c800d9c0-2493-41d5-a4a9-715e3341934b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "c80d1d1a-4e93-450e-bb18-2a480258f157",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "rejected",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "c86378be-b756-4ca1-a6d1-8b9001f638ad",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "c8cf8341-904c-43f0-afcb-8e592f2bb196",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "c9ea3256-630d-49d7-8b81-91db7404395b",
+      "difficulty_score": 34,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ca745dee-e84c-4593-9235-ccf2b52adb64",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "cb9714b9-7c44-42f0-8bc6-80ee1de89659",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "cbc968d0-a058-45bf-a769-fd157837d8bf",
+      "difficulty_score": 84,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "cc2ce0d8-ae72-4e99-bcf4-5c92bcb9e22b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "cd226f02-263d-4bf9-b90b-740a33496d35",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "cdec888e-8dbb-4d50-b81c-d30a1310f83b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "cfbee719-44fd-475a-9d69-9aa7d47aa716",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "d02d3ffe-78f8-4046-b52e-6485d79c13d8",
+      "difficulty_score": 97,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "d0c24a46-5461-4234-8312-fba36e5c2099",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "d19574b3-cef1-4a7d-90f3-b4b6f684cc8e",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "d20700ef-2250-42c5-9a3e-bf815167da78",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "d23c97c3-164e-4f20-8b01-b2f953ecae7a",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "d468b6c9-6e01-491c-b6a9-953f52a46705",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "d5d72a8c-f640-4ba1-8153-3dcd4b189826",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "d664a7fd-63ee-4c53-a0c8-b3971063034f",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "d94e3ae8-593b-4706-998a-247a3ad32bec",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "d9ba7e43-7ed2-4c11-b8cd-d36b4819a1e5",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "d9c6f93e-97fd-4ef0-b8e7-70a3ead705b2",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "d9ff3e12-1317-4afb-abaf-8b877b3d62a1",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "da67aa32-1534-49da-87d2-95e7c38ffad5",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "da784716-9ef4-477d-ac1a-5b622e9e7b55",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "da9c72ce-13b1-49e6-9373-2b3e48805a74",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "daac7d2c-eb31-4587-af18-ca5eba7c5a88",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "dad5d252-6eea-4403-a99c-6133aa3802fe",
+      "difficulty_score": 67,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "df9cc35e-1abc-4855-aa0f-fe7a8d743502",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "dfbf57c3-5e8e-4ce4-8fff-2e622b6b01cf",
+      "difficulty_score": 68,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "e0a5093e-3748-4c9b-9b21-74cfddbbab78",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "e12f09be-f4fd-4a3b-9195-3b3c35243ff6",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "e13cd762-0a5f-47bd-a37c-32eca9534e1b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "e286624b-6a18-48d8-8e22-c1064189fc2b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "e28ab870-9996-4ba9-8577-5f7a2caadd08",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "e2a4898d-3813-4d10-a5a0-1692d1c748ef",
+      "difficulty_score": 97,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "e3b27e09-68dd-4380-9a1c-0ef8f25d6bab",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "e5872694-44f0-4450-ae8e-738eca19fdf2",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "e7c9959f-16ad-4d04-80e5-24b390fd6f3b",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "e860fe35-8499-4fd9-8f0a-2245f5ab64eb",
+      "difficulty_score": 99,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "e89332db-b097-46b4-822a-3ecbc6274ca4",
+      "difficulty_score": 83,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ec915e16-39b0-4aed-ac47-36619468f006",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "ecf8deb9-f83a-4da0-9507-6007b6bed784",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "ed382d24-5b15-4d3d-8af2-1c64b6817940",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "ef2aee80-8b48-4630-8524-de55586e2e17",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "f025d40f-2d38-4dfe-9dc3-5f70db8df17d",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "f232f27a-59c5-452f-ac7a-8e2939cb9cfa",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "f5477a9b-daa7-4704-b004-1711bb7e78c5",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "f6269dd0-5b0a-44ed-8d24-71d8e740525f",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "f657b1c7-6a9e-459d-bebb-b7d211febd8c",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "f85ea0f8-b34f-48d8-8c74-1586d4c34d11",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "f8883c17-ba5f-4d91-b985-75481823c78d",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "fa73c79c-8941-4891-9fb0-536c3f206b11",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "fba52943-320c-4866-aa92-4f6189fe9c9c",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "fbc1af86-da26-4dd0-a125-389b9af91895",
+      "difficulty_score": 78,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction",
+        "guess"
+      ],
+      "status": "rejected",
+      "book_id": null
+    },
+    {
+      "id": "fc4a7859-1e30-45d7-88b0-d1205135f0ab",
+      "difficulty_score": 93,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp",
+        "probe_contradiction"
+      ],
+      "status": "draft",
+      "book_id": null
+    },
+    {
+      "id": "fdd3d8e4-22d1-4244-a753-256bbbc4e56d",
+      "difficulty_score": 62,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "line_dp"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "fe025c6f-334e-4fda-90e0-33a03d6d3d73",
+      "difficulty_score": 100,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": null
+    },
+    {
+      "id": "fe25bb0f-da79-48e7-9c2b-a2ad8afb2230",
+      "difficulty_score": 89,
+      "difficulty_tier": "medium",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ff093b6c-6035-490e-bff1-38b856876c49",
+      "difficulty_score": 33,
+      "difficulty_tier": "easy",
+      "strategies_used": [
+        "simple_overlap"
+      ],
+      "status": "draft",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    },
+    {
+      "id": "ff4a64db-2fa4-4675-86b3-5d15b8eea817",
+      "difficulty_score": 98,
+      "difficulty_tier": "hard",
+      "strategies_used": [
+        "simple_overlap",
+        "probe_contradiction"
+      ],
+      "status": "approved",
+      "book_id": "c134f9c6-b116-41fb-a181-f5cd2cccd501"
+    }
+  ]
+}

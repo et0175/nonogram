@@ -5,7 +5,7 @@
 **Category:** feature
 **Estimate:** 1d
 **Complexity:** standard
-**Revision pending:** false
+**Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/215-render-given-cells
@@ -145,3 +145,28 @@ _47 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 ## Worktree notes
 
 —
+
+## Architecture revision (2026-10-25)
+
+**Reason:** ADR-0042 (DEC-048) accepted 2026-10-25 — the book interior is written
+as PDF content-stream operators; the cover stays raster because it is a
+photograph, and the section dividers stay raster for now by owner decision the
+same day. The phase that converts the interior is CARD-294..CARD-299 (waves
+60-64), and this card is scheduled after it.
+
+**Was:** given cells print as a black cell for a revealed filled cell and a dot
+for a revealed empty one, with the card's own AC requiring **"the dot is at least
+1 device pixel across"**.
+
+**Should be:** the same design without that clause. "At least 1 device pixel" is a
+**device-floor constraint with no meaning in a vector interior** — there is no
+device pixel in a content stream, and the dot's size is whatever the layout states
+in millimetres.
+
+**Delta:**
+- Drop the device-pixel clause from the AC and restate the dot's size as a
+  physical measure.
+- The dot is a **round shape**, so it needs the curve primitive CARD-294 prices
+  (its AC-3) and CARD-296/297 first use. Read that recorded figure before
+  estimating this card.
+- Its tests move from ink measurement to content-stream assertions.

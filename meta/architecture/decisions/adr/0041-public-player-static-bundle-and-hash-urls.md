@@ -65,6 +65,45 @@ as R1; any change to any part of it (the prefix, the separator, the cell
 encoding, the algorithm, the truncation length or case) is a breaking change
 to every printed book and requires a new ADR.
 
+**DEC-044b — a finalized book's public slug is a content hash of its puzzle
+keys, and deliberately not of its title.** A book's public slug is the first 10
+lowercase hexadecimal characters of SHA-256 over the UTF-8 bytes of the string
+`"book:"` followed by the book's puzzle keys in book order, concatenated. Every
+key is exactly 10 characters by R1, so the concatenation needs no separator to
+be unambiguous — the same prefix-then-fixed-width-payload shape R1 already uses.
+
+**Why a content hash, and why the title is excluded.** The slug is printed in a
+QR code (`/b/<book-slug>`), and *a printed QR code cannot be re-pointed*. So the
+slug must be recomputable from what the printed artefact preserves and must not
+move when anything editorial changes:
+
+- **Not stored on the row.** This ADR already rejected a stored opaque slug for
+  puzzles, under "Stored opaque slug per puzzle", for the reason that applies
+  identically here: a stored slug "is stable only as long as the database and
+  its backups are", and a re-seed loses it. A content hash survives a re-seed
+  because the printed book preserves its puzzles.
+- **Not derived from the title.** A title is editorial: typos get fixed,
+  subtitles get added, a series gets renamed. Hashing the title would mean a
+  one-character correction in the admin panel silently breaks every QR code in
+  an already-printed run. **Owner decision 2026-10-24, taken explicitly against
+  the alternative of hashing `"book:{title}:"` plus the keys, which CARD-282
+  implemented before this rule existed.**
+- **Not human-readable.** A readable slug (`/b/snowflakes-easy-vol-1`) is
+  friendlier to type off a cover, but it needs a uniqueness registry — which
+  puts the slug back in the database — and it moves when the title is edited.
+  Both costs are the ones above.
+
+The remaining sensitivity is deliberate and accepted: the slug **does** change if
+the book's puzzle membership changes. That is a real change of content rather
+than an editorial one, and INV-012 already makes it an explicit, confirmed act
+on a book that has left draft. A reprint with different puzzles is a different
+book and may have a different URL.
+
+The recipe is pinned as **R7**, and as with R1 any change to any part of it — the
+prefix, the ordering, the absence of a separator, the algorithm, the truncation
+length or the case — is a breaking change to every printed book and requires a
+new ADR.
+
 **DEC-045 — the static host is Vercel.** The `player/` tree plus the exported
 bundle deploy to Vercel as a static site: no cold starts, CDN delivery, free
 tier sufficient. The admin panel's Render service stays untouched and never
@@ -193,6 +232,20 @@ write — the thing R4 exists to forbid.
 
 ## History
 
+- 2026-10-24: **R7 added — the book-slug recipe, which this ADR named but never
+  specified.** CARD-282's implementation round found that the Decision, the file
+  layout (`book/<slug>.json`) and DEC-046's tracking paragraph all refer to "the
+  book slug" while no recipe appears anywhere in this ADR, FR-045, TERM-040/041
+  or the glossary. It implemented one, declared in its own docstring as the
+  card's choice rather than this ADR's, and raised it — which is the correct
+  shape for a gap of this kind: a recipe printed in a QR code is an
+  architectural decision, not an implementation detail. **The owner resolved it
+  2026-10-24 and chose to hash the puzzle keys ALONE**, against the shipped
+  variant that also hashed the title, so that an editorial title edit cannot
+  break an already-printed run. R7 and DEC-044b record it. CARD-282 is being
+  revised to R7 before it merges, so no code cites a rule this ADR does not
+  contain.
+
 - 2026-10-23: Created. Resolves DEC-044 (grid content hash: first 10
   lowercase hex of SHA-256 over `"{width}x{height}:"` + row-major `'1'`/`'0'`
   cells), DEC-045 (Vercel static hosting; the admin Render service never
@@ -267,5 +320,19 @@ write — the thing R4 exists to forbid.
     a code-only change.
   scope: {code: ["player/**", "scripts/**", "tests/**"]}
   check: {kind: test, ref: "tests/test_public_player_pages.py::test_no_homegrown_tracking"}   # FR-045 AC-392 (planned, CARD-285); the blocked-analytics half is test_pages_work_with_analytics_blocked
+  severity: mandatory
+- id: ADR-0041/R7
+  statement: >-
+    A finalized book's public slug is the first 10 lowercase hexadecimal
+    characters of SHA-256 over the UTF-8 bytes of "book:" followed by the
+    book's puzzle keys in book order, concatenated with no separator (each
+    key is exactly 10 characters by R1). The book's title is NOT an input:
+    the slug is printed in a QR code that cannot be re-pointed, so an
+    editorial title change must not move it. Exactly one implementation
+    computes it. Any change to the prefix, the ordering, the absence of a
+    separator, the algorithm, the truncation length or the case is a
+    breaking change to every printed book and requires a new ADR.
+  scope: {code: ["src/nonogram/admin/**", "player/**", "tests/**"]}
+  check: {kind: test, ref: "tests/test_player_bundle.py::test_bundle_tree_and_clues_match_the_encoder"}   # FR-045 AC-380 (CARD-282); the title-independence half is test_the_slug_does_not_move_when_the_title_is_edited
   severity: mandatory
 ```

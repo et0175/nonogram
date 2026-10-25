@@ -3,7 +3,7 @@
 **Status:** Accepted (replaces ADR-0013)
 **Date:** 2026-09-12
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** 2026-09-12 (rung definitions made order-independent)
+**Revised:** 2026-09-12 (rung definitions made order-independent); 2026-10-24 (R6 — the branching ceiling)
 **Migration:** rewrite
 **Pattern:** —
 **API-Posture:** —
@@ -359,6 +359,15 @@ reproducibility promise would stay broken under `--difficulty`.
 
 ## History
 
+- 2026-10-24: Revised — R6, the branching ceiling (owner decision, same
+  session as DEC-047/ADR-0032/R3). The probe-share formula inverted for
+  branching solves: seven production puzzles whose solves branched
+  (branch_nodes 59–283, 63–97 % of cells settled only by search) all scored
+  66–77 — the *bottom* of Medium — because the share counts only
+  probe-settled cells and search had settled the rest. R3 already named
+  branch_nodes a legal score input; R6 uses it: branched ⇒ SCORE_MAX. The
+  stored-grade blast radius landed inside the same day's full regrade, so no
+  stale number survived the change.
 - 2026-09-13 (correction, CARD-076): **the score bands are the cutoff
   constants, not idealised thirds.** The revision below mapped the three rungs
   onto bands of 33.33 and said ADR-0005's 33/66 cutoffs were the rung
@@ -495,5 +504,10 @@ reproducibility promise would stay broken under `--difficulty`.
   statement: Rung attribution is reported only for a clue set with exactly one solution; a clue set with 0 or >= 2 solutions is not a puzzle, has no grade, and carries no attribution at all (empty or None per-cell tags, an all-zero per-rung histogram, an empty rung list). For uniquely-solvable clue sets, rung attribution is invariant under transposition and under line-visit order — a clue set and its transpose yield the same per-rung cell counts, the same rung list and the same score — and a change to the solver's iteration order may change how a fixed point is reached but never which cells belong to which rung. The invariance holds trivially for the non-unique ones too, since both orientations report nothing.
   scope: {code: ["src/nonogram/solver/**", "src/nonogram/difficulty.py"]}
   check: {kind: test, ref: PropertyTest_SolveStrategies_RungsInvariantUnderTransposition}
+  severity: mandatory
+- id: ADR-0029/R6
+  statement: A solve that branched (branch_nodes > 0) scores SCORE_MAX (100) before any rung is read — the ceiling rule. Its cells were settled by search, outside the ladder, and scoring it by its probe share inverts (the heavier the search, the fewer probe-settled cells, the lower the number — measured 2026-10-24 on seven production puzzles, all at the bottom of Medium). No line-solvable grade moves, cross-rung monotonicity is preserved (the ceiling ties only the full-share probe histogram), and there is deliberately no ordering among branching solves — ADR-0032/R3 makes them unpublishable, so the number's one job is to not lie. classify stays unary; the ceiling lands in Hard's band.
+  scope: {code: ["src/nonogram/difficulty.py"]}
+  check: {kind: test, ref: TestScoreDifficulty_BranchingSolvePinsTheCeiling}
   severity: mandatory
 ```

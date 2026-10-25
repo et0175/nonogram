@@ -2122,6 +2122,22 @@ functional:
         kind: boundary
         test: TestBookPageSpec_EvenPageGutterOnRight
     engineering_constraints:
+      # VERIFICATION RE-EXPRESSED 2026-10-25 (raw-requirements.md
+      # "## Delta 2026-10-25", bullet 4; ADR-0042/R6). The statement below is
+      # UNCHANGED. The one interior PIXEL reading in this property's file is
+      # `image.getpixel((probe_x, y))` at tests/property/test_book_layout.py:364,
+      # retired by ADR-0042/R6 and to be re-expressed against the written
+      # PDF's content stream.
+      # Measured 2026-10-25, correcting the intake's attribution: that probe
+      # does NOT belong to this EC's own named property test — it is inside
+      # `test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_pixels`,
+      # which that file's header attributes to ADR-0037/R2 (the grid's rule
+      # weights, FR-033). This EC's test
+      # (PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell)
+      # reads millimetres and page sizes, never pixels of drawn ink, so it is
+      # unaffected on its own terms. The probe is named here because it is
+      # co-located in this EC's file and a card converting that file touches
+      # it; the obligation is ADR-0037/R2's, recorded on FR-033.
       - id: EC-019
         statement: >-
           For any puzzle of 10..30 cells per side, any real clue depth and
@@ -2461,6 +2477,19 @@ functional:
       # AMENDED 2026-10-17 (CARD-224): the fixed-offset clause is restated as
       # the 42% float. The property is still a consistency one — what is
       # invariant is now the RATIO, not the offset.
+      #
+      # VERIFICATION RE-EXPRESSED 2026-10-25 (raw-requirements.md
+      # "## Delta 2026-10-25", bullet 4; ADR-0042/R6). The statement below is
+      # UNCHANGED. Same single probe as EC-019's, in the same file:
+      # `image.getpixel((probe_x, y))` at
+      # tests/property/test_book_layout.py:364, retired by ADR-0042/R6 and to
+      # be re-expressed against the written PDF's content stream. Measured
+      # 2026-10-25: it sits in the ADR-0037/R2 stroke-weight sibling
+      # (`..._StrokesAtLeastQuarterMillimetreHeavyTwiceThin_pixels`), not in
+      # this EC's own test
+      # (PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent), which
+      # reads geometry in millimetres and is unaffected on its own terms —
+      # see the fuller note on EC-019 and the obligation recorded on FR-033.
       - id: EC-022
         statement: >-
           For any puzzle extent of 10..30 per side and any clue depth, the
@@ -2501,6 +2530,15 @@ functional:
       # "any stored trim and margins" quantifier already requires of it.
       # Owner decision 2026-10-17: record this; do not change a margin to
       # restore the asymmetry.
+      #
+      # VERIFICATION RE-EXPRESSED 2026-10-25 (raw-requirements.md
+      # "## Delta 2026-10-25", bullet 4; ADR-0042/R6). The statement below is
+      # UNCHANGED. Same single probe as EC-019's and EC-022's:
+      # tests/property/test_book_layout.py:364, retired by ADR-0042/R6 and to
+      # be re-expressed against the written PDF's content stream. Measured
+      # 2026-10-25: it belongs to the ADR-0037/R2 stroke-weight sibling, not
+      # to PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity,
+      # which reads edges in millimetres — see EC-019's note and FR-033.
       - id: EC-032
         statement: >-
           For any puzzle extent of 10..30 per side, any clue depth, any
@@ -2522,32 +2560,104 @@ functional:
     # AMENDED 2026-10-17 (owner decision, CARD-227) — the open question below
     # is CLOSED, and ADR-0037/R2 is amended with it (see that ADR's History).
     # The grid gets THREE weights, not two, stated in points so they do not
-    # depend on the render resolution: 0.48 pt ordinary cell lines in GREY,
-    # 1.28 pt every 5th line, 2.08 pt outer border.
-    #   Provenance: the owner's artifact "Puzzle page layout" (2026-10-14)
-    #   specified 0.3 / 0.8 / 1.3 pt. Those RATIOS are kept exactly
-    #   (1 : 2.667 : 4.333); the figures are scaled up by 1.6 so the thinnest
-    #   line is 2 device pixels at 300 DPI. Why, measured rather than assumed:
-    #   0.3 pt is 0.1058 mm = 1.25 px, i.e. a ONE-pixel grey line, which can
-    #   dither or drop out on press -- and it is THINNER than the 0.17 mm that
-    #   ADR-0037 explicitly rejected as "exactly where faint lines hurt most"
-    #   on the evidence of 7 of 17 reviews of the 450-puzzle book complaining
-    #   of faint grid lines (research section 5). Shipping the artifact's
-    #   figures literally would have re-opened the complaint ADR-0037 exists
-    #   to close. 0.48 pt = 0.1693 mm = exactly 2 px, which is the same
-    #   0.17 mm the package already prints at its small cells today.
-    #   Rendered widths 2 / 5 / 9 px at 300 DPI are all distinct, so the three
-    #   weights stay distinguishable (AC-374).
-    #   The obvious middle path is arithmetically DEAD and was ruled out, not
-    #   skipped: lifting only the cell line to ADR-0037's old 0.25 mm floor
-    #   (0.709 pt) puts it at 2.95 px against the 5th line's 0.8 pt = 3.33 px,
-    #   and BOTH round to 3 px -- indistinguishable.
-    # Two things this amendment deliberately changes in ADR-0037/R2: the thin
-    # minimum (0.25 -> 0.17 mm, grey cell lines only) and "pure black" (cell
-    # lines are grey; the 5th lines and border stay dark). The heavy rule is
-    # no longer "2 x thin" -- it is the owner's ratio.
-    # NOT re-decided here: NFR-008's cell band, and the cell GEOMETRY. This
-    # changes stroke widths only.
+    # depend on the render resolution. Three things that amendment settled
+    # which the 2026-10-25 amendment below leaves standing: the cell lines
+    # are GREY rather than pure black (the 5th lines and the border stay
+    # dark); the heavy rule is no longer "2 x thin" but the owner's ratio;
+    # and the ratios 1 : 2.667 : 4.333 are the owner's own, from the artifact
+    # "Puzzle page layout" (2026-10-14), which specified 0.3 / 0.8 / 1.3 pt.
+    # NOT re-decided then and not re-decided now: NFR-008's cell band, and
+    # the cell GEOMETRY. This changes stroke widths only.
+    #
+    # SUPERSEDED 2026-10-25 — the FIGURES that amendment carried, kept here
+    # dated because they are the record of why the scale ever moved, NOT a
+    # live threshold. From 2026-10-17 to 2026-10-25 this entry read
+    # 0.48 / 1.28 / 2.08 pt: the owner's figures scaled by x1.6 so the
+    # thinnest line was 2 device pixels at 300 DPI (0.48 pt = 0.1693 mm =
+    # exactly 2 px) rather than the 1.25 px a 0.3 pt line rasterises to,
+    # which can dither or drop out on press and is thinner than the 0.17 mm
+    # ADR-0037 rejected as "exactly where faint lines hurt most" on the
+    # evidence of 7 of 17 reviews of the 450-puzzle book (research section
+    # 5). Rendered widths were then 2 / 5 / 9 px at 300 DPI, all distinct.
+    # The obvious middle path was arithmetically DEAD and was ruled out
+    # rather than skipped: lifting only the cell line to ADR-0037's old
+    # 0.25 mm floor (0.709 pt) puts it at 2.95 px against the 5th line's
+    # 0.8 pt = 3.33 px, and BOTH round to 3 px -- indistinguishable. Every
+    # number in this paragraph is a RASTER measurement, and the device floor
+    # it serves is exactly the premise ADR-0042/R7 retired. None of it
+    # describes what this requirement now states.
+    #
+    # AMENDED AGAIN 2026-10-25 (owner decision on the CARD-293 proof;
+    # raw-requirements.md "## Delta 2026-10-25 (b)"). THIS ONE CHANGES THE
+    # FIGURES: the grid's three weights are the owner's own
+    # 0.3 / 0.8 / 1.3 pt, and the statement below is amended with them.
+    # ADR-0037/R2 was amended the same day and its new statement is the
+    # authority on the wording (see that ADR's History, 2026-10-25). The
+    # owner read ~/Documents/nonogram-reviews/CARD-293/
+    # card293-proof-vector.pdf and chose page 1 — their own figures — over
+    # page 2, CARD-227's x1.6-scaled ones. The x1.6 existed for exactly one
+    # reason, the device floor in the paragraph above, and ADR-0042/R7
+    # removed that reason by making the interior a content stream, so the
+    # scaled figures had nothing left behind them. This closes the question
+    # ADR-0042/R7 deferred and discharges that rule's "the weights wait on a
+    # printed proof" clause; R7 was rewritten the same day. The ratios never
+    # moved — 1 : 2.667 : 4.333 in both.
+    #
+    # THE FIGURES ARE BOUND TO THE VECTOR MEDIUM, and that is the
+    # load-bearing part of the amendment. Measured by poppler on the
+    # rendered vector file (CARD-293 AC-2): the 0.3 pt cell line occupies
+    # 2 px at grey 89 at 300 DPI and 5 px at grey 89 at 1200 DPI — grey 89
+    # being round(255 x 0.35), so the declared tone is hit exactly at both
+    # and the width scales with the device. A RASTER generator does not
+    # antialias a declared width; it rounds each stroke to an integer pixel
+    # count, and at 300 DPI 0.3 / 0.8 / 1.3 pt rounds to 1 / 3 / 5 px --
+    # the one-pixel cell grid the 2026-10-17 amendment refused on those 7 of
+    # 17 reviews. That is the REFUSED CONFIGURATION and the statement below
+    # records it as such rather than dropping it: no puzzle grid is
+    # rasterised at these weights, and a raster grid stays held to at least
+    # 2 device pixels per rule, which at 300 DPI means it cannot use these
+    # figures at all. R2's device-pixel clause is thereby RE-EXPRESSED, not
+    # deleted — its PURPOSE (no dropout) still binds, its MECHANISM (a
+    # generator choosing an integer pixel count) does not exist in a content
+    # stream, where the RIP resolves a declared width at its own resolution.
+    #
+    # DECIDED ON SCREEN, NOT ON PAPER. ADR-0037's Decision section asks that
+    # these weights "become final only after the owner has seen them on
+    # printed proof pages"; what happened is that the owner judged the vector
+    # RENDERS. Two things therefore remain measured by nobody: dot gain —
+    # whether a 0.1058 mm grey line spreads, darkens or breaks up on
+    # uncoated cream stock under offset or toner — and whether 35% grey
+    # reads as "light guidance" or as "faded" on paper. The owner accepted
+    # that risk by deciding now; the revisit trigger is the first printed
+    # book or proof, and a revision there is an ADR-0037 amendment, not
+    # drift.
+    #
+    # THE PAGE-FURNITURE FLOOR IS NOT DECIDED HERE — flagged, not answered.
+    # R2 has never bound furniture: its 2026-10-17 scope clarification holds
+    # the interior header rule, the footer hairline and a divider to the same
+    # 2-device-pixel floor "for the dropout reason directly and not through
+    # R2". The interior going vector raises for furniture the same question
+    # this amendment answers for the grid, and CARD-222, CARD-225 and
+    # CARD-248 all cite that floor directly and keep today's figures. Nobody
+    # has asked about the furniture, so it stays as it is and the question
+    # stays open.
+    #
+    # STATUS, recorded because the registry otherwise reads as if it had
+    # shipped: these thresholds are DECIDED but UNLANDED. CARD-227 is the
+    # delivery card and has NOT merged; what ships today is COMP-007's
+    # 3 px / 6 px. A reviewer must not read a passing grid-weight test as
+    # evidence of 0.3 / 0.8 / 1.3 pt either — AC-372..AC-375 name tests
+    # CARD-227 still owes, so those refs are phantom by design until it
+    # lands, and this delta deliberately adds and changes no test name.
+    # Verification: the two interior PIXEL probes the 2026-10-25 (a) delta
+    # names (tests/property/test_book_layout.py:364 and
+    # tests/property/test_book_two_up.py:682) are BOTH inside
+    # PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin —
+    # ADR-0037/R2's property, i.e. THIS requirement's, not EC-019's /
+    # EC-022's / EC-032's / EC-028's, on whose entries the delta filed them.
+    # Re-expressing them against the written PDF's content stream per
+    # ADR-0042/R6 is the obligation of whichever card converts the interior,
+    # and it lands here.
     # New 2026-09-22 (BK-5, rules 7-8). Today the PDF header band
     # (export/layout.py header_band, HEADER_BAND_MM = 12) prints
     # "<name> — <tier>" on the puzzle page itself; MAJOR_RULE_EVERY = 5 in
@@ -2560,14 +2670,24 @@ functional:
       In a book, a puzzle's picture title appears only on its answer-key
       page, never on its puzzle page. The puzzle grid is printed in three
       rule weights, stated in points so they do not depend on the render
-      resolution: 0.48 pt for ordinary cell lines, drawn in grey; 1.28 pt
-      for every 5th grid line on both axes; and 2.08 pt for the outer
+      resolution: 0.3 pt for ordinary cell lines, drawn in grey; 0.8 pt
+      for every 5th grid line on both axes; and 1.3 pt for the outer
       border. The cell lines are lighter in ink than the 5th lines and the
-      border, so the grid reads through its heavier rules.
+      border, so the grid reads through its heavier rules. These are
+      PHYSICAL widths and they hold only where the grid is drawn as PDF
+      content-stream operators, because only there does the renderer
+      resolve a declared width and a declared tone at whatever resolution
+      it runs. A generator that RASTERISES a puzzle grid rounds each stroke
+      to an integer pixel count instead, and at 300 DPI these widths round
+      to 1 / 3 / 5 px — the one-pixel cell grid refused on 2026-10-17 — so
+      no puzzle grid is rasterised at these weights: a raster grid remains
+      held to at least 2 device pixels per rule at its own render
+      resolution, which at 300 DPI means it cannot use these figures at
+      all.
     source: [US-024]
     _meta:
       source: authored
-      resolved_question: "CLOSED 2026-10-17 by owner decision (CARD-227): the thresholds are 0.48 pt grey cell lines, 1.28 pt every 5th line, 2.08 pt outer border — the owner's own 1 : 2.667 : 4.333 ratios, scaled so the thinnest line is 2 device pixels at 300 DPI rather than one. Was an open question from 2026-09-22 to 2026-10-17; ADR-0037/R2 is amended with it."
+      resolved_question: "CLOSED 2026-10-25 on the owner's own figures, by owner decision on the CARD-293 proof: the three rule weights are 0.3 pt grey cell lines, 0.8 pt every 5th line, 1.3 pt outer border — ratios 1 : 2.667 : 4.333, the owner's throughout. The owner read ~/Documents/nonogram-reviews/CARD-293/card293-proof-vector.pdf and chose PAGE 1, their own 0.3 / 0.8 / 1.3 pt, over PAGE 2, CARD-227's x1.6-scaled 0.48 / 1.28 / 2.08 pt ('I looked at the pdf and I like it (vector versions)'). ADR-0037/R2 was amended the same day and its statement is the authority on the wording. HOW IT GOT HERE: open from 2026-09-22; closed once on 2026-10-17 on the scaled figures, whose x1.6 existed only 'so the thinnest line is 2 device pixels at 300 DPI rather than one' — ADR-0037/R2's device floor; ADR-0042/R7 made that floor inapplicable to a content-stream interior on 2026-10-25, retiring the premise, and this decision closes the question hours later on the unscaled figures, discharging R7's deferral. BOUND TO THE MEDIUM: measured by poppler (CARD-293 AC-2) the 0.3 pt cell line is 2 px at grey 89 at 300 DPI and 5 px at grey 89 at 1200 DPI — grey 89 = round(255 x 0.35), the declared tone hit exactly at both — but the same figures through a RASTER generator round to 1 / 3 / 5 px, the one-pixel cell grid the 2026-10-17 amendment refused on 7 of 17 reviews, so a raster puzzle grid keeps the 2-device-pixel floor and cannot use these figures at all. DECIDED ON SCREEN, NOT ON PAPER: ADR-0037 asks that the weights become final only on printed proof pages, and the owner judged the vector RENDERS; dot gain at 0.1058 mm on uncoated stock and whether 35% grey reads as guidance or as faded in print are measured by nobody, accepted by the owner in deciding now, revisit trigger the first printed book or proof. STILL OPEN, deliberately not answered here: the page-furniture floor, which R2 has never bound and which CARD-222 / CARD-225 / CARD-248 cite directly, keeping today's figures. STATUS: decided but UNLANDED; CARD-227 has not merged and what ships today is COMP-007's 3 px / 6 px."
       evidence: ["src/nonogram/export/layout.py:233-252", "src/nonogram/export/layout.py:406-500", "src/nonogram/admin/book_pdf_generator.py:185-210"]
     acceptance:
       - id: AC-193
@@ -2583,10 +2703,12 @@ functional:
         kind: happy
         test: TestBookPdf_AnswerKeyCarriesPictureTitle
       # AC-195 survives the 2026-10-17 three-weight amendment unchanged in
-      # SUBSTANCE: indices 0 and 30 are now the outer border (2.08 pt) and
-      # 5/10/15/20/25 the 5th lines (1.28 pt), and both are still wider than
-      # the 0.48 pt cell lines between them, so the assertion holds as
-      # written. Its `given` figure is STALE and deliberately not guessed:
+      # SUBSTANCE, and survives the 2026-10-25 figure change for the same
+      # reason — the ratios did not move: indices 0 and 30 are the outer
+      # border (1.3 pt) and 5/10/15/20/25 the 5th lines (0.8 pt), and both
+      # are still wider than the 0.3 pt cell lines between them, so the
+      # assertion holds as written. Its `given` figure is STALE and
+      # deliberately not guessed:
       # "printed at 4.97 mm" predates CON-018's amended margins (outside
       # 0.5 in, top 0.55 in, bottom 0.47 in), which shrink the usable area
       # and push a 30x30 cell to roughly 4.54-4.65 mm. Those margins are in
@@ -2602,8 +2724,17 @@ functional:
         test: TestBookPdf_EveryFifthGridLineWider
       - id: AC-372
         given: a book puzzle page's drawn grid
-        when: its rules are measured off the ink at the page's own resolution
-        then: ordinary cell lines are 0.48 pt, every 5th line is 1.28 pt and the outer border is 2.08 pt
+        # 2026-10-25 (b): `when` was "its rules are measured off the ink at the
+        # page's own resolution". That is the reading ADR-0042/R6 forbids for an
+        # interior page — recovering by pixel-counting a width the generator
+        # stated exactly is a reconstruction, it needs tolerances, and at these
+        # figures it cannot even be done on the shipped file, since the DCT round
+        # trip greys a rule's edges. The width is read from the operator that
+        # sets it. CARD-227's AC-1 carries the same wording, so the card and this
+        # criterion agree; CARD-299's derived R6 guard would have flagged an ink
+        # reading here.
+        when: its rules are read from the content stream of the written PDF
+        then: ordinary cell lines are 0.3 pt, every 5th line is 0.8 pt and the outer border is 1.3 pt
         kind: happy
         test: TestBookGridRules_HasThreeWeights
       - id: AC-373
@@ -2612,10 +2743,23 @@ functional:
         then: the cell lines are lighter than the 5th lines and the border — asserted as an ink-value ordering, not as one literal colour
         kind: happy
         test: TestBookGridRules_CellLinesAreLighterThanTheFifths
+      # AC-374's figures were re-measured 2026-10-25 with the weights
+      # themselves. It used to read "measured 2, 5 and 9 px", which were the
+      # retired 0.48 / 1.28 / 2.08 pt rasterised at 300 DPI; those numbers
+      # are recorded as history in this entry's comment block and are not a
+      # live expectation. The one measurement that exists for the figures
+      # this requirement now states is poppler's on the rendered VECTOR file
+      # (CARD-293 AC-2): the 0.3 pt cell line at 2 px, grey 89. The 5th
+      # line's and the border's vector spans are not measured by anybody
+      # yet and are deliberately not guessed here — CARD-227 owes this
+      # criterion's test and owes the measurement with it. The `when` now
+      # names the medium, because at these figures the medium decides the
+      # answer: rasterised they round to 1 / 3 / 5 px, which is the refused
+      # configuration, not a passing render.
       - id: AC-374
         given: a puzzle printed at the smallest cell the book admits (NFR-008's 4.75 mm floor)
-        when: the three weights are rendered at 300 DPI
-        then: each is at least one device pixel and no two round to the same width — measured 2, 5 and 9 px
+        when: the three weights are rendered at 300 DPI from the page's content stream
+        then: no two weights render to the same width and none drops out — the 0.3 pt cell line measures 2 px at grey 89
         kind: boundary
         test: TestBookGridRules_WeightsSurviveTheFloor
       - id: AC-375
@@ -3248,7 +3392,7 @@ functional:
     _meta:
       source: authored
       decided_by: "owner, 2026-09-22 (DEC-039 session) — BK-6, book_admin_ui_requirements.md rule 10"
-      relates_to: [NFR-008, FR-030, FR-032, FR-033, FR-041, ADR-0036, ADR-0037]
+      relates_to: [NFR-008, FR-030, FR-032, FR-033, FR-041, ADR-0036, ADR-0037, ADR-0042]
       open_question: "(1) How compute_layout's PageSpec expresses a two-slot page whose split depends on both puzzles (a pair-aware call vs two per-slot calls with a shared-cell cap) is not fixed by ADR-0036 — implementation shape, possibly an ADR-0036 revision. (2) Circularity: KDP's gutter minimum depends on the page count (AC-179), and the page count depends on pairing, which depends on usable width, which depends on the gutter; it cannot bite on the Book 1 profile (stored gutter 0.5 in >= both minimums) but can for a stored 0.375 in gutter near 150 pages. The resolution order is unstated."
       evidence: ["src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3", "docs/book_generation_req/book_admin_ui_requirements.md#5"]
     acceptance:
@@ -3416,6 +3560,20 @@ functional:
         invariant: INV-010
         instances: [AC-248, AC-249, AC-250]
         test: PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly
+      # VERIFICATION RE-EXPRESSED 2026-10-25 (raw-requirements.md
+      # "## Delta 2026-10-25", bullet 4; ADR-0042/R6). The statement below is
+      # UNCHANGED. The one interior PIXEL reading in this property's file is
+      # `page.getpixel((probe_x, y))` at
+      # tests/property/test_book_two_up.py:682, retired by ADR-0042/R6 and to
+      # be re-expressed against the written PDF's content stream. Measured
+      # 2026-10-25: it sits in
+      # `test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up_pixels`,
+      # which that file's header attributes to ADR-0037/R2 (FR-033's rule
+      # weights), not to this EC's own test
+      # (PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea),
+      # which reads the shared cell and both drawings' extents in
+      # millimetres and is unaffected on its own terms — see EC-019's note
+      # and the obligation recorded on FR-033.
       - id: EC-028
         statement: >-
           For any two puzzles of 10..30 cells per side, any clue depths and
@@ -3939,7 +4097,7 @@ functional:
     _meta:
       source: authored
       decided_by: "owner, 2026-09-22 (answers after carding (c)) — BK-9, book_admin_ui_requirements.md rule 15"
-      relates_to: [FR-030, FR-032, FR-041, FR-042, ADR-0036]
+      relates_to: [FR-030, FR-032, FR-041, FR-042, ADR-0036, ADR-0042]
       assumptions: "The cover file's format (a single-page PDF at the trim size, front cover only, the generated title cover when no image is uploaded) and 'both files offered for download' are stated by this FR; the owner said only 'the cover as a separate file'. The KDP cover-wrap sizing (spine width from page count, bleed) belongs to the deferred cover-wrap feature."
       evidence: ["src/nonogram/admin/book_pdf_generator.py:56-89", "src/nonogram/admin/book_pdf_generator.py:148-236", "src/nonogram/admin/app.py:2185", "src/nonogram/admin/app.py:2238-2297", "src/nonogram/admin/app.py:2384-2420", "docs/book_generation_req/book_generation_admin_panel.md#3"]
     acceptance:
@@ -4012,6 +4170,26 @@ functional:
       # page" becomes the title page with the guide on pages 2-3. Every other
       # clause — no cover page, parity from the 1-based interior position, the
       # page count, the one cover file — is unchanged.
+      #
+      # VERIFICATION RE-EXPRESSED 2026-10-25 (raw-requirements.md
+      # "## Delta 2026-10-25", bullet 3; ADR-0042/R6). The statement below is
+      # UNCHANGED — only how it is read is. This property's test
+      # (tests/property/test_book_export_interior.py) reads the INTERIOR as
+      # pixels in four places that ADR-0042/R6 retires, to be re-expressed
+      # against the written PDF's content stream:
+      #   :731  `np.asarray(interior[0].convert("L")).min() == 255` — the
+      #         blank title page's "no ink of any kind" (AC-283);
+      #   :734  `same_page(interior[1], _expected_guide(...))` — page 2 is
+      #         the expected GUIDE page;
+      #   :736  `not same_page(page, cover_page)` — no interior page is the
+      #         cover;
+      #   :848  the packed-answer ink scan (`cols_with_ink.size`).
+      # The page-COUNT assertions already read the written PDF and are
+      # unchanged.
+      # EXPLICITLY OUT OF SCOPE: `same_page(cover_page, expected_cover)`
+      # (:652) compares the COVER, which stays RASTER by ADR-0042/R2 because
+      # it is a photograph. It must NOT be converted — a card that converts
+      # every page comparison in this file uniformly has broken R2.
       - id: EC-034
         statement: >-
           For any book (any members, levels, pairing, answer-key layout and
@@ -4935,6 +5113,103 @@ functional:
         kind: consistency
         instances: [AC-385]
         test: tests/test_public_player.py::test_no_write_request_for_any_interaction
+
+  - id: FR-046
+    # New 2026-10-24 (raw-requirements.md "## Delta 2026-10-24"; OWNER
+    # DECISION 2026-10-24, DEC-047 resolved the same day by ADR-0032
+    # revision R3; US-029; CARD-291 implements). The human-solvability
+    # gate: unique (CON-005, ADR-0032/R1) is not the same fact as humanly
+    # solvable — a solve can prove exactly one solution while finding it
+    # only by branching search. Measured this session: 7 production
+    # puzzles carry the `guess` strategy (branch_nodes 59-283, 63-97% of
+    # cells settled only by search), all graded medium by the probe-share
+    # formula, 6 approved and all 6 in book c1.
+    # Relations:
+    #  - FR-029 / ADR-0025/R2: `guess` is already read off branch_nodes of
+    #    the one verifying solve; this FR makes it load-bearing at the
+    #    approval door instead of only reportable/filterable.
+    #  - ADR-0029/R2: one verifying solve per grade — the gate reads the
+    #    stored solver-written strategies list when one exists and
+    #    re-solves (budgeted) only when it does not; never a second solve
+    #    on the happy path.
+    #  - INV-002 / FR-011: the same fail-closed posture one door earlier —
+    #    an approval is a claim of publishability and an unverifiable
+    #    claim refuses.
+    #  - ADR-0031 / difficulty.py: deliberately untouched — "needs
+    #    guessing" is not a harder tier (the score's probe-share metric
+    #    inverts for branching puzzles, which is how all seven landed at
+    #    the bottom of Medium); re-scaling grades was rejected in DEC-047.
+    #  - INV-008 / INV-012: nothing demotes an approved or in-book puzzle
+    #    automatically; the 2026-10-24 stock remediation (regrade all,
+    #    remove the guess-level rows) was the owner's explicit one-time
+    #    operation, not part of this rule.
+    #  - ADR-0039/R1-R2: the set of gated doors is derived (AST walk over
+    #    writes of PuzzleStatus.APPROVED), default-DENY on an unlisted
+    #    writer, each door's control reds with the gate deleted there.
+    statement: >-
+      No puzzle that needs guessing is publishable: every path that moves a
+      puzzle into the approved status (the per-puzzle action, the bulk
+      batch action, either store mode) and every store of a replacement
+      grid onto an approved or in-book puzzle refuses a puzzle whose
+      verifying solve branched (branch_nodes > 0 — the guess strategy,
+      FR-029), with a message naming the reason; a puzzle whose verdict
+      cannot be obtained (unreadable grid, non-unique grid, or a solve not
+      concluded within budget) is refused with its own distinct
+      could-not-verify message rather than approved. The verdict is read
+      from the stored solver-written strategies list when one exists, else
+      from one budgeted re-solve. A draft puzzle may hold a branching
+      grid; it cannot leave draft carrying one. Nothing demotes an
+      already-approved or in-book puzzle automatically.
+    source: [US-029]
+    _meta:
+      source: authored
+      decided_by: "owner, 2026-10-24 — DEC-047 resolved by ADR-0032/R3 after this session's measurement (7 branching puzzles in production, 6 approved in book c1)"
+      priority: must
+      relates_to: [FR-029, FR-011, CON-005, ADR-0025, ADR-0029, ADR-0031, ADR-0032, ADR-0039]
+      assumptions: >-
+        The stored strategies_used list tracks the stored grid (generation
+        and the two-phase edit both write it from the grading solve) — the
+        implementer verifies that at the edit seam rather than restating
+        it. "Remove the existing guess-level stock" is the 2026-10-24
+        operation, already executed outside this FR.
+      evidence: ["meta/kanban/cards/CARD-291.md", "meta/architecture/inputs/raw-requirements.md ## Delta 2026-10-24"]
+    acceptance:
+      - id: AC-393
+        given: a draft puzzle whose verifying solve branched
+        when: the owner approves it (route or service, either store mode)
+        then: the approval is refused with a message naming that the puzzle needs guessing, and the status stays draft
+        kind: negative
+        test: tests/test_approval_guess_gate.py::test_approve_refuses_a_branching_puzzle
+      - id: AC-394
+        given: a batch holding branching and non-branching puzzles
+        when: the batch is approved
+        then: the non-branching puzzles approve, the branching ones keep their status, and the report states how many were held back and why
+        kind: happy
+        test: tests/test_approval_guess_gate.py::test_batch_approve_holds_back_branching_puzzles
+      - id: AC-395
+        given: a puzzle whose strategies cannot be determined (unreadable grid, non-unique grid, or a solve that does not conclude in budget)
+        when: approval is attempted
+        then: it is refused with the could-not-verify message — never approved
+        kind: negative
+        test: tests/test_approval_guess_gate.py::test_unknown_verdict_fails_closed
+      - id: AC-396
+        given: an approved or in-book puzzle and a verified replacement grid that needs guessing
+        when: the edit is stored
+        then: the store refuses and the stored grid is unchanged; the same replacement stores onto a draft
+        kind: boundary
+        test: tests/test_approval_guess_gate.py::test_edit_refuses_a_branching_grid_behind_the_approved_door
+    engineering_constraints:
+      - id: EC-051
+        statement: >-
+          Every write of PuzzleStatus.APPROVED in src/nonogram/** passes
+          the gate (ADR-0032/R3): the writer set is derived by an AST walk
+          over the tree, default-DENY on a writer the gate does not cover,
+          and each gated door carries a control that reds with the gate
+          deleted at that door — caught WITH the mechanism, missed WITHOUT
+          it (ADR-0039/R1-R2), measured per assertion.
+        kind: consistency
+        instances: [AC-393, AC-394, AC-396]
+        test: tests/test_approval_guess_gate.py::test_every_approved_writer_passes_the_gate
 
 non_functional:
   - id: NFR-001
@@ -6104,6 +6379,36 @@ constraints:
       # TestInteriorType_FloorHoldsWithoutArial,
       # TestInteriorType_OnlyPuzzleClueDigitsAreExempt and
       # TestDividerPage_PointSizeIsIndependentOfDpi are traced with it.
+      #
+      # 2026-10-25 (raw-requirements.md "## Delta 2026-10-25", bullet 2;
+      # ADR-0042 / DEC-048 accepted the same day): the statement above is
+      # UNAFFECTED — a reader-facing type floor is a physical measure and is
+      # medium-independent. What ADR-0042/R6 retires is this ref's MECHANISM.
+      # The ref stands and is green today (the interior still ships raster;
+      # CARD-231 is the delivery card and has not merged), so it is kept as
+      # `kind: test` rather than flipped back to `kind: review-lens` — the
+      # 2026-10-06 note above records why a live test ref beats a lens.
+      # What the card that converts the interior must carry:
+      #  - the recording works by spying on `ImageDraw.ImageDraw.text`
+      #    (tests/test_book_interior_type_floor.py:233,261) and a vector
+      #    interior makes no such call;
+      #  - the floor assertion itself,
+      #    `below_floor(recording(book, arial=True)) == []` (:353), would be
+      #    VACUOUSLY TRUE on an empty recording — a converted interior would
+      #    pass it while measuring nothing;
+      #  - what stops that is the sibling
+      #    `test_the_recording_covers_every_kind_of_interior_lettering`
+      #    (:355), asserting
+      #    `{"guide","divider","band","footer label","answer caption"} <= kinds`,
+      #    so the conversion reds LOUDLY instead of passing silently. That
+      #    non-vacuity floor is the part that must survive the rewrite,
+      #    re-expressed against the written PDF's text-showing operators and
+      #    their `Tf` sizes per ADR-0042/R6.
+      #  - `divider` stays RASTER (owner decision 2026-10-25: the dividers
+      #    are left out of the conversion pending a nicer design, so
+      #    CARD-231's redesign is born vector rather than converting today's
+      #    page) and keeps its current reading — the rewritten recording is
+      #    therefore mixed-source, not wholly content-stream.
     severity: mandatory
   - id: CON-021
     # LINKED 2026-10-03 to ADR-0038 (DEC-040): the client-approach ADR

@@ -5,7 +5,7 @@
 **Category:** feature
 **Estimate:** 1d
 **Complexity:** standard
-**Revision pending:** false
+**Revision pending:** true
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/208-printed-clue-boxes
@@ -379,3 +379,28 @@ commit and asks the card to record whether CARD-197 got there first.
   `src/nonogram/admin/book_pdf_generator.py` are both declared
   `conflict.hotspots`, so the dispatcher serializes this card against anything
   else touching them regardless of overlap score.
+
+## Architecture revision (2026-10-25)
+
+**Reason:** ADR-0042 (DEC-048) accepted 2026-10-25 — the book interior is written
+as PDF content-stream operators; the cover stays raster because it is a
+photograph, and the section dividers stay raster for now by owner decision the
+same day. The phase that converts the interior is CARD-294..CARD-299 (waves
+60-64), and this card is scheduled after it.
+
+**Was:** printed clue numbers in ruled boxes, drawn as raster at 300 DPI —
+many thin rules at clue-box scale, which is exactly the sub-pixel case
+ADR-0037/R2's device floor made unresolvable.
+
+**Should be:** the same design, drawn as operators, where a clue-box rule can be
+as light as the design wants without colliding with the pixel grid.
+
+**Delta:**
+- The card's 2026-10-14 amendment added 5% grey shading, and the decomposition of
+  that into acceptance criteria assumed a raster surface.
+- Rule widths at clue-box scale are no longer floored by the device. Re-derive the
+  figures rather than inheriting ones chosen to clear 2 px.
+- Its tests move from ink measurement to content-stream assertions (ADR-0042/R6).
+- The open owner question on this card — whether "clue areas shaded" means each
+  number's own box or the whole gutter band — is **unaffected** by ADR-0042 and
+  still owed.
