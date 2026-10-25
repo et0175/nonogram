@@ -1200,25 +1200,46 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
          refusals (W30–W35, plus the call-graph alias row) and so are chains
          two and three links longer. Cycle 1 then falsified it twice more,
          one level further in each time, which is this family's whole
-         signature. One of the two is **closed**: an attribute is keyed by
-         spelling alone, so one unrelated resolving occurrence of the
-         spelling used to skip the own-instance surface rule and silence a
-         ``setattr``-installed door — the attribute branch's ``continue`` is
-         conditional on a refusal now, and no row of :data:`DOOR_SHAPES` can
-         be switched off from outside itself
-         (:meth:`test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`).
-         The other is **declared**: the chain's terminal is read as the
-         ``def``/``class``/``import`` this module's text shows, so a
-         decorator at the terminal refuses but a definition rebound where
-         this walk sees no store does not. **So the sentence is still
-         false**, of exactly that residue — and the residue has a named
-         exemption class, its own step of the measured cost sequence (**0**,
+         signature. The first of the two was the **KEY** the chain is keyed
+         on, and it had **three vehicles, not one** — which is the correction
+         cycle 2 made to the fourth version of this sentence, where this
+         clause read *"one of the two is closed"* and counted only the
+         vehicle that had been fixed. An attribute is keyed by spelling
+         alone, so a resolving occurrence of the spelling skipped the
+         own-instance surface rule and silenced a ``setattr``-installed door.
+         Two of the three are **closed**: the occurrence in an *unrelated*
+         class, by making the attribute branch's ``continue`` conditional on
+         a refusal, with no row of :data:`DOOR_SHAPES` switchable off from
+         outside itself
+         (:meth:`test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`);
+         and the spelling *already standing on the class's surface*, which
+         was silent with **nothing appended at all** because the authority
+         was built with ``ast.walk`` over the ``ClassDef`` and so claimed
+         nine names nested inside ``BookPDFGenerator``'s own methods — closed
+         by reading the holder's **direct** members, with the control cycle
+         2's surviving mutant proved missing
+         (:meth:`test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface`).
+         The third is **declared**, not closed, and this card's own fix round
+         is what opened the fallback it defeats: a resolving store of the
+         same spelling **inside the calling class**, where one line both
+         resolves the chain and puts the spelling on the surface, so neither
+         condition of the fallback can fail independently
+         (:data:`MEASURED_BLIND_SPOTS`' R9).
+         The second of the two is **declared** likewise: the chain's terminal
+         is read as the ``def``/``class``/``import`` this module's text
+         shows, so a decorator at the terminal refuses but a definition
+         rebound where this walk sees no store does not (R8). **So the
+         sentence is still false** — of that residue, which is **two**
+         declared rows and not one, both absorbed by the same named exemption
+         class, which has its own step of the measured cost sequence (**0**,
          listed in :data:`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING`
-         and kept only by the blind-spot row it absorbs) and a lever that
+         and kept only by the blind-spot rows it absorbs) and a lever that
          names it, which is what the deleted ``ONE_STEP_ANCHOR`` had and
          what its deletion left unreplaced. The reason the sentence is kept is that it was
          re-asserted as true three times while it was false, and a reader of
-         the fourth version should be able to see what that cost.
+         the fifth version should be able to see what that cost — including
+         that the fourth version was itself one of the four, which is why
+         this one counts vehicles instead of claiming an axis.
 
        That polarity is nonetheless the whole of the rest of it: the first
        version
@@ -1535,13 +1556,15 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         resolve: a terminal's identity is read off the ``def``, ``class`` or
         ``import`` this module's text shows. A **decorator** puts an
         unspelled door at exactly such a terminal, so a decorated definition
-        is not read as one and the chain onto it refuses; a definition
-        rebound where this walk can see no store at all -- ``globals()``, a
-        module ``__dict__`` store, an importer's monkeypatch -- is **not**
-        reached, and that residue is the
-        ADR-0039/R3 exemption class ``a chain whose terminal is a definition
-        or an import``, with a :data:`MEASURED_BLIND_SPOTS` row read in both
-        directions. This sentence said *"fails closed on the whole door
+        is not read as one and the chain onto it refuses. Two shapes on that
+        far side are **not** reached: a definition rebound where this walk can
+        see no store at all -- ``globals()``, a module ``__dict__`` store, an
+        importer's monkeypatch -- and a resolving store of the same spelling
+        inside the **calling** class, where the store that resolves the chain
+        is the store that puts the spelling on the own-instance surface. That
+        residue is the ADR-0039/R3 exemption class ``a chain whose terminal is
+        a definition or an import``, with one :data:`MEASURED_BLIND_SPOTS` row
+        per shape (R8, R9), each read in both directions. This sentence said *"fails closed on the whole door
         axis"* for exactly one commit and was false when it shipped, for the
         third time in this family; the word it is missing now is **whole**.
         The position axis is closed on its **binding occurrences** only. The
@@ -2272,20 +2295,31 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                 a **decorated** definition is not a fixed point here and the
                 chain onto it refuses
                 (:data:`TestDoorAxis_TheNextIndirectionIsNotSilentEither.TERMINAL_SHAPES`).
-                What is left is a definition rebound where this walk can see
-                no store at all -- ``globals()[...]``, a module ``__dict__``
-                store, an importer's monkeypatch -- which no reading of this
-                module's text can tell from the ``def`` itself. A rebind it
-                *can* see as a store is already refused by the ``opaque``
-                branch. That residue is the ADR-0039/R3 exemption class
-                ``a chain whose terminal is a definition or an import``: with
-                it in place a resolved chain passes, with it removed **every**
-                resolved chain refuses and names itself, and its own
-                :data:`MEASURED_BLIND_SPOTS` row (R8) is read in both
-                directions by
+                What is left is **two** shapes, and stating it as one is what
+                cycle 2's F-2 falsified in this very paragraph. The first is a
+                definition rebound where this walk can see no store at all --
+                ``globals()[...]``, a module ``__dict__`` store, an importer's
+                monkeypatch -- which no reading of this module's text can tell
+                from the ``def`` itself; a rebind it *can* see as a store is
+                already refused by the ``opaque`` branch. The second is a
+                resolving store of the same spelling **inside the calling
+                class**: fix round 1 made the attribute branch's ``continue``
+                conditional on a refusal, so a resolved chain falls through to
+                the own-instance surface rule instead of past it -- and that
+                fallback is defeated by construction exactly there, because
+                the store that resolves the chain *is* the store that puts the
+                spelling on the surface. Both are the ADR-0039/R3 exemption
+                class ``a chain whose terminal is a definition or an import``:
+                with it in place a resolved chain passes, with it removed
+                **every** resolved chain refuses and names itself, and each
+                has its own :data:`MEASURED_BLIND_SPOTS` row -- R8 and R9 --
+                read in both directions by
                 :meth:`test_the_declared_blind_spots_are_still_silent`. That
                 lever is what the deleted ``ONE_STEP_ANCHOR`` class used to
                 supply by accident and what its deletion left unreplaced.
+                Neither shape is closed by this card; R9 is the one its own
+                fix round opened the fallback for, and closing it is a
+                successor's.
 
                 A parameter is deliberately **not** a terminal here: its
                 callers are the call-graph axis, so a chain that ends in one
@@ -4233,7 +4267,10 @@ class Generator:
     #: **attribute** storage because the gate is written once per storage and
     #: :data:`MEASURED_BLIND_SPOTS`' R8 reads the local one; a single reading
     #: would have certified one gate and left a mutant on the other with no
-    #: cell. The other three cannot reach a door, and that is
+    #: cell. The attribute storage therefore carries **both** readings of this
+    #: class -- this row, which passes, and R9, the residue cycle 2 measured
+    #: there -- so the gate's two directions and its declared hole sit in the
+    #: same storage rather than being inferred across them. The other three cannot reach a door, and that is
     #: stated rather than implied: what the ``builtins`` class absorbs is a call to a
     #: **builtin name with no binding occurrence in this module**, and no door
     #: can hide behind one -- asserted below as
@@ -4888,14 +4925,16 @@ class Generator:
     #: closure refuses a chain it cannot resolve, which is not the same thing
     #: as resolving the call graph.
     #:
-    #: **Three of the five rows have no lever**, and that asymmetry
+    #: **Three of the six rows have no lever**, and that asymmetry
     #: is stated here rather than papered over: :meth:`_page_positions`
     #: exposes ``doors=``, ``follow_terms=``, ``door_arms=`` and
     #: ``callee_exemptions=`` and nothing for the VALUE or CALL-GRAPH axes, so
     #: those three rows assert silence only, with no "caught with the
     #: mechanism removed" direction. CARD-276 closed neither axis and so built
     #: neither lever; R3's row has one, because an exemption class is what
-    #: absorbs it, and fix round 1's R8 has one for the same reason.
+    #: absorbs it, and fix round 1's R8 and cycle 2's R9 have one for the same
+    #: reason -- the same class absorbs both, which is why its reach statement
+    #: had to name two shapes instead of one.
     #:
     #: **A lever has to name the mechanism it exposes.** Cycle 1's F-4
     #: measured that a ``setattr``-installed door, silent at the fork point,
@@ -5009,6 +5048,56 @@ class Generator:
             "it cannot see, which no reading of this module's text can tell "
             "from the `def` itself",
         ),
+        # ------------------------------------------------------------------
+        # CARD-276 cycle 2's F-2, DECLARED here rather than closed, and the
+        # reason this card's own fix round is implicated in it. Fix round 1
+        # made the attribute branch's `continue` conditional on a refusal, so
+        # a RESOLVED chain falls through to the own-instance surface rule
+        # instead of past it -- and that fallback is defeated by construction
+        # whenever the laundering occurrence sits in the CALLING class,
+        # because the store that resolves the chain is the store that puts
+        # the spelling on the surface. The row is the same exemption class's
+        # second shape (R8 is the first), which is what made the class's
+        # one-shape reach statement false in three places.
+        #
+        # RE-MEASURED AGAINST THIS CARD'S OWN HEAD, not inherited from the
+        # cycle-2 report: 084fa6d7 narrowed the surface rule's authority to
+        # DIRECT members, which is the same mechanism this vehicle travels
+        # through, so the reading had to be retaken after it. Silent at both
+        # revisions, module cost unchanged (sites=23 vocabulary=6 refusals=0)
+        # and all 36 DOOR_SHAPES rows still matching their declared outcomes.
+        # ------------------------------------------------------------------
+        (
+            "the TERMINAL class: a resolving store of the same spelling "
+            "inside the CALLING class (R9)",
+            """        self._d = interior_page_count
+        setattr(self, "_d", getattr(self, "page_" + _S)); self._d(3 + len(section))
+        first_answer_page = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT""",
+            '\n_S = "spec"\n',
+            "a chain whose terminal is a definition or an import",
+            "the `setattr` runs after the store, so at run time `self._d` IS "
+            "`self.page_spec` and the call reaches the real door with the bare "
+            "literal 3. The store that makes the chain resolvable is the same "
+            "store that puts `_d` on the class's attribute surface, so the "
+            "fallback fix round 1 installed cannot fire: both of its "
+            "conditions are met by one line. The ATTRIBUTION CONTROL is what "
+            "says this is the resolved pass and not the surface rule in "
+            "general -- the same plant with an OPAQUE store refuses before "
+            "the anchor is consulted (`self._d = None` and `self._d = 1 + 2` "
+            "both give ('refusal',), `self._d = interior_page_count` is "
+            "silent) -- and a two-link variant "
+            "(`self._y = interior_page_count; self._d = self._y`) is silent "
+            "too, so it is the level and not the step count. Exhaustive over "
+            "all 32 exemption subsets, 24 expose it and exactly two minimal "
+            "sets do: `builtins`, which fires on the plant's own `getattr` "
+            "and is therefore no lever, and this class, which yields exactly "
+            "one refusal naming its own mechanism. Unlike R8 this shape is an "
+            "ATTRIBUTE installed from outside the text under a spelled name "
+            "-- territory the surface rule's own comment claims -- so the "
+            "class absorbs a shape its reach statement did not name, which is "
+            "CARD-262's F-502 pattern and is corrected in all three places "
+            "rather than here alone",
+        ),
     )
 
     #: The labels of :data:`MEASURED_BLIND_SPOTS`, spelled a second time for
@@ -5021,6 +5110,8 @@ class Generator:
         'module does not define (R3)',
         'the TERMINAL class: a definition rebound where this walk can see '
         'no store (R8)',
+        'the TERMINAL class: a resolving store of the same spelling inside '
+        'the CALLING class (R9)',
     )
 
     def test_the_declared_blind_spots_are_still_silent(self):
@@ -5055,9 +5146,10 @@ class Generator:
         exemption class is read a second time with that class removed, and
         must then produce a refusal **attributable to the plant itself** --
         which is what says the silence is the class's doing and not the
-        plant's inertness. R3 has that lever, and so does R8 -- fix round
-        1's row, whose class gates the resolved pass and whose removal
-        refuses every resolved chain by name. The other three rows -- two
+        plant's inertness. R3 has that lever, and so do R8 and R9 -- fix
+        round 1's row and cycle 2's, whose shared class gates the resolved
+        pass and whose removal refuses every resolved chain by name. The
+        other three rows -- two
         VALUE, one CALL-GRAPH -- do **not**: they are open axes rather than
         exemption classes, :meth:`_page_positions` exposes no lever for
         either axis, and CARD-276 closed neither, so it built neither. That
@@ -5069,7 +5161,11 @@ class Generator:
         single-drop lever at ``ced5e648`` was ``builtins`` -- which fires
         because the plant's own three lines call ``getattr``, not because
         anything could see the door. A row whose only lever is ``builtins``
-        has no lever, and R8's is its own class.
+        has no lever, and R8's and R9's is its own class -- for R9 that is
+        measured rather than asserted: 24 of the 32 exemption subsets expose
+        it, and of the two minimal sets that do, one is ``builtins`` firing on
+        the plant's own ``getattr`` and the other is the class itself,
+        yielding exactly one refusal that names its own mechanism.
 
         It is deliberately **not** a row of :data:`DOOR_SHAPES` or
         :data:`PLANTED_SHAPES`: those tables forbid a silent outcome, and a
@@ -5327,20 +5423,34 @@ class TestDoorAxis_TheNextIndirectionIsNotSilentEither:
     that refuses everything reds as loudly as one that refuses nothing.
 
     **Cycle 1 then found the level again, twice, one indirection further in
-    each time, and this class holds both answers.** The KEY the chain is
-    keyed on: an attribute is keyed by spelling alone, so one unrelated
-    resolving occurrence silenced a ``setattr``-installed door --
+    each time.** This class holds the answer for the TERMINAL one and for
+    **two of the KEY one's three vehicles** -- not "both answers", which is
+    what it claimed until cycle 2 measured the third and found it silent with
+    nothing appended. The correction is recorded here rather than quietly
+    widened, because the claim being wider than the controls is this card's
+    whole subject.
+
+    The KEY the chain is keyed on: an attribute is keyed by spelling alone, so
+    a resolving occurrence silenced a ``setattr``-installed door --
     :data:`SURFACE_SHAPES_LAUNDERED` and
     :meth:`test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`,
     which also reads every attribute-callee row of
     :data:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage.DOOR_SHAPES`
-    so no row can be switched off from outside it. And the TERMINAL the chain
-    lands on: the sentence *"a door cannot stand at a ``def`` terminal
-    without being spelled"* was false, because a decorator can --
-    :data:`TERMINAL_SHAPES`. What is left of that second one is a definition
-    rebound where this walk can see no store at all, which is **declared**,
-    with a lever that names its own mechanism rather than one that fires on
-    the plant's ``getattr``.
+    so no row can be switched off from outside it. That is the
+    unrelated-class vehicle. The class-surface vehicle is the second, answered
+    by the direct-member authority and
+    :meth:`test_a_name_nested_inside_a_method_is_not_the_classs_attribute_surface`
+    below. The third -- a resolving store of the same spelling inside the
+    **calling** class -- is answered **not at all**, and
+    :data:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage.MEASURED_BLIND_SPOTS`'
+    R9 declares it instead.
+
+    And the TERMINAL the chain lands on: the sentence *"a door cannot stand at
+    a ``def`` terminal without being spelled"* was false, because a decorator
+    can -- :data:`TERMINAL_SHAPES`. What is left of that second one is a
+    definition rebound where this walk can see no store at all, which is
+    **declared** (R8), with a lever that names its own mechanism rather than
+    one that fires on the plant's ``getattr``.
     """
 
     #: One row per indirection shape, each reaching the module's real geometry
