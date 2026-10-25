@@ -75,6 +75,25 @@ review:
   #       part of the gate path -- a dependency decision, not a config one.
   test_scope: impact
 
+  # REFIRE POLICY (owner, 2026-10-25, wave 60). A review cycle re-fires every
+  # GATING finding's mutation plus a SAMPLE of the minors — not all of them. The
+  # fix station still mutates all of its own additions before hand-back, and a
+  # gating finding's closure is still independently re-derived; what stops is a
+  # reviewer re-confirming every minor the fix round already mutated and the
+  # orchestrator already pre-gated.
+  #
+  # Measured on CARD-294 cycle 2, which re-fired all 17 of its fix round's
+  # mutations plus 5 of its own: ~7.1 hours over 63 tool calls, with UNDER 25
+  # MINUTES of pytest inside it (the four claim files run in 8 s; those plus the
+  # guard quartet in 52 s). The cost is per-step model time over a large context,
+  # so it scales with the NUMBER of mutations rather than their runtime. Roughly
+  # a third of a review's steps are recoverable this way.
+  #
+  # NOT a licence to narrow mutation generally: CARD-294 cycle 1's CRITICAL
+  # finding was a control that could not fail (a `class PropertyTest_…` pytest
+  # never collected, so the card's own EC ran zero times with no skip and no
+  # error), and that is what a thin mutation policy ships.
+  #
   # On: this project already reviews by mutation — merged cards routinely
   # record "4 of 5 mutants caught", and CARD-105 went as far as proving the
   # survivor equivalent rather than chasing it. The setting makes an existing

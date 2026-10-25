@@ -1,0 +1,673 @@
+card: CARD-294
+cycle: 2
+reviewer: forge:review (Claude Opus 5)
+date: "2026-10-25T18:23:06Z"
+revision_reviewed: 7bf47f6b
+fork_point: 9b0d245d
+branch: card/294-interior-drawing-vocabulary
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-294
+score: 8
+certified: true
+min_score: 8
+
+verdict: >-
+  All nine of cycle 1's findings are closed, and closed in the strong sense:
+  for every one of them I re-fired the mutation the round's own table names and
+  the cell that reds is the cell it names. Nothing in this cycle is gating.
+
+  The two gating findings are genuinely dead, not relabelled. F-1: the class is
+  `TestPropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts`, the
+  file collects 52 where it collected 35, and I ran all three EC(ADR-0042/R5)
+  tests by explicit node id (24 passed with the other new classes) rather than
+  inferring them from a total. Both dead citations — the card's EC(R5) row and
+  ADR-0042/R5's own comment — now name the collectable id. F-2: the FreeType
+  cross-check discriminates **per code, to the unit**. I did not take the
+  constant-600 mutation on trust; I also moved ONE width by one part in a
+  thousand (`widths[0x41] += 1`) and
+  `test_every_encoded_width_is_the_width_freetype_measures` redded alone. That
+  is the strongest possible answer to the brief's question: a single wrong
+  advance is caught, not just a wholesale replacement. The 219 floor is written
+  down but derivable and derived in the comment beside it (224 codes in
+  32..255, less the 5 cp1252 leaves undefined), and `_encoded_characters()` is
+  rebuilt from the codec in the test rather than imported from
+  `book_vector._encoded_codepoints`, so neither side of the comparison is the
+  module under test.
+
+  **The new guard can fail, and the floor binds.** I attacked
+  `tests/test_collected_names.py` five ways. Degrading `_prefix_or_glob` to
+  plain `fnmatch` — the first draft's own bug — reds the live walk against the
+  real tree with twenty genuine names; the reimplementation is also
+  *character-for-character* the rule in pytest 9.1.1's
+  `PyCollector._matches_prefix_or_glob_option`, which I read, so it is right
+  and not merely different. Neutering `uncollectible_names` reds 5. Making
+  `python_files_under` return `[]` reds the live walk **on the 5,000-name
+  floor** — so the floor is load-bearing, and `declaring_names` counts exactly
+  the 6,348 the module claims. Breaking `collects_file` reds 2. Narrowing
+  `DECLARES_A_TEST` reds 1. On the brief's G-2-adjacent worry — whether
+  widening `python_classes` would make the guard silently follow the widening:
+  it does not. Run with `-o python_classes="Test* PropertyTest*"` and
+  `test_the_rules_come_from_pytest_and_not_from_this_file` and
+  `test_the_rule_catches_the_defect_it_was_written_for` both red, so a widening
+  must be acknowledged in this file on the commit that makes it. And the pin
+  reds on a third file: I planted `tests/zz_review2_probe.py` with one
+  module-level `test_*` and
+  `test_the_files_pytest_never_opens_are_the_two_known_ones` failed naming it
+  (probe removed).
+
+  The `cap_height` change is a real bug fix on correct arithmetic, with the
+  blast radius the brief asked me to check: **nothing downstream depended on
+  650**, because no module under `src/` imports `book_vector` at all (measured;
+  the only consumers are `tests/test_book_pdf.py` and
+  `scripts/card294_curve_price.py`). Restoring the 0.7-ascent heuristic reds
+  three tests, two of them through independent engines — FreeType's `getbbox`
+  and poppler's render of real outlines — so 729 is agreed by two readers that
+  did not write it. The glyf/loca arithmetic is right where it is exercised and
+  right where it is not: `sCapHeight` at `OS/2`+88 as int16, short-loca offsets
+  halved, and the glyph header's `yMax` at +8, which is also the correct read
+  for a composite glyph. It is the *controls* on the branches the bundled face
+  cannot reach that are missing — see N-2 — not the code.
+
+  F-5's decision is sound and I corroborated it beyond what the test asserts:
+  rendering `"A B"` and `"A B"` through this writer and `pdftoppm` gives
+  **pixel-identical** pages (2,742 ink pixels each) and `pdftotext` extracts
+  identically, so "inkless" is the right discriminator and the accepted case is
+  faithful as far as any instrument on this host can tell. The refused case is
+  the one that would have printed ink nobody asked for.
+
+  What keeps this at 8 rather than higher is that the round, while closing the
+  family, left one new instance of it and one gap of the same shape. N-1: the
+  AC-3 artefact says "Every figure in this table is re-derived by
+  `scripts/card294_curve_price.py` on each run and none is transcribed", and the
+  enumerator's *scope* is a transcribed tuple that the fix round did not update
+  — `_cap_height` and `_table`, the two functions it added to the face, are not
+  in `FONT_NAMES`, so the stated 216 is really 246 and the stated "+45 lines"
+  is really +75. The rows AC-3 is actually about (round shape 24, `round_mark`
+  13, straight-line 12) re-derive exactly, which is why this is minor rather
+  than gating — it is the same weight cycle 1 gave F-8, and consistency says
+  treat it the same way. N-2: `_cap_height` has three reachable paths and the
+  shipped face exercises one, while the card states behaviour for a second
+  ("`OS/2` version >= 2 still wins where a face has it") that no case takes.
+
+  Guardrails: all eight hold across the whole card, not just the fix round.
+  `book_pdf_generator.py`, `pyproject.toml` and `src/nonogram/export/` are each
+  **0 lines** of `git diff 9b0d245d..HEAD`. Layering is legal (`admin` is in
+  `tests/test_cli.py:748`'s `_ADAPTERS`, so importing `nonogram.export.pdf` is
+  adapter-to-capability). The component map needs no new row because its rows
+  are per package (`admin/` = COMP-009), which is why 857 still passes.
+
+  Fix N-1's figure and N-2's two cases and this is a 9. Neither blocks a merge.
+
+previous_findings:
+  - id: F-1
+    severity_in_cycle_1: critical
+    gating_in_cycle_1: true
+    status: closed
+    evidence: >-
+      The class is now `TestPropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts`
+      (tests/test_book_pdf_vector_primitives.py:750), the spelling
+      `tests/test_print_specs.py::TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted`
+      already uses. Verified by collection and by node id, not by a total:
+      `pytest tests/test_book_pdf_vector_primitives.py --collect-only` -> **52
+      tests collected** (was 35), and `grep -c TestPropertyTest_VectorFont` over
+      that output -> **3** (was 0). All three declared tests run when named
+      explicitly —
+      `::test_every_book_in_the_corpus_embeds_the_face_exactly_once`,
+      `::test_a_page_costs_no_font_bytes`, `::test_a_per_page_face_would_be_caught`
+      — in a 24-passed run alongside the other new classes. Per-file
+      `--collect-only`: 52 / 51 / 59 / 13 = **175**, and
+      `pytest` over those four files gives **175 passed, 0 skipped**, so the
+      card's corrected figure reproduces.
+      Both dead citations are repaired and both now name a node id that
+      resolves: the card's "Tests, by node id" EC(R5) row, and the comment
+      CARD-294 added to ADR-0042/R5 in the ADR (now
+      `TestPropertyTest_VectorFont_…`).
+      The defect class is additionally made visible by a new module — see the
+      N-series and the verdict for the five mutations I fired against it.
+  - id: F-2
+    severity_in_cycle_1: major
+    gating_in_cycle_1: true
+    status: closed
+    evidence: >-
+      `TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader` compares all 219
+      encoded codes against
+      `ImageFont.truetype(BytesIO(interior_face_bytes()), 1000).getlength(ch)`
+      with `EXACT = 0.5` — i.e. any integer disagreement reds — and the
+      comparison is **per code**, collected into a `wrong` dict keyed by code,
+      behind `assert len(compared) == 219`.
+      Re-fired, mine not the round's: `/Widths` comprehension -> `code: 600`
+      gives **1 failed, 102 passed**, the failure being
+      `::test_every_encoded_width_is_the_width_freetype_measures`. And the
+      question the brief asked, which the round did not test: **one** width
+      moved by one unit (`widths[0x41] = widths[0x41] + 1`) gives **1 failed,
+      102 passed**, the same test. So the control discriminates a single wrong
+      advance, not only a wholesale replacement.
+      The 219 floor is written down, with its derivation in the comment beside
+      it (224 codes in 32..255 less the 5 cp1252 leaves undefined) — which I
+      confirm. `_encoded_characters()` (line 121) rebuilds the map from the
+      codec inside the test, so the module under test is not on both sides.
+  - id: F-3
+    severity_in_cycle_1: major
+    gating_in_cycle_1: false
+    status: closed
+    evidence: >-
+      `test_the_same_page_renders_the_same_type_at_two_resolutions` is gone,
+      replaced by `test_two_writers_at_different_dpis_print_the_same_physical_type`
+      (line 689): two `ContentStream`s at 300 and 1200 DPI, same geometry in
+      millimetres, each rendered at a fixed `RENDER_DPI = 300`.
+      Re-fired the exact cycle-1 mutation — `Tf` operand ->
+      `_number(size_pt * self.dpi / 72.0)` — and it now reds **4** where it
+      redded 3: `test_the_tf_operand_is_the_same_at_every_dpi`,
+      `test_the_text_poppler_reads_back_is_the_text_that_was_shown`,
+      `test_the_text_is_inked_on_the_baseline_the_writer_named`, **and the new
+      test**. The label "the independent half of AC-4" is now true.
+      Worth recording: the load-bearing half of the new test is not
+      `heights[300] ~= heights[1200]` (the two files are near-identical, since
+      the writer's DPI only enters through the px->pt conversion) but the
+      comparison of each against the face's own `cap_height` at the stated
+      size. The docstring says exactly that ("two equally wrong writers
+      agree"), and the `cap_height` mutation independently reds it, so the
+      claim is correctly scoped.
+  - id: F-4
+    severity_in_cycle_1: minor
+    gating_in_cycle_1: false
+    status: closed
+    evidence: >-
+      `TestVectorFontObjects_TheDescriptorStatesTheFacesOwnMetrics` reads
+      `/FontDescriptor` and `/Font` back out of the written file through two
+      new helpers in `tests/helpers/pdf_vector.py` (`font_objects`,
+      `font_file_lengths`). I re-fired all seven mutations the round's table
+      names, one at a time, each restored:
+      `Flags=32->4`, `CapHeight->1000`, `Ascent->0`, `Descent->0`,
+      `StemV=80->90`, `FontBBox->[0,0,1000,1000]` each give **1 failed, 102
+      passed** on `::test_the_descriptor_states_the_metrics_the_reader_read`;
+      `Length1=len(face)->1` gives **1 failed, 102 passed** on
+      `::test_the_embedded_stream_declares_the_faces_real_length`. Every cell
+      the table names is the cell that reds.
+      The one thing a control cannot reach here is declared rather than
+      implied, in `_write_face`'s docstring and in the class docstring: the
+      *behavioural* half of the `Flags` rationale, which poppler is lenient
+      about and which `qpdf`/`mutool`/`gs` are absent to test. That is the
+      honest disposition, and the emitted value is pinned with the reason in
+      the assertion message.
+  - id: F-5
+    severity_in_cycle_1: minor
+    gating_in_cycle_1: false
+    status: closed
+    evidence: >-
+      `WINANSI_DIVERGENCES` names both codes with a reason each, the
+      unqualified "*is*" is gone from the `TEXT_ENCODING` comment, from
+      `encode_text`'s contract and from the card's round-1 notes.
+      Both directions re-fired: the refusal lookup deleted (`glyph = None`)
+      reds `::test_a_soft_hyphen_is_refused_because_winansi_would_ink_it`;
+      flipping `0xA0`'s `inks` flag to `True` reds
+      `::test_the_other_winansi_divergence_is_accepted_and_sets_nothing` **and**
+      `::test_the_two_winansi_divergences_are_the_measured_ones`.
+      On whether "inkless" is the right discriminator and whether the accepted
+      case is faithful — my own measurement, beyond what any test asserts: two
+      PDFs written by this vocabulary, `"A B"` and `"A B"`, rendered at
+      150 DPI by `pdftoppm`, are **pixel-identical** (same shape, 2,742 ink
+      pixels each), and `pdftotext` extracts `'AB'` from both. So a viewer
+      laying out `/WinAnsiEncoding` treats `0xA0` exactly as a space here, in
+      ink and in the text layer. The decision is right and the test asserts the
+      measurable part of it (`widths_1000[0xA0] == widths_1000[0x20]`, read off
+      the face rather than from the comment).
+  - id: F-6
+    severity_in_cycle_1: minor
+    gating_in_cycle_1: false
+    status: closed
+    evidence: >-
+      `assert len(keys_per_page) == 1, keys_per_page` sits before the loop
+      (tests/test_book_pdf_vector_primitives.py:337), with a comment naming
+      exactly the vacuity it closes and that `PIL.PdfParser` is the convenient
+      reader. Re-fired: `page_resource_keys` made to `return []` reds
+      `::test_no_interior_page_the_vocabulary_writes_carries_an_image` (1
+      failed, 102 passed). Cycle 1 measured the other direction — that without
+      the floor the same mutation passes green — and the round reports it; I
+      did not need to re-run that half since the floor is present in the source
+      I read.
+  - id: F-7
+    severity_in_cycle_1: minor
+    gating_in_cycle_1: false
+    status: closed
+    evidence: >-
+      `_sfnt_tables` now checks the 12-byte header, the sfnt version tag
+      against `SFNT_TRUETYPE_VERSIONS`, the offset table's own derived
+      `(searchRange, entrySelector, rangeShift)`, and every table's extent;
+      `_table` raises `ContentStreamError` naming a missing tag. Five
+      parametrised cases in `TestVectorVocabulary_RefusesWhatItCannotDraw::test_a_face_that_is_not_a_truetype_sfnt_is_refused`.
+      Re-fired three of the five mechanism deletions, each alone:
+      the version-tag check -> reds `[a CFF sfnt]`;
+      the `(searchRange, entrySelector, rangeShift)` derivation -> reds
+      `[an inflated table count]`;
+      the per-table extent check -> reds `[truncated]`.
+      Each gives 1 failed, 102 passed and names the case the round's table
+      names. The `[a table the reader needs, missing]` case reaches `_table`
+      through `_cap_height`, which is the only reader of `OS/2` — I observed
+      this incidentally, because the `cap_height` mutation also reds that case.
+  - id: F-8
+    severity_in_cycle_1: minor
+    gating_in_cycle_1: false
+    status: closed
+    evidence: >-
+      The overstatement is gone from both places it lived. The artefact's §6
+      now names the instrument per claim — poppler for where a shape lands and
+      how it is inked, the re-parsed stream for §2's operator prices and §4's
+      radial errors, FreeType for the face's metrics — and records the
+      correction rather than quietly swapping it. The test module's docstring
+      (lines 30-48) does the same, in a bulleted list, and ends "The sentence
+      this paragraph replaced said every shape claim here was made on a poppler
+      raster. Review cycle 1 measured that as false of AC-3." I checked each of
+      the four bullets against the tests they describe and each is accurate.
+  - id: F-9
+    severity_in_cycle_1: minor
+    gating_in_cycle_1: false
+    status: closed
+    evidence: >-
+      Re-derived under the validator's own pathspec, independently:
+      `git grep -lw "tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed"
+      -- . ":(exclude)meta/architecture" ":(exclude)*.md"` -> **54** tracked
+      files, breaking down as 1 `meta/kanban`, 4 `meta/profiling`, 48
+      `meta/review`, 1 `tests` — exactly the round's enumeration; **55** with
+      `--untracked`, the extra being the cycle-1 report. The one definition is
+      `tests/test_export_pdf.py:1249`, which the node-id spelling does not
+      resolve to. So the round's correction of cycle 1 is right and cycle 1's
+      55 was the untracked count.
+      The measurement and the latent-false-alive reasoning are written into
+      both the card and the ADR comment beside R4, with the commands that
+      produce them. R4 itself is left unchanged and the owing is recorded,
+      which is the disposition cycle 1 offered as acceptable.
+
+findings:
+  - id: N-1
+    severity: minor
+    title: >-
+      The AC-3 artefact's "embedded face, total" is wrong by 30 lines, and the
+      sentence declaring every figure re-derived is wider than its enumerator —
+      the enumerator's scope is a transcribed tuple that this round did not
+      update
+    file: scripts/card294_curve_price.py
+    line: 92
+    gating: false
+    confidence: certain
+    evidence: >-
+      `meta/profiling/card-294-curve-price.md` §1 states
+      "| the embedded face, total (CARD-293 estimated 163) | 216 |" and then,
+      in the paragraph this round added: "Review cycle 1's fix round added 45
+      code lines to the face and nothing to the round shape ... **Every figure
+      in this table is re-derived by `scripts/card294_curve_price.py` on each
+      run and none is transcribed**."
+      The figure is re-derived; its *scope* is not. `code_lines(source,
+      FONT_NAMES)` enumerates a hand-written tuple at
+      `scripts/card294_curve_price.py:92-104`, and `git diff 0c63a328..7bf47f6b
+      -- scripts/card294_curve_price.py` is **empty** — the fix round added two
+      functions to the face and added neither to the list.
+      Measured with the enumerator's own `code_lines`:
+      `code_lines(src, FONT_NAMES)` -> **216**;
+      `code_lines(src, ("_cap_height", "_table"))` ->
+      `{'_cap_height': 25, '_table': 5}` = **30**.
+      So the true "embedded face, total" is **246**, not 216, and the stated
+      growth is **+75**, not +45. `_cap_height` is not an incidental helper: it
+      is the whole of this card's only src/ behaviour change, and `_table` is
+      F-7's error-typing. Both are face work by any reading of the row's label.
+      The rows AC-3 is actually about reproduce exactly — I ran
+      `scripts/card294_curve_price.py --samples 1000` and got round shape
+      **24** (of which `round_mark` **13**), straight-line vocabulary **12**,
+      and the 7-operator table — which is why this is minor and why AC-3 is
+      met. But the artefact's §1 is a named deliverable ("**This is a
+      deliverable, not a note**", item 3), the false row is the one the
+      narrative reasons from ("twice the straight-line vocabulary and a ninth
+      of the font work"), and the sentence asserting it is derived is the
+      board's standing defect family in miniature: a number presented as
+      mechanically re-derived whose input set is hand-held and has drifted.
+      ADR-0039/R2 is the rule it misses — a guard's (here an enumerator's) set
+      comes from an enumerable authority. Nothing holds `FONT_NAMES` to the
+      module's face-related functions, so this will drift again on the next
+      card that touches the face.
+    remedy: >-
+      Add `"_cap_height"` and `"_table"` to `FONT_NAMES`, re-run
+      `scripts/card294_curve_price.py`, and correct §1's row to the figure it
+      prints (246) along with the two sentences that reason from 216 — "a ninth
+      of the font work" becomes a tenth, and "added 45 code lines" becomes 75.
+      Then close the drift rather than fixing one instance of it: derive the
+      face's name set instead of transcribing it (e.g. every module-level name
+      whose `code_lines` body mentions `sfnt`/`cmap`/`hmtx`/`FontMetrics`, or
+      the complement of `CURVE_PRIMITIVE_NAMES + STRAIGHT_PRIMITIVE_NAMES` over
+      the module's own top-level defs), and assert inside the script that the
+      three sets partition the names it means to cover — so a face function
+      added without a row FAILS instead of silently shrinking the figure. If
+      the sets must stay explicit, drop "and none is transcribed" from the
+      artefact and say which part is transcribed.
+    disposition: open
+  - id: N-2
+    severity: minor
+    title: >-
+      `_cap_height` — the card's only src/ behaviour change — has three
+      reachable paths, the shipped face exercises one, and the card states
+      behaviour for a second that no case takes
+    file: src/nonogram/admin/book_vector.py
+    line: 566
+    gating: false
+    confidence: certain
+    evidence: >-
+      Measured off the bundled face: `OS/2` is **version 1, 86 bytes** and
+      `head`'s `indexToLocFormat` is **1**. So of `_cap_height`'s paths, only
+      the long-loca `glyf` read runs, and it runs for every real input — the
+      `version >= 2 and length >= 90` branch is unreachable for this face twice
+      over (version *and* length), and the short-loca `else` branch is
+      unreachable.
+      Uncontrolled by any test, and each stated or implied as behaviour:
+      (a) the `OS/2` version >= 2 branch. The card's round-2 notes say
+      "`OS/2` version >= 2 still wins where a face has it" and the function's
+      docstring says "``OS/2``'s ``sCapHeight`` when the table carries it
+      (version 2 and up)". No case supplies such a face;
+      `TestVectorVocabulary_RefusesWhatItCannotDraw`'s five `mangle` params are
+      all refusals, none a well-formed v2 `OS/2`;
+      (b) the short-loca (`indexToLocFormat == 0`) branch;
+      (c) both `ContentStreamError` raises — a face with no `H` in its cmap,
+      and an `H` whose `loca` entry is empty.
+      I reviewed all three against the sfnt and OS/2 specifications and the
+      arithmetic is **correct**: `sCapHeight` is int16 at `OS/2`+88 (so the
+      `length >= 90` guard is right), short-`loca` offsets are stored halved so
+      `*2` is right, and the glyph header's `yMax` is int16 at +8 — which is
+      also the correct read for a **composite** glyph, since a composite's
+      header still carries the overall bounding box. So this is a missing
+      control, not a defect, and the `H`-bbox read reproduces FreeType's 729
+      exactly (`ImageFont.getbbox("H")` top 200, `getmetrics()` ascent 929,
+      929-200 = 729; the `H` glyph's raw `yMax` is 1493/2048 em = 729, which
+      `tests/test_book_proof_pages.py:1104` also records for this face).
+      The reach is bounded and I checked the bound the brief asked about:
+      **nothing downstream depended on 650.** No module under `src/` imports
+      `book_vector` (`grep -rn book_vector src tests scripts` finds only
+      `tests/test_book_pdf.py` and `scripts/card294_curve_price.py`), so the
+      metric's only consumers are `_write_face`'s `/FontDescriptor` and the
+      future page cards. `face_bytes` is documented as existing only for AC-1's
+      control and no page card can reach it.
+      One residual that is a real hole rather than only a missing control: a
+      face whose `OS/2` is version >= 2 but whose `sCapHeight` is **0** — some
+      faces ship it that way — takes branch (a) and returns 0, giving
+      `CapHeight 0` in the descriptor with no fallback to the `H` box and no
+      error. The function's own `Raises:` clause says it exists to stop
+      guessing a cap height; a zero is the one value it will state without
+      either reading or refusing.
+    remedy: >-
+      Three cases in the class that already has one per refusal, all
+      constructible from the bundled face with `struct`: a synthesised `OS/2`
+      v2 table carrying a known `sCapHeight` (assert that value wins over the
+      `H` box, which pins claim (a) in the direction the card states it); the
+      same table with `sCapHeight = 0` (decide: fall through to the `H` box, or
+      refuse — either is defensible, a silent 0 is not); and a face whose `H`
+      is removed from the cmap (assert the `ContentStreamError`). The
+      short-loca branch is the expensive one to fixture; if it is not worth a
+      case, say so in the docstring beside it the way this round says so for
+      the `Flags` rationale, rather than leaving it reading as exercised.
+    disposition: open
+  - id: N-3
+    severity: minor
+    title: >-
+      `collects_file`'s "a pure glob, matched on the basename" is a
+      simplification of pytest's rule, in the one module whose whole value is
+      not simplifying pytest's rules
+    file: tests/test_collected_names.py
+    line: 126
+    gating: false
+    confidence: high
+    evidence: >-
+      `CollectionRules.collects_file` is
+      `any(fnmatch.fnmatch(name, pattern) for pattern in self.files)` under the
+      docstring "``python_files`` is a pure glob, matched on the basename".
+      pytest matches `python_files` with `_pytest.pathlib.fnmatch_ex`, which
+      matches the **full path** when the pattern contains a path separator and
+      the basename only when it does not.
+      No behavioural gap today: the shipped defaults are `test_*.py` and
+      `*_test.py`, neither containing a separator, and `pyproject.toml`
+      configures no `python_files` at all — which is why the guard is green and
+      correct as it stands. It is a documentation/robustness point, and I raise
+      it only because this module is otherwise scrupulous about exactly this
+      distinction: `_prefix_or_glob` carries a whole docstring explaining why
+      pytest's prefix rule is *not* `fnmatch` and why reimplementing it beats
+      importing the private method, and the same care is not taken one method
+      below. A `python_files = ["tests/unit/*.py"]` added later would make the
+      guard's file filter diverge from pytest's silently — the guard would
+      judge names in files pytest never opens, and skip names in files it does.
+      I verified the claim about pytest's own rule by reading
+      `PyCollector._matches_prefix_or_glob_option` in the installed pytest
+      **9.1.1**, which the guard's reimplementation matches exactly (`startswith`
+      first, then `fnmatch` only for an option containing one of `*?[`) — so
+      that half of the module is right, not merely different, which was the
+      brief's question.
+    remedy: >-
+      Either use `_pytest.pathlib.fnmatch_ex` (the same second-implementation
+      trade the module already reasons about for `_prefix_or_glob`, or a
+      four-line reimplementation of it) and say so, or narrow the docstring to
+      "matched on the basename, which is pytest's rule for a pattern with no
+      path separator — the only kind this repository configures" so the
+      simplification is declared rather than stated as pytest's rule.
+    disposition: open
+
+what_i_did_not_verify:
+  - >-
+    The full suite. Not run, by instruction. I ran, from the worktree root with
+    `NONOGRAM_FULL_SUITE_LOCK` pointed at the scratch lock (the board's own lock
+    was never touched — every run printed the redirection line confirming it):
+    `tests/test_book_pdf_vector_primitives.py` + `tests/test_book_pdf.py` +
+    `tests/test_export_pdf.py` + `tests/test_collected_names.py` -> **175
+    passed, 0 skipped**, per-file `--collect-only` 52/51/59/13; and
+    `tests/test_cli.py` + `tests/test_guard_integrity.py` +
+    `tests/test_suite_profile.py` + `tests/test_book_difficulty_dots.py` ->
+    **857 passed**. The round's 37-file impact set (3,825 passed) is not
+    re-derived here.
+  - >-
+    `tests/bench_generate.py`'s non-collection. The brief states it as
+    independently confirmed and I took that; I did verify the two docstrings the
+    pin's own reasoning rests on (bench_generate.py:9 does say "it runs inside
+    ``pytest -q`` with the rest of the suite"; integration_tests.py is a
+    standalone harness by design), and I verified that the pin reds on a third
+    file by planting one.
+  - >-
+    AC-3's accuracy figures (2.7253e-04 shipped kappa, 1.9608e-04 minimax, the
+    byte counts, the band-cap and floor-dot millimetres). The pre-gate
+    reproduced them and the brief asked me not to re-run the sweep. I did re-run
+    the enumerator's **line table** at `--samples 1000`, which is what N-1 is
+    about, and the operator table (7 per mark).
+  - >-
+    Any viewer other than poppler and FreeType. `qpdf`, `mutool` and `gs` are
+    not installed on this host, so the `Flags=32` behavioural claim is still
+    assumed — which the round declares in `_write_face`'s docstring and in the
+    F-4 class docstring, and which is the right disposition rather than a
+    finding.
+  - >-
+    The short-`loca` branch of `_cap_height` by execution. No face with
+    `indexToLocFormat == 0` ships in this repository
+    (`src/nonogram/export/fonts/DejaVuSans.ttf` is the only font file in the
+    tree, and it is long-`loca`). I reviewed that branch against the sfnt spec
+    instead and it is correct; N-2 is about the absent case, not a suspected
+    defect.
+  - >-
+    Whether a soft hyphen or an `0xA0` actually reaches the interior in
+    practice. Still depends on where a page card gets its strings, and no page
+    card exists yet.
+  - >-
+    Dot gain on paper. The artefact declines to claim it, which remains correct
+    and is not a finding.
+
+corrections_to_the_brief:
+  - >-
+    **The brief's first "already settled" item is wrong, and the fix round was
+    right.** The ADR-0025 circular-supersession ERROR exists, on both trees,
+    deterministically. Reproduction, which the brief asked for:
+
+      cd /Users/omelnikova/PycharmProjects/PythonProject4-card-294
+      /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python \
+        /Users/omelnikova/.claude/plugins/cache/adverax/forge/2026.8.17/skills/architect-validate/scripts/validate.py \
+        --root meta/architecture > /tmp/val.txt 2> /tmp/val.err ; echo "exit=$?"
+      sed -n '1,4p' /tmp/val.txt ; tail -2 /tmp/val.txt
+
+    Branch: exit=1, 143 stdout lines, **0 stderr lines**, and stdout line 3 is
+    `[ERROR] ADR-0025     circular supersession: ADR-0025 -> ADR-0031 ->
+    ADR-0025 -> ADR-0025`, with the summary `1 error(s), 122 warning(s), 1
+    info`. The same command in the primary worktree
+    (`/Users/omelnikova/PycharmProjects/PythonProject4`, main) gives the
+    identical error and `1 error(s), 121 warning(s), 1 info`. So round 1's
+    headline (error count unchanged from main) and its attribution are both
+    true, the pre-gate was wrong, and the brief inherited the pre-gate's error.
+    All three of the brief's sub-claims fail: it is not 0 errors on either tree;
+    the string does not appear "nowhere in the validator's output" (it is on
+    stdout, not stderr, so a `2>&1 >file` ordering would not hide it, though
+    running the script under `python -I` produces **no output at all**, which is
+    one way to measure zero); and `adr_integrity.py:132` is inside
+    `_check_contradictions`'s `seen_pairs` dedup for DEC *question overlap* — a
+    different check with no bearing on supersession. The supersession check is
+    `_check_supersession_cycles` (same file, from ~:195), and it has no such
+    comment.
+    The brief is right that the **data** is clean: `_SUPERSEDES_PAT` matches
+    "supersedes" and "superseded by" alike and adds the target to one
+    direction-blind adjacency set, so ADR-0025's "Superseded by ADR-0031" and
+    ADR-0031's "Supersedes: ADR-0025" become a 2-cycle. It is a validator
+    defect, not a model defect — and the doubled tail in the printed chain is
+    cosmetic (`" -> ".join(cycle + [cycle[0]])`). But it is emitted, it is an
+    ERROR, and "0 errors" is not reproducible by any invocation I could find.
+    I am the third agent to assert it because it is there; here is the command.
+  - >-
+    The branch has **122** warnings against main's **121**, not "identical" as
+    the pre-gate recorded. The one extra is **not this card's**:
+    `[WARN] FR-044/EC-035 ... test 'PropertyTest_SolverHistory_ReplayReproducesTheBoard'
+    but no definition was found ... DEAD check ref`, which lives in
+    `meta/architecture/requirements.yml` — a file the card does not touch
+    (`git diff 9b0d245d..HEAD` contains no `requirements.yml`) and which is
+    **uncommitted-modified in the main worktree** (`M
+    meta/architecture/requirements.yml` in the opening git status). The delta is
+    an artefact of main's dirty tree, not of the branch. The round's substantive
+    claim — "no ADR-0042 warning on the branch" — is true: `grep -c ADR-0042`
+    over the branch's warnings is **0**, so R5's bare-name ref resolves.
+    Noted in passing because it is the same defect family as F-1 in a third
+    place: `PropertyTest_SolverHistory_ReplayReproducesTheBoard` is another bare
+    `PropertyTest_` name read as a live mechanically-checked ref. It belongs to
+    FR-044/EC-035's card, not this one, and it is more evidence that the guard
+    this round built was worth building.
+  - >-
+    The round's F-2 mutation figure does not reproduce exactly: it reports
+    "`/Widths` constant **600** -> RED (1 failed, 101 passed)". The two files
+    collect 52 + 51 = **103**, and I measure **1 failed, 102 passed**. The cell
+    named is correct and the conclusion is unaffected; the passed count is one
+    short.
+  - >-
+    The round's `cap_height` mutation is **understated**, not overstated. It
+    reports 2 RED; I measure **3 failed, 100 passed**, the third being
+    `::test_a_face_that_is_not_a_truetype_sfnt_is_refused[a table the reader
+    needs, missing]`. The coupling is real and benign: `_cap_height` is the only
+    reader of the `OS/2` table, so bypassing it also bypasses F-7's
+    missing-table refusal for that one case. Worth knowing because it means
+    F-7's `[a table the reader needs, missing]` case controls `_table` only
+    *through* `_cap_height` — if `_cap_height` is ever rewritten, that case stops
+    testing what it claims to.
+  - >-
+    "Does reading Config.getini genuinely track a changed pattern, or is there a
+    path where widening pyproject's python_classes would make the guard silently
+    follow the widening rather than object?" It genuinely tracks it, and it does
+    **not** follow silently. Measured: `pytest tests/test_collected_names.py -o
+    python_classes="Test* PropertyTest*"` -> **2 failed, 11 passed**, the
+    failures being `test_the_rules_come_from_pytest_and_not_from_this_file` (its
+    pinned `assert not rule.collects_class("PropertyTest_Anything")`) and
+    `test_the_rule_catches_the_defect_it_was_written_for` (the planted defect
+    stops being a defect). So a widening cannot land without being acknowledged
+    in this file. One prose nit rather than a finding: the module docstring says
+    a future `python_classes` means "`PropertyTest_*` stops being a finding on
+    the same commit it stops being a defect", which reads as frictionless — in
+    fact that commit must also edit two assertions here. The inline comment at
+    line 449-452 says exactly that ("If this line ever reds, the configuration
+    changed and the guard has already followed it"), so the two are reconciled
+    in the file; only the docstring is optimistic.
+  - >-
+    "Does the floor actually bind?" Yes. `python_files_under` made to return
+    `[]` reds `test_no_name_in_the_tree_declares_a_test_pytest_will_not_collect`
+    on `assert names >= 5000` (and also
+    `test_the_files_pytest_never_opens_are_the_two_known_ones`).
+    `declaring_names` over `tests/**/*.py` totals **6,348**, matching the
+    module's stated figure to the unit. The floor is written down rather than
+    derived, with the counted figure in the comment beside it, which is the same
+    shape this tree's other corpus minima use and is honest.
+    One structural note, not a finding: `names` is accumulated **before** the
+    `collects_file` filter, so the floor does not protect against the file
+    filter breaking — but that failure is caught twice over by
+    `test_the_rules_come_from_pytest_and_not_from_this_file` and
+    `test_the_files_pytest_never_opens_are_the_two_known_ones` (measured:
+    `collects_file -> False` reds both), so there is no gap, only a
+    division of labour.
+  - >-
+    "Is the reimplementation right, not just different?" Right. I read
+    `PyCollector._matches_prefix_or_glob_option` in the installed pytest
+    (**9.1.1**) and `_prefix_or_glob` is semantically identical: `startswith`
+    first, `fnmatch` only for an option containing one of `*?[`. The round's
+    account of why the `fnmatch`-only first draft went green for the wrong
+    reason also checks out by mutation: degrading `_prefix_or_glob` to
+    `any(fnmatch.fnmatch(name, option) for option in options)` reds the live
+    walk with twenty genuine findings across
+    `tests/test_cli.py`, `tests/test_admin_error_text.py`,
+    `tests/property/test_binarisation.py` and others — i.e. under plain
+    `fnmatch` the defaults match nothing and essentially the whole tree reads as
+    uncollectible. The guard would have been loud, not silent, in that
+    direction; what the round says is that its *first draft* passed, which is
+    consistent with the draft also having mis-scoped the walk. Either way the
+    shipped version is correct and controlled.
+  - >-
+    "Does the pin `test_the_files_pytest_never_opens_are_the_two_known_ones` red
+    on a third uncollected file?" Yes. I planted
+    `tests/zz_review2_probe.py` containing one module-level
+    `def test_a_probe_the_reviewer_planted()` and the test failed with
+    `AssertionError: ['tests/bench_generate.py', 'tests/integration_tests.py',
+    'tests/zz_review2_probe.py']`. Probe removed; `ls` confirms it is gone and
+    `git status --porcelain` is back to its opening state.
+  - >-
+    "Whether anything downstream silently depended on 650." Nothing did, and the
+    check is cheap and conclusive: no module under `src/` imports
+    `book_vector` at all. Its only importers in the tree are
+    `tests/test_book_pdf.py` and `scripts/card294_curve_price.py`.
+    `scripts/card293_vector_probe.py:178` carries its own copy of the old
+    `0.7 * ascent` computation, untouched and independent — a committed spike,
+    not a consumer.
+  - >-
+    "Would a single wrong width be caught, or only a wholesale replacement?"
+    Caught. `widths[0x41] += 1` — one part in a thousand of an em on one code —
+    reds `::test_every_encoded_width_is_the_width_freetype_measures` alone. The
+    test is per-code (`wrong` is a dict keyed by code) with `EXACT = 0.5`, so
+    there is no aggregate to hide in.
+  - >-
+    The component-map rule in CLAUDE.md does not bite here, which is why 857
+    passes with a new module on disk: `src/nonogram/__init__.py`'s rows are per
+    **package** (`admin/` = COMP-009), not per module, so `book_vector.py` needs
+    no row. Layering is clean: `admin` is one of the three names in
+    `tests/test_cli.py:748`'s `_ADAPTERS`, so
+    `from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE` is an adapter
+    importing a capability. The only non-stdlib imports in the module are
+    `PIL.PdfParser` and that pair; `pyproject.toml` is 0 lines of the whole
+    card's diff.
+  - >-
+    Guardrails re-measured across the **whole card** (`git diff 9b0d245d..HEAD`),
+    not just the fix round: `src/nonogram/admin/book_pdf_generator.py` 0 lines
+    (G-1), `pyproject.toml` 0 lines (G-4, AC-5, ADR-0006/R1),
+    `src/nonogram/export/` 0 lines (G-4). G-8 holds: ADR-0042/R5 is
+    `check: {kind: test, ref: test_the_interior_embeds_the_projects_own_face}`
+    — a bare name, with the node id in the comment beside it — and R4 is
+    deliberately left as the node id with the measurement recorded. The ADR's
+    one `## Rules` YAML block parses. `wc -l src/nonogram/admin/book_vector.py`
+    is **1,141**, matching the round's corrected figure.
+  - >-
+    Worktree left exactly as found. Every mutation was applied to one file at a
+    time from a pristine copy in the scratchpad and restored immediately; the
+    one planted file was deleted. Final sha256s all match the baseline taken
+    before any mutation:
+    `src/nonogram/admin/book_vector.py`
+    d4641c2e765736e3ce3d3928b875064024bc4d4b0413168867772d1e667f064c,
+    `tests/test_book_pdf_vector_primitives.py`
+    e559655acbb7aa8d4ab7359c0fd2c4e35daa9f65d1fdc15d0d42f5174bffbdf2,
+    `tests/test_collected_names.py`
+    d3a308a1bb776e855ff1a54144234ca46e31c6ec19be91b90fcebd87187d2324,
+    `tests/helpers/pdf_vector.py`
+    27f326d474926e95efa4108e5439e7241d9275d668bd23a401d10418190b2758,
+    `tests/test_book_pdf.py`
+    02af4368694c2e08662a46a36bc751854248bd40d93e0ed62ebf3ef72e8ef684,
+    `pyproject.toml`
+    4ef8c789e06360346bdafb2a19747fd6a068e78c3ba3bb976c7dc632da5cf502.
+    `git status --porcelain` shows only the pre-existing
+    `M meta/kanban/cards/CARD-294.md` and the untracked cycle-1 report, both of
+    which I did not touch.

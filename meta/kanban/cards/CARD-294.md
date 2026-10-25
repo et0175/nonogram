@@ -1,6 +1,6 @@
 # CARD-294: The interior's drawing vocabulary — the embedded face and the operator set, curves included, proved by an engine that did not write them
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/294-interior-drawing-vocabulary
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-294
+**Worktree:** —
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §1 and §6 item 2. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 60
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf_vector_primitives.py, tests/test_book_pdf.py, meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
-**Review score:** —
+**Review score:** 8.0 (cycle 2/3) — CERTIFIED, no gating findings; N-1 taken inline, N-2 routed to CARD-295
 **Started:** 2026-10-25
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-26
+**Actual:** 0.4d
+**Merge commit:** b850bbbd
 **Blocked by:** —
 
 ## Why this card is first, and why it is `architectural`
@@ -755,6 +755,14 @@ scripts/card294_curve_price.py, line table         -> round shape 24 and
                                                       UNCHANGED; the embedded
                                                       face 171 -> 216, and
                                                       the artefact says so
+                                                      [CORRECTED by cycle 2's
+                                                      N-1: the face is 246, not
+                                                      216. This row's figure was
+                                                      derived through a
+                                                      TRANSCRIBED scope that fix
+                                                      round 1 never updated, so
+                                                      it read 30 lines light.
+                                                      See the N-1 section below]
 NOTHING IS COMMITTED. Handed back uncommitted, as the brief required.
 ```
 
@@ -794,3 +802,121 @@ NOTHING IS COMMITTED. Handed back uncommitted, as the brief required.
   it look covered.
 * **No viewer other than poppler has read these files.** Unchanged from round
   1, and the reason F-4's declaration is a declaration.
+
+## [CYCLE 2 — 2026-10-25, review agent] 8.0, **CERTIFIED**, no gating findings
+
+`meta/review/20261025T182306Z-CARD-294-cycle2.yml`, reviewed `7bf47f6b`.
+Aggregate round counter **3 of 6**. `min_score: 8` — met.
+
+**All nine of cycle 1's findings closed, and closed in the strong sense.** The
+reviewer did not take fix round 1's mutation table on trust: it re-fired **17
+mutations of its own**, and in every case the cell that reds is the cell the
+round named. Worktree restored and sha256-verified after each.
+
+The sharpest confirmations, because they answer questions the brief asked:
+
+- **F-2 discriminates per code, not in aggregate.** `widths[0x41] += 1` — a
+  single glyph off by **one unit** — reds the FreeType test alone. `EXACT = 0.5`,
+  no aggregate to hide in. The wholesale `600` replacement reds it too.
+- **The new collection guard survives attack and its floor binds.** Five
+  mutations: a plain-`fnmatch` degradation reds the live walk with 20 genuine
+  names; `python_files_under → []` reds **on the 5,000-name floor**, so the floor
+  is load-bearing against the **6,348** its own enumerator counts; the pin reds
+  on a planted third uncollected file. `_prefix_or_glob` was read against pytest
+  9.1.1's own `PyCollector._matches_prefix_or_glob_option` and is **semantically
+  identical** — right, not merely different. And on the worry I put in the brief:
+  widening via `-o python_classes="Test* PropertyTest*"` **reds 2 tests**, so the
+  guard objects rather than silently following the widening.
+- **`cap_height`'s blast radius is nil** — no module under `src/` imports
+  `book_vector` at all, so nothing downstream could have depended on 650.
+  Restoring the heuristic reds 3 tests, two through independent engines
+  (FreeType `getbbox`, poppler's outline render). The `glyf`/`loca` arithmetic
+  was checked against spec including the composite case.
+
+### Three new findings, all minor, none gating — and what was done with each
+
+**N-1 — TAKEN INLINE, by deriving the scope rather than correcting the number.**
+The artefact's "embedded face, total" read **216** where the truth is **246**,
+and "+45 code lines" where it is **+75**. The figure *was* derived by the
+enumerator, exactly as the document promised — but the enumerator's `FONT_NAMES`
+was a **hand-transcribed tuple**, and fix round 1 added `_cap_height` (25 lines)
+and `_table` (5) to the module without adding them to it. So a deliverable that
+asserts *"every figure is re-derived and none is transcribed"* had a transcribed
+**scope** that had drifted. This is the house defect family inside the card's own
+headline deliverable, which is why it was not left to a successor.
+
+Remedy, chosen so the class closes rather than the instance: `FONT_NAMES` and a
+new `NOT_FONT_NAMES` are now a **partition over every top-level `def`/`class` of
+`book_vector.py`, checked against the module's own AST**. A name in neither
+**raises**; a name in both raises; a name classified but not defined raises. The
+run prints the partition it verified — `13 font + 9 other = 22 top-level names`.
+
+- **Control fired:** dropping `_cap_height` from the classification exits **1**
+  with `top-level name(s) in neither FONT_NAMES nor NOT_FONT_NAMES:
+  ['_cap_height']`. Restored, sha256-verified.
+- **Re-derived after the fix:** face **246**; round shape **24** and
+  straight-line **12** *unchanged*, which is the claim the section exists to make.
+- **An error of mine on the way:** my first `NOT_FONT_NAMES` included `Layout`,
+  which `book_vector.py` does not define — and the new check caught it
+  immediately with `classified but not defined`. The guard's first catch was its
+  author's own guess, which is the best evidence it is not decorative.
+
+**N-2 — ROUTED, not fixed.** `_cap_height` has three reachable paths and the
+shipped face exercises one (`OS/2` **v1, 86 bytes**; `indexToLocFormat` **1**).
+Uncontrolled: the `OS/2 ≥ 2` branch — which the card *states* as behaviour
+("version ≥ 2 still wins") — the short-`loca` branch, and both raises. All three
+are **correct on review**, so this is missing controls, not missing behaviour.
+One residual real hole: **a v2+ face with `sCapHeight = 0` returns 0 with no
+fallback and no error.** Routed to **CARD-295**, the first card that actually
+centres strings on `FontMetrics`, because the project ships exactly one face and
+`src/` has no importer yet — so the risk today is nil and the control is cheapest
+written beside its first consumer. Recorded there rather than left in a report.
+
+**N-3 — noted, no action.** `collects_file`'s "a pure glob, matched on the
+basename" simplifies pytest's `fnmatch_ex`, which uses the full path when the
+pattern contains a separator. **No gap today**; raised only because the module is
+scrupulous about exactly that distinction one method above.
+
+### Where cycle 2 corrected me, and it matters
+
+**The ADR-0025 error is REAL, and my pre-gate's denial of it was wrong.** The
+reviewer supplied a reproduction, and it reproduces: the validator forge actually
+executes —
+`~/.claude/plugins/cache/adverax/forge/2026.8.17/skills/architect-validate/scripts/validate.py`
+— exits **1** with `[ERROR] ADR-0025 circular supersession` on **stdout** line 3
+and a summary of `1 error(s)`. I had run a *different copy*,
+`~/MyProjects/forge_1/forge/skills/…`, which is a month newer: `validate.py` is
+byte-identical between them but `validators/adr_integrity.py` is not (plugin
+Sep 5, 26,493 B; checkout Oct 6, 26,740 B), and only the installed one emits the
+cycle. **So round 1 and fix round 1 were both right and I told the owner twice
+that they had invented it.**
+
+What survives of my analysis: the **data** is a clean one-way supersession, and
+the reviewer independently found why the installed version trips —
+`_SUPERSEDES_PAT` matches "supersedes" and "superseded by" alike into one
+direction-blind adjacency set, so a one-way pair reads as a 2-cycle. It is a
+**validator defect, not a model defect**, and it is **pre-existing on `main`**.
+This card's gate therefore inherits it and must report *"1 error, unchanged from
+main"* — never "clean". The memory note that led me wrong has been corrected to
+name the plugin cache explicitly.
+
+Also corrected by cycle 2: the branch's **122** warnings against main's **121**
+is **not** this card's — the extra is `FR-044/EC-035`'s dead ref in
+`requirements.yml`, a file this card never touches, which I had repointed in
+main's tree. And that dead ref is itself a **third instance of F-1's family**, in
+the requirements registry. Two of the round's own figures were also off: its F-2
+mutation count said "101 passed" where 103 collect (so 102), and its cap-height
+mutation was **understated** at 2 red where the reviewer measures 3 — the extra
+being `[a table the reader needs, missing]`, because `_cap_height` is the only
+reader of `OS/2`, so F-7's missing-table case controls `_table` only *through*
+`_cap_height`.
+
+### No further review round, on the owner's standing discipline
+
+Cycle 2 is certified at the threshold and every new finding is minor with the
+reviewer's own verdict that none blocks a merge. Spending rounds 4 and 5 on two
+minors is the shape this board has paid most for — **6 consecutive gating
+findings once came from the previous fix, and 15 consecutive sat in one family
+across three waves.** N-1 was taken inline *with its own control*, so it is not
+an uncertified edit in the sense `max_cycles` warns about: the enumerator's
+output is the verification, and the partition check fails when it should.

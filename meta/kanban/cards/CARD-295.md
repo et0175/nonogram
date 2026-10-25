@@ -150,3 +150,52 @@ to raise, not a number to compute here.
 - The spike's 41-line content-stream assertion is the model for AC-2's shape, and
   it **passes at 0.48 pt and fails at 0.3 pt** (its AC-4), so it discriminates on
   exactly the quantity G-1 forbids changing. Reuse the shape, not the thresholds.
+
+## [Routed in from CARD-294 cycle 2 — 2026-10-25, N-2] `_cap_height`'s three paths, two of them uncontrolled
+
+**CORRECTED 2026-10-26: this is CARD-296's, not yours.** It was written here
+first, on the orchestrator's claim that you are "the first card that centres
+strings on `FontMetrics`". You are not: wave 61 is ordered **guide-first**, so
+CARD-296 runs before you, and its item 3 draws *"the explanatory body text and
+headings, in the embedded face"*. The full routing now lives on **CARD-296**.
+
+**You inherit it only if CARD-296's round declines it** — which that card is
+told to do explicitly rather than silently. Read the rest of this section as
+background either way, because you set the clue digits in the same face and the
+silent-zero hole below would reach them too.
+
+CARD-294 fixed a real 10.8 % error in `_cap_height` (`src/nonogram/admin/book_vector.py`):
+`font_metrics` had fallen back to `0.7 × ascender`, and the bundled DejaVuSans
+ships `OS/2` **version 1, 86 bytes, with no `sCapHeight` at all**, so the
+fallback was *always* what shipped — **650**/1000 em where FreeType measures
+**729**. It now reads `H`'s own `glyf`/`loca` bounding box and reproduces
+FreeType exactly. The existing poppler control had absorbed the error because
+its tolerance is 15 % and the error was 12.2 %.
+
+**What CARD-294 did NOT control, measured by its cycle 2 and inherited by you:**
+the function has three reachable paths and the shipped face exercises exactly
+one (`OS/2` v1; `indexToLocFormat` **1**, i.e. long `loca`). Uncontrolled:
+
+1. the **`OS/2 ≥ 2` branch** — which CARD-294's card *states* as behaviour
+   ("version ≥ 2 still wins where a face has it") and no test exercises;
+2. the **short-`loca`** branch (`indexToLocFormat == 0`), reviewed against spec
+   but never executed — there is no short-`loca` face in this repo;
+3. **both raises.**
+
+All three were judged **correct on review**, so this is missing controls, not
+missing behaviour. One residual hole is real rather than cosmetic: **a v2+ face
+with `sCapHeight = 0` returns 0 with no fallback and no error** — a silent zero
+in the number every string on your pages is centred on.
+
+**Why it is yours and not CARD-294's:** the project ships exactly one face, and
+at CARD-294's merge *no module under `src/` imports `book_vector` at all*, so the
+risk was nil and the control had no consumer to be written beside. You give it
+one. If you centre anything on `cap_height`, the cheapest honest control is a
+synthetic face per branch (a v2 `OS/2` carrying a real `sCapHeight`, one
+carrying `0`, and a short-`loca` face) rather than a comment asserting the
+branches work — CARD-294's own cycle 1 critical finding was a control that could
+not fail, and its cycle 2 N-1 was a figure whose scope was hand-held.
+
+If you decide these controls are not yours either, **say so with a reason and
+name who owns them** rather than passing them on silently: a declaration that
+outlives its hole is the defect this board gates on most.

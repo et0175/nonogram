@@ -167,3 +167,42 @@ Everything positioned from COMP-007's `Layout` with the book's PageSpec
   pages 2 and 3 would be asserting CARD-229's design.
 - `src/nonogram/admin/book_pdf_generator.py` is a `conflict.hotspot` — this card
   and CARD-295 share the same wave and will serialize on it.
+
+## [Routed in from CARD-294 cycle 2 — 2026-10-26, N-2] `_cap_height`'s uncontrolled branches — yours, because you run first
+
+**This was first written onto CARD-295 and that was wrong.** The orchestrator
+routed it there calling CARD-295 "the first card that centres strings on
+`FontMetrics`". Wave 61 is ordered **guide-first**, so you run before CARD-295,
+and your own item 3 draws *"the explanatory body text and headings, in the
+embedded face"* — so you are the first consumer both by schedule and by what you
+draw. The note is corrected here and CARD-295 now points at you. Recorded rather
+than silently moved, because a control that drifts to the card that runs second
+is a control the first card ships without.
+
+CARD-294 fixed a real **10.8 %** error in `_cap_height`
+(`src/nonogram/admin/book_vector.py`): `font_metrics` fell back to
+`0.7 × ascender`, and the bundled DejaVuSans ships `OS/2` **version 1, 86 bytes,
+with no `sCapHeight` at all**, so the fallback was *always* what shipped —
+**650**/1000 em where FreeType measures **729**. It now reads `H`'s own
+`glyf`/`loca` bounding box and reproduces FreeType exactly. The pre-existing
+poppler control had absorbed the error because its tolerance is 15 % and the
+error was 12.2 % — worth knowing before you trust a tolerance of your own.
+
+**What CARD-294 did NOT control**, measured by its cycle 2: the function has
+three reachable paths and the shipped face exercises exactly one (`OS/2` v1;
+`indexToLocFormat` **1**, long `loca`). Uncontrolled are the **`OS/2 ≥ 2`
+branch** — which CARD-294's card *states* as behaviour, "version ≥ 2 still wins
+where a face has it" — the **short-`loca`** branch, and **both raises**. All were
+judged correct on review, so this is missing controls rather than missing
+behaviour. One residual hole is real: **a v2+ face with `sCapHeight = 0` returns
+0 with no fallback and no error** — a silent zero in the number your headings
+are set against.
+
+If you set type on `cap_height`, the cheapest honest control is a synthetic face
+per branch (a v2 `OS/2` carrying a real `sCapHeight`, one carrying `0`, and a
+short-`loca` face) rather than a comment asserting the branches work. CARD-294's
+own cycle-1 critical finding was a control that could not fail, and its cycle-2
+N-1 was a figure whose scope was hand-held; this is the same family twice over.
+
+**If you decline these controls, say so with a reason and name who owns them** —
+CARD-295 is the obvious inheritor — rather than passing them on silently.
