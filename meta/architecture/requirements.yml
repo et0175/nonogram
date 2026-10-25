@@ -4790,7 +4790,12 @@ functional:
           tool, undos and redos, with the minimum count asserted in the test.
         kind: consistency
         instances: [AC-307, AC-308]
-        test: PropertyTest_SolverHistory_ReplayReproducesTheBoard
+        # Repointed 2026-10-25: the verifier exists and always did, spelled with
+        # pytest's `test_` prefix — tests/test_puzzle_solver_marking.py:1666. The
+        # ref was the bare CamelCase name, which `git grep -w` cannot resolve, so
+        # a LIVE constraint read as a dead ref. Statement unchanged; this is a
+        # verification-only correction of the ref's spelling, not of the EC.
+        test: test_PropertyTest_SolverHistory_ReplayReproducesTheBoard
       # AMENDED 2026-10-06 (a) (owner decision 2026-10-05, CARD-186): "and no
       # cell is '?'" added to the solved predicate, and the corpus now draws
       # every cell from all four marks. The check moves to CARD-186's

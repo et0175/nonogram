@@ -1,4 +1,4 @@
-wave: 54
+wave: 60
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
@@ -33,7 +33,64 @@ max_concurrent_override: 2
 # 2026-10-23, owner's "run CARD-271": wave 55 opens with the owner's bugs-first order. 1 active against
 # a cap of 2; the second slot stays empty because solver.js/admin.css are this card's for the duration
 # and the three cards queued behind it (CARD-267, CARD-269, CARD-268) all touch them.
+
+# ── 2026-10-25, wave 58 CLOSED and wave 60 OPENED ────────────────────────────
+wave_58_complete:
+  cards: [CARD-282, CARD-276]
+  at: 2026-10-25
+  card_282: "merged 05396f46 2026-10-24 (7.0 -> 7.5, gate decision, four findings inline)."
+  card_276: >-
+    MERGED f794d5a8 2026-10-25 as a DECLARATION, on a recorded gate decision.
+    6.5 against min_score 8, aggregate_round 6 of 6, fix_round_available false.
+    Cycle 2's F-1 closed inline at 084fa6d7 (the surface rule's authority was
+    ast.walk over the ClassDef, claiming nine names nested in BookPDFGenerator's
+    methods; silent with nothing appended, and the aimed mutant had SURVIVED).
+    F-2 DECLARED as MEASURED_BLIND_SPOTS' R9, re-measured at this card's own HEAD
+    because 084fa6d7 had moved the very mechanism the report measured through;
+    lever found over all 32 exemption subsets (24 expose it, two minimal sets,
+    one of them the no-lever `builtins`); both directions certified by mutation,
+    each killed by its AIMED assertion naming R9's row, restore sha256-verified.
+    F-3's prose corrected, and with it the exemption class's reach statement in
+    all THREE places it was false (anchored_to_a_fixed_point, _page_positions,
+    CALLEE_EXEMPTION_REACH) -- CARD-262's F-502 pattern.
+  ac_gate: "AC-1 NOT SATISFIED (the level is unresolved at the sixth appearance) and AC-5's six cells UNVERIFIED; AC-2/3/4/6/7 satisfied; G-1..G-7 hold with G-6's wording tension recorded rather than resolved silently. 18 passed / 0 skipped by node id."
+  merge_gate: "9160 passed / 27 skipped / 0 failed at f94e52b5, exit 0, 1568s, lock written BY the gate and verified removed. Skip count the baseline exactly. Collection 9187 = 9160+27; +37 vs main reconciles exactly to the one file's 90 -> 127 through a per-commit ladder. Gated tree byte-identical to main's merged tree (both d163ed2f), so this gate IS wave 58's smoke test and no second full suite was spent."
+  residue: "CARD-300 created, P2, architectural -- written to be PRICED before attempted: its AC-1 is a recorded DECISION (close R9 / keep the declaration and spend the round on this file's cost / retire the door axis if the vector interior makes it unverifiable), because six rounds bought a narrowing and a seventh in the same file is a shape this board has paid for. To be sequenced WITH CARD-287/292/299 per the ADR-0042 census."
+  cost_imposed: "tests/test_book_export_interior_cover.py went 90 -> 127 tests and 344.29s -> 467.30s standalone (+35.7%), now about 29.8% of the suite's wall clock against 24.14% of attributed time on 2026-10-23. Per-test cost FELL (3.825 -> 3.679 s/test), so it is tests added, not tests slowed -- but CARD-287's subject got measurably worse and CARD-300 inherits it. Recorded in suite-timing.log with the not-strictly-comparable caveat."
+
+wave_60:
+  opened: 2026-10-25
+  note: >-
+    Opened the moment wave 58 closed. ONE card, and the second slot of the
+    owner's cap of 2 is deliberately empty: CARD-295, CARD-296, CARD-297 and
+    CARD-298 all declare src/nonogram/admin/book_pdf_generator.py, a declared
+    conflict.hotspots path, so the entire vector phase serializes on it whatever
+    the cap says. There is no throughput to win by pairing anything with it.
+  no_checkpoint: >-
+    waves.yml holds no checkpoint for waves 58-65 -- the file stops in the
+    twenties -- so wave 60 closes on its smoke test alone, with no declared
+    observable to demonstrate. Flagged to the owner at dispatch as a decompose
+    gap rather than discovered at the wave boundary.
 active:
+  - id: CARD-294
+    phase: implementation
+    at: 2026-10-25
+    branch: card/294-interior-drawing-vocabulary
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-294
+    fork_point: 9b0d245d
+    agent: "general-purpose, NOT the python-pro agent -- config.yml's own caveat records that the agent of that name in this environment is scoped to another project's FastAPI/SQLAlchemy services. Spawned with no model override: there is no models: block, and the session model may be stronger than the profile's heavy."
+    the_one_risk: >-
+      The card prices the phase's ONE unpriced primitive. The spike drew lines,
+      rectangles, fills and text and never a round shape, so curves (cubic
+      Beziers via `c`; PDF has no circle operator) are the only interior
+      primitive nobody has emitted. AC-3 demands the price -- lines, operators
+      per shape, accuracy at the real printed dot size -- and "awkward and more
+      expensive than expected" is an ALLOWED outcome and the reason this card
+      runs first rather than fourth.
+    branch_name_corrected: "I created card/294-vector-drawing-vocabulary and the card's Branch: field said card/294-interior-drawing-vocabulary. The branch was renamed to match the card, not the reverse: decompose wrote the field and every consumer reads it."
+
+# ── superseded: wave 54 run state, kept for provenance ──
+old_active:
   - id: CARD-271
     phase: implementation
     at: 2026-10-23
