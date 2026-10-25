@@ -1,0 +1,613 @@
+card: CARD-294
+cycle: 1
+reviewer: forge:review (Claude Opus 5)
+date: "2026-10-25T13:39:26Z"
+revision_reviewed: 0c63a328
+fork_point: 9b0d245d
+branch: card/294-interior-drawing-vocabulary
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-294
+score: 7
+certified: false
+min_score: 8
+
+verdict: >-
+  Strong, honest work with one disqualifying defect of exactly the family this
+  board escalates for.
+
+  What is genuinely good, measured rather than taken on the round's word: AC-3
+  is a model of a priced measurement — the shipped kappa swapped for the
+  minimax 0.5519150244935105 reds two tests through the two-sided
+  `2.0e-4 <= relative <= 3.0e-4` floor, so the accuracy figure is a measurement
+  and not a formality; the artefact's §1 line counts (24 for the round shape,
+  12 for the straight-line vocabulary, 13 for `round_mark`) reproduce exactly
+  under an independent `ast` count; AC-1's three claims each have a control
+  that fires (`FACE_BASE_FONT` -> "Helvetica" reds it, dropping `/FontFile2`
+  reds it, and the committed `test_the_face_check_above_can_fail` catches a
+  changed face); `/WinAnsiEncoding` -> `/MacRomanEncoding` reds the `pdftotext`
+  test, so the encoding is independently controlled; `pdffonts` — an
+  independent tool no test in the diff uses — reports the hand-rolled font
+  object as `DejaVuSans / TrueType / WinAnsi / emb yes / sub no`, i.e. the
+  sfnt work really does produce a valid, readable embedded face; and every
+  width the reader computes matches FreeType (through
+  `PIL.ImageFont.getlength`) to the unit on every code sampled, so the 934
+  lines of hand-written sfnt parsing are *correct*. The ADR-0042/R5 flip is
+  right for the reason the round gives (verified at
+  `validators/utils.py:268-279` and `:336-338`: the ref splits on commas only
+  and the search excludes the arch root plus all `*.md`; the bare name
+  resolves to exactly one tracked file, `tests/test_book_pdf.py`, where it is
+  the definition). All eight guardrails hold: no page drawn,
+  `book_pdf_generator.py` and `pyproject.toml` untouched, probe in `scripts/`,
+  and `tests/test_cli.py` + `test_guard_integrity.py` + `test_suite_profile.py`
+  + `test_book_difficulty_dots.py` are 857 passed with the new module on disk.
+  The judgment to add a tripwire rather than widen
+  `TestDifficultyDots_HasExactlyOneDrawingSite` is correct and honestly
+  worded — that guard's own docstring already scopes its claim to "the four
+  routes a static walk can see", so a non-Pillow route does not falsify it,
+  and the new class disclaims being a derived enumeration rather than
+  borrowing ADR-0039/R2's language.
+
+  What stops certification: `PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts`
+  **is not collected by pytest at all**. This repo configures no
+  `python_classes`, so the default `Test*` applies and every other
+  `PropertyTest_*` in this tree is spelled `def test_PropertyTest_...`; this is
+  the first bare `class PropertyTest_...` and it collects zero tests. The
+  declared control for EC(ADR-0042/R5) — the 24-book corpus, the per-page
+  slope that the EC says "is the rule, not the count", and its own
+  "a per-page face would be caught" control — never runs, and it reads exactly
+  like a pass: no skip, no error, just absent from a green 145. The card's test
+  table and the comment this card added to ADR-0042/R5 both cite that node id
+  as where the slope is verified; both citations are dead. That is a claim
+  with no control that *can* fail, one step worse than the four consecutive
+  cards this board escalated for, and it is a one-line fix.
+
+  Below that, three controls are weaker than their prose says. The `/Widths`
+  array — the primary product of the riskiest file in the diff — is only
+  self-consistent: replacing every width with a constant 600 passes 89/89,
+  because `FontMetrics.advance` and the PDF `/Widths` come from the same
+  function and the only check compares the writer against a render laid out
+  from the writer's own numbers. `test_the_same_page_renders_the_same_type_at_two_resolutions`
+  is labelled "the independent half of AC-4" but renders one and the same PDF
+  at two resolutions, so it cannot fail on any writer defect — proved by
+  mutation: scaling the `Tf` operand by `dpi/72` reds three tests and not that
+  one. And the `/FontDescriptor`'s entries carry docstring rationales with no
+  control behind any of them. None of these is a behavioural defect — the code
+  is right — but each is a claim wider than its control, which is the thing
+  this board gates on.
+
+  Every fix here is small: rename one class, add a three-line FreeType
+  cross-check, rewrite one test to vary the writer's DPI, add one length
+  floor, and correct two sentences of prose. Fix F-1 and F-2 and this is an 8.
+
+findings:
+  - id: F-1
+    severity: critical
+    title: >-
+      EC(ADR-0042/R5)'s declared control is never collected: a bare
+      `class PropertyTest_...` is invisible to pytest's default `python_classes`
+    file: tests/test_book_pdf_vector_primitives.py
+    line: 663
+    gating: true
+    confidence: certain
+    evidence: >-
+      `pyproject.toml`'s `[tool.pytest.ini_options]` sets minversion, testpaths,
+      addopts, pythonpath and markers — and no `python_classes`; `tests/conftest.py`
+      installs no `pytest_collection` hook that would change it (grep for
+      `python_classes|python_functions` across `pyproject.toml` and
+      `tests/conftest.py` returns nothing). So pytest's default
+      `python_classes = Test*` applies and a class named
+      `PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts` is not a
+      test class. Measured three ways from the worktree root:
+      (1) `pytest tests/test_book_pdf_vector_primitives.py --collect-only` ->
+      "35 tests collected", and `grep -c PropertyTest_VectorFont` over that
+      output -> 0;
+      (2) the explicit node id
+      `tests/test_book_pdf_vector_primitives.py::PropertyTest_VectorFont_EmbeddedOncePerDocumentAcrossPageCounts::test_every_book_in_the_corpus_embeds_the_face_exactly_once`
+      -> "no tests ran ... ERROR: not found ... (no match in any of [<Module
+      test_book_pdf_vector_primitives.py>])";
+      (3) the same file with `-o python_classes="Test* PropertyTest*"` ->
+      "38 passed", i.e. the three missing tests exist and pass when collected.
+      This is also the first bare `class PropertyTest_...` in the tree:
+      `grep -rn "^class PropertyTest" tests/` matches only this file, while
+      every other property in this project is spelled
+      `def test_PropertyTest_...` (tests/test_book_plan_storage.py:882,
+      tests/test_db_url_driver.py:1046, tests/test_book_puzzle_frame.py:1615,
+      tests/test_puzzle_solver_page.py:252, and others).
+      Consequence: three claim-bearing tests do not run —
+      `test_every_book_in_the_corpus_embeds_the_face_exactly_once`,
+      `test_a_page_costs_no_font_bytes` (the per-page slope the EC calls
+      "the rule, not the count") and `test_a_per_page_face_would_be_caught`
+      (its own control). EC(ADR-0042/R5) therefore has no live control for the
+      slope; only AC-1's "one face in a three-page file" survives, and the EC's
+      own docstring says the count alone is not the rule.
+      Two cited references to it are dead as a result: the card's "Tests, by
+      node id" row for EC(R5) ("24-book seeded corpus, a measured per-page
+      slope, and the control showing a per-page face would be caught"), and the
+      comment this card added to ADR-0042/R5 in
+      meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md,
+      which names this node id as where "the per-page slope those claims rest
+      on" is verified.
+      It reads as a pass by construction: no skip marker, no collection error,
+      and the round's and the pre-gate's shared headline figure ("145 passed,
+      0 skipped") is exactly what a silently-uncollected class produces. The
+      pre-gate could not have caught this by counting passes.
+    remedy: >-
+      Rename to a pytest-collectable spelling and keep the property name
+      readable the way the rest of the tree does — either
+      `class TestPropertyVectorFont_EmbeddedOncePerDocumentAcrossPageCounts`
+      or three module-level `def test_PropertyTest_VectorFont_...` functions,
+      which is the established convention here. Then re-run and confirm the
+      file collects 38, not 35, and correct the "145 passed" figure in the
+      card's gate-evidence block to the new count. Consider also adding a guard
+      that no `tests/**/*.py` declares a top-level `class` matching
+      `(?i)propertytest` outside the collected prefixes — this defect class is
+      invisible to every pass/fail count and will recur.
+    disposition: open
+
+  - id: F-2
+    severity: major
+    title: >-
+      The `/Widths` array is only self-consistent — every width can be replaced
+      by a constant and the whole claim-bearing suite still passes
+    file: src/nonogram/admin/book_vector.py
+    line: 417
+    gating: true
+    confidence: certain
+    evidence: >-
+      `font_metrics` builds `widths_1000` from `hmtx`/`maxp`/`cmap`, and
+      `FontMetrics.advance` sums the same dictionary. The PDF `/Widths` array
+      (`_write_face`, line 906) is built from that same dictionary. The only
+      test that measures a string's width —
+      `TestVectorPrimitives_AnIndependentEngineFindsEachShape::test_the_text_is_inked_on_the_baseline_the_writer_named`
+      — compares poppler's ink box against `metrics.advance(word)`, and poppler
+      lays those glyphs out *from the `/Widths` the writer emitted*. So both
+      sides of that comparison come from one function.
+      Measured by mutation (file restored and sha256-verified afterwards:
+      463d19a41d63aabcda5dcb0c0e597af36f19e69f2cfecf54afa729ffc6732419):
+      replacing the comprehension at :417-420 with
+      `widths = {code: 600 for code, point in encoded.items()}` ->
+      `pytest tests/test_book_pdf_vector_primitives.py tests/test_book_pdf.py
+      -o python_classes="Test* PropertyTest*"` gives **89 passed, 0 failed**.
+      With 300 instead of 600, exactly one test fails. So the control's
+      discrimination window on the whole `/Widths` array is roughly a factor of
+      two — 600 against a true mean advance near 700 is a visibly mis-set line
+      (glyph ink wider than its advance, letters touching) that the suite
+      cannot see.
+      The claim this is wider than is explicit, at :270-279: "the embedded face
+      is declared `/TrueType` with `/WinAnsiEncoding`, for which a viewer
+      consults neither `GPOS` nor `kern`. So this is the width the viewer will
+      use, not an estimate of it — which is what lets a caller centre a string
+      without either side knowing the other's rasteriser." Nothing in the diff
+      can fail if that is false, and CARD-295/296/297 will centre every string
+      in the interior on it.
+      The code is in fact correct, which is why this is major and not critical:
+      cross-checked against FreeType through
+      `PIL.ImageFont.truetype(BytesIO(interior_face_bytes()), 1000).getlength(ch)`,
+      the emitted widths match to the unit on every code sampled
+      (0x20 318, 0x2D 361, 0x41 684, 0x44 770, 0x48 752, 0x52 695, 0xB7 318,
+      0xE9, 0x30, 0x39, 0x61, 0x7A, 0x97 — zero mismatches above 1.5/1000 em).
+      The missing thing is the control, not the behaviour.
+    remedy: >-
+      Add the independent re-derivation the project's own test style asks for.
+      Pillow is already in the dependency baseline and is FreeType-backed, so
+      `PIL.ImageFont.truetype(BytesIO(interior_face_bytes()), 1000).getlength(ch)`
+      is a second implementation reading the same `hmtx`: assert it against
+      `interior_face_metrics().widths_1000[code]` over the whole 32..255 range
+      (it agrees exactly today), and assert the same for `cap_height`,
+      `ascent` and `descent` against `ImageFont.getmetrics()`. Three lines,
+      no new dependency, and it turns the sfnt reader from self-consistent into
+      checked. Tightening
+      `test_the_text_is_inked_on_the_baseline_the_writer_named`'s
+      `0.1 * advance_px` tolerance would not fix this, since both sides move
+      together.
+    disposition: open
+
+  - id: F-3
+    severity: major
+    title: >-
+      "The independent half of AC-4" cannot fail on any writer defect — it
+      renders one PDF twice instead of writing two
+    file: tests/test_book_pdf_vector_primitives.py
+    line: 636
+    gating: false
+    confidence: certain
+    evidence: >-
+      `test_the_same_page_renders_the_same_type_at_two_resolutions` builds a
+      single `ContentStream` at one DPI, writes one `data`, and renders *that
+      same byte string* at 300 and 600, asserting the ink height doubles. The
+      writer's DPI is never varied, so the assertion is a property of poppler's
+      rasteriser, not of the vocabulary: it holds for any PDF that renders
+      text at all, whatever the writer did to `size_pt`.
+      Measured: with `text()`'s `Tf` operand changed to
+      `_number(size_pt * self.dpi / 72.0)` — the exact "multiplied by DPI
+      somewhere downstream" defect AC-4 exists to exclude — three tests red
+      (`test_the_tf_operand_is_the_same_at_every_dpi`,
+      `test_the_text_poppler_reads_back_is_the_text_that_was_shown`,
+      `test_the_text_is_inked_on_the_baseline_the_writer_named`) and this one
+      is **not** among them: 3 failed, 86 passed.
+      AC-4 as a criterion is still covered — `test_the_tf_operand_is_the_same_at_every_dpi`
+      reds on that mutation and the stream is the last thing `write_vector_pdf`
+      touches before `zlib.compress`, so there is no transformation downstream
+      of the assertion point. What is false is this one test's stated role: the
+      docstring calls it "The independent half of AC-4" and the file's module
+      docstring says "every shape claim here is made on a raster produced by
+      `pdftoppm`".
+    remedy: >-
+      Make the writer the variable: build two `ContentStream`s at 300 and 1200
+      DPI with the same physical geometry in millimetres and the same
+      `size_pt`, write two PDFs, render each at a fixed render DPI, and assert
+      the cap height in *millimetres* is the same for both to within a pixel.
+      That version reds on the `dpi/72` mutation and makes the "independent
+      half" label true. Failing that, retitle it to what it checks (that
+      poppler scales a page linearly) and stop calling it AC-4's independent
+      half.
+    disposition: open
+
+  - id: F-4
+    severity: minor
+    title: >-
+      Every `/FontDescriptor` entry carries a rationale and none has a control
+    file: src/nonogram/admin/book_vector.py
+    line: 864
+    gating: false
+    confidence: certain
+    evidence: >-
+      Mutation sweep over `_write_face`, each applied alone, restored and
+      sha256-verified after (`pytest tests/test_book_pdf_vector_primitives.py
+      tests/test_book_pdf.py -o python_classes="Test* PropertyTest*"`):
+      `Flags=32` -> `Flags=4` **89 passed**;
+      `CapHeight=metrics.cap_height` -> `CapHeight=1000` **89 passed**;
+      `Ascent`/`Descent` -> `0`/`0` **89 passed**;
+      `Length1=len(face)` -> `Length1=1` **89 passed**.
+      Only `Encoding` has a control: `/WinAnsiEncoding` -> `/MacRomanEncoding`
+      reds `test_the_text_poppler_reads_back_is_the_text_that_was_shown`.
+      `Flags` is the one that matters, and it is the one with a prose rationale
+      at :874-876: "`Flags=32` is the non-symbolic bit, which is what a
+      `/TrueType` font with `/WinAnsiEncoding` has to set for a viewer to use
+      the encoding rather than the font's own `(3, 0)` cmap". That is a claim
+      about viewer behaviour, and poppler — the only viewer in the suite —
+      is lenient about it, so the claim is untested against the viewers
+      (Acrobat, press RIPs) it is actually about.
+      Partial credit where due: the sfnt *reader*'s `cap_height` is genuinely
+      controlled — changing `cap_height=round(cap * scale)` to
+      `round(ascent * scale)` reds
+      `test_the_text_is_inked_on_the_baseline_the_writer_named`, because
+      poppler draws real glyph outlines. It is the descriptor *entry* that is
+      unchecked, not the metric.
+      `FontBBox` and `StemV=80` likewise have no control; `StemV`'s own
+      comment says it is consulted only on substitution, which is fair.
+    remedy: >-
+      Assert the descriptor's own entries against `interior_face_metrics()` by
+      reading them back out of the written file (the `pdf_vector` helpers
+      already walk the object table for `FontDescriptor`), and pin
+      `Flags == 32` with the reason in the assertion message. If the `Flags`
+      rationale is worth stating, it is worth a one-line assertion; if it is
+      not checkable here, soften the wording to say which viewer behaviour is
+      assumed and unverified.
+    disposition: open
+
+  - id: F-5
+    severity: minor
+    title: >-
+      "cp1252, which *is* `/WinAnsiEncoding`" is true with two exceptions, one
+      of which prints visible ink
+    file: src/nonogram/admin/book_vector.py
+    line: 122
+    gating: false
+    confidence: high
+    evidence: >-
+      The module states the identity twice as exact — at :122-128 ("the PDF
+      encoding the embedded face is declared with, and the Python codec that
+      *is* it. `WinAnsiEncoding` is CP-1252") and in the round-1 notes
+      ("`encode_text` gates every string through `cp1252`, which *is*
+      `/WinAnsiEncoding`"). PDF 1.7 Annex D.2 differs from CP-1252 at two
+      codes: `0xA0` is `space` (not `nbspace`) and `0xAD` is `hyphen` (not
+      `softhyphen`).
+      Measured: `encode_text(" ")` -> `b"\xa0"` and
+      `encode_text("­")` -> `b"\xad"`, both accepted without complaint.
+      So a soft hyphen — an *invisible* character in the source string — is
+      set by a conforming viewer as a **visible hyphen** on the printed page.
+      It is neither refused (which is `UnrepresentableText`'s whole rationale,
+      :231-238: "Raised rather than substituted, because the substitute is a
+      `.notdef` box on a printed page ... one that cannot be fixed after the
+      book is printed") nor faithfully rendered. U+00AD is reachable from any
+      pasted or imported title or puzzle name a page card sets.
+      The `/Widths` happen not to diverge (both emit the DejaVu advances 318
+      and 361, which are `space`'s and `hyphen`'s), so this is a glyph-identity
+      difference only, and the 5 codes CP-1252 leaves undefined
+      (0x81/0x8D/0x8F/0x90/0x9D) are correctly absent from `/Widths` and
+      unreachable through `encode_text`, exactly as :359-373 says.
+    remedy: >-
+      Either name the two exceptions in the `TEXT_ENCODING` comment ("cp1252
+      is `/WinAnsiEncoding` except at 0xA0 and 0xAD, which WinAnsi maps to
+      `space` and `hyphen`"), or — better, given the refusal's own argument
+      about ink that cannot be fixed after printing — have `encode_text` refuse
+      U+00A0 and U+00AD by name alongside the characters it already refuses,
+      with a case in `TestVectorVocabulary_RefusesWhatItCannotDraw`. Whichever
+      is chosen, drop the unqualified "*is*".
+    disposition: open
+
+  - id: F-6
+    severity: minor
+    title: >-
+      The no-image-XObject assertion has no non-vacuity floor — it is a loop
+      over a list that is never checked to be non-empty
+    file: tests/test_book_pdf_vector_primitives.py
+    line: 290
+    gating: false
+    confidence: certain
+    evidence: >-
+      `test_no_interior_page_the_vocabulary_writes_carries_an_image` is
+      `for keys in pdf_vector.page_resource_keys(_pdf(sheet)): assert keys ==
+      {"ProcSet", "Font"}`. On an empty return the loop body never executes and
+      the test passes having asserted nothing — the exact vacuity shape the
+      class's own docstring guards against elsewhere ("Every test here begins
+      by establishing that the render has ink at all ... because a blank page
+      passes 'no ink outside the shape' trivially"), and which
+      `pdf_vector.ink_box` enforces with an explicit assert.
+      Measured: `page_resource_keys` returns `[{'Font', 'ProcSet'}]` — length 1
+      — for the fixture today, so the test is live, not currently vacuous. The
+      floor is simply absent, and `page_resource_keys` reaches `parser.pages`
+      through `PIL.PdfParser`, the one reader this file's own docstring calls
+      "convenient, not independent".
+    remedy: >-
+      Capture the list, `assert len(keys_per_page) == 1` (the fixture is a
+      one-page file), then loop. Same shape as the `assert len(found) > 20` the
+      tripwire class already uses for its own walk, and as `ink_box`'s assert.
+    disposition: open
+
+  - id: F-7
+    severity: minor
+    title: >-
+      The sfnt reader fails with a raw `struct.error` on a truncated face and
+      silently embeds a CFF-flavoured sfnt as `/FontFile2`
+    file: src/nonogram/admin/book_vector.py
+    line: 283
+    gating: false
+    confidence: certain
+    evidence: >-
+      `_sfnt_tables` reads the table count from bytes 4..6 and never checks the
+      sfnt version tag at bytes 0..4, and `font_metrics` indexes
+      `tables["head"]`/`["hhea"]`/`["OS/2"]`/`["hmtx"]`/`["maxp"]` directly.
+      Measured against `font_metrics`:
+      face truncated to 2 KB -> `error: unpack requires a buffer of 2 bytes`
+      (a raw `struct.error`); empty bytes -> the same; the real face with its
+      version tag rewritten to `OTTO` -> **no error**, `upem=2048 ascent=928
+      widths=219`; the real face with the table count inflated to 5000 -> **no
+      error**, same values.
+      `write_vector_pdf(..., face_bytes=b"OTTO" + face[4:])` then writes a
+      381,528-byte file with CFF-flavoured bytes inside `/FontFile2`, which is
+      spec-invalid, with no complaint. So the answer to "does it fail loudly or
+      silently emit a broken font" is: loudly but with an uncontrolled
+      exception type on truncation, and *silently* on an unexpected-but-
+      structured layout.
+      The module declares its own `ContentStreamError` hierarchy and uses it
+      for exactly two sfnt cases (no Windows/Unicode BMP cmap at :332, a
+      non-format-4 cmap at :334) — the general malformed case is outside it.
+      Scope-limited: `face_bytes` is documented as existing only so AC-1's
+      control can embed something else, the shipped face is the one in the
+      repository, and no page card can reach the argument. Hence minor.
+    remedy: >-
+      Two lines in `font_metrics`: reject a version tag that is not
+      `b"\x00\x01\x00\x00"` or `b"true"` with a `ContentStreamError` (`/FontFile2`
+      is for TrueType outlines only — a CFF face belongs in `/FontFile3`), and
+      wrap the table lookups so a missing table raises `ContentStreamError`
+      naming the tag rather than `KeyError`/`struct.error`. Add the truncated
+      face to `TestVectorVocabulary_RefusesWhatItCannotDraw`, which already has
+      a case per refusal.
+    disposition: open
+
+  - id: F-8
+    severity: minor
+    title: >-
+      The AC-3 deliverable artefact's §6 states something the same document's
+      §2 and §4 contradict
+    file: meta/profiling/card-294-curve-price.md
+    line: 265
+    gating: false
+    confidence: certain
+    evidence: >-
+      §6 closes with "Every shape claim in the test file is made on a raster
+      poppler produced, not on a stream this project parsed." Measured false
+      inside the same document and the same test file:
+      §2's operator prices are asserted by
+      `TestVectorPrimitives_TheRoundMarkCostsSevenOperators`, which tokenises
+      `sheet.render()` — the stream, with a regex;
+      §4's accuracy figures come from
+      `TestVectorPrimitives_TheRoundMarkIsAccurateAtThePrintedDotSize`, whose
+      `_emitted_curves` re-parses the stream with `re.finditer` (§4 says so
+      explicitly: "Measured on the *emitted* operands");
+      and `test_no_interior_page_the_vocabulary_writes_carries_an_image` reads
+      the file with `PIL.PdfParser`, which `tests/helpers/pdf_vector.py`'s own
+      docstring calls "convenient, not independent".
+      The roundness and placement claims *are* poppler's, so the sentence is
+      true of AC-2 and false of AC-3. On a board that gates on claims wider
+      than their control, a summary sentence that overstates the instrument is
+      the same defect in prose.
+    remedy: >-
+      Scope the sentence to what it is true of: "Every claim about *where a
+      shape lands and how it is inked* is made on a raster poppler produced.
+      The operator prices and the radial-error figures are measured on the
+      emitted stream, re-parsed by a second implementation — that is stated at
+      each one." The document already does the honest thing everywhere else;
+      this is one sentence.
+    disposition: open
+
+  - id: F-9
+    severity: minor
+    title: >-
+      ADR-0042/R4's "resolves by coincidence" note understates the coincidence,
+      and the fix was two lines from where the card was already editing
+    file: meta/architecture/decisions/adr/0042-book-interior-is-vector-cover-stays-raster.md
+    line: 390
+    gating: false
+    confidence: certain
+    evidence: >-
+      The comment the card added says R4's node-id ref "happens to appear in a
+      tracked `meta/review/*.yml` and in tests/test_admin_serving.py". Measured
+      under the validator's own pathspec (`code_search` at
+      validators/utils.py:336-338 excludes the arch root and all `*.md`):
+      `git grep -lw "tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed"
+      -- . ":(exclude)meta/architecture" ":(exclude)*.md"` returns **55 files** —
+      `meta/kanban/backlog-scored.yml`, four `meta/profiling/*.txt`, 49
+      `meta/review/*.yml`, and `tests/test_admin_serving.py`. None of the 55 is
+      a definition.
+      The substance of the note is right and the round's reasoning is sound.
+      What it understates is the latent harm: with 55 resolving sites, deleting
+      or renaming `test_the_dependency_baseline_is_still_closed` would leave R4
+      reading as a live mechanically-checked ref forever — a false *alive*,
+      which is the standing rule about honest check refs seen from the other
+      side, and R4 is AC-5's own declared check.
+      Against "outside this card": the fix is deleting the 26-character
+      `tests/test_export_pdf.py::` prefix, in the same `## Rules` YAML block
+      the card edited two lines below, and the round had already established
+      (and measured) that bare names are this model's live spelling. Noting it
+      is defensible; it is thin.
+    remedy: >-
+      Strip the `tests/test_export_pdf.py::` prefix from R4's `check.ref`,
+      leaving `ref: test_the_dependency_baseline_is_still_closed`, keep the node
+      id in the comment beside it exactly as R5 now does, and re-run the
+      validator to confirm 0 errors / 122 warnings is unchanged. Correct the
+      round's attribution to "55 tracked non-markdown files, none of them a
+      definition" or drop the specific attribution. If the board prefers R4
+      untouched here, raise it as a named card rather than a comment, so the
+      owing is tracked.
+    disposition: open
+
+what_i_did_not_verify:
+  - >-
+    The full suite. Not run, by instruction (CARD-255's repo-level lock). I ran
+    tests/test_book_pdf_vector_primitives.py, tests/test_book_pdf.py,
+    tests/test_export_pdf.py (145 passed, 0 skipped, matching the round and the
+    pre-gate) and tests/test_cli.py + tests/test_guard_integrity.py +
+    tests/test_suite_profile.py + tests/test_book_difficulty_dots.py (857
+    passed). The round's 37-file impact set (3825 passed) is not re-derived
+    here.
+  - >-
+    `scripts/card294_curve_price.py` was not re-run — the pre-gate reproduced
+    it and the brief asked me not to. I did independently re-derive §1's line
+    figures with my own `ast` counter (round shape 24, `round_mark` 13,
+    straight-line vocabulary 12 — all exact) and I re-derived the shipped
+    kappa's error bound by mutation rather than by arithmetic.
+  - >-
+    How the file behaves in any viewer other than poppler. `pdffonts` reports
+    `DejaVuSans / TrueType / WinAnsi / emb yes / sub no`, and `pdftoppm`
+    renders with an empty stderr and rc=0, but Acrobat, Ghostscript and a press
+    RIP are untested — which is the gap F-4's `Flags` rationale sits in.
+    `qpdf`, `mutool` and `gs` are not installed on this host, so no structural
+    validator other than poppler and `PIL.PdfParser` has read the file.
+  - >-
+    Whether the card's "171 lines for the embedded face" figure is right. I
+    checked the round-shape and straight-line rows of §1 and not that one.
+  - >-
+    The ADR-0042/R5 "0 errors, 122 warnings, no ADR-0042 warning" validator
+    comparison. The pre-gate measured it; I verified the *mechanism* instead
+    (`split_check_ref` splits on commas only at validators/utils.py:268-279;
+    `code_search` excludes the arch root and `*.md` at :336-338; the bare name
+    resolves to exactly one file, which is its definition), which is the part
+    the conclusion rests on.
+  - >-
+    Dot gain on paper. The artefact says nobody has measured it and declines to
+    claim it, which is correct and is not a finding.
+  - >-
+    Whether a soft hyphen (F-5) actually reaches the interior in practice. That
+    depends on where a page card gets its strings, and no page card exists yet.
+
+corrections_to_the_brief:
+  - >-
+    "Claim-bearing tests: 145 passed, 0 skipped" reproduces exactly, and
+    poppler is present — but the figure is not the evidence it reads as. Three
+    declared tests are missing from it, silently (F-1). 145 is the count of
+    what pytest collected, and the uncollected class contributes no skip and no
+    error. The pre-gate's inference "the zero skips confirm poppler is
+    present, so AC-2's independent half genuinely executed" is sound for AC-2;
+    the same figure says nothing about EC(ADR-0042/R5).
+  - >-
+    "A test that checks a writer against its own reader proves only that two of
+    the author's functions agree. AC-2 claims an INDEPENDENT engine (poppler).
+    Verify that independence is real for EVERY primitive." Confirmed real for
+    every primitive AC-2 names — line, rectangle (stroked and filled), grey
+    tone (measured as `round(255*0.35)` exactly), curve (bounding box, area
+    against `pi r^2` within 1%, and every inked pixel's radius), and text
+    (both `pdftotext` and the raster). The skip cannot read as a pass: the
+    `skipif` reason names the absence, and `tests/helpers/pdf_vector.py` raises
+    `RuntimeError` rather than returning empty if poppler is present but
+    produces nothing. The independence gap is one level down, inside the text
+    primitive: the *advances* that position those glyphs are the writer's own
+    numbers on both sides of the comparison (F-2).
+  - >-
+    "`validators/utils.py:276` splits a check ref on commas only ... This is
+    settled; the brief was wrong and the round was right." Confirmed at
+    :268-279. I would add the half that makes the round's choice provably
+    right rather than merely safe: `code_search` (:336-338) searches with
+    `:(exclude)<arch root>` and `:(exclude)*.md`, and under that pathspec R5's
+    bare name resolves to exactly one file — `tests/test_book_pdf.py`, where it
+    is the `def`. R5's new ref is honest in the strong sense, not just
+    non-dead. R4's is not (F-9).
+  - >-
+    "AC-4 ... Does that assertion actually discriminate — would it still pass
+    if the code multiplied by DPI somewhere downstream of the assertion point?"
+    The stream-side assertion discriminates and there is no downstream to hide
+    in: `write_vector_pdf` only `zlib.compress`es `stream.render()`. The
+    `dpi/72` mutation reds `test_the_tf_operand_is_the_same_at_every_dpi`
+    plus two poppler text tests. But the test the round labels AC-4's
+    "independent half" does not discriminate at all (F-3).
+  - >-
+    "Does the font embedding actually produce a valid, readable font in the
+    PDF, verified by something other than the writer?" Yes — but by nothing in
+    the diff. `pdffonts` (not used by any test here) reports `DejaVuSans /
+    TrueType / WinAnsi / emb yes / sub no`, which is precisely what the card
+    claims; it reports `uni no`, i.e. no `/ToUnicode` CMap, and extraction
+    still works through the standard encoding, so that is a non-issue for a
+    simple WinAnsi font. The descriptor's numbers are unverified (F-4); the
+    widths are correct but unverified (F-2); `cap_height` is the one sfnt
+    value with a real control.
+  - >-
+    "The round added `TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee`
+    as a tripwire ... Judge whether that tripwire is honest about what it is,
+    and whether leaving the old guard un-widened is the right call or a hole."
+    Honest, and the right call — no finding. The tripwire's docstring states
+    that it is a pattern match over source text and "narrower than ADR-0039/R2
+    would want of a guard that had to stand alone", naming the two evasions it
+    is blind to. And the old guard is not falsified by the new route:
+    `tests/test_book_difficulty_dots.py:1267` already scopes its claim to
+    "exactly one function draws a round mark through any of the **four routes a
+    static walk can see**", with every other route a named limit, and points
+    at CARD-241's spelling-blind ink instrument for the universal guarantee.
+    Both tripwire tests have a non-vacuity floor (`len(found) > 20`, and the
+    `count("def round_mark(") == 1` beside the empty-set assertion), so neither
+    is vacuous. Verified green with the new module in the tree: 857 passed
+    across tests/test_cli.py, test_guard_integrity.py, test_suite_profile.py
+    and test_book_difficulty_dots.py.
+  - >-
+    "`book_vector.py` is 934 lines" — confirmed, and the card's own round-1
+    report still says nothing about the count, so the pre-gate's correction
+    stands uncontested.
+  - >-
+    On the pre-gate's second correction (the ADR-0025 circular-supersession
+    error that is not there): I did not re-run the validator, so I neither
+    confirm nor dispute it. The pattern it names — a specific claim no reading
+    supports — is the same family as F-8 and F-9 in this cycle, which is worth
+    noting as a trend rather than as a new finding.
+  - >-
+    Layering, which the brief flagged as test-enforced: no violation.
+    `admin` is one of the three names in `tests/test_cli.py:748`'s
+    `_ADAPTERS`, so `book_vector.py`'s `from nonogram.export.pdf import
+    FONT_PACKAGE, FONT_RESOURCE` is an adapter importing a capability and is
+    legal. The dependency baseline is untouched (`pyproject.toml` is 0 lines of
+    the diff) and the only new imports are stdlib, `PIL.PdfParser` and that
+    pair.
+  - >-
+    Worktree state: left exactly as found. Every mutation was applied to
+    `src/nonogram/admin/book_vector.py` alone, restored from a pristine copy,
+    and sha256-verified after each sweep. Final shas match the baseline taken
+    before any mutation: book_vector.py
+    463d19a41d63aabcda5dcb0c0e597af36f19e69f2cfecf54afa729ffc6732419,
+    test_book_pdf_vector_primitives.py
+    c2eb42ccc86bcb868ca376c252c90a4e12b1eb3467fd7591e481ffca8031f00f,
+    test_book_pdf.py
+    02af4368694c2e08662a46a36bc751854248bd40d93e0ed62ebf3ef72e8ef684,
+    tests/helpers/pdf_vector.py
+    09b3be6e022b24b93dc882ba768d2cfee465db83f5f41daa2c5493906b32679a.
+    `git status --porcelain` shows only the pre-existing uncommitted
+    `M meta/kanban/cards/CARD-294.md` (the orchestrator's pre-gate section),
+    which I did not touch.
