@@ -1,6 +1,6 @@
 # CARD-293: SPIKE — one book rendered both ways, so the raster-vs-vector interior is decided on measurements
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -9,16 +9,16 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/293-vector-interior-spike
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-293
 **Source:** owner, 2026-10-25 — *"I'm thinking about pdf generation and tests - maybe it makes sense to use another libraries for it or another technique?"* and, on the cost of change, *"sometimes the earlier we introduce changes - the better"*. The orchestrator's answer was that the test-cost half is a test-design problem already being solved, and the PDF half is a real question whose strongest argument is print quality the owner was already refused.
 **Idea:** —
-**Wave:** —
+**Wave:** 59
 **Created wave:** 58
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/profiling/card-293-vector-interior-comparison.md, scripts/**
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-25
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -288,3 +288,234 @@ produce, so the comparison is of the thing that ships.
   to read 1,033 — a *test*-side saving that stands whatever this decides),
   CARD-292 (the per-test ceiling), CARD-287 (344 s in one file). None of them
   waits on this and this waits on none of them.
+## Worktree notes — implementation round, 2026-10-25
+
+**Outcome: go vector for the interior, keep the cover raster. The decision is
+the owner's (G-7).** The comparison document is
+`meta/profiling/card-293-vector-interior-comparison.md` (written in the
+scratchpad and handed back for a `main` commit, since `meta/` cannot commit from
+a worktree). The prototype is `scripts/card293_vector_probe.py`. AC-6's diff is
+empty.
+
+**The finding that reframed the card: the PDF writer is already hand-rolled.**
+`book_pdf_generator._write_pdf` (`:7047`) has not called `Image.save(save_all=)`
+since CARD-145 — it drives `PIL.PdfParser` directly, writing the object table,
+catalog, each page, each contents stream, xref and trailer by hand. A vector
+interior replaces one of the three objects a page writes
+(`q W 0 0 H 0 0 cm /image Do Q` becomes operators), drops the JPEG XObject, and
+adds three font objects **once per file**. Everything else is untouched. So the
+card's "this is not a library question" is stronger than it knew: the PDF
+plumbing already ships inside the file that would change.
+
+**AC-5 — font embedding is not the blocker.** DejaVuSans.ttf is 757,076 B raw,
+**379,441 B deflated, once per PDF** — less than one raster page (381,564 B).
+Subsetting (the genuinely hard half: `loca`/`glyf` rebuild + composite closure)
+would save ~365 KB and is **not worth doing**. The job is **163 code lines**:
+105 for an sfnt metrics reader over `head`/`hhea`/`maxp`/`OS/2`/`hmtx`/`cmap`
+(stdlib `struct`), 33 for the three PDF font objects, 25 for a centred-text
+operator. Proved by rendering a real 30x30 book page with all 540 clue digits and
+reading it back with **poppler**, an engine that did not write it.
+
+**AC-1 — the numbers** (24 real corpus pages on CON-018 Book 1, same `Layout`,
+raster arm written by the production `_write_pdf` in its streaming shape,
+interleaved A/B/A/B x7, run twice):
+
+* size 407,976 B vs 9,157,535 B = **22.4x**; per page excluding the one-time font
+  1,189 B vs 381,564 B = **321x**. A 450-page interior: ~0.9 MB vs ~172 MB.
+* wall clock median **0.0329 s vs 0.2810 s** (run 2: 0.0329 / 0.2816) = **8.5x**.
+  Load recorded at both ends of both runs.
+* retention **0.000246 vs 1.00 page bitmaps**. CARD-145's `del page`, its
+  2.00-vs-1.00 equality and the 512 MB OOM story become **vacuous** for the
+  interior. Peak RSS reported too (69 vs 123 MiB) and declared the weak
+  instrument CARD-218 caught lying.
+
+**AC-2 — the owner's weights are printable, and better.** Four 1:1 panels at
+`~/Documents/nonogram-reviews/CARD-293/card293-AC2-side-by-side.pdf`. Poppler
+measures the vector 0.3 pt cell line at **2 px at 300 DPI and 5 px at 1200 DPI,
+both at the declared grey 89** — the width scales with the device, the tone does
+not move. That is "no device floor", measured. The raster control at the same
+weights is a **one-pixel** line: the dropout ADR-0037/R2's amendment rejected.
+**Verdict: printable, and the best of the four panels — but dot gain on real
+stock is the owner's eyes, as ADR-0037 itself says.**
+
+**AC-4 — the replacement is smaller and stronger, demonstrated.** Replacing
+`TestBookProof_StrokesMeetBookMinimum`: **168 code lines -> 41** (4.1x), or 59 ->
+41 if `page_ink.py` is amortised. The stream assertions were **written and run**:
+they pass on the 0.48 pt page and **fail on the 0.3 pt page**, so they
+discriminate. The strongest single point is one the card had not made: today's
+pure-black assertion *cannot be made against the file that ships* — the class
+docstring says the DCT round trip greys a 3-pixel rule's edges, so it reads an
+in-memory page upstream of the PDF. A stream assertion reads the printer's file.
+**`Sheet`'s oracle role survives untouched**: it works in millimetres and imports
+no geometry; only the right half of the comparison moves from measured ink to a
+stated coordinate, and it gets *more* precise because the `PX_PER_MM` rounding
+and the explicit tolerances go.
+
+**AC-3 — baseline shut.** stdlib + Pillow only; no NumPy on the vector path.
+Nothing forced a library. ADR-0006/R1 does **not** need revisiting.
+
+### Two corrections to this card's own cost column
+
+1. **"It shipped 0.48/1.28/2.08 pt instead" is wrong.** Those are **CARD-227's**
+   weights and CARD-227 has not landed. What ships today is COMP-007's
+   proportional two-weight rule: on the Book 1 profile `compute_layout` returns
+   `thin_rule = 3 px` (0.72 pt = 0.254 mm) and `thick_rule = 6 px`. The proof
+   sheet therefore carries **three** readings, not two. Related: "0.3 pt is 2.4x
+   under the floor" is against R2's **retired** 0.25 mm floor; against the
+   amended 0.169 mm minimum it is 1.6x under.
+2. **CON-019 and the a4 golden are NOT broken.** CON-019's statement is about
+   *the CLI's and the web UI's* PNG/SVG/PDF exports, and
+   `tests/fixtures/a4_golden/` holds `compute_layout` with **no PageSpec** plus
+   SHA-256 of the **CLI's** files. A vector book interior lives in
+   `admin/book_pdf_generator.py` and changes no COMP-007 renderer — the prototype
+   demonstrates exactly that. What does break is the **21
+   `book_baseline_card*.json`** recordings, and those are not regenerated: the
+   board's own move, taken twenty times, is to **record a new baseline beside the
+   old one naming what it supersedes**. So the byte-identity cost is one new
+   recording, not four tripwires and a standing-rule conflict.
+
+### Scope, if the owner says yes
+
+**5-7 cards** behind one ADR. The one **not** priced here (G-3 forbade it) is the
+non-puzzle pages — guide, TOC, dividers, answer tiles, pipeline diagram,
+difficulty legend — redrawn as operators. That is the real unknown.
+
+Of the 12 queued print-layout cards: **4 would be rewritten** — **CARD-227**
+(its 0.48/1.28/2.08 is the owner's figures scaled x1.6 purely to clear 2 px, and
+the arithmetic is moot in vector), **CARD-208** (thin rules at clue-box scale),
+**CARD-215** (its AC literally says "at least 1 device pixel"), **CARD-226**
+(a "light rule" is the furniture-vs-grid problem ADR-0037/R2 says width can no
+longer solve); **7 written with retargeted tests** (207, 209, 229-233); **1
+untouched** (216).
+
+## [SPIKE VERDICT — 2026-10-25, orchestrator] The measurements are in, and three of the brief's costs were MINE and wrong
+
+Comparison document: `meta/profiling/card-293-vector-interior-comparison.md`.
+Prototype: `scripts/card293_vector_probe.py` (1099 lines, the branch's only
+file). **AC-6 re-verified by me: `git diff c0a6ac54..HEAD -- src/ tests/
+pyproject.toml` is 0 bytes.** `pyproject.toml` untouched, so **ADR-0006/R1 did
+not need revisiting and no library was forced.**
+
+### The numbers
+
+| | vector | raster | |
+|---|---|---|---|
+| 24-page interior | **407,976 B** | **9,157,535 B** | **22.4×** |
+| per page, excl. one-time font | **1,189 B** | 381,564 B | **321×** |
+| generation, median of 7 interleaved, run twice | **1.37 ms/page** | 11.7 ms/page | **8.5×** |
+| retention, in `PAGE_BITMAP_BYTES` | **0.000246** | **1.00** | structural |
+
+450 pages — the book the faint-line reviews came from — **0.92 MB against
+171.7 MB.** And the retention figure is not an optimisation: **no page bitmap is
+ever allocated**, so CARD-145's `del page`, its 2.00-vs-1.00 equality and the
+512 MB OOM story become **vacuous rather than satisfied** on the interior.
+
+### Font embedding was not the blocker, and the reason is a number nobody had
+
+I told the round this was "the one genuinely hard part" and to price it first. It
+priced it and dissolved it: **`DejaVuSans.ttf` is 379,441 B FlateDecode, once per
+PDF — less than ONE raster page at 381,564 B.** So glyph subsetting, the
+expensive half, buys ~365 KB against a 9 MB file and **is not worth doing**. The
+job is **163 code lines**, and the estimate rests on working code rather than a
+guess: 105 for an sfnt metrics reader, 33 for the three font objects, 25 for a
+centred-text operator. Proved rather than asserted — a 30×30 page with **all 540
+clue digits**, rendered by **poppler, an engine that did not write it**.
+
+### AC-2: the owner's refused weights, measured
+
+poppler on a file it did not write, the owner's **0.3 pt** grey cell line:
+
+```
+at  300 DPI : 2 px at grey 89 ; fifth line 4 px at grey 0
+at 1200 DPI : 5 px at grey 89 ; fifth line 14 px at grey 0
+```
+
+`grey 89 = round(255 × 0.35)` — **the declared tone exact at both resolutions,
+with the width scaling ×4 with the device.** That is "no device floor" as a
+measurement rather than an argument. The raster control at the same weights is
+the **one-pixel line** ADR-0037's amendment refused.
+
+**Sheet to print: `~/Documents/nonogram-reviews/CARD-293/card293-AC2-side-by-side.pdf`
+at 100 %** — the same 30×30 corner four ways at 1:1.
+
+**Two things the round says it cannot judge, and it is right:** dot gain on real
+uncoated stock, and whether 35 % grey reads as "light guidance" or "faded". ADR-0037
+itself says those "become final only after the owner has seen them on printed
+proof pages". **The judgement is the owner's.**
+
+### AC-4: smaller, stronger, and run rather than asserted
+
+`TestBookProof_StrokesMeetBookMinimum` — **168 lines today** (38 test bodies + 21
+in-file + **109** in `tests/helpers/page_ink.py`) against **41** (19 + 22).
+**4.1× smaller.** It **passes on the 0.48 pt page and fails on the 0.3 pt page**,
+so it discriminates. Width comes from `0.48 w` instead of counted dark pixels;
+tone from `0.35 G` instead of a chosen `INK_LEVEL = 128`; no `pytest.approx`, no
+`CELL_PITCH_SLACK_MM`, no `_RULE_SHARE = 0.9`.
+
+**And the strongest argument on this card is one neither I nor the card had
+made:** today's pure-black assertion **cannot be made against the file that
+ships**. The class's own docstring says the DCT round trip greys a 3-px rule's
+edges, so the test reads an **in-memory page upstream of the PDF**. A stream
+assertion reads *the printer's file*.
+
+**`Sheet`'s independent-oracle role survives intact** — it works in millimetres
+and imports no geometry, so a migration changes only the right half of the
+pairing, and the comparison gets *more* precise by dropping `PX_PER_MM` rounding
+and explicit tolerances.
+
+### THREE CORRECTIONS TO MY OWN BRIEF, one of which would have changed the decision
+
+**(a) "It shipped 0.48/1.28/2.08 pt instead" is false.** Those are **CARD-227's**
+proposed weights and **CARD-227 is `ready`, not landed** — verified. What ships
+is COMP-007's proportional two-weight rule: on Book 1, `thin_rule = 3 px`
+(0.72 pt) and `thick_rule = 6 px`. So there are **three** readings to compare and
+the proof sheet carries all three. Relatedly I quoted "**2.4× under the floor**"
+without saying that floor was **retired the same day** by the amendment I was
+citing — against the 0.169 mm that replaced it, 0.1058 mm is 1.6× under.
+
+**(b) "Every byte-identity tripwire breaks" overstated the cost by three of four,
+and this is the error that mattered** — because the owner had said *"I don't like
+much changes myself"*, so a false blocker in the cost column would have pushed
+them away from a change the measurements support. **Verified:** CON-019's
+statement is about *"the CLI's or the web UI's exports: for any generation
+request the PNG, SVG and PDF files **COMP-007** writes"* — a vector book interior
+is COMP-009 and touches no COMP-007 renderer. `tests/fixtures/a4_golden/`
+captures `compute_layout` with **no PageSpec** plus the **CLI's** bytes, so
+ADR-0036/R1's golden is not reached either. **Only the 21 book baselines move,
+and the board's own practice is to record a NEW baseline superseding the old —
+done twenty times** (`card206 ← card224 ← card248 ← card223 ← card222 … ←
+card145`). `tests/fixtures/**` is still never regenerated. **Not an owner
+decision; a routine move.**
+
+**(c) I pointed at the wrong precedent.** I sent the round to `export/svg.py`,
+which is the *stylistic* precedent. The **load-bearing** one is
+**`book_pdf_generator._write_pdf` itself**, which has driven PDF object structure
+by hand through `PIL.PdfParser` since CARD-145 — verified at `:379` (`from PIL
+import … PdfParser`) and `:7105`. **The PDF plumbing already ships inside the
+very file that would change**, which closes the "is a library needed?" question
+before it is asked, and means the Pillow-internal-module risk is **already taken
+rather than newly incurred.**
+
+### Scope, and the one thing deliberately not priced
+
+**A phase of 5–7 cards behind one ADR.** Of the 12 queued print-layout cards:
+**4 rewritten** — CARD-227 (its 0.48/1.28/2.08 is the owner's figures ×1.6
+*purely to clear 2 px*, so in vector its **decision** changes, not just its
+test), CARD-208, CARD-215 (its AC literally says *"the dot is at least 1 device
+pixel across"*), CARD-226 — **7 written with retargeted tests** (207, 209, 229,
+230, 231, 232, 233), **1 untouched** (216).
+
+**Not priced, because G-3 forbade it: the non-puzzle pages** — guide, TOC,
+dividers, answer tiles, the pipeline diagram, the difficulty legend — redrawn as
+operators. **That is the real unknown and the first thing the ADR should scope.**
+The prototype also skips two-up pages (a `PairLayout`, not a `Layout`) and the QR
+glyph and difficulty dots. One page, drawn convincingly, no page-plan walk — G-3
+respected.
+
+### Verdict
+
+**The spike recommends vector interior with the cover left raster, and I agree
+with its reasoning.** Every figure it rests on is measured, re-derived in a second
+run, and taken with the arms printing their own identity first. **The decision is
+the owner's**, and the one input they cannot get from this card is the printed
+sheet.
