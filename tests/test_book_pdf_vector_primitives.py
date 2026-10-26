@@ -62,6 +62,7 @@ from __future__ import annotations
 import math
 import random
 import re
+import zlib
 from io import BytesIO
 from pathlib import Path
 
@@ -1319,3 +1320,61 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
 
         assert callers == set(), callers
         assert self._sources()[self.THE_CURVE_SITE].count("def round_mark(") == 1
+
+
+class TestVectorFace_TheCompressedFaceIsCachedAndStillTheSameBytes:
+    """``_flate_face``'s cache is a *performance* change to merged production
+    code, so what it must not do is change a byte.
+
+    **Why the cache exists**, because a reader of this class deserves the
+    number rather than "it was slow": the face is the same 757,076 bytes in
+    every interior file, and compressing it at level 9 costs **27.4 ms** — of a
+    one-page vector write's **27.63 ms total**, i.e. **99.2 %**, where drawing
+    the page is 0.22 ms. CARD-295 converted CARD-293's 4.1× *line* ratio into a
+    *time* ratio and found it conditional on exactly this: an assertion that
+    writes its **own** PDF measured **0.71×, slower than the ink assertion it
+    replaces**, while one sharing a written interior measured 8.33×.
+    ADR-0042/R6 points CARD-299 at **283 sites**.
+
+    **These assertions are about correctness, not speed.** A timing assertion
+    here would be a stopwatch on a shared host; the board's rule is to prefer a
+    counter, and the counter that matters is that the bytes did not move. The
+    speed is recorded in ``meta/profiling/card-295-puzzle-page-price.md``.
+    """
+
+    def _face(self) -> bytes:
+        return book_vector.interior_face_bytes()
+
+    def test_the_cached_bytes_are_the_uncached_bytes(self) -> None:
+        """The whole risk of a cache, in one equality."""
+        face = self._face()
+        assert book_vector._flate_face(face) == zlib.compress(face, 9)
+
+    def test_the_cache_really_is_one_and_really_is_used(self) -> None:
+        """Non-vacuity: a cache nobody hits is not the thing being asserted."""
+        face = self._face()
+        book_vector._flate_face.cache_clear()
+        first = book_vector._flate_face(face)
+        second = book_vector._flate_face(face)
+        info = book_vector._flate_face.cache_info()
+        assert first is second, "a second call recomputed instead of hitting"
+        assert info.hits >= 1 and info.misses == 1, info
+        assert info.maxsize == 1, info
+
+    def test_a_written_file_still_carries_the_face_whole(self) -> None:
+        """The end-to-end direction: what reaches ``/FontFile2`` is still the
+        face, so a cache returning something stale or wrong reds here even if
+        the equality above were somehow satisfied."""
+        stream = book_vector.ContentStream(width_px=1800, height_px=2700, dpi=300)
+        stream.line(0.0, 0.0, 100.0, 100.0)
+        written = book_vector.write_vector_pdf([stream], 1).getvalue()
+        face = self._face()
+        assert zlib.compress(face, 9) in written
+        assert zlib.decompress(zlib.compress(face, 9)) == face
+
+    def test_the_equality_above_can_fail(self) -> None:
+        """The control for the control: the comparison is sensitive to the
+        compression *level*, which is the most plausible way a future edit
+        changes these bytes without changing their meaning."""
+        face = self._face()
+        assert zlib.compress(face, 1) != zlib.compress(face, 9)
