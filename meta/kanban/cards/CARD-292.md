@@ -119,3 +119,50 @@ count before testing anything.
 - **Scheduling.** `tests/test_book_export_interior_cover.py` is also CARD-276's (in flight), CARD-287's (344.29 s, 24.4 % of the suite) and inside CARD-273's `tests/**`. **This card serializes against all three**, and the natural order is **after CARD-276 merges** — it is the card that grew the test, and this one cheapens it. CARD-287's own subject is the same file's dominant class, so these two should be read together before either is dispatched.
 - **Why P1 and not P2.** Nothing here is a feature and nothing a customer sees. It is P1 because it is **about whether this board's verdicts mean anything**: three gates have already been argued about on evidence that turned out to be the host, and the next one will be too. The cheapest fix is to know the number.
 - **The phantom, recorded as the method lesson.** Both of my wrong attributions compared **a quiet run from hours earlier against a loaded run from minutes earlier**. The controlled version — both revisions back to back, nothing else running — took one command and settled it immediately. Running both arms under one machine state is not a refinement; it is the measurement.
+
+## [A FOURTH instance, 2026-10-26 — added before dispatch so this card starts from complete evidence]
+
+This card's "Why this is P1" lists three gates that paid for the unmeasured
+ceiling. **Today added a fourth, and it is the cleanest of them**, because the
+confounder was isolated rather than guessed at.
+
+**CARD-283's merge gate** came back `1 failed / 9259 passed / 27 skipped` on
+`tests/test_guard_integrity.py::TestGuardModule_CannotGoQuietAboveItsOwnGuards::test_no_guarded_module_silences_itself_at_module_scope`.
+The card was nearly charged with it. It was **not** the card: the orchestrator
+ran **both arms** — the same test alone on the branch (1 failed) and on **main**
+alone (1 failed) — which established in two commands that `main` itself was red,
+from the orchestrator's own `meta/profiling/measure_raster_share.py` committed in
+`431f00c2` with `sys.exit()` at module scope. Fixed at `fcd03c99`.
+
+**Why it belongs here rather than in a postmortem.** The three instances above
+are all *host* noise; this one is *tree* breakage. They are indistinguishable at
+the gate — both arrive as "the gate went red and the card is the suspect" — and
+the only thing that separated them was a two-arm measurement that costs seconds
+and that this board adopted after CARD-276 spent an hour not doing it. A ceiling
+measurement that tells a reader **when a red is worth re-running versus worth
+bisecting** is therefore worth more than a number: it is the first half of a
+triage rule the board currently applies from memory.
+
+**What this wave decided on gate figures, for scale.** `9160 / 27 / 0`
+(CARD-276), `9227 / 27 / 0` (CARD-294), `9260 / 27 / 0` (CARD-283) — each
+reported by the orchestrator to the owner as a fact about the tree, each
+unqualified by any statement of how close the run sat to the ceiling. If this
+card's measurement shows the margin is thin, those three verdicts were luckier
+than they read.
+
+**Two fresh data points this card may use**, both taken on a quiet box with the
+suite lock redirected, both already in `meta/kanban/suite-timing.log`:
+
+- `tests/test_book_export_interior_cover.py` whole-file: **467.30 s for 127
+  tests** complete, against the card's recorded observation of the same file
+  **dying around 120 s at two different revisions** under load. The same file,
+  the same machine, two conditions.
+- The full suite at **1601 s / 9287 collected** (CARD-283's gate) against
+  **1534 s / 9254** (CARD-294's) — 173 ms/test against 166 ms/test, a 4 %
+  spread between two runs eleven hours apart with no suite-cost work between
+  them.
+
+**Unchanged and still true:** this card must run **solo**. `tests/README.md`
+says a contended run "tells you nothing at all" and that two quiet-host runs of
+near-identical suites differ by ~19 %. It is queued behind CARD-295's review
+cycle for exactly that reason, not behind its merge.
