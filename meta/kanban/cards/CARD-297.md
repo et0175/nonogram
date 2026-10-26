@@ -154,3 +154,39 @@ one.
   `test_the_drawn_tie_is_still_carried_here` — so a later card cannot quietly
   undo the conversion. Read that fence before touching the file.
 - `src/nonogram/admin/book_pdf_generator.py` is a `conflict.hotspot`.
+
+## [Reuse claim VERIFIED — 2026-10-26, orchestrator] AC-3 stands; CARD-295's round was wrong about its own routine
+
+CARD-295's implementation round reported that this card's central reuse claim
+does not reach: *"an `AnswerTile` is explicitly not a `Layout` and carries no
+`GridLine`s … its tile grid needs either lines from COMP-007 or its own walk"*,
+and recommended correcting AC-3 before dispatch. **That is false, and AC-3 needs
+no correction.** Measured rather than read:
+
+- **`AnswerTile` carries `GridLine`s.** `dataclasses.fields` gives it
+  `vertical_lines: tuple[GridLine, ...]` and `horizontal_lines: tuple[GridLine, ...]`
+  — the same two fields `Layout` has, alongside `thin_rule`, `thick_rule` and
+  the four `grid_*` edges.
+- **The routine does not take a `Layout`.** CARD-295 built
+  `draw_grid_lines(stream, verticals: Sequence[GridLine], horizontals: Sequence[GridLine], *, grey)`,
+  and `draw_ruled_grid(stream, layout, …)` is only the `Layout` convenience door
+  onto it. It reads `line.start`, `line.end`, `line.position` and `line.width`
+  and nothing else.
+- **Driven functionally**: an `AnswerTile` built from a real layout's lines (11
+  vertical, 11 horizontal) was passed straight to `draw_grid_lines` — *OK, no
+  `Layout` involved*. (The probe then raised on my own counting code, which
+  called `.count(' m')` on the `bytes` that `render()` returns; the drawing call
+  itself succeeded.)
+
+**The irony is worth keeping, because it is the wave's pattern inverted.** That
+round *designed* the sequence-taking signature precisely so a non-`Layout` caller
+could use it — "the split IS the consumability the dispatch asked for" — and then
+reported that a non-`Layout` caller could not. Nine rounds on this board have
+disagreed with their brief and been right; this is the first to disagree with
+**itself** and be wrong, by **understating** its own work rather than overstating
+it. Had the note been relayed and AC-3 "corrected", it would have **removed a
+true requirement and licensed a third grid copy** — exactly what AC-3 exists to
+prevent.
+
+**Dispatch status: NOT dispatchable.** Two of three dependencies are unmet —
+CARD-295 is `in_progress` (review cycle 1), CARD-227 is `ready` and unstarted.

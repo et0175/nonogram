@@ -1,6 +1,6 @@
 # CARD-295: The puzzle page as operators — the grid, the frame, the clue digits and the band, drawn from the Layout it is handed
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/295-puzzle-page-as-operators
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-295
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 3. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 61
@@ -18,7 +18,7 @@
 **Depends on:** CARD-294
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf_band.py, tests/test_book_cell_size.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-26
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -199,3 +199,44 @@ not fail, and its cycle 2 N-1 was a figure whose scope was hand-held.
 If you decide these controls are not yours either, **say so with a reason and
 name who owns them** rather than passing them on silently: a declaration that
 outlives its hole is the defect this board gates on most.
+
+## [DISPATCH 2026-10-26 — wave 61, orchestrator] The grid routine's direction has REVERSED
+
+**CARD-296 is PARKED, not merged**, so `src/nonogram/admin/book_guide_vector.py`
+and its `draw_line_diagram` are **not on main** — they exist only in a kept
+worktree at `0b91ab18`. CARD-296's AC-4 says *"CARD-295 should consume it rather
+than write a second one"*. **That is now backwards.** You write the routine; the
+card that re-enters consumes yours.
+
+So: make it **consumable**. A routine that takes a `Layout` plus what to draw and
+knows nothing about a puzzle page specifically is one CARD-296 can adopt; one
+shaped around your page is a second implementation by another name, and that is
+exactly what CARD-296's AC-4 exists to prevent.
+
+**What IS on main:** CARD-294's vocabulary, `src/nonogram/admin/book_vector.py`
+— the embedded face, the operator set, `round_mark`, `write_vector_pdf`. Merged
+`b850bbbd`. Consume it; do not rebuild it.
+
+**You also inherit CARD-296's F-302**, because you are the card its AC-4 exists
+to constrain. Its default-DENY guard over "which routines may read a `Layout`'s
+grid" has a measured hole: a frozen dataclass with one `sheet: Layout` field and
+a `stroke` method draws a **complete second ruled grid** and passes — the
+annotation arm reads *function parameters* only, and the rebinding arm skips an
+`AnnAssign` with no value, which is what a dataclass field is. Five more escape
+at helper level (tuple unpack, a `Layout`-returning helper, walrus, comprehension
+target, `for` target, unannotated default). If you build a guard of that kind,
+build it without that hole — or name the limit **by its shape** and say who owns
+closing it.
+
+## [Correction to the round's own handback — 2026-10-26, orchestrator]
+
+The round's item 6 ("CARD-297's reuse, as its card words it, does not reach")
+is **false**, verified at the source and functionally: `AnswerTile` carries
+`vertical_lines`/`horizontal_lines` as `tuple[GridLine, ...]`, and this round's
+own `draw_grid_lines` takes **two `GridLine` sequences**, not a `Layout` —
+`draw_ruled_grid` is just the `Layout` door onto it. An `AnswerTile`'s lines
+drive it directly, with no `Layout` involved.
+
+So the routine's reach is **wider than its author claimed**. This is the first
+round in this wave to be wrong by understating its own work; the standing
+pattern has been the reverse. Recorded on CARD-297, whose AC-3 needs no change.
