@@ -95,6 +95,7 @@ from nonogram.admin.book_pdf_generator import (
     _draw_difficulty_dots,
 )
 from nonogram.admin.book_plan import TIERS
+from nonogram.admin.book_vector import ContentStream
 from nonogram.difficulty import TIER_BANDS, Tier
 from nonogram.export.layout import (
     DIFFICULTY_DOT_GAP_RATIO,
@@ -879,6 +880,64 @@ NON_DRAW_RECEIVER_SITES = (
     ("nonogram.sourcing.image", "ink_bounding_box", "point", "greyscale"),
 )
 
+#: How a **vector content stream** is spelled in this package: the bare name
+#: ``stream`` (CARD-296, ADR-0042).
+#:
+#: **This is the fifth route CARD-294 said would be needed**, and it is here
+#: for the reason that card's measurements document records (§5, finding one):
+#: ``ContentStream`` is not a Pillow draw object at all, so this guard's four
+#: routes are all outside it — and yet ``stream.line(...)``,
+#: ``stream.rectangle(...)`` and ``stream.text(...)`` are *written* with names
+#: this guard watches, so the inverted receiver rule reports every one of them
+#: as an unrecognised receiver. CARD-296, the first page card, is where the
+#: decision CARD-294 deferred gets taken.
+#:
+#: What is **not** done here: widening any round-shape bin. A content stream's
+#: only round shape is ``ContentStream.round_mark``, which is in none of this
+#: guard's method families — PDF has no circle operator, so the shape is four
+#: cubic Béziers and not a method name Pillow ever had. That route's control
+#: lives where the vocabulary's own tests are:
+#: ``tests/test_book_pdf_vector_primitives.py``'s
+#: ``TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee``, which
+#: asserts that ``round_mark(`` appears in no module but the vocabulary's own
+#: and that the ``c`` operator is written in exactly one module. It is named
+#: here rather than duplicated, because two copies of one claim drift.
+VECTOR_RECEIVER_NAME = "stream"
+
+#: The draw-method names a ``ContentStream`` may be excused for, **derived
+#: from the class** (ADR-0039/R2 — a guard's set comes from an enumerable
+#: authority) and then narrowed by subtraction rather than by a list.
+#:
+#: The intersection of :data:`ALL_DRAW_METHODS` with the class's own public
+#: methods, minus every family that could put a round mark on a page. So
+#: ``stream.line`` and ``stream.rectangle`` (flat) and ``stream.text`` (a
+#: string) are accounted for, and the day ``ContentStream`` grows an
+#: ``ellipse``, a ``polygon`` or a ``rounded_rectangle`` this set does **not**
+#: grow to cover it: such a call is reported as an unrecognised receiver and
+#: this guard reds, which is the point.
+#:
+#: **Written as a function of the surface rather than as an expression over
+#: ``ContentStream``, because the subtraction has to be controllable.** Today
+#: that class carries no ``ellipse``, no ``polygon`` and no
+#: ``rounded_rectangle``, so taking those families out changes nothing about
+#: the value below, and an assertion that the value avoids them passes whether
+#: the subtraction is written or not — measured, not supposed: deleting the
+#: three subtractions left this whole class green. The rule is therefore also
+#: exercised against a stand-in surface that *does* carry them, in
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_the_vector_stream_receiver_is_excused_only_for_marks_that_cannot_be_round`,
+#: which is the only way the narrowing can be shown to be load-bearing.
+def _excused_vector_methods(surface: type) -> frozenset[str]:
+    """Which of ``surface``'s public methods a vector receiver is excused for."""
+    return frozenset(name for name in dir(surface) if not name.startswith("_")) & (
+        ALL_DRAW_METHODS
+        - ELLIPSE_METHODS
+        - ROUND_ENOUGH_METHODS
+        - VERTEX_BOUNDED_METHODS
+    )
+
+
+VECTOR_STREAM_METHODS = _excused_vector_methods(ContentStream)
+
 #: The one function allowed to put a round mark on a page.
 THE_DRAWING_SITE = ("nonogram.admin.book_pdf_generator", "_draw_difficulty_dots")
 
@@ -969,6 +1028,34 @@ def _is_draw_receiver(node: ast.AST) -> bool:
         # and the real site (``ImageDraw.Draw(probe)``) still passes.
         and "ImageDraw" in ast.unparse(node.func)
     )
+
+
+def _is_vector_receiver(node: ast.AST) -> bool:
+    """Whether ``node`` is a vector content stream, as this package spells one.
+
+    The bare name :data:`VECTOR_RECEIVER_NAME`. Deliberately as narrow as
+    :func:`_is_draw_receiver`'s own first clause and for the same reason: a
+    receiver the guard cannot place has to be reported, not guessed at.
+    """
+    return isinstance(node, ast.Name) and node.id == VECTOR_RECEIVER_NAME
+
+
+def _is_accounted_receiver(method: str, node: ast.AST) -> bool:
+    """Whether a call of ``method`` on ``node`` is a receiver this guard places.
+
+    Either a Pillow draw object (:func:`_is_draw_receiver`, for any method), or
+    a vector content stream (:func:`_is_vector_receiver`) for one of the
+    methods a ``ContentStream`` really carries and that cannot be round
+    (:data:`VECTOR_STREAM_METHODS`). Everything else is reported.
+
+    The method is part of the question for the vector case and not for the
+    Pillow one, which is the asymmetry that keeps the new route narrow:
+    ``draw.ellipse`` is a drawing site this guard already measures, while
+    ``stream.ellipse`` is a receiver it has never seen and must refuse.
+    """
+    if _is_draw_receiver(node):
+        return True
+    return _is_vector_receiver(node) and method in VECTOR_STREAM_METHODS
 
 
 def _draw_calls(
@@ -1154,7 +1241,7 @@ def _unrecognised_draw_receivers(
     return sorted(
         (module, function, method, ast.unparse(receiver))
         for module, function, method, receiver, _call in _draw_method_calls(sources)
-        if not _is_draw_receiver(receiver)
+        if not _is_accounted_receiver(method, receiver)
     )
 
 
@@ -1678,7 +1765,7 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         exempt = [
             (module, function, method, call)
             for module, function, method, receiver, call in _draw_method_calls(sources)
-            if not _is_draw_receiver(receiver)
+            if not _is_accounted_receiver(method, receiver)
         ]
         assert len(exempt) == len(NON_DRAW_RECEIVER_SITES)
         for module, function, method, call in exempt:
@@ -1694,6 +1781,64 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         bound = {name for _, _, _, name in _draw_object_bindings(sources)}
         for _module, _function, _method, spelling in NON_DRAW_RECEIVER_SITES:
             assert spelling not in bound, spelling
+
+    def test_the_vector_stream_receiver_is_excused_only_for_marks_that_cannot_be_round(
+        self,
+    ) -> None:
+        """CARD-296's fifth route — earned by what a ``ContentStream`` carries.
+
+        The exemption :data:`VECTOR_RECEIVER_NAME` grants is the same shape as
+        :data:`NON_DRAW_RECEIVER_SITES`': an excuse plus a control for what it
+        must **not** absorb. Three things are asserted, each of which can
+        fail on its own:
+
+        * the excused set is non-empty — an empty one would excuse nothing and
+          make the route decorative;
+        * it meets none of the three families that could put a round mark on a
+          page, so a ``ContentStream`` that grew an ``ellipse``, a ``polygon``
+          or a ``rounded_rectangle`` would not be excused for it;
+        * and a planted ``stream.ellipse(...)`` really is still reported,
+          which is the only way to know the second point is live rather than
+          true-by-arithmetic.
+
+        The round shape a content stream *does* have is ``round_mark``, which
+        is in none of this guard's families because PDF has no circle
+        operator. Its control is named on
+        :data:`VECTOR_RECEIVER_NAME` and lives with the vocabulary's own
+        tests; it is not restated here.
+        """
+        assert VECTOR_STREAM_METHODS
+        assert VECTOR_STREAM_METHODS <= TEXT_METHODS | FLAT_METHODS
+
+        # The narrowing, shown on a surface that could exercise it. Against
+        # ``ContentStream`` the subtraction is a no-op (it carries none of
+        # those names), so asserting the real set avoids them proves nothing
+        # about the rule.
+        class _RoundCapableSurface:
+            def line(self): ...
+
+            def text(self): ...
+
+            def ellipse(self): ...
+
+            def polygon(self): ...
+
+            def rounded_rectangle(self): ...
+
+        assert _excused_vector_methods(_RoundCapableSurface) == {"line", "text"}
+
+        rogue = {
+            "planted.module": (
+                "def draw_a_dot(stream):\n"
+                "    stream.ellipse((0, 0, 10, 10), fill=0)\n"
+                "    stream.polygon([(0, 0), (1, 0), (1, 1)], fill=0)\n"
+            )
+        }
+
+        assert _unrecognised_draw_receivers(rogue) == [
+            ("planted.module", "draw_a_dot", "ellipse", "stream"),
+            ("planted.module", "draw_a_dot", "polygon", "stream"),
+        ]
 
     def test_every_draw_object_in_the_package_is_spelled_draw(self) -> None:
         """The binding rule, inverted: an unknown **form** fails (cycle 2, F-101).

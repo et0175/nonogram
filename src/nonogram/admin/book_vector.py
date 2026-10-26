@@ -558,6 +558,22 @@ def _cap_height(data: bytes, cmap: Mapping[int, int]) -> int:
     ``TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader`` is where that
     agreement is asserted against an engine that did not write this reader.
 
+    **A stated ``sCapHeight`` of zero is not a cap height, and is no longer
+    returned as one** (CARD-296, answering CARD-294's cycle-2 note N-2). A
+    version-2-or-later ``OS/2`` whose ``sCapHeight`` is ``0`` used to come
+    straight back out of here — a silent zero in a ``/CapHeight`` and in the
+    half-cap-height a page card centres a digit against, with no fallback and
+    no error. Zero is what a font tool writes when it did not measure the
+    field, not a measurement, and the face it is read from still has an ``H``
+    to measure; so the field is read **only when it states something**, and
+    the ``H``-glyph measurement below is what a zero falls through to. The
+    three reachable paths and both refusals each have a synthetic face of
+    their own in
+    ``tests/test_book_pdf_vector_primitives.py``'s
+    ``TestVectorCapHeight_EveryBranchHasItsOwnFace``; before that card they
+    had one between them, exercised by the bundled face, which takes the
+    ``H``-glyph path.
+
     Raises:
         ContentStreamError: the face has neither an ``sCapHeight`` nor an
             ``H`` with an outline. A descriptor cannot state a cap height it
@@ -567,7 +583,9 @@ def _cap_height(data: bytes, cmap: Mapping[int, int]) -> int:
     tables = _sfnt_tables(data)
     os2, length = _table(tables, "OS/2")
     if struct.unpack(">H", data[os2 : os2 + 2])[0] >= 2 and length >= 90:
-        return struct.unpack(">h", data[os2 + 88 : os2 + 90])[0]
+        stated = struct.unpack(">h", data[os2 + 88 : os2 + 90])[0]
+        if stated > 0:
+            return stated
     glyph = cmap.get(ord("H"))
     if glyph is None:
         raise ContentStreamError(
