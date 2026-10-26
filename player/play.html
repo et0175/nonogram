@@ -1,0 +1,90 @@
+<!doctype html>
+<!--
+  The public player's /play/<key> page (COMP-011, FR-045, ADR-0041; CARD-283).
+
+  Static files only, no framework and no build step beyond copying
+  (ADR-0041/R3). This document carries NO puzzle: play.js reads the key out of
+  the URL and fetches puzzle/<key>.json from the bundle, so one file serves
+  every puzzle and the deployed HTML is independent of what was published.
+
+  It also carries no answer, and cannot (ADR-0038/R6, ADR-0041/R2): nothing
+  the site serves holds a solution grid. "Solved" is every row and column clue
+  satisfied, which for a uniquely solvable puzzle is exactly the solution —
+  see play.js's isClueSolved. There is therefore no error count and no hint
+  button here, unlike the admin player: both need the answer (CARD-283 G-4).
+
+  There is no analytics script tag either, and its absence is deliberate
+  rather than forgotten. ADR-0041/R6 puts one on the player pages, but
+  AC-385's control asserts that playing issues no network request beyond this
+  page's own static assets; a third-party counting beacon is such a request.
+  The tag belongs with the pages and the test R6's own check ref names
+  (tests/test_public_player_pages.py, CARD-285), which is where the two rules
+  have to be reconciled.
+
+  The header says "Puzzle W x H" and the tier — never the puzzle's name. Two
+  reasons, and the first is not about leaks: the picture's name IS the answer,
+  which is exactly why CARD-163 took it out of the admin player's own header
+  (FR-044 AC-322/AC-323) and left it only in that page's solved banner. The
+  second is EC-048: a name is free text, free text cannot be scanned for an
+  encoded grid, so the public site does not serve one at all (player/
+  assemble.py's docstring has the measurement this follows from).
+
+  The markup below is the empty frame. play.js builds the board into
+  .player-stage and reveals the toolbar once it has; a page whose script never
+  ran keeps the fallback paragraph and shows no dead controls — the same shape
+  templates/puzzle_solve.html uses, for the same reason.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  Mobile first (nearly every scan is a phone), and pinch-zoom deliberately
+  LEFT ON: no user-scalable=no and no maximum-scale, because the board of a
+  30-cell puzzle on a 390 px screen is read by zooming. The board's own
+  two-finger pinch is not a substitute for the browser's.
+-->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nonogram</title>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/player.css">
+</head>
+<body>
+<main class="player-page">
+  <div class="page-head player-head">
+    <h1 data-player-title>Nonogram</h1>
+    <span class="player-tier" data-player-tier hidden></span>
+  </div>
+
+  <div class="player-toolbar" data-player-controls hidden>
+    <div class="player-tools" role="group" aria-label="Marking tool">
+      <button type="button" class="btn player-tool-item" role="radio" data-player-tool="filled" aria-checked="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
+      <button type="button" class="btn player-tool-item" role="radio" data-player-tool="empty" aria-checked="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
+      <button type="button" class="btn player-tool-item" role="radio" data-player-tool="unknown" aria-checked="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Clear</button>
+      <button type="button" class="btn player-region" data-player-region aria-pressed="false" aria-label="Region"><span class="player-brush-run" aria-hidden="true"><span class="player-swatch" data-state="filled"></span><span class="player-swatch" data-state="filled"></span><span class="player-swatch" data-state="filled"></span></span></button>
+    </div>
+    <div class="player-history" role="group" aria-label="History">
+      <button type="button" class="btn" data-player-action="undo" aria-keyshortcuts="Control+Z Meta+Z" aria-disabled="true">Undo</button>
+      <button type="button" class="btn" data-player-action="redo" aria-keyshortcuts="Shift+Control+Z Shift+Meta+Z" aria-disabled="true">Redo</button>
+      <button type="button" class="btn" data-player-action="reset" aria-disabled="true">Reset</button>
+    </div>
+    <p class="player-solved" data-player-solved hidden>Solved</p>
+    <p class="player-announce" data-player-announce role="status" aria-atomic="true"></p>
+  </div>
+
+  <div class="player-stage" data-player-stage>
+    <p class="player-fallback" data-player-fallback>
+      Drawing the board&hellip; If this message stays, the player script
+      (play.js) did not load.
+    </p>
+  </div>
+
+  <p class="player-hint" data-player-hint hidden>
+    Tap a cell to mark it with the selected brush; tap it again to go on
+    (Black: black, white, blank). Drag along a row or column to mark several.
+    On a touch screen, press Region first so a drag marks instead of scrolling
+    the page.
+  </p>
+</main>
+<script type="module" src="/play.js"></script>
+</body>
+</html>
