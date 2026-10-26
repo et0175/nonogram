@@ -1272,8 +1272,34 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
     assembled by string concatenation, or a round mark reached through
     ``getattr``, is invisible to it, exactly as the Pillow walk's own
     docstring says of its four routes. It is not trying to be that guard. It
-    is a **tripwire on one transition**: the day a page card draws a vector
-    dot, the second test here goes red, and the response is to grow
+    is a **tripwire on two spellings**: ``round_mark(`` outside the
+    vocabulary, and a ``c`` operator written in a module that is not this one.
+
+    **Corrected 2026-10-26 (CARD-296 review cycle 1, F-1), because it reached
+    further in this docstring than in the tree.** This paragraph used to say
+    "the day a page card draws a vector dot, the second test here goes red",
+    and CARD-296 declined its AC-3 partly on that promise. Both were measured
+    false: ``ContentStream`` also carries ``begin_path``/``line_to``/
+    ``close_path``/``paint``, an arbitrary polygon builder that emits only
+    ``m``, ``l``, ``h`` and a paint operator, and a 32-gon filled disc planted
+    on the guide's difficulty legend passed **248 tests** — this class
+    included. A polyline disc is also *cheaper* than four Béziers, so it is
+    the likelier route for CARD-229's dots, which makes the gap the opposite
+    of theoretical.
+
+    So the honest statement of this tripwire is: **it fires on a curve, not on
+    a round shape.** The polyline route is a **named limit** here and is
+    closed where the ink is: a page card bounds the vertices of every subpath
+    its own pages write, off the written stream
+    (``tests/test_book_guide_page_vector.py``'s
+    ``TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday``, counting
+    through ``tests/helpers/pdf_vector.subpath_vertices`` so each page card of
+    the phase inherits the instrument). That bound is per page kind, so a page
+    kind with no such control is uncovered; **CARD-298** owns ADR-0042/R1's
+    derived check over every page kind and is where this becomes one check
+    instead of one per card.
+
+    When either test here does go red, the response is to grow
     ``TestDifficultyDots_HasExactlyOneDrawingSite`` a fifth route rather than
     to relax this one. A tripwire that fires on the ordinary spelling of the
     thing it is watching for is worth having; it is not a proof, and is not
@@ -1306,11 +1332,16 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
     def test_the_round_mark_primitive_is_defined_once_and_called_nowhere_yet(self):
         """G-1, mechanically: a vocabulary card that drew a page would fail this.
 
-        When CARD-295 or CARD-296 draws the first vector difficulty dot this
-        test goes red, which is the intended alarm: it is the moment
+        When a page card calls ``round_mark`` this test goes red, which is the
+        intended alarm: it is the moment
         ``TestDifficultyDots_HasExactlyOneDrawingSite`` has to grow a fifth
         route, and the moment this test should be replaced by that one rather
         than relaxed.
+
+        **It is the alarm for this primitive, not for a round shape** — a dot
+        approximated out of ``line_to`` calls never touches ``round_mark`` and
+        is invisible here, measured (CARD-296 cycle 1, F-1). See the class
+        docstring for the limit and for where the polyline route is bounded.
         """
         callers = {
             path

@@ -43,6 +43,7 @@ CON-020's own check stays CARD-299's (CARD-296 G-5):
 from __future__ import annotations
 
 import ast
+import dataclasses
 import random
 import re
 from pathlib import Path
@@ -51,6 +52,7 @@ from typing import Dict, List, Tuple
 import pytest
 
 from nonogram.admin import book_guide_vector as guide_vector
+from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_guide_vector import (
     BODY_TEXT,
     CLUE_DIGIT,
@@ -67,6 +69,7 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_vector import ContentStream
 from nonogram.admin.book_pdf_generator import (
     FOLIO_PT,
+    GUIDE_ASSUME_STEPS,
     GUIDE_BASIC_RULE_CLUE,
     GUIDE_BASIC_RULE_LENGTH,
     GUIDE_BODY_PT,
@@ -82,7 +85,7 @@ from nonogram.admin.book_pdf_generator import (
     example_line_layout,
     guide_icon_layout,
 )
-from nonogram.export.layout import compute_layout
+from nonogram.export.layout import Layout, compute_layout
 from tests.helpers import pdf_vector
 from tests.helpers.book_corpus import corpus_book
 
@@ -103,6 +106,12 @@ needs_poppler = pytest.mark.skipif(pdf_vector.PDFTOTEXT is None, reason=NO_POPPL
 #: statement of what it is holding the page to stays its own, exactly as
 #: ``tests/test_book_interior_type_floor.py`` writes the same figure out.
 FLOOR_PT = 10.0
+
+#: The only tone this page may ink, as a ``g``/``G`` operand: pure black.
+#: Written here for the same reason :data:`FLOOR_PT` is — the control states
+#: what it holds the page to, and the writer's own ``_BLACK`` is the thing
+#: being checked rather than the authority for it.
+_BLACK_TONE = 0.0
 
 MIN_TRIM_CM = 10.0
 MIN_TRIM_GUTTER_CM = "0.95"
@@ -242,6 +251,31 @@ class TestGuidePage_CarriesNoImageXObject:
         assert b"/Image" not in data
         assert b"DCTDecode" not in data
 
+    def test_both_profiles_carry_no_bitmap_not_only_book_one(self, profile):
+        """AC-1 at the minimum trim as well (review cycle 1, F-7).
+
+        The two assertions above run on ``book1`` only, and the minimum trim
+        got just the non-vacuity test — yet it is the profile that drives the
+        page to its most stripped-down fallback form, which is where a writer
+        would be most tempted to fall back on a bitmap.
+
+        Written as its own cell rather than by adding ``profile`` to those two,
+        because **G-6's gate is a node-id set difference and a ``parametrize``
+        id is a node id**: parameterizing them would delete
+        ``…::test_no_page_resource_dictionary_offers_an_xobject`` and report as
+        a removed test. (CARD-298 owns ADR-0042/R1's derived check over every
+        page kind, which is where these three stop being page-local.)
+        """
+        data = written(profile)
+        keys = pdf_vector.page_resource_keys(data)
+
+        assert len(keys) == len(GUIDE_PAGE_NUMBERS)
+        for page in keys:
+            assert "XObject" not in page, page
+            assert "Font" in page, page
+        assert b"/Image" not in data
+        assert b"DCTDecode" not in data
+
     def test_the_pages_are_not_empty_which_is_what_makes_the_two_above_mean_anything(
         self, profile
     ):
@@ -345,35 +379,109 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
     CARD-295 is meant to consume.
     """
 
-    #: The attributes of a ``Layout`` that only a grid-drawing routine has any
-    #: business reading. Derived from what
+    #: The names a ``Layout`` carries that this guard does **not** treat as
+    #: grid ink, each with the reason that earns it. :attr:`GRID_ATTRIBUTES` is
+    #: everything else, so the guarded set is derived from the dataclass
+    #: itself (ADR-0039/R2) and a field or property added to ``Layout`` is
+    #: guarded the day it lands.
+    #:
+    #: **This replaces a hand-written set of seven whose stated derivation was
+    #: false** (review cycle 1, F-2). It claimed to be what
     #: ``book_pdf_generator._stroke_drawing``/``_write_clues``/
-    #: ``draw_example_line`` read between them — the raster routines this
-    #: module replaces — so the set is the shape of the thing being guarded
-    #: and not a list of names that happened to come to mind.
-    GRID_ATTRIBUTES = frozenset(
-        {
-            "vertical_lines",
-            "horizontal_lines",
-            "clue_entries",
-            "clue_font_size",
-            "grid_top",
-            "grid_bottom",
-            "grid_right",
-        }
-    )
-
-    #: Every function allowed to read one of :attr:`GRID_ATTRIBUTES`, and the
-    #: role that earns it. A function here that stops touching the grid is as
-    #: much a finding as one that starts: the roles are asserted both ways.
-    ROLES = {
-        "draw_line_diagram": "the one composition: marks, rules, clue digits",
-        "_stroke_layout": "strokes the ruled lines and the frame",
-        "_write_clue_digits": "sets the clue digits",
-        "diagram_left": "reads where the ink starts",
-        "diagram_box": "reads the box the raster routine crops out of its canvas",
-        "translation": "lands a diagram's bleed corner where the page put it",
+    #: ``draw_example_line`` read between them; those three also read ``frame``,
+    #: ``thick_rule`` and ``thin_rule``, all omitted, so the set was exactly the
+    #: subset that kept the module green — and worse, every guarded name had an
+    #: **unguarded synonym** one level down (``Layout.grid_lines`` =
+    #: ``vertical_lines + horizontal_lines``, ``clue_entries`` = ``row_clues +
+    #: column_clues``). A complete second grid implementation spelled around it
+    #: — ruled lines through ``grid_lines``, the frame through ``frame``, the
+    #: digits through ``row_clues``/``column_clues`` — passed this class 4/4.
+    #:
+    #: Two reason classes, each with an assertion of its own below rather than
+    #: a word here:
+    #:
+    #: * ``"not ink"`` — a count or the sheet's metadata: it is neither a
+    #:   coordinate, a stroke weight, nor a placed number, so no second grid
+    #:   can be drawn out of it. Held by
+    #:   :meth:`test_every_name_the_raster_grid_routines_read_is_guarded`.
+    #: * ``"shared name"`` — a name the guard cannot attribute, because objects
+    #:   in *this* module carry it too and the walk matches attribute names.
+    #:   Guarding ``width`` would report a ``PageFrame``'s width and a
+    #:   ``_Mark``'s. These are the only two names that escape the name walk,
+    #:   and what closes the escape is the second assertion in this class:
+    #:   a receiver spelled as a ``Layout`` may not be read for them either.
+    ALLOWED = {
+        "rows": "not ink",
+        "columns": "not ink",
+        "row_gutter_cells": "not ink",
+        "column_gutter_cells": "not ink",
+        "orientation": "not ink",
+        "dpi": "not ink",
+        "page": "not ink",
+        "width_inches": "not ink",
+        "height_inches": "not ink",
+        "width": "shared name",
+        "height": "shared name",
     }
+
+    #: Every field and property of a ``Layout`` that is grid ink — derived, as
+    #: the complement of :attr:`ALLOWED` over the dataclass's own surface. It
+    #: holds ``grid_lines``, ``clue_entries``, ``row_clues``, ``column_clues``,
+    #: ``cell`` and ``margin`` by construction, which is the whole point.
+    GRID_ATTRIBUTES = frozenset(
+        {field.name for field in dataclasses.fields(Layout)}
+        | {name for name, member in vars(Layout).items() if isinstance(member, property)}
+    ) - frozenset(ALLOWED)
+
+    #: Every function allowed to read one of :attr:`GRID_ATTRIBUTES`, the role
+    #: that earns it, and **exactly which names that role covers**. A function
+    #: here that stops touching the grid is as much a finding as one that
+    #: starts, and a function that starts reading a *further* grid name is a
+    #: finding too: both halves are asserted, so a second grid appended inside
+    #: a function that already has a role cannot inherit it.
+    ROLES = {
+        "draw_line_diagram": (
+            frozenset({"vertical_lines", "horizontal_lines", "thin_rule"}),
+            "the one composition: marks, rules, clue digits",
+        ),
+        "_stroke_layout": (
+            frozenset({"vertical_lines", "horizontal_lines", "frame"}),
+            "strokes the ruled lines and the frame",
+        ),
+        "_write_clue_digits": (
+            frozenset({"clue_entries", "clue_font_size"}),
+            "sets the clue digits",
+        ),
+        "diagram_left": (
+            frozenset({"frame", "vertical_lines"}),
+            "reads where the ink starts",
+        ),
+        "diagram_box": (
+            frozenset({"grid_top", "grid_right", "grid_bottom", "thick_rule"}),
+            "reads the box the raster routine crops out of its canvas",
+        ),
+        "translation": (
+            frozenset({"grid_top"}),
+            "lands a diagram's bleed corner where the page put it",
+        ),
+        "pad": (
+            frozenset({"thick_rule"}),
+            "the paste pad: one heavy rule of bleed around a diagram",
+        ),
+        "guide_page": (
+            frozenset({"thick_rule"}),
+            "hoists that same paste pad once, off the icon layout — exactly "
+            "what the raster page reads at book_pdf_generator.py:4361, and the "
+            "only grid number the page itself reads",
+        ),
+    }
+
+    #: How this module spells a ``Layout``-valued expression. An equality
+    #: against what it really writes (asserted non-vacuous below), and the
+    #: subject of the second assertion: a receiver spelled this way may be read
+    #: only for a guarded name, which is what stops ``layout.width`` or
+    #: ``layout.cell`` from being a way around :attr:`ALLOWED`.
+    LAYOUT_SPELLINGS = frozenset({"layout", "self.layout", "icon_layout"})
 
     @staticmethod
     def _module_source() -> str:
@@ -389,23 +497,174 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
                 found[node.name] = node
         return found
 
-    def test_only_the_named_routines_touch_a_layouts_grid(self):
-        """Default-DENY: an unclassified function reaching the grid is a failure."""
-        touching = {
-            name
-            for name, node in self._functions().items()
-            if {
+    @classmethod
+    def _grid_reads(cls) -> Dict[str, frozenset]:
+        """``{function: the grid names it reads}``, for every function that does."""
+        found: Dict[str, frozenset] = {}
+        for name, node in cls._functions().items():
+            read = {
                 child.attr
                 for child in ast.walk(node)
-                if isinstance(child, ast.Attribute)
+                if isinstance(child, ast.Attribute) and child.attr in cls.GRID_ATTRIBUTES
             }
-            & self.GRID_ATTRIBUTES
+            if read:
+                found[name] = frozenset(read)
+        return found
+
+    def test_only_the_named_routines_touch_a_layouts_grid(self):
+        """Default-DENY: an unclassified function reaching the grid is a failure."""
+        touching = self._grid_reads()
+
+        assert set(touching) == set(self.ROLES), {
+            "unclassified": sorted(set(touching) - set(self.ROLES)),
+            "classified but no longer touching": sorted(set(self.ROLES) - set(touching)),
         }
 
-        assert touching == set(self.ROLES), {
-            "unclassified": sorted(touching - set(self.ROLES)),
-            "classified but no longer touching": sorted(set(self.ROLES) - touching),
+    def test_each_routine_reads_exactly_the_grid_names_its_role_declares(self):
+        """And no more: a second grid inside a classified function is a failure too.
+
+        The function-level equality above says *who* may read the grid; this
+        says *what*, so ``guide_page``'s role (one paste pad) cannot quietly
+        become "draws the grid".
+        """
+        touching = self._grid_reads()
+        declared = {name: names for name, (names, _why) in self.ROLES.items()}
+
+        assert touching == declared, {
+            name: {
+                "reads": sorted(touching.get(name, ())),
+                "role declares": sorted(declared.get(name, ())),
+            }
+            for name in set(touching) | set(declared)
+            if touching.get(name) != declared.get(name)
         }
+
+    def test_a_layout_is_never_read_for_a_name_the_guard_lets_through(self):
+        """The escape the name walk has to leave open, closed from the receiver end.
+
+        :attr:`ALLOWED` has to let ``width`` and ``height`` through, because
+        other classes in this module carry those names too — ``PageFrame``,
+        ``_Mark`` and ``_Diagram`` carry both and ``_PipelineGeometry`` carries
+        ``width``, which the test below asserts rather than asks a reader to
+        take on trust. So a ``Layout``'s
+        own ``width``, ``height``, ``cell`` or ``rows`` would be invisible to
+        the walk — except that a ``Layout`` in this module is spelled one of
+        :attr:`LAYOUT_SPELLINGS`, and a receiver spelled that way may be read
+        only for a guarded name.
+
+        **The named limit, stated rather than implied**: a ``Layout`` rebound
+        to a name this set does not hold (``lay = self.layout``) escapes this
+        assertion, and the only names it would gain are ``width`` and
+        ``height`` — the sheet's own size, which no grid can be drawn out of
+        once ``cell``, ``margin`` and every line, clue and bound are guarded by
+        name. Everything else lands in the assertions above whatever the
+        receiver is called.
+        """
+        tree = ast.parse(self._module_source())
+        reads = sorted(
+            {
+                (ast.unparse(node.value), node.attr)
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Attribute)
+                and ast.unparse(node.value) in self.LAYOUT_SPELLINGS
+            }
+        )
+
+        assert reads, "no Layout-spelled receiver in the module: this guard is vacuous"
+        for spelling in sorted(self.LAYOUT_SPELLINGS):
+            assert any(
+                receiver == spelling for receiver, _attr in reads
+            ), f"{spelling} is in LAYOUT_SPELLINGS and is not written in the module"
+        unguarded = [
+            (receiver, attr) for receiver, attr in reads if attr not in self.GRID_ATTRIBUTES
+        ]
+
+        assert unguarded == [], unguarded
+
+    def test_every_name_the_raster_grid_routines_read_is_guarded(self):
+        """The derivation claim, as an assertion instead of a sentence.
+
+        The shape of the thing being guarded is what the raster routines this
+        module replaces read off a ``Layout``:
+        ``book_pdf_generator._stroke_drawing``, ``_write_clues`` and
+        ``draw_example_line``. Every one of those names must be in
+        :attr:`GRID_ATTRIBUTES`, so :attr:`ALLOWED` cannot drop one of them to
+        stay green — which is exactly what the previous hand-written set did
+        with ``frame``, ``thick_rule`` and ``thin_rule``.
+
+        **One exception, named and reasoned**: ``draw_example_line`` reads
+        ``layout.width`` — the width of the full-page canvas it draws into
+        *before cropping*. This medium has nothing to crop and never needs it
+        (:func:`~nonogram.admin.book_guide_vector.diagram_box` is the crop), and
+        ``width`` is a ``"shared name"`` the walk cannot attribute, so it is
+        allowed here and refused on a ``Layout`` receiver by
+        :meth:`test_a_layout_is_never_read_for_a_name_the_guard_lets_through`.
+        """
+        raster = ast.parse(
+            Path(book_pdf_generator.__file__).read_text(encoding="utf-8")
+        )
+        universe = self.GRID_ATTRIBUTES | frozenset(self.ALLOWED)
+        read: set = set()
+        for node in ast.walk(raster):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.name not in ("_stroke_drawing", "_write_clues", "draw_example_line"):
+                continue
+            read |= {
+                child.attr
+                for child in ast.walk(node)
+                if isinstance(child, ast.Attribute) and child.attr in universe
+            }
+
+        assert read, "the raster routines were not found: this derivation is vacuous"
+        assert read - self.GRID_ATTRIBUTES == {"width"}, sorted(
+            read - self.GRID_ATTRIBUTES
+        )
+
+    def test_every_allowed_name_is_a_layout_name_with_a_live_reason(self):
+        """The allow-list cannot hold a stale name or an unjustified one.
+
+        Each key must still be a field or property of ``Layout`` — a name that
+        has gone is a licence for whatever takes it next (ADR-0039/R3) — and
+        each ``"shared name"`` must still be carried by another class in this
+        module, because that ambiguity is the whole reason it is allowed. The
+        day nothing else carries ``width``, the name is guardable and this test
+        says so.
+        """
+        # Read off ``Layout`` again rather than as ``GRID_ATTRIBUTES |
+        # ALLOWED``, which is the expression the set is built from and could
+        # not fail.
+        surface = frozenset(
+            {field.name for field in dataclasses.fields(Layout)}
+            | {
+                name
+                for name, member in vars(Layout).items()
+                if isinstance(member, property)
+            }
+        )
+
+        assert frozenset(self.ALLOWED) <= surface, sorted(
+            frozenset(self.ALLOWED) - surface
+        )
+        assert set(self.ALLOWED.values()) == {"not ink", "shared name"}
+        for name, reason in sorted(self.ALLOWED.items()):
+            if reason != "shared name":
+                continue
+            carriers = sorted(
+                value.__name__
+                for value in vars(guide_vector).values()
+                if isinstance(value, type)
+                and value is not Layout
+                and name
+                in set(getattr(value, "__annotations__", {}))
+                | {
+                    key
+                    for key, member in vars(value).items()
+                    if isinstance(member, property)
+                }
+            )
+
+            assert carriers, name
 
     def test_exactly_one_routine_strokes_the_ruled_lines(self):
         """``_stroke_layout`` is called from one place, and it is the composition."""
@@ -559,6 +818,41 @@ class TestGuidePage_EveryDiagramStaysInsideItsOwnBox:
 
         assert checked == 3
 
+    def test_the_pipeline_inks_nothing_outside_the_extent_it_declares(self, profile):
+        """The second declared box, which nothing held any ink to (cycle 1, F-8).
+
+        :func:`~nonogram.admin.book_guide_vector.pipeline_extent` is what
+        ``guide_page``'s fit loop and ``fits_width`` consume — a content stream
+        cannot be measured by rendering it, so the diagram states its own size
+        and the page believes it. Nothing checked that the drawing then stays
+        inside it. Measured at review: it does (no live overflow), which is
+        what makes this a control rather than a fix.
+
+        Path ink only, as everywhere in this class; the labels are text and are
+        :class:`TestGuidePage_EveryFaceHoldsTheFloorInTheStream`'s business.
+        """
+        generator = BookPDFGenerator(BOOKS[profile]())
+        spec = generator.page_spec(GUIDE_PAGE_NUMBERS[0])
+        body_px = GUIDE_BODY_PT * generator.dpi / 72.0
+        width, height = guide_vector.pipeline_extent(spec, GUIDE_ASSUME_STEPS, body_px)
+        x, y = 100.0, 200.0
+        stream = ContentStream(width_px=8000, height_px=8000, dpi=generator.dpi)
+        guide_vector.draw_pipeline(
+            stream, spec, GUIDE_ASSUME_STEPS, body_px, GUIDE_BODY_PT, x=x, y=y
+        )
+        # One pixel for the stream's 0.001 pt coordinate rounding, the same
+        # slack the diagram-box assertion above allows itself.
+        slack = 1.0
+        outside = [
+            (px, py)
+            for px, py in self._inked_pixels(stream)
+            if not (x - slack <= px <= x + width + slack)
+            or not (y - slack <= py <= y + height + slack)
+        ]
+
+        assert len(self._inked_pixels(stream)) >= 8
+        assert outside == [], ((x, y, width, height), outside[:4])
+
     def test_the_diagram_really_inks_something(self, profile):
         """Non-vacuity: a diagram that drew nothing would pass the test above."""
         generator = BookPDFGenerator(BOOKS[profile]())
@@ -676,11 +970,71 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
     medium, unchanged"*.
 
     So AC-3 is not assertable and is not asserted. What is asserted is the
-    tripwire: the guide emits no curve today, and the day it does, it must come
-    through ``ContentStream.round_mark``. That keeps
+    tripwire: this page draws no round shape today, and the day it does, it
+    must come through ``ContentStream.round_mark``. That keeps
     ``TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee``'s own alarm
     (CARD-294) intact rather than defusing it from this side.
+
+    "No round shape", and the three routes that sentence has to cover
+    ---------------------------------------------------------------------
+
+    **This class used to say "PDF has no circle operator, so no ``c`` is
+    exactly no round shape". That is false, and review cycle 1 measured it
+    false**: ``ContentStream`` also carries
+    :meth:`~nonogram.admin.book_vector.ContentStream.begin_path`,
+    ``line_to``, ``close_path`` and ``paint`` — an arbitrary polygon builder
+    that emits only ``m``, ``l``, ``h`` and a paint operator. A 32-gon filled
+    disc was planted beside each tier name in ``draw_legend`` and **248 tests
+    passed**, through the curve assertion, through ``round_mark(``, and through
+    CARD-294's own alarm. A polyline disc is also the *cheaper* implementation
+    of a difficulty dot than four Béziers, so it is the route CARD-229 is most
+    likely to take.
+
+    The route is closed here rather than carried as a limit, because the
+    mechanism already exists in this tree one medium over
+    (``tests/test_book_difficulty_dots.py``'s ``MAX_FLAT_VERTICES`` bounds
+    ``draw.polygon``'s vertices for exactly this reason) and because the claim
+    this class exists to make is the one AC-3 was declined on. A round shape
+    reaches a content stream by one of three routes, and each has its own
+    assertion below or its own named owner:
+
+    1. **a curve** — the ``c`` operator, the only non-straight path segment
+       PDF has: :meth:`test_no_guide_page_emits_a_curve_operator`;
+    2. **a many-point polyline** — ``m`` plus a fan of ``l``, closed and
+       filled: :meth:`test_no_guide_page_builds_a_round_shape_out_of_straight_segments`;
+    3. **a round glyph** — ``●`` or a bullet inside a ``(…) Tj``, which is
+       not a shape operator at all. Guarded package-wide and not here, by
+       ``tests/test_book_difficulty_dots.py``'s dingbat rule
+       (``ROUND_DINGBATS``), whose walk reads every string literal in
+       ``src/nonogram/**`` and so covers this module the moment it lands.
+
+    A path of at most :data:`MAX_PATH_POINTS` straight points is a triangle or
+    a quadrilateral, and ``re`` is axis-aligned, so with 1 and 2 shut and 3
+    held elsewhere there is no operator left in this vocabulary that inks a
+    round shape. **The named limit**: the bound is per page kind, asserted over
+    the pages *this* module writes. The guide is the only vector page kind in
+    the tree today; CARD-298 owns ADR-0042/R1's derived check over every page
+    kind and is where this becomes one check rather than one per card, and
+    :func:`tests.helpers.pdf_vector.subpath_vertices` is in the shared reader
+    so CARD-295 and CARD-297 inherit the count rather than rewriting it.
     """
+
+    #: The most points a path on this page may be built from. The page's
+    #: longest path is the pipeline's **arrow head** — ``m`` plus two ``l``,
+    #: three points — asserted below so the bound's slack is a measurement and
+    #: not a guess; four leaves room for a quadrilateral without leaving room
+    #: for a circle.
+    #:
+    #: The same figure and the same reasoning as
+    #: ``tests/test_book_difficulty_dots.py``'s ``MAX_FLAT_VERTICES``, written
+    #: out here rather than imported: that bound counts the elements of a
+    #: Python vertex display handed to Pillow, this one counts path operators
+    #: in a written stream, and the two instruments have no code in common.
+    MAX_PATH_POINTS = 4
+
+    #: The pipeline's arrow head, in points — the page's longest path, and the
+    #: reason :attr:`MAX_PATH_POINTS` is 4 and not 2.
+    ARROW_HEAD_POINTS = 3
 
     def test_the_legend_sets_the_three_tier_names_and_nothing_else(self):
         names = [
@@ -693,11 +1047,15 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
         assert names == [label.name for label in GUIDE_DIFFICULTY_LABELS]
 
     def test_no_guide_page_emits_a_curve_operator(self, profile):
-        """Derived from the stream: ``c`` is the only way a round shape is drawn.
+        """Derived from the stream: no ``c`` is no **Bézier**, route 1 of three.
 
         PDF has no circle, ellipse or arc operator in a content stream
-        (ADR-0042, CARD-294), so "this page draws no round shape" is exactly
-        "this page emits no ``c``". Nothing is classified by eye.
+        (ADR-0042, CARD-294), so a *curved* outline is built out of ``c`` and
+        nothing else — which makes this assertion exactly "this page draws no
+        curve", and **not** "this page draws no round shape". The second
+        statement needs the vertex bound beside this test as well; see the
+        class docstring, which used to assert the equivalence and was measured
+        false. Nothing is classified by eye either way.
         """
         curves = {
             page.page_number: pdf_vector.operator_tally(
@@ -707,6 +1065,39 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
         }
 
         assert set(curves.values()) == {0}, curves
+
+    def test_no_guide_page_builds_a_round_shape_out_of_straight_segments(self, profile):
+        """Route 2: the polyline disc — ``begin_path`` plus a fan of ``line_to``.
+
+        The route cycle 1 drove a 32-gon through with every other alarm green.
+        Every subpath the page writes is counted off the stream and held to
+        :attr:`MAX_PATH_POINTS`; the longest one it really writes is the
+        pipeline's three-point arrow head, which is asserted too, so the bound
+        cannot pass by the page having stopped drawing paths.
+        """
+        for page in drawn(profile):
+            points = pdf_vector.subpath_vertices("\n".join(page.stream.operators))
+
+            assert len(points) > 20, (page.page_number, len(points))
+            assert max(points) <= self.MAX_PATH_POINTS, {
+                "page": page.page_number,
+                "longest path": max(points),
+                "bound": self.MAX_PATH_POINTS,
+            }
+
+    def test_the_longest_path_the_page_writes_is_the_arrow_head(self):
+        """What makes the bound above a measurement rather than a round number.
+
+        ``book1`` draws the pipeline, whose arrow head is the page's one path
+        longer than a segment. If this becomes 2 the diagram has gone; if it
+        becomes 5 the bound has one point of slack nobody intended.
+        """
+        longest = max(
+            max(pdf_vector.subpath_vertices("\n".join(page.stream.operators)))
+            for page in drawn("book1")
+        )
+
+        assert longest == self.ARROW_HEAD_POINTS, longest
 
     def test_the_writer_never_reaches_the_round_mark_primitive(self):
         source = Path(guide_vector.__file__).read_text(encoding="utf-8")
@@ -722,13 +1113,30 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
 class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
     """EC(ADR-0042/R3) — every width, tone and type size is traceable.
 
-    The rule is *"the vector writer consumes positions and derives none"*, and
-    the operands a derived number would show up in are the ones checked here:
+    The rule is *"every coordinate, width and tone it emits comes from
+    COMP-007's Layout"*, and **two of those three are what this test reads**:
     the ``w`` stroke widths, the ``g``/``G`` tones and the ``Tf`` type sizes.
     Each emitted operand must be a member of a set this test builds **from
     ``compute_layout`` and from the page's own point constants**, with no help
     from the module under test — so an invented width or an invented size is a
     failure rather than a number nobody can place.
+
+    **What it does not read: a coordinate** (review cycle 1, F-6). A derived
+    coordinate shows up in an ``m``/``l``/``re``/``Td`` operand, and this test
+    reads none of them, so the sentence above is a statement about widths,
+    tones and type sizes and not about R3's whole operand surface. Coordinates
+    are held from three other directions and deliberately not re-derived here:
+    :class:`TestGuidePage_EveryDiagramStaysInsideItsOwnBox` for every line
+    diagram's ink, ``guide_page``'s own ``fits_width`` for the blocks, and the
+    owner's render comparison of the vector page against the raster page it
+    ports (``~/Documents/nonogram-reviews/CARD-296/``). A derived-coordinate
+    control that stands on its own is CARD-298's, with the rest of R1's
+    per-page-kind checking.
+
+    The tones are read through :func:`tests.helpers.pdf_vector.tones`, which
+    sees the **inline** tone a text object carries as well as the standalone
+    tone a path sets. A line-anchored regex here saw only the second, and the
+    whole page could be set in 50 % grey with this test green (cycle 1, F-3).
 
     Default-DENY (ADR-0039/R2): the assertion is "the emitted set is a subset
     of the derived set", and an operand the derived set cannot account for
@@ -848,11 +1256,64 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
                     "unaccounted sizes": sorted(drawn_sizes - sizes),
                 }
 
-                tones = set(re.findall(r"(?m)^(-?\d+(?:\.\d+)?) [gG]$", stream))
-                assert tones <= {"0"}, tones
+                inked = pdf_vector.tones(stream)
+                assert {level for level, _operator in inked} <= {_BLACK_TONE}, {
+                    "trim": (book.trim_width_cm, book.trim_height_cm),
+                    "page": page.page_number,
+                    "tones": sorted({level for level, _op in inked}),
+                }
+                # Non-vacuity, and the assertion that would have caught F-3:
+                # ``ContentStream.text`` emits its fill tone inline, one per
+                # text object, so the tones read here cannot be fewer than the
+                # ``Tf`` operands. A reader blind to the inline spelling fails
+                # this line instead of reading the path tones and stopping.
+                assert len(inked) >= len(pdf_vector.type_sizes(stream)) > 0, (
+                    page.page_number,
+                    len(inked),
+                    len(pdf_vector.type_sizes(stream)),
+                )
                 checked += 1
 
         assert checked == self.CORPUS * len(GUIDE_PAGE_NUMBERS) == 48
+
+    def test_every_face_in_the_corpus_holds_the_ten_point_floor(self):
+        """EC(CON-020) over 24 trims, not over the two profiles AC-2 names.
+
+        The card scopes the floor to Book 1 and the minimum trim, and this
+        class already builds a 24-trim corpus two classes down, so the floor
+        was one loop away from covering it (review cycle 1, F-7). What makes it
+        worth the loop is the measurement: **the smallest face across all 24
+        trims is exactly 10.0 pt** — the folio, ``FOLIO_PT`` — so the margin
+        above CON-020's floor is zero, and the next change to this page's type
+        breaks the constraint on some trim in this sweep. A standing control
+        says so where a one-off reading in a review does not.
+
+        Read off the ``Tf`` operands, like AC-2's own test: the operand a
+        reader's viewer obeys.
+        """
+        checked = 0
+        smallest = []
+        for book in self._corpus():
+            generator = BookPDFGenerator(book)
+            for page in guide_pages(generator.page_spec, generator.dpi, **COUNTS):
+                sizes = pdf_vector.type_sizes("\n".join(page.stream.operators))
+
+                assert sizes, (book.trim_width_cm, page.page_number)
+                assert min(sizes) >= FLOOR_PT, {
+                    "trim": (book.trim_width_cm, book.trim_height_cm),
+                    "page": page.page_number,
+                    "faces under the floor": sorted(
+                        size for size in sizes if size < FLOOR_PT
+                    ),
+                }
+                smallest.append(min(sizes))
+                checked += 1
+
+        assert checked == self.CORPUS * len(GUIDE_PAGE_NUMBERS)
+        # And the zero margin, asserted rather than left in a comment: the
+        # folio is the smallest face this page sets and it sits **on** the
+        # floor. If this stops being true the sentence above is stale.
+        assert min(smallest) == FOLIO_PT == FLOOR_PT, min(smallest)
 
     def test_the_corpus_really_holds_distinct_trims(self):
         """The minimum this property rests on: the sheets are not all one sheet.

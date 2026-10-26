@@ -34,9 +34,23 @@ What this module does **not** do
   :func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`; the thin rule
   the pipeline's boxes are bordered at is
   :func:`~nonogram.admin.book_pdf_generator._guide_rule_width`'s. The one
-  arithmetic this module performs on those numbers is **translation** — the
-  same ``paste`` offset the raster page applies to a cropped diagram, written
-  as an offset because a content stream has nothing to paste into.
+  arithmetic this module performs on **a COMP-007 number** is
+  **translation** — the same ``paste`` offset the raster page applies to a
+  cropped diagram, written as an offset because a content stream has nothing
+  to paste into.
+
+  Translation is **not** the only arithmetic in the module, and this paragraph
+  used to say it was (review cycle 1, F-5) twenty lines above the "Points,
+  pixels" section that contradicts it. What the module also computes is the
+  **type-derived internal padding** of the two diagrams that are not line
+  diagrams, and the page's vertical rhythm: :func:`_pipeline_geometry`'s
+  pad/icon/label/box/arrow, :func:`legend_extent`'s strip, the title's fitting
+  ladder, ``geometry.icon * 0.3``, and every leading. Each is a multiple of a
+  *point constant of the guide* and of the face's own glyph box, exactly as
+  the raster routines this module ports compute them — not a page position,
+  and not a number from a ``Layout``, which is what R3 governs. The two
+  statements are kept apart here rather than collapsed into one a later card
+  would quote.
 * **It does not enforce CON-020's floor.** It *records* what it set, so the
   floor can be read: see :class:`DrawnFace` and :attr:`GuidePage.faces`. The
   record is not the control — the control compares it against the ``Tf``
@@ -832,6 +846,18 @@ def legend_extent(
     :func:`~nonogram.admin.book_pdf_generator._draw_difficulty_legend`'s own:
     a ``measure``-wide strip with one ``pad`` of white above and below the row
     of names, ``pad`` being the type size.
+
+    **The width is ``measure_px`` echoed back, not a measurement** (review
+    cycle 1, F-8), and the strip's only ink is text: the three tier names,
+    which is all this diagram has drawn since CARD-221 fix 1. So there is no
+    path ink to hold to this extent the way
+    ``TestGuidePage_EveryDiagramStaysInsideItsOwnBox`` holds a line diagram's
+    and the pipeline's — the names' own ink is held instead by the page's
+    :func:`wrap`/``fits_width`` measure and by AC-2's record-against-stream
+    comparison, which is where every string the page sets is accounted for.
+    The day the legend draws a shape again (**CARD-229**, the key strip with
+    CARD-228's dots) it gets the extent control the pipeline has, and the
+    vertex bound on this page's paths already applies to it.
     """
     pad = size_px
     return measure_px, pad * 2 + glyph_box_height_px("Mg", size_px)
@@ -1253,9 +1279,17 @@ class _Diagram:
         The raster page pastes a cropped image, whose pixel ``(0, 0)`` is the
         layout coordinate ``(left - pad, grid_top - pad)``; a content stream
         has nothing to paste into, so the same placement is an offset on the
-        coordinates. It lives here rather than in :func:`guide_page` so that
-        the page itself never reads a ``Layout``'s grid — which is what
-        CARD-296's AC-4 guard holds it to.
+        coordinates.
+
+        It lives here rather than in :func:`guide_page` so that the page itself
+        reads **one** number off a ``Layout`` and not a grid: the paste pad,
+        ``icon_layout.thick_rule``, hoisted once — which is exactly what the
+        raster page reads at ``book_pdf_generator.py:4361``. This docstring
+        used to say the page "never reads a ``Layout``'s grid", which is false
+        as written (review cycle 1, F-2), and the correction is mechanical
+        rather than verbal: CARD-296's AC-4 guard now declares that read as
+        ``guide_page``'s *role* and holds the page to that one attribute name,
+        so a second number joining it is a test failure.
         """
         return x - (self.left - self.pad), y - (self.layout.grid_top - self.pad)
 

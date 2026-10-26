@@ -846,9 +846,17 @@ class ContentStream:
     ) -> None:
         """A circle of ``radius_px`` about ``(center_x, center_y)``.
 
-        **The interior's only round shape**, and the one primitive CARD-293's
+        **The interior's one round-shape primitive**, and the one CARD-293's
         spike never emitted — it drew straight lines, rectangles, fills and
         text and no curve at all, which is why CARD-294 was ordered first.
+
+        "The interior's only round shape" is what this line used to say, and it
+        is wider than the class: :meth:`begin_path`/:meth:`line_to`/
+        :meth:`close_path`/:meth:`paint` build an arbitrary polygon, and a
+        32-gon is a disc at any size this book prints (CARD-296 review cycle 1,
+        F-1, which planted one and watched every alarm stay green). So this is
+        the *intended* route to a round mark and the only exact one; a page
+        card holds its own pages to a vertex bound for the other.
 
         Four cubic Béziers, one per quadrant, each with its control points
         pushed :data:`BEZIER_CIRCLE_KAPPA` times the radius along the

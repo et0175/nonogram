@@ -892,16 +892,34 @@ NON_DRAW_RECEIVER_SITES = (
 #: as an unrecognised receiver. CARD-296, the first page card, is where the
 #: decision CARD-294 deferred gets taken.
 #:
-#: What is **not** done here: widening any round-shape bin. A content stream's
-#: only round shape is ``ContentStream.round_mark``, which is in none of this
-#: guard's method families — PDF has no circle operator, so the shape is four
-#: cubic Béziers and not a method name Pillow ever had. That route's control
-#: lives where the vocabulary's own tests are:
-#: ``tests/test_book_pdf_vector_primitives.py``'s
-#: ``TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee``, which
-#: asserts that ``round_mark(`` appears in no module but the vocabulary's own
-#: and that the ``c`` operator is written in exactly one module. It is named
-#: here rather than duplicated, because two copies of one claim drift.
+#: What is **not** done here: widening any round-shape bin. **A content stream
+#: has three routes to a round shape, and this comment used to name one of
+#: them** — "a content stream's only round shape is
+#: ``ContentStream.round_mark``", which review cycle 1 (F-1) measured false and
+#: which is corrected here rather than left standing in the place a later card
+#: would read it. None of the three is a method name Pillow ever had, so none
+#: is in this guard's families, and each is controlled elsewhere:
+#:
+#: * ``ContentStream.round_mark`` and a hand-written ``c`` operator —
+#:   ``tests/test_book_pdf_vector_primitives.py``'s
+#:   ``TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee``, which
+#:   asserts that ``round_mark(`` appears in no module but the vocabulary's own
+#:   and that the ``c`` operator is written in exactly one module;
+#: * a **polygonal disc** built from ``begin_path``/``line_to``/``close_path``
+#:   — invisible to both of those, as a planted 32-gon on the guide's
+#:   difficulty legend demonstrated with 248 tests green. Bounded per page kind
+#:   by the drawing card's own control over the written stream
+#:   (``tests/test_book_guide_page_vector.py``'s
+#:   ``TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday``, with the count
+#:   in ``tests/helpers/pdf_vector.subpath_vertices`` so every page card of the
+#:   phase inherits it);
+#: * a round **dingbat** inside a ``(…) Tj`` — the dingbat rule in this file,
+#:   which reads every string literal in the package and so already covers the
+#:   vector modules.
+#:
+#: Named here rather than duplicated, because two copies of one claim drift —
+#: which is how the sentence this comment replaces came to be wrong in three
+#: places at once.
 VECTOR_RECEIVER_NAME = "stream"
 
 #: The draw-method names a ``ContentStream`` may be excused for, **derived
@@ -1033,29 +1051,137 @@ def _is_draw_receiver(node: ast.AST) -> bool:
 def _is_vector_receiver(node: ast.AST) -> bool:
     """Whether ``node`` is a vector content stream, as this package spells one.
 
-    The bare name :data:`VECTOR_RECEIVER_NAME`. Deliberately as narrow as
-    :func:`_is_draw_receiver`'s own first clause and for the same reason: a
-    receiver the guard cannot place has to be reported, not guessed at.
+    The bare name :data:`VECTOR_RECEIVER_NAME` — a **name-shaped** test, the
+    same shape as :func:`_is_draw_receiver`'s own first clause.
+
+    **It is not narrow on its own, and this docstring used to claim it was**
+    ("as narrow as ``_is_draw_receiver``'s own first clause and for the same
+    reason"). The name ``draw`` is narrow because two sibling rules *bind* it
+    to real draw objects; review cycle 1 (F-4) measured that nothing in the
+    tree bound the name ``stream`` to a ``ContentStream``, so an unannotated
+    parameter called ``stream`` handed a Pillow draw object was excused for
+    ``line`` — cycle 2's M2 control with the name changed. What makes the name
+    narrow is therefore written down beside it rather than asserted here:
+
+    * :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_content_stream_in_the_package_is_spelled_stream`
+      — every ``ContentStream(...)`` binding that yields a name yields this
+      one, every parameter that *is* one is spelled it, and no
+      ``ImageDraw.Draw(...)`` binding and no ``ImageDraw``-annotated parameter
+      is;
+    * :func:`_passes_a_coordinate_display` — and the excuse is refused for a
+      call written in Pillow's own shape, which is what closes M2's route
+      whatever the parameter is called.
     """
     return isinstance(node, ast.Name) and node.id == VECTOR_RECEIVER_NAME
 
 
-def _is_accounted_receiver(method: str, node: ast.AST) -> bool:
+def _passes_a_coordinate_display(call: ast.Call) -> bool:
+    """Whether ``call``'s first positional argument is a coordinate display.
+
+    The discriminating property between the two surfaces that share these
+    method names, and it is a property of the **call** rather than of the
+    receiver's spelling:
+
+    * ``ContentStream.line(x1, y1, x2, y2)``, ``rectangle(left, top, right,
+      bottom)`` and ``text(value, x, y, size_pt)`` take scalars — a number or
+      a string first, never a sequence of points;
+    * ``ImageDraw.line(xy, ...)``, ``rectangle(xy, ...)`` and
+      ``polygon(xy, ...)`` take a coordinate display first, and that display is
+      where a disc hides (``FLAT_METHODS`` carries ``line``'s polyline hole at
+      length).
+
+    So a call excused as a content stream must not be written in Pillow's
+    shape. The same instrument
+    :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark`
+    already points at :data:`NON_DRAW_RECEIVER_SITES` ("a coordinate display on
+    a receiver excused as a pixel map"), pointed at the vector route.
+    """
+    argument = call.args[0] if call.args else None
+    return isinstance(argument, (ast.List, ast.Tuple))
+
+
+def _binds_the_vector_surface(method: str, call: ast.Call) -> bool:
+    """Whether ``call`` could be a call of ``ContentStream.<method>`` at all.
+
+    The **type-shaped** half of the vector exemption, and the reason it is here
+    rather than a sentence: the authority is the class itself
+    (ADR-0039/R2). ``inspect.signature(ContentStream.line)`` is
+    ``(self, x1, y1, x2, y2)``, so this call's positional count and keyword
+    names are bound against it, and a call that cannot bind is **not** a call
+    on that surface whatever its receiver is called.
+
+    That is what refuses Pillow's own shapes under the vector name, including
+    the one :func:`_passes_a_coordinate_display` alone would miss —
+    ``stream.line(points, fill=1, width=3)`` with ``points`` a bare name, which
+    is exactly how this package writes its real ``draw.line`` calls
+    (``book_pdf_generator.py:1429``): one positional argument where four are
+    required, and two keywords ``ContentStream`` does not have.
+
+    **Default-deny** on anything the walk cannot count: a starred argument or a
+    ``**kwargs`` splat makes the arity unknowable, so the excuse is refused
+    rather than guessed at — the same inversion
+    :func:`_uncountable_vertices` applies to a vertex display.
+
+    What it does not reach, stated: a Pillow call written with four positional
+    scalars (``draw.line(a, b, c, d)``, i.e. ``xy``, ``fill``, ``width``,
+    ``joint`` positionally) binds this signature. It is not a spelling that
+    draws anything round — ``a`` would have to be the coordinate sequence, and
+    a literal one is refused by :func:`_passes_a_coordinate_display` — and
+    CARD-241's ink measurement is the instrument that does not depend on
+    spelling at all.
+    """
+    try:
+        signature = inspect.signature(getattr(ContentStream, method))
+    except (AttributeError, TypeError, ValueError):  # pragma: no cover - defensive
+        return False
+    if any(isinstance(argument, ast.Starred) for argument in call.args):
+        return False
+    if any(keyword.arg is None for keyword in call.keywords):
+        return False
+    # One extra positional for the receiver the attribute call binds to
+    # ``self``; the values are placeholders because only the arity and the
+    # keyword names are being checked.
+    positional = [None] * (len(call.args) + 1)
+    keywords = {keyword.arg: None for keyword in call.keywords}
+    try:
+        signature.bind(*positional, **keywords)
+    except TypeError:
+        return False
+    return True
+
+
+def _is_accounted_receiver(
+    method: str, node: ast.AST, call: ast.Call | None = None
+) -> bool:
     """Whether a call of ``method`` on ``node`` is a receiver this guard places.
 
     Either a Pillow draw object (:func:`_is_draw_receiver`, for any method), or
     a vector content stream (:func:`_is_vector_receiver`) for one of the
     methods a ``ContentStream`` really carries and that cannot be round
-    (:data:`VECTOR_STREAM_METHODS`). Everything else is reported.
+    (:data:`VECTOR_STREAM_METHODS`) **and written in that class's own call
+    shape** — a call that binds its signature
+    (:func:`_binds_the_vector_surface`) and does not pass Pillow's coordinate
+    display (:func:`_passes_a_coordinate_display`). Everything else is
+    reported.
 
     The method is part of the question for the vector case and not for the
     Pillow one, which is the asymmetry that keeps the new route narrow:
     ``draw.ellipse`` is a drawing site this guard already measures, while
     ``stream.ellipse`` is a receiver it has never seen and must refuse.
+
+    ``call`` is optional only so a caller that has a receiver and no call node
+    can still ask the receiver half of the question; every walk in this file
+    passes it, because the shape of the call is half the discrimination.
     """
     if _is_draw_receiver(node):
         return True
-    return _is_vector_receiver(node) and method in VECTOR_STREAM_METHODS
+    if not (_is_vector_receiver(node) and method in VECTOR_STREAM_METHODS):
+        return False
+    if call is None:
+        return True
+    return _binds_the_vector_surface(method, call) and not _passes_a_coordinate_display(
+        call
+    )
 
 
 def _draw_calls(
@@ -1240,8 +1366,8 @@ def _unrecognised_draw_receivers(
     """
     return sorted(
         (module, function, method, ast.unparse(receiver))
-        for module, function, method, receiver, _call in _draw_method_calls(sources)
-        if not _is_accounted_receiver(method, receiver)
+        for module, function, method, receiver, call in _draw_method_calls(sources)
+        if not _is_accounted_receiver(method, receiver, call)
     )
 
 
@@ -1324,6 +1450,112 @@ def _imagedraw_annotated_parameters(
             ):
                 annotated.append((module, node.name, argument.arg))
     return sorted(annotated)
+
+
+#: How a ``ContentStream`` is constructed, as written: the class's own name,
+#: whether imported (``ContentStream(...)``) or reached through its module
+#: (``book_vector.ContentStream(...)``). Both spellings are read, for the same
+#: reason :func:`_is_draw_receiver` reads both of Pillow's.
+VECTOR_STREAM_FACTORY = "ContentStream"
+
+#: The annotation shapes :func:`_content_stream_parameters` understands, and
+#: what each one means for the receiver rule. **Default-deny**: an annotation
+#: mentioning ``ContentStream`` in a shape not listed here is reported as
+#: unrecognised and breaks the equality in
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_content_stream_in_the_package_is_spelled_stream`,
+#: rather than being skipped.
+#:
+#: * ``one stream`` — the parameter *is* a content stream, so it must be
+#:   spelled :data:`VECTOR_RECEIVER_NAME`: it is a receiver the excuse applies
+#:   to.
+#: * ``a collection of streams`` — an iterable of them
+#:   (``write_vector_pdf(pages: Iterable[ContentStream])``). It is **not** a
+#:   receiver, so it must *not* be spelled :data:`VECTOR_RECEIVER_NAME`: a draw
+#:   method written on a list of streams would otherwise inherit the excuse.
+VECTOR_STREAM_CONTAINERS = ("Iterable", "Iterator", "Sequence", "list", "tuple")
+
+
+def _content_stream_parameters(
+    sources: Mapping[str, str],
+) -> list[tuple[str, str, str, str]]:
+    """Every parameter whose annotation mentions ``ContentStream``, classified.
+
+    ``(module, function, parameter, shape)``, sorted, with ``shape`` one of
+    :data:`VECTOR_STREAM_CONTAINERS`' two meanings or ``unrecognised:<text>``.
+    Matched on the unparsed annotation text rather than on one ``ast`` shape,
+    exactly as :func:`_imagedraw_annotated_parameters` is and for the same
+    reason: a string annotation, an ``Optional[...]`` and a keyword-only
+    parameter all count.
+    """
+    found: list[tuple[str, str, str, str]] = []
+    for module, _enclosing, _parent, node in _enclosing_walk(sources):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        arguments = (
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+            *(argument for argument in (node.args.vararg, node.args.kwarg) if argument),
+        )
+        for argument in arguments:
+            if argument.annotation is None:
+                continue
+            text = ast.unparse(argument.annotation).strip("'\"")
+            if VECTOR_STREAM_FACTORY not in text:
+                continue
+            bare = text.removeprefix("Optional[").removesuffix("]")
+            if bare.split(".")[-1] == VECTOR_STREAM_FACTORY or bare.replace(
+                " | None", ""
+            ).split(".")[-1] == VECTOR_STREAM_FACTORY:
+                shape = "one stream"
+            elif text.split("[")[0] in VECTOR_STREAM_CONTAINERS:
+                shape = "a collection of streams"
+            else:
+                shape = f"unrecognised:{text}"
+            found.append((module, node.name, argument.arg, shape))
+    return sorted(found)
+
+
+def _content_stream_bindings(
+    sources: Mapping[str, str],
+) -> list[tuple[str, str, str, str]]:
+    """Every ``ContentStream(...)`` call written in the package, by its form.
+
+    ``(module, enclosing function, form, name)``, sorted — the same
+    classification :func:`_draw_object_bindings` applies to
+    ``ImageDraw.Draw(...)``, pointed at the vector constructor, so the name
+    ``stream`` is bound by a rule rather than by convention (review cycle 1,
+    F-4). Unrecognised forms are reported, not skipped.
+    """
+    bindings: list[tuple[str, str, str, str]] = []
+    for module, function, parent, node in _enclosing_walk(sources):
+        if not isinstance(node, ast.Call):
+            continue
+        factory = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+        if factory != VECTOR_STREAM_FACTORY:
+            continue
+        form, name = "unrecognised:" + type(parent).__name__, "<unbound>"
+        if isinstance(parent, ast.Assign):
+            targets = parent.targets
+            if len(targets) == 1 and isinstance(targets[0], ast.Name):
+                form, name = "assignment", targets[0].id
+            else:
+                form = "unrecognised assignment target (" + ", ".join(
+                    type(target).__name__ for target in targets
+                ) + ")"
+        elif isinstance(parent, ast.AnnAssign) and isinstance(parent.target, ast.Name):
+            form, name = "annotated assignment", parent.target.id
+        elif isinstance(parent, ast.NamedExpr) and isinstance(parent.target, ast.Name):
+            form, name = "walrus", parent.target.id
+        elif isinstance(parent, ast.Attribute) and parent.value is node:
+            form = "receiver"
+        elif isinstance(parent, ast.Call) and node in (
+            *parent.args,
+            *(keyword.value for keyword in parent.keywords),
+        ):
+            form = "argument"
+        bindings.append((module, function, form, name))
+    return sorted(bindings)
 
 
 def _dingbat_literals(sources: Mapping[str, str]) -> list[tuple[str, str]]:
@@ -1765,7 +1997,7 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         exempt = [
             (module, function, method, call)
             for module, function, method, receiver, call in _draw_method_calls(sources)
-            if not _is_accounted_receiver(method, receiver)
+            if not _is_accounted_receiver(method, receiver, call)
         ]
         assert len(exempt) == len(NON_DRAW_RECEIVER_SITES)
         for module, function, method, call in exempt:
@@ -1839,6 +2071,173 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
             ("planted.module", "draw_a_dot", "ellipse", "stream"),
             ("planted.module", "draw_a_dot", "polygon", "stream"),
         ]
+
+    def test_every_content_stream_in_the_package_is_spelled_stream(self) -> None:
+        """What makes the name ``stream`` narrow — the rules ``draw`` already has.
+
+        Review cycle 1 (F-4) measured the hole this closes: the exemption was
+        granted to **any** ``ast.Name`` spelled ``stream``, and nothing in the
+        tree asserted that such a thing is a ``ContentStream``. The name
+        ``draw`` is safe because two sibling rules bind it
+        (:meth:`test_every_draw_object_in_the_package_is_spelled_draw` and
+        :meth:`test_every_imagedraw_annotated_parameter_is_spelled_draw`); this
+        is those two rules for the vector name, from all three ends:
+
+        * every ``ContentStream(...)`` construction that yields a name yields
+          this one, and a binding form nobody taught the walk is reported
+          rather than skipped;
+        * every parameter that *is* a content stream is spelled it, and every
+          parameter that is a *collection* of them is not — a draw method
+          written on a list of streams would otherwise inherit the excuse;
+        * and the name is never a Pillow draw object: no
+          ``ImageDraw.Draw(...)`` binding and no ``ImageDraw``-annotated
+          parameter is spelled ``stream``, so the excuse cannot be borrowed by
+          taking the name.
+        """
+        sources = _package_sources()
+
+        bindings = _content_stream_bindings(sources)
+        assert bindings, (
+            "the walk found no ContentStream(...) call in the package — this "
+            "rule has gone vacuous; keep it honest with the fabricated sources "
+            "in test_a_content_stream_bound_to_another_name_is_caught"
+        )
+        named = sorted({name for _m, _f, form, name in bindings if form in DRAW_BINDING_FORMS})
+        assert named == [VECTOR_RECEIVER_NAME], named
+        unbound = sorted(
+            form for _m, _f, form, _n in bindings if form not in DRAW_BINDING_FORMS
+        )
+        assert unbound == [], unbound
+
+        parameters = _content_stream_parameters(sources)
+        shapes = {shape for _m, _f, _p, shape in parameters}
+        assert shapes <= {"one stream", "a collection of streams"}, sorted(shapes)
+        receivers = [
+            (module, function, parameter)
+            for module, function, parameter, shape in parameters
+            if shape == "one stream"
+        ]
+        assert {parameter for _m, _f, parameter in receivers} == {
+            VECTOR_RECEIVER_NAME
+        }, receivers
+        # A floor rather than an equality: six such parameters exist today and
+        # a card that adds a seventh is doing nothing wrong. The floor is here
+        # only so the rule cannot pass by finding nothing.
+        assert len(receivers) >= 6, receivers
+        for module, function, parameter, shape in parameters:
+            if shape == "a collection of streams":
+                assert parameter != VECTOR_RECEIVER_NAME, (module, function)
+
+        # And the name is never a draw object, from either direction.
+        assert VECTOR_RECEIVER_NAME not in {
+            name for _m, _f, _form, name in _draw_object_bindings(sources)
+        }
+        assert VECTOR_RECEIVER_NAME not in {
+            parameter for _m, _f, parameter in _imagedraw_annotated_parameters(sources)
+        }
+
+    def test_a_pillow_call_wearing_the_vector_name_is_caught(self) -> None:
+        """Control, caught: cycle 2's M2 with the parameter renamed ``stream``.
+
+        The mutant review cycle 1 (F-4) reopened — an unannotated parameter
+        handed the real draw object, drawing a 32-point polyline on it, under
+        the one name the vector route excuses and through ``line``, which
+        :data:`FLAT_METHODS` documents as a known hole. **Measured before the
+        fix: the pre-CARD-296 rule reported it and the CARD-296 rule reported
+        nothing** — the new route had widened a hole rather than adding one.
+
+        It is caught on the shape of the call — ``ContentStream``'s own
+        signature (:func:`_binds_the_vector_surface`) and Pillow's coordinate
+        display (:func:`_passes_a_coordinate_display`) — which is the half of
+        the discrimination that does not depend on what the parameter is
+        called. **Both spellings are planted**, because the coordinate-display
+        clause alone would miss the second: a vertex list handed over as a bare
+        name, which is how this package writes its real ``draw.line`` calls.
+        The last half of the control is the five mechanisms that stay blind to
+        it, which is what made it worth measuring.
+        """
+        points = ", ".join(f"({index}, {index})" for index in range(32))
+        rogue = {
+            "fake.literal": (
+                "def _rogue(stream, rank):\n"
+                f"    stream.line([{points}], fill=1, width=3)\n"
+            ),
+            "fake.name": (
+                "def _rogue(stream, rank):\n"
+                "    points = [(index, index) for index in range(32)]\n"
+                "    stream.line(points, fill=1, width=3)\n"
+            ),
+            # Pillow's ``rectangle(xy, fill, outline, width)`` written wholly
+            # positionally: four positional arguments, so it *binds*
+            # ``ContentStream.rectangle(left, top, right, bottom)``'s arity and
+            # only the coordinate display gives it away. The two clauses catch
+            # different plants, which is why both are here.
+            "fake.positional": (
+                "def _rogue(stream, rank):\n"
+                "    stream.rectangle([(0, 0), (10, 10)], 0, 0, 3)\n"
+            ),
+        }
+
+        assert _unrecognised_draw_receivers(rogue) == [
+            ("fake.literal", "_rogue", "line", "stream"),
+            ("fake.name", "_rogue", "line", "stream"),
+            ("fake.positional", "_rogue", "rectangle", "stream"),
+        ]
+        # Blind without it: the vertex guard filters on a draw receiver, there
+        # is no `.Draw(...)` for the binding rule, no annotation for the
+        # annotation rule, and no `ContentStream(...)` for the vector binding
+        # rule either — the name alone was the whole of the excuse.
+        assert _draw_calls(rogue, VERTEX_BOUNDED_METHODS) == []
+        assert _draw_object_bindings(rogue) == []
+        assert _imagedraw_annotated_parameters(rogue) == []
+        assert _content_stream_bindings(rogue) == []
+
+    def test_the_vector_calls_the_package_really_writes_are_not_caught(self) -> None:
+        """Control, not caught: the honest spelling must pass, or the rule is a ban.
+
+        ``ContentStream``'s own call shape — scalars, and a string for text —
+        on the name the binding rules hold to a content stream. Without this
+        the shape rule's discriminating power would be unknown.
+        """
+        honest = {
+            "fake.mod": (
+                "def page(frame, dpi):\n"
+                "    stream = ContentStream(width_px=frame.width, height_px=1, dpi=dpi)\n"
+                "    stream.line(0, 0, 10, 10)\n"
+                "    stream.rectangle(0, 0, 10, 10, paint='fill')\n"
+                "    stream.text('3', 1.0, 2.0, 11.0)\n"
+            )
+        }
+
+        assert _unrecognised_draw_receivers(honest) == []
+        assert _content_stream_bindings(honest) == [
+            ("fake.mod", "page", "assignment", "stream")
+        ]
+
+    def test_a_content_stream_bound_to_another_name_is_caught(self) -> None:
+        """Control, caught: the binding rule, on fabricated sources.
+
+        A content stream under another name is not a failure of taste: the
+        receiver excuse is granted on the name, so a second spelling is a
+        second route into it. The unrecognised forms are reported too, exactly
+        as :meth:`test_an_unrecognised_draw_binding_form_is_caught` reports
+        Pillow's.
+        """
+        rogue = {
+            "fake.named": "def page(dpi):\n    canvas = ContentStream(dpi=dpi)\n",
+            "fake.attr": "def page(self, dpi):\n    self.canvas = ContentStream(dpi=dpi)\n",
+            "fake.module": "def page(dpi):\n    sheet = book_vector.ContentStream(dpi=dpi)\n",
+        }
+        bindings = _content_stream_bindings(rogue)
+
+        assert bindings == [
+            ("fake.attr", "page", "unrecognised assignment target (Attribute)", "<unbound>"),
+            ("fake.module", "page", "assignment", "sheet"),
+            ("fake.named", "page", "assignment", "canvas"),
+        ], bindings
+        assert {
+            name for _m, _f, form, name in bindings if form in DRAW_BINDING_FORMS
+        } != {VECTOR_RECEIVER_NAME}
 
     def test_every_draw_object_in_the_package_is_spelled_draw(self) -> None:
         """The binding rule, inverted: an unknown **form** fails (cycle 2, F-101).

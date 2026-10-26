@@ -208,6 +208,74 @@ def operator_tally(stream: str) -> Counter[str]:
     return Counter(operator_tokens(stream))
 
 
+def tones(stream: str) -> list[tuple[float, str]]:
+    """Every ``(level, operator)`` tone ``stream`` sets, in order.
+
+    ``g`` is the fill tone and ``G`` the stroke tone, and the two spellings a
+    content stream really uses are **not** the same shape:
+
+    * a path tone stands alone on its line (``0 g``), because
+      :meth:`~nonogram.admin.book_vector.ContentStream.fill_grey` and
+      ``stroke_grey`` emit one operator each;
+    * a **text** tone is written INLINE, at the head of the text object it
+      applies to — ``0 g BT /F1 11 Tf 72 720 Td (How to solve) Tj ET`` — because
+      :meth:`~nonogram.admin.book_vector.ContentStream.text` emits the whole
+      object as one line.
+
+    CARD-296 review cycle 1 (F-3) measured what a line-anchored ``(?m)^…$``
+    tone regex does with that: it reads the path tones and **none** of the
+    text ones, so the guide's entire body could be set in 50 % grey with the
+    tone assertion green. This reader is here, rather than in one page card's
+    test module, so CARD-295/297/298 inherit the inline case instead of each
+    rediscovering it.
+
+    Literal strings are removed first, so a ``(…) Tj`` operand that happens to
+    read ``0 g`` is text and not a tone.
+    """
+    without_strings = re.sub(r"\((?:\\.|[^()\\])*\)", " ", stream)
+    return [
+        (float(level), operator)
+        for level, operator in re.findall(
+            rf"(?:^|\s)({NUMBER}) ([gG])(?=\s|$)", without_strings
+        )
+    ]
+
+
+def subpath_vertices(stream: str) -> list[int]:
+    """How many points each subpath of ``stream`` is built from, in order.
+
+    A subpath opens at an ``m`` and its points are that ``m`` plus every ``l``
+    (straight segment) and ``c`` (cubic Bézier) written after it, up to the
+    next ``m``. ``h``, the paint operators and ``re`` end or bypass it and are
+    not points.
+
+    **This is what "no round shape" needs and what "no ``c``" does not give.**
+    PDF has no circle operator, which is true and is not the same statement as
+    "a content stream cannot draw a disc": ``begin_path``/``line_to``/
+    ``close_path``/``paint`` build an arbitrary polygon out of ``m``, ``l`` and
+    ``h``, and a 32-gon is a disc at any size this book prints. CARD-296 review
+    cycle 1 (F-1) planted exactly that beside each difficulty tier and every
+    curve-operator and ``round_mark`` assertion in the tree stayed green. A
+    vertex bound is the mechanism that closes it — the same mechanism, and the
+    same reasoning, that ``tests/test_book_difficulty_dots.py``'s
+    ``MAX_FLAT_VERTICES`` already applies to Pillow's ``draw.polygon``, carried
+    into the medium where the vertices are operators rather than a Python list.
+
+    A page card holds its own pages to its own bound (a diagram's longest path
+    is its own business); the reader lives here so each page card of the phase
+    inherits the count rather than writing a fourth path scanner.
+    """
+    counts: list[int] = []
+    for token in operator_tokens(stream):
+        if token == "m":
+            counts.append(1)
+        elif token in ("l", "c"):
+            if not counts:  # a segment with no moveto: malformed, still counted
+                counts.append(1)
+            counts[-1] += 1
+    return counts
+
+
 def type_sizes(stream: str) -> list[float]:
     """Every ``Tf`` operand, in order — the point size each text object sets.
 
