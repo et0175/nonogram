@@ -56,15 +56,30 @@ So this card does not filter the free-text field. ``player/assemble.py``
 and what remains is provably too narrow to hold a grid:
 
 #. ``clues`` and ``key`` are the two projections ADR-0041 sanctions by name
-   (R5, R1), and they are *validated* — a clue has to be a run-length encoding
-   a line of that length could have, and the two axes have to agree on the
-   filled count — so ``clues`` cannot be borrowed as a free numeric channel;
-#. every other served value is drawn from a set the assembler can count, and
-   ``check_capacity`` refuses to assemble unless the total information
-   capacity of those sets is strictly below ``MIN_SIZE * MIN_SIZE`` bits — the
-   fewest cells any published grid has. A channel that cannot hold the
-   smallest grid cannot hold any grid. The figure is computed by the deployed
-   code (``free_capacity_bits``), never transcribed;
+   (R5, R1). They are **exempt**, and the exemption is the ADR's rather than
+   anything measured here: ``_clues`` narrows the field (a clue has to be a
+   run-length encoding a line of that length could have, the two axes have to
+   agree on the filled count) but a 10-cell line still admits 144 clues, so
+   twenty lines of a 10x10 carry ~143 bits and a clue set no grid realises is
+   accepted. The claim "clues cannot be borrowed as a free numeric channel"
+   was measured false in cycle 1 of this card's review and is gone; the clue
+   values' integrity is ADR-0041/R5's, upstream in the exporter;
+#. every other served value is drawn from a domain the assembler enumerates,
+   and two of the three are not free at all — ``width`` and ``height`` are
+   refused unless they equal the lengths of the served clue axes, so a reader
+   recomputes them. What is left is the tier, whose domain is the runtime's
+   three-label tier enum. ``check_capacity`` refuses to assemble unless every
+   served name is either exempt or counted and the counted total is strictly
+   below ``MIN_SIZE * MIN_SIZE`` bits. That ceiling establishes "no served
+   field is wide enough to carry a grid" and NOT EC-048's one-cell threshold,
+   which no capacity bound can reach; the figure (2.00 bits today) is computed
+   by the deployed code (``free_capacity_bits``), never transcribed. Cycle 1
+   measured what the difference is worth: a 56-bit ``tier`` passed the ceiling
+   and carried 56 cells of a published answer to the site
+   (``test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site`` is now
+   that plant, refused). The residual is two bits of tier label a hostile
+   store could choose by the answer — named in ``assemble.py``'s docstring,
+   not covered;
 #. and a sweep runs anyway, over the bytes: it tries to *decode* every
    non-exempt value and every static file in the served tree, and it is proved
    able to fail by running the identical sweep over the **bundle** the site was
@@ -117,6 +132,7 @@ import http.server
 import importlib.util
 import itertools
 import json
+import math
 import random
 import re
 import sys
@@ -419,11 +435,14 @@ def _redacted(payload, depth: int = 0):
 def sweep_tree(root: Path, grids) -> dict[str, list[str]]:
     """Every recovery :func:`decoded_recoveries` finds anywhere under ``root``.
 
-    Keyed by ``"<relative path> [<grid name>]"``. A JSON file is swept twice:
-    once as its redacted payload (so the exempt projections are not reported
-    as leaks) and once as its raw text with a decoder-only pass, because a
-    packed grid is never a legitimate clue however it is spelled. Every other
-    file is swept whole.
+    Keyed by ``"<relative path> [<grid name>]"``. A JSON file is swept once,
+    as its redacted payload, so the exempt projections are not reported as
+    leaks; every other file is swept whole. (An earlier revision of this
+    docstring described a second raw-text pass over each JSON file. There is
+    no such pass — the body is one ``if``/``else`` — and the sentence was
+    deleted rather than implemented: the pass would read the exempt clue
+    numbers, which is the one thing this sweep must not report, and the belt's
+    value is the non-exempt text it already reads.)
     """
     found: dict[str, list[str]] = {}
     files = [path for path in sorted(root.rglob("*")) if path.is_file()]
@@ -460,6 +479,16 @@ def test_served_tree_is_clean_of_answers(site, bundle) -> None:
     """
     report, keys = site
     bundle_root, _ = bundle
+
+    # EC-048's own verification clause: a seeded corpus, "with the minimum
+    # corpus size asserted in the test". Asserted HERE and not only in
+    # test_every_fixture_puzzle_is_uniquely_solvable, because the control
+    # below (len(leaked) >= len(GRIDS)) scales with the corpus and would pass
+    # just as green on a GRIDS of one — co-location is not ownership.
+    assert len(GRIDS) >= 4, sorted(GRIDS)
+    assert {len(grid) for grid in GRIDS.values()} >= {MIN_SIZE, MAX_SIZE}, (
+        "the corpus no longer spans the supported extent"
+    )
 
     leaked = sweep_tree(bundle_root, GRIDS)
     assert len(leaked) >= len(GRIDS), (
@@ -532,21 +561,46 @@ def test_the_index_and_book_files_are_not_served_by_this_page(site) -> None:
 
 
 def test_the_capacity_bound_is_derived_and_can_fail(monkeypatch, tmp_path) -> None:
-    """The number EC-048's argument rests on, computed by the deployed code.
+    """The number the assembler's half of EC-048 rests on, and what it is for.
 
-    The claim is "every non-exempt served field together cannot hold the
-    smallest published grid". Both halves are measured here: the live schema's
-    capacity is below the ceiling, and the check *fires* when a field wide
-    enough to carry a grid is added — so the bound is a control and not a
-    comment.
+    The claim the deployed code makes — and the only one it makes — is "no
+    served field is wide enough to carry a grid": the counted total is
+    strictly below the fewest cells a published grid has. EC-048's own
+    threshold is one cell, which no capacity bound can reach while any field
+    has a choice, so the number is a trip-wire and the domains do the work
+    (``assemble.py``'s docstring says so, and
+    ``test_the_served_tier_set_is_the_runtimes_tier_vocabulary`` plus
+    ``test_the_served_extents_are_recomputable_from_the_served_clues`` are
+    where each domain is held).
+
+    Four halves are measured here: the live figure, the partition (a served
+    field nobody counted is refused), the ceiling firing when a counted field
+    is widened, and the check being consulted by ``assemble`` rather than
+    merely present.
     """
     bits = assembler.check_capacity()
     assert bits == assembler.free_capacity_bits()
     assert assembler.CAPACITY_CEILING_BITS == MIN_SIZE * MIN_SIZE
     assert bits < assembler.CAPACITY_CEILING_BITS
+    # The residual the docstring names, derived here rather than transcribed:
+    # the extents are determined by the clues and the tier is the one free
+    # field, four labels wide.
+    assert bits == pytest.approx(math.log2(len(assembler.SERVED_TIERS) + 1))
 
+    # The partition: every served name is either exempt or counted, and a new
+    # one is neither until somebody counts it.
+    assert set(assembler.SERVED_SCHEMA) == set(assembler.SERVED_VALUE_SPACE) | set(
+        assembler.EXEMPT_SERVED_FIELDS
+    )
+    assert not set(assembler.SERVED_VALUE_SPACE) & set(assembler.EXEMPT_SERVED_FIELDS)
+    monkeypatch.setattr(assembler, "SERVED_SCHEMA", (*assembler.SERVED_SCHEMA, "note"))
+    with pytest.raises(ValueError, match="not partitioned"):
+        assembler.check_capacity()
+    monkeypatch.undo()
+
+    # The ceiling: a counted field widened to grid size fires it.
     widened = dict(assembler.SERVED_VALUE_SPACE)
-    widened["name"] = 2 ** (MAX_SIZE * MAX_SIZE)
+    widened["tier"] = 2 ** (MAX_SIZE * MAX_SIZE)
     monkeypatch.setattr(assembler, "SERVED_VALUE_SPACE", widened)
     with pytest.raises(ValueError, match="capacity argument no longer holds"):
         assembler.check_capacity()
@@ -559,22 +613,191 @@ def test_the_capacity_bound_is_derived_and_can_fail(monkeypatch, tmp_path) -> No
     assert not (tmp_path / "refused" / "play").exists()
 
 
-def test_the_tier_is_narrowed_to_the_rule_or_dropped() -> None:
-    """A tier is a short lowercase word or it is not served at all.
+def test_the_served_tier_set_is_the_runtimes_tier_vocabulary() -> None:
+    """ADR-0039/R2 — the served tier set is the enum's, not a hand-written rule.
 
-    This is the one non-exempt string field, so it is where the capacity bound
-    is actually spent: the rule below is what makes
-    ``SERVED_VALUE_SPACE["tier"]`` countable. Each case is a value the admin
-    store can really hold.
+    ``assemble.py`` cannot import the package (ADR-0041/R3) and cannot load
+    ``nonogram.difficulty`` by path the way it loads the import-free
+    ``limits.py``, because that module imports ``nonogram.errors``. So the
+    vocabulary is restated there as a three-label allow-list and held to the
+    authority *here*, where importing the package is legal — the precedent
+    CLAUDE.md names for exactly this situation (``propagate.mask_runs``,
+    cross-checked against ``clues.encode_line`` from the test tree).
+
+    Both directions, so neither side can drift alone: the served set is
+    exactly the enum's values, in ``book_plan``'s book order, and every
+    served label round-trips through ``_tier`` while nothing outside the set
+    does.
+    """
+    from nonogram.admin.book_plan import TIERS as BOOK_TIERS
+    from nonogram.difficulty import Tier
+
+    assert assembler.SERVED_TIERS == tuple(tier.value for tier in Tier)
+    assert assembler.SERVED_TIERS == tuple(tier.value for tier in BOOK_TIERS)
+    assert len(assembler.SERVED_TIERS) == 3
+    for tier in Tier:
+        assert assembler._tier(tier.value) == tier.value
+        assert assembler._tier(tier.value.upper()) == tier.value
+    assert assembler.SERVED_VALUE_SPACE["tier"] == len(assembler.SERVED_TIERS) + 1
+
+
+def test_the_tier_is_narrowed_to_the_vocabulary_or_dropped() -> None:
+    """A tier is one of the three labels or it is not served at all.
+
+    This is the one free non-exempt field, so it is where all of the capacity
+    bound is spent: the membership rule below is what makes
+    ``SERVED_VALUE_SPACE["tier"]`` four. Each case is a value the admin store
+    can really hold — including the one cycle 1 of this card's review measured
+    going through, which the next test takes apart cell by cell.
     """
     assert assembler._tier("medium") == "medium"
     assert assembler._tier("Hard") == "hard"
     assert assembler._tier("  easy  ") == "easy"
     assert assembler._tier("") == ""
     assert assembler._tier(None) == ""
-    assert assembler._tier("requires guessing") == ""  # a space is not in the alphabet
-    assert assembler._tier("a" * (assembler.TIER_MAX_CHARS + 1)) == ""
+    assert assembler._tier("requires guessing") == ""
+    assert assembler._tier("tqlhkuhxpmgj") == ""  # a short lowercase word, not a tier
+    assert assembler._tier("easyish") == ""
     assert assembler._tier(_leaky_title(GRIDS["min"])) == ""
+
+
+#: The lowercase alphabet a tier string could be read as digits of, and how
+#: many whole bits 12 of those characters carry. Cycle 1 of this card's review
+#: used exactly this: 26**12 > 2**56, so a 12-character lowercase "tier"
+#: carries 56 cells — and 12 characters is below :data:`MIN_TOKEN`, so the
+#: decoding sweep cannot see it either. Only the tier's domain stops it.
+_BASE26 = "abcdefghijklmnopqrstuvwxyz"
+_BASE26_CHARS = 12
+_BASE26_BITS = 56
+
+
+def _base26_cells(text: str) -> str:
+    """``text`` read back as the bits it would encode, or ``""``.
+
+    The inverse of the review's plant: a 12-character lowercase string is a
+    base-26 numeral, and its low 56 bits are 56 cells of a grid.
+    """
+    if len(text) != _BASE26_CHARS or any(character not in _BASE26 for character in text):
+        return ""
+    value = 0
+    for character in text:
+        value = value * 26 + _BASE26.index(character)
+    return format(value, f"0{_BASE26_BITS}b")[-_BASE26_BITS:]
+
+
+def test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site(tmp_path) -> None:
+    """EC-048, at its own threshold: cycle 1's measured channel, closed.
+
+    Cycle 1 of this card's review stored a 12-character base-26 encoding of
+    the first 56 cells of a published answer in a bundle puzzle's ``tier``,
+    assembled, and read all 56 cells back out of the served file with the
+    capacity check satisfied and the sweep clean. The capacity ceiling could
+    not have caught it — 56 bits is below 100 — and the sweep cannot see a
+    12-character token. The *domain* catches it, and this is that control:
+
+    #. the plant really is readable, so the test is not measuring an encoding
+       nobody could decode (asserted on the bundle, where it travels);
+    #. the served file carries no cell of it at all.
+    """
+    grid = GRIDS["min"]
+    answer = _bits(grid)
+    value = int(answer[:_BASE26_BITS], 2)
+    planted = "".join(
+        _BASE26[digit]
+        for digit in reversed([(value // 26**k) % 26 for k in range(_BASE26_CHARS)])
+    )
+    assert _base26_cells(planted) == answer[:_BASE26_BITS], "the plant does not decode"
+    assert len(planted) < MIN_TOKEN, "the sweep could see this one, so it is the wrong plant"
+
+    root = tmp_path / "bundle"
+    keys = write_bundle(root)
+    path = root / "puzzle" / f"{keys['min']}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["tier"] = planted
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    # The bundle half: the channel exists upstream, which is why it is checked
+    # here rather than assumed away.
+    assert _base26_cells(json.loads(path.read_text(encoding="utf-8"))["tier"]) == (
+        answer[:_BASE26_BITS]
+    )
+
+    report = assembler.assemble(root, tmp_path / "site")
+    served = json.loads(
+        (report.site_dir / "puzzle" / f"{keys['min']}.json").read_text(encoding="utf-8")
+    )
+    assert served["tier"] == "", served["tier"]
+    recovered = _base26_cells(served["tier"])
+    assert recovered == "", recovered
+    cells = sum(1 for index, bit in enumerate(recovered) if bit == answer[index])
+    assert cells == 0, f"{cells} of {_BASE26_BITS} answer cells reached the site"
+    # And the rest of the file is still the puzzle, so the fix is a narrowing
+    # of one field rather than a refusal of the page.
+    assert report.puzzle_count == len(keys)
+    assert served["clues"]["rows"] == [_encode(row) for row in grid]
+
+
+def test_the_served_extents_are_recomputable_from_the_served_clues(site) -> None:
+    """Why ``width`` and ``height`` count as zero bits in the capacity figure.
+
+    ``SERVED_VALUE_SPACE`` gives each of them one value, which is only honest
+    if the served value is *forced*: a reader with the clues already has both
+    extents. ``_clues`` is what forces it, by refusing a payload whose clue
+    axes are not exactly that long — the refusal cases ``clues-count`` and
+    ``clues-column-count`` in
+    ``test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named`` are
+    the other half of this, and this is the positive one: on every served
+    file, the equality holds.
+    """
+    report, keys = site
+    checked = 0
+    for field, axis in assembler.DETERMINED_BY_CLUES.items():
+        for name, key in keys.items():
+            payload = json.loads(
+                (report.site_dir / "puzzle" / f"{key}.json").read_text(encoding="utf-8")
+            )
+            assert len(payload["clues"][axis]) == payload[field], (field, name)
+            checked += 1
+    assert checked == len(assembler.DETERMINED_BY_CLUES) * len(keys) >= 8
+    assert sorted(assembler.DETERMINED_BY_CLUES) == ["height", "width"]
+    assert all(assembler.SERVED_VALUE_SPACE[field] == 1 for field in assembler.DETERMINED_BY_CLUES)
+
+
+def test_an_out_dir_that_is_not_a_previous_site_is_refused(tmp_path) -> None:
+    """``--out`` erases its target, so it refuses a target it did not write.
+
+    Measured in cycle 1 of this card's review: a directory holding
+    ``precious/notes.txt`` passed as ``--out`` came back holding only the
+    site, and ``--out .`` from the repository root would have taken the
+    checkout. Both directions here — a foreign name is refused and the file
+    survives, a previous run's tree is replaced without complaint — plus the
+    repository root by name and the owner's ``--force`` escape hatch.
+    """
+    precious = tmp_path / "deploy"
+    (precious / "notes").mkdir(parents=True)
+    (precious / "notes" / "important.txt").write_text("keep me", encoding="utf-8")
+    with pytest.raises(ValueError, match="no assembled site has"):
+        assembler.assemble(None, precious)
+    assert (precious / "notes" / "important.txt").read_text(encoding="utf-8") == "keep me"
+
+    with pytest.raises(ValueError, match="repository root"):
+        assembler.assemble(None, REPO_ROOT)
+    assert (REPO_ROOT / "pyproject.toml").exists()
+
+    # The positive control: an empty directory, and then a previous run's own
+    # tree, are both assembled into without complaint.
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert assembler.assemble(None, empty).site_dir == empty
+    again = assembler.assemble(None, empty)
+    assert sorted(path.name for path in again.site_dir.iterdir()) == sorted(
+        assembler._site_entries() - {assembler.SITE_PUZZLE_DIR}
+    )
+
+    # And --force is the way past it, which is what makes the refusal a
+    # decision rather than a wall.
+    assembler.assemble(None, precious, force=True)
+    assert not (precious / "notes").exists()
 
 
 def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -> None:
@@ -591,7 +814,31 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
         "width": {**good, "width": MAX_SIZE + 1},
         "height": {**good, "height": 0},
         "clues-shape": {**good, "clues": {"rows": good["clues"]["rows"]}},
-        "clues-count": {**good, "clues": {**good["clues"], "rows": good["clues"]["rows"][:-1]}},
+        # The two length checks DETERMINED_BY_CLUES rests on, one per axis:
+        # without them a served extent would no longer be recomputable from
+        # the served clues, and SERVED_VALUE_SPACE's one-value count for
+        # width/height would be a claim with nothing behind it.
+        #
+        # Each case is built so the LENGTH is the only thing wrong: both axes
+        # still agree on the filled count. The obvious case — the good clues
+        # with the last line dropped — is masked, because dropping a line
+        # drops its filled cells too and the agreement rule refuses it first.
+        # Measured: with the column length check deleted, the dropped-line
+        # case left this test and the served-extent test green.
+        "clues-count": {
+            **good,
+            "clues": {
+                "rows": [[1] for _ in range(len(grid) - 1)],
+                "columns": [[1] for _ in range(len(grid[0]) - 1)] + [[0]],
+            },
+        },
+        "clues-column-count": {
+            **good,
+            "clues": {
+                "rows": [[1] for _ in grid],
+                "columns": [[2]] + [[1] for _ in range(len(grid[0]) - 2)],
+            },
+        },
         "clues-empty": {**good, "clues": {**good["clues"], "rows": [[] for _ in grid]}},
         "clues-zero-mixed": {
             **good,
@@ -633,7 +880,7 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
         assert len(report.refused) == 1 and report.refused[0][0] == good["key"], name
         assert report.refused[0][1], f"{name} was refused without a reason"
         assert not (report.site_dir / "puzzle").exists(), name
-    assert len(cases) >= 12
+    assert len(cases) >= 13
 
     # The control for every one of them: the unedited payload is served.
     root = tmp_path / "good"
@@ -916,6 +1163,44 @@ def _tap(page, row, col):
     page.click(f'td.player-cell[data-row="{row}"][data-col="{col}"]')
 
 
+def _css_token(name: str) -> str:
+    """One ``--token: value`` from ``player/player.css``'s own declaration.
+
+    So an assertion about the phone layout is measured against the number the
+    page actually declares (ADR-0039/R2), not against a copy of it in the
+    test. The declared value is asserted on its own where it is used, so this
+    reading cannot follow a regression down.
+    """
+    match = re.search(rf"^\s*{re.escape(name)}:\s*([^;]+);", (PLAYER_DIR / "player.css").read_text(encoding="utf-8"), re.M)
+    assert match is not None, f"{name} is not declared in player.css"
+    return match.group(1).strip()
+
+
+#: AC-386's tap-target floor, as the page declares it. The card's named mobile
+#: guarantee is 28 px; this is where that number comes from.
+_CELL_FLOOR_PX = float(_css_token("--player-cell-min").removesuffix("px"))
+
+
+def _cell_centre(page, row, col):
+    box = page.query_selector(f'td.player-cell[data-row="{row}"][data-col="{col}"]').bounding_box()
+    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+
+def _drag(page, cells):
+    """A real pointer drag across ``cells``: one down, a move per cell, one up.
+
+    ``page.click`` cannot produce this — a drag is the one input that reaches
+    ``play.js``'s pointermove/pointerup drag branch, which is where EC-050's
+    statement names "a drag" and where cycle 1 of this card's review measured
+    a planted POST surviving every test in the card.
+    """
+    page.mouse.move(*_cell_centre(page, *cells[0]))
+    page.mouse.down()
+    for cell in cells[1:]:
+        page.mouse.move(*_cell_centre(page, *cell))
+    page.mouse.up()
+
+
 def _state(page, row, col):
     return page.get_attribute(f'td.player-cell[data-row="{row}"][data-col="{col}"]', "data-state")
 
@@ -1089,6 +1374,16 @@ def test_solved_fires_on_clue_satisfaction_only(browser_page, host) -> None:
         ("the right count, the wrong runs", 5, 1, "##x##", [[1, 3]], [[1], [1], [0], [1], [1]], False),
         ("every row right, one column wrong", 2, 2, "#xx#", [[1], [1]], [[2], [0]], False),
         ("every column right, one row wrong", 2, 2, "#xx#", [[2], [0]], [[1], [1]], False),
+        # The two ends of the two sweeps. Cycle 1 of this card's review
+        # measured the asymmetry: `row < height - 1` died on the table above
+        # (the single-row cases make the last row the only row) while
+        # `col < width - 1` SURVIVED it and the whole module, because no case
+        # had its only error in the last column — case 5's wrong column is
+        # column 0, and every page-level wrong board breaks a row as well.
+        # These two put the only error at the far end of each axis, so an
+        # off-by-one at either end of either sweep reds.
+        ("every row right, the LAST column wrong", 2, 2, "#xx#", [[1], [1]], [[1], [2]], False),
+        ("every column right, the LAST row wrong", 2, 2, "#xx#", [[1], [2]], [[1], [1]], False),
         ("an empty line, empty", 5, 1, "xxxxx", [[0]], [[0], [0], [0], [0], [0]], True),
         ("an empty line, marked", 5, 1, "#xxxx", [[0]], [[1], [0], [0], [0], [0]], False),
         # A "?" is not a filled cell, so it breaks no run it does not sit in.
@@ -1120,7 +1415,7 @@ def test_solved_fires_on_clue_satisfaction_only(browser_page, host) -> None:
     assert answers == [case[-1] for case in cases], [
         (case[0], got, case[-1]) for case, got in zip(cases, answers) if got != case[-1]
     ]
-    assert len(cases) >= 9 and sum(case[-1] for case in cases) == 4
+    assert len(cases) >= 11 and sum(case[-1] for case in cases) == 4
 
     # And the solved state is a function of the board, not of history: undoing
     # the last mark on a solved board takes the banner away again.
@@ -1212,7 +1507,15 @@ def test_phone_viewport_is_playable(browser_page, host) -> None:
     )
     assert reading["cells"] == MAX_SIZE * MAX_SIZE
     assert reading["pageScroll"] <= 0, reading
-    assert reading["cellWidth"] >= 24 and reading["cellHeight"] >= 24, reading
+    # The floor is the page's own token, read from the file rather than
+    # hand-picked — and the token's VALUE is asserted too, because an
+    # assertion against the token alone would follow the token down. Cycle 1
+    # of this card's review measured exactly that gap: the assertion was
+    # `>= 24` while the card, the token and the mutation record all said
+    # 28 px, so a 25 px token passed.
+    assert _CELL_FLOOR_PX >= 28, _CELL_FLOOR_PX
+    assert reading["cellWidth"] >= _CELL_FLOOR_PX, (reading, _CELL_FLOOR_PX)
+    assert reading["cellHeight"] >= _CELL_FLOOR_PX, (reading, _CELL_FLOOR_PX)
     assert reading["stageScrollable"] is True, "nothing to pan: the reading below is vacuous"
     assert reading["rowClueSticky"] == "sticky" and reading["colClueSticky"] == "sticky"
     assert reading["clueFont"] >= 10 and reading["clueText"] != ""
@@ -1246,15 +1549,87 @@ def test_phone_viewport_is_playable(browser_page, host) -> None:
 
 
 @pytest.mark.browser
+def test_the_stage_fits_the_board_on_a_wide_screen(browser_page, host) -> None:
+    """The bordered stage is the board's box, not the page's — and still scrolls.
+
+    Nothing in this card read the desktop layout at all, and cycle 1 of its
+    review measured the consequence: at 1440 px the stage was 1408 px wide
+    beside a 465 px board, so 942 px of empty bordered box sat to the right of
+    the 10x10. ``width: fit-content`` is the fix, and both halves of it are
+    read here, because the phone behaviour is what the width was defending:
+
+    #. wide screen, small board — the stage is the board's width, not the
+       page's, and there is nothing to scroll;
+    #. phone, largest board — the stage is clamped to the viewport and the
+       board scrolls INSIDE it, with the page still not scrolling sideways
+       (AC-386's trade-off, re-read here against the same change).
+    """
+    page = browser_page
+    page.set_viewport_size({"width": 1440, "height": 900})
+    _open(page, host, host[2]["min"])
+    wide = page.evaluate(
+        """() => {
+      const stage = document.querySelector('[data-player-stage]');
+      const board = document.querySelector('.player-board');
+      return {
+        stage: stage.getBoundingClientRect().width,
+        board: board.getBoundingClientRect().width,
+        page: document.documentElement.clientWidth,
+        scrollable: stage.scrollWidth > stage.clientWidth,
+      };
+    }"""
+    )
+    assert wide["page"] >= 1400, wide
+    assert wide["board"] < wide["page"] / 2, wide  # the 10x10 is a small board
+    # The stage is the board plus its own 1 px rules, never the page.
+    assert wide["stage"] - wide["board"] <= 4, wide
+    assert wide["scrollable"] is False, wide
+
+    page.set_viewport_size({"width": 390, "height": 844})
+    _open(page, host, host[2]["max"])
+    phone = page.evaluate(
+        """() => {
+      const stage = document.querySelector('[data-player-stage]');
+      const board = document.querySelector('.player-board');
+      return {
+        stage: stage.getBoundingClientRect().width,
+        board: board.getBoundingClientRect().width,
+        page: document.documentElement.clientWidth,
+        scrollable: stage.scrollWidth > stage.clientWidth,
+        pageScroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    }"""
+    )
+    assert phone["board"] > phone["page"], phone  # 30 cells do not fit 390 px
+    assert phone["stage"] <= phone["page"], phone
+    assert phone["scrollable"] is True, phone
+    assert phone["pageScroll"] <= 0, phone
+
+
+@pytest.mark.browser
 def test_no_write_request_for_any_interaction(browser_page, host) -> None:
     """EC-050 / ADR-0041/R4 — for every interaction, zero writes leave the page.
 
-    "Every interaction sequence" is approximated by driving every control the
-    page has, in a seeded order, with the request log open: marks, a drag, a
-    brush change, Region on and off, undo, redo, reset, a keyboard undo and a
-    reload. The assertion is on the METHOD and the ORIGIN of every request —
-    not on a count, because a count passes when nothing happened at all, so
-    the number of interactions is asserted too.
+    "Every interaction sequence" is approximated in two passes over the same
+    control set, and the first pass is the one that makes the approximation
+    honest: **every control is driven once, deterministically**, and then a
+    seeded walk runs over the set. The exercised set is asserted EQUAL to the
+    control set, so a reseed — or a control added to the page and not to this
+    table — reds here instead of quietly dropping a path.
+
+    That assertion is the fix for a measured hole. Cycle 1 of this card's
+    review found the seeded draw never produced Reset (``Random(2831)``'s 24
+    draws from 8 simply do not contain 6) and contained no drag at all, both
+    of which EC-050's statement names by word: a ``fetch(POST)`` planted in
+    the reset handler, and the same planted in the drag branch, each left this
+    test and the whole module GREEN. Three of the controls below therefore
+    also assert that the path was really reached — the drag marks its line,
+    Region's state flips, Reset announces itself — because "the control was
+    clicked" is not "the handler ran".
+
+    The assertion about requests is on the METHOD and the ORIGIN of every
+    one — not on a count, because a count passes when nothing happened at
+    all, so the number of interactions is asserted too.
     """
     page = browser_page
     url, report, keys = host
@@ -1271,39 +1646,219 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
     _open(page, host, key)
     after_load = len(requests)
 
+    def drag_a_line():
+        page.click('[data-player-tool="filled"]')
+        _drag(page, [(5, 0), (5, 1), (5, 2)])
+        marked = [_state(page, 5, col) for col in range(3)]
+        assert marked == ["filled"] * 3, f"the drag marked nothing: {marked}"
+
+    def toggle_region():
+        before = page.evaluate("() => window.publicPlayer.isRegion()")
+        page.click("[data-player-region]")
+        assert page.evaluate("() => window.publicPlayer.isRegion()") is not before
+
+    def press_reset():
+        # force=True on purpose here and below: an aria-disabled button is one
+        # of the interactions this test must cover, and Playwright's
+        # actionability check would otherwise refuse to press it at all.
+        page.click('[data-player-action="reset"]', force=True)
+        announced = page.inner_text("[data-player-announce]").strip()
+        assert announced.startswith("Board reset"), f"the reset handler did not run: {announced!r}"
+
+    #: Every control the page has, by the thing a player does. The page's own
+    #: markup is the authority for what exists: ``test_every_player_control_is
+    #: _in_the_ec_050_walk`` holds this table to the buttons in play.html, so a
+    #: fourth brush or a new action cannot be added without being walked.
+    controls = {
+        "brush-black": lambda: page.click('[data-player-tool="filled"]'),
+        "brush-white": lambda: page.click('[data-player-tool="empty"]'),
+        "brush-clear": lambda: page.click('[data-player-tool="unknown"]'),
+        "region": toggle_region,
+        "tap": lambda: _tap(page, rng.randrange(MIN_SIZE), rng.randrange(MIN_SIZE)),
+        "drag": drag_a_line,
+        "undo-button": lambda: page.click('[data-player-action="undo"]', force=True),
+        "redo-button": lambda: page.click('[data-player-action="redo"]', force=True),
+        "reset": press_reset,
+        "undo-key": lambda: page.keyboard.press("Control+z"),
+        "redo-key": lambda: page.keyboard.press("Control+Shift+z"),
+    }
+
     rng = random.Random(2831)
-    interactions = 0
+    exercised: list[str] = []
+    # Pass one: every control, once, in a fixed order.
+    for name, drive in controls.items():
+        drive()
+        exercised.append(name)
+    # Pass two: a seeded walk over the same set, for sequences the sweep's
+    # fixed order cannot reach.
+    order = sorted(controls)
     for _ in range(24):
-        choice = rng.randrange(8)
-        if choice == 0:
-            page.click('[data-player-tool="empty"]')
-        elif choice == 1:
-            page.click('[data-player-tool="filled"]')
-        elif choice == 2:
-            page.click("[data-player-region]")
-        elif choice == 3:
-            # force=True on purpose: an aria-disabled Undo is one of the
-            # interactions this test must cover, and Playwright's actionability
-            # check would otherwise refuse to press it at all.
-            page.click('[data-player-action="undo"]', force=True)
-        elif choice == 4:
-            page.click('[data-player-action="redo"]', force=True)
-        elif choice == 5:
-            page.keyboard.press("Control+z")
-        elif choice == 6:
-            page.click('[data-player-action="reset"]', force=True)
-        else:
-            _tap(page, rng.randrange(MIN_SIZE), rng.randrange(MIN_SIZE))
-        interactions += 1
+        name = order[rng.randrange(len(order))]
+        controls[name]()
+        exercised.append(name)
     page.reload()
     page.wait_for_function("window.publicPlayer !== undefined")
 
-    assert interactions == 24
+    assert set(exercised) == set(controls), sorted(set(controls) - set(exercised))
+    assert len(exercised) == len(controls) + 24 >= 35
     assert writes == []
     assert len(requests) > after_load, "the reload issued nothing, so nothing was watched"
     assert all(request.startswith(url + "/") for request in requests), requests
     # The one request kind this page makes at all, named: its own assets.
     assert any(request.endswith(f"/puzzle/{key}.json") for request in requests)
+
+
+def test_every_player_control_is_in_the_ec_050_walk() -> None:
+    """EC-050's walk is held to the page's own controls (ADR-0039/R1-R2).
+
+    The walk above drives a named table of controls. A table is a hand-written
+    set unless something holds it to an authority the runtime enumerates, so
+    this reads ``play.html``'s buttons — the brushes by ``data-player-tool``,
+    the actions by ``data-player-action``, Region by its own attribute — and
+    insists every one of them is walked. A fourth brush or a new action added
+    to the page reds here, which is the completeness half ADR-0039/R1 asks for
+    before the set is trusted.
+
+    The two keyboard paths are the exception the rule allows: they are not
+    elements, so they are listed rather than derived, and they are named in
+    the page as ``aria-keyshortcuts`` on the two buttons they duplicate —
+    which this test checks, so "listed" is still held to the markup.
+    """
+    page_html = (PLAYER_DIR / "play.html").read_text(encoding="utf-8")
+    walked = {
+        "brush-black": "filled",
+        "brush-white": "empty",
+        "brush-clear": "unknown",
+    }
+    tools = set(re.findall(r'data-player-tool="([a-z]+)"', page_html))
+    actions = set(re.findall(r'data-player-action="([a-z]+)"', page_html))
+    assert tools == set(walked.values()), tools
+    assert actions == {"undo", "redo", "reset"}, actions
+    assert "data-player-region" in page_html
+    # The names the walk uses, derived from the same markup: one per brush,
+    # one per action button, plus region, tap, drag and the two key paths.
+    expected = (
+        set(walked)
+        | {f"{action}-button" for action in actions if action != "reset"}
+        | {"reset", "region", "tap", "drag", "undo-key", "redo-key"}
+    )
+    assert len(expected) == 11, sorted(expected)
+    assert "aria-keyshortcuts=\"Control+Z Meta+Z\"" in page_html
+    assert "aria-keyshortcuts=\"Shift+Control+Z Shift+Meta+Z\"" in page_html
+    source = Path(__file__).read_text(encoding="utf-8")
+    parts = source.split("\ndef test_no_write_request_for_any_interaction")
+    assert len(parts) == 2, "the walk is not where this test looks for it"
+    walk = parts[1].split("\ndef ")[0]
+    named = set(re.findall(r'^\s{8}"([a-z-]+)": ', walk, re.M))
+    assert named == expected, sorted(expected ^ named)
+
+
+@pytest.mark.browser
+def test_a_save_or_a_puzzle_file_the_page_cannot_trust_is_refused(browser_page, host) -> None:
+    """The page checks its two inputs rather than trusting them, and both halves
+    of that were unexercised (cycle 1 of this card's review, F-4 A and B).
+
+    Two mechanisms, each with its own positive control:
+
+    #. ``deserialize``'s clue comparison — "a re-export that changed a
+       puzzle's clues under the same key cannot replay marks onto a different
+       puzzle" (``play.js``'s own words). A save carrying another 10x10's
+       clues under this puzzle's key must be dropped, leaving a blank board,
+       while the same save with the right clues restores its stroke;
+    #. ``readPayload``'s clue checks — the page's half of the deliberately
+       duplicated "checked rather than trusted" rule. A key-shaped file whose
+       row clue cannot fit its line must leave the fallback paragraph up, no
+       board and no ``window.publicPlayer`` at all, while the published file
+       next to it loads.
+    """
+    page = browser_page
+    url, report, keys = host
+    grid = GRIDS["min"]
+    key = keys["min"]
+    other = _unique_grid(MIN_SIZE, MIN_SIZE, seed=28311)
+    assert [_encode(row) for row in other] != [_encode(row) for row in grid]
+    assert (len(other), len(other[0])) == (len(grid), len(grid[0]))
+
+    # The positive control first, so "blank" below is a refusal and not the
+    # page failing to restore anything at all.
+    _prefill(page, host, key, _save(key, grid, _filled_cells(grid)[:1]))
+    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 1
+
+    _prefill(page, host, key, _save(key, other, _filled_cells(grid)[:1]))
+    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 0, (
+        "a save carrying another puzzle's clues replayed its marks onto this one"
+    )
+    assert page.evaluate("() => window.publicPlayer.getBoard().cells.every((s) => s === 'unknown')")
+
+    # The payload half: a file the schema would have refused, planted into the
+    # served tree after assembly (the assembler refuses to write one, which is
+    # the other side of the same rule).
+    planted_key = "abcdef0123"
+    bad = {
+        "key": planted_key,
+        "width": MIN_SIZE,
+        "height": MIN_SIZE,
+        "tier": "easy",
+        "clues": {
+            "rows": [[MIN_SIZE + 1]] + [[0]] * (MIN_SIZE - 1),
+            "columns": [[0]] * MIN_SIZE,
+        },
+    }
+    (report.site_dir / "puzzle" / f"{planted_key}.json").write_text(
+        json.dumps(bad), encoding="utf-8"
+    )
+    page.goto(f"{url}/play/{planted_key}")
+    page.wait_for_selector(".player-fallback")
+    assert page.evaluate("() => window.publicPlayer === undefined")
+    assert page.query_selector("td.player-cell") is None
+    assert page.inner_text(".player-fallback").strip() != ""
+
+
+@pytest.mark.browser
+def test_the_brush_region_and_touch_bindings_are_the_modules(browser_page, host) -> None:
+    """What a brush writes, what a drag does to Region, and what a cell allows.
+
+    Three bindings between ``play.js`` and ``solver_state.js`` that cycle 1 of
+    this card's review measured as unexercised — ``tool = FILLED`` in the
+    brush handler, ``setRegion(region)`` in place of ``nextRegion(region,
+    "drag")``, and nothing reading ``touch-action`` at all:
+
+    #. the brush decides the mark: White writes "empty" and Clear writes
+       "unknown" (``clickedState``'s answer for each, and neither is the
+       default brush, so a handler that ignored the chosen brush would show);
+    #. Region is ONE-SHOT: it disarms itself the instant a drag is recorded,
+       which is ``nextRegion(region, "drag")`` and not "leave it as it was";
+    #. the cell's ``touch-action`` follows Region — ``auto`` while it is off,
+       so a touch drag pans the page (``gesturePaints``'s rule, item 5 of the
+       card), and ``none`` while it is armed, so the drag marks instead. This
+       is the CSS half; the pointer-type half needs a real touch drag, which
+       Playwright cannot produce (named, not claimed).
+    """
+    page = browser_page
+    _open(page, host, host[2]["min"])
+
+    page.click('[data-player-tool="empty"]')
+    assert page.evaluate("() => window.publicPlayer.getTool()") == "empty"
+    _tap(page, 2, 2)
+    assert _state(page, 2, 2) == "empty"
+    page.click('[data-player-tool="unknown"]')
+    _tap(page, 2, 2)
+    assert _state(page, 2, 2) == "unknown"
+
+    touch_action = """() => getComputedStyle(document.querySelector('td.player-cell')).touchAction"""
+    assert page.evaluate(touch_action) == "auto"
+    page.click("[data-player-region]")
+    assert page.evaluate("() => window.publicPlayer.isRegion()") is True
+    assert page.evaluate(touch_action) == "none"
+
+    # A drag disarms it, and the drag itself still marks its line.
+    page.click('[data-player-tool="filled"]')
+    _drag(page, [(7, 1), (7, 2), (7, 3)])
+    assert [_state(page, 7, col) for col in (1, 2, 3)] == ["filled"] * 3
+    assert page.evaluate("() => window.publicPlayer.isRegion()") is False, (
+        "Region stayed armed after a drag, so it is not one-shot"
+    )
+    assert page.evaluate(touch_action) == "auto"
 
 
 @pytest.mark.browser
@@ -1506,12 +2061,27 @@ def test_the_runtime_dependency_baseline_is_untouched() -> None:
     page = (PLAYER_DIR / "play.html").read_text(encoding="utf-8")
     imports = re.findall(r"""from\s+["']([^"']+)["']""", script)
     assert imports == ["/solver_state.js"], imports
-    for text in (script, page):
-        assert "http://" not in text.replace("http://127.0.0.1", "")
-        assert "https://" not in text or "openapi.vercel.sh" in text
+    for name, text in (("play.js", script), ("play.html", page)):
+        assert "http://" not in text.replace("http://127.0.0.1", ""), name
+        # No exemption here, because neither file needs a URL. The disjunct
+        # this assertion used to carry ("or openapi.vercel.sh in text") was
+        # dead — that host is vercel.json's $schema, which this assertion
+        # never reads — and while it was dead it would have absorbed any
+        # https:// URL added to either file beside a mention of that host.
+        # ADR-0039/R3: an exemption is a claim, and an exemption with nothing
+        # to exempt is a hole. It now lives where the URL actually is, below.
+        assert "https://" not in text, name
     assert "cdn" not in script.lower()
     srcs = re.findall(r'src="([^"]+)"', page)
     assert srcs == ["/play.js"], srcs
+
+    # The one https:// URL this tree does carry, and the exemption stated as
+    # an EQUALITY against the URLs that exist rather than as a disjunct that
+    # would absorb the next one (ADR-0039/R3). It is a JSON Schema reference
+    # read by editors, never fetched by the page or the host.
+    deploy = (PLAYER_DIR / "vercel.json").read_text(encoding="utf-8")
+    assert re.findall(r"https?://[^\"']+", deploy) == ["https://openapi.vercel.sh/vercel.json"]
+    assert json.loads(deploy)["$schema"] == "https://openapi.vercel.sh/vercel.json"
     import tomllib
 
     manifest = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))

@@ -56,25 +56,77 @@ bundle's ``title`` — the only free-text field in the bundle — is not in that
 schema and does not reach the site. A field the schema does not name is
 dropped, named in the report, and never written.
 
-What is left is then provably too small to carry a grid, which is the whole
-point of the schema being closed:
+What is left is then held to EC-048 by two statements, and it matters a great
+deal which of them does the work:
 
 * ``clues`` and ``key`` are the two projections ADR-0041 sanctions by name
-  (R5 and R1). The clues determine the solution of a uniquely solvable puzzle
-  — that is what the player plays against and is why no answer is needed to
-  detect a solved board. They are the exemption, and they are *validated* for
-  internal consistency (:func:`_clues`) so that "clues" cannot be borrowed as
-  a free numeric channel;
-* every other served value is drawn from a closed set this module can count:
-  :data:`SERVED_VALUE_SPACE`. :func:`free_capacity_bits` sums the base-2
-  logarithms of those counts, and :func:`check_capacity` refuses to assemble
-  at all unless the total is strictly below ``MIN_SIZE * MIN_SIZE`` bits — the
-  fewest cells any published grid can have (CON-011). A channel that cannot
-  hold the smallest grid cannot hold any grid.
+  (R5 and R1) — :data:`EXEMPT_SERVED_FIELDS`. They are **exempt**, not
+  safe-by-measurement: ADR-0041/R2's own second sentence grants the
+  exemption, and ADR-0041/R5 — the exporter taking every clue from
+  ``compute_clues`` of the stored grid, upstream of this script — is where
+  their integrity actually lives. :func:`_clues` checks only that a served
+  clue set *could* belong to a grid of this extent (every clue fits its line,
+  the two axes agree on the filled count); it does not establish that one
+  does, and the clue field's own capacity is far above any grid's — a
+  ``MIN_SIZE``-cell line admits 144 distinct clues, so a 10x10's twenty lines
+  carry about 143 bits. An earlier revision of this docstring claimed the
+  validation stopped the clues being "borrowed as a free numeric channel";
+  that was measured false in cycle 1 of this card's review (a clue set no grid
+  realises is accepted) and the claim is gone rather than softened;
+* every OTHER served value is drawn from a domain this module can enumerate,
+  and two of the three are not free at all. A served file is refused unless
+  ``len(clues.columns) == width`` and ``len(clues.rows) == height``
+  (:data:`DETERMINED_BY_CLUES`, enforced in :func:`_clues`), so a reader
+  recomputes both extents from the clues they already have: those two fields
+  carry nothing beyond the exempt projection. :data:`SERVED_VALUE_SPACE`
+  counts what is left, :func:`free_capacity_bits` sums the base-2 logarithms,
+  and :func:`check_capacity` refuses to assemble unless the total is strictly
+  below ``MIN_SIZE * MIN_SIZE`` bits.
 
-The number that bound rests on is computed here, by the deployed code, from
-the declared value space; it is not transcribed into a comment. Ask for it
-with ``python player/assemble.py --capacity``.
+What that ceiling does and does not establish
+---------------------------------------------
+It establishes **"no served field is wide enough to be worth encoding a grid
+in"**: a channel below ``MIN_SIZE * MIN_SIZE`` bits — the fewest cells any
+published grid can have (CON-011) — cannot hold the smallest published grid,
+so it cannot hold any.
+
+It does **not** establish EC-048, whose threshold is *one cell*, one bit. No
+bound that leaves a served field any choice at all can reach that threshold,
+so this script does not pretend to: the ceiling is a trip-wire that fires when
+somebody widens the schema, and EC-048's one-cell threshold is carried by the
+closed rebuild plus the enumerated domains, not by the number.
+
+That distinction is not pedantic. Cycle 1 of this card's review measured the
+gap: while a served ``tier`` was "any lowercase string of up to twelve
+characters" (56.46 of the 65.25 bits the bound then spent), a store could
+write the first 56 cells of a published answer into that field as base-26,
+and the capacity check, the rebuild and the decoding sweep all passed it
+through — 56 of 56 cells recovered from the served file. The ceiling held and
+the rule it was offered for did not.
+
+So the domains carry it, and the residual is named rather than implied:
+
+* ``width`` / ``height``: zero free bits, because they are recomputable from
+  the clues (above);
+* ``tier``: :data:`SERVED_TIERS` plus the empty string a value outside the
+  vocabulary is dropped to — four values, two bits. The vocabulary is the
+  runtime's own (``nonogram.difficulty.Tier``, ordered by
+  ``nonogram.admin.book_plan.TIERS``) rather than a hand-written alphabet
+  rule, which is ADR-0039/R2, and it is held to that enum from the test tree —
+  where importing the package is legal — by
+  ``tests/test_public_player.py::test_the_served_tier_set_is_the_runtimes_tier_vocabulary``;
+* the residual, stated because two bits is above EC-048's one bit: a hostile
+  store that chooses a puzzle's tier **label** as a function of its answer
+  signals at most two bits per puzzle through this field. Nothing here
+  excludes that — a label is a label — and the only way to close it is not to
+  serve the tier at all, which is a product decision for ADR-0041 rather than
+  a worktree one. It is this script's one open edge against EC-048, it is two
+  bits wide, and the figure is derived by the deployed code rather than
+  claimed.
+
+Every number above that this script owns is computed here, from the declared
+value space; none of it is transcribed. Ask for it with
+``python player/assemble.py --capacity``.
 
 What this script does not reach, named rather than left to look covered
 -----------------------------------------------------------------------
@@ -105,16 +157,18 @@ from pathlib import Path
 __all__ = [
     "COPIED_FROM_ADMIN",
     "CAPACITY_CEILING_BITS",
+    "DETERMINED_BY_CLUES",
+    "EXEMPT_SERVED_FIELDS",
     "KEY_PATTERN",
     "PLAYER_FILES",
     "SERVED_SCHEMA",
+    "SERVED_TIERS",
     "SERVED_VALUE_SPACE",
     "SITE_PUZZLE_DIR",
-    "TIER_ALPHABET",
-    "TIER_MAX_CHARS",
     "AssembleReport",
     "assemble",
     "check_capacity",
+    "check_out_dir",
     "free_capacity_bits",
     "served_puzzle",
 ]
@@ -184,31 +238,56 @@ KEY_PATTERN = re.compile(r"^[0-9a-f]{10}$")
 # The served schema — the closed set a /play/<key> asset may carry
 # --------------------------------------------------------------------------
 
-#: The alphabet and length a served ``tier`` may use. Lowercase ASCII letters
-#: only, so the field cannot carry digits, punctuation or case as signal; the
-#: value is lowercased before it is matched, so "Hard" is served as "hard"
-#: and a tier that does not fit is dropped (never refused: a strange tier is
-#: cosmetic, and refusing the puzzle would cost the player a page over a chip).
-TIER_ALPHABET = "abcdefghijklmnopqrstuvwxyz"
-TIER_MAX_CHARS = 12
-_TIER = re.compile(rf"^[{TIER_ALPHABET}]{{1,{TIER_MAX_CHARS}}}$")
+#: The tier labels a served file may carry: the runtime's own tier
+#: vocabulary, not an alphabet rule (ADR-0039/R2 — a guard's set is derived
+#: from an authority the runtime can enumerate). The authority is
+#: ``nonogram.difficulty.Tier``, a ``StrEnum`` of exactly these three values,
+#: which ``nonogram.admin.book_plan.TIERS`` orders for the book matrix. It is
+#: restated here as a three-label allow-list rather than loaded, because that
+#: module imports ``nonogram.errors`` and so cannot be read by path the way
+#: :func:`_limits` reads the import-free ``limits.py``; the equality with the
+#: enum is therefore held from the test tree, where importing the package is
+#: legal, by
+#: ``tests/test_public_player.py::test_the_served_tier_set_is_the_runtimes_tier_vocabulary``
+#: (the precedent CLAUDE.md names: reimplement natively, cross-check from the
+#: tests, never import across).
+#:
+#: A stored value is stripped and lowercased before it is matched, so the
+#: panel's "Hard" and "hard" are one served label, and anything else is
+#: dropped to ``""`` rather than refused: a strange tier is cosmetic, and
+#: refusing the puzzle would cost the player a page over a chip. Dropping is
+#: also what closes the 56-bit channel cycle 1 of this card's review measured
+#: through this field — see the module docstring.
+SERVED_TIERS: tuple[str, ...] = ("easy", "medium", "hard")
 
-#: How many distinct values each non-exempt served field may take. The
-#: authority :func:`free_capacity_bits` counts; see the module docstring.
-#: ``clues`` and ``key`` are absent on purpose — they are ADR-0041's two
-#: sanctioned projections of the grid and are checked by recipe instead
-#: (:func:`_clues`, :data:`KEY_PATTERN`), exactly as
+#: The two served extents, and the clue axis each one is the length of. A
+#: payload whose extent disagrees with its clue axes is refused (:func:`_clues`),
+#: so these fields are redundant with the exempt clue projection rather than
+#: free: a reader recomputes both, and their contribution to
+#: :data:`SERVED_VALUE_SPACE` is one value — zero bits — each.
+DETERMINED_BY_CLUES: dict[str, str] = {"width": "columns", "height": "rows"}
+
+#: ADR-0041's two sanctioned projections of the solution. Exempt from the
+#: capacity count by the ADR (R5 for the clues, R1 for the key), not by
+#: anything this module measures — see the module docstring — and checked by
+#: recipe instead (:func:`_clues`, :data:`KEY_PATTERN`), exactly as
 #: ``player_bundle.SOLUTION_DERIVED_FIELDS`` routes them in the exporter.
+EXEMPT_SERVED_FIELDS: tuple[str, ...] = ("clues", "key")
+
+#: How many values each non-exempt served field may FREELY take, once the
+#: exempt projection has fixed everything it fixes. The authority
+#: :func:`free_capacity_bits` counts; see the module docstring for what the
+#: total does and does not establish.
 SERVED_VALUE_SPACE: dict[str, int] = {
-    "width": MAX_SIZE - MIN_SIZE + 1,
-    "height": MAX_SIZE - MIN_SIZE + 1,
-    # Every string the tier rule admits, by length.
-    "tier": 1 + sum(len(TIER_ALPHABET) ** k for k in range(1, TIER_MAX_CHARS + 1)),
+    **dict.fromkeys(DETERMINED_BY_CLUES, 1),
+    # The three labels, plus the "" a value outside the vocabulary becomes.
+    "tier": len(SERVED_TIERS) + 1,
 }
 
 #: The capacity ceiling, in bits: the fewest cells any published grid has
-#: (CON-011's floor, squared). Derived, not written: a channel below it cannot
-#: carry even the smallest grid, so it cannot carry any grid.
+#: (CON-011's floor, squared). Derived, not written. A total below it cannot
+#: carry even the smallest grid — which is ALL it establishes; EC-048's own
+#: threshold is one cell, and the module docstring says what carries that.
 CAPACITY_CEILING_BITS = MIN_SIZE * MIN_SIZE
 
 
@@ -225,13 +304,29 @@ def free_capacity_bits() -> float:
 
 
 def check_capacity() -> float:
-    """Refuse to assemble unless the free capacity is below the ceiling.
+    """Refuse to assemble unless every served field is counted and narrow.
 
-    Returns the capacity in bits. Raises :class:`ValueError` when a later
-    change widens :data:`SERVED_VALUE_SPACE` past
-    :data:`CAPACITY_CEILING_BITS` — which is the moment EC-048's argument
-    stops holding, and the moment somebody has to go back to ADR-0041.
+    Two refusals, because the count is worth nothing if a field can escape it:
+
+    #. the schema has to be *partitioned* by :data:`EXEMPT_SERVED_FIELDS` and
+       :data:`SERVED_VALUE_SPACE` — a name added to :data:`SERVED_SCHEMA` and
+       to neither is a served field nobody counted, which is how this field
+       was wide in the first place;
+    #. the counted total has to stay strictly below
+       :data:`CAPACITY_CEILING_BITS`.
+
+    Returns the capacity in bits. Raises :class:`ValueError` on either, which
+    is the moment somebody has to go back to ADR-0041 rather than to this
+    constant.
     """
+    counted = set(SERVED_VALUE_SPACE) | set(EXEMPT_SERVED_FIELDS)
+    if counted != set(SERVED_SCHEMA) or set(SERVED_VALUE_SPACE) & set(EXEMPT_SERVED_FIELDS):
+        raise ValueError(
+            "the served schema is not partitioned into exempt and counted "
+            f"fields: schema {sorted(SERVED_SCHEMA)}, exempt "
+            f"{sorted(EXEMPT_SERVED_FIELDS)}, counted {sorted(SERVED_VALUE_SPACE)} "
+            "— an uncounted served field is outside EC-048's capacity argument"
+        )
     bits = free_capacity_bits()
     if bits >= CAPACITY_CEILING_BITS:
         raise ValueError(
@@ -259,17 +354,23 @@ def _key(value: object, what: str = "key") -> str:
 
 
 def _tier(value: object) -> str:
-    """A served tier, or ``""`` when the stored value does not fit the rule.
+    """A served tier label, or ``""`` when the stored value is not one.
 
-    Lowercased first, so the admin panel's "Hard" and "hard" are one served
-    value, and matched against :data:`_TIER`. A value that does not fit is
-    dropped rather than refused — and dropped silently *into the report*,
+    Stripped and lowercased first, so the admin panel's "Hard" and "hard" are
+    one served label, and then matched against :data:`SERVED_TIERS` — the
+    runtime's tier vocabulary, by membership, not an alphabet pattern. A value
+    outside it is dropped rather than refused, and dropped *into the report*,
     which :class:`AssembleReport` carries.
+
+    The membership test is what makes this field two bits wide instead of
+    56.46: the string the review's cycle-1 plant put here ("tqlhkuhxpmgj", the
+    first 56 cells of a published answer in base-26) is not a tier label, so
+    nothing of it reaches the site.
     """
     if not isinstance(value, str):
         return ""
     folded = value.strip().lower()
-    return folded if _TIER.match(folded) else ""
+    return folded if folded in SERVED_TIERS else ""
 
 
 def _line(clue: object, length: int, what: str) -> list[int]:
@@ -277,10 +378,17 @@ def _line(clue: object, length: int, what: str) -> list[int]:
 
     The ADR's convention (AC-013) is ``[0]`` for a line with no filled cell,
     never ``[]``. Everything else must be positive runs whose lengths plus one
-    gap between each pair fit the line. This is what stops ``clues`` — the one
-    exempt field with room in it — from being usable as a free numeric
-    channel: a value smuggled here has to be a clue a line of this length
-    could actually have.
+    gap between each pair fit the line.
+
+    This narrows the exempt field; it does not close it, and the stronger
+    claim an earlier revision made here ("what stops clues being usable as a
+    free numeric channel") was measured false. A line of ``length`` cells
+    still admits every clue that fits it — 144 of them at ``MIN_SIZE`` — which
+    is more capacity than a grid needs. The clues are exempt by ADR-0041/R2
+    and their values are ADR-0041/R5's guarantee, taken from ``compute_clues``
+    of the stored grid upstream of this script; what this function buys is
+    that a served file cannot carry a clue a line could not have, which is
+    what the page's own ``isClue`` also refuses on the other side of the wire.
     """
     if not isinstance(clue, list) or not clue:
         raise ValueError(f"{what} is not a non-empty list")
@@ -304,7 +412,14 @@ def _clues(value: object, width: int, height: int) -> dict[str, list[list[int]]]
     One clue per row and per column, each one fitting its own line, and the
     two axes agreeing on how many cells are filled — a grid has one answer to
     that, so a row clue set and a column clue set that disagree did not come
-    from one grid and are refused.
+    from one grid and are refused. (Agreeing does not mean a grid realises
+    them: ``{"rows": [[1,1]] + [[0]]*9, "columns": [[2]] + [[0]]*9}`` is
+    accepted and no grid produces it. The exemption does not rest on this.)
+
+    The two length checks are also what :data:`DETERMINED_BY_CLUES` rests on:
+    because a payload is refused unless its clue axes are exactly ``height``
+    and ``width`` long, the served ``width`` and ``height`` are recomputable
+    from the served clues and carry no free bits of their own.
     """
     if not isinstance(value, dict) or set(value) != {"rows", "columns"}:
         raise ValueError("clues is not an object with exactly rows and columns")
@@ -404,16 +519,69 @@ def _dump(path: Path, payload: object) -> None:
     _write(path, json.dumps(payload, sort_keys=True, ensure_ascii=True, indent=2, allow_nan=False) + "\n")
 
 
-def assemble(bundle_dir: Path | str | None, out_dir: Path | str) -> AssembleReport:
+def _site_entries() -> set[str]:
+    """The top-level names an assembled site holds, derived from the tables.
+
+    ``play/index.html`` contributes ``play``, so the set is the first segment
+    of every published path plus the puzzle directory. Derived rather than
+    listed: a new published file widens this set by being added to
+    :data:`PLAYER_FILES`, not by somebody remembering this function.
+    """
+    published = [*PLAYER_FILES.values(), *COPIED_FROM_ADMIN.values()]
+    return {path.split("/", 1)[0] for path in published} | {SITE_PUZZLE_DIR}
+
+
+def check_out_dir(out_dir: Path | str, *, force: bool = False) -> Path:
+    """The ``--out`` directory, or :class:`ValueError` if it is not ours to erase.
+
+    :func:`assemble` deletes its output directory, which is right for a deploy
+    target and catastrophic for a typo: measured in cycle 1 of this card's
+    review, a directory holding ``precious/notes.txt`` came back holding only
+    the site. So a target that exists and is non-empty is refused unless every
+    top-level name in it is one an assembled site has (:func:`_site_entries`)
+    — a previous run's tree, which this run replaces. A checkout, a home
+    directory or ``.`` from the repository root fails that test on its first
+    foreign name, and the repository root is refused by name as well, since
+    its own tree happens to contain ``player/`` and would otherwise depend on
+    which name ``iterdir`` reached first.
+
+    ``force`` is the owner's escape hatch (``--force``) and is the only way
+    past it; a non-directory target is refused outright, force or not.
+    """
+    site = Path(out_dir)
+    if site.exists() and not site.is_dir():
+        raise ValueError(f"--out {site} is not a directory")
+    if force or not site.is_dir():
+        return site
+    if site.resolve() == REPO_ROOT:
+        raise ValueError(
+            f"--out {site} is the repository root; assembling would delete the checkout"
+        )
+    allowed = _site_entries()
+    foreign = sorted(entry.name for entry in site.iterdir() if entry.name not in allowed)
+    if foreign:
+        raise ValueError(
+            f"--out {site} holds {', '.join(foreign)}, which no assembled site has: "
+            "refusing to delete a directory this script did not write. Pass "
+            "--force if it really is the deploy target."
+        )
+    return site
+
+
+def assemble(
+    bundle_dir: Path | str | None, out_dir: Path | str, *, force: bool = False
+) -> AssembleReport:
     """Write the deployable site into ``out_dir``. Read-only against the input.
 
     ``bundle_dir`` is a CARD-282 player bundle (``None`` assembles the static
     half alone, which is what a page test that supplies its own puzzle file
     wants). ``out_dir`` is removed first, so the tree is a function of the
-    input and nothing a previous run left behind survives into a deploy.
+    input and nothing a previous run left behind survives into a deploy — but
+    only once :func:`check_out_dir` has agreed that the directory is one a
+    previous run wrote (or ``force`` says to go ahead anyway).
     """
     capacity = check_capacity()
-    site = Path(out_dir)
+    site = check_out_dir(out_dir, force=force)
     if site.exists():
         shutil.rmtree(site)
     site.mkdir(parents=True)
@@ -475,19 +643,33 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="print the served schema's free capacity and the ceiling, and stop",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="erase --out even when it is not a directory a previous run wrote",
+    )
     args = parser.parse_args(argv)
     if args.capacity:
         print(
-            f"{free_capacity_bits():.2f} bits of non-exempt capacity; "
+            f"{free_capacity_bits():.2f} bits of free capacity in the "
+            f"{len(SERVED_VALUE_SPACE)} counted served fields; trip-wire "
             f"ceiling {CAPACITY_CEILING_BITS} bits "
             f"({MIN_SIZE}x{MIN_SIZE} cells, the smallest published grid)"
         )
         for name, count in sorted(SERVED_VALUE_SPACE.items()):
-            print(f"  {name}: {count} values, {math.log2(count):.2f} bits")
+            determined = DETERMINED_BY_CLUES.get(name)
+            why = f" (determined by clues.{determined})" if determined else ""
+            print(f"  {name}: {count} values, {math.log2(count):.2f} bits{why}")
+        print(f"  exempt, uncounted (ADR-0041): {', '.join(sorted(EXEMPT_SERVED_FIELDS))}")
+        print(
+            "The ceiling establishes only that no served field is wide enough "
+            "to carry a grid. EC-048's threshold is one cell; see the module "
+            "docstring for what carries it and for the residual."
+        )
         return 0
     if args.out is None:
         parser.error("--out is required unless --capacity is given")
-    report = assemble(args.bundle, args.out)
+    report = assemble(args.bundle, args.out, force=args.force)
     print(f"{report.puzzle_count} puzzles into {report.site_dir}")
     if report.dropped:
         fields = sorted({name for _, name in report.dropped})

@@ -167,6 +167,15 @@ body {
 
 .player-stage {
   overflow: auto;
+  /* The border belongs to the BOARD, not to the page. A scroll container only
+     needs the available width when its content overflows it, so a block-level
+     stage left 942 px of empty bordered box beside a 465 px board at 1440 px
+     — measured in cycle 1 of this card's review, and the smaller the puzzle
+     the worse it read. fit-content shrinks the box onto the board; max-width
+     keeps the phone behaviour exactly as it was, because content wider than
+     the screen still clamps the stage to 100% and scrolls inside it. Both
+     widths are read by tests/test_public_player.py. */
+  width: fit-content;
   max-width: 100%;
   background: var(--color-surface);
   border: var(--player-rule) solid var(--color-border);
