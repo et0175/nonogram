@@ -476,11 +476,14 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
         ),
     }
 
-    #: How this module spells a ``Layout``-valued expression. An equality
-    #: against what it really writes (asserted non-vacuous below), and the
-    #: subject of the second assertion: a receiver spelled this way may be read
-    #: only for a guarded name, which is what stops ``layout.width`` or
-    #: ``layout.cell`` from being a way around :attr:`ALLOWED`.
+    #: The **seed** for how this module spells a ``Layout``-valued expression:
+    #: what it really writes today (asserted non-vacuous below).
+    #: :meth:`_layout_spellings` closes it under two further bindings, and that
+    #: closure is the subject of the receiver assertion: an expression spelled
+    #: this way may be read only for a guarded name, which is what stops
+    #: ``layout.width`` or ``layout.cell`` from being a way around
+    #: :attr:`ALLOWED` — and, since review cycle 2, what stops ``lay = layout``
+    #: from being a way around the receiver rule itself.
     LAYOUT_SPELLINGS = frozenset({"layout", "self.layout", "icon_layout"})
 
     @staticmethod
@@ -497,15 +500,108 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
                 found[node.name] = node
         return found
 
+    @staticmethod
+    def _attribute_reads(node: ast.AST) -> List[Tuple[str, str]]:
+        """``(receiver as written, attribute name)`` for every read under ``node``.
+
+        **Two spellings, because they are one read** (review cycle 2): the
+        written attribute ``layout.cell``, and ``getattr(layout, "cell")``.
+        Both walks in this class used to read ``ast.Attribute`` alone, and
+        cycle 2 measured the consequence — ``getattr(layout, "grid_lines")``
+        carried cycle 1's complete second grid implementation through this
+        whole class with :attr:`ALLOWED` untouched, 264 passed. One predicate,
+        shared by the name walk and the receiver walk, so neither can drift
+        from the other.
+
+        The named limit is the operand this cannot read: ``getattr(layout,
+        name)`` with a *computed* attribute name. There is no authority that
+        enumerates the ways to compute a string, so it is refused as a claim
+        rather than guessed at — see
+        :meth:`test_a_layout_is_never_read_for_a_name_the_guard_lets_through`'s
+        docstring for the full limit and its owner.
+        """
+        reads: List[Tuple[str, str]] = []
+        for child in ast.walk(node):
+            if isinstance(child, ast.Attribute):
+                reads.append((ast.unparse(child.value), child.attr))
+            elif (
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Name)
+                and child.func.id == "getattr"
+                and len(child.args) >= 2
+                and isinstance(child.args[1], ast.Constant)
+                and isinstance(child.args[1].value, str)
+            ):
+                reads.append((ast.unparse(child.args[0]), child.args[1].value))
+        return reads
+
+    @classmethod
+    def _layout_spellings(cls, source: str | None = None) -> frozenset:
+        """Every expression ``source`` reads a ``Layout`` through — **derived**.
+
+        :attr:`LAYOUT_SPELLINGS` is the seed; this closes it under the two
+        bindings review cycle 2 walked through the receiver rule with:
+
+        * a **parameter annotated** ``Layout`` is a ``Layout`` whatever it is
+          called, so its name is a spelling (all six such parameters in the
+          module are already called ``layout``, so this adds nothing today and
+          is what keeps a rename from opening the rule);
+        * a **name rebound** from a spelling — ``lay = layout`` — transitively.
+          Cycle 2 drew a complete second ruled grid through exactly that, off
+          ``rows``/``columns``/``width``/``height``, with 264 passed.
+
+        Derived from a source string rather than only from this module, so the
+        closure has a control that can fail
+        (:meth:`test_a_rebound_or_getattr_layout_is_held_to_the_same_rule`);
+        against the real module it is a no-op by construction and an assertion
+        over it alone would prove nothing.
+        """
+        tree = ast.parse(cls._module_source() if source is None else source)
+        spellings = set(cls.LAYOUT_SPELLINGS)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            arguments = node.args
+            for argument in (
+                *arguments.posonlyargs,
+                *arguments.args,
+                *arguments.kwonlyargs,
+            ):
+                if argument.annotation is not None and re.search(
+                    r"\bLayout\b", ast.unparse(argument.annotation)
+                ):
+                    spellings.add(argument.arg)
+        bindings = [
+            (
+                node.targets if isinstance(node, ast.Assign) else [node.target],
+                node.value,
+            )
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr))
+            and node.value is not None
+        ]
+        for _pass in range(len(bindings) + 1):
+            grew = False
+            for targets, value in bindings:
+                if ast.unparse(value) not in spellings:
+                    continue
+                for target in targets:
+                    if isinstance(target, ast.Name) and target.id not in spellings:
+                        spellings.add(target.id)
+                        grew = True
+            if not grew:
+                break
+        return frozenset(spellings)
+
     @classmethod
     def _grid_reads(cls) -> Dict[str, frozenset]:
         """``{function: the grid names it reads}``, for every function that does."""
         found: Dict[str, frozenset] = {}
         for name, node in cls._functions().items():
             read = {
-                child.attr
-                for child in ast.walk(node)
-                if isinstance(child, ast.Attribute) and child.attr in cls.GRID_ATTRIBUTES
+                attr
+                for _receiver, attr in cls._attribute_reads(node)
+                if attr in cls.GRID_ATTRIBUTES
             }
             if read:
                 found[name] = frozenset(read)
@@ -552,21 +648,64 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
         :attr:`LAYOUT_SPELLINGS`, and a receiver spelled that way may be read
         only for a guarded name.
 
-        **The named limit, stated rather than implied**: a ``Layout`` rebound
-        to a name this set does not hold (``lay = self.layout``) escapes this
-        assertion, and the only names it would gain are ``width`` and
-        ``height`` — the sheet's own size, which no grid can be drawn out of
-        once ``cell``, ``margin`` and every line, clue and bound are guarded by
-        name. Everything else lands in the assertions above whatever the
-        receiver is called.
+        **This assertion is also what pins six of the sixteen guarded names**,
+        and that was not understood when it was written. Review cycle 2
+        measured that
+        :meth:`test_every_name_the_raster_grid_routines_read_is_guarded` and
+        :attr:`ROLES` pin the *same ten* names, so ``cell``, ``margin``,
+        ``grid_left``, ``grid_lines``, ``row_clues`` and ``column_clues`` — all
+        four of cycle 1's synonyms among them — were in
+        :attr:`GRID_ATTRIBUTES` only because :attr:`ALLOWED`, a hand-written
+        dict, happens not to name them. Moving them into :attr:`ALLOWED` reds
+        **this** cell and nothing else, because ``layout.cell`` would then be a
+        read on a ``Layout``-spelled receiver for an unguarded name. So this is
+        the backstop, which is why its two escapes had to close rather than be
+        conceded.
+
+        **The two escapes, now closed** (review cycle 2 drove a complete second
+        grid through each, 264 passed both times):
+
+        * a ``Layout`` **rebound** to another name — ``lay = layout`` — used to
+          escape, and the paragraph here used to concede it on the grounds that
+          "the only names it would gain are ``width`` and ``height``, the
+          sheet's own size, which no grid can be drawn out of". **Both clauses
+          were false.** A rebound receiver gained **all eleven** names in
+          :attr:`ALLOWED`, not two, because a guarded name is caught by the
+          name walk on any receiver while an allowed one is caught only here;
+          and a complete second ruled grid *is* drawable from what it gains —
+          cycle 2 wrote one, pitching cells off ``width``/``height`` and
+          ``rows``/``columns`` and stroking ``columns + 1`` verticals,
+          ``rows + 1`` horizontals and a frame. :meth:`_layout_spellings` now
+          derives the rebinding transitively, so ``lay`` is a spelling.
+        * a read spelled ``getattr(layout, "grid_lines")`` was invisible to
+          both walks. :meth:`_attribute_reads` reads it.
+
+        **What is left, as a named limit with an owner rather than a
+        concession.** Three routes remain, each measured and each needing an
+        instrument this class does not have:
+
+        1. ``getattr(layout, name)`` with a **computed** attribute name;
+        2. a ``Layout`` reached through a **container** — the module really
+          writes ``line_layouts[key] = layout``, so ``line_layouts[key].cell``
+          is a read on a subscript this walk does not resolve;
+        3. a ``Layout`` arriving as an **unannotated** parameter from an
+          expression the walk cannot type.
+
+        All three are the same shape: a receiver whose type a syntactic walk
+        cannot establish. **CARD-298** owns ADR-0042/R1's derived per-page-kind
+        check and is where this class becomes one check instead of one per
+        card; it inherits them. They are written here rather than left for a
+        reader to discover, which is the whole difference between this
+        paragraph and the one it replaces.
         """
-        tree = ast.parse(self._module_source())
+        spellings = self._layout_spellings()
         reads = sorted(
             {
-                (ast.unparse(node.value), node.attr)
-                for node in ast.walk(tree)
-                if isinstance(node, ast.Attribute)
-                and ast.unparse(node.value) in self.LAYOUT_SPELLINGS
+                (receiver, attr)
+                for receiver, attr in self._attribute_reads(
+                    ast.parse(self._module_source())
+                )
+                if receiver in spellings
             }
         )
 
@@ -588,9 +727,18 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
         module replaces read off a ``Layout``:
         ``book_pdf_generator._stroke_drawing``, ``_write_clues`` and
         ``draw_example_line``. Every one of those names must be in
-        :attr:`GRID_ATTRIBUTES`, so :attr:`ALLOWED` cannot drop one of them to
+        :attr:`GRID_ATTRIBUTES`, so :attr:`ALLOWED` cannot take one of them to
         stay green — which is exactly what the previous hand-written set did
         with ``frame``, ``thick_rule`` and ``thin_rule``.
+
+        **It pins ten of the sixteen, not all of them** (review cycle 2): the
+        three raster routines read ten names between them, which is also the
+        ten :attr:`ROLES` covers, so ``cell``, ``margin``, ``grid_left``,
+        ``grid_lines``, ``row_clues`` and ``column_clues`` are not pinned
+        here. What pins those six is
+        :meth:`test_a_layout_is_never_read_for_a_name_the_guard_lets_through`,
+        whose docstring says so and whose two escapes were closed for this
+        reason.
 
         **One exception, named and reasoned**: ``draw_example_line`` reads
         ``layout.width`` — the width of the full-page canvas it draws into
@@ -620,6 +768,60 @@ class TestGuidePage_WorkedExampleReusesTheGridRoutine:
         assert read - self.GRID_ATTRIBUTES == {"width"}, sorted(
             read - self.GRID_ATTRIBUTES
         )
+
+    def test_a_rebound_or_getattr_layout_is_held_to_the_same_rule(self):
+        """The receiver rule's two closed escapes, each on fabricated source.
+
+        Added by review cycle 2's fix round (N-2). Against the real module both
+        arms are no-ops — every ``Layout``-annotated parameter is already
+        called ``layout``, the one rebinding the module writes
+        (``line_layouts[key] = layout``) has a subscript target, and the module
+        writes no ``getattr`` at all — so an assertion over the module alone
+        could not fail. These are the two plants cycle 2 measured at 264
+        passed, reduced to the smallest source that carries them, so the
+        closure has a control.
+
+        Written as its own cell rather than folded into the receiver test,
+        because G-6's gate is a node-id set difference.
+        """
+        rebound = (
+            "def _second_grid(layout):\n"
+            "    lay = layout\n"
+            "    also = lay\n"
+            "    return min(also.width / also.columns, also.height / also.rows)\n"
+        )
+        spellings = self._layout_spellings(rebound)
+
+        # Transitively, and seeded: ``lay`` from ``layout``, ``also`` from
+        # ``lay``. Without the closure this set is exactly LAYOUT_SPELLINGS and
+        # the reads below are invisible to the receiver assertion.
+        assert {"lay", "also"} <= spellings, sorted(spellings)
+        assert spellings - self.LAYOUT_SPELLINGS == {"lay", "also"}, sorted(spellings)
+
+        renamed = "def _second_grid(sheet: Layout):\n    return sheet.cell\n"
+
+        assert "sheet" in self._layout_spellings(renamed)
+
+        reads = self._attribute_reads(
+            ast.parse(
+                "def _second_grid(layout):\n"
+                '    lines = getattr(layout, "grid_lines")\n'
+                '    return lines, getattr(layout, "row_clues")\n'
+            )
+        )
+
+        # The exact counterexample cycle 1 drove a complete second grid
+        # through and cycle 2 carried through again with ALLOWED untouched.
+        assert ("layout", "grid_lines") in reads, reads
+        assert ("layout", "row_clues") in reads, reads
+        # And the limit, asserted so it cannot be mistaken for covered: a
+        # computed attribute name is not read, which is why it is a named
+        # limit with CARD-298 as its owner rather than a closure.
+        computed = self._attribute_reads(
+            ast.parse("def _second_grid(layout, name):\n    return getattr(layout, name)\n")
+        )
+
+        assert computed == [], computed
 
     def test_every_allowed_name_is_a_layout_name_with_a_live_reason(self):
         """The allow-list cannot hold a stale name or an unjustified one.
@@ -990,46 +1192,100 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
     of a difficulty dot than four Béziers, so it is the route CARD-229 is most
     likely to take.
 
-    The route is closed here rather than carried as a limit, because the
-    mechanism already exists in this tree one medium over
-    (``tests/test_book_difficulty_dots.py``'s ``MAX_FLAT_VERTICES`` bounds
-    ``draw.polygon``'s vertices for exactly this reason) and because the claim
-    this class exists to make is the one AC-3 was declined on. A round shape
-    reaches a content stream by one of three routes, and each has its own
-    assertion below or its own named owner:
+    **Review cycle 2 then measured that the route is NOT closed either, and
+    that it cannot be closed by this instrument.** Fix round 1 answered cycle 1
+    by counting the vertices of every subpath off the stream and bounding them
+    at :data:`MAX_PATH_POINTS` = 4, on ``MAX_FLAT_VERTICES``' precedent. Two
+    plants of a *different shape* from the 32-gon that bound was written
+    against each drew a filled disc with the whole file green (264 passed):
+
+    * a **fan of 32 three-point triangles** — ``begin_path``, two ``line_to``,
+      ``close_path``, ``paint("fill")`` per sector. Every subpath is 3 points,
+      so ``max(points) <= 4`` passes and
+      :meth:`test_the_longest_path_the_page_writes_is_the_arrow_head` still
+      reads exactly 3;
+    * a **staircase of 24 filled ``re`` bands**, half-widths off the circle
+      equation. :func:`tests.helpers.pdf_vector.subpath_vertices` counts only
+      ``m``/``l``/``c``, so ``re`` ink is not counted at all.
+
+    The reason is structural rather than a tuning problem, and it is why no
+    third attempt at a bound is made here: **the page's own arrow head is 3
+    points and a triangle is 3 points, so no value of**
+    :data:`MAX_PATH_POINTS` **admits this page and refuses a disc.** The bound
+    has zero headroom in the direction that would matter.
+
+    So the three routes are stated as what each one really is — two with an
+    assertion, one with a named limit and an owner:
 
     1. **a curve** — the ``c`` operator, the only non-straight path segment
-       PDF has: :meth:`test_no_guide_page_emits_a_curve_operator`;
-    2. **a many-point polyline** — ``m`` plus a fan of ``l``, closed and
-       filled: :meth:`test_no_guide_page_builds_a_round_shape_out_of_straight_segments`;
-    3. **a round glyph** — ``●`` or a bullet inside a ``(…) Tj``, which is
-       not a shape operator at all. Guarded package-wide and not here, by
-       ``tests/test_book_difficulty_dots.py``'s dingbat rule
-       (``ROUND_DINGBATS``), whose walk reads every string literal in
-       ``src/nonogram/**`` and so covers this module the moment it lands.
+       PDF has. **Closed**, and this is the one closure this class claims:
+       :meth:`test_no_guide_page_emits_a_curve_operator`. "No ``c``" is "no
+       **Bézier**", exactly, and nothing wider.
+    2. **a straight-segment approximation** — a many-point polyline, a fan of
+       short subpaths, or a staircase of ``re`` bands. **A NAMED LIMIT, not a
+       closure**, owned by **CARD-298**, which carries ADR-0042/R1's derived
+       per-page-kind check and is where a real round-shape rule belongs (an
+       ink measurement, CARD-241's instrument, or a rule on filled subpaths —
+       not a vertex count). What is asserted here is narrower and true: the
+       longest *single* subpath this page writes is the three-point arrow head
+       (:meth:`test_no_guide_page_builds_a_round_shape_out_of_straight_segments`
+       and :meth:`test_the_longest_path_the_page_writes_is_the_arrow_head`).
+       That is a useful tripwire on the page's own drawing — the day a diagram
+       grows a long path, a reader is told — and it is **not** a statement that
+       the page cannot ink a disc. **The first of those two cells is named
+       wider than what it measures**; G-6 forbids renaming a test (its node id
+       would go), so the name is left and corrected here, and CARD-298 is where
+       it is replaced rather than relaxed.
+    3. **a round glyph** — a geometric-shapes codepoint or a bullet inside a
+       ``(…) Tj``, which is not a shape operator at all. **Closed on this
+       page**, by the sibling cell
+       :meth:`test_the_legend_sets_the_three_tier_names_and_nothing_else`
+       together with
+       :meth:`TestGuidePage_EveryFaceHoldsTheFloorInTheStream.test_the_writers_record_is_exactly_what_the_stream_shows`:
+       the legend's strings are held equal to ``GUIDE_DIFFICULTY_LABELS`` and
+       the record is held string-for-string against the file, so a tier glyph
+       smuggled into either reds. ``tests/test_book_difficulty_dots.py``'s
+       package-wide dingbat rule (``ROUND_DINGBATS``) does walk this module
+       the moment it lands — measured — but it is **not** what catches a round
+       glyph in this medium, and cycle 2 measured why: ``●`` (U+25CF) is
+       outside ``book_vector.TEXT_ENCODING`` (cp1252), so the *encoder* raises
+       before the rule looks; and U+00B7 MIDDLE DOT, the one round glyph a
+       WinAnsi stream really carries, is not in ``ROUND_DINGBATS`` at all. See
+       that rule's own comment for which of the two codepoints was added and
+       which is its named hole.
 
-    A path of at most :data:`MAX_PATH_POINTS` straight points is a triangle or
-    a quadrilateral, and ``re`` is axis-aligned, so with 1 and 2 shut and 3
-    held elsewhere there is no operator left in this vocabulary that inks a
-    round shape. **The named limit**: the bound is per page kind, asserted over
-    the pages *this* module writes. The guide is the only vector page kind in
-    the tree today; CARD-298 owns ADR-0042/R1's derived check over every page
-    kind and is where this becomes one check rather than one per card, and
-    :func:`tests.helpers.pdf_vector.subpath_vertices` is in the shared reader
-    so CARD-295 and CARD-297 inherit the count rather than rewriting it.
+    A note on the precedent this round cited. ``MAX_FLAT_VERTICES = 4`` in
+    ``tests/test_book_difficulty_dots.py`` **has the same hole** — a
+    ``draw.polygon`` triangle fan clears a per-call vertex bound exactly as a
+    ``line_to`` fan clears this one, and that file already carries the
+    accumulation limit for ``draw.point``. That is pre-existing and out of this
+    card's scope; it is recorded here because this class cited it as proof the
+    mechanism works, and it is not proof of that.
+
+    :func:`tests.helpers.pdf_vector.subpath_vertices` stays in the shared
+    reader so CARD-295 and CARD-297 inherit the count rather than writing a
+    fourth path scanner.
     """
 
-    #: The most points a path on this page may be built from. The page's
-    #: longest path is the pipeline's **arrow head** — ``m`` plus two ``l``,
-    #: three points — asserted below so the bound's slack is a measurement and
-    #: not a guess; four leaves room for a quadrilateral without leaving room
-    #: for a circle.
+    #: The most points a **single** subpath on this page may be built from.
+    #: The page's longest is the pipeline's **arrow head** — ``m`` plus two
+    #: ``l``, three points — asserted below so the bound's slack is a
+    #: measurement and not a guess.
     #:
-    #: The same figure and the same reasoning as
-    #: ``tests/test_book_difficulty_dots.py``'s ``MAX_FLAT_VERTICES``, written
-    #: out here rather than imported: that bound counts the elements of a
-    #: Python vertex display handed to Pillow, this one counts path operators
-    #: in a written stream, and the two instruments have no code in common.
+    #: **It does not leave a circle out**, and this comment used to say it did
+    #: ("four leaves room for a quadrilateral without leaving room for a
+    #: circle"). A disc approximated as a fan of three-point triangles clears
+    #: it, measured (review cycle 2), and since the arrow head itself needs 3
+    #: there is no value of this bound that would refuse the fan. Read it as
+    #: what it is: a tripwire on this page's own path lengths. The round-shape
+    #: route it does *not* close is a named limit in the class docstring, owned
+    #: by CARD-298.
+    #:
+    #: The same figure as ``tests/test_book_difficulty_dots.py``'s
+    #: ``MAX_FLAT_VERTICES``, written out here rather than imported: that bound
+    #: counts the elements of a Python vertex display handed to Pillow, this
+    #: one counts path operators in a written stream, and the two instruments
+    #: have no code in common. They also share the hole above.
     MAX_PATH_POINTS = 4
 
     #: The pipeline's arrow head, in points — the page's longest path, and the
@@ -1052,10 +1308,13 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
         PDF has no circle, ellipse or arc operator in a content stream
         (ADR-0042, CARD-294), so a *curved* outline is built out of ``c`` and
         nothing else — which makes this assertion exactly "this page draws no
-        curve", and **not** "this page draws no round shape". The second
-        statement needs the vertex bound beside this test as well; see the
-        class docstring, which used to assert the equivalence and was measured
-        false. Nothing is classified by eye either way.
+        curve", and **not** "this page draws no round shape". **Nothing in
+        this file delivers the second statement**, and two successive versions
+        of the class docstring claimed otherwise: first that no ``c`` was the
+        same thing, then that the vertex bound beside this test closed the
+        gap. Both were measured false (review cycles 1 and 2). The
+        straight-segment approximation is a named limit with CARD-298 as its
+        owner. Nothing is classified by eye either way.
         """
         curves = {
             page.page_number: pdf_vector.operator_tally(
@@ -1067,13 +1326,26 @@ class TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday:
         assert set(curves.values()) == {0}, curves
 
     def test_no_guide_page_builds_a_round_shape_out_of_straight_segments(self, profile):
-        """Route 2: the polyline disc — ``begin_path`` plus a fan of ``line_to``.
+        """**Read the name as "no single long subpath"** — see the class docstring.
 
-        The route cycle 1 drove a 32-gon through with every other alarm green.
-        Every subpath the page writes is counted off the stream and held to
-        :attr:`MAX_PATH_POINTS`; the longest one it really writes is the
-        pipeline's three-point arrow head, which is asserted too, so the bound
-        cannot pass by the page having stopped drawing paths.
+        What this measures: every subpath the page writes is counted off the
+        stream and the longest is held to :attr:`MAX_PATH_POINTS`, with a floor
+        on how many subpaths there are so the bound cannot pass by the page
+        having stopped drawing paths. That catches cycle 1's single-subpath
+        32-gon, and it is a useful tripwire on this page's own drawing.
+
+        What it does **not** measure, and what the name overstates: a disc
+        built as a fan of three-point subpaths, or as a staircase of ``re``
+        bands, passes this cell — both measured at 264 passed in review cycle
+        2. The route is a named limit on this class with **CARD-298** as its
+        owner. The name stays because G-6 gates on a node-id set difference and
+        renaming a test removes one; CARD-298 replaces this cell rather than
+        relaxing it.
+
+        At the minimum trim this is the only path-length assertion that runs
+        (:meth:`test_the_longest_path_the_page_writes_is_the_arrow_head` reads
+        ``book1`` alone), so the ``<= 4`` is not redundant with the ``== 3``
+        beside it, though on ``book1`` the stronger one subsumes it.
         """
         for page in drawn(profile):
             points = pdf_vector.subpath_vertices("\n".join(page.stream.operators))
@@ -1267,6 +1539,15 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
                 # text object, so the tones read here cannot be fewer than the
                 # ``Tf`` operands. A reader blind to the inline spelling fails
                 # this line instead of reading the path tones and stopping.
+                #
+                # Its SLACK, measured by review cycle 2 (N-5) and recorded
+                # rather than tightened: the page also writes standalone path
+                # tones (18/32/6/4 against 25/41/16/13 ``Tf`` operands on the
+                # four pages), so the floor has that much headroom and a
+                # FUTURE text helper that set type without a tone could hide
+                # inside it. An exact floor is one inline tone per ``BT``; it
+                # is a regex, not a subsystem, and it belongs with CARD-299's
+                # rewrite of CON-020's own check rather than here.
                 assert len(inked) >= len(pdf_vector.type_sizes(stream)) > 0, (
                     page.page_number,
                     len(inked),
@@ -1284,9 +1565,14 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
         was one loop away from covering it (review cycle 1, F-7). What makes it
         worth the loop is the measurement: **the smallest face across all 24
         trims is exactly 10.0 pt** — the folio, ``FOLIO_PT`` — so the margin
-        above CON-020's floor is zero, and the next change to this page's type
+        above CON-020's floor is zero, so **any reduction** of this page's type
         breaks the constraint on some trim in this sweep. A standing control
-        says so where a one-off reading in a review does not.
+        says so where a one-off reading in a review does not. (This read "the
+        next change to this page's type breaks the constraint", which is only
+        true downward — review cycle 2, N-6. A change that *raises* the folio
+        reds the measurement below without breaching CON-020, which is the
+        right behaviour for a zero-margin tripwire and is not what the
+        constraint says.)
 
         Read off the ``Tf`` operands, like AC-2's own test: the operand a
         reader's viewer obeys.
@@ -1313,7 +1599,20 @@ class TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims:
         # And the zero margin, asserted rather than left in a comment: the
         # folio is the smallest face this page sets and it sits **on** the
         # floor. If this stops being true the sentence above is stale.
-        assert min(smallest) == FOLIO_PT == FLOOR_PT, min(smallest)
+        #
+        # Two facts, split into two assertions by review cycle 2 (N-6): a
+        # MEASUREMENT over the 24-trim corpus, and an IDENTITY between two
+        # constants in two different files. Chained as `min == FOLIO_PT ==
+        # FLOOR_PT` the message read `assert 11.0 == 10.0` and did not say
+        # which of the two had moved. Note the measurement reds on a type
+        # change in EITHER direction, including one that RAISES the folio and
+        # so does not breach CON-020 — right for a zero-margin tripwire, and
+        # the reason this is not phrased as `>=`.
+        assert min(smallest) == FOLIO_PT, (min(smallest), FOLIO_PT)
+        assert FOLIO_PT == FLOOR_PT, (
+            "CON-020's floor and the folio's size have diverged — the zero "
+            f"margin is gone: floor {FLOOR_PT}, folio {FOLIO_PT}"
+        )
 
     def test_the_corpus_really_holds_distinct_trims(self):
         """The minimum this property rests on: the sheets are not all one sheet.

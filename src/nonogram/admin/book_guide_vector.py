@@ -33,11 +33,21 @@ What this module does **not** do
   :func:`~nonogram.admin.book_pdf_generator.example_line_layout` and
   :func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`; the thin rule
   the pipeline's boxes are bordered at is
-  :func:`~nonogram.admin.book_pdf_generator._guide_rule_width`'s. The one
-  arithmetic this module performs on **a COMP-007 number** is
-  **translation** — the same ``paste`` offset the raster page applies to a
-  cropped diagram, written as an offset because a content stream has nothing
-  to paste into.
+  :func:`~nonogram.admin.book_pdf_generator._guide_rule_width`'s. **Two**
+  functions perform arithmetic on a COMP-007 number, and they are the two a
+  raster paste already did in pixels: :meth:`_Diagram.translation` — the same
+  ``paste`` offset the raster page applies to a cropped diagram, written as an
+  offset because a content stream has nothing to paste into — and
+  :func:`diagram_box`, whose ``+ pad`` on three edges is the **bleed outset**
+  of the box that paste is cropped out of. Neither derives a position; both
+  move one COMP-007 gave.
+
+  "The one arithmetic … is translation" is what this said, and review cycle 2
+  measured it false by walking every ``ast.BinOp`` whose operand subtree reads
+  a guarded ``Layout`` name: ``diagram_box`` was the second, and the paragraph
+  below — which lists the module's other arithmetic correctly — omits it, so
+  the two disagreed. Counted rather than asserted, because a count in a
+  docstring is the kind of sentence a later card quotes.
 
   Translation is **not** the only arithmetic in the module, and this paragraph
   used to say it was (review cycle 1, F-5) twenty lines above the "Points,

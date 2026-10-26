@@ -249,17 +249,32 @@ def subpath_vertices(stream: str) -> list[int]:
     next ``m``. ``h``, the paint operators and ``re`` end or bypass it and are
     not points.
 
-    **This is what "no round shape" needs and what "no ``c``" does not give.**
+    **What this counts, and what a bound over it can and cannot claim.**
     PDF has no circle operator, which is true and is not the same statement as
     "a content stream cannot draw a disc": ``begin_path``/``line_to``/
     ``close_path``/``paint`` build an arbitrary polygon out of ``m``, ``l`` and
     ``h``, and a 32-gon is a disc at any size this book prints. CARD-296 review
     cycle 1 (F-1) planted exactly that beside each difficulty tier and every
-    curve-operator and ``round_mark`` assertion in the tree stayed green. A
-    vertex bound is the mechanism that closes it — the same mechanism, and the
-    same reasoning, that ``tests/test_book_difficulty_dots.py``'s
-    ``MAX_FLAT_VERTICES`` already applies to Pillow's ``draw.polygon``, carried
-    into the medium where the vertices are operators rather than a Python list.
+    curve-operator and ``round_mark`` assertion in the tree stayed green.
+
+    **A vertex bound over this count does NOT close that route**, and this
+    docstring used to say it did ("a vertex bound is the mechanism that closes
+    it"). CARD-296 review cycle 2 measured two discs that a bound of 4 admits:
+    a fan of 32 **three-point** triangles (one subpath per sector, so the count
+    this function returns maxes at 3), and a staircase of 24 filled ``re``
+    bands (this function counts only ``m``/``l``/``c``, so ``re`` ink is not
+    counted at all). The bound cannot be tightened out of it either: a guide
+    page's own arrow head is three points, which is also a triangle. The same
+    hole is in ``tests/test_book_difficulty_dots.py``'s ``MAX_FLAT_VERTICES``,
+    the precedent that reasoning was borrowed from — a ``draw.polygon``
+    triangle fan clears a per-call bound the same way.
+
+    So what a bound over this count honestly claims is **"no single long
+    subpath"**: a tripwire on a page's own path lengths, worth having and not a
+    round-shape rule. Closing the approximation route needs an instrument that
+    is not a vertex count — an ink measurement (CARD-241) or a rule on filled
+    subpaths — and **CARD-298** owns ADR-0042/R1's derived per-page-kind check,
+    which is where it belongs.
 
     A page card holds its own pages to its own bound (a diagram's longest path
     is its own business); the reader lives here so each page card of the phase

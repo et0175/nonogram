@@ -765,17 +765,53 @@ ALL_DRAW_METHODS = (
 
 #: The most vertices a flat shape in this package is allowed to be written
 #: with. The one real call has three (an arrow head); a polygon that passes
-#: for a dot needs a dozen or more (cycle 1's surviving mutant used 32). Four
-#: leaves room for a quadrilateral without leaving room for a circle.
+#: for a dot needs a dozen or more (cycle 1's surviving mutant used 32).
+#:
+#: **It does NOT leave a circle out, and this comment used to say it did**
+#: ("four leaves room for a quadrilateral without leaving room for a circle").
+#: The bound is **per call**, so a disc approximated as a *fan of three-point
+#: polygons* clears it, and since the one real call needs three there is no
+#: figure that admits the package and refuses the fan. Pre-existing and out of
+#: CARD-296's scope — recorded here because CARD-296 cited this bound as proof
+#: the mechanism works, measured the identical hole in its own copy of it one
+#: medium over, and a reader who follows the citation back should not find the
+#: claim restated. It is the same family as the ``draw.point`` accumulation
+#: limit this class already names, and the same owner closes both by measuring
+#: ink: **CARD-241**.
 MAX_FLAT_VERTICES = 4
 
 #: Codepoints that are a round or geometric mark in their own right: Unicode's
 #: Geometric Shapes block (U+25A0..U+25FF, which holds \u25cf BLACK CIRCLE and
 #: \u25cb WHITE CIRCLE — a three-dot glyph needs nothing else), plus U+2022
-#: BULLET and U+2219 BULLET OPERATOR.
+#: BULLET, U+2219 BULLET OPERATOR and U+00B0 DEGREE SIGN.
+#:
+#: **What this set does NOT hold, measured and named rather than implied**
+#: (CARD-296 review cycle 2, N-4). In a **vector** page the medium is
+#: ``book_vector.TEXT_ENCODING`` (cp1252), and the Geometric Shapes block is
+#: outside it: a planted \u25cf in a ``stream.text`` call never reaches this
+#: rule, because ``book_vector._escape`` raises first. For that medium the
+#: encoder is the protection and this rule is not. The two round glyphs a
+#: WinAnsi stream really *can* print are U+00B0 and U+00B7 MIDDLE DOT:
+#:
+#: * **U+00B0 is added here**, measured free \u2014 no module in ``src/nonogram``
+#:   writes it, so the rule tightens at no cost and
+#:   :data:`DINGBAT_EXEMPT_MODULES`' equality is untouched;
+#: * **U+00B7 is this rule's named hole, and cannot be closed from here.** It
+#:   is the package's own typographic separator \u2014 the puzzle band's at
+#:   ``book_pdf_generator.py:466``, the proof page's at ``book_proof.py:157``,
+#:   and a docstring in ``book_vector.py`` \u2014 so barring it would need three
+#:   exemptions covering the band, which is exactly where CARD-207's glyph
+#:   would hide, and the rule would mean less than it does now. A middle-dot
+#:   tier glyph on the vector guide is caught instead by that page's own pair
+#:   of equalities (its legend's strings against ``GUIDE_DIFFICULTY_LABELS``,
+#:   and its record against the written stream, both in
+#:   ``tests/test_book_guide_page_vector.py``). On a **raster** band it is
+#:   caught by nothing here; **CARD-241**'s ink measurement is the instrument
+#:   that does not care how a dot was spelled.
 ROUND_DINGBATS = frozenset(chr(code) for code in range(0x25A0, 0x2600)) | {
     "\u2022",
     "\u2219",
+    "\u00b0",
 }
 
 #: The one module exempt from the dingbat rule, and the reason — which is
@@ -1122,13 +1158,33 @@ def _binds_the_vector_surface(method: str, call: ast.Call) -> bool:
     rather than guessed at — the same inversion
     :func:`_uncountable_vertices` applies to a vertex display.
 
-    What it does not reach, stated: a Pillow call written with four positional
-    scalars (``draw.line(a, b, c, d)``, i.e. ``xy``, ``fill``, ``width``,
-    ``joint`` positionally) binds this signature. It is not a spelling that
-    draws anything round — ``a`` would have to be the coordinate sequence, and
-    a literal one is refused by :func:`_passes_a_coordinate_display` — and
-    CARD-241's ink measurement is the instrument that does not depend on
-    spelling at all.
+    **The wholly-positional Pillow call, and why it is now refused rather than
+    dismissed.** ``draw.line(a, b, c, d)`` — ``xy``, ``fill``, ``width``,
+    ``joint`` positionally — binds ``ContentStream.line(x1, y1, x2, y2)``'s
+    arity exactly, and a bare ``Name`` is not an ``ast.List``, so neither this
+    rule nor :func:`_passes_a_coordinate_display` fired. This docstring used to
+    dismiss the spelling ("it is not a spelling that draws anything round —
+    ``a`` would have to be the coordinate sequence, and a literal one is
+    refused") three paragraphs after establishing that the **non**-literal
+    coordinate sequence is this package's own idiom, and CARD-296 review cycle
+    2 (N-3) measured ``stream.line(points, 1, 3, None)`` reported by nothing at
+    all — five mechanisms blind, on the one method :data:`FLAT_METHODS`
+    documents as the route a previous cycle landed a complete second glyph
+    through.
+
+    One clause closes it, and :func:`_hides_a_sequence_argument` is that
+    clause: an excused call may not hand over a positional argument that is a
+    call result, or a bare name the module binds to a sequence display, because
+    every positional parameter ``ContentStream`` offers here is a scalar — a
+    coordinate, a size or a string. Every call the package really writes passes
+    it (``Name``, ``Attribute``, ``BinOp`` or ``Constant``, none of them bound
+    to a sequence), measured over all 21 of them; a vertex list under any of
+    the three spellings does not.
+
+    What it still does not reach, and CARD-241's ink measurement is the
+    instrument that does not depend on spelling at all: a vertex sequence
+    handed over as a subscript or an attribute (``stream.line(self.points, 1,
+    3, None)``), where this walk has no binding to read.
     """
     try:
         signature = inspect.signature(getattr(ContentStream, method))
@@ -1150,8 +1206,73 @@ def _binds_the_vector_surface(method: str, call: ast.Call) -> bool:
     return True
 
 
+def _names_bound_to_a_sequence(sources: Mapping[str, str]) -> dict[str, frozenset[str]]:
+    """``{module: the names it binds to a sequence display}`` — a vertex list's home.
+
+    Read per module rather than per function, which is the stricter reading and
+    the cheaper one: the question :func:`_hides_a_sequence_argument` asks is
+    whether a name handed to an excused call could be a sequence, and a name
+    that is a list anywhere in a module is answer enough. Assignment, annotated
+    assignment and walrus, with a ``Name`` target and a list, tuple, set or
+    comprehension on the right.
+    """
+    found: dict[str, frozenset[str]] = {}
+    for module, source in sorted(sources.items()):
+        names: set[str] = set()
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+                continue
+            if not isinstance(
+                node.value,
+                (ast.List, ast.Tuple, ast.Set, ast.ListComp, ast.SetComp, ast.GeneratorExp),
+            ):
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            names |= {target.id for target in targets if isinstance(target, ast.Name)}
+        found[module] = frozenset(names)
+    return found
+
+
+def _hides_a_sequence_argument(call: ast.Call, sequence_names: frozenset[str]) -> bool:
+    """Whether ``call`` hands a positional argument that could be a vertex list.
+
+    The clause that closes CARD-296 review cycle 2's N-3 — the wholly
+    positional Pillow call under the vector name, whose arity binds
+    ``ContentStream``'s and whose first argument is not a display, so neither
+    of the two older clauses saw it. Every positional parameter of the
+    ``ContentStream`` methods this excuse covers is a **scalar**: a coordinate,
+    a point size or a string. So a positional argument that is a call result,
+    or a bare name the module binds to a sequence display, is refused.
+
+    Both measured spellings close on it: ``stream.line(points, 1, 3, None)``
+    after ``points = [(i, i) for i in range(32)]``, and
+    ``stream.line(_disc(rank), 1, 3, None)``. Named limit: a subscript or an
+    attribute (``self.points``) has no binding here to read, and closing that
+    means measuring ink — **CARD-241**.
+
+    **What it costs, measured rather than hoped** (the fix round found this on
+    a plant of its own, not by reasoning). The ``ast.Call`` arm is
+    default-deny, so it also refuses an honest scalar written as a call —
+    ``stream.text(str(value), x, y, size)`` is reported. No call the package
+    writes today is of that shape (all 21 pass positional ``Name``,
+    ``Attribute``, ``BinOp`` or ``Constant``), and the way out is the way out
+    of every default-deny rule in this file: bind the scalar to a name, or earn
+    a named exemption. That is deliberate — the alternative is a predicate that
+    decides which calls return scalars, which is the enumeration ADR-0039/R2
+    says not to write.
+    """
+    return any(
+        isinstance(argument, ast.Call)
+        or (isinstance(argument, ast.Name) and argument.id in sequence_names)
+        for argument in call.args
+    )
+
+
 def _is_accounted_receiver(
-    method: str, node: ast.AST, call: ast.Call | None = None
+    method: str,
+    node: ast.AST,
+    call: ast.Call | None = None,
+    sequence_names: frozenset[str] = frozenset(),
 ) -> bool:
     """Whether a call of ``method`` on ``node`` is a receiver this guard places.
 
@@ -1172,6 +1293,11 @@ def _is_accounted_receiver(
     ``call`` is optional only so a caller that has a receiver and no call node
     can still ask the receiver half of the question; every walk in this file
     passes it, because the shape of the call is half the discrimination.
+    ``sequence_names`` is the module's own list-bound names
+    (:func:`_names_bound_to_a_sequence`), which is what
+    :func:`_hides_a_sequence_argument` needs; left empty, the third clause
+    simply cannot fire, so a caller that does not supply it gets the two older
+    clauses and no silent widening.
     """
     if _is_draw_receiver(node):
         return True
@@ -1179,8 +1305,10 @@ def _is_accounted_receiver(
         return False
     if call is None:
         return True
-    return _binds_the_vector_surface(method, call) and not _passes_a_coordinate_display(
-        call
+    return (
+        _binds_the_vector_surface(method, call)
+        and not _passes_a_coordinate_display(call)
+        and not _hides_a_sequence_argument(call, sequence_names)
     )
 
 
@@ -1364,10 +1492,13 @@ def _unrecognised_draw_receivers(
     limit on :class:`TestDifficultyDots_HasExactlyOneDrawingSite`; **CARD-241**
     closes it.
     """
+    sequences = _names_bound_to_a_sequence(sources)
     return sorted(
         (module, function, method, ast.unparse(receiver))
         for module, function, method, receiver, call in _draw_method_calls(sources)
-        if not _is_accounted_receiver(method, receiver, call)
+        if not _is_accounted_receiver(
+            method, receiver, call, sequences.get(module, frozenset())
+        )
     )
 
 
@@ -1994,10 +2125,13 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         an exempt receiver fails here instead of inheriting the excuse.
         """
         sources = _package_sources()
+        sequences = _names_bound_to_a_sequence(sources)
         exempt = [
             (module, function, method, call)
             for module, function, method, receiver, call in _draw_method_calls(sources)
-            if not _is_accounted_receiver(method, receiver, call)
+            if not _is_accounted_receiver(
+                method, receiver, call, sequences.get(module, frozenset())
+            )
         ]
         assert len(exempt) == len(NON_DRAW_RECEIVER_SITES)
         for module, function, method, call in exempt:
@@ -2147,14 +2281,18 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         nothing** — the new route had widened a hole rather than adding one.
 
         It is caught on the shape of the call — ``ContentStream``'s own
-        signature (:func:`_binds_the_vector_surface`) and Pillow's coordinate
-        display (:func:`_passes_a_coordinate_display`) — which is the half of
-        the discrimination that does not depend on what the parameter is
-        called. **Both spellings are planted**, because the coordinate-display
-        clause alone would miss the second: a vertex list handed over as a bare
-        name, which is how this package writes its real ``draw.line`` calls.
-        The last half of the control is the five mechanisms that stay blind to
-        it, which is what made it worth measuring.
+        signature (:func:`_binds_the_vector_surface`), Pillow's coordinate
+        display (:func:`_passes_a_coordinate_display`) and, since CARD-296
+        review cycle 2, a positional argument that could be a sequence
+        (:func:`_hides_a_sequence_argument`) — which is the half of the
+        discrimination that does not depend on what the parameter is called.
+        **Every spelling is planted and each clause is load-bearing on a
+        different one**: ``fake.literal`` on the display clause,
+        ``fake.positional`` on the signature clause, and
+        ``fake.positional_line``/``fake.positional_call`` on the sequence
+        clause — those last two were reported by nothing at all until it
+        landed. The last half of the control is the five mechanisms that stay
+        blind to them, which is what made it worth measuring.
         """
         points = ", ".join(f"({index}, {index})" for index in range(32))
         rogue = {
@@ -2176,12 +2314,30 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
                 "def _rogue(stream, rank):\n"
                 "    stream.rectangle([(0, 0), (10, 10)], 0, 0, 3)\n"
             ),
+            # CARD-296 review cycle 2, N-3: Pillow's ``line(xy, fill, width,
+            # joint)`` written WHOLLY POSITIONALLY with a bare-name vertex
+            # list. Four positionals bind ``ContentStream.line``'s arity
+            # exactly and a bare ``Name`` is not a display, so both older
+            # clauses pass it; measured reported by NOTHING before
+            # ``_hides_a_sequence_argument``. Both of that finding's spellings
+            # are here — the bound name, and the call result.
+            "fake.positional_line": (
+                "def _rogue(stream, rank):\n"
+                "    points = [(index, index) for index in range(32)]\n"
+                "    stream.line(points, 1, 3, None)\n"
+            ),
+            "fake.positional_call": (
+                "def _rogue(stream, rank):\n"
+                "    stream.line(_disc(rank), 1, 3, None)\n"
+            ),
         }
 
         assert _unrecognised_draw_receivers(rogue) == [
             ("fake.literal", "_rogue", "line", "stream"),
             ("fake.name", "_rogue", "line", "stream"),
             ("fake.positional", "_rogue", "rectangle", "stream"),
+            ("fake.positional_call", "_rogue", "line", "stream"),
+            ("fake.positional_line", "_rogue", "line", "stream"),
         ]
         # Blind without it: the vertex guard filters on a draw receiver, there
         # is no `.Draw(...)` for the binding rule, no annotation for the
@@ -2235,9 +2391,13 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
             ("fake.module", "page", "assignment", "sheet"),
             ("fake.named", "page", "assignment", "canvas"),
         ], bindings
-        assert {
-            name for _m, _f, form, name in bindings if form in DRAW_BINDING_FORMS
-        } != {VECTOR_RECEIVER_NAME}
+        # NOT re-asserted here that the bound names are not {VECTOR_RECEIVER_NAME}:
+        # the equality above has already pinned them to {"sheet", "canvas"}, so
+        # such a line cannot fail given the line above it, and it read as a
+        # second check without being one (CARD-296 review cycle 2, N-5). The
+        # live form of that claim is
+        # ``test_every_content_stream_in_the_package_is_spelled_stream``, over
+        # the real package.
 
     def test_every_draw_object_in_the_package_is_spelled_draw(self) -> None:
         """The binding rule, inverted: an unknown **form** fails (cycle 2, F-101).

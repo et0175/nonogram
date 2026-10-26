@@ -855,8 +855,18 @@ class ContentStream:
         :meth:`close_path`/:meth:`paint` build an arbitrary polygon, and a
         32-gon is a disc at any size this book prints (CARD-296 review cycle 1,
         F-1, which planted one and watched every alarm stay green). So this is
-        the *intended* route to a round mark and the only exact one; a page
-        card holds its own pages to a vertex bound for the other.
+        the *intended* route to a round mark and the only exact one.
+
+        The approximation route is **not held shut anywhere today**, and this
+        paragraph used to say a page card's vertex bound held it ("a page card
+        holds its own pages to a vertex bound for the other"). CARD-296 review
+        cycle 2 measured a disc drawn as a fan of three-point triangles and
+        another drawn as a staircase of filled ``re`` bands, both with every
+        alarm in the tree green; no bound can refuse them, because a guide
+        page's own arrow head is three points and so is a triangle. It is a
+        **named limit** with **CARD-298** as its owner — ADR-0042/R1's derived
+        per-page-kind check is where a round-shape rule for this medium
+        belongs, measured as ink rather than counted as vertices.
 
         Four cubic Béziers, one per quadrant, each with its control points
         pushed :data:`BEZIER_CIRCLE_KAPPA` times the radius along the

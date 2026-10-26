@@ -1288,16 +1288,29 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
     of theoretical.
 
     So the honest statement of this tripwire is: **it fires on a curve, not on
-    a round shape.** The polyline route is a **named limit** here and is
-    closed where the ink is: a page card bounds the vertices of every subpath
-    its own pages write, off the written stream
+    a round shape.** The straight-segment approximation route is a **named
+    limit** here and is **closed nowhere in the tree today.**
+
+    This paragraph said the opposite one cycle ago — "the polyline route is a
+    named limit here and is closed where the ink is", crediting a page card's
+    per-subpath vertex bound. CARD-296 review cycle 2 measured that bound
+    admitting two discs of shapes the bound was not written against: a fan of
+    32 **three-point** triangles, and a staircase of 24 filled ``re`` bands
+    (which the counter does not count at all). The bound cannot be tightened
+    into a closure, because a guide page's own arrow head is three points and
+    so is a triangle — so there is no figure that admits the page and refuses
+    the fan. The same hole sits in this tree's older precedent,
+    ``MAX_FLAT_VERTICES``, for the same reason.
+
+    What the page card's bound does say, and it is worth keeping, is "no
+    single long subpath" — a tripwire on that page's own path lengths
     (``tests/test_book_guide_page_vector.py``'s
     ``TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday``, counting
     through ``tests/helpers/pdf_vector.subpath_vertices`` so each page card of
-    the phase inherits the instrument). That bound is per page kind, so a page
-    kind with no such control is uncovered; **CARD-298** owns ADR-0042/R1's
-    derived check over every page kind and is where this becomes one check
-    instead of one per card.
+    the phase inherits the instrument). Closing the route needs an instrument
+    that is not a vertex count — ink, which is CARD-241's, or a rule on filled
+    subpaths — and **CARD-298** owns ADR-0042/R1's derived check over every
+    page kind, which is where it belongs.
 
     When either test here does go red, the response is to grow
     ``TestDifficultyDots_HasExactlyOneDrawingSite`` a fifth route rather than
@@ -1341,7 +1354,8 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
         **It is the alarm for this primitive, not for a round shape** — a dot
         approximated out of ``line_to`` calls never touches ``round_mark`` and
         is invisible here, measured (CARD-296 cycle 1, F-1). See the class
-        docstring for the limit and for where the polyline route is bounded.
+        docstring: that route is a named limit with CARD-298 as its owner, and
+        nothing in the tree closes it today.
         """
         callers = {
             path
