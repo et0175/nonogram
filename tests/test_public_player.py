@@ -660,6 +660,21 @@ def test_the_tier_is_narrowed_to_the_vocabulary_or_dropped() -> None:
     assert assembler._tier("easyish") == ""
     assert assembler._tier(_leaky_title(GRIDS["min"])) == ""
 
+    # And the half that was reported nowhere until cycle 2 of this card's
+    # review (N-4): a tier the bundle HAD and the site does not is a
+    # narrowing the owner is told about, while an absent or blank tier is not,
+    # because nothing was lost. Both served values are "", so without this
+    # distinction the two cases are the same to a reader of the report.
+    assert assembler.tier_narrowed("tqlhkuhxpmgj") is True
+    assert assembler.tier_narrowed("requires guessing") is True
+    assert assembler.tier_narrowed(_leaky_title(GRIDS["min"])) is True
+    assert assembler.tier_narrowed(17) is True
+    assert assembler.tier_narrowed(None) is False
+    assert assembler.tier_narrowed("") is False
+    assert assembler.tier_narrowed("   ") is False
+    assert assembler.tier_narrowed("Hard") is False
+    assert assembler.tier_narrowed("medium") is False
+
 
 #: The lowercase alphabet a tier string could be read as digits of, and how
 #: many whole bits 12 of those characters carry. Cycle 1 of this card's review
@@ -697,7 +712,12 @@ def test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site(tmp_path) -> 
 
     #. the plant really is readable, so the test is not measuring an encoding
        nobody could decode (asserted on the bundle, where it travels);
-    #. the served file carries no cell of it at all.
+    #. the served file carries no cell of it at all;
+    #. the owner is TOLD — cycle 2 of this card's review (N-4) measured the
+       narrowing appearing in no field of the report and in nothing ``main()``
+       prints, so a channel being closed looked exactly like a puzzle that
+       never had a tier. ``report.narrowed`` is now asserted here and the
+       absent case is asserted beside it, so the two are distinguishable.
     """
     grid = GRIDS["min"]
     answer = _bits(grid)
@@ -736,6 +756,52 @@ def test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site(tmp_path) -> 
     assert report.puzzle_count == len(keys)
     assert served["clues"]["rows"] == [_encode(row) for row in grid]
 
+    # The report says so, and says it of this puzzle only: the fixture's other
+    # tiers are "easy", "Hard" and "" — two served and one absent-equivalent,
+    # none of them a narrowing.
+    assert report.narrowed == ((keys["min"], "tier"),), report.narrowed
+    assert report.refused == (), report.refused
+    # The same bundle with the tier simply MISSING: same served "", and
+    # nothing in the report, which is the distinction the field exists for.
+    payload.pop("tier")
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    absent = assembler.assemble(root, tmp_path / "site-absent")
+    assert json.loads(
+        (absent.site_dir / "puzzle" / f"{keys['min']}.json").read_text(encoding="utf-8")
+    )["tier"] == ""
+    assert absent.narrowed == (), absent.narrowed
+
+
+def test_the_command_line_says_what_it_dropped_and_what_it_narrowed(tmp_path, capsys) -> None:
+    """The report reaches the owner, which is the half ``main()`` owns.
+
+    ``AssembleReport`` carrying a field is not the owner being told: cycle 2
+    of this card's review (N-4) found the tier narrowing missing from the
+    report AND from everything the CLI prints, and a field nobody prints is
+    the same silence one step further in. So both lines are read off the real
+    command line here, and the absent-tier run is read beside them, because a
+    line that is always printed says nothing either.
+    """
+    root = tmp_path / "bundle"
+    keys = write_bundle(root)
+    path = root / "puzzle" / f"{keys['min']}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["tier"] = "requires guessing"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    assert assembler.main(["--bundle", str(root), "--out", str(tmp_path / "site")]) == 0
+    printed = capsys.readouterr().out
+    assert f"{len(keys)} puzzles into" in printed, printed
+    assert "dropped (not in the served schema): title" in printed, printed
+    assert f"narrowed {keys['min']}: tier" in printed, printed
+
+    payload.pop("tier")
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    assert assembler.main(["--bundle", str(root), "--out", str(tmp_path / "site2")]) == 0
+    absent = capsys.readouterr().out
+    assert "narrowed" not in absent, absent
+    assert "dropped (not in the served schema): title" in absent, absent
+
 
 def test_the_served_extents_are_recomputable_from_the_served_clues(site) -> None:
     """Why ``width`` and ``height`` count as zero bits in the capacity figure.
@@ -772,6 +838,13 @@ def test_an_out_dir_that_is_not_a_previous_site_is_refused(tmp_path) -> None:
     checkout. Both directions here — a foreign name is refused and the file
     survives, a previous run's tree is replaced without complaint — plus the
     repository root by name and the owner's ``--force`` escape hatch.
+
+    ``--force`` is an exemption, so it carries its own two controls
+    (ADR-0039/R3, and cycle 2's N-5): what it lifts, and what it does not.
+    ``assemble`` is called only on ``tmp_path`` targets; the repository-root
+    refusal is asserted through ``check_out_dir`` alone, which is cycle 2's
+    N-6 and the reason the test cannot delete the checkout even if the guard
+    stops firing.
     """
     precious = tmp_path / "deploy"
     (precious / "notes").mkdir(parents=True)
@@ -780,9 +853,33 @@ def test_an_out_dir_that_is_not_a_previous_site_is_refused(tmp_path) -> None:
         assembler.assemble(None, precious)
     assert (precious / "notes" / "important.txt").read_text(encoding="utf-8") == "keep me"
 
-    with pytest.raises(ValueError, match="repository root"):
-        assembler.assemble(None, REPO_ROOT)
+    # The repository root, through `check_out_dir` ALONE — never through
+    # `assemble`. Cycle 2 of this card's review (N-6) found this assertion
+    # written against the destructive entry point on the real checkout: the
+    # next line of `assemble` after the guard is `shutil.rmtree(site)`, so a
+    # change that let the guard stop firing while the call was still reached
+    # would delete the worktree from inside the test suite. The function under
+    # test is public and pure, so it is called directly.
+    #
+    # Spelled four ways, because the guard is a resolved-path comparison and
+    # the spelling is what a typo varies: the root itself, `player/..`, a
+    # symlink to it, and the root with a trailing separator.
+    link = tmp_path / "link-to-checkout"
+    link.symlink_to(REPO_ROOT)
+    for spelling in (REPO_ROOT, REPO_ROOT / "player" / "..", link, Path(f"{REPO_ROOT}/")):
+        with pytest.raises(ValueError, match="repository root"):
+            assembler.check_out_dir(spelling)
+        # --force is the exemption, and this is its bound (N-5, ADR-0039/R3):
+        # it absorbs a directory this script did not write, never the
+        # checkout. Measured before the fix: force=True returned the root.
+        with pytest.raises(ValueError, match="repository root"):
+            assembler.check_out_dir(spelling, force=True)
     assert (REPO_ROOT / "pyproject.toml").exists()
+
+    # What --force IS for, so the bound above is a bound and not a wall: the
+    # foreign-name refusal is what it lifts.
+    assert assembler.check_out_dir(precious, force=True) == precious
+    assert (precious / "notes" / "important.txt").exists(), "check_out_dir deleted something"
 
     # The positive control: an empty directory, and then a previous run's own
     # tree, are both assembled into without complaint.
@@ -804,16 +901,30 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
     """Every validator refuses, and says which value it refused.
 
     Default-deny needs a control per rule or it is a claim about rules nobody
-    ran. Each case below is a payload one edit away from valid.
+    ran. Each case below is a payload one edit away from valid, **paired with
+    the fragment of the reason it must be refused for**.
+
+    That pairing is cycle 2's N-7, and it is the root of the only defect
+    family this card hit three times. The loop used to assert that
+    ``report.refused[0][1]`` was truthy and nothing about its text, so a case
+    refused by a rule OTHER than the one it is named for passed and its own
+    rule's control was dead: ``clues-no-room`` was masked by the agreement
+    rule in the implementation round, and ``clues-column-count`` by the row
+    length check in the first fix round. Both were found only by mutating.
+    With the fragment asserted, a case refused for the wrong reason fails on
+    its own, and every case added later is self-checking.
     """
     grid = GRIDS["min"]
     good = _bundle_payload(grid, tier="easy", title="Picture")
     cases = {
-        "key": {**good, "key": "NOTAKEY"},
-        "name": {**good, "key": _public_key(GRIDS["oblong"])},
-        "width": {**good, "width": MAX_SIZE + 1},
-        "height": {**good, "height": 0},
-        "clues-shape": {**good, "clues": {"rows": good["clues"]["rows"]}},
+        "key": ({**good, "key": "NOTAKEY"}, "is not 10 lowercase hex characters"),
+        "name": ({**good, "key": _public_key(GRIDS["oblong"])}, "but carries the key"),
+        "width": ({**good, "width": MAX_SIZE + 1}, f"width {MAX_SIZE + 1} is outside"),
+        "height": ({**good, "height": 0}, "height 0 is outside"),
+        "clues-shape": (
+            {**good, "clues": {"rows": good["clues"]["rows"]}},
+            "clues is not an object with exactly rows and columns",
+        ),
         # The two length checks DETERMINED_BY_CLUES rests on, one per axis:
         # without them a served extent would no longer be recomputable from
         # the served clues, and SERVED_VALUE_SPACE's one-value count for
@@ -825,50 +936,65 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
         # drops its filled cells too and the agreement rule refuses it first.
         # Measured: with the column length check deleted, the dropped-line
         # case left this test and the served-extent test green.
-        "clues-count": {
-            **good,
-            "clues": {
-                "rows": [[1] for _ in range(len(grid) - 1)],
-                "columns": [[1] for _ in range(len(grid[0]) - 1)] + [[0]],
+        "clues-count": (
+            {
+                **good,
+                "clues": {
+                    "rows": [[1] for _ in range(len(grid) - 1)],
+                    "columns": [[1] for _ in range(len(grid[0]) - 1)] + [[0]],
+                },
             },
-        },
-        "clues-column-count": {
-            **good,
-            "clues": {
-                "rows": [[1] for _ in grid],
-                "columns": [[2]] + [[1] for _ in range(len(grid[0]) - 2)],
+            f"clues.rows is not {len(grid)} lines",
+        ),
+        "clues-column-count": (
+            {
+                **good,
+                "clues": {
+                    "rows": [[1] for _ in grid],
+                    "columns": [[2]] + [[1] for _ in range(len(grid[0]) - 2)],
+                },
             },
-        },
-        "clues-empty": {**good, "clues": {**good["clues"], "rows": [[] for _ in grid]}},
-        "clues-zero-mixed": {
-            **good,
-            "clues": {**good["clues"], "rows": [[0, 3] for _ in grid]},
-        },
-        "clues-too-long": {
-            **good,
-            "clues": {**good["clues"], "rows": [[MIN_SIZE + 1] for _ in grid]},
-        },
+            f"clues.columns is not {len(grid[0])} lines",
+        ),
+        "clues-empty": (
+            {**good, "clues": {**good["clues"], "rows": [[] for _ in grid]}},
+            "clues.rows[0] is not a non-empty list",
+        ),
+        "clues-zero-mixed": (
+            {**good, "clues": {**good["clues"], "rows": [[0, 3] for _ in grid]}},
+            "clues.rows[0] mixes 0 with other runs",
+        ),
+        "clues-too-long": (
+            {**good, "clues": {**good["clues"], "rows": [[MIN_SIZE + 1] for _ in grid]}},
+            f"clues.rows[0] cannot fit a line of {len(grid[0])} cells",
+        ),
         # A clue set with no room for its gaps, whose two axes nevertheless
         # agree on the filled count: [5, 5] needs 11 cells in a 10-cell line,
         # and 10 rows of [5, 5] total the same 100 cells as 10 columns of
         # [10]. So this case is refused by the fits-the-line rule and by
         # nothing else — which is what makes that rule's own control live.
         # Without it the fit check could be deleted and this test stayed green
-        # (CARD-283's mutation round, M4b).
-        "clues-no-room": {
-            **good,
-            "clues": {
-                "rows": [[MIN_SIZE // 2, MIN_SIZE // 2] for _ in grid],
-                "columns": [[len(grid)] for _ in grid[0]],
+        # (CARD-283's mutation round, M4b). It shares `clues-too-long`'s
+        # fragment because it is the same rule; what differs is that this one
+        # is refused by that rule ALONE, which is what makes the rule's own
+        # control live.
+        "clues-no-room": (
+            {
+                **good,
+                "clues": {
+                    "rows": [[MIN_SIZE // 2, MIN_SIZE // 2] for _ in grid],
+                    "columns": [[len(grid)] for _ in grid[0]],
+                },
             },
-        },
-        "clues-disagree": {
-            **good,
-            "clues": {**good["clues"], "rows": [[1] for _ in grid]},
-        },
-        "not-an-object": [good],
+            f"clues.rows[0] cannot fit a line of {len(grid[0])} cells",
+        ),
+        "clues-disagree": (
+            {**good, "clues": {**good["clues"], "rows": [[1] for _ in grid]}},
+            "clues.rows and clues.columns disagree on the filled count",
+        ),
+        "not-an-object": ([good], "the file is not a JSON object"),
     }
-    for name, payload in cases.items():
+    for name, (payload, because) in cases.items():
         root = tmp_path / name
         path = root / "puzzle" / f"{good['key']}.json"
         path.parent.mkdir(parents=True)
@@ -878,9 +1004,16 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
 
         assert report.puzzle_count == 0, name
         assert len(report.refused) == 1 and report.refused[0][0] == good["key"], name
-        assert report.refused[0][1], f"{name} was refused without a reason"
+        assert because, f"{name} declares no expected reason"
+        # Not "a reason was given" — THIS reason. See the docstring: the
+        # weaker assertion is what let two rules' controls die unnoticed.
+        assert because in report.refused[0][1], (name, because, report.refused[0][1])
         assert not (report.site_dir / "puzzle").exists(), name
     assert len(cases) >= 13
+    # The fragments are distinct per rule, not per case: the only pair that
+    # shares one is the two fit-the-line cases above, so a fragment copied
+    # across cases to make them pass would show here.
+    assert len({because for _, because in cases.values()}) == len(cases) - 1
 
     # The control for every one of them: the unedited payload is served.
     root = tmp_path / "good"
@@ -1201,6 +1334,70 @@ def _drag(page, cells):
     page.mouse.up()
 
 
+def _touch_drag(page, cells):
+    """A real TOUCH drag across ``cells``, driven through a CDP session.
+
+    Playwright's own input API cannot produce one: ``page.mouse`` reports
+    ``pointerType === "mouse"`` and ``page.touchscreen.tap`` is a tap, not a
+    drag. ``Input.dispatchTouchEvent`` produces real touch events with real
+    pointer ids — ``setPointerCapture`` accepts them, which an earlier
+    revision of this file declared it would not, and cycle 2 of this card's
+    review measured that declaration false. Chromium only, which is the one
+    browser ADR-0038/R7 declares, and the session comes off the page's own
+    context, so no dependency is added.
+
+    What this device measures is narrower than it looks, and
+    :func:`_pen_drag` exists because of it: with Region off the cells are
+    ``touch-action: auto``, so Chromium's own gesture recognizer takes the
+    stream over and fires **pointercancel** after the first pointermove
+    (measured: ``pointerdown touch`` / ``pointermove touch`` /
+    ``pointercancel touch``). So the Region-off half of a touch drag is
+    carried by the CSS rule and by ``play.js``'s pointercancel handler, NOT
+    by ``gesturePaints`` — which is why the pointer-type rule needs the pen.
+    """
+    session = page.context.new_cdp_session(page)
+    try:
+        x, y = _cell_centre(page, *cells[0])
+        session.send(
+            "Input.dispatchTouchEvent",
+            {"type": "touchStart", "touchPoints": [{"x": x, "y": y, "id": 1}]},
+        )
+        for cell in cells[1:]:
+            x, y = _cell_centre(page, *cell)
+            session.send(
+                "Input.dispatchTouchEvent",
+                {"type": "touchMove", "touchPoints": [{"x": x, "y": y, "id": 1}]},
+            )
+        session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    finally:
+        session.detach()
+
+
+def _pen_drag(page, cells):
+    """A real PEN drag across ``cells``, driven through a CDP session.
+
+    ``gesturePaints``'s rule is "a mouse drag always marks; a touch **or pen**
+    drag marks only while Region is armed", and the pen is the device that
+    isolates it: ``Input.dispatchMouseEvent`` takes a ``pointerType``, and a
+    pen stream goes through the mouse path, so the compositor does not cancel
+    it the way it cancels a ``touch-action: auto`` touch drag. Measured, with
+    Region off: ``pointerdown pen`` / ``pointermove pen`` / ``pointermove
+    pen`` / ``pointerup pen`` — the whole drag branch reached, with
+    ``gesturePaints`` the only thing deciding whether it marks.
+    """
+    session = page.context.new_cdp_session(page)
+    pen = {"pointerType": "pen", "button": "left", "buttons": 1, "clickCount": 1}
+    try:
+        x, y = _cell_centre(page, *cells[0])
+        session.send("Input.dispatchMouseEvent", {"type": "mousePressed", "x": x, "y": y, **pen})
+        for cell in cells[1:]:
+            x, y = _cell_centre(page, *cell)
+            session.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": x, "y": y, **pen})
+        session.send("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": x, "y": y, **pen})
+    finally:
+        session.detach()
+
+
 def _state(page, row, col):
     return page.get_attribute(f'td.player-cell[data-row="{row}"][data-col="{col}"]', "data-state")
 
@@ -1374,15 +1571,33 @@ def test_solved_fires_on_clue_satisfaction_only(browser_page, host) -> None:
         ("the right count, the wrong runs", 5, 1, "##x##", [[1, 3]], [[1], [1], [0], [1], [1]], False),
         ("every row right, one column wrong", 2, 2, "#xx#", [[1], [1]], [[2], [0]], False),
         ("every column right, one row wrong", 2, 2, "#xx#", [[2], [0]], [[1], [1]], False),
-        # The two ends of the two sweeps. Cycle 1 of this card's review
-        # measured the asymmetry: `row < height - 1` died on the table above
-        # (the single-row cases make the last row the only row) while
-        # `col < width - 1` SURVIVED it and the whole module, because no case
-        # had its only error in the last column — case 5's wrong column is
-        # column 0, and every page-level wrong board breaks a row as well.
-        # These two put the only error at the far end of each axis, so an
-        # off-by-one at either end of either sweep reds.
+        # Both ends of both sweeps, one case each, and that is what the four
+        # rows below establish — no more. The family was measured twice. Cycle
+        # 1 found `row < height - 1` dying on the table above (the single-row
+        # cases make the last row the only row) while `col < width - 1`
+        # SURVIVED it and the whole module, because no case had its only error
+        # in the last column. Cycle 2 then found the OTHER end still open
+        # after the last-index pair was added: `let col = 1` survived too,
+        # because case 5's columns [[2], [0]] over "#xx#" are BOTH wrong, so
+        # skipping column 0 still trips on column 1.
+        #
+        # So each of these four has its only wrong clue at one named index of
+        # one axis, with every other clue of both axes right:
+        #
+        #   first column -> kills `let col = 1`      (column 0, clue [2] / [1])
+        #   last column  -> kills `col < width - 1`  (column 1, clue [2] / [1])
+        #   first row    -> kills `let row = 1`      (row 0, clue [2] / [1])
+        #   last row     -> kills `row < height - 1` (row 1, clue [2] / [1])
+        #
+        # All four mutants were fired against this table and each one reds on
+        # the case named beside it. The claim is exactly that: the four
+        # off-by-one mutants of `isClueSolved`'s two loop bounds are each
+        # refused. It is not a claim about every weakening of the sweeps —
+        # the three the cycle-1 round measured (per-line totals, skipping the
+        # columns, ignoring run order) are carried by the cases above.
+        ("every row right, the FIRST column wrong", 2, 2, "#xx#", [[1], [1]], [[2], [1]], False),
         ("every row right, the LAST column wrong", 2, 2, "#xx#", [[1], [1]], [[1], [2]], False),
+        ("every column right, the FIRST row wrong", 2, 2, "#xx#", [[2], [1]], [[1], [1]], False),
         ("every column right, the LAST row wrong", 2, 2, "#xx#", [[1], [2]], [[1], [1]], False),
         ("an empty line, empty", 5, 1, "xxxxx", [[0]], [[0], [0], [0], [0], [0]], True),
         ("an empty line, marked", 5, 1, "#xxxx", [[0]], [[1], [0], [0], [0], [0]], False),
@@ -1415,7 +1630,7 @@ def test_solved_fires_on_clue_satisfaction_only(browser_page, host) -> None:
     assert answers == [case[-1] for case in cases], [
         (case[0], got, case[-1]) for case, got in zip(cases, answers) if got != case[-1]
     ]
-    assert len(cases) >= 11 and sum(case[-1] for case in cases) == 4
+    assert len(cases) >= 13 and sum(case[-1] for case in cases) == 4
 
     # And the solved state is a function of the board, not of history: undoing
     # the last mark on a solved board takes the banner away again.
@@ -1668,7 +1883,9 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
     #: Every control the page has, by the thing a player does. The page's own
     #: markup is the authority for what exists: ``test_every_player_control_is
     #: _in_the_ec_050_walk`` holds this table to the buttons in play.html, so a
-    #: fourth brush or a new action cannot be added without being walked.
+    #: fourth brush or a new action cannot be added without being walked — and
+    #: holds ``play.js``'s own listener set and its one request separately,
+    #: because markup cannot see a key binding (cycle 2's N-3).
     controls = {
         "brush-black": lambda: page.click('[data-player-tool="filled"]'),
         "brush-white": lambda: page.click('[data-player-tool="empty"]'),
@@ -1723,6 +1940,16 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     elements, so they are listed rather than derived, and they are named in
     the page as ``aria-keyshortcuts`` on the two buttons they duplicate —
     which this test checks, so "listed" is still held to the markup.
+
+    Markup is not the whole authority, and cycle 2 of this card's review
+    measured the gap: a second branch in ``play.js``'s keydown listener that
+    POSTs is a new player-visible control writing to a server, and no element
+    changes, so all 31 tests stayed green. The second half of this test is
+    therefore held to ``play.js`` itself — its registered event types, the one
+    key its keydown handler may read, and the one request the file is allowed
+    to make at all. What that covers and what it does not is stated with each
+    assertion; it is a narrower authority than "every interaction sequence",
+    and the gap that remains is named at the end.
     """
     page_html = (PLAYER_DIR / "play.html").read_text(encoding="utf-8")
     walked = {
@@ -1751,6 +1978,57 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     walk = parts[1].split("\ndef ")[0]
     named = set(re.findall(r'^\s{8}"([a-z-]+)": ', walk, re.M))
     assert named == expected, sorted(expected ^ named)
+
+    # ------------------------------------------------------------------
+    # The listener half (cycle 2's N-3): the controls that are not markup.
+    # ------------------------------------------------------------------
+    script = (PLAYER_DIR / "play.js").read_text(encoding="utf-8")
+    #: Every event type ``play.js`` binds, by registration. The four stage
+    #: pointer events are the drag (``tap``/``drag`` above drive the first
+    #: three; ``pointercancel`` is driven by
+    #: ``test_a_touch_or_pen_drag_marks_only_while_region_is_armed``), and the
+    #: click count is the markup's rather than a number: one shared handler in
+    #: the loop over ``[data-player-tool]``, one on Region, and one per action
+    #: button. A new event type, or a second handler on an existing one, reds.
+    registered = sorted(re.findall(r'addEventListener\("([a-z]+)"', script))
+    assert registered == sorted(
+        ["pointerdown", "pointermove", "pointerup", "pointercancel", "keydown"]
+        + ["click"] * (2 + len(actions))
+    ), registered
+
+    # The keydown handler's guard, pinned to the one key it may read: the
+    # planted second branch compared `event.key` to "r", and a key binding is
+    # the one control shape the markup authority above cannot see.
+    halves = script.split('document.addEventListener("keydown"')
+    assert len(halves) == 2, "play.js does not bind keydown exactly once"
+    handler = halves[1].split("\n  });", 1)[0]
+    assert re.findall(r'event\.key[^;]*?"([a-z]+)"', handler) == ["z"], handler
+    assert sorted(set(re.findall(r"event\.([a-zA-Z]+)", handler))) == [
+        "ctrlKey",
+        "key",
+        "metaKey",
+        "preventDefault",
+        "shiftKey",
+    ], handler
+
+    # And EC-050's own word, as a flat property of the file: ``play.js`` makes
+    # exactly ONE request, and it is the puzzle file by GET. This is what
+    # closes the planted POST whatever control reaches it — a branch that
+    # writes without reading `event` at all is still refused here, which the
+    # two assertions above would not catch.
+    assert re.findall(r"\bfetch\(", script) == ["fetch("], "play.js makes more than one request"
+    assert 'fetch(`/puzzle/${key}.json`, { cache: "no-store" })' in script
+    for forbidden in ("XMLHttpRequest", "sendBeacon", "WebSocket", "EventSource", "method:"):
+        assert forbidden not in script, forbidden
+        assert forbidden not in page_html, forbidden
+    # The residual, named rather than claimed away: this holds the SHAPE of
+    # play.js's writes and the SET of its listeners, not every interaction
+    # sequence. A write smuggled through an element attribute in play.html (a
+    # form action, an img src) is covered by
+    # ``test_the_page_carries_no_answer_and_no_third_party_asset``'s
+    # same-origin assertion and by the walk's recorded requests, but a write
+    # that a future file other than play.js makes is outside all three.
+    assert set(assembler.PLAYER_FILES) >= {"play.js", "play.html"}, assembler.PLAYER_FILES
 
 
 @pytest.mark.browser
@@ -1831,8 +2109,9 @@ def test_the_brush_region_and_touch_bindings_are_the_modules(browser_page, host)
     #. the cell's ``touch-action`` follows Region — ``auto`` while it is off,
        so a touch drag pans the page (``gesturePaints``'s rule, item 5 of the
        card), and ``none`` while it is armed, so the drag marks instead. This
-       is the CSS half; the pointer-type half needs a real touch drag, which
-       Playwright cannot produce (named, not claimed).
+       is the CSS half; the pointer-type half — what ``play.js`` itself does
+       with a touch or pen drag — is
+       ``test_a_touch_or_pen_drag_marks_only_while_region_is_armed``.
     """
     page = browser_page
     _open(page, host, host[2]["min"])
@@ -1859,6 +2138,70 @@ def test_the_brush_region_and_touch_bindings_are_the_modules(browser_page, host)
         "Region stayed armed after a drag, so it is not one-shot"
     )
     assert page.evaluate(touch_action) == "auto"
+
+
+@pytest.mark.browser
+def test_a_touch_or_pen_drag_marks_only_while_region_is_armed(browser_page, host) -> None:
+    """Item 5 of the card, on the pointer TYPE rather than on the CSS shadow.
+
+    ``play.js`` reads ``gesturePaints(event.pointerType, region)`` once, at
+    pointerdown, and a touch or pen drag marks only while Region is armed —
+    with Region off the gesture marks nothing and the browser is free to pan
+    the page instead. ``test_the_brush_region_and_touch_bindings_are_the
+    _modules`` reads the ``touch-action`` the CSS sets, which is the browser's
+    half of that bargain; this reads ``play.js``'s own.
+
+    Two devices, because they measure different mechanisms and cycle 2 of
+    this card's review conflated them:
+
+    #. **the pen** is what isolates ``gesturePaints``. A pen stream is not
+       cancelled by the compositor, so with Region off the drag branch is
+       fully reached and only ``gesturePaints("pen", false)`` stops it from
+       marking. This is the half that kills ``const paints = true``, and the
+       only half that does — measured.
+    #. **the touch drag** is what a phone actually sends, and with Region off
+       Chromium fires ``pointercancel`` after the first move (``touch-action:
+       auto``), so the board is left alone by the CSS rule and ``play.js``'s
+       pointercancel handler rather than by ``gesturePaints``. It is here
+       because ``pointercancel`` otherwise has no control at all (cycle 2's
+       N-3 named it unreachable), and it is named for what it measures.
+
+    ``done.length`` is read as well as the cell states in both, so "marked
+    nothing" is "recorded no stroke" and not "repainted over it".
+    """
+    page = browser_page
+    _open(page, host, host[2]["min"])
+    page.click('[data-player-tool="filled"]')
+    pen_line = [(5, 0), (5, 1), (5, 2)]
+    touch_line = [(7, 0), (7, 1), (7, 2)]
+
+    # The pen, Region off: the drag runs to pointerup and marks nothing.
+    assert page.evaluate("() => window.publicPlayer.isRegion()") is False
+    _pen_drag(page, pen_line)
+    assert [_state(page, *cell) for cell in pen_line] == ["unknown"] * 3
+    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 0
+
+    # The touch drag, Region off: cancelled, so also nothing.
+    _touch_drag(page, touch_line)
+    assert [_state(page, *cell) for cell in touch_line] == ["unknown"] * 3
+    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 0
+
+    # The pen, Region armed: the same drag marks the line, records one stroke
+    # and disarms Region (the one-shot rule, from a third input device).
+    page.click("[data-player-region]")
+    assert page.evaluate("() => window.publicPlayer.isRegion()") is True
+    _pen_drag(page, pen_line)
+    assert [_state(page, *cell) for cell in pen_line] == ["filled"] * 3
+    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 1
+    assert page.evaluate("() => window.publicPlayer.isRegion()") is False
+
+    # The touch drag, Region armed: touch-action is none, so no cancel, and
+    # the touch device marks too.
+    page.click("[data-player-region]")
+    _touch_drag(page, touch_line)
+    assert [_state(page, *cell) for cell in touch_line] == ["filled"] * 3
+    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 2
+    assert page.evaluate("() => window.publicPlayer.isRegion()") is False
 
 
 @pytest.mark.browser

@@ -117,12 +117,32 @@ So the domains carry it, and the residual is named rather than implied:
   ``tests/test_public_player.py::test_the_served_tier_set_is_the_runtimes_tier_vocabulary``;
 * the residual, stated because two bits is above EC-048's one bit: a hostile
   store that chooses a puzzle's tier **label** as a function of its answer
-  signals at most two bits per puzzle through this field. Nothing here
-  excludes that — a label is a label — and the only way to close it is not to
-  serve the tier at all, which is a product decision for ADR-0041 rather than
-  a worktree one. It is this script's one open edge against EC-048, it is two
+  signals at most two bits per puzzle through this field, so **2N bits across
+  a library of N published puzzles**. Nothing here excludes that — a label is
+  a label — and the only way to close it is not to serve the tier at all,
+  which is a product decision for ADR-0041 rather than a worktree one. Cycle
+  2 of this card's review measured the rest of the rebuild total: a bundle
+  carrying base-64 of its own grid in ``title``, in ``note``, in
+  ``picture_name``, in ``difficulty_tier``, in a nested object AND in one of
+  its field NAMES assembles to served bytes byte-identical to the clean
+  payload's, and ``_dump``'s canonical form leaves no writer artefact to
+  carry a bit either. So the tier is this script's one open edge, it is two
   bits wide, and the figure is derived by the deployed code rather than
   claimed.
+
+**But "one open edge" is true only AFTER the two exemptions are granted, and
+it is worth saying in one place rather than two paragraphs apart.** Given
+ADR-0041/R5 the clues are a deterministic function of the stored grid, so
+they carry zero FREE bits — and they leak every cell *by solving*, which is
+the game (ADR-0041's Context: the solved check IS clue satisfaction) and not
+a channel anything here could narrow. The consequence, cycle 2's and the
+architect's rather than this script's: **EC-048's literal text — "data from
+which any solution cell is recoverable" — is not satisfiable by any
+implementation of ADR-0041**, so the registry's own wording is the blocker
+for the word "closed" (cycle-1 F-12, ``meta/architecture/requirements.yml``,
+outside this card's Touches and not edited). Read every "carries EC-048"
+above as "carries it for everything except the two ADR exemptions and the two
+declared bits".
 
 Every number above that this script owns is computed here, from the declared
 value space; none of it is transcribed. Ask for it with
@@ -359,8 +379,13 @@ def _tier(value: object) -> str:
     Stripped and lowercased first, so the admin panel's "Hard" and "hard" are
     one served label, and then matched against :data:`SERVED_TIERS` — the
     runtime's tier vocabulary, by membership, not an alphabet pattern. A value
-    outside it is dropped rather than refused, and dropped *into the report*,
-    which :class:`AssembleReport` carries.
+    outside it is dropped rather than refused, and the drop is reported:
+    :func:`tier_narrowed` is what :func:`assemble` asks, and the answer lands
+    in :attr:`AssembleReport.narrowed` and in ``main``'s output. Cycle 2 of
+    this card's review measured the earlier revision of this sentence false —
+    it claimed ``dropped`` carried the narrowing, and ``dropped`` carries only
+    names the served schema does not admit, so a narrowed tier was reported
+    nowhere and was indistinguishable from an absent one.
 
     The membership test is what makes this field two bits wide instead of
     56.46: the string the review's cycle-1 plant put here ("tqlhkuhxpmgj", the
@@ -371,6 +396,26 @@ def _tier(value: object) -> str:
         return ""
     folded = value.strip().lower()
     return folded if folded in SERVED_TIERS else ""
+
+
+def tier_narrowed(value: object) -> bool:
+    """Whether :func:`_tier` *dropped* a stored tier rather than passing one.
+
+    The distinction the report needs, and the one cycle 2 of this card's
+    review found missing: the served ``""`` means "no chip", and a bundle that
+    never carried a tier says the same thing, so only the case where something
+    was stored and nothing is served is a narrowing worth telling the owner
+    about. It matters operationally — if ``nonogram.difficulty.Tier`` grows a
+    member and :data:`SERVED_TIERS` lags, every puzzle of the new tier loses
+    its chip, and without this the only thing that would notice is
+    ``tests/test_public_player.py::test_the_served_tier_set_is_the_runtimes
+    _tier_vocabulary``, in CI, after the deploy.
+    """
+    if value is None:
+        return False
+    if isinstance(value, str) and value.strip() == "":
+        return False
+    return _tier(value) == ""
 
 
 def _line(clue: object, length: int, what: str) -> list[int]:
@@ -491,12 +536,20 @@ class AssembleReport:
     ``ignored`` is every bundle file outside ``puzzle/`` that this card's site
     does not serve. ``refused`` carries ``(key, reason)`` for a puzzle file the
     schema could not accept.
+
+    ``narrowed`` is the third silence, and it was still silent until cycle 2
+    of this card's review: ``(key, field)`` for a field whose stored value was
+    *admitted by the schema but emptied by its domain* — today only ``tier``
+    (:func:`tier_narrowed`). It is deliberately separate from ``dropped``: a
+    dropped field is one the site does not serve at all, a narrowed one is
+    served with less in it than the bundle had.
     """
 
     site_dir: Path
     puzzle_count: int
     capacity_bits: float
     dropped: tuple[tuple[str, str], ...] = ()
+    narrowed: tuple[tuple[str, str], ...] = ()
     refused: tuple[tuple[str, str], ...] = ()
     ignored: tuple[str, ...] = ()
     copied: tuple[str, ...] = ()
@@ -541,22 +594,36 @@ def check_out_dir(out_dir: Path | str, *, force: bool = False) -> Path:
     top-level name in it is one an assembled site has (:func:`_site_entries`)
     — a previous run's tree, which this run replaces. A checkout, a home
     directory or ``.`` from the repository root fails that test on its first
-    foreign name, and the repository root is refused by name as well, since
-    its own tree happens to contain ``player/`` and would otherwise depend on
-    which name ``iterdir`` reached first.
+    foreign name: the whole list of top-level names is built and the target is
+    refused if ANY of them is foreign, so the refusal does not depend on the
+    order ``iterdir`` returns (an earlier revision of this docstring claimed
+    it did, and claimed the repository root would otherwise pass — the
+    allowed set holds ``play``, not ``player``, so the checkout fails the name
+    test on its own ``player/`` directory as well as on everything else;
+    cycle 2 of this card's review measured both halves of that sentence
+    false).
 
-    ``force`` is the owner's escape hatch (``--force``) and is the only way
-    past it; a non-directory target is refused outright, force or not.
+    The repository root is nevertheless refused **by name, unconditionally,
+    and before ``force`` is read**. That is the one bound ``--force`` has.
+    ``--force`` is the owner's escape hatch for a real deploy target this
+    script did not write, and ADR-0039/R3 makes an exemption a claim that
+    carries a control: cycle 2 measured ``check_out_dir(repo_root,
+    force=True)`` returning the checkout, so ``assemble --out . --force``
+    would have deleted it. Deleting the checkout is never what ``--force``
+    means, so it is outside the exemption rather than inside it, and
+    ``tests/test_public_player.py::test_an_out_dir_that_is_not_a_previous
+    _site_is_refused`` holds that both ways. A non-directory target is
+    likewise refused outright, force or not.
     """
     site = Path(out_dir)
     if site.exists() and not site.is_dir():
         raise ValueError(f"--out {site} is not a directory")
-    if force or not site.is_dir():
-        return site
     if site.resolve() == REPO_ROOT:
         raise ValueError(
             f"--out {site} is the repository root; assembling would delete the checkout"
         )
+    if force or not site.is_dir():
+        return site
     allowed = _site_entries()
     foreign = sorted(entry.name for entry in site.iterdir() if entry.name not in allowed)
     if foreign:
@@ -601,6 +668,7 @@ def assemble(
         copied.append(published)
 
     dropped: list[tuple[str, str]] = []
+    narrowed: list[tuple[str, str]] = []
     refused: list[tuple[str, str]] = []
     ignored: list[str] = []
     count = 0
@@ -620,6 +688,8 @@ def assemble(
                 refused.append((path.stem, str(unservable)))
                 continue
             dropped.extend((path.stem, name) for name in names)
+            if tier_narrowed(payload.get("tier")):
+                narrowed.append((path.stem, "tier"))
             _dump(site / SITE_PUZZLE_DIR / f"{served['key']}.json", served)
             count += 1
 
@@ -628,6 +698,7 @@ def assemble(
         puzzle_count=count,
         capacity_bits=capacity,
         dropped=tuple(sorted(dropped)),
+        narrowed=tuple(sorted(narrowed)),
         refused=tuple(sorted(refused)),
         ignored=tuple(sorted(ignored)),
         copied=tuple(sorted(copied)),
@@ -674,6 +745,8 @@ def main(argv: list[str] | None = None) -> int:
     if report.dropped:
         fields = sorted({name for _, name in report.dropped})
         print(f"  dropped (not in the served schema): {', '.join(fields)}")
+    for key, field in report.narrowed:
+        print(f"  narrowed {key}: {field} was outside the served vocabulary, so it is blank")
     for key, reason in report.refused:
         print(f"  refused {key}: {reason}")
     if report.ignored:
