@@ -1,0 +1,261 @@
+/* The public player's styling (COMP-011, FR-045, ADR-0041; CARD-283).
+ *
+ * Plain hand-written CSS, no framework and no build step (ADR-0041/R3), and
+ * every colour comes from a token: tokens.css is copied into the site beside
+ * this file by player/assemble.py, so the public page's palette is the one
+ * definition the admin panel already uses (meta/design/tokens.css) rather
+ * than a second set of hex values drifting beside it. There is no colour
+ * literal below, which tests/test_public_player.py fails on — the same rule
+ * tests/test_puzzle_solver_page.py holds the panel's own scripts to.
+ *
+ * MOBILE FIRST, because nearly every visit arrives by scanning a QR code off
+ * a printed page. The three rules that follow from it, and the one accepted
+ * trade-off:
+ *
+ *   * a cell is never smaller than --player-cell-min (a thumb, not a mouse
+ *     pointer: the admin page's ~18 px cells at 390 px are already on the
+ *     backlog as too small to tap);
+ *   * the BOARD scrolls, the page does not. .player-stage is the scroll
+ *     container, and nothing here sets overflow-x: hidden on the page — a
+ *     board too wide for the screen must be reachable by scrolling the stage,
+ *     and hiding the page's overflow instead would make AC-386's measurement
+ *     pass by blindfolding it;
+ *   * the clue gutters stay in view while the board is panned (position:
+ *     sticky inside the stage), so a player scrolled to the far corner can
+ *     still read the clue the cell belongs to;
+ *   * the accepted trade-off: 30 cells at --player-cell-min do not fit a
+ *     390 px screen, so the largest board scrolls sideways INSIDE the stage.
+ *     That is the same ruling the admin player's phone layout took (CARD-193:
+ *     "where a board cannot fit at 12 px, it scrolls sideways") — legibility
+ *     and tap size over fitting everything at once.
+ */
+
+:root {
+  --player-cell-min: 28px;
+  --player-cell-max: 34px;
+  --player-rule: 1px;
+  --player-rule-major: 2px;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+}
+
+.player-page {
+  /* A 16 px side gutter at phone width, growing on a wider screen. */
+  padding: var(--space-4);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.player-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.player-head h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.player-tier {
+  font-family: var(--font-num);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  padding: 0.15em 0.5em;
+  border: var(--player-rule) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+}
+
+/* ---------------------------------------------------------------- toolbar */
+
+.player-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.player-tools,
+.player-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.btn {
+  /* 44 px of height is the smallest comfortable touch target, and these are
+     the controls a thumb reaches for most. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--player-rule) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.btn:focus-visible {
+  outline: var(--player-rule-major) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.btn[aria-disabled="true"] {
+  color: var(--color-text-secondary);
+  background: var(--color-surface-sunken);
+  cursor: default;
+}
+
+.btn[aria-checked="true"],
+.btn[aria-pressed="true"] {
+  background: var(--color-accent-tint);
+  border-color: var(--color-accent);
+}
+
+.player-swatch {
+  width: 1em;
+  height: 1em;
+  border: var(--player-rule) solid var(--color-border-strong);
+  background: var(--grid-paper);
+}
+
+.player-swatch[data-state="filled"] { background: var(--grid-ink); }
+.player-swatch[data-state="empty"] { background: var(--grid-paper); }
+.player-swatch[data-state="unknown"] { background: var(--color-surface-sunken); }
+
+.player-brush-run { display: inline-flex; gap: 1px; }
+
+.player-solved {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+/* A live region has to be in the document to be announced reliably, so it is
+   always present and visually hidden rather than shown and hidden. */
+.player-announce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.player-hint,
+.player-fallback {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  max-width: 48rem;
+}
+
+/* ------------------------------------------------------------------ board */
+
+.player-stage {
+  overflow: auto;
+  max-width: 100%;
+  background: var(--color-surface);
+  border: var(--player-rule) solid var(--color-border);
+  -webkit-overflow-scrolling: touch;
+}
+
+.player-board {
+  --player-cell: clamp(
+    var(--player-cell-min),
+    calc((100vw - 3rem) / (var(--player-width) + 4)),
+    var(--player-cell-max)
+  );
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-num);
+  background: var(--grid-paper);
+}
+
+.player-clue {
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+  font-size: calc(var(--player-cell) * 0.42);
+  font-weight: 500;
+  line-height: 1.1;
+  padding: 2px;
+  border: var(--player-rule) solid var(--color-border);
+  position: sticky;
+  z-index: 2;
+}
+
+.player-clue.is-col {
+  top: 0;
+  vertical-align: bottom;
+  width: var(--player-cell);
+}
+
+.player-clue.is-col .player-clue-num { display: block; }
+
+.player-clue.is-row {
+  left: 0;
+  text-align: right;
+  white-space: nowrap;
+  height: var(--player-cell);
+}
+
+.player-clue.is-row .player-clue-num { display: inline; margin-left: 0.35em; }
+
+.player-clue.is-corner {
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
+
+/* Every fifth line carries the heavier rule, never the last (CARD-160). */
+.player-clue.major-right,
+.player-cell.major-right { border-right-width: var(--player-rule-major); }
+.player-clue.major-below,
+.player-cell.major-below { border-bottom-width: var(--player-rule-major); }
+
+.player-cell {
+  width: var(--player-cell);
+  height: var(--player-cell);
+  min-width: var(--player-cell-min);
+  min-height: var(--player-cell-min);
+  padding: 0;
+  border: var(--player-rule) solid var(--color-border-strong);
+  background: var(--grid-paper);
+  /* With Region off a touch drag pans the page instead of marking it; the
+     board's .is-region class (play.js) is the one thing that changes this,
+     exactly as admin.css keys it to .player-board.is-region. */
+  touch-action: auto;
+}
+
+.player-board.is-region .player-cell { touch-action: none; }
+
+.player-cell[data-state="filled"] { background: var(--grid-ink); }
+.player-cell[data-state="empty"] { background: var(--grid-paper); }
+.player-cell[data-state="unknown"] { background: var(--grid-paper); }
+.player-cell[data-state="maybe"] { background: var(--color-surface-hover); }
+
+/* The white mark: a small cross, so "decided empty" reads differently from
+   "not yet decided" without a second colour. */
+.player-cell[data-state="empty"] {
+  background-image:
+    linear-gradient(to bottom right, transparent 44%, var(--color-text-secondary) 44%, var(--color-text-secondary) 56%, transparent 56%),
+    linear-gradient(to bottom left, transparent 44%, var(--color-text-secondary) 44%, var(--color-text-secondary) 56%, transparent 56%);
+  background-size: 50% 50%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+body[data-solved="true"] .player-board { outline: var(--player-rule-major) solid var(--color-success); }
