@@ -1,0 +1,633 @@
+card: CARD-296
+cycle: 2
+reviewer: forge:review (Claude Opus 5)
+date: 2026-10-26T07:04:54Z
+revision_reviewed: cf0db002
+fork_point: 423c09f3
+branch: card/296-guide-page-as-operators
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-296
+score: 7
+certified: false
+min_score: 8
+verdict: >-
+  NOT CERTIFIED at 7/10. The round is real work and most of it is load-bearing:
+  F-3 is closed and I reded it at two independent text sites; F-4's two clauses
+  are genuinely load-bearing on DIFFERENT plants (I attributed each plant to its
+  clause); F-8's new pipeline control binds; F-6 and F-7 are closed; the
+  derivation in F-2 is real (cycle 1's replayed defect reds exactly 4 cells);
+  G-6 holds mechanically (nothing removed or renamed, 13 cells added); and the
+  src diff really is docstring-only, which I proved by AST rather than by line
+  count. What blocks certification is that the round answered the gating finding
+  with a mechanism that cannot do the job, and then wrote the claim it could not
+  support into four places — the same defect cycle 1 gated on, one medium along.
+  MEASURED: MAX_PATH_POINTS = 4 does not close the polyline route. A filled disc
+  built as a fan of 32 THREE-point triangles passes 264/264, and so does one
+  built as a staircase of 24 filled ``re`` bands. The bound has ZERO headroom —
+  the arrow head needs 3 points and 3 points is a triangle — so the mechanism
+  cannot be tightened into a closure; route (a) was not available and route (b)
+  (a named limit) is what the evidence supports. F-2's closure is real but its
+  declared escape is false in both clauses, six of the sixteen guarded names
+  (all four of cycle 1's synonyms among them) are held in the set by nothing but
+  the hand-written allow-list, and ``getattr`` carries cycle 1's complete
+  counterexample through untouched and undeclared. F-4 leaves a third spelling
+  that passes both clauses, and the round declared that spelling harmless on
+  reasoning that contradicts its own finding. F-5's corrected sentence is still
+  false. Measured suite state at cf0db002, by node id: three touched files 264
+  passed; blast radius (test_collected_names, test_suite_profile,
+  test_book_interior_type_floor, test_book_page_frame, test_book_pdf,
+  test_export_pdf, test_cli) 715 passed. Every file I mutated was restored and
+  sha256-verified; the worktree is clean apart from the pre-existing CARD-296.md
+  edit and the untracked cycle-1 report.
+
+previous_findings:
+  - id: F-1
+    status: not-closed
+    evidence: >-
+      The round took route (a) — "CLOSE the route, not merely rename the claim"
+      — with MAX_PATH_POINTS = 4 over per-subpath vertex counts. The route is
+      not closed. MEASURED (two plants, each restored and sha256-verified
+      against d0ba042d4a99b060e63214de50835d0fa08042c2e9bc213945a4052a8653eb4a):
+      (1) a filled disc as a FAN OF 32 TRIANGLES beside each tier name in
+      ``draw_legend`` — ``begin_path(cx, cy)``, two ``line_to`` on the arc,
+      ``close_path``, ``paint("fill")`` per sector, i.e. 32 subpaths of exactly
+      THREE points — ran tests/test_book_guide_page_vector.py +
+      test_book_pdf_vector_primitives.py + test_book_difficulty_dots.py:
+      **264 passed**. I read the counter directly under the plant:
+      ``subpath_vertices`` reports {2: 157, 3: 99} on page 3 with max = 3, so
+      ``max(points) <= MAX_PATH_POINTS`` passes AND
+      ``test_the_longest_path_the_page_writes_is_the_arrow_head`` still reads
+      exactly ARROW_HEAD_POINTS = 3 and passes. (2) a filled disc as a
+      STAIRCASE OF 24 ``re`` BANDS (``stream.rectangle(..., paint="fill")``,
+      half-widths from the circle equation): **264 passed** — ``subpath_vertices``
+      counts only ``m``/``l``/``c``, so ``re`` ink is not counted at all. The
+      structural point is that the bound CANNOT be tightened into a closure: the
+      page's own arrow head needs 3 points, a triangle needs 3, and a fan of
+      triangles is the standard way to fill a polygon approximation, so there is
+      no value of MAX_PATH_POINTS that admits the arrow head and refuses a disc.
+      The replacement claim is therefore false, and it is written into four
+      places: the class docstring ("A path of at most MAX_PATH_POINTS straight
+      points is a triangle or a quadrilateral, and ``re`` is axis-aligned, so
+      with 1 and 2 shut and 3 held elsewhere there is no operator left in this
+      vocabulary that inks a round shape"), ``pdf_vector.subpath_vertices``'s
+      docstring ("A vertex bound is the mechanism that closes it"),
+      ``book_vector.round_mark``'s merged docstring ("a page card holds its own
+      pages to a vertex bound for the other") and
+      ``test_book_pdf_vector_primitives.py``'s merged class docstring ("The
+      polyline route is a named limit here and is closed where the ink is").
+      WHAT IS CLOSED: the orchestrator's single-subpath 32-gon counterexample
+      now reds 3 cells — pre-verified, not re-derived by me — and route 3 (a
+      round glyph) is in fact caught on this page, though not by the mechanism
+      the docstring credits (see N-4). The decline of AC-3 remains sound; what
+      fails is again the sentence asserting the equivalence.
+  - id: F-2
+    status: partially-closed
+    evidence: >-
+      The derivation is real and the claimed control binds: I re-fired cycle 1's
+      own defect by adding ``"thick_rule": "not ink"`` to ALLOWED and measured
+      exactly **4 failed / 43 passed** —
+      test_only_the_named_routines_touch_a_layouts_grid,
+      test_each_routine_reads_exactly_the_grid_names_its_role_declares,
+      test_a_layout_is_never_read_for_a_name_the_guard_lets_through and
+      test_every_name_the_raster_grid_routines_read_is_guarded — the cells the
+      round named. The attribute-name walk is receiver-agnostic, which is the
+      right shape, and ``Layout`` carries no method or cached_property outside
+      the 23 fields + 4 properties the derivation reads, so the surface is
+      complete today. Three residual escapes, all measured, all 264 green:
+      (a) THE DECLARED ESCAPE IS FALSE IN BOTH CLAUSES. The docstring says a
+      Layout rebound outside LAYOUT_SPELLINGS "gains only ``width`` and
+      ``height`` — the sheet's own size, which no grid can be drawn out of". It
+      gains all ELEVEN names in ALLOWED (rows, columns, dpi, page, orientation,
+      row_gutter_cells, column_gutter_cells, width_inches, height_inches, width,
+      height), because guarded names are caught by the name walk on any receiver
+      while ALLOWED names are caught only on a LAYOUT_SPELLINGS receiver. And a
+      grid IS drawable from what it gains: I appended ``_second_grid`` doing
+      ``lay = layout`` then ``cell = min(lay.width * 0.8 / lay.columns,
+      lay.height * 0.8 / lay.rows)`` and stroking ``columns + 1`` verticals,
+      ``rows + 1`` horizontals and the frame — a complete second ruled-grid
+      implementation — and measured 8/8 on the AC-4 class and **264 passed**
+      overall. (b) SIX OF THE SIXTEEN GUARDED NAMES ARE PINNED BY NOTHING.
+      ``test_every_name_the_raster_grid_routines_read_is_guarded`` pins the 10
+      names the three raster routines read, and ROLES pins the same 10; ``cell``,
+      ``column_clues``, ``grid_left``, ``grid_lines``, ``margin`` and
+      ``row_clues`` — which is ALL FOUR of cycle 1's synonyms plus two — are in
+      GRID_ATTRIBUTES only because ALLOWED, a hand-written dict, happens not to
+      name them. MEASURED: adding those six to ALLOWED as ``"not ink"`` passes
+      all 8 cells of the AC-4 class; adding them AND appending cycle 1's
+      complete second grid (``lay = layout``; ``lay.grid_lines``,
+      ``lay.row_clues``, ``lay.column_clues``, ``lay.cell``, ``lay.grid_left``,
+      ``lay.margin``) measures **264 passed**. (Without the rebinding the
+      receiver cell does red it — 1 failed — so the receiver assertion is the
+      real backstop for the synonyms, and it is exactly the assertion the
+      declared escape walks around.) So "ALLOWED cannot drop one of them to stay
+      green" is true for 10 names and false for the 6 that matter most.
+      (c) AN UNDECLARED ESCAPE. ``getattr(layout, "grid_lines")`` is invisible to
+      both walks (they read ``ast.Attribute`` only). MEASURED with ALLOWED
+      UNCHANGED: a ``_second_grid_complete`` reading grid_lines, frame,
+      clue_font_size and clue_entries through ``getattr`` — cycle 1's exact
+      counterexample — measures **264 passed**. This tree declares the
+      getattr/string-concatenation limit explicitly where it matters
+      (``TestVectorVocabulary_…``'s docstring does); the AC-4 guard does not.
+  - id: F-3
+    status: closed
+    evidence: >-
+      The tone reader sees both spellings and the control reds. MEASURED: the
+      body-text call at book_guide_vector.py:1185 (``mark.text`` for every
+      wrapped block) at ``grey=0.5`` → 1 failed / 46 passed, the EC cell
+      ``test_no_stroke_width_tone_or_type_size_is_invented``, where cycle 1
+      measured 35/35 green; and the same at the second text site,
+      ``_write_block``'s call at :688 → the same single cell. I probed the
+      literal-stripping for the hole the brief asked about and found NONE, for a
+      reason worth naming: ``book_vector._escape`` escapes ``\``, ``(`` and
+      ``)``, so no literal can be unbalanced and the strip regex can never
+      swallow a real operator. ``tones('0 g BT … (0.5 g) Tj ET')`` returns
+      [(0.0, 'g')] (a tone-shaped string does not count) and
+      ``tones(r'0 g … (a \( b \) c) Tj ET' + '\n0.5 g')`` returns
+      [(0.0,'g'), (0.5,'g')] (an escaped paren does not hide a real tone). The
+      tone surface is complete: ``g`` and ``G`` are the only tone operators the
+      vocabulary emits (two sites, book_vector.py:745 and :750, plus the inline
+      one at :925) — there is no ``rg``/``k``, so a coloured page is not a route.
+      On the floor's shape, see N-6: "at least one tone per Tf" is the right
+      KIND of floor and it would have caught F-3's total blindness, but it is
+      slack by the standalone-tone count.
+  - id: F-4
+    status: partially-closed
+    evidence: >-
+      The binding rules are real and non-vacuous — the walk finds exactly one
+      ``ContentStream(...)`` construction in the package (guide_page, assignment,
+      ``stream``), 6 ``one stream`` parameters and 2 ``a collection of streams``
+      parameters, and unrecognised binding forms and annotation shapes are
+      reported rather than skipped. BOTH CLAUSES ARE LOAD-BEARING ON DIFFERENT
+      PLANTS, which is what the brief asked me to check, and the round's claim is
+      honest: I re-fired each clause separately on the test's own three plants
+      and attributed them — with the signature clause alone, ``fake.positional``
+      (Pillow's wholly-positional ``rectangle``) escapes; with the display clause
+      alone, ``fake.name`` (the bare-name vertex list) escapes; with neither,
+      nothing is reported, which is cycle 1's state. Deleting either clause reds
+      test_a_pillow_call_wearing_the_vector_name_is_caught. WHAT IS NOT CLOSED:
+      a THIRD spelling passes both clauses. MEASURED against the guard's own
+      helpers on fabricated sources — ``{"fake.positional_line":
+      "def _rogue(stream, rank):\n    points = [(i, i) for i in range(32)]\n
+      stream.line(points, 1, 3, None)\n"}`` — Pillow's
+      ``line(xy, fill, width, joint)`` written WHOLLY POSITIONALLY with a
+      bare-name 32-point vertex list: ``_unrecognised_draw_receivers`` returns
+      **[]**, and so do ``_draw_calls(…, VERTEX_BOUNDED_METHODS)``,
+      ``_draw_object_bindings``, ``_imagedraw_annotated_parameters`` and
+      ``_content_stream_bindings``. Same for ``stream.line(_disc(rank), 1, 3,
+      None)``. Four positional arguments bind
+      ``ContentStream.line(self, x1, y1, x2, y2)``'s arity exactly, and a bare
+      ``Name`` is not an ``ast.List``/``ast.Tuple``, so neither clause fires. The
+      round DECLARED this spelling and declared it harmless — "a Pillow call
+      written with four positional scalars … binds this signature. It is not a
+      spelling that draws anything round — ``a`` would have to be the coordinate
+      sequence, and a literal one is refused by
+      ``_passes_a_coordinate_display``" — which contradicts the round's own
+      finding three paragraphs earlier that the bare-name vertex list is how this
+      package writes its real ``draw.line`` calls. ``line`` is the method
+      FLAT_METHODS documents at length as a known hole, and a previous cycle
+      landed a complete second three-dot glyph through it. See N-3.
+  - id: F-5
+    status: not-closed
+    evidence: >-
+      The sentence was narrowed from "those numbers" to "**a COMP-007 number**",
+      and in that narrower form it is still false. MEASURED by walking the module
+      for every ``ast.BinOp`` whose operand subtree reads a guarded ``Layout``
+      name: exactly two functions do such arithmetic, and only one of them is a
+      translation. ``_Diagram.translation`` (book_guide_vector.py:1294) computes
+      ``y - (self.layout.grid_top - self.pad)``, which is the translation the
+      sentence means. ``diagram_box`` (:515-517) computes ``layout.grid_top -
+      pad``, ``layout.grid_right + pad + 1`` and ``layout.grid_bottom + pad + 1``
+      — a bleed outset producing the far corner of a crop box, which is not a
+      translation of anything, and it is the function the module's own prose
+      points at as "the crop". The added paragraph's own list of the module's
+      other arithmetic ("_pipeline_geometry's pad/icon/label/box/arrow,
+      legend_extent's strip, the title's fitting ladder, geometry.icon * 0.3, and
+      every leading … not a number from a ``Layout``") is accurate for every item
+      on it and omits ``diagram_box``, so the two paragraphs still disagree —
+      narrower than cycle 1 measured, and still a sentence a later card would
+      quote. Remedy is one word: "on a COMP-007 number is translation **and the
+      crop's bleed outset**", or drop the count.
+  - id: F-6
+    status: closed
+    evidence: >-
+      The EC class docstring now states R3's rule verbatim, says "two of those
+      three are what this test reads", names the coordinate as what it does not
+      reach, names the ``m``/``l``/``re``/``Td`` operands it does not read, and
+      routes coordinates to the three places that do hold them
+      (TestGuidePage_EveryDiagramStaysInsideItsOwnBox, ``fits_width``, the
+      owner's render comparison) with CARD-298 named for a standalone derived-
+      coordinate control. I checked each attribution: the box class does hold
+      line-diagram and now pipeline ink, and ``fits_width`` is what the fit
+      ladder consumes. No overreach left in the paragraph.
+  - id: F-7
+    status: closed
+    evidence: >-
+      ``test_every_face_in_the_corpus_holds_the_ten_point_floor`` runs 48
+      readings (24 trims x 2 pages) and passes clean. The zero-margin assertion
+      binds: I changed ``FOLIO_PT`` from 10.0 to 11.0 in book_pdf_generator.py —
+      the realistic next type change — and the cell reds with
+      ``AssertionError: 11.0`` / ``assert 11.0 == 10.0``; file restored by
+      ``git checkout``, sha256
+      d8b9ece88324101554caf25697e5acb152fb608c237f3c00dcd294d09607ded9. On the
+      brief's question about informativeness: it is adequate rather than good.
+      pytest prints the three-line explanatory comment immediately above the
+      assertion, which carries the CON-020 meaning, so a reader is not left
+      guessing WHY. But the chained ``min(smallest) == FOLIO_PT == FLOOR_PT``
+      conflates a measurement with a constant identity, and the rendered message
+      does not say which of the two clauses broke (``assert 11.0 == 10.0`` is
+      ambiguous between min-vs-FOLIO and FOLIO-vs-FLOOR). See N-6. AC-1's
+      min-trim cell is added and the round's G-6 reasoning for adding a cell
+      rather than parameterizing is correct — I verified the gate shape myself.
+  - id: F-8
+    status: closed
+    evidence: >-
+      ``test_the_pipeline_inks_nothing_outside_the_extent_it_declares`` binds:
+      changing ``pipeline_extent``'s return to ``geometry.width * 0.8`` reds it
+      on BOTH profiles (2 failed / 45 passed), and its non-vacuity floor
+      (>= 8 inked pixels) is in place. The legend's declaration is honest, which
+      I checked rather than took: ``draw_legend``'s whole body emits
+      ``stream.text`` only — no path or rectangle call — so an ink-to-extent
+      assertion there really would be vacuous, and CARD-229 is named as the card
+      that gives it a shape again.
+  - id: F-9
+    status: closed
+    evidence: >-
+      Informational confirmations; nothing to close. Two of its items I
+      re-derived in passing and both hold: the record-vs-stream control is still
+      a two-sided equality (my middle-dot plant reded it when the record and the
+      stream disagreed, at 2 failed / 200 passed), and the diagram-box clamp
+      control is unchanged by this round.
+
+findings:
+  - id: N-1
+    severity: major
+    title: >-
+      MAX_PATH_POINTS cannot close the polyline route — a triangle fan and an
+      ``re`` staircase each draw a disc with 264/264 green, and the bound has no
+      headroom to tighten
+    file: tests/test_book_guide_page_vector.py
+    line: 1073
+    gating: true
+    confidence: high
+    evidence: >-
+      This is F-1 reopened by the cheapest spelling, with the structural reason
+      the mechanism cannot work. A per-SUBPATH vertex bound asks "how many points
+      in one path?"; a polygon approximation of a disc does not need one long
+      path. MEASURED, both plants restored and sha256-verified: (1) 32 filled
+      triangles fanned from the centre, one subpath each of ``m``+2x``l``+``h``+
+      ``f`` = 3 points → three touched files **264 passed**, with
+      ``subpath_vertices`` reporting max = 3 on the page that carries the plant,
+      so ``max(points) <= 4`` passes and
+      ``test_the_longest_path_the_page_writes_is_the_arrow_head`` still reads
+      exactly 3; (2) 24 filled axis-aligned ``re`` bands whose half-widths come
+      from the circle equation → **264 passed**, because ``subpath_vertices``
+      counts only ``m``/``l``/``c`` and never sees an ``re``. The bound has ZERO
+      headroom: the page's own arrow head is 3 points and a triangle is 3 points,
+      so no value of MAX_PATH_POINTS admits the page and refuses a disc. The pair
+      of assertions is also internally redundant in the restrictive direction —
+      ``== ARROW_HEAD_POINTS`` (3) is strictly stronger than ``<= MAX_PATH_POINTS``
+      (4), so the named bound never binds. The same weakness is inherited by
+      ``MAX_FLAT_VERTICES = 4`` in the merged Pillow guard, whose own comment says
+      "the one real call has three (an arrow head)": a ``draw.polygon`` triangle
+      fan clears it too. That is pre-existing and out of this card's scope, but it
+      is the precedent the round cited as proof the mechanism works, so it is
+      worth recording that the precedent has the same hole.
+    remedy: >-
+      Route (a) is not available with this instrument; choose one of three and say
+      which. (i) Change what is counted: a ``paint`` operator that fills, plus a
+      count of CONSECUTIVE filled subpaths sharing a vertex, catches a fan — or
+      simpler, bound the number of filled subpaths a diagram writes at all (the
+      guide writes none today, so "no fill operator outside the vocabulary's own
+      rectangle route" is assertable and non-vacuous). (ii) Measure the ink, which
+      is CARD-241's instrument and is spelling-independent: render the page and
+      hold the inked region's shape, which is what the raster side already does.
+      (iii) Take route (b) after all — restate the tripwire as "no Bézier", carry
+      the polygon-approximation route as a NAMED LIMIT with CARD-298 as owner, and
+      delete the four sentences that assert a closure. (iii) is cheap and honest;
+      what must not survive another cycle is the sentence "there is no operator
+      left in this vocabulary that inks a round shape".
+    disposition: open
+
+  - id: N-2
+    severity: major
+    title: >-
+      AC-4's named escape is false in both clauses, six of sixteen guarded names
+      are held there by nothing, and ``getattr`` carries cycle 1's own
+      counterexample through undeclared
+    file: tests/test_book_guide_page_vector.py
+    line: 276
+    gating: true
+    confidence: high
+    evidence: >-
+      See previous_findings/F-2 for the three measurements in full. In short, all
+      three measured **264 passed**: a complete second RULED grid from
+      ``lay = layout`` plus ``rows``/``columns``/``width``/``height`` (the
+      docstring says the rebinding "gains only width and height" and that "no
+      grid can be drawn out of it" — both false); cycle 1's complete second grid
+      after moving ``grid_lines``/``row_clues``/``column_clues``/``cell``/
+      ``margin``/``grid_left`` into ALLOWED, which passes all 8 cells of the class
+      because nothing else pins those six (the raster-routine test and ROLES both
+      pin the SAME 10 of the 16); and cycle 1's complete second grid through
+      ``getattr(layout, "grid_lines")`` with ALLOWED untouched. The derivation is
+      a genuine improvement — a field added to ``Layout`` is guarded the day it
+      lands, which is true and was not true before — and the thick_rule replay
+      reds exactly the 4 cells claimed. The defect is the declaration, and it is
+      the same defect in the same shape as F-2 itself: a sentence asserting
+      closure that a one-line plant falsifies.
+    remedy: >-
+      Two cheap mechanisms and one honest sentence. (1) Pin the six unpinned names
+      with a second authority: ``nonogram.export.layout``'s own grid-producing
+      members are enumerable (anything whose name or annotation involves a rule, a
+      clue or a cell length), or simply assert that ALLOWED's ``"not ink"`` class
+      holds only names whose ``Layout`` annotation is ``int``/``str``/``bool`` and
+      not a sequence or a geometry type — ``grid_lines``, ``row_clues``,
+      ``column_clues`` and ``clue_entries`` are sequences and ``cell``/``margin``
+      are lengths, so that one predicate refuses all six. (2) Close the receiver
+      escape by deriving LAYOUT_SPELLINGS instead of writing it: every name bound
+      from a ``Layout``-annotated parameter or from a ``compute_layout``/
+      ``*_layout(...)`` call, which makes ``lay = layout`` a spelling the walk
+      knows. (3) Whatever is left — ``getattr`` at minimum — is a NAMED LIMIT with
+      an owner, written in the shape ``TestVectorVocabulary_…`` already uses for
+      its own four blind routes. Do not leave the current escape paragraph
+      standing: it is measurably wrong about which names it concedes.
+    disposition: open
+
+  - id: N-3
+    severity: major
+    title: >-
+      A Pillow call still wears the ``stream`` name through a third spelling, and
+      the round declared that spelling harmless on reasoning it had just
+      disproved
+    file: tests/test_book_difficulty_dots.py
+    line: 1107
+    gating: true
+    confidence: high
+    evidence: >-
+      See previous_findings/F-4. ``stream.line(points, 1, 3, None)`` with
+      ``points`` a bare name bound to a 32-point list — Pillow's
+      ``line(xy, fill, width, joint)`` written wholly positionally — is reported
+      by NOTHING: ``_unrecognised_draw_receivers`` → [], ``_draw_calls(…,
+      VERTEX_BOUNDED_METHODS)`` → [], ``_draw_object_bindings`` → [],
+      ``_imagedraw_annotated_parameters`` → [], ``_content_stream_bindings`` → [].
+      Four positional arguments bind ``ContentStream.line``'s arity exactly and a
+      bare ``Name`` is not a coordinate display, so both clauses pass. The same
+      holds for a call-expression argument (``stream.line(_disc(rank), 1, 3,
+      None)``). ``_binds_the_vector_surface``'s docstring states this spelling as
+      a limit and dismisses it — "It is not a spelling that draws anything round —
+      ``a`` would have to be the coordinate sequence, and a literal one is refused
+      by ``_passes_a_coordinate_display``" — three paragraphs after establishing
+      that the NON-literal coordinate sequence is this package's own idiom
+      (book_pdf_generator.py:1429). Mitigating, and the reason this is the
+      narrowest of the three gating findings: the package writes its real
+      ``draw.line`` calls with KEYWORDS, so the live spelling is one nobody here
+      uses, and the keyword spelling is genuinely closed. The defect is a guard
+      with a measured bypass and a false declaration of it, on the one method
+      FLAT_METHODS documents as the route a previous cycle landed a second
+      three-dot glyph through.
+    remedy: >-
+      One clause closes it: refuse the vector excuse when any positional argument
+      of the excused call is a ``Name`` (or call) that the enclosing function binds
+      to a list, tuple or comprehension — the walk already has the enclosing
+      function. Or, narrower and simpler, require the excused call's first
+      positional argument to be a scalar-shaped expression: a numeric
+      ``ast.Constant``, a string ``ast.Constant`` (``text``), an attribute, a
+      subscript or a ``BinOp`` over those — which is every call this package
+      really writes and none of Pillow's. Add the plant to
+      ``test_a_pillow_call_wearing_the_vector_name_is_caught`` as a fourth entry
+      so the route cannot reopen. If neither is taken, the limit must be stated as
+      what it is rather than dismissed.
+    disposition: open
+
+  - id: N-4
+    severity: minor
+    title: >-
+      Route 3's attribution is wrong — ``ROUND_DINGBATS`` does not hold the one
+      round glyph a WinAnsi content stream can carry, and the glyph it does hold
+      is barred by the encoder, not by the dingbat rule
+    file: tests/test_book_guide_page_vector.py
+    line: 1030
+    gating: false
+    confidence: high
+    evidence: >-
+      The brief asked me to verify the ROUND_DINGBATS claim rather than accept it.
+      The COVERAGE half is true: ``_package_sources`` is
+      ``_PACKAGE_DIR.rglob("*.py")``, so book_guide_vector.py is walked the moment
+      it lands, exactly as claimed. The SET is the problem. ROUND_DINGBATS is
+      U+25A0..U+25FF plus U+2022 and U+2219. MEASURED, three plants, each
+      restored: (1) ``●`` (U+25CF) in a ``stream.text`` call → 31 failed, but NOT
+      via the dingbat rule — ``book_vector._escape`` runs ``encode_text`` and
+      U+25CF is outside TEXT_ENCODING, so the plant raises and the suite falls
+      over. The real protection for that codepoint in this medium is the encoder,
+      which is stronger than the rule and is not what the docstring credits.
+      (2) ``·`` (U+00B7 MIDDLE DOT) → 2 failed, both
+      ``test_the_writers_record_is_exactly_what_the_stream_shows``; the dingbat
+      rule stayed GREEN, because U+00B7 is not in ROUND_DINGBATS — and U+00B7 is
+      precisely the glyph ``ContentStream.render``'s own docstring names as the
+      one a stream carries ("``·`` inside ``(…) Tj`` has to reach the file as the
+      single byte 0xB7"). (3) the same with ``°`` (U+00B0) → identical. (4) the
+      HONEST version — middle-dot tier glyphs recorded in ``DrawnFace`` so the
+      record matches the stream — → 1 failed, and the cell that catches it is
+      ``test_the_legend_sets_the_three_tier_names_and_nothing_else``, a sibling in
+      the same class, not the dingbat rule. So the effect holds for this page and
+      the attribution does not: route 3 is closed on the LEGEND by a
+      "nothing-else" equality, and the package-wide dingbat rule the docstring
+      points at has a hole at exactly the two codepoints this medium can print.
+    remedy: >-
+      Two sentences and, if CARD-229 is going to want it, one set. Credit the
+      cell that actually catches it (``test_the_legend_sets_the_three_tier_names
+      _and_nothing_else`` for this page) and note that ``TEXT_ENCODING`` bars the
+      Geometric-Shapes codepoints in this medium outright. Then either add
+      U+00B7 and U+00B0 to ROUND_DINGBATS — they are one-line additions and the
+      exemption test will tell you immediately whether anything carries them — or
+      record them as the dingbat rule's named hole in the WinAnsi media.
+    disposition: open
+
+  - id: N-5
+    severity: info
+    title: >-
+      Tautology sweep of the 13 added cells and the two new helpers — no
+      "cannot fail" assertion found, one redundant restatement, two floors worth
+      knowing the slack of
+    file: tests/test_book_guide_page_vector.py
+    line: 1
+    gating: false
+    confidence: high
+    evidence: >-
+      The brief asked for this specifically. I read every added assertion for the
+      shape the round self-caught (``surface = GRID_ATTRIBUTES | ALLOWED``). NONE
+      of the 13 new cells carries one. Near misses, each checked and cleared:
+      (1) ``test_every_name_the_raster_grid_routines_read_is_guarded`` builds the
+      same ``universe = GRID_ATTRIBUTES | frozenset(ALLOWED)`` expression, but
+      uses it as a FILTER and asserts ``read - GRID_ATTRIBUTES == {"width"}``,
+      which the thick_rule mutant reds — not a tautology, though it only pins the
+      10 names those three raster routines read (N-2b). (2)
+      ``test_every_allowed_name_is_a_layout_name_with_a_live_reason`` deliberately
+      recomputes the surface from ``dataclasses.fields(Layout)`` rather than from
+      the union, with a comment saying why — the self-catch, done right. (3)
+      ``test_a_layout_is_never_read_for_a_name_the_guard_lets_through`` carries two
+      non-vacuity assertions (a read exists; every LAYOUT_SPELLINGS entry is
+      written) before the discriminating one, and the discriminating clause is
+      load-bearing under the thick_rule mutant. ONE REDUNDANT RESTATEMENT: the last
+      line of ``test_a_content_stream_bound_to_another_name_is_caught`` asserts
+      ``{names in DRAW_BINDING_FORMS} != {VECTOR_RECEIVER_NAME}`` downstream of an
+      equality that has already pinned those names to ``{"sheet", "canvas"}``, so
+      it cannot fail given the line above it. Harmless, not the family — but it
+      reads as a second check and is not one. TWO FLOORS AND THEIR SLACK, measured
+      so the next card knows: (a) the EC test's ``len(tones) >= len(type_sizes) >
+      0`` would have caught F-3's TOTAL blindness (standalone tones are 18/32/6/4
+      against 25/41/16/13 ``Tf`` operands, so a reader that read only standalone
+      tones fails it on three of the four pages) but it is slack by that standalone
+      count, so a FUTURE text helper that emits ``Tf`` without a tone can be masked
+      — a per-text-object pairing (one inline tone per ``BT``) would be exact and
+      is one regex away. (b) ``assert len(receivers) >= 6`` in the content-stream
+      parameter rule sits exactly on today's value (6), so it is an equality in
+      disguise; declared as a floor, which is fair.
+    remedy: none
+    disposition: closed
+
+  - id: N-6
+    severity: info
+    title: >-
+      F-7's zero-margin assertion conflates a measurement with a constant
+      identity, so its one-line message is ambiguous about which clause broke
+    file: tests/test_book_guide_page_vector.py
+    line: 1316
+    gating: false
+    confidence: high
+    evidence: >-
+      ``assert min(smallest) == FOLIO_PT == FLOOR_PT, min(smallest)`` asserts two
+      different facts: a measurement over the 24-trim corpus (the smallest face is
+      the folio) and an identity between two constants in two different files
+      (``book_pdf_generator.FOLIO_PT`` and this file's ``FLOOR_PT``). MEASURED
+      with FOLIO_PT changed 10.0 → 11.0: the message is ``AssertionError: 11.0``
+      followed by ``assert 11.0 == 10.0``, which does not say whether the
+      measurement moved or the constants diverged. It is adequate rather than
+      cryptic in practice, because pytest prints the three-line comment above the
+      assertion and that comment carries the CON-020 meaning — which is a good
+      reason to keep explanatory comments immediately above an assertion rather
+      than in the docstring. Note also that this cell reds on a type change in
+      EITHER direction, including one that RAISES the folio and so does not breach
+      CON-020; that is the right behaviour for a zero-margin tripwire, but the
+      docstring's "the next change to this page's type breaks the constraint on
+      some trim in this sweep" is only true downward.
+    remedy: >-
+      Split it: ``assert min(smallest) == FOLIO_PT, (min(smallest), FOLIO_PT)``
+      (the measurement) and ``assert FOLIO_PT == FLOOR_PT, "CON-020's floor and
+      the folio's size have diverged — the zero margin is gone"`` (the identity,
+      with the sentence in the message where a failing reader will see it).
+    disposition: open
+
+what_i_did_not_verify:
+  - >-
+    The full suite. Forbidden by the brief and never run; NONOGRAM_FULL_SUITE_LOCK
+    was exported on every invocation and every run printed the redirection notice.
+    I ran the three touched test files (264 passed, matching the round's figure)
+    and a seven-file blast radius (test_collected_names, test_suite_profile,
+    test_book_interior_type_floor, test_book_page_frame, test_book_pdf,
+    test_export_pdf, test_cli) = 715 passed, also matching. Files outside those ten
+    are unmeasured by me.
+  - >-
+    The renders. I did not look at ~/Documents/nonogram-reviews/CARD-296/. The
+    round adds no production code — which I proved mechanically rather than took
+    on trust: ``ast.unparse`` of both changed src modules at ef487a9a and at
+    cf0db002 is IDENTICAL once every docstring is blanked, so the 49 added src
+    lines really are prose and no render can have changed.
+  - >-
+    The orchestrator's own 32-gon measurement (the single-subpath disc now reding
+    3 cells). Taken as given per the brief; I did not re-plant it. My F-1 plants
+    are different shapes chosen to get AROUND that closure, not to re-derive it.
+  - >-
+    The remaining mutants the round reports. Under the 2026-10-25 refire policy I
+    re-fired every gating finding's mechanism plus a sample of the minors: the
+    thick_rule-into-ALLOWED replay (4 cells, named), the receiver clause in
+    isolation, grey=0.5 at TWO text sites, both F-4 clauses separately WITH each
+    plant attributed to its clause, ``pipeline_extent`` under-declaration (2
+    cells), FOLIO_PT 10→11, the record-vs-stream equality via a glyph plant, and
+    seven plants of my own. I did NOT re-fire: the grid loop appended inside
+    ``guide_page``, ``layout.width`` read in ``diagram_box``,
+    ``canvas = ContentStream(...)`` in production, or the
+    ``surface: ContentStream`` annotation mutant.
+  - >-
+    The port's string-for-string fidelity against ``create_guide_page``. Unchanged
+    by this round and unmeasured by me, as in cycle 1.
+  - >-
+    Whether CARD-229 will take the triangle-fan route. N-1 measures that the route
+    exists, that it needs exactly the point count the page already needs, and that
+    every alarm stays green on it; it does not predict what CARD-229 will write.
+  - >-
+    poppler-independent rasterisation or roundness reading. pdftotext is installed
+    (no skips in the 264), so AC-5's extraction really ran, but I did not
+    rasterise the guide.
+
+corrections_to_the_brief:
+  - >-
+    I agree with all three items the orchestrator pre-verified and independently
+    confirmed two of them: the src diff really is docstring-only (AST identical
+    with docstrings blanked, both modules) and G-6 really holds (AST node-id set
+    difference over all four changed test files: NOTHING removed or renamed, 13
+    cells added; 248 → 264 reconciles as 13 cells of which 3 are parameterized
+    over two profiles). I did not re-derive the 32-gon figure, as instructed.
+  - >-
+    Brief item 1 (did the F-1 closure create a new blind spot?): YES, and not at
+    the margin. Both of the brief's own hypotheses are confirmed by measurement —
+    a round shape CAN be built as several <=4-point subpaths (32 three-point
+    triangles, 264 green) and it CAN be built by a route that writes no counted
+    path at all (24 filled ``re`` bands, 264 green). The sharper finding is the
+    one the brief did not ask: the bound has ZERO headroom, because the arrow
+    head needs 3 points and a triangle needs 3, so a per-subpath vertex bound can
+    never separate this page from a disc. Route (a) was not available. On the
+    ROUND_DINGBATS claim the brief told me to verify rather than accept: the walk
+    DOES cover this module (true), but the set does not hold U+00B7 or U+00B0 —
+    the only round glyphs this medium's encoding can print — and the Geometric-
+    Shapes codepoint it does hold is barred by ``TEXT_ENCODING``, not by the rule.
+    Route 3 is nonetheless closed on this page, by a sibling cell the docstring
+    does not credit (N-4).
+  - >-
+    Brief item 2 (F-2's derived set): the derivation is a real improvement and its
+    claimed control fires on exactly the 4 cells named. The declaration beside it
+    is NOT honest: the rebinding escape gains all eleven ALLOWED names rather than
+    two, and a complete second ruled grid IS drawable from ``rows``/``columns``/
+    ``width``/``height`` (measured, 264 green). Two escapes the round did not
+    declare are worse: six of the sixteen guarded names — including all four
+    synonyms cycle 1 drove a grid through — are held in the set by nothing but the
+    hand-written allow-list, and ``getattr`` carries cycle 1's exact
+    counterexample through with ALLOWED untouched.
+  - >-
+    Brief item 3 (F-3's tone reader): the literal-stripping creates NO hole, and
+    it is sound for a reason worth writing into the helper: ``_escape`` escapes
+    ``\``, ``(`` and ``)``, so no literal can be unbalanced and no strip can
+    swallow a real operator — which means the reader has a live dependency on the
+    escaper and should say so. ``g``/``G`` is the whole tone surface (no ``rg``,
+    no ``k`` in the vocabulary), so the reader is complete. The floor is the right
+    KIND of floor and would have caught the blindness it was written for; its
+    slack is the standalone-tone count, measured in N-5.
+  - >-
+    Brief item 4 (F-4's signature binding): both clauses ARE load-bearing on
+    DIFFERENT plants and the round's claim is honest — I attributed each plant to
+    its clause rather than only deleting clauses. And yes, a Pillow call can still
+    wear the ``stream`` name through a third spelling: all-positional with a
+    bare-name vertex list, measured blind to all five mechanisms. The brief was
+    right to ask; the round's own named limit for that spelling is false.
+  - >-
+    Brief item 5 (F-7's zero-margin cell): sound, and it reds on the realistic
+    next type change (measured). The assertion is stated adequately rather than
+    well — the chained equality conflates a measurement with a constant identity
+    and the rendered message is ambiguous between them; what saves it is the
+    explanatory comment sitting directly above the assertion, where pytest prints
+    it. N-6 splits it in two lines.
+  - >-
+    On the tautology sweep the brief asked for: no new assertion of the "cannot
+    fail" shape exists in the 13 added cells. The round's self-catch was real and
+    the near miss it might have repeated
+    (``universe = GRID_ATTRIBUTES | ALLOWED``) is used as a filter rather than as
+    the asserted surface. One redundant restatement and two floors sitting on
+    today's values are recorded in N-5; none of them is the family.
+  - >-
+    One thing worth carrying forward about the round itself, since the counter is
+    at 3 of 6: the MECHANISMS this round built are good — a derived attribute set,
+    a class-signature binding, a shared tone reader three page cards will inherit,
+    a vertex counter in the right place. Every one of the four gating closures
+    improved the instrument. Three of the four then wrote a sentence asserting more
+    than the instrument delivers, and that is now the only thing between this card
+    and certification. The cheapest path through cycle 3 is not more mechanism: it
+    is N-1's route (iii), N-2's one predicate plus an honest escape paragraph, and
+    N-3's one clause.

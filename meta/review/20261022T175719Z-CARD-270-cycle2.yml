@@ -1,0 +1,287 @@
+version: 1
+card: CARD-270
+cycle: '2'
+station: forge:review
+generated_at: "2026-10-22T17:57:19Z"
+target: "branch card/270-fifth-rule-divisions vs main (implementation 4f41bbb4 + fix fc035f7d, both committed; only meta/kanban/cards/CARD-270.md uncommitted)"
+overall_score: 9.7
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+min_score: '8'
+verdict: PASSES
+one_line: >-
+  All four cycle-1 findings are resolved and the gating one is resolved
+  exactly as claimed: re-run with the committed instrument, REACHES-BLANK and
+  BROADEN-UNKNOWN now red the blank-board arm at :729 in BOTH passes (before:
+  PASS in both), the new premise assert :714 is killed by BOARD-NOT-BLANK and
+  nothing else, and PHONE-NO-HAIRLINE leaves the four desktop band cases green
+  while redding the four phone ones at :433/:473 — every committed kill figure
+  reproduced cell for cell, denominators included (50 ast.Assert nodes, 29/19
+  reached, 3/2 FAIL). The stylesheet is untouched since cycle 1 (sha256
+  8e77bdeb… re-derived twice this cycle, before and after the mutants). Two new
+  Minors, both narrative-grade; no Critical, no Important, so the card passes
+  on the cycle that also ran the deferred certification.
+
+filename_note: >-
+  this report's timestamp (17:57:19Z, from date -u) sorts lexically BEFORE the
+  cycle-1 report's 20261022T190000Z, which appears to carry a local-time-shaped
+  stamp; the -CARD-270-cycleN suffix is authoritative for ordering here.
+
+test_discipline:
+  full_suite_run: 'false'
+  lock_override: >-
+    NONOGRAM_FULL_SUITE_LOCK=/tmp/card270-review2.lock exported on every pytest
+    and kill_matrix invocation; pytest echoed the override line each time,
+    naming /tmp/card270-review2.lock and not the board's lock, which this cycle
+    never read, wrote or created.
+  durations_reported: 'false'
+  interpreter: >-
+    /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python as
+    interpreter only, with PYTHONPATH=<worktree>/src:<worktree> so every run
+    resolved the WORKTREE's package and test tree. nonogram_poc and migrations/
+    never touched.
+  selections: >-
+    narrow throughout — one test file, one class, one test, or one 4-case
+    parametrized selection per run; no full-suite and no impact-set run.
+  helper_scripts:
+    - /private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/d14443a2-9b12-4dac-94c7-9d4003092910/scratchpad/card270_review2_mutants.py
+  nothing_committed: 'true'
+  restoration:
+    targets:
+      - src/nonogram/admin/static/admin.css
+      - src/nonogram/admin/static/solver_state.js
+    sha256_admin_css_before_and_after: 8e77bdeb02182cb38faa49b462ec636378044fb1e168b81c67dd72b772759ca6
+    sha256_solver_state_js_before_and_after: 1d2d25eec186e1a73e5303df5e3638c9d3658a511aa8dd0ececf2478a7b8d975
+    git_status_match: 'true — identical to the pre-review snapshot (card file modified, cycle-1 report untracked, nothing else)'
+    note: kill_matrix owns backup/restore; hashes taken by hand before the first mutant and after the last.
+
+previous_findings:
+  F-001:
+    was: "Important — blank-board arm :622 vacuous (_SHADOW_OFF scoped to [data-state=\"filled\"])"
+    verdict: RESOLVED, CONFIRMED-by-execution
+    evidence: >-
+      _SHADOW_OFF widened to '.player-cell' (tests/test_puzzle_solver_fifth_rule.py:180-186),
+      docstring (:665-678) and ADDED_SINCE_BEFORE reason (test_browser_fixture_scope.py:1011-1021)
+      trued. Re-measured with the committed instrument, AC-3 class (5 collected
+      tests, 50 ast.Assert nodes): RECORDING — REACHES-BLANK exit 0, 29 reached,
+      3 FAIL (:729, :748, :803); BROADEN-UNKNOWN identical. RERAISING — both
+      mutants exit 1, 19 reached, 2 FAIL (:729, :803), :748 NOT-REACHED behind
+      :729's short-circuit. The arm whose message names the direction now fails
+      in it, in both passes — the fix round's committed figures reproduce
+      exactly. The premise assert :714 is live: BOARD-NOT-BLANK
+      (solver_state.js .fill(UNKNOWN) -> .fill("maybe")) run on the blank arm
+      alone — exit 0, 12 reached, FAIL :714 ONLY, which is precisely the claim
+      ("nothing except the premise assert notices"). The widening is safe for
+      the other three _SHADOW_OFF callers: each goes through _open_filled,
+      whose _FILL_ALL marks every cell filled (see F-005 for a figure nit in
+      the card note's wording of this).
+  F-002:
+    was: "Minor — band figures desktop-only despite the card's named 14 px cell"
+    verdict: RESOLVED, CONFIRMED-by-execution
+    evidence: >-
+      both band tests parametrized on _VIEWPORTS (17 tests collected, all
+      green on SHIPPED this cycle). Non-redundancy re-measured: PHONE-NO-HAIRLINE
+      (suppression added inside admin.css:633's @media block), two disjoint
+      selections — 4 desktop cases exit 0, 0 FAIL; 4 phone cases exit 1, FAIL
+      :433 and :473. A phone-only regression is caught only by the new cases,
+      as claimed. Registry keys renamed [desktop-x]/[desktop-y] and four phone
+      entries added, each attributed.
+  F-003:
+    was: "Minor — derived count subsumed by the set equality beside it"
+    verdict: RESOLVED
+    evidence: >-
+      the count assert is gone; the second door (test_browser_fixture_scope.py:1582-1594)
+      reduces the node-id registries (BEFORE_ARTEFACT ∪ ADDED_SINCE_BEFORE ∪
+      RENAMED_SINCE_BEFORE targets) to file names and compares to disk — a
+      genuinely different data structure from PAGE_ISOLATION, and it reds on
+      the state the count never saw (a PAGE_ISOLATION entry with no test
+      registration). Guard classes re-run green this cycle (13 passed,
+      including the new fifth-rule ALONE_PROBES child run).
+  F-004:
+    was: "Minor — guide strip shows the same ink-on-ink class, out of scope"
+    verdict: RESOLVED as deferred-with-card
+    evidence: >-
+      CARD-275 exists in the main repo (meta/kanban/cards/CARD-275.md, status
+      ready), names F-004 as its source and the guide strips by template line.
+
+mutation_check:
+  instrument: tests/kill_matrix.py (committed; no second instrument written)
+  target: tests/test_puzzle_solver_fifth_rule.py
+  denominator: '50 ast.Assert nodes (collected tests per run: 5 / 5 / 1 / 4 / 4)'
+  child_instrumentation: 'off'
+  mutants_run: 4
+  matrix_runs: 5
+  domains: >-
+    every figure below is from the named pass with pytest exit code and
+    reached-count printed by the instrument itself; the recording pass's exit
+    code was never read as a kill signal; SHIPPED re-run clean between mutants
+    by the instrument's own _refuse_unless_clean.
+  results:
+    - 'REACHES-BLANK (admin.css:529 gains the hairline): RECORDING exit 0, 29 reached, FAIL :729 :748 :803, :714 PASS; RERAISING exit 1, 19 reached, FAIL :729 :803, :748 NOT-REACHED — reproduces the fix round cell for cell'
+    - 'BROADEN-UNKNOWN (second rule on admin.css:589 for [data-state="unknown"]): RECORDING exit 0, 29 reached, FAIL :729 :748 :803; RERAISING exit 1, 19 reached, FAIL :729 :803'
+    - 'BOARD-NOT-BLANK (solver_state.js:53 .fill(UNKNOWN) -> .fill("maybe")), blank arm alone: RECORDING exit 0, 12 reached, FAIL :714 only'
+    - 'PHONE-NO-HAIRLINE (suppression inside admin.css:633 @media): desktop 4 cases RECORDING exit 0, 17 reached, 0 FAIL (non-no-op proven by its phone run); phone 4 cases RECORDING exit 1, 15 reached, FAIL :433 :473'
+  no_op_discipline: >-
+    no mutant is reported as a survivor; PHONE-NO-HAIRLINE's desktop 0-FAIL is
+    a claimed and confirmed DIRECTION (desktop cases must stay green), proven
+    non-no-op by the same mutant's phone-run kills.
+  recomputed_committed_figures: >-
+    sha256 of admin.css and solver_state.js (both match the card's committed
+    hashes), the 50-node denominator, 5-collected AC-3 selection, 29/3 and
+    19/2 recording/reraising figures, the :714-only BOARD-NOT-BLANK kill, and
+    the PHONE-NO-HAIRLINE desktop-green/phone-red split — all re-derived by
+    this cycle's own runs, none copied.
+
+shipped_runs:
+  - 'tests/test_puzzle_solver_fifth_rule.py — 17 passed'
+  - 'token + reduced-motion selection (test_the_filled_cell_division_comes_from_tokens, test_the_stylesheet_uses_tokens_not_literals, TestSolverHint_ReducedMotion) — 4 passed'
+  - 'TestBrowserFixtures_NoTestAddedOrRemoved + TestBrowserFixtures_EveryTestPassesAlone — 13 passed (includes the fifth-rule ALONE_PROBES child pytest)'
+
+coverage:
+  read:
+    - tests/test_puzzle_solver_fifth_rule.py (whole file)
+    - tests/test_browser_fixture_scope.py (fix delta + registries, guards, ALONE_PROBES, record-reaches)
+    - tests/test_puzzle_solver_page.py (PAGE_ISOLATION delta)
+    - tests/test_admin_design_tokens.py (new token test)
+    - src/nonogram/admin/static/admin.css (changed rule + mutant sites :529/:589/:633/:841)
+    - tests/kill_matrix.py (API + refusals) and tests/README.md:453-540
+    - meta/review/20261022T190000Z-CARD-270-cycle1.yml, meta/kanban/cards/CARD-270.md, CARD-275.md (main repo)
+  not_reached:
+    - src/nonogram/admin/static/solver.js (unchanged; covered structurally via diff absence)
+    - the G-4 render PNGs (~/Documents/nonogram-reviews/CARD-270/ — owner's eyeball, not re-opened)
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 1176, removed: 6 }
+  max_fan_in:
+    symbol: '.player-cell (selector)'
+    callers: 3
+    note: 'admin.css, solver.js, templates/puzzle_solve.html — the solve page only; puzzle_edit.js uses neither .player-cell nor data-state'
+  tests_cover_change: true
+  hotspots:
+    - 'src/nonogram/admin/static/admin.css (51 commits / 12m, 17 fix-shaped)'
+  cochange_missing: []
+  cochange_note: >-
+    admin.css's top co-change peers absent from this diff — solver.js (22),
+    puzzle_solve.html (17), app.py (16), solver_state.js (12) — are absent BY
+    DESIGN: G-3 forbids JS/state edits and the card declares no template
+    change; their absence is the guardrail holding, not a missing change.
+  unmeasured: {}
+
+system_contract:
+  rules_checked: 3
+  holds: 3
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — one hand-written CSS declaration, values var(--player-rule)/var(--player-thin) only; no framework, no build step; pyproject.toml absent from the diff; test_the_filled_cell_division_comes_from_tokens and test_the_stylesheet_uses_tokens_not_literals re-run green this cycle"
+    - "ADR-0038/R4 ✓ holds — solver.js and solver_state.js absent from git diff --name-only main...HEAD; the fix commit fc035f7d is test-code only; box-shadow is paint-only, re-verified by test_the_hairline_takes_no_part_in_layout green at both viewports and MOVES-LAYOUT's cycle-1 kill unrevisited (stylesheet unchanged since, sha256 re-derived)"
+    - "CON-021 ✓ holds — the change is confined to the admin player's stylesheet and its tests; .player-cell occurs only in admin.css, solver.js and templates/puzzle_solve.html (measured), nothing under src/nonogram/export/ changed, no new interactive surface"
+
+acceptance_criteria:
+  AC-1: 'MET — mechanism arm + band figures on both axes at BOTH viewports now; cycle-1 caveat (F-002) closed and the closure kill-tested (PHONE-NO-HAIRLINE)'
+  AC-2: 'MET — 80-edge ring sweep at both viewports with live in-test control; gutter-flushness guard green; re-run green this cycle'
+  AC-3: 'MET — cycle-1 caveat (F-001) closed: the blank-board arm reds in the direction its message names, under two independent mutants, in both passes; premise assert live (BOARD-NOT-BLANK)'
+  AC-4: 'MET — token predicate reds in both directions (cycle 1), re-run green; TestSolverHint_ReducedMotion unedited, green; tokens.css untouched'
+
+guardrails:
+  G-1: 'HOLDS — diff names nothing under src/nonogram/export/ or the book/print pipeline; CON-019 tripwires unedited (absent from diff)'
+  G-2: 'HOLDS — tokens only, hand-written; token tests green this cycle'
+  G-3: 'SATISFIES (cycle-1 ruling re-examined: the fix delta adds only registry entries/reasons and guard reshape in test_browser_fixture_scope.py — not a player test file — plus edits to the card''s own new file; no existing player-test assertion changed, so the picture the ruling judged is unchanged)'
+  G-4: 'EVIDENCE PRODUCED — 16 render PNGs on disk; the owner''s pick between the hairline and the louder-fifth-rule alternative remains the board''s standing render-verification step, outside this review''s gate'
+
+root_causes: []
+
+findings:
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-270.md
+    line: 240
+    title: "Card note cites an assert _open_filled does not contain"
+    description: |
+      The fix-cycle note says the _SHADOW_OFF widening was "checked on its
+      other three callers ... all three go through _open_filled, which marks
+      every cell filled and asserts count == 400". _open_filled
+      (tests/test_puzzle_solver_fifth_rule.py:207-217) marks every cell filled
+      via _FILL_ALL and asserts the board is not solved — it asserts no 400
+      count. The 400-count asserts live in test bodies (:391 counts filled
+      cells but is not a _SHADOW_OFF caller; :636 counts td.player-cell, not
+      the filled state). The safety argument itself holds — _FILL_ALL
+      mechanically marks all 400, and the code's own _SHADOW_OFF docstring
+      says "mark", which is accurate — but on a board that treats committed
+      figures as claims to re-derive, a cited assert that does not exist at
+      the cited place is the family the board gates on, one layer down.
+    suggestion: |
+      Correct the card note ("marks every cell filled via _FILL_ALL; the
+      solved-state assert is the only assert in _open_filled"), or add the
+      filled-count premise assert to _open_filled so the note becomes true.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_solver_fifth_rule.py
+    line: 729
+    title: "Byte-identity arm sits one rendering-noise event from a loud flake"
+    description: |
+      :729 asserts shipped.tobytes() == without.tobytes() on the blank board,
+      while this same file's _differing docstring records that two renderings
+      of the SAME computed style were measured to differ by +-1 per channel on
+      32 pixels (under REACHES-BLANK, where shadows are painted). If that
+      noise ever occurs on the no-shadow blank board, :729 flakes red. The
+      evidence says it does not today: the arm has been byte-stable across the
+      implementation round, cycle 1, the fix round, and this cycle's repeated
+      SHIPPED re-runs between mutants — and the measured noise domain (shadow
+      rasterisation) is absent from the shipped blank board. Failure direction
+      is red/loud, never silently green. Low confidence, non-gating; recorded
+      so a future flake here is diagnosed in one step rather than chased.
+    suggestion: |
+      If :729 ever flakes, switch that arm to `_differing(shipped, without)
+      == 0` with a comment citing this finding — same claim, tolerance-aware —
+      rather than rerunning until green.
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope:
+  - >-
+    [carried-forward observation] test_puzzle_solver_zoom.py order/timing
+    flake (two drag tests marked 225 cells instead of 5 once, unreproducible,
+    file untouched by this card) — recorded in the card's fix-cycle notes; if
+    it recurs on another card, it deserves its own card rather than a re-run.
+  - >-
+    [design, owner's lever] between two filled cells a major rule now reads as
+    a 4 px band with a 2 px ink core rather than by contrast; the card's
+    alternative (a filled-cell ink one step off the rule ink) remains the
+    lever if the owner wants the fifth lines louder inside black regions —
+    G-4's render pick is where that call lands.
+
+score_arithmetic:
+  base: '10.0'
+  deductions:
+    - amount: '-0.2'
+      for: 'F-005 Minor — a committed-note figure (an assert cited where none exists) on a board whose culture is figures-are-claims'
+    - amount: '-0.1'
+      for: 'F-006 Minor (low confidence) — byte-identity arm flake exposure, documented failure direction is loud'
+  total: '9.7'
+  gate: 'score >= 8 AND zero Critical AND zero Important AND mutation check run on the passing cycle'
+  gate_result: >-
+    score 9.7, zero Critical, zero Important, and the cost-deferred mutation
+    certification ran THIS cycle (4 mutants, 5 matrix runs, everything
+    restored and re-hashed) — the card PASSES cycle 2.

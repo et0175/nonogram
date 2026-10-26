@@ -1,0 +1,627 @@
+card: CARD-283
+cycle: 3
+reviewer: forge:review (Claude Opus 5, adversarial reviewer — certification cycle)
+date: 2026-10-26T07:52:51Z
+revision_reviewed: 6d51f8c5
+fork_point: 423c09f3
+branch: card/283-public-player-page
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-283
+score: 7
+certified: false
+min_score: 8
+verdict: >-
+  All seven cycle-2 findings are closed, and this is the first round of the
+  card that closed one by building the control against a shape its own fix was
+  NOT written for — the pen. I re-fired every one on my own mutants: all four
+  off-by-one ends of isClueSolved now die, each on exactly the case the card's
+  table names (N-1); `const paints = true` dies on the new pen/touch test and
+  nothing else (N-2); the tier narrowing is recorded, printed and controlled
+  three ways (N-4); `check_out_dir(repo_root, force=True)` now raises and
+  moving the check back behind `force` reds (N-5); the REPO_ROOT assertion
+  goes through `check_out_dir` alone, four spellings x both force values, and
+  `assemble(None, REPO_ROOT)` is gone from the file (N-6); and N-7's
+  expected-reason pairing is not decoration — deleting the fit check makes
+  `clues-too-long` fall through to the agreement rule and the fragment
+  assertion catches it by name, which is the exact masking that twice needed a
+  mutation round to find. The declared residual is stated correctly and I
+  re-derived it: `--capacity` prints 2.00 bits, the card carries the 2N-across
+  -a-library scale and the EC-048-is-unsatisfiable-by-any-ADR-0041
+  -implementation conclusion, and routes it to cycle-1 F-12 in
+  requirements.yml rather than patching it here.
+  It is not certified, for two measured holes of the same family the brief
+  told me to hunt — and I found both by constructing my own shapes, which is
+  the test the round asked to be judged on and half-passed. (1) `sameNumbers`'s
+  `a.length === b.length` conjunct has NO control: dropping it makes
+  `isClueSolved` announce a board that is one cell SHORT solved, and reversing
+  the comparison direction makes it announce a board one cell OVER solved —
+  both leave all 33 green, and I measured both in the browser on a 4x4 and a
+  3x3 board. That is AC-384's own sentence ("given one wrong cell, it does
+  not"), one conjunct to the left of the four loop bounds the round closed
+  (M-1). (2) EC-050's walk carries the WEAK request assertion. Three
+  same-origin GET exfils of the whole board planted in play.js's reset
+  handler — a renamed `fetch` binding, `new Image().src`, and a dynamic
+  `import()` — each survive all 33, because
+  `test_no_write_request_for_any_interaction` holds requests only to GET and
+  to the origin, while its sibling `test_resume_is_local_and_the_page_writes
+  _nowhere` already holds every request's PATH to the served file set. The
+  identical plant moved into `commit()`, which the sibling reaches, dies. So
+  the strong assertion exists three lines away from the test that needs it,
+  and the round's residual ("a write made by some future file other than
+  play.js is outside all three") is false as a statement of the ONLY hole
+  (M-2). Both remedies together are under ten lines, and nothing else gates:
+  three low findings and one prose inconsistency are the rest. Spend the last
+  round on M-1 and M-2 and this merges.
+
+previous_findings:
+  - id: N-1
+    title: >-
+      the off-by-one family still open at the column sweep's index 0, and the
+      comment claiming otherwise
+    status: closed
+    evidence: >-
+      MEASURED, all four ends, each against the single node
+      test_solved_fires_on_clue_satisfaction_only. `for (let col = 0` -> `let
+      col = 1` now reds naming `every row right, the FIRST column wrong`
+      (index 6); `col < width` -> `col < width - 1` reds naming `every row
+      right, the LAST column wrong` (index 7); `let row = 1` reds naming
+      `every column right, the FIRST row wrong` (plus the three height-1
+      cases); `row < height - 1` reds naming `every column right, the LAST row
+      wrong` (plus the same three). Each mutant reds on exactly the case the
+      card's table pairs it with, so the four rows are four live controls and
+      not one row carrying three. The restated comment is also TRUE as
+      written: it claims the four off-by-one mutants of the two loop bounds
+      and explicitly disclaims "every weakening of the sweeps". I agree with
+      the orchestrator's pre-gate measurement of the index-0 end. BUT the
+      brief's second half — "check nothing worse hides behind its narrowness"
+      — answers yes: see M-1. play.js restored, sha256
+      65b4224901a5e90102160d71ed3b7c55aeda59e219a030932190c9b25daae7e9.
+  - id: N-2
+    title: the pointer-type half of the drag rule was a dead mutant with a false excuse
+    status: closed, and the round's re-attribution is CORRECT
+    evidence: >-
+      MEASURED five ways, and the attribution judged by my own shapes rather
+      than the round's. (a) `const paints = gesturePaints(event.pointerType,
+      region)` -> `const paints = true`: 1 failed / 32 passed, redding exactly
+      test_a_touch_or_pen_drag_marks_only_while_region_is_armed — agreeing
+      with the orchestrator's pre-gate figure, which I did not re-derive
+      beyond this one confirmation. (b) MY OWN shape for the pen half,
+      `event.pointerType === "pen" ? true : gesturePaints(...)` (pen always
+      paints, touch obeys): dead, same test. (c) MY OWN shape for the touch
+      half, `event.pointerType === "touch" ? true : gesturePaints(...)`:
+      SURVIVES all 33 — which CONFIRMS the round's attribution that the
+      Region-off touch half is carried by the CSS rule plus pointercancel and
+      NOT by gesturePaints. In Chromium with `touch-action: auto` the
+      compositor cancels the stream whatever gesturePaints returns, so that
+      mutant is behaviourally equivalent on the one browser ADR-0038/R7
+      declares; the round diagnosed this correctly and cycle 2 (mine) had it
+      wrong. (d) the whole pointercancel listener gutted: dead — so
+      pointercancel does now have a control, as the round claims. (e) but see
+      m-4: the kill in (d) comes from the stale `gesture` blocking the NEXT
+      drag, not from an assertion about the cancel, and the handler's other
+      statement is still uncontrolled.
+  - id: N-3
+    title: >-
+      EC-050's completeness check was held to play.html's buttons, so a
+      listener-only control escaped it
+    status: closed for the shapes it names; its RESIDUAL statement is measurably wrong
+    evidence: >-
+      MEASURED. The three new authorities bite on the shapes they were written
+      for: `navigator.sendBeacon` planted in the reset handler reds BOTH
+      test_no_write_request_for_any_interaction and
+      test_every_player_control_is_in_the_ec_050_walk (2 failed / 31 passed),
+      and the listener multiset / keydown-key pin / one-`fetch(` assertions are
+      flat properties of the file that cannot be dead. A write planted in
+      play.html's markup is also refused, two ways I built myself: an inline
+      `<script>` posting the save via `new Image().src` reds
+      test_resume_is_local_and_the_page_writes_nowhere, and a bare
+      `<img src="/collect?page=1">` reds that plus
+      test_the_runtime_dependency_baseline_is_untouched. So the markup half
+      and the POST/beacon half are genuinely closed. What is NOT closed is the
+      claim that the only remaining hole is "a write made by some future file
+      other than play.js": three safe-method request APIs inside play.js
+      itself, in an already-walked control, survive all 33 — see M-2. Note the
+      round's four plants were all shapes its own new assertions catch by
+      construction (a `{method: "POST"}` literal dies on the forbidden
+      `"method:"` string, sendBeacon on the string list, a new listener type on
+      the multiset, a second key on the key pin); none probes a GET-shaped
+      request reached through a non-`fetch(` name. That is the fifth instance
+      of the wave's pattern.
+  - id: N-4
+    title: >-
+      "dropped into the report, which AssembleReport carries" was false for the
+      tier
+    status: closed
+    evidence: >-
+      MEASURED, three mutants, each on its own control. Deleting the
+      `narrowed.append((path.stem, "tier"))` line reds
+      test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site AND
+      test_the_command_line_says_what_it_dropped_and_what_it_narrowed (2
+      failed / 31 passed). `tier_narrowed` -> `return False` reds three tests
+      including test_the_tier_is_narrowed_to_the_vocabulary_or_dropped.
+      Deleting only `main()`'s print line reds the command-line test alone, so
+      the field and the printing are separately controlled — which is the
+      distinction the finding asked for ("a field nobody prints is the same
+      silence one step further in"). The absent-vs-narrowed distinction is
+      asserted in both tests. The docstring now records the earlier sentence
+      as measured false rather than quietly editing it.
+  - id: N-5
+    title: '--force was an exemption with no control for what it must not absorb'
+    status: closed
+    evidence: >-
+      MEASURED. Moving the `site.resolve() == REPO_ROOT` raise back below the
+      `if force or not site.is_dir(): return site` branch — i.e. restoring the
+      pre-fix order — reds
+      test_an_out_dir_that_is_not_a_previous_site_is_refused (1 failed / 32
+      passed). The test now asserts the refusal for four spellings (the root,
+      `player/..`, a symlink, a trailing separator) with force=False AND
+      force=True, and asserts the positive side too (`check_out_dir(precious,
+      force=True) == precious`, with the planted file still present), so the
+      bound is a bound and not a wall. The two false justification sentences
+      are replaced with what the code does, including the correction that the
+      allowed set holds `play`, not `player`.
+  - id: N-6
+    title: the repo-root control was written against the destructive entry point
+    status: closed
+    evidence: >-
+      Code read and grepped: `assembler.assemble(None, REPO_ROOT)` no longer
+      occurs anywhere in tests/test_public_player.py; the only REPO_ROOT calls
+      are `assembler.check_out_dir(spelling)` and
+      `assembler.check_out_dir(spelling, force=True)` at lines 871 and 876,
+      and `assemble` is reached only on tmp_path targets. The hazard is gone
+      rather than latent, which matters because N-5's remedy removed the
+      ordering dependency that was accidentally protecting it.
+  - id: N-7
+    title: the refusal table asserted THAT a reason was given, never WHICH
+    status: closed, and already earning its keep
+    evidence: >-
+      MEASURED on the masking family itself, which is the only test that
+      matters here. Deleting `_line`'s fit check makes `clues-too-long` fall
+      through to the two-axis agreement rule; the fragment assertion reds with
+      ('clues-too-long', 'clues.rows[0] cannot fit a line of 10 cells',
+      'clues.rows and clues.columns disagree on the filled count') — under
+      cycle 2's truthiness-only assertion that payload was still refused and
+      the test still passed. Deleting the key regex makes the `key` case fall
+      through to the name-mismatch rule and reds the same way. Deleting
+      `len(rows) != height` reds; deleting `len(columns) != width` reds;
+      deleting the agreement check reds naming `clues-disagree`. The one
+      admitted shared fragment IS genuinely one rule: `_line` contains exactly
+      one `cannot fit a line of` raise (the `sum(numbers) + len(numbers) - 1 >
+      length` check) and both `clues-too-long` and `clues-no-room` reach it,
+      the second by that rule alone. The distinctness assertion `len({because})
+      == len(cases) - 1` pins exactly one duplicate, so a fragment copied
+      across cases to make them pass reds. I also fired the one shape that
+      would have been a false alarm — swapping the two axis-length checks —
+      and it survives as an EQUIVALENT mutant, correctly: each length case is
+      built so only its own axis is the wrong length, so the order cannot
+      change which message fires. Residual: the table is still not complete
+      over assemble.py's validator branches — see m-3.
+
+findings:
+  - id: M-1
+    severity: medium
+    title: >-
+      `sameNumbers`'s length-equality conjunct has no control: dropping it
+      makes isClueSolved announce a board ONE CELL SHORT solved, and reversing
+      the comparison direction makes it announce a board ONE CELL OVER solved
+      — both leave all 33 green.
+    file: tests/test_public_player.py
+    line: 1565
+    gating: true
+    confidence: high
+    evidence: >-
+      MEASURED by mutation and then by a browser probe that reads
+      `isClueSolved` directly. play.js:168 is
+      `const sameNumbers = (a, b) => a.length === b.length && a.every((n, i)
+      => n === b[i]);` and it is called from nowhere but isClueSolved's two
+      sweeps (lines 178, 182). Two one-line weakenings:
+      (a) drop the length conjunct -> `(a, b) => a.every((n, i) => n ===
+      b[i])`. A board whose every line's runs are a strict PREFIX of its clue
+      is then solved. 33 passed / 0 failed on the whole module.
+      (b) compare the other way -> `(a, b) => b.every((n, i) => n === a[i])`.
+      A board whose every line's runs EXTEND its clue is then solved. 33
+      passed / 0 failed.
+      Neither is an equivalent mutant, and I pinned the live hazard in the
+      browser with a throwaway probe (appended, run, removed, sha256
+      verified). Unmutated it reads `[True, False, True, False]`; the four
+      cases are a 4x4 UNIQUELY SOLVABLE puzzle (rows and columns both
+      [[1,1],[0],[1,1],[0]]) with its solution `#x#x xxxx #x#x xxxx` and with
+      the SAME board minus one cell `#x#x xxxx #xxx xxxx`, then a 3x3 pair
+      differing by one EXTRA mark. Mutant (a) reads `[True, True, True,
+      False]` — the board missing cell (2,2) is announced SOLVED. Mutant (b)
+      reads `[True, False, True, True]` — the board with one extra mark is
+      announced SOLVED. No line is empty in either, which is why the existing
+      table misses them: a dropped cell usually makes some line read `[0]`,
+      and `[0]` prefixes no nonzero clue, so only a board that keeps >=1
+      filled cell in every line reaches this. Every case in the table is 5x1
+      or 2x2, where that cannot happen.
+      This is AC-384's own sentence ("given one wrong cell, it does not
+      [fire]") on the card's correctness-critical rule, and it sits one
+      conjunct to the left of the four loop bounds the round closed. The card
+      does NOT overclaim here — the restated comment is scrupulously narrowed
+      to the four loop-bound mutants — so this is not a false claim, it is the
+      thing the narrowness was hiding, which is exactly what the brief asked
+      to be checked. play.js and tests/test_public_player.py restored, sha256
+      65b4224901a5e90102160d71ed3b7c55aeda59e219a030932190c9b25daae7e9 and
+      d389a62390868bcc12a1609576daaa3a9ae33277ab45676d94b064740132adff.
+    remedy: >-
+      Two more rows in the same table, built the same way as the four
+      index rows, each with no empty line:
+      ("a line short of its clue", 5, 1, "#xxxx", [[1, 3]], [[1], [0], [0],
+      [0], [0]], False) — the row's runs [1] prefix [1,3] and every column is
+      exact, so it kills (a);
+      ("a line past its clue", 5, 1, "#x#xx", [[1]], [[1], [0], [1], [0],
+      [0]], False) — the row's runs [1,1] extend [1], every column exact, so
+      it kills (b).
+      Then state the claim as "both ends of both sweeps AND both directions of
+      the run-list comparison", or leave the comment narrow and let the six
+      rows carry it. Two lines, no new machinery.
+    disposition: must fix before merge
+  - id: M-2
+    severity: medium
+    title: >-
+      EC-050's walk carries the WEAK request assertion (GET + same origin),
+      while its sibling already holds every request's PATH to the served file
+      set — so three same-origin GET exfils of the whole board, planted in
+      play.js's reset handler, survive all 33.
+    file: tests/test_public_player.py
+    line: 1925
+    gating: true
+    confidence: high
+    evidence: >-
+      MEASURED, four plants and one control, all in play.js, all restored.
+      Planted in the `actions.reset` click handler — a control the EC-050 walk
+      drives twice (once in the deterministic sweep, again in the seeded
+      24-step walk):
+        * `globalThis.fetch.bind(globalThis)("/collect?b=" +
+          history.board.cells.join(""))` — a renamed fetch binding: 33 passed;
+        * `new Image().src = "/collect?b=" + history.board.cells.join("")`:
+          33 passed;
+        * `import("/collect.js?b=" + history.board.cells.join("")).catch(...)`
+          — a dynamic import: 33 passed.
+      Each ships all 100 cells of the player's board to the server on every
+      Reset. `navigator.sendBeacon(...)` in the same place DIES (2 failed /
+      31 passed), which is the shape the round fired.
+      Why they survive, and why the fix is three lines: the walk's recorder
+      refuses only a non-GET method (`writes == []`) and an off-origin URL
+      (`all(request.startswith(url + "/"))`), and it asserts only that SOME
+      request ends in `/puzzle/<key>.json`. It never asserts the request SET.
+      `test_resume_is_local_and_the_page_writes_nowhere` DOES — lines
+      1680-1686 compute `served` from `report.site_dir.rglob("*")` and assert
+      `path in served or path == f"play/{key}"` for every request. The
+      CONTROL: the identical renamed-fetch exfil moved into `commit()`, which
+      a tap reaches, reds that sibling test and nothing else (1 failed / 32
+      passed). So the strong assertion works and is three lines away from the
+      test that needs it; the sibling simply never presses Reset, toggles
+      Region, uses the undo/redo keys or drags, which is the whole point of
+      the walk. I also listed what the walk actually records, so the allowlist
+      is known to be tight: exactly six paths — /play/<key>, /play.js,
+      /player.css, /solver_state.js, /tokens.css, /puzzle/<key>.json.
+      Against the card: EC-050's registry text is "play state is persisted in
+      the visitor's browser localStorage only and zero write requests leave
+      the page", and the card's own AC-385 docstring sets the standard as "no
+      request other than this page's own static assets was ever issued". Under
+      these plants the play state leaves the page from eleven controls with
+      every test green. And the round's residual statement — "a write made by
+      some future file other than play.js is outside all three" — is wrong as
+      a statement of the only hole: a write made by play.js, in a walked
+      control, with a safe method and a non-`fetch(` name, is outside all
+      three too.
+    remedy: >-
+      Copy the sibling's three lines into
+      test_no_write_request_for_any_interaction: build `served` from
+      `report.site_dir` and assert every recorded request's path is in it (or
+      is `play/<key>`), in place of — or beside — the bare origin check. All
+      three plants above die on it, measured by the D9 control. Then correct
+      the residual sentence in the test and in the card to what remains after
+      that: a write from a file other than play.js or play.html.
+    disposition: must fix before merge
+  - id: m-3
+    severity: low
+    title: >-
+      "Every validator refuses, and says which value it refused" is false by
+      two branches: `_line`'s run-length type/sign check and `_extent`'s LOWER
+      bound have no case, and deleting each leaves all 33 green.
+    file: tests/test_public_player.py
+    line: 900
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED, two mutants of player/assemble.py.
+      (a) `_line`'s `if not isinstance(number, int) or isinstance(number,
+      bool) or number < 0: raise ...` replaced by `numbers.append(number if
+      isinstance(number, int) else 1)`: 33 passed. Called directly, the
+      mutated `_line` ACCEPTS `[-1234567890123456789]`, `[-5, -7, 3]` and
+      `[True, 2]` and returns them unchanged (the fit check `sum + len - 1 >
+      length` never trips on negatives), where the real one refuses all four
+      probes by name. So that branch is the only thing keeping arbitrary
+      signed integers out of `clues` — the field EC-048's capacity argument
+      EXEMPTS and whose narrowing (`144 clues per 10-cell line`) is the stated
+      reason the exemption is tolerable. The code is right; the control is
+      dead.
+      (b) `if not MIN_SIZE <= value <= MAX_SIZE` -> `MIN_SIZE - 1 <= value`:
+      33 passed, so a served extent of 9 would pass. The upper twin `<=
+      MAX_SIZE + 1` DIES on the `width` case (MAX_SIZE + 1), so this is the
+      same one-end-only asymmetry as N-1, in a different function: the table's
+      two extent cases are MAX_SIZE+1 and 0, and 0 is still refused at 9.
+      The docstring's sentence is the overclaim, not the code: thirteen cases
+      and `assert len(cases) >= 13` read as a complete sweep of the validators.
+    remedy: >-
+      Two more pairs in the same dict: ("clues-run-sign", {... "rows":
+      [[-1] + rest] ...}, "which is not a run length") and
+      ("width-low", {**good, "width": MIN_SIZE - 1}, f"width {MIN_SIZE - 1} is
+      outside"). Or, if the sweep is meant to be complete, derive it: assert
+      the set of distinct `raise ValueError` messages reachable in
+      `_line`/`_clues`/`_extent`/`_key`/`_served` is covered by the cases'
+      fragments, so a new validator with no case reds. The first is two lines;
+      the second is the authority-shaped version of what N-7 started.
+    disposition: fix in this cycle if cheap, else carry as a named follow-up
+  - id: m-4
+    severity: low
+    title: >-
+      `pointercancel`'s rollback half is uncontrolled: the listener's death is
+      carried by the next drag failing, not by an assertion, and a cancel that
+      drops the gesture but keeps the painted preview survives all 33.
+    file: player/play.js
+    line: 502
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED. (a) Gutting the whole listener reds
+      test_a_touch_or_pen_drag_marks_only_while_region_is_armed — but at line
+      2194, the PEN, REGION ARMED assertion (`['unknown','unknown','unknown']
+      != ['filled','filled','filled']`), not at either Region-off assertion.
+      The kill is the stale `gesture` blocking the next pointerdown, i.e.
+      sequencing, so the round's "pointercancel now has a control too" is true
+      of one of the handler's two statements. (b) The other statement has
+      none: replacing the body with `gesture = null; refresh();` — dropping
+      the gesture but NOT resetting `shown = history.board` — leaves 33
+      passed. On a real phone a Region-armed touch drag interrupted by a
+      system gesture would then leave phantom marks painted on the board that
+      are in no stroke, in no history and in no save, and the next commit
+      would silently repaint over them. Related and also green: removing
+      `event.preventDefault()` from the painting branch of pointerdown (33
+      passed) — defensible, since `touch-action: none` carries the scroll
+      suppression while Region is armed, but it is an untested line.
+    remedy: >-
+      One assertion in the touch half of the new test: with Region ARMED,
+      drive touchStart + two touchMoves and then `Input.dispatchTouchEvent`
+      `touchCancel` (rather than touchEnd), and assert the three cells are
+      back to `unknown` and `done.length` is unchanged. That reads the
+      rollback rather than the gesture slot.
+    disposition: fix in this cycle if cheap, else carry as a named follow-up
+  - id: m-5
+    severity: low
+    title: >-
+      The word "closed" is still used flatly in two places that contradict the
+      card's and the module's own stated position — in the same docstring whose
+      new paragraph exists to say it "in one place rather than two paragraphs
+      apart".
+    file: player/assemble.py
+    line: 37
+    gating: false
+    confidence: high
+    evidence: >-
+      Code and card read. assemble.py:36-37 heads its rationale with "**Because
+      this is where EC-048 is closed, and it could not be closed downstream of
+      here.**", and CARD-283.md:180's file map row reads "`assemble.py` | the
+      site assembler, and where EC-048 is closed". Both are contradicted by
+      the text the fix round added 100 lines later in the same docstring
+      ("EC-048's literal text ... is not satisfiable by any implementation of
+      ADR-0041", "Read every 'carries EC-048' above as 'carries it for
+      everything except the two ADR exemptions and the two declared bits'")
+      and by CARD-283.md:643 ("the card does not claim EC-048 closed"). The
+      substance is right and I verified it — see the residual note in
+      corrections_to_the_brief — so this is a two-line wording leftover, but
+      it is the exact sentence a future reader greps for, and the round's own
+      stated goal for that paragraph was to stop the claim living in two
+      places at two strengths.
+    remedy: >-
+      "where EC-048 is carried, and where it could not be carried downstream
+      of here" in both places, with the residual pointer the paragraph below
+      already provides.
+    disposition: fix in this cycle (two lines)
+  - id: m-6
+    severity: low
+    title: >-
+      Third cycle flagged: meta/kanban/cards/CARD-283.md is still
+      MODIFIED-but-uncommitted, so a merge of 6d51f8c5 alone loses all three
+      rounds of worktree notes.
+    file: meta/kanban/cards/CARD-283.md
+    line: 1
+    gating: false
+    confidence: high
+    evidence: >-
+      `git status --short` in the worktree at the start and end of this review
+      shows ` M meta/kanban/cards/CARD-283.md` plus the cycle-1 and cycle-2
+      review YAMLs untracked. The card is 885 lines and carries the whole
+      review record this report depends on; none of it is in any commit on
+      card/283-public-player-page. Cycle 1 and cycle 2 both flagged it. The
+      card's own bookkeeping note from cycle 2 IS closed, though: the EC-048
+      row of "ACs and the node id verifying each" (line 258) now lists
+      test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site and the
+      EC-050 row names play.js's listeners.
+    remedy: Commit the card and the three review YAMLs with the fix round.
+    disposition: fix in this cycle (one commit)
+
+what_i_did_not_verify:
+  - >-
+    The orchestrator's three pre-gate measurements, by instruction, beyond one
+    confirmation each. I re-fired `col = 0 -> 1` and `const paints = true` and
+    got exactly the reported shapes (the first reds naming `every row right,
+    the FIRST column wrong`; the second gives 1 failed / 32 passed redding
+    exactly test_a_touch_or_pen_drag_marks_only_while_region_is_armed), and I
+    confirmed the 33 passed / 0 skipped baseline myself three times. I did not
+    re-derive the before/after of the orchestrator's own 31-test runs.
+  - >-
+    The full suite, by instruction. NONOGRAM_FULL_SUITE_LOCK was redirected to
+    the scratchpad lock on EVERY invocation, including every mutation run.
+    Run here: tests/test_public_player.py (33 passed, 0 skipped) and
+    tests/test_collected_names.py + tests/test_suite_profile.py +
+    tests/test_guard_integrity.py together (585 passed). I did not run
+    test_cli.py, test_player_bundle.py, test_puzzle_solver_page.py or
+    test_export_pdf.py; the changed files are player/assemble.py and
+    tests/test_public_player.py, which reach them only through
+    test_collected_names.py, which I did run.
+  - >-
+    ADR-0041/R5 and R1 upstream — that export_bundle takes every clue from
+    compute_clues of the stored grid and computes the key as SHA-256 over it.
+    Those controls are CARD-282's and I did not run or mutate them, exactly as
+    cycle 2 recorded. The declared two-bit residual is two bits GIVEN those
+    two rules hold outside this script.
+  - >-
+    A live export_bundle -> assemble pass against a real database. Still owed,
+    three cycles running. My own measurements used hand-written payloads with
+    the real field names and the fixture bundle, not a real export.
+  - >-
+    Any real device. The pen and touch drags are Chromium's synthetic CDP
+    input, not iOS Safari. This matters for M-2's cousin and for N-2's
+    attribution: the reason my `touch always paints` mutant survives is that
+    Chromium's compositor cancels a `touch-action: auto` stream, and I did not
+    verify that WebKit does the same. `position: sticky` inside a scroll
+    container and `touch-action` are still unverified on WebKit.
+  - >-
+    No render. I did not re-open the page visually; the F-11/AC-386 layout
+    findings were closed in cycle 2 and I re-fired none of their mutants this
+    round.
+  - >-
+    Mutants fired this cycle: 31, of which 29 on code and 2 abandoned as
+    mis-specified. The four isClueSolved loop bounds; ten further weakenings
+    of isClueSolved/runsOf/sameNumbers; six pointer-type and pointercancel
+    mutants; five write-plants in play.js plus two in play.html plus one
+    control in commit(); and fourteen in assemble.py (both axis-length checks,
+    the agreement check, the fit check, the key regex, both extent bounds, the
+    run-length check, the axis-order swap, tier_narrowed, the narrowed record,
+    the main() print, and the force/repo-root ordering). I did NOT re-fire:
+    the tier alphabet revert, the capacity partition check, the planted
+    Tier.EXPERT in src/nonogram/difficulty.py, the GRIDS shrink, the walk-table
+    drop, the fourth brush, the 25 px token, fit-content, deserialize's clue
+    comparison, the Region one-shot disarm, or the two https:// plants — cycle
+    2 measured all of them and nothing this round touched their controls.
+    src/nonogram/difficulty.py was not mutated at all this cycle and its
+    sha256 is unchanged
+    (7f5206e1e6151123119feeaed38e69ef6b4a48710d1c2918916c968bba53effc).
+  - >-
+    Every file I mutated was restored and verified by sha256 against 6d51f8c5:
+    player/assemble.py
+    4527210bdaf9f6f632453878f136aabe9c16a82f3a8247d4990c60a3c86f6203,
+    player/play.js
+    65b4224901a5e90102160d71ed3b7c55aeda59e219a030932190c9b25daae7e9,
+    player/play.html
+    e14963bede991cf89e3158b513eb7110e8ee7b07e4b5167ab274dde83573b474,
+    player/player.css (not mutated)
+    9bbfd5f907cc783afc090c607ff13075ad1fc61889d72d692e071a0b13b37ece,
+    tests/test_public_player.py
+    d389a62390868bcc12a1609576daaa3a9ae33277ab45676d94b064740132adff,
+    src/nonogram/difficulty.py
+    7f5206e1e6151123119feeaed38e69ef6b4a48710d1c2918916c968bba53effc,
+    player/vercel.json (not mutated)
+    c6cac6ddcb5b0ba5818b035fa829371c0e8a70f593e07603bdbf8faff73aea27.
+    No stray backup files remain in the worktree, and `git status --short`
+    ends as it began: one modified card and the three review YAMLs untracked.
+    The other live card's worktree
+    (/Users/omelnikova/PycharmProjects/PythonProject4-card-296) was not
+    touched.
+
+corrections_to_the_brief:
+  - >-
+    "Verify that claim by constructing your own shapes, not theirs." The claim
+    is HALF true, and the half that fails is the one that matters. On N-1 and
+    N-2 the round really did fire shapes its tests were not written against
+    and really did find the honest mechanism — its pen/touch re-attribution is
+    correct, and I confirmed it with a mutant it did not fire (`touch always
+    paints`, which survives all 33 precisely because the Region-off touch half
+    is carried by CSS plus the compositor, not by gesturePaints). On N-3 it did
+    not: all four write-plants are shapes the new assertions catch by
+    construction (a POST literal dies on the forbidden `"method:"` string,
+    sendBeacon on the string list, a new listener type on the multiset, a
+    second key on the key pin), and none probes a safe-method request reached
+    through a name other than `fetch(`. Three such plants survive all 33
+    (M-2). So the pattern is broken in two of three places and repeated in the
+    third — the fifth instance, in the round that set out to retire it.
+  - >-
+    "N-1's four cases ... check the narrowed claim is true AND that nothing
+    worse hides behind its narrowness." The narrowed claim is TRUE, measured
+    four ways: each loop-bound mutant reds on exactly the case the table pairs
+    it with, so the four rows are four live controls. And something worse does
+    hide behind it, one conjunct to the left: `sameNumbers`'s `a.length ===
+    b.length` is the only thing refusing an under- or over-filled board, it
+    has no control, and I measured the page announcing a 4x4 uniquely solvable
+    puzzle SOLVED while one cell short (M-1). I also fired eight other
+    weakenings of the same three functions — a short row line, a short column
+    line, a shifted row index, a transposed column index, no trailing run
+    push, `[0]` for an empty line removed, FILLED widened to not-EMPTY, and
+    `run > 1` — and all eight DIE, which is a real credit to the table: it is
+    only the length comparison that is uncovered, not the family.
+  - >-
+    "N-2's pen/touch split. Is that attribution right? Can you construct a
+    mutant that breaks the Region-off touch behaviour and survives all 33?"
+    The attribution is RIGHT, and yes: `event.pointerType === "touch" ? true :
+    gesturePaints(...)` survives all 33. But that mutant is not a defect, it
+    is the evidence FOR the round's reading — in Chromium with `touch-action:
+    auto` the compositor fires pointercancel whatever gesturePaints returns,
+    even with `event.preventDefault()` called, so the mutant is behaviourally
+    equivalent on the one browser ADR-0038/R7 declares. The pen mutant
+    (`pointerType === "pen" ? true : ...`) dies. So gesturePaints' touch
+    branch is genuinely redundant in Chromium and genuinely load-bearing on a
+    browser that honours preventDefault; the test's docstring says this
+    correctly and I would leave it. The one thing it leaves out is a residual
+    sentence: gesturePaints' TOUCH branch has no control on any browser this
+    suite runs.
+  - >-
+    "N-3's three authorities. The round names what is outside all three: 'a
+    write made by some future file other than play.js'. Is that the only
+    hole?" No. I worked the brief's list and the answer splits cleanly by
+    METHOD, not by file. A write from play.html inline, and an `<img src>` in
+    play.html's markup, are both REFUSED (I built both; they red
+    test_resume_is_local_and_the_page_writes_nowhere, and the img also reds
+    the dependency-baseline guard). `navigator.sendBeacon` is refused by the
+    string list. But three safe-method request APIs inside play.js — a renamed
+    `fetch` binding via `globalThis.fetch.bind`, `new Image().src`, and a
+    dynamic `import()` — each ship the whole board on every Reset with all 33
+    green, because the EC-050 walk holds requests only to GET and to the
+    origin while the AC-385 test holds them to the served PATH set. I did not
+    test a data: or blob: URL, because neither exfiltrates; the exfil shapes
+    are the three above. M-2.
+  - >-
+    "N-7's expected-reason fragments. Are the fragments specific enough that
+    two different rules cannot share one, and is the 'one shared pair' it
+    admits genuinely the same rule?" Yes to both, measured. The shared
+    fragment comes from the single `cannot fit a line of` raise in `_line`,
+    and both cases reach that one check — `clues-no-room` by it alone, which
+    is what makes the rule's own control live. The distinctness assertion pins
+    exactly one duplicate. More than that, the pairing is already catching the
+    masking family it was written for: deleting the fit check makes
+    `clues-too-long` fall through to the agreement rule and the fragment
+    assertion names both reasons in its failure message, where cycle 2's
+    truthiness-only assertion would have passed. The residual is coverage, not
+    specificity: two validator branches still have no case at all (m-3).
+  - >-
+    "The declared residual ... is it stated correctly on the card now, and is
+    the card's scope of the word 'closed' honest?" The residual is stated
+    CORRECTLY and I re-derived the number rather than accepting it: `python
+    player/assemble.py --capacity` prints 2.00 bits over three counted fields
+    (height 1 value / 0.00, tier 4 values / 2.00, width 1 value / 0.00)
+    against the 100-bit ceiling, with clues and key named exempt, and the
+    deployed output itself now says the ceiling establishes only "no served
+    field is wide enough to carry a grid". The card carries the 2N-across-a
+    -library scale (lines 842-843, 883) and the architectural conclusion
+    (lines 848-853, 885: EC-048's literal text is unsatisfiable by any
+    ADR-0041 implementation, cycle-1 F-12 in requirements.yml is the real
+    blocker, no requirement edited), and assemble.py's docstring carries the
+    same in one new paragraph. That is the right verdict and the right route.
+    The scope of the word "closed" is honest in the places that argue it and
+    NOT honest in the two places that assert it in passing — assemble.py:37
+    and CARD-283.md:180 both still say flatly "where EC-048 is closed" (m-5).
+    Two lines.
+  - >-
+    "If this card is certifiable, say so." It is not, by two findings, and I
+    want to be explicit about the cost I am imposing. M-1 is two table rows in
+    a table that already has four of exactly that shape. M-2 is three lines
+    copied from a sibling test twenty lines up the file, and I measured the
+    control that proves they work. Together that is under ten lines and no new
+    machinery; everything else I found is low. I am holding the card because
+    the two of them are a wrong board announced solved and the player's whole
+    board leaving the page, both on this card's own named AC and EC, both with
+    all 33 green — not because the round's prose was wrong. Its prose this
+    round was, with the two exceptions in m-5 and the one residual sentence in
+    N-3, accurate. Round 6 should be a short fix round and then a merge.
