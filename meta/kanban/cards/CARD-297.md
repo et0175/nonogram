@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 4 (the non-puzzle pages, less the guide — CARD-296 — and less the dividers, which the owner left raster). Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
-**Wave:** 63
+**Wave:** 64
 **Created wave:** 60
 **Deferred waves:** 0
 **Depends on:** CARD-294, CARD-295, CARD-227

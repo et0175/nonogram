@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — "The rules behind it": Grid lines ("0.3 pt cells in grey, 0.8 pt every fifth line, 1.3 pt outer border"). **Confirmed by the owner 2026-10-25** on CARD-293's proof, after ADR-0042 removed the device floor that had forced these figures to be scaled.
 **Idea:** —
-**Wave:** 62
+**Wave:** 63
 **Depends on:** CARD-222 (the frame these rules are measured inside), CARD-295 (the puzzle page must be drawn as operators before these widths are safe — see "Why this card waits")
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf.py, tests/test_book_pdf_band.py, meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md
 **Review score:** —

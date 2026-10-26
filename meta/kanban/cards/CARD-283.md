@@ -1,6 +1,6 @@
 # CARD-283: The public player page — the admin game served static, with no answer in the browser
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/283-public-player-page
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-283
 **Source:** ONLINE_GAME_SPECIFICATION.md#technical-architecture (owner decision 2026-10-23, commit 8b0ca0e2: one player app, routes /play/<key>, /b/<slug>, /library); backlog.md "A public online solver" @enabler
 **Idea:** —
-**Wave:** —
+**Wave:** 61
 **Depends on:** CARD-282
 **Touches:** player/**, tests/test_public_player.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-26
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

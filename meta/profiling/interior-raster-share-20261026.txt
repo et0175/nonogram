@@ -1,0 +1,68 @@
+attributed suite time in the profile:  1426.16s across 214 files
+
+==============================================================================
+CONVERTIBLE — interior pages, ADR-0042/R6 retires pixel reading for these
+==============================================================================
+     time   share    px  file
+  344.29s  24.14%    34  tests/test_book_export_interior_cover.py
+   21.60s   1.51%    34  tests/test_book_pdf_memory.py
+   20.25s   1.42%     2  tests/test_book_guide_page.py
+   17.71s   1.24%     8  tests/property/test_book_export_interior.py
+   16.76s   1.18%     8  tests/test_book_toc.py
+   13.29s   0.93%    10  tests/test_book_pdf_ink_mode.py
+   11.85s   0.83%     8  tests/test_book_difficulty_dots.py
+    7.28s   0.51%    14  tests/test_book_proof_pages.py
+    6.43s   0.45%    41  tests/test_book_pdf_band.py
+    4.84s   0.34%     4  tests/test_book_pdf.py
+    4.74s   0.33%     2  tests/test_book_cell_size.py
+    4.33s   0.30%    47  tests/test_book_solved_answer_key.py
+    4.15s   0.29%    10  tests/test_book_pdf_two_up.py
+    4.04s   0.28%     5  tests/test_book_interior_face.py
+    3.83s   0.27%     1  tests/property/test_book_layout.py
+    3.76s   0.26%     1  tests/property/test_book_two_up.py
+    2.43s   0.17%     7  tests/test_book_puzzle_frame.py
+    2.41s   0.17%     8  tests/test_book_guide_page_type.py
+    1.83s   0.13%    12  tests/test_book_qr_slot.py
+    1.26s   0.09%     2  tests/test_book_page_frame.py
+    0.87s   0.06%     1  tests/test_book_solved_page.py
+    0.06s   0.00%     4  tests/test_book_answer_key.py
+    0.01s   0.00%     4  tests/test_layout_answer_tiles.py
+    0.00s   0.00%     2  tests/test_shared_fixture_controls.py
+    0.00s   0.00%     3  tests/helpers/shared_fixture_controls.py
+    0.00s   0.00%     7  tests/helpers/pdf_pages.py
+    0.00s   0.00%     2  tests/helpers/page_ink.py
+    0.00s   0.00%     2  tests/helpers/book_corpus.py
+  498.02s  34.92%   283  ** 28 files **
+
+==============================================================================
+STAYS RASTER — converting these would break something
+==============================================================================
+    0.93s   0.07%     3  tests/test_book_cover.py
+                           the cover is raster by ADR-0042/R2 — a photograph
+    0.16s   0.01%     4  tests/test_export_image.py
+                           COMP-007's CLI/web surface, CON-019 byte-identical
+    0.10s   0.01%    10  tests/test_layout_page_spec.py
+                           COMP-007's CLI/web surface, CON-019 byte-identical
+    2.50s   0.18%    15  tests/test_book_pdf_levels.py
+                           divider assertions stay until CARD-231
+    3.69s   0.26%  ** 4 files **
+
+==============================================================================
+THE ANSWER
+==============================================================================
+  census total                501.71s  35.18% of attributed time
+  of which CONVERTIBLE        498.02s  34.92%
+  of which MUST STAY RASTER     3.69s   0.26%
+
+  the spike measured the stream assertion 4.1x smaller than the ink one
+  it replaces (168 -> 41 lines) and strictly more exact. If conversion
+  bought a proportional time saving on the convertible share alone:
+    at 4.1x, the spike's line ratio ->  376.55s saved, 26.40% of the suite
+    at 2x, conservative             ->  249.01s saved, 17.46% of the suite
+
+  NOT a prediction: the spike's 4.1x is a LINE ratio, not a time ratio.
+  The time claim it does support is per-page rendering (1.37 vs 11.7 ms,
+  8.5x) and page-bitmap retention (1.00 -> 0.000246). A converted
+  assertion stops rendering a page at all, so the saving is plausibly
+  LARGER than these rows - but no one has measured a converted test's
+  wall clock, and CARD-295/296/297 are the first chance to.

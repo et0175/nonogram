@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** the 2026-10-23 solo duration profile (`meta/profiling/suite-durations-20261023.txt`, commit `ae164099`), read against the 2026-10-15 one; CARD-218's implementation round, which measured this file read-only and reported that its own mechanism would not touch it; the orchestrator's 2026-10-24 breakdown, recorded below
 **Idea:** —
-**Wave:** —
+**Wave:** 62
 **Created wave:** 56
 **Deferred waves:** 0
 **Depends on:** CARD-276 <!-- NOT scheduling. CARD-276 rewrites the walker that costs the time (alias resolution as a fixed point), so optimising it first would both waste the work and FREEZE its current shape in cost-pinning tests. See "Why this waits on CARD-276", and the measurement CARD-276 is asked to take. -->
@@ -235,3 +235,65 @@ opposite ends and neither waits on the other.)
 ## Worktree notes
 
 —
+
+## [Precondition settled — 2026-10-26, orchestrator] CARD-276 merged, and the measurement you asked for exists in a different form
+
+**Your dependency is discharged: CARD-276 merged `f794d5a8` on 2026-10-25.**
+
+### The contract conflict, recorded because nobody caught it in time
+
+This card asked CARD-276 to *"take this class's per-test durations before and
+after its change … and write both into its card"*. **CARD-276's own G-6 read
+"Take no timing measurements and report no durations."** The two cards'
+contracts contradicted each other outright, and neither station noticed: this
+card's request was written at drafting, G-6 was written at drafting, and the
+orchestrator flagged G-6's wording tension at CARD-276's **merge gate** without
+connecting it to the sibling precondition it blocked. So the per-test form you
+asked for was never taken, and could not have been without breaching G-6.
+
+### What was measured anyway, and it answers your actual question
+
+The question behind the request was *"CARD-276's fixed point is more analysis,
+not less, and may make 327.94 s materially worse."* **It did not.** From two
+independent runs, both already committed to `meta/kanban/suite-timing.log`:
+
+| | file wall clock | tests | s/test |
+|---|---|---|---|
+| **before** this card's subject changed (main, 2026-10-23 solo profile) | **344.29 s** | 90 | **3.825** |
+| **after** CARD-276 (its merge gate's whole-file run, quiet box) | **467.30 s** | 127 | **3.679** |
+
+**Per-test cost FELL by 3.8 %.** The +123 s (+35.7 %) is **tests added, not tests
+slowed** — CARD-276 added 37 collected tests to this file. So the fixed point
+did not make the walker materially more expensive per assertion, which is the
+thing you needed to know before pinning costs.
+
+What is still **not** measured, and is yours if you want it: the **per-test
+breakdown** (`--durations=0 --durations-min=0` over this file alone, ~8 min, no
+lock needed). The two rows above are file totals. If your cost-pinning tests key
+on individual tests rather than the file, take that run first — and take it on a
+quiet box, for the reason in the next section.
+
+### Something that got worse while you waited, and it strengthens this card
+
+This file is now measured at **24.14 % of attributed suite time — 344.29 s of
+1426.16 s** on the 2026-10-23 profile, against the **327.94 s** this card was
+written with. The 2026-10-26 join of that profile against ADR-0042's migration
+census puts the whole convertible interior-raster surface at **498.02 s =
+34.92 %** of attributed time, of which **this one file is two thirds**. Second
+place is 21.60 s. So the opportunity this card exists for is more concentrated
+than the card claims, not less.
+
+### ⚠ THIS CARD CANNOT RUN CONCURRENTLY WITH ANYTHING
+
+Not "should be serialized" — **cannot**. Its deliverable is a timing
+measurement, and `tests/README.md` states the host rule in its own words:
+concurrent runs inflate every number, two quiet-host runs of near-identical
+suites a few hours apart differ by **~19 %**, and *"a contended run tells you
+nothing at all."* Dispatching this card beside a live agent produces exactly the
+contaminated figures **CARD-292** exists to expose.
+
+**Run CARD-292 first.** It is P1 to this card's P2, it measures the per-test
+ceiling that decides whether any single figure here is trustworthy, and it
+touches this same file — so the two serialize on the file as well as on the host.
+Also note CARD-292 declares `meta/kanban/config.yml`, which was edited
+2026-10-26 (the review refire policy); rebase rather than assume.

@@ -1,6 +1,6 @@
 # CARD-296: The guide page as operators — the worked example, the legend's dots and the diagram, the phase's one unpriced page
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/296-guide-page-as-operators
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-296
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 4 — *"This is the largest card and the one the spike deliberately did not price."* Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 61
@@ -18,7 +18,7 @@
 **Depends on:** CARD-294
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_difficulty_dots.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-26
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
