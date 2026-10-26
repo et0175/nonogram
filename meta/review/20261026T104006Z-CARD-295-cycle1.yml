@@ -1,0 +1,438 @@
+card: CARD-295
+cycle: 1
+reviewer: forge:review (Claude Opus 5)
+date: 2026-10-26T10:40:06Z
+revision_reviewed: a7f33021
+fork_point: 075b31d9
+branch: card/295-puzzle-page-as-operators
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-295
+score: 8
+certified: false
+min_score: 8
+verdict: >-
+  REFIRE on three gating findings, none of which is a defect in a drawn page.
+  The implementation is sound and I found no wrong number on any page: the
+  split is real (no puzzle-page constant, default or clue-gutter assumption in
+  book_vector_draw; I ran its TEXT half as well as its grid half on CARD-296's
+  two layouts against the oracle and both agree), the three pre-chosen plants
+  all fire under my own mutations (M2 import leak, M3 ContentStream.ellipse,
+  M4 max(1, line.width) -- and M4 reds the zero test while the 60-page corpus
+  equality stays green, which is exactly why that plant was needed), the ten
+  mutants are of genuinely different shapes rather than ten of one, and AC-5's
+  measurement predicted the post-cache figure to within 1 per cent. What has to
+  close before merge is three named holes, all cheap: (F-001) the cross-medium
+  seam the G-4 refusal is defended by does not read the raster page at all --
+  I moved every raster vertical rule 7 px and reversed its stroke order and the
+  module stayed 35-green; (F-002) the AC-5 artefact's forward prescription to
+  CARD-299 is now inverted by main's own 5d84976c, which this branch merged;
+  (F-003) the card's explicit "say so with a reason and name who owns them"
+  clause on CARD-294's _cap_height controls was not discharged. G-4's refusal
+  is UPHELD, conditional on F-001.
+
+findings:
+  - id: F-001
+    severity: critical
+    title: >-
+      The cross-medium seam the G-4 refusal rests on does not read the raster
+      page; TestPuzzlePage_AgreesWithTheRasterTwin is a second AC-2
+    file: tests/test_book_puzzle_page_vector.py
+    line: 1214
+    gating: true
+    confidence: high
+    evidence: >-
+      Both tests in the class read only hero.found (the vector stream) and
+      hero.layout. Nothing in the class, and nothing else in the module, reads
+      a raster page's ink: test_the_raster_twin_of_the_same_page_does_carry_one
+      reads only /Resources, and test_the_raster_twin_shows_more asserts only
+      that the interior frame's two rules have positive width and that the page
+      is trim-sized. MUTATION M10, run from the worktree root: in
+      src/nonogram/export/png.py::_draw_grid I reversed the major sort
+      (heavy-first) AND shifted every vertical rule's start by 7 device pixels,
+      so the two media genuinely disagree about both order and position ->
+      "tests/test_book_puzzle_page_vector.py: 35 passed, 0.46s", while the
+      raster's own file went to "tests/test_book_puzzle_frame.py: 2 failed, 98
+      passed". Restored; sha256
+      d7cf3f91efd0413a437dd28cca9d18b347e30c7549afd1b183b9e574eca29867
+      verified. The claim the class's name makes is therefore the claim
+      TestPropertyTest_PuzzlePage_EveryCoordinateComesFromTheLayout already
+      makes -- "the vector stream matches the Layout" -- not "the two media
+      agree". The agreement WAS measured, but only inside
+      meta/profiling/card295_puzzle_page_price.py's claim arm (the ink arm
+      reads [3, 6] device pixels and the three stream arms read [0.72, 1.44]
+      points, cross-checked before either is timed), which nothing in the suite
+      runs. This matters because the round's own G-4 defence is "the stream
+      half is added BESIDE the ink half with TestPuzzlePage_AgreesWithTheRaster
+      Twin as the seam": with no seam, the two halves can drift silently for
+      the whole of waves 61-63, which is the one risk the refusal was supposed
+      to be safe against.
+    remedy: >-
+      Lift the claim arm's own cross-medium comparison into the suite: one test
+      that draws the same page both ways and holds the grid box and the two
+      rule widths equal across the media. tests/helpers/page_ink.drawing_of
+      already exists, the comparison already passes in the instrument, and it
+      allocates one page bitmap -- which the restated RENDER_HEAVY_SNAPSHOT
+      comment has already budgeted for (it says two). Either that, or rename
+      the class to what it measures and state in the module docstring that no
+      cross-medium control exists and name its owner.
+    disposition: open
+
+  - id: F-002
+    severity: critical
+    title: >-
+      AC-5's artefact now prescribes the opposite of what is true, and CARD-299's
+      283 sites are pointed at it
+    file: meta/profiling/card-295-puzzle-page-price.md
+    line: 101
+    gating: true
+    confidence: high
+    evidence: >-
+      Re-measured on HEAD (a7f33021, with main's _flate_face lru_cache merged),
+      meta/profiling/card295_puzzle_page_price.py claim --runs 7, loadavg
+      7.05/5.53/4.83 identical at both ends: stream_file (one PDF per
+      assertion) min 1.54 ms = 14.54x faster than ink (22.39 ms), where the
+      artefact records 0.71x i.e. 1.42x SLOWER; stream_shared 2.62 ms = 8.55x
+      (artefact 8.33x); stream_operators 0.71 ms = 31.54x (artefact 31.2x).
+      CONTROL M1, same session: I removed the @lru_cache(maxsize=1) from
+      _flate_face and re-ran claim --runs 5 -> stream_file 0.69x, reproducing
+      the round's 0.71x. So the sign change is the cache and not my host. File
+      restored; sha256
+      efe9227416231f2c211249b719a59243e546fd212e158a57dd26d0f97f481e12.
+      Section 2 is superseded too: time --runs 7 now gives vector 0.833 ms/page
+      against raster 17.621, 21.14x, against the artefact's 1.975 ms/page and
+      8.51x. The artefact's HEADER is honest -- it pins itself to "075b31d9
+      plus this card's changes" and says "Re-run it rather than trusting the
+      table if the tree has moved" -- and section 3 item 2 predicted the
+      post-cache figure to within one per cent ("turns the 28.04 ms one-page
+      write into ~0.3 ms and the naive arm into ~14.7x rather than 0.71x"),
+      which deserves credit. What is now wrong is the PRESCRIPTION a later card
+      will read as current: section 3's headline "A naive conversion makes the
+      suite SLOWER -- 1.42x slower on this claim", and "What follows for
+      CARD-298 and CARD-299" item 1, "A converted test MUST share its written
+      PDF ... Written per assertion it is slower than what it replaces". On
+      HEAD the per-assertion form is the FASTER of the two file-writing arms
+      (1.54 ms against 2.62 ms), because the shared arm re-extracts a 24-page
+      PDF's content streams on every assertion. The branch merged 5d84976c at
+      a7f33021 and did not revisit the document.
+    remedy: >-
+      Add a dated post-cache addendum (not an edit of the pre-cache table,
+      which is the honest record) carrying the three re-measured arms, the
+      no-cache control that reproduces 0.69x, and the retraction of item 1. The
+      guidance that survives is narrower and still worth stating: parse a
+      shared PDF ONCE PER FIXTURE rather than per assertion -- the cost that
+      remains is extraction, not writing. Section 2's 8.51x needs the same
+      treatment (21.14x on HEAD).
+    disposition: open
+
+  - id: F-003
+    severity: major
+    title: >-
+      The card's explicit "name who owns them" clause on CARD-294's _cap_height
+      controls was not discharged
+    file: meta/kanban/cards/CARD-295.md
+    line: 199
+    gating: true
+    confidence: high
+    evidence: >-
+      The card routes in three uncontrolled _cap_height branches plus a real
+      residual hole (a v2+ OS/2 face with sCapHeight = 0 returns 0 with no
+      fallback and no error) and closes: "If you decide these controls are not
+      yours either, SAY SO WITH A REASON AND NAME WHO OWNS THEM rather than
+      passing them on silently: a declaration that outlives its hole is the
+      defect this board gates on most." Grepping the whole 2,715-line round
+      diff for cap_height / sCapHeight returns exactly one hit:
+      src/nonogram/admin/book_vector_draw.py:220, set_centred's docstring
+      "Deliberately not the cap height", which explains a design choice. The
+      commit message's "Raised for the owner" paragraph names three items (the
+      sheet furniture, CARD-297's grid reuse, ADR-0042/R3's tone) and not this
+      one; no owner is named, no decline is recorded, and the card body is
+      unamended. SUBSTANTIVELY THE DECLINE IS CORRECT and I verified it:
+      set_centred centres on _middle_em = (ascent + descent)/2000, nothing on
+      any CARD-295 page reads cap_height, and MUTATION M6 (centre on
+      metrics.cap_height instead) reds two of the module's 35 tests --
+      test_every_mark_on_every_page_is_the_one_the_layout_demands and the
+      poppler test_each_digit_is_centred_where_the_layout_placed_it -- so the
+      ascender/descender rule is genuinely held at both ends. This is therefore
+      a declaration defect with nil code risk, but it is the one explicit card
+      instruction the round did not execute, and the card frames that exact
+      omission as what the board gates on.
+    remedy: >-
+      One paragraph on CARD-295: declined, with the reason (set_centred centres
+      on the ascender/descender midpoint by design -- Pillow's "m" anchor --
+      so cap_height is unreached from every mark this card draws) and the owner
+      (CARD-296 on re-entry, since its item 3 sets body text and headings in the
+      same face; failing that, CARD-294's own module). The silent-zero hole
+      needs naming in the same paragraph so it does not evaporate with the
+      conditional.
+    disposition: open
+
+  - id: F-004
+    severity: major
+    title: >-
+      The one-drawing-site invariant became evadable from the module this card
+      created, and the guard that promises to catch it is measured false
+    file: tests/test_book_pdf_vector_primitives.py
+    line: 1295
+    gating: false
+    confidence: high
+    evidence: >-
+      MUTATION M5: I added to src/nonogram/admin/book_vector_draw.py a
+      draw_dot(stream, x, y, r) built from
+      stream.begin_path/curve/curve/close_path/paint -- a complete round mark
+      drawn on a page, outside the vocabulary. THREE GUARDS ALL PASSED:
+      tests/test_book_difficulty_dots.py::TestDifficultyDots_HasExactlyOneDrawin
+      gSite 29 passed; tests/test_book_pdf_vector_primitives.py::TestVectorVocab
+      ulary_TheRoundMarkRouteTheOldGuardCannotSee 2 passed; the import-set
+      equality 1 passed. The reason is structural: the curve guard matches a `c`
+      operator written as a Python STRING LITERAL (regex f?"[^"\n]*\{[^"\n]*\}
+      c") and that literal stays in book_vector.py whoever calls it, while the
+      companion test keys on the text "round_mark(" and my dot never calls
+      round_mark. The difficulty-dots walk never sees it either: `curve`,
+      `begin_path`, `line_to` and `paint` are in none of ELLIPSE_METHODS,
+      ROUND_ENOUGH_METHODS, VERTEX_BOUNDED_METHODS or TEXT_METHODS, so the call
+      is not collected at all and the new NON_DRAW_RECEIVER_SITES exemption is
+      never even consulted. Two merged prose claims are therefore false:
+      TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee's "it is a
+      tripwire on one transition: the day a page card draws a vector dot, the
+      second test here goes red", and this round's new
+      NON_DRAW_RECEIVER_SITES comment, "That route has its own guard in the
+      file that wrote it ... The two compose; neither is trusted alone."
+      CARD-295 is what made the hole reachable rather than theoretical: before
+      it, book_vector was the only module that held a ContentStream, so the
+      literal guard's premise held by construction; book_vector_draw is the
+      first holder outside it. Restored; sha256
+      4d03b01233f98464c3d751ed98b1ca4ddf1af35511e43608ae28e59bfc948a4c.
+    remedy: >-
+      Either widen the tripwire to the CALL rather than the literal -- an AST
+      walk for an attribute call named curve/begin_path/line_to/paint on any
+      receiver, held to book_vector.py exactly as THE_CURVE_SITE already is --
+      or, if that belongs to the card that reads every interior page kind at
+      once, correct both comments to say the composition does not cover the
+      curve route and name CARD-298 as its owner. Do not leave the sentence
+      "the two compose" standing.
+    disposition: open
+
+  - id: F-005
+    severity: major
+    title: >-
+      AC-2's independence claim is literally false in one place, and the
+      borrowed value is held by nothing
+    file: tests/test_book_puzzle_page_vector.py
+    line: 339
+    gating: false
+    confidence: high
+    evidence: >-
+      Case.expected calls book_puzzle_vector.slot_room(self.layout) -- the
+      writer's own arithmetic -- against the module docstring's "Neither calls
+      the other's arithmetic, and neither calls book_vector._number" and the
+      AC's "an INDEPENDENT recomputation". MUTATION M9: slot_room returns
+      placement.usable_bottom - placement.usable_top instead of usable_right -
+      usable_left (a page's usable HEIGHT where its width is wanted) ->
+      "tests/test_book_puzzle_page_vector.py: 35 passed, 0.55s". Nothing else
+      holds it: src/nonogram/admin/book_pdf_generator.py:5515 and :5751 compute
+      the same quantity for the raster page and no test holds the three equal,
+      in explicit contrast with test_the_band_fits_the_way_the_raster_page_fits
+      _it, which does exactly that for BAND_WIDTH_RATIO and
+      MIN_BAND_FONT_RATIO. BLAST RADIUS TODAY IS NIL and I measured that too:
+      `room` reaches the page only through band_type_size's shrink branch, and
+      a real band sets at about a tenth of its room. I forced the shrink
+      through the written stream at four rooms (200/377/913/2250 px) x three
+      band sizes (59 -> 20, 97 -> 32, 300 -> 100) and oracle and writer agreed
+      on every one, so the float-vs-Decimal truncation in that branch is sound
+      -- it is the room itself that is self-confirming. Restored; sha256
+      0c8227a9f91a0d35c8eeb9969bc4d0ae107a3c76e143101a94d03af93f28a65b.
+    remedy: >-
+      Two lines: derive room in Expected from layout.page's own fields instead
+      of borrowing slot_room, and add
+      slot_room(layout) == placement.usable_right - placement.usable_left to
+      test_the_band_fits_the_way_the_raster_page_fits_it so the quantity is
+      held across the boundary the way the two ratios already are. Then the
+      docstring's independence sentence becomes true as written.
+    disposition: open
+
+  - id: F-006
+    severity: minor
+    title: AC-3's 0.05 pt tolerance is ~125x the measured residual, and is asserted on one page
+    file: tests/test_book_puzzle_page_vector.py
+    line: 835
+    gating: false
+    confidence: high
+    evidence: >-
+      I measured poppler's own residual against the Layout's stated centre on
+      four shapes, every clue word, no unmatched words: hero 30x30 @8.5x11
+      (480 entries -- which confirms the card's "keep that order of magnitude"
+      and the module's MIN_HERO_DIGITS=400) max|dx| 0.0001 pt / max|dy| 0.0002
+      pt; 30x30 @6.0x9.0 in, the minimum trim, cell 33, clue font 21 -> 0.0003
+      / 0.0002; 10x10 @6x9 -> 0.0004 / 0.0002; 10x10 @8.5x11 -> 0.0004 /
+      0.0002. MUTATION M7: SLACK_PT tightened 0.05 -> 0.001 -> the class is
+      still 4 passed. So the figure is chosen, not earned: anything between
+      0.0005 and 0.05 pt passes silently, and the control only plants 0.24 pt
+      (one device pixel), i.e. demonstrates discrimination at 4.8x the
+      tolerance rather than near it. The docstring's "It is not slack" is true
+      on its own terms (a digit in the wrong cell is two orders of magnitude
+      out) but it reads as a claim that the figure is the tightest available,
+      which it is not. Separately, the class runs on the hero alone; I verified
+      the agreement holds at the minimum trim and at the largest extent, so
+      widening it costs nothing. Restored; sha256
+      155c364fef040e12c441686602b31b3f517a08a6b66c65dd5c08cd5fb6a0360b.
+    remedy: >-
+      Set SLACK_PT to 0.005 (still 12x the worst residual I measured, and 48x
+      tighter than today) and say in the docstring that the residual was
+      measured at 0.0004 pt so the figure is a margin over a measurement rather
+      than a guess. Add the minimum-trim 30x30 as a second case of the class --
+      it is the smallest cell and so the smallest type the book can print.
+    disposition: open
+
+  - id: F-007
+    severity: minor
+    title: Three places still state the superseded pre-cache figures as current
+    file: tests/test_book_puzzle_page_vector.py
+    line: 346
+    gating: false
+    confidence: high
+    evidence: >-
+      Case.found's docstring -- "writing one PDF per assertion is SLOWER than
+      the ink assertion it replaces -- 29.17 ms against 20.58 ms"; and
+      _read_back_together's (line 480) -- "measures at 8.3x against the ink
+      assertion, where a PDF per assertion measures at 0.71x". Both are false
+      on HEAD (14.54x, measured above). meta/profiling/rank_durations.py's new
+      RENDER_HEAVY_SNAPSHOT comment states "the whole file runs in 1.13 s"; it
+      runs in 0.49-0.59 s on HEAD. No test reds on any of them. The module's
+      DESIGN is still right (one shared PDF for the corpus beats sixty
+      one-page files), so only the justification is stale -- but this board's
+      stated defect is the declaration that outlives its measurement, and
+      CARD-299's author will read these docstrings. book_vector.py's
+      _flate_face docstring and
+      TestVectorFace_TheCompressedFaceIsCachedAndStillTheSameBytes carry 0.71x
+      too; there it is history, properly attributed, and I would leave it.
+    remedy: >-
+      Reword the two test docstrings to state the cost that still exists
+      (extraction per assertion) and point at the post-cache addendum F-002
+      asks for; correct rank_durations' 1.13 s to the measured figure or drop
+      the second decimal.
+    disposition: open
+
+  - id: F-008
+    severity: trivial
+    title: _PATTERNS["fill"] is defined and never consulted
+    file: tests/test_book_puzzle_page_vector.py
+    line: 267
+    gating: false
+    confidence: high
+    evidence: >-
+      marks_of's if-chain tests grey, width, line, box and text; "fill" is in
+      the table and matched by nothing. The behaviour is correct by accident --
+      a bare "N g" line, which is ContentStream.fill_grey's own spelling, falls
+      through to the else and raises, which is the default-DENY answer the
+      parser's docstring promises. The entry only misleads a reader into
+      believing a fill is classified rather than refused.
+    remedy: Delete the entry, or classify it and assert the page emits none.
+    disposition: open
+
+  - id: F-009
+    severity: trivial
+    title: _state_operators' derivation is exact only while equal widths are contiguous after the sort
+    file: tests/test_book_puzzle_page_vector.py
+    line: 1290
+    gating: false
+    confidence: high
+    evidence: >-
+      Its docstring says the count is "stated as a derivation rather than as a
+      number, so it moves with the page". I built a Layout whose non-major
+      verticals alternate 1, 5, 1, 5 px: the writer emits 16 `w` operators and
+      STILL agrees with the oracle exactly (so draw_grid_lines' set-on-change
+      state tracking is correct for a shape it was not built for), while
+      1 + len({widths}) + 2 predicts 7 state operators against 18 actual. It
+      moves with a two-width page, which is the only page the corpus has.
+      Test-only; no behaviour depends on it.
+    remedy: >-
+      Count the width changes along the sorted order rather than the distinct
+      widths, or say in the docstring that the derivation assumes two widths.
+    disposition: open
+
+what_i_did_not_verify:
+  - The full suite. Never run, per the brief; NONOGRAM_FULL_SUITE_LOCK was set
+    on every invocation and pointed at the scratch lock.
+  - "Section 1's byte figures (408,366 B / 9,899,067 B / 24.2x / 1,205 B per
+    page net of the face). Not re-derived. The cache cannot move them -- it
+    returns the same compressed bytes, which the orchestrator confirmed
+    byte-identical -- so I accepted them."
+  - The renders at ~/Documents/nonogram-reviews/CARD-295/. Not eyeballed; the
+    owner's standing rule is that image-pipeline changes need a rendered-grid
+    look, and the round records having done it.
+  - The face-compression figures the orchestrator pre-derived (27.63 ms one-page
+    write, 27.41 ms face, 99.2 per cent, 0.16 ms after the cache). Not
+    re-derived; my own claim-arm decomposition is consistent with them
+    (flate_the_embedded_face 27.61 ms measured standalone).
+  - CARD-296's parked worktree at 0b91ab18. I ran book_vector_draw on its two
+    layouts as main's book_pdf_generator defines them (example_line_layout,
+    guide_icon_layout); I did not read the parked branch, so whether its round
+    would in fact adopt these routines is unverified.
+  - The 283-site figure, and section 3.3's share attributions (13.60 s of
+    498.02 s; test_book_export_interior_cover.py's 344.29 s). Sourced from
+    meta/profiling/interior-raster-share-20261026.txt, which the document
+    itself discounts to one significant figure.
+  - "Whether a future card will in fact reuse draw_ruled_grid rather than write
+    a second grid walk. The round states plainly that nothing stops it and that
+    the syntactic closure is CARD-296's measured-unclosable F-302; I agree and
+    did not try to close it."
+
+corrections_to_the_brief:
+  - "The round recorded NO Worktree notes on the card. The only card edits are
+    Status, Worktree and Started, plus the orchestrator's own DISPATCH block.
+    The round's notes are the commit message of 675222c1, which is thorough and
+    honest; the merge pass should expect the card itself to carry nothing."
+  - "\"35 new tests, 1.39 s\" is now 0.46-0.59 s on HEAD -- the cache the
+    orchestrator merged removed most of it. Full-tree collection on HEAD is
+    9,326, not 9,322: main's 5d84976c added 4 node ids
+    (TestVectorFace_TheCompressedFaceIsCachedAndStillTheSameBytes). 0 removed
+    either way."
+  - "The answer to the phase's question: the naive-conversion ratio NOW is
+    14.54x FASTER than the ink assertion (min of 7, loadavg 7.05/5.53/4.83
+    identical at both ends), with a same-session no-cache control reproducing
+    the round's 0.69x. Generation is 21.14x (0.833 ms/page against 17.621)."
+  - "The brief's framing -- \"a converted assertion writing its own PDF
+    measured 0.71x, SLOWER\" -- is now history. The live inversion is the other
+    way round: the SHARED-interior arm (8.55x) is now the slower of the two
+    file-writing stream arms, because it re-extracts a 24-page PDF's content
+    streams per assertion. The artefact's recommendation to share the FILE is
+    the part that has to be retracted; what survives is to parse it once per
+    fixture."
+  - "\"Is the operator alphabet derived or hand-written?\" -- hand-written, but
+    the question it raises is answered elsewhere: marks_of is default-DENY and
+    raises on any line it cannot classify, which I probed. A text literal
+    carrying \"m l S re Do\" is stripped by operator_tokens before tallying and
+    read back as one Shown, so no false operator enters; fill_grey, begin_path,
+    line_to and paint each emit a line no pattern matches and so raise. A
+    NEGATIVE rule width never reaches the parser at all --
+    ContentStream.stroke_width raises ContentStreamError(\"a stroke is not
+    -0.72 pt wide\") -- so the zero plant sits exactly on the boundary of an
+    already-validated range. Not a finding."
+  - "\"Is puzzle-page knowledge leaking into the page-kind-free module?\" -- I
+    found none. BAND_WIDTH_RATIO, MIN_BAND_FONT_RATIO and slot_room all sit in
+    book_puzzle_vector; book_vector_draw holds no gutter or band constant, and
+    INK_GREY is derived from png.INK and is an argument at every call site. The
+    round only ran GRID + FRAME on CARD-296's layouts; I additionally ran
+    draw_clue_digits on example_line_layout (2 entries, font 55) and it agrees
+    with the oracle exactly, and guide_icon_layout draws its 4 marks with no
+    frame. CARD-296's body prose needs no new routine either --
+    ContentStream.text already takes a left edge and a baseline. So the guide
+    IS drawable through it."
+  - "\"Are the two frozen-set additions earned?\" -- yes, both, and neither
+    weakens its set. NON_DRAW_RECEIVER_SITES is held by a SET equality (line
+    1695, unrecognised == sorted(NON_DRAW_RECEIVER_SITES)), so a fifth vector
+    site fails until named; the new vector branch additionally pins the module
+    and refuses a List/Tuple argument, and the dir(ContentStream) surface check
+    is real -- M3 (giving ContentStream an `ellipse` method) reds it.
+    RENDER_HEAVY_SNAPSHOT's 32nd path is a genuine grep hit
+    (vector_puzzle_pages contains puzzle_pages) and the file really does
+    allocate two page bitmaps. The residual is F-004, which is a different
+    route and not one these additions opened."
+  - "\"Are the ten mutants ten variants of one?\" -- no. I re-derived the three
+    claimed plants and added seven shapes of my own, and they discriminate on
+    different mechanisms: an import set (M2), a class's surface (M3), a
+    geometry floor (M4), a stroke ORDER (M8 -- reversing the major sort reds
+    test_the_thin_rules_are_stroked_before_the_heavy_ones while the set
+    comparison passes, which is the one claim a set cannot make), a type
+    centring rule (M6), a tolerance (M7), a borrowed scalar (M9) and a
+    cross-medium perturbation (M10). Every file restored and sha256-verified;
+    git status clean."

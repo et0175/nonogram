@@ -240,3 +240,82 @@ drive it directly, with no `Layout` involved.
 So the routine's reach is **wider than its author claimed**. This is the first
 round in this wave to be wrong by understating its own work; the standing
 pattern has been the reverse. Recorded on CARD-297, whose AC-3 needs no change.
+
+## [CYCLE 1 — 2026-10-26] 8.0, NOT CERTIFIED (3 gating). **Card HELD between rounds** on the owner's decision
+
+`meta/review/20261026T104006Z-CARD-295-cycle1.yml`, reviewed `675222c1` + the
+main merge `a7f33021`. Cycle 1's own words: *"It is an 8. The implementation is
+genuinely good and I found **no wrong number on any drawn page**."*
+
+**The card is HELD, not parked** — committed, worktree kept, no work lost. The
+owner chose to run **CARD-292 solo** on a quiet box first, because CARD-292 is a
+timing card and every gate verdict this wave rested on figures whose reliability
+it measures. CARD-295 resumes at its fix round afterwards.
+
+### The number the phase was waiting for, and it inverts the orchestrator's advice
+
+**The naive-conversion ratio post-cache is 14.54×, FASTER** — measured on HEAD at
+identical load averages, with the cache removed in the same session as a control
+(stream-per-file falls back to **0.69×**, reproducing the pre-cache 0.71×, so the
+sign change is the cache and not the host):
+
+| arm | min | vs ink | the artefact says |
+|---|---:|---:|---|
+| ink | 22.39 ms | 1.00× | 20.58 ms, 1.00× |
+| stream, **a PDF per assertion** | **1.54 ms** | **14.54×** | 29.17 ms, **0.71×** |
+| stream, one interior shared | 2.62 ms | 8.55× | 8.33× |
+| stream, no file | 0.71 ms | 31.54× | 31.2× |
+
+**And the inversion runs the other way from how I framed it to the owner.** I
+said the saving depended on *sharing the written file*. Post-cache the **shared**
+arm is the **slower** of the two file-writing arms, because it re-extracts a
+24-page PDF per assertion. The surviving guidance is **"parse the shared PDF once
+per fixture"**, not "share the file". **F-002 is gating because CARD-299's 283
+sites are pointed at this artefact**, whose §3 headline and "item 1" now say the
+opposite of what is true.
+
+Credit where it is due: the artefact pins itself to `075b31d9 + this card's
+changes`, says "re-run it rather than trusting the table", and its §3 item 2
+**predicted ~14.7× to within 1 %**.
+
+### The other two gating findings
+
+- **F-001 (critical) — the cross-medium seam does not read the raster page.**
+  `TestPuzzlePage_AgreesWithTheRasterTwin` reads only `hero.found` and
+  `hero.layout`; nothing in the module reads raster ink. Mutation M10 reversed
+  `png._draw_grid`'s major sort **and** shifted every vertical rule 7 device px,
+  so the two media genuinely disagree about order *and* position → **35 passed**,
+  while `test_book_puzzle_frame.py` went 2 failed. The class makes the claim AC-2
+  already makes. The agreement *was* measured — in the price script's `claim` arm
+  — **which nothing runs.** This is load-bearing precisely because it is the G-4
+  defence.
+- **F-003 (major) — the card's "name who owns them" clause was skipped.**
+  `cap_height` appears once in the 2,715-line diff; the decline is substantively
+  right (M6 reds 2 of 35, so the ascender/descender rule is held) but **no owner
+  was named and no decline recorded**, against the card's own words. One
+  paragraph closes it.
+
+### F-004, and it is the third time this claim has failed
+
+A `draw_dot` in `book_vector_draw` built from `begin_path`/`curve`/`close_path`/
+`paint` passes **all three** guards. The curve guard matches a `c` *string
+literal* that stays in `book_vector` whoever calls it; its companion keys on
+`round_mark(`; `curve`/`paint` are in no watched name set. **Two merged prose
+claims measured false**, including *"the day a page card draws a vector dot, the
+second test here goes red"* — CARD-294's, which the orchestrator personally
+endorsed at its merge gate, which CARD-296's fix round then partly retracted, and
+which is now false again **by a third route**. CARD-295 made the hole *reachable*:
+it created the first `ContentStream` holder outside the vocabulary.
+
+### G-4: cycle 1 UPHOLDS the refusal, conditional on F-001
+
+Its reasoning, which is better than the round's own: G-4 is already narrow
+("this page kind"), and the page those three files assert on **is still the
+raster page the book ships** until CARD-298 switches the medium — converting now
+moves 50 pixel sites onto a page no book contains. The economics G-4 assumed are
+gone regardless: those three files hold **13.60 s of 498.02 s convertible
+(2.7 %)**, so even at 14.54× this buys **~1.6 %** of the phase's saving, while
+`test_book_export_interior_cover.py` alone holds 344.29 s and is no page card's.
+**The condition:** the refusal is only safe if the two halves cannot drift, and
+F-001 is exactly that drift going unheld. If the board prefers G-4 executed, it
+should be executed by **CARD-298 with the medium switch in one diff**.
