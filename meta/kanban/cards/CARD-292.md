@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** orchestrator, 2026-10-24, from CARD-276's fix-round pre-gate. Found by chasing a phantom: I twice attributed a dying test run to CARD-276's diff before measuring both arms under the same conditions. The diff was never implicated; the host was.
 **Idea:** —
-**Wave:** —
+**Wave:** 62
 **Created wave:** 58
 **Deferred waves:** 0
 **Depends on:** —
