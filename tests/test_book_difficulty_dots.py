@@ -888,14 +888,28 @@ DRAW_OBJECT_UNBOUND_SITES = (
 #:
 #:   What earns the exemption is not the receiver's name but its **surface**:
 #:   a ``ContentStream`` has no ellipse-family and no round-enough method at
-#:   all — asserted against ``dir()``, not against this comment — and the one
-#:   round shape it can make, ``round_mark``, is not a draw-method name, so no
-#:   call to it would be collected here whatever its receiver. That route has
-#:   its own guard in the file that wrote it:
+#:   all — asserted against ``dir()``, not against this comment — and
+#:   ``round_mark``, one round shape it can make, is not a draw-method name,
+#:   so no call to it would be collected here whatever its receiver. That
+#:   spelling has its own guard in the file that wrote it:
 #:   ``tests/test_book_pdf_vector_primitives.py``'s
 #:   ``TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee``, which
 #:   holds the ``c`` operator to one module and ``round_mark`` to one
-#:   definition called nowhere. The two compose; neither is trusted alone.
+#:   definition called nowhere.
+#:
+#:   **CORRECTED, CARD-295 cycle 1 F-004.** This comment used to end "The two
+#:   compose; neither is trusted alone", which claimed a coverage the pair
+#:   does not have. They compose over **two spellings** and not over the
+#:   route: a round mark assembled from ``ContentStream.begin_path`` /
+#:   ``curve`` / ``close_path`` / ``paint`` passes this walk (none of those
+#:   five names is in :data:`ALL_DRAW_METHODS`, so the call is never collected
+#:   and this exemption table is never consulted) **and** both tests over
+#:   there — measured, not reasoned. That hole is named as a set by
+#:   ``TestVectorVocabulary_…``'s ``UNWATCHED_MARKS`` and owned by
+#:   **CARD-298**, which reads every interior page kind's written operators at
+#:   once; an operator that reached a page is a fact no source pattern can be
+#:   fooled about, which is why the closable version of this guard lives
+#:   there and not here.
 NON_DRAW_RECEIVER_SITES = (
     ("nonogram.admin.book_vector_draw", "draw_frame", "rectangle", "stream"),
     ("nonogram.admin.book_vector_draw", "draw_grid_lines", "line", "stream"),

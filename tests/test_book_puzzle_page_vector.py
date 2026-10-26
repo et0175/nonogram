@@ -1,11 +1,21 @@
 """The puzzle page drawn as PDF operators — CARD-295, ADR-0042/R1.
 
-Every claim here is made against **the content stream of a written PDF**
-(ADR-0042/R6) or against **poppler**, an engine that did not write it. No
-claim is made by counting dark pixels, and the one place this module looks at
-a raster is a deliberate positive control: the *raster* twin of the same page
-really does carry an image XObject, which is what makes AC-1's reading
-capable of failing.
+Every claim *about the vector page* is made against **the content stream of a
+written PDF** (ADR-0042/R6) or against **poppler**, an engine that did not
+write it: no claim about it is made by counting dark pixels. A **raster** page
+is read in two places, and neither of them is a reading of the vector page:
+
+* AC-1's **positive control** — the raster twin of the same page really does
+  carry an image XObject, which is what makes AC-1's reading capable of
+  failing;
+* the **cross-medium seam** (:class:`TestPuzzlePage_AgreesWithTheRasterTwin`)
+  — the one place the two media are read *against each other*, the raster
+  side off its own ink. That class's own docstring says why a seam that read
+  only the stream was not one.
+
+Both take the same bitmap from the ``twin`` fixture, so the whole module
+allocates **one** page raster; its other 35 tests allocate none, which is the
+point of the card.
 
 The two readings, and what each is for
 --------------------------------------
@@ -52,6 +62,7 @@ from random import Random
 from typing import Iterator, Sequence
 
 import pytest
+from PIL import Image
 
 from nonogram.admin import book_puzzle_vector, book_vector_draw
 from nonogram.admin.book_manager import Book, BookMetadata
@@ -72,10 +83,17 @@ from nonogram.admin.book_vector import (
     write_vector_pdf,
 )
 from nonogram.export import pdf as export_pdf
-from nonogram.export.layout import HeaderBand, Layout, compute_layout, header_band
+from nonogram.export.layout import (
+    GridLine,
+    HeaderBand,
+    Layout,
+    compute_layout,
+    header_band,
+)
 from nonogram.export.png import INK
-from tests.helpers import pdf_vector
+from tests.helpers import page_ink, pdf_vector
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
+from tests.helpers.shared_fixture_controls import page_digest
 
 NO_POPPLER = "poppler (pdftotext) is not installed: AC-3's independent engine is absent"
 needs_poppler = pytest.mark.skipif(pdf_vector.PDFTOTEXT is None, reason=NO_POPPLER)
@@ -136,6 +154,25 @@ class Shown:
 Mark = Stroke | Shown
 
 
+def _in_stroke_order(layout: Layout) -> list[tuple[GridLine, bool]]:
+    """``layout``'s ruled lines as ``(line, is_vertical)``, in stroke order.
+
+    Verticals then horizontals, stably sorted on
+    :attr:`~nonogram.export.layout.GridLine.major` alone — thin rules first,
+    then the every-fifth and border rules — because *that order is part of the
+    claim*: a heavy rule drawn before a thin one is a different page where
+    they cross. Stated once here because two things depend on it being the
+    same order: :meth:`Expected.grid` and :func:`_state_operators`.
+    """
+    return sorted(
+        [
+            *((line, True) for line in layout.vertical_lines),
+            *((line, False) for line in layout.horizontal_lines),
+        ],
+        key=lambda pair: pair[0].major,
+    )
+
+
 class Expected:
     """What a ``Layout`` demands be drawn, derived from the ``Layout`` alone.
 
@@ -159,12 +196,8 @@ class Expected:
         return _pt(pixels, self.layout.dpi)
 
     def grid(self) -> list[Mark]:
-        oriented = [
-            *((line, True) for line in self.layout.vertical_lines),
-            *((line, False) for line in self.layout.horizontal_lines),
-        ]
         marks: list[Mark] = []
-        for line, vertical in sorted(oriented, key=lambda pair: pair[0].major):
+        for line, vertical in _in_stroke_order(self.layout):
             if vertical:
                 numbers = (
                     self._x(line.position),
@@ -257,6 +290,25 @@ class Expected:
         return self.grid() + self.frame() + self.clues() + self.band(band, text, room)
 
 
+def _slot_room(layout: Layout) -> int:
+    """The width a band on ``layout`` has to fit inside, in device pixels.
+
+    Read off COMP-007's :class:`~nonogram.export.layout.PagePlacement`
+    directly rather than through ``book_puzzle_vector.slot_room``, which is
+    the function under test. **This is cycle 1's F-005**: the oracle used to
+    call ``slot_room``, so making it return a page's usable *height* where its
+    *width* is wanted left all 35 tests green — the one quantity on the page
+    that confirmed itself. The arithmetic is two fields of one dataclass, so
+    stating it here is cheaper than borrowing it, and
+    ``test_the_band_fits_the_way_the_raster_page_fits_it`` now holds
+    ``slot_room``'s own answer against the same two fields so the module under
+    test is measured rather than trusted.
+    """
+    placement = layout.page
+    assert placement is not None, "a book page's Layout is placed on a page"
+    return placement.usable_right - placement.usable_left
+
+
 # --------------------------------------------------------------------------
 # Reading the marks back out of the written file
 # --------------------------------------------------------------------------
@@ -264,7 +316,6 @@ class Expected:
 _N = pdf_vector.NUMBER
 _PATTERNS = {
     "grey": re.compile(rf"^({_N}) G$"),
-    "fill": re.compile(rf"^({_N}) g$"),
     "width": re.compile(rf"^({_N}) w$"),
     "line": re.compile(rf"^({_N}) ({_N}) m ({_N}) ({_N}) l S$"),
     "box": re.compile(rf"^({_N}) ({_N}) ({_N}) ({_N}) re S$"),
@@ -282,6 +333,16 @@ def marks_of(stream_text: str) -> list[Mark]:
     makes "the page emits nothing else" a claim rather than a filter — an
     image XObject's ``Do``, a Bézier's ``c``, a clipping path's ``W`` would
     each stop the suite here.
+
+    A **fill** tone is one of those, and deliberately: a bare ``N g`` —
+    ``ContentStream.fill_grey``'s own spelling — matches nothing below and
+    raises. :data:`_PATTERNS` carried a ``"fill"`` entry until cycle 1's
+    F-008 noticed the if-chain never consulted it, so the table described a
+    classification that did not happen while the refusal that did happen was
+    invisible. The entry is gone and the refusal is the behaviour: a filled
+    shape on an interior page is a page nothing here can speak for. (The
+    ``g`` that *is* read is the one inside a text object, where it is the
+    glyphs' tone.)
     """
     width: Decimal | None = None
     grey: Decimal | None = None
@@ -336,22 +397,34 @@ class Case:
     def expected(self) -> list[Mark]:
         return Expected(
             self.layout, Decimal(str(book_vector_draw.INK_GREY)), interior_face_metrics()
-        ).page(self.band, self.text, book_puzzle_vector.slot_room(self.layout))
+        ).page(self.band, self.text, _slot_room(self.layout))
 
     @property
     def found(self) -> list[Mark]:
         """The marks this page really emitted, read back out of a written PDF.
 
         Through :data:`_MARKS` when the page was written as part of a whole
-        interior, and otherwise by writing a PDF of its own. The cache is not
-        a convenience: writing one PDF per assertion is **slower than the ink
-        assertion it replaces** — 29.17 ms against 20.58 ms, measured in
-        ``meta/profiling/card-295-puzzle-page-price.md`` §3 — because
-        ADR-0042/R5 Flate-compresses the whole 757 KB face once per *file*,
-        and that one term is 98.8 % of a one-page write. Shared across an
-        interior the same assertion costs 2.47 ms, which is 8.3x cheaper than
-        the ink form. A module that measured that and then ignored it would be
-        the first test file to make the phase's saving disappear.
+        interior, and otherwise by writing a PDF of its own.
+
+        **What this cache buys has changed, and the change is on main.** This
+        docstring used to say that writing one PDF per assertion is slower
+        than the ink assertion it replaces — 29.17 ms against 20.58 ms —
+        because ADR-0042/R5 Flate-compresses the whole 757 KB face once per
+        *file* and that one term was 98.8 % of a one-page write. ``5d84976c``
+        memoises the compressed face, and after it the same arm measures
+        **14.54x faster** than the ink assertion (1.54 ms against 22.39 ms),
+        while the arm that shares one written interior is now the **slower**
+        of the two file-writing arms at 8.55x — it re-extracts a 24-page PDF's
+        content streams on every assertion.
+
+        So what the cache here still removes is **extraction, not writing**:
+        :func:`_read_back_together` parses one sixty-page file once for the
+        whole module and each assertion reads a parsed result. *Parse a shared
+        PDF once per fixture* is the guidance that survived; *share the written
+        file* is the one that was retracted. Both figures, the no-cache
+        control that reproduces the old 0.71x, and the retraction are in
+        ``meta/profiling/card-295-puzzle-page-price.md``'s post-cache
+        addendum, which is also where to re-measure them — on a quiet box.
         """
         held = _MARKS.get(id(self.stream))
         if held is not None:
@@ -475,8 +548,14 @@ _MARKS: dict[int, tuple[ContentStream, list[Mark]]] = {}
 def _read_back_together(cases: Sequence[Case]) -> None:
     """Write every case's page into ONE PDF and parse all of them from it.
 
-    The shape §3 of the price document measures at 8.3x against the ink
-    assertion, where a PDF per assertion measures at 0.71x.
+    One write and **one extraction** for sixty pages instead of sixty of
+    each, and post-``5d84976c`` the second half is the half that pays: the
+    price document's own shared-interior arm, which re-extracts per
+    assertion, measures 8.55x against the ink assertion where a per-assertion
+    *write* now measures 14.54x. See the addendum in
+    ``meta/profiling/card-295-puzzle-page-price.md``; this shape pays
+    extraction once per fixture, which is the recommendation that survived
+    the cache.
     """
     pdf = write_vector_pdf([case.stream for case in cases], len(cases)).getvalue()
     written = pdf_vector.content_streams(pdf)
@@ -512,6 +591,143 @@ def hero() -> Case:
     generator = BookPDFGenerator(corpus_book())
     row = puzzle("card295-hero", 30, 30, HERO_DEPTH, "hard", "Hero Picture")
     return _case(generator, row, 4, A_PUZZLE_PAGE, "30x30 hero")
+
+
+@pytest.fixture(scope="module")
+def min_trim_hero() -> Case:
+    """The same 30x30 on the **smallest trim the panel offers**.
+
+    AC-3 was asserted on one page until cycle 1's F-006, and the page it was
+    asserted on is the roomiest the book has: 8.5x11 in, cell 50, clue type 32
+    px. The cell is fitted to the trim, so the smallest trim prints the
+    smallest clue digits the book can print — cell 33, clue type 21 — and the
+    centring arithmetic divides by the type size. If poppler and the writer
+    were going to disagree anywhere it is here.
+    """
+    width, height = TRIMS[-1]
+    generator = BookPDFGenerator(_book(width, height, "card295-min-trim"))
+    row = puzzle("card295-min-hero", 30, 30, HERO_DEPTH, "hard", "Small Hero")
+    return _case(generator, row, 4, A_PUZZLE_PAGE, "30x30 at the minimum trim")
+
+
+@dataclass(frozen=True)
+class Twin:
+    """One puzzle drawn **both** ways: the stream, and the raster page's ink.
+
+    The same row, the same puzzle number, the same interior page, the same
+    book — so the only difference between the two sides is the medium, which
+    is what makes a disagreement between them mean something.
+
+    Attributes:
+        generator: The book this page belongs to.
+        case: The vector side, read back out of a written PDF like every
+            other :class:`Case`.
+        page: The raster side's page bitmap. **The module's only one.**
+        drawing: What :func:`tests.helpers.page_ink.drawing_of` measures off
+            that bitmap — the grid's box and its rule count, in device
+            pixels, found by looking at the page and nothing else. That
+            helper imports no ``nonogram.export.layout`` and no
+            ``book_page_spec`` (its own docstring), so it is a reading of the
+            ink rather than a second statement of the geometry.
+        digest: ``page``'s pixels when the fixture drew it, so a consumer
+            that drew on the shared bitmap is a failure rather than a
+            surprise for whatever ran next (see
+            :class:`TestPuzzlePage_TheSharedPagesAreNotMutated`).
+    """
+
+    generator: BookPDFGenerator
+    case: Case
+    page: Image.Image
+    drawing: page_ink.Drawing
+    digest: bytes
+
+
+@pytest.fixture(scope="module")
+def twin() -> Twin:
+    """The first baseline puzzle, drawn as a stream and as a bitmap, once.
+
+    One bitmap for the whole module: AC-1's positive control and the
+    cross-medium seam both take this fixture rather than drawing a page each.
+    """
+    generator = BookPDFGenerator(corpus_book())
+    row = print_order(baseline_puzzles())[0]
+    case = _case(generator, row, 1, A_PUZZLE_PAGE, "the raster twin's own page")
+    page = generator._blank_page(
+        BookPDFGenerator._payload(row),
+        1,
+        A_PUZZLE_PAGE,
+        generator.cell_sizes([BookPDFGenerator._payload(row)]),
+    )
+    return Twin(
+        generator=generator,
+        case=case,
+        page=page,
+        drawing=page_ink.drawing_of(page),
+        digest=page_digest(page),
+    )
+
+
+def _device_rules(case: Case) -> tuple[list[tuple[Decimal, Decimal]], ...]:
+    """``case``'s ruled lines back in **device pixels**, as the raster has them.
+
+    Returns ``(verticals, horizontals)``, each a list of
+    ``(position, width)``: the position of a vertical is its ``x`` and of a
+    horizontal its ``y`` **measured down from the page's top**, because that
+    is the frame a bitmap is indexed in and a comparison between two media
+    has to be made in one of them. Only ``Stroke``s are read — the frame's
+    ``re`` box and the text are not ruled lines — and the conversion is the
+    one the stream itself did, run backwards.
+    """
+    scale = Decimal(POINTS_PER_INCH) / Decimal(case.layout.dpi)
+    height = Decimal(case.layout.height)
+    verticals: list[tuple[Decimal, Decimal]] = []
+    horizontals: list[tuple[Decimal, Decimal]] = []
+    for mark in case.found:
+        if not isinstance(mark, Stroke) or mark.kind != "line":
+            continue
+        x1, y1, x2, _y2 = mark.numbers
+        if x1 == x2:
+            verticals.append((x1 / scale, mark.width / scale))
+        else:
+            horizontals.append((height - y1 / scale, mark.width / scale))
+    return verticals, horizontals
+
+
+def _inked_rule_widths(twin: Twin) -> list[int]:
+    """How wide the raster page's rules really are, counted in its own pixels.
+
+    One scanline through the middle of the first row of cells, and the
+    lengths of its unbroken runs of ink. Exactly the reading
+    ``tests/test_book_pdf_band.py``'s ``TestBookPdf_EveryFifthGridLineWider``
+    makes, and exactly the reading
+    ``meta/profiling/card295_puzzle_page_price.py``'s **ink arm** makes — that
+    instrument cross-checks it against the stream's ``w`` operands before it
+    times anything, and this is that cross-check moved to where something
+    runs it.
+
+    The scan starts at the grid's left border and runs one cell past its
+    right one, so the first and last runs are heavy rules and every run
+    between them is a rule of one of the two weights; a clue digit's ink is
+    outside the box on both axes.
+    """
+    drawing = twin.drawing
+    mask = page_ink.ink_mask(twin.page)
+    middle = drawing.grid_top + round(
+        (drawing.grid_bottom - drawing.grid_top) / drawing.rows / 2
+    )
+    cell = round((drawing.grid_right - drawing.grid_left) / drawing.columns)
+    widths: list[int] = []
+    run = 0
+    for inked in mask[middle, drawing.grid_left : drawing.grid_right + cell].tolist():
+        if inked:
+            run += 1
+        elif run:
+            widths.append(run)
+            run = 0
+    if run:
+        widths.append(run)
+    assert len(widths) >= drawing.columns + 1, widths
+    return sorted(set(widths))
 
 
 # --------------------------------------------------------------------------
@@ -601,7 +817,7 @@ class TestPuzzlePage_CarriesNoImageXObject:
         )
         assert "c" not in pdf_vector.operator_tally(written)
 
-    def test_the_raster_twin_of_the_same_page_does_carry_one(self) -> None:
+    def test_the_raster_twin_of_the_same_page_does_carry_one(self, twin: Twin) -> None:
         """The control: this reading can fail, and here is it failing.
 
         The same puzzle, the same page number, the same book — drawn the way
@@ -609,11 +825,7 @@ class TestPuzzlePage_CarriesNoImageXObject:
         ``_write_pdf``. If this page's resources did *not* name an XObject,
         every assertion in this class would be measuring nothing.
         """
-        generator = BookPDFGenerator(corpus_book())
-        row = print_order(baseline_puzzles())[0]
-        payload = BookPDFGenerator._payload(row)
-        page = generator._blank_page(payload, 1, A_PUZZLE_PAGE, generator.cell_sizes([payload]))
-        raster = generator._write_pdf(iter([page]), 1, mode="L").getvalue()
+        raster = twin.generator._write_pdf(iter([twin.page]), 1, mode="L").getvalue()
 
         keys = pdf_vector.page_resource_keys(raster)
         assert len(keys) == 1
@@ -832,7 +1044,18 @@ class TestPuzzlePage_EveryClueDigitRendersWhereTheLayoutPutIt:
     out itself.
     """
 
-    SLACK_PT = 0.05
+    #: How far poppler's own box for a word may sit from the centre the
+    #: ``Layout`` states, in points. **A margin over a measurement, not a
+    #: guess** (cycle 1's F-006, which found the old 0.05 pt was ~125x the
+    #: residual and so passed anything between 0.0005 and 0.05 pt silently):
+    #: the residual was measured at **0.0004 pt** worst case, on four shapes
+    #: — the hero, the minimum trim at 30x30, and a 10x10 at each — over
+    #: every clue word, with nothing unmatched. 0.005 pt is twelve times that
+    #: worst case and 48x tighter than the figure it replaces; one device
+    #: pixel at 300 DPI, which is the smallest move the stream can express at
+    #: a whole-pixel ``Layout``, is 0.24 pt, i.e. still 48x the tolerance, so
+    #: the control below discriminates with two orders of magnitude to spare.
+    SLACK_PT = 0.005
 
     def test_the_page_carries_a_digit_for_every_clue_entry(
         self, hero: Case, tmp_path
@@ -876,10 +1099,10 @@ class TestPuzzlePage_EveryClueDigitRendersWhereTheLayoutPutIt:
     ) -> None:
         """Poppler's own box for each word, against the ``Layout``'s centre.
 
-        The tolerance is 0.05 pt — a fiftieth of a device pixel at 300 DPI —
-        because poppler's box is the pen plus the face's advances and that is
-        exactly what the writer centred on. It is not slack: a digit placed in
-        the wrong cell is a whole cell out, two orders of magnitude above this.
+        The tolerance is :data:`SLACK_PT`, and what it is a margin over is
+        stated there rather than here, because the figure is the claim: the
+        agreement is exact to within 0.0004 pt and anything looser than that
+        would be describing an engine's rounding as a tolerance.
         """
         pdf = write_vector_pdf([hero.stream], 1).getvalue()
         words = pdf_vector.word_boxes(pdf, out_dir=tmp_path)
@@ -904,6 +1127,47 @@ class TestPuzzlePage_EveryClueDigitRendersWhereTheLayoutPutIt:
                     matched += 1
                     break
         assert matched == len(hero.layout.clue_entries), (matched, len(wanted))
+
+    def test_the_smallest_digits_the_book_prints_land_there_too(
+        self, min_trim_hero: Case, tmp_path
+    ) -> None:
+        """The same reading at the other end of the trim range (F-006).
+
+        A 30x30 on 6.0x9.0 in: cell 33 px and clue type 21 px, against the
+        hero's 50 and 32. The type size is the divisor in both halves of
+        ``set_centred``'s arithmetic, so the smallest type is where a rounding
+        that the hero's page absorbs would show. It does not: the residual
+        here measures 0.0003 pt, the same order as the hero's.
+        """
+        pdf = write_vector_pdf([min_trim_hero.stream], 1).getvalue()
+        words = pdf_vector.word_boxes(pdf, out_dir=tmp_path)
+        layout = min_trim_hero.layout
+        scale = POINTS_PER_INCH / layout.dpi
+        wanted = {
+            (
+                round(entry.center_x * scale, 3),
+                round(entry.center_y * scale, 3),
+                str(entry.value),
+            )
+            for entry in layout.clue_entries
+        }
+
+        assert len(layout.clue_entries) >= MIN_HERO_DIGITS, len(layout.clue_entries)
+        assert layout.cell < 40 and layout.clue_font_size < 32, (
+            layout.cell,
+            layout.clue_font_size,
+        )
+        matched = 0
+        for word in words:
+            for x, y, text in wanted:
+                if (
+                    word.text == text
+                    and abs(word.center_x - x) <= self.SLACK_PT
+                    and abs(word.center_y - y) <= self.SLACK_PT
+                ):
+                    matched += 1
+                    break
+        assert matched == len(layout.clue_entries), (matched, len(wanted))
 
     def test_the_placement_check_can_fail(self, hero: Case, tmp_path) -> None:
         """The control: a digit set one pixel off is outside the tolerance.
@@ -1023,7 +1287,9 @@ class TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle:
         assert hero.text in extracted, (hero.text, extracted[:200])
         assert " · " in hero.text
 
-    def test_the_band_fits_the_way_the_raster_page_fits_it(self) -> None:
+    def test_the_band_fits_the_way_the_raster_page_fits_it(
+        self, corpus: list[Case]
+    ) -> None:
         """One fitting rule in three places, held equal from here.
 
         ``book_puzzle_vector`` reimplements the two ratios natively rather
@@ -1032,11 +1298,35 @@ class TestPuzzlePage_BandCarriesNumberAndTierAndNeverTheTitle:
         together. Three now, where
         ``test_a_two_up_band_is_fitted_by_the_exports_own_header_ratios``
         holds two.
+
+        The **third** quantity the rule needs is the room the line is fitted
+        into, and until cycle 1's F-005 nothing held it at all: the raster
+        callers compute ``placement.usable_right - placement.usable_left``
+        inline (``_two_up_page``, ``pdf.render_pages``), so there is no
+        constant to compare and ``slot_room``'s answer was only ever checked
+        against itself. It is held here against the two
+        :class:`~nonogram.export.layout.PagePlacement` fields the raster
+        callers read, over the whole corpus — which is the most that *can* be
+        held across this boundary while the other two copies are expressions
+        rather than names.
         """
         assert book_puzzle_vector.BAND_WIDTH_RATIO == _BAND_WIDTH_RATIO
         assert book_puzzle_vector.MIN_BAND_FONT_RATIO == _MIN_BAND_FONT_RATIO
         assert book_puzzle_vector.BAND_WIDTH_RATIO == export_pdf._HEADER_WIDTH_RATIO
         assert book_puzzle_vector.MIN_BAND_FONT_RATIO == export_pdf._MIN_HEADER_FONT_RATIO
+
+        assert len(corpus) >= MIN_CASES, len(corpus)
+        rooms = set()
+        for case in corpus:
+            placement = case.layout.page
+            assert placement is not None, case.label
+            assert book_puzzle_vector.slot_room(case.layout) == (
+                placement.usable_right - placement.usable_left
+            ), case.label
+            rooms.add(book_puzzle_vector.slot_room(case.layout))
+        # Not one room repeated sixty times: the three trims and both parities
+        # give the equality something to be wrong about.
+        assert len(rooms) >= len(TRIMS), rooms
 
     def test_a_band_too_wide_for_its_room_is_set_smaller(self, corpus: list[Case]) -> None:
         """The shrink, which no real band reaches, exercised where it does.
@@ -1190,36 +1480,68 @@ class TestPuzzlePage_DrawsTheDrawingAndTheBandAndNoSheetFurniture:
 
         assert sorted(shown) == sorted(expected + [hero.text])
 
-    def test_the_raster_twin_shows_more(self) -> None:
+    def test_the_raster_twin_shows_more(self, twin: Twin) -> None:
         """The other side of the same statement, measured not assumed.
 
         The raster page of the same puzzle carries a folio, a grid-size label
         and a QR caption. Named here so the gap is a number somebody can act
         on rather than a sentence in a docstring.
         """
-        generator = BookPDFGenerator(corpus_book())
-        row = print_order(baseline_puzzles())[0]
-        payload = BookPDFGenerator._payload(row)
-        page = generator._blank_page(
-            payload, 1, A_PUZZLE_PAGE, generator.cell_sizes([payload])
-        )
-
         from nonogram.export.layout import interior_frame
 
-        frame = interior_frame(generator.page_spec(A_PUZZLE_PAGE))
+        frame = interior_frame(twin.generator.page_spec(A_PUZZLE_PAGE))
         assert frame.header_rule.width > 0 and frame.footer_rule.width > 0
-        assert page.size == (generator.page_width_px, generator.page_height_px)
+        assert twin.page.size == (
+            twin.generator.page_width_px,
+            twin.generator.page_height_px,
+        )
 
 
 class TestPuzzlePage_AgreesWithTheRasterTwin:
-    """The two media put the grid in the same place, measured on the stream.
+    """The seam: the drawn **bitmap** and the written **stream**, against each
+    other.
 
-    Not a pixel comparison and not a claim about ink: the raster page's own
-    geometry is the same ``Layout``, so what is held here is that the vector
-    page uses it unchanged — every ruled line of the vector page is a line the
-    raster renderer would stroke at the same device coordinates and the same
-    width. It is the seam that makes the two halves of the suite comparable
-    while CARD-298 has not yet chosen between them.
+    **This class read only the stream until CARD-295's fix round, and that is
+    the hole it now closes** (cycle 1, F-001): "the raster renderer would
+    stroke the same ``Layout``, so the vector page uses it unchanged" is a
+    syllogism, not a measurement, and the first two tests below prove only its
+    second half. Cycle 1 measured the gap — it reversed ``png._draw_grid``'s
+    major sort *and* moved every vertical rule 7 device pixels, so that the
+    two media genuinely disagreed about both order and position, and this
+    module stayed 35-green while the raster's own file went red. A seam that
+    cannot see the other side of itself is not a seam, and G-4's refusal to
+    convert the three pixel-reading files rests on this one: the stream half
+    is added **beside** the ink half, which is only safe while something stops
+    the two drifting.
+
+    So the last two tests read the raster page's **own ink** —
+    :func:`tests.helpers.page_ink.drawing_of` and one scanline — and hold it
+    against the operands the stream really emitted. What is compared is only
+    what *can* be compared across the two media, and each is named below
+    rather than left as "they agree":
+
+    * **counted** — one vertical rule group per column boundary, in both;
+    * **spanned** — the grid's width and height in device pixels, identically;
+    * **placed** — the two media's edges differ by **one** offset, the same
+      number on all four, and no more than half a heavy rule. That residue is
+      Pillow's own line-cap convention for an even-width stroke and not a
+      disagreement about geometry: PDF strokes a path centred on its
+      coordinate and Pillow's thick line does not, so the constant is the
+      thing to hold rather than zero;
+    * **weighted** — the widths the ink measures are the widths the stream
+      sets, which is the comparison
+      ``meta/profiling/card295_puzzle_page_price.py``'s ``claim`` arm already
+      made (ink ``[3, 6]`` device pixels against stream ``[0.72, 1.44]``
+      points) and that nothing in the suite ran.
+
+    **What the seam does not reach**, by its shape rather than as a list: it
+    compares the *grid*, because the grid is the mark both media draw from the
+    same ``Layout`` fields and the only one whose ink is identifiable without
+    a second renderer. The clue digits are not compared across the media —
+    their ink is the face's rasterisation on one side and poppler's on the
+    other — and AC-3 holds them against poppler instead. The band is text and
+    the same applies. A later card that makes the two media *interchangeable*
+    (**CARD-298**) is where that widens.
     """
 
     def test_every_ruled_line_is_at_the_layouts_own_device_position(
@@ -1248,6 +1570,62 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
             mark.width == thin for mark in hero.found if isinstance(mark, Stroke)
         ]
         assert order == sorted(order, reverse=True), order
+
+    def test_the_ink_and_the_stream_rule_the_same_grid(self, twin: Twin) -> None:
+        """Counted, spanned and placed — the geometry half of the seam.
+
+        The raster side is read off the bitmap by ``page_ink``, which is told
+        nothing about the ``Layout``; the vector side is the operands of a
+        written PDF, converted back to device pixels. Neither number comes
+        from the other's arithmetic, and neither comes from ``compute_layout``
+        at all, so this is the one assertion in the module that would notice
+        the **raster** page moving.
+        """
+        verticals, horizontals = _device_rules(twin.case)
+        drawing = twin.drawing
+        heavy = max(width for _position, width in verticals + horizontals)
+        major_x = sorted(position for position, width in verticals if width == heavy)
+        major_y = sorted(position for position, width in horizontals if width == heavy)
+
+        # counted
+        assert len(verticals) == drawing.columns + 1, (len(verticals), drawing.columns)
+        assert len(horizontals) == drawing.rows + 1, (len(horizontals), drawing.rows)
+        assert len(major_x) >= 2 and len(major_y) >= 2, (major_x, major_y)
+        # spanned
+        assert major_x[-1] - major_x[0] == drawing.grid_right - drawing.grid_left
+        assert major_y[-1] - major_y[0] == drawing.grid_bottom - drawing.grid_top
+        # placed — one offset on all four edges, inside half a heavy rule
+        offsets = {
+            Decimal(drawing.grid_left) - major_x[0],
+            Decimal(drawing.grid_right) - major_x[-1],
+            Decimal(drawing.grid_top) - major_y[0],
+            Decimal(drawing.grid_bottom) - major_y[-1],
+        }
+        assert len(offsets) == 1, offsets
+        assert abs(offsets.pop()) * 2 <= heavy, (offsets, heavy)
+        # and the frame is drawn, or not, in both
+        boxes = [
+            mark
+            for mark in twin.case.found
+            if isinstance(mark, Stroke) and mark.kind == "box"
+        ]
+        assert bool(boxes) is drawing.framed is (twin.case.layout.frame is not None)
+
+    def test_the_ink_measures_the_two_widths_the_stream_sets(self, twin: Twin) -> None:
+        """The weighted half: the claim arm's own cross-medium check, run.
+
+        ``[3, 6]`` device pixels off the page against ``[0.72, 1.44]`` points
+        off the stream — the same two rules, which is the comparison
+        ``card295_puzzle_page_price.py`` makes before it times either arm. The
+        widths are asserted to be two and ordered first, so the comparison
+        cannot pass by both sides collapsing to one weight.
+        """
+        verticals, horizontals = _device_rules(twin.case)
+        stated = sorted({width for _position, width in verticals + horizontals})
+        inked = _inked_rule_widths(twin)
+
+        assert len(stated) == 2 and stated[1] > stated[0], stated
+        assert [Decimal(width) for width in inked] == stated, (inked, stated)
 
 
 class TestPuzzlePage_TheSharedPagesAreNotMutated:
@@ -1283,16 +1661,80 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         """
         for case in corpus:
             assert len(case.stream.operators) == len(case.expected) + _state_operators(
-                case
+                case.layout
             ), case.label
 
+    def test_the_operator_count_holds_on_a_page_of_many_widths(
+        self, corpus: list[Case]
+    ) -> None:
+        """:func:`_state_operators`' own control, which it had none of.
 
-def _state_operators(case: Case) -> int:
+        The corpus has exactly two rule widths on every page, so a derivation
+        that counted *distinct* widths and one that counts *changes of* width
+        agree on all sixty — which is how cycle 1's F-009 went unnoticed. The
+        case that tells them apart is a page whose widths alternate, so equal
+        widths are no longer contiguous after the sort: here the two
+        derivations read **21** and **7**, and the stream agrees with the one
+        that counts changes.
+        """
+        case = corpus[0]
+        striped = _replace_layout(
+            case.layout,
+            vertical_lines=tuple(
+                _replace_line(line, width=1 if index % 2 else 5)
+                for index, line in enumerate(case.layout.vertical_lines)
+            ),
+        )
+        stream = book_puzzle_vector.puzzle_page_stream(
+            striped, case.band, case.text, 10_000
+        )
+        expected = Expected(
+            striped, Decimal(str(book_vector_draw.INK_GREY)), interior_face_metrics()
+        ).page(case.band, case.text, 10_000)
+
+        naive = 1 + len({line.width for line in striped.grid_lines})
+        naive += 2 if striped.frame is not None else 0
+        assert _state_operators(striped) > naive + 5, (
+            _state_operators(striped),
+            naive,
+        )
+        assert len(stream.operators) == len(expected) + _state_operators(striped)
+
+    def test_the_shared_raster_twin_is_the_bitmap_the_fixture_drew(
+        self, twin: Twin
+    ) -> None:
+        """The same question about the module's one page bitmap.
+
+        A ``PIL.Image`` is mutable and the twin is handed to the generator's
+        own ``_write_pdf`` by AC-1's control, so the seam's ink reading is
+        only a reading of *that* page while nothing has drawn on it since.
+        ``page_digest`` is ``tests/helpers/shared_fixture_controls.py``'s, the
+        same reader ``tests/test_book_pdf_band.py`` checks its shared interior
+        with.
+        """
+        assert page_digest(twin.page) == twin.digest
+
+
+def _state_operators(layout: Layout) -> int:
     """How many ``G``/``w`` operators a page emits beside its marks.
 
-    One ``G`` for the grid's tone, one ``w`` per distinct ruled width, and —
-    where the drawing is framed — one ``G`` and one ``w`` for the frame. Stated
-    as a derivation rather than as a number, so it moves with the page.
+    One ``G`` for the grid's tone, one ``w`` **per change of width along the
+    stroke order**, and — where the drawing is framed — one ``G`` and one
+    ``w`` for the frame.
+
+    The middle term used to be ``len({widths})``, which is the same number
+    only while equal widths are contiguous after the sort — true of every
+    page the corpus holds (two widths, thin then major) and false in general.
+    Cycle 1's F-009 built a ``Layout`` whose non-major verticals alternate
+    1, 5, 1, 5 px: ``draw_grid_lines`` sets the width on change, so it emitted
+    16 ``w`` operators and still agreed with the oracle exactly, while the
+    old derivation predicted 7. It now counts the changes
+    ``draw_grid_lines`` makes, over the one stroke order
+    :func:`_in_stroke_order` states, so it moves with any page rather than
+    with a two-width one.
     """
-    widths = {line.width for line in case.layout.grid_lines}
-    return 1 + len(widths) + (2 if case.layout.frame is not None else 0)
+    widths = [line.width for line, _vertical in _in_stroke_order(layout)]
+    changes = sum(
+        1 for before, after in zip([None, *widths], widths) if before != after
+    )
+    return 1 + changes + (2 if layout.frame is not None else 0)
