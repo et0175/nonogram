@@ -1051,6 +1051,39 @@ def write_vector_pdf(
     return written
 
 
+@lru_cache(maxsize=1)
+def _flate_face(face: bytes) -> bytes:
+    """``zlib.compress(face, 9)``, computed once per process.
+
+    **Why this is cached and the page streams above are not.** The face is the
+    same 757,076 bytes in every interior file this package writes, and
+    compressing it at level 9 costs **27.4 ms** — measured by CARD-295, which
+    also measured that a one-page vector write is **27.63 ms in total**, so the
+    face is **99.2 %** of it and drawing the page is 0.22 ms. A page stream
+    differs per page and is small; this does not.
+
+    **The consequence that made it worth a line.** CARD-295 converted the
+    spike's 4.1× *line* ratio into a *time* ratio and found it conditional: a
+    converted assertion that writes its **own** PDF measured **0.71× — slower
+    than the ink assertion it replaces** — while one that shares a written
+    interior measured 8.33×. Every one of those 29.17 ms was this call.
+    ADR-0042/R6 points CARD-299 at **283 sites**, so without this the
+    conversion the ADR mandates would have made the suite slower and the cause
+    would have been invisible at every one of them.
+
+    **Cost, stated:** ~379 KB resident for the compressed copy, for the life of
+    the process, whether or not a second file is written. `maxsize=1` because
+    the package embeds exactly one face; a second one evicts rather than grows.
+
+    **Control:** :func:`~tests.test_book_pdf_vector_primitives` asserts the
+    cached bytes are **identical** to an uncached ``zlib.compress(face, 9)``
+    and that a written file's ``/FontFile2`` stream still decompresses to the
+    face — so a cache that returned something stale or wrong reds rather than
+    merely being fast.
+    """
+    return zlib.compress(face, 9)
+
+
 def _write_face(
     pdf: PdfParser.PdfParser,
     face: bytes,
@@ -1086,7 +1119,7 @@ def _write_face(
     """
     pdf.write_obj(
         file_ref,
-        stream=zlib.compress(face, 9),
+        stream=_flate_face(face),
         Filter=PdfParser.PdfName("FlateDecode"),
         Length1=len(face),
     )
