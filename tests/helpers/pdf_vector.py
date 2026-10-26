@@ -32,7 +32,7 @@ import subprocess
 from collections import Counter
 from io import BytesIO
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, NamedTuple
 
 import numpy as np
 from PIL import Image, PdfParser
@@ -284,6 +284,73 @@ def extracted_text(data: bytes, out_dir: Path | None = None) -> str:
         [PDFTOTEXT, str(source), "-"], check=True, capture_output=True
     )
     return done.stdout.decode("utf-8")
+
+
+#: One word of a page's text layer, as poppler's ``-bbox`` reports it: the
+#: text and its box in **points from the page's top-left corner**, y down.
+#: A named tuple rather than a 5-tuple because ``word.center_x`` at the call
+#: site is the difference between a readable placement assertion and four
+#: index expressions (CARD-295).
+class Word(NamedTuple):
+    text: str
+    left: float
+    top: float
+    right: float
+    bottom: float
+
+    @property
+    def center_x(self) -> float:
+        return (self.left + self.right) / 2.0
+
+    @property
+    def center_y(self) -> float:
+        return (self.top + self.bottom) / 2.0
+
+
+_WORD = re.compile(
+    r'<word xMin="([\d.eE+-]+)" yMin="([\d.eE+-]+)" '
+    r'xMax="([\d.eE+-]+)" yMax="([\d.eE+-]+)">(.*?)</word>'
+)
+
+
+def word_boxes(data: bytes, page: int = 1, out_dir: Path | None = None) -> list[Word]:
+    """Every word **poppler** finds on ``page``, with the box it found it in.
+
+    The placement half of the text reading, and the independent one: a box
+    here is poppler's own measurement of where the glyphs it laid out from the
+    embedded ``/Widths`` actually sit, so comparing it against a
+    ``Layout``'s stated centre asks an engine that did not write the file
+    where the writer put the mark (CARD-295's AC-3).
+
+    Poppler reports the box in points from the page's **top-left** corner,
+    which is the ``Layout``'s own orientation — the flip to PDF's bottom-left
+    origin is the writer's business and does not reach here.
+
+    XML by regex rather than by a parser: the five numbers wanted are in one
+    attribute list, and ``xml.etree`` would have to be told about the XHTML
+    doctype's entities. ``&amp;``/``&lt;``/``&gt;`` are the only escapes
+    poppler emits inside a word, and they are undone below.
+    """
+    if PDFTOTEXT is None:  # pragma: no cover - guarded at the call site
+        raise RuntimeError("poppler's pdftotext is not on this host")
+    directory = out_dir or Path(".")
+    directory.mkdir(parents=True, exist_ok=True)
+    source = directory / "bbox.pdf"
+    source.write_bytes(data)
+    done = subprocess.run(
+        [PDFTOTEXT, "-bbox", "-f", str(page), "-l", str(page), str(source), "-"],
+        check=True,
+        capture_output=True,
+    )
+    found = []
+    for left, top, right, bottom, text in _WORD.findall(done.stdout.decode("utf-8")):
+        unescaped = (
+            text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+        )
+        found.append(
+            Word(unescaped, float(left), float(top), float(right), float(bottom))
+        )
+    return found
 
 
 def ink_mask(page: np.ndarray) -> np.ndarray:

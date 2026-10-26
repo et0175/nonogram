@@ -117,6 +117,26 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_pdf_packed_degrade.py",
     "tests/test_book_pdf_two_up.py",
     "tests/test_book_proof_pages.py",
+    # RESTATED DELIBERATELY 2026-10-26 (CARD-295), which is what this freeze
+    # exists to force: 32 paths, with the vector puzzle page's own test file
+    # added. The mention is real — the file calls
+    # ``BookPDFGenerator.vector_puzzle_pages``, which carries ``puzzle_pages``
+    # as a substring, and it calls the raster ``_blank_page``/``_write_pdf``
+    # twice on purpose (AC-1's control: the raster twin of the same page really
+    # does reference an image XObject, which is what makes the vector reading
+    # capable of failing). **Added rather than dodged**: the vector walk could
+    # have been named ``vector_pages`` and slipped the grep while costing
+    # exactly the same, which is CARD-223's own words for the silent divergence
+    # this set exists to prevent.
+    #
+    # Worth knowing when this file's share is read as a COST -- the CARD-219 /
+    # CARD-251 caveat, measured rather than assumed: the whole file runs in
+    # **1.13 s** and allocates **two** page bitmaps in total, both in the two
+    # raster controls named above; its other 33 tests draw no bitmap at all,
+    # which is the point of the card. It contributes 0 s to both the
+    # 2026-10-15 and the 2026-10-23 recordings (it did not exist), so no share
+    # computed from either artefact moves.
+    "tests/test_book_puzzle_page_vector.py",
     "tests/test_book_qr_slot.py",
     "tests/test_book_scaffolding.py",
     "tests/test_book_solved_answer_key.py",
