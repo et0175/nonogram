@@ -1,6 +1,6 @@
 # CARD-296: The guide page as operators — the worked example, the legend's dots and the diagram, the phase's one unpriced page
 
-**Status:** blocked
+**Status:** ready
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -17,12 +17,12 @@
 **Deferred waves:** 0
 **Depends on:** CARD-294
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_difficulty_dots.py
-**Review score:** 7.0 (cycle 3/3) — NOT CERTIFIED, parked rather than merged
+**Review score:** 7.0 (cycle 3/3) — NOT CERTIFIED; cycle 3 put the distance to 8 at three edits, all of them prose or comment over mechanisms it measured load-bearing
 **Started:** 2026-10-26
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** parked 2026-10-26 on the owner's decision — review budget spent (3 cycles, 7.0, 2 gating declaration defects over mechanisms that all work). Worktree KEPT at `0b91ab18`. Re-enter after CARD-295 runs: its round exercises the same guards, so it supplies real evidence about whether F-302's residue matters in practice.
+**Blocked by:** — (un-parked 2026-10-26: CARD-295 cycle 2 supplied the evidence the park waited for, and it vindicates the retraction — see the UN-PARKED section. Worktree KEPT at `0b91ab18`.)
 
 ## Read this first: this is the card the spike refused to price
 
@@ -259,16 +259,42 @@ builder emitting only `m`, `l`, `h` and a paint operator — so a 32-gon filled
 disc planted beside each tier name passed **248 tests**, through the curve
 assertion, through `round_mark(`, and through CARD-294's own alarm. A polyline
 disc is *cheaper* than four Béziers, so it is the likelier route for CARD-229's
-dots. **The route is now closed rather than carried as a limit** (cycle 1 named
-both options): every subpath the page writes is counted off the stream and
-bounded at 4 points, which is `MAX_FLAT_VERTICES`' own mechanism and figure in
-the medium where the vertices are operators. "No round shape" is now stated as
-the three routes it has to cover — a curve (`c`), a many-point polyline, and a
-round dingbat glyph (guarded package-wide by
-`tests/test_book_difficulty_dots.py`'s dingbat rule) — each with its own
-assertion or its own named owner. **CARD-229 inherits AC-3**, and when it draws
-the dots it reds CARD-294's alarm if it uses `round_mark`, and this card's
-vertex bound if it approximates one.
+dots.
+
+**Fix round 1 then closed that route with a vertex bound, and review cycle 2
+measured that the bound cannot close it.** Two discs of shapes the bound was
+not written against passed 264/264: a fan of 32 **three-point** triangles, and
+a staircase of 24 filled `re` bands (which the counter does not count at all).
+The reason is structural, not a figure to tune: the page's own arrow head is
+three points and so is a triangle, so **no value of `MAX_PATH_POINTS` admits
+this page and refuses a disc.** The same hole is in the `MAX_FLAT_VERTICES`
+precedent the fix cited.
+
+**So fix round 2 takes cycle 1's other option.** "No round shape" is stated as
+the three routes it has to cover, each as what it really is:
+
+* **a curve (`c`)** — closed, and the only closure claimed:
+  `test_no_guide_page_emits_a_curve_operator`. "No `c`" is "no **Bézier**",
+  exactly. (Measured by a plant of a different shape from the 32-gon: a
+  `round_mark` call on the legend, 7 cells red.)
+* **a straight-segment approximation** (long polyline, triangle fan, `re`
+  staircase) — a **NAMED LIMIT with CARD-298 as owner**, which carries
+  ADR-0042/R1's derived per-page-kind check and is where a round-shape rule
+  belongs (ink, or a rule on filled subpaths — not a vertex count). The vertex
+  counter and the bound are kept for the narrower thing they do say: the
+  longest *single* subpath this page writes is the three-point arrow head.
+  Measured on a third shape — a disc as 32 **two-point** stroked spokes, 265
+  green — so the limit is recorded as open rather than asserted shut.
+* **a round dingbat glyph** — closed on this page by the legend's own
+  "nothing-else" equality plus the record-against-stream equality; the
+  package-wide dingbat rule does walk this module but is **not** what catches a
+  glyph in this medium (cp1252 bars the Geometric-Shapes codepoints outright,
+  and U+00B7 was not in the set). U+00B0 was added to that set; U+00B7 is its
+  named hole, because it is the package's own band separator.
+
+**CARD-229 inherits AC-3**, and when it draws the dots it reds CARD-294's alarm
+if it uses `round_mark` — and nothing in the tree if it approximates one, which
+is now written down rather than claimed closed.
 
 **2. AC-4 names a routine that does not exist yet.** "Drawn through CARD-295's
 grid routine" — CARD-295 runs *after* this card (wave 61 is guide-first; the
@@ -346,45 +372,6 @@ digit on the guide.
   per path: `OS/2` v2 with a real `sCapHeight`, v2 too short to hold the field,
   v1, the short `loca`, and both raises — plus the control that the bundled
   face takes exactly one of them, read out of the face's own bytes.
-
-## [Routed in from CARD-294 cycle 2 — 2026-10-26, N-2] `_cap_height`'s uncontrolled branches — yours, because you run first
-
-**This was first written onto CARD-295 and that was wrong.** The orchestrator
-routed it there calling CARD-295 "the first card that centres strings on
-`FontMetrics`". Wave 61 is ordered **guide-first**, so you run before CARD-295,
-and your own item 3 draws *"the explanatory body text and headings, in the
-embedded face"* — so you are the first consumer both by schedule and by what you
-draw. The note is corrected here and CARD-295 now points at you. Recorded rather
-than silently moved, because a control that drifts to the card that runs second
-is a control the first card ships without.
-
-CARD-294 fixed a real **10.8 %** error in `_cap_height`
-(`src/nonogram/admin/book_vector.py`): `font_metrics` fell back to
-`0.7 × ascender`, and the bundled DejaVuSans ships `OS/2` **version 1, 86 bytes,
-with no `sCapHeight` at all**, so the fallback was *always* what shipped —
-**650**/1000 em where FreeType measures **729**. It now reads `H`'s own
-`glyf`/`loca` bounding box and reproduces FreeType exactly. The pre-existing
-poppler control had absorbed the error because its tolerance is 15 % and the
-error was 12.2 % — worth knowing before you trust a tolerance of your own.
-
-**What CARD-294 did NOT control**, measured by its cycle 2: the function has
-three reachable paths and the shipped face exercises exactly one (`OS/2` v1;
-`indexToLocFormat` **1**, long `loca`). Uncontrolled are the **`OS/2 ≥ 2`
-branch** — which CARD-294's card *states* as behaviour, "version ≥ 2 still wins
-where a face has it" — the **short-`loca`** branch, and **both raises**. All were
-judged correct on review, so this is missing controls rather than missing
-behaviour. One residual hole is real: **a v2+ face with `sCapHeight = 0` returns
-0 with no fallback and no error** — a silent zero in the number your headings
-are set against.
-
-If you set type on `cap_height`, the cheapest honest control is a synthetic face
-per branch (a v2 `OS/2` carrying a real `sCapHeight`, one carrying `0`, and a
-short-`loca` face) rather than a comment asserting the branches work. CARD-294's
-own cycle-1 critical finding was a control that could not fail, and its cycle-2
-N-1 was a figure whose scope was hand-held; this is the same family twice over.
-
-**If you decline these controls, say so with a reason and name who owns them** —
-CARD-295 is the obvious inheritor — rather than passing them on silently.
 
 ## [IMPLEMENTATION PRE-GATE — 2026-10-26, orchestrator] PASSED, and the declined AC is verified sound
 
@@ -612,3 +599,96 @@ split discriminates: at `FOLIO_PT=11.0` the measurement passes and the identity
 reds with its own sentence), F-5 (an independent `BinOp` walk returns exactly
 `diagram_box` and `translation`; no third exists), and the tautology sweep over
 both the new cell **and** the changed bodies — none.
+
+## [UN-PARKED — 2026-10-26, orchestrator] The evidence the park waited for, and it vindicates the retraction
+
+The park's condition was literal: *"Re-enter after CARD-295 runs: its round
+exercises the same guards, so it supplies real evidence about whether F-302's
+residue matters in practice."* CARD-295 cycle 2 ran. **The condition is met, and
+the answer is not the one the orchestrator expected.**
+
+### What CARD-295 measured
+
+A 32-gon filled disc planted into `puzzle_page_stream` gives **7 failed / 14
+errors** — the polygon route *is* closed on the puzzle page. The mechanism is
+`marks_of` (`tests/test_book_puzzle_page_vector.py:328`), a whole-stream
+**vocabulary default-deny** (ADR-0039/R2): five recognised operators — grey,
+width, line, box, text — and a final `else: raise AssertionError` naming the
+line. A Bézier's `c`, an XObject's `Do`, a clipping `W` and a bare `N g` fill
+each stop the suite there.
+
+### Why that does NOT transfer to this page, which is the real finding
+
+The orchestrator's first reading was that CARD-296 should adopt `marks_of`'s
+default-deny in place of the vertex bound. **That is wrong, and checking it
+rather than asserting it is the only reason it is not now written into this
+card as a remedy.** Two facts:
+
+* `marks_of` is not a shared helper. It lives only inside CARD-295's own new
+  test module and parses the puzzle page's vocabulary. Nothing of it is in
+  `tests/helpers/pdf_vector.py`.
+* **The puzzle page is closed because it writes no filled path at all.** An
+  unsolved puzzle page is a grid and clue digits; `fill_grey`'s own spelling
+  raises in that parser by design. Closure there is the *absence* of the
+  vocabulary, not a stronger rule.
+
+This page is not in that position, and it writes **both** of the vocabularies
+cycle 2's defeating shapes were built from:
+
+* `book_guide_vector.py:841-846` draws the worked example's arrow head as a
+  **filled three-point polygon** — `fill_grey`, `begin_path`, two `line_to`,
+  `close_path`, `paint("fill")`. So `m`/`l`/`h`/`f` are operators this page
+  legitimately writes, and a 32-gon is the same operators with more `l` lines.
+* `:581-589` fills the diagram's squares with `rectangle(..., paint="fill")`,
+  which is `re` + `f`. That is **exactly** the vocabulary of cycle 2's second
+  defeating shape, the staircase of 24 filled `re` bands.
+
+So a vocabulary default-deny cannot separate the arrow head from a disc, nor the
+diagram's squares from an `re` staircase, any better than a vertex count can.
+**Both of cycle 2's counterexamples are built from operators this page has a
+legitimate reason to emit** — the same structural fact cycle 2 established,
+reached from the other direction.
+
+### So the disposition stands, and is now evidenced rather than argued
+
+Fix round 2's retraction — "no `c`" means "no **Bézier**", exactly, with the
+straight-segment approximation carried as a **named limit owned by CARD-298** —
+is correct, and cycle 3 said so in terms (*"THE DISPOSITION IS RIGHT"*). The
+residue is **cross-page, not per-page**: no rule written in one page's test
+module closes it, because the discriminator cannot be operator vocabulary or
+vertex count. It has to be geometric — ink, or a rule on filled subpaths — which
+is exactly ADR-0042/R1's derived per-page-kind check. **CARD-298 is the right
+and only owner**, and CARD-295's round independently judged it not unowned in
+practice: every page kind reaching a page before wave 65 has its own
+artefact-side guard.
+
+### This also sharpens cycle 3's first gating finding
+
+F-301 is the stale comment at `tests/test_book_difficulty_dots.py:944`, which
+still calls the polygonal disc route *"Bounded per page kind"*. It is worse than
+stale: CARD-295 now shows that on the one page where the route really is shut,
+it is not *bounded* at all — it is absent. The comment names a mechanism that
+exists nowhere. Correcting it is still one line.
+
+### State
+
+**Un-parked to `ready`.** Cycle 3 put the distance to 8 at "three edits, two of
+them one line of code each", and all three are prose or comment corrections over
+mechanisms every one of which cycle 3 measured load-bearing. The review budget
+(`max_cycles: 3`) is spent, so reaching a certified 8 needs an owner decision on
+a fourth cycle; landing it as a declaration, as CARD-276 was, is the other
+route. **The worktree at `0b91ab18` must not be removed** — see below.
+
+### A loss this nearly caused, and the standing rule it breaks
+
+`meta/review/20261026T074944Z-CARD-296-cycle3.yml` existed **only in the
+worktree, untracked**. The standing practice is to remove a card's worktree at
+merge; doing that here would have destroyed the cycle-3 review outright — the
+one artefact that records why this card's disposition is right. This is the
+**same defect as CARD-295's F-102**, in the same wave, from the same cause: the
+round's artefacts are written where `meta/kanban` and `meta/review` are excluded
+from the branch commit, so they survive only as untracked files in a directory
+scheduled for deletion. Rescued and committed here. The orchestrator's own
+copy of this card was also carrying fix round 2's **retracted** text — the
+"route is now closed" paragraph that cycle 2 disproved — while the worktree held
+the correction; main's copy is spliced to the honest version in this commit.
