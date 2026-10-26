@@ -1,0 +1,560 @@
+card: CARD-295
+cycle: 2
+reviewer: forge:review (Claude Opus 5)
+date: 2026-10-26T13:57:45Z
+revision_reviewed: defab5c7
+fork_point: 075b31d9
+branch: card/295-puzzle-page-as-operators
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-295
+score: 9
+certified: true
+min_score: 8
+verdict: >-
+  CERTIFIED at 9/10. All three of cycle 1's gating findings are closed, the two
+  non-gating majors are closed or defended, and every control I fired
+  discriminates: M9 (slot_room returns a page's usable HEIGHT) now reds exactly
+  the one equality the fix round added; reverting _state_operators to the
+  len({widths}) form reds exactly the new many-widths cell; a 0.02 pt digit
+  drift reds AC-3 at SLACK_PT 0.005 and passes at 0.05, which is the round's own
+  claim measured; and re-planting cycle 1's M5 draw_dot leaves all 247 green, so
+  the F-004 decline is honest rather than quietly obsolete. The fix round is
+  unusually disciplined about its own limits -- it took no timing on a loaded
+  box, promoted cycle 1's figures into the AC-5 artefact with explicit
+  provenance rather than re-deriving them badly, left the pre-cache table intact
+  as the honest record, and states the one wall clock it owes. What I found is
+  four minor and three trivial items, none of them a wrong number on a drawn
+  page. The two that matter: the new seam's placement bound (|offset| * 2 <=
+  heavy) absorbs a uniform raster translation of -1..+5 device pixels, and the
+  offset it is standing in for is exactly derivable -- my fifth shape, a uniform
+  +3 px translation of the raster grid AND frame on both axes, leaves this
+  module 40-green while the raster's own file reds 16 (F-101); and the F-004
+  decline's supporting claim that confining line_to/paint "forbids the
+  vocabulary's ordinary use" is false on today's tree, where the only caller of
+  any of the five path primitives anywhere in src/ is ContentStream.round_mark
+  itself (F-103). Cycle 1 upheld the G-4 refusal conditional on F-001; that
+  condition is NOW MET. One merge-mechanical item: the declaration that
+  discharges F-003 is in the working tree only, not in defab5c7 (F-102).
+
+previous_findings:
+  - id: F-001
+    severity: critical
+    was_gating: true
+    status: closed
+    evidence: >-
+      TestPuzzlePage_AgreesWithTheRasterTwin now reads the raster page's own
+      ink in two new cells. test_the_ink_and_the_stream_rule_the_same_grid
+      takes page_ink.drawing_of (which imports no nonogram.export.layout and no
+      book_page_spec) and holds four separate claims against the operands of a
+      written PDF converted back to device pixels: the vertical/horizontal rule
+      COUNT against drawing.columns/rows, the grid's SPAN on both axes, one
+      shared PLACEMENT offset across all four edges, and framed-or-not.
+      test_the_ink_measures_the_two_widths_the_stream_sets runs one scanline
+      through the first row of cells and compares the unbroken ink-run lengths
+      against the stream's own w operands -- the claim arm's [3, 6] device
+      pixels against [0.72, 1.44] points, which cycle 1 found nothing in the
+      suite ran. I measured the comparison live: heavy = 6 device px, widths
+      {3, 6}, inked {3, 6}, offsets {-2, -2, -2, -2}. The orchestrator's fourth
+      shape (asymmetric +5 px, horizontal rules only) reds exactly the first of
+      those cells, which I accepted rather than re-derived. The claim the class
+      name makes is now the claim it measures. The residual is F-101, which is a
+      tightness defect in one of the four sub-claims and not a return of this
+      hole.
+  - id: F-002
+    severity: critical
+    was_gating: true
+    status: closed
+    evidence: >-
+      meta/profiling/card-295-puzzle-page-price.md gains exactly what the
+      remedy asked for: a superseded banner at the top pointing forward, the
+      pre-cache sections 1-3 left byte-for-byte as the honest record, and a
+      dated "Addendum, 2026-10-26 -- after 5d84976c, the face cache" carrying
+      the four re-measured arms, the no-cache control that reproduces 0.69x,
+      section 2's 21.14x, and an explicit "What is retracted" naming section
+      3's headline and its item 1. The inversion is stated the right way round
+      (the SHARED-file arm is now the slower of the two file-writing arms,
+      because it re-extracts a 24-page PDF per assertion) and the guidance that
+      survives is narrowed to "parse a shared PDF once per fixture". I checked
+      the arithmetic rather than the stopwatch: 22.39/1.54 = 14.54, 22.39/2.62 =
+      8.55, 22.39/0.71 = 31.5, 17.621/0.833 = 21.15 -- all four internally
+      consistent. Provenance is honest to the point of self-denial: the figures
+      are attributed to review cycle 1 by filename, and the addendum says in as
+      many words that nothing in it was measured by the fix round because its
+      box was at load average 12-19, which tests/README.md says tells you
+      nothing at all.
+  - id: F-003
+    severity: major
+    was_gating: true
+    status: closed
+    evidence: >-
+      CARD-295.md now carries "### DECLINED -- 2026-10-26, CARD-295 cycle 1 fix
+      round (discharging the clause above)" with all three parts the clause
+      demanded: the reason (set_centred centres on _middle_em = (ascent +
+      descent)/2000, Pillow's "m" anchor, and cycle 1's own M6 is cited as the
+      measurement that cap_height is unreached), the owner (named by the rule --
+      "the next card that centres a string on a FontMetrics.cap_height" -- with
+      CARD-296, CARD-297 and CARD-294's own module as examples rather than as
+      the set), and the residual hole restated so it does not evaporate with the
+      conditional (a v2+ OS/2 face with sCapHeight = 0 returns 0 with no
+      fallback and no error; the two uncontrolled branches and both raises).
+      Naming an owner by rule rather than by card is the better answer here,
+      since two cards have already been named and neither took them. CAVEAT, as
+      F-102: this section is uncommitted.
+  - id: F-004
+    severity: major
+    was_gating: false
+    status: declined
+    evidence: >-
+      The decline is honest and I verified it in the direction that matters: I
+      re-planted cycle 1's M5 verbatim -- a draw_dot(stream, x, y, r) in
+      book_vector_draw built from begin_path/curve/curve/close_path/paint -- and
+      tests/test_book_difficulty_dots.py + tests/test_book_pdf_vector_primitives.py
+      + tests/test_book_puzzle_page_vector.py came back 247 passed. So the hole
+      is still open and the decline still describes the tree. Both false merged
+      sentences are retracted at both sites, with the retraction stating what
+      was measured rather than softening it. THE PARTITION IS SOUND as a
+      mechanism: ContentStream's public surface is 16 names (MRO is
+      (ContentStream, object), so dir() adds nothing inherited), WATCHED_MARKS
+      (4) | UNWATCHED_MARKS (5) | NOT_A_MARK (7) covers it exactly, the equality
+      is asserted against a live dir() so it cannot drift from the class, the
+      watched half is read FROM tests/test_book_difficulty_dots (ALL_DRAW_METHODS,
+      VECTOR_STREAM_METHODS) rather than restated, and that import is
+      one-directional -- test_book_difficulty_dots imports no test module, so
+      there is no cycle and no stale copy; the cell passes when its own file is
+      run alone (1 passed). A sixth primitive does red it until classified.
+      WHAT THE DECLINE GETS WRONG is its supporting claim, not its conclusion:
+      see F-103. CARD-298 IS the right owner -- the question the brief raises
+      (unowned in practice, since CARD-298 is wave 65 behind the parked CARD-296,
+      CARD-297 at 64 and CARD-227 at 63) resolves the other way once the
+      intervening cards are read: CARD-296's own round already closed the
+      polygon route ON THE GUIDE PAGE artefact-side (every written subpath
+      counted off the stream and bounded at 4 points), CARD-297's AC-5 reads its
+      tile dots back with poppler, and -- measured here, and NOT claimed by the
+      decline -- CARD-295's own page is covered too: I planted a 32-gon filled
+      disc into puzzle_page_stream itself and tests/test_book_puzzle_page_vector.py
+      went to 7 failed / 14 errors, because marks_of is default-DENY and raises
+      on the m/l/h/f lines a path emits. So each page kind is covered by its own
+      module and what is genuinely missing is the cross-page guarantee, which is
+      exactly ADR-0042/R1's derived check and exactly CARD-298's. The decline
+      understates its own page's coverage; see corrections_to_the_brief.
+  - id: F-005
+    severity: major
+    was_gating: false
+    status: closed
+    evidence: >-
+      Case.expected now calls a module-local _slot_room(layout) that reads
+      layout.page.usable_right - layout.page.usable_left directly, and
+      test_the_band_fits_the_way_the_raster_page_fits_it holds
+      book_puzzle_vector.slot_room's own answer against those same two
+      PagePlacement fields over the whole corpus, with a >= MIN_CASES floor and
+      a len(rooms) >= len(TRIMS) guard so the equality has something to be wrong
+      about. MUTATION (cycle 1's M9, re-fired): slot_room returns
+      placement.usable_bottom - placement.usable_top -> "1 failed, 39 passed",
+      the failure being exactly test_the_band_fits_the_way_the_raster_page_fits_it.
+      Cycle 1 measured 35 passed on the same mutation. Nothing was borrowed in
+      the process: _slot_room reads two fields of COMP-007's own dataclass,
+      which is the source of truth rather than the function under test, and the
+      docstring is honest that this is "the most that CAN be held across this
+      boundary while the other two copies are expressions rather than names".
+      src/nonogram/admin/book_puzzle_vector.py restored, sha256 0c8227a9...
+  - id: F-006
+    severity: minor
+    was_gating: false
+    status: closed
+    evidence: >-
+      SLACK_PT is 0.005 and the comment states what it is a margin over (0.0004
+      pt worst case on four shapes) rather than asserting that the figure is
+      right. I confirmed the round's discrimination claim exactly as stated:
+      planting +0.0833333 device px (= 0.02 pt at 300 DPI) into
+      book_vector_draw.set_centred's `left` reds BOTH AC-3 cells at 0.005 ("2
+      failed, 3 passed") and, with the same plant in place and SLACK_PT
+      temporarily restored to 0.05, the class is "5 passed". So the tightening
+      buys real discrimination at the figure the round named. The minimum-trim
+      cell is real and I verified its numbers: TRIMS[-1] = 6.0x9.0 in gives cell
+      33 / clue_font 21 against the hero's 49 / 31, with 480 clue entries (>=
+      MIN_HERO_DIGITS 400), and 30x30 is limits.MAX_SIZE so no larger extent can
+      shrink the cell further at that trim. The claim that it is the smallest
+      type the BOOK prints is false; see F-104, which is prose rather than
+      behaviour -- I measured the agreement at the real minimum trim too.
+      book_vector_draw.py restored, sha256 4d03b012...
+  - id: F-007
+    severity: minor
+    was_gating: false
+    status: closed
+    evidence: >-
+      Case.found's and _read_back_together's docstrings now state the live
+      figures (14.54x per-assertion, 8.55x shared) and carry 29.17/20.58 only
+      inside an explicit "This docstring used to say" retraction, which is
+      history properly attributed. rank_durations.py's RENDER_HEAVY_SNAPSHOT
+      comment drops the 1.13 s outright, says why (the file moved in both
+      directions and no quiet box was available), bounds it as "under a second"
+      from a contended run, and states the bitmap COUNT instead -- which I
+      verified rather than took: the module has exactly one _blank_page call
+      (line 655, inside the twin fixture) and five tests take that fixture, so
+      "one page bitmap, five tests share it, its other 35 allocate none" is
+      exact at 40 collected. TestVectorFace_...'s docstring gained a paragraph
+      carrying both figures and the control. src/nonogram/admin/book_vector.py's
+      own _flate_face docstring still states 0.71x, but it is main's text
+      (git diff main...HEAD -- that file is empty), it reads as the reason the
+      cache exists rather than as current guidance, and cycle 1 said to leave
+      it.
+  - id: F-008
+    severity: trivial
+    was_gating: false
+    status: closed
+    evidence: >-
+      The "fill" entry is gone from _PATTERNS and marks_of's docstring now
+      states the refusal as the behaviour -- a bare "N g", ContentStream.fill_grey's
+      own spelling, matches nothing and raises -- with the one `g` that IS read
+      (inside a text object, where it is the glyphs' tone) distinguished. The
+      refusal is not theoretical: planting a filled polygon into
+      puzzle_page_stream took the module to 7 failed / 14 errors through exactly
+      this path.
+  - id: F-009
+    severity: trivial
+    was_gating: false
+    status: closed
+    evidence: >-
+      _state_operators now takes a Layout rather than a Case and counts changes
+      of width along one stated stroke order (_in_stroke_order, factored out so
+      Expected.grid and the derivation cannot disagree about it), and
+      test_the_operator_count_holds_on_a_page_of_many_widths is the control it
+      had none of. CONTROL: I reverted the body to cycle 1's
+      `1 + len({widths}) + ...` form -> "1 failed, 39 passed", the failure being
+      exactly that new cell. The docstring's figures check out on the real
+      corpus[0] ("19x25 d3 p6"): the changes derivation gives 21, the naive one
+      7, and the written stream carries 19 `w` operators plus the frame's.
+
+findings:
+  - id: F-101
+    severity: minor
+    title: >-
+      The seam's placement bound absorbs a uniform raster translation of -1..+5
+      device pixels, and the offset it stands in for is exactly derivable
+    file: tests/test_book_puzzle_page_vector.py
+    line: 1596
+    gating: false
+    confidence: high
+    evidence: >-
+      MY FIFTH SHAPE, chosen because it is the one perturbation the
+      len(offsets) == 1 trick cannot see: a UNIFORM PURE TRANSLATION of the
+      whole raster drawing -- +3 device px on BOTH axes, applied to
+      png._draw_grid's every rule AND to png._draw_frame's four sides, so the
+      bitmap's grid and frame move together and no edge moves relative to
+      another. It is different from all five already fired: M8 and the
+      orchestrator's first shape attack stroke ORDER, M10 and the orchestrator's
+      fourth attack an ASYMMETRIC translation (verticals only, or horizontals
+      only), M4 attacks a width FLOOR, M3 a class SURFACE. A symmetric
+      translation preserves count, span and the single-offset invariant, and
+      attacks only the magnitude bound. Result, from the worktree root:
+      "tests/test_book_puzzle_page_vector.py: 40 passed, 0.59s" -- the seam does
+      not see it -- while "tests/test_book_puzzle_frame.py: 16 failed, 84
+      passed". The arithmetic says why, and is not specific to +3: the live
+      offset is -2 on all four edges with heavy = 6 device px, so
+      abs(offset) * 2 <= heavy admits any uniform raster shift d with
+      abs(d - 2) <= 3, i.e. d in [-1, +5] -- up to 1.2 pt / 0.42 mm. The
+      docstring's framing is also imprecise. It calls the residue "Pillow's own
+      line-cap convention for an EVEN-width stroke", but I measured Pillow's
+      thick-line centring at widths 1..8 (a vertical line at x = 20 in a fresh
+      bitmap): the inked run starts at 20, 20, 19, 19, 18, 18, 17, 17, i.e. the
+      offset is -((w - 1) // 2) for every width, odd and even alike, and is -2
+      for w = 5 just as for w = 6. So the residue is neither a constant nor an
+      even-width phenomenon -- it is an exact function of the heavy rule's own
+      width, which the test already has in hand as `heavy`. The round was right
+      not to hardcode -2 (CARD-227 changes the weights next wave, and -2 would
+      break), but the width-robust form it reached for is a tolerance where a
+      width-robust EQUALITY was available.
+    remedy: >-
+      Replace `assert abs(offsets.pop()) * 2 <= heavy` with the derived
+      equality -- `assert offsets.pop() == -((int(heavy) - 1) // 2)` -- and
+      restate the docstring bullet as "Pillow centres a width-w stroke so its
+      ink starts (w-1)//2 pixels before the coordinate, at any width; PDF
+      strokes centred on the coordinate exactly". That reds the shape above,
+      stays correct when CARD-227 moves the weights, and turns the one
+      sub-claim of the seam that is currently a margin into the measurement the
+      other three already are. Cheap alternative if the exact convention is
+      judged too much to pin: bound at one device pixel of the stated constant
+      rather than at half a heavy rule.
+  - id: F-102
+    severity: minor
+    title: >-
+      The declaration that discharges F-003 exists only in the working tree, not
+      in defab5c7
+    file: meta/kanban/cards/CARD-295.md
+    line: 203
+    gating: false
+    confidence: high
+    evidence: >-
+      `git diff a7f33021..defab5c7 --stat` names five files -- two under
+      meta/profiling and three under tests/ -- and CARD-295.md is not one of
+      them. `git show defab5c7:meta/kanban/cards/CARD-295.md | grep DECLINED`
+      returns nothing, while the working-tree file carries the DECLINED section
+      at :203, the fix round's Worktree notes at :244 and the orchestrator's
+      pre-gate at :270. `git diff --stat -- meta/kanban/cards/CARD-295.md` is
+      123 insertions, uncommitted. This is the board's ordinary in-flight shape
+      (card bodies land in a separate `kanban:` commit, as main's own log shows
+      for cycle 1) and the content is complete and correct, so it is not a
+      defect in the work -- but the artefact in question is a DECLARATION whose
+      whole point is to outlive the round, and the card's own words are that a
+      declaration that outlives its hole is the defect this board gates on most.
+      An uncommitted one does not outlive anything.
+    remedy: >-
+      Commit CARD-295.md with an explicit pathspec before the merge pass, and
+      confirm the DECLINED section is in the merge commit's tree rather than
+      only in the worktree.
+  - id: F-103
+    severity: minor
+    title: >-
+      The F-004 decline's "forbids the vocabulary's ordinary use" is false on
+      today's tree -- no production module outside book_vector.py calls any of
+      the five
+    file: tests/test_book_pdf_vector_primitives.py
+    line: 1296
+    gating: false
+    confidence: high
+    evidence: >-
+      The decline rests on two claims. The first -- that no vertex bound
+      separates a dot from a legitimate shape, measured by CARD-296 -- is true
+      and is the right reason not to write a fourth source-pattern guard. The
+      second is stated in the present tense and is false: "line_to/paint are how
+      a page draws ANYTHING at all, so holding them to one module forbids the
+      vocabulary's ordinary use". MEASURED: `grep -rn "\.begin_path(|\.line_to(|
+      \.close_path(|\.paint(|\.curve(" src/` returns seven hits, all of them
+      inside ContentStream.round_mark in book_vector.py itself (lines 864-870);
+      `line_to` has no caller anywhere in src/. The ordinary callers the
+      orchestrator's own brief-correction 3 names -- draw_frame and
+      draw_grid_lines -- call stream.rectangle and stream.line, neither of which
+      is in that family. So a THE_CURVE_SITE-style confinement of those four
+      calls to book_vector.py would be GREEN on today's tree, would have redded
+      cycle 1's M5, and would have redded my planted polygon. It would red
+      legitimately the day CARD-296's guide draws an arrow head -- which is the
+      real argument, and is prospective. The conclusion survives (a guard that
+      has to be relaxed one wave later is the fourth instance of the pattern the
+      decline is trying to break), but the reason as written is a measurable
+      overclaim about the present, and this card's whole review history is about
+      declarations that outlive their measurement.
+    remedy: >-
+      One clause in the class docstring: say that confining the four would cost
+      nothing TODAY (round_mark is their only caller) and would start costing at
+      CARD-296/CARD-229, which is the same objection one wave later and is why a
+      fourth guard is not worth writing -- rather than stating a present-tense
+      fact that the tree contradicts. Correct the brief's point 3 the same way.
+  - id: F-104
+    severity: minor
+    title: >-
+      The min-trim fixture is not "the smallest trim the panel offers", and the
+      smallest clue type the book can print is 15 px, not 21
+    file: tests/test_book_puzzle_page_vector.py
+    line: 597
+    gating: false
+    confidence: high
+    evidence: >-
+      min_trim_hero's docstring says "the SMALLEST TRIM THE PANEL OFFERS" and
+      "the smallest trim prints the smallest clue digits the book can print --
+      cell 33, clue type 21", and TRIMS' own comment calls its members "the
+      three KDP trims the corpus sweeps". But the panel does not offer three
+      trims, it validates a RANGE:
+      src/nonogram/admin/book_page_spec.py:129 sets MIN_TRIM_CM = 10.0 and :418
+      admits any trim from there up, and tests/test_book_interior_type_floor.py
+      ships a min_trim_book() at exactly 10x10 cm which the suite already
+      exercises as a book profile. MEASURED on that book: a 30x30 puzzle page
+      gets cell 23 px / clue_font 15 px / 480 entries, against the fixture's 33 /
+      21. So the fixture is the smallest of three chosen trims, not the smallest
+      type the book prints, and the divisor the docstring says the test exists
+      to stress is 30 % larger than the real floor. NO BEHAVIOUR RISK, and I
+      measured that too rather than inferring it: I ran AC-3's own poppler
+      comparison at the 10x10 cm trim and the worst residual is 0.0004 pt, the
+      same order as the hero's, so SLACK_PT 0.005 is safe there as well. (That
+      page would also be a poor test case: at clue type 15 poppler returns 420
+      word boxes for 480 entries because it merges adjacent digits, so the
+      module's `matched == len(clue_entries)` shape would fail there for a
+      reason that is not a placement error.)
+    remedy: >-
+      Reword to "the smallest of the three KDP trims this corpus sweeps" and
+      drop "the smallest clue digits the book can print", or state the real
+      floor and why it is not asserted (poppler merges words at clue type 15, so
+      the word-box shape does not reach it). Either is one line; the second is
+      the more useful record.
+  - id: F-105
+    severity: trivial
+    title: The new fixture's figures for the hero are each one off
+    file: tests/test_book_puzzle_page_vector.py
+    line: 601
+    gating: false
+    confidence: high
+    evidence: >-
+      min_trim_hero's docstring states the page AC-3 was asserted on as "8.5x11
+      in, cell 50, clue type 32 px" and contrasts the min trim's 33/21 "against
+      the hero's 50 and 32". Measured on the hero fixture's own layout
+      (BookPDFGenerator(corpus_book()), the card295-hero 30x30 at HERO_DEPTH):
+      cell 49, clue_font_size 31. The min-trim figures in the same docstring
+      (33, 21) are exact, and the test's own assertion (`layout.cell < 40 and
+      layout.clue_font_size < 32`) is unaffected -- it is only the comparison
+      figures that are off by one each.
+    remedy: 49 and 31.
+  - id: F-106
+    severity: trivial
+    title: >-
+      The partition's third assertion compares a literal to itself, and the
+      partition checks that a decision was made, not what it was
+    file: tests/test_book_pdf_vector_primitives.py
+    line: 1441
+    gating: false
+    confidence: high
+    evidence: >-
+      `assert {"begin_path", "line_to", "close_path", "paint"} <= self.UNWATCHED_MARKS`
+      compares a four-name literal against a five-name frozenset literal defined
+      thirty lines above in the same class body. It can only fail if somebody
+      edits UNWATCHED_MARKS, and then only for three of the five (moving `curve`
+      out leaves it green, because `curve` is not in the subset). That is a
+      sliver of function rather than none, but it is the one assertion in an
+      otherwise well-built cell that cannot be wrong about the tree. Two
+      structural limits worth stating beside it, neither of which the docstring
+      claims away: (a) the partition proves a sixth primitive cannot land
+      OUTSIDE all three sets, but nothing checks which set it lands in -- a
+      drawing primitive dropped into NOT_A_MARK, or into UNWATCHED_MARKS (which
+      the comment explicitly invites: "a sixth path primitive belongs here until
+      somebody decides otherwise"), reds nothing; the partition makes the
+      decision visible in a diff, not checked; (b) `surface` filters on
+      `not name.startswith("_")`, so a primitive added as `_blob` and called as
+      `stream._blob(...)` from book_vector_draw never reaches the partition at
+      all. ContentStream already carries `_x`/`_y`, so the private spelling is
+      not alien to the class.
+    remedy: >-
+      Drop the third assertion or replace it with something about the tree (e.g.
+      that each UNWATCHED name is a method ContentStream actually defines in
+      book_vector.py), and add one sentence to the docstring saying the
+      partition forces a decision to appear rather than checking it, and that it
+      reads the public surface only.
+  - id: F-107
+    severity: trivial
+    title: >-
+      CARD-297, named in the F-003 decline as a candidate owner, carries no
+      pointer to the hole
+    file: meta/kanban/cards/CARD-295.md
+    line: 232
+    gating: false
+    confidence: high
+    evidence: >-
+      The decline names three candidate owners. The full _cap_height routing
+      lives on CARD-296 (nine mentions), which is Status blocked / parked at
+      0b91ab18; CARD-294's own module is the fallback. The middle candidate --
+      "CARD-297's answer-tile captions, if CARD-296 stays parked past them" --
+      has no cap_height or sCapHeight reference anywhere in
+      meta/kanban/cards/CARD-297.md, and CARD-297 is wave 64 against CARD-296's
+      parked 61. So if CARD-296 does stay parked, the card the decline expects
+      to pick this up has nothing on it to pick up. The decline's choice to name
+      an owner by RULE rather than by card is the right one and is why this is
+      trivial rather than a repeat of F-003 -- a rule cannot be routed onto a
+      card -- but the practical consequence is that the hole's record lives only
+      on the two cards that declined it.
+    remedy: >-
+      One line on CARD-297 pointing at CARD-296's routing section, added by
+      whoever commits F-102's card edit.
+
+what_i_did_not_verify:
+  - The full suite. Never run; NONOGRAM_FULL_SUITE_LOCK was set to the scratch
+    lock on every invocation and every run confirmed it in its own footer.
+  - Any timing figure. The brief forbids it and the machine is loaded; I took no
+    stopwatch reading of any kind and re-derived none of cycle 1's. Where a
+    figure mattered I checked its arithmetic (the addendum's four ratios) or its
+    COUNT (the module's one bitmap, five consumers, 40 collected) instead.
+  - "The wall clock this round knowingly owes: tests/test_book_puzzle_page_vector.py's
+    own runtime on a quiet box. It stays owed, correctly."
+  - F-001's closure against the orchestrator's fourth shape (asymmetric +5 px
+    horizontal translation, 1 failed / 39 passed, png.py restored to
+    d7cf3f91efd0413a). Accepted as pre-verified per the brief; I built a fifth
+    shape instead, which is F-101.
+  - "`git diff -- src/` being empty and collection 9,326 -> 9,332 with 0 removed.
+    Accepted as pre-verified. I did re-confirm the two cheap halves: git diff
+    -- src/ is empty at the end of my session, and `--collect-only -o addopts=''`
+    reports 9,332; tests/test_collected_names.py is 13 passed."
+  - Section 1's byte figures and section 3.3's share attributions. Not
+    re-derived; cycle 1 accepted them for reasons that still hold.
+  - The renders at ~/Documents/nonogram-reviews/CARD-295/. Not eyeballed. The
+    fix round changed no src/ file, so no drawn page moved since the round that
+    recorded the look.
+  - CARD-296's parked worktree at 0b91ab18. I read its CARD file for the polygon
+    route and the vertex bound, not the branch.
+  - >-
+    Whether the written vector page's MediaBox is the trim. This module asserts
+    it nowhere, and both sides of the new seam divide by the same layout.dpi, so
+    a uniform scale error in the writer would cancel inside the seam. It is
+    pinned in tests/test_book_pdf_vector_primitives.py (CARD-294's media_box
+    coverage), which is why I did not raise it as a finding -- but the seam
+    itself cannot see it.
+
+corrections_to_the_brief:
+  - >-
+    "F-001's new seam holds a -2 px offset AS A CONSTANT" -- it does not, and
+    the distinction matters in the round's favour. There is no -2 anywhere in
+    the assertion. What is held is "one offset, the same on all four edges, no
+    more than half a heavy rule", which is deliberately width-robust because
+    CARD-227 changes the weights next wave. The real criticism is the one I
+    raised instead: the offset IS exactly derivable from `heavy` --
+    -((heavy - 1) // 2), which I measured across Pillow widths 1..8 -- so an
+    equality was available that is both exact and width-robust, and the bound
+    chosen admits a uniform raster translation of -1..+5 device px (F-101).
+  - >-
+    The orchestrator's own brief-correction 3 is false. It says widening F-004's
+    tripwire to hold curve/begin_path/line_to/paint to book_vector.py "would red
+    on correct code -- draw_frame and draw_grid_lines are the ordinary callers".
+    They are not: draw_frame calls stream.rectangle and draw_grid_lines calls
+    stream.line, and neither name is in that family. The only caller of any of
+    the five path primitives anywhere in src/ is ContentStream.round_mark
+    itself, and line_to has no caller at all. The widening would be green today.
+    This is F-103, and it is the same claim the merged docstring makes.
+  - >-
+    The F-004 decline UNDERSTATES this card's own page, in its own disfavour,
+    and the understatement is worth correcting because CARD-296 is explicitly
+    parked waiting for "real evidence about whether F-302's residue matters in
+    practice". The class docstring offers test_the_page_draws_no_bezier as the
+    artefact-side closure and says "it too cannot tell a polygon from a shape".
+    True of that one test; false of the module. I planted a 32-gon filled disc
+    into puzzle_page_stream itself and tests/test_book_puzzle_page_vector.py went
+    to 7 failed / 14 errors, because marks_of is default-DENY and raises on the
+    bare m/l/h/f lines a path emits. The polygon route is CLOSED on the puzzle
+    page, by the parser the module already had. That is the evidence CARD-296 is
+    waiting for, and it says the residue is a cross-page problem rather than a
+    per-page one.
+  - >-
+    "CARD-298 ... is now unowned in practice because CARD-298 depends on three
+    unmerged cards" -- I measured this and it resolves the other way. CARD-298
+    is wave 65, behind CARD-227 (63, ready), CARD-297 (64, ready) and CARD-296
+    (61, blocked/parked at 0b91ab18). But the two intervening cards that would
+    actually draw a round mark are each covered on their own page: CARD-296's
+    round already bounds every written subpath at 4 points off the stream (its
+    own card says the route is "now closed rather than carried as a limit"), and
+    CARD-297's AC-5 reads its tile dots back with poppler. With CARD-295's page
+    covered by marks_of, every page kind that exists or arrives before wave 65
+    has its own artefact-side guard, and what is left genuinely is the
+    cross-page statement -- ADR-0042/R1's derived check, which the card's own
+    system-contract table already assigns to CARD-298. The owner is right. The
+    schedule risk (CARD-298 sits behind a parked card) is real but is the
+    board's, not this card's.
+  - >-
+    The tautology sweep found no new tautology in the six added cells beyond
+    F-106's one line. The five added to tests/test_book_puzzle_page_vector.py
+    each read something outside themselves (poppler for the min-trim digits, the
+    bitmap's ink for the two seam cells, the written stream for the many-widths
+    count, a digest captured at fixture time for the shared-bitmap control), and
+    I fired a discriminating mutation against three of the four non-poppler ones.
+    The changed bodies are clean too: the slot_room equality in
+    test_the_band_fits_the_way_the_raster_page_fits_it reds under M9, and the
+    _in_stroke_order extraction is oracle-side on both of its two consumers, so
+    it does not let the writer's order leak into the oracle.
+  - >-
+    All four production digests cycle 1 recorded are intact at the end of my
+    session, verified by sha256 after every mutation: png.py
+    d7cf3f91efd0413a437dd28cca9d18b347e30c7549afd1b183b9e574eca29867,
+    book_vector.py efe9227416231f2c211249b719a59243e546fd212e158a57dd26d0f97f481e12,
+    book_vector_draw.py 4d03b01233f98464c3d751ed98b1ca4ddf1af35511e43608ae28e59bfc948a4c,
+    book_puzzle_vector.py 0c8227a9f91a0d35c8eeb9969bc4d0ae107a3c76e143101a94d03af93f28a65b.
+    git status is clean apart from the uncommitted CARD-295.md (F-102) and cycle
+    1's own untracked review file.
+  - >-
+    G-4's refusal, which cycle 1 upheld CONDITIONAL ON F-001: the condition is
+    now MET. The seam reads the raster page's own ink and discriminates on
+    stroke order, grid extent, rule count, rule width and any non-uniform
+    translation; the one perturbation it cannot see is a uniform translation
+    inside a seven-pixel window, which the raster's own file catches 16 ways.
+    The three pixel-reading files may stay unconverted beside the stream half.
