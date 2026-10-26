@@ -34,10 +34,16 @@ assembly time *and* from the test tree.
 
 Why this script exists at all, rather than ``cp -r``
 ----------------------------------------------------
-**Because this is where EC-048 is closed, and it could not be closed
-downstream of here.** ADR-0041/R2 forbids any public asset from carrying "a
-solution grid or data from which any solution cell is recoverable, for any
-puzzle, on any export path". CARD-282 shipped the exporter and then *measured
+**Because this is where EC-048 is carried, and it could not be carried
+downstream of here.** Carried, not closed — the word "closed" is reserved
+for the paragraph below that begins "But 'one open edge' is true only AFTER
+the two exemptions are granted", which is the only place this file states the
+scope, and which concludes that EC-048's literal text is not satisfiable by
+any implementation of ADR-0041 at all.
+
+ADR-0041/R2 forbids any public asset from carrying "a solution grid or data
+from which any solution cell is recoverable, for any puzzle, on any export
+path". CARD-282 shipped the exporter and then *measured
 a path straight through it*: the owner renames a puzzle to the base-64 of its
 own packed grid, the exporter writes that string into the bundle's declared
 ``title`` field, every one of CARD-282's guards passes (the value's provenance

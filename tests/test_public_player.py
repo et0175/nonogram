@@ -126,6 +126,7 @@ greppable from code.
 
 from __future__ import annotations
 
+import ast
 import base64
 import hashlib
 import http.server
@@ -913,6 +914,11 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
     length check in the first fix round. Both were found only by mutating.
     With the fragment asserted, a case refused for the wrong reason fails on
     its own, and every case added later is self-checking.
+
+    "Every validator" is held to the code and not to the length of this
+    table: the refusal branches of the five functions a served file passes
+    through are counted in ``assemble.py``'s own source at the end, so a
+    branch with no case reds (cycle 3's m-3, where two had none).
     """
     grid = GRIDS["min"]
     good = _bundle_payload(grid, tier="easy", title="Picture")
@@ -921,6 +927,16 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
         "name": ({**good, "key": _public_key(GRIDS["oblong"])}, "but carries the key"),
         "width": ({**good, "width": MAX_SIZE + 1}, f"width {MAX_SIZE + 1} is outside"),
         "height": ({**good, "height": 0}, "height 0 is outside"),
+        # Both ENDS of ``_extent``'s range, not just both axes. Cycle 3
+        # measured the asymmetry: `<= MAX_SIZE + 1` dies on the width case,
+        # while `MIN_SIZE - 1 <= value` survived the whole module, because 0
+        # is still outside a range that starts at 9. This is the same
+        # one-end-only hole as the isClueSolved loop bounds, in another
+        # function, and `MIN_SIZE - 1` is the only value that reads it.
+        "width-low": ({**good, "width": MIN_SIZE - 1}, f"width {MIN_SIZE - 1} is outside"),
+        # And ``_extent``'s type branch, which had no case at all: a
+        # key-shaped file whose extent is the STRING "10".
+        "height-type": ({**good, "height": str(MIN_SIZE)}, "height is not an integer"),
         "clues-shape": (
             {**good, "clues": {"rows": good["clues"]["rows"]}},
             "clues is not an object with exactly rows and columns",
@@ -963,6 +979,18 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
         "clues-zero-mixed": (
             {**good, "clues": {**good["clues"], "rows": [[0, 3] for _ in grid]}},
             "clues.rows[0] mixes 0 with other runs",
+        ),
+        # ``_line``'s run-length type/sign branch, which had no case at all
+        # (cycle 3's m-3). It is the only thing keeping arbitrary signed
+        # integers out of ``clues`` — the field ADR-0041/R2 EXEMPTS from
+        # EC-048 and whose narrowing is the stated reason the exemption is
+        # tolerable — and the fit check cannot stand in for it, because
+        # `sum + len - 1 > length` never trips on negatives. Measured with the
+        # branch deleted: ``_line`` accepted [-1234567890123456789], [-5, -7,
+        # 3] and [True, 2] unchanged, with the whole module green.
+        "clues-run-sign": (
+            {**good, "clues": {**good["clues"], "rows": [[-1] for _ in grid]}},
+            "which is not a run length",
         ),
         "clues-too-long": (
             {**good, "clues": {**good["clues"], "rows": [[MIN_SIZE + 1] for _ in grid]}},
@@ -1009,11 +1037,35 @@ def test_a_puzzle_file_the_schema_cannot_accept_is_refused_and_named(tmp_path) -
         # weaker assertion is what let two rules' controls die unnoticed.
         assert because in report.refused[0][1], (name, because, report.refused[0][1])
         assert not (report.site_dir / "puzzle").exists(), name
-    assert len(cases) >= 13
+    assert len(cases) >= 16
     # The fragments are distinct per rule, not per case: the only pair that
     # shares one is the two fit-the-line cases above, so a fragment copied
     # across cases to make them pass would show here.
     assert len({because for _, because in cases.values()}) == len(cases) - 1
+
+    # And the docstring's "EVERY validator" held to the code rather than to a
+    # count of cases. Cycle 3's m-3 is why: thirteen cases and `len(cases) >=
+    # 13` read as a complete sweep while two refusal branches had no case at
+    # all. The authority is the number of ``raise ValueError`` statements in
+    # the five functions a served file passes through, counted in the source;
+    # a sixth validator, or a new branch in one of these, reds here and has to
+    # be given a case. It pins the BRANCH SET, not the bounds inside a branch
+    # — `width-low` above is what reads one of those.
+    refusals = ast.parse((PLAYER_DIR / "assemble.py").read_text(encoding="utf-8"))
+    branches = {
+        node.name: sum(isinstance(child, ast.Raise) for child in ast.walk(node))
+        for node in ast.walk(refusals)
+        if isinstance(node, ast.FunctionDef)
+        and node.name in ("served_puzzle", "_extent", "_key", "_line", "_clues")
+    }
+    assert branches == {
+        "served_puzzle": 2,
+        "_extent": 2,
+        "_key": 1,
+        "_line": 4,
+        "_clues": 4,
+    }, branches
+    assert sum(branches.values()) == 13 and len(cases) >= sum(branches.values())
 
     # The control for every one of them: the unedited payload is served.
     root = tmp_path / "good"
@@ -1334,8 +1386,12 @@ def _drag(page, cells):
     page.mouse.up()
 
 
-def _touch_drag(page, cells):
+def _touch_drag(page, cells, *, end: str = "touchEnd"):
     """A real TOUCH drag across ``cells``, driven through a CDP session.
+
+    ``end="touchCancel"`` ends the stream the way a system gesture does — the
+    one input that reaches ``play.js``'s pointercancel handler on purpose
+    rather than as a side effect of ``touch-action: auto``.
 
     Playwright's own input API cannot produce one: ``page.mouse`` reports
     ``pointerType === "mouse"`` and ``page.touchscreen.tap`` is a tap, not a
@@ -1368,7 +1424,7 @@ def _touch_drag(page, cells):
                 "Input.dispatchTouchEvent",
                 {"type": "touchMove", "touchPoints": [{"x": x, "y": y, "id": 1}]},
             )
-        session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+        session.send("Input.dispatchTouchEvent", {"type": end, "touchPoints": []})
     finally:
         session.detach()
 
@@ -1599,6 +1655,25 @@ def test_solved_fires_on_clue_satisfaction_only(browser_page, host) -> None:
         ("every row right, the LAST column wrong", 2, 2, "#xx#", [[1], [1]], [[1], [2]], False),
         ("every column right, the FIRST row wrong", 2, 2, "#xx#", [[2], [1]], [[1], [1]], False),
         ("every column right, the LAST row wrong", 2, 2, "#xx#", [[1], [2]], [[1], [1]], False),
+        # And the conjunct one step to the LEFT of those two loop bounds: the
+        # length comparison inside ``sameNumbers``. Cycle 3 measured it
+        # uncontrolled — dropping `a.length === b.length` announced a 4x4
+        # UNIQUELY SOLVABLE board SOLVED while one cell short, and reversing
+        # the comparison to `b.every(...)` announced one with an extra mark
+        # solved, both with the whole module green. The ten rows above cannot
+        # reach either weakening: they are all 5x1 or 2x2, where a wrong board
+        # makes some line read `[0]`, and `[0]` is neither a prefix nor an
+        # extension of a nonzero clue. These two are built so NO line is empty
+        # and exactly one line's runs are a strict PREFIX of its clue (the
+        # first) or a strict EXTENSION of it (the second):
+        #
+        #   short of its clue -> kills `a.every(...)` (row runs [1] prefix [1, 3])
+        #   past its clue     -> kills `b.every(...)` (row runs [1, 1] extend [1])
+        #
+        # Each kills one direction and survives the other, so these are two
+        # live controls and not one row carrying both.
+        ("a line short of its clue", 5, 1, "#xxxx", [[1, 3]], [[1], [0], [0], [0], [0]], False),
+        ("a line past its clue", 5, 1, "#x#xx", [[1]], [[1], [0], [1], [0], [0]], False),
         ("an empty line, empty", 5, 1, "xxxxx", [[0]], [[0], [0], [0], [0], [0]], True),
         ("an empty line, marked", 5, 1, "#xxxx", [[0]], [[1], [0], [0], [0], [0]], False),
         # A "?" is not a filled cell, so it breaks no run it does not sit in.
@@ -1630,7 +1705,7 @@ def test_solved_fires_on_clue_satisfaction_only(browser_page, host) -> None:
     assert answers == [case[-1] for case in cases], [
         (case[0], got, case[-1]) for case, got in zip(cases, answers) if got != case[-1]
     ]
-    assert len(cases) >= 13 and sum(case[-1] for case in cases) == 4
+    assert len(cases) >= 15 and sum(case[-1] for case in cases) == 4
 
     # And the solved state is a function of the board, not of history: undoing
     # the last mark on a solved board takes the banner away again.
@@ -1842,9 +1917,13 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
     Region's state flips, Reset announces itself — because "the control was
     clicked" is not "the handler ran".
 
-    The assertion about requests is on the METHOD and the ORIGIN of every
-    one — not on a count, because a count passes when nothing happened at
-    all, so the number of interactions is asserted too.
+    The assertion about requests is on the METHOD, the ORIGIN and the PATH of
+    every one — not on a count, because a count passes when nothing happened
+    at all, so the number of interactions is asserted too. The path half is
+    cycle 3's M-2: method and origin alone are satisfied by a same-origin GET
+    of the whole board, and the sibling test three tests up the file already
+    held requests to the served file set while never pressing Reset, dragging
+    or using the keys.
     """
     page = browser_page
     url, report, keys = host
@@ -1923,6 +2002,36 @@ def test_no_write_request_for_any_interaction(browser_page, host) -> None:
     assert all(request.startswith(url + "/") for request in requests), requests
     # The one request kind this page makes at all, named: its own assets.
     assert any(request.endswith(f"/puzzle/{key}.json") for request in requests)
+    # And every request held to the SET of files this site serves, not only to
+    # GET and to the origin. ``test_resume_is_local_and_the_page_writes
+    # _nowhere`` already carried this assertion three tests up the file;
+    # cycle 3 measured what the weaker pair here let through. A same-origin
+    # GET exfil of the whole board, planted in the *walked* reset handler —
+    # `globalThis.fetch.bind(globalThis)("/collect?b=" + cells)`, `new
+    # Image().src = ...`, `import("/collect.js?b=" + cells)` — shipped all 100
+    # cells on every Reset with the whole module green, because a safe method
+    # to this page's own origin satisfied both of the assertions above. The
+    # walk is the test that presses Reset, toggles Region, drags and uses the
+    # keys, so the allowlist belongs here and not only there.
+    served = {
+        path.relative_to(report.site_dir).as_posix() for path in report.site_dir.rglob("*") if path.is_file()
+    }
+    for request in requests:
+        # The query string is deliberately NOT stripped (the sibling strips
+        # it): a SERVED path carrying the board in its query is the one exfil
+        # shape a path allowlist alone cannot see, and this page asks for
+        # nothing with a query at all. `assert any(... .json)` above is the
+        # positive control that this loop is reading real requests.
+        assert request[len(url) + 1 :] in served or request == f"{url}/play/{key}", request
+    # One shape further out, because a path allowlist reads the URL and a
+    # request has more than a URL: the board can ride out in a HEADER on this
+    # page's own allowlisted asset request. Measured here — `document.cookie =
+    # "b=" + cells` in the reset handler ships all 100 cells on the next
+    # `/puzzle/<key>.json` fetch and leaves every assertion above green. The
+    # page stores play state in localStorage by ADR-0041/R4 and has no reason
+    # to set a cookie at all, so "no cookie" is the whole of it, and the walk
+    # has driven every control before it is read.
+    assert page.context.cookies() == [], page.context.cookies()
 
 
 def test_every_player_control_is_in_the_ec_050_walk() -> None:
@@ -2021,13 +2130,25 @@ def test_every_player_control_is_in_the_ec_050_walk() -> None:
     for forbidden in ("XMLHttpRequest", "sendBeacon", "WebSocket", "EventSource", "method:"):
         assert forbidden not in script, forbidden
         assert forbidden not in page_html, forbidden
-    # The residual, named rather than claimed away: this holds the SHAPE of
-    # play.js's writes and the SET of its listeners, not every interaction
-    # sequence. A write smuggled through an element attribute in play.html (a
-    # form action, an img src) is covered by
+    # The residual, named by its SHAPE rather than enumerated: this holds the
+    # SHAPE of play.js's writes and the SET of its listeners, not every
+    # interaction sequence. A write smuggled through an element attribute in
+    # play.html (a form action, an img src) is covered by
     # ``test_the_page_carries_no_answer_and_no_third_party_asset``'s
-    # same-origin assertion and by the walk's recorded requests, but a write
-    # that a future file other than play.js makes is outside all three.
+    # same-origin assertion and by the walk's recorded requests.
+    #
+    # The earlier version of this sentence said the one thing outside all
+    # three was "a write a future file other than play.js makes", and cycle 3
+    # measured that false: a safe-method, same-origin request from play.js
+    # itself, reached through a name other than ``fetch(`` (a rebound
+    # ``fetch``, ``new Image().src``, a dynamic ``import()``), satisfied every
+    # assertion here and shipped all 100 cells from a WALKED control. The
+    # walk now holds every request to the served file set — query included —
+    # and the context to no cookie, which is where those shapes die. So what
+    # the three authorities together still miss is stated by shape: a channel
+    # the context's request recorder cannot see at all, leaving nothing in a
+    # method, an origin, a URL or a cookie; and a write made by a file other
+    # than play.js or play.html.
     assert set(assembler.PLAYER_FILES) >= {"play.js", "play.html"}, assembler.PLAYER_FILES
 
 
@@ -2168,6 +2289,18 @@ def test_a_touch_or_pen_drag_marks_only_while_region_is_armed(browser_page, host
 
     ``done.length`` is read as well as the cell states in both, so "marked
     nothing" is "recorded no stroke" and not "repainted over it".
+
+    The residual, because the split above is an attribution and not a claim
+    of coverage: ``gesturePaints``'s **touch** branch has no control on any
+    browser this suite runs. Cycle 3 measured it — `event.pointerType ===
+    "touch" ? true : gesturePaints(...)` survives all 33, because in Chromium
+    with ``touch-action: auto`` the compositor cancels the stream whatever
+    ``gesturePaints`` returns, even with ``preventDefault()`` called. That
+    mutant is behaviourally equivalent on the one browser ADR-0038/R7
+    declares, so it is evidence for the attribution rather than a hole to
+    plug here; the branch is load-bearing only on a browser that honours
+    ``preventDefault`` for a touch stream, and a control for it needs WebKit,
+    which this suite does not drive.
     """
     page = browser_page
     _open(page, host, host[2]["min"])
@@ -2202,6 +2335,31 @@ def test_a_touch_or_pen_drag_marks_only_while_region_is_armed(browser_page, host
     assert [_state(page, *cell) for cell in touch_line] == ["filled"] * 3
     assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 2
     assert page.evaluate("() => window.publicPlayer.isRegion()") is False
+
+    # And the pointercancel handler's OTHER statement, read directly (cycle
+    # 3's m-4). Gutting the whole listener already reds this test, but it reds
+    # at the pen-armed assertion above, because the stale `gesture` blocks the
+    # NEXT pointerdown — sequencing, not rollback. So the rollback half had no
+    # control: `gesture = null; refresh();` without `shown = history.board`
+    # left all 33 green, and on a phone a Region-armed touch drag interrupted
+    # by a system gesture would leave phantom marks on the board that are in
+    # no stroke, in no history and in no save.
+    #
+    # Region armed, a drag that paints a preview, and then a real
+    # touchCancel: the cells go back and no stroke is recorded.
+    cancel_line = [(8, 0), (8, 1), (8, 2)]
+    page.click("[data-player-region]")
+    assert page.evaluate("() => window.publicPlayer.isRegion()") is True
+    _touch_drag(page, cancel_line, end="touchCancel")
+    assert [_state(page, *cell) for cell in cancel_line] == ["unknown"] * 3
+    assert page.evaluate("() => window.publicPlayer.getHistory().done.length") == 2
+    # Rolled back TO ``history.board``, not to a blank one: the marks the two
+    # committed drags left are still there. Measured — `shown =
+    # applyStroke(history.board, resetStroke(history.board))` in the cancel
+    # handler wipes the board on every interrupted gesture and the three
+    # assertions above do not see it.
+    assert [_state(page, *cell) for cell in touch_line] == ["filled"] * 3
+    assert [_state(page, *cell) for cell in pen_line] == ["filled"] * 3
 
 
 @pytest.mark.browser
