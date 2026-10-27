@@ -1,6 +1,6 @@
 # CARD-296: The guide page as operators — the worked example, the legend's dots and the diagram, the phase's one unpriced page
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/296-guide-page-as-operators
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-296
+**Worktree:** — (removed at merge)
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 4 — *"This is the largest card and the one the spike deliberately did not price."* Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 61
@@ -19,9 +19,9 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_difficulty_dots.py
 **Review score:** 7.0 (cycle 3/3) — NOT CERTIFIED; cycle 3 put the distance to 8 at three edits, all of them prose or comment over mechanisms it measured load-bearing
 **Started:** 2026-10-26
-**Closed:** —
+**Closed:** 2026-10-27
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** `d2255a58` (DECLARATION, not a certification)
 **Blocked by:** — (un-parked 2026-10-26: CARD-295 cycle 2 supplied the evidence the park waited for, and it vindicates the retraction — see the UN-PARKED section. Worktree KEPT at `0b91ab18`.)
 
 ## Read this first: this is the card the spike refused to price
@@ -801,3 +801,48 @@ here on the card rather than in that docstring. The derived
 `VECTOR_STREAM_METHODS` went the other way — this card's version survived
 CARD-295's hand-written `frozenset({"line","rectangle","text"})`, because a set
 derived from the class and narrowed by subtraction is the stronger guard.
+
+## [MERGED — 2026-10-27] `d2255a58`, and the pre-check earned itself
+
+**Merge gate: 9368 passed, 27 skipped, 0 failed, 0 errors, 1670.57 s (27:50).**
+Host cells per AC-6: load **5.75 → 5.85**, rival-pytest **0 → 0** by `pgrep`.
+All 27 skips attributed by name — **26 × `conftest.py:207`** (DATABASE_URL
+unset) and **1 × `test_book_pdf_memory.py:1296`** (`setrlimit(RLIMIT_AS)`
+refused by this kernel). 27 is the baseline exactly.
+
+### Three failures the pre-check caught, and a per-file check would not
+
+CARD-292's report landed hours earlier with the lesson that **files which pass
+alone can red in company**. Running this card's three touched files *together*
+on the **merged** tree found three failures before the 28-minute gate, not after.
+
+**Two of them were one defect, and it is this board's own rule arriving as a
+merge conflict.** CARD-295 and CARD-296 solved the same problem two different
+ways and both landed: CARD-295 met `book_vector_draw`'s vector receivers by
+adding **four named rows** to `NON_DRAW_RECEIVER_SITES`; this card met the same
+receivers by **deriving the rule**. Auto-merge took both, so the table and the
+predicate each claimed the same four calls — *widening a predicate and adding an
+exemption are the same edit* (wave 49), and no textual merge can see it. The
+four rows are **removed**, because this is an equality and a row that no longer
+earns itself is a licence for whatever next takes that spelling.
+
+**The third was this card's default-deny classifier doing its job on CARD-295's
+new code.** `book_vector_draw.py:116` returns a freshly built `ContentStream`,
+so the binding walk reported `unrecognised:Return` — a shape it had never met.
+Added as a **named form**, not folded into `DRAW_BINDING_FORMS`, which carries an
+obligation ("the name must be `stream`") that a return has nothing to satisfy it
+with. The assertion stays an **equality**, so a second unbound construction reds.
+
+### What is unmet, restated at merge
+
+- **AC-4 is not met.** Its residue is open and **cross-page**, owned by
+  **CARD-298**. The declaration is now correct; the hole is not closed.
+- **AC-3 was declined** earlier in the card, and that decline is verified sound.
+- **The last mile shipped UNCERTIFIED.** No reviewer saw cycle 3's three edits
+  **or** the integration fix above. What stands behind them is this gate alone.
+  The integration fix in particular was written by the orchestrator between the
+  pre-check and the gate, which is the thinnest certification on this card.
+- **One named residue inside a fix**: `SEQUENCE_DISPLAYS` deliberately omits
+  `ast.Set` where `_names_bound_to_a_sequence` counts it, so a set display is
+  reported by neither. Cycle 3 prescribed and measured the three comprehension
+  types; widening further on the way out would have been unmeasured.

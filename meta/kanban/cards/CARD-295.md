@@ -510,7 +510,7 @@ would not have. Synced to this file before the merge gate.
 
 ## [MERGED — 2026-10-26] `ec6e4a06`, and the gate found what two review cycles did not
 
-**Merge gate, attempt 2: 9305 passed, 29 skipped, 0 failed, 0 errors.** Load
+**Merge gate, attempt 2: 9305 passed, 27 skipped, 0 failed, 0 errors.** Load
 2.96 at start, 3.02 at end — the first use of CARD-292/AC-6's convention.
 
 **Attempt 1 was RED**, three tests in `tests/test_book_export_interior_cover.py`,
@@ -553,12 +553,36 @@ broken `main`). The cheap fix is for a review's scope to include the structural
 guard files that a card's `src/` changes touch — those guards are AST walks, not
 renders, so they cost seconds. **Owner decision, not this card's to take.**
 
-### One figure stated with its limit
+### CORRECTED 2026-10-27: there was no +2, and the defect was the instrument
 
-The **29 skips are +2** against the 27 of the three preceding gates, and that
-delta is **not attributed**. This card's own files contribute **zero** skips (the
-new file runs 40 passed with poppler present, and its only skip mechanism is
-`needs_poppler`), so it is main-side drift that would need a full `-rs` run to
-place. Recorded rather than called benign, and routed to CARD-292 — whose own
-notes already complain that three gate figures were "reported to the owner as a
-fact about the tree, each unqualified".
+This section reported **29 skips, "+2 against the preceding three gates' 27"**,
+declared it unattributed and routed it to CARD-292. **All of that was wrong, and
+the cause was the orchestrator's own measurement.**
+
+The gate is **27 skipped** — the baseline exactly, no drift at all. Two
+compounding errors produced the 29:
+
+1. **`-qq`.** `pyproject.toml` sets `addopts = "-q"` and the gate was invoked
+   with `-q` as well, which stacks to `-qq` — and `-qq` prints **no count line
+   and suppresses `-rs`**. So the run produced neither a total nor a single
+   skip attribution.
+2. **A contaminated substitute.** With no count line, the figure was derived by
+   counting progress characters with `^([.FEsxX]+)`, which also matches **any
+   text line beginning with those letters**. Two short lines starting with `s`
+   were counted as skips. Restricting the match to lines that actually contain a
+   `.` gives `{'.': 9305, 's': 27}` from the same saved file.
+
+Both traps are **in this board's own standing brief rules**, which the
+orchestrator restated to CARD-292's agent in its dispatch brief hours before
+falling into them. The rule as written: *"an explicit `-q` stacks to `-qq` and
+pytest prints no count line at all — use `-o addopts=''` when output is the
+measurement"*, and *"attribute every skip by name"*.
+
+CARD-296's gate, run with `-o addopts='' -q -rs`, printed its total and
+attributed all 27 by name: **26 × `conftest.py:207` DATABASE_URL unset**,
+**1 × `test_book_pdf_memory.py:1296` `setrlimit(RLIMIT_AS)` refused by this
+kernel**. Those are the known baseline shapes, and they are what the 27 has
+always been.
+
+**Nothing is routed to CARD-292 from here.** The card was given a phantom to
+chase; this correction withdraws it.
