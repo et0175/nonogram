@@ -1,6 +1,6 @@
 # CARD-292: One test completes only on a quiet machine — the suite has a per-test ceiling nobody has measured, and this board has paid for it three times
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/292-measure-the-per-test-ceiling
-**Worktree:** —
+**Worktree:** — (removed at merge)
 **Source:** orchestrator, 2026-10-24, from CARD-276's fix-round pre-gate. Found by chasing a phantom: I twice attributed a dying test run to CARD-276's diff before measuring both arms under the same conditions. The diff was never implicated; the host was.
 **Idea:** —
 **Wave:** 62
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py, meta/profiling/card-292-per-test-ceiling.md, meta/kanban/config.yml
-**Review score:** —
+**Review score:** 7.0 → 7.0 → **8.5 cycle 3/3 CERTIFIED**, zero gating
 **Started:** —
-**Closed:** —
+**Closed:** 2026-10-27
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** `714de66e`
 **Blocked by:** —
 
 ## Why this is P1 when it is nobody's feature
@@ -813,3 +813,71 @@ Re-derive **2325** at the merge commit; **run the full suite**; re-check
 the one this card has now paid for twice. F-301/F-302 are two one-line prose
 edits; F-303 and F-305 are the orchestrator's. **CARD-302 still owes F-008's
 control.**
+
+## [MERGED — 2026-10-27] `714de66e` — and the gate confirmed the card's own figure
+
+**Merge gate: 9378 passed, 27 skipped, 0 failed, 0 errors, 1270.34 s (21:10).**
+Host cells through the verified instrument: load **7.59 → 7.85**, rival-pytest
+**0 → 0**. Both skips attributed by name (26 × `conftest.py:207`, 1 ×
+`test_book_pdf_memory.py:1296`); **27 is the baseline exactly**. The
+switch-name scan on the **merged** tree — the check this card paid for twice —
+returns 57 files, every one inside the guard's exempt prefixes, **nothing under
+`meta/profiling/`**.
+
+### The suite-level confirmation, which is a different domain from the claim
+
+| gate | wall | collected |
+|---|---|---|
+| CARD-296, taken on this box **before** the cheapening | **1670.57 s** | 9368 passed / 27 skipped |
+| CARD-292, **after** | **1270.34 s** | 9378 passed / 27 skipped |
+
+**400.23 s faster, 24.0 %, on ten *more* tests.** The card measured its saving at
+the **file** level as 511.43 → 104.12 = **407.31 s**; the **suite** delta is
+**400.23 s**. They agree to **7.08 s, 1.7 %**. A figure measured on one file and
+re-measured as a whole-suite wall clock is exactly the cross-domain agreement
+this card spent three cycles learning to demand of itself — and the +10 matches
+AC-5's audited `removals 0, additions 10`.
+
+### What was unmet or uncertified at merge, stated
+
+- **F-301 and F-302 shipped UNCERTIFIED.** `max_cycles` was spent, so no reviewer
+  saw them. Both are prose in the document, neither adds or changes a mechanism
+  or an assertion, and `tests/`/`src/` are **byte-identical** to the certified
+  revision `59e7b58a` — so cycle 3's AST-equality verdict holds by construction.
+- **F-303 and F-305 were the orchestrator's**, both fixed on main before the
+  merge: a mis-transcribed cell in the board's own truth table, and CARD-302
+  missing from the board.
+- **CARD-302 owns the one declared bound.** The memo's *existence* is guarded;
+  its *use at the hot call site* is not, so this file can return to ~113 s with
+  **no cell firing** — 7 s under the ceiling this card existed to clear.
+- **Three "could not establish" items stand**, unchanged and recorded: the
+  provenance of §8's withdrawn `0 / 0`; whether the prescribed instrument works
+  on a non-framework venv (by its mechanism it would not, and the bound is
+  declared); and whether fix round 1's claimed positive-control `1` was ever
+  taken — *a past pid leaves no instrument*.
+
+### Why this card was worth three cycles
+
+It was dispatched to measure an unknown ceiling and found the ceiling was
+**never unknown**: `tests/hang_guard.py`, armed per test with `exit=True`, hidden
+because `addopts = "-q"` suppresses the header line that announces it. CARD-097
+wrote it; four waves rediscovered it from its symptoms. The stack dump the board
+needed was being written to `$TMPDIR` the whole time. A **second** 120 s limit
+lives outside the tree, in the agent shell's own default timeout — which is what
+CARD-276 attributed to a card's diff **twice**.
+
+And the mechanism it was dispatched to confirm was **refuted arithmetically**: a
+page-cache story has two cold reads to pay for, at 3.1 ms, and cannot buy 22 s.
+The real cost was `ast.get_source_segment` re-splitting a prefix of the source on
+every call. The headline 9.9× was a **profiled numerator over an unprofiled
+denominator**; through one door it is **8.0×** unprofiled and **4.05×** with both
+arms profiled.
+
+**The pattern worth keeping.** Three consecutive rounds produced an instrument
+defect on a card whose subject is measurement — `pgrep -fc` (not a flag on this
+platform), the orchestrator's `pgrep -f 'bin/python -m pytest'` (blind *and*
+false-positive — wrong in both directions), and a positive-control reading no
+command could have produced. What finally closed it was not a better pattern but
+a **truth table with both controls**: an instrument must be shown to **rise** and
+to **stay down**, because a cell reading 0 because the box is quiet and a cell
+reading 0 because the command is blind are identical from the figure alone.
