@@ -1,9 +1,9 @@
 # CARD-287: One class is a quarter of the suite and two thirds of its growth — and it is not rendering anything
 
 **Status:** ready
-**Priority:** P2
+**Priority:** P3
 **Category:** tech-debt
-**Estimate:** 1d
+**Estimate:** 0.5d
 **Complexity:** standard
 **Revision pending:** false
 **Skill:** python-pro
@@ -26,40 +26,50 @@
 
 ## What to implement
 
-**`tests/test_book_export_interior_cover.py` is 344.29 s of a 1426.16 s suite —
-24.14 % — and 95.3 % of that is one class.** Every figure below is from the two
-committed duration artefacts and is reproducible by parsing their
-`<secs>s <phase> <nodeid>` records; none of it is an estimate.
+> **⚠ REWRITTEN 2026-10-27 against measured figures — see
+> `## [REWRITTEN]` at the foot of this card. CARD-292 took 81 % of this card's
+> opportunity before it ran. Every figure in this section is from a run taken
+> after that card merged; the superseded table is preserved in the REWRITTEN
+> section rather than left here to be acted on.**
 
-| | 2026-10-15 | 2026-10-23 | change |
-|---|---|---|---|
-| the file | 14.09 s, 55 tests | **344.29 s**, 90 tests | **+330.20 s** |
-| per test | 256 ms | **3 825 ms** | **×14.9** |
-| share of attributed | 1.53 % | **24.14 %** | |
-| the whole suite (attributed) | 920.63 s | 1426.16 s | +505.53 s |
-
-**So this one file is 65.3 % of everything the suite's cost grew by.** The test
-count grew 1.64×; the cost grew 24.4×.
-
-Inside the file, the concentration is sharper still:
+**The target class is 61.62 s of a 1270.34 s suite — 4.85 % — and it is 58.3 %
+of its file.** Measured 2026-10-27 at `2fddaccc` with
+`--durations=0 --durations-min=0` over this file alone, 132 passed in 107.80 s,
+no rival pytest:
 
 | | secs | share of file | tests | ms/test |
 |---|---|---|---|---|
-| `TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage` | **327.94 s** | **95.3 %** | 23 | **14 258** |
-| the file's other **14** classes | 16.35 s | 4.7 % | 67 | 244 |
+| `TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage` | **61.62 s** | **58.3 %** | 23 | **2 679** |
+| `TestDoorAxis_TheNextIndirectionIsNotSilentEither` | 13.36 s | 12.6 % | 34 | 393 |
+| `TestSourceSegment_TheMemoIsTheStdlibAnswer` (CARD-292's own) | 8.74 s | 8.3 % | 5 | 1 748 |
+| the file's other classes | 21.94 s | 20.8 % | 70 | 313 |
+| **the file** | **105.66 s** | | **132** | **800** |
 
-The file's phase split is `call` **342.24 s**, `setup` **2.05 s**, `teardown`
-**0.00 s** — so this is not fixture cost and there is no teardown to reclaim.
-Its ten most expensive tests, all in that one class: **81.03, 67.08, 44.69,
-41.13, 24.85, 19.11, 13.45, 8.98, 7.05, 6.68 s**.
+**And the residue is far more concentrated than the original problem was** —
+one test is half of it:
+
+| test | secs | share of class |
+|---|---|---|
+| `test_each_door_axis_arm_catches_a_shape_the_other_misses` | **30.25** | **49.1 %** |
+| `test_every_door_shape_is_read_or_refused_and_never_silent` | 10.62 | 17.2 % |
+| `test_every_planted_position_shape_is_caught_or_refused` | 6.02 | 9.8 % |
+| the other **20** tests | 14.73 | 23.9 % |
+
+Top three are **76.1 %** of the class. **Only two tests exceed 10 s and only
+three exceed 5 s** — so this is no longer a class-wide cost problem. It is one
+test, with two followers.
 
 ### What it is NOT, so no successor re-derives it
 
 **It is not rendering.** CARD-218's implementation round instrumented this file
-read-only on 2026-10-23: of 344.29 s, **9.25 s is rendering at all** and
-**2.52 s is recoverable duplicate** — 0.7 % of the file. Sharing a render once
-per module, the mechanism CARD-218 carries, recovers under one percent here.
-**Do not open this card by hoisting a fixture.**
+read-only on 2026-10-23: of what was then 344.29 s, **9.25 s is rendering at
+all** and **2.52 s is recoverable duplicate** — 0.7 % of the file. Sharing a
+render once per module, the mechanism CARD-218 carries, recovers under one
+percent here. **Do not open this card by hoisting a fixture.**
+*(Superseded denominator — the file is now 105.66 s. The conclusion is
+unaffected and in fact strengthened: 9.25 s of rendering is the same absolute
+figure against a file a third the size, so rendering is at most ~9 % of it and
+still not the subject. Do not re-derive this.)*
 
 **It is not setup, either**, which is worth stating because the board has
 already acted once on the belief that setup is where suite time lives: 2.05 s
@@ -74,30 +84,40 @@ resolvers) that proves every page-position count in
 planting harness (`_plant`, `_plant_refusals`, `_outcome`) that writes mutated
 source variants and re-runs the walker to prove each shape is caught or
 explicitly refused. It is the guard CARD-206 opened and CARD-262 declared, and
-it is **good** — 760 of 816 calls refusing with nothing exempted. Its cost is
-the price of its evidence, and nobody has ever looked at the bill.
+it is **good** — **770 of 832** calls refusing with nothing exempted (CARD-262
+measured 760 of 816; **CARD-295 moved both figures** when it added
+`vector_puzzle_pages`). Its cost is the price of its evidence, and nobody has
+ever looked at the bill.
 
-### The one thing that is certainly wrong, and is a fact rather than a theory
+### The cheap cause is GONE, and the dangerous one is what is left
 
-**There is no memoisation anywhere in these 4 749 lines.** Grepped
-2026-10-24: zero `functools.lru_cache`, zero `functools.cache`, zero
-`@cache`, and **zero fixtures of `module`, `class` or `session` scope in the
-entire file**. Against that: **20 call sites of `_page_positions`**, 7 of
-`_plant`, 9 of `_plant_refusals`, 7 of `_outcome`, 11 of `_bare_literals`,
-3 of `_counting_expressions`, 3 of `_door_position_slots`.
+This section used to open *"there is no memoisation anywhere in these 4,749
+lines"* and offer two candidate causes. **CARD-292 settled both**, and not in
+this card's favour.
 
-That is a shape, not yet a cause — which is why AC-1 is to measure, not to fix.
-The two candidate causes need different remedies and the split between them is
-unknown:
+**Candidate 1 — re-derivation of one identical analysis — is REFUTED for the
+test that is half the residue.** CARD-292's review cycle 3 established, through
+a wrapper capturing `_page_positions`' own arguments and again statically, that
+**all 108 analyses** in `test_each_door_axis_arm_catches_a_shape_the_other_misses`
+are over **planted** texts (32 distinct lengths, 389,122–389,385 characters),
+that **none** is over the real module, and that **none** has `source is None`.
+By construction: every one routes through `_plant`, which returns
+`source.replace(DERIVED_POSITION, body) + extra`. So **there is no identical
+analysis to cache** — the remedy this card called *"cheap, and it changes no
+verdict by construction"* buys nothing on the dear test.
 
-1. **Re-derivation of one identical analysis.** Every unplanted call of
-   `_page_positions` over the same module is the same computation, and there
-   are up to 20 entry points. If this dominates, the remedy is caching keyed on
-   the source text — cheap, and it changes no verdict by construction.
-2. **The plants.** Each planted variant is a genuinely different input, so no
-   cache helps. If this dominates, the remedy is a cheaper planting idiom or a
-   smaller planted module — and **that is where this card can do damage**, so
-   it is fenced by G-1 below.
+**Candidate 2 — the plants — is therefore the whole card**, and this card's own
+words for it stand: *"that is where this card can do damage."* **G-1 is no
+longer one guardrail among seven; it is the card's central constraint.**
+
+**What CARD-292 did instead, so this card does not redo it.** It memoised the
+line split inside `ast.get_source_segment`, which was re-splitting a prefix of
+the source on **every** call — 649 splits per analysis re-scanning 50.5 % of the
+module each time. That made each analysis **8.0×** cheaper (unprofiled, three
+interleaved readings) without touching how many analyses run. The remaining
+61.62 s is 108 genuinely distinct analyses that are each already 8× cheaper.
+**A further saving has to come from running fewer or smaller analyses — which
+is exactly the change that can weaken the guard.**
 
 ### Why this waits on CARD-276
 
@@ -112,6 +132,11 @@ rewrites the walker's alias resolution into a fixed point. So:
 * and CARD-276 will pay this cost itself: its impact-scoped cycle gate runs this
   file, so **every one of its review cycles spends ≈ 344 s here**.
 
+*This whole subsection is DISCHARGED and kept only as the record of why the card
+waited: CARD-276 merged `f794d5a8` on 2026-10-25, and the precondition section
+below carries what was measured instead. The figures in it — 327.94 s, ≈ 344 s —
+are the pre-CARD-292 ones; a review cycle on this file now costs ≈ 106 s.*
+
 **What CARD-276 is therefore asked to do, and this card records the request so
 it is not lost:** take this class's per-test durations before and after its
 change (`--durations=0 --durations-min=0` over this file alone is enough; it
@@ -121,31 +146,60 @@ correctness was bought over four gating cycles across two cards — but it must
 be a **measured** change, surfaced at its own merge gate rather than found by
 the next profile.
 
-### Why the saving compounds — the figure that makes this a P2 and not a P3
+### Why the saving still compounds — but it is now a P3 argument
 
-`review.test_scope` is `impact`, so this file is not merely a merge-gate cost.
-Measured 2026-10-24 for CARD-218's two-test-file diff: the derived impact set is
-**24 files, 448.77 s — 31.47 % of the suite — of which 344.29 s (77 %) is this
-one file**, for a diff whose own two files cost 8.86 s. Every book-adjacent
-card now pays ≈ 344 s per review cycle for this class, and this board runs up
-to three cycles per card. (Whether the derivation *should* pull it in at all is
-CARD-286's question, not this one's; the two cards attack the same bill from
-opposite ends and neither waits on the other.)
+`review.test_scope` is `impact`, so this file is not merely a merge-gate cost,
+and that is the only part of the original argument that survives.
+
+Re-derived: the 2026-10-24 measurement put the impact set for CARD-218's
+two-test-file diff at **24 files, 448.77 s — 31.47 % of the suite — of which
+344.29 s (77 %) was this one file**. With the file now at **105.66 s**, the same
+set is ≈ **210.14 s**, which is **16.5 %** of today's 1270.34 s suite, and this
+file is **50.3 %** of it rather than 77 %. So a book-adjacent card pays ≈ 106 s
+per review cycle here, not ≈ 344 s.
+
+**That is what re-ranks this card from P2 to P3.** The prize is the class's
+61.62 s, of which a realistic target is the 30.25 s single test; at three cycles
+per card that is worth having, but it no longer dominates any bill. Whether the
+derivation *should* pull this file in at all is still **CARD-286's** question,
+and the two cards still attack the same bill from opposite ends.
+
+**It is also no longer the suite's ceiling risk.** CARD-292's review recorded
+the suite's nearest approach to `hang_guard`'s 120 s per-test alarm as
+`tests/test_kill_matrix.py::test_ac7_the_four_arm_grid_of_card_257_reproduces`
+at **56.92 s** — nearly twice this class's dearest test. This file was the
+ceiling argument when its dearest test was 81.03 s; it is not any more.
 
 ## Acceptance criteria
 
-- **AC-1** (happy, measure before fixing): *Given* this class, *when* its cost
-  is profiled per test and attributed by function, *then* the card records what
-  share of 327.94 s is (a) re-derivation of an identical analysis, (b) distinct
-  planted analyses, (c) anything else — each as seconds and a share, from
-  `cProfile` cumulative time over named call sites, not from a guess. No
+- **AC-1** (happy, measure before fixing): *Given* the three tests that are
+  **76.1 %** of the class, *when* their cost is attributed by function, *then*
+  the card records where the **61.62 s** goes — each as seconds and a share,
+  from `cProfile` cumulative time over named call sites, not from a guess. **Two
+  answers are already known and must not be re-derived as if open**: candidate
+  (a), re-derivation of an identical analysis, is **refuted** for the 30.25 s
+  test (all 108 analyses are distinct planted texts — CARD-292 cycle 3), and the
+  line-split cost is **already memoised**. So AC-1's real question is narrower:
+  **of the 30.25 s, how much is the 108 analyses' irreducible work and how much
+  is the planting idiom itself** (`source.replace(...) + extra` over a 389 k
+  character string, 108 times). **Report `cProfile` figures with both arms
+  profiled** — CARD-292's headline defect was a profiled numerator over an
+  unprofiled denominator, so state the instrument beside every ratio. No
   optimisation may be committed before this table is on the card. (recorded,
   verified by review)
 - **AC-2** (happy, the saving): *Given* the remedy AC-1's table selects, *then*
-  the class's wall-clock falls by a figure the card states in advance and
+  the class's wall-clock falls by a figure the card **states in advance** and
   measures after, over three runs of each arm **interleaved** (not two blocked
-  batches), with load averages recorded at the start and end of each.
-  (test: `TestSuiteProfile_*` records the artefact; the delta is recorded)
+  batches), with host cells at the start and end of each: load average **and**
+  rival-pytest through `pgrep -f 'MacOS/Python.*pytest' | wc -l` — **not** a
+  load average alone, which on this box reads 4–14 with nothing running at all,
+  and **not** any other `pgrep` form (see `meta/kanban/config.yml`'s five-case
+  truth table; three forms were tried and all three were blind, false-positive
+  or both). **If the honest answer is that no remedy survives G-1, that is a
+  result and the card may land on it** — this card's prize is 61.62 s, not
+  327.94 s, and a refused optimisation recorded with its measurement is worth
+  more than a weakened guard. (test: `TestSuiteProfile_*` records the artefact;
+  the delta is recorded)
 - **AC-3** (guard, the verdict set is unchanged — the one that matters):
   *Given* the class before and after, *when* each of its planted shapes is run,
   *then* **every plant's outcome is identical**, asserted as an equality over
@@ -165,17 +219,25 @@ opposite ends and neither waits on the other.)
   `TestBookPdfStructure_*::test_the_planted_shape_inventory_is_the_declared_one`)
 - **AC-6** (guard, the walker's reach): *Given* the production module the
   walker reads, *then* the set of call sites it classifies, and each one's
-  classification, is identical before and after — the measurement CARD-262
-  landed (760 of 816 refusing, nothing exempted) re-derived and compared, not
-  cited. (test: `TestBookPdfStructure_*::test_the_classified_call_sites_are_the_ones_card_262_measured`)
+  classification, is identical before and after — **re-derived and compared, not
+  cited**. ⚠ **The figures this AC used to name are stale**: CARD-262's
+  *760 of 816 refusing* became **770 of 832** when CARD-295 added
+  `vector_puzzle_pages`, and the cost sequence moved to 770 / 517 / 204 / 202.
+  **Read the current figures off the module, not off this card** — that
+  substitution is the whole point of the AC, and the card naming a superseded
+  pair is itself an instance of the defect it guards against.
+  (test: `TestBookPdfStructure_*::test_the_classified_call_sites_are_the_ones_card_262_measured`)
 - **AC-7** (happy, collected count): *Given* the file, *then* its collected
   count is unchanged except for controls this card adds, each named on the card,
   and **no test is merged, parametrised away, skipped or deleted** — verified by
   set difference over sorted node ids, not by comparing two totals. (recorded)
 - **AC-8** (happy, the suite figure): *Given* the next full-suite profile,
-  *then* the card records this file's new seconds and share against 344.29 s /
-  24.14 %, and against the `meta/profiling/suite-hotspots-*.md` ranking its own
-  guard regenerates. (recorded, not asserted)
+  *then* the card records this file's new seconds and share against the
+  **measured** baseline in "What to implement" — **105.66 s, 8.3 % of a
+  1270.34 s suite** (and the class at 61.62 s, 4.85 %) — **not** against the
+  superseded 344.29 s / 24.14 %, and against the
+  `meta/profiling/suite-hotspots-*.md` ranking its own guard regenerates.
+  (recorded, not asserted)
 
 ## Guardrails
 
@@ -275,9 +337,13 @@ quiet box, for the reason in the next section.
 
 ### Something that got worse while you waited, and it strengthens this card
 
-This file is now measured at **24.14 % of attributed suite time — 344.29 s of
+⚠ **REVERSED 2026-10-27 — this subsection's heading is no longer true, and it is
+kept because the reasoning it records is still how the card was scheduled.** It
+read: this file is measured at **24.14 % of attributed suite time — 344.29 s of
 1426.16 s** on the 2026-10-23 profile, against the **327.94 s** this card was
-written with. The 2026-10-26 join of that profile against ADR-0042's migration
+written with. **CARD-292 then reversed it**: the file is **105.66 s** and the
+class **61.62 s**, measured 2026-10-27 at `2fddaccc`. What got worse while this
+card waited got better while it kept waiting. The 2026-10-26 join of that profile against ADR-0042's migration
 census puts the whole convertible interior-raster surface at **498.02 s =
 34.92 %** of attributed time, of which **this one file is two thirds**. Second
 place is 21.60 s. So the opportunity this card exists for is more concentrated
@@ -297,3 +363,45 @@ ceiling that decides whether any single figure here is trustworthy, and it
 touches this same file — so the two serialize on the file as well as on the host.
 Also note CARD-292 declares `meta/kanban/config.yml`, which was edited
 2026-10-26 (the review refire policy); rebase rather than assume.
+
+## [REWRITTEN — 2026-10-27, orchestrator] CARD-292 took 81 % of this card's opportunity before it ran
+
+The owner chose to rewrite this card against measured figures rather than
+dispatch it on its original table. The measurement that forced it, taken at
+`2fddaccc` over this file alone (132 passed, 107.80 s, no rival pytest):
+
+| | this card recorded | measured 2026-10-27 | change |
+|---|---|---|---|
+| the target class | **327.94 s**, 95.3 % of file, 14 258 ms/test | **61.62 s**, 58.3 %, 2 679 ms/test | **−266.32 s, 5.3× cheaper** |
+| the file | 344.29 s | **105.66 s** | −238.63 s |
+| share of suite | 24.14 % of 1426.16 s | **4.85 %** (class) / 8.3 % (file) of 1270.34 s | |
+| impact-set share | 448.77 s, 31.47 %, this file 77 % | ≈ 210.14 s, 16.5 %, this file 50.3 % | |
+
+**CARD-292 did not set out to do this card's work.** It was dispatched to measure
+an unmeasured per-test ceiling, found the ceiling was this tree's own
+`hang_guard`, and on the way refuted the page-cache story it had been handed and
+found the real cost: `ast.get_source_segment` re-splitting a prefix of the source
+on **every** call, 649 splits per analysis each re-scanning 50.5 % of the module.
+Memoising that made each analysis **8.0×** cheaper. Its merge gate then confirmed
+the saving suite-wide — **1670.57 s → 1270.34 s, 400.23 s, 24.0 %** — against a
+file-level prediction of 407.31 s, agreeing to **1.7 %**.
+
+**What that leaves, and why the card is re-ranked P2 → P3 and 1d → 0.5d.** The
+cheap remedy this card named is **gone twice over**: the line split is memoised,
+and caching identical analyses is **refuted** for the dear test, because all 108
+of its analyses are distinct planted texts. What remains is 61.62 s, **76.1 % of
+it in three tests and 49.1 % in one**, reachable only through the plants — which
+this card's own prose calls the place where *"this card can do damage."* So **G-1
+is promoted from one guardrail to the card's central constraint**, and AC-2 now
+says in terms that **"no remedy survives G-1" is an acceptable result**.
+
+**Two stale figures found while rewriting, both now fixed in place.** AC-6 cited
+CARD-262's *760 of 816*, which CARD-295 moved to **770 of 832**; and the
+"no memoisation anywhere" fact is no longer true. A card that names a superseded
+figure is an instance of the defect AC-6 exists to guard against, which is why
+they are corrected here rather than left for the agent to trip over.
+
+**What is NOT changed:** AC-3, AC-4, AC-5 and AC-7 — the verdict-preservation,
+cache-staleness, plant-inventory and collected-count guards. Their shape never
+depended on the cost figures, and they are the reason this card can be attempted
+at all.
