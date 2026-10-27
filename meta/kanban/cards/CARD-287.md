@@ -405,3 +405,214 @@ they are corrected here rather than left for the agent to trip over.
 cache-staleness, plant-inventory and collected-count guards. Their shape never
 depended on the cost figures, and they are the reason this card can be attempted
 at all.
+
+## [IMPLEMENTATION — 2026-10-28] `8b908a73` — a remedy survived G-1, and it never approached it
+
+One file, `tests/test_book_export_interior_cover.py` (+141/−2), blob
+`a2b950ca`. `src/` and `pyproject.toml` **zero diff** (G-2, verified from git).
+
+**The class is 42.8 % cheaper and the file 29.5 %, with the number of analyses,
+their texts, their arms and every one of their verdicts unchanged.** The card's
+fear was that the only saving left required guarding less. It did not.
+
+### AC-1 — the attribution table, taken BEFORE any edit, and it answers the narrowed question NO
+
+`cProfile`, **both arms profiled**, every share's numerator and denominator from
+the *same* profiled run — CARD-292's headline defect avoided by construction. The
+unprofiled wall clock sits beside it and is **never** a denominator for a
+profiled numerator.
+
+| test | unprofiled wall | profiled Σtottime | stdlib `get_source_segment` cum | share | **the planting idiom** | share |
+|---|---|---|---|---|---|---|
+| `…each_door_axis_arm…` | 28.81 s | 68.35 s | **14.366 s** | **21.0 %** | **0.062 s** | **0.09 %** |
+| `…every_door_shape…` | 10.23 s | 26.32 s | 4.804 s | 18.3 % | 0.025 s | 0.09 % |
+| `…every_planted_position…` | 5.70 s | 14.59 s | 2.736 s | 18.8 % | 0.006 s | 0.04 % |
+
+**The plants are not the bill and never were** — 0.062 s of 68.35 s. `str.replace`
+alone is 0.013 s over 216 calls; the disk reads 0.001 s. So the route this card
+feared, and G-1 guards, was never the one worth taking.
+
+**What the bill actually was.** `print_callers` named the door:
+**`_page_positions` itself calls stdlib `ast.get_source_segment` 2 556 times.**
+CARD-292 memoised the line split and routed **one** of this file's two analysis
+call sites through the memo — `_page_positions`' `segment()` closure — and **the
+other, the `found.append` at the function's tail, kept calling the stdlib**,
+which re-splits the whole 389 k source **once per segment**. 24 segments ×
+108 analyses = **2 556 splits, each re-scanning the entire module**. The split
+count was taken two ways that agree: cProfile's `ncalls` of `_splitlines_no_ff`,
+and `sum(len(sites))` over the 108 analyses — different domains, same number.
+
+**So the remedy is a pure substitution** of a function the tree *already*
+asserts equal to the stdlib for every node (`TestSourceSegment_TheMemoIsTheStdlibAnswer`,
+CARD-292's own control). Both call sites — the hot one and the cold one in
+`_counting_expressions` — now route through `_source_segment`.
+
+### AC-2 — predicted in advance from a different instrument, then measured interleaved
+
+**Written to `prediction.txt` before any arm ran**, from `perf_counter` over 50
+reps (a different domain from the cProfile that found the hotspot): dear test
+**15.04 s**, class **36 ± 4 s**, file **76 ± 6 s**.
+
+Three runs of each arm, **interleaved A B A B A B**, host cells at both ends of
+every run; **rival-pytest 0 at both ends of all six**, `NONOGRAM_TEST_HANG_SECONDS`
+unset throughout, the board's lock never created.
+
+| | A median | B median | delta |
+|---|---|---|---|
+| the file | **100.19 s** | **70.62 s** | **−29.57 s, −29.5 %** |
+| **the target class** | **57.70 s** | **32.98 s** | **−24.72 s, −42.8 %** |
+| `…each_door_axis_arm…` | 27.88 s | 15.19 s | −45.5 % |
+| `…every_door_shape…` | 10.17 s | 5.91 s | −41.9 % |
+| `…every_planted_position…` | 5.76 s | 3.24 s | −43.7 % |
+| the class's other 20 tests | 14.08 s | 8.32 s | −40.9 % |
+| `TestDoorAxis_TheNextIndirection…` | 13.34 s | 7.70 s | −42.3 % |
+
+**Prediction against measurement: dear test 15.04 predicted, 15.19 measured —
+1.0 %.** Class and file both inside their stated bands.
+
+**A bound found and CLOSED rather than declared:** the six A/B runs were taken on
+arm B's *first* blob, not the committed one. A fourth run on the **committed**
+blob at `8b908a73` gives file **70.84 s**, class **32.70 s**, dear test
+**15.21 s**, 133 passed — inside **0.3 %** of the B median. *The figures belong
+to the commit.*
+
+### G-1 — verified as a byte-for-byte equality, twice
+
+A **1 752-line, 52-section canonical capture** of the guard's entire observable
+answer, taken before and recomputed after: **identical (`cmp -s`)**, once against
+arm B v1 and again against the committed blob. It holds, unsummarised: **AC-3's
+144 `(arm-config, plant, verdict, refusal-reason)` quadruples** (36 door shapes ×
+4 arm configurations) plus the position-axis plants and every `(lineno, text)` the
+`_counting_expressions` site feeds; **AC-5's** 36 labels and every upper-case
+table on the class; **AC-6's** `sites`/`vocabulary`/`refusals` in full under **ten**
+configurations.
+
+**AC-6 re-derived off the module, not cited:** **832** `ast.Call` nodes, **770**
+refusals with nothing exempted, **0** under the shipped default, and the declared
+`CALLEE_EXEMPTION_COST` sequence reproduced step for step — **770 / 517 / 204 /
+202 / 0 / 0**. The rewritten card's `770 of 832` is **correct as written**.
+
+**AC-4 is NOT ENGAGED, and saying so is the honest answer.** The change adds no
+cache; it routes two call sites into CARD-292's existing memo, already keyed on
+the analysed text and already carrying its own staleness control. AC-4's own
+precondition — *"if AC-1 selects caching"* — is unmet, so no cache-key test was
+written rather than one being invented for a cache that does not exist.
+
+**AC-7:** set difference over sorted node ids, **132 → 133**, nothing removed,
+merged, parametrised away, skipped or deleted. The one addition is named and
+costs 0.04 s.
+
+### The one mechanism added, and the eight mutants over it
+
+`test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter` makes the saving
+**durable** — the stdlib and the memo return the same string, so a regression
+would be invisible to every other control in the tree. Default-deny over an
+enumerable authority (ADR-0039/R2): a two-sided set equality between the
+outermost enclosing scope of every `*.get_source_segment` **call** and
+`STDLIB_SEGMENT_SCOPES`, with **both** controls inline — it must rise on a call
+planted in a foreign scope and must **not** rise on a mention.
+
+| mutant | result |
+|---|---|
+| **S1** revert the **hot** call site | **killed** |
+| **S2** revert the cold call site | **killed** |
+| **S3** *edge* — a stdlib call in a third scope the comments never name | **killed** |
+| **S4** *edge, negative* — a bare *mention* in that scope | **survived, correctly** |
+| **M1** the `ast.Call` requirement → bare `Attribute` | **survived — declared** |
+| **M2** delete the attribute-name filter | **killed** (33 scopes named) |
+| **M3** empty the declared authority | **killed** |
+| **M4** delete the outermost-scope rule | **killed** |
+
+**Three honest negatives, each recorded in the code rather than papered over:**
+
+1. **M1 survived and the docstring says so**, instead of being given an invented
+   mutant. The `ast.Call` requirement is **structural** — it is how `node.func`
+   is reached — and is not independently killable on this file, because every
+   `*.get_source_segment` attribute here is also called. **The first draft's
+   docstring claimed the Call filter was what excluded a mention; that claim was
+   false** (the exclusion is the `Attribute` match) and *the mutant census is
+   what caught it*. Corrected in the committed text.
+2. **An assertion the round wrote first SURVIVED its own deletion mutant**, the
+   two-sided equality already failing on both an empty derivation and a dead
+   authority row. It was **deleted** rather than kept as a claim with no control,
+   and the comment left in its place says why.
+3. The first S3 was **malformed** — an `ast` reference in a default-argument
+   expression, evaluated at module scope where `ast` is unbound — giving **exit
+   4, a collection `NameError`, and no verdict**. Re-run well-formed. *An exit
+   code is not a verdict.*
+
+The positive control also earned its keep during development: it caught a real
+defect in the round's own derivation (BFS `setdefault` attributes a call to the
+**outermost** scope, not the nearest).
+
+**Declared bound on the new guard, in the code:** a stdlib reference bound to a
+name and called through it — `f = ast.get_source_segment; f(...)` — is not a
+`*.get_source_segment` call node and this derivation does not see it. That is the
+alias family the big class spends two thousand lines on, and closing it here is
+not this card's (**G-7**).
+
+### Pre-gate — one invocation over a derived radius of ten files
+
+Derived, not guessed: the files that read `tests/` or the tree as data, name the
+env switches or `rank_durations`, name this test file, or enumerate node ids —
+including `test_browser_fixture_scope.py` explicitly (**G-5**).
+
+**Collected 1051, passed 1051, skipped 0, failed 0, errors 0**, exit 0, 279.74 s.
+`-rs` printed **no skip lines at all**, so there is no skip to attribute. Host:
+load 6.21 → 4.92, **rival-pytest 0 at both ends**, `$TMPDIR/nonogram-test-hang.txt`
+**0 bytes** — no per-test kill, and the dearest test in this file is now 15.21 s
+against the 120 s ceiling. The board's lock absent throughout; **the full suite
+was not run**. G-4 holds: the frozen render set is unchanged and no tracked file
+was added under `meta/profiling/`.
+
+### Measured vs inferred, with the doors named
+
+**Measured:** the 2 556 splits (two independent instruments agreeing); 6.238 ms
+per stdlib split vs 6.779 ms per memo miss (`perf_counter`, unprofiled —
+deliberately not the cProfile domain that produced the 14.37 s); every timing row
+(three interleaved runs per arm, plus a fourth on the committed blob, medians
+reported and all readings shown); 832 / 770 / 0 and the full cost sequence
+(recomputed, then cross-checked against the tree's own declared constants);
+AC-3/5/6 (recomputation, twice, as a byte comparison); every mutant row is a run
+and every kill names its assertion.
+
+**Inferred and labelled as such — AC-8 is a PROJECTION, not a measurement.** A
+full-suite run is forbidden to the implementation station. File **105.66 → 70.62 s**
+is measured; projected suite **≈ 1240.8 s**, file share **≈ 5.7 %** (was 8.3 %),
+class **≈ 2.66 %** (was 4.85 %). CARD-292's file-level prediction agreed with its
+suite gate to 1.7 %, which is the precedent for the method — but **it stays an
+inference until the merge gate measures it.**
+
+**A baseline difference declared rather than hidden.** The test file in the
+worktree is byte-identical to `2fddaccc`, so the gap is host, not tree: arm A
+re-derives **100.19 / 57.70 / 27.88** against the card's **105.66 / 61.62 /
+30.25** — 5.2 % / 6.4 % / 7.8 % low, inside the ~19 % `tests/README.md` records
+between quiet runs. **Every delta above uses the round's own arm A as its
+denominator**, so no percentage is inflated by that gap.
+
+### Could not establish, in those words
+
+- **The suite-wide figure.** AC-8 is a projection; only the merge gate closes it.
+- **Whether the remaining 32.70 s is reducible.** The residue is the walker's own
+  traversal: 23.1 M `ast.walk` resumptions, 49.7 M `iter_child_nodes`, 63.1 M
+  `iter_fields`, 131.8 M `isinstance`, and **19.4 M calls to `_page_positions`'
+  inner `called()` for a module with 832 call nodes** — ~180 k per analysis,
+  which **looks super-linear and is the next real prize**. Deliberately not
+  pursued: it is the walk's algorithm, which is where G-1 bites and which **G-7**
+  assigns elsewhere. → **CARD-303**.
+- **`_source_lines`' 8-entry cap.** It clears at 8 while the dear test visits 36
+  distinct texts, so 108 misses occur where 36 would do; raising it saves a
+  further ≈ 0.45 s. Not pursued — it changes CARD-292's declared mechanism and
+  the control pinning it, for under 1 % of the class.
+- **Call-site granularity of the new guard.** S1 and S2 fire the same assertion,
+  because the authority is spelled as a scope and both sites live in one class.
+  The guard says *that* an analysis path regressed, not *which*. Tightening it to
+  a per-call multiset would pin the four legitimate stdlib calls in the control
+  class and red on unrelated edits there; judged a worse trade and declared.
+
+**Artefacts kept outside the worktree**, at
+`~/Documents/nonogram-reviews/CARD-287/`: three cProfile outputs, the callers
+dump, `prediction.txt` (written before the arms ran), all seven timing runs with
+host cells, the 150 kB pre-gate log, the before/after captures, both node-id
+lists, and every probe script. None tracked; none under `tests/` or
+`meta/profiling/`.
