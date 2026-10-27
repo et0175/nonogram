@@ -1,0 +1,576 @@
+card: CARD-283
+cycle: 2
+reviewer: forge:review (Claude Opus 5, adversarial reviewer)
+date: 2026-10-26T07:08:57Z
+revision_reviewed: c506a1fc
+fork_point: 423c09f3
+branch: card/283-public-player-page
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-283
+score: 7
+certified: false
+min_score: 8
+verdict: >-
+  The fix round did the hard part honestly. All three cycle-1 gating findings
+  are closed on their own mutations, re-fired here: the tier rule reverted to
+  the old alphabet reds the new plant test, a POST planted in the reset
+  handler and in the drag branch each reds EC-050's walk, and the last-column
+  weakening of isClueSolved reds AC-384's table. The declared residual is
+  CORRECT and I measured it end to end rather than accepting it: a bundle
+  puzzle carrying base-64 of its own grid in title, in a field NAME, in
+  "note", in "picture_name", in "difficulty_tier" and in a nested object
+  assembles to a served file BYTE-IDENTICAL to the clean one (sha256
+  6c8b81a525c89d6a both times), the served tier is one of four values, and
+  2.00 bits is the whole of it. The tier vocabulary really is the enum's (a
+  planted Tier.EXPERT reds the completeness test), the two clue-axis length
+  checks are reachable one at a time, and swapping the two axes is caught by
+  the oblong fixture. check_out_dir holds against "..", a symlink, another
+  checkout, $HOME and "/". And the round caught a dead mutant of its own and
+  fixed the control rather than the note.
+  It is not certified, for one gating reason and three claims that measure
+  false. The off-by-one family cycle 1 gated on is still open at one of its
+  four ends: `for (let col = 1; col < width; ...)` — the column sweep never
+  checking column 0 — leaves ALL 31 TESTS GREEN, so a board whose only wrong
+  clue is column 0 would still be announced solved, which is the one case
+  AC-384 exists for; and the fix round's own comment claims "an off-by-one at
+  either end of either sweep reds" (F-2 / N-1). The pointer-type half of the
+  drag rule is still a dead mutant (`const paints = true` — 31 passed), and
+  the declaration excusing it is false: a real touch drag IS drivable from
+  this suite through a CDP session, which I built and ran in twenty lines —
+  Region off marked nothing, Region armed marked the line and disarmed itself
+  (N-2). EC-050's completeness check is held to play.html's buttons, so a
+  control that is not markup escapes it: a keydown binding planted in play.js
+  that POSTs leaves all 31 tests green, against the card's "a new control
+  cannot drop a path silently" (N-3). And `_tier`'s claim that a narrowed
+  tier is "dropped into the report, which AssembleReport carries" is false —
+  the report carries only schema-unknown names (N-4). Every remedy is small:
+  one table row, twenty lines of CDP, one report field.
+
+previous_findings:
+  - id: F-1
+    title: the served tier was a 56.46-bit channel
+    status: closed
+    evidence: >-
+      MEASURED three ways. (a) The mutation: `_tier` reverted to
+      `^[a-z]{1,12}$` reds
+      test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site AND
+      test_the_tier_is_narrowed_to_the_vocabulary_or_dropped (2 failed, 1
+      passed; test_served_tree_is_clean_of_answers PASSES under it, exactly as
+      the round declares — the sweep cannot see a 12-character token, so the
+      domain is the only thing holding this). assemble.py restored, sha256
+      132e348b269f498898444a2fe8c212a17983f8a75820e87e1c8d19ac1e98bc81.
+      (b) The residual, re-derived: free_capacity_bits() == 2.0, width and
+      height one value each, tier four. (c) The channel end to end, my own
+      hostile bundle rather than the round's test: a 10x10 puzzle file whose
+      `title`, whose `note`, whose `picture_name`, whose `difficulty_tier`,
+      whose nested `clues_extra` object AND one of whose FIELD NAMES is the
+      base-64/bit-string of its own grid assembles to served bytes identical
+      to the clean payload's (sha256 prefix 6c8b81a525c89d6a both times);
+      neither the base-64 nor the cell string occurs anywhere in the served
+      file; all six names are listed in report.dropped. The rebuild is total.
+      I did not re-derive the orchestrator's own plant measurement (56 of 56
+      -> 0 of 56) and I agree with it.
+  - id: F-2
+    title: AC-384's control missed a weakening of isClueSolved's column sweep
+    status: closed for the named mutant, NOT closed as a family
+    evidence: >-
+      MEASURED both ways. The named mutant dies: play.js:180
+      `col < width` -> `col < width - 1` reds
+      test_solved_fires_on_clue_satisfaction_only (1 failed), and the row twin
+      `row < height - 1` also reds. But the OTHER end of the same sweep is
+      still open: `let col = 0` -> `let col = 1` (column 0 never checked)
+      leaves test_solved_fires_on_clue_satisfaction_only AND the whole module
+      GREEN (31 passed). The row twin `let row = 1` DIES, because the
+      single-row cases make row 0 the only row — the same asymmetry cycle 1
+      measured, one index over. See N-1. play.js restored, sha256
+      65b4224901a5e90102160d71ed3b7c55aeda59e219a030932190c9b25daae7e9.
+  - id: F-3
+    title: EC-050's walk performed no drag and never pressed Reset
+    status: closed
+    evidence: >-
+      MEASURED, both plants. `fetch("/collect", {method: "POST"})` in the
+      reset click handler reds test_no_write_request_for_any_interaction (1
+      failed; test_resume_is_local_and_the_page_writes_nowhere still passes,
+      so the kill is this control's). The same call in the pointerup drag
+      branch, beside `setRegion(nextRegion(region, "drag"))`, also reds it.
+      The walk is now a deterministic sweep over all 11 controls plus the
+      seeded 24-step walk with `set(exercised) == set(controls)` asserted, and
+      dropping one control from the table reds both
+      test_every_player_control_is_in_the_ec_050_walk and the walk itself (2
+      failed). A fourth brush added to play.html reds the completeness test.
+      The residual is N-3: the authority is play.html's markup, so a control
+      that is not markup is outside it. play.js / play.html restored, sha256
+      verified.
+  - id: F-4
+    title: play.js's input-validation and touch layers were unexercised
+    status: four of five closed; the pointer-type half NOT closed, and its excuse is false
+    evidence: >-
+      MEASURED. Closed: deleting `deserialize`'s two clue comparisons reds
+      test_a_save_or_a_puzzle_file_the_page_cannot_trust_is_refused; replacing
+      `nextRegion(region, "drag")` with `setRegion(region)` reds
+      test_the_brush_region_and_touch_bindings_are_the_modules. (A and E, the
+      readPayload checks and the brush binding, are covered by the same two
+      tests and I did not re-fire them.) NOT closed: `const paints =
+      gesturePaints(event.pointerType, region)` -> `const paints = true`
+      leaves all 31 tests green, and the round's reason for leaving it
+      ("Playwright has no touch-drag API ... a synthetic PointerEvent cannot
+      carry a real pointerId, so the armed positive control would break on
+      setPointerCapture") is measurably false — see N-2, where I drive a real
+      touch drag and measure both directions.
+  - id: F-5
+    title: '"clues cannot be borrowed as a free numeric channel" was false as stated'
+    status: closed
+    evidence: >-
+      Code read, all four sites. assemble.py's module docstring, `_line`,
+      `_clues` and the test module's docstring now carry the measurement (144
+      clues per 10-cell line, ~143 bits per 10x10, the accepted clue set no
+      grid realises, named in `_clues`'s docstring) and route the guarantee to
+      ADR-0041/R5 upstream. `EXEMPT_SERVED_FIELDS` makes the exemption a named
+      table the partition check reads. The realizability check was correctly
+      left as the ADR question cycle 1 said it was.
+  - id: F-6
+    title: sweep_tree's docstring described a second decoder pass that does not exist
+    status: closed
+    evidence: >-
+      Code read. The sentence is deleted and replaced with why it was not
+      implemented (the pass would read the exempt clue numbers). The body is
+      still one if/else and now matches its description. I agree with the
+      round that deleting was the right branch.
+  - id: F-7
+    title: EC-048's served-half control asserted no minimum corpus size
+    status: closed
+    evidence: >-
+      MEASURED: `assert len(GRIDS) >= 4` and the MIN_SIZE/MAX_SIZE span
+      assertion now live inside test_served_tree_is_clean_of_answers, and
+      shrinking GRIDS from four grids to two reds that test at its own line
+      486. tests/test_public_player.py restored, sha256
+      3b274b26f9b1a4784e0c9143d11e6ec08962e7084d6f3b5cd5903caa149ed137.
+  - id: F-8
+    title: assemble --out rmtree'd any directory with no sanity check
+    status: closed, and robust; two residuals (N-5, N-6)
+    evidence: >-
+      MEASURED, calling check_out_dir directly (never assemble) so nothing
+      could be deleted. Refused: the repository root; the repository root
+      spelled `player/..`; a SYMLINK pointing at the repository root (all
+      three by the resolved-path name check); the OTHER checkout at
+      PythonProject4 (on .DS_Store, .claude, .dockerignore ...); $HOME; "/";
+      and a plain file, with or without --force. Allowed: an empty directory,
+      a non-existent path, and a previous run's own tree. Not consulting
+      check_out_dir from assemble reds
+      test_an_out_dir_that_is_not_a_previous_site_is_refused. Residuals: a
+      directory whose only top-level name happens to be one of the seven an
+      assembled site has (e.g. a folder holding only `puzzle/`) is still
+      erased, which is narrow and defensible; --force is an exemption with no
+      control for what it must not absorb (N-5); and the control proves the
+      repo-root refusal by calling the destructive entry point on the real
+      checkout (N-6).
+  - id: F-9
+    title: AC-386's enforced phone cell floor was 24 px, not the declared 28 px
+    status: closed
+    evidence: >-
+      MEASURED: `--player-cell-min: 25px` now reds
+      test_phone_viewport_is_playable at the token assertion (line 1516) —
+      cycle 1 measured 25 px passing. Both halves are asserted, the token's
+      value (>= 28) and the rendered cell against the token, which is the
+      orchestrator's correction to my own remedy and is right: reading the
+      token alone would have followed it down. player.css restored, sha256
+      9bbfd5f907cc783afc090c607ff13075ad1fc61889d72d692e071a0b13b37ece.
+  - id: F-10
+    title: the third-party-asset guard carried a dead exemption
+    status: closed
+    evidence: >-
+      Code read. The disjunct is gone; play.js and play.html are held to a
+      flat "no https://", and the exemption moved to where the URL actually
+      is as an EQUALITY against the URLs vercel.json contains
+      (`re.findall(...) == ["https://openapi.vercel.sh/vercel.json"]`) plus
+      the parsed $schema. A second URL in either place therefore reds. This is
+      the shape ADR-0039/R3 asks for.
+  - id: F-11
+    title: the bordered stage spanned the page beside a small board
+    status: closed
+    evidence: >-
+      MEASURED: removing `width: fit-content` from `.player-stage` reds
+      test_the_stage_fits_the_board_on_a_wide_screen (and
+      test_phone_viewport_is_playable still passes, so the phone trade-off is
+      not what is carrying the kill). The new test reads both widths — 1440 px
+      (stage within 4 px of the board, nothing to scroll) and 390 px (stage
+      clamped, board scrolling inside it, no page scroll). The orchestrator
+      looked at it; I did not re-render.
+  - id: F-12
+    title: EC-048's registry text carries no clue exemption
+    status: not closed, correctly — outside this card's Touches
+    evidence: >-
+      meta/architecture/requirements.yml is unchanged, as the round said. The
+      finding stands and is still the architect's: EC-048's literal text
+      forbids "data from which any solution cell is recoverable", every served
+      puzzle file carries the clues, and the clues determine every cell of a
+      uniquely solvable puzzle. This interacts with the declared residual —
+      see the note in corrections_to_the_brief.
+
+findings:
+  - id: N-1
+    severity: medium
+    title: >-
+      The off-by-one family is still open at one of its four ends: the column
+      sweep never checking column 0 (`let col = 1`) leaves all 31 tests green,
+      and the fix round's own comment claims that end is covered.
+    file: tests/test_public_player.py
+    line: 1377
+    gating: true
+    confidence: high
+    evidence: >-
+      MEASURED by mutation, play.js:180 `for (let col = 0; ...)` -> `for (let
+      col = 1; ...)`: test_solved_fires_on_clue_satisfaction_only PASSES (1
+      passed in 1.21s) and the WHOLE MODULE passes (31 passed in 4.61s), so
+      with column 0's clue never checked the page would announce a wrong board
+      solved and nothing in the card notices. The symmetric mutant `let row =
+      1` DIES (1 failed, 30 passed), for the same structural reason cycle 1
+      found: the height-1 cases make row 0 the only row. The gap is specific.
+      The table's two new rows put the only error at the LAST index of each
+      axis; no case has its only error at index 0 — case "every row right, one
+      column wrong" (columns [[2],[0]] over "#xx#") has BOTH columns wrong, so
+      skipping column 0 still trips on column 1, and the same for its row
+      twin. The comment added with the fix says "These two put the only error
+      at the far end of each axis, so an off-by-one at either end of either
+      sweep reds"; measured, that is false at one of the four ends. AC-384's
+      statement ("given one wrong cell, it does not") names exactly this case.
+      play.js restored, sha256
+      65b4224901a5e90102160d71ed3b7c55aeda59e219a030932190c9b25daae7e9.
+    remedy: >-
+      Two more table rows, built the same way as the last-index pair, whose
+      only error is at index 0 of each axis — e.g. ("every row right, the
+      FIRST column wrong", 2, 2, "#xx#", [[1], [1]], [[2], [1]], False) and
+      its row twin ([[2], [1]] rows / [[1], [1]] columns). Then correct the
+      comment, or state it as "both ends of both sweeps, one case each" and
+      let the four rows carry it. Cheap and local.
+    disposition: must fix before merge
+  - id: N-2
+    severity: medium
+    title: >-
+      The pointer-type half of the drag rule is still a dead mutant, and the
+      declaration that it cannot be tested is false — a real touch drag runs
+      from this suite in twenty lines through a CDP session, and I measured
+      both directions with it.
+    file: player/play.js
+    line: 456
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED twice. (a) The mutant is still dead: `const paints =
+      gesturePaints(event.pointerType, region)` -> `const paints = true`
+      leaves all 31 tests green, so card item 5's rule ("with Region off a
+      touch drag pans the page instead of marking") has no control on this
+      page at all; only its CSS shadow (`touch-action`) is read. (b) The
+      excuse is false. I appended a probe to tests/test_public_player.py using
+      only the fixtures already there plus `page.context.new_cdp_session(page)`
+      and `Input.dispatchTouchEvent` (touchStart / touchMove / touchMove /
+      touchEnd over three cells of row 5, then row 7), and measured: REGION
+      OFF -> states ['unknown','unknown','unknown'], history.done.length 0 (so
+      the drag marked nothing, which is gesturePaints' rule); REGION ARMED ->
+      states ['filled','filled','filled'], done.length 1, isRegion() False
+      afterwards (so it marked, committed one stroke, and disarmed). Real
+      touch events, real pointerIds, setPointerCapture did not throw — the
+      stated obstacle does not occur. Chromium only, which is exactly the
+      browser ADR-0038/R7 declares, and no new dependency. The test file was
+      restored and verified (sha256
+      3b274b26f9b1a4784e0c9143d11e6ec08962e7084d6f3b5cd5903caa149ed137).
+    remedy: >-
+      Add that probe as a real test with the mutant as its control: Region off
+      + CDP touch drag leaves the board unknown and the history empty; Region
+      armed + the same drag marks the line, records one stroke and disarms.
+      That kills `paints = true` and closes the last of cycle-1 F-4. If the
+      owner would rather not depend on a CDP session, the honest wording is
+      "verifiable only through a CDP session, which we chose not to use", not
+      "Playwright cannot produce it".
+    disposition: fix in this cycle (cheap, and the recipe above is measured working)
+  - id: N-3
+    severity: medium
+    title: >-
+      EC-050's completeness check is held to play.html's BUTTONS, so a control
+      that is not markup escapes it: a keydown binding planted in play.js that
+      POSTs leaves all 31 tests green.
+    file: tests/test_public_player.py
+    line: 1711
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED: a second branch in play.js's existing keydown listener — `if
+      (event.key.toLowerCase() === "r") { fetch("/collect", {method: "POST",
+      ...}); commit(record(history, resetStroke(history.board))); return; }` —
+      is a new player-visible control that writes to a server, and the whole
+      module passes (31 passed in 4.90s).
+      test_every_player_control_is_in_the_ec_050_walk derives its authority
+      from `data-player-tool` / `data-player-action` / `data-player-region` in
+      play.html and from two aria-keyshortcuts strings, none of which can see
+      a listener. So the card's "the control set is held to play.html's own
+      buttons, so a reseed or a new control cannot drop a path silently" is
+      true for buttons and false for key bindings and gestures; EC-050 says
+      "for every interaction sequence". The same hole covers `pointercancel`,
+      which no test produces (code read, not mutated). play.js restored,
+      sha256 verified.
+    remedy: >-
+      Hold the listener set too, from the file that owns it: assert the
+      multiset of `addEventListener("<type>"` types in play.js equals a
+      declared set (pointerdown, pointermove, pointerup, pointercancel, click,
+      keydown), and assert the keydown handler's guard is the single Ctrl/Meta
+      +Z one (e.g. that play.js contains exactly one `document.addEventListener
+      ("keydown"` and that the only `event.key` comparison in it is to "z").
+      A new event type or a second key then reds, which is the completeness
+      half ADR-0039/R1 asks for applied to the right authority.
+    disposition: fix in this cycle if cheap, else carry as a named follow-up
+  - id: N-4
+    severity: low
+    title: >-
+      "dropped silently INTO THE REPORT, which AssembleReport carries" is
+      false for the tier: a narrowed tier is reported nowhere, and a dropped
+      tier is indistinguishable from an absent one.
+    file: player/assemble.py
+    line: 357
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED. A bundle puzzle whose stored `tier` is "tqlhkuhxpmgj" (or
+      "nonsense", or None) assembles to served `tier: ""` with
+      report.dropped == (('<key>', 'title'),) and report.refused == () — the
+      narrowing appears in neither, and `main()` prints only
+      report.dropped's field names, so the CLI is silent too. The same bundle
+      with `tier` ABSENT also serves `tier: ""` with the same report, so the
+      two cases are indistinguishable to the owner. No test asserts anything
+      about the report for a narrowed tier (the new plant test asserts the
+      served value only). That is the one silence this field's own docstring
+      promises is loud, and it matters operationally: if the Tier enum grows
+      and SERVED_TIERS lags, every puzzle of the new tier loses its chip with
+      nothing said — the completeness TEST is then the only thing that
+      notices, and only in CI.
+    remedy: >-
+      Record it: either extend `dropped` to carry ('<key>', 'tier') when
+      `_tier` narrows a non-empty stored value, or add a `narrowed` tuple to
+      AssembleReport and print it in `main()`. Then assert it in
+      test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site (the
+      plant) and in the fixture's "Hard"/"" cases, so the claim has a control.
+    disposition: fix in this cycle (small, and the docstring is already making the claim)
+  - id: N-5
+    severity: low
+    title: >-
+      --force is an exemption with no control for what it must not absorb:
+      `check_out_dir(repo_root, force=True)` returns the repository root, so
+      `assemble --out . --force` deletes the checkout.
+    file: player/assemble.py
+    line: 555
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED (check_out_dir only, never assemble): with force=True the
+      worktree root and the other checkout at
+      /Users/omelnikova/PycharmProjects/PythonProject4 are both ALLOWED. The
+      test exercises force only as a positive control (the planted notes are
+      gone), so nothing states what force must still refuse — against
+      ADR-0039/R3, which is in this card's own System contract and which the
+      round applied correctly to F-10 one finding earlier. Related, same
+      function: the docstring justifies the repo-root-by-name check with "its
+      own tree happens to contain player/ and would otherwise depend on which
+      name iterdir reached first", which is false twice — the foreign-name
+      check builds the whole list and refuses if ANY name is foreign, so it is
+      order-independent, and the allowed set contains "play", not "player", so
+      the repo root fails it on `player` as well as on everything else.
+    remedy: >-
+      Move the `site.resolve() == REPO_ROOT` refusal above the `if force`
+      branch so it is unconditional, and add the negative control (force=True
+      on the repo root still raises). Then fix the two-sentence justification
+      to what the code does.
+    disposition: fix in this cycle (it protects the owner, like F-8 did)
+  - id: N-6
+    severity: low
+    title: >-
+      The repo-root control is written against the DESTRUCTIVE entry point —
+      `assemble(None, REPO_ROOT)` on the real checkout — when the
+      non-destructive one is public and is what the test is about.
+    file: tests/test_public_player.py
+    line: 783
+    gating: false
+    confidence: high
+    evidence: >-
+      Code read plus one measurement. The test calls
+      `assembler.assemble(None, REPO_ROOT)` inside pytest.raises; if that
+      guard ever stops firing while the call is still reached, the next line of
+      assemble is `shutil.rmtree(site)` on the checkout. Today the hazard is
+      latent rather than live: with check_out_dir not consulted at all, the
+      earlier `pytest.raises(..., match="no assembled site has")` fails first
+      and the test aborts before the REPO_ROOT call (measured — 1 failed at
+      line 779, nothing deleted). But a change that widens `_site_entries`
+      enough for the repo root to pass the foreign-name check while the
+      by-name check is gone (see N-5's remedy, which removes that
+      dependency) lands directly on the rmtree.
+    remedy: >-
+      Assert the refusal through `check_out_dir(REPO_ROOT)` (and
+      `check_out_dir(REPO_ROOT, force=True)` once N-5 is fixed). Keep
+      `assemble` in the test only for tmp_path targets.
+    disposition: fix in this cycle (a one-line change to the call)
+  - id: N-7
+    severity: low
+    title: >-
+      The refusal table asserts THAT a reason was given, never WHICH — which
+      is the root of the masking family this card has now hit three times.
+    file: tests/test_public_player.py
+    line: 881
+    gating: false
+    confidence: high
+    evidence: >-
+      Code read: the loop asserts `report.refused[0][1]` (truthiness) and
+      nothing about its text, so a case refused by a mechanism OTHER than the
+      one it is named for passes. That is exactly how `clues-no-room` was
+      masked in the implementation round and how `clues-column-count` was
+      masked in this one (both caught only by mutating, and both recorded
+      honestly). The two new length cases are live — I re-fired each
+      separately: deleting `len(rows) != height` reds the test, deleting
+      `len(columns) != width` reds it naming `clues-column-count`, and
+      SWAPPING the two axes is caught loudly by the oblong fixture (1 failed,
+      16 errors, because the 25x15 puzzle stops being servable). So the cases
+      are right today; what is missing is the thing that would have found both
+      maskings without a mutation round.
+    remedy: >-
+      Make each case a (payload, expected-reason-fragment) pair and assert the
+      fragment is in report.refused[0][1] — e.g. "clues.columns is not 10
+      lines" for clues-column-count, "cannot fit a line of" for clues-no-room,
+      "disagree on the filled count" for clues-disagree. Every future case is
+      then self-checking.
+    disposition: fix in this cycle (mechanical, and it retires a recurring family)
+
+what_i_did_not_verify:
+  - >-
+    The orchestrator's three pre-gate measurements, by instruction: F-1's
+    closure against its own plant (56 of 56 -> 0 of 56), the deployed
+    --capacity reading, and the F-11 render. I re-derived the capacity (2.00
+    bits) and the tier channel from my own hostile bundle instead, and both
+    agree; I did not re-render anything.
+  - >-
+    The full suite, by instruction. Run here with NONOGRAM_FULL_SUITE_LOCK
+    redirected on every invocation: tests/test_public_player.py (31 passed, 0
+    skipped) and tests/test_collected_names.py +
+    tests/test_suite_profile.py + tests/test_guard_integrity.py together (585
+    passed). I did not re-run test_cli.py, test_player_bundle.py,
+    test_puzzle_solver_page.py or test_export_pdf.py; the round reports them
+    green and the changed files (assemble.py, player.css,
+    tests/test_public_player.py) cannot reach them except through
+    test_collected_names.py, which I did run.
+  - >-
+    ADR-0041/R5 and R1 upstream — that export_bundle really takes every clue
+    from compute_clues of the stored grid and really computes the key as
+    SHA-256 over the grid. I read player_bundle.py's `public_key` and the
+    compute_clues call site and they do, but the controls for them are
+    CARD-282's (test_bundle_tree_and_clues_match_the_encoder,
+    test_export_is_readonly_and_deterministic) and I did not run or mutate
+    them. The whole clue-and-key exemption rests on that, so the declared
+    two-bit residual is two bits GIVEN those two rules hold outside this
+    script.
+  - >-
+    A live export_bundle -> assemble pass against a real database. Still owed,
+    still named by the round. My hostile-bundle measurement used a
+    hand-written payload with the real field names, not a real export.
+  - >-
+    Any real device. The CDP touch drag in N-2 is Chromium's synthetic touch,
+    not iOS Safari; `position: sticky` inside a scroll container and
+    `touch-action` are still unverified on WebKit, as the round says.
+  - >-
+    18 of the round's 25 declared mutants were re-fired here (the three gating
+    families in full, plus the partition check, the tier set against the enum
+    including a planted Tier.EXPERT in src/nonogram/difficulty.py, both clue
+    length checks, the axis swap, check_out_dir's consultation, the walk-table
+    drop, the fourth brush, the 25 px token, fit-content, deserialize's clue
+    comparison, Region's one-shot disarm and the GRIDS shrink). All of them
+    red on exactly the control named. I did not re-fire readPayload's clue
+    checks, the brush binding, the is-region class, the 18 px token or the two
+    https:// plants; the first two share a test with mutants that did red, and
+    the last two are now flat assertions that cannot be dead.
+  - >-
+    Every file I mutated was restored and verified by sha256 against the
+    committed revision: player/assemble.py, player/play.js, player/play.html,
+    player/player.css, tests/test_public_player.py and
+    src/nonogram/difficulty.py (7f5206e1e6151123119feeaed38e69ef6b4a48710d1c
+    2918916c968bba53effc). `git status` at the end shows only the two
+    pre-existing entries (the card's own worktree notes, modified and
+    uncommitted, and the cycle-1 review file, untracked).
+
+corrections_to_the_brief:
+  - >-
+    "THE DECLARED RESIDUAL IS THE MAIN EVENT ... the honest answer may be 'the
+    residual is correctly declared'." It is correctly declared, and I measured
+    it rather than agreeing with it. The rebuild is total: a bundle puzzle
+    carrying base-64 of its own grid in `title`, in `note`, in
+    `picture_name`, in `difficulty_tier`, in a nested object AND in one of its
+    field NAMES assembles to served bytes byte-identical to the clean
+    payload's. The served file's whole content is (key, width, height, tier,
+    clues); width and height are forced equal to the clue axis lengths, and
+    that refusal is reachable in both directions and axis-swap-proof on the
+    oblong fixture; the tier is four values. So the per-puzzle residual is
+    exactly the two bits named. The brief's other candidates come out clean:
+    the key is not store-controlled (player_bundle.public_key hashes the grid
+    row-major, the store never writes it), the file name IS the key and is
+    re-validated as 10 hex and matched to the payload, ordering is canonical
+    (json.dumps sort_keys with indent 2, ensure_ascii, allow_nan False,
+    explicit newline) and the clue field is integers only, so there is no
+    byte-level writer artefact to carry a bit. One scoping note worth stating
+    in the card rather than a new finding: the residual is two bits PER
+    PUZZLE, so a library of N published puzzles is 2N bits of store-chosen
+    signal, which is still the right thing to route to ADR-0041 rather than
+    to patch here.
+  - >-
+    The clue exemption at the one-cell threshold is sound in the only sense
+    available, and it is worth saying precisely: given ADR-0041/R5 the clues
+    are a deterministic function of the stored grid, so they carry ZERO free
+    bits — they carry the puzzle, which is the product. What they do carry is
+    every cell by solving, which is why EC-048's literal text cannot be
+    satisfied by any implementation of ADR-0041 and why cycle-1 F-12 is the
+    real blocker for the word "closed". So the card's claim "EC-048's
+    one-cell threshold is carried by the closed rebuild plus the enumerated
+    domains" should be read as "carried for everything EXCEPT the two ADR
+    exemptions and the two declared bits" — which is what assemble.py's
+    docstring actually says, two paragraphs apart. I would state it in one
+    place, because "this script's one open edge" is only true after the
+    exemption is granted.
+  - >-
+    "Did the fix create new dead controls?" Yes, one, and it is in the family
+    the brief told me to watch (N-1): the masking shape is the same — the
+    column sweep's start index is refused by nothing, because no case in the
+    table has its only error at index 0. The round's own dead mutant
+    (clues-column-count) was a REFUSAL case masked by the agreement rule; I
+    looked for that shape elsewhere and the two length cases are now live
+    (measured one at a time), but the reason it keeps happening is N-7: the
+    refusal loop never asserts WHICH reason was given.
+  - >-
+    "The round declared the touch-drag half as unverifiable — judge that
+    declaration." It is false. I drove a real touch drag from this suite in
+    twenty lines via `page.context.new_cdp_session(page)` +
+    `Input.dispatchTouchEvent`, with no new dependency, and measured both
+    directions of the rule the round left untested (N-2). setPointerCapture
+    did not throw; the pointerIds are real. The mutant it would kill
+    (`paints = true`) is still green across all 31 tests.
+  - >-
+    "The tier enumeration ... does that completeness check actually fail when
+    the enum grows?" Yes — measured by adding `EXPERT = "expert"` to
+    nonogram.difficulty.Tier (src/, restored and sha256-verified):
+    test_the_served_tier_set_is_the_runtimes_tier_vocabulary reds. Note the
+    authority is the enum; `book_plan.TIERS` is itself a hand-written tuple of
+    three members, so it is a second opinion rather than a second authority,
+    and the test's `len(...) == 3` means a legitimate fourth tier reds twice.
+    I read that as deliberate (stop and think), not as a defect. The dropped-
+    tier half of the question is N-4, and the answer is no: a dropped tier is
+    not distinguishable from an absent one and no control notices.
+  - >-
+    F-8's "by name" is robust — `..`, a symlink to the repository root, the
+    other checkout, $HOME and "/" are all refused, measured through
+    check_out_dir alone. The two residuals I did find are not about names:
+    --force absorbs everything including the checkout with no control saying
+    it must not (N-5), and the control itself is written against the
+    destructive entry point (N-6).
+  - >-
+    Three bookkeeping notes, all carried over and all still true.
+    meta/kanban/cards/CARD-283.md is still MODIFIED-but-uncommitted in the
+    worktree (482 lines of worktree notes and the fix-round record), so a
+    merge that takes only c506a1fc loses the whole round record — this is now
+    the second cycle it has been flagged. The cycle-1 review YAML is untracked
+    in the worktree. And the AC/EC table in the card's notes was not extended
+    with the cycle-2 node ids for EC-048's new controls beyond the "New node
+    ids" table, which is fine but means the EC-048 row in "ACs and the node id
+    verifying each" no longer lists
+    test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site — the
+    control that now does the most work for that EC.

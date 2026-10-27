@@ -905,13 +905,53 @@ DRAW_OBJECT_UNBOUND_SITES = (
 #: earned exemption in the shape :data:`DINGBAT_EXEMPT_MODULES` already uses:
 #: an equality against what exists today, plus a second assertion (in
 #: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark`)
-#: that neither site can actually put a round mark on a page.
+#: that no site can actually put a round mark on a page.
 #:
-#: Both are ``Image.point``, a per-pixel lookup table: one takes a 256-entry
-#: table built with ``*`` and ``+``, the other a lambda. Neither takes
-#: coordinates, which is the property the second assertion pins — so these are
-#: excluded by what they are, not by a widened bin.
+#: **Two families since CARD-295**, and the second assertion asks each one its
+#: own question rather than widening a bin to hold both.
+#:
+#: * ``Image.point``, a per-pixel lookup table: one takes a 256-entry table
+#:   built with ``*`` and ``+``, the other a lambda. Neither takes
+#:   coordinates, which is the property the second assertion pins.
+#: * ``ContentStream.line`` / ``.rectangle`` / ``.text`` — the PDF **operator
+#:   recorder** ADR-0042 draws the book's interior with
+#:   (``nonogram.admin.book_vector``), reached from the one module that turns
+#:   a COMP-007 ``Layout`` into its calls. Three of its method names collide
+#:   with Pillow's and its receiver is a ``ContentStream``, so the first
+#:   vector page lands here by construction. **Added rather than dodged**: the
+#:   calls could have been spelled through a wrapper this walk does not read,
+#:   which would have kept this table short while the drawing stayed exactly
+#:   where it is.
+#:
+#:   What earns the exemption is not the receiver's name but its **surface**:
+#:   a ``ContentStream`` has no ellipse-family and no round-enough method at
+#:   all — asserted against ``dir()``, not against this comment — and
+#:   ``round_mark``, one round shape it can make, is not a draw-method name,
+#:   so no call to it would be collected here whatever its receiver. That
+#:   spelling has its own guard in the file that wrote it:
+#:   ``tests/test_book_pdf_vector_primitives.py``'s
+#:   ``TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee``, which
+#:   holds the ``c`` operator to one module and ``round_mark`` to one
+#:   definition called nowhere.
+#:
+#:   **CORRECTED, CARD-295 cycle 1 F-004.** This comment used to end "The two
+#:   compose; neither is trusted alone", which claimed a coverage the pair
+#:   does not have. They compose over **two spellings** and not over the
+#:   route: a round mark assembled from ``ContentStream.begin_path`` /
+#:   ``curve`` / ``close_path`` / ``paint`` passes this walk (none of those
+#:   five names is in :data:`ALL_DRAW_METHODS`, so the call is never collected
+#:   and this exemption table is never consulted) **and** both tests over
+#:   there — measured, not reasoned. That hole is named as a set by
+#:   ``TestVectorVocabulary_…``'s ``UNWATCHED_MARKS`` and owned by
+#:   **CARD-298**, which reads every interior page kind's written operators at
+#:   once; an operator that reached a page is a fact no source pattern can be
+#:   fooled about, which is why the closable version of this guard lives
+#:   there and not here.
 NON_DRAW_RECEIVER_SITES = (
+    ("nonogram.admin.book_vector_draw", "draw_frame", "rectangle", "stream"),
+    ("nonogram.admin.book_vector_draw", "draw_grid_lines", "line", "stream"),
+    ("nonogram.admin.book_vector_draw", "draw_grid_lines", "line", "stream"),
+    ("nonogram.admin.book_vector_draw", "set_centred", "text", "stream"),
     ("nonogram.sourcing.image", "binarize", "point", "scaled"),
     ("nonogram.sourcing.image", "ink_bounding_box", "point", "greyscale"),
 )
@@ -934,7 +974,11 @@ NON_DRAW_RECEIVER_SITES = (
 #: ``ContentStream.round_mark``", which review cycle 1 (F-1) measured false and
 #: which is corrected here rather than left standing in the place a later card
 #: would read it. None of the three is a method name Pillow ever had, so none
-#: is in this guard's families, and each is controlled elsewhere:
+#: is in this guard's families. **Two of the three are controlled elsewhere;
+#: the third is a declared, open limit** — cycle 3's F-301 caught this
+#: comment still claiming all three, which is the claim
+#: ``tests/test_book_pdf_vector_primitives.py`` retracts 350 lines away, so
+#: two merged guards contradicted each other on this card's central claim:
 #:
 #: * ``ContentStream.round_mark`` and a hand-written ``c`` operator —
 #:   ``tests/test_book_pdf_vector_primitives.py``'s
@@ -943,12 +987,25 @@ NON_DRAW_RECEIVER_SITES = (
 #:   and that the ``c`` operator is written in exactly one module;
 #: * a **polygonal disc** built from ``begin_path``/``line_to``/``close_path``
 #:   — invisible to both of those, as a planted 32-gon on the guide's
-#:   difficulty legend demonstrated with 248 tests green. Bounded per page kind
-#:   by the drawing card's own control over the written stream
-#:   (``tests/test_book_guide_page_vector.py``'s
-#:   ``TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday``, with the count
-#:   in ``tests/helpers/pdf_vector.subpath_vertices`` so every page card of the
-#:   phase inherits it);
+#:   difficulty legend demonstrated with 248 tests green. **NOT bounded, and
+#:   not closable here.** Fix round 1 bounded it per page kind and review
+#:   cycle 2 measured that the bound cannot close it: a fan of 32
+#:   **three-point** triangles and a staircase of 24 filled ``re`` bands both
+#:   passed 264/264. The reason is structural, not a figure to tune — the
+#:   guide's own arrow head is three points and so is a triangle, so **no
+#:   value of a vertex bound admits this page and refuses a disc**. CARD-295
+#:   then showed the same from the other side: the route *is* shut on the
+#:   puzzle page, but only because that page writes **no filled path at all**,
+#:   whereas this page legitimately writes both of the defeating vocabularies
+#:   (a filled three-point arrow head, and ``re``+``f`` diagram squares). So
+#:   neither a vertex count nor an operator-vocabulary rule separates the page
+#:   from a disc. It is carried as a **NAMED LIMIT with CARD-298 as owner**,
+#:   which holds ADR-0042/R1's derived per-page-kind check — the residue is
+#:   cross-page, and the discriminator has to be geometric (ink, or a rule on
+#:   filled subpaths). ``tests/test_book_guide_page_vector.py``'s
+#:   ``TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday`` keeps the
+#:   narrower thing it does say: the longest *single* subpath this page writes
+#:   is the three-point arrow head;
 #: * a round **dingbat** inside a ``(…) Tj`` — the dingbat rule in this file,
 #:   which reads every string literal in the package and so already covers the
 #:   vector modules.
@@ -1111,6 +1168,28 @@ def _is_vector_receiver(node: ast.AST) -> bool:
     return isinstance(node, ast.Name) and node.id == VECTOR_RECEIVER_NAME
 
 
+#: What counts as a **sequence display** in an argument position, held in ONE
+#: place because the two helpers that ask the question used to disagree and the
+#: disagreement was the defect (CARD-296 review cycle 3, N-3).
+#:
+#: :func:`_passes_a_coordinate_display` tested ``List``/``Tuple`` only while
+#: :func:`_names_bound_to_a_sequence` already counted a comprehension as a
+#: sequence, so an **inline** comprehension —
+#: ``stream.line([(i, i) for i in range(32)], 1, 3, None)`` — was reported by
+#: nothing: not a display to the one, and never bound to a name for the other.
+#: Measured by cycle 3, which is also why this is a constant rather than a
+#: fourth copy of the tuple.
+#:
+#: **One difference from :func:`_names_bound_to_a_sequence` remains and is
+#: deliberate:** that function also counts ``ast.Set``, and this does not.
+#: A set display is unordered and so is not a coordinate list any drawing
+#: surface would accept, and cycle 3 prescribed the three comprehension types
+#: and measured those. **The residue is therefore named, not closed**: a
+#: ``stream.line({(0, 0), (1, 1)}, ...)`` is still reported by neither helper.
+#: It belongs with the rest of this card's declared limits (CARD-298).
+SEQUENCE_DISPLAYS = (ast.List, ast.Tuple, ast.ListComp, ast.SetComp, ast.GeneratorExp)
+
+
 def _passes_a_coordinate_display(call: ast.Call) -> bool:
     """Whether ``call``'s first positional argument is a coordinate display.
 
@@ -1133,7 +1212,7 @@ def _passes_a_coordinate_display(call: ast.Call) -> bool:
     a receiver excused as a pixel map"), pointed at the vector route.
     """
     argument = call.args[0] if call.args else None
-    return isinstance(argument, (ast.List, ast.Tuple))
+    return isinstance(argument, SEQUENCE_DISPLAYS)
 
 
 def _binds_the_vector_surface(method: str, call: ast.Call) -> bool:
@@ -2117,13 +2196,25 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     def test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark(self) -> None:
         """The exemptions' own control — earned by the call, not granted to it.
 
-        The equality above says *which* two sites are excused; this says *why*,
-        so the exemption cannot quietly grow into one that could draw. Both are
-        ``Image.point``, a per-pixel lookup table, and the discriminating
-        property is that it takes no coordinates: a table built with ``*`` and
-        ``+``, or a lambda. A future card that writes a coordinate display on
-        an exempt receiver fails here instead of inheriting the excuse.
+        The equality above says *which* sites are excused; this says *why*, so
+        an exemption cannot quietly grow into one that could draw. There are
+        two families and each is asked its own question — a single question
+        asked of both would have to be the weaker of the two.
+
+        * **A pixel map** (``Image.point``): the discriminating property is
+          that it takes no coordinates — a table built with ``*`` and ``+``, or
+          a lambda. A future card that writes a coordinate display on such a
+          receiver fails here instead of inheriting the excuse.
+        * **The vector operator recorder** (``ContentStream``, CARD-295): the
+          discriminating property is the class's own surface. It is read off
+          ``dir()`` rather than asserted from the table's comment, so the day
+          somebody gives a content stream an ``ellipse`` the excuse stops
+          applying here — which is the shape of the defect this family would
+          otherwise introduce, a second drawing medium arriving with an
+          exemption nobody re-earns.
         """
+        from nonogram.admin.book_vector import ContentStream
+
         sources = _package_sources()
         sequences = _names_bound_to_a_sequence(sources)
         exempt = [
@@ -2134,10 +2225,24 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
             )
         ]
         assert len(exempt) == len(NON_DRAW_RECEIVER_SITES)
+        surface = set(dir(ContentStream))
+        assert not surface & (ELLIPSE_METHODS | ROUND_ENOUGH_METHODS), sorted(
+            surface & (ELLIPSE_METHODS | ROUND_ENOUGH_METHODS)
+        )
         for module, function, method, call in exempt:
+            if method in VECTOR_STREAM_METHODS:
+                assert module.endswith("book_vector_draw"), (module, function, method)
+                # Scalars, never a vertex display: `ContentStream.line` takes
+                # four numbers and `rectangle` four edges, so neither can be
+                # handed the polygon a round mark would need.
+                assert not any(
+                    isinstance(argument, SEQUENCE_DISPLAYS)
+                    for argument in call.args
+                ), (module, function, "a vertex display on a content stream")
+                continue
             assert method == "point", (module, function, method)
             argument = call.args[0] if call.args else None
-            assert not isinstance(argument, (ast.List, ast.Tuple)), (
+            assert not isinstance(argument, SEQUENCE_DISPLAYS), (
                 module,
                 function,
                 "a coordinate display on a receiver excused as a pixel map",

@@ -1,0 +1,454 @@
+card: CARD-283
+cycle: 1
+reviewer: forge:review (Claude Opus 5, adversarial reviewer)
+date: 2026-10-26T06:26:23Z
+revision_reviewed: ddd22515
+fork_point: 423c09f3
+branch: card/283-public-player-page
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-283
+score: 6
+certified: false
+min_score: 8
+verdict: >-
+  Strong, unusually well argued work with a measured hole in the exact claim it
+  was created to answer. The canonical rebuild is real: no unnamed bundle field
+  reaches the site, the served file is byte-equal to a rebuild from five fields,
+  the byte-identical state-module copy holds, and 4 of the round's 26 declared
+  mutants re-fired on exactly the control named. But the capacity bound is
+  measured against the wrong threshold: EC-048 forbids data from which ANY
+  solution cell is recoverable, while the deployed bound only excludes a whole
+  grid, and 56 of a published 10x10 answer's 100 cells travel end to end
+  through the served `tier` field with check_capacity() satisfied and the
+  card's own EC-048 sweep reporting the site clean (F-1, measured). Two of the
+  card's four AC/EC controls are also measurably dead for cases their own
+  statements name: a fourth weakening of `isClueSolved` (drop the last column)
+  leaves all 23 tests green (F-2), and EC-050's seeded walk performs no drag
+  and never presses Reset, so a planted POST on either path is missed by every
+  test in the card (F-3). All three are cheap and local to fix. Not certified;
+  re-run after the three gating findings.
+
+findings:
+  - id: F-1
+    severity: high
+    title: >-
+      The served `tier` is a 56.46-bit channel: 56 cells of a published answer
+      reach the site with the capacity check satisfied and the EC-048 sweep
+      clean. The MIN_SIZE**2 ceiling is the wrong comparison for EC-048's
+      one-cell threshold, and the tier value space is a hand-written superset
+      of an enumerable domain (ADR-0039/R2).
+    file: player/assemble.py
+    line: 202
+    gating: true
+    confidence: high
+    evidence: >-
+      MEASURED. `SERVED_VALUE_SPACE["tier"]` counts every lowercase string of
+      1..12 characters (99,246,114,928,149,463 values = 56.46 bits) of the
+      65.25 bits the bound spends, against CAPACITY_CEILING_BITS = MIN_SIZE**2
+      = 100. I stored `difficulty_tier` = a 12-character base-26 encoding of
+      the first 56 cells of GRIDS["min"]'s answer ("tqlhkuhxpmgj"), assembled,
+      and read it back: the served puzzle/<key>.json carries the string
+      verbatim, the 56 bits decode to an EXACT match of the answer's first 56
+      cells, report.capacity_bits = 65.25 < 100 (so `check_capacity` passes),
+      report.refused is empty, and `sweep_tree(site)` returns {} — the tier is
+      12 characters, below MIN_TOKEN = 15, so the belt cannot see it either.
+      EC-048's registry statement forbids "data from which any solution cell is
+      recoverable"; the deployed argument ("a channel that cannot hold the
+      smallest published grid cannot hold any grid") only excludes a whole
+      grid, so it does not establish the rule it is offered for. The precondition
+      is a store-written tier outside easy/medium/hard — which is precisely the
+      threat model CARD-282 cycle 2 routed to this card (a field whose
+      provenance is a named good source). Separately, the alphabet-and-length
+      rule is hand-written while the runtime has an enumerable authority
+      (src/nonogram/admin/book_plan.py TIERS = EASY/MEDIUM/HARD), which
+      ADR-0039/R2 — in this card's own System contract — forbids.
+    remedy: >-
+      Derive the served tier set from the tier enum rather than from an
+      alphabet: load the vocabulary the way `_limits()` loads limits.py (or
+      keep a 3-label allow-list with a completeness test against the enum per
+      ADR-0039/R1-R2) and drop anything else to "". `SERVED_VALUE_SPACE["tier"]`
+      then becomes 4 (three labels plus "") and total capacity ~10.8 bits. Then
+      state the ceiling against EC-048's actual threshold (one cell = 1 bit) or
+      say explicitly that the bound is "no served field is wide enough to be
+      worth encoding in" plus "every non-exempt field is drawn from an
+      enumerated domain" — the second clause is the one that actually closes it.
+    disposition: must fix before merge
+  - id: F-2
+    severity: medium
+    title: >-
+      AC-384's repaired control still misses a fourth weakening of
+      `isClueSolved`: omitting the last column from the column sweep leaves all
+      23 tests green.
+    file: tests/test_public_player.py
+    line: 1084
+    gating: true
+    confidence: high
+    evidence: >-
+      MEASURED by mutation. play.js:180 `for (let col = 0; col < width; ...)`
+      -> `col < width - 1`:
+      tests/test_public_player.py::test_solved_fires_on_clue_satisfaction_only
+      PASSES (1 passed in 1.17s) and the whole module passes (23 passed in
+      2.86s). play.js restored, sha256 verified
+      (65b4224901a5e90102160d71ed3b7c55aeda59e219a030932190c9b25daae7e9). The
+      gap is specific, not generic: the symmetric mutant at play.js:176
+      (`row < height - 1`) DIES on the clue table (1 failed, assert at line
+      1120), because the single-row cases make the last row the only row. No
+      case in the table has its only error in the LAST column — case 5's single
+      wrong column is column 0, and every page-level wrong board (the extra
+      cell, and `_count_preserving_swap`) also breaks a row, so the intact row
+      loop rejects it. The round's note claims "All six solved mutants now
+      die"; the family is not closed.
+    remedy: >-
+      Add one table row whose only error is in the last column — e.g.
+      ("every row right, the LAST column wrong", 2, 2, "#xx#", [[1], [1]],
+      [[1], [2]], False) — and keep its row twin, so an off-by-one at either
+      end of either sweep reds. Cheap and local to the existing table.
+    disposition: must fix before merge
+  - id: F-3
+    severity: medium
+    title: >-
+      EC-050's seeded walk performs no drag and never presses Reset, both named
+      in EC-050's statement and in the test's own docstring; a planted write on
+      either path is missed by every test in the card.
+    file: tests/test_public_player.py
+    line: 1274
+    gating: true
+    confidence: high
+    evidence: >-
+      MEASURED twice. (a) The draw sequence is deterministic:
+      random.Random(2831).randrange(8) x24 = [7,0,4,3,2,0,0,3,1,1,3,7,7,4,5,7,
+      4,0,2,0,4,3,2,7] — choice 6 (Reset) never occurs, and the loop has no
+      pointer-drag branch at all, so the docstring's "marks, a drag, ... reset"
+      names two interactions that never happen (the Clear brush and
+      Shift+Ctrl+Z are also absent). (b) Planting
+      `fetch("/collect", {method: "POST", ...})` inside the reset handler
+      (play.js:527) leaves test_no_write_request_for_any_interaction GREEN
+      (1 passed) and the whole module GREEN (23 passed); planting the same call
+      in the drag branch (play.js:492) likewise leaves the test GREEN (1 passed)
+      and the module GREEN (23 passed). The round's mutation table credits
+      "one interaction POSTs to a server" to this control; the kill is
+      path-dependent and the two paths EC-050 names by word are not covered.
+      play.js restored, sha256 verified.
+    remedy: >-
+      Add a drag (mouse down/move/up over the board) and a Reset press to the
+      walk, and make the coverage falsifiable rather than lucky: assert that
+      every control was exercised at least once (e.g. drive each control once,
+      then randomise, and assert the exercised set equals the control set) so a
+      reseed cannot silently drop one. Correct the docstring to what the walk
+      does.
+    disposition: must fix before merge
+  - id: F-4
+    severity: medium
+    title: >-
+      play.js's input-validation and touch layers are unexercised: five
+      independent mutants each leave all 23 tests green.
+    file: player/play.js
+    line: 124
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED, one mutant at a time, each restored and sha256-verified; every
+      run "23 passed": (A) `readPayload`'s two clue checks (play.js:133-134)
+      deleted — the page's half of the deliberately-duplicated "checked rather
+      than trusted" rule (its own comment: "a page that trusts its input is a
+      page whose input decides what it does"); (B) `deserialize`'s clue
+      comparison (play.js:245-246) deleted — the mechanism whose stated purpose
+      is "a re-export that changed a puzzle's clues under the same key cannot
+      replay marks onto a different puzzle"; (C) `const paints = true`
+      (play.js:456) — the whole pointer-type rule, i.e. card item 5's "with
+      Region off a touch drag pans the page instead of marking"; (D)
+      `setRegion(region)` in place of `nextRegion(region, "drag")`
+      (play.js:491) — Region's one-shot disarm; (E) `tool = FILLED` in the
+      brush handler (play.js:513) — no test asserts that choosing White or
+      Clear changes what a tap writes. No test reads `touch-action` either.
+      The untested surface is: payload rejection, save rejection, every
+      pointer-type-dependent behaviour, Region semantics, pointercancel, and
+      two of the three brushes.
+    remedy: >-
+      Three cheap additions, in value order: a save-rejection case (plant a
+      save whose clues differ and assert the board comes up blank — the
+      positive control already exists in the swap case's `done.length == 1`);
+      a payload-rejection case (serve a key-shaped file whose clues do not fit
+      and assert the fallback paragraph, no board, and `publicPlayer ===
+      undefined`); and a brush case (pick White, tap, assert data-state
+      "empty"; pick Clear, tap, assert "unknown"). For the touch layer, a
+      Playwright context with has_touch/is_mobile can at least assert that a
+      touch drag with Region off leaves the board unchanged while the same
+      drag with Region armed marks the line.
+    disposition: fix in this cycle if cheap, else carry as a named follow-up
+  - id: F-5
+    severity: medium
+    title: >-
+      "clues cannot be borrowed as a free numeric channel" is false as stated —
+      the exempt field's own capacity is 143 bits at 10x10 against a 100-bit
+      ceiling, and `_clues` accepts clue sets no grid can produce.
+    file: player/assemble.py
+    line: 301
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED. Under `_line`'s rule a line of 10 cells admits 144 distinct
+      clues (7.17 bits); 20 lines of a 10x10 therefore carry 143.4 bits, and a
+      30x30's 60 lines carry 1263.3 bits — both above CAPACITY_CEILING_BITS =
+      100. The validation is fit-the-line plus filled-count agreement between
+      the axes, which does not imply the clue set came from a grid:
+      `_clues({"rows": [[1,1]] + [[0]]*9, "columns": [[2]] + [[0]]*9}, 10, 10)`
+      is ACCEPTED (both axes total 2) although no grid realises it. So the
+      field is exempt by ADR-0041 (R5/R1 and R2's own second sentence), not by
+      anything this module establishes; the clue values' integrity rests on the
+      exporter computing them with compute_clues upstream, which is where the
+      real guarantee lives.
+    remedy: >-
+      State the exemption as what it is — "clues and key are exempt by
+      ADR-0041/R2; their integrity is ADR-0041/R5's, upstream of this script" —
+      and delete the stronger claim, or close it for real by checking the
+      served clues solve to exactly one grid whose ADR-0041/R1 key equals the
+      file's name. The second option is the only one that makes the exemption
+      self-supporting, and it needs the solver, so it is an ADR-level decision
+      about what the static build may depend on, not a worktree one.
+    disposition: reword the claim this cycle; the realizability check is an ADR question
+  - id: F-6
+    severity: low
+    title: >-
+      `sweep_tree`'s docstring describes a second raw-text decoder pass over
+      every JSON file; the code sweeps each file once.
+    file: tests/test_public_player.py
+    line: 419
+    gating: false
+    confidence: high
+    evidence: >-
+      Code read: "A JSON file is swept twice: once as its redacted payload ...
+      and once as its raw text with a decoder-only pass, because a packed grid
+      is never a legitimate clue however it is spelled." The body is a plain
+      if/else (`swept = json.dumps(_redacted(...))` for .json, `swept = text`
+      otherwise) followed by one `decoded_recoveries` call per grid. The
+      described pass — the only one that would look inside a redacted field —
+      does not exist. Practical consequence is small (the bundle's titles are
+      not exempt, so the positive control is unaffected), but the belt is
+      narrower than its own description.
+    remedy: Either implement the second pass or delete the sentence.
+    disposition: fix in this cycle (one of the two is a one-liner)
+  - id: F-7
+    severity: low
+    title: >-
+      EC-048's served-half control asserts no minimum corpus size, so its
+      corpus can shrink silently — against EC-048's own verification clause and
+      CLAUDE.md's test style.
+    file: tests/test_public_player.py
+    line: 452
+    gating: false
+    confidence: high
+    evidence: >-
+      EC-048's statement requires verification "over a seeded corpus of
+      generated grids, not single examples, with the minimum corpus size
+      asserted in the test". test_served_tree_is_clean_of_answers asserts
+      `len(leaked) >= len(GRIDS)` — a quantity that scales WITH the corpus, so
+      a GRIDS reduced to one entry still passes. The `len(GRIDS) >= 4`
+      assertion lives in a different test
+      (test_every_fixture_puzzle_is_uniquely_solvable), which is exactly the
+      co-location-is-not-ownership shape the board has been bitten by before.
+    remedy: >-
+      Assert `len(GRIDS) >= 4` (or a larger seeded corpus) inside
+      test_served_tree_is_clean_of_answers itself.
+    disposition: fix in this cycle
+  - id: F-8
+    severity: low
+    title: >-
+      `assemble --out <dir>` rmtree's any existing directory with no sanity
+      check; `--out .` from the repo root would delete the checkout.
+    file: player/assemble.py
+    line: 417
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED: a directory holding precious/notes.txt, passed as `out_dir`,
+      came back holding only the assembled site — the planted file was gone.
+      The docstring documents the removal, but an owner-run deploy script with
+      a typo'd `--out` is a one-keystroke data loss, and nothing refuses a
+      target that was not produced by a previous assembly.
+    remedy: >-
+      Refuse an out_dir that exists and is non-empty unless it carries a marker
+      a previous run wrote (e.g. a dotfile naming the assembler), or require
+      --force; refuse the repository root outright.
+    disposition: fix in this cycle (small, and it protects the owner)
+  - id: F-9
+    severity: low
+    title: >-
+      AC-386's enforced phone cell floor is 24 px, not the 28 px the CSS token,
+      the card and the mutation record all state.
+    file: tests/test_public_player.py
+    line: 1215
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED: `--player-cell-min: 18px` reds test_phone_viewport_is_playable
+      (the round's own mutant, re-fired and confirmed), but `25px` leaves it
+      GREEN (1 passed) although the declared floor is 28 px. The assertion is
+      `cellWidth >= 24`, so a 4 px regression in the card's named mobile
+      guarantee would not be noticed. player.css restored, sha256 verified.
+    remedy: >-
+      Assert against the token the page actually declares (read
+      `--player-cell-min` from player.css, or assert >= 28) rather than a
+      hand-picked 24.
+    disposition: fix in this cycle
+  - id: F-10
+    severity: low
+    title: >-
+      The third-party-asset guard carries an unused exemption with no control
+      ("or openapi.vercel.sh in text"), which ADR-0039/R3 — in this card's
+      System contract — forbids.
+    file: tests/test_public_player.py
+    line: 1511
+    gating: false
+    confidence: high
+    evidence: >-
+      `assert "https://" not in text or "openapi.vercel.sh" in text` runs over
+      play.js and play.html only. The string occurs nowhere in either file — it
+      is vercel.json's `$schema`, which this assertion never reads — so the
+      exemption is dead, and while it is dead it would absorb any https:// URL
+      added to either file alongside a mention of that host. ADR-0039/R3
+      requires every exemption to carry a control for what it must not absorb.
+    remedy: >-
+      Drop the disjunct (play.js and play.html need no https:// URL), or move
+      the exemption to where vercel.json is actually checked and give it the
+      control R3 asks for.
+    disposition: fix in this cycle (a deletion)
+  - id: F-11
+    severity: low
+    title: >-
+      On a wide screen the bordered stage spans the page while the board fills
+      a fraction of it — a real cosmetic defect, not scroll-container
+      behaviour, and no test reads the desktop layout at all.
+    file: player/player.css
+    line: 168
+    gating: false
+    confidence: high
+    evidence: >-
+      MEASURED in headless Chromium at 1440x900: for the 10x10 the stage is
+      1408 px wide and the board 465 px, leaving 942 px of empty bordered box
+      to the right of the board (for the 30x30 it is 22 px, so the effect
+      scales with how small the puzzle is). `.player-stage` is a block element
+      with `overflow: auto`; a scroll container only needs the available width
+      when its content overflows, so the full-width box is not required by the
+      scrolling behaviour the comment defends. This confirms the orchestrator's
+      visual reading and answers its question: a defect, mild.
+    remedy: >-
+      `.player-stage { width: fit-content; max-width: 100%; }` (optionally
+      `margin-inline: auto`) keeps the border on the board and leaves the phone
+      behaviour — content wider than the stage, stage scrolls, page does not —
+      unchanged. Worth one desktop-width assertion so the regression is
+      measurable.
+    disposition: fix in this cycle; the owner validates visually
+  - id: F-12
+    severity: low
+    title: >-
+      EC-048's registry text carries no clue exemption, so the served clues
+      violate its literal wording; the exemption exists only in ADR-0041/R2's
+      second sentence and Context.
+    file: meta/architecture/requirements.yml
+    line: 5086
+    gating: false
+    confidence: high
+    evidence: >-
+      EC-048 reads "no file carries a solution grid, a filled-cells encoding,
+      the picture name, or data from which any solution cell is recoverable".
+      Every served puzzle/<key>.json carries the clues, from which every cell
+      of a uniquely solvable puzzle is recoverable by solving — which the card
+      states honestly as a bound it does not close and which ADR-0041 sanctions
+      ("the solved state is detected from clue satisfaction alone"). As written,
+      the EC is unsatisfiable by the design its own ADR mandates, and a future
+      reader has to reconstruct the exemption from the ADR. Same family as the
+      round's F-4 (EC-048's ref naming only the bundle half), and like it,
+      outside this card's declared Touches.
+    remedy: >-
+      Amend EC-048 to name the clue projection as the one sanctioned exemption
+      (as it already names the picture name as forbidden), and make the ref the
+      comma-separated pair the round's F-4 asks for. Architect/owner edit, one
+      card of its own or a kanban follow-up.
+    disposition: report only (outside Touches); raise with the architect
+
+what_i_did_not_verify:
+  - >-
+    The validator deltas (main 121 warnings with AC-383..386 DEAD; this
+    worktree 117 with all four resolved; COMP-011's "code not present yet"
+    info gone). Accepted from the orchestrator, not re-derived.
+  - >-
+    Any suite outside tests/test_public_player.py. Per the brief the full suite
+    was never run; NONOGRAM_FULL_SUITE_LOCK was redirected on every run. G-1
+    and G-2 were verified structurally instead — `git diff 423c09f3..HEAD
+    --name-only` is exactly the six files, none under src/.
+  - >-
+    A real phone and a real iOS Safari. I did verify the riskiest layout claims
+    under Chromium MOBILE EMULATION (viewport 390x844, is_mobile, has_touch,
+    device_scale_factor 3) against the 30x30 board, and they hold — cell 29 px,
+    document horizontal overflow 0, both clue gutters computed `sticky`, the
+    far corner scrolled into view inside the stage with the row clues still
+    visible and the page still not scrolling, and a real `touchscreen.tap`
+    marks a cell. That is emulation, not WebKit, and `position: sticky` inside
+    a scroll container plus `touch-action` are exactly where iOS diverges.
+  - >-
+    Pinch zoom (asserted only as "not forbidden"; unchanged by this review).
+  - >-
+    Vercel itself. The rewrite is exercised through the same vercel.json the
+    host would read, but no deploy was made.
+  - >-
+    A live `export_bundle` -> `assemble` pass. The assembler still has only
+    fixture bundles under it, whose field names come from
+    player_bundle.PUZZLE_FILE_FIELDS; F-1's channel was measured on a fixture,
+    and what a real store writes into `difficulty_tier` was not surveyed
+    beyond finding the enum that defines the domain.
+  - >-
+    22 of the round's 26 declared mutants. I re-fired 4 as a sample (title
+    carried through the served schema; the state-module copy gaining a byte;
+    the 18 px cell floor; the heavier rule on every line) and all four red on
+    exactly the control named, so the record reads as honest. The ones I
+    re-fired in full are the mutations behind the gating findings above.
+
+corrections_to_the_brief:
+  - >-
+    The wide-screen empty stage box IS a defect rather than intended
+    scroll-container behaviour, and it is mild. Measured: 942 px of empty
+    bordered box beside a 465 px board at 1440 px (F-11), with a one-line
+    remedy. No assertion anywhere reads the desktop layout.
+  - >-
+    The brief's second question (assemble.py loading limits.py by path)
+    resolves in the round's favour. For a moved file `spec_from_file_location`
+    returns a spec whose SourceFileLoader raises FileNotFoundError on
+    `exec_module`, so the script fails loudly at import; the `if spec is None`
+    RuntimeError is genuinely unreachable (its `pragma: no cover` comment is
+    honest, if its message is dead text). The single-sourcing is also
+    cross-checked from the test tree — `CAPACITY_CEILING_BITS == MIN_SIZE *
+    MIN_SIZE` and the MAX_SIZE+1 / 0 extent cases hold the assembler's values
+    to `nonogram.limits`. There is no control for the loud failure itself, and
+    I do not think one is worth writing.
+  - >-
+    "Is the rebuild genuinely a rebuild, can an unnamed field reach the site?"
+    — verified, yes it is a rebuild and no. `served_puzzle` constructs the
+    object literally, asserts its key set against SERVED_SCHEMA, and the
+    served bytes are held byte-for-byte to an independent rebuild from (key,
+    extent, tier, clues); the file name is the validated key; index.json and
+    book/<slug>.json are left out and named in the report. The only
+    copy-through paths are the two exempt/narrowed ones, which is where F-1
+    and F-5 land. Re-fired the round's "title carried through" mutant: both
+    named controls red.
+  - >-
+    "Does the sweep's live control actually fail if the sweep breaks?" — for
+    the base-64-of-the-packed-grid reading, yes: EXEMPT_FIELDS is
+    {clues, key, puzzle_keys}, so the bundle's titles are NOT redacted and the
+    control sees them. But it is one positive control for one decoder: break
+    base32, base85, hex or the cell-alphabet folding and the control still
+    passes on base64 alone. Worth one case per decoder family if the sweep is
+    meant to be load-bearing (it is explicitly called "a belt", so I am not
+    gating on it).
+  - >-
+    The round's F-2 understates its own support. It presents "the header shows
+    no title" as a body-vs-AC divergence resolved in the AC's favour; EC-048's
+    registry statement forbids "the picture name" in any served asset by name,
+    so the card body's "the header with title and tier" was never
+    implementable. The decision is required, not chosen.
+  - >-
+    Two bookkeeping notes. The round's F-1 says the five files are left staged
+    and uncommitted so the validator's `git grep` can see them; they are
+    committed at ddd22515, so that paragraph is stale. And
+    meta/kanban/cards/CARD-283.md is MODIFIED-but-uncommitted in the worktree
+    (250 added lines — the round's own worktree notes), so a merge that takes
+    only the committed revision would lose them.

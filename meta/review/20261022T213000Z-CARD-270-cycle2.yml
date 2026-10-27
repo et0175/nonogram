@@ -1,0 +1,700 @@
+card: CARD-270
+cycle: '2'
+station: forge:review
+utc: '2026-10-22T21:30:00Z'
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-270
+branch: card/270-fifth-rule-divisions
+implementation_commits: ['a363da7e']
+fix_commits: ['83278340']
+rebase_note: >-
+  the branch was rebased at 21:12 by a concurrent session that has since
+  exited; a363da7e/83278340 are the post-rebase hashes of the commits recorded
+  elsewhere as 4f41bbb4/fc035f7d. The orchestrator verified the rewrite
+  preserved src/ and tests/ byte-for-byte (1262 lines both sides); this cycle
+  did not re-litigate it and quotes current hashes only.
+foreign_artefact_excluded: >-
+  meta/review/20261022T175719Z-CARD-270-cycle2.yml is present in this worktree
+  and is NOT this pipeline's work -- a foreign session's review, timestamped
+  17:57, i.e. before this pipeline's cycle 1 (19:00). It was not read as
+  evidence, not reconciled with, and its 9.7 did not anchor this report. Every
+  figure below was produced by this cycle's own executions.
+min_score: '8'
+score: '9.6'
+verdict: PASSES
+one_line: >-
+  All three cycle-1 findings are CLOSED, each re-fired by this cycle rather
+  than taken on report: _SHADOW_OFF widened to .player-cell makes the
+  blank-board arm (now :729) RED under both REACHES-BLANK and BROADEN-UNKNOWN
+  in both the recording and the re-raising pass, where cycle 1 measured it
+  PASS; a PHONE-NO-HAIRLINE mutant run against two disjoint selections leaves
+  the four desktop band cases exit 0 / 0 FAIL and reds the four new phone
+  cases at :433/:473, so a phone-only regression really was invisible to the
+  old arms; and direction G1 -- a 14th family file WITH a PAGE_ISOLATION entry
+  and in no node-id registry -- reds the replacement door while the
+  PAGE_ISOLATION arm stays green. The most interesting claim in the round is
+  true and was reproduced exactly: under REACHES-BLANK the OLD byte-inequality
+  control was bought by 32 pixels differing by exactly +-1 per channel at
+  x=227 and x=725, between two renderings whose computed box-shadow is the
+  identical string on all 400 cells -- a control that looked green was
+  measuring rounding noise. All six rewritten claim texts were checked against
+  a mutant and all six are now true. One Minor survivor remains in F-001's own
+  defect class, found by this cycle: PHONE-REACHES-BLANK -- the hairline
+  broadened onto every cell inside @media (max-width: 820px) -- survives the
+  entire 17-test file, 0 FAIL of 50 assertion nodes, while being proved
+  non-no-op.
+
+# ---------------------------------------------------------------------------
+test_discipline:
+  full_suite_run: 'false'
+  lock_override: >-
+    NONOGRAM_FULL_SUITE_LOCK=/tmp/card270-review2-mine.lock exported on every
+    pytest, kill_matrix and probe invocation of this cycle (and inside the
+    mutate-and-probe wrapper). pytest echoed the override line each time,
+    naming /tmp/card270-review2-mine.lock and not the board's own
+    /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/.full-suite.lock,
+    which this cycle never read, wrote or created.
+  interpreter: >-
+    /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python as an
+    interpreter only (this worktree has no .venv), with
+    PYTHONPATH=/Users/omelnikova/PycharmProjects/PythonProject4-card-270/src on
+    every invocation, so every probe resolved the WORKTREE's nonogram package
+    and not the main checkout's editable install. No file in the main checkout
+    was written. -card-262 was never touched.
+  selections: >-
+    narrow throughout -- one class, one whole test file, or four explicitly
+    named parametrized nodes per run. The widest run was a 126-test impact set
+    over five named files. No full-suite and no make test-impact run was
+    launched.
+  helper_scripts:
+    - /tmp/card270_review2_mutants.py            # 6 admin.css mutants, kill matrix
+    - /tmp/card270_review2_mutate_and_probe.sh   # cp -p + mutate + restore wrapper
+    - /tmp/card270_review2_noise_probe.py        # the :748 figures, add-only sequence
+    - /tmp/card270_review2_noise_probe2.py       # the :748 figures, the TEST's sequence
+    - /tmp/card270_review2_shadowoff_probe.py    # the widening's no-op claim
+    - /tmp/card270_review2_guards.py             # F-003 direction probe (SHIPPED, G1..G4)
+  nothing_committed: 'true'
+  nothing_staged: 'true'
+  meta_edits: >-
+    none under meta/ in this worktree except this new report file, which the
+    brief requires. meta/kanban/cards/CARD-270.md was NOT edited by this cycle
+    (it shows modified because the orchestrator synced notes into it before the
+    cycle started).
+  restoration:
+    target: src/nonogram/admin/static/admin.css
+    sha256_before_mutation: 8e77bdeb02182cb38faa49b462ec636378044fb1e168b81c67dd72b772759ca6
+    sha256_after_all_mutation: 8e77bdeb02182cb38faa49b462ec636378044fb1e168b81c67dd72b772759ca6
+    shasum_match: 'true'
+    git_status_for_src_and_tests: clean
+    note: >-
+      two restore owners. kill_matrix.py owns the cp -p backup and the restore
+      in a finally for the six matrix mutants; the probe wrapper owns its own
+      cp -p backup to /tmp/card270-review2-admin.css.bak and restores in a zsh
+      EXIT/INT/TERM trap, printing the restored hash against the expected one
+      every time. The hash was taken by hand before the first mutant and after
+      the last one and the two agree; git status for src/ and tests/ is empty.
+      The intermediate mutant hashes are recorded so no mutation can be
+      claimed that did not land: REACHES-BLANK 5fc5ebcb1179f47b156e63b69b7b4b
+      d7aca963f28a9f6aeb7579d5c163ec991e, PHONE-REACHES-BLANK 7adbfddc13bdff91
+      18cdb650d0e03d382627fe859be345ef5b0bd269777d80b0.
+    instrument_bug_caught_by_that_discipline: >-
+      the first PHONE-REACHES-BLANK probe run printed MUTATED == the shipped
+      hash, because that mutant was missing from the wrapper's edit table and
+      zsh had no set -e. The reading was discarded as a NO-OP, not reported as
+      a survivor, the wrapper was fixed and the probe re-fired. This is exactly
+      the failure the "a no-op mutant is indistinguishable from a survivor"
+      rule exists for, and it fired on this cycle's own instrument.
+  fix_commit_scope_verified: >-
+    git show --stat 83278340 is two files -- tests/test_browser_fixture_scope.py
+    (+116/-...) and tests/test_puzzle_solver_fifth_rule.py -- 246 insertions,
+    64 deletions. src/nonogram/admin/static/admin.css is ABSENT from the fix
+    commit and its sha256 is 8e77bdeb...9ca6, identical to the byte-string
+    cycle 1 certified, so cycle 1's nine-mutant CSS certification transfers to
+    the shipped bytes without re-firing. git diff --name-only main...HEAD is
+    still exactly five files and names no conftest.py, no tokens.css, no
+    solver.js, no solver_state.js, nothing under src/nonogram/export/ and not
+    pyproject.toml.
+
+# ---------------------------------------------------------------------------
+instrument:
+  used: tests/kill_matrix.py (committed; no second instrument was written)
+  target: tests/test_puzzle_solver_fifth_rule.py
+  denominator: '50 ast.Assert nodes (assert-node domain), NOT collected tests'
+  collected_tests_by_selection:
+    whole_file: '17'
+    geometry_class_only: '5'
+    four_named_band_nodes: '4'
+  child_instrumentation: 'off'
+  shipped_reading_whole_file: >-
+    SHIPPED / recording pass over test_puzzle_solver_fifth_rule.py: 50 PASS,
+    0 FAIL, 0 NOT-REACHED, 0 BLIND of 50 assertion nodes (collected tests 17;
+    pytest exit 0; child instrumentation off). Every assertion node in the file
+    is reached under a whole-file selection, so no figure below rests on an
+    unreached baseline.
+  parametrisation_domain_caveat: >-
+    the four new phone cases share their assert NODES with the four desktop
+    cases (:433 and :473 each serve four parametrized executions), and the
+    matrix aggregates ANY-RED across executions. One cell therefore CANNOT
+    distinguish "red at desktop" from "red at phone". That is precisely why
+    F-002 was certified with two DISJOINT SELECTIONS instead of one run, and
+    the fix agent's method was the same.
+  no_op_discipline: >-
+    exactly one survivor is claimed in this report (PHONE-REACHES-BLANK,
+    F-101), and it is proved non-no-op by an out-of-band measurement rather
+    than by a FAIL cell: at the phone viewport a BLANK board's computed
+    box-shadow changes from {'none': 400} to {inset ...: 400} on all 400 cells
+    under the mutant, and the mutant's blank phone board is byte-identical to
+    the "hairline forced on everywhere" board which the shipped blank phone
+    board differs from in 19560 pixels. Every other mutant listed has at least
+    one FAIL cell of its own in the same run.
+
+mutants:
+  - name: REACHES-BLANK
+    kind: F-001's first mutant, verbatim from cycle 1 (hairline moved onto .player-cell)
+    recording_geometry_class: 'exit 0; 3 FAIL (729, 748, 803); 21 NOT-REACHED'
+    reraising_geometry_class: 'exit 1; 2 FAIL (729, 803); 31 NOT-REACHED (748 among them, short-circuited)'
+    recording_whole_file: 'exit 0; 3 FAIL (729, 748, 803); 0 NOT-REACHED'
+    cycle_1_reading: 'exit 0; 2 FAIL (637, 691); the gating arm at :622 PASS'
+    reading: >-
+      THE GATING RESULT. :729 is the renumbered :622 and it now REDS. Non-no-op
+      independently of the arm under test: :803
+      (test_no_other_cell_state_gains_a_shadow) FAILs in the same run.
+  - name: BROADEN-UNKNOWN
+    kind: F-001's second mutant (a second rule for [data-state="unknown"], .player-cell's own rule untouched)
+    recording_geometry_class: 'exit 0; 3 FAIL (729, 748, 803)'
+    reraising_geometry_class: 'exit 1; 2 FAIL (729, 803)'
+    cycle_1_reading: 'exit 0; 2 FAIL (637, 691); :622 PASS'
+    reading: 'second independent confirmation that F-001 is closed, in both passes.'
+  - name: PHONE-NO-HAIRLINE
+    kind: >-
+      F-002's non-redundancy mutant: box-shadow:none on the filled cell inside
+      the existing one-line @media (max-width: 820px) block at admin.css:633
+    recording_four_desktop_nodes: 'exit 0; 0 FAIL; 17 PASS, 33 NOT-REACHED (collected tests 4)'
+    recording_four_phone_nodes: 'exit 1; 2 FAIL (433, 473); 13 PASS, 35 NOT-REACHED (collected tests 4)'
+    reading: >-
+      a phone-only regression is INVISIBLE to the desktop arms and caught by
+      the new phone ones. Non-no-op proved by its own FAIL cells in the phone
+      selection, with the identical mutant file content in both runs.
+  - name: MOVES-LAYOUT
+    kind: the mutant the rewritten layout registry reason now names as surviving arm 2
+    recording_geometry_class: 'exit 0; 2 FAIL (639, 814)'
+    reading: >-
+      arm 1 (:639, every cell measured against the px --player-cell resolves
+      to) KILLS it; arm 2 (:649, the box-by-box shipped-vs-shadow-off
+      comparison) PASSES, i.e. survives. The rewritten reason credits arm 1 and
+      declares arm 2 the narrative one -- both halves now TRUE. Non-no-op by
+      its own FAIL cells.
+  - name: NO-HAIRLINE
+    kind: deletion-of-the-addition, line-count-preserving
+    recording_whole_file: 'exit 1; 6 FAIL (392, 433, 473, 540, 803, 806); 2 NOT-REACHED (439, 447)'
+    recording_geometry_class: 'exit 0; 2 FAIL (803, 806)'
+    reading: >-
+      the same kill shape cycle 1 measured (6 FAIL + 2 NOT-REACHED), renumbered
+      -- so the renumbering did not cost a kill, and the four new phone cases
+      are not vacuous: :433 and :473 red. The two NOT-REACHED are the
+      IndexError bound the implementer recorded rather than papered over.
+  - name: PHONE-REACHES-BLANK
+    kind: >-
+      REVIEW CYCLE 2's OWN mutant -- F-001's exact defect, scoped to the phone:
+      the hairline put on EVERY .player-cell inside @media (max-width: 820px)
+    recording_whole_file: 'exit 0; 0 FAIL; 50 PASS, 0 NOT-REACHED, 0 BLIND of 50 (collected tests 17)'
+    non_no_op_proof: >-
+      at 390x844 a BLANK board's computed box-shadow goes from {'none': 400} to
+      {'color(srgb 0.750745 0.752784 0.756235) 0px 0px 0px 1px inset': 400}; the
+      mutant's blank phone board is byte-identical to the "forced on
+      everywhere" board, which the SHIPPED blank phone board differs from in
+      19560 pixels past tolerance. A real, visible behaviour change on every
+      cell of every phone board.
+    reading: 'SURVIVOR. See F-101.'
+
+# ---------------------------------------------------------------------------
+# The claim the fix round found inside its own control -- re-derived
+# ---------------------------------------------------------------------------
+the_noise_finding:
+  claim_under_test: >-
+    after widening _SHADOW_OFF, the "comparing nothing" control at :748 flipped
+    FAIL->PASS under both mutants, and that PASS was bought by 32 pixels
+    differing by at most +-1 per channel, at x=227 and x=725, between two
+    renderings whose computed box-shadow is the same string on all 400 cells.
+  verdict: CONFIRMED-by-execution, exactly, through a door that never calls _differing
+  method: >-
+    /tmp/card270_review2_noise_probe2.py reproduces the TEST's own sequence of
+    page operations (swatches, the _tokens full-page screenshot, board shot,
+    _SHADOW_OFF injected, board shot, _SHADOW_OFF REMOVED and the "everywhere"
+    rule added, board shot) and computes the full per-pixel max-channel delta
+    HISTOGRAM itself, parametrized on the WIDE (shipped) and the NARROW
+    (pre-fix) control so both states are measured in one run. A first probe
+    that merely ADDED the everywhere rule to the shipped page found the two
+    renderings byte-identical -- so the +-1 noise is produced by the style
+    add/remove cycle, which is what the assert actually compares, and only the
+    test's own sequence can measure it. Reported because a reader could
+    otherwise reproduce the simpler sequence and think the figure wrong.
+  measured_under_REACHES_BLANK_wide_control:
+    arm_729_shipped_vs_without: 'bytes EQUAL = False; 36320 px differ, all past tolerance -> the arm REDS'
+    control_748_shipped_vs_everywhere: '32 px differ, ALL at delta exactly 1; 0 px past tolerance 8'
+    old_assert_bytes_differ_would_say: 'True  (i.e. PASS -- bought by noise)'
+    new_assert_changed_ge_400_would_say: 'False (i.e. RED -- correct)'
+    where: 'x=227 (16 px, y 182..630) and x=725 (16 px, y 182..630), max delta 1'
+    computed_box_shadow: 'the IDENTICAL string on all 400 cells in both readings (measured, not reasoned)'
+  measured_under_REACHES_BLANK_narrow_control:
+    arm_729: 'bytes EQUAL = True -> PASS. F-001''s tautology re-confirmed from the pixel side.'
+    control_748: '0 px differ; old assert would say False -> FAIL. Exactly cycle 1''s (622 PASS, 637 FAIL).'
+  measured_under_SHIPPED:
+    arm_729: 'bytes EQUAL = True -> green'
+    control_748_desktop: '36320 px differ, all at delta 64; floor 400; headroom 90.8x'
+    control_748_phone_same_comparison: '19560 px differ, all at delta 64; floor 400; headroom 48.9x'
+  is_the_docstring_figure_precisely_stated: >-
+    yes, under this file's own usage. x=227 and x=725 are not the extremes of
+    the .player-board ELEMENT (0 and 953) but of the GRID inside it: measured
+    in board-screenshot coordinates, cell (0,0)'s left edge is 227.80 and cell
+    (19,19)'s right edge is 725.30, with a row-clue gutter on each side. "The
+    board's left and right extremes" is the same sense in which admin.css's own
+    comment says "the board's outer frame", so the claim is true, not loose.
+    Recorded with the coordinates so no later reader has to re-measure it.
+
+# ---------------------------------------------------------------------------
+# The other claims the fix made -- each checked, none taken
+# ---------------------------------------------------------------------------
+claim_checks:
+  - claim: >-
+      "_SHADOW_OFF widened to .player-cell is a no-op for its other three
+      callers, which go through _open_filled and mark all 400 cells filled, so
+      the two selectors match the same 400 cells"
+    verdict: CONFIRMED-by-execution
+    structural: >-
+      _SHADOW_OFF has exactly four callers -- :444, :542, :645, :727. The first
+      three are each preceded by _open_filled (:424, :508, :617); the fourth is
+      the blank-board arm. Verified by reading the file, not by the commit
+      message.
+    measured: >-
+      /tmp/card270_review2_shadowoff_probe.py on an all-filled board:
+      .player-cell = 400, td.player-cell = 400,
+      .player-cell[data-state="filled"] = 400,
+      .player-cell:not([data-state="filled"]) = 0, and ZERO non-TD elements
+      carry the class. The board screenshot under the narrow control and under
+      the wide control is BYTE-IDENTICAL, at 1440x900 (954x656) and at 390x844
+      (472x381) -- so the widening cannot have bent any other arm's reading.
+  - claim: >-
+      "the band widths are read off the tokens at the viewport under test
+      rather than hard-coded, so this arm reds on a hairline that collapses at
+      one size and not the other"
+    verdict: CONFIRMED-by-execution (PHONE-NO-HAIRLINE, two disjoint selections)
+  - claim: >-
+      the rewritten blank-board docstring ("with the narrow control both
+      mutants left this arm PASS; with the wide one both red it")
+    verdict: CONFIRMED-by-execution, in BOTH directions and BOTH passes
+    note: >-
+      the narrow half was re-measured too, by the pixel probe above, so the
+      "before" state of the claim is this cycle's own measurement and not a
+      quotation of cycle 1.
+  - claim: >-
+      the premise assert at :714 ("all 400 cells read data-state=unknown"),
+      replacing the two-cell spot check
+    verdict: HOLDS, and it is a premise guard rather than a claim about the fix
+    evidence: >-
+      independently measured {'unknown': 400} on the board _open leaves. It can
+      fail -- it reds the day the player opens a board with cells already
+      decided -- which is exactly what its docstring says it is for. Not a dead
+      assert.
+  - claim: >-
+      the rewritten ADDED_SINCE_BEFORE reason for
+      test_the_hairline_takes_no_part_in_layout[desktop], which now credits arm
+      1 and declares arm 2 narrative
+    verdict: CONFIRMED-by-execution -- MOVES-LAYOUT FAILs :639 (arm 1) and PASSES :649 (arm 2)
+    note: >-
+      this is the sixth rewritten text and the one most likely to have replaced
+      a false claim with another; it did not. Cycle 1 found the OLD reason
+      credited arm 2 as "the no-layout-shift claim measured", which is the arm
+      MOVES-LAYOUT survives.
+  - claim: >-
+      the eight band ADDED_SINCE_BEFORE keys were renamed to the new
+      parametrized ids ([desktop-x] .. [phone-y]) and four were added
+    verdict: HOLDS
+    evidence: >-
+      test_the_family_collects_exactly_what_card_217_measured and
+      test_every_allowlist_entry_is_attributed_and_not_already_recorded are
+      green in this cycle's impact run, and those two guards are exactly the
+      pair that reds on a key that no longer collects or carries no card and
+      reason. The ids were cross-checked by running two of them by name
+      ([desktop-x], [phone-y]) -- both collect and pass.
+  - claim: >-
+      the _VIEWPORTS constant's comment: "as one list so a test cannot be
+      parametrized on a subset of them by accident"
+    verdict: NOT TRUE AS WRITTEN -- see F-102
+# ---------------------------------------------------------------------------
+cycle_1_findings:
+  F-001:
+    status: CLOSED
+    severity_was: Important
+    evidence: >-
+      CONFIRMED-by-execution, four readings. Recording pass over the geometry
+      class: REACHES-BLANK exit 0, FAIL (729, 748, 803); BROADEN-UNKNOWN exit
+      0, FAIL (729, 748, 803) -- :729 is the renumbered :622 and cycle 1
+      measured it PASS under both. Re-raising pass: both exit 1, FAIL (729,
+      803), with :748 NOT-REACHED behind the short-circuit. Whole-file
+      recording: REACHES-BLANK FAIL (729, 748, 803) of 50 reached nodes. Both
+      mutants proved non-no-op by :803 in the same run. The docstring at
+      :656-695 and the ADDED_SINCE_BEFORE reason at
+      test_browser_fixture_scope.py:1013-1019 now describe what the arm
+      demonstrates, and the committed selector at :184 is '.player-cell'.
+    bonus: >-
+      the fix ALSO found and repaired a second defect inside the control it was
+      repairing, and that is the strongest piece of work in the round. See
+      the_noise_finding -- independently reproduced to the pixel.
+  F-002:
+    status: CLOSED
+    severity_was: Minor
+    evidence: >-
+      CONFIRMED-by-execution. Both band tests are parametrized on
+      viewport x axis (:395-397, :453-455, via the shared _VIEWPORTS list), so
+      AC-1's FIGURES -- not just the division's presence -- are now asserted at
+      the 14.39 px phone cell the card's Standards section names. Non-redundancy
+      measured, not argued: PHONE-NO-HAIRLINE against the four desktop nodes is
+      exit 0 with 0 FAIL, and against the four phone nodes is exit 1 with FAIL
+      (433, 473).
+    deviation_from_the_brief_ruled_on: >-
+      ACCEPTED. The brief asked for 2 extra cases and the fix shipped 4 (both
+      band tests, not only the major-rule one), and the agent flagged the
+      deviation rather than absorbing it. The extra pair earns its cost: :473
+      is a different test from :433 with its own control and its own figure
+      (3*rule contiguous thin px vs 1/2/1), and PHONE-NO-HAIRLINE reds both
+      independently. Cost measured: the fifth-rule file's 17 tests do not appear
+      in the slowest-8 of a 126-test impact run whose top entry is 18.65 s, so
+      the four cases are cheap. Each has its own ADDED_SINCE_BEFORE card+reason.
+  F-003:
+    status: CLOSED
+    severity_was: Minor
+    evidence: >-
+      CONFIRMED-by-execution. The subsumed `len(files) == len(PAGE_ISOLATION)`
+      is gone from test_browser_fixture_scope.py:1579-1594 and is replaced by a
+      door built from the NODE-ID registries (BEFORE_ARTEFACT +
+      ADDED_SINCE_BEFORE + RENAMED_SINCE_BEFORE targets, reduced to file
+      names) compared to the files on disk -- a data structure PAGE_ISOLATION
+      has no part in. Directions measured in-process with the module's own
+      globals patched inside try/finally (nothing in the worktree created,
+      edited or deleted; globals verified identical to the originals
+      afterwards and the shipped test re-run GREEN):
+        SHIPPED                                  whole test GREEN, arm 1 GREEN, arm 2 GREEN
+        G1 14th file WITH a PAGE_ISOLATION entry, in no node-id registry
+                                                 arm 1 GREEN, arm 2 RED   <-- the justification
+        G2 14th file with no registry entry at all (cycle 1's D1)
+                                                 arm 1 RED,   arm 2 RED
+        G3 a node-id registry naming a file not on disk
+                                                 arm 1 GREEN, arm 2 RED
+        G4 this card's file deleted with its PAGE_ISOLATION entry removed,
+           ADDED_SINCE_BEFORE kept               arm 1 GREEN, arm 2 RED
+      So the replacement is a strictly stronger second door, not a renaming:
+      three directions red it that arm 1 cannot see (G1, G3, G4), and G2 shows
+      arm 1 was not weakened. The test's name and docstring now describe what
+      it does.
+  F-004:
+    status: OUT OF SCOPE, CARDED -- no longer deducted
+    evidence: >-
+      meta/kanban/cards/CARD-275.md exists (status ready, 11979 bytes, Source
+      names CARD-270 review cycle 1 F-004) and the guide strip is correctly
+      outside this card's Design context (".player-cell[data-state=filled]
+      only"). The fix round left it alone deliberately and said so.
+
+# ---------------------------------------------------------------------------
+findings:
+  - id: F-101
+    severity: Minor
+    rule_family: >-
+      the class F-001 belongs to (a hairline reaching cells that are not
+      filled), audited across siblings rather than at the one arm named
+    defect: >-
+      Both arms that protect "no cell other than a filled one carries a
+      hairline" run at the DESKTOP viewport only, so the same defect scoped to
+      a media query survives the card's whole test file -- while the file
+      docstring says the mechanism assertions "hold for any rendering of this
+      stylesheet".
+    location: >-
+      tests/test_puzzle_solver_fifth_rule.py:20-22 (the file docstring's claim),
+      :697 (the blank-board arm pins DESKTOP), :758
+      (test_no_other_cell_state_gains_a_shadow pins DESKTOP)
+    failure_scenario: >-
+      a future card adds a rule inside @media (max-width: 820px) that paints
+      the hairline on .player-cell -- a plausible shape for a phone-only
+      tweak, since admin.css:633 is already exactly such a one-line block.
+      Every blank cell on every phone board gains a grey inner ring it never
+      had, and all 17 tests in this file stay green.
+    evidence: >-
+      CONFIRMED-by-execution. PHONE-REACHES-BLANK (the hairline put on
+      .player-cell inside the existing @media block, line-count-preserving):
+      recording pass over the whole file, 50 PASS, 0 FAIL, 0 NOT-REACHED,
+      0 BLIND of 50 assertion nodes, collected tests 17, pytest exit 0.
+      NOT A NO-OP: at 390x844 a blank board's computed box-shadow goes from
+      {'none': 400} to the inset string on all 400 cells, and that board is
+      byte-identical to the "forced on everywhere" board the shipped blank
+      phone board differs from in 19560 pixels past tolerance.
+    why_minor_and_not_important: >-
+      the claim is not narrative -- it has a control that CAN fail, and does:
+      :729 and :803 both red under REACHES-BLANK and BROADEN-UNKNOWN at
+      desktop. Each test also declares its own domain honestly (the
+      blank-board docstring's first line is "DOMAIN: Chromium, 1440x900"), and
+      the ADDED_SINCE_BEFORE reasons make no viewport claim. What overreaches
+      is one sentence of the FILE docstring about the mechanism class, and what
+      is missing is a phone arm -- the exact symmetric gap F-002 closed for the
+      pixel arms one class up. It is also pre-existing rather than introduced
+      by the fix round.
+    cheapest_honest_fix: >-
+      parametrize test_no_other_cell_state_gains_a_shadow on _VIEWPORTS (it
+      reads computed styles only, so the phone case costs one page load and no
+      new figure), or bound the file docstring's sentence to "any rendering at
+      the viewport the test names". Either closes it; neither is this card's
+      obligation to take.
+  - id: F-102
+    severity: Minor
+    rule_family: a comment that claims a guarantee nothing enforces
+    defect: >-
+      The new _VIEWPORTS constant's comment says it exists "as one list so a
+      test cannot be parametrized on a subset of them by accident", but nothing
+      enforces that -- and two tests in the same file are desktop-only without
+      going through it.
+    location: tests/test_puzzle_solver_fifth_rule.py:74-78
+    failure_scenario: >-
+      a later reader trusts the word "cannot" and believes every viewport-aware
+      test in the file covers both; :697 and :758 do not, which is F-101. No
+      behaviour is unprotected -- this is a naming-vs-mechanism mismatch of
+      exactly the kind the card's own worktree notes care about.
+    evidence: >-
+      CONFIRMED by construction and cross-checked against the file: the four
+      @pytest.mark.parametrize sites that use _VIEWPORTS (:396, :454, :490,
+      :595) are a convention, not a guard; a fifth could be written
+      [(DESKTOP, "desktop")] and nothing would notice. No test in the file or
+      in test_browser_fixture_scope.py asserts anything about _VIEWPORTS.
+    cheapest_honest_fix: >-
+      drop the word "cannot" (say what it is: one list so the two band tests
+      and the two sweep tests cannot DRIFT apart), or make it true with an AST
+      check in the fixture-scope file. The wording is the cheaper half.
+
+# ---------------------------------------------------------------------------
+open_questions_ruled_on:
+  q1_does_748_need_parametrising_on_viewport:
+    ruling: 'NO -- and the answer is measured, not reasoned'
+    evidence: >-
+      the floor is nowhere near exercised at phone cell sizes. The same
+      comparison the arm makes, run at 390x844 where the cell is 14.39 px,
+      changes 19560 pixels past tolerance against the 400 floor -- 48.9x
+      headroom, against 90.8x at desktop (36320 vs 400). Every differing pixel
+      is at delta 64, two full orders above _TOLERANCE = 8 and three above the
+      +-1 noise floor, at BOTH viewports. There is no cell size in the card's
+      declared range at which 400 becomes tight: the floor is one pixel per
+      cell and a 14 px cell's hairline contributes about 49.
+    but: >-
+      a phone arm WOULD buy something, and it is not the floor -- it is the
+      blank-board claim itself. That is F-101, logged separately, and the right
+      lever for it is the cheaper test_no_other_cell_state_gains_a_shadow
+      rather than a second screenshot-differencing arm at a second viewport.
+      Parametrising :748 for the floor's sake would be work that measures
+      nothing.
+  q2_the_zoom_flake:
+    ruling: >-
+      RECORDING IT WAS THE RIGHT CALL FOR THIS CARD'S GATE, AND IT NEEDS A CARD
+    not_this_cards_defect: >-
+      established structurally rather than asserted: git diff --name-only
+      main...HEAD is five files and names neither
+      tests/test_puzzle_solver_zoom.py nor tests/conftest.py; the shared
+      browser fixtures live in tests/test_puzzle_solver_page.py and the whole
+      of this card's change to that file is six lines inside the PAGE_ISOLATION
+      data dict (no fixture, no test, no assertion). The card adds no JS and no
+      state change. The isolation guards that would catch a new cross-test
+      leak are green in this cycle's impact run, including
+      test_the_riskiest_tests_pass_alone[test_puzzle_solver_fifth_rule] (2.63 s)
+      and both order-independence probes (18.65 s / 18.37 s).
+    why_it_still_needs_a_card: >-
+      the symptom -- a one-finger drag marking 225 cells, i.e. the entire 15x15
+      board, instead of 5 -- is a correctness-shaped nondeterminism in the
+      player's own drag handling at 200 % zoom
+      (TestSolverZoom_OneFingerDragIsUnchangedByZoom, around
+      tests/test_puzzle_solver_zoom.py:403-423), not a timeout or a flaky
+      selector. This board defers the full suite to the merge gate, so a
+      1-in-5 red in the browser family is a red at exactly the moment nobody
+      is positioned to diagnose it; and "recorded, not diagnosed" in a worktree
+      note dies with the worktree. The board's own precedent is one card old:
+      F-004 was an out-of-scope sibling defect found in review and it got
+      CARD-275 rather than a note.
+      Recommendation: a quick card, same shape as CARD-275, owning the
+      diagnosis and a seeded reproduction attempt. It must NOT block CARD-270's
+      merge.
+
+# ---------------------------------------------------------------------------
+acceptance_criteria:
+  AC-1:
+    verdict: MET
+    evidence: >-
+      the mechanism arm (:372-392, computed box-shadow on all 400 filled cells)
+      plus pixel arms on both axes AT BOTH VIEWPORTS since the fix. NO-HAIRLINE
+      reds :392, :433 and :473 in a whole-file run; PHONE-NO-HAIRLINE reds
+      :433/:473 in a phone-only selection while the desktop selection stays
+      green. Cycle 1's figure re-derivations (1/2/1 across a major rule,
+      3 contiguous across an ordinary one, at both viewports and dpr 1/2/3) hold
+      unchanged, because admin.css is byte-identical to what cycle 1 measured.
+    cycle_1_caveat: CLEARED (F-002)
+  AC-2:
+    verdict: MET
+    evidence: >-
+      the edge/gutter ring sweep is parametrized on _VIEWPORTS (:490), unchanged
+      by the fix beyond using the shared list; NO-HAIRLINE reds :540 in the
+      whole-file run. Cycle 1's audit of every ink rule inside the player
+      (admin.css :530/:531, :525/:527/:549/:552) stands on unchanged bytes.
+  AC-3:
+    verdict: MET
+    evidence: >-
+      geometry arm 1 (:639) kills MOVES-LAYOUT and arm 2 (:649) is declared
+      narrative in a docstring that names the surviving mutant -- both halves
+      re-measured this cycle. The blank-board arm (:729) now reds under both
+      broadening mutants in both passes, and its "comparing nothing" control
+      (:748) is no longer satisfiable by rounding noise. Other marks and the
+      hint collision controlled (:803/:806 red under NO-HAIRLINE and the two
+      broadening mutants).
+    cycle_1_caveat: CLEARED (F-001)
+    residual: F-101 (the no-broadening arms are desktop-only)
+  AC-4:
+    verdict: MET
+    evidence: >-
+      test_the_filled_cell_division_comes_from_tokens and
+      test_the_stylesheet_uses_tokens_not_literals are green in this cycle's
+      impact run; neither they nor admin.css were touched by the fix commit, and
+      admin.css's sha256 is identical to the byte-string cycle 1 certified with
+      LITERAL-COLOUR and OUTSET, so that certification transfers without
+      re-firing. TestSolverHint_ReducedMotion green and unedited. tokens.css is
+      absent from the diff: the card budgeted at most one new token and spent
+      zero.
+
+guardrails:
+  G-1:
+    verdict: HOLDS
+    evidence: >-
+      git diff --name-only main...HEAD is exactly five files and names nothing
+      under src/nonogram/export/, no book/print module, no solver.js and no
+      solver_state.js. The fix commit touched two test files only. Cycle 1's
+      CON-019 tripwire run (66 passed, unedited) transfers: the files it pins
+      are absent from the diff and admin.css is unchanged since that run.
+  G-2:
+    verdict: HOLDS
+    evidence: >-
+      one hand-written declaration, no framework, no build step, every value a
+      token (--player-rule, --player-thin); admin.css is byte-identical to the
+      file cycle 1 certified. ADR-0038/R1.
+  G-3:
+    verdict: SATISFIED
+    evidence: >-
+      cycle 1's ruling stands and the fix did not erode it. Still not one
+      assertion in any player test changed: the whole
+      test_puzzle_solver_page.py diff is six lines inside the PAGE_ISOLATION
+      data dict (re-read this cycle), and
+      tests/test_browser_fixture_scope.py is outside FAMILY_PREFIX
+      ("tests/test_puzzle_solver") and is not a player test. The fix round
+      REMOVED one assert from the reshaped guard and added a stronger one, and
+      all four directions were re-measured (G1..G4 above); the guard is
+      stronger than it was at cycle 1, not weaker. The replacement never
+      touches the "postdates the record" exemption, so cycle 1's D9 -- the
+      waiver door -- is untouched and still shut.
+  G-4:
+    verdict: EVIDENCE PRODUCED, owner's taste call correctly left OPEN
+    evidence: >-
+      the 16 PNGs at ~/Documents/nonogram-reviews/CARD-270/ remain valid
+      without re-rendering, because admin.css is byte-identical to the file
+      they were rendered from (sha256 8e77bdeb...9ca6, unchanged across the fix
+      commit and across this cycle's six mutations). Per the owner's standing
+      instruction the pick between the hairline and the louder-fifth-rule
+      alternative happens post-merge; the lever stays recorded as OPEN.
+  G-5: 'DOES NOT EXIST on this card -- the Guardrails section is G-1..G-4 only.'
+  G-6: 'DOES NOT EXIST on this card -- the Guardrails section is G-1..G-4 only.'
+
+system_contract:
+  - rule: ADR-0038/R1 -- hand-written JS/CSS, no framework or build step
+    verdict: HOLDS
+    evidence: >-
+      one hand-written CSS declaration plus a comment; no JS, no framework, no
+      build step; pyproject.toml absent from the diff so the dependency
+      baseline is untouched. The fix commit is test code only.
+  - rule: ADR-0038/R4 -- state logic is a pure module, separate from rendering; this card touches rendering only
+    verdict: HOLDS
+    evidence: >-
+      solver.js and solver_state.js are absent from the diff; the data-state
+      vocabulary is unchanged and test_no_other_cell_state_gains_a_shadow reads
+      all four values back off the DOM (:802-806). box-shadow takes no part in
+      layout, measured rather than quoted: arm 1 of
+      test_the_hairline_takes_no_part_in_layout measures all 400 cells against
+      the px --player-cell resolves to and kills MOVES-LAYOUT.
+  - rule: CON-021 -- interactive play only in the admin panel's player
+    verdict: HOLDS
+    evidence: >-
+      re-derived this cycle from disk, not quoted: .player-cell occurs in
+      exactly three files under src/ -- admin/static/admin.css,
+      admin/static/solver.js and admin/templates/puzzle_solve.html -- so the
+      blast radius is the solve page. puzzle_edit.js contains neither
+      "player-cell" nor "data-state" (grep count 0), so the editor board is not
+      reached; nothing under src/nonogram/export/ changed.
+
+# ---------------------------------------------------------------------------
+regression_runs:
+  impact_set:
+    selection: >-
+      tests/test_puzzle_solver_fifth_rule.py tests/test_admin_design_tokens.py
+      tests/test_browser_fixture_scope.py tests/test_puzzle_solver_page.py
+      tests/test_puzzle_solver_hint.py::TestSolverHint_ReducedMotion
+    result: '126 passed, 0 failed, 0 error; pytest exit 0'
+    note: >-
+      counted FROM THE PROGRESS ROWS (72 + 54 dots, no F and no E character),
+      because a conftest plugin suppresses the one-line summary. --durations=8
+      is recorded; the fifth-rule file appears in none of the slowest eight.
+  whole_file_baseline: >-
+    SHIPPED recording pass over tests/test_puzzle_solver_fifth_rule.py: 50 PASS,
+    0 FAIL, 0 NOT-REACHED, 0 BLIND of 50 assertion nodes, collected tests 17,
+    pytest exit 0 -- re-derived clean between every mutant by the instrument's
+    own _refuse_unless_clean.
+  not_run_and_why:
+    - 'the full suite -- forbidden by the brief and by board convention; deferred to the merge gate.'
+    - >-
+      cycle 1's nine other admin.css mutants -- admin.css is byte-identical
+      (sha256 8e77bdeb...9ca6) to the file they were fired against, and the fix
+      commit does not contain it. Re-firing them would re-run them verbatim.
+      NO-HAIRLINE and MOVES-LAYOUT WERE re-fired, because the renumbering could
+      have cost a kill and because one of the six rewritten claim texts names
+      MOVES-LAYOUT by name.
+
+# ---------------------------------------------------------------------------
+score_arithmetic:
+  base: '10.0'
+  deductions:
+    - amount: '-0.3'
+      for: >-
+        F-101 Minor -- the two arms protecting "no non-filled cell carries a
+        hairline" are desktop-only, so PHONE-REACHES-BLANK (F-001's own defect
+        scoped to @media (max-width: 820px)) survives all 17 tests, 0 FAIL of
+        50 assertion nodes, while being proved non-no-op; and the file
+        docstring says the mechanism assertions "hold for any rendering of this
+        stylesheet".
+    - amount: '-0.1'
+      for: >-
+        F-102 Minor -- the new _VIEWPORTS comment claims a test "cannot be
+        parametrized on a subset of them by accident"; nothing enforces that and
+        two tests in the same file are desktop-only without using it.
+  total: '9.6'
+  arithmetic: '10.0 - 0.3 - 0.1 = 9.6'
+  gate: 'score >= 8 AND zero Critical AND zero Important'
+  gate_result: >-
+    9.6 >= 8, zero Critical, zero Important -> the card PASSES cycle 2. No
+    third cycle is needed.
+  how_this_number_was_reached: >-
+    from this cycle's own rows. The three cycle-1 deductions are released
+    because each finding was re-fired and closed by execution here, not because
+    the fix commit says so; F-004's 0.1 is released because CARD-275 exists on
+    disk. The two new deductions are findings this cycle produced with its own
+    mutants. The foreign 9.7 artefact in this worktree was not read as evidence
+    and did not inform this figure.
+
+verdict_detail:
+  passes: 'true'
+  reason: 'score 9.6, zero Critical, zero Important; F-001/F-002/F-003 all CLOSED by execution'
+  residue_for_the_orchestrator: >-
+    two Minors, neither gating and neither this card's obligation: F-101 (a
+    phone arm for the no-broadening claim -- the same class F-002 just closed
+    one level up, and the cheapest lever is parametrizing
+    test_no_other_cell_state_gains_a_shadow on _VIEWPORTS) and F-102 (one word
+    in a comment). Plus two standing items that are not defects: the owner's
+    post-merge pick between the hairline and the louder-fifth-rule alternative
+    (G-4, recorded OPEN since cycle 1), and the zoom-family flake, which this
+    cycle rules needs its own card and must not block this merge.

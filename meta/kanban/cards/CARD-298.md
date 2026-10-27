@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 5. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
-**Wave:** 64
+**Wave:** 65
 **Created wave:** 60
 **Deferred waves:** 0
 **Depends on:** CARD-295, CARD-296, CARD-297, CARD-227

@@ -1,0 +1,336 @@
+version: 1
+generated_at: "2026-10-22T18:04:52Z"
+card: CARD-262
+cycle: "3 of 3 (final; re-entered on the owner's declare-the-axis route)"
+target: "branch card/262-close-the-door-axis at ac479658, vs main (merge-base fac4896f)"
+overall_score: 9.3
+risk_level: low
+review_lane: fast
+verdict: PASSES
+min_score: 8
+one_line: >
+  The owner-mandated DECLARED posture is honest, controlled and complete per
+  ADR-0039 -- every cycle-2 gating finding and all five mandate items verified
+  resolved against the committed bytes, two mutants independently re-fired RED
+  on those bytes -- but the worktree was handed over with mutant N17 LIVE on
+  disk (left by the orchestrator's own interrupted post-commit re-fire script),
+  and it must be restored to 55311d7b before the done gate.
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+owner_mandate: >
+  Escalation closed 2026-10-22: DECLARE the door axis rather than close it; the
+  transitive fixed point is a follow-up card with a fresh cycle budget. This
+  cycle judges the declared posture (honest / controlled / complete per
+  ADR-0039), and does NOT re-raise "the axis is not transitively closed" as a
+  gating finding. That bound is owner-accepted and is DECLARED with working
+  controls (verified below).
+
+diff_under_review:
+  files: ["tests/test_book_export_interior_cover.py"]
+  added: 2666
+  removed: 51
+  src_diff_vs_merge_base: "EMPTY (G-1 verified: git diff --name-only fac4896f..HEAD -- src/ -> nothing)"
+  committed_sha256: "55311d7be57a34adb95d06c83f1de5bfcb1cd7ce68a199ae616076ef634700f6"
+  worktree_found_sha256: "4763d9628e88038361b26ff590e2469df8a61e4ff56ea3228f098b9910a0479f  # NOT the committed bytes -- see F-601"
+
+cycle2_gating_findings_verified:
+  - id: F-501
+    severity_then: Critical
+    resolved: true
+    how: >
+      Resolved on the owner's DECLARE route, verified in the committed code:
+      both copies of the one-step 'anchored' pass (ast.Name branch :2195-2207,
+      ast.Attribute branch :2319-2330) are gated on ONE_STEP_ANCHOR membership
+      of the exemption set -- removing the class turns the pass into a refusal
+      naming the callee. The class is the fifth CALLEE_EXEMPTIONS member
+      (:3014-3019), carries its own cost step (0, asserted as an equality in
+      CALLEE_EXEMPTION_COST and pinned by the zero-cost-classes equality at
+      :3866, which additionally requires a zero-cost class to absorb at least
+      one MEASURED_BLIND_SPOTS row, :3873). All seven F-501 shapes (R1b cross,
+      R1, R2, R4, R5, R7 -> ONE_STEP_ANCHOR; R3 -> external-attribute class)
+      are rows of MEASURED_BLIND_SPOTS (11 rows re-counted from the committed
+      AST), each asserted SILENT shipped and asserted to REFUSE, attributably
+      to the plant, with its absorbing class removed (:4604, :4631). The axis-2
+      docstring is narrowed to "closed on callees whose own binding this walk
+      can anchor in ONE STEP" with both falsified prior sentences kept visible
+      (:1155-1183). The complement claim (no shape escapes both arms) is
+      asserted in the only true form: the R1b cross is a declared blind-spot
+      row, and the per-arm paragraph says so.
+  - id: F-502
+    severity_then: Important
+    resolved: true
+    how: >
+      The four mis-attributed controls are re-labelled
+      CALLEE_SHAPES_REFUSED_BEFORE_ANY_EXEMPTION (:3723), each row naming the
+      mechanism actually responsible, asserted by name at :3913. The per-class
+      ADR-0039/R3 reading is new and real: CALLEE_EXEMPTION_REACH names must
+      equal CALLEE_EXEMPTIONS (:3941), each plant silent with the class in
+      place and refusing exactly its own callee with the class removed
+      (:3967), attribution via _plant_refusals (plant's own 3 lines + appended
+      text, so the module's own up-to-251 removal refusals cannot satisfy it).
+      Three of five rows state that a prior mechanism dominates and no
+      door-reaching control exists; builtins soundness is asserted, not argued
+      (set(GEOMETRY_DOORS).isdisjoint(dir(builtins)), :3947).
+  - id: F-503
+    severity_then: Important
+    resolved: true
+    how: >
+      Both resolvers raise DepthBoundReached at depth > RECEIVER_RESOLUTION_DEPTH
+      (own_instance :2059-2060, receiver_seen :2104-2105; the constant is a
+      named class attribute, :2997), and the call loop converts the raise to a
+      refusal naming the bound and the resolver (:2290-2302, :2334-2346) --
+      fail CLOSED. The control pairs exist with boundary coverage: five-alias
+      plant refuses naming the bound, four-alias refuses on the surface rule,
+      five-alias with the bound raised past it refuses on the surface rule
+      (at no bound silent), receiver chain 5-deep refuses naming the bound,
+      4-deep absorbed by the external-attribute class; cost on this module 0,
+      asserted (:4082). Independently re-fired: mutant N10 (raise -> return
+      False) on the COMMITTED bytes -- see refire block.
+  - id: F-504
+    severity_then: Minor
+    resolved: true
+    how: "renamed test_the_declared_blind_spots_are_still_silent (:4551); the name now claims only what the assertions do"
+  - id: F-505
+    severity_then: Minor
+    resolved: true
+    how: >
+      the authority is derived (dir(builtins) | dir(operator)); its coverage of
+      the five idioms, its size (> 200) and the constant count (> 50) are
+      asserted before the disjointness (:4214-4231), so the empty set can no
+      longer satisfy the claim
+  - id: F-506
+    severity_then: Minor
+    resolved: true
+    how: >
+      the second traversal is an ast.NodeVisitor subclass (type dispatch +
+      generic_visit recursion, :3638-3650) and the two traversals must AGREE
+      (:3666) -- the agreement assertion is the N15 remedy: the fix's own
+      instrument found the first version of this remedy to be decoration
+      (a real SURVIVOR), and closed it
+  - id: F-507
+    severity_then: Minor
+    resolved: "partially -- deliberately"
+    how: >
+      all 23 comment/docstring bare-"cycle N" sites are qualified in the
+      committed file (the recovery session's edits, swept into ac479658); the
+      DOOR_SHAPES / SILENT_WITHOUT_ONE_ARM label strings remain bare, each
+      pinned twice by F-407's own mechanism, declared rather than risked on
+      the last cycle. Accepted as a declared residue (Minor, carried).
+  - id: F-303
+    severity_then: "Important (inherited from CARD-206 cycle 3)"
+    resolved: true
+    how: >
+      all 8 BINDERS_READ members have per-member two-direction controls
+      (test_every_binder_read_is_what_makes_its_own_shape_read, :4327-4367:
+      with the member -> read, offender; without -> refusal; plus the
+      BINDER_BINDINGS == BINDERS_READ drift equality), V16-V19 give AnnAssign,
+      For, AsyncFor, NamedExpr planted shapes
+
+mandate_items_verified:
+  - "item 1 (DECLARE as fifth class with cost step): DONE -- ONE_STEP_ANCHOR, cost step 0 asserted, zero-cost class must absorb a blind-spot row"
+  - "item 2 (the CROSS as a row): DONE -- R1b is MEASURED_BLIND_SPOTS row 5, asserted silent and refusing with the class removed"
+  - "item 3 (both caps fail CLOSED, cost asserted): DONE -- DepthBoundReached in both resolvers, cost 0 asserted, boundary pairs present"
+  - "item 4 (per-class control on its own branch, read twice; domination said): DONE -- CALLEE_EXEMPTION_REACH + re-labelled CALLEE_SHAPES_REFUSED_BEFORE_ANY_EXEMPTION"
+  - "item 5 (IDIOMS derived or restated): DONE -- derived authority, 265 names, non-vacuity asserted before disjointness"
+
+figures_re_derived_by_this_review:
+  - "184 ast.Assert nodes in the committed file (the matrix denominator): recomputed from the committed AST -- MATCHES"
+  - "guard class: 23 collected tests, 70 ast.Assert nodes: recomputed -- MATCHES"
+  - "all 14 assertion linenos the fix-2 matrix table names (:3666 :3850 :3866 :3913 :3941 :3967 :4036 :4075 :4140 :4214 :4220 :4591 :4604 :4631) are ast.Assert nodes in the committed file -- MATCHES"
+  - "11 MEASURED_BLIND_SPOTS rows, 5 CALLEE_EXEMPTIONS, 5 CALLEE_EXEMPTION_REACH rows, 4 CALLEE_SHAPES_REFUSED_BEFORE_ANY_EXEMPTION rows, 30 DOOR_SHAPES rows, 6-step CALLEE_EXEMPTION_COST, 4749 lines -- all recomputed, all MATCH"
+  - "system-contract curation: lens re-run (system_rules.py --card CARD-262), projection 41 reproduced; kept 14 / dropped 27 member-for-member as the card states"
+  - "guard class on the committed bytes: pytest exit 0 under NONOGRAM_FULL_SUITE_LOCK=/tmp/card262-review3.lock (the cost-sequence equality 760/509/203/201/0/0, the blind-spot silences and the reach equalities all executed green)"
+
+refire:
+  instrument: "tests/kill_matrix.py (the committed instrument; no second one written)"
+  domain: >
+    Pass.RECORDING; denominator 184 ast.Assert nodes (assert-node count, not a
+    collected-test count); child instrumentation off; aggregation ANY-RED; one
+    collected test per selection; SHIPPED re-run before each mutant and
+    FAIL-free (0 FAIL of 5 reached / 0 FAIL of 7 reached); both mutants
+    line-count-preserving; target = the COMMITTED bytes 55311d7b (the bytes the
+    fix's own matrix never ran against); NONOGRAM_FULL_SUITE_LOCK=/tmp/card262-review3.lock;
+    the board's meta/kanban/.full-suite.lock neither read nor written.
+  results:
+    - "N17_COST_STEP_MOVED (the fifth class's cost step 0 -> 1): KILLED -- exactly 1 FAIL cell, :3850 (the cost-sequence equality), matching the fix's claimed cell. Pytest exited 0 on the mutant while the matrix recorded the FAIL: the exit-0 trap reproduced; the exit code is not quoted as a kill signal."
+    - "N10_OWN_INSTANCE_CAP_FAILS_OPEN (own_instance raise -> return False): KILLED -- exactly 1 FAIL cell, :4036 (the five-alias plant refuses on the bound), matching the fix's claimed cell. Same exit-0-with-FAIL-cell reading."
+  restoration: "target sha 55311d7b... verified byte-identical after each run and at the end; git status clean on tests/"
+  implication: >
+    Both re-fires ran against the committed bytes and reproduced the fix's
+    cells exactly, which directly corroborates the declared f6d113ed ->
+    55311d7b bridge (blanked-constant AST equality + identical assert-lineno
+    tuple) with execution, not argument. The orchestrator's own interrupted
+    post-commit re-fire (F-601) is superseded by this run.
+
+findings:
+  - id: F-601
+    severity: medium
+    category: ops
+    type: risk
+    file: tests/test_book_export_interior_cover.py
+    line: 3048
+    title: "The worktree was handed to cycle 3 with mutant N17 LIVE on disk"
+    description: |
+      The worktree's copy of the card's single file is NOT the committed bytes:
+      sha 4763d962... vs committed 55311d7b..., diff = exactly one line,
+      `(CALLEE_EXEMPTIONS[:4], 0)` -> `(..., 1)` -- mutant
+      N17_THE_FIFTH_CLASS_COST_STEP_MOVED, which reds the cost-sequence
+      equality at :3850. Attribution: NOT the card's commits (ac479658 is
+      clean) and NOT the fix sessions -- the file's mtime (20:51) postdates the
+      commit (20:31) and matches the orchestrator's own post-commit re-fire
+      script /tmp/card262-orch-verify.py (mtime 20:41), which applies
+      N12b -> N17 -> N10 with restore in a `finally` and whose backup
+      /tmp/card262-orch-backup.py equals the committed bytes. The script was
+      evidently hard-killed mid-N17, so the finally never ran: a silently-left
+      mutation, the exact failure mode the board's matrix discipline exists to
+      prevent. Consequences: any pytest or gate run in this worktree runs
+      against falsified bytes (the done gate's full suite would red at :3850),
+      and the orchestrator's intended independent re-fire produced no recorded
+      result. This review left the worktree AS FOUND so the finding stays
+      verifiable; backups of both states are in the review scratchpad.
+    suggestion: |
+      REMEDIATED IN PASSING by this review's own verification flow: the file
+      now holds the committed bytes (sha verified 55311d7b..., git status clean
+      on tests/). The found mutated state is preserved as evidence at
+      /private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/d14443a2-9b12-4dac-94c7-9d4003092910/scratchpad/found_state_with_N17_mutant.py
+      (sha 4763d962...). Remaining action: treat the orchestrator's interrupted
+      re-fire as having produced NO result (its N12b/N17/N10 verdicts are
+      unrecorded); this review's re-fire of N17 and N10 supersedes it. Clean up
+      /tmp/card262-orch-verify.py so it is not re-run against a moved file.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    scope_note: >
+      Filed at medium/ops, not as a gating finding against the card: the defect
+      is not in the diff under review (the commit is clean), it postdates the
+      hand-back, and it belongs to the review machinery, not the fix. It IS an
+      approve condition: the merge procedure must restore the file first.
+  - id: F-602
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_export_interior_cover.py
+    line: 3354
+    title: "Declared residues carried, unchanged: F-507 label strings; 8 owed per-assertion attributions; in-class-body install unchecked"
+    description: |
+      Three declared bounds carried from earlier rounds, each stated in the
+      card rather than hidden: (a) bare "cycle N" inside DOOR_SHAPES /
+      SILENT_WITHOUT_ONE_ARM label strings (two-sided edits deferred on the
+      last cycle, deliberately); (b) per-assertion attribution for 8 of cycle
+      1's position-axis mutants (M4, M5, M7, M9-M14, M16b) still owed --
+      cycle 1 recorded each RED at test level and the position axis is
+      untouched by fixes 1-2; (c) a genuine in-class-body
+      __set_name__/metaclass install is still approximated at module level
+      (W25/W29/R3). None gates; all three belong on the follow-up card.
+    suggestion: "Carry all three onto the transitive-fixed-point follow-up card's checklist."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+  - id: F-603
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_export_interior_cover.py
+    line: 1
+    title: "10 of fix 2's 12 mutants were never fired against the committed bytes; the bridge is argued, now spot-checked"
+    description: |
+      The fix's matrix ran on f6d113ed...; the commit holds 55311d7b... The
+      declared bridge (blanked-constant AST equality + identical 4749-line
+      count + identical ast.Assert lineno tuple) is sound for everything the
+      matrix claims -- mutants edit executable lines, which are AST-identical
+      -- and this review corroborated it directly by re-firing N17 and N10
+      against the committed bytes with the committed instrument (see refire
+      block). The residual: the other 10 cells rest on the bridge argument
+      plus the fix's run on f6d113ed, not on a re-fire. Acceptable; stated.
+    suggestion: "The follow-up card's first command can re-fire the remaining 10 against its own base if it wants the bridge retired."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+
+root_causes: []
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-262.md (all 1739 lines: mandate, fix 1/2 notes, both review records, recovery note)"
+    - "meta/review/20261022T173000Z-CARD-262-cycle2.yml (findings, mandate, system contract)"
+    - "tests/test_book_export_interior_cover.py at HEAD: the full door-axis mechanism (:2096-2380), both anchored gates, both depth bounds, the refusing else, _plant/_plant_refusals/_outcome, MEASURED_BLIND_SPOTS (all 11 rows), and the bodies of the 8 load-bearing new/changed tests"
+    - "tests/README.md kill_matrix documentation (453-540)"
+  not_reached:
+    - "the 9 runtime plants' execution against a recording page_spec (trusted from fix notes + cycle-2's independent execution of 6 of them)"
+    - "the impact gate (2744 passed) and CON-019 tripwires were not re-run by this review (tripwires verified absent from the diff; the fix's gate is cited)"
+    - "src/nonogram/admin/book_pdf_generator.py read only in grep form (it is outside the diff: src/ diff empty)"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 2666, removed: 51 }
+  max_fan_in: { symbol: "tests/test_book_export_interior_cover.py (test module)", callers: 0 }
+  tests_cover_change: true
+  hotspots: ["tests/test_book_export_interior_cover.py (churn 20 commits/12mo, 8 fix-tagged)"]
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact -- the changed file is a test module; nothing imports it"
+    cochange_missing: "no_eligible_fact -- the file's 12-month co-change set is itself (20 commits, no stable peer above noise)"
+
+system_contract:
+  rules_checked: 14
+  holds: 14
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0022/R1 ✓ holds — carried(cycle 2, delta-clean) + re-verified mechanically: src/ diff vs merge-base empty; no public signature or grid-extent handling in the diff"
+    - "ADR-0033/R1 ✓ holds — carried(cycle 2, delta-clean): test-only diff; no puzzle field written"
+    - "ADR-0036/R2 ✓ holds — geometry is still computed only by COMP-007's layout functions (src/ untouched); the guard's reach over the rule is now a DECLARED bound (5 named exemption classes, 11 asserted blind spots) instead of a false 'closed' claim — cycle 2's caveat resolved by narrowing"
+    - "ADR-0037/R1 ✓ holds — carried(cycle 2, delta-clean): no band string touched"
+    - "ADR-0038/R6 ✓ holds — carried(cycle 2, delta-clean): no solution grid shipped; no admin route or template changed"
+    - "ADR-0038/R7 ✓ holds — carried(cycle 2, delta-clean): pyproject.toml absent from the diff"
+    - "ADR-0038/R8 ✓ holds — carried(cycle 2, delta-clean): no browser test touched"
+    - "CON-021 ✓ holds — carried(cycle 2, delta-clean): no player, no play-state persistence, no new surface"
+    - "ADR-0036/R1 ✓ holds — tests/test_export_a4_golden.py and tests/property/test_cli_exports_byte_identity.py absent from the diff (verified); green inside the fix's impact gate (2744 passed, exit 0)"
+    - "ADR-0036/R3 ✓ holds — the one drawing site unchanged: src/ diff empty (verified)"
+    - "ADR-0036/R4 ✓ holds — by construction: no string literal in src/nonogram/** moved (src/ diff empty, verified); the rule's scope excludes test text"
+    - "ADR-0039/R1 ✓ holds — every claim this round makes carries a control that can fail: per-member BINDERS_READ controls (both directions), per-class CALLEE_EXEMPTION_REACH read twice, labels pinned twice, cost sequence held as equalities, mis-attributed controls re-labelled to the mechanism measured; the narrowings (F-504/505/506) deleted claims rather than defending them. Verified by reading the tests + the fix's 12-mutant matrix + this review's own re-fires"
+    - "ADR-0039/R2 ✓ holds under its own R3 clause, per the owner's declare mandate — the arm defaults to deny (unanchored/unknown/fall-through/depth-bound shapes all REFUSE, verified at :2235-2279, :2290, :2334); the one pass (one-step anchor) is a NAMED exemption with a cost step, no longer silent, ungated or uncounted; the remaining unanalysable reach is a declared bound whose rows are asserted silent so closing one reds. Prior cycles' VIOLATED verdict is resolved by the owner-accepted route R2's own text provides ('the unanalysable sites become named exemptions under ADR-0039/R3')"
+    - "ADR-0039/R3 ✓ holds — all five exemption classes carry: a reading of their own (read twice, on their own branch), a cost step held as an equality (760/509/203/201/0/0), the strict-drop / zero-cost-must-absorb rule, and declared blind spots asserted SILENT with attributable refusals when the class is removed. Verified in code and by re-firing N17 (the cost step) and N10 (the depth bound) on the committed bytes"
+
+guardrails:
+  - "G-1 ✓ src/ diff vs merge-base EMPTY (verified by this review); zero production change"
+  - "G-2 ✓ layout.py untouched; CON-019 tripwire files absent from the diff (verified); green in the fix's impact gate"
+  - "G-3 ✓ no database touched by the diff or by this review; conftest/database_guard not in the diff; kill_matrix refuses edits near them by identity"
+  - "G-4 ✓ imports of the changed file recomputed from its AST: stdlib + PIL/numpy (baseline) + pytest (dev) only"
+  - "G-5 ✓ every behaviour change is stricter (gates refuse when their class is removed; caps raise; else refuses); shipped behaviour on the module byte-identical (0 refusals, 23 sites, 6 names, 7 guide expressions -- executed green by this review)"
+  - "G-6 ✓ no timing measured or reported by the fix or by this review"
+
+acceptance_criteria:
+  - "AC-1 ✓ semantics declared in card text before code; cycle 1 quoted it; the 'before' remains unverifiable from git (stated by every party, claimed by none); three falsified clauses stand visible beside their corrections"
+  - "AC-2 ✓ W0 (getattr literal), W1 (assembled), W2 (local string variable), W3 (methodcaller) each read-or-refused, never silent; W3's kill is the guard's own refusal in the guard's domain (both arms, no import of operator in the plant)"
+  - "AC-3 ✓ the independent 41-plant audit falsified the author's own closure (23 silent), and the card absorbed the result: 3 closed (W12-W14), 7 declared (R-rows), the rest bounded on named axes -- the criterion met in the only way that counts"
+  - "AC-4 ✓ every open axis is a named exemption/bound with a two-direction control and an asserted cost: ONE_STEP_ANCHOR (step 0 + absorb rule + 7 rows), MODULE (inside == 17 and the one outside caller as equalities), VALUE (POSITION_LITERALS removable; M14 kills 8 arms), CALL-GRAPH (blind-spot rows)"
+  - "AC-5 ✓ the three equalities unchanged and re-measured green; both directions certified at cycle 1 (removal -> 22, addition -> 25) and by M9-M13; not regressed to a floor"
+
+certification_note: >
+  Fix 2 shipped author-certified ('no review cycle left'). This review is the
+  missing independent certification: every mechanism was read in the committed
+  bytes, every recomputable figure recomputed (all matched), the system
+  contract re-derived member-for-member, the guard class executed green on the
+  committed bytes, and two load-bearing mutants re-fired RED with the committed
+  instrument against the committed bytes -- the bytes the fix's own matrix
+  never ran against.
+
+score_arithmetic: >
+  10 - 0.5 (minor cluster F-602: three declared residues, carried) - 0.2
+  (F-603: 10 of 12 mutants resting on the bridge argument, now spot-checked
+  2/12 by this review) + 0 (no credit added; the discipline is the baseline
+  this board demands) = 9.3. F-601 is not deducted against the card: the
+  defect is the review machinery's, postdates the commit, and the commit is
+  clean -- it is an approve condition instead.
+
+approve_conditions:
+  - "Verify at the done gate that the worktree file still reads sha 55311d7b... (it does as this review ends; F-601 documents that it did NOT when the cycle began, and why)."
+  - "Merge takes ac479658 as-is; no code change requested."
+  - "Open the follow-up card the owner's mandate names (the transitive fixed point), carrying F-602's three residues and F-603's optional 10-mutant re-fire; the card's notes already state its cheapest first move (delete ONE_STEP_ANCHOR, measured at 0 refusals on this module)."

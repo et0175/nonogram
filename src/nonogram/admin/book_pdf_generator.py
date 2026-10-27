@@ -396,6 +396,8 @@ from nonogram.admin.book_page_spec import (
     book_page_spec,
 )
 from nonogram.admin.book_plan import TIERS, book_level_order
+from nonogram.admin.book_puzzle_vector import puzzle_page_stream, two_up_page_stream
+from nonogram.admin.book_vector import ContentStream
 from nonogram.difficulty import Tier, tier_of_record
 from nonogram.errors import UnletterableTitle
 from nonogram.export import ExportPayload
@@ -5219,6 +5221,121 @@ class BookPDFGenerator:
         if caption is not None:
             _draw_qr_caption(draw, caption, puzzle_number, self.dpi)
         return blank
+
+    def vector_puzzle_page(
+        self,
+        payload: ExportPayload,
+        puzzle_number: int,
+        puzzle_page: int,
+        cell_sizes: Optional[Dict[GridSize, float]] = None,
+    ) -> ContentStream:
+        """:meth:`_blank_page`'s vector twin: the same page as operators (CARD-295).
+
+        ADR-0042/R1. The sheet, the cell and the band identity are taken
+        exactly as :meth:`_blank_page` takes them — the same
+        :meth:`_puzzle_page_spec` call on the same ``cell_sizes`` map, the same
+        :func:`~nonogram.export.layout.compute_layout`, the same
+        :func:`band_identity` — so the two media differ in the medium and in
+        nothing else. ADR-0037/R1 holds for the same reason it holds there:
+        the band is composed by :func:`band_identity` and the picture's name
+        reaches no call here at all.
+
+        ``header_band(layout)`` is called without a spec, as
+        :meth:`_two_up_page` calls it: on a **placed** page the band is read
+        off ``layout.page`` and the spec argument is not consulted
+        (:func:`~nonogram.export.layout.header_band`), so passing it would
+        suggest a dependency that does not exist.
+
+        **What this page does not carry**, because it is not a puzzle-page
+        mark: the sheet's furniture — the interior frame's two rules, the
+        footer's grid-size label, the folio and the QR caption, which
+        :meth:`_blank_page` adds after ``render_pages`` returns. Every
+        interior page kind carries the same furniture off the same
+        :func:`~nonogram.export.layout.interior_frame`, so drawing it here
+        would be the first of four copies. See
+        :mod:`nonogram.admin.book_puzzle_vector`'s own docstring: it is a gap
+        in the phase, raised rather than closed, and CARD-298 is the card that
+        cannot land without it.
+        """
+        page_spec = self._puzzle_page_spec(
+            puzzle_page,
+            None if cell_sizes is None else cell_sizes.get(self._grid_size(payload)),
+        )
+        layout = compute_layout(payload.row_clues, payload.column_clues, page_spec)
+        return puzzle_page_stream(
+            layout,
+            header_band(layout),
+            band_identity(puzzle_number, payload.difficulty),
+        )
+
+    def vector_two_up_page(
+        self, plan: "PuzzlePagePlan", payloads: Sequence[ExportPayload]
+    ) -> ContentStream:
+        """:meth:`_two_up_page`'s vector twin: two puzzles, one sheet (CARD-295).
+
+        A two-up slot *is* a puzzle page (TERM-030): the pair's geometry is
+        two :class:`~nonogram.export.layout.Layout`\\ s on one trim, and each
+        gets the same drawing and the same band a single page's does. ``strict``
+        on the zip for the same reason :meth:`_two_up_page` passes it — a plan
+        whose numbers and payloads disagree with its two slots is a bug in the
+        walk, and a half-drawn page is the one way a book could ship a puzzle
+        nobody printed.
+
+        Raises:
+            ValueError: ``plan`` is not a two-up page.
+        """
+        pair = plan.pair
+        if pair is None:
+            raise ValueError(f"page {plan.page_number} is not a two-up page")
+        return two_up_page_stream(
+            [
+                (slot, header_band(slot), band_identity(number, payload.difficulty))
+                for slot, number, payload in zip(
+                    (pair.upper, pair.lower), plan.numbers, payloads, strict=True
+                )
+            ]
+        )
+
+    def vector_puzzle_pages(
+        self,
+        payloads: List[ExportPayload],
+        first_page: int = 1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT,
+        cell_sizes: Optional[Dict[GridSize, float]] = None,
+    ) -> Iterator[ContentStream]:
+        """Every puzzle page of ``payloads``, in print order, as content streams.
+
+        The vector arm of the interior's puzzle section: :meth:`puzzle_pages`'
+        own walk decides the pages — one puzzle or two, at which interior
+        position — and each page is then drawn by
+        :meth:`vector_puzzle_page` or :meth:`vector_two_up_page`. The plan is
+        the real one, so a pairing verdict here is the export's verdict and not
+        a model of it.
+
+        One page at a time, by ``yield``: a content stream is three or four
+        orders of magnitude smaller than the 25.2 MB bitmap CARD-145's
+        ``interior_stream`` was built around, but holding a list of them would
+        still be the shape that card removed.
+
+        Args:
+            payloads: **The whole book**, in print order
+                (:func:`print_order`). Not a level's slice: ``cell_sizes``
+                below is fitted over what it is handed, and a grid size's cell
+                is the book's (NFR-008/CARD-225) — a map built over one level
+                would print that level's 20x20s at another size.
+            first_page: The interior position of the first puzzle page, as
+                :meth:`puzzle_pages` takes it.
+            cell_sizes: The book's cell map; measured over ``payloads`` when
+                not given.
+        """
+        measured = self.cell_sizes(payloads) if cell_sizes is None else cell_sizes
+        for entry in self.puzzle_pages(payloads, first_page, cell_sizes=measured):
+            members = [payloads[number - 1] for number in entry.numbers]
+            if entry.pair is None:
+                yield self.vector_puzzle_page(
+                    members[0], entry.numbers[0], entry.page_number, measured
+                )
+            else:
+                yield self.vector_two_up_page(entry, members)
 
     def custom_titles(self) -> Dict[str, str]:
         """The per-book titles the Arrangement step set, ``{puzzle_id: title}``.

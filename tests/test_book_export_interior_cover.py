@@ -1275,7 +1275,7 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
        refused, or the closure is a cap. The exemptions are
        :data:`CALLEE_EXEMPTIONS`, each removable through
        ``callee_exemptions``, each with its own step of the measured refusal
-       cost (760 → 0 on this module, every remaining step a strict drop) and
+       cost (770 → 0 on this module, every remaining step a strict drop) and
        each read twice on its own branch
        (:meth:`test_every_callee_exemption_is_read_twice_on_its_own_branch`).
        What this axis does **not** close is a door that reaches a callee
@@ -1363,10 +1363,12 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         # An equality, not a floor (ADR-0039/R3; CARD-206 review cycle 2, F-201 filed
         # the two floors below this one and this is the third): the positions
         # the card had to move are the guide's own range, the TOC's page
-        # number, `section_plan`'s `first_page`, `first_answer_page`, the two
-        # walk defaults and `interior_page_count`'s formula — seven, so one
+        # number, `section_plan`'s `first_page`, `first_answer_page`, the
+        # walk defaults and `interior_page_count`'s formula — eight, so one
         # appearing or vanishing reds here instead of drifting under a floor.
-        assert len(sites) == 7, [text for _, _, text in sites]
+        # CARD-295 added the eighth, `vector_puzzle_pages`' own walk default:
+        # the vector twin of `puzzle_pages`, so the walk defaults are three.
+        assert len(sites) == 8, [text for _, _, text in sites]
         for line, node, text in sites:
             names = {
                 inner.id for inner in ast.walk(node) if isinstance(inner, ast.Name)
@@ -1961,8 +1963,8 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         # it. The classes it cannot anchor on this module are the named
         # ADR-0039/R3 exemptions in :data:`CALLEE_EXEMPTIONS`, each removable
         # on its own (``callee_exemptions``) so that each one's cost is an
-        # equality and not a sentence -- the raw inversion costs 760
-        # refusals on this module's 816 calls, and the five classes take that
+        # equality and not a sentence -- the raw inversion costs 770
+        # refusals on this module's 832 calls, and the five classes take that
         # to 0.
         # ------------------------------------------------------------------
         if "callee identity" in arms:
@@ -3093,7 +3095,7 @@ class Generator:
         "puzzle_page",
         "title_page_number",
     )
-    POSITION_SITE_COUNT = 23
+    POSITION_SITE_COUNT = 24
 
     def test_the_page_position_set_is_derived_from_the_one_geometry_door(self):
         """The set is grown from the doors, and held to an equality.
@@ -3397,8 +3399,8 @@ class Generator:
     #: the shape was chosen (CARD-262 cycle 1's Critical asked for exactly this
     #: sequence, and the 51 -> 0 measurement is its precedent): the raw
     #: inversion, then the remainder after each exemption class is added, in
-    #: this order. **760** distinct refusals with no exemption at all, on a
-    #: module of 816 calls with no defect in it, and the five classes take
+    #: this order. **770** distinct refusals with no exemption at all, on a
+    #: module of 832 calls with no defect in it, and the five classes take
     #: that to **0** -- which is what says which classes are load-bearing
     #: rather than decorative. The figure counts distinct refusal entries,
     #: which is what the walk returns (identical `(line, shape, name, text)`
@@ -3409,7 +3411,7 @@ class Generator:
     #: **Re-measured end to end by CARD-276**, with CARD-262's fifth class
     #: deleted and the anchor resolved to a fixed point. The sequence is
     #: unchanged through its four inherited steps and the transitive step's
-    #: own number is **0**: not one of this module's 816 calls reaches a
+    #: own number is **0**: not one of this module's 832 calls reaches a
     #: callee key with an ``anchored`` binding occurrence at all -- the
     #: ``unreadable`` and ``opaque`` branches run first and catch every one of
     #: them -- so following the chain further cannot refuse what stopping did
@@ -3425,10 +3427,10 @@ class Generator:
     #: and this one absorbs R8. The alternative was to leave the resolved
     #: pass ungated, which is the accountability hole cycle 1 billed.
     CALLEE_EXEMPTION_COST = (
-        ((), 760),
-        (("builtins",), 509),
-        (("builtins", "definitions and imports"), 203),
-        (("builtins", "definitions and imports", "parameters"), 201),
+        ((), 770),
+        (("builtins",), 517),
+        (("builtins", "definitions and imports"), 204),
+        (("builtins", "definitions and imports", "parameters"), 202),
         (
             (
                 "builtins",
@@ -3961,12 +3963,12 @@ class Generator:
 
         A reading taken with an exemption class removed cannot be a count of
         the whole module's refusals: removing ``builtins`` costs this module
-        251 of its own and removing the external-attribute class 201, so an
+        253 of its own and removing the external-attribute class 202, so an
         ``== ("refusal",)`` on the module's total is satisfied by the module
         and says nothing about the plant. Attribution instead: the plant's own
         three lines (``_plant`` is line-count-preserving, so they are the
         three lines :data:`DERIVED_POSITION` occupied) plus every line of the
-        text the plant appends after the module's end. The module's own 816
+        text the plant appends after the module's end. The module's own 832
         calls are at neither, which is what makes a reading with a class
         removed the plant's.
         """
@@ -4119,7 +4121,7 @@ class Generator:
         claim was not. It is an :class:`ast.NodeVisitor` subclass now, which
         dispatches on node type through ``visit_Call`` and recurses through
         ``generic_visit`` instead of flattening the tree -- a different
-        mechanism reaching the same 816, which is what "independent" was
+        mechanism reaching the same 832, which is what "independent" was
         supposed to mean.
         """
         import ast
@@ -4151,7 +4153,7 @@ class Generator:
         # inside another call's arguments is counted at all -- left both
         # assertions below green, measured as a real SURVIVOR by this round's
         # own kill-instrument run and closed here (N15). Neither figure is
-        # pinned to 816 (CARD-262 cycle 1's F-404: an equality there reds on
+        # pinned to 832 (CARD-262 cycle 1's F-404: an equality there reds on
         # any call added anywhere in 7,000 lines of production code), so a
         # floor and a partition are all they are -- and a floor cannot notice
         # a traversal that stopped traversing. An agreement between two
@@ -4172,8 +4174,8 @@ class Generator:
         # (CARD-262 cycle 1's F-404, accepted). `len(anchored) == len(calls)` alone
         # would be satisfied by a module with no calls at all -- but that
         # degenerate case is already caught four other ways in this class (the
-        # 23-site equality, the six-name vocabulary, the seven guide
-        # expressions and the module-axis census), while an equality on 816
+        # 24-site equality, the six-name vocabulary, the eight guide
+        # expressions and the module-axis census), while an equality on 832
         # reds on any call added anywhere in 7,000 lines of production code,
         # door call or not. The equality that belongs to this axis is
         # `inside == 17` in
@@ -4338,7 +4340,7 @@ class Generator:
         the bindings it had proved opaque, so a callee with no binding
         occurrence at all was anchored by default and eight shapes that reach
         the real geometry door were silent. Inverting the polarity is not free
-        and the cost is not a sentence: **760** of this module's 816 calls
+        and the cost is not a sentence: **770** of this module's 832 calls
         refuse with no exemption in place, on a module with no defect in it.
         What makes that affordable is five named exemption classes, and what
         makes each of them a claim rather than a hedge is this sequence --
@@ -4350,13 +4352,13 @@ class Generator:
 
         **CARD-276 re-measured the sequence end to end and deleted a class.**
         CARD-262's fifth class, the one-step anchor, had a step of **0**: not
-        one of this module's 816 calls reaches a callee key with an
+        one of this module's 832 calls reaches a callee key with an
         ``anchored`` binding occurrence at all, so the class its seven plants
         needed bought the shipped module nothing. By this class's own
         narrowed rule that made it deletable, and
         :data:`CALLEE_EXEMPTIONS_THAT_COST_THIS_MODULE_NOTHING` was **empty**
         for one commit: the four inherited classes strictly drop the count
-        (251, 306, 2, 201), and a class whose step falls to 0 reds here
+        (253, 313, 2, 202), and a class whose step falls to 0 reds here
         rather than being excused. Closing the axis to a fixed point cost 0
         for the same reason, which is stated on
         :data:`CALLEE_EXEMPTION_COST` and asserted by the first equality
@@ -4954,7 +4956,7 @@ class Generator:
             "",
             "POSITION_LITERALS admits 1 and caps nothing, so three extra "
             "front-matter pages are added with the derivation, the vocabulary, "
-            "the 23-site equality and the 7-site guide equality all intact",
+            "the 24-site equality and the 8-site guide equality all intact",
         ),
         (
             "the VALUE axis: an annotated module constant",

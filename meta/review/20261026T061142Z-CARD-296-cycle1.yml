@@ -1,0 +1,472 @@
+card: CARD-296
+cycle: 1
+reviewer: forge:review (Claude Opus 5)
+date: 2026-10-26T06:11:42Z
+revision_reviewed: ef487a9a
+fork_point: 423c09f3
+branch: card/296-guide-page-as-operators
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-296
+score: 7
+certified: false
+min_score: 8
+verdict: >-
+  NOT CERTIFIED at 7/10. The production code is a faithful, careful port and the
+  declines (AC-3, AC-4's missing routine) are sound and honestly recorded. What
+  blocks certification is the thing this card exists to deliver: controls that
+  can see the new medium. Four of its structural claims are measurably wider
+  than their controls, and three of them were measured by planting exactly the
+  artefact the control names and watching the suite stay green — a 32-gon filled
+  disc on the difficulty legend (248/248 green), a complete second grid
+  implementation in the guarded module (4/4 green), and the page's entire body
+  text set in 50 % grey (35/35 green). All four are in the family this board
+  escalates on. Every fix is small and local to the test tree; none asks for the
+  drawing to change. Baseline suite state at ef487a9a, verified by node id:
+  tests/test_book_guide_page_vector.py (35) +
+  tests/test_book_pdf_vector_primitives.py + tests/test_book_difficulty_dots.py
+  = 248 passed; blast radius (test_book_interior_type_floor, test_book_page_frame,
+  test_collected_names, test_suite_profile, test_book_pdf, test_export_pdf) =
+  580 passed. G-6 holds — node-id set difference on both modified test files
+  shows nothing removed or renamed.
+
+findings:
+  - id: F-1
+    severity: major
+    title: >-
+      "No `c` operator is exactly no round shape" is false, and it is the whole
+      of AC-3's substitute tripwire — a 32-gon disc on the legend passes
+    file: tests/test_book_guide_page_vector.py
+    line: 695
+    gating: true
+    confidence: high
+    evidence: >-
+      AC-3 is declined (soundly) and replaced by
+      TestGuidePage_DifficultyLegendCarriesNoRoundShapeToday, whose
+      test_no_guide_page_emits_a_curve_operator states the equivalence in as
+      many words: "PDF has no circle, ellipse or arc operator in a content
+      stream (ADR-0042, CARD-294), so 'this page draws no round shape' is
+      exactly 'this page emits no `c`'. Nothing is classified by eye." The same
+      claim is written in the card's Worktree notes ("PDF has no circle
+      operator, so no `c` is exactly no round shape") and in
+      tests/test_book_difficulty_dots.py's VECTOR_RECEIVER_NAME comment ("A
+      content stream's only round shape is ContentStream.round_mark").
+      MEASURED: ContentStream carries begin_path / line_to / close_path / paint
+      (src/nonogram/admin/book_vector.py:823-837) — an arbitrary polygonal path
+      builder that emits only `m`, `l`, `h` and a paint operator. I added a
+      32-gon filled disc beside each tier name in draw_legend (the exact shape
+      CARD-229 would need) and ran
+      tests/test_book_guide_page_vector.py + test_book_pdf_vector_primitives.py
+      + test_book_difficulty_dots.py: 248 passed, 204 warnings. Green through
+      test_no_guide_page_emits_a_curve_operator (no `c`),
+      test_the_writer_never_reaches_the_round_mark_primitive (no "round_mark("),
+      CARD-294's TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee, the
+      EC property test (a fill emits no `w`, and `0 g` is already allowed),
+      TestGuidePage_EveryDiagramStaysInsideItsOwnBox (the legend is not a line
+      diagram) and the difficulty-dots receiver guard (begin_path/line_to/paint
+      are not Pillow draw-method names, so the walk never sees them). File
+      restored; sha256 ad692521f4b5fa74a66f72954545de64d26c28b5a64b311b8bec1de6ea5bfebc
+      verified. The consequence is precisely the one the card writes down as its
+      reason for declining AC-3: "CARD-229 inherits AC-3, and when it draws the
+      dots CARD-294's own ... reds at the same moment, which is the alarm that
+      card built." That alarm does not fire on a polygonal disc, and a polygonal
+      disc is the cheaper implementation.
+    remedy: >-
+      Either (a) close the route — assert that no module outside the vocabulary
+      writes begin_path/line_to (or bound a path's vertex count the way
+      MAX_FLAT_VERTICES bounds draw.polygon, which is the precedent already in
+      the tree), or (b) restate the claim honestly: "no `c`" is "no Bézier",
+      not "no round shape", and carry the polyline route as a NAMED limit with
+      an owner, exactly as FLAT_METHODS already carries draw.line's polyline
+      hole with CARD-241 beside it. (b) is cheap and keeps the decline sound;
+      what must not survive is the sentence asserting the equivalence.
+    disposition: open
+
+  - id: F-2
+    severity: major
+    title: >-
+      AC-4's default-DENY guard has a hand-written attribute set with a false
+      derivation claim; a second grid implementation spelled around it passes
+    file: tests/test_book_guide_page_vector.py
+    line: 354
+    gating: true
+    confidence: high
+    evidence: >-
+      AC-4 requires "a structural check shows no second grid implementation in
+      the file", "derived per ADR-0039/R2 from the module's AST, default-DENY".
+      The set of FUNCTIONS is derived from the AST; the set of ATTRIBUTES
+      (GRID_ATTRIBUTES, 7 names) is hand-written, and its stated derivation is
+      false. The docstring says it is "Derived from what
+      book_pdf_generator._stroke_drawing/_write_clues/draw_example_line read
+      between them ... so the set is the shape of the thing being guarded and
+      not a list of names that happened to come to mind". MEASURED by walking
+      those three functions' ASTs: between them they also read Layout's `frame`,
+      `thick_rule` and `thin_rule`, all three omitted from GRID_ATTRIBUTES. Add
+      them and the guard reports two more functions —
+      touching == {_stroke_layout, _write_clue_digits, diagram_box, diagram_left,
+      draw_line_diagram, translation, guide_page, pad} — i.e. the set as written
+      is exactly the subset that keeps the module green, which is the opposite
+      of derived. Worse, every guarded name has an unguarded synonym one level
+      down: Layout exposes `grid_lines` (= vertical_lines + horizontal_lines) and
+      `clue_entries` (= row_clues + column_clues) as properties over fields that
+      are NOT in the set. MEASURED: I appended `_second_grid(stream, layout)` to
+      src/nonogram/admin/book_guide_vector.py — a complete second grid
+      implementation drawing every ruled line via layout.grid_lines, the frame
+      via layout.frame, and every clue digit via layout.row_clues +
+      layout.column_clues at a size derived from layout.cell — and ran
+      tests/test_book_guide_page_vector.py::TestGuidePage_WorkedExampleReusesTheGridRoutine:
+      4 passed. File restored and sha256-verified. Related overstatement in the
+      module itself: _Diagram.translation's docstring says it lives there "so
+      that the page itself never reads a Layout's grid — which is what
+      CARD-296's AC-4 guard holds it to", but guide_page reads
+      icon_layout.thick_rule at book_guide_vector.py:964.
+    remedy: >-
+      Derive GRID_ATTRIBUTES from an enumerable authority rather than writing it
+      out: the Layout dataclass's own fields plus its properties, minus a named
+      and justified allow-list (dpi, page, rows, columns, width, height, ...).
+      That makes `grid_lines`, `row_clues`, `column_clues` and `cell` guarded by
+      construction, and it will then flag guide_page and _Diagram.pad — give
+      those two a role in ROLES (reading `thick_rule` for the paste pad is a
+      legitimate role, and naming it is the point) rather than shrinking the set
+      back. If the set stays hand-written, delete the derivation sentence.
+    disposition: open
+
+  - id: F-3
+    severity: major
+    title: >-
+      EC(ADR-0042/R3)'s tone check cannot see any text tone — the whole guide
+      set in 50 % grey passes
+    file: tests/test_book_guide_page_vector.py
+    line: 851
+    gating: true
+    confidence: high
+    evidence: >-
+      TestPropertyTest_GuidePage_WriterDerivesNoGeometryAcrossTrims says "the
+      operands a derived number would show up in are the ones checked here: the
+      `w` stroke widths, the `g`/`G` tones and the `Tf` type sizes", and ADR-0042/R3's
+      statement names tone explicitly ("Every coordinate, width and tone it
+      emits comes from COMP-007's Layout"). The tone assertion is
+      `re.findall(r"(?m)^(-?\d+(?:\.\d+)?) [gG]$", stream)` — anchored to a whole
+      line. ContentStream.text (src/nonogram/admin/book_vector.py:916) emits its
+      fill tone INLINE: `f"{_number(_grey(grey))} g BT /{resource} ... Tj ET"`,
+      one operator per line, so the `$` never matches and NO text tone is ever
+      read. MEASURED: I changed the body-text call in guide_page
+      (book_guide_vector.py:1158) from grey=_BLACK to grey=0.5 — every paragraph,
+      heading and note of both guide pages set in 50 % grey — and ran
+      tests/test_book_guide_page_vector.py: 35 passed. The module's own docstring
+      calls black "the only tone this page inks" (_BLACK, :160) and the written
+      page would be grey in print. File restored and sha256-verified. The path
+      tones (fill_grey/stroke_grey on their own lines) ARE covered, so the
+      assertion is not vacuous — it is blind to the majority of the page's ink.
+    remedy: >-
+      Read tones with the same shape the file's own `_SHOWN` regex already uses
+      for text objects — match `(NUMBER) g` wherever it occurs, not only at a
+      line start — or tally tones through pdf_vector rather than a local regex,
+      and add the inline case to tests/helpers/pdf_vector.py so every page card
+      of the phase inherits it. One line; the corpus and the assertion already
+      exist.
+    disposition: open
+
+  - id: F-4
+    severity: major
+    title: >-
+      The new `stream` receiver exemption is granted on a bare name with no
+      binding rule behind it, and measurably reopens cycle 2's M2 control
+    file: tests/test_book_difficulty_dots.py
+    line: 1033
+    gating: true
+    confidence: high
+    evidence: >-
+      _is_vector_receiver returns True for any ast.Name spelled `stream`, and
+      _is_accounted_receiver then excuses it for any method in
+      VECTOR_STREAM_METHODS = {line, rectangle, text}. Its docstring says it is
+      "Deliberately as narrow as _is_draw_receiver's own first clause and for the
+      same reason". That is the claim that is wider than its control: the name
+      `draw` is narrow because TWO sibling rules bind it to real draw objects —
+      test_every_draw_object_in_the_package_is_spelled_draw (every
+      ImageDraw.Draw(...) binding that yields a name must yield DRAW_RECEIVER_NAME)
+      and test_every_imagedraw_annotated_parameter_is_spelled_draw. NOTHING in
+      the tree asserts that a thing called `stream` is a ContentStream, so the
+      exemption is name-shaped, not type-shaped. MEASURED against the guard's own
+      helpers on fabricated sources: for
+      {"fake.mod": "def _rogue(stream, rank):\n    stream.line([32 points], fill=1, width=3)\n"}
+      the pre-CARD-296 rule reports
+      [('fake.mod', '_rogue', 'line', 'stream')] and the HEAD rule reports [].
+      That is cycle 2's M2 control (an unannotated parameter handed the real draw
+      object) with the name changed to `stream` and the method to `line` — and
+      `line` is the route FLAT_METHODS documents at length as a KNOWN hole
+      ("review cycle 3 (F-201) landed a complete second three-dot glyph that way
+      with the suite green"). `_draw_calls` under the vertex guard sees nothing
+      either, and the binding and annotation rules see nothing, so all four
+      mechanisms are blind at once. WHAT IS SOUND, re-fired and confirmed: the
+      narrowing itself is load-bearing — deleting the three subtractions from
+      _excused_vector_methods reds
+      test_the_vector_stream_receiver_is_excused_only_for_marks_that_cannot_be_round
+      (1 failed, 29 passed), so the _RoundCapableSurface stand-in is the right
+      call and the round's measurement of it is honest. The defect is the
+      receiver predicate, not the method set.
+    remedy: >-
+      Give the name `stream` the binding rule the name `draw` has: assert that
+      every ContentStream(...) binding in the package that yields a name yields
+      `stream`, and that no ImageDraw.Draw(...) binding and no ImageDraw-annotated
+      parameter is spelled `stream`. Add a control in the shape the file already
+      uses — the M2 mutant with the parameter renamed to `stream` and the method
+      changed to `line` — so the route cannot quietly reopen again.
+    disposition: open
+
+  - id: F-5
+    severity: minor
+    title: >-
+      "The one arithmetic this module performs on those numbers is translation"
+      is false, and the module contradicts it 20 lines later
+    file: src/nonogram/admin/book_guide_vector.py
+    line: 37
+    gating: false
+    confidence: high
+    evidence: >-
+      The "What this module does not do" section states: "The one arithmetic
+      this module performs on those numbers is **translation** — the same paste
+      offset the raster page applies". The module in fact computes
+      _pipeline_geometry's pad/icon/label_h/box_w/box_h/arrow_w/width (:698),
+      legend_extent's strip height and column pitch (:827, :873), the title's
+      fitting ladder (:927), `half = geometry.icon * 0.3` (:786), and the whole
+      vertical rhythm (scale, body_px, leading, leading/2, leading/4, leading/6).
+      The module's own "Points, pixels" section says so ("every vertical rhythm
+      ... is that point size scaled to pixels as a float"), so the two
+      paragraphs disagree. None of this is a hidden R3 violation — it is a
+      faithful port of _draw_pipeline_diagram's and _draw_difficulty_legend's
+      type-derived internal padding, which is what the module's other comments
+      correctly call it — but the sentence as written is what a reader of a
+      future card will quote.
+    remedy: >-
+      Say "the one arithmetic this module performs on a COMP-007 number is
+      translation", which is true, and keep the type-derived internal padding
+      where it is already described honestly.
+    disposition: open
+
+  - id: F-6
+    severity: minor
+    title: >-
+      The EC property test's class docstring reads as covering R3's operand
+      surface, but no coordinate operand is checked
+    file: tests/test_book_guide_page_vector.py
+    line: 726
+    gating: false
+    confidence: high
+    evidence: >-
+      R3's subject is "every coordinate, width and tone". A derived COORDINATE
+      shows up in `m`/`l`/`re`/`Td` operands, none of which the test reads; it
+      reads `w`, the line-anchored `g`/`G` (see F-3) and `Tf`. The docstring's
+      "the operands a derived number would show up in are the ones checked here"
+      asserts the narrowing is complete, and it is not. Mitigating and worth
+      recording: coordinates are covered from a different direction —
+      TestGuidePage_EveryDiagramStaysInsideItsOwnBox for diagram ink, fits_width
+      for the blocks, and the owner's render comparison for the port — so this is
+      a scope statement to correct, not a route to measure.
+    remedy: >-
+      Name what the test does not reach ("coordinates are held by the box control
+      and the render comparison, not here"), or extend the subset assertion to
+      `Td` baselines, which are derivable from frame/leading the same way.
+    disposition: open
+
+  - id: F-7
+    severity: minor
+    title: >-
+      AC-2's floor claim and AC-1's XObject claim each run narrower than the
+      corpus already available in the same file
+    file: tests/test_book_guide_page_vector.py
+    line: 274
+    gating: false
+    confidence: high
+    evidence: >-
+      EC(CON-020) is scoped to two profiles, which is what the card asks for, but
+      the file already builds a 24-trim corpus two classes down and the floor is
+      one line away from covering it. I measured the corpus myself: the smallest
+      face across all 24 trims x 2 pages is 10.0 pt (the folio, FOLIO_PT) — so
+      there is no breach today, and the margin above the floor is exactly zero,
+      which is the case worth a standing control rather than a one-off reading.
+      Separately, test_no_page_resource_dictionary_offers_an_xobject and
+      test_the_file_holds_no_image_object_and_no_jpeg_stream run on
+      written("book1") only; min-trim gets only the non-vacuity test. (CARD-298
+      owns R1's derived check over every page kind, so this is a narrowness note,
+      not a gap in the rule.)
+    remedy: >-
+      Add `assert min(type_sizes(...)) >= FLOOR_PT` inside the existing property
+      loop, and parameterize the two XObject assertions on `profile`.
+    disposition: open
+
+  - id: F-8
+    severity: minor
+    title: >-
+      Two diagrams declare an extent that nothing holds their ink to — the
+      pipeline and the legend
+    file: src/nonogram/admin/book_guide_vector.py
+    line: 729
+    gating: false
+    confidence: high
+    evidence: >-
+      The brief asked whether a declared box goes unchecked; it does, twice.
+      pipeline_extent and legend_extent declare the width and height that
+      fits_width and the fallback loop consume, and
+      TestGuidePage_EveryDiagramStaysInsideItsOwnBox covers only line diagrams
+      (diagram_box, via _stroke_layout's clamp). No test holds draw_pipeline's or
+      draw_legend's ink to its own declared extent. MEASURED — no live defect:
+      at book1 the legend's rightmost ink is 1812.6 px against frame.right 2400,
+      at min-trim 936.6 against 1106, and the pipeline (declared width 1556.5 vs
+      a 994 px measure at min-trim) is dropped at bare_level >= 1 and rejected by
+      fits_width anyway. I also confirmed the clamp's coverage is adequate for
+      every diagram the page draws, not just the three sampled: guide_icon_layout
+      clears row_clues and column_clues and Layout.clue_entries is a property over
+      them, so the unframed icon layout has no clue digit that could land in the
+      gutter outside its box; the control's own ExampleStep fills every cell and
+      crosses column 0, so fills and crosses are exercised even though
+      _stroke_layout is the only clamped path. The two structural classes
+      (framed / unframed) are both sampled, and the techniques' layouts are the
+      framed class.
+    remedy: >-
+      One assertion in the existing class shape: draw the pipeline and the legend
+      into a large stream and hold _inked_pixels to (x, y, x+declared_w,
+      y+declared_h). It would also make legend_extent's `measure_px` width claim
+      real, which today is an input echoed back rather than a measurement.
+    disposition: open
+
+  - id: F-9
+    severity: info
+    title: >-
+      Confirmations — the round's own figures, declines and controls that I
+      re-fired and found sound
+    file: tests/test_book_guide_page_vector.py
+    line: 1
+    gating: false
+    confidence: high
+    evidence: >-
+      Recorded so the fix station does not re-derive them. (1) The
+      record-vs-stream control binds: deleting the title's stream.text call while
+      leaving DrawnFace(TITLE, ...) in the record reds
+      test_the_writers_record_is_exactly_what_the_stream_shows on BOTH profiles
+      (2 failed, 7 passed) — the exact defect class the round reports, with the
+      exact cell it names. I audited every other recording site (title, body
+      text, pipeline label, pipeline dots/bang glyph, legend name, clue digit,
+      folio) and found no second place a record can diverge: every DrawnFace sits
+      immediately beside its stream.text, the comparison is a sorted multiset so
+      a count mismatch reds, and ContentStream.text emits exactly one operator
+      line matching `_SHOWN`, so the regex cannot miss a drawn string.
+      (2) The diagram_box clamp control binds: removing both clamps from
+      _stroke_layout reds
+      test_a_diagram_inks_nothing_outside_the_box_it_declares on both profiles
+      (2 failed, 2 passed). (3) N-2's fix is controlled where it is claimed:
+      reverting `if stated > 0` reds exactly
+      test_a_stated_cap_height_of_zero_falls_through_and_is_never_returned and
+      test_a_stated_negative_cap_height_falls_through_too (2 failed, 8 passed);
+      collapsing long_loca to True reds exactly
+      test_a_short_loca_face_is_read_with_the_short_offsets (1 failed, 9 passed).
+      (4) The synthetic sfnts are valid enough to prove what they claim, and the
+      claim that _sfnt is built the way _sfnt_tables checks it is TRUE —
+      _sfnt_tables really does derive and compare searchRange/entrySelector/
+      rangeShift (book_vector.py:387-392), so a sloppier synthetic would have been
+      refused rather than passing for the wrong reason; STATED_CAP_HEIGHT 700 vs
+      GLYPH_Y_MAX 1493 keeps "the field won" and "the glyph was measured"
+      distinguishable, and LOCA_SHORT's long reading is genuinely out of range
+      (start=1048576, end=0). (5) _guide_rule_width's authority is really
+      reproduced: _PROBE_CLUES is ((1,),) (book_pdf_generator.py:2930), which is
+      what allowed() probes with. (6) An invented stroke width IS caught:
+      line.width * 1.5 in _stroke_layout reds
+      test_no_stroke_width_tone_or_type_size_is_invented. (7) The round's reported
+      figures check out: book1 sets 25 + 41 = 66 faces, min-trim 16 + 13 = 29,
+      against MINIMUM_FACES 50/20; min-trim's two absent kinds are real — both
+      pages land on fallback (False, False, 2) so no pipeline label, and
+      content_bottom 1335.5 / 1103.4 exceeds frame.bottom 1040 so CARD-200 omits
+      the folio. (8) The routed-out overflow finding is real and pre-existing:
+      all five fallback forms overflow the bottom margin at the 10 cm trim.
+      (9) G-6 holds — AST node-id set difference on both modified test files:
+      nothing removed, nothing renamed. (10) G-8 holds — the new test file names
+      no `create_guide_page`, and tests/test_suite_profile.py passes.
+    remedy: none
+    disposition: closed
+
+what_i_did_not_verify:
+  - >-
+    The full suite. Forbidden by the brief and never run. I ran the three touched
+    test files (248 passed) and a six-file blast radius chosen for the guards this
+    card could plausibly disturb — test_book_interior_type_floor.py (CON-020's
+    sibling), test_book_page_frame.py (the figure-declared-once guard the round
+    reports firing on it), test_collected_names.py, test_suite_profile.py
+    (G-8's snapshot), test_book_pdf.py and test_export_pdf.py (ADR-0042/R4, R5):
+    580 passed. Files outside those nine are unmeasured by me.
+  - >-
+    The renders. I did not look at ~/Documents/nonogram-reviews/CARD-296/; I took
+    the orchestrator's comparison of vector against raster as given, as instructed.
+  - >-
+    The port's string-for-string fidelity against create_guide_page. I verified
+    the two places the port's arithmetic could diverge structurally (the single
+    hoisted `pad = icon_layout.thick_rule`, which matches
+    book_pdf_generator.py:4361, and diagram_box against draw_example_line's crop
+    at :3056-3073) but I did not diff the two pages' section order, fallback
+    ladder or string set line by line against the raster method. G-1 compliance
+    rests on the orchestrator's render comparison plus those two checks.
+  - >-
+    Whether CARD-229's dots, when written, will actually take the polyline route
+    F-1 leaves open. F-1 measures that the route exists and that every alarm stays
+    green on it; it does not predict what CARD-229 will write.
+  - >-
+    The remaining 10 of the round's 16 reported mutations. Under the 2026-10-25
+    refire policy I re-fired in full the ones I gate on (3 planted artefacts of my
+    own) plus a 6-mutation sample of the round's (clamp removal, title recorded
+    and not drawn, the sCapHeight zero guard, the long_loca branch collapse, the
+    _excused_vector_methods subtraction, an invented stroke width). Every sampled
+    one reded the cell the round NAMED, with no collateral; I did not re-fire the
+    rest.
+  - >-
+    poppler's independent readings beyond what ran here. pdftotext is installed on
+    this host (no skips in the 248), so AC-5's extraction check really executed,
+    but I did not independently rasterise the guide or check dot roundness with
+    poppler — AC-3 is declined, so there is nothing to read back.
+
+corrections_to_the_brief:
+  - >-
+    I agree with all five items the orchestrator pre-verified, and re-derived two
+    of them in passing: _PROBE_CLUES is indeed ((1,),) and N-2's fix at
+    book_vector.py:587 is real and controlled. One refinement rather than a
+    disagreement: AC-3's DECLINE is sound, but the tripwire that stands in for it
+    is not (F-1). The decline's reasoning — the legend has had no dots since
+    CARD-221, CARD-229 is the inheritor, G-1 forbids drawing its design — survives
+    intact; what fails is the sentence that makes "no `c`" mean "no round shape".
+  - >-
+    Brief item 1 (does guide_page produce what its tests claim, or do writer and
+    reader share an assumption?): for TEXT the answer is no — the record-vs-stream
+    equality is a genuine two-sided control and I could not find a second
+    divergence site. The shared assumption is elsewhere: it is between the EC
+    test's tone regex and ContentStream.text's inline tone (F-3), and between the
+    round-shape claim and the path builder (F-1).
+  - >-
+    Brief item 2 (is the clamp correct for every diagram, and is a declared box
+    never checked?): the clamp is correct for every line diagram the page draws,
+    not just the three sampled — the two structural classes (framed, unframed)
+    are both covered, and the unframed icon layout provably has no clue entry to
+    leave unclamped. The unchecked declared boxes are the pipeline's and the
+    legend's (F-8), with no live overflow.
+  - >-
+    Brief item 3 (does AC-4's guard fail in both directions, and does it bind?):
+    it fails in both directions — the assertion is a set EQUALITY and names both
+    halves. It does not bind, for a reason the direction of the question did not
+    reach: the hole is the ATTRIBUTE set, not the function set (F-2).
+  - >-
+    Brief item 5 (does the difficulty-dots narrowing let through anything real?):
+    the narrowing is sound and the decision taken is the right one — the stand-in
+    surface makes it load-bearing, measured. What lets something through is the
+    RECEIVER predicate beside it (F-4). The round was right that a ContentStream
+    needs a route and right not to widen a round-shape bin; it gave the new name
+    the exemption without the binding rules that make the old name safe.
+  - >-
+    Brief item 6 (are the synthetic faces valid enough?): yes. They are
+    well-formed where it matters, the branch controls bind, and the one claim I
+    thought might be decorative — that the offset table is built the way
+    _sfnt_tables checks it — turns out to be true and load-bearing. This is the
+    best-controlled part of the round.
+  - >-
+    One thing the brief did not ask and the card should carry: the architectural
+    finding the round routed to CARD-298 is understated in one respect. Because
+    the guide is not wired in, EC(CON-020)'s "every reader-facing face on the
+    vector guide holds 10 pt" is asserted on a guide-only PDF and CON-020's
+    registry check stays green on the raster guide, so for the duration of the
+    phase BOTH the old and the new floor checks are measuring a page the book does
+    not ship. The orchestrator says CARD-298 inherits the end-to-end
+    verification; it should inherit this sentence too.
