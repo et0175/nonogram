@@ -538,6 +538,35 @@ does not ship. CARD-298 inherits that, with the end-to-end verification.
 
 It also removed a tautology it had written itself (`surface = GRID_ATTRIBUTES | ALLOWED` cannot fail) — the same self-catch discipline cycle 1 rewarded.
 
+## [FIX ROUND 2 PRE-GATE — 2026-10-26, orchestrator] PASSED
+
+Route (iii) taken: the claim is restated as **"no Bézier"** and the
+straight-segment approximation is carried as a **named limit with CARD-298 as
+owner** — and it is **declared open, not claimed closed**. That distinction is
+the whole point of this round.
+
+| check | result |
+|---|---|
+| **the restated claim, my own shape** | a round blob via the **raw `curve` operator** (two Béziers, not `round_mark`, not a polyline — a shape nobody in this chain has planted) reds exactly `test_no_guide_page_emits_a_curve_operator` on **both profiles**. 2 failed / 263 passed. |
+| **the named limit, honestly open** | the round's own third shape — a disc as 32 two-point stroked spokes — measures **265 passed**, which is *expected*: a limit that is carried is a limit that is open, and the card now says so. |
+| **the four sites + two more** | all six corrected, including both **merged** docstrings and `MAX_FLAT_VERTICES`' own comment — the precedent's identical hole is now stated at its definition (owner CARD-241) rather than cited as if it worked. |
+| suite | **980 passed** across the three touched files and the blast radius. |
+| **G-6** | AST name + parametrize-set per file: nothing removed or renamed; **one** cell added. |
+| **`src/`** | still docstring-only, proved mechanically — `ast.unparse` with docstrings blanked is **identical** to HEAD for both modules. |
+
+### The brief was mine and it was wrong in four places, three of them substantive
+
+1. **U+00B7 is not addable to `ROUND_DINGBATS` at all.** I wrote "add the two codepoints if that is cheap and true". U+00B0 is free. U+00B7 appears in string literals in **three** `src` modules — including the puzzle band's own separator at `book_pdf_generator.py:466` — so adding it would need exemptions covering the band, **exactly where CARD-207's glyph would hide**. The rule would mean less than it does now. Added U+00B0, recorded U+00B7 as the named hole with that measurement and CARD-241 as the instrument for a raster band.
+2. **N-2's annotation predicate cannot work.** I proposed pinning `cell`/`margin` as "lengths" — but both are annotated `int` in `Layout`, exactly like `rows` and `columns`, so no annotation predicate separates them. The round took my own parenthetical instead (a `getattr` arm plus transitively-rebound receivers), which pins all sixteen through the receiver rule.
+3. **N-3's narrower option would have broken the package.** Requiring a scalar-shaped first positional excludes a bare `Name` — and `stream.line(left, y0, left, y1)` / `stream.text(title_text, …)` is how **21 of the package's real calls** are written.
+4. N-1's "the named bound never binds" is true only on `book1`; at the minimum trim the `<= MAX_PATH_POINTS` cell is the only path-length assertion that runs.
+
+### Two things it did that are worth keeping as practice
+
+**It declared a cost rather than hiding it.** N-3's `ast.Call` arm is default-deny, so it also refuses an honest scalar written as a call (`stream.text(str(value), …)`). No call the package writes has that shape. Narrowing it would mean enumerating which calls return scalars — which ADR-0039/R2 says not to write — so the cost is in the helper's docstring instead.
+
+**It reported its own slip.** It reverted its own F-5 edit mid-round with a stray `git checkout`, caught it by sha256, and re-applied it; every later plant/restore went through verified snapshots.
+
 ## [CYCLE 3 — 2026-10-26] 7.0, NOT CERTIFIED — and the card is PARKED on the owner's decision
 
 `meta/review/20261026T074944Z-CARD-296-cycle3.yml`, reviewed `0b91ab18`.
@@ -692,3 +721,83 @@ scheduled for deletion. Rescued and committed here. The orchestrator's own
 copy of this card was also carrying fix round 2's **retracted** text — the
 "route is now closed" paragraph that cycle 2 disproved — while the worktree held
 the correction; main's copy is spliced to the honest version in this commit.
+
+## [OWNER DECISION — 2026-10-27] Land it as a declaration, as CARD-276 was
+
+The owner's words: *"let's land 296 as a declaration"*. Recorded as a **gate
+decision**, not a certification: the card merges at **7.0 against
+`min_score: 8`**, with `max_cycles: 3` spent, and the merge gate is what stands
+behind it.
+
+### The three edits cycle 3 put between 7.0 and 8 are made
+
+Cycle 3's verdict named three, "two of them one line of code each", and was
+explicit on the central question: ***"THE DISPOSITION IS RIGHT."*** All three
+are done in `18d136ac`:
+
+1. **F-301, the seventh site — closed.** `tests/test_book_difficulty_dots.py`
+   still read *"a polygonal disc … Bounded per page kind"*, under a lead-in
+   claiming each of the three routes *"is controlled elsewhere"* — the exact
+   claim this card retracts 350 lines away. **Two merged guards contradicted
+   each other on this card's central claim**, which is the worst form the defect
+   could take, because each reads as corroboration of the other. Now: two of
+   three are controlled, the third is a declared open limit, carrying cycle 2's
+   measurement and CARD-295's complement.
+2. **N-3 — closed, and at three sites rather than one.** Cycle 3 prescribed
+   "three ast types in one isinstance tuple". The same blindness was also in the
+   test's own two inline arms, so the question is now asked through one constant,
+   `SEQUENCE_DISPLAYS`. **One residue kept deliberately and named**:
+   `_names_bound_to_a_sequence` also counts `ast.Set` and this does not, so a set
+   display is reported by neither. Cycle 3 prescribed and measured the three
+   comprehension types; extending to `ast.Set` would have been an unmeasured
+   widening of a guard on the way out the door.
+3. **F-302 — corrected as a declaration, which is the only place it can be.**
+   AC-4's residue **is larger than the three limits the round declared**. A
+   complete second ruled grid is still drawable with the whole tree green —
+   cycle 3 planted one as a frozen dataclass whose field is annotated `Layout`
+   under a name `LAYOUT_SPELLINGS` does not seed, and measured **265 passed** on
+   the three touched files and **715** on the blast radius. **Six such routes
+   exist at helper level, none of them among the declared three**, and the
+   round's generalisation — *"all three are the same shape: a receiver whose type
+   a syntactic walk cannot establish"* — is **false for two of them**. The card
+   now says that instead of the three-item enumeration.
+
+### What is UNMET at merge, stated rather than implied
+
+- **AC-4 is not met.** Its declared residue was wrong and is now declared
+  correctly; the residue itself is open. The syntactic walk cannot enumerate its
+  own escapes, which is the finding, not a gap in effort.
+- **AC-3 was declined earlier in the card** and that decline is verified sound.
+- **The cross-page residue is CARD-298's**, which holds ADR-0042/R1's derived
+  per-page-kind check. CARD-295's round independently judged CARD-298 *not*
+  unowned in practice: every page kind reaching a page before wave 65 has its own
+  artefact-side guard.
+
+### The last mile shipped UNCERTIFIED, and this is the board's own rule
+
+`max_cycles` is a cycle budget, not a last-mile rule. **No reviewer has seen the
+three edits above** — they were made by the orchestrator on cycle 3's own
+prescription, and *"the reviewer told me to"* is not *"a reviewer saw the
+result"*. What stands behind them is the **merge gate alone**, plus the fact that
+F-301 and N-3 are a comment correction and a widened `isinstance` tuple
+respectively, each verifiable by reading. F-302 changes no code at all.
+
+**Deferred verification, declared.** At the time the edits were committed,
+CARD-292 was measuring suite timings **solo** on this box, and a rival pytest is
+precisely what invalidates its deliverable. So the two touched files, the blast
+radius and the full merge gate were all deferred until CARD-292 handed back. The
+gate result is recorded below when it runs; until then nothing here is claimed
+green.
+
+### The conflict resolution, because it decided whose claim survives
+
+Main had moved four files this branch also touches, and two conflicted — both
+where CARD-295's merged work meets this card's. The one that mattered:
+`test_book_pdf_vector_primitives.py`'s class docstring, where **main's text was
+taken over this branch's**, because CARD-295 cycle 1's F-004 had already
+retracted the same claim with *three* measured escape routes where this card had
+one, and named CARD-298 as owner. This card's 248-test 32-gon figure is kept
+here on the card rather than in that docstring. The derived
+`VECTOR_STREAM_METHODS` went the other way — this card's version survived
+CARD-295's hand-written `frozenset({"line","rectangle","text"})`, because a set
+derived from the class and narrowed by subtraction is the stronger guard.
