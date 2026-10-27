@@ -496,10 +496,24 @@ survives the worktree.
 **This is a snapshot of `main` at `bd2128b5`, lines 42–131 of
 `meta/kanban/config.yml`, and it is verbatim as of fix round 2 (2026-10-27).**
 The blob it quotes landed at **`e4d33dfa`** — the commit that corrected the
-rival-pytest prescription for the second time — and is unchanged at `main`'s
-head: `git rev-parse e4d33dfa:meta/kanban/config.yml` and
+rival-pytest prescription for the second time — and is identical at
+`bd2128b5`: `git rev-parse e4d33dfa:meta/kanban/config.yml` and
 `bd2128b5:meta/kanban/config.yml` are both
 `4a03afc785ab59c8d1e52afb89d145022c0a1248`.
+
+**`main` has since moved past that blob, and this section deliberately does not
+track it** — a snapshot is of a revision, and a committed artefact cannot be
+held to follow a sibling file other agents keep editing. Known movements after
+the extraction: `5e440f2f` extended the truth table from four cases to five
+(adding the `(d2)` column and naming all three rejected forms), and `01a411b6`
+corrected one of its own cells. **§7 below carries the five-case form and is the
+one to read for the instrument itself.**
+
+*Cycle 3's F-301, recorded where it happened:* this paragraph previously ended
+"and is unchanged at `main`'s head". That was **true when written and false by
+the revision this card merges into** — a present-tense claim about a file this
+card does not own, which is the same family as every other defect this document
+has had to withdraw. It is now a statement about named commits only.
 
 **This section has now been re-extracted twice, once per defective
 instrument.** The first draft claimed "verbatim" while prescribing
@@ -721,6 +735,28 @@ idle:
 | `pgrep -fi 'python.*pytest'` | 0 | 0 | **1 ← false +** | 1 | 1 |
 | `pgrep -f 'bin/python -m pytest'` | 0 | 0 | **1 ← false +** | **0 ← false −** | **0 ← false −** |
 | **`pgrep -f 'MacOS/Python.*pytest'`** | **0** | **0** | **0** | **1** | **1** |
+
+**The five cases, as the literal commands they were taken against** (cycle 3's
+F-302: the columns above were named by description, and `(d)` reproduces only
+for a wrapper this document had never shown — two readers measuring "a `zsh -c`
+whose argv says *pytest*" can pick different wrappers and get different cells,
+which is exactly how `(d)` and `(d2)` came to differ):
+
+```
+(c)  nothing running
+(d)  /bin/zsh -c 'sleep 8; : run the pytest suite'          # says pytest, NOT python
+(d2) /bin/zsh -c 'sleep 6; : .venv/bin/python -m pytest tests/'
+(a)  .venv/bin/python -m pytest -o addopts='' --collect-only -q
+(b)  .venv/bin/pytest        -o addopts='' --collect-only -q
+```
+
+`(d)` is the shape that separates `pgrep -fi 'python.*pytest'` (reads **0** here,
+because the wrapper never says *python*) from `pgrep -f 'pytest'` (reads **1**).
+A wrapper that *does* say *python* — the orchestrator's own `(d)` when it
+re-measured this table on `main` — makes that row read **1** instead. Both
+readings are correct about their own wrapper, and that sensitivity is itself the
+disqualification: an instrument whose answer depends on how a neighbouring
+command happens to be worded is not measuring the box.
 
 Only the last row is right in all five columns — and the row above it, fix
 round 1's, is wrong in **three**: it is false-negative on both real pytests
