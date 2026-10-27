@@ -317,3 +317,146 @@ The full suite was **not** run and `meta/kanban/.full-suite.lock` was never take
 and does not exist. One env override, disclosed: `NONOGRAM_TEST_HANG_SECONDS=600`
 for the **M10 arm only**, so the uncheapened test could report its cost instead of
 being killed at 120 s; every other run used the shipped default.
+
+## [FIX ROUND 1 — 2026-10-27] `db0e1a3e` — both gating findings closed, and the inflation's cause found
+
+Three files: `tests/test_book_export_interior_cover.py`,
+`meta/profiling/card-292-per-test-ceiling.md`,
+`meta/profiling/card292_plant_reads.py`. `src/` and `pyproject.toml` zero diff
+against base. Nothing under `meta/kanban/**` or `meta/review/**` committed.
+
+### Behaviour unchanged, and it is PROVED rather than asserted
+
+The test file was parsed at `98482d2c` and at HEAD, **every docstring stripped**,
+and the `ast.dump`s compared — **identical**. So the whole test-tree change is
+comments and docstrings. The only non-prose delta in the round is one local
+renamed in the probe (`total_bytes` → `total_chars`) plus the label it prints.
+This is the strongest claim in the round and it is the right way to make it.
+
+### F-001 — closed in three parts, plus two additions the brief did not ask for
+
+The failure was **reproduced** rather than taken from the review: `pgrep -fc` →
+usage line on stderr, **exit 2**, `X=$(...)` → `X=[]`. Working form returns `0`.
+
+* **Prescriptions corrected** in §4 and §6.
+* **A second instance of the same class, which cycle 1 did not flag.** §4's
+  triage rule still *prescribed* `ps -Ao command | grep -c '[m] pytest'` with the
+  predicate `> 1` — and the round measured that baseline at **1**, where the card
+  measured **2** and the orchestrator measured **3**. Three readings, three
+  values, for a figure used as a constant. §4 no longer prescribes it. *A fix
+  audits the defect class, not the instance* — this one did.
+* **The prose claim is withdrawn, not reworded.** §7 said `pgrep -fc` "returned
+  0"; the document now states it cannot have, with the trace inline.
+* **§6's "verbatim" now holds by construction**: the block is **extracted
+  programmatically** from `main:meta/kanban/config.yml`, not retyped, `diff`
+  against its lines 42–88 is empty, and the section names the snapshot commit.
+* **The `0 / 0` results cell is marked NOT ESTABLISHED, not relabelled.** The
+  provenance cannot be recovered, and the document says so — including that the
+  true value is almost certainly 0 and that *"almost certainly is not a
+  measurement"*. **No provenance was invented**, which was the one way this fix
+  could have made things worse.
+* **A positive control for the instrument**, which is what closes F-001 properly
+  rather than cosmetically: a cell reading 0 because it is **broken** and one
+  reading 0 because the box is **quiet** are indistinguishable from the figure
+  alone. So the working form was taken **both ways** — `0` with nothing running,
+  and **`1` taken deliberately while §8.2's own run was in flight**. The cell can
+  rise, and it rose.
+* It also corrected cycle 1 on a detail, by reproducing instead of copying:
+  cycle 1 quoted the usage line as `[-Lfilnoqvx]`, and `man pgrep`'s SYNOPSIS on
+  this box reads `[-Lafilnoqvx]`. Neither carries a `c`; both spellings recorded.
+
+### F-002 — closed, with the unit named
+
+All four sites now read **381 KiB**, the exact byte figure beside the first.
+`grep -rn "306 KB" tests/` is empty; the two surviving mentions elsewhere are
+quotations of the refuted story, inside quote marks.
+
+### THE CAUSE OF THE 9.9× INFLATION, which is the round's best finding
+
+Cycle 1 said the headline pair was cProfile-inflated. The fix found **why**, and
+it is worse than inflation: **the published pair was never two readings of one
+instrument.** `0.2864 s` matches the **unprofiled** memoised arm (0.278–0.282 s)
+and not the profiled one (0.7323 s), while `2.8429 s` matches the **profiled**
+stdlib arm. A ratio was formed by dividing a profiled numerator by an unprofiled
+denominator. **Which half is mislabelled cannot now be recovered**, and the
+document says exactly that.
+
+Measured properly, with both arms through one door:
+
+| door | figure |
+|---|---|
+| no profiler, 3 readings back to back in one process | 2.2565 / 2.2575 / 2.2663 s → 0.2781 / 0.2814 / 0.2819 s = **8.0×** (8.11 / 8.02 / 8.04); split **87.7 %** by difference |
+| `cProfile`, **both** arms profiled | 2.9691 → 0.7323 s = **4.05×**; `_splitlines_no_ff` **76.1 %** tottime, **80.2 %** cumtime |
+
+So the round also **corrects cycle 1's own replacement figure** — cycle 1 offered
+8.2 × / 80 %, the measurement is 8.0 × / 87.7 %. Earlier commit messages on the
+branch carry `9.9×` and **cannot be rewritten**; the document is where the
+correction lives, and it says so.
+
+### F-003 — restated, not deleted, and the claim survives
+
+`ast.get_source_segment` passes `maxlines=end_lineno+1`, so it splits a
+**prefix**, not the whole source — the original mechanism statement was false and
+the file contradicted itself 70 lines later. But the cost claim holds restated:
+649 splits re-scan **127,608,978** characters of 389,177 = **50.5 %** per call,
+so the cost is still ∝ calls × module size. **Same exponent, half the constant.**
+
+### F-005 — the attribution was wrong in a way worth recording
+
+**716** `_source_segment` calls, **649** reaching the split (67 nodes unlocated),
+**740** `ast.get_source_segment` in total (716 + **24** from the file's two cold
+sites), **673** splits. **675 is a figure neither function produces.** The chain:
+**25,873** calls over **108** analyses = mean **240**, not 675 — and 675 × 108 is
+2.8× the truth.
+
+### F-008 — DECLINED, with the consequence stated
+
+The optional AST control (assert `segment()` resolves to `_source_segment`) was
+declined, and the reason is a good one: it would turn **M10 from §8.1's control
+into a kill**, so the matrix row cycle 1 independently reproduced would no longer
+describe the tree. The consequence is stated plainly rather than hidden — the
+memo's **existence** is guarded (M1 dies), its **use at the one hot call site is
+not**, so the file can return to ~113 s with **no cell firing** — and named for a
+successor card, with the two cold stdlib sites at lines **1438** and **2913**.
+
+### Its own additions mutated, including a declared SURVIVOR
+
+The prose adds no mechanism (proved by the AST equality above), so there is no
+mutant to plant for it — stated rather than invented. The probe's one non-prose
+delta got two, line-count preserving, each on its own selection:
+
+* **P1**, deleting the unit mechanism (`len(text)` → `len(text.encode())`):
+  **SURVIVES** all 542. Its only control is running the probe and reading the
+  label, which then prints 44,972,712 under a label saying characters. **Declared,
+  not hidden.**
+* **P2**, deleting the file's parseability: **KILLED, two cells**, both in
+  `tests/test_suite_profile.py`.
+
+That pair measures the guard's **reach**: `GUARDED_DIRECTORIES = ("tests",
+"meta/profiling")` is live, but it guards **parseability and host-state silences,
+not figures**. `git hash-object` on the restored probe equals the pre-mutation
+copy, so what is committed is byte-identical to what was gated.
+
+### Pre-gate
+
+`-o addopts=''` throughout (never a bare `-q`), `NONOGRAM_TEST_HANG_SECONDS` and
+`NONOGRAM_FULL_SUITE_LOCK` **unset for the whole round**, the board's lock never
+taken and absent, full suite **not** run.
+
+| | the two changed files TOGETHER | derived blast radius |
+|---|---|---|
+| collected | **542** (132 + 410) | **2325** (zsh array length 29) |
+| passed / skipped / failed | **542 / 0 / 0** | **2310 / 15 / 0** |
+| exit | 0 | 0 |
+| wall | 122.62 s | 308.46 s |
+| load, rival-pytest | 5.02 → 3.96, 0 / 0 | 3.96 → 8.03, 0 / 0 |
+
+Skips by name: row 1 none; row 2 **14 ×** `conftest.py:207` and **1 ×**
+`test_book_pdf_memory.py:1296` — the two baseline shapes. No test reached the
+120 s ceiling: both rows ended with a summary line and exit 0, which the guard's
+`_exit()` forbids. Confirmation re-run at the committed revision: 542 collected,
+**542 passed**, exit 0, 131.51 s.
+
+Running the two files together matters for a second reason beyond §7.1's
+precedent: `meta/profiling` is inside `GUARDED_DIRECTORIES`, so that row is the
+one that judges the probe edit.
