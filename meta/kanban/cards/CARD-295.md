@@ -1,6 +1,6 @@
 # CARD-295: The puzzle page as operators — the grid, the frame, the clue digits and the band, drawn from the Layout it is handed
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/295-puzzle-page-as-operators
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-295
+**Worktree:** — (removed at merge)
 **Source:** ADR-0042 (DEC-048), 2026-10-25; CARD-293's spike §6 item 3. Cut by the architect/decompose pass that followed the ADR's acceptance.
 **Idea:** —
 **Wave:** 61
@@ -19,9 +19,9 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf_band.py, tests/test_book_cell_size.py
 **Review score:** —
 **Started:** 2026-10-26
-**Closed:** —
+**Closed:** 2026-10-26
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** `ec6e4a06`
 **Blocked by:** —
 
 ## What to implement
@@ -507,3 +507,58 @@ The DECLINED section was **not in `defab5c7`** — I reset the card out of the
 branch commit (meta/kanban never enters a branch) and the 122 lines lived only in
 the worktree. *"The one artefact whose whole point is to outlive the round"*
 would not have. Synced to this file before the merge gate.
+
+## [MERGED — 2026-10-26] `ec6e4a06`, and the gate found what two review cycles did not
+
+**Merge gate, attempt 2: 9305 passed, 29 skipped, 0 failed, 0 errors.** Load
+2.96 at start, 3.02 at end — the first use of CARD-292/AC-6's convention.
+
+**Attempt 1 was RED**, three tests in `tests/test_book_export_interior_cover.py`,
+and the card was certified at 9.0 with 0 gating findings when it happened. All
+three came from one new line — `vector_puzzle_pages`' walk default,
+`1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT` — which is an **eighth** guide-counting
+expression and a **twenty-fourth** page position.
+
+* **Both arms measured before attributing**, which is CARD-292's rule and the
+  thing that card exists because nobody did: main carries **19**
+  `GUIDE_PAGE_COUNT` loads, the merge result **20**, and the merge adds exactly
+  one. Main alone was green.
+* **The guards were right and the code was right.** All three are equalities
+  built to red when a page position appears; the position one says so in its own
+  failure message. Removing the default was the other route and was rejected:
+  nothing in `src/` calls `vector_puzzle_pages`, only two tests do, but the walk
+  reads `MODULE = src/nonogram/admin/book_pdf_generator.py` alone — so moving
+  the expression into the tests would **hide** a page position from the guard
+  rather than declare it.
+* **Every figure re-measured, not bumped**, by calling the walks directly (a
+  pure AST pass — seconds, against the ~470 s the enclosing file costs): sites
+  23→24, expressions 7→8, cost sequence 760→**770**, 509→**517**, 203→**204**,
+  201→**202**, derived drops (251, 306, 2, 201)→(**253, 313, 2, 202**), module
+  call count 816→**832** in prose (deliberately never pinned — an equality there
+  reds on any added call anywhere).
+* **A trap worth recording.** The edit was applied as 16 replacements each
+  anchored on copied text and asserted to occur exactly once, **not** a numeric
+  replace: `203` and `201` appear on 10 and 12 lines of that file, almost all of
+  them `CARD-201` / `F-201` / `F-203` identifiers. A find-and-replace would have
+  corrupted the file silently and plausibly.
+
+### What this says about certification, and it is not about this card
+
+A 9.0 with **0 gating** did not mean "merges clean", because both review cycles
+ran a **targeted selection** rather than the full suite. The gate caught a real
+consequence of the diff that the round never looked for, and this is the second
+time in wave 61 that the gate, not the review, was the thing that found it
+(CARD-283's was the first, and that one turned out to be the orchestrator's own
+broken `main`). The cheap fix is for a review's scope to include the structural
+guard files that a card's `src/` changes touch — those guards are AST walks, not
+renders, so they cost seconds. **Owner decision, not this card's to take.**
+
+### One figure stated with its limit
+
+The **29 skips are +2** against the 27 of the three preceding gates, and that
+delta is **not attributed**. This card's own files contribute **zero** skips (the
+new file runs 40 passed with poppler present, and its only skip mechanism is
+`needs_poppler`), so it is main-side drift that would need a full `-rs` run to
+place. Recorded rather than called benign, and routed to CARD-292 — whose own
+notes already complain that three gate figures were "reported to the owner as a
+fact about the tree, each unqualified".
