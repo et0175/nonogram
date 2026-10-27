@@ -48,15 +48,22 @@ review:
   # and again after the last:
   #
   #   load-start / load-end   `sysctl -n vm.loadavg`, both ends.
-  #   rival-pytest            `pgrep -fc 'bin/python -m pytest'`, both ends.
+  #   rival-pytest            `pgrep -f 'bin/python -m pytest' | wc -l`, both
+  #                           ends. NOT `pgrep -fc` -- BSD/macOS pgrep has no
+  #                           -c flag and exits with a usage error, which in a
+  #                           `$(...)` cell silently yields an EMPTY host cell
+  #                           rather than a count. Found 2026-10-27 the first
+  #                           time this convention was executed.
   #                           THIS is the cell that decides whether the run was
   #                           quiet; the load averages are context. NOT
   #                           `ps -Ao command | grep -c '[m] pytest'`, which was
   #                           the idiom in use and which counts THIS AGENT'S OWN
   #                           `zsh -c` wrapper lines: measured 2026-10-27 it
-  #                           returns 2 with no pytest running at all, so its
+  #                           returns 2-3 with no pytest running at all, so its
   #                           baseline moves with the shape of the command that
-  #                           asks. pgrep counts processes and returns 0.
+  #                           asks -- measured 2 by CARD-292 and 3 by the
+  #                           orchestrator an hour later, which is the point.
+  #                           pgrep counts processes and returns 0.
   #   per-test ceiling        whether any test's SUMMED setup+call+teardown
   #                           reached tests/hang_guard.py's HANG_SECONDS
   #                           (120 s), and the dearest test's figure.
