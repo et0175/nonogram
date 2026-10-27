@@ -597,7 +597,7 @@ pytest` — and that column settles what the orchestrator's "fix" really was:
 |---|---|---|---|---|---|
 | `pgrep -f 'pytest'` | 0 | 1 FP | 1 FP | 1 | 1 |
 | `pgrep -fi 'python.*pytest'` | 0 | 1 FP | 1 FP | 1 | 1 |
-| `pgrep -f 'm pytest'` (cycle 2's remedy) | 0 | **1 FP** | 1 FP | 1 | 1 |
+| `pgrep -f 'm pytest'` (cycle 2's remedy) | 0 | **1 FP** | 1 FP | 1 | **0 FN** |
 | `pgrep -f 'bin/python -m pytest'` (the orchestrator's) | 0 | 0 | **1 FP** | **0 FN** | **0 FN** |
 | **`pgrep -f 'MacOS/Python.*pytest'`** | **0** | **0** | **0** | **1** | **1** |
 
@@ -706,3 +706,110 @@ second is not, and it is declared as a bound rather than claimed. Where fix roun
 1's claimed positive-control `1` came from — unchanged from cycle 2, and the
 paragraph is **replaced by a trace actually taken** rather than defended. Whether
 the prescribed pattern works on a **non-framework** venv.
+
+## [CYCLE 3 — 2026-10-27] **CERTIFIED, 8.5**, zero gating
+
+`meta/review/20261027T204514Z-CARD-292-cycle3.yml`, reviewed `59e7b58a`. The last
+cycle of three. **Both of cycle 2's gating findings are closed, and each was
+re-derived through a door the card did not use.** AC-1..AC-6 **all MET**,
+G-1..G-7 **all MET**.
+
+### AC-6 is MET, established rather than read
+
+Deciding cell: §8.2's `rival-pytest, start / end` through
+`pgrep -f 'MacOS/Python.*pytest' | wc -l`. The reviewer did not read the card's
+trace — it took its own: the cell **rises** (1 at t=40 s and t=140 s inside its
+own blast-radius run, live argv and pid printed) while the blind form read **0
+throughout a 321 s pytest**, and it **stays down** (0 on three distinct `zsh -c`
+wrappers, including one spelling `.venv/bin/python -m pytest`, which makes the
+predecessor read 1). **So a 0 from that cell is now informative**, which is
+exactly what cycles 1 and 2 said it was not.
+
+### The blast radius was RE-RUN, not carried — and it is green
+
+**2310 passed / 15 skipped / 0 failed**, collected 2325, exit 0, one summary
+line, 321.22 s, load 9.41 → 10.21. Skips by name: **14 ×** `conftest.py:207`,
+**1 ×** `test_book_pdf_memory.py:1296`. Zero at or over the 120 s ceiling,
+derived from §1.1's **kill signature** (exit 1 + zero summary lines) rather than
+from a timer. Switch-name attribution exact in all three directions: absent
+`98482d2c`, present `db0e1a3e`, gone `59e7b58a`, and all 54 remaining tracked
+namers at HEAD are exempt.
+
+### The declared bound is CLOSED by enumeration
+
+Fix round 2 could not establish whether any cell other than the full-suite-lock
+one reads a `.md` path. **Exactly one does**, and it is the one that bit:
+`test_nothing_in_the_tree_sets_either_of_the_guards_env_switches` runs
+`["git","grep","-l",…]` with **no pathspec at all**, exempting three exact paths
+plus `.md`/`.yml` under `meta/kanban/cards/` and `meta/review/`. Two further
+cells touch `meta/profiling/` non-`.py` files **by name only** —
+`_tracked_under_guard` returns every tracked path but `_guarded_sources` filters
+`.endswith(".py")`, and its one unfiltered consumer **symlinks** rather than
+reads. **Nothing globs `*.md`.** So that selection is sensitive to
+`meta/profiling/` for **two tokens of text and the set of paths** — nothing else.
+
+### The §6 ruling, which went against the orchestrator on a narrower charge
+
+The orchestrator disclosed that it had changed `config.yml` *after* fix round 2
+snapshotted §6 from `bd2128b5`. **The reviewer declined the broad charge and
+found a narrow one**, having measured first: §6 is verbatim at the commit it
+names (`diff` empty, sha256 equal to the digest the document publishes, blob
+identical at `bd2128b5` and `e4d33dfa`), and *"holding a committed artefact to
+track a sibling file a different agent edits afterwards is a rule no card could
+satisfy."* What it found against is **one clause written in the present tense
+about a thing the card does not own** — *"and is unchanged at `main`'s head"* —
+true when written, **false at the revision this card merges into**. **F-301,
+minor.** **F-302**, also minor: §7's (d) column reproduces only for a wrapper the
+document never shows, and §6's snapshot labels a different one.
+
+### F-303 — a cell of the ORCHESTRATOR's own table did not reproduce
+
+Cycle 2's remedy `pgrep -f 'm pytest'` is also a **false NEGATIVE** on the
+`.venv/bin/pytest` console-script launch: it reads **0**, because that argv holds
+`bin/pytest` and never ` -m pytest`. `meta/kanban/config.yml` and this card both
+recorded **1**. Re-measured and corrected in this commit. **The orchestrator had
+measured that 0 an hour earlier in the same session and transcribed a 1** — which
+is precisely why the table exists, and it makes cycle 2's remedy wrong in **both**
+directions, strengthening the fix round's refusal of it.
+
+### Things the review strengthened rather than accepted
+
+* **AST equality, with a control the round lacked**: instead of only deleting
+  docstrings, it **canonicalised** them — identical dumps, **18,620** nodes
+  identical, **1,685** non-docstring constants identical, and **exactly one
+  docstring changed** (`TestSourceSegment_TheMemoIsTheStdlibAnswer`, line 6322 —
+  F-202's own correction). Door disclosed: its absolute `dump_len` differs from
+  the card's by 30 characters, a method difference, identity being the claim.
+* **"Write-only" verified, not accepted**: `nchars` occurs once with ctx `Store`,
+  **0** `Load`, and `nbytes` is gone from the file — so F-204 really is fixed as
+  a class.
+* **F-202 closed through a THIRD door, statically**: 36 `DOOR_SHAPES` × 2
+  `DOOR_ARMS` removed singly + 36 with `door_arms=()` = **108**, each routed
+  through `_plant`, which returns `source.replace(DERIVED_POSITION, body) + extra`
+  after asserting a 3-line body — so `source` is never `None` and never the
+  unmodified module **by construction**, not by sampling.
+* **Mutation**: the round adds no mechanism and that is **true**, but two cells
+  were re-fired anyway. **P2′** (unbalanced `(` on the line fix round 2 actually
+  changed) kills both named cells separately. **M-SW** — one guard switch *name*
+  planted in a tracked `meta/profiling` file — reds exactly
+  `test_full_suite_lock.py:614` with the assertion the card quotes. Both restored
+  with `git hash-object` equal to the tracked blob, and **no env switch was set
+  anywhere** in the review.
+
+### Could not establish, in those words
+
+Whether the card's trace pids **28140 / 28719** were the processes claimed — *a
+past pid leaves no instrument* — though the same control on the reviewer's own
+pids gives the same readings and argv shape, and the card is **not charged** for
+the gap. Whether the prescribed pattern works on a **non-framework** venv (it
+would not, by the mechanism, and the document declares that bound). The
+provenance of §8's withdrawn `0 / 0`, unchanged. Why the stripped dump lengths
+differ by 30 characters.
+
+### What the merge gate owes
+
+Re-derive **2325** at the merge commit; **run the full suite**; re-check
+`git grep -l` for the two switch names on the **merged** tree — one command, and
+the one this card has now paid for twice. F-301/F-302 are two one-line prose
+edits; F-303 and F-305 are the orchestrator's. **CARD-302 still owes F-008's
+control.**

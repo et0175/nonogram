@@ -57,7 +57,7 @@ review:
   #                             instrument                      (c) (d) (d2) (a) (b)
   #                             pgrep -f 'pytest'                0   1   1    1   1
   #                             pgrep -fi 'python.*pytest'       0   *   1    1   1
-  #                             pgrep -f 'm pytest'              0   1   1    1   1
+  #                             pgrep -f 'm pytest'              0   1   1    1   0
   #                             pgrep -f 'bin/python -m pytest'  0   0   1    0   0
   #                             pgrep -f 'MacOS/Python.*pytest'  0   0   0    1   1
   #
@@ -80,7 +80,15 @@ review:
   #                           Row 3 is the remedy CARD-292's review cycle 2
   #                           prescribed; its fix round measured it, refused it
   #                           and said so, which is the behaviour this table
-  #                           exists to make possible.
+  #                           exists to make possible. Row 3's (b) cell read
+  #                           1 here until CARD-292's cycle 3 recomputed it:
+  #                           it is 0, because the console script's argv holds
+  #                           `bin/pytest` and never ` -m pytest`. So row 3 is
+  #                           wrong in BOTH directions too, like row 4. The
+  #                           orchestrator had measured that 0 an hour earlier
+  #                           and transcribed a 1 into this table -- which is
+  #                           why the table is here: a figure is a claim, and
+  #                           its control is recomputation.
   #
   #                           TWO REJECTED FORMS, both of which LOOK like they
   #                           work:

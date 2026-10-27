@@ -1,0 +1,927 @@
+card: CARD-292
+cycle: 3
+max_cycles: 3
+reviewed:
+  branch: card/292-measure-the-per-test-ceiling
+  head: 59e7b58a
+  merge_base: 6e0aadca
+  prior_reviewed_revisions: [98482d2c, db0e1a3e]
+  fix_round_diff: db0e1a3e..59e7b58a
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-292
+  main_at_review: 5e440f2f
+score: 8.5
+threshold: 8
+certified: true
+verdict: >-
+  CERTIFIED (8.5 of 10, threshold 8). Both of cycle 2's gating findings are
+  closed and I re-derived each through a door the card did not use. F-201 is
+  closed properly rather than plausibly: I reproduced the whole five-case
+  instrument table myself, and the prescribed form
+  `pgrep -f 'MacOS/Python.*pytest' | wc -l` reads 0 idle, 0 on three different
+  pytest-mentioning shell wrappers, and 1 on both real launch shapes - and I
+  took the positive control inside my own re-run of the card's declared blast
+  radius, twice (t=40 s and t=140 s, prescribed 1, blind form 0, with the live
+  argv printed). So AC-6 is MET, on the cell §8.2 says decides it. F-202 is
+  closed and I confirmed its domain claim through a THIRD door - statically,
+  from the test's own code (36 DOOR_SHAPES rows x 2 arms removed singly, plus
+  36 with both removed, every one routed through `_plant`, which substitutes a
+  three-line body into the module's text), and incidentally through the card's
+  own page-cache probe, whose 108 reads of the real module per run are one read
+  per analysis followed by a plant. The round's load-bearing declaration, that
+  the whole test-tree change is prose, is TRUE and I proved it more strongly
+  than the round claimed: canonicalising docstrings rather than deleting them
+  gives identical dumps, the node census is identical at 18,620 nodes, all
+  1,685 non-docstring constants are identical, and EXACTLY ONE docstring
+  changed - the class at line 6322, which is F-202's correction. The round's
+  own best finding reproduces exactly: the revision cycle 2 reviewed was RED on
+  this card's own declared blast radius, the attribution is exact, and the fix
+  (not naming the switches, rather than widening a standing guard's allowlist)
+  is the right one - I fired a mutant that establishes the cell the fix named is
+  the cell that reds. I re-ran the blast radius myself at HEAD and it is GREEN -
+  2325 collected, 2310 passed / 15 skipped / 0 failed, exit 0, one summary line,
+  both skips attributed by name. I also CLOSED the bound fix round 2 could only
+  declare. It is not a 9 because two one-line prose defects survive on the
+  branch and both are in the class this card exists to police - an instrument's
+  domain left unstated (F-302) and a provenance claim that has stopped being
+  true (F-301) - and because I found one cell of the board's own re-measured
+  truth table that does not reproduce (F-303). None of them moves a figure, a
+  conclusion or a deciding cell.
+
+host_state_of_this_review:
+  box: Mac15,6 (Apple M3 Pro, 11 cores, 19,327,352,832 B), macOS 26.7.1 / Darwin 25.6.0
+  python: 3.14.3, pytest 9.1.1
+  interpreter_check: >-
+    Verified BEFORE any figure, as the brief requires.
+    /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python resolves
+    `nonogram` to MAIN's src by default - printed
+    /Users/omelnikova/PycharmProjects/PythonProject4/src/nonogram/__init__.py.
+    Every pytest run in this review was invoked with the WORKTREE as cwd, and
+    the gate script printed
+    NONOGRAM_FILE .../PythonProject4-card-292/src/nonogram/__init__.py
+    from an explicit `sys.path.insert(0, "src")` before the first test ran.
+    Standalone probes were run with `-I` and an explicit worktree path.
+  full_suite_lock: >-
+    never taken, ABSENT at every check, and NONOGRAM_FULL_SUITE_LOCK never set.
+  full_suite_run: not run (per the brief).
+  env_overrides_i_set: >-
+    NONE. `env | grep -ci nonogram` printed 0 before the blast-radius run and
+    again at the end of the review, so no guard switch and no hang override was
+    set for any figure here. One DISCLOSURE: mutant M-SW below plants the
+    literal lock-path switch NAME into a tracked file under meta/profiling/ for
+    about one second and restores it with a `git hash-object` check - that is a
+    text plant, not an environment setting, and it is the mutant that proves the
+    guard which bit db0e1a3e is live. This artefact deliberately does not spell
+    either switch name, even though meta/review/*.yml is on that guard's
+    exempted prefixes with an exempted extension (verified -
+    OVERRIDE_PROSE = ("meta/kanban/cards/", "meta/review/"),
+    PROSE_SHAPES = (".md", ".yml"), tests/test_full_suite_lock.py:462/494).
+  load_averages: >-
+    9.41 -> 10.21 across the blast-radius run (higher than the card's 4.87 ->
+    4.08, because I ran AST analysis concurrently with it - disclosed, and it
+    cannot affect a pass/fail cell; my wall is correspondingly longer).
+  rival_pytest_at_every_timed_run: >-
+    0 at both ends of the blast-radius run by `pgrep -f 'MacOS/Python.*pytest'
+    | wc -l`, with the positive control taken twice from the run's own pytest
+    inside the same script (1, blind form 0). The blind form and cycle 2's
+    remedy were recorded alongside at every sample, so this review's own cells
+    carry three readings rather than one.
+  uncommitted_in_worktree: >-
+    meta/kanban/config.yml only, carrying the stale text, left strictly alone
+    per the brief. `git status --short` showed that file and nothing else after
+    every mutant and at the end of the review.
+  committed_by_this_review: >-
+    nothing. This artefact is written into the MAIN checkout under
+    meta/review/, which the brief forbids committing.
+
+priority_one_the_blast_radius_rerun:
+  verdict: GREEN at 59e7b58a, reproduced independently, not carried forward
+  selection_derivation: >-
+    Derived, not copied - the document's own grep, run by me in a zsh script so
+    the array length is printed rather than word-split:
+    `grep -rln 'hang_guard\|rank_durations\|PROFILING\|rglob("\*.py")\|ls-files'
+    tests/test_*.py` -> array length 29, the same 29 paths the document names.
+  cells:
+    array_length: 29
+    collected: 2325 (`--collect-only -o addopts='' -q` -> "2325 tests collected in 1.57s")
+    passed_skipped_failed: 2310 / 15 / 0, and 2310 + 15 = 2325 reconciles
+    exit: 0
+    summary_lines: 1
+    wall: 321.22 s (pytest's own line; the document's run was 295.69 s at a lower load)
+    load_start_end: 9.41 -> 10.21
+    rival_pytest_start_end: 0 / 0 through `pgrep -f 'MacOS/Python.*pytest' | wc -l`
+    rival_pytest_in_flight: 1 at t=40 s and 1 at t=140 s, blind form 0 at both
+    at_or_over_the_120s_ceiling: >-
+      0 - derived from §1.1's kill signature rather than from a timer: the guard
+      calls _exit(), so a run that hits it ends exit 1 with ZERO summary lines.
+      This run ended exit 0 with exactly one summary line.
+  skips_by_name:
+    - "14 x tests/conftest.py:207 - Database not reachable: DATABASE_URL is not set"
+    - >-
+      1 x tests/test_book_pdf_memory.py:1296 - setrlimit(RLIMIT_AS) cannot bound
+      a process on this platform, the kernel refuses it (ValueError: current
+      limit exceeds maximum limit)
+  note_on_my_own_procedure: >-
+    Attributed with `-rs` under `-o addopts=''` and read off the COUNT LINE, not
+    off progress characters. Two cosmetic defects in my own script, recorded
+    rather than dropped: zsh `print` refused my "--- label ---" lines ("bad
+    option: -"), which lost three labels and no measurement, and $EPOCHREALTIME
+    was unavailable so my own wall printed 0 - I therefore take pytest's own
+    321.22 s rather than a number my script did not produce.
+  the_switch_name_fix_and_its_attribution:
+    verdict: FIXED, and the attribution is exact in all three directions
+    evidence: |
+      $ for rev in 98482d2c db0e1a3e 59e7b58a; do
+      >   git grep -l -e <override> -e <lock path var> $rev -- meta/profiling; done
+        98482d2c   (none)            <- absent before fix round 1
+        db0e1a3e:meta/profiling/card-292-per-test-ceiling.md   <- introduced there
+        59e7b58a   (none)            <- gone at the reviewed HEAD
+      And the whole tracked tree at 59e7b58a: 54 paths still name a switch and
+      every one is exempt - 13 under meta/kanban/cards/, 38 under meta/review/
+      (all .md/.yml), plus tests/README.md, tests/full_suite_lock.py and
+      tests/test_full_suite_lock.py, which are the three OVERRIDE_NAMERS.
+      So the document is out of the offender set and nothing else moved into it.
+
+priority_one_the_closed_bound:
+  what_fix_round_2_declared: >-
+    "Whether any cell OTHER than the full-suite-lock one among the 29 files
+    reads a `.md` path - the reach of the guard that bit is measured, the
+    absence of a second is not."
+  verdict: CLOSED. I enumerated it instead of leaving it declared.
+  method: >-
+    AST over all 29 files (every read_text / read_bytes / open / iterdir /
+    rglob / glob / walk call, every string constant containing ".md", every
+    constant containing "grep" or "ls-files"), plus `grep -rn` for '*.md',
+    `suffix == ".md"`, `endswith(".md")` and PROSE_SHAPES, plus a read of every
+    git invocation that runs against the LIVE repo rather than a tmp_path plant.
+  result: |
+    Exactly ONE cell among the 29 files reads the repository's .md CONTENT
+    tree-wide, and it is the one that bit:
+      tests/test_full_suite_lock.py::test_nothing_in_the_tree_sets_either_of_the_guards_env_switches
+      - `["git", "grep", "-l", "-e", OVERRIDE, "-e", LOCK_PATH_VAR]` at
+        tests/test_full_suite_lock.py:505, cwd = the repo, no pathspec at all.
+      - exempts only OVERRIDE_NAMERS (three exact paths) and .md/.yml under
+        ("meta/kanban/cards/", "meta/review/"). meta/profiling/ is not exempt.
+    TWO further cells touch meta/profiling/ non-.py files by NAME ONLY, and the
+    distinction is load-bearing:
+      tests/test_suite_profile.py `_tracked_under_guard` runs
+      `git ls-files -z -- tests meta/profiling` (line 3908) and returns EVERY
+      tracked path, not just *.py. `_guarded_sources` then filters
+      `.endswith(".py")` (line 3975), so every content read is .py; the only
+      consumer of the unfiltered list writes a sandbox in which non-.py files
+      are SYMLINKED, never read (`if source.suffix == ".py": write_bytes(...)
+      else: symlink_to(...)`, with `assert len(mirrored_names) > 100`).
+      So an ADDED or RENAMED artefact under meta/profiling/ is in scope there;
+      its TEXT is not.
+    tests/test_guard_integrity.py resolves the same two territories with a
+    plain walk restricted to *.py (`_python_sources`, line 131).
+    Every other .md the 29 files read is a NAMED, fixed, different file -
+    CLAUDE.md, scripts/README.md, docs/GENERATION_ALGORITHM.md,
+    meta/kanban/backlog.md, meta/kanban/board.md,
+    meta/profiling/card-23{5,6}-*.md, meta/profiling/card-243-*.md - or a
+    tmp_path plant. NOTHING globs '*.md' under meta/profiling/; the only glob
+    there is `PROFILING_DIR.glob("suite-durations-*.txt")`.
+    No test on the branch names meta/profiling/card-292-per-test-ceiling.md as
+    a path at all - the one mention (tests/test_book_export_interior_cover.py:1124)
+    is a comment.
+  answer_to_the_general_question: >-
+    What that selection is sensitive to in meta/profiling/ is: (1) the TEXT of
+    any tracked file there, through one cell, for exactly two tokens - the two
+    guard switch names; and (2) the SET OF PATHS there, through the sandbox
+    mirror, which needs every non-.py entry to exist and be symlinkable. It is
+    sensitive to nothing else - not to figures, not to prose, not to .md
+    content beyond those two tokens.
+
+priority_two_the_positive_and_negative_controls:
+  the_claimed_trace:
+    verdict: >-
+      REPRODUCED IN FORM AND VALUE; the pid itself is not recoverable after the
+      fact and I say so rather than certifying it.
+    detail: >-
+      pid 28140 and pid 28719 are past processes and no instrument can confirm
+      them now - that is a bound, and it is the only part of the trace I cannot
+      check. Everything the trace asserts I reproduced in my own run of the same
+      row with the same command shape. The card's claim is that a 1 was
+      reachable on the very command that produced the 0s; I took that reading
+      twice inside my own blast-radius run, 40 s and 140 s in, with the live
+      argv printed, which is the same control taken on a different pid.
+    evidence: |
+      START  rival-pytest(prescribed MacOS/Python.*pytest) = 0
+      START  rival-pytest(blind bin/python -m pytest)      = 0
+      START  rival-pytest(cycle2 remedy 'm pytest')        = 0
+      IN FLIGHT t=40s (pid 41470 alive=yes)
+        prescribed = 1
+        blind      = 0
+        cycle2     = 1
+        argv of matches:
+      41470 /Library/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python -m pytest tests/test_admin_binding.py ... tests/test_web_server.py -o addopts= -rs
+      IN FLIGHT t=140s (alive=yes)
+        prescribed = 1
+        blind      = 0
+      END    prescribed = 0
+      exit=0  2310 passed, 15 skipped, 683 warnings in 321.22s
+      So: the cell rises on a real run of the prescribed command, falls back to
+      0 when it ends, and the blind form reads 0 THROUGHOUT a 321 s pytest -
+      the false negative, demonstrated at scale rather than argued.
+  the_negative_control:
+    verdict: REPRODUCED, in three wrapper shapes rather than one
+    evidence: |
+      Idle box, nothing of mine running:
+        pgrep -f 'pytest'                  = 0
+        pgrep -fi 'python.*pytest'         = 0
+        pgrep -f 'm pytest'                = 0
+        pgrep -f 'bin/python -m pytest'    = 0
+        pgrep -f 'MacOS/Python.*pytest'    = 0
+      (d2) wrapper alive, argv = /bin/zsh -c sleep 12; : .venv/bin/python -m pytest tests/
+        pgrep -f 'MacOS/Python.*pytest'    = 0      <- prescribed stays down
+        pgrep -f 'bin/python -m pytest'    = 1      <- blind form, FALSE POSITIVE
+      and idle again after everything: all five read 0.
+      So the prescribed cell is shown to rise AND to stay down, in the same
+      session, which is what the standing rule asks of a counting instrument.
+  the_five_case_table_reproduced:
+    verdict: >-
+      REPRODUCED. Every cell of the prescribed row is right in all five
+      columns. One cell of the board's convention does not reproduce (F-303),
+      and one column's domain is unstated in the document (F-302).
+    my_measurement: |
+      instrument                       (c)idle  (d)  (d2)  (a) -m pytest  (b) console
+      pgrep -f 'pytest'                  0       1FP   1FP      1              1
+      pgrep -fi 'python.*pytest'         0       1FP   1FP      1              1
+      pgrep -f 'm pytest'   (cycle 2's)  0       1FP   1FP      1              0 FN
+      pgrep -f 'bin/python -m pytest'    0       0     1FP      0 FN           0 FN
+      pgrep -f 'MacOS/Python.*pytest'    0       0     0        1              1
+      where (d) = /bin/zsh -c 'sleep 12; : python -m pytest tests/foo.py'
+            (d2)= /bin/zsh -c 'sleep 12; : .venv/bin/python -m pytest tests/'
+            (a) = .venv/bin/python -m pytest <two files> --collect-only, live argv
+                  /Library/.../Python.app/Contents/MacOS/Python -m pytest ...
+            (b) = .venv/bin/pytest <two files> --collect-only, live argv
+                  /Library/.../Python.app/Contents/MacOS/Python /Users/.../.venv/bin/pytest ...
+      I also measured a FOURTH wrapper, because the document's (d) column only
+      reproduces for it (see F-302):
+            (d-i) = /bin/zsh -c 'sleep 10; : run the pytest suite'
+      pgrep -f 'pytest' 1 | -fi 'python.*pytest' 0 | 'm pytest' 0 |
+      'bin/python -m pytest' 0 | 'MacOS/Python.*pytest' 0
+  the_two_things_i_confirmed_rather_than_rediscovered:
+    - >-
+      Cycle 2's own prescribed remedy `pgrep -f 'm pytest'` IS a false positive
+      on a wrapper - 1 on (d) and 1 on (d2) with no pytest running. The fix
+      round was right to refuse it. I also found it is a false NEGATIVE on the
+      console-script launch, which nobody recorded - F-303.
+    - >-
+      `pgrep -f 'bin/python -m pytest'` is wrong in BOTH directions: 1 on the
+      (d2) wrapper with nothing running, and 0 against a real 321 s pytest.
+      Both halves measured here.
+
+acceptance_criteria:
+  AC-1:
+    status: MET
+    basis: page-cache arm re-derived NOW; the rest carried from cycle 1
+    detail: >-
+      I ran the card's page-cache probe at HEAD and it reprints the band:
+      216 read_text calls over 2 distinct paths, 44,824,752 characters,
+      0.0493 s = 0.170 % of a 29.04 s test, 2 first reads at 0.0031 s. That is
+      a FOURTH reading of that figure (document 0.0305/0.0322 s, cycle 2
+      0.0407 s, me 0.0493 s) and the character total is identical to the digit
+      in all of them - so the refutation is unaffected and the document's own
+      caveat about read timings varying run to run is accurate. The kill
+      signature I re-derived in a new place this cycle: it is what my own
+      blast-radius run uses to report 0 tests at the ceiling (exit 0 + one
+      summary line). The per-test-vs-per-process arm and the hidden-header
+      claim I CARRY FORWARD from cycle 1; this diff does not touch them.
+  AC-2:
+    status: MET
+    basis: carried forward from cycle 1, on a proof rather than on trust
+    detail: >-
+      tests/test_suite_profile.py is BYTE-IDENTICAL at db0e1a3e and 59e7b58a
+      (verified by comparing the two git blobs), so cycle 1's independent
+      re-derivation with its own parser cannot have moved.
+  AC-3:
+    status: MET
+    basis: carried forward from cycle 2's re-derivation
+    detail: >-
+      Cycle 2 took three of its own unprofiled pairs (8.083 / 8.291 / 7.688,
+      mean 8.010x) and settled the 8.2x-vs-8.0x conflict in the card's favour.
+      Nothing in db0e1a3e..59e7b58a touches that mechanism - the test file is
+      AST-identical and the probe's only delta is a write-only name - so the
+      figure cannot have moved and I spent the budget on what changed.
+  AC-4:
+    status: MET
+    basis: carried forward, and the carry is PROVED, more strongly than before
+    detail: >-
+      The fix round cannot have moved AC-4's four equalities or its node id.
+      Proof, stronger than the round's own: canonicalising every docstring to a
+      placeholder rather than deleting it (so an over-stripping bug cannot hide
+      a change) gives IDENTICAL ast.dumps at db0e1a3e and HEAD; the node census
+      is identical at 18,620 nodes; all 1,685 non-docstring constants are
+      identical in order; and exactly ONE docstring differs, the class
+      TestSourceSegment_TheMemoIsTheStdlibAnswer at line 6322.
+  AC-5:
+    status: MET
+    basis: re-derived at HEAD this cycle
+    detail: >-
+      `--collect-only -o addopts=''` at 59e7b58a - 132 for
+      tests/test_book_export_interior_cover.py, 410 for
+      tests/test_suite_profile.py, 542 for the two together. The document's
+      "542 (132 + 410)" is counted from the rows and all three rows reproduce.
+      The 2325 of the wider selection also reproduces (above).
+  AC-6:
+    status: MET
+    basis: re-derived in full this cycle - both controls, five cases, in flight
+    deciding_cell: >-
+      §8.2's `rival-pytest, start / end` row, taken through
+      `pgrep -f 'MacOS/Python.*pytest' | wc -l`.
+    detail: >-
+      Cycles 1 and 2 both found AC-6 NOT MET, and both for the same reason: the
+      deciding cell was read through a command that could not produce a non-zero
+      value on this box, so a 0 carried no information. That reason is now
+      excluded IN BOTH DIRECTIONS and I established it myself rather than
+      reading the card's trace. The command rises: 1 at two samples inside my
+      own run of the card's declared blast radius, with the live argv showing
+      the framework re-exec path the pattern keys on. The command does not rise
+      on something that merely mentions pytest: 0 on three distinct zsh -c
+      wrappers, one of which spells `.venv/bin/python -m pytest` and makes the
+      PREDECESSOR instrument read 1. The command reads 0 on an idle box before
+      and after. A 0 from this cell is therefore informative, which is exactly
+      what AC-6 asks of a host cell. Does the round's reasoning hold? YES, and
+      for the reason it gives: a 1 reachable on the very command that produced
+      the 0s, and unreachable on a wrapper, is the pair of controls, and neither
+      alone would do. The document's declared bound on the instrument - it keys
+      on the framework re-exec path, so a non-framework venv would make it blind
+      in the same way its predecessor is, and it is verified on this box only -
+      is correctly stated as a bound and is the honest shape. The load-average
+      half of AC-6 is met as before: `sysctl -n vm.loadavg` works and is
+      recorded at both ends of both rows.
+
+guardrails:
+  G-1:
+    status: MET
+    basis: PROVED by the strengthened AST control, and re-fired
+    detail: >-
+      Nothing is guarded less than cycle 2 found it: the test tree's
+      docstring-canonicalised AST is identical at db0e1a3e and HEAD, and
+      tests/test_suite_profile.py is byte-identical. The round also faced the
+      G-1 temptation squarely and refused it: the alternative to not naming the
+      switches was adding meta/profiling/ to a standing guard's exempt
+      prefixes, which would be a guard relaxed to admit the thing that tripped
+      it. I fired the mutant that shows the guard is live (M-SW below).
+  G-2:
+    status: MET
+    basis: PROVED by AST equality
+    detail: >-
+      No assertion changed, so no duration and no host property entered a
+      standing test. The round's one non-prose delta is in
+      meta/profiling/card292_plant_reads.py, which asserts nothing, and it is
+      a write-only name (G-2's own risk, a figure asserted in the tree, is
+      structurally impossible here).
+  G-3:
+    status: MET
+    basis: mechanically verified at HEAD, and the guard's reach re-fired
+    detail: >-
+      `git diff --name-status 6e0aadca 59e7b58a -- tests/` shows two M rows and
+      no A row, so both probes stay out of tests/. The guard that judges
+      meta/profiling/ is live and I re-fired it rather than reading it: P2'
+      (one unbalanced `(` on the RENAMED line 79) kills in both named cells
+      separately. The door is `git ls-files`, which cycle 2 measured in both
+      directions and which the probe's own comment states.
+  G-4:
+    status: MET
+    basis: mechanically verified at HEAD
+    detail: >-
+      `git diff --numstat 6e0aadca 59e7b58a -- src pyproject.toml tests/fixtures`
+      is empty. The five changed paths base..HEAD are the two test files, the
+      two probes and the document.
+  G-5:
+    status: MET
+    basis: mechanically verified at HEAD
+    detail: "pyproject.toml is inside the empty numstat above - no dependency moved."
+  G-6:
+    status: MET
+    basis: mechanically verified at HEAD
+    detail: >-
+      tests/fixtures/ is inside the empty numstat above, and the AST proof means
+      no floor, minimum or corpus size moved in this fix round.
+  G-7:
+    status: MET
+    basis: re-derived this cycle
+    detail: >-
+      Every pair of figures the round publishes is taken back to back in one
+      script and says so, and §8.2 records the load at both ends of both rows.
+      My own blast-radius row did the same - collect, start cells, run,
+      in-flight samples, end cells, all in one script that ran nothing else -
+      and my baselines for both mutants were taken in the same process sequence
+      as the mutant runs.
+
+declarations_tested_rather_than_read:
+  ast_equality:
+    claim: >-
+      Prose only - tests/test_book_export_interior_cover.py parsed at db0e1a3e
+      and at HEAD with every docstring stripped gives byte-identical ast.dumps
+      (109 docstrings each side), while the sources differ by 610 characters.
+    verdict: TRUE, reproduced independently and then strengthened
+    evidence: |
+      My own strip-and-dump over the three git blobs:
+        98482d2c  src_chars 323063  docstrings_stripped 109  dump_len 392070  dump_sha c8ad7a180d8274e4be7ac998
+        db0e1a3e  src_chars 324759  docstrings_stripped 109  dump_len 392070  dump_sha c8ad7a180d8274e4be7ac998
+        59e7b58a  src_chars 325369  docstrings_stripped 109  dump_len 392070  dump_sha c8ad7a180d8274e4be7ac998
+        db0e1a3e == 59e7b58a stripped dumps identical: True
+        98482d2c == 59e7b58a stripped dumps identical: True
+        source identical: False; char delta = 610 (324759 -> 325369)
+      DOOR DISCLOSED: my absolute dump_len is 392070 against the card's and
+      cycle 2's 392100, and my sha truncation differs - two different strip
+      implementations, and the 30-character gap is a property of the method,
+      not of the file. What is load-bearing is the IDENTITY, and it reproduces
+      at every revision, with my figure self-consistent across all three.
+      Because an over-stripping bug in MY implementation could hide a real
+      change, I added a control the round did not have - canonicalise each
+      docstring to "<DOCSTRING>" instead of deleting it:
+        canonicalised docstrings: 109 109
+        dump lens: 396771 396771
+        CANONICALISED DUMPS IDENTICAL: True
+        node census identical: True | total nodes: 18620
+        non-docstring constants: 1685 1685 identical: True
+        docstrings changed: [('TestSourceSegment_TheMemoIsTheStdlibAnswer', 6322)]
+      So the claim is not merely "prose only" - it is "exactly one docstring,
+      and it is the one F-202 names". Also verified byte-identical at the two
+      revisions: tests/test_suite_profile.py and
+      meta/profiling/card292_ceiling_probe.py.
+  the_write_only_rename:
+    claim: >-
+      The single non-prose delta is a write-only loop variable in the probe,
+      differing in exactly one ast.dump token (nbytes -> nchars), with no
+      `Load` occurrence anywhere, and the probe reprints 216 reads / 2 paths /
+      44,824,752 characters.
+    verdict: TRUE on every clause, verified rather than accepted
+    evidence: |
+      full ast.dump identical: False        (so there IS a delta - not a no-op)
+      dump lens: 12546 12546
+      Name count old/new: 133/133
+      Name ids differing: [(40, 'nbytes', 'nchars')]     <- exactly one token
+      substituting nchars->nbytes in the new dump makes them equal: True
+      every occurrence of `nchars` with its ctx: [('Store', 79)]
+      Load occurrences of nchars: 0                      <- WRITE-ONLY, proved
+      'nbytes' anywhere in the new source: False         <- F-204 as a CLASS
+        L59:     reads = []  # (path, seconds, nchars)
+        L79:     for path, seconds, nchars in reads:
+      And the behavioural control, the probe re-run at HEAD:
+        read_text calls   216
+        distinct paths    2
+        characters read   44824752
+        seconds in reads  0.0493 s  = 0.170% of the test
+      So both halves of F-204 are fixed (the comment AND the loop target), the
+      rename cannot be read by any expression, and the probe's output is
+      unchanged in the two cells that are not timings.
+  the_class_audit_of_defective_forms:
+    claim: >-
+      18 mentions of a defective form survive in the document and NONE
+      prescribes one; both probes contain no host instrument at all.
+    verdict: >-
+      The LOAD-BEARING half is TRUE - no site prescribes a defective form. The
+      count of 18 I could not reproduce and its method is not stated (F-304).
+    evidence: |
+      I enumerated every `pgrep` line in the document and classified each.
+      27 lines name a form other than the prescribed one; 3 of those are a
+      usage line or a `man pgrep` reference rather than a command form, so 24
+      lines name a defective COMMAND form. Each one is:
+        - a rejection ("**Not** `pgrep -fc`" at 397; "which is **blind** here"
+          at 399; "which §7's inset shows is blind" at 635; "which review cycle
+          2 showed/proved blind" at 912 and 996),
+        - a REJECTED FORMS row of the §6 snapshot (549, 553) or a truth-table
+          row showing it fail (536, 537, 720, 721, 722),
+        - a withdrawal trace (506, 660-676, 689, 704, 898), or
+        - a trace cell explicitly labelled "the blind form, FALSE NEGATIVE" /
+          "FALSE POSITIVE" (743, 755, 766, 769).
+      The one that most looked like a prescription hiding among declarations -
+      line 676, `pgrep -f 'bin/python -m pytest' | wc -l` printed as the last
+      command of the withdrawal trace with a `0` under it - is disarmed 13
+      lines later, in the open: "Fix round 1 prescribed [it], which is the last
+      command in the trace above, and that command is blind on this box".
+      The ONE prescribing site in the document is line 393, and it prescribes
+      the verified form. And the probes:
+        $ grep -n 'pgrep\|loadavg\|\bps \|subprocess\|os.system\|uptime' \
+              meta/profiling/card292_plant_reads.py meta/profiling/card292_ceiling_probe.py
+          (no output)   -> NO host instrument in either probe
+  f202_the_domain_of_the_108_analyses:
+    claim: >-
+      All 108 analyses are over planted texts (32 distinct lengths,
+      389,122-389,385 chars), 0 with `source is None`, 0 equal to the real
+      module; the 36 expensive carry door_arms=('callee identity',) and the 72
+      cheap are 36 x ('door spelling',) + 36 x (); on the real module 716 calls
+      with that arm and 0 without.
+    verdict: TRUE, and I established it through a THIRD door - statically
+    evidence: |
+      The card measured this dynamically twice (a call counter, then a wrapper
+      capturing `source`/`door_arms`). Reproducing it a third time with an
+      instrument would only confirm the instrument, so I derived it from the
+      test's own code instead:
+        DOOR_SHAPES rows: 36                      (counted by AST)
+        DOOR_ARMS = ("callee identity", "door spelling")
+        enclosing test: test_each_door_axis_arm_catches_a_shape_the_other_misses
+        the loops: for arm in DOOR_ARMS -> 2 x 36 analyses with ONE arm removed
+                   (`door_arms=rest`), then 36 with `door_arms=()`
+                   => 2*36 + 36 = 108 analyses, which is the figure.
+        every analysis routes through `self._outcome(self._plant(body, extra),
+        door_arms=...)`, and `_plant` RETURNS
+        `source.replace(cls.DERIVED_POSITION, body) + extra` after asserting
+        `source.count(DERIVED_POSITION) == 1` and `len(body.splitlines()) == 3`.
+      So `source` is never None and never the unmodified module, BY
+      CONSTRUCTION, for all 108 - which is what fix round 2 measured. The
+      expensive group is the one where the removed arm is "door spelling",
+      leaving ('callee identity',) - 36 of them, exactly as claimed - and the
+      cheap 72 are 36 with ('door spelling',) and 36 with (). An incidental
+      fourth corroboration fell out of the page-cache probe: it reports
+      `108 x .../book_pdf_generator.py` reads in one run of that very test -
+      one read of the real module per analysis, each then planted.
+      The shipped correction reads correctly in both places
+      (tests/test_book_export_interior_cover.py:6330-6345 and
+      meta/profiling/card-292-per-test-ceiling.md:180-200), and the residue
+      sweep the document claims is exact: `grep -rn 'small planted' tests/
+      meta/profiling/` returns exactly three lines - md:194 (the quotation
+      inside the withdrawal), md:238 (the sentence making this claim) and
+      tests/README.md:609 (a different test, a different axis, outside the
+      diff). No claim of the wrong domain survives.
+  f203_the_owner_for_the_declined_bound:
+    claim: "CARD-302 is named in §5 as the owner of F-008's declared bound."
+    verdict: TRUE, and the card exists
+    evidence: |
+      meta/profiling/card-292-per-test-ceiling.md:458-463 names
+      `CARD-302` - "The memo's USE is unguarded - the cheapening can silently
+      return" - created on main at bd2128b5, status ready, and says its ACs
+      live on the card rather than restating them.
+      On main: meta/kanban/cards/CARD-302.md exists, added by bd2128b5,
+      Status ready, P2, tech-debt, Source "CARD-292 review cycle 2, F-203",
+      Depends on CARD-292, Touches the two files the control would touch.
+      One residue, not the branch's and not gating - see F-305.
+  the_8_1_matrix:
+    claim: "fix round 2 did not disturb §8.1's kill matrix."
+    verdict: TRUE
+    evidence: |
+      $ git show db0e1a3e:meta/.../card-292-per-test-ceiling.md \
+          | sed -n '/### 8.1 The kill matrix/,/### 8.2/p' > a
+      $ sed -n '/### 8.1 The kill matrix/,/### 8.2/p' <same file at HEAD> > b
+      $ diff a b
+      32c32
+      < ### 8.2 Fix round 1's own pre-gate - AC-6's demonstrated instance
+      > ### 8.2 The fix rounds' own pre-gate - AC-6's demonstrated instance
+      The only difference inside the range is the NEXT section's heading, which
+      my sed window includes. Every M1-M10 row, both honest negatives and the
+      M10-is-the-control paragraph are byte-identical. Cycle 1's independently
+      reproduced matrix therefore still describes the tree, which is the whole
+      reason the F-008 decline was accepted.
+
+mutation_verification:
+  policy_note: >-
+    The round says it adds no mechanism and therefore plants nothing. I judged
+    that rather than taking it, and it is TRUE: the test tree is
+    docstring-canonicalised-AST-identical with exactly one docstring changed,
+    tests/test_suite_profile.py is byte-identical, and the probe's one delta is
+    a provably write-only name. There is no mechanism to delete. But "nothing
+    to plant" is not "nothing to re-fire": the mutation policy says each
+    re-fire must establish that the cell the fix named is the cell that reds, so
+    I fired the two that the round's own changes bear on. Both line-count
+    preserving, one node id at a time, each with its own clean-tree baseline,
+    each restored with a `git hash-object` check against the tracked blob.
+    M1, M10 and M2-M9 I CARRY FORWARD on the AST proof rather than on trust -
+    the file they mutate is AST-identical to the revision cycle 2 fired them
+    at, so their verdicts cannot have moved.
+  rows:
+    - mutant: "P2' - parseability of the probe, one unbalanced `(` on the RENAMED line 79"
+      why: >-
+        Line 79 is the line fix round 2 changed (the loop target). Cycle 2 fired
+        P2 at line 89 on the previous text, so this re-fire is on the new line
+        and establishes the kill still lands where the fix is.
+      verdict: KILLED, both declared cells, separately
+      evidence: |
+        baselines, clean tree, one node id each:
+          ::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog::test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones
+            1 passed in 2.38s
+          ::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog::test_the_outcomes_are_identical_with_and_without_the_log
+            1 passed in 19.82s
+        planted (112 lines before and after):
+          79:     for path, seconds, nchars in (reads:
+        cell 1 alone:  E   SyntaxError: invalid syntax
+                       /Library/.../python3.14/ast.py:46: SyntaxError
+                       1 failed in 0.19s
+        cell 2 alone:  1 failed in 10.90s
+        restored; hash-object = 09efda36423434eb774e4af026acd3432b81bb13
+                  tracked     = 09efda36423434eb774e4af026acd3432b81bb13
+        git status --short: meta/kanban/config.yml only
+    - mutant: >-
+        M-SW - one guard switch NAME planted into a tracked file under
+        meta/profiling/ (line 5, a comment, line-count preserving)
+      why: >-
+        This is the round's most important new finding and it had no mutant.
+        The claim is that `tests/test_full_suite_lock.py::test_nothing_in_the_tree_sets_either_of_the_guards_env_switches`
+        is the cell that reddens on a switch name under meta/profiling/. A
+        mutation must show that cell is the cell that reds.
+      verdict: KILLED, exactly that cell, with exactly the assertion the card quotes
+      evidence: |
+        baseline, clean tree:  1 passed in 0.22s
+        planted line 5: "# <lock path var> mutant, line-count preserving"
+          (the name was assembled from fragments inside my probe script so the
+           probe itself is not a namer; it was never set in the environment)
+        the cell alone:
+          E   AssertionError: ['meta/profiling/card292_plant_reads.py'] name
+              <override> or <lock path var>; a tree that sets either one has
+              neither an override nor a guard
+          E   assert not ['meta/profiling/card292_plant_reads.py']
+          tests/test_full_suite_lock.py:614: AssertionError
+          1 failed in 0.26s
+        restored; hash-object = 09efda36423434eb774e4af026acd3432b81bb13 (= tracked)
+        git status --short: meta/kanban/config.yml only
+        So the attribution the round gives is the mechanism, not an inference:
+        the guard reads the WORKING TREE through `git grep`, meta/profiling/ is
+        outside its exempt prefixes, and the named cell is the one that fires.
+
+ruling_on_the_section_6_snapshot_disclosure:
+  the_facts_i_established:
+    - "§6's fenced block is lines 520-609 of the document, 90 lines."
+    - >-
+      Against bd2128b5 it is verbatim: `git show bd2128b5:meta/kanban/config.yml
+      | sed -n '42,131p'` is 90 lines, `diff` is EMPTY, and sha256 is equal -
+      186f76e9cdce5d3bbe1d786376471a85a3b2bc291363fd642efc7aab5f9d80d2 both
+      sides, which is the same digest the document publishes.
+    - >-
+      The blob shas are as the document states: bd2128b5 and e4d33dfa both
+      4a03afc785ab59c8d1e52afb89d145022c0a1248.
+    - >-
+      Main has since moved. At 5e440f2f the blob is
+      5e0dcc9d2f4b040b816e44acdf071e8cbf583f44, the truth table went from 4
+      cases and 3 rows to 5 cases and 5 rows, the (d2) column was added, all
+      three rejected forms are now named with their failure directions, and the
+      42-131 line window no longer yields the same content at all (the diff
+      against the snapshot is 3 hunks).
+  ruling: >-
+    NAMING THE COMMIT IS SUFFICIENT FOR THE SNAPSHOT, AND IT IS STILL A FINDING -
+    but for a narrower reason than "the board has moved", and that distinction
+    is the ruling. A snapshot is of a revision; a section that names its
+    revision, publishes the blob sha and proves the extraction by digest has
+    discharged the duty a snapshot carries, and holding a committed artefact to
+    track a sibling file that a different agent edits afterwards would be a rule
+    no card could satisfy. I therefore do NOT find against the staleness as
+    such. What I do find against is one clause the card wrote in the present
+    tense about a thing it does not own: "and is unchanged at `main`'s head".
+    That is a verifiable claim about main, it was true when written, and it is
+    FALSE at the revision this card will merge into - and the standing rule here
+    is that a claim states only what can be demonstrated, which this one no
+    longer can. The second, lighter reason it is worth a line: the section's own
+    declared purpose is to carry the convention "so it survives the worktree",
+    and the version it preserves is the one from BEFORE this card's own fix
+    round contributed (d2) and the rejected-form rows to it - so the artefact
+    that exists to preserve the convention preserves the pre-contribution
+    draft. It is a MINOR and not gating because a reader of this document is not
+    actually misled about the instrument: §7's F-201 inset, four pages earlier,
+    carries the five-case table and both traces, and the prescribed form is the
+    same in both. One line fixes it either way - re-extract at 5e440f2f, or date
+    the clause. I note explicitly that I did NOT take the framing offered to me
+    as the answer: I measured the snapshot against both revisions before ruling,
+    and I am declining the broader version of the charge.
+  recorded_as: F-301
+
+findings:
+  - id: F-301
+    severity: minor
+    title: >-
+      §6's snapshot is verbatim at the commit it names, but its present-tense
+      claim that the blob is unchanged at main's head is false at 5e440f2f
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 499
+    gating: false
+    confidence: certain
+    evidence: |
+      What the document claims (lines 496-502):
+        "**This is a snapshot of `main` at `bd2128b5`, lines 42-131 of
+         `meta/kanban/config.yml`, and it is verbatim as of fix round 2
+         (2026-10-27).** The blob it quotes landed at **`e4d33dfa`** ... and is
+         unchanged at `main`'s head: `git rev-parse e4d33dfa:...` and
+         `bd2128b5:...` are both `4a03afc785ab59c8d1e52afb89d145022c0a1248`."
+      The snapshot half HOLDS, by my own extraction:
+        $ sed -n '520,609p' meta/profiling/card-292-per-test-ceiling.md > doc_s6.txt
+        $ git show bd2128b5:meta/kanban/config.yml | sed -n '42,131p' > cfg_bd.txt
+        $ wc -l  ->  90 and 90
+        $ diff doc_s6.txt cfg_bd.txt
+        (no output)
+        $ shasum -a 256 doc_s6.txt cfg_bd.txt
+        186f76e9cdce5d3b...  doc_s6.txt
+        186f76e9cdce5d3b...  cfg_bd.txt
+      The main's-head half does NOT:
+        $ git rev-parse bd2128b5:meta/kanban/config.yml   4a03afc785ab59c8d1e52...
+        $ git rev-parse 5e440f2f:meta/kanban/config.yml   5e0dcc9d2f4b040b816e4...
+        $ diff doc_s6.txt <(git show 5e440f2f:... | sed -n '42,131p')
+        3 hunks - the table grows from 4 cases / 3 rows to 5 cases / 5 rows,
+        (d2) is added, all three rejected forms are named, and the window's
+        last 16 lines are displaced past line 131 entirely.
+      Caused by the orchestrator editing config.yml at 5e440f2f AFTER the
+      extraction - so this is not sloppiness, it is a claim with a shelf life.
+    remedy: >-
+      One line. Either re-extract at 5e440f2f and publish the new sha, or
+      replace "and is unchanged at `main`'s head" with "unchanged at `main`'s
+      head as of `bd2128b5`; `5e440f2f` has since extended the table to five
+      cases, which §7's inset already carries". No figure moves either way.
+
+  - id: F-302
+    severity: minor
+    title: >-
+      The five-case table's (d) column reproduces only for a wrapper the
+      document never shows, and the same label carries different values in §6's
+      snapshot table four pages earlier
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 721
+    also_at: ["meta/profiling/card-292-per-test-ceiling.md:537"]
+    gating: false
+    confidence: certain
+    evidence: |
+      §7's table (lines 719-723) heads its column "(d) a `zsh -c` whose argv
+      says *pytest*" and gives, for `pgrep -fi 'python.*pytest'`, (d) = 0.
+      §6's snapshot inside the SAME document (line 537) gives the same
+      instrument, under the same label (d), the value 1. Both are right, for
+      different wrappers - which is the point:
+        (d-i) /bin/zsh -c 'sleep 10; : run the pytest suite'     <- says pytest, not python
+          pgrep -f 'pytest' 1 | -fi 'python.*pytest' 0 | 'm pytest' 0
+          | 'bin/python -m pytest' 0 | 'MacOS/Python.*pytest' 0
+        (d-ii) /bin/zsh -c 'sleep 10; : python -m pytest tests/foo.py'
+          pgrep -f 'pytest' 1 | -fi 'python.*pytest' 1 | 'm pytest' 1
+          | 'bin/python -m pytest' 0 | 'MacOS/Python.*pytest' 0
+      §7's whole (d) column reproduces EXACTLY for (d-i) and not for (d-ii);
+      main's convention at 5e440f2f defines its (d) as `: python -m pytest
+      tests/foo.py`, i.e. (d-ii), and annotates that cell `*` with the reason
+      ("it depends on the wrapper's wording, which is itself the
+      disqualification"). The document prints the argv for (d2) - inside the
+      negative-control trace - and for no other wrapper, so the one column
+      whose value turns on the wrapper's wording is the one column whose
+      wrapper is not shown.
+      Why it is worth a line on THIS card: an instrument has a domain, and the
+      domain is part of every figure. Four cells here are figures whose domain
+      is a string the document does not quote, in the table that is the round's
+      instrument evidence. No figure in it is WRONG, which is why it is minor:
+      the prescribed row reproduces in all five columns, no deciding cell is
+      touched, and the rejection of row 2 stands on its (d2) false positive
+      regardless of (d).
+    remedy: >-
+      One line - print (d)'s argv in the table's caption or its trace, as (d2)'s
+      already is. Optionally note that §6's snapshot labels a different wrapper
+      (d), which F-301's re-extraction would resolve on its own.
+
+  - id: F-303
+    severity: minor
+    title: >-
+      The board convention's own re-measured table has one cell that does not
+      reproduce - cycle 2's remedy is a false NEGATIVE on the console-script
+      launch, not a 1
+    file: meta/kanban/config.yml
+    line: 60
+    also_at: ["meta/kanban/cards/CARD-292.md:600 (the fix-round-2 table, same cell)", "meta/kanban/config.yml:60 at 5e440f2f"]
+    gating: false
+    confidence: certain
+    evidence: |
+      main at 5e440f2f records, and the card's fix-round-2 section repeats:
+        pgrep -f 'm pytest'   (c)0  (d)1  (d2)1  (a)1  (b)1
+      Measured here, with the live argv printed in the same breath:
+        (b) .venv/bin/pytest <two files> --collect-only
+            live argv: /Library/Frameworks/Python.framework/Versions/3.14/
+              Resources/Python.app/Contents/MacOS/Python
+              /Users/.../.venv/bin/pytest <two files> --collect-only -o addopts= -q
+            pgrep -f 'pytest'                  = 1
+            pgrep -fi 'python.*pytest'         = 1
+            pgrep -f 'm pytest'                = 0      <- FALSE NEGATIVE
+            pgrep -f 'bin/python -m pytest'    = 0
+            pgrep -f 'MacOS/Python.*pytest'    = 1
+      The mechanism is plain once the argv is in view: the console script's
+      command line contains `bin/pytest`, never ` -m pytest`, so a pattern
+      anchored on "m pytest" cannot match it. Every other cell of that table
+      reproduced for me, including all five of the prescribed row.
+      This does not weaken the card - it STRENGTHENS the fix round's refusal of
+      the remedy cycle 2 prescribed: that remedy is wrong in BOTH directions
+      too, false-positive on a wrapper and false-negative on one of the two
+      launch shapes the convention itself enumerates. I record it because the
+      standing rule is that a figure's control is recomputation, and this one
+      is the one figure on the card that failed it.
+    remedy: >-
+      The orchestrator corrects one cell in meta/kanban/config.yml (and the
+      matching cell in CARD-292.md's fix-round-2 table) to `0 FN`. NOT this
+      card's to commit - both paths are board state the brief forbids touching
+      - so it is carried to the merge gate.
+
+  - id: F-304
+    severity: info
+    title: "The class audit's \"18 mentions\" is a count with no stated method; I get 24"
+    file: meta/kanban/cards/CARD-292.md
+    line: 619
+    gating: false
+    confidence: certain
+    evidence: |
+      $ grep -c 'pgrep' meta/profiling/card-292-per-test-ceiling.md        -> 37 lines
+      $ grep 'pgrep' ... | grep -vc 'MacOS/Python'                         -> 27 lines
+      of those 27, three are not a command form (the `usage:` line the binary
+      prints at 670, the `-c`-flag sentence at 662, and the `man pgrep`
+      SYNOPSIS sentence at 681), leaving 24 lines that name a defective form.
+      The audit's SUBSTANCE is what matters and it holds - I classified all 24
+      and none prescribes a defective form (see
+      declarations_tested_rather_than_read.the_class_audit_of_defective_forms).
+      Recorded only so the number is not carried forward as a measurement: it
+      is a count whose door is unstated, on a card about exactly that.
+    remedy: "none needed; state the method if the count is kept."
+
+  - id: F-305
+    severity: info
+    title: "CARD-302 exists as a card file but appears on no board list"
+    file: meta/kanban/board.md
+    line: 74
+    gating: false
+    confidence: certain
+    evidence: |
+      $ grep -c CARD-302 meta/kanban/board.md meta/kanban/backlog-scored.yml
+        board.md 0 ; backlog-scored.yml 0
+      against CARD-296 (4 in board.md), CARD-295 (9), CARD-292 (9). The
+      wave table's `unscheduled` row enumerates 31 ready cards by id and
+      CARD-302 is not among them, nor is it in the `## Backlog` or `## Ready`
+      sections.
+      F-203 asked for an OWNER and it has one - the card exists, is `ready`,
+      and §5 cites it - so this is not a re-opening of F-203. It is a board
+      hygiene residue from bd2128b5, on a path this card may not commit.
+    remedy: >-
+      The orchestrator adds CARD-302 to the unscheduled/ready list. Carried to
+      the merge gate.
+
+what_i_rederived_now:
+  - "The blast radius, end to end at 59e7b58a: array length 29, 2325 collected, 2310 / 15 / 0, exit 0, one summary line, both skips attributed by name"
+  - "The switch-name attribution in all three directions (absent 98482d2c, present db0e1a3e, gone 59e7b58a) and the whole tracked-tree offender set at HEAD"
+  - "The guard that bit, as a MUTANT - a switch name planted in a tracked meta/profiling file reds exactly the named cell at tests/test_full_suite_lock.py:614"
+  - "P2' on the line fix round 2 actually changed - killed in both named cells, separately, with clean-tree baselines"
+  - "The AST-equality declaration, with my own strip-and-dump, then STRENGTHENED with a canonicalise-instead-of-delete control: 18,620 nodes, 1,685 constants, exactly one docstring changed"
+  - "The write-only rename, by ctx: one Store at line 79, zero Loads, one differing ast.dump token, `nbytes` gone from the file"
+  - "The probe's own output at HEAD: 216 reads, 2 paths, 44,824,752 characters (a fourth reading of that figure)"
+  - "The full five-case instrument table, all five instruments x five cases, plus a sixth case (d-i) to resolve F-302, with every live argv printed"
+  - "The positive control, taken twice inside my own blast-radius run with the live argv (prescribed 1, blind 0), and the negative control on three wrapper shapes"
+  - "F-202's domain claim through a THIRD door - statically, from DOOR_SHAPES (36), DOOR_ARMS (2) and `_plant`'s return expression"
+  - "§6's snapshot against bd2128b5 (diff empty, sha256 equal) AND against main at 5e440f2f (3 hunks) - which is F-301"
+  - "AC-5's collected counts at HEAD: 132 + 410 = 542, and 2325 for the wider selection"
+  - "G-3, G-4, G-5, G-6 from git at HEAD; G-1/G-2 from the AST proof"
+  - "§8.1's matrix, byte-identical to db0e1a3e inside the section"
+  - "CARD-302's existence, status and provenance on main, and §5's citation of it"
+  - "The 'small planted' residue sweep: exactly three lines, exactly the three the document names"
+  - "The closed bound: which of the 29 files read the repository as text, by AST and by reading every live-repo git invocation"
+what_i_carried_forward:
+  - "AC-1's per-test-vs-per-process arm and the hidden-header claim - cycle 1's re-derivation, untouched by this diff"
+  - "AC-2 in full - tests/test_suite_profile.py is byte-identical at db0e1a3e and HEAD"
+  - "AC-3's 8.0x ratio, the two percentages and the whole-file wall clocks - cycle 2 re-derived the ratio with three of its own pairs and the mechanism is AST-identical since"
+  - "AC-4's four equalities and the 36 DOOR_SHAPES rows - carried on the strengthened AST proof rather than on trust"
+  - "M1 (killed) and M10 (survives) - cycle 2 fired both at db0e1a3e and the file they mutate is AST-identical at HEAD"
+  - "M2-M9 and the two honest negatives - cycle 1's matrix, and §8.1 is byte-identical"
+  - "Cycle 2's edge mutants establishing the `git ls-files` door in both directions (tracked reds, untracked does not)"
+  - "The second 120 s limit's bisection bracket, and §1.4b's refutation of the page-cache story beyond the arm I re-ran"
+
+could_not_establish:
+  - >-
+    Whether the trace's pid 28140 and pid 28719 were the processes the document
+    says they were. A past pid leaves no instrument behind, so I COULD NOT
+    ESTABLISH it; what I could and did establish is that the same control taken
+    the same way on this box, on my own pids, produces the same readings and the
+    same argv shape. That is the strongest available check and the card is not
+    charged for the gap.
+  - >-
+    Whether `pgrep -f 'MacOS/Python.*pytest'` works on a non-framework venv. It
+    would not, by the mechanism, and the document declares exactly that bound. I
+    COULD NOT ESTABLISH which boxes this board runs on, so the bound stays a
+    bound - correctly declared, not claimed sound.
+  - >-
+    The provenance of §8's withdrawn `0 / 0`. Unchanged from cycles 1 and 2: the
+    run is past and its log carries no second trace. I COULD NOT ESTABLISH it,
+    and the card is right not to invent one.
+  - >-
+    Why my stripped `ast.dump` is 392,070 characters where the card's and cycle
+    2's is 392,100. Two different strip implementations, and I COULD NOT
+    ESTABLISH which clause accounts for the 30 characters. It does not matter:
+    the identity verdict is the claim, both methods agree on it, and my
+    canonicalisation control reaches the same conclusion by a third route.
+  - >-
+    Whether the blast radius reproduces POST-MERGE against main at 5e440f2f. Out
+    of scope here and the document already names what 2325 is a property of (the
+    base 6e0aadca; two of the 29 files differ on main through CARD-296's merge).
+    It is the merge gate's row, not this one's.
+
+what_the_merge_gate_still_owes:
+  - >-
+    RE-DERIVE 2325 AT THE MERGE COMMIT. The document itself declares that 2325
+    is a property of base 6e0aadca and will not reproduce post-merge, because
+    tests/test_book_difficulty_dots.py and
+    tests/test_book_pdf_vector_primitives.py changed on main through CARD-296.
+    The two files this branch touches have identical blob shas at 6e0aadca and
+    at main, so no content conflict is expected - but the count is owed.
+  - >-
+    RUN THE FULL SUITE. Deliberately not run here or on the card, and the board
+    lock was never taken. It is the merge gate's step.
+  - >-
+    The guard that bit db0e1a3e must be re-checked on the MERGED tree:
+    `git grep -l` for the two switch names at the merge commit must show no
+    meta/profiling/ entry. It is one command and it is the one this card paid
+    for twice.
+  - >-
+    F-301 and F-302 - two one-line prose edits in
+    meta/profiling/card-292-per-test-ceiling.md. Both are on this branch and
+    neither moves a figure; they can land in the merge commit or as a follow-up.
+  - >-
+    F-303 and F-305 - one cell of meta/kanban/config.yml (plus the matching cell
+    in the card's own fix-round-2 table) and one board line for CARD-302. Both
+    are board state this card may not commit, so they are the orchestrator's.
+  - >-
+    CARD-302 is the declared owner of F-008's unguarded price. The merge does
+    not discharge it; the card does.
