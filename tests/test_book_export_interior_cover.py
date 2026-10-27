@@ -1435,7 +1435,18 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             outermost = node
             while isinstance(parent.get(outermost), ast.expr):
                 outermost = parent[outermost]
-            found.append((outermost.lineno, outermost, ast.get_source_segment(source, outermost)))
+            # Through the memo, not the stdlib: CARD-292 memoised the line
+            # split but left this call site and the one in
+            # :meth:`_page_positions` reaching for
+            # ``ast.get_source_segment``, which re-splits the whole 389 k
+            # character source once PER SEGMENT. CARD-287 measured that at
+            # 14.37 s of the 68.35 s cProfile reading of
+            # test_each_door_axis_arm_catches_a_shape_the_other_misses.
+            # The substitution is an equivalence claim, carried by
+            # TestSourceSegment_TheMemoIsTheStdlibAnswer, and held to the
+            # two call sites that remain by
+            # test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter.
+            found.append((outermost.lineno, outermost, _source_segment(source, outermost)))
         return found
 
     def test_every_guide_counting_expression_counts_the_title_page(self):
@@ -2910,7 +2921,10 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                     expr.lineno,
                     kind,
                     name,
-                    ast.get_source_segment(source, expr),
+                    # Through the memo, not the stdlib -- the dear call site.
+                    # See the note at _counting_expressions for the
+                    # measurement and for the control that pins it.
+                    _source_segment(source, expr),
                     sorted(literals, key=repr),
                 )
             )
@@ -6631,4 +6645,129 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
         assert asking == [], (
             "something in this file passes `padded=` to a callee that is "
             f"neither the stdlib nor _source_segment's own refusal: {asking}"
+        )
+
+    #: The one scope in this file allowed to call ``ast.get_source_segment``:
+    #: this class, whose whole job is to assert :func:`_source_segment` equal
+    #: to it. Default-deny (ADR-0039/R2) — a call anywhere else is a
+    #: re-split of the whole source per segment, which is the 14.37 s
+    #: CARD-287 measured and removed, and which would come back silently
+    #: because the stdlib and the memo return the same string.
+    STDLIB_SEGMENT_SCOPES = ("TestSourceSegment_TheMemoIsTheStdlibAnswer",)
+
+    @classmethod
+    def _stdlib_segment_scopes(cls, source):
+        """The **outermost** enclosing ``class``/``def`` of every
+        ``*.get_source_segment`` **call** in ``source``, as a sorted list
+        with one entry per call — outermost, because
+        :data:`STDLIB_SEGMENT_SCOPES` is spelled as a class and a call in one
+        of that class's methods is that class's. The positive control below
+        plants the call inside a method and asserts the **class** comes back,
+        which is how that choice is stated rather than assumed.
+
+        What excludes a **mention** is the ``ast.Attribute`` match, not the
+        ``ast.Call`` one: the idiom this file actually contains -- the
+        ``call.func.attr == "get_source_segment"`` comparison in
+        :meth:`test_no_caller_in_this_file_asks_for_padding` -- spells the
+        name as a string ``Constant``. That is the negative control in
+        :meth:`test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter`.
+        The ``ast.Call`` requirement is **structural** -- it is how
+        ``node.func`` is reached -- and CARD-287 measured that it is not
+        independently killable on this file: matching bare ``Attribute``
+        nodes instead returns the same list, because every
+        ``*.get_source_segment`` attribute here is also called. It is stated
+        rather than given an invented mutant.
+
+        **DECLARED BOUND**, not a claim of reach: a stdlib reference bound to
+        a name and called through it -- ``f = ast.get_source_segment`` then
+        ``f(...)`` -- is not a ``*.get_source_segment`` call node and this
+        derivation does not see it. That is the alias family
+        :class:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage`
+        spends two thousand lines on, and closing it here is not this card's.
+        """
+        import ast
+
+        tree = ast.parse(source)
+        enclosing = {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                for inner in ast.walk(node):
+                    enclosing.setdefault(inner, node.name)
+        found = []
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "get_source_segment"
+            ):
+                found.append(enclosing.get(node, "<module>"))
+        return sorted(found)
+
+    def test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter(self):
+        """CARD-287: the saving is durable, or it is not a saving.
+
+        ``ast.get_source_segment`` re-splits its whole ``source`` on every
+        call. CARD-292 memoised the split and routed ONE of this file's two
+        analysis call sites through it; the other — the ``found.append``
+        inside :meth:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage._page_positions`
+        — kept calling the stdlib, 2 556 times in
+        ``test_each_door_axis_arm_catches_a_shape_the_other_misses`` alone.
+        Measured with ``cProfile`` over that test: 14.37 s of its 68.35 s
+        profiled cost, 21.0 %; measured unprofiled with ``perf_counter``,
+        6.238 ms per split. Both call sites now go through the memo, and the
+        two readings return the same string, so nothing but this control
+        would notice the stdlib coming back.
+
+        The derivation is default-deny over an enumerable authority: every
+        ``*.get_source_segment`` call's enclosing scope must be in
+        :data:`STDLIB_SEGMENT_SCOPES`. Both controls for the instrument are
+        here rather than described: it **rises** on a planted call in a
+        foreign scope, and it does **not** rise on a text that merely spells
+        the name as a string without calling it.
+
+        Mutants, per assertion (CARD-287, line-count-preserving deletions,
+        each restored and verified with ``git hash-object``): reverting
+        either analysis call site to the stdlib, and planting a stdlib call
+        in a third scope these comments never name, each red on the set
+        equality below; emptying :data:`STDLIB_SEGMENT_SCOPES` reds on it
+        too; and deleting the outermost-scope rule in
+        :meth:`_stdlib_segment_scopes` reds on it with method names in place
+        of the class. A planted *mention* of the name does **not** red, which
+        is the negative control.
+        """
+        from pathlib import Path
+
+        source = Path(__file__).resolve().read_text(encoding="utf-8")
+        scopes = self._stdlib_segment_scopes(source)
+        # Two-sided, which is why there is no separate non-empty assertion:
+        # CARD-287 wrote one and its deletion mutant SURVIVED, because an
+        # empty derivation already fails this equality and so does an
+        # authority row nothing calls from any more.
+        assert set(scopes) == set(self.STDLIB_SEGMENT_SCOPES), (
+            "something outside this file's equality controls calls "
+            "ast.get_source_segment, which re-splits the whole source per "
+            f"segment: {sorted(set(scopes) - set(self.STDLIB_SEGMENT_SCOPES))}"
+        )
+
+        positive = (
+            "import ast\n"
+            "class Foo:\n"
+            "    def bar(self, source, node):\n"
+            "        return ast.get_source_segment(source, node)\n"
+        )
+        assert self._stdlib_segment_scopes(positive) == ["Foo"], (
+            "the derivation does not rise on a call planted in a foreign "
+            "scope, so its zero above says nothing (positive control)"
+        )
+        negative = (
+            "class Foo:\n"
+            "    def bar(self, call):\n"
+            '        name = "get_source_segment"\n'
+            "        return call.func.attr == name or call.func.attr == "
+            '"get_source_segment"\n'
+        )
+        assert self._stdlib_segment_scopes(negative) == [], (
+            "the derivation rises on a text that merely spells "
+            "get_source_segment without calling it, so it would red on this "
+            "file's own padding guard (negative control)"
         )
