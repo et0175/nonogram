@@ -219,3 +219,101 @@ actually true of it — lock held, no rival pytest — because if it meant "low 
 average" it was never true at all, and the comparison against the file *dying
 around 120 s* would be comparing two things that differ in an unrecorded way.
 G-7 is the guardrail this would breach.
+
+## [CYCLE 1 — 2026-10-27] **7.0, NOT CERTIFIED**, 2 gating — and both are figures, not code
+
+`meta/review/20261027T175441Z-CARD-292-cycle1.yml`, reviewed `98482d2c`.
+**Every AC but one is MET and every guardrail is MET**; what blocks the 8 is the
+card's own description of its own measurements. That is wave 50's family exactly,
+on a card whose subject *is* measurement.
+
+### The two gating findings
+
+**F-001 — AC-6 is NOT MET, and it is the one cell the convention says decides
+the verdict.** `card-292-per-test-ceiling.md:445` reports `rival-pytest 0 / 0`
+labelled `(pgrep -fc)`. **BSD/macOS `pgrep` has no `-c` flag** — usage error,
+exit 2, and an **empty** string inside `$(...)`. Line 343 goes further and says
+in prose that it *"returned 0"*, which it cannot have. And the §6 block the
+document calls **"verbatim"** prescribes the broken form, so it is already false
+against main's `d61f0be1`, where the orchestrator corrected it to
+`pgrep -f '…' | wc -l`. The orchestrator seeded this one; the reviewer verified
+it and then audited **the whole class** — `sysctl -n vm.loadavg`, `/usr/bin/time`,
+the §8 selection grep (reproduces 29 files verbatim), `--collect-only
+-o addopts=''` (542), both probes and the cProfile door are all executable and
+reproduce their own figures. `pgrep -fc` is the **only** non-executable
+instrument. Separately, `ps -Ao command | grep -c '[m] pytest'` is defective but
+the document *declares* it and declares what its cells therefore do and do not
+show — the honest-bound shape, and **not** a finding.
+
+**F-002 — a figure this card refuted, shipped four times into the standing test
+tree.** `tests/test_book_export_interior_cover.py:1105, 6313, 6385, 6398` state
+the module is **306 KB** — the exact figure §1.4 recomputes and strikes out
+(`| module size | 306 KB | 389,177 bytes |`). Measured: **390,485 bytes**
+(381 KB). Not seeded, and the orchestrator confirmed the attribution rather than
+taking it: **0 occurrences at base `6e0aadca`, 4 at `98482d2c`** — the card added
+all four. A docstring figure is a claim **no mutant can catch**, which is why
+this is gating rather than prose.
+
+### Eight non-gating findings, four of which move a number
+
+- **F-003:** the "re-splits its **whole** source" mechanism is **false on Python
+  3.14** — `ast.get_source_segment` passes `maxlines=end_lineno+1` — and the same
+  file contradicts itself 70 lines later.
+- **F-004:** "389,177 **bytes**" and "44.8 MB" are **character** counts.
+- **F-005:** "675 calls per analysis" is attributed to the wrong function (673
+  splits, 740 `get_source_segment`), and the "675 × 108 analyses" chain does not
+  hold — measured **25,873**, i.e. ~240 per analysis.
+- **F-006:** the headline **9.9× / 90 %** pair is **cProfile-inflated**;
+  unprofiled it is **8.2× / 80 %**. The instrument's domain leaked into the
+  figure, which is the card's own rule turned on itself.
+- F-007 (unnamed denominator revision), F-008 (M10's declared-but-real "the price
+  can silently return"), F-009 and F-010 (info).
+
+### What the review re-derived rather than accepted
+
+**AC-1 MET** — 3 × 45 s in one process re-measured at **135.05 s, 4 passed,
+exit 0**; a 130 s test killed at 120 s having accrued **0.26 s** of CPU, zero
+summary lines, the dump naming the probe; the header hidden under `-q` and
+visible under `-o addopts=''`; the page-cache refutation reproduced (216 reads,
+**2** cold, 0.0454 s). **AC-2 MET** — re-derived with the reviewer's **own
+parser** rather than `rank_durations`: 60.00 s threshold, 81.03 / 67.08, next
+56.92 at 47 %. **AC-3 MET** — after arm 29.38 / 10.94 s, before arm re-derived
+**via M10** at 105.65 / 87.27 s. **AC-4 MET** — 23 / 1 / 30 / 6 over 36 rows,
+node id unchanged. **AC-5 MET exactly** — 0 removals, 10 additions, 127→132,
+405→410, 532→542. **AC-6 NOT MET** (F-001).
+
+**G-1..G-7 all MET**, and G-4 **mechanically**: `git diff --name-only 6e0aadca
+98482d2c -- src/` returns nothing and `--numstat -- src` is empty, read from git
+rather than off a diffstat.
+
+**Mutation work, one node id at a time so attribution is per assertion:** 9/9
+killable mutants reproduced **with the exact cell the matrix names**. Both
+declared negatives are **true as declared** — M2–M4 die to the seeded corpus and
+to the exhaustive sweep independently, so nothing separates the two controls and
+the card's narrowed claim is accurate; truncating `_source_lines` by its last
+element survives all three. **M10's declared survival is proved rather than
+merely humble**: reverting the cheapening leaves the file green at 105.65 / 87.27 s
+against 29.38 / 10.94 s.
+
+### The orchestrator's phantom left no trace
+
+Seeded observation 2 was the withdrawn "+2 skips" routing. The reviewer grepped
+the document and both test files for it and found **no consequence**: the "29" in
+this card is a **file** count and reproduces. The 29-file pre-gate re-run at HEAD:
+**2310 passed / 15 skipped / 0 failed**, exit 0, 303.62 s against the card's
+316.24 s, both skips attributed by name. The card never chased it.
+
+### Carried to the merge gate
+
+`collected 2325` is a property of base `6e0aadca` and **will not reproduce
+post-merge**, because the §8 selection includes `tests/test_book_difficulty_dots.py`
+and `tests/test_book_pdf_vector_primitives.py`, which CARD-296 changed on main.
+The two files **this** branch touches have **identical blob shas** at `6e0aadca`
+and `db529c13`, so no content conflict is expected.
+
+### Procedure
+
+The full suite was **not** run and `meta/kanban/.full-suite.lock` was never taken
+and does not exist. One env override, disclosed: `NONOGRAM_TEST_HANG_SECONDS=600`
+for the **M10 arm only**, so the uncheapened test could report its cost instead of
+being killed at 120 s; every other run used the shipped default.

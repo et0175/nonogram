@@ -1,0 +1,578 @@
+card: CARD-292
+cycle: 1
+max_cycles: 3
+reviewed:
+  branch: card/292-measure-the-per-test-ceiling
+  head: 98482d2c
+  merge_base: 6e0aadca
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-292
+  main_at_review: db529c13
+score: 7
+threshold: 8
+certified: false
+verdict: >-
+  NOT CERTIFIED (7 of 10, threshold 8). Two gating findings. This is strong,
+  honest measurement work: AC-1, AC-2, AC-4 and AC-5 are met and I re-derived
+  every load-bearing figure in them myself, nine of the card's ten mutants
+  reproduce with the exact assertion cell the matrix names, both declared
+  negatives are true as declared, and M10's declared survival is proved rather
+  than merely humble. It is not certified because the two gating findings are
+  both in the one class this board gates on - a claim that its own code and
+  measurements do not support. F-001: the card's own AC-6 instance reports a
+  host cell through an instrument that cannot produce it on this platform, and
+  asserts in prose a reading that command cannot have returned. F-002: four
+  shipped docstrings in tests/test_book_export_interior_cover.py state the
+  module is 306 KB, which is the figure this same card recomputed and refuted
+  in the same commit series. Both are cheap to fix and neither touches the
+  measurement's conclusions.
+
+host_state_of_this_review:
+  box: Mac15,6 (Apple M3 Pro, 11 cores, 18 GB), macOS 26.7.1 / Darwin 25.6.0
+  python: 3.14.3, pytest 9.1.1 (venv of the MAIN checkout; the card worktree has no .venv)
+  full_suite_lock: not taken, not present; NONOGRAM_FULL_SUITE_LOCK never set
+  full_suite_run: not run (per the brief)
+  env_overrides_i_set:
+    - "NONOGRAM_TEST_HANG_SECONDS=600 for the M10 arm ONLY, so the reverted
+       (uncheapened) door-axis test could report its cost (105.65 s) instead of
+       being killed by the 120 s guard. Every other run in this review used the
+       shipped default."
+  rival_pytest_at_every_timed_run: "0 (pgrep -f 'bin/python -m pytest' | wc -l)"
+  load_averages: "4.22-13.45 across the readings; recorded per run in evidence"
+
+acceptance_criteria:
+  AC-1:
+    status: MET
+    basis: re-derived
+    detail: >-
+      The ceiling is this tree's own tests/hang_guard.py:41 and I reproduced
+      every arm of the claim independently. Wall clock not CPU: a 130 s sleeping
+      test was killed at 120 s with 0.26 s of CPU accrued (card says 0.31 s -
+      same conclusion, different reading). Per test not per process: 3 x 45 s in
+      one process ran 135.05 s, 4 passed, exit 0 (card: 135.09 s). The kill
+      signature reproduced exactly - exit 1, zero summary lines, stacks written
+      to $TMPDIR/nonogram-test-hang.txt naming the probe's own _pay frame. The
+      header line IS hidden by addopts="-q" and appears under -o addopts=''
+      ("hang guard: 120s per test"). The page-cache mechanism is correctly
+      REFUTED: 216 read_text calls over 2 distinct paths, 2 of which can be
+      cold, 0.0454 s total (0.166 % of the test). No standing test asserts a
+      host property. The SECOND 120 s limit (the agent shell's own default) I
+      ACCEPTED rather than re-derived - the harness contract states 120000 ms as
+      the default foreground timeout, consistent with the card's bracket.
+  AC-2:
+    status: MET
+    basis: re-derived with an independent instrument
+    detail: >-
+      I wrote my own regex parser over meta/profiling/suite-durations-20261023.txt
+      (NOT rank_durations.parse_artefact, so the control is a second
+      implementation) and summed all three phases. Result: 8139 node ids,
+      threshold 60.00 s, exactly two tests at or over it - 81.03 s and 67.08 s,
+      both in TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage -
+      next down tests/test_kill_matrix.py::test_ac7_the_four_arm_grid_of_card_257_reproduces
+      at 56.92 s, which joins at a 47 % threshold. All five figures match the
+      card. The standing guard is an equality against a live derivation, is
+      default-DENY on the parse floor, and its ceiling is read off the guard's
+      default literal by AST rather than by import.
+  AC-3:
+    status: MET (after arm re-derived; before-arm whole-file figure accepted)
+    basis: partly re-derived
+    detail: >-
+      I did not re-run the whole 132-test file. I re-ran the two cliff-edge
+      tests standalone at HEAD: 29.38 s and 10.94 s (card's in-file figures
+      28.49 s and 10.33 s), 2 passed, and nothing is within 50 % of the ceiling.
+      I re-derived the BEFORE cost of the same two tests directly by firing M10:
+      105.65 s and 87.27 s (card: 108.07 s and 90.73 s). So the 3.6x / 8.0x
+      reductions are real and measured on one machine state back to back. The
+      511.43 s and 104.12 s whole-file figures themselves are ACCEPTED, not
+      re-derived. The card's correction of its own premise - that 120.93 s was a
+      KILL TIME and not a cost, and the real standalone cost was 113 s, under
+      the ceiling - is sound and is the most valuable thing in the document.
+  AC-4:
+    status: MET
+    basis: re-derived
+    detail: >-
+      23 / 1 / 30 / 6 over 36 DOOR_SHAPES rows, recomputed from the module's own
+      constants by importing the test module directly, and the test itself passes
+      (so the live derivations still equal those constants). Node id unchanged -
+      confirmed by the collect-only set difference, not by grep.
+  AC-5:
+    status: MET
+    basis: re-derived exactly
+    detail: >-
+      Collected-node-id set difference with -o addopts='' over both touched
+      files, before taken from main (whose blobs for both files are identical to
+      merge-base 6e0aadca, verified by blob sha). Removals 0. Additions 10, all
+      named. Per file 127 -> 132 and 405 -> 410; totals 532 -> 542. Every figure
+      the card states.
+  AC-6:
+    status: NOT MET
+    basis: re-derived - the instrument fails
+    detail: >-
+      The convention is documented in meta/kanban/config.yml and is used once,
+      and its load-average and per-test-ceiling cells are sound. But its DECIDING
+      cell - the one the convention itself says "decides whether the run was
+      quiet" - is reported in this card's own instance through `pgrep -fc`, which
+      does not exist on this platform (F-001). The instance therefore does not
+      demonstrate the convention it exists to demonstrate. Additionally the
+      document's section 6, which claims to reproduce the convention "verbatim"
+      so it outlives the worktree, is already false against main at d61f0be1 and
+      is the version that prescribes the broken form (F-001).
+
+guardrails:
+  G-1:
+    status: MET
+    basis: re-derived
+    detail: >-
+      Verified that the ONLY change inside the guard class is the one `segment()`
+      line (git diff shows a single -/+ pair at line 1723); no assertion was
+      removed, weakened or widened. AC-4's four equalities still assert and still
+      pass. The reimplementation ships with five new controls, and I killed the
+      three slicing mutants on TWO independent tests each, so the equivalence is
+      not held by a single assert. Nothing is guarded less.
+  G-2:
+    status: MET
+    basis: re-derived
+    detail: >-
+      No duration, wall clock or host figure is asserted anywhere in the new
+      tests. The saving is asserted as an integer (`len(splits) == 1`, plus
+      `segments > 100 * len(splits)`), and the ceiling is read from the guard's
+      source literal by AST - deliberately not by import, because HANG_SECONDS
+      honours an env var the card's own runs set. The one numeric assert that
+      looks like a duration (`== 45.0`) is reading a planted source literal.
+  G-3:
+    status: MET
+    basis: mechanically verified
+    detail: >-
+      `git diff --name-status 6e0aadca 98482d2c -- tests/` shows two M rows and
+      no A row: the diff adds no file under tests/. Both probes live in
+      meta/profiling/. Crucially the guard that enumerates meta/profiling/ as
+      well as tests/ (MEASURED_SILENCES_ELSEWHERE, resolved through git ls-files)
+      is green at HEAD in my own re-run of the 29-file selection - the card's own
+      first commit reddened it and the fix is real.
+  G-4:
+    status: MET
+    basis: mechanically verified, not read off a diffstat
+    detail: >-
+      `git diff --name-only 6e0aadca 98482d2c -- src/` returns nothing and
+      `git diff --numstat 6e0aadca 98482d2c -- src` is empty. The five changed
+      paths are the two test files, two probes and one document. The worktree's
+      only uncommitted path is meta/kanban/config.yml, which is board state and
+      correctly NOT committed on the branch.
+  G-5:
+    status: MET
+    basis: mechanically verified
+    detail: >-
+      pyproject.toml has zero diff lines between base and HEAD; `pip list` shows
+      no pytest-timeout and no hypothesis; both probes import stdlib only (os,
+      time, pytest, pathlib, importlib).
+  G-6:
+    status: MET
+    basis: mechanically verified
+    detail: >-
+      No path under tests/fixtures/ appears in the diff, and no removed line
+      lowers a floor or minimum. The new CORPUS_FLOOR of 2400 is a new floor
+      asserted inside the test, in this suite's no-hypothesis style.
+  G-7:
+    status: MET
+    detail: >-
+      Section 3.2's A/B/A/B interleave and section 7's back-to-back arms each
+      record the load at both ends, and the document is candid that the load
+      moved 6.26 -> 24.78 across the four readings while the before arm moved
+      only 1.35 s - which it then uses as a datum rather than hiding. I took my
+      own before/after pair back to back on one machine state with zero rival
+      pytest at both ends, and reproduced both arms.
+
+seeded_observations:
+  observation_1_pgrep:
+    verdict: CONFIRMED, and the class check found no second instance
+    detail: >-
+      See F-001. I then audited every other figure in the document for whether
+      its named instrument is executable and produces that figure: `sysctl -n
+      vm.loadavg` works; `/usr/bin/time` works; the section 8 selection grep
+      reproduces 29 files verbatim; `--collect-only -o addopts=''` reproduces
+      542; the two probes both run and reproduce their own rows; the cProfile
+      door reproduces the mechanism. `ps -Ao command | grep -c '[m] pytest'`
+      (section 7) is executable but defective, and the document itself declares
+      that and declares what its 1/1 cells therefore do and do not show - which
+      is the honest-bound shape, not a finding. `pgrep -fc` is the only
+      non-executable instrument, and it appears four times including one results
+      cell.
+  observation_2_phantom_skips:
+    verdict: NO CONSEQUENCE FOUND - the branch and the document are clean of it
+    detail: >-
+      I grepped the document and both touched test files for any trace of "29
+      skips", "+2", or a 27-skip baseline: nothing. The "29" in section 8 is a
+      count of FILES, not skips, and it reproduces exactly. The document's skip
+      figure is 15 for its own 29-file selection, attributed by name with -rs,
+      and I reproduced 2310 passed / 15 skipped / 0 failed with the same two
+      shapes (14 x DATABASE_URL, 1 x setrlimit). The card does not chase the
+      phantom anywhere.
+
+mutation_verification:
+  policy_note: >-
+    Cycle 1, so there is no fix round to re-fire. Per the brief I independently
+    re-fired the card's own matrix instead. Every mutant was line-count
+    preserving, planted into the branch worktree, run ONE NODE ID AT A TIME so
+    attribution is per test and per assertion, and the file restored with
+    `git diff` asserted clean afterwards.
+  reproduced_killed: 9
+  reproduced_survivors_as_declared: 2
+  rows:
+    - mutant: M1 - memo removed (`lines = _SOURCE_LINE_CACHE.get(source)` -> `None`)
+      verdict: KILLED, exactly the cell the matrix names
+      fired: "test_the_split_is_computed_once_per_distinct_text: 'the line split ran 9816 times', assert 9816 == 1"
+      note: the two equivalence tests still passed, so the attribution is clean
+    - mutant: M2 - single-line UTF-8 encode removed
+      verdict: KILLED BY BOTH equivalence controls independently
+      fired: "corpus: divergence at line 3116 ('Constant'); small sources: 13 divergences in NON_ASCII_SOURCE"
+    - mutant: M3 - multi-line middle lines dropped
+      verdict: KILLED BY BOTH
+      fired: "corpus: 813 divergences; small sources: 2 in NON_ASCII_SOURCE"
+    - mutant: M4 - end-column slice removed
+      verdict: KILLED BY BOTH
+      fired: "corpus: 913 divergences; small sources: 3 in NON_ASCII_SOURCE"
+    - mutant: M5 - threshold made exclusive (>= -> >)
+      verdict: KILLED
+      fired: "test_the_threshold_is_inclusive_at_its_own_boundary: [] == ['test_exactly_at','test_in_two_phases']"
+    - mutant: M6 - parse floor disabled (assert replaced by a tautology)
+      verdict: KILLED
+      fired: "test_the_derivation_refuses_an_artefact_it_cannot_read: Failed: DID NOT RAISE AssertionError"
+    - mutant: M7 - phase summing replaced by the call phase alone (both sites)
+      verdict: KILLED
+      fired: "boundary test: the two-phase row vanished from the list"
+    - mutant: M8 - ceiling derivation ignores its argument (`if guard is None` -> `if True`)
+      verdict: KILLED
+      fired: "'a planted default of 45 came back as 120.0'"
+    - mutant: M9 - a frozen node id corrupted (…never_silent -> …never_silentX)
+      verdict: KILLED BY TWO CELLS
+      fired: "live-derivation equality names gained/lost; AND the collection test names the dead id"
+    - mutant: M10 - the cheapening reverted (segment() back to ast.get_source_segment)
+      verdict: SURVIVES - the declaration is TRUE, and now proved
+      evidence: >-
+        2 passed, exit 0, with NONOGRAM_TEST_HANG_SECONDS=600 so the arm could
+        report its cost: 105.65 s and 87.27 s against 29.38 s and 10.94 s at
+        HEAD. No claim reds on a price change, exactly as declared. This also
+        serves as my independent measurement of the before arm.
+    - mutant: "declared negative - truncate _source_lines' result by its last element ([:-1])"
+      verdict: SURVIVES BOTH equivalence controls AND the split-count control
+      evidence: "3 passed (corpus 8.56 s, small sources 0.04 s, split count 0.10 s) - the card's declaration is accurate, not merely humble"
+    - mutant: "declared negative - no mutant separates the two equivalence controls"
+      verdict: CONFIRMED
+      evidence: >-
+        M2, M3 and M4 each died to the seeded corpus AND to the exhaustive
+        small-source sweep, independently, measured per test. The card's draft
+        claim of unique reach was false and the card says so in the test itself;
+        the narrowed version is what ships and it is accurate.
+
+findings:
+  - id: F-001
+    severity: major
+    title: >-
+      A results cell reports the host through `pgrep -fc`, which does not exist
+      on this platform - and the prose asserts a reading that command cannot
+      have returned
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 445
+    also_at: [295, 342, 343]
+    gating: true
+    confidence: certain
+    evidence: |
+      The instrument, on this box:
+        $ pgrep -fc 'bin/python -m pytest'
+        usage: pgrep [-Lfilnoqvx] [-d delim] [-F pidfile] [-G gid] ...
+        exit=2
+        $ X=$(pgrep -fc 'bin/python -m pytest' 2>/dev/null); echo "X=[$X]"
+        X=[]
+      BSD/macOS pgrep has no -c (confirmed against `man pgrep`'s SYNOPSIS:
+      [-Lfilnoqvx]).  So inside a `$(...)` host cell it yields an EMPTY string,
+      not a count.  The working form returns a count:
+        $ pgrep -f 'bin/python -m pytest' | wc -l
+        0
+      What the document does with it:
+        line 445 (a RESULTS TABLE ROW of this card's own pre-gate):
+          | **rival-pytest, start / end** (`pgrep -fc`) | **0 / 0** |
+        lines 342-343 (prose, asserted as a measurement):
+          "`pgrep -fc 'bin/python -m pytest'` counts processes and returned
+           **0** on the same box in the same minute."
+        line 295 (inside the block the document calls "verbatim", section 6,
+        which exists so the convention "outlives this worktree"):
+          #   rival-pytest   `pgrep -fc 'bin/python -m pytest'`, both ends.
+      Either the 0 / 0 came from a different command than its label states, or
+      it is not a measurement.  The one reading that cannot be true is the one
+      at line 343: that command returned a usage error, not 0.
+      The "verbatim" claim is also already false.  main corrected the convention
+      at d61f0be1; diffing the document's section 6 block against main's
+      config.yml:
+        -  #   rival-pytest   `pgrep -fc 'bin/python -m pytest'`, both ends.
+        +  #   rival-pytest   `pgrep -f 'bin/python -m pytest' | wc -l`, both
+        +  #                  ends. NOT `pgrep -fc` -- BSD/macOS pgrep has no
+        +  #                  -c flag and exits with a usage error ...
+        -  #                  returns 2 with no pytest running at all, so its
+        +  #                  returns 2-3 with no pytest running at all, so its
+      Why gating: this is the cell the convention itself names as "the cell that
+      decides whether the run was quiet", in the card's own AC-6 instance, in the
+      artefact written to survive the worktree.  A host cell that silently empties
+      is precisely the failure AC-6 exists to prevent, so AC-6's single required
+      instance does not demonstrate the convention.
+    remedy: >-
+      Replace every `pgrep -fc` in the document with `pgrep -f '...' | wc -l`,
+      re-sync section 6 against main at d61f0be1 (or state that it is a snapshot
+      and name the commit), and either re-take the section 8 host cells with the
+      working form or label them "not measured".  The 0 / 0 is almost certainly
+      the true value - no rival pytest ran - but as it stands it is a figure
+      whose stated door cannot have produced it.
+
+  - id: F-002
+    severity: major
+    title: >-
+      Four shipped docstrings state the module is 306 KB - the figure this card
+      recomputed and refuted in the same commit series
+    file: tests/test_book_export_interior_cover.py
+    line: 1105
+    also_at: [6313, 6385, 6398]
+    gating: true
+    confidence: certain
+    evidence: |
+      The card's own document, section 1.4, under the heading
+      "The warm/cold page-cache mechanism: REFUTED":
+        | module size | 306 KB | **389,177 bytes (380 KB)** |
+      Recomputed by me:
+        $ python -c "import os; print(os.path.getsize('src/nonogram/admin/book_pdf_generator.py'))"
+        390485              # 381.3 KiB / 390.5 kB
+      What ships in the tree, four times:
+        1105: #: this module's 306 KB that is 2.557 s of the 2.843 s one analysis cost
+        6313:     per analysis over a 306 KB module, and the door-axis controls run 108
+        6385:     #: the node's line on every call, so an exhaustive sweep of this 306 KB
+        6398:         Nodes of ``book_pdf_generator.py`` -- the 306 KB source
+      The rule is explicit that a figure in a docstring is a claim whose control
+      is recomputation and that no mutant will catch a stale number.  Here the
+      card performed that recomputation, published the correction in its own
+      document, and then shipped the refuted figure four times in the standing
+      test tree - where it is the version a future reader will find first,
+      because the document is a card artefact and the docstring is in the file.
+    remedy: >-
+      Replace the four occurrences with the recomputed figure (and see F-004 on
+      which unit).  One sed, no behaviour change, no re-run needed.
+
+  - id: F-003
+    severity: minor
+    title: >-
+      The stated mechanism "re-splits its WHOLE source argument on every call"
+      is not what this Python does, and the same file states it correctly 70
+      lines later
+    file: tests/test_book_export_interior_cover.py
+    line: 1104
+    also_at: [6311, "meta/profiling/card-292-per-test-ceiling.md:111"]
+    gating: false
+    confidence: certain
+    evidence: |
+      CPython 3.14.3's ast.get_source_segment:
+        lines = _splitlines_no_ff(source, maxlines=end_lineno+1)
+      and _splitlines_no_ff breaks out of the finditer loop at maxlines.  So it
+      splits up to the NODE'S line, not the whole source.  Measured on one
+      analysis of the real module: 740 get_source_segment calls, 673
+      _splitlines_no_ff calls, 2.280 s tottime in the split.
+      The file says both things:
+        1104: "that function re-splits its whole ``source`` argument with a
+               regex on **every** call"   <- not true on this Python
+        6384: "``ast.get_source_segment`` re-splits the source up to the node's
+               line on every call"        <- correct
+      The conclusion (quadratic-ish in module size, 80-90 % of the analysis) is
+      unaffected - I reproduced it - but the claim as written at 1104/6311 and
+      at document line 111 is not what the stdlib demonstrates, and a reader
+      checking it against ast.py will find the contradiction inside one file.
+    remedy: Keep the 6384 wording and delete "whole" from the other three places.
+
+  - id: F-004
+    severity: minor
+    title: "389,177 'bytes' and '44.8 MB' are CHARACTER counts - the instrument's domain is not carried into the figure"
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 100
+    also_at: [101, "meta/profiling/card292_plant_reads.py:93"]
+    gating: false
+    confidence: certain
+    evidence: |
+      The probe sums len(text) AFTER decode (card292_plant_reads.py:61,85), so
+      its "bytes read" is characters:
+        $ python -c "...; print('chars',len(s),'bytes',len(s.encode()),'ondisk',st.st_size)"
+        generator: chars 389177  bytes 390485  ondisk 390485
+        page_spec: chars  25867  bytes  25929  ondisk  25929
+        108 each -> 44,824,752 chars = 44.8 MB if counted as bytes
+      So 389,177 is exactly the CHARACTER count (and the file is 390,485 bytes),
+      and 44.8 MB is 44.8 M characters = 42.7 MiB.  The module is not all-ASCII
+      (first non-ASCII at line 3 - the card establishes this elsewhere, in the
+      narrowing of its own equivalence claim), which is why the two differ.
+      Magnitude is 0.3 %, so nothing downstream moves; the defect is that the
+      figure's label states a domain the instrument does not measure, on a card
+      whose subject is instrument domains.
+    remedy: >-
+      Say "389,177 characters (390,485 bytes on disk)" and relabel the probe's
+      line as "characters read", or encode before measuring.
+
+  - id: F-005
+    severity: minor
+    title: >-
+      "675 calls per analysis" is attributed to the wrong function, and the
+      chain "675 per analysis x 108 analyses per test" does not hold
+    file: tests/test_book_export_interior_cover.py
+    line: 1103
+    also_at: [6312, "meta/profiling/card-292-per-test-ceiling.md:112"]
+    gating: false
+    confidence: high
+    evidence: |
+      One analysis of the real, unplanted module, instrumented by me (counting
+      shim, no cProfile), plus a cProfile run through the same door:
+        ONE analysis: segment() calls = 716
+        cProfile:  740 ast.get_source_segment   /   673 ast._splitlines_no_ff
+      So 675 is within 2 of the SPLIT count (673) and is 65 short of the
+      get_source_segment count (740) it is attributed to.  Minor on its own.
+      The chain is the part that does not hold.  The same docstring says the
+      door-axis controls "run 108 analyses in one test", which invites
+      675 x 108 = 72,900 segment calls.  Measured over the real test:
+        COUNTS: {'page_positions': 108, 'segment_calls': 25873, 'split_entries': 23461}
+        segment calls per analysis: 239.6
+      The planted analyses are far cheaper than the unplanted one the 675 was
+      taken from, so the per-analysis figure may not be multiplied by the
+      analysis count.  108 is exactly right; 675 is a property of one particular
+      analysis and its domain is not stated.
+    remedy: >-
+      State 673 splits per unplanted analysis and name it as such, or state the
+      measured 25,873 segment calls per test.  Both are recomputable.
+
+  - id: F-006
+    severity: minor
+    title: >-
+      "2.8429 s -> 0.2864 s (9.9x)" is a cProfile figure that cannot be
+      reconciled with the test's own cost; unprofiled it is 8.2x and 80 %
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 172
+    gating: false
+    confidence: high
+    evidence: |
+      The domain IS stated ("cProfile, same process, same host"), which is why
+      this is minor rather than gating.  But 108 analyses x 2.8429 s = 307 s
+      against a measured before-cost of 105.65 s for the whole test, so a reader
+      who multiplies gets 3x the truth.  Re-measured by me, same door, no
+      profiler:
+        ONE analysis (memoised): 0.2792 s
+        ONE analysis (stdlib)  : 2.2835 s      -> 8.2x, not 9.9x
+        cProfile total 2.994 s, of which _splitlines_no_ff 2.402 s -> 80 %
+                                                     (document says 90 %)
+      Sign, order and mechanism all reproduce; the ratio and the share are
+      cProfile-inflated and the document presents them as the analysis's cost.
+    remedy: Add the unprofiled pair beside the profiled one, or say "under cProfile" in the ratio cell itself.
+
+  - id: F-007
+    severity: minor
+    title: "A share whose denominator's revision is not named"
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 102
+    gating: false
+    confidence: high
+    evidence: |
+      The cell reads "0.0416 s - 0.039 % of the test's 107.19 s".  107.19 s is
+      the BEFORE arm's cost; the probe at HEAD reports the same reads against
+      the AFTER arm:
+        $ python meta/profiling/card292_plant_reads.py
+        test wall clock   27.32 s
+        read_text calls   216
+        seconds in reads  0.0454 s  = 0.166% of the test
+      Same refutation, different share, and nothing in the cell says which
+      revision 107.19 s belongs to.  The refutation itself is unaffected and is
+      arithmetically airtight: 2 of 216 reads can be cold, 0.0018 s.
+    remedy: Name the revision in the cell.
+
+  - id: F-008
+    severity: minor
+    title: >-
+      Nothing reds if the cheapening is reverted - declared, not hidden, but
+      worth recording as the one price that can silently return
+    file: tests/test_book_export_interior_cover.py
+    line: 1723
+    gating: false
+    confidence: certain
+    evidence: |
+      My M10 re-fire: reverting line 1723 to ast.get_source_segment leaves the
+      file green (2 passed, exit 0) at 105.65 s and 87.27 s.  The memo has a
+      guard (test_the_split_is_computed_once_per_distinct_text kills M1), but
+      its USE at the one hot call site has none, and the two remaining stdlib
+      call sites in this file (lines 1422, 2897) are cold paths that correctly
+      stay on the stdlib, so a grep-based guard would have to discriminate them.
+      The card declares this explicitly - "M10 is the control, not a gap ... a
+      price change, so no claim may red on it" - which is the honest-bound shape
+      the rules ask for, so this is NOT a gating finding.  Recorded because the
+      file's cost is the card's whole subject and it can return to 105 s with no
+      cell firing.
+    remedy: >-
+      Optional and cheap: assert in TestSourceSegment that the door-axis
+      `segment` closure resolves to _source_segment (read off the file by AST),
+      which reds on M10 without asserting a duration.  Decline if the card
+      prefers the declared bound.
+
+  - id: F-009
+    severity: info
+    title: "Interaction with main's CARD-296 merge: the pre-gate's selection includes two files main has since changed"
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 430
+    gating: false
+    confidence: certain
+    evidence: |
+      The section 8 selection reproduces verbatim at 29 files and includes
+      tests/test_book_difficulty_dots.py and tests/test_book_pdf_vector_primitives.py,
+      both of which CARD-296's merge changed on main:
+        $ git diff --name-only 6e0aadca db529c13
+        ... tests/test_book_difficulty_dots.py
+        ... tests/test_book_pdf_vector_primitives.py
+      So "collected 2325" is a property of base 6e0aadca and will not reproduce
+      post-merge.  The document names its base in its header, so the domain IS
+      stated globally; this is a note for the merge gate, not a defect.  The two
+      touched files themselves are untouched by CARD-296 (blob shas identical at
+      6e0aadca and db529c13), so I see no content conflict.
+
+  - id: F-010
+    severity: info
+    title: "The final commit shipped after the card's own pre-gate; I covered it"
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 1
+    gating: false
+    confidence: certain
+    evidence: |
+      The pre-gate in section 8 is recorded at 58ed72ae; HEAD is 98482d2c, which
+      lands 80 lines of the same document (docs only - `git show --stat` shows
+      one file).  Per the max_cycles rule, that edit shipped with no gate.  I
+      re-ran the same 29-file selection at HEAD and it is green, so the gap is
+      closed:
+        array length: 29
+        load-start { 4.22 5.64 6.47 }  rival-pytest 0
+        2310 passed, 15 skipped, 683 warnings in 303.62s
+        load-end { 13.45 8.40 7.36 }  rival-pytest 0
+        SKIPPED [14] tests/conftest.py:207: Database not reachable: DATABASE_URL is not set
+        SKIPPED [1]  tests/test_book_pdf_memory.py:1296: setrlimit(RLIMIT_AS) ...
+        exit=0
+      Card figures: 2310 / 15 / 0 at 316.24 s.  Mine: 2310 / 15 / 0 at 303.62 s
+      (4 % apart).  Both skip shapes are the named baseline ones.
+
+what_i_rederived:
+  - "AC-1's per-test-vs-per-process arm: 4 passed in 135.05 s in one process, exit 0 (card: 135.09 s)"
+  - "AC-1's kill signature: 130 s test killed at 120 s wall, 0.26 s CPU, exit 1, zero summary lines, stack dump naming the probe"
+  - "AC-1's hidden-header claim: the guard's line appears under -o addopts='' and not under the shipped -q"
+  - "AC-1's page-cache refutation, with the card's own probe: 216 reads, 2 distinct paths, 2 cold, 0.0454 s"
+  - "AC-2's whole derivation with MY OWN parser rather than rank_durations: 60.00 s threshold, 81.03 / 67.08, next 56.92 at 47 %"
+  - "AC-3's after arm: 29.38 s and 10.94 s standalone; and its before arm via M10: 105.65 s and 87.27 s"
+  - "AC-4's four equalities and the 36 DOOR_SHAPES rows, from the module's own constants, plus the test passing"
+  - "AC-5's full node-id set difference: 0 removals, 10 additions, 127->132, 405->410, 532->542"
+  - "The cheapening mechanism in a NEW domain: my own counting shim (8.2x unprofiled) and my own cProfile (80 % in _splitlines_no_ff)"
+  - "The 108 analyses per test and the 673 splits per analysis (which corrected the 675 attribution)"
+  - "The module's size, node count (9816) and multi-line node count (913)"
+  - "The section 8 selection grep (29 files) and the whole pre-gate (2310 / 15 / 0) at HEAD"
+  - "Nine of ten mutants, both declared negatives, and M10's declared survival"
+  - "The `pgrep -fc` failure, and the section 6 'verbatim' claim against main's d61f0be1"
+what_i_accepted:
+  - "The second 120 s limit's bisection bracket (119.6 s, 121.6 s] - the harness contract states a 120000 ms default foreground timeout, which is consistent, but I did not spend 120 s reproducing the cut"
+  - "The whole-file wall clocks 511.43 s and 104.12 s, and the 467.30 s / ~270 s reconciliation in section 7.2 - I ran the two cliff-edge tests, not the 132-test file"
+  - "The section 3.2 A/B/A/B load figures as recorded"
+  - "The 34.97 s exhaustive-sweep figure in the CORPUS_FLOOR comment"
+could_not_establish:
+  - "Whether the section 8 host cells 0 / 0 were taken with a working command and mislabelled, or never taken - the document gives no second trace, and the true value is almost certainly 0"
+  - "The cause of the remaining 3-5 % warm/cold gap - the card states plainly that it did not establish this either, which is the correct posture"
+  - "The 4.61 -> 11.74 load-average jump - explicitly left open by the card, correctly, as an observation with its mechanism open"
+  - "Whether the merge gate reproduces post-merge against main at db529c13 - out of scope here (F-009)"
