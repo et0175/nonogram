@@ -62,6 +62,7 @@ from __future__ import annotations
 import math
 import random
 import re
+import struct
 import zlib
 from io import BytesIO
 from pathlib import Path
@@ -1349,15 +1350,17 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
     def test_the_round_mark_primitive_is_defined_once_and_called_nowhere_yet(self):
         """One spelling held: a page card that *calls* ``round_mark`` fails here.
 
-        When a page card draws its difficulty dot the ordinary way this test
-        goes red, which is the intended alarm: it is the moment
+        When a page card calls ``round_mark`` this test goes red, which is the
+        intended alarm: it is the moment
         ``TestDifficultyDots_HasExactlyOneDrawingSite`` has to grow a fifth
         route, and the moment this test should be replaced by that one rather
         than relaxed.
 
-        It does **not** fire on a dot assembled from the path primitives —
-        see the class docstring for the measurement and for why that route is
-        not closed here.
+        **It is the alarm for this primitive, not for a round shape** — a dot
+        approximated out of ``line_to`` calls never touches ``round_mark`` and
+        is invisible here, measured (CARD-296 cycle 1, F-1). See the class
+        docstring: that route is a named limit with CARD-298 as its owner, and
+        nothing in the tree closes it today.
         """
         callers = {
             path
@@ -1508,3 +1511,272 @@ class TestVectorFace_TheCompressedFaceIsCachedAndStillTheSameBytes:
         changes these bytes without changing their meaning."""
         face = self._face()
         assert zlib.compress(face, 1) != zlib.compress(face, 9)
+
+# --------------------------------------------------------------------------
+# CARD-294 cycle 2, N-2 — ``_cap_height``'s branches, one face each
+# --------------------------------------------------------------------------
+#
+# Routed to CARD-296 (see that card's "[Routed in from CARD-294 cycle 2]"
+# section) because CARD-296 runs first in wave 61 and is the first consumer:
+# it centres every clue digit of the guide's line diagrams on
+# ``FontMetrics.cap_height``, DejaVu setting its figures to cap height.
+#
+# ``_cap_height`` has three reachable paths and two refusals, and the bundled
+# face exercises exactly ONE path -- ``OS/2`` version 1 with no
+# ``sCapHeight``, read through a long ``loca``. Everything else was
+# uncontrolled, including the branch CARD-294's own card states as behaviour
+# ("version >= 2 still wins where a face has it"), and including a real hole:
+# a version-2 face stating ``sCapHeight = 0`` came back as a cap height of
+# zero with no fallback and no error.
+#
+# The faces below are synthetic and hold only the four tables ``_cap_height``
+# reads -- ``OS/2``, ``head``, ``loca`` and ``glyf``. The ``cmap`` is a
+# parameter of that function rather than a table it parses, so a dict stands
+# in for it; nothing here needs a real font, and a real font cannot be made to
+# take four of these five paths at all.
+
+
+def _sfnt(tables: dict[str, bytes]) -> bytes:
+    """A minimal TrueType-tagged sfnt holding exactly ``tables``.
+
+    The offset table's ``searchRange``/``entrySelector``/``rangeShift`` are
+    derived from the table count the same way ``_sfnt_tables`` derives them to
+    check it, because that check refuses a directory that is not
+    self-consistent -- so a synthetic face has to be as well-formed in that
+    respect as a real one.
+    """
+    names = sorted(tables)
+    count = len(names)
+    selector = count.bit_length() - 1
+    header = struct.pack(
+        ">4sHHHH",
+        b"\x00\x01\x00\x00",
+        count,
+        2**selector * 16,
+        selector,
+        count * 16 - 2**selector * 16,
+    )
+    directory = b""
+    body = b""
+    offset = 12 + 16 * count
+    for tag in names:
+        payload = tables[tag]
+        directory += struct.pack(">4sIII", tag.encode("latin-1"), 0, offset, len(payload))
+        offset += len(payload)
+        body += payload
+    return header + directory + body
+
+
+def _os2(version: int, cap_height: int | None) -> bytes:
+    """An ``OS/2`` table of ``version``, with or without an ``sCapHeight``.
+
+    ``sCapHeight`` lives at byte 88 and exists from version 2, so a table
+    carrying one is 90 bytes or more and one that does not is short -- the
+    bundled DejaVuSans ships 86. Both halves of ``_cap_height``'s own
+    condition (``version >= 2 and length >= 90``) are therefore expressible.
+    """
+    table = bytearray(96 if cap_height is not None else 86)
+    table[0:2] = struct.pack(">H", version)
+    if cap_height is not None:
+        table[88:90] = struct.pack(">h", cap_height)
+    return bytes(table)
+
+
+def _head(*, long_loca: bool) -> bytes:
+    """A ``head`` table whose ``indexToLocFormat`` (byte 50) says which ``loca``."""
+    table = bytearray(54)
+    table[50:52] = struct.pack(">h", 1 if long_loca else 0)
+    return bytes(table)
+
+
+def _glyf(y_max: int, *, at: int = 0, size: int = 64) -> bytes:
+    """A ``glyf`` table whose glyph at ``at`` has ``y_max`` as its ``yMax``.
+
+    A glyph description opens with ``numberOfContours`` and then ``xMin``,
+    ``yMin``, ``xMax``, ``yMax``, so ``yMax`` is at offset 8 of the record --
+    which is the one field ``_cap_height`` reads.
+    """
+    table = bytearray(size)
+    table[at + 8 : at + 10] = struct.pack(">h", y_max)
+    return bytes(table)
+
+
+class TestVectorCapHeight_EveryBranchHasItsOwnFace:
+    """CARD-294 N-2: one synthetic face per reachable path, and per refusal.
+
+    The claim each test makes is narrow on purpose -- "this path returns this
+    number, and the other reading of the same bytes does not" -- because the
+    defect N-2 names is not a wrong answer, it is a branch nobody could see
+    taken.
+    """
+
+    #: The ``cmap`` ``_cap_height`` takes as an argument: ``H`` is glyph 1.
+    H_IS_GLYPH_ONE = {ord("H"): 1}
+
+    #: A long ``loca`` putting glyph 1's outline at bytes 0..32 of ``glyf``.
+    LOCA_LONG = struct.pack(">III", 0, 0, 32)
+
+    #: A ``loca`` whose SHORT reading puts glyph 1's outline at 0..32 and whose
+    #: LONG reading of the same twelve bytes is ``start=1048576, end=0`` -- an
+    #: empty, out-of-range extent. That asymmetry is deliberate: it is what
+    #: makes ``indexToLocFormat`` load-bearing rather than incidental.
+    LOCA_SHORT = struct.pack(">HHHHHH", 0, 0, 16, 0, 0, 0)
+
+    #: The ``yMax`` the synthetic ``H`` is given, and the value every face
+    #: that falls through to the glyph measurement must return.
+    GLYPH_Y_MAX = 1493
+
+    #: The ``sCapHeight`` the version-2 faces state. Deliberately NOT equal to
+    #: :attr:`GLYPH_Y_MAX`, so "the OS/2 field won" and "the glyph was
+    #: measured" are distinguishable answers.
+    STATED_CAP_HEIGHT = 700
+
+    def _face(
+        self,
+        *,
+        version: int = 1,
+        cap_height: int | None = None,
+        long_loca: bool = True,
+        loca: bytes | None = None,
+        glyf: bytes | None = None,
+    ) -> bytes:
+        return _sfnt(
+            {
+                "OS/2": _os2(version, cap_height),
+                "head": _head(long_loca=long_loca),
+                "loca": loca if loca is not None else self.LOCA_LONG,
+                "glyf": glyf if glyf is not None else _glyf(self.GLYPH_Y_MAX),
+            }
+        )
+
+    # -- path 1: a version >= 2 OS/2 that states a cap height ---------------
+
+    def test_a_version_two_face_with_a_stated_cap_height_is_believed(self):
+        """The branch CARD-294's card states as behaviour and never exercised.
+
+        Controlled by :attr:`STATED_CAP_HEIGHT` differing from
+        :attr:`GLYPH_Y_MAX`: delete the ``OS/2`` branch from ``_cap_height``
+        and this returns 1493 instead of 700.
+        """
+        face = self._face(version=2, cap_height=self.STATED_CAP_HEIGHT)
+
+        assert book_vector._cap_height(face, self.H_IS_GLYPH_ONE) == (
+            self.STATED_CAP_HEIGHT
+        )
+
+    def test_a_version_one_face_measures_its_own_H_instead(self):
+        """The one path the bundled face takes, now stated rather than implied."""
+        face = self._face(version=1, cap_height=None)
+
+        assert book_vector._cap_height(face, self.H_IS_GLYPH_ONE) == self.GLYPH_Y_MAX
+
+    def test_a_version_two_table_too_short_to_hold_the_field_is_not_read(self):
+        """``version >= 2`` is not enough: the table has to be long enough.
+
+        An 86-byte table claiming version 2 would read bytes 88..90 of a table
+        that stops at 86 -- which is a neighbouring table's bytes, not a cap
+        height. ``_cap_height``'s condition is ``and``-ed on the length for
+        this case, and nothing exercised it.
+        """
+        face = self._face(version=2, cap_height=None)
+
+        assert book_vector._cap_height(face, self.H_IS_GLYPH_ONE) == self.GLYPH_Y_MAX
+
+    # -- the hole N-2 named: a stated zero ---------------------------------
+
+    def test_a_stated_cap_height_of_zero_falls_through_and_is_never_returned(self):
+        """CARD-294 N-2's one real residual hole, closed by CARD-296.
+
+        A font tool that did not measure the field writes ``0``. Returning it
+        put a zero into ``/CapHeight`` and into the half-cap-height a page
+        card centres a digit against -- silently, with no fallback and no
+        error. The face still has an ``H``, so there is something to measure.
+        """
+        face = self._face(version=2, cap_height=0)
+
+        assert book_vector._cap_height(face, self.H_IS_GLYPH_ONE) == self.GLYPH_Y_MAX
+
+    def test_a_stated_negative_cap_height_falls_through_too(self):
+        """The same rule, from the other side of zero.
+
+        ``sCapHeight`` is a signed field, so a malformed face can state a
+        negative one; it is no more a cap height than a zero is. The guard is
+        ``> 0`` rather than ``!= 0`` so this case goes the same way, and this
+        is the control that says so.
+        """
+        face = self._face(version=2, cap_height=-200)
+
+        assert book_vector._cap_height(face, self.H_IS_GLYPH_ONE) == self.GLYPH_Y_MAX
+
+    # -- path 3: the short loca --------------------------------------------
+
+    def test_a_short_loca_face_is_read_with_the_short_offsets(self):
+        face = self._face(long_loca=False, loca=self.LOCA_SHORT)
+
+        assert book_vector._cap_height(face, self.H_IS_GLYPH_ONE) == self.GLYPH_Y_MAX
+
+    def test_the_same_loca_bytes_read_as_long_offsets_are_refused(self):
+        """What makes ``indexToLocFormat`` load-bearing, measured.
+
+        The same twelve ``loca`` bytes as the test above, with
+        ``indexToLocFormat`` flipped to 1. Delete the ``long_loca`` branch and
+        one of these two tests reds whichever way the branch is collapsed.
+        """
+        face = self._face(long_loca=True, loca=self.LOCA_SHORT)
+
+        with pytest.raises(ContentStreamError) as refusal:
+            book_vector._cap_height(face, self.H_IS_GLYPH_ONE)
+
+        assert "no outline" in str(refusal.value)
+
+    # -- the two refusals ---------------------------------------------------
+
+    def test_a_face_with_neither_a_stated_cap_height_nor_an_H_is_refused(self):
+        """The first raise: nothing to read and nothing to measure."""
+        face = self._face(version=1, cap_height=None)
+
+        with pytest.raises(ContentStreamError) as refusal:
+            book_vector._cap_height(face, {})
+
+        assert "no OS/2 sCapHeight and no 'H'" in str(refusal.value)
+
+    def test_an_H_with_an_empty_outline_is_refused(self):
+        """The second raise: ``loca`` gives the glyph no extent at all.
+
+        An empty ``loca`` entry is how a font says "this glyph is blank", and
+        a blank ``H`` has no cap line. Guessing one is what this function
+        exists to stop, so it refuses rather than returning the zero that the
+        ``glyf`` bytes at that offset would have given.
+        """
+        face = self._face(loca=struct.pack(">III", 0, 32, 32))
+
+        with pytest.raises(ContentStreamError) as refusal:
+            book_vector._cap_height(face, self.H_IS_GLYPH_ONE)
+
+        assert "no outline" in str(refusal.value)
+
+    # -- and which path the shipped face really takes -----------------------
+
+    def test_the_bundled_face_takes_the_glyph_path_through_a_long_loca(self):
+        """The one path that was controlled, now named rather than assumed.
+
+        Read out of the face's own bytes here, with this file's own ``struct``
+        calls rather than through ``book_vector``'s reader, so the statement
+        "the bundled face exercises exactly one of these paths" is a
+        measurement of the face and not a restatement of the module.
+        """
+        face = interior_face_bytes()
+        count = struct.unpack(">H", face[4:6])[0]
+        tables = {}
+        for index in range(count):
+            base = 12 + 16 * index
+            tag, _sum, offset, length = struct.unpack(">4sIII", face[base : base + 16])
+            tables[tag.decode("latin-1")] = (offset, length)
+
+        os2_at, os2_length = tables["OS/2"]
+        head_at, _ = tables["head"]
+
+        assert struct.unpack(">H", face[os2_at : os2_at + 2])[0] == 1
+        assert os2_length < 90
+        assert struct.unpack(">h", face[head_at + 50 : head_at + 52])[0] == 1
+        assert interior_face_metrics().cap_height > 0

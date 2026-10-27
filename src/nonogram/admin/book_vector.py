@@ -558,6 +558,22 @@ def _cap_height(data: bytes, cmap: Mapping[int, int]) -> int:
     ``TestVectorFontMetrics_FreeTypeAgreesWithTheSfntReader`` is where that
     agreement is asserted against an engine that did not write this reader.
 
+    **A stated ``sCapHeight`` of zero is not a cap height, and is no longer
+    returned as one** (CARD-296, answering CARD-294's cycle-2 note N-2). A
+    version-2-or-later ``OS/2`` whose ``sCapHeight`` is ``0`` used to come
+    straight back out of here — a silent zero in a ``/CapHeight`` and in the
+    half-cap-height a page card centres a digit against, with no fallback and
+    no error. Zero is what a font tool writes when it did not measure the
+    field, not a measurement, and the face it is read from still has an ``H``
+    to measure; so the field is read **only when it states something**, and
+    the ``H``-glyph measurement below is what a zero falls through to. The
+    three reachable paths and both refusals each have a synthetic face of
+    their own in
+    ``tests/test_book_pdf_vector_primitives.py``'s
+    ``TestVectorCapHeight_EveryBranchHasItsOwnFace``; before that card they
+    had one between them, exercised by the bundled face, which takes the
+    ``H``-glyph path.
+
     Raises:
         ContentStreamError: the face has neither an ``sCapHeight`` nor an
             ``H`` with an outline. A descriptor cannot state a cap height it
@@ -567,7 +583,9 @@ def _cap_height(data: bytes, cmap: Mapping[int, int]) -> int:
     tables = _sfnt_tables(data)
     os2, length = _table(tables, "OS/2")
     if struct.unpack(">H", data[os2 : os2 + 2])[0] >= 2 and length >= 90:
-        return struct.unpack(">h", data[os2 + 88 : os2 + 90])[0]
+        stated = struct.unpack(">h", data[os2 + 88 : os2 + 90])[0]
+        if stated > 0:
+            return stated
     glyph = cmap.get(ord("H"))
     if glyph is None:
         raise ContentStreamError(
@@ -828,9 +846,27 @@ class ContentStream:
     ) -> None:
         """A circle of ``radius_px`` about ``(center_x, center_y)``.
 
-        **The interior's only round shape**, and the one primitive CARD-293's
+        **The interior's one round-shape primitive**, and the one CARD-293's
         spike never emitted — it drew straight lines, rectangles, fills and
         text and no curve at all, which is why CARD-294 was ordered first.
+
+        "The interior's only round shape" is what this line used to say, and it
+        is wider than the class: :meth:`begin_path`/:meth:`line_to`/
+        :meth:`close_path`/:meth:`paint` build an arbitrary polygon, and a
+        32-gon is a disc at any size this book prints (CARD-296 review cycle 1,
+        F-1, which planted one and watched every alarm stay green). So this is
+        the *intended* route to a round mark and the only exact one.
+
+        The approximation route is **not held shut anywhere today**, and this
+        paragraph used to say a page card's vertex bound held it ("a page card
+        holds its own pages to a vertex bound for the other"). CARD-296 review
+        cycle 2 measured a disc drawn as a fan of three-point triangles and
+        another drawn as a staircase of filled ``re`` bands, both with every
+        alarm in the tree green; no bound can refuse them, because a guide
+        page's own arrow head is three points and so is a triangle. It is a
+        **named limit** with **CARD-298** as its owner — ADR-0042/R1's derived
+        per-page-kind check is where a round-shape rule for this medium
+        belongs, measured as ink rather than counted as vertices.
 
         Four cubic Béziers, one per quadrant, each with its control points
         pushed :data:`BEZIER_CIRCLE_KAPPA` times the radius along the
