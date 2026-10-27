@@ -868,16 +868,60 @@ DRAW_OBJECT_UNBOUND_SITES = (
 #: earned exemption in the shape :data:`DINGBAT_EXEMPT_MODULES` already uses:
 #: an equality against what exists today, plus a second assertion (in
 #: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark`)
-#: that neither site can actually put a round mark on a page.
+#: that no site can actually put a round mark on a page.
 #:
-#: Both are ``Image.point``, a per-pixel lookup table: one takes a 256-entry
-#: table built with ``*`` and ``+``, the other a lambda. Neither takes
-#: coordinates, which is the property the second assertion pins — so these are
-#: excluded by what they are, not by a widened bin.
+#: **Two families since CARD-295**, and the second assertion asks each one its
+#: own question rather than widening a bin to hold both.
+#:
+#: * ``Image.point``, a per-pixel lookup table: one takes a 256-entry table
+#:   built with ``*`` and ``+``, the other a lambda. Neither takes
+#:   coordinates, which is the property the second assertion pins.
+#: * ``ContentStream.line`` / ``.rectangle`` / ``.text`` — the PDF **operator
+#:   recorder** ADR-0042 draws the book's interior with
+#:   (``nonogram.admin.book_vector``), reached from the one module that turns
+#:   a COMP-007 ``Layout`` into its calls. Three of its method names collide
+#:   with Pillow's and its receiver is a ``ContentStream``, so the first
+#:   vector page lands here by construction. **Added rather than dodged**: the
+#:   calls could have been spelled through a wrapper this walk does not read,
+#:   which would have kept this table short while the drawing stayed exactly
+#:   where it is.
+#:
+#:   What earns the exemption is not the receiver's name but its **surface**:
+#:   a ``ContentStream`` has no ellipse-family and no round-enough method at
+#:   all — asserted against ``dir()``, not against this comment — and
+#:   ``round_mark``, one round shape it can make, is not a draw-method name,
+#:   so no call to it would be collected here whatever its receiver. That
+#:   spelling has its own guard in the file that wrote it:
+#:   ``tests/test_book_pdf_vector_primitives.py``'s
+#:   ``TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee``, which
+#:   holds the ``c`` operator to one module and ``round_mark`` to one
+#:   definition called nowhere.
+#:
+#:   **CORRECTED, CARD-295 cycle 1 F-004.** This comment used to end "The two
+#:   compose; neither is trusted alone", which claimed a coverage the pair
+#:   does not have. They compose over **two spellings** and not over the
+#:   route: a round mark assembled from ``ContentStream.begin_path`` /
+#:   ``curve`` / ``close_path`` / ``paint`` passes this walk (none of those
+#:   five names is in :data:`ALL_DRAW_METHODS`, so the call is never collected
+#:   and this exemption table is never consulted) **and** both tests over
+#:   there — measured, not reasoned. That hole is named as a set by
+#:   ``TestVectorVocabulary_…``'s ``UNWATCHED_MARKS`` and owned by
+#:   **CARD-298**, which reads every interior page kind's written operators at
+#:   once; an operator that reached a page is a fact no source pattern can be
+#:   fooled about, which is why the closable version of this guard lives
+#:   there and not here.
 NON_DRAW_RECEIVER_SITES = (
+    ("nonogram.admin.book_vector_draw", "draw_frame", "rectangle", "stream"),
+    ("nonogram.admin.book_vector_draw", "draw_grid_lines", "line", "stream"),
+    ("nonogram.admin.book_vector_draw", "draw_grid_lines", "line", "stream"),
+    ("nonogram.admin.book_vector_draw", "set_centred", "text", "stream"),
     ("nonogram.sourcing.image", "binarize", "point", "scaled"),
     ("nonogram.sourcing.image", "ink_bounding_box", "point", "greyscale"),
 )
+
+#: The methods :data:`NON_DRAW_RECEIVER_SITES`' vector family is excused for,
+#: and the class whose surface earns it.
+VECTOR_STREAM_METHODS = frozenset({"line", "rectangle", "text"})
 
 #: The one function allowed to put a round mark on a page.
 THE_DRAWING_SITE = ("nonogram.admin.book_pdf_generator", "_draw_difficulty_dots")
@@ -1667,13 +1711,25 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     def test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark(self) -> None:
         """The exemptions' own control — earned by the call, not granted to it.
 
-        The equality above says *which* two sites are excused; this says *why*,
-        so the exemption cannot quietly grow into one that could draw. Both are
-        ``Image.point``, a per-pixel lookup table, and the discriminating
-        property is that it takes no coordinates: a table built with ``*`` and
-        ``+``, or a lambda. A future card that writes a coordinate display on
-        an exempt receiver fails here instead of inheriting the excuse.
+        The equality above says *which* sites are excused; this says *why*, so
+        an exemption cannot quietly grow into one that could draw. There are
+        two families and each is asked its own question — a single question
+        asked of both would have to be the weaker of the two.
+
+        * **A pixel map** (``Image.point``): the discriminating property is
+          that it takes no coordinates — a table built with ``*`` and ``+``, or
+          a lambda. A future card that writes a coordinate display on such a
+          receiver fails here instead of inheriting the excuse.
+        * **The vector operator recorder** (``ContentStream``, CARD-295): the
+          discriminating property is the class's own surface. It is read off
+          ``dir()`` rather than asserted from the table's comment, so the day
+          somebody gives a content stream an ``ellipse`` the excuse stops
+          applying here — which is the shape of the defect this family would
+          otherwise introduce, a second drawing medium arriving with an
+          exemption nobody re-earns.
         """
+        from nonogram.admin.book_vector import ContentStream
+
         sources = _package_sources()
         exempt = [
             (module, function, method, call)
@@ -1681,7 +1737,21 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
             if not _is_draw_receiver(receiver)
         ]
         assert len(exempt) == len(NON_DRAW_RECEIVER_SITES)
+        surface = set(dir(ContentStream))
+        assert not surface & (ELLIPSE_METHODS | ROUND_ENOUGH_METHODS), sorted(
+            surface & (ELLIPSE_METHODS | ROUND_ENOUGH_METHODS)
+        )
         for module, function, method, call in exempt:
+            if method in VECTOR_STREAM_METHODS:
+                assert module.endswith("book_vector_draw"), (module, function, method)
+                # Scalars, never a vertex display: `ContentStream.line` takes
+                # four numbers and `rectangle` four edges, so neither can be
+                # handed the polygon a round mark would need.
+                assert not any(
+                    isinstance(argument, (ast.List, ast.Tuple))
+                    for argument in call.args
+                ), (module, function, "a vertex display on a content stream")
+                continue
             assert method == "point", (module, function, method)
             argument = call.args[0] if call.args else None
             assert not isinstance(argument, (ast.List, ast.Tuple)), (

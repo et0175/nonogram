@@ -1266,18 +1266,61 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
     one place ``round_mark`` is called, and both are asserted here over the
     same tree.
 
-    **How far this reaches, stated rather than implied.** It is a pattern
-    match over source text, not a derived enumeration, so it is *narrower*
-    than ADR-0039/R2 would want of a guard that had to stand alone — a curve
-    assembled by string concatenation, or a round mark reached through
-    ``getattr``, is invisible to it, exactly as the Pillow walk's own
-    docstring says of its four routes. It is not trying to be that guard. It
-    is a **tripwire on one transition**: the day a page card draws a vector
-    dot, the second test here goes red, and the response is to grow
-    ``TestDifficultyDots_HasExactlyOneDrawingSite`` a fifth route rather than
-    to relax this one. A tripwire that fires on the ordinary spelling of the
-    thing it is watching for is worth having; it is not a proof, and is not
-    claimed as one.
+    **How far this reaches — RETRACTED AND RESTATED, CARD-295 cycle 1 F-004.**
+
+    This docstring used to say: *"it is a tripwire on one transition: the day
+    a page card draws a vector dot, the second test here goes red."* **That is
+    false, and it has now been measured false three times by three different
+    routes** — CARD-294 shipped it, CARD-296's fix round retracted half of it,
+    and cycle 1 of this card measured the third: a ``draw_dot(stream, x, y,
+    r)`` added to ``book_vector_draw`` and built out of
+    ``begin_path``/``curve``/``curve``/``close_path``/``paint`` — a complete
+    round mark, drawn on a page, outside this vocabulary — passes **all
+    three** guards. The first test below matches a ``c`` operator written as a
+    Python *string literal*, and that literal stays in ``book_vector.py``
+    whoever calls it; the second keys on the text ``round_mark(``, which such
+    a dot never writes; and the Pillow walk collects neither ``curve`` nor
+    ``begin_path`` nor ``line_to`` nor ``paint``, so the call is never even
+    offered to ``NON_DRAW_RECEIVER_SITES``' exemption rule.
+
+    CARD-295 is what made that hole **reachable** rather than theoretical:
+    before it, ``book_vector`` was the only module holding a
+    ``ContentStream``, so the literal guard's premise held by construction.
+    ``book_vector_draw`` is the first holder outside it.
+
+    **The route is not being closed here, and the reason is the pattern of the
+    three failures rather than the cost of a fourth attempt.** Each fix so far
+    closed the spelling it was written against and the next card arrived by
+    another; that is what an unenumerable residue looks like from the inside.
+    Widening to the *call* would close ``curve`` and leave the polygon route —
+    ``begin_path``/``line_to``/``close_path``/``paint`` assembling a disc out
+    of straight segments — wide open, and that route is **measured
+    unclosable**: CARD-296 proved no vertex bound separates a dot from a
+    legitimate shape (the guide's arrow head needs three points and so does a
+    triangle), and ``line_to``/``paint`` are how a page draws anything at all,
+    so holding them to one module forbids the vocabulary's ordinary use. A
+    fourth source-pattern guard would buy one spelling and re-assert the same
+    false sentence.
+
+    **So the limit is named by its shape, with an owner.** What these two
+    tests are is a **tripwire on the two ordinary spellings** — a ``c``
+    operator written as a literal, and a call to ``round_mark`` — and nothing
+    more. A round mark assembled from the path primitives, a curve built by
+    string concatenation, or either reached through ``getattr`` passes them,
+    exactly as the Pillow walk's own docstring says of its four routes.
+
+    The route that *can* be closed is the **artefact-side** one, because an
+    emitted operator is a fact rather than a spelling:
+    ``tests/test_book_puzzle_page_vector.py``'s
+    ``test_the_page_draws_no_bezier`` asserts no ``c`` reaches the puzzle
+    page's written stream, which no source pattern can be fooled about —
+    though it too cannot tell a polygon from a shape, and says so.
+    **CARD-298** owns extending that reading to every interior page kind
+    (ADR-0042/R1's derived check is its own), and is therefore the owner of
+    this hole. :meth:`test_the_unwatched_half_of_the_vocabulary_is_named`
+    below makes the hole a *set* rather than a paragraph, so a primitive added
+    to ``ContentStream`` tomorrow joins the watched half or the hole
+    deliberately.
     """
 
     PACKAGE = Path(book_vector.__file__).parent.parent
@@ -1304,13 +1347,17 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
         assert writers == {self.THE_CURVE_SITE}, writers
 
     def test_the_round_mark_primitive_is_defined_once_and_called_nowhere_yet(self):
-        """G-1, mechanically: a vocabulary card that drew a page would fail this.
+        """One spelling held: a page card that *calls* ``round_mark`` fails here.
 
-        When CARD-295 or CARD-296 draws the first vector difficulty dot this
-        test goes red, which is the intended alarm: it is the moment
+        When a page card draws its difficulty dot the ordinary way this test
+        goes red, which is the intended alarm: it is the moment
         ``TestDifficultyDots_HasExactlyOneDrawingSite`` has to grow a fifth
         route, and the moment this test should be replaced by that one rather
         than relaxed.
+
+        It does **not** fire on a dot assembled from the path primitives —
+        see the class docstring for the measurement and for why that route is
+        not closed here.
         """
         callers = {
             path
@@ -1320,6 +1367,81 @@ class TestVectorVocabulary_TheRoundMarkRouteTheOldGuardCannotSee:
 
         assert callers == set(), callers
         assert self._sources()[self.THE_CURVE_SITE].count("def round_mark(") == 1
+
+    #: ``ContentStream``'s public surface, split three ways. The split is held
+    #: against ``dir()`` rather than trusted, so a primitive added tomorrow
+    #: joins one of the three deliberately —
+    #: :meth:`test_the_unwatched_half_of_the_vocabulary_is_named`.
+    #:
+    #: Marks a page, and **some guard would notice a page card calling it**:
+    #: the three whose names collide with Pillow's are collected by
+    #: ``tests/test_book_difficulty_dots.py``'s receiver walk and must be a
+    #: named ``NON_DRAW_RECEIVER_SITES`` entry, and ``round_mark`` is held by
+    #: the test above.
+    WATCHED_MARKS = frozenset({"line", "rectangle", "text", "round_mark"})
+    #: Marks a page, and **nothing watches it**. This is cycle 1's F-004, as a
+    #: set rather than as a paragraph: these five assemble and paint an
+    #: arbitrary closed path, so they draw a round mark between them, and no
+    #: guard in this tree collects any of them. Owner: **CARD-298** (see the
+    #: class docstring). A sixth path primitive belongs here until somebody
+    #: decides otherwise.
+    UNWATCHED_MARKS = frozenset(
+        {"begin_path", "line_to", "close_path", "curve", "paint"}
+    )
+    #: Puts no mark on a page: graphics state, the page box, and the two
+    #: readers. A guard watching these would be watching nothing.
+    NOT_A_MARK = frozenset(
+        {
+            "fill_grey",
+            "stroke_grey",
+            "stroke_width",
+            "media_box",
+            "operators",
+            "render",
+            "to_points",
+        }
+    )
+
+    def test_the_unwatched_half_of_the_vocabulary_is_named(self):
+        """The hole, as a partition of an enumerable surface (ADR-0039/R2).
+
+        Three claims, none of them that the hole is closed:
+
+        1. the three sets **partition** ``ContentStream``'s public surface, so
+           a primitive a later card adds cannot land outside all of them;
+        2. the watched half is watched *by something named* — the three
+           Pillow-colliding names are exactly
+           ``test_book_difficulty_dots.VECTOR_STREAM_METHODS``, read from that
+           module rather than restated here;
+        3. the unwatched half really is unwatched: none of those five names is
+           in ``ALL_DRAW_METHODS``, which is the union the Pillow walk closes
+           over — which is *why* cycle 1's ``draw_dot`` was not collected at
+           all — and the family is complete enough to close and paint a path,
+           so it can draw a disc.
+
+        What this cannot do is notice such a dot being written. It makes the
+        hole countable, which is the most a set can do, and it fails the day
+        the surface grows so the decision is taken rather than inherited.
+        """
+        from tests.test_book_difficulty_dots import (
+            ALL_DRAW_METHODS,
+            VECTOR_STREAM_METHODS,
+        )
+
+        surface = {name for name in dir(ContentStream) if not name.startswith("_")}
+        assert surface == self.WATCHED_MARKS | self.UNWATCHED_MARKS | self.NOT_A_MARK, (
+            sorted(surface ^ (self.WATCHED_MARKS | self.UNWATCHED_MARKS | self.NOT_A_MARK))
+        )
+        assert not self.WATCHED_MARKS & self.UNWATCHED_MARKS
+        assert not self.NOT_A_MARK & (self.WATCHED_MARKS | self.UNWATCHED_MARKS)
+
+        assert self.WATCHED_MARKS & ALL_DRAW_METHODS == VECTOR_STREAM_METHODS, sorted(
+            self.WATCHED_MARKS & ALL_DRAW_METHODS
+        )
+        assert not self.UNWATCHED_MARKS & ALL_DRAW_METHODS, sorted(
+            self.UNWATCHED_MARKS & ALL_DRAW_METHODS
+        )
+        assert {"begin_path", "line_to", "close_path", "paint"} <= self.UNWATCHED_MARKS
 
 
 class TestVectorFace_TheCompressedFaceIsCachedAndStillTheSameBytes:
@@ -1335,6 +1457,14 @@ class TestVectorFace_TheCompressedFaceIsCachedAndStillTheSameBytes:
     writes its **own** PDF measured **0.71×, slower than the ink assertion it
     replaces**, while one sharing a written interior measured 8.33×.
     ADR-0042/R6 points CARD-299 at **283 sites**.
+
+    Those two figures are the state **before** this cache, kept as the reason
+    it exists rather than as the state after it. With the cache the same
+    per-assertion arm measures **14.54×** and the shared-interior arm
+    **8.55×** — sharing the *file* is now the slower of the two, because it
+    re-extracts a 24-page PDF per assertion. See the post-cache addendum in
+    ``meta/profiling/card-295-puzzle-page-price.md``, which carries both and
+    the control that removing this cache reproduces 0.69×.
 
     **These assertions are about correctness, not speed.** A timing assertion
     here would be a stopwatch on a shared host; the board's rule is to prefer a

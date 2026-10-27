@@ -117,6 +117,38 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_pdf_packed_degrade.py",
     "tests/test_book_pdf_two_up.py",
     "tests/test_book_proof_pages.py",
+    # RESTATED DELIBERATELY 2026-10-26 (CARD-295), which is what this freeze
+    # exists to force: 32 paths, with the vector puzzle page's own test file
+    # added. The mention is real — the file calls
+    # ``BookPDFGenerator.vector_puzzle_pages``, which carries ``puzzle_pages``
+    # as a substring, and it calls the raster ``_blank_page``/``_write_pdf``
+    # on purpose (AC-1's control: the raster twin of the same page really
+    # does reference an image XObject, which is what makes the vector reading
+    # capable of failing, and the cross-medium seam reads that same page's
+    # ink). **Added rather than dodged**: the vector walk could have been
+    # named ``vector_pages`` and slipped the grep while costing exactly the
+    # same, which is CARD-223's own words for the silent divergence this set
+    # exists to prevent.
+    #
+    # Worth knowing when this file's share is read as a COST -- the CARD-219 /
+    # CARD-251 caveat, COUNTED rather than assumed: the whole file allocates
+    # **one** page bitmap, in a module-scoped fixture five tests share (AC-1's
+    # two raster controls, the cross-medium seam's two cells, and the control
+    # that nothing drew on the shared bitmap); its other 35 tests allocate
+    # none, which is the point of the card.
+    #
+    # The WALL CLOCK is deliberately NOT restated here. This entry first
+    # claimed 1.13 s; main's face cache (5d84976c) removed most of that, and
+    # CARD-295's fix round changed the file again -- the two raster controls
+    # stopped drawing a page each, and the cross-medium seam cycle 1's F-001
+    # asked for was added. The old figure is history, and a new one cannot
+    # honestly be taken where it was: every run available to the fix round was
+    # on a box at load average 12-19, which ``tests/README.md`` says "tells you
+    # nothing at all". A contended run does bound the upper end, and it is
+    # under a second. **A quiet-box figure is owed.** The file contributes 0 s
+    # to both the 2026-10-15 and the 2026-10-23 recordings (it did not exist),
+    # so no share computed from either artefact moves either way.
+    "tests/test_book_puzzle_page_vector.py",
     "tests/test_book_qr_slot.py",
     "tests/test_book_scaffolding.py",
     "tests/test_book_solved_answer_key.py",
