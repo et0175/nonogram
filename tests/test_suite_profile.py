@@ -5004,3 +5004,277 @@ def _run_module_in_sandbox(root: Path, log: str | None) -> dict[str, str]:
             outcomes[match["nodeid"]] = match["outcome"]
     assert outcomes, completed.stdout[-4000:]
     return outcomes
+
+
+class TestSuiteCeiling_TheCliffEdgeListIsDerived:
+    """CARD-292 / AC-2: which tests sit within 50 % of the suite's per-test
+    ceiling, **derived from the committed artefact** rather than listed.
+
+    The ceiling is real and it is in the tree, not in the host:
+    ``tests/hang_guard.py`` arms ``faulthandler.dump_traceback_later`` with
+    ``exit=True`` **per test** at its default of 120 s, so a test that
+    overruns takes the whole process down -- no summary line, no captured
+    output, exit 1, and no signal, which is every symptom CARD-292 was opened
+    to explain. A test at 110 s is therefore not "slow"; it is one busy
+    minute away from reding a gate that has nothing to do with the tree.
+
+    **What is frozen here and what is not** (CARD-292's G-2). The ceiling is
+    read off the guard's own source, and the threshold is derived from it, so
+    nothing here encodes a property of one machine. What is frozen is the
+    *list*, against the one committed artefact it is derived from, so the
+    answer cannot drift silently -- the shape
+    ``RENDER_HEAVY_SNAPSHOT`` has in this module.
+
+    **The artefact's domain is part of the figures** and is stated rather than
+    implied: ``suite-durations-20261023.txt``, commit ``ae164099``, taken
+    **before** CARD-276 grew ``test_book_export_interior_cover.py`` from 90
+    collected tests to 127. Both rows below are therefore **understatements**
+    of that file's cost today, and CARD-292 re-measured the dearest of them
+    directly rather than scaling this figure.
+    """
+
+    #: How close to the ceiling counts as cliff-edge. AC-2's "within 50 %".
+    CEILING_FRACTION = 0.5
+
+    #: Every test of the committed artefact whose summed phase time reaches
+    #: ``CEILING_FRACTION`` of the ceiling, derived once and frozen.
+    #:
+    #: Two, and both in one class of one file -- which is the finding, not an
+    #: accident of the threshold: the next test down is 56.92 s
+    #: (``tests/test_kill_matrix.py::test_ac7_the_four_arm_grid_of_card_257_reproduces``)
+    #: and it would join this list at a 47 % threshold.
+    CLIFF_EDGE_SNAPSHOT: tuple[tuple[str, float], ...] = (
+        (
+            "tests/test_book_export_interior_cover.py::"
+            "TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage::"
+            "test_each_door_axis_arm_catches_a_shape_the_other_misses",
+            81.03,
+        ),
+        (
+            "tests/test_book_export_interior_cover.py::"
+            "TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage::"
+            "test_every_door_shape_is_read_or_refused_and_never_silent",
+            67.08,
+        ),
+    )
+
+    #: The artefact ``CLIFF_EDGE_SNAPSHOT`` is a property of. Named rather
+    #: than taken as "the newest", so a later profile added beside it does not
+    #: silently re-point a frozen list at a different recording.
+    SNAPSHOT_ARTEFACT = "suite-durations-20261023.txt"
+
+    #: The floor the derivation refuses below. An artefact whose duration
+    #: format moved would parse to **no** tests, and an empty cliff-edge list
+    #: reads as good news -- which is why this derivation is default-DENY: it
+    #: refuses a profile it cannot see thousands of tests in, instead of
+    #: reporting that nothing is near the ceiling.
+    PARSE_FLOOR = 5000
+
+    #: Where the ceiling is imposed. Held as a path so the control below can
+    #: hand the same derivation a planted source instead.
+    GUARD_SOURCE = "tests/hang_guard.py"
+
+    @classmethod
+    def _ceiling_seconds(cls, guard: str | None = None) -> float:
+        """The per-test ceiling, read off the source of the guard that imposes
+        it.
+
+        By AST and not by import: ``HANG_SECONDS`` is
+        ``float(os.getenv(..., "120"))``, so an imported value is whatever the
+        environment said -- and CARD-292's own measurements set that variable
+        to 0 to time a test that the guard would otherwise have killed. The
+        **default literal** is the tree's figure; the environment's is the
+        caller's.
+
+        The shape is asserted as it is read, so a rewrite of that line reds
+        here rather than quietly handing back a wrong ceiling.
+        """
+        if guard is None:
+            guard = (REPO_ROOT / cls.GUARD_SOURCE).read_text(encoding="utf-8")
+        tree = ast.parse(guard)
+        assigned = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "HANG_SECONDS"
+                for target in node.targets
+            )
+        ]
+        assert len(assigned) == 1, (
+            "tests/hang_guard.py no longer assigns HANG_SECONDS exactly once, "
+            f"so the ceiling below is not read off one authority: {len(assigned)}"
+        )
+        defaults = [
+            node.value
+            for node in ast.walk(assigned[0])
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and node.value.replace(".", "", 1).isdigit()
+        ]
+        assert len(defaults) == 1, (
+            "HANG_SECONDS no longer carries exactly one numeric default "
+            f"literal, so no ceiling can be derived from it: {defaults}"
+        )
+        return float(defaults[0])
+
+    @classmethod
+    def _cliff_edge(cls, text: str, ceiling: float) -> list[tuple[str, float]]:
+        """``[(nodeid, seconds)]`` for every test of ``text`` within
+        ``CEILING_FRACTION`` of ``ceiling``, dearest first.
+
+        Summed over **all three phases**, because the guard's alarm wraps
+        ``pytest_runtest_protocol`` -- setup, call and teardown -- so a test
+        whose call phase is comfortable and whose setup is not is still over
+        the line.
+        """
+        parsed = ranker.parse_artefact(text)
+        assert len(parsed.tests) >= cls.PARSE_FLOOR, (
+            f"only {len(parsed.tests)} tests parsed out of this artefact, "
+            f"under the floor of {cls.PARSE_FLOOR}: the duration format has "
+            "moved and an empty cliff-edge list would read as good news"
+        )
+        threshold = ceiling * cls.CEILING_FRACTION
+        return [
+            (record.nodeid, round(record.total, 2))
+            for record in sorted(
+                parsed.tests.values(), key=lambda r: (-r.total, r.nodeid)
+            )
+            if record.total >= threshold
+        ]
+
+    def test_the_ceiling_is_read_off_the_guard_that_imposes_it(self) -> None:
+        """The ceiling is the hang guard's own default, and the threshold is
+        derived from it -- neither is written here."""
+        ceiling = self._ceiling_seconds()
+        assert ceiling == 120.0, (
+            "the per-test hang guard's default moved, so every figure derived "
+            f"from it in this class is stale: {ceiling}"
+        )
+        assert ceiling * self.CEILING_FRACTION == 60.0, ceiling
+
+        # The can-fail half: the 120.0 above is satisfied by a function that
+        # returns 120.0 for any input, so the derivation is asked for an
+        # answer it cannot have been written with. A planted guard whose
+        # default is 45 must come back as 45.
+        planted = (REPO_ROOT / self.GUARD_SOURCE).read_text(encoding="utf-8").replace(
+            '"120"', '"45"'
+        )
+        assert planted != (REPO_ROOT / self.GUARD_SOURCE).read_text(
+            encoding="utf-8"
+        ), "the plant below changed nothing, so it controls nothing"
+        assert self._ceiling_seconds(planted) == 45.0, (
+            "the ceiling is not read off the guard's own default: a planted "
+            "default of 45 came back as "
+            f"{self._ceiling_seconds(planted)}"
+        )
+
+    def test_the_cliff_edge_list_matches_a_live_derivation(self) -> None:
+        """AC-2: the frozen list equals what the artefact says today."""
+        artefact = PROFILING_DIR / self.SNAPSHOT_ARTEFACT
+        assert artefact.is_file(), (
+            f"{self.SNAPSHOT_ARTEFACT} is the recording CLIFF_EDGE_SNAPSHOT is "
+            "a property of and it is not committed, so that list answers for "
+            "nothing"
+        )
+        live = self._cliff_edge(
+            artefact.read_text(encoding="utf-8"), self._ceiling_seconds()
+        )
+        # An EQUALITY, not a containment and not a disjunction: a row gained
+        # is as much a finding as a row lost, and this list exists to notice
+        # the gain.
+        assert live == list(self.CLIFF_EDGE_SNAPSHOT), {
+            "gained": [row for row in live if row not in self.CLIFF_EDGE_SNAPSHOT],
+            "lost": [row for row in self.CLIFF_EDGE_SNAPSHOT if row not in live],
+        }
+
+    def test_the_derivation_refuses_an_artefact_it_cannot_read(self) -> None:
+        """The default-DENY half, on the shape the derivation was **not**
+        written from: a profile whose duration lines it cannot parse.
+
+        Without this, a format change turns the cliff-edge list into ``[]``
+        and the suite reports that nothing is near the ceiling.
+        """
+        artefact = (PROFILING_DIR / self.SNAPSHOT_ARTEFACT).read_text(
+            encoding="utf-8"
+        )
+        mangled = re.sub(r"^(\d+\.\d+)s ", r"\1 s ", artefact, flags=re.MULTILINE)
+        assert ranker.parse_artefact(mangled).tests == {}, (
+            "the mangling this control depends on no longer defeats the "
+            "parser, so it is not testing the refusal"
+        )
+        with pytest.raises(AssertionError, match="duration format has"):
+            self._cliff_edge(mangled, 120.0)
+
+    def test_the_threshold_is_inclusive_at_its_own_boundary(self) -> None:
+        """The edge of the claim, on a synthetic artefact so the numbers are
+        controlled: a test exactly at the threshold is listed, one a hundredth
+        under it is not, and the sum is over all three phases rather than the
+        call alone.
+
+        The ``PARSE_FLOOR`` is lowered **for this one derivation only**, by
+        calling the classmethod on a subclass, because a synthetic artefact
+        cannot hold five thousand tests and the floor is the point of the test
+        above.
+        """
+
+        class Unfloored(type(self)):
+            PARSE_FLOOR = 1
+
+        rows = "\n".join(
+            [
+                "59.99s call     tests/test_x.py::test_just_under",
+                "60.00s call     tests/test_x.py::test_exactly_at",
+                "30.00s call     tests/test_x.py::test_in_two_phases",
+                "30.00s setup    tests/test_x.py::test_in_two_phases",
+            ]
+        )
+        text = SYNTHETIC_ARTEFACT.replace(
+            "10.00s call     tests/test_a.py::test_slow", rows
+        )
+        live = Unfloored._cliff_edge(text, 120.0)
+        assert [nodeid for nodeid, _ in live] == [
+            "tests/test_x.py::test_exactly_at",
+            "tests/test_x.py::test_in_two_phases",
+        ], live
+        assert ("tests/test_x.py::test_in_two_phases", 60.0) in live, (
+            "the derivation no longer sums the phases, so a test whose setup "
+            "and call straddle the line is invisible to it"
+        )
+
+    def test_both_cliff_edge_rows_are_tests_the_suite_still_collects(self) -> None:
+        """A frozen node id that no longer exists is a list about the past.
+
+        Checked by collection rather than by grep: a renamed class or a
+        reworded parametrize id leaves the method name findable in the file
+        and the node id dead, which is the exact shape CARD-282's fix round
+        nearly shipped.
+        """
+        files = sorted({nodeid.split("::", 1)[0] for nodeid, _ in self.CLIFF_EDGE_SNAPSHOT})
+        collected = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                *files,
+                "-o",
+                "addopts=",
+                "-q",
+                "--collect-only",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        ids = {line.strip() for line in collected.stdout.splitlines() if "::" in line}
+        assert len(ids) > 100, (
+            "the collection subprocess returned almost nothing, so the "
+            f"assertion below would pass vacuously: {collected.stdout[-400:]!r} "
+            f"{collected.stderr[-400:]!r}"
+        )
+        missing = [nodeid for nodeid, _ in self.CLIFF_EDGE_SNAPSHOT if nodeid not in ids]
+        assert missing == [], (
+            "a frozen cliff-edge node id is no longer collected, so this list "
+            f"is about a test that has been renamed or removed: {missing}"
+        )

@@ -1097,6 +1097,72 @@ class TestBookExport_EmptyBookUnchanged:
 # --------------------------------------------------------------------------
 
 
+#: ``ast._splitlines_no_ff`` memoised by source text -- CARD-292.
+#:
+#: **Why this exists, measured rather than asserted.** ``_page_positions``
+#: called ``ast.get_source_segment`` 675 times per analysis, and that function
+#: re-splits its whole ``source`` argument with a regex on **every** call. On
+#: this module's 306 KB that is 2.557 s of the 2.843 s one analysis cost --
+#: 90 % -- measured with ``cProfile`` through
+#: ``meta/profiling/card292_plant_reads.py``'s door and written up in
+#: ``meta/profiling/card-292-per-test-ceiling.md``. The split is a pure
+#: function of the source text, so one split per distinct text is the same
+#: answer for a hundredth of the price.
+#:
+#: Eight entries, not one: a single-slot cache thrashes because the door-axis
+#: controls interleave a planted text with the module's own.
+_SOURCE_LINE_CACHE: dict[str, list[str]] = {}
+#: The parser's own line split, as ``ast._splitlines_no_ff`` spells it. Held
+#: here as this module's OWN pattern rather than reached for in ``ast``'s
+#: private namespace, so a stdlib rename is a visible divergence that
+#: :meth:`TestSourceSegment_TheMemoIsTheStdlibAnswer.test_a_seeded_corpus_of_the_real_module_segments_identically`
+#: reds on, not an ``AttributeError`` at import.
+_LINE_SPLIT = re.compile(r"(.*?(?:\r\n|\n|\r|$))")
+
+
+def _source_lines(source):
+    """``source`` split the way the parser splits it, computed once per text."""
+    lines = _SOURCE_LINE_CACHE.get(source)
+    if lines is None:
+        lines = [match[0] for match in _LINE_SPLIT.finditer(source)]
+        if len(_SOURCE_LINE_CACHE) >= 8:
+            _SOURCE_LINE_CACHE.clear()
+        _SOURCE_LINE_CACHE[source] = lines
+    return lines
+
+
+def _source_segment(source, node):
+    """``ast.get_source_segment(source, node)``, over :func:`_source_lines`.
+
+    A reimplementation, which is a claim about equivalence, so it ships with
+    its control: ``TestSourceSegment_TheMemoIsTheStdlibAnswer`` asserts this
+    function equal to ``ast.get_source_segment`` for **every** node of the
+    real module and of a planted one, in both the single-line and the
+    multi-line branch, and names what it does not carry (``padded=True``,
+    which no caller in this module passes).
+
+    ``col_offset`` is a UTF-8 **byte** offset, which is why each end line is
+    encoded before it is sliced -- the one part of this function that is not
+    obvious and the one a naive rewrite gets wrong.
+    """
+    try:
+        if node.end_lineno is None or node.end_col_offset is None:
+            return None
+        lineno = node.lineno - 1
+        end_lineno = node.end_lineno - 1
+        col_offset = node.col_offset
+        end_col_offset = node.end_col_offset
+    except AttributeError:
+        return None
+
+    lines = _source_lines(source)
+    if end_lineno == lineno:
+        return lines[lineno].encode()[col_offset:end_col_offset].decode()
+    first = lines[lineno].encode()[col_offset:].decode()
+    last = lines[end_lineno].encode()[:end_col_offset].decode()
+    return "".join([first, *lines[lineno + 1 : end_lineno], last])
+
+
 class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
     """Every expression in the generator that counts the guide also counts the
     title page, and no page offset in one of them is a literal.
@@ -1654,7 +1720,7 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         slots, refusals = cls._door_position_slots(tree, doors, source)
 
         def segment(node):
-            return "" if node is None else (ast.get_source_segment(source, node) or "")
+            return "" if node is None else (_source_segment(source, node) or "")
 
         def called(call):
             if isinstance(call.func, ast.Attribute):
@@ -6234,4 +6300,303 @@ class TestGuardProse_EveryNamedControlExists:
             "the resolution the check uses no longer reports a name this "
             "suite does not define, so that check is default-ALLOW and would "
             "pass on any dead claim"
+        )
+
+
+class TestSourceSegment_TheMemoIsTheStdlibAnswer:
+    """CARD-292: :func:`_source_segment` is a **reimplementation** of
+    ``ast.get_source_segment``, and a reimplementation is an equivalence
+    claim, so it ships with the controls that can falsify it.
+
+    **Why it was written.** ``ast.get_source_segment`` re-splits its whole
+    ``source`` argument on every call. ``_page_positions`` calls it 675 times
+    per analysis over a 306 KB module, and the door-axis controls run 108
+    analyses in one test. The split is a pure function of the text, so it is
+    memoised; the arithmetic that sliced the lines is unchanged and is held to
+    the stdlib's answer here. The cost figures are in
+    ``meta/profiling/card-292-per-test-ceiling.md``; **no figure is asserted
+    in this file**, because a duration is a property of the host and would red
+    on another machine (CARD-292's G-2).
+
+    **What is asserted instead is the integer form of the saving** --
+    :meth:`test_the_split_is_computed_once_per_distinct_text` counts line
+    splits, not seconds, which is measurable where a sub-second stopwatch on a
+    loaded box is not.
+
+    **What this does NOT carry:** ``padded=True``. No caller in this module
+    passes it, so the branch is absent rather than wrong, and
+    :meth:`test_the_padded_branch_is_absent_rather_than_silently_wrong` says
+    so by asserting the keyword is refused instead of ignored.
+    """
+
+    #: The shape the memo was NOT written from: a text whose offsets are not
+    #: its character indices. ``col_offset`` is a UTF-8 byte offset, so a
+    #: rewrite that slices the ``str`` passes on ASCII and is wrong here.
+    #: Three doors on one line and a multi-line call, so both branches of
+    #: :func:`_source_segment` are reached by this source alone.
+    NON_ASCII_SOURCE = (
+        'ЖЖЖ = "гео"\n'
+        'def f(a, b):\n'
+        '    return ЖЖЖ, a, b\n'
+        'x = f("—", 2)\n'
+        'y = f(\n'
+        '    "—",\n'
+        '    3,\n'
+        ')\n'
+    )
+
+    #: A three-line plant with a tail appended past the source's last line --
+    #: the shape ``_plant`` makes, and the one shape whose nodes sit at line
+    #: numbers the unplanted module never had.
+    PLANTED_SHAPE = (
+        "HEAD = 1\n"
+        "def g(\n"
+        "    page,\n"
+        "):\n"
+        "    first = (\n"
+        "        1\n"
+        "        + page\n"
+        "    )\n"
+        "    return first\n"
+        "TAIL = g(2)\n"
+    )
+
+    @staticmethod
+    def _both_branches(source):
+        """``(single_line_nodes, multi_line_nodes)`` of ``source``'s tree.
+
+        Returned as counts so each assertion below can refuse a vacuous
+        comparison: an equality over an empty node set is satisfied by any
+        implementation, which is the shape ADR-0039/R2 forbids.
+        """
+        import ast
+
+        single, multi = [], []
+        for node in ast.walk(ast.parse(source)):
+            if getattr(node, "end_lineno", None) is None:
+                continue
+            (single if node.end_lineno == node.lineno else multi).append(node)
+        return single, multi
+
+    #: How many nodes of the real module the equivalence corpus must hold.
+    #:
+    #: A seeded corpus rather than every node, and the reason is the thing
+    #: being replaced: ``ast.get_source_segment`` re-splits the source up to
+    #: the node's line on every call, so an exhaustive sweep of this 306 KB
+    #: module's 9,816 located nodes costs **34.97 s** (measured with
+    #: ``--durations`` on the first draft of this class) and would hand back a
+    #: third of the saving this card exists for. The floor is asserted inside
+    #: the test, in this suite's no-``hypothesis`` style, so the corpus cannot
+    #: silently shrink.
+    CORPUS_FLOOR = 2400
+    #: The seed, fixed so a divergence is reproducible from the failure alone.
+    CORPUS_SEED = 292
+
+    def test_a_seeded_corpus_of_the_real_module_segments_identically(self):
+        """The equivalence, over the text the memo exists for.
+
+        Nodes of ``book_pdf_generator.py`` -- the 306 KB source
+        ``_page_positions`` analyses -- are segmented both ways and the two
+        answers compared. **Both** branches of :func:`_source_segment` are
+        asserted present in the corpus before the comparison, and the corpus
+        size is asserted against :data:`CORPUS_FLOOR`, so neither a shrunken
+        corpus nor a one-branch one can satisfy this silently.
+
+        The exhaustive sweep lives in
+        :meth:`test_every_node_of_the_small_sources_segments_identically`,
+        where it is affordable; what this test adds is the **real module's own
+        line depth**, which is the variable the memo changes and which no
+        small source has.
+        """
+        import ast
+        import random
+        from pathlib import Path
+
+        guard = TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage
+        source = (Path(__file__).resolve().parents[1] / guard.MODULE).read_text(
+            encoding="utf-8"
+        )
+        single, multi = self._both_branches(source)
+        assert len(single) > 1000 and len(multi) > 100, (
+            "the real module no longer offers both branches of "
+            "_source_segment in quantity, so the corpus below could be "
+            f"one-sided: {len(single)} single, {len(multi)} multi"
+        )
+
+        # EVERY multi-line node and a seeded sample of the single-line
+        # ones: the multi-line branch is the one that joins three slices and
+        # is 913 of the module's 9,816 located nodes, so sampling it would
+        # thin the rarer half of the claim to save nothing.
+        rng = random.Random(self.CORPUS_SEED)
+        corpus = multi + rng.sample(single, self.CORPUS_FLOOR - len(multi))
+        assert len(corpus) >= self.CORPUS_FLOOR, (
+            f"the equivalence corpus shrank to {len(corpus)} nodes, under the "
+            f"{self.CORPUS_FLOOR} this card measured it at"
+        )
+        assert max(node.end_lineno for node in corpus) > 6000, (
+            "the corpus reaches no node deep in the module, so it never "
+            "exercises the line depth the memo exists to stop re-paying"
+        )
+
+        divergent = [
+            (node.lineno, type(node).__name__)
+            for node in corpus
+            if _source_segment(source, node) != ast.get_source_segment(source, node)
+        ]
+        assert divergent == [], (
+            "_source_segment no longer agrees with ast.get_source_segment on "
+            "this module, so the memo changed an answer rather than its "
+            f"price: {divergent[:5]}"
+        )
+
+    def test_every_node_of_the_small_sources_segments_identically(self):
+        """The same equivalence **exhaustively**, on texts the memo was not
+        written from and which are cheap enough to sweep whole.
+
+        Two shapes, both deliberate. :data:`NON_ASCII_SOURCE`'s
+        ``col_offset`` values are UTF-8 **byte** offsets that are not
+        character indices; :data:`PLANTED_SHAPE` is a three-line plant with a
+        tail appended after the source's last line, which is the shape every
+        door-axis control analyses.
+
+        **What CARD-292's kill matrix actually established about this test,
+        stated instead of the reach it was drafted to claim.** The draft said
+        a ``str``-slicing implementation "passes the seeded corpus above --
+        that module is ASCII -- and reds here". That is **false**:
+        ``book_pdf_generator.py`` is not all-ASCII (the divergence lands at
+        its line 3116), and every one of the three deletion mutants aimed at
+        :func:`_source_segment`'s slicing -- the single-line encode, the
+        multi-line middle lines, the end-column slice -- is killed by the
+        seeded corpus **and** by this test independently. So **no mutant
+        separated the two**, and this test is a deliberately redundant
+        exhaustive control, not a claim of unique reach. It is kept because
+        it is exhaustive and costs 0.01 s where the corpus is a sample.
+        """
+        import ast
+
+        for name, source in (
+            ("NON_ASCII_SOURCE", self.NON_ASCII_SOURCE),
+            ("PLANTED_SHAPE", self.PLANTED_SHAPE),
+        ):
+            single, multi = self._both_branches(source)
+            assert single and multi, (
+                f"{name} no longer reaches both branches of _source_segment, "
+                f"so its equality is partial: {len(single)}/{len(multi)}"
+            )
+            divergent = [
+                (node.lineno, type(node).__name__)
+                for node in single + multi
+                if _source_segment(source, node)
+                != ast.get_source_segment(source, node)
+            ]
+            assert divergent == [], (
+                f"_source_segment diverges from the stdlib on {name}: "
+                f"{divergent[:5]}"
+            )
+
+    def test_the_split_is_computed_once_per_distinct_text(self):
+        """The saving, as a **count** rather than as a duration (G-2).
+
+        One analysis of the real module segments hundreds of nodes. The claim
+        is that it splits the text **once**, and the control is a counting
+        shim over :data:`_LINE_SPLIT` -- so a memo that silently stopped
+        memoising reds here with an integer, on any machine, where a stopwatch
+        would need a quiet one.
+
+        The second half is what makes it a saving and not a tautology: the
+        number of segment requests is asserted to be far larger than the
+        number of splits. Dropping the cache makes those two numbers equal.
+        """
+        import sys
+        from pathlib import Path
+
+        guard = TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage
+        source = (Path(__file__).resolve().parents[1] / guard.MODULE).read_text(
+            encoding="utf-8"
+        )
+        module = sys.modules[__name__]
+        real = module._LINE_SPLIT
+        splits = []
+
+        class Counting:
+            def finditer(self, text):
+                splits.append(len(text))
+                return real.finditer(text)
+
+        _SOURCE_LINE_CACHE.clear()
+        module._LINE_SPLIT = Counting()
+        try:
+            segments = sum(
+                1
+                for node in self._both_branches(source)[0]
+                + self._both_branches(source)[1]
+                if _source_segment(source, node) is not None
+            )
+        finally:
+            module._LINE_SPLIT = real
+            _SOURCE_LINE_CACHE.clear()
+
+        assert len(splits) == 1, (
+            "one distinct source text was segmented and the line split ran "
+            f"{len(splits)} times, so _source_lines is no longer a memo"
+        )
+        assert segments > 100 * len(splits), (
+            f"only {segments} segments were taken over {len(splits)} split(s), "
+            "so this control is not measuring a saving"
+        )
+
+    def test_the_padded_branch_is_absent_rather_than_silently_wrong(self):
+        """What :func:`_source_segment` does **not** carry, asserted.
+
+        ``ast.get_source_segment`` takes ``padded=``; this one does not. The
+        difference between *absent* and *ignored* is the whole point: ignored
+        would return the unpadded answer to a caller who asked for padding,
+        which no control would catch. Refused raises.
+        """
+        import ast
+        from pathlib import Path
+
+        guard = TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage
+        source = (Path(__file__).resolve().parents[1] / guard.MODULE).read_text(
+            encoding="utf-8"
+        )
+        node = next(
+            n
+            for n in self._both_branches(source)[1]
+            if ast.get_source_segment(source, n, padded=True)
+            != ast.get_source_segment(source, n)
+        )
+        with pytest.raises(TypeError):
+            _source_segment(source, node, padded=True)
+
+        assert "padded" not in _source_segment.__code__.co_varnames, (
+            "_source_segment grew a `padded` parameter without the branch "
+            "that honours it, which is the silently-wrong shape this test "
+            "exists to deny"
+        )
+
+    def test_no_caller_in_this_file_asks_for_padding(self):
+        """The premise of the test above, read off this file rather than
+        assumed: if a caller ever passes ``padded=``, the absent branch stops
+        being harmless and :func:`_source_segment` owes it."""
+        import ast
+        from pathlib import Path
+
+        tree = ast.parse(Path(__file__).resolve().read_text(encoding="utf-8"))
+        asking = [
+            call.lineno
+            for call in ast.walk(tree)
+            if isinstance(call, ast.Call)
+            and any(keyword.arg == "padded" for keyword in call.keywords)
+            and not (
+                isinstance(call.func, ast.Name) and call.func.id == "_source_segment"
+            )
+            and not (
+                isinstance(call.func, ast.Attribute)
+                and call.func.attr == "get_source_segment"
+            )
+        ]
+        assert asking == [], (
+            "something in this file passes `padded=` to a callee that is "
+            f"neither the stdlib nor _source_segment's own refusal: {asking}"
         )
