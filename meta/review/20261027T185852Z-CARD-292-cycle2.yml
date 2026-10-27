@@ -1,0 +1,753 @@
+card: CARD-292
+cycle: 2
+max_cycles: 3
+reviewed:
+  branch: card/292-measure-the-per-test-ceiling
+  head: db0e1a3e
+  merge_base: 6e0aadca
+  prior_reviewed_revision: 98482d2c
+  fix_round_diff: 98482d2c..db0e1a3e
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-292
+  main_at_review: d77fa29c
+score: 7
+threshold: 8
+certified: false
+verdict: >-
+  NOT CERTIFIED (7 of 10, threshold 8). Fix round 1 is good, careful work and
+  most of it holds under independent re-derivation: eight of cycle 1's ten
+  findings are CLOSED and I re-derived the load-bearing figure in each of them
+  myself, usually through a different door than the card used. The AST-equality
+  declaration - that the whole test-tree change is comments and docstrings - is
+  TRUE and I reproduced it independently. P1's declared survival is TRUE and its
+  stated consequence is the real one. P2's declared kill is TRUE in both named
+  cells. The F-008 decline is honest and its consequence is correctly stated.
+  It is not certified because the round introduced two new findings in the one
+  class this board gates on, and both are in the class this card exists to
+  police - an instrument's domain leaking into a figure. F-201: the replacement
+  rival-pytest instrument, `pgrep -f 'bin/python -m pytest' | wc -l`, CANNOT SEE
+  a venv-launched pytest on this box - it reads 0 whether or not a rival is
+  running - and the round's newly added positive control, "1 taken deliberately
+  while SS8.2's own run was in flight ... the cell can rise, and it rose", is a
+  reading that command cannot have produced here. That is cycle 1's F-001 in a
+  new spelling, inside AC-6's own demonstrated instance, so AC-6 is STILL NOT
+  MET. F-202: the round's own correction of F-005 ships a wrong DOMAIN into a
+  standing docstring - all 108 analyses of the dear test are over planted
+  ~389k-character texts, none is over the real module, and the 0-2 group's texts
+  are not small; the counts are exactly right and the attribution is not. Both
+  are prose, both are cheap, and neither moves a conclusion.
+
+host_state_of_this_review:
+  box: Mac15,6 (Apple M3 Pro, 11 cores, 18 GB), macOS 26.7.1 / Darwin 25.6.0
+  python: 3.14.3, pytest 9.1.1
+  interpreter_check: >-
+    /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python resolves
+    `nonogram` to the MAIN checkout's src by default
+    (/Users/omelnikova/PycharmProjects/PythonProject4/src/nonogram/__init__.py),
+    so every probe I ran inserted the WORKTREE's src and tests on sys.path
+    explicitly, and every pytest run was invoked with the worktree as cwd so
+    pyproject's pythonpath=["src"] resolves the worktree. Verified by printing
+    nonogram.__file__ both ways before any measurement.
+  full_suite_lock: not taken, not present, NONOGRAM_FULL_SUITE_LOCK never set
+  full_suite_run: not run (per the brief)
+  env_overrides_i_set: >-
+    NONE. NONOGRAM_TEST_HANG_SECONDS and NONOGRAM_FULL_SUITE_LOCK were unset for
+    every run in this review, so every figure here was taken under the shipped
+    120 s guard. This differs from cycle 1, which set 600 for its M10 arm; I
+    fired M10 against cells that cost seconds instead, so no override was needed.
+  load_averages: "4.22-21.46 across the readings; recorded per run in evidence"
+  rival_pytest_at_every_timed_run: >-
+    0 by `pgrep -f 'bin/python -m pytest' | wc -l` AND 0 by
+    `pgrep -f 'm pytest' | wc -l` at both ends of every run except where a run
+    of my own was deliberately in flight. DISCLOSED: the first of those two
+    commands is the one F-201 shows cannot rise on this box, so only the second
+    reading carries information. Cycle 1 recorded its host cell through the
+    first command alone and so, on the evidence of F-201, carries no rival-pytest
+    measurement either - I am recording both so this review's own cells are not
+    the defect it reports.
+  uncommitted_in_worktree: >-
+    meta/kanban/config.yml only, carrying the OLD broken text, left strictly
+    alone per the brief. Verified after every mutant that `git status --short`
+    showed that file and nothing else.
+
+acceptance_criteria:
+  AC-1:
+    status: MET
+    basis: carried forward from cycle 1, with the page-cache arm re-derived
+    detail: >-
+      Nothing in the fix round touches AC-1's mechanism. I re-ran the card's own
+      page-cache probe at HEAD: 216 read_text calls over 2 distinct paths,
+      44,824,752 characters (exactly the document's figure), 0.0407 s = 0.146 %
+      of a 27.98 s test, 2 first reads at 0.0013 s. Same refutation, same
+      magnitude, and the document's own caveat that read timings at this
+      magnitude vary run to run is accurate (it records 0.0305 s / 0.115 % and
+      0.0322 s / 0.122 %; I got 0.0407 s / 0.146 %). The kill-signature,
+      per-test-vs-per-process and hidden-header arms I CARRY FORWARD from cycle
+      1's re-derivation; they are untouched by this diff.
+  AC-2:
+    status: MET
+    basis: carried forward from cycle 1
+    detail: >-
+      tests/test_suite_profile.py is not in the fix round's diff
+      (`git diff --name-status 98482d2c db0e1a3e` lists three files and that is
+      not one of them), so cycle 1's independent re-derivation with its own
+      parser stands unchanged.
+  AC-3:
+    status: MET
+    basis: partly re-derived in this cycle
+    detail: >-
+      I re-derived the per-analysis cost of both arms myself, three readings back
+      to back in one process, with no profiler: stdlib 2.3882 / 2.3247 / 2.3994 s
+      against memoised 0.2955 / 0.2804 / 0.3121 s, mean ratio 8.010x. So the
+      reduction is real and the fix round's 8.0x is the right figure (see
+      resolution_of_the_ratio_conflict). The whole-file wall clocks and the two
+      cliff-edge standalone costs I CARRY FORWARD from cycle 1.
+  AC-4:
+    status: MET
+    basis: carried forward, and the carry is PROVED rather than assumed
+    detail: >-
+      The fix round cannot have moved AC-4, because the docstring-stripped
+      `ast.dump` of tests/test_book_export_interior_cover.py is byte-identical
+      at 98482d2c and at HEAD - I reproduced that independently (see
+      declarations.ast_equality). No assertion, constant or call site changed,
+      so the four equalities and the node id are exactly cycle 1's.
+  AC-5:
+    status: MET
+    basis: re-derived at HEAD
+    detail: >-
+      `--collect-only -o addopts=''` at HEAD: tests/test_book_export_interior_cover.py
+      132, tests/test_suite_profile.py 410, together 542. The document's
+      "542 (132 + 410)" is counted from the rows and the rows reproduce.
+  AC-6:
+    status: NOT MET
+    basis: re-derived - the replacement instrument fails, one level deeper
+    detail: >-
+      Three of F-001's four parts ARE closed and I verified each: SS4 and SS6 now
+      prescribe `pgrep -f '...' | wc -l`; the prose claim that `pgrep -fc`
+      "returned 0" is withdrawn with the trace inline and the trace reproduces
+      verbatim on this box; SS6's "verbatim" now holds BY CONSTRUCTION - the
+      block diffs EMPTY against lines 42-88 of main:meta/kanban/config.yml at
+      d77fa29c; and SS8's `0 / 0` is marked NOT ESTABLISHED, not relabelled, with
+      the document stating the true value is "almost certainly 0" and that
+      "almost certainly is not a measurement". The fix round also found a real
+      second instance of the class that cycle 1 missed (SS4's `ps | grep -c`
+      prescription with its three different baselines) and removed it; I audited
+      the whole document and no place prescribes either defective form now.
+      But AC-6's DEMONSTRATED instance, SS8.2, reports its deciding cell through
+      an instrument that cannot produce a non-zero reading on this box, and the
+      round's own positive control for that instrument reports a figure the
+      command cannot have produced (F-201). A cell that reads 0 when the box is
+      quiet and 0 when a pytest is running is not a measurement, which is
+      exactly cycle 1's reasoning, so I reach cycle 1's verdict on new evidence.
+      The load-average half of AC-6 IS met: `sysctl -n vm.loadavg` works and
+      SS8.2 records it at both ends of both rows.
+
+guardrails:
+  G-1:
+    status: MET
+    basis: PROVED by AST equality, not read
+    detail: >-
+      The test tree's docstring-stripped AST is identical at 98482d2c and HEAD,
+      so nothing is guarded less than cycle 1 found it. I also re-fired M1 and
+      M10 at HEAD: M1 still kills on the exact named cell, M10 still survives.
+  G-2:
+    status: MET
+    basis: PROVED by AST equality
+    detail: >-
+      No assertion changed, so no duration or host property entered a standing
+      test. The one non-prose delta in the round is a local rename and a print
+      label in meta/profiling/card292_plant_reads.py, which asserts nothing.
+  G-3:
+    status: MET
+    basis: mechanically verified, and the guard's reach measured in both directions
+    detail: >-
+      `git diff --name-status 6e0aadca db0e1a3e -- tests/` shows two M rows and
+      no A row. Both probes are under meta/profiling/. I measured the guard's
+      reach rather than reading it: a syntax error in a TRACKED .py there reds
+      two named cells (P2, and an edge mutant in the OTHER probe,
+      card292_ceiling_probe.py, reds the same cell), while the same error in an
+      UNTRACKED .py in the same directory reds nothing - the door is
+      `git ls-files`, which the ceiling probe's own comment states explicitly.
+      So "meta/profiling IS guarded" is accurate and its boundary is declared.
+  G-4:
+    status: MET
+    basis: mechanically verified from git
+    detail: >-
+      `git diff --name-only 6e0aadca db0e1a3e -- src/` returns nothing and
+      `--numstat -- src` is empty. The five changed paths base..HEAD are the two
+      test files, the two probes and the document.
+  G-5:
+    status: MET
+    basis: mechanically verified
+    detail: "`git diff --numstat 6e0aadca db0e1a3e -- pyproject.toml` is empty."
+  G-6:
+    status: MET
+    basis: mechanically verified
+    detail: >-
+      `git diff --name-only 6e0aadca db0e1a3e -- tests/fixtures/` is empty, and
+      the AST-equality proof means no floor or minimum moved in the fix round.
+  G-7:
+    status: MET
+    basis: re-derived
+    detail: >-
+      Every pair of figures the fix round publishes is taken back to back in one
+      process and says so, and SS8.2 records the load at both ends of both rows.
+      My own ratio readings were taken the same way and reproduce the figure.
+
+declarations:
+  ast_equality:
+    claim: >-
+      "Nothing changed behaviour": tests/test_book_export_interior_cover.py
+      parsed at 98482d2c and at HEAD, every docstring stripped, `ast.dump`s
+      identical, so the whole test-tree change is comments and docstrings.
+    verdict: TRUE, reproduced independently
+    evidence: |
+      My own script (git show of each blob, ast.parse, strip the leading string
+      Expr of every Module/FunctionDef/AsyncFunctionDef/ClassDef, ast.dump):
+        98482d2c src_chars 323063 src_sha 2117d8771b2b docstrings_stripped 109
+                 dump_len 392100 dump_sha cacfd93827a6d51cb1daf580
+        db0e1a3e src_chars 324759 src_sha 710e91634749 docstrings_stripped 109
+                 dump_len 392100 dump_sha cacfd93827a6d51cb1daf580
+        SOURCE identical: False
+        STRIPPED AST DUMPS IDENTICAL: True
+      The sources differ by 1,696 characters and the stripped ASTs do not differ
+      at all. I checked the one way this could be insufficient: the file DOES
+      parse its own source, at lines 4740 and 4817. Both of those walks are
+      structural (they select FunctionDefs by name and inspect Constants); neither
+      asserts a lineno, so a comparison without attributes is the right control
+      for them. This is the strongest claim in the round and it holds.
+  p1_declared_survivor:
+    claim: >-
+      P1 - `len(text)` -> `len(text.encode())` in meta/profiling/card292_plant_reads.py,
+      deleting the unit mechanism - survives all 542 tests; its only control is
+      running the probe and reading the label.
+    verdict: TRUE, and the stated consequence is the real one
+    evidence: |
+      Planted line-count preserving at line 65 (112 lines before and after):
+        reads.append((str(self), time.perf_counter() - started, len(text.encode())))
+      Run over the full row-1 selection, output as the measurement:
+        $ python -m pytest tests/test_book_export_interior_cover.py \
+            tests/test_suite_profile.py -o addopts='' -q -rs
+        542 passed, 169 warnings in 131.78s (0:02:11)   exit=0
+      And the consequence, measured rather than argued - the probe under P1:
+        characters read   44972712 (45.0 M chars; len(text) AFTER decode, so the
+                          unit is characters, not bytes)
+      against the unplanted probe's 44824752. So it prints the BYTE total under a
+      label that says characters, which is exactly what the round declares.
+      Restored: `git hash-object` = 405291b06a395572fa6922bc906de4a448896d98,
+      `git diff --stat` empty.
+    judgement_on_the_bound: >-
+      ACCEPTABLE AS A DECLARED BOUND, not a finding in itself. A probe's figure
+      cannot be controlled by the tree without running a 28 s probe inside the
+      suite, the card says so in SS5 and SS8.2 in the honest-bound shape (it
+      states what the guard cannot see rather than asserting a premise that hides
+      it), and I measured the guard's reach in both directions rather than taking
+      its word. What the bound COSTS, however, is no longer hypothetical on this
+      card: F-201 and F-202 are both exactly the failure the bound permits - a
+      figure transcribed out of an instrument with its domain misstated, with
+      nothing in the tree able to red. That is the price of the bound being paid
+      in the same round that declared it, and it is why the declaration earns no
+      credit beyond honesty.
+  p2_declared_kill:
+    claim: >-
+      P2 - one unbalanced `(` on the renamed line - is KILLED by two named cells
+      in tests/test_suite_profile.py.
+    verdict: TRUE, both cells, one node id at a time
+    evidence: |
+      Planted at line 89 (112 lines before and after):
+        total_chars = sum((n for _, _, n in reads)
+      Cell 1, alone:
+        ...::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog::test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones
+        E   SyntaxError: '(' was never closed
+        /Library/.../python3.14/ast.py:46: SyntaxError
+        1 failed in 0.18s
+      Cell 2, alone:
+        ...::test_the_outcomes_are_identical_with_and_without_the_log
+        1 failed in 10.70s
+      Baselines for the same two node ids on the clean tree: 1 passed in 2.30s
+      and 1 passed in 19.71s. Restored, hash equals the tracked blob.
+      NOTE on my own procedure: my FIRST attempt planted at line 86, which is
+      `first_n += 1`, so the sed matched nothing and both cells passed. That
+      vacuous pass is recorded here rather than dropped, because "1 passed" after
+      a mutant that was never planted is precisely the silent-failure shape this
+      board's rules warn about. The result above is the re-fire at line 89.
+  edge_mutants_for_the_p2_claim:
+    claim_under_test: >-
+      "meta/profiling IS inside GUARDED_DIRECTORIES ... resolved through
+      `git ls-files`, so this fix round's edit is inside a guarded territory"
+    verdict: TRUE, and the boundary is where the claim says it is
+    evidence: |
+      Edge A - the SAME unbalanced `(` in an UNTRACKED .py in the same directory:
+        $ printf 'x = sum((n for n in [1,2]\n' > meta/profiling/zz_edge_probe.py
+        $ git ls-files -- meta/profiling/zz_edge_probe.py   ->   (empty)
+        $ pytest <cell 1>  ->  1 passed in 2.29s
+      Edge B - the same error in a DIFFERENT TRACKED .py in the same directory
+      (meta/profiling/card292_ceiling_probe.py line 47, 117 lines both sides):
+        E   SyntaxError: '(' was never closed
+        1 failed in 0.16s
+      So the guard's reach is exactly "tracked *.py under tests/ and
+      meta/profiling/", an untracked file defaults to invisible, and the card's
+      ceiling probe states that boundary in its own comment ("so an untracked
+      scratch file cannot decide a verdict: this probe passed that guard while it
+      was untracked and reddened it the moment it was committed"). Both files
+      restored; `git hash-object` equals the tracked blob for each.
+
+mutation_verification:
+  policy_note: >-
+    Per the brief I did NOT re-run cycle 1's 9/9 matrix. I fired what the fix
+    round CHANGED (P1, P2 and an edge for each) and what it DECLARED (M1 and M10,
+    because the F-008 decline's honesty rests on exactly those two verdicts).
+    Every mutant was line-count preserving, planted into the worktree, run ONE
+    NODE ID AT A TIME, and the file restored with a `git hash-object` check
+    against the tracked blob afterwards. Six mutants fired, five informative, one
+    (my own mis-sited P2) vacuous and recorded as such.
+  rows:
+    - mutant: "P1 - the unit mechanism (`len(text)` -> `len(text.encode())`)"
+      verdict: SURVIVES, as declared
+      fired: "none - 542 passed, exit 0, 131.78 s"
+    - mutant: "P2 - parseability (one unbalanced `(` at line 89)"
+      verdict: KILLED, both declared cells, separately
+      fired: "SyntaxError: '(' was never closed, at the probe's own line, in both named cells"
+    - mutant: "edge A - the same error in an UNTRACKED .py under meta/profiling/"
+      verdict: SURVIVES - the guard's door is `git ls-files` and the card says so
+      fired: none
+    - mutant: "edge B - the same error in a DIFFERENT tracked probe (card292_ceiling_probe.py:47)"
+      verdict: KILLED, same cell
+      fired: "SyntaxError: '(' was never closed"
+    - mutant: "M1 - the memo lookup deleted (line 1141, `_SOURCE_LINE_CACHE.get(source)` -> `None`)"
+      verdict: KILLED, exactly the cell AND the figure the matrix names
+      fired: >-
+        test_the_split_is_computed_once_per_distinct_text - "one distinct source
+        text was segmented and the line split ran 9816 times, so _source_lines is
+        no longer a memo", assert 9816 == 1, at line 6563
+    - mutant: "M10 - the cheapening reverted at the one hot call site (line 1739)"
+      verdict: SURVIVES - the declaration is true at this revision too
+      fired: >-
+        none. The memo's whole guard class passes (5 passed in 9.44 s) and the
+        split-count cell passes alone (1 passed in 0.10 s), because that cell
+        calls `_source_segment` DIRECTLY rather than through `_page_positions`'
+        `segment()` closure. That is the mechanical reason the F-008 consequence
+        is correctly stated: the memo's existence is guarded, its use at the hot
+        site is not.
+
+resolution_of_the_ratio_conflict:
+  question: "cycle 1 said 8.2x / 80 %; fix round 1 says 8.0x / 87.7 %. Which is right?"
+  answer: >-
+    FIX ROUND 1 IS RIGHT, and cycle 1 was not wrong so much as under-sampled.
+    These are not two incompatible figures; they are two readings of one quantity
+    whose run-to-run spread is wider than the gap between them. Cycle 1 took ONE
+    pair (2.2835 / 0.2792 = 8.18x) and rounded to 8.2x. The fix round took three
+    pairs back to back in one process (8.11 / 8.02 / 8.04) and headlines the mean
+    as 8.0x. I took three of my own, in a new process on a different machine
+    state, and got ratios 8.083 / 8.291 / 7.688 - mean 8.010x. My own spread
+    (7.69-8.29) STRADDLES both published figures, which settles it: 8.0x is the
+    better-supported statement of the same measurement, and "8.2x" is inside the
+    noise of it rather than a rival claim.
+  the_two_percentages_are_two_different_quantities: >-
+    The 80 % and the 87.7 % are not in conflict either, and the fix round is
+    right to publish both with their doors named. 87.7 % is the split's share of
+    the stdlib arm BY DIFFERENCE between the two unprofiled arms - I measured
+    87.5 % (mean (2.3708-0.2960)/2.3708). 80 % was cycle 1's cProfile CUMTIME
+    share of ast._splitlines_no_ff - I measured 77.7 % cumtime and 73.7 % tottime
+    under cProfile. The round states 76 % tottime / 80 % cumtime, which lands
+    between my reading and cycle 1's. Every one of those four numbers is a
+    correct answer to a different question, and the document now says which
+    question each answers.
+  the_withdrawal_is_correct: >-
+    The round's argument for withdrawing 9.9x / 90 % as a MIXED instrument is
+    sound and I verified its load-bearing half. It claims 0.2864 s is the
+    magnitude of the UNPROFILED memoised arm and nowhere near the profiled one.
+    Measured: unprofiled memoised arm 0.2804-0.3121 s; profiled memoised arm
+    0.7415 s (the round says 0.7323 s). So the published pair divided a profiled
+    stdlib arm by an unprofiled memoised one and cannot be two readings of one
+    instrument. The round's arithmetic cross-check also holds: 108 x 2.8429 s =
+    307 s against a measured before-cost of ~113 s.
+  a_correction_cycle_1_was_owed: >-
+    The fix round is RIGHT about `man pgrep` too, and cycle 1 was sloppy. Cycle 1
+    wrote that it confirmed `[-Lfilnoqvx]` "against `man pgrep`'s SYNOPSIS". On
+    this box the binary's USAGE line reads `[-Lfilnoqvx]` and man's SYNOPSIS
+    reads `[-Lafilnoqvx]`. Cycle 1 quoted the usage line and attributed it to the
+    manual - a door mis-stated by one step, which is the card's own subject. It
+    bears on the question the brief asks: on this detail cycle 1 copied rather
+    than reproduced. Neither spelling contains a `c`, so cycle 1's conclusion
+    stood; its citation did not.
+
+findings:
+  - id: F-201
+    severity: major
+    title: >-
+      The replacement rival-pytest instrument cannot see a venv-launched pytest
+      on this box - it reads 0 either way - and the round's new positive control
+      reports a reading that command cannot have produced
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 546
+    also_at: [338, 446, 754, "meta/kanban/config.yml:51 on main at d77fa29c"]
+    gating: true
+    confidence: certain
+    evidence: |
+      What the document now claims, at SS7's F-001 inset (lines 537-548):
+        "**And the working form has a positive control, which a host cell needs
+         as much as an assertion does.** A cell that reads 0 because it is broken
+         and a cell that reads 0 because the box is quiet are indistinguishable
+         from the figure alone ... So the replacement was checked both ways on
+         this box in fix round 1: **0** with no pytest running, and **1** taken
+         deliberately while this fix round's own pre-gate (SS8.2) was running in
+         the background. The cell can rise, and it rose."
+      I tried to reproduce the rise and could not. First, incidentally: while my
+      P1 run (542 tests, 131.78 s, started as `$PY -m pytest ...` from a script,
+      exactly the card's own shape) was in flight, sampled at 25 s and at 45 s:
+        rival-pytest start: 0
+        rival-pytest DURING the run (positive control): 0
+          matching processes:            <- `pgrep -fl` printed nothing
+        rival-pytest DURING, second sample: 0
+        pytest exit=0 ... 542 passed in 131.78s
+      Then deliberately, with the readings as the measurement:
+        -- with NO pytest running --
+          pgrep -f 'bin/python -m pytest' | wc -l  = 0
+          pgrep -f 'm pytest'             | wc -l  = 0
+          pgrep -f pytest                 | wc -l  = 0
+        -- with a venv-launched pytest DEFINITELY running (pid 16489, alive=yes) --
+          its argv: /Library/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python -m pytest tests/
+          pgrep -f 'bin/python -m pytest' | wc -l  = 0     <- CANNOT RISE
+          pgrep -f 'm pytest'             | wc -l  = 1
+          pgrep -f pytest                 | wc -l  = 1
+        -- after kill --
+          pgrep -f 'm pytest'             | wc -l  = 0
+      The mechanism, which is why this is certain and not a flake: this venv's
+      `bin/python` is a framework Python, and a framework Python RE-EXECS itself
+      through Python.app, replacing argv[0]. So the literal string
+      `bin/python -m pytest` never appears in a running pytest's command line
+      here:
+        $ python -c "import os,sys,subprocess; print(sys.executable); \
+            print(subprocess.run(['ps','-o','command=','-p',str(os.getpid())],...))"
+        sys.executable    /Users/.../PythonProject4/.venv/bin/python
+        ps -o command=    /Library/Frameworks/Python.framework/Versions/3.14/
+                          Resources/Python.app/Contents/MacOS/Python -c ...
+      I also checked the one way a spurious 1 could be manufactured - the asking
+      shell's own argv containing the pattern - and it does not happen here:
+        $ /bin/zsh -c "pgrep -f 'bin/python -m pytest' | wc -l; \
+                       pgrep -fl 'bin/python -m pytest'"
+        0
+        (nothing matched)
+      So the cell is a FALSE-NEGATIVE generator: 0 when quiet, 0 when contended.
+      Why gating, in the card's own words: this is "the silent-empty-cell failure
+      AC-6 exists to prevent, committed inside AC-6's own artefact" - the sentence
+      the document writes about `pgrep -fc`. The spelling changed; the defect did
+      not. And the round did not merely inherit it: it ADDED a claim that the cell
+      had been shown to rise, which is the one thing that would have closed the
+      class, and that claim is false here. SS8.2's `0 / 0` cells therefore stand
+      in exactly the position SS8's withdrawn `0 / 0` stood in - almost certainly
+      the true value, with a door that cannot establish it - except that SS8 is
+      honest about that and SS8.2 is not. The same prescription is in SS4 (line
+      338), in SS6's snapshot (line 446) and, because SS6 is verbatim by
+      construction, in main's own board convention at d77fa29c.
+    remedy: >-
+      Use a pattern that matches the process as it actually appears. Proved to
+      work above: `pgrep -f 'm pytest' | wc -l` reads 1 with a venv pytest running
+      and 0 when it is gone. Re-take SS8.2's four rival-pytest cells with it and
+      re-write the positive-control paragraph with the trace it actually produces
+      (including the 0 that the old pattern returns WITH a pytest running, which
+      is the strongest sentence available here). The prescription in main's
+      meta/kanban/config.yml needs the same correction, after which SS6 is
+      re-extracted and names the new commit. Nothing else in the document moves.
+
+  - id: F-202
+    severity: major
+    title: >-
+      The round's own correction of F-005 ships a wrong DOMAIN into a standing
+      docstring - no analysis in that test is over the real module, and the 0-2
+      group's texts are not small
+    file: tests/test_book_export_interior_cover.py
+    line: 6333
+    also_at: ["meta/profiling/card-292-per-test-ceiling.md:183"]
+    gating: true
+    confidence: certain
+    evidence: |
+      What ships, at tests/test_book_export_interior_cover.py:6331-6336:
+        "``_page_positions`` makes **716** such calls per analysis of the
+         unplanted **390,485-byte (381 KiB)** module, and the door-axis controls
+         run **108** analyses in one test -- but **25,873** calls in total,
+         measured, which is NOT 716 x 108: counted per analysis, **36** of the
+         108 are over the real module (716-721 calls each, 99.9 % of all the
+         calls) and the other **72** are over the small planted texts, at 0-2
+         calls each."
+      and the same table in the document at lines 182-184.
+      THE COUNTS ARE EXACTLY RIGHT. I instrumented the test with my own shim over
+      `_source_segment`, wrapping `_page_positions` to attribute calls per
+      analysis:
+        wall 27.99s  analyses 108  door calls 25873  mean 239.6
+        call-count distribution: [(0, 53), (1, 17), (2, 2), (716, 1), (717, 13),
+                                  (718, 8), (719, 10), (720, 3), (721, 1)]
+        analyses with >100 calls: 36  range 716-721  sum 25852 (99.9%)
+        analyses with <=100 calls: 72  range 0-2  sum 21
+      THE ATTRIBUTION IS WRONG, on both halves. Capturing the `source` argument
+      of `_page_positions` itself (signature
+      `(cls, source=None, doors=None, follow_terms=False, door_arms=None,
+      callee_exemptions=None)`):
+        planted text: 108 analyses, calls 0-721, sum 25873 (100.0%)
+        distinct planted source lengths: 32, range 389122 .. 389385
+        analyses that saw the EXACT real source (389,177 chars): 0
+      * NONE of the 108 analyses is over the real module. Every one is over a
+        planted text, because the test's only door is
+        `self._outcome(self._plant(body, extra), door_arms=...)`, and `_plant`
+        returns `source.replace(cls.DERIVED_POSITION, body) + extra` - the whole
+        module with three lines swapped, plus an appended tail.
+      * The 72 are NOT over "small planted texts". Their texts are the same
+        ~389,000 characters as the other 36. They make 0-2 calls because the arm
+        or exemption under test has been REMOVED, so the walk anchors almost
+        nothing - the discriminator is `door_arms`, not text size.
+      The document contradicts itself on this without any measurement at all: an
+      analysis "over the real module" cannot produce 721 calls, because the real
+      module produces exactly 716 - which is the figure in the preceding sentence
+      of the same docstring, and which I reproduced:
+        $ CLS._page_positions()        # source=None, the real module
+          segment() door calls       716
+          of those, located          649
+          unlocated (early return)   67
+      Why gating: this is a mechanism claim, shipped into tests/ where no mutant
+      can catch it (the AST-equality proof means it is pure prose), stating a
+      domain the code does not have - on a card whose headline defect was an
+      instrument's domain leaking into a figure, in the very passage written to
+      correct a domain defect. It is cycle 1's F-002 shape exactly: a claim the
+      card's own code refutes, in the version a future reader finds first. The
+      conclusion it supports - "a per-analysis figure may not be multiplied by
+      the analysis count" - survives untouched and is correct; only the reason
+      given for it is wrong, and the true reason is more interesting.
+    remedy: >-
+      One sentence in each of the two places. Something the measurement supports:
+      "all 108 analyses are over PLANTED texts (the module's own ~389,000
+      characters with three lines swapped, 32 distinct lengths); 36 of them run
+      with the door-axis arms in place and make 716-721 calls each (25,852, 99.9 %
+      of the total), and the other 72 run with an arm or an exemption removed, so
+      the walk anchors nothing and they make 0-2 calls each (21). The spread is
+      the arms under test, not the size of the text." No figure changes.
+
+  - id: F-203
+    severity: minor
+    title: "The declined F-008 bound names a successor card that does not exist, so nothing owes the control"
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 392
+    gating: false
+    confidence: certain
+    evidence: |
+      SS5 closes the declined remedy with:
+        "**Recorded here as a known, bounded, unguarded price**, and it is the
+         obvious successor card if this file ever climbs again."
+      There is no such card and no backlog entry:
+        $ grep -rn 'CARD-292' meta/kanban/backlog.md meta/kanban/backlog-scored.yml
+        (no matches)
+        $ grep -n 'successor|follow-up|backlog' meta/profiling/card-292-per-test-ceiling.md
+        392:  bounded, unguarded price**, and it is the obvious successor card ...
+      The decline itself is sound (see judgement_on_the_f008_decline); what is
+      missing is an owner. This board's standing rule is that a planned control
+      must be owed by a named card, because an unowned intention reads like a
+      scheduled fix and is not one.
+    remedy: >-
+      Add a one-line backlog entry naming the control (assert by AST that
+      `_page_positions`' `segment()` closure resolves to `_source_segment`, and
+      discriminate the two cold stdlib sites) and cite its id here instead of
+      "the obvious successor card".
+
+  - id: F-204
+    severity: minor
+    title: "The unit fix missed one instance inside the very file it fixed"
+    file: meta/profiling/card292_plant_reads.py
+    line: 59
+    gating: false
+    confidence: certain
+    evidence: |
+      The round renamed `total_bytes` -> `total_chars`, changed the printed label
+      from "bytes read" to "characters read", and rewrote the module docstring to
+      say the domain is characters. The tuple the whole thing is built from still
+      declares bytes:
+        $ sed -n '59p' meta/profiling/card292_plant_reads.py
+            reads = []  # (path, seconds, nbytes)
+      Small, but the standing rule the round invoked for itself is that a fix
+      audits the defect CLASS and not the instance, and this is the instance
+      closest to the mechanism: the comment names the unit of the value that P1
+      mutates.
+    remedy: "`# (path, seconds, nchars)`."
+
+  - id: F-205
+    severity: info
+    title: "The 306 KB sweep is complete; the three residues are all quotations, not two"
+    file: meta/profiling/card292_plant_reads.py
+    line: 5
+    also_at: ["meta/profiling/card-292-per-test-ceiling.md:90", "meta/profiling/card-292-per-test-ceiling.md:100"]
+    gating: false
+    confidence: certain
+    evidence: |
+      Both halves of F-002's closure verified:
+        $ grep -rn "306 KB" tests/ ; echo "exit=$?"
+        exit=1                                   <- empty, as claimed
+        $ grep -rn "306 KB" --include='*.md' --include='*.py' --include='*.yml' .
+        meta/profiling/card292_plant_reads.py:5   (inside *"...MECHANISM STORY..."*)
+        meta/profiling/card-292-per-test-ceiling.md:90  (inside *"..."* , SS1.4)
+        meta/profiling/card-292-per-test-ceiling.md:100 (the "the card" column of
+                                                         the refutation table)
+        meta/kanban/cards/CARD-292.md:65          (the card's own original story)
+      All three on the branch are the refuted story being quoted, so the substance
+      is right; the hand-off said "two". The four shipped sites now read 381 KiB
+      with the byte figure beside the first two, and the unit is correct:
+        390,485 bytes on disk / 1024 = 381.33 KiB, and 389,177 is the CHARACTER
+        count (first non-ASCII character on line 3, verified).
+    remedy: none - recorded so the count in the hand-off is not carried forward as fact.
+
+  - id: F-206
+    severity: info
+    title: "F-003's restatement holds, re-derived through a different door, and the file no longer contradicts itself"
+    file: tests/test_book_export_interior_cover.py
+    line: 1103
+    gating: false
+    confidence: certain
+    evidence: |
+      The mechanism claim is exactly what CPython 3.14.3 does:
+        ast.get_source_segment:  lines = _splitlines_no_ff(source, maxlines=end_lineno+1)
+        ast._splitlines_no_ff:   for lineno, match in enumerate(_line_pattern.finditer(source), 1):
+                                     if maxlines is not None and lineno > maxlines: break
+      so it splits a PREFIX. All three sites in the file now say so and
+      `grep -rn "re-splits.*whole"` over the document and the file returns nothing.
+      The quadratic-ish claim survives restated, and I re-derived its figure
+      ANALYTICALLY rather than with a shim inside ast's internals - precomputing
+      every line's end offset and summing the prefix each located node would make
+      the regex scan:
+        chars a stdlib prefix-split would re-scan   127,634,659
+        per call                                    196,663.6
+        as share of module chars                    50.5332 %
+      against the document's 127,608,978 / 196,624.0 / 50.5 %. The two differ by
+      25,681 characters - 39.6 per call, about one line - which is a definitional
+      choice about whether the match that triggers the break is counted; 0.02 %,
+      and the 50.5 % and the "same exponent, half the constant" conclusion are
+      unaffected. This is the most interesting claim in the round and it is true.
+    remedy: none.
+
+  - id: F-207
+    severity: info
+    title: "F-005's counting chain is arithmetically exact and its attribution of 740/673 is right"
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 160
+    gating: false
+    confidence: certain
+    evidence: |
+      Reproduced exactly, with my own shim over the module's `_source_segment`
+      plus a counting wrapper on `ast.get_source_segment`, on one analysis of the
+      UNPLANTED module:
+        segment() door calls                               716
+        of those, located (reach the split)                649
+        unlocated (early return)                            67
+        ast.get_source_segment calls, door MEMOISED         24   <- the two cold sites
+        ast.get_source_segment calls, door on STDLIB       740
+      716 + 24 = 740 and 649 + 24 = 673, both as the document states, and 675 is
+      indeed a figure neither function produces. The chain: 25,873 / 108 = 239.6
+      -> "mean 240"; 25,852 + 21 = 25,873. Every number holds. Only the DOMAIN of
+      the 36/72 split is wrong - see F-202.
+    remedy: none.
+
+  - id: F-208
+    severity: info
+    title: "F-007 closed; the probe's share varies by run and the document says so"
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 102
+    gating: false
+    confidence: certain
+    evidence: |
+      The denominator now names its revision and the HEAD re-take sits beside it.
+      My own run of the probe at HEAD:
+        read_text calls   216
+        distinct paths    2
+        characters read   44824752
+        seconds in reads  0.0407 s  = 0.146% of the test
+          first read of each path  2 reads, 0.0013 s
+      Document: 0.0305 s = 0.115 % of 26.45 s, second reading 0.0322 s / 0.122 %.
+      Mine is 0.0407 s / 0.146 %. The document's own cell says read timings at
+      this magnitude vary run to run and the refutation does not turn on them,
+      which my reading confirms rather than contradicts: 2 of 216 reads can be
+      cold and they cost 1.3 ms.
+    remedy: none.
+
+  - id: F-209
+    severity: info
+    title: "SS6's verbatim claim holds by construction - diffed, empty"
+    file: meta/profiling/card-292-per-test-ceiling.md
+    line: 436
+    gating: false
+    confidence: certain
+    evidence: |
+      $ sed -n '437,483p' meta/profiling/card-292-per-test-ceiling.md > doc_s6.txt
+      $ git show d77fa29c:meta/kanban/config.yml | sed -n '42,88p' > main_cfg.txt
+      $ wc -l  ->  47 and 47
+      $ diff doc_s6.txt main_cfg.txt
+      (no output)   DIFF EMPTY -- verbatim HOLDS
+      And against main's working copy as well, which is the same blob:
+        git rev-parse d77fa29c:meta/kanban/config.yml  9ca32f9a725c...
+        git hash-object meta/kanban/config.yml         9ca32f9a725c...
+      The one caveat is not the card's: the convention it faithfully reproduces is
+      the one F-201 shows cannot measure its own deciding cell on this box.
+    remedy: none.
+
+what_i_rederived:
+  - "The AST-equality declaration, with my own strip-and-dump over both git blobs (109 docstrings each side, identical dumps)"
+  - "716 / 649 / 67 / 24 / 740 door and stdlib call counts on one unplanted analysis, with my own shim"
+  - "127,634,659 characters re-scanned and 50.53 % per call, derived ANALYTICALLY from line offsets rather than from a shim inside ast"
+  - "The mechanism itself, read out of CPython 3.14.3's ast.py (maxlines=end_lineno+1, finditer break)"
+  - "The 108-analysis chain: 25,873 calls, mean 239.6, distribution 53x0 / 17x1 / 2x2 / 36 at 716-721, 25,852 + 21"
+  - "The DOMAIN of those 108 analyses, by capturing _page_positions' own source argument - which is where F-202 came from"
+  - "The unprofiled ratio, three readings in a fresh process: 8.083 / 8.291 / 7.688, mean 8.010x, share-by-difference 87.5 %"
+  - "The cProfile pair with BOTH arms profiled: 3.2034 s / 0.7415 s = 4.32x, split 73.7 % tottime / 77.7 % cumtime"
+  - "The page-cache probe at HEAD: 216 reads, 2 paths, 44,824,752 characters, 0.0407 s"
+  - "The module's size in all three units, and the first non-ASCII character at line 3"
+  - "All of F-004's and F-005's arithmetic from the figures themselves"
+  - "SS6's verbatim claim, by diff against main:meta/kanban/config.yml lines 42-88 at d77fa29c"
+  - "The pgrep traces, both the broken form and the working form, and the replacement's blindness (F-201)"
+  - "`man pgrep` SYNOPSIS vs the binary's usage line"
+  - "AC-5's collected counts at HEAD: 132 + 410 = 542"
+  - "G-3, G-4, G-5, G-6 from git, and G-3's guard reach in both directions with two edge mutants"
+  - "M1 (killed, 9816 == 1), M10 (survives), P1 (survives, 542 passed), P2 (killed, both cells)"
+what_i_carried_forward_from_cycle_1:
+  - "AC-1's kill signature, per-test-vs-per-process arm (135.05 s, 4 passed) and the hidden-header claim - untouched by this diff"
+  - "AC-2 in full - tests/test_suite_profile.py is not in the fix round's diff"
+  - "AC-3's whole-file wall clocks (511.43 s, 104.12 s) and the two cliff-edge standalone costs (105.65 / 87.27 s before, 29.38 / 10.94 s after)"
+  - "AC-4's four equalities and the 36 DOOR_SHAPES rows - carried on the AST-equality proof rather than on trust"
+  - "M2-M9 and the two declared negatives - the brief forbids re-running the matrix and the tree is AST-identical, so they cannot have moved"
+  - "SS8.2 row 2 (the 29-file blast radius, 2325 collected, 2310 / 15 / 0): cycle 1 reproduced that selection and that outcome independently at HEAD-1, and I spent the budget on what the fix round changed instead"
+  - "The second 120 s limit's bisection bracket"
+judgement_on_the_f008_decline:
+  verdict: >-
+    HONEST, and the consequence is correctly stated. This is a declared bound,
+    not a hole wearing a declaration.
+  why: >-
+    The decline states the hole in the sharpest available terms - "the memo's
+    EXISTENCE is guarded ... its USE at the one hot call site is not, so this
+    file's cost can return to SS3.2's 113 s with no cell firing anywhere in the
+    suite" - names the two cold stdlib sites a control would have to discriminate
+    (1438 and 2913, which I verified are the only two remaining
+    `ast.get_source_segment` call sites outside the equivalence class), and gives
+    two reasons that are both true rather than rhetorical. I tested both halves
+    of the consequence rather than reading them: M1 kills on the exact named cell
+    with the exact named figure (assert 9816 == 1), and M10 leaves the memo's
+    whole guard class green (5 passed) and the split-count cell green, because
+    that cell calls `_source_segment` directly and never goes through the hot
+    call site. The second reason for declining is also mechanically true: an AST
+    assertion that `segment()` resolves to `_source_segment` WOULD red on M10, so
+    SS8.1's row - the one cycle 1 independently reproduced - would stop describing
+    the tree. A fix round over figures changing what the tree asserts is the thing
+    this board's max_cycles rule exists to prevent. The only thing missing is an
+    owner for the deferred control, which is F-203 and is a minor.
+could_not_establish:
+  - "Whether fix round 1's claimed positive-control reading of 1 was taken through a different command, or against a pytest launched some other way, or is a transcription of something else. On this box, with a venv-launched pytest, the stated command cannot produce it; what actually happened in that run I COULD NOT ESTABLISH, and the document leaves no second trace - the same shape as the SS8 cell it withdrew."
+  - "Whether `pgrep -f 'bin/python -m pytest'` works on any other box this board runs on. It would, on a venv whose python is not a macOS framework build that re-execs through Python.app; I could not establish which boxes those are, and that is exactly why a host cell needs a positive control taken where it is used."
+  - "The provenance of SS8's withdrawn 0 / 0 - unchanged from cycle 1, and the card is right that it cannot now be recovered."
+  - "The exact definitional basis of the document's 127,608,978 against my 127,634,659. The 0.02 % gap is consistent with counting the break-triggering match or not; I COULD NOT ESTABLISH which the card's shim did, and it changes nothing."
+  - "Whether SS8.2 row 2 reproduces post-merge against main at d77fa29c - out of scope here, and the document now names what 2325 is a property of."
+remaining_budget:
+  cycles_left: 1
+  what_it_is_for: >-
+    One fix round over two prose corrections, both of which I have written the
+    replacement text for. F-201: re-take SS8.2's four rival-pytest cells with
+    `pgrep -f 'm pytest' | wc -l` (proved above to read 1 with a pytest running
+    and 0 without), rewrite the positive-control paragraph around the trace that
+    command actually produces, and correct the prescription in main's
+    meta/kanban/config.yml before re-extracting SS6. F-202: replace one sentence
+    in the docstring and one table row in the document with the measured domain.
+    F-203 and F-204 are one line each. No figure changes, no assertion changes,
+    the AST-equality property is preserved, and SS8.1's matrix keeps describing
+    the tree. With F-201 and F-202 closed, AC-6 is met and this is a 9.

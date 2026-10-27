@@ -48,22 +48,65 @@ review:
   # and again after the last:
   #
   #   load-start / load-end   `sysctl -n vm.loadavg`, both ends.
-  #   rival-pytest            `pgrep -f 'bin/python -m pytest' | wc -l`, both
-  #                           ends. NOT `pgrep -fc` -- BSD/macOS pgrep has no
-  #                           -c flag and exits with a usage error, which in a
-  #                           `$(...)` cell silently yields an EMPTY host cell
-  #                           rather than a count. Found 2026-10-27 the first
-  #                           time this convention was executed.
+  #   rival-pytest            `pgrep -f 'MacOS/Python.*pytest' | wc -l`, both
+  #                           ends. > 0 means a rival run. THIS CELL HAS NOW
+  #                           BEEN WRONG TWICE, so it carries the truth table
+  #                           that earned it (measured 2026-10-27, four cases,
+  #                           a real venv pytest launched both ways):
+  #
+  #                             instrument                      (d)  (a)  (b)  (c)
+  #                             pgrep -f 'pytest'                1    1    1    0
+  #                             pgrep -fi 'python.*pytest'       1    1    1    0
+  #                             pgrep -f 'MacOS/Python.*pytest'  0    1    1    0
+  #
+  #                           (a) pytest via `python -m pytest`; (b) via the
+  #                           `.venv/bin/pytest` console script; (c) nothing
+  #                           running; (d) THE CONTROL -- only a `zsh -c`
+  #                           whose own argv mentions pytest, which is the
+  #                           false positive that started all of this. Only
+  #                           the third row passes all four.
+  #
+  #                           TWO REJECTED FORMS, both of which LOOK like they
+  #                           work:
+  #                             `pgrep -fc ...`  -- BSD/macOS pgrep has no -c
+  #                               flag. Exits 2 with a usage line, and in a
+  #                               `$(...)` cell yields an EMPTY host cell, not
+  #                               a count.
+  #                             `pgrep -f 'bin/python -m pytest' | wc -l`
+  #                               -- reads 0 WHETHER OR NOT pytest is running,
+  #                               so it never errors and always looks fine.
+  #                               The venv's python is a macOS FRAMEWORK
+  #                               python: it re-execs through Python.app, so a
+  #                               live run's argv is
+  #                               `/Library/Frameworks/.../Python.app/Contents/MacOS/Python -m pytest ...`
+  #                               and the literal `bin/python` never appears.
+  #                               This was the correction for the first defect
+  #                               and it was WORSE than what it replaced: the
+  #                               first failed loudly, this one silently.
+  #
+  #                           DECLARED BOUND: the working pattern keys on the
+  #                           framework-python re-exec path, so on a venv built
+  #                           from a NON-framework python it would read 0 and
+  #                           be blind again. It is verified on this box only.
+  #                           Re-run the four cases before trusting it
+  #                           elsewhere -- and note the lesson that actually
+  #                           generalises: an instrument needs a POSITIVE
+  #                           control (it must rise) AND a NEGATIVE one (it
+  #                           must not rise on case (d)). A cell reading 0
+  #                           because the box is quiet and a cell reading 0
+  #                           because the command is blind are identical from
+  #                           the figure alone.
   #                           THIS is the cell that decides whether the run was
   #                           quiet; the load averages are context. NOT
   #                           `ps -Ao command | grep -c '[m] pytest'`, which was
   #                           the idiom in use and which counts THIS AGENT'S OWN
   #                           `zsh -c` wrapper lines: measured 2026-10-27 it
-  #                           returns 2-3 with no pytest running at all, so its
+  #                           returns 1-3 with no pytest running at all, so its
   #                           baseline moves with the shape of the command that
-  #                           asks -- measured 2 by CARD-292 and 3 by the
-  #                           orchestrator an hour later, which is the point.
-  #                           pgrep counts processes and returns 0.
+  #                           asks -- measured 2 by CARD-292, 3 by the
+  #                           orchestrator an hour later, and 1 by CARD-292's
+  #                           fix round. Three readings, three values, for a
+  #                           figure that was being used as a constant.
   #   per-test ceiling        whether any test's SUMMED setup+call+teardown
   #                           reached tests/hang_guard.py's HANG_SECONDS
   #                           (120 s), and the dearest test's figure.

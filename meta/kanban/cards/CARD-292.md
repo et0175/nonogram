@@ -460,3 +460,119 @@ Skips by name: row 1 none; row 2 **14 ×** `conftest.py:207` and **1 ×**
 Running the two files together matters for a second reason beyond §7.1's
 precedent: `meta/profiling` is inside `GUARDED_DIRECTORIES`, so that row is the
 one that judges the probe edit.
+
+## [CYCLE 2 — 2026-10-27] **7.0, NOT CERTIFIED**, 2 gating — and one of them is the orchestrator's
+
+`meta/review/20261027T185852Z-CARD-292-cycle2.yml`, reviewed `db0e1a3e`.
+**Eight of cycle 1's ten findings are closed and verified.** The reviewer's own
+summary of the distance: one prose fix round, *"with F-201 and F-202 closed,
+AC-6 is met and this is a 9."*
+
+### F-201 (gating) — the replacement instrument is blind, and the fix was the ORCHESTRATOR's
+
+`pgrep -f 'bin/python -m pytest' | wc -l` **cannot see a venv-launched pytest on
+this box.** The venv's python is a macOS **framework** python: it re-execs
+through `Python.app`, so a live run's argv is
+`/Library/Frameworks/…/Python.app/Contents/MacOS/Python -m pytest …` and the
+literal `bin/python` **never appears**. Re-measured by the orchestrator rather
+than taken — a real venv pytest launched and sampled while alive:
+
+| instrument | pytest running | idle |
+|---|---|---|
+| `pgrep -f 'bin/python -m pytest' \| wc -l` | **0** | 0 |
+| `pgrep -f 'm pytest' \| wc -l` | **1** | 0 |
+
+**This was the orchestrator's correction, at `d61f0be1`, and it was worse than
+what it replaced.** `pgrep -fc` failed **loudly** (exit 2, usage line, empty
+cell). Its replacement never errors and always reads 0 — a blind instrument that
+looks like a working one. Every `rival-pytest: 0` cell recorded in this session,
+including **CARD-296's pre-check and merge gate**, came from it; the values were
+correct only because nothing was in fact running, which was confirmed separately
+by `ps` at the time.
+
+The round's newly added **positive control** is the casualty: *"1 taken
+deliberately while §8.2's own run was in flight … the cell can rise, and it
+rose"* is a reading that command **cannot have produced here**. The reviewer
+could not establish whether it came from a different command or a differently
+launched pytest — *the same shape as the §8 cell the round had just withdrawn*.
+
+**Fixed on main in this commit, and this time with a truth table.** Four cases
+measured, including the control that started all of this — a `zsh -c` whose own
+argv mentions pytest:
+
+| instrument | (d) wrapper only | (a) `-m pytest` | (b) console script | (c) idle |
+|---|---|---|---|---|
+| `pgrep -f 'pytest'` | **1 ← false positive** | 1 | 1 | 0 |
+| `pgrep -fi 'python.*pytest'` | **1 ← false positive** | 1 | 1 | 0 |
+| **`pgrep -f 'MacOS/Python.*pytest'`** | **0** | **1** | **1** | **0** |
+
+Only the third passes all four, and it is now what `meta/kanban/config.yml`
+prescribes, with its bound declared: it keys on the framework re-exec path, so a
+non-framework venv would read 0 and be blind again. **The lesson that
+generalises**: an instrument needs a **positive** control (it must rise) *and* a
+**negative** one (it must not rise on the wrapper). A cell reading 0 because the
+box is quiet and a cell reading 0 because the command is blind are identical from
+the figure alone. §6 must be re-extracted after this commit.
+
+### F-202 (gating) — the right counts, the wrong domain
+
+The round's own F-005 correction ships a **wrong attribution** into a standing
+docstring: **all 108** analyses of the dear test are over planted
+~389,000-character texts, **none** is over the real module, and the 0–2 group's
+texts are **not small** — the discriminator is the removed door arm, not text
+size. *Counts exactly right, attribution wrong*, which is the same class as the
+defect it was fixing.
+
+### The 8.2× vs 8.0× conflict — resolved, and cycle 1 was the loose one
+
+**Fix round 1 is right; cycle 1 was under-sampled rather than wrong.** Cycle 1
+took **one** pair (8.18× → "8.2×"); the fix took three back to back
+(8.11/8.02/8.04); the reviewer took three of its own in a fresh process —
+**8.083 / 8.291 / 7.688, mean 8.010×** — a spread that straddles both published
+figures and settles it. The two percentages are **two different quantities with
+two different doors**, now both named: **87.7 %** is the split's share *by
+difference* between unprofiled arms (reviewer measured 87.5 %); **80 %** was
+cycle 1's cProfile *cumtime* share (reviewer measured 77.7 % cumtime / 73.7 %
+tottime). And the withdrawal's load-bearing half is confirmed: the **profiled**
+memoised arm is **0.7415 s**, nowhere near the published 0.2864 s — so the
+original pair really did divide a profiled arm by an unprofiled one.
+
+### The declarations, tested rather than read
+
+- **The AST-equality claim is TRUE**, re-derived independently: sources differ by
+  1,696 characters, 109 docstrings stripped each side, dumps byte-identical. The
+  reviewer checked the one hole — the file parses *itself* at 4740/4817 — and
+  confirmed both walks are structural and assert no `lineno`, so an
+  attribute-free dump is the right control. **The strongest claim in the round.**
+- **P1 survives as declared**, and its stated consequence is real (44,972,712
+  bytes printed under a label saying characters). Judged **acceptable as a
+  declared bound** — but with a remark worth keeping: *the bound's price was paid
+  in the same round that declared it*, because F-201 and F-202 are both exactly
+  the failure it permits. It earns no credit beyond honesty.
+- **P2 killed in both named cells**, and the reviewer **disclosed its own slip**:
+  its first attempt `sed`'d the wrong line, so nothing was planted and both cells
+  passed **vacuously**; re-fired correctly. That disclosure is the difference
+  between a kill matrix and a decoration.
+- **Edge mutants on P2's claim**: the same syntax error in an **untracked** `.py`
+  under `meta/profiling/` is **NOT caught**; in a **different tracked** probe it
+  **is**. The door is `git ls-files`, and the ceiling probe's own comment already
+  states that boundary.
+- **M10 survives** because its cell calls `_source_segment` **directly** and
+  never goes through the hot site — which is exactly the hole F-008 declares.
+
+### F-008's decline — accepted
+
+*"A declared bound, not a hole wearing a declaration."* Both of its reasons are
+mechanically true, the consequence is proved by M1 and M10, and the two cold
+sites a control would have to discriminate (**1438**, **2913**) are verified to
+be the only remaining ones. **Only the owner is missing** → **F-203**: the
+declared bound names "the obvious successor card" and there is no card and no
+backlog entry, so **nothing owes the control**. Also **F-204**: the unit fix
+missed `# (path, seconds, nbytes)` at `card292_plant_reads.py:59`.
+
+### Procedure
+
+Full suite **not** run; the board's lock never taken and absent; **no env
+overrides at all** — the reviewer fired M10 against cells costing seconds rather
+than cycle 1's 105 s arm. All output under `-o addopts=''`, skips attributed with
+`-rs`, node ids throughout.
