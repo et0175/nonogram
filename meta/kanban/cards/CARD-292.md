@@ -576,3 +576,133 @@ Full suite **not** run; the board's lock never taken and absent; **no env
 overrides at all** — the reviewer fired M10 against cells costing seconds rather
 than cycle 1's 105 s arm. All output under `-o addopts=''`, skips attributed with
 `-rs`, node ids throughout.
+
+## [FIX ROUND 2 — 2026-10-27] `59e7b58a` — both gating closed, AC-6 met, and the reviewed HEAD was RED
+
+### It refused the reviewer's remedy, and was right to
+
+Cycle 2 prescribed `pgrep -f 'm pytest' | wc -l`. The fix round **measured it
+first** and found it a **false positive** on a `zsh -c` wrapper, so it used the
+verified form instead and said so in the document. The orchestrator re-measured
+both: on a wrapper with **no pytest running**, cycle 2's remedy reads **1** and
+the prescribed form reads **0**. *A fix that copies a reviewer's prescription
+without measuring it is how this board loses rounds; this one did not.*
+
+### F-201 — closed, with five cases and a new column that indicts the orchestrator
+
+It added case **(d2)** — a `zsh -c` whose argv spells `.venv/bin/python -m
+pytest` — and that column settles what the orchestrator's "fix" really was:
+
+| instrument | (c) idle | (d) wrapper says *python -m pytest* | (d2) wrapper says *.venv/bin/python -m pytest* | (a) `-m pytest` | (b) console |
+|---|---|---|---|---|---|
+| `pgrep -f 'pytest'` | 0 | 1 FP | 1 FP | 1 | 1 |
+| `pgrep -fi 'python.*pytest'` | 0 | 1 FP | 1 FP | 1 | 1 |
+| `pgrep -f 'm pytest'` (cycle 2's remedy) | 0 | **1 FP** | 1 FP | 1 | 1 |
+| `pgrep -f 'bin/python -m pytest'` (the orchestrator's) | 0 | 0 | **1 FP** | **0 FN** | **0 FN** |
+| **`pgrep -f 'MacOS/Python.*pytest'`** | **0** | **0** | **0** | **1** | **1** |
+
+**Row 4 is wrong in BOTH directions** — 1 when nothing is running, 0 when
+something is. *The exact inverse of an instrument.* Re-measured by the
+orchestrator and now carried in `meta/kanban/config.yml`'s own table.
+
+**The positive control is a trace that exists.** Taken inside the pre-gate script
+itself, 30 s into §8.2's **own row 1** (pid 28140, alive) and again 60 s into row
+2, with the literal output in the document: prescribed command **= 1**, the blind
+form **= 0**, beside the live process's real argv. The **negative** control sits
+next to it: idle box, wrapper alive, prescribed **0**, blind form **1**. An
+instrument that can only rise is half a control; this one is shown to rise *and*
+to stay down.
+
+**§6 re-extracted programmatically** from `bd2128b5`, blob
+`4a03afc785ab59c8d1e52afb89d145022c0a1248`, identical at `e4d33dfa` and main's
+head, both named; 90 lines each side, **diff empty**, equal sha256. **Class
+audit:** 18 mentions of a defective form survive and **none prescribes one** —
+each is a `**Not** X`, a *REJECTED FORMS* row, a withdrawal trace, or a
+truth-table row showing it fail. Both probes contain **no host instrument at
+all**, so they could not have carried the defect.
+
+### AC-6 — MET
+
+The deciding cell is §8.2's `rival-pytest, start / end`. It holds because a **1
+was reachable on the very command that produced the 0s**, shown twice in the same
+script, and **unreachable** on a wrapper that merely mentions pytest. Cycle 2's
+reason for NOT MET was exactly that a cell reading 0-quiet and 0-blind is not a
+measurement; that is now excluded **in both directions**.
+
+### F-202 — closed through a different door than the one that got it wrong
+
+Re-measured with a wrapper capturing `_page_positions`' own `source` and
+`door_arms` arguments — not the call counter that produced the bad attribution.
+All 108 analyses are over **planted** texts (32 distinct lengths,
+389,122–389,385 chars); **0** have `source is None`; **0** equal the real
+module's text. It went further than cycle 2 and resolved the discriminator
+exactly: the **36** expensive analyses all carry `door_arms=('callee identity',)`;
+the **72** cheap ones are 36 × `('door spelling',)` + 36 × `()`. Decisive on the
+real module too — **716** calls with that arm, **0** without.
+
+### NEW, AND THE MOST IMPORTANT THING IN THE ROUND: the reviewed HEAD was RED
+
+Row 2's first run returned **1 failed / 2309 passed / 15 skipped, exit 1**.
+`tests/test_full_suite_lock.py::test_nothing_in_the_tree_sets_either_of_the_guards_env_switches`
+scans the **whole tree** with `git grep` for the full-suite guard's two env
+switch names, exempting `tests/README.md`, the guard, its own file, and prose
+under `meta/kanban/cards/` and `meta/review/`. **`meta/profiling/` is not
+exempt** — and **fix round 1's own "Procedure" paragraph spelled both names**,
+written *after* its rows were taken. Attribution is exact: `git grep -l … 98482d2c`
+has no `meta/profiling` entry, `… db0e1a3e` does, and `git log -S` names
+`db0e1a3e`.
+
+**Cycle 2 could not have caught it, because it carried row 2 forward instead of
+re-running it.** So review cycle 2 scored a tree that was red on its own declared
+blast radius. Fix round 1's safety argument — *"not a `*.py`, so outside
+`_guarded_sources`"* — was true of **one** guard; the tree has another.
+
+**Fixed by not naming the switches.** Widening that guard's exempt prefixes was
+the alternative and is **G-1's shape** — a guard relaxed to admit the thing that
+tripped it.
+
+### Pre-gate
+
+| cell | row 1 (two changed files together) | row 2 (derived blast radius) |
+|---|---|---|
+| collected | **542** (132 + 410) | **2325** (zsh array length 29) |
+| passed / skipped / failed | **542 / 0 / 0** | **2310 / 15 / 0** |
+| exit / summary lines | 0 / **1** | 0 / **1** |
+| wall | 126.74 s | 295.69 s |
+| load start → end | 5.26 → 4.58 | 4.58 → 10.16 |
+| rival-pytest start / end | **0 / 0** | **0 / 0** |
+| same cell, in flight | **1** (blind form 0) | **1** (blind form 0) |
+| at/over the 120 s ceiling | 0 | 0 |
+
+Skips by name: row 1 **none**; row 2 = **14 ×** `conftest.py:207` and **1 ×**
+`test_book_pdf_memory.py:1296`. **A third run was taken after the last
+substantive document edit** — *this round's own lesson applied to itself* —
+2310 / 15 / 0, exit 0, 288.37 s. Against the **committed** text the three
+tree-reading cells re-ran **3 passed in 21.42 s**, and
+`git grep … 59e7b58a -- meta/profiling` is clean.
+
+### Behaviour
+
+**Prose only, proved.** `tests/test_book_export_interior_cover.py`:
+docstring-stripped `ast.dump` byte-identical at `db0e1a3e` and HEAD (109
+docstrings each side, `dump_sha cacfd93827a6d51cb1daf580` both) while sources
+differ by **610** characters. `tests/test_suite_profile.py` and
+`card292_ceiling_probe.py` byte-identical. The one non-prose delta is a
+**write-only** loop variable in the probe: the full `ast.dump` differs in exactly
+one token (`id='nbytes'`→`id='nchars'`), the name has **no `Load` occurrence**
+anywhere, and re-running the probe reprints 216 reads / 2 paths / 44,824,752
+characters — a **third** independent reading inside the declared band. **This
+round adds no mechanism, so there is no mutant to plant — stated, not invented.**
+
+`NONOGRAM_TEST_HANG_SECONDS` and `NONOGRAM_FULL_SUITE_LOCK` **unset** for every
+run and printed from the environment before the first test; the board's lock
+never taken and absent; full suite **not** run.
+
+### Could not establish, in those words
+
+Whether any cell **other** than the full-suite-lock one among the 29 files reads
+a `.md` path — the reach of the guard that bit is measured, the absence of a
+second is not, and it is declared as a bound rather than claimed. Where fix round
+1's claimed positive-control `1` came from — unchanged from cycle 2, and the
+paragraph is **replaced by a trace actually taken** rather than defended. Whether
+the prescribed pattern works on a **non-framework** venv.
