@@ -377,8 +377,8 @@ Same probe, `-p tests.hang_guard` (the probe runs by explicit path, so
 
 | arm | shape | total wall | outcome |
 |---|---|---|---|
-| 1 | **3 tests of 45 s** in one process | **135.09 s** | **3 passed, exit 0** |
-| 2 | **1 test of 130 s** | — | **exit 1, 446 bytes, NO summary line** |
+| 1 | **3 tests of 45 s** in one process | **135.09 s** | **4 passed, exit 0** |
+| 2 | **1 test of 130 s** | — | **exit 1, 446 bytes, 0 summary lines** |
 
 Arm 1 ran **15 s over the bound in one process and nothing fired**, so the
 bound is per test and not per process or per session. Arm 2 reproduced
@@ -391,6 +391,18 @@ Thread 0x00000001f515a1c0 (most recent call first):
   File ".../card292_ceiling_probe.py", line 79 in _pay
   File ".../card292_ceiling_probe.py", line 90 in test_one_burn
 ```
+
+**Both arms were re-taken** after the probe was changed, and the change is
+worth recording because the probe tripped a guard of exactly the kind this
+card is about. The first version used `@pytest.mark.skipif` to select its mode;
+`tests/test_suite_profile.py::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog::test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones`
+enumerates every environment-dependent skip condition in **`tests/` and
+`meta/profiling/`** and holds the set to a frozen `MEASURED_SILENCES_ELSEWHERE`.
+It resolves the tree through `git ls-files`, so the probe passed that guard
+while untracked and **reddened it the moment it was committed**. The probe now
+lets the mode decide what a test *pays* rather than whether it *runs*: no
+skips, no host-state silence. Arm 1 re-read at **135.09 s** — the same figure
+to the hundredth, now **4 passed** with no skip.
 
 ### 7.2 Two figures from other rounds, checked against this one
 
