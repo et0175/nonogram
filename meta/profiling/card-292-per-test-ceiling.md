@@ -263,10 +263,14 @@ worktree — **see §6**.
   sees, because the line regex's `$` alternative appends a final empty match
   that no node's `end_lineno` indexes. The last element of the split is dead,
   by construction of the pattern rather than by an untested path.
-* **The 1.7× spread between two "uncontended" whole-file runs** (467.30 s
-  recorded vs an orchestrator's ~270 s extrapolation from one 56 % observation)
-  is **not resolved here**. The ~270 s was never a timed run and is not quoted
-  as a measurement.
+* **The claimed 1.7× spread between two "uncontended" whole-file runs IS
+  resolved, and it was never a host spread** — see §7.2. The 467.30 s figure
+  reproduces at 511.43 s (9.4 %, inside the ~19 % `tests/README.md` quotes);
+  the ~270 s was a linear extrapolation from one `56 %` progress reading, and
+  linear extrapolation is invalid on this file because 2 of its 127 tests hold
+  38.9 % of its time. What remains unestablished is the **cause** of the 9.4 %
+  between the two timed runs, which is ordinary host variance as far as this
+  card can tell and was not chased further.
 
 ---
 
@@ -418,3 +422,75 @@ to the hundredth, now **4 passed** with no skip.
   uniform per-test cost, and this file is the single most non-uniform in the
   suite. It was correctly flagged as a lead rather than a measurement, and it is
   **not** evidence of a 1.7× host spread.
+
+---
+
+## 8. This card's own pre-gate, carrying the §6 cells
+
+Commit `58ed72ae`. The selection is **derived, not chosen**: every
+`tests/test_*.py` that reads the tree or the profiling directory
+(`grep -rln 'hang_guard\|rank_durations\|PROFILING\|rglob("*.py")\|ls-files'`),
+passed to pytest as a **zsh array** whose length is printed, because an
+unquoted `tr`-joined string reaches pytest as one path and exits 4 with "no
+tests ran".
+
+| cell | value |
+|---|---|
+| files selected | **29** (array length printed in the log) |
+| collected | **2325** |
+| passed / skipped / failed | **2310 / 15 / 0** — and 2310 + 15 = 2325 reconciles |
+| pytest exit | 0 |
+| wall clock | 316.24 s |
+| load at start → end | 4.54 → 5.12 |
+| **rival-pytest, start / end** (`pgrep -fc`) | **0 / 0** |
+| tests at or over the 120 s ceiling | 0 |
+
+**Every skip by name** (`-rs`), and both are the known baseline shapes:
+
+* **14 ×** `tests/conftest.py:207` — *Database not reachable: DATABASE_URL is
+  not set*.
+* **1 ×** `tests/test_book_pdf_memory.py:1296` — `setrlimit(RLIMIT_AS)` refused
+  by this kernel.
+
+Earlier, narrower gate rows on the same commit, each with its collected count
+taken by `--collect-only` under `-o addopts=''`:
+
+| selection | collected | result |
+|---|---|---|
+| the two changed files **together** | 542 | 542 passed / 0 skipped / 0 failed |
+| `test_suite_profile` + `test_guard_integrity` + `test_collected_names` | 590 | 590 passed / 0 skipped / 0 failed |
+| `test_book_export_interior_cover` alone (after arm) | 132 | 132 passed, 104.12 s |
+| `test_kill_matrix` | 76 | 76 passed, 111.64 s |
+
+**Running the two changed files TOGETHER is what caught the §7.1 defect**: each
+passed alone, so a per-file pre-gate would have missed it and the merge gate
+would have charged the card for it.
+
+### 8.1 The kill matrix over this card's own additions
+
+Ten deletion mutants, each line-count-preserving, each deleting a mechanism one
+of the new claims names. Attribution is per assertion, by the message that
+fired.
+
+| mutant | deletes | verdict | assertion that fired |
+|---|---|---|---|
+| M1 | the memo itself | **KILLED** | `len(splits) == 1` → *"the line split ran 9816 times"* |
+| M2 | the UTF-8 encode, single-line branch | **KILLED** | the stdlib equality, at the module's line 3116 |
+| M3 | the middle lines, multi-line branch | **KILLED** | the stdlib equality |
+| M4 | the end-column slice, multi-line branch | **KILLED** | the stdlib equality |
+| M5 | inclusivity at the threshold (`>=` → `>`) | **KILLED** | the boundary equality on the synthetic artefact |
+| M6 | the default-DENY parse floor | **KILLED** | `pytest.raises` → *"DID NOT RAISE"* |
+| M7 | the phase summing (call phase only) | **KILLED** | the boundary equality's two-phase row |
+| M8 | the ceiling derivation's use of its argument | **KILLED** | *"a planted default of 45 came back as 120.0"* |
+| M9 | a frozen node id's correctness | **KILLED** | the live-derivation equality, `gained`/`lost` named |
+| **M10** | **the cheapening itself** (back to `ast.get_source_segment`) | **SURVIVES BY DESIGN** | none — 6 passed in **122.44 s** against the baseline's 10 s |
+
+**M10 is the control, not a gap.** The change is a price change, so no claim
+may red on it; its own evidence is the 122.44 s it took to pass.
+
+**Two honest negatives**, both already in §5: no mutant separated the two
+equivalence controls (M2–M4 die to each independently, so the small-source
+sweep's claim of unique reach was false and has been narrowed in the test), and
+truncating `_source_lines`' result by its last element **survives both**,
+because the line pattern's `$` alternative appends a final empty match no
+`end_lineno` indexes.
