@@ -39,6 +39,47 @@ review:
 
   test_command: "./.venv/bin/python -m pytest"
 
+  # HOW A GATE RECORDS THE HOST (CARD-292 / AC-6, owner-facing convention).
+  # A gate that reds under contention and greens idle is not a verdict about
+  # the tree, and this board has argued about four such verdicts (CARD-218's
+  # 101 skips, CARD-271's Page.goto, CARD-276's six identical deaths,
+  # CARD-283's main-was-red). Every gate row therefore carries THREE host
+  # cells, written into the gate's own output file BEFORE the first test runs
+  # and again after the last:
+  #
+  #   load-start / load-end   `sysctl -n vm.loadavg`, both ends.
+  #   rival-pytest            `pgrep -fc 'bin/python -m pytest'`, both ends.
+  #                           THIS is the cell that decides whether the run was
+  #                           quiet; the load averages are context. NOT
+  #                           `ps -Ao command | grep -c '[m] pytest'`, which was
+  #                           the idiom in use and which counts THIS AGENT'S OWN
+  #                           `zsh -c` wrapper lines: measured 2026-10-27 it
+  #                           returns 2 with no pytest running at all, so its
+  #                           baseline moves with the shape of the command that
+  #                           asks. pgrep counts processes and returns 0.
+  #   per-test ceiling        whether any test's SUMMED setup+call+teardown
+  #                           reached tests/hang_guard.py's HANG_SECONDS
+  #                           (120 s), and the dearest test's figure.
+  #
+  # WHY rival-pytest AND NOT THE LOAD AVERAGE, measured on this box 2026-10-26
+  # and re-derived 2026-10-27: with NO pytest running at all the 1-minute load
+  # average here is 4.6-14.4 -- it is the owner's desktop (WindowServer,
+  # IntelliJ, Chrome, a video decode), which the board does not get to
+  # schedule. "Wait for a quiet box" was therefore waiting for something that
+  # never arrives, and it held CARD-292 for a whole wave. The operative
+  # definition of quiet is NO RIVAL PYTEST, which meta/kanban/.full-suite.lock
+  # and CARD-255's foreign-holder guard already enforce and which nothing else
+  # enforces.
+  #
+  # AND THE ONE THAT COST THE MOST: a gate command run through an agent's
+  # shell tool inherits that tool's own wall-clock timeout, 120 s by default
+  # on this harness. A run cut there returns a truncated log and a non-zero
+  # exit with NO summary line -- indistinguishable from a suite failure, and
+  # the thing CARD-276 attributed to a card's diff twice. Any gate invocation
+  # longer than two minutes must pass an explicit timeout (600 s is this
+  # harness's maximum for a foreground call) or run in the background. A gate
+  # row with no summary line is a MEASUREMENT defect, never a tree verdict.
+
   # IMPACT, owner decision 2026-10-22. The reason is NOT that the suite became
   # the bottleneck -- it is that `full` is unreachable at this board's
   # concurrency, which nobody had noticed:
