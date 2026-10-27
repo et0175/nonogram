@@ -1099,15 +1099,31 @@ class TestBookExport_EmptyBookUnchanged:
 
 #: ``ast._splitlines_no_ff`` memoised by source text -- CARD-292.
 #:
-#: **Why this exists, measured rather than asserted.** ``_page_positions``
-#: called ``ast.get_source_segment`` 675 times per analysis, and that function
-#: re-splits its whole ``source`` argument with a regex on **every** call. On
-#: this module's 306 KB that is 2.557 s of the 2.843 s one analysis cost --
-#: 90 % -- measured with ``cProfile`` through
-#: ``meta/profiling/card292_plant_reads.py``'s door and written up in
+#: **Why this exists, measured rather than asserted.** The
+#: ``ast.get_source_segment`` this replaces re-splits its ``source`` with a
+#: regex from the start **up to the node's own end line** on every call
+#: (``maxlines=end_lineno+1``, and ``ast._splitlines_no_ff`` breaks out of
+#: its ``finditer`` there -- CPython 3.14.3; it is **not** a whole-source
+#: split per call, which is what the first draft of this comment said).
+#: What that costs here, counted through this door over one analysis of the
+#: unplanted module: **716** calls, of which **649** reach the split (the
+#: other 67 nodes carry no location and return early), re-scanning
+#: **127,608,978** characters of a module that holds **389,177**
+#: (**390,485 bytes** on disk, **381 KiB**) -- **50.5 %** of the module per
+#: call on average, because the nodes are spread through the file. So the
+#: total is proportional to calls x module size: quadratic in the module's
+#: size for a sweep whose call count grows with it, at half the constant a
+#: whole-source split would carry.
+#:
+#: Unprofiled, back to back in one process, one analysis costs **2.26 s** on
+#: the stdlib against **0.28 s** memoised -- **8.0x**, three readings. Under
+#: ``cProfile`` with **both** arms profiled it is 4.05x, and the split is
+#: 76 % of the stdlib arm's own ``tottime``. Every figure here, the
+#: instrument that took it, and the mixed ``cProfile``/unprofiled pair the
+#: first draft of this comment published instead, are in
 #: ``meta/profiling/card-292-per-test-ceiling.md``. The split is a pure
 #: function of the source text, so one split per distinct text is the same
-#: answer for a hundredth of the price.
+#: answer for 1 split instead of 649 and an eighth of the analysis's cost.
 #:
 #: Eight entries, not one: a single-slot cache thrashes because the door-axis
 #: controls interleave a planted text with the module's own.
@@ -6308,12 +6324,20 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
     ``ast.get_source_segment``, and a reimplementation is an equivalence
     claim, so it ships with the controls that can falsify it.
 
-    **Why it was written.** ``ast.get_source_segment`` re-splits its whole
-    ``source`` argument on every call. ``_page_positions`` calls it 675 times
-    per analysis over a 306 KB module, and the door-axis controls run 108
-    analyses in one test. The split is a pure function of the text, so it is
-    memoised; the arithmetic that sliced the lines is unchanged and is held to
-    the stdlib's answer here. The cost figures are in
+    **Why it was written.** ``ast.get_source_segment`` re-splits its
+    ``source`` from the start up to the node's own end line on every call, so
+    each call pays that node's position in the file rather than a constant.
+    ``_page_positions`` makes **716** such calls per analysis of the unplanted
+    **390,485-byte (381 KiB)** module, and the door-axis controls run **108**
+    analyses in one test -- but **25,873** calls in total, measured, which is
+    NOT 716 x 108: counted per analysis, **36** of the 108 are over the real
+    module (716-721 calls each, 99.9 % of all the calls) and the other **72**
+    are over the small planted texts, at 0-2 calls each. A per-analysis figure
+    taken from one analysis may not be multiplied by the analysis count, which
+    is the mistake the first draft of this docstring made. The split is a pure
+    function of the text, so it is memoised; the arithmetic that sliced the
+    lines is unchanged and is held to the stdlib's answer here. The cost
+    figures and their instruments are in
     ``meta/profiling/card-292-per-test-ceiling.md``; **no figure is asserted
     in this file**, because a duration is a property of the host and would red
     on another machine (CARD-292's G-2).
@@ -6382,12 +6406,12 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
     #:
     #: A seeded corpus rather than every node, and the reason is the thing
     #: being replaced: ``ast.get_source_segment`` re-splits the source up to
-    #: the node's line on every call, so an exhaustive sweep of this 306 KB
-    #: module's 9,816 located nodes costs **34.97 s** (measured with
-    #: ``--durations`` on the first draft of this class) and would hand back a
-    #: third of the saving this card exists for. The floor is asserted inside
-    #: the test, in this suite's no-``hypothesis`` style, so the corpus cannot
-    #: silently shrink.
+    #: the node's line on every call, so an exhaustive sweep of this
+    #: **381 KiB** module's 9,816 located nodes costs **34.97 s** (measured
+    #: with ``--durations`` on the first draft of this class) and would hand
+    #: back a third of the saving this card exists for. The floor is asserted
+    #: inside the test, in this suite's no-``hypothesis`` style, so the corpus
+    #: cannot silently shrink.
     CORPUS_FLOOR = 2400
     #: The seed, fixed so a divergence is reproducible from the failure alone.
     CORPUS_SEED = 292
@@ -6395,7 +6419,7 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
     def test_a_seeded_corpus_of_the_real_module_segments_identically(self):
         """The equivalence, over the text the memo exists for.
 
-        Nodes of ``book_pdf_generator.py`` -- the 306 KB source
+        Nodes of ``book_pdf_generator.py`` -- the 381 KiB source
         ``_page_positions`` analyses -- are segmented both ways and the two
         answers compared. **Both** branches of :func:`_source_segment` are
         asserted present in the corpus before the comparison, and the corpus

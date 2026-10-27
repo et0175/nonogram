@@ -19,11 +19,15 @@ Reported, per the card's "name the door you derived it through":
 
 * how many times ``Path.read_text`` is called during the test, and on which
   paths -- the card's "144" is a figure to recompute, not to quote;
-* the bytes read in total;
+* how much was read, in CHARACTERS -- this counts ``len(text)`` AFTER
+  ``read_text`` has decoded, so its domain is characters and not bytes, and
+  the two differ here because the module is not all-ASCII (CARD-292 review
+  cycle 1, F-004: 389,177 characters against 390,485 bytes on disk);
 * the seconds spent inside ``read_text``, split into the FIRST read of each
   distinct path and all later reads of it.  That split is the whole argument:
   the first read is the only one that can be cold, because it populates the
-  page cache itself, so a page-cache story has exactly one read to pay for.
+  page cache itself, so a page-cache story has exactly ONE READ PER DISTINCT
+  PATH to pay for -- two, as this test reads two modules.
 * the test's own wall clock, so the read share is a share and not a number.
 """
 
@@ -82,7 +86,7 @@ def main():
             first_n += 1
 
     total_s = first_s + later_s
-    total_bytes = sum(n for _, _, n in reads)
+    total_chars = sum(n for _, _, n in reads)
     print(f"test              {CLASS_NAME}::{TEST_NAME}")
     print(f"test wall clock   {wall:.2f} s")
     print(f"read_text calls   {len(reads)}")
@@ -90,7 +94,10 @@ def main():
     for path in sorted(seen):
         n = sum(1 for p, _, _ in reads if p == path)
         print(f"  {n:4d} x  {path}")
-    print(f"bytes read        {total_bytes} ({total_bytes / 1e6:.1f} MB)")
+    print(
+        f"characters read   {total_chars} ({total_chars / 1e6:.1f} M chars; "
+        "len(text) AFTER decode, so the unit is characters, not bytes)"
+    )
     print(f"seconds in reads  {total_s:.4f} s  = {100 * total_s / wall:.3f}% of the test")
     print(f"  first read of each path  {first_n} reads, {first_s:.4f} s")
     print(f"  every later read         {later_n} reads, {later_s:.4f} s")
