@@ -6330,11 +6330,19 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
     ``_page_positions`` makes **716** such calls per analysis of the unplanted
     **390,485-byte (381 KiB)** module, and the door-axis controls run **108**
     analyses in one test -- but **25,873** calls in total, measured, which is
-    NOT 716 x 108: counted per analysis, **36** of the 108 are over the real
-    module (716-721 calls each, 99.9 % of all the calls) and the other **72**
-    are over the small planted texts, at 0-2 calls each. A per-analysis figure
-    taken from one analysis may not be multiplied by the analysis count, which
-    is the mistake the first draft of this docstring made. The split is a pure
+    NOT 716 x 108. **The discriminator is the arm under test, not the size of
+    the text** (review cycle 2, F-202, which corrected the first version of
+    this sentence): **all 108** analyses are over *planted* texts -- this same
+    module's ~389,000 characters with three lines swapped, 32 distinct lengths
+    in 389,122-389,385 -- and **none** is over the real module. The **36** that
+    keep the ``callee identity`` arm make **716-721** calls each (**25,852**,
+    99.9 % of all the calls); the other **72** -- 36 with that arm removed and
+    36 with both arms removed -- anchor nothing and make **0-2** calls each
+    (**21**). Measured by capturing :meth:`_page_positions`' own ``source``
+    and ``door_arms`` arguments; the arm is decisive on the real module too,
+    at 716 calls with it and **0** without. A per-analysis figure taken from
+    one analysis may not be multiplied by the analysis count, which is the
+    mistake the first draft of this docstring made. The split is a pure
     function of the text, so it is memoised; the arithmetic that sliced the
     lines is unchanged and is held to the stdlib's answer here. The cost
     figures and their instruments are in

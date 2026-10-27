@@ -56,7 +56,7 @@ def main():
     module = _load()
     cls = getattr(module, CLASS_NAME)
 
-    reads = []  # (path, seconds, nbytes)
+    reads = []  # (path, seconds, nchars)
     real = pathlib.Path.read_text
 
     def counting(self, *a, **kw):
@@ -76,7 +76,7 @@ def main():
     seen = set()
     first_s = later_s = 0.0
     first_n = later_n = 0
-    for path, seconds, nbytes in reads:
+    for path, seconds, nchars in reads:
         if path in seen:
             later_s += seconds
             later_n += 1

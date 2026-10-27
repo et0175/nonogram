@@ -180,12 +180,67 @@ with the same shim: **25,873** door calls over **108** analyses — a mean of
 
 | the dear test's 108 analyses | **measured** |
 |---|---|
-| over the **real** module | **36**, at **716–721** calls each = **25,852** (99.9 % of all the calls) |
-| over the **small planted** texts | **72**, at **0–2** calls each = **21** |
+| over a **planted** text (the module's own characters, three lines swapped) | **108** — **all** of them; **32** distinct lengths, **389,122–389,385** chars |
+| over the **real** module | **0** |
+| keeping the **`callee identity`** arm | **36**, at **716–721** calls each = **25,852** (99.9 % of all the calls) |
+| **without** that arm — 36 with it removed, 36 with **both** arms removed | **72**, at **0–2** calls each = **21** |
 
 **A per-analysis figure taken from one analysis may not be multiplied by the
 analysis count.** 108 is exactly right; 675 was a property of one particular
 analysis whose domain the draft did not state.
+
+**And the domain of those 108 was itself misstated — review cycle 2, F-202.**
+Fix round 1 wrote that 36 of them run "over the real module" and the other 72
+"over the small planted texts, at 0-2 calls each". **The counts above are
+exactly right and that attribution is wrong on both halves**, which the table's
+own figures refute without any new measurement: an analysis of the real module
+makes **716** calls, so **721** cannot be one, and the 72 cheap analyses are
+over texts of the *same* ~389,000 characters as the expensive 36. Re-measured
+in fix round 2 through a **different door** than the call counter — a wrapper
+that captures :meth:`_page_positions`' own ``source`` and ``door_arms``
+arguments rather than counting inside it:
+
+```
+wall 27.81s   analyses 108   door calls 25873   mean 239.6
+per-analysis door-call distribution:
+  [(0, 53), (1, 17), (2, 2), (716, 1), (717, 13), (718, 8), (719, 10), (720, 3), (721, 1)]
+analyses whose source IS None (the real module by default):   0
+analyses whose source EQUALS the real module text exactly:    0
+distinct source lengths: 32   range 389122 .. 389385
+real module source length: 389177
+HIGH (>100 calls):  n=36  calls 716-721  sum 25852
+   their source lengths: 389122 .. 389385
+   door_arms: {"explicit:'callee identity'": 36}
+LOW  (<=100 calls): n=72  calls 0-2      sum 21
+   their source lengths: 389122 .. 389385
+   door_arms: {"explicit:'door spelling'": 36, 'explicit:NONE': 36}
+```
+
+**The discriminator is the `callee identity` arm**, and it is decisive on the
+real module too — same shim, four calls, `source=None`:
+
+```
+segment() door calls on ONE UNPLANTED analysis:  716
+same, door-spelling arm removed:                 716
+same, callee-identity arm removed:                 0
+same, both arms removed:                           0
+```
+
+That arm is the one that walks every `ast.Call` and so pays the `segment()`
+door; the door-spelling arm anchors almost nothing on its own. **The
+conclusion the wrong reason supported does not move** — 25,852 + 21 = 25,873,
+the mean is still 240, and a per-analysis figure still may not be multiplied by
+the analysis count. Only the reason changes, and the true one is a property of
+the controls rather than of the texts. **Corrected in both places that carried
+it** — here and the class docstring at
+`tests/test_book_export_interior_cover.py:6330`. Those are the only two, and
+the audit is over the phrase rather than over the subject it was about.
+`grep -rn 'small planted' tests/ meta/profiling/` on the fixed branch returns
+**three** lines and **none of them prescribes the wrong domain**: the quotation
+inside this withdrawal (line 194 above), this sentence, and
+`tests/README.md:609`, which uses the same two words about a different test on
+a different axis and is outside this card's diff. No *claim* of the wrong
+domain survives.
 
 **What one analysis costs, through two instruments, both named (F-006)** — and
 this is the card's own rule turned on itself, because the first draft published
@@ -335,18 +390,27 @@ distinguishable in seconds rather than in an hour:
 2. **The shell call hit the harness's 120 s timeout.** Signature: a truncated
    log, no summary line, and the harness's own message. Re-run with an explicit
    timeout (600 s maximum for a foreground call) or in the background.
-3. **A rival pytest.** Signature: `pgrep -f 'bin/python -m pytest' | wc -l`
-   **> 0** at either end of the run. **Not** `pgrep -fc` — BSD/macOS `pgrep`
-   has no `-c` flag: usage error, exit 2, and an **empty** cell inside
-   `$(...)` (§7). And **not** `ps -Ao command | grep -c '[m] pytest'`, whose
-   baseline is not a constant: it counts this agent's own `zsh -c` wrapper
-   lines, and with **no pytest running at all** it returned **1** in fix
-   round 1, **2** when this card first measured it, and **3** for the
-   orchestrator an hour later (all three recorded in
-   `meta/kanban/config.yml`) — the count depends on the shape of the command
-   that asks. This cell — **not** the load average — is what "quiet" means on
-   this box, and `meta/kanban/.full-suite.lock` with CARD-255's
-   foreign-holder guard is the only thing that enforces it.
+3. **A rival pytest.** Signature: `pgrep -f 'MacOS/Python.*pytest' | wc -l`
+   **> 0** at either end of the run — **the third instrument this card has
+   prescribed for this one cell, and the first that passes both controls**
+   (§7's F-001/F-201 inset has the five-case truth table and the traces).
+   **Not** `pgrep -fc` — BSD/macOS `pgrep` has no `-c` flag: usage error,
+   exit 2, and an **empty** cell inside `$(...)`. And **not**
+   `pgrep -f 'bin/python -m pytest' | wc -l`, which is **blind** here: this
+   venv's `bin/python` is a macOS *framework* python and re-execs through
+   `Python.app`, so a live run's argv begins
+   `/Library/Frameworks/.../Python.app/Contents/MacOS/Python -m pytest` and
+   the literal `bin/python` never appears — measured **0 with a real venv
+   pytest alive**, and measured **1** against a mere `zsh -c` whose own argv
+   mentions the pattern, so it is false-negative and false-positive at once.
+   And **not** `ps -Ao command | grep -c '[m] pytest'`, whose baseline is not
+   a constant: it counts this agent's own `zsh -c` wrapper lines, and with
+   **no pytest running at all** it returned **1** in fix round 1, **2** when
+   this card first measured it, and **3** for the orchestrator an hour later
+   (all three recorded in `meta/kanban/config.yml`) — the count depends on
+   the shape of the command that asks. This cell — **not** the load average
+   — is what "quiet" means on this box, and `meta/kanban/.full-suite.lock`
+   with CARD-255's foreign-holder guard is the only thing that enforces it.
 4. **The tree.** Everything else, and it has **failure cells**. An exit code is
    not a verdict.
 
@@ -389,8 +453,14 @@ worktree — **see §6**.
   no longer describe the tree. The file's two remaining stdlib call sites
   (lines 1438 and 2913) are cold paths that correctly stay on the stdlib, so
   the control would also have to discriminate them. **Recorded here as a known,
-  bounded, unguarded price**, and it is the obvious successor card if this file
-  ever climbs again.
+  bounded, unguarded price — and the price is now OWED BY A NAMED CARD rather
+  than by an intention.** Review cycle 2 (F-203) found that this bound named
+  "the obvious successor card" while no such card existed, so nothing owed the
+  control. **`CARD-302` — "The memo's USE is unguarded — the cheapening can
+  silently return"** was created for it on `main` at `bd2128b5`, status
+  `ready`, and carries the hot-site guard, the two cold sites staying legal,
+  and an explicit decision about M10 as its own acceptance criteria. Its ACs
+  are not restated here; they live on the card.
 * **One surviving mutant, reported rather than hidden:** truncating
   `_source_lines`' result by its last element changes nothing either control
   sees, because the line regex's `$` alternative appends a final empty match
@@ -423,15 +493,28 @@ untracked file in a worktree scheduled for deletion. This block lives in
 it is not committed on this card's branch** — and is reproduced here so it
 survives the worktree.
 
-**This is a snapshot of `main` at `d77fa29c`, and it is verbatim as of fix round 1
-(2026-10-27).** The first draft of this section claimed "verbatim" while
-prescribing `pgrep -fc`, and was therefore already false against the correction
-`main` landed at `d61f0be1` (review cycle 1, F-001). The block below was
-**extracted from `main:meta/kanban/config.yml` rather than retyped**, so the
-claim holds by construction; anyone re-checking it should diff it against that
-path at that commit. The convention itself is board-side state and will keep
-moving — a snapshot that names its commit is honest, a snapshot that calls
-itself "the convention" is not.
+**This is a snapshot of `main` at `bd2128b5`, lines 42–131 of
+`meta/kanban/config.yml`, and it is verbatim as of fix round 2 (2026-10-27).**
+The blob it quotes landed at **`e4d33dfa`** — the commit that corrected the
+rival-pytest prescription for the second time — and is unchanged at `main`'s
+head: `git rev-parse e4d33dfa:meta/kanban/config.yml` and
+`bd2128b5:meta/kanban/config.yml` are both
+`4a03afc785ab59c8d1e52afb89d145022c0a1248`.
+
+**This section has now been re-extracted twice, once per defective
+instrument.** The first draft claimed "verbatim" while prescribing
+`pgrep -fc`, already false against the correction `main` landed at `d61f0be1`
+(review cycle 1, F-001). Fix round 1 re-extracted it at `d77fa29c` — verbatim
+by construction, and faithfully reproducing a prescription that **could not
+measure its own cell** (review cycle 2, F-201). So "verbatim" was true both
+times and was never the property that mattered: *a snapshot inherits the
+defects of what it snapshots.* The block below is again **extracted
+programmatically rather than retyped** — `git show` piped through `sed -n
+'42,131p'` straight into the fence — so the claim holds by construction, and
+the diff that proves it is below the block rather than asserted. The
+convention itself is board-side state and will keep moving — a snapshot that
+names its commit is honest, a snapshot that calls itself "the convention" is
+not.
 
 ```yaml
   # HOW A GATE RECORDS THE HOST (CARD-292 / AC-6, owner-facing convention).
@@ -443,22 +526,65 @@ itself "the convention" is not.
   # and again after the last:
   #
   #   load-start / load-end   `sysctl -n vm.loadavg`, both ends.
-  #   rival-pytest            `pgrep -f 'bin/python -m pytest' | wc -l`, both
-  #                           ends. NOT `pgrep -fc` -- BSD/macOS pgrep has no
-  #                           -c flag and exits with a usage error, which in a
-  #                           `$(...)` cell silently yields an EMPTY host cell
-  #                           rather than a count. Found 2026-10-27 the first
-  #                           time this convention was executed.
+  #   rival-pytest            `pgrep -f 'MacOS/Python.*pytest' | wc -l`, both
+  #                           ends. > 0 means a rival run. THIS CELL HAS NOW
+  #                           BEEN WRONG TWICE, so it carries the truth table
+  #                           that earned it (measured 2026-10-27, four cases,
+  #                           a real venv pytest launched both ways):
+  #
+  #                             instrument                      (d)  (a)  (b)  (c)
+  #                             pgrep -f 'pytest'                1    1    1    0
+  #                             pgrep -fi 'python.*pytest'       1    1    1    0
+  #                             pgrep -f 'MacOS/Python.*pytest'  0    1    1    0
+  #
+  #                           (a) pytest via `python -m pytest`; (b) via the
+  #                           `.venv/bin/pytest` console script; (c) nothing
+  #                           running; (d) THE CONTROL -- only a `zsh -c`
+  #                           whose own argv mentions pytest, which is the
+  #                           false positive that started all of this. Only
+  #                           the third row passes all four.
+  #
+  #                           TWO REJECTED FORMS, both of which LOOK like they
+  #                           work:
+  #                             `pgrep -fc ...`  -- BSD/macOS pgrep has no -c
+  #                               flag. Exits 2 with a usage line, and in a
+  #                               `$(...)` cell yields an EMPTY host cell, not
+  #                               a count.
+  #                             `pgrep -f 'bin/python -m pytest' | wc -l`
+  #                               -- reads 0 WHETHER OR NOT pytest is running,
+  #                               so it never errors and always looks fine.
+  #                               The venv's python is a macOS FRAMEWORK
+  #                               python: it re-execs through Python.app, so a
+  #                               live run's argv is
+  #                               `/Library/Frameworks/.../Python.app/Contents/MacOS/Python -m pytest ...`
+  #                               and the literal `bin/python` never appears.
+  #                               This was the correction for the first defect
+  #                               and it was WORSE than what it replaced: the
+  #                               first failed loudly, this one silently.
+  #
+  #                           DECLARED BOUND: the working pattern keys on the
+  #                           framework-python re-exec path, so on a venv built
+  #                           from a NON-framework python it would read 0 and
+  #                           be blind again. It is verified on this box only.
+  #                           Re-run the four cases before trusting it
+  #                           elsewhere -- and note the lesson that actually
+  #                           generalises: an instrument needs a POSITIVE
+  #                           control (it must rise) AND a NEGATIVE one (it
+  #                           must not rise on case (d)). A cell reading 0
+  #                           because the box is quiet and a cell reading 0
+  #                           because the command is blind are identical from
+  #                           the figure alone.
   #                           THIS is the cell that decides whether the run was
   #                           quiet; the load averages are context. NOT
   #                           `ps -Ao command | grep -c '[m] pytest'`, which was
   #                           the idiom in use and which counts THIS AGENT'S OWN
   #                           `zsh -c` wrapper lines: measured 2026-10-27 it
-  #                           returns 2-3 with no pytest running at all, so its
+  #                           returns 1-3 with no pytest running at all, so its
   #                           baseline moves with the shape of the command that
-  #                           asks -- measured 2 by CARD-292 and 3 by the
-  #                           orchestrator an hour later, which is the point.
-  #                           pgrep counts processes and returns 0.
+  #                           asks -- measured 2 by CARD-292, 3 by the
+  #                           orchestrator an hour later, and 1 by CARD-292's
+  #                           fix round. Three readings, three values, for a
+  #                           figure that was being used as a constant.
   #   per-test ceiling        whether any test's SUMMED setup+call+teardown
   #                           reached tests/hang_guard.py's HANG_SECONDS
   #                           (120 s), and the dearest test's figure.
@@ -483,15 +609,38 @@ itself "the convention" is not.
   # row with no summary line is a MEASUREMENT defect, never a tree verdict.
 ```
 
+**And the "verbatim" claim is checked rather than asserted**, which is the
+whole point of extracting the block instead of retyping it:
+
+```
+$ sed -n '520,609p' meta/profiling/card-292-per-test-ceiling.md > doc_s6.txt
+$ git -C <main> show bd2128b5:meta/kanban/config.yml | sed -n '42,131p' > main_cfg.txt
+$ wc -l doc_s6.txt main_cfg.txt
+      90 doc_s6.txt
+      90 main_cfg.txt
+$ diff doc_s6.txt main_cfg.txt
+$ echo "exit=$?"
+exit=0                                      <- DIFF EMPTY, verbatim HOLDS
+$ shasum -a 256 doc_s6.txt main_cfg.txt
+186f76e9cdce5d3b...  doc_s6.txt
+186f76e9cdce5d3b...  main_cfg.txt
+```
+
 **AC-6's demonstrated instance is §8.2** — the fix-round pre-gate, whose
-`rival-pytest` cells were taken through the working
-`pgrep -f 'bin/python -m pytest' | wc -l`, at both ends, beside both load
-averages and the per-test-ceiling cell. §7's whole-file table is the *first*
-instance and carries all three cells, but its rival-pytest cells were taken
-through the defective `ps` idiom and are declared as such there (§7's F-001 inset), and
-§8's `0 / 0` cells are **withdrawn as not established** (§8). A convention
-is demonstrated by an instance whose instrument can produce its figures, so
-§8.2 is the one that counts.
+`rival-pytest` cells are taken through
+`pgrep -f 'MacOS/Python.*pytest' | wc -l`, at both ends, beside both load
+averages and the per-test-ceiling cell. **That is the instrument the block
+above prescribes, and §8.2's cells were re-taken with it in fix round 2** —
+the cells fix round 1 published for those rows were read through
+`pgrep -f 'bin/python -m pytest' | wc -l`, which §7's inset shows is blind on
+this box, so they are superseded there rather than carried. §7's whole-file
+table is the *first* instance and carries all three cells, but its
+rival-pytest cells were taken through the defective `ps` idiom and are
+declared as such there (§7's F-001/F-201 inset), and §8's `0 / 0` cells are
+**withdrawn as not established** (§8). A convention is demonstrated by an
+instance whose instrument can produce its figures — **and which has been
+shown to produce them, in both directions** — so §8.2 is the one that
+counts.
 
 ---
 
@@ -532,24 +681,112 @@ Neither spelling of the flag list contains a `c`: the **usage line** the
 command itself prints reads `[-Lfilnoqvx]`, and `man pgrep`'s **SYNOPSIS** on
 this box reads `[-Lafilnoqvx]`. (The two disagree about `-a`, which is its own
 small lesson about reading a manual instead of the binary, and is irrelevant
-here.) **The working form is `pgrep -f 'bin/python -m pytest' | wc -l`**, and
-that is what §4 and §6 now prescribe. The sentence claiming the broken form
-returned 0 is **withdrawn**: no reading was ever taken through it, because no
-reading can be. §8 carries the same defect as a results cell, and §8.2 is the
-re-take.
+here.) The sentence claiming the broken form returned 0 is **withdrawn**: no
+reading was ever taken through it, because no reading can be. §8 carries the
+same defect as a results cell, and §8.2 is the re-take.
 
-**And the working form has a positive control, which a host cell needs as much
-as an assertion does.** A cell that reads 0 because it is broken and a cell
-that reads 0 because the box is quiet are indistinguishable from the figure
-alone — which is exactly how `pgrep -fc` survived into a results table. So the
-replacement was checked both ways on this box in fix round 1: **0** with no
-pytest running, and **1** taken deliberately while this fix round's own
-pre-gate (§8.2) was running in the background. The cell can rise, and it rose.
+**And the replacement fix round 1 named was broken too — review cycle 2,
+F-201.** Fix round 1 prescribed `pgrep -f 'bin/python -m pytest' | wc -l`,
+which is the last command in the trace above, and that command is **blind on
+this box**: it reads **0 whether or not a pytest is running**, so it never
+errors and always looks like a working instrument. The mechanism is in the
+venv: `.venv/bin/python` is a macOS **framework** python, and a framework
+python **re-execs itself through `Python.app`**, replacing `argv[0]`. A live
+run's command line is therefore
+
+```
+/Library/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python -m pytest ...
+```
+
+and the literal `bin/python` never appears in it. So the `0` on the trace's
+last line is **not** evidence that the box was quiet; it is what that command
+returns always. **That correction was worse than the defect it fixed**:
+`pgrep -fc` failed **loudly** — exit 2, a usage line, an empty cell — while
+this one fails **silently**, and every `rival-pytest: 0` cell this card took
+through it carries no information at all.
+
+**The instrument this document now prescribes is
+`pgrep -f 'MacOS/Python.*pytest' | wc -l`**, and it is prescribed because it
+was **measured over five cases**, not because it reads plausibly. A counting
+host cell needs **both** controls: a **positive** one (it must rise when a
+rival is there) and a **negative** one (it must not rise on something that
+merely *mentions* pytest). An instrument that can only rise is half a control,
+and an instrument that can only read 0 is none. Measured on this box
+**2026-10-27**, a real venv pytest launched both ways, two wrapper shapes and
+idle:
+
+| instrument | (c) idle | (d) a `zsh -c` whose argv says *pytest* | (d2) a `zsh -c` whose argv says *.venv/bin/python -m pytest* | (a) `python -m pytest` | (b) `.venv/bin/pytest` |
+|---|---|---|---|---|---|
+| `pgrep -f 'pytest'` | 0 | **1 ← false +** | **1 ← false +** | 1 | 1 |
+| `pgrep -fi 'python.*pytest'` | 0 | 0 | **1 ← false +** | 1 | 1 |
+| `pgrep -f 'bin/python -m pytest'` | 0 | 0 | **1 ← false +** | **0 ← false −** | **0 ← false −** |
+| **`pgrep -f 'MacOS/Python.*pytest'`** | **0** | **0** | **0** | **1** | **1** |
+
+Only the last row is right in all five columns — and the row above it, fix
+round 1's, is wrong in **three**: it is false-negative on both real pytests
+and false-positive on a shell wrapper, which is the exact inverse of an
+instrument. (d2) is not hypothetical: it is the shape of an asking command on this
+harness, and the same shape is what gave the `ps | grep -c` idiom the moving
+baseline recorded in §4.
+
+**The positive control, taken while §8.2's own row 1 was in flight**, so the
+trace is a reading of the gate this document publishes rather than a
+demonstration beside it:
+
+```
+$ # the pre-gate script's own output, 30 s into ROW 1's pytest
+host cells, START:
+  [19:36:16Z] load={ 5.26 6.63 7.01 }  rival-pytest=0  (blind form=0)
+POSITIVE CONTROL, taken while ROW 1's own pytest is in flight (pid 28140, alive=yes):
+  its argv: /Library/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python -m pytest -o addopts= -rs tests/test_book_export_interior_cover.py tests/test_suite_profile.py
+  pgrep -f 'MacOS/Python.*pytest' | wc -l   = 1      <- MUST RISE
+  pgrep -f 'bin/python -m pytest'  | wc -l   = 0      <- the blind form, FALSE NEGATIVE
+  pgrep -fl 'MacOS/Python.*pytest':
+    28140 /Library/Frameworks/.../Python.app/Contents/MacOS/Python -m pytest -o addopts= -rs tests/test_book_export_interior_cover.py tests/test_suite_profile.py
+POSITIVE CONTROL, second sample:
+  rival-pytest=1   blind=0
+host cells, END:
+  [19:38:23Z] load={ 4.58 5.79 6.61 }  rival-pytest=0  (blind form=0)
+ROW 1 exit=0  wall=126.74 s
+
+$ # and again, 60 s into ROW 2's pytest over the 29-file selection
+POSITIVE CONTROL, taken while ROW 2's own pytest is in flight (pid 28719, alive=yes):
+  pgrep -f 'MacOS/Python.*pytest' | wc -l   = 1      <- MUST RISE
+  pgrep -f 'bin/python -m pytest'  | wc -l   = 0      <- the blind form, FALSE NEGATIVE
+```
+
+**The negative control, taken on an idle box in the same script**, because an
+instrument that can only rise is half a control:
+
+```
+$ # the same script, before row 1, with nothing of ours running
+idle, before: rival-pytest=0
+  wrapper argv: /bin/zsh -c sleep 20; : .venv/bin/python -m pytest tests/
+  pgrep -f 'MacOS/Python.*pytest' | wc -l   = 0      <- must stay 0
+  pgrep -f 'bin/python -m pytest'  | wc -l   = 1      <- the blind form, FALSE POSITIVE
+  pgrep -fl 'MacOS/Python.*pytest':
+                                                      <- nothing matched
+  pgrep -fl 'bin/python -m pytest':
+    28062 /bin/zsh -c sleep 20; : .venv/bin/python -m pytest tests/
+  after kill: rival-pytest=0
+```
+
+**Declared bound on the instrument.** It keys on the **framework re-exec
+path**, so on a venv built from a **non-framework** python there is no
+`MacOS/Python` in the argv and this pattern would read 0 and be blind in
+exactly the way its predecessor is. It is verified **on this box only**; the
+five cases above are the check to re-run before trusting it elsewhere. That
+bound is stated rather than papered over, because the lesson that actually
+generalises is not the pattern — it is that **a cell reading 0 because the box
+is quiet and a cell reading 0 because the command is blind are identical from
+the figure alone**, and only a control taken where the cell is used can tell
+them apart.
 
 **The 1 / 1 cells below are therefore evidence that no rival pytest ran only in
-the weaker sense that the count did not rise** — the two arms were taken back
-to back by one script that ran nothing else, which is the stronger argument for
-them.
+the weaker sense that the count did not rise** — and weaker still, because
+they were taken through the `ps` idiom, whose baseline *is* 1. The two arms
+were taken back to back by one script that ran nothing else, which is the
+stronger argument for them.
 
 | cell | **before** | **after** |
 |---|---|---|
@@ -670,8 +907,16 @@ silently relabelled. The true value is almost certainly **0** — nothing else o
 this box ran pytest that afternoon, and the §7 arms were taken by one script
 that ran nothing else — but "almost certainly" is not a measurement, and this
 card does not get to promote it to one. **§8.2 re-takes the whole pre-gate at
-the fix-round revision with the working instrument**; that is AC-6's
-demonstrated instance.
+the fix-round revision**; that is AC-6's demonstrated instance — and it has
+now been re-taken **twice**, because fix round 1's re-take used
+`pgrep -f 'bin/python -m pytest' | wc -l`, which review cycle 2 (F-201) showed
+is blind on this box. A cell withdrawn for having no instrument is not fixed
+by a second instrument that cannot rise either, and this one *was* the same
+defect: §8's cell was an **empty** string wearing a label, §8.2's first
+version was a **0** that would have been 0 with a rival pytest running. The
+figures in §8.2 are fix round 2's, taken through
+`pgrep -f 'MacOS/Python.*pytest' | wc -l` with both controls fired in the same
+script.
 
 **What the `collected 2325` row is a property of** (review cycle 1,
 F-009/F-010). The selection is **derived at base `6e0aadca`**, and that count
@@ -732,27 +977,54 @@ because the line pattern's `$` alternative appends a final empty match no
 
 ---
 
-### 8.2 Fix round 1's own pre-gate — AC-6's demonstrated instance
+### 8.2 The fix rounds' own pre-gate — AC-6's demonstrated instance
 
-Review cycle 1 scored this card **7 / 10, NOT CERTIFIED**, on two gating
-findings that were both **figures** rather than code (F-001, F-002). This row
-is fix round 1's gate over those corrections, taken on **2026-10-27** at
-`98482d2c` plus the fix-round edits, in one script that ran the two rows back
-to back and nothing else. It is **AC-6's demonstrated instance**: every host
-cell below was taken with a command that *can* produce it, and the
-`rival-pytest` instrument was checked in both directions first (§7's F-001
-inset).
+Review cycle 1 scored this card **7 / 10, NOT CERTIFIED** on two gating
+findings that were both **figures** rather than code (F-001, F-002); review
+cycle 2 scored it **7 / 10** again on two more of the same kind (F-201,
+F-202). This is **fix round 2's** gate, taken on **2026-10-27** at `db0e1a3e`
+plus the fix-round-2 edits, in one script that ran the two rows back to back
+and nothing else. It is **AC-6's demonstrated instance**, and what that now
+requires is one step stronger than it was: every host cell below was taken
+with a command that *can* produce it **and that was shown to produce it, in
+both directions, in this same script** — the positive control sampled while
+row 1's own pytest was in flight and the negative control on the idle box
+before it (§7's F-201 inset carries both traces and the five-case table).
+
+**Fix round 1's figures for these two rows are superseded, not carried.** Its
+`rival-pytest` cells read `0 / 0` through
+`pgrep -f 'bin/python -m pytest' | wc -l`, which review cycle 2 proved blind
+on this box, so those two cells were **0 by construction**. The rows were
+re-run rather than re-labelled, because a cell taken through a blind
+instrument is not a figure to relabel. Fix round 1's wall clocks are kept
+beside the new ones so the re-run is visible as a re-run — and the re-run
+earned its keep: the **first** attempt at row 2 in this round came back
+**`1 failed, 2309 passed, 15 skipped`, exit 1**, on a cell fix round 1's own
+document edit had reddened. That is below, under *Procedure*, and it is the
+reason this table is taken on the tree as committed rather than before the
+last edit.
 
 | cell | **row 1: the two changed test files together** | **row 2: the derived blast radius** |
 |---|---|---|
 | selection | `tests/test_book_export_interior_cover.py` + `tests/test_suite_profile.py` | the §8 grep's **29** files (array length printed) |
 | collected (`--collect-only -o addopts=''`) | **542** (132 + 410) | **2325** |
-| passed / skipped / failed | **542 / 0 / 0** | **2310 / 15 / 0** — and 2310 + 15 = 2325 reconciles |
+| passed / skipped / failed | **542 / 0 / 0** | **2310 / 15 / 0 — and 2310 + 15 = 2325 reconciles** |
 | pytest exit | 0 | 0 |
-| wall clock | **122.62 s** | **308.46 s** |
-| `load-start → load-end` (`sysctl -n vm.loadavg`, 1-minute) | 5.02 → 3.96 | 3.96 → 8.03 |
-| **`rival-pytest`, start / end** (`pgrep -f 'bin/python -m pytest' \| wc -l`) | **0 / 0** | **0 / 0** |
+| summary lines in the log | **1** | **1** |
+| wall clock | **126.74 s** (pytest's own line: 125.99 s; fix round 1: 122.62 s) | **295.69 s** (pytest's own line: 294.57 s; fix round 1: 308.46 s) |
+| `load-start → load-end` (`sysctl -n vm.loadavg`, 1-minute) | 5.26 → 4.58 | 4.58 → 10.16 |
+| **`rival-pytest`, start / end** (`pgrep -f 'MacOS/Python.*pytest' \| wc -l`) | **0 / 0** | **0 / 0** |
+| **the same cell, sampled while the row's own pytest was alive** | **1** — the positive control | **1** — taken again |
+| **the blind form at that same instant** | **0** — false negative | **0** — false negative |
 | tests at or over the 120 s per-test ceiling | **0** | **0** |
+
+**Those four start/end cells are the ones AC-6 turns on, and this is why they
+are now a measurement.** A `0` means "no rival pytest" only if a `1` was
+reachable. In this script a `1` *was* reached — twice, from the rows'
+own pytests — and the wrapper that merely mentions `pytest` did **not**
+reach it. The same instant that reads **1** on the prescribed command reads
+**0** on fix round 1's, which is the single sharpest statement available about
+the difference between the two.
 
 **Why the ceiling cell reads 0 without a second instrument.** §1.1 established
 the kill signature: the guard calls `_exit()`, so a run that hits it ends with
@@ -811,17 +1083,130 @@ probe *reports* and the whole suite stays green. A probe's output is a claim
 whose only control is **re-running the probe and reading it**, and the tree
 cannot be made to do that for us.
 
-**Order of operations, stated because it decides what the gate covers.** Rows
-1 and 2 were taken **first**, on the clean fix-round tree. P1 and P2 were
-planted **after** them, each run on its own selection, and the file was then
-restored from the copy taken before P1 — `git hash-object` on the restored file
-equals the copy's, so the committed probe is **byte-identical to the state rows
-1 and 2 ran against**. Nothing else the guard reads moved after the rows: the
-test file was not touched again, and the only later edits are to this document,
+**Mutating fix round 2's own changes — and there is nothing to mutate, which
+is stated rather than filled in.** Fix round 2 adds **no mechanism at all**,
+and that is proved rather than claimed:
+
+* `tests/test_book_export_interior_cover.py` is **prose only**, again by
+  `ast.dump`: parsed at `db0e1a3e` and at this revision with every docstring
+  stripped, the dumps are **byte-identical** — 109 docstrings each side,
+  `dump_len 392100`, same dump sha — while the sources differ by **610**
+  characters. The one changed docstring sentence is F-202's correction.
+* `tests/test_suite_profile.py` and `meta/profiling/card292_ceiling_probe.py`
+  are **byte-identical** to `db0e1a3e` (`SOURCE identical: True`).
+* This document is prose.
+* `meta/profiling/card292_plant_reads.py` carries F-204's unit fix: the
+  `# (path, seconds, nbytes)` comment, plus the **loop target** at line 79
+  that carried the same wrong unit — the class inside the file, not just the
+  instance review cycle 2 named. The comment is prose; the rename is **inert,
+  two ways**. Its full `ast.dump` differs in **exactly one token**
+  (`id='nbytes'` → `id='nchars'`, 133 `Name` ids each side, and substituting
+  the name back makes the dumps equal), and the binding has **no `Load`
+  occurrence anywhere in the file** — it is a write-only loop variable, so no
+  expression can read it. Re-running the probe prints the same **216** reads
+  over **2** distinct paths and **44,824,752** characters.
+
+So there is no mechanism to delete and no claim-vs-mutant question to answer.
+**The alternative — inventing a mutant so the section has a row — is the
+defect this document is about**, and fix round 1's P1/P2 above are the real
+article because round 1 really did change a mechanism's label.
+
+**Order of operations, stated because it decides what the gate covers.** In
+each round the rows were taken **first**, on that round's clean tree. In fix
+round 1, P1 and P2 were planted **after** them, each run on its own selection,
+and the file was then restored from the copy taken before P1 — `git
+hash-object` on the restored file equals the copy's, so the probe as committed
+in round 1 is **byte-identical to the state rows 1 and 2 ran against**. In fix
+round 2 **nothing was planted at all**: the two `.py` edits (the docstring and
+the probe's unit) were made **before** the rows, so the rows ran against the
+tree exactly as committed, and the only edits after them are to this document,
 which is not a `*.py` and so is outside `_guarded_sources`.
 
-**Procedure.** `meta/kanban/.full-suite.lock` was **never taken and does not
-exist**; `NONOGRAM_FULL_SUITE_LOCK` and `NONOGRAM_TEST_HANG_SECONDS` were both
-**unset** for every run in this fix round — no run here re-used §3.2's
-hang-guard override, and nothing in this round needed it. The full suite was
-**not** run; that is the merge gate's step, not this one.
+**Procedure.** `meta/kanban/.full-suite.lock` was **never taken and does
+not exist**; the full-suite guard's two environment switches —
+`tests/full_suite_lock.py`'s `OVERRIDE` and `LOCK_PATH_VAR`, which this
+document now deliberately does **not spell**, for the reason in the next
+paragraph — and `NONOGRAM_TEST_HANG_SECONDS` were **unset** for every run in
+**both** fix rounds. No run re-used §3.2's hang-guard override and nothing in
+either round needed it, which the fix round 2 script printed as its first
+three lines, from the environment, before the first test ran. The full suite
+was **not** run; that is the merge gate's step, not this one. The interpreter
+was checked rather than assumed: the shared venv's `python` resolves
+`nonogram` to **`main`'s** `src` by default, so every run was invoked with the
+worktree as cwd and the resolution printed —
+`NONOGRAM_FILE .../PythonProject4-card-292/src/nonogram/__init__.py` — before
+any figure was taken.
+
+**And the sentence above this one used to spell those two switches, which made
+row 2 RED — found by re-running it in fix round 2, not by reading.** This is
+the sharpest thing in the section, so it is recorded rather than quietly
+fixed. Fix round 1 argued that editing the document after its rows was safe
+because the document "is not a `*.py` and so is outside `_guarded_sources`".
+That is true of `tests/test_suite_profile.py`'s guard **and the tree has
+another one**. `tests/test_full_suite_lock.py::test_nothing_in_the_tree_sets_either_of_the_guards_env_switches`
+scans the **whole tree** with `git grep -l` for both switch names and exempts
+only `tests/README.md`, the guard, its own test file, and prose under
+`meta/kanban/cards/` and `meta/review/`. **`meta/profiling/` is not
+exempt** — so fix round 1's Procedure paragraph, written after its rows had
+been taken, made the card's own HEAD fail its own declared blast radius:
+
+```
+$ git grep -l -e <override> -e <lock path var> 98482d2c -- .   # before fix round 1
+   ... no meta/profiling/ entry
+$ git grep -l -e <override> -e <lock path var> db0e1a3e  -- .   # the reviewed HEAD
+   db0e1a3e:meta/profiling/card-292-per-test-ceiling.md         <- introduced there
+$ git log --oneline -S'<lock path var>' -- meta/profiling/card-292-per-test-ceiling.md
+   db0e1a3e docs(profiling): every figure review cycle 1 refuted, re-derived ...
+```
+
+and row 2 at `db0e1a3e` plus fix round 2's first edits read
+
+```
+===== 1 failed, 2309 passed, 15 skipped, 683 warnings in 312.50s (0:05:12) =====
+AssertionError: ['meta/profiling/card-292-per-test-ceiling.md'] name <override>
+or <lock path var>; a tree that sets either one has neither an override nor a guard
+tests/test_full_suite_lock.py:614: AssertionError
+```
+
+Review cycle 2 could not have caught it: it **carried row 2 forward** from
+cycle 1 rather than re-running it, which it says it did and why. **Fixed by
+not naming the switches**, because the alternative — adding `meta/profiling/`
+to that guard's exempt prefixes — would widen a standing guard's allowlist to
+accommodate this card's prose, which is G-1's shape and is not this card's
+mandate. The row was then re-run to green; the table above carries the re-run.
+**The generalising lesson is the one this card keeps paying for:** "outside
+*the* guard" is not "outside *every* guard", and a post-gate edit is only free
+if the gate's reach has been **measured** rather than reasoned about.
+
+**So the blast radius was taken a THIRD time, after the last substantive edit
+to this document**, which is the only way to stop arguing about the previous
+sentence:
+
+```
+POST-EDIT GATE (the document is final; this run judges the tree as it will be committed)
+NONOGRAM_TEST_HANG_SECONDS=[UNSET]   <the lock path var>=[UNSET]
+lock file: ABSENT
+array length: 29
+collect: 2325 tests collected in 0.63s
+START  load={ 4.87 7.03 7.12 }  rival-pytest=0
+IN FLIGHT (pid 30945): rival-pytest=1   blind=0
+END    load={ 4.08 6.01 6.64 }  rival-pytest=0
+exit=0  wall=288.37 s
+summary: ===== 2310 passed, 15 skipped, 683 warnings in 287.36s (0:04:47) =====
+summary line count: 1
+  SKIPPED [14] tests/conftest.py:207: Database not reachable: ...
+  SKIPPED [1]  tests/test_book_pdf_memory.py:1296: setrlimit(RLIMIT_AS) refused ...
+```
+
+That run covers row 1's two files as well, because the 29-file selection
+**contains** them, so one run closes both rows. **The residue, declared rather
+than hidden:** this paragraph itself was written after that run. It adds no
+`.py` and names neither switch, and both of those are checked rather than
+asserted — `git grep -l` for the two names returns **nothing** under
+`meta/profiling/`, and the one cell that reads this file tree-wide,
+`tests/test_full_suite_lock.py::test_nothing_in_the_tree_sets_either_of_the_guards_env_switches`,
+passes alone against the final text (`1 passed`, 0.21 s and 0.71 s on two readings). What I have **not**
+established is that no *other* cell in those 29 files reads a `.md` path: the
+reach of the one that bit is measured, the absence of a second is not, and
+that is a declared bound rather than a claim.
+
