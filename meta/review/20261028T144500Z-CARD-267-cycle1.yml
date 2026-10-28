@@ -1,0 +1,524 @@
+version: 1
+generated_at: "2026-10-28T14:45:00Z"
+target: "CARD-267 cycle 1 — branch card/267-player-crosshair @ ee6e284e vs merge-base 7a62d704 (main @ 19a65dd8); worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-267"
+overall_score: 7.0
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/solver.js
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/static/tokens.css
+    - src/nonogram/admin/templates/puzzle_solve.html
+    - src/nonogram/admin/templates/puzzle_edit.html
+    - tests/test_puzzle_solver_crosshair.py
+    - tests/test_puzzle_solver_marking.py
+    - tests/test_puzzle_solver_page.py
+    - tests/test_browser_fixture_scope.py
+    - tests/test_admin_design_tokens.py
+    - meta/architecture/decisions/adr/0038-puzzle-player-plain-js-and-playwright.md
+    - meta/architecture/decisions/adr/0039-*.md (Rules block only)
+  not_reached:
+    - tests/test_puzzle_solver_{resume,progress,percent,maybe,mirror,zoom,fifth_rule,region,undo}.py
+    - src/nonogram/admin/static/puzzle_edit.js (grepped for board redraws only)
+    - "the implementation record's pre-gate run B: its 11-file population is not named in the record, so it could not be reproduced"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 1184, removed: 2 }
+  max_fan_in:
+    symbol: "src/nonogram/admin/static/solver.js (module)"
+    callers: 2
+    note: "loaded by puzzle_solve.html and puzzle_edit.html; the new functions crossedParts and wireCrosshair are module-local with one call site each"
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/admin.css (52 of 63 commits in 12 months)"
+    - "src/nonogram/admin/static/solver.js (32 of 63)"
+  churn_12mo: 63
+  defect_commits_12mo: 16
+  cochange_missing:
+    - "src/nonogram/admin/static/solver_state.js (15/63 = 24% — absent BY DESIGN, G-5 forbids it; the strongest absent peer is the one the guardrail excludes)"
+    - "src/nonogram/admin/app.py (18/63 = 29% — client-only change, no server surface)"
+  cochange_controlled:
+    - "tests/test_puzzle_solver_clues.py + _phone.py + _hint.py (12+10+8 of 63): 128 collected, 128 passed, 0 skipped, 88.96 s, exit 0"
+    - "tests/test_puzzle_editor_ui.py (6/63, and the second consumer of solver.js): 117 collected, 117 passed, 0 skipped, 49.12 s, exit 0"
+  unmeasured:
+    bus_factor: "not_applicable — every commit in this repository is authored by the same identity (Claude Code); a dominant-author signal carries no information here"
+    audit_findings: "provider_unavailable — meta/audit/ does not exist"
+    positioning_backing: "no_eligible_fact — meta/business/positioning.md names no NFR/EC that this diff touches"
+
+system_contract:
+  rules_checked: 5
+  holds: 5
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 (review-lens) holds — the diff is 159 lines of hand-written ES-module JavaScript and 4 CSS rules in the existing files; no package manifest, lockfile, bundler config or vendored library appears in the 8-file diff (git diff --stat, read in full)"
+    - "ADR-0038/R2 (check: TestSolverMarking_NoRequestPerMark) holds — re-run on this head: 2 collected, 2 passed (test_twenty_strokes_issue_no_request, test_strokes_leave_the_console_clean). The card's own new arm TestSolverCrosshair_IsPureView::test_hovering_issues_no_request also passes and carries its own instrument control (assert loading > 0)"
+    - "ADR-0038/R3 (check: TestSolverPage_ShowsTheClues) holds — re-run on this head: 5 collected, 5 passed. The diff adds no clue derivation; crossedParts selects existing th.player-clue boxes by axis + data-line and reads no clue value"
+    - "ADR-0038/R4 (review-lens) holds — solver_state.js is absent from the changed set (git diff --stat, 8 files, none of them solver_state.js), and the in-tree structural check TestSolverCrosshair_IsPureView::test_the_state_module_knows_nothing_of_the_crosshair passes: it greps solver_state.js for crosshair/is-crossed/crossedParts and the bounded crosshair slice of solver.js for import/solver_state/serializeState/record(/fetch"
+    - "CON-021 (review-lens) holds — nothing in the diff persists server-side: the crosshair is a classList.toggle on existing elements; mutant M13 proves the code does not even read localStorage (it had to be ADDED to reach it). Server reach: zero Python files changed"
+  assembly_note: "The card's ## System contract declares 5 rules and those are the 5 above. The on-the-fly lens (system_rules.py --root meta/architecture --card CARD-267 --verify-refs) assembles 56 rules for this card's touched paths. The 51 not in the card's section resolve to no_eligible_fact and are named by family here rather than one line each: ADR-0006/R1; ADR-0022/R1,R3,R4; ADR-0027/R2; ADR-0032/R1,R2,R3; ADR-0036/R2,R3,R4; ADR-0038/R5,R6,R7,R8; ADR-0039/R1,R2,R3,R4; ADR-0041/R1,R2,R4,R5,R6,R7; ADR-0042/R1..R7; CON-005,009,010,011,012,015,016; INV-001,002,003,005,006,007,008,009,010,011,012,013 — none of them bears on a pointer-driven CSS class in the admin player's renderer. Two are worth naming individually: ADR-0038/R6 (only the admin player may ship a solution) is in scope src/nonogram/** and is UNAFFECTED — the diff adds no payload field and TestSolverMarking_RevealsNoCorrectness still passes; and ADR-0039/R1 (a claim needs a control that can fail) is the rule findings F-002 and F-003 are filed against. The lens' own diagnostics on this head: 0 unresolvable_scope, 0 scope_unmapped_model, 0 tooling_failure, check_refs_verified: true, 1 pre-existing dead_check_ref (INV-013, partial, unrelated to this card)."
+
+root_causes:
+  - id: RC-1
+    title: "A test's catch-claim is wider than the state the test is driven from, or than the quantity its instrument reads"
+    finding_ids: [F-002, F-003, F-006]
+  - id: RC-2
+    title: "CARD-267's own text contradicts itself and the repository's token discipline; the implementation round could only declare the conflict, not amend the card"
+    finding_ids: [F-001, F-004]
+  - id: RC-3
+    title: "Card clauses whose wording admits two readings; the implementation picked one and recorded it in code, but the card still carries the looser wording"
+    finding_ids: [F-005, F-007]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: meta/kanban/cards/CARD-267.md
+    line: 130
+    title: "G-6's 'unedited' clause is genuinely unsatisfiable — ADJUDICATED TRUE — but the record enumerates 2 of the 3 edits that break it, and the card still carries G-6 unamended"
+    description: |
+      The card's declared finding is CONFIRMED, and both of its named failures were
+      re-derived here rather than inherited.
+
+      (a) TestSolverMarking_ClickCycles. Mutant M1 reverted the card's one-line
+      accommodation (browser_page.mouse.move(1, 1) -> wait_for_timeout(0), line-count
+      preserving) and the test RED at the named cell:
+      tests/test_puzzle_solver_marking.py:298
+      `assert seen[0][1] == {"background": ink, "mark": False}`, observed background
+      `color(srgb 0.243451 0.262745 0.306667)`. That is --player-cross-ink to six
+      figures, and it reproduces the record's own measured value (0.243 0.263 0.307)
+      in a new run.
+      (b) TestSolverMarking_RevealsNoCorrectness. Mutant M2 neutered the new
+      `_STRIPPED` line (is-crossed -> is-crozzed) and the test RED at
+      `assert browser_page.evaluate(_STRIPPED) == before`. The record's claim that the
+      ONLY differing bytes were is-crossed needs no separate run: the baseline is
+      green with nothing but the is-crossed strip added, which is that claim.
+
+      Is the guardrail unsatisfiable or merely inconvenient? Unsatisfiable, and for a
+      reason STRONGER than the two the record gives:
+      tests/test_browser_fixture_scope.py:2050 asserts
+      `set(PAGE_ISOLATION) == on_disk` over a glob of tests/test_puzzle_solver_*.py,
+      so ANY card that adds a file to that family MUST edit
+      tests/test_puzzle_solver_page.py — itself a tests/test_puzzle_solver_*.py file.
+      That edit is in this diff (+6/-1 at :557 and :596) and is mechanical, independent
+      of the crosshair's design, and independent of (a) and (b). The record files it
+      under "Three registries outside Touches", not under G-6, so the G-6 verdict
+      enumerates 2 of the 3 edits actually present.
+      (b) is additionally unavoidable for any marker the CARD ITSELF prescribes: body
+      item 2 mandates "a class ... on every td.player-cell of the row and of the
+      column", and the snapshot is document.body.outerHTML. So G-6 and body item 2
+      cannot both hold — a card self-contradiction, which is an escalation on this
+      board. (a) is NOT structurally unavoidable — a non-background channel
+      (background-image, an inset shadow) would leave computed backgroundColor
+      untouched — but the CSS comment at admin.css:1044-1050 argues those channels are
+      already spent on the hint outline and CARD-270's division, and reading a mark's
+      look with the pointer parked under the tint is the wrong reading point anyway.
+      The chosen fix is the honest one.
+
+      Non-weakening check on both edits: PASSED. The ClickCycles claim ("three clicks
+      are drawn black, dot, blank") is unchanged and still kills M1; the _STRIPPED
+      addition is the same narrowing CARD-188 made for is-circled, and is-crossed is a
+      function of the pointer alone, never of the board or the solution.
+
+      What is left to fix is therefore NOT the implementation: it is the card. G-6 must
+      be amended to forbid behaviour change while permitting recorded test
+      accommodation (which is exactly what the record proposes), and the G-6 verdict
+      must name the PAGE_ISOLATION edit as the third — and mechanically strongest —
+      instance. Until then the card ships with a guardrail its own body refutes.
+    suggestion: |
+      Orchestrator (this review must not edit meta/kanban/**):
+      1. Amend G-6 to: "Marking BEHAVIOUR is untouched ... Accommodating an existing
+         tests/test_puzzle_solver_*.py file is permitted only where the crosshair
+         changed the point at which that test reads, never by taking the crosshair
+         into its expected values; every such edit is listed on the card."
+      2. List the three edits: marking.py:292 (reading point), marking.py:_STRIPPED
+         (CARD-188 precedent), page.py PAGE_ISOLATION (structural, forced by
+         test_browser_fixture_scope.py:2050).
+      3. Record that body item 2 + AC-1 make the unamended clause unsatisfiable, so the
+         conflict is the card's and not the implementation's.
+    confidence: high
+    source: static
+    violates: "G-6"
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_crosshair.py
+    line: 547
+    title: "AC-6's nominated purity test is driven from the one state in which a destructive side effect is invisible — SURVIVING MUTANT M13: a hover that wipes localStorage passes all 15 tests"
+    description: |
+      MUTANT M13 (line-count preserving, one line of solver.js):
+
+        for (const part of crossedParts(table, row, col)) part.classList.toggle("is-crossed", on);
+      ->
+        for (const part of crossedParts(table, row, col)) { part.classList.toggle("is-crossed", on); localStorage.clear(); }
+
+      Result: 15 collected, 15 PASSED, exit 0. A crosshair that erases every saved
+      puzzle in the browser on every hover is green against AC-6's own nominated test,
+      TestSolverCrosshair_IsPureView::test_a_long_hover_sequence_changes_no_state_no_history_and_no_save,
+      whose snapshot includes the field `"save": browser_page.evaluate("Object.entries(localStorage)")`.
+
+      WHY, and this is the state question rather than a mutant-class question: the test
+      is driven from a VIRGIN board. Its own premise line is
+      `assert before["states"] == [U] * 225`. On that board four of the snapshot's
+      seven fields are at their initial value — `save` is `[]`, `circled` is all
+      False, `undo` and `redo` are both "true" — so the whole-snapshot equality
+      compares `[] == []` for the save and can only ever catch an ADDITIVE side
+      effect. A hover that DESTROYS player state is invisible to it, and M13 is not a
+      deletion mutant: it is an addition that survives purely because of the state the
+      test is driven from.
+
+      That makes two claims false as written:
+        * tests/test_browser_fixture_scope.py:1387 (the ADDED_SINCE_BEFORE row):
+          "forty hovers change no data-state, no undo/redo aria, no counter, no clue
+          circle and no localStorage entry — one snapshot compared whole, SO A SINGLE
+          CHANGED FIELD REDS IT". M13 changes a field (localStorage, from [] to []) and
+          nothing reds.
+        * the implementation record's own gap statement, which frames the limit as a
+          mutant-class limit ("a deletion only ever makes the crosshair do less, so no
+          deletion mutant can red the negative claims"). The limit is not the mutant
+          class; it is the state. An addition mutant reaches the claim and still
+          survives.
+
+      No user-facing bug: the shipped code touches no storage (M13 had to ADD the call
+      to reach it, which is itself the CON-021 evidence above). This is a
+      test-discrimination defect, the same shape the concurrent CARD-305 review found.
+
+      The fix is the one TestSolverMarking_RevealsNoCorrectness already uses: drive the
+      purity snapshot from a board that HAS state.
+    suggestion: |
+      In test_a_long_hover_sequence_changes_no_state_no_history_and_no_save, mark a few
+      cells by real clicks (and undo one, so redo is enabled) BEFORE taking `before`,
+      so that `save` is a non-empty localStorage entry, `circled` has at least one
+      True, and undo/redo aria-disabled are not both "true". Keep the virgin-board arm
+      if you want it, as a second case. Then re-fire M13: it must red. Narrow the
+      ADDED_SINCE_BEFORE row to what the chosen state actually discriminates, and
+      replace the record's "no deletion mutant can red the negative claims" with the
+      accurate statement: "no mutant can red them while the test is driven from an
+      empty board".
+    confidence: high
+    source: static
+    violates: "ADR-0039/R1"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_crosshair.py
+    line: 212
+    title: "'measured in computed pixels' / 'asserted in pixels' is wider than the instrument: three of the four cell states are told apart by an ::after CONTENT STRING — SURVIVING MUTANT M11"
+    description: |
+      Card item 5 requires that the tint "keep all four data-state looks plainly
+      distinguishable". Three places claim that is measured in pixels:
+        * src/nonogram/admin/static/admin.css:1067-1072 — "all four data-state looks
+          stay plainly apart under the crosshair (ASSERTED IN PIXELS,
+          tests/test_puzzle_solver_crosshair.py TestSolverCrosshair_RowColumnAndCluesLight)"
+        * tests/test_browser_fixture_scope.py:1283 — "all four data-state looks stay
+          plainly apart under the tint ... MEASURED IN COMPUTED PIXELS on one hovered row"
+        * the test's own docstring — "What 'plainly apart' is, MEASURED RATHER THAN
+          ASSERTED BY EYE"
+
+      What the test actually reads for the three light states is
+      `mark: getComputedStyle(cell, '::after').content`, asserted only as
+      `len(set(marks.values())) == 3` — three distinct CONTENT STRINGS. Only the filled
+      state is measured in pixels (the luma margin).
+
+      INSIDE / EDGE PAIR, both fired:
+        * INSIDE (killed) — M7 respelled the specificity override
+          `.player-cell.is-crossed[data-state="filled"]` as
+          `.player-cell[data-state="filled"].is-crozzed`, so the crossed filled cell is
+          repainted paper. 2 failed: the four-states test AND
+          test_the_crosshair_tint_comes_from_tokens. So the docstring's second clause
+          ("or that lightened the filled cell toward the paper") IS backed.
+        * EDGE (SURVIVED) — M11 set the empty state's dot to the tint token
+          (`.player-cell[data-state="empty"]::after { ... background: var(--color-surface-hover); }`,
+          token-only so the sweeps stay clean). The white dot is now pixel-identical to
+          the ground it sits on — invisible. Result: 16 collected, 16 PASSED, exit 0.
+          A mark that is gone in pixels passes the test that claims to measure pixels.
+
+      CONCEDED, so the finding stays narrow: the docstring's FIRST clause — "a tint
+      that flattened the dot or the '?' away ... fails one of them" — is arithmetically
+      safe, and I checked it rather than asserting it. For the dot to vanish the tint
+      must reach the dot's own mean luma 0.392, while the filled-margin arm needs tint
+      luma > 0.589 (margin = 0.84 * (tint - 0.113) > 0.4); no value satisfies both, so
+      no TINT can flatten the dot without reding the margin arm. The defect is the
+      claim about the INSTRUMENT, not that clause.
+
+      SUBSTANCE IS FINE, verified in a new domain (WCAG 2.1 arithmetic, an instrument
+      the suite does not use): on the tint #f1ebdd the dot (--color-text-secondary
+      #5c6070) is 5.25:1 and the "?" (--color-accent #1f5f5b) is 6.20:1. So the shipped
+      CSS does keep the four states apart. Only the three claims overstate how that was
+      established.
+    suggestion: |
+      Either narrow all three claims to what is read — "the three light states are told
+      apart by distinct ::after content; the filled state by its ground in computed
+      pixels" — or add the pixel arm the claims promise: read each mark's own computed
+      colour (or `parseFloat(after.width) > 0`, which tests/test_puzzle_solver_marking.py's
+      `_LOOK` already uses) and assert it differs from the crossed ground. Then M11 must
+      red.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R1"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: feature
+    type: question
+    file: meta/kanban/cards/CARD-267.md
+    line: 68
+    title: "Card body item 5 ('New values go in tokens.css') contradicts the repository's token discipline; the implementation's deviation is correct and the card still says otherwise"
+    description: |
+      Body item 5 instructs that new values go in tokens.css. That file is byte-pinned
+      to meta/design/tokens.css by
+      tests/test_admin_design_tokens.py::test_the_served_tokens_are_the_design_systems_tokens
+      (re-run here: PASSED, not skipped — meta/design/ is present in the worktree), and
+      its own header reads "Source of truth: forge:ui. Edit via /forge:ui, not by hand."
+      Editing it would also have reached outside Touches into meta/design/.
+      The round instead derived two component values in admin.css beside
+      --player-thin, which is itself
+      `color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper))` at admin.css:463 —
+      the precedent claim checks out. AC-8 does not require a tokens.css edit, so the
+      AC is satisfied; it is the body that is wrong.
+    suggestion: "Orchestrator: amend body item 5 to 'new component values are derived from tokens in admin.css; a new design-system token is a forge:ui change and a separate card', or accept the deviation on the card's record. No code change."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/admin/static/solver.js
+    line: 1265
+    title: "AC-5 and body item 1 say 'leaves the board'; the code clears on leaving .player-stage, which is strictly larger than the board table"
+    description: |
+      The clue-box half of the chosen reading is asserted
+      (test_leaving_the_stage_clears_it_and_a_clue_box_does_not) and is defensible — a
+      clue box is inside .player-board, so a pointer on it has not left the board. But
+      .player-stage also contains its own padding and the gutter corner, which are
+      OUTSIDE the table; a pointer parked there keeps the crosshair, which the card's
+      wording does not sanction and no test covers. The code comment names the padding
+      case explicitly ("the stage's own padding, the gutter corner — keeps the
+      crosshair where it was"), so the implementation knows it is a choice; the card
+      does not record it.
+    suggestion: "Orchestrator: fix AC-5's wording to 'leaves the player stage' (the behaviour the round argues for and the card's purpose supports), or add the padding case to the existing test so the chosen boundary is measured and not only commented."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_crosshair.py
+    line: 714
+    title: "The ARIA probe has no in-test control that it can SEE an ARIA attribute — responsiveness established only by review mutant M10"
+    description: |
+      TestSolverCrosshair_AddsNoAria's only instrument control is
+      `assert before, "the ARIA probe found no elements at all"` — it checks the element
+      list is non-empty, not that any ARIA attribute was read. A probe that collected
+      elements but returned empty attribute lists for all of them would pass that
+      control and then satisfy the equality trivially.
+      MEASURED, so this is a control-placement finding and not a blindness: mutant M10
+      made the paint also call `part.setAttribute("aria-current", String(on))`; the test
+      RED at tests/test_puzzle_solver_crosshair.py:721
+      `assert browser_page.evaluate(_ARIA) == before`. The probe IS responsive.
+      ADR-0039/R4 asks that the control live with the figure, and the sibling tests in
+      this file do carry theirs in-test (the request listener's `assert loading > 0`,
+      the MutationObserver's "the observer sees no write even for a real move").
+    suggestion: "Add one line: assert any(attrs for _tag, _id, attrs in before), so the probe is shown to read ARIA attributes before zero-change over the hovers is believed."
+    confidence: high
+    source: static
+    violates: "ADR-0039/R4"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 1033
+    title: "On touch, a redraw clears the crosshair with no pointer event to bring it back — body item 1's 'a phone player keeps their place between taps' is defeated on big boards"
+    description: |
+      Measured condition: viewportChanged is `if (isBig) redraw(); else keepCluesInView();`
+      so a resize redraws only a board past BIG_SIDE (15). For such a board on a phone,
+      the file's own comment at redraw() cites exactly the trigger — "a phone fires one
+      when its URL bar collapses, mid-solve" — and redraw() calls crosshair.forget(),
+      so the touch crosshair disappears and, with no hover on touch, does not return
+      until the next tap. The same holds after a zoom rung change.
+      NOT a violation: body item 6 explicitly permits "cleared or recomputed, either is
+      fine". But item 1's touch rationale and item 6 are in tension on precisely the
+      device item 1 is written for, and nothing on the card or in the record records it.
+    suggestion: "Either record the tension on the card (one line under item 6: 'on touch a redraw drops the crosshair until the next tap; accepted'), or have redraw() repaint the remembered position instead of forgetting it — item 6's 'recomputed' branch, which also keeps AC-7 satisfied. If repainting is chosen, mutant M3 must be re-fired: it currently kills only the re-hover assertion."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-3
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-267.md
+    line: 17
+    title: "Touches: correction — the annotation's own count of the four added test files is wrong and internally inconsistent"
+    description: |
+      The Touches: list itself is CORRECT: the 8 declared files are exactly the 8 files
+      in the diff, verified against git diff --stat. The defect is the correction
+      comment: "Four test files ADDED: three are registries any new family file must
+      join, and the third was found only by running the gate."
+      Of the four added files, TWO are such registries —
+      tests/test_puzzle_solver_page.py (PAGE_ISOLATION) and
+      tests/test_browser_fixture_scope.py (which holds TWO registry entries,
+      ADDED_SINCE_BEFORE with 15 rows and one ALONE_PROBES row). The other two are
+      neither: tests/test_admin_design_tokens.py was already named by the card's own
+      AC-8 and its named-tests table, and tests/test_puzzle_solver_marking.py is the
+      G-6 accommodation of F-001. "three ... and the third" is also inconsistent on its
+      own terms.
+    suggestion: "Orchestrator: rewrite the annotation as 'Four test files ADDED: two are registries any new family file must join (page.py's PAGE_ISOLATION; browser_fixture_scope.py's ADDED_SINCE_BEFORE and ALONE_PROBES — the last found only by running the gate); admin_design_tokens.py carries AC-8's own named check; marking.py is the G-6 accommodation (see F-001).'"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: ops
+    type: risk
+    file: tests/test_puzzle_solver_crosshair.py
+    line: 510
+    title: "One unexplained red of test_leaving_the_stage_clears_it_and_a_clue_box_does_not in 8 whole-file runs — not mutant-attributable, traceback lost"
+    description: |
+      In one whole-file run (under mutant M6, a CSS-only edit, wall clock 22.52 s
+      against a 10-12 s norm) this test went red. The same mutant re-fired twice —
+      once scoped to its class (2 passed, 1.89 s) and once over the whole file plus the
+      token test (M6c: 2 failed, and both failures were the two EXPECTED cells,
+      test_the_tint_changes_the_ground_... and the token test; the leave test green) —
+      and six further whole-file runs at HEAD were 15/15 (12.18 s, 11.19 s, 10.29 s,
+      12.33 s, plus the M3/M4/M5/M8/M9/M10/M12/M13 runs). So the red is NOT caused by
+      the mutant and is not reproducible. Its traceback was lost to my own harness
+      truncating pytest's stdout to the last 14000 characters, so I CANNOT say which
+      cell failed. Reported as an observation, not a verdict.
+      Plausible mechanism, named so the next cycle can test it rather than re-guess:
+      the test reads `_board()` immediately after each `page.mouse.move(...)` with no
+      settle or poll, and `_open` can return before a responsive redraw settles — under
+      load that is a race on which cell the geometry belongs to. The two touch tests and
+      test_entering_and_leaving_... do wait (`wait_for_timeout(100)`); this one does not.
+    suggestion: "Next cycle: re-run the file 10x under load and, if it reproduces, add the settle the sibling tests already have (or assert the hover landed before measuring the leave). If it does not reproduce in 10 runs, close this as a single unexplained red and say so."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-267.md
+    line: 271
+    title: "Pre-gate 'Totals 964 collected' sums two invocations whose disjointness is not stated"
+    description: |
+      Run A is re-derived and CORRECT: the browser family is 14 files and collects 503
+      (`ls tests/test_puzzle_solver_*.py | wc -l` = 14; `--collect-only -q` = 503 tests
+      collected). Run B's population (11 files, 461 collected) is not named on the card,
+      so whether A and B overlap cannot be determined — and if they do, "Totals 964
+      collected, 960 passed" is a sum over a non-disjoint union rather than a count of
+      distinct tests, which ADR-0039/R4 rules out ("a figure's DOMAIN ... is part of the
+      figure"). Flagged as info because A, the figure G-6's evidence rests on, is sound.
+    suggestion: "List run B's 11 files on the card, or drop the Totals line and report A and B separately."
+    confidence: high
+    source: static
+    violates: "ADR-0039/R4"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_table:
+  policy: "Every gating finding's mutation fired, plus a sample of the minors and a re-fire of the record's three keystone results. 14 mutants, each line-count-preserving (a removed slot gets a never-matching value, never a deleted line), one per invocation, with the target's git blob hash asserted equal to HEAD BEFORE the edit and again after the restore. All harness files under scratchpad/card267/ with the prefix r267-."
+  mutants:
+    - { id: M1,  file: tests/test_puzzle_solver_marking.py, edit: "mouse.move(1, 1) -> wait_for_timeout(0) (reverts the G-6 accommodation)", result: KILLED, cell: "marking.py:298 assert seen[0][1] == {background: ink, mark: False}; observed color(srgb 0.243451 0.262745 0.306667)", purpose: "F-001 (a) — is the ClickCycles edit necessary?" }
+    - { id: M2,  file: tests/test_puzzle_solver_marking.py, edit: "_STRIPPED is-crossed -> is-crozzed (neuters the new strip)", result: KILLED, cell: "RevealsNoCorrectness assert evaluate(_STRIPPED) == before", purpose: "F-001 (b) — is the _STRIPPED edit necessary?" }
+    - { id: M3,  file: solver.js, edit: "crosshair.forget() -> void 0 (DELETION in redraw)", result: KILLED, cell: "crosshair.py:682 assert _crossed(again) == _expected(again, 5, 7) — the RE-HOVER assert; :681 'a marker survived the redraw' stayed GREEN", purpose: "AC-7; re-fire of the record's MJ-6. Reproduces its cell-level claim exactly" }
+    - { id: M4,  file: solver.js, edit: 'pointerType === "touch" -> "mouse" (EDGE: inverts the leave exemption)', result: KILLED, cell: "3 nodes: both touch tests AND test_leaving_the_stage_clears_it — both arms of the exemption", purpose: "AC-4 / AC-5 boundary" }
+    - { id: M5,  file: solver.js, edit: 'addEventListener("pointerdown", follow) -> void follow (DELETION)', result: KILLED, cell: "crosshair.py:479 single-tap assert — and ONLY that node", purpose: "AC-4's tap-without-move arm" }
+    - { id: M6,  file: admin.css, edit: ".player-cell.is-crossed -> .is-crozzed (DELETION of the cell tint)", result: KILLED, cell: "test_the_tint_changes_the_ground_... + the token test (M6c, clean re-fire). Confirms the docstring claim 'every other assertion in this file would still hold with admin.css carrying no crosshair rule': 14 of 15 passed", purpose: "is the class worth anything?" }
+    - { id: M7,  file: admin.css, edit: '.player-cell.is-crossed[data-state="filled"] -> .player-cell[data-state="filled"].is-crozzed (EDGE: same declarations, specificity lost)', result: KILLED, cell: "test_the_four_cell_states_stay_apart_under_the_tint + the token test", purpose: "the specificity override that must beat two equal-specificity rules; F-003's INSIDE arm" }
+    - { id: M8,  file: solver.js, edit: 'crossedParts column-clue selector data-line="${col}" -> "-1" (DELETION of one of the four sweeps)', result: KILLED, cell: "7 nodes (:210, :348, :406, :446, :479, :513, :682)", purpose: "AC-1 / AC-3 clue sweep" }
+    - { id: M9,  file: solver.js, edit: "moveTo same-cell early return -> void 0 (EDGE: the no-op boundary)", result: KILLED, cell: "crosshair.py:371 assert inside == 0 — and ONLY that node", purpose: "card item 4, pointer-move cost" }
+    - { id: M10, file: solver.js, edit: 'paint also setAttribute("aria-current", ...) (ADDITION at the a11y claim)', result: KILLED, cell: "crosshair.py:721 assert evaluate(_ARIA) == before", purpose: "F-006 — is the ARIA probe responsive? Yes" }
+    - { id: M11, file: admin.css, edit: '.player-cell[data-state="empty"]::after background -> var(--color-surface-hover) (EDGE: the dot made pixel-identical to the tint, token-only)', result: SURVIVED, cell: "16 collected, 16 passed, exit 0", purpose: "F-003 — can the test see a mark that is gone in pixels? No" }
+    - { id: M12, file: solver.js, edit: "if (table === null) return -> void 0 (the record's declared survivor)", result: SURVIVED, cell: "15 passed, exit 0", purpose: "re-fire of the record's MJ-11. CONFIRMS the declaration: the branch is dead, not untested" }
+    - { id: M13, file: solver.js, edit: "paint also localStorage.clear() (ADDITION: a DESTRUCTIVE side effect at AC-6's claim)", result: SURVIVED, cell: "15 collected, 15 passed, exit 0", purpose: "F-002 — the purity snapshot is driven from a virgin board, so its save field compares [] to []" }
+    - { id: M14, file: solver.js, edit: "paint also history.redo.length = 0", result: DISCARDED, cell: "12 of 15 red with a thrown error, not a behaviour change", purpose: "intended as a second destructive arm; the mutant is invalid (history is not writable from that scope) and no verdict is claimed from it" }
+  totals: { fired: 14, killed: 10, survived: 3, discarded: 1 }
+
+gates_run:
+  runs:
+  - { selection: "tests/test_puzzle_solver_crosshair.py", collected: 15, passed: 15, skipped: 0, failed: 0, seconds: 12.18, exit: 0, node_ids_verified: true, note: "every node id listed by --collect-only -q with -o addopts=''; the two touch tests carry the [chromium] param the ADDED_SINCE_BEFORE rows declare" }
+  - { selection: "the same file, 3 repeat runs at HEAD", collected: 15, passed: 15, skipped: 0, failed: 0, seconds: "11.19 / 10.29 / 12.33", exit: 0 }
+  - { selection: "ClickCycles + RevealsNoCorrectness + test_the_crosshair_tint_comes_from_tokens", collected: 7, passed: 7, skipped: 0, failed: 0, seconds: 6.59, exit: 0 }
+  - { selection: "the two ADR-0038 check refs + the two token guards", collected: 9, passed: 9, skipped: 0, failed: 0, seconds: 5.82, exit: 0 }
+  - { selection: "test_browser_fixture_scope.py registry classes (NoTestAddedOrRemoved, IsolationIsDeclaredPerFile, the two record tests)", collected: 12, passed: 12, skipped: 0, failed: 0, seconds: 4.48, exit: 0 }
+  - { selection: "tests/test_puzzle_editor_ui.py (solver.js's second consumer)", collected: 117, passed: 117, skipped: 0, failed: 0, seconds: 49.12, exit: 0 }
+  - { selection: "tests/test_puzzle_solver_{clues,phone,hint}.py (the top co-change test peers)", collected: 128, passed: 128, skipped: 0, failed: 0, seconds: 88.96, exit: 0 }
+  skips_attributed: "ZERO skips in every selection above, so no skip needed attribution. The brief's 26 DATABASE_URL skips and 1 setrlimit skip live outside these selections and were not exercised."
+  host: "load 1-min 5.9-22.8 across the session (owner's desktop; the board's own note says 4.6-14.4 with nothing running). rival-pytest by the prescribed ps|awk form: 0-2 (siblings CARD-284/CARD-305). The full-suite lock was NOT taken. No gate call exceeded the 120 s tool wall clock without an explicit timeout or a background launch."
+  architecture_validator: "worktree 0 errors / 117 warnings; main @ 19a65dd8 RECOMPUTED 0 errors / 113 warnings (the brief's baseline confirmed). The +4 is merge-base drift — main landed CARD-227's requirements.yml/trace.yml after 7a62d704 — and this card touches ZERO files under meta/architecture (verified from git diff --stat). No regression is attributable to CARD-267."
+
+could_not_establish:
+  - "COULD NOT ESTABLISH — in those words — which assertion failed in the single unexplained red of test_leaving_the_stage_clears_it_and_a_clue_box_does_not (F-009). My harness truncated pytest's stdout to its last 14000 characters and the traceback for that node was in the cut portion. It is not reproducible in 2 re-fires of the same mutant and 6 further whole-file runs, so it is not mutant-attributable; the cell is unknown."
+  - "COULD NOT ESTABLISH — in those words — whether the implementation record's pre-gate runs A and B are disjoint (F-010). Run B's 11-file population is not named on the card and cannot be reconstructed, so 'Totals 964 collected' is unverifiable as a count of distinct tests. Run A (503 over 14 files) I did re-derive independently."
+  - "COULD NOT ESTABLISH — in those words — the look on a real puzzle render. The card's Design context asks for an owner eyeball before merge and this review does not substitute for it. What I CAN hand the owner, derived through two independent doors: --player-cross is #f1ebdd (--color-surface-hover, unmodified); --player-cross-ink by arithmetic is rgb(62.08, 67.00, 78.20), mean 0.27095, and Chromium reported color(srgb 0.243451 0.262745 0.306667) — same mean to five figures, in a run the implementation did not make (M1's failure output); the crossed-light to crossed-filled mean-luma gap is 0.91111 - 0.27095 = 0.64016 against the test's 0.4 bar, recomputed here from the token hex rather than re-read from the record. Contrast under the tint, in a domain the suite never uses (WCAG 2.1): dot 5.25:1, '?' 6.20:1."
+  - "COULD NOT ESTABLISH — in those words — whether the crosshair's reach into the manual editor is WANTED. puzzle_edit.html:153 is a .player-stage#puzzle-player and :207 loads the same solver.js, so the editor gets the crosshair; the card's Screens names only /puzzles/<id>/solve. Measured harmless (117/117 editor tests green) and plausibly a benefit, but it is the owner's call, not mine."
+  - "COULD NOT ESTABLISH — in those words — the full suite. By the brief I did not take meta/kanban/.full-suite.lock and did not run it; nine named selections totalling 302 distinct tests (plus 13 mutant runs) are what this verdict rests on. Nine of the fourteen browser-family files were not run by me at all; the record's run A claims all 503 green and I re-derived only its collected count."
+  - "NOT A GAP, stated so it is not mistaken for one: no src/nonogram/**/*.py changed, so tests/test_cli.py's ast layering guard and its TestComponentMap_* classes cannot be implicated by this diff, and src/nonogram/__init__.py's canonical component map needs no row."

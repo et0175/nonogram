@@ -103,6 +103,28 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_cell_size.py",
     "tests/test_book_export_interior_cover.py",
     "tests/test_book_finalise_gutter.py",
+    # RESTATED DELIBERATELY 2026-10-28 (CARD-227), which is what this freeze
+    # exists to force: 33 paths, with the grid's three rule weights' own test
+    # file added. **The mention is PROSE and the cost is REAL, and it is added
+    # on the second reason, not the first.** The file matches the grep on one
+    # line, and that line is its own module docstring explaining that it
+    # avoids the idioms — it names ``puzzle_pages`` in order to say it calls
+    # the singular ``vector_puzzle_page`` instead. By the grep's letter that
+    # is a mention; by the grep's purpose it is a false positive, and the
+    # tempting move was to reword the sentence and slip the set.
+    #
+    # It is added anyway, because the file genuinely renders and the set is
+    # there to find the files that do: ADR-0042/R6's second exemption makes
+    # AC-5 and AC-6 **device** claims, so two of this file's criteria must
+    # read a poppler render rather than the content stream, and one of them
+    # renders the page at **1200 DPI** — an 8.5 x 11 in trim at 1200 DPI is
+    # 134 megapixels, which Pillow itself flags as a decompression bomb. The
+    # whole file is about 7 s, of which roughly 4 s is two poppler renders in
+    # module-scoped fixtures that the other 24 tests do not pay for again.
+    # Dodging the grep would have left the single most expensive render in
+    # this phase outside the set that exists to see it, which is CARD-223's
+    # silent divergence in the other direction.
+    "tests/test_book_grid_rules.py",
     "tests/test_book_guide_page.py",
     "tests/test_book_guide_page_type.py",
     "tests/test_book_interior_face.py",

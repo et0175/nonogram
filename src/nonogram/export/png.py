@@ -62,6 +62,7 @@ from nonogram.export.layout import (
     compute_answer_page_layout,
     compute_layout,
     qr_slot,
+    refuse_rasterised_rule,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle is type-time only
@@ -173,12 +174,46 @@ def _draw_grid(draw: ImageDraw.ImageDraw, layout: Layout | AnswerTile) -> None:
     A puzzle page and an answer tile (FR-042) are both ruled by this, because
     both carry the same two tuples of placed :class:`GridLine`s: the answer key
     is ruled by the drawing code the puzzle is ruled by, not by a second one.
+
+    **It strokes device pixels, and it refuses to stroke anything else
+    (CARD-227, ADR-0037/R2 AC-7).** This is the raster stroker a book's
+    *single-puzzle* page and its *packed answer* page are ruled by —
+    ``_blank_page`` and ``render_answer_page`` both reach the bitmap through
+    here, not through ``book_pdf_generator._stroke_drawing``, which rules the
+    two-up and solved slots — and every :class:`GridLine` it is handed on
+    those pages carries the sheet's declared physical weight (0.3 / 0.8 /
+    1.3 pt) beside COMP-007's device width. So the declared figures *do* reach
+    this function, and every width it is about to stroke goes through
+    :func:`~nonogram.export.layout.refuse_rasterised_rule` first.
+
+    **No page's ink changes because of it**, and the reason is arithmetic
+    rather than luck. A book cell line is stroked at
+    :func:`~nonogram.export.layout._rule_widths`' ``thin``, which the 0.25 mm
+    raster floor holds at **3 px or more** at 300 DPI, while the 0.3 pt
+    figure's own device count is 1. A fifth line and a border are stroked at
+    ``thick``, which is ``2 * thin`` and therefore **even and 6 px or more**,
+    while their declared counts are the odd 3 and 5. That holds for *every*
+    cell size, not for a sampled set, because ``thin`` is bounded below and
+    ``thick`` is twice it; the sweep over 40 001 cell sizes from 0 to 400 px
+    is the control on the argument, not the argument.
+
+    **The bound on that argument, declared.** It is a statement about *these*
+    declared figures. A future print profile declaring, say, 0.75 pt for the
+    cell line — 3 px at 300 DPI — would collide with a 3 px ``thin`` and this
+    guard would refuse a real page. Today there is one
+    :class:`~nonogram.export.layout.GridRules` instance in the tree
+    (:data:`~nonogram.admin.book_page_spec.GRID_RULES`) and the CLI and web
+    sheets declare nothing at all (``DEFAULT_PAGE_SPEC.grid_rules is None``,
+    CON-019), so the guard returns at its ``None`` branch for every one of
+    them. What it refuses is a *declared* weight arriving here, which is the
+    one way these numbers could reach a bitmap.
     """
     oriented: list[tuple[GridLine, bool]] = [
         *((line, True) for line in layout.vertical_lines),
         *((line, False) for line in layout.horizontal_lines),
     ]
     for line, vertical in sorted(oriented, key=lambda pair: pair[0].major):
+        refuse_rasterised_rule(line.width, line.width_pt, what=f"{line.tier} rule")
         if vertical:
             ends = [(line.position, line.start), (line.position, line.end)]
         else:
@@ -206,7 +241,14 @@ def _draw_frame(draw: ImageDraw.ImageDraw, frame: PuzzleFrame) -> None:
     border already hangs half a heavy rule outside the grid. See
     :class:`~nonogram.export.layout.PuzzleFrame` for why that, and not an
     inset frame, is the right answer.
+
+    **Guarded for the same reason :func:`_draw_grid` is (CARD-227, AC-7).** A
+    frame continues the grid's border, so it is a grid rule and carries the
+    border's declared weight; a rasteriser that took that figure would stroke
+    the frame at 5 px rather than the heavy rule's 6. One call, because a
+    frame is one width on four sides.
     """
+    refuse_rasterised_rule(frame.width, frame.width_pt, what="frame")
     left, top, right, bottom = frame.left, frame.top, frame.right, frame.bottom
     for ends in (
         ((left, top), (right, top)),

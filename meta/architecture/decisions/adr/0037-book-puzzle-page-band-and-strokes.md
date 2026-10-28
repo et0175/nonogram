@@ -60,6 +60,80 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
 
 ## History
 
+- 2026-10-28: **R2's figures implemented and its check upgraded from a lens to
+  a test (CARD-227).** No decision changed; this entry records what became
+  mechanically checked and what did not.
+
+  **What landed.** The book `PageSpec` now carries the three weights as a
+  `GridRules` value object — 0.3 pt grey cell lines, 0.8 pt every fifth,
+  1.3 pt border — stated once at `book_page_spec.GRID_RULES` and reaching a
+  page through `PageSpec.grid_rules`. A `GridLine` carries its tier
+  (`cell`/`fifth`/`border`), the declared physical width and the declared
+  tone beside the device width it already had; the vector writer strokes the
+  declared pair, and the raster renderers keep reading the device width. So
+  **every raster page in the book is byte-identical to before this card** —
+  no baseline moved, which is why the card was sequenced before CARD-298's
+  single recording.
+
+  **The 2-device-pixel clause now has a mechanism, not just a sentence**,
+  and the mechanism is `layout.refuse_rasterised_rule`, called per rule at
+  **four call sites in three functions**, which is every raster grid stroke
+  the book can reach: two in `book_pdf_generator._stroke_drawing` (the two-up
+  and solved slots' lines, and their frame) and two in `export/png`
+  (`_draw_grid`'s lines and `_draw_frame`) — the pair that rules the
+  single-puzzle page and the packed answer page. It has three refusals, two
+  of them regions and one a point: a width that is not whole positive pixels (every sheet); a declared
+  sheet's rule below 2 device pixels; and a width that IS the declared
+  figure's own device count, which is the mutant this card's AC-7 names. It
+  therefore *admits* every integer at or above the floor that is not that one
+  count, which is stated here because "default-deny" is satisfiable by a
+  default-ALLOW predicate underneath (ADR-0039/R2).
+
+  `layout.rasterise_rule_px` is the arithmetic plus the floor — 0.3 pt is
+  1 px at 300 DPI and is refused, while the same figure at 1200 DPI is 5 px
+  and is admitted, so the floor is a floor on the device rather than a ban on
+  the weights. It is **not** a door the shipped code goes through: it has zero
+  call sites in `src/`, because the raster renderers never convert a declared
+  width at all — they read COMP-007's proportional device width. It is what a
+  raster converter must come through on the day one is written (CARD-298), and
+  what the tests measure R2's figures against. (Corrected in CARD-227 review
+  cycle 1, F-002, which found it described as "the one door".)
+
+  **Two figures this ADR had never had are now measured.** The 2026-10-25
+  entry cited poppler on the *cell* line only (2 px at grey 89 at 300 DPI,
+  5 px at grey 89 at 1200). Measured the same way, on a rendered vector book
+  page (`pdf_vector.rendered_page`, one scanline, run lengths): the **0.8 pt**
+  fifth line inks **4 px at 300 DPI and 14 px at 1200**, and the **1.3 pt**
+  border **6 px and 22 px**, both at grey 0. The three spans are disjoint and
+  ordered at both resolutions and at NFR-008's 4.75 mm floor (2 / 4 / 6 px at
+  300 DPI on a 30x30 at clue depth 10, cell 4.7625 mm). Each span is wider
+  than the declared width resolves to — 0.3 pt is 1.25 px at 300 DPI — because
+  poppler antialiases a stroke that does not land on a pixel boundary, and the
+  same phase moves each span by up to a pixel along a page. So "the pixel
+  width scales with the resolution" is held as `declared <= span <= declared +
+  2` at **each** resolution rather than as a span-to-span ratio: the cell
+  line's ratio is 2.5 against the resolution's 4, and a band loose enough to
+  admit 2.5 would admit almost anything. The exact x4 belongs to the declared
+  width's own resolution (1.25 px -> 5 px) and is asserted there.
+
+  **What this card deliberately did not decide.** The grid's stroke order is
+  keyed on `GridLine.major`, which has two values where there are now three
+  weights, so inside the heavy half the border and the fifths interleave and
+  the page re-sets its width on each change (seven `w` operators on a 20x20,
+  not three). It costs operators and nothing else — both heavy tiers are the
+  same pure black, so no crossing looks different whichever is on top — and
+  keying the order on the tier is a change to stroke order in four renderers.
+  Flagged, not answered.
+
+  **`min_thin_rule_mm` is scoped, not retired and not re-numbered.** The book
+  profile still carries 0.25 mm, and both its docstrings now say what it is:
+  the floor on a thin grid rule **on a raster surface**. Under this rule's
+  amended wording the interior has no millimetre floor at all, so replacing
+  0.25 with 0.1058 (0.3 pt in millimetres) was refused outright — a floor set
+  *at* the figure it protects asserts nothing and reads as licence. It was
+  scoped rather than dropped because the pages it governs are still here: the
+  interior walk is raster until CARD-298 chooses a medium per page.
+
 - 2026-10-25: **R2 amended again — the grid's three weights are the owner's own
   0.3 / 0.8 / 1.3 pt, and the 2-device-pixel clause is re-expressed rather than dropped.**
   Owner decision on the CARD-293 proof (*"I looked at the pdf and I like it (vector versions)"*,
@@ -219,11 +293,61 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   # *grid* rule"). Furniture that must not drop out on press is held to the
   # same 2-device-pixel floor, but for the dropout reason directly and not
   # through R2, so it needs no exemption from R2 and must not claim one.
-  # The check is `review-lens` only until CARD-227 lands the measuring test;
-  # naming TestBookGridRules_HasThreeWeights before it exists would be a dead
-  # check-ref. CARD-227 upgrades this check to that test as part of its
-  # landing — recorded on the card, not left to memory (ADR-0039/R1: a
-  # coverage claim needs a control that can fail).
+  # CHECK UPGRADED 2026-10-28 (CARD-227, its Obligation 1). It was
+  # `review-lens` only — which cannot fail a build — and that was deliberate:
+  # naming TestBookGridRules_HasThreeWeights before it existed would have been
+  # a dead check-ref, read as *mechanically checked* by system_rules.py and
+  # forge:review Step 8h. The test exists now, so the ref is live.
+  #
+  # WHAT THE REF EXECUTES, and what it does not, because a check-ref is read
+  # as covering its rule's whole statement and this one does not:
+  #   RUN  the three figures, read out of the content stream of a written PDF
+  #        (TestBookGridRules_HasThreeWeights), with a control that reads the
+  #        retired x1.6 figures back as themselves, so the reading is shown to
+  #        discriminate rather than to agree;
+  #   RUN  the ink ordering, as an ordering and not a byte
+  #        (TestBookGridRules_CellLinesAreLighterThanTheFifths), and
+  #        structurally: GridRules refuses a sheet whose cell line is pure
+  #        black or no lighter than its fifths;
+  #   RUN  "a raster grid cannot use these figures"
+  #        (TestBookGridRules_TheseWidthsNeverReachARasterGrid) at BOTH
+  #        raster grid strokers -- book_pdf_generator._stroke_drawing and
+  #        export/png's _draw_grid/_draw_frame -- plus the advance arithmetic
+  #        layout.rasterise_rule_px, each with a negative control (the same
+  #        figure at 1200 DPI is admitted; the book's real raster width is
+  #        admitted; the real book page draws through both strokers; and a
+  #        stroke at exactly the 2 px floor on a declared sheet IS admitted,
+  #        which is the floor region's own EDGE arm), so none of it reads as a
+  #        blanket refusal. layout.rasterise_rule_px has NO
+  #        call site in src/ and is not claimed as a door (F-002);
+  #   NOT RUN  "the default PageSpec's strokes unchanged". That clause is
+  #        ADR-0036/R1's own check
+  #        (TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden) and is not
+  #        re-executed here: this rule states it, that rule gates it.
+  #   WAS an open bound, NOW RUN (CARD-227 review cycle 1, F-001): the
+  #        floor on png._draw_grid, the other raster grid stroker. The
+  #        premise that bound was declared on was FALSE. These figures DO
+  #        reach that function -- _blank_page rules a book single-puzzle
+  #        page's grid through render_pages -> png._draw_grid, and
+  #        render_answer_page rules a packed answer tile through the same
+  #        function; neither goes through _stroke_drawing, which rules only
+  #        the two-up and solved slots. Measured by a spy on png._draw_grid
+  #        and png._draw_frame -- DOMAIN: four _blank_page calls on four grid
+  #        shapes (20x20, 30x30 at clue depth 10, 15x22, 5x5) = 159 strokes,
+  #        plus one render_answer_page holding those four answers = 155, so
+  #        314 in all -- and EVERY ONE of the 314 carried a width_pt of
+  #        0.3 / 0.8 / 1.3 pt beside a device width of 3 or 6 px. Instrument
+  #        controls (ADR-0039/R4): it rises (1 page 43, 4 pages 159), it reads
+  #        0 when no page is drawn, and on a CLI sheet it reads 42 strokes of
+  #        which 0 declare anything. So the unguarded stroker was the one
+  #        that ruled the dominant interior page kind, and the control this comment said
+  #        could not fail is
+  #        test_the_other_raster_stroker_is_guarded_too_and_it_is_the_one_that_rules_a_book_page,
+  #        which has three arms: the real book page draws, the mutant reds,
+  #        and the shipped unguarded path drew the refused configuration
+  #        silently (260,523 inked pixels, measured before the guard). No ink
+  #        moved: three real book raster pages are pixel-digest-identical
+  #        across the change (G-5).
   #
   # AMENDED AGAIN 2026-10-25 (owner decision on the CARD-293 proof) — the
   # figures are now the owner's own 0.3 / 0.8 / 1.3 pt, not the x1.6-scaled
@@ -268,6 +392,6 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
     render resolution, which at 300 DPI means it cannot use these figures at
     all.
   scope: {code: ["src/nonogram/export/layout.py", "src/nonogram/admin/book_page_spec.py"]}
-  check: {kind: review-lens}
+  check: {kind: test, ref: TestBookGridRules_HasThreeWeights}
   severity: mandatory
 ```

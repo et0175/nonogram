@@ -1,0 +1,512 @@
+card: CARD-227
+cycle: 2
+max_cycles: 3
+min_score: 8
+reviewed_head: "0fe2e570"
+previous_head: "884c9738"
+base: main
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-227
+reviewer: forge:review
+reviewer_station: review
+reviewer_version: "unknown"        # executing plugin manifest not resolvable from this session
+utc: "2026-10-28T11:58:26Z"
+mode: >-
+  CONFIRMATION (differential). The delta since the reviewed state is fix round 1's
+  four commits (95a8caaa, 76ddb776, 5978554f, 0fe2e570) against cycle 1's eleven
+  named findings. Full depth where the delta lives (layout.py, png.py,
+  book_page_spec.py, book_vector_draw.py, the two test files, ADR-0037,
+  trace.yml); cycle-1 verdicts whose scope the delta does not intersect are
+  carried with that stated.
+
+host_cells:
+  instrument: "ps -eo command= | awk '$1 ~ /[Pp]ython[0-9.]*$/ && /-m pytest/' | wc -l"
+  note: "The corrected instrument from meta/kanban/config.yml. The retired pgrep forms were not used."
+  gate_1:
+    rival_pytest_start: 0
+    rival_pytest_end: 0
+    load_start: "{ 12.80 21.77 23.24 }"
+    load_end: "{ 6.69 14.31 19.70 }"
+  gate_2:
+    rival_pytest_start: 0
+    rival_pytest_end: 0
+    load_end: "{ 6.59 9.11 15.16 }"
+  full_suite_lock_taken: false
+  full_suite_run: false
+  hang_seconds_env_set: "never — NONOGRAM_TEST_HANG_SECONDS was <unset> in every command this cycle (printed by the gate before the first test ran)"
+
+targeted_gate:
+  scope: >-
+    WIDER THAN CYCLE 1 ON PURPOSE. Cycle 1 ran the card's six test files. The fix
+    round put a guard inside src/nonogram/export/png.py — the stroker EVERY PNG
+    export goes through, CLI and web included — so the gate is the derived png
+    radius: every test file that names export.png / render_image / render_pages /
+    render_answer_page / _draw_grid / _draw_frame, unioned with the card's six.
+    23 files. Run from the worktree cwd with worktree paths.
+  command: >-
+    /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest
+    -o addopts='' -rs -p no:randomly <23 files>
+  output: "1369 passed, 1 skipped, 1336 warnings in 232.78s"
+  exit: 0
+  skips:
+    - >-
+      tests/test_book_pdf_memory.py:1296 — setrlimit(RLIMIT_AS) cannot bound a
+      process on this platform (the kernel refuses: "current limit exceeds
+      maximum limit"). Pre-existing, platform-only; cycle 1 and the fix round
+      both reported the same one.
+
+standing_rule_gate:
+  scope: >-
+    The five files that carry the system contract's own mechanical checks and
+    that the png change could plausibly move — the A4 golden (ADR-0036/R1), the
+    CLI byte-identity property (CON-019), the no-image-XObject check
+    (ADR-0042/R1), the structural layering/component guard (tests/test_cli.py,
+    because png.py gained an import), and the frozen-render-set guard.
+  command: >-
+    ... -m pytest -o addopts='' -rs -p no:randomly tests/test_export_a4_golden.py
+    tests/property/test_cli_exports_byte_identity.py
+    tests/test_book_pdf_vector_primitives.py tests/test_cli.py
+    tests/test_suite_profile.py
+  output: "678 passed, 3 warnings in 52.83s"
+  exit: 0
+
+python_resolution_control:
+  note: >-
+    Every standalone probe inserted the worktree's src at sys.path[0] and printed
+    nonogram.__file__; all reported probes resolved to
+    /Users/omelnikova/PycharmProjects/PythonProject4-card-227/src/nonogram/.
+    The bare-resolution trap (a probe silently importing MAIN) was measured in
+    cycle 1 and avoided the same way here.
+
+findings:
+
+  - id: F-012
+    severity: minor
+    gating: false
+    confidence: high
+    source: static
+    type: gap
+    title: >-
+      "four call sites ... every raster grid stroke the book can reach" is wider
+      than the mechanism — _draw_solved_slot strokes grid rules onto a bitmap at
+      two more sites, guarded only by sharing its GridLines with the call above
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 5743
+    claim_quoted: >-
+      ADR-0037 History: "the mechanism is layout.refuse_rasterised_rule, called
+      per rule at **four call sites in three functions**, which is every raster
+      grid stroke the book can reach". book_page_spec.py:190: "called at every
+      raster grid stroker that a sheet carrying them can reach".
+      layout.PageSpec.grid_rules and the test class docstring carry the same
+      sentence.
+    what_is_true: >-
+      _draw_solved_slot (book_pdf_generator.py:5638) calls _stroke_drawing(draw,
+      slot) at :5739 — which is guarded — and then strokes the grid AGAIN at
+      :5743 and :5753, in grey over the filled cells, reading
+      slot.vertical_lines[c].width and slot.horizontal_lines[r].width directly.
+      Those two draw.line calls are raster grid strokes and they do not go
+      through refuse_rasterised_rule. They are harmless TODAY because the pair
+      they stroke is the same (width, width_pt) pair _stroke_drawing checked four
+      lines earlier, and packed solved slots do carry declared weights
+      (_slot_layout passes rules=page_spec.grid_rules). So the substance of AC-7
+      — a declared figure cannot reach a bitmap — still holds. The count and the
+      word "every" do not.
+    evidence: |
+      $ grep -rn "refuse_rasterised_rule(" src/
+      src/nonogram/admin/book_pdf_generator.py:1646   # _stroke_drawing, lines
+      src/nonogram/admin/book_pdf_generator.py:1656   # _stroke_drawing, frame
+      src/nonogram/export/png.py:216                  # _draw_grid, lines
+      src/nonogram/export/png.py:251                  # _draw_frame
+      $ sed -n '5739,5757p' src/nonogram/admin/book_pdf_generator.py
+              _stroke_drawing(draw, slot)          # <- guarded
+              for c in range(1, slot.columns):
+                  width = slot.vertical_lines[c].width      # <- NOT re-checked
+                  ...
+                      draw.line([(x, ys[r]), (x, ys[r+1])], fill=_SOLVED_GRID_GRAY, width=width)
+              for r in range(1, slot.rows):
+                  width = slot.horizontal_lines[r].width    # <- NOT re-checked
+                  ...
+      # and those slots DO carry declared weights:
+      # tests/test_book_grid_rules.py's new three-arm test asserts
+      #   {line.width_pt for line in slot_lines} == {CELL_PT, FIFTH_PT, BORDER_PT}
+    why_not_gating: >-
+      No hole: the pair is checked, once rather than twice, by the call four
+      lines above in the same function. This is the same defect SHAPE cycle 1's
+      F-001 named (a stroker a completeness sentence did not account for) without
+      its substance (that one was genuinely unguarded and received the figures).
+    fix_shape: >-
+      One sentence, in the four places that carry it: say "four call sites in
+      three functions — every place a declared pair is first stroked; the solved
+      page's grey re-stroke at book_pdf_generator.py:5743/5753 re-uses the pair
+      _stroke_drawing has already checked", or move the guard into those two
+      loops as well. The second is a code change and would be a fifth and sixth
+      call site; the first is accurate as it stands.
+
+  - id: F-013
+    severity: minor
+    gating: false
+    confidence: high
+    source: static
+    type: risk
+    title: >-
+      F-007's fix moves the coincidence out of the reach arm and into an
+      assertion, so the brittleness it named is relocated rather than removed —
+      and "recorded rather than relied on" is not true of an assert
+    file: tests/test_book_puzzle_page_vector.py
+    line: 1742
+    claim_quoted: >-
+      "The coincidence itself is recorded rather than relied on." (docstring),
+      above `assert twin.case.layout.thin_rule == counts[1] == 3`.
+    what_is_true: >-
+      The reach arm itself IS now independent — `twin.case.layout.thin_rule in
+      inked` is keyed on a width the page inks for a reason unrelated to the
+      declared figures, which is exactly what F-007 asked for. But the very next
+      statement asserts the coincidence, so the defect F-007 described — "on a
+      book whose thin rule fitted to 4 px the arm would have reddened with
+      nothing wrong" — still reds this test, two lines further down. A statement
+      that fails the suite when it stops being true is being relied on for green;
+      "recorded" is what a comment does.
+    note: >-
+      Pinning the coincidence so that the paragraph above it cannot go quietly
+      stale is a defensible choice. Only the sentence claiming it is not relied
+      on is wrong.
+    fix_shape: >-
+      Either demote the assertion to a comment, or keep it and say what it is:
+      "this assertion deliberately reds if the fitted cell ever changes, so the
+      paragraph above cannot go stale" — one sentence, no code change.
+
+  - id: F-014
+    severity: minor
+    gating: false
+    confidence: high
+    source: static
+    type: gap
+    title: >-
+      CARD-227's Touches field now lists src/nonogram/export/png.py twice
+    file: meta/kanban/cards/CARD-227.md
+    line: 17
+    what_is_true: >-
+      png.py was ALREADY on the Touches line as committed in 0d433b3a (the fix
+      round's kanban commit added it, with the "corrected 2026-10-28" rationale);
+      the uncommitted edit adds a second copy at the head of the list. The field
+      feeds both the conflict/overlap arithmetic and the scope gate, and a
+      duplicated path skews a count that is read as a set.
+    evidence: |
+      $ for c in 7be93ffd 89c7d4bc 0d433b3a; do git show $c:meta/kanban/cards/CARD-227.md \
+          | grep '^\*\*Touches:' | grep -o 'src/nonogram/export/png\.py' | wc -l; done
+      0 / 0 / 1
+      $ grep '^\*\*Touches:' meta/kanban/cards/CARD-227.md | grep -o 'src/nonogram/export/png\.py' | wc -l
+      2
+    note: >-
+      Caused by this reviewer's own fix-round hand-back, which reported png.py as
+      absent from Touches. It was absent at 884c9738 and had been added by the
+      time the card reached its reader. Recorded here so the record is not read
+      as the card's defect. Not a code finding; no deduction taken for it.
+    fix_shape: "Delete the leading duplicate. One token."
+
+  - id: F-015
+    severity: minor
+    gating: false
+    confidence: high
+    source: model
+    type: gap
+    title: >-
+      CON-018 / INV-006's check ref is dead — TestBookCellSize_HoldsTheFloor does
+      not exist in tests/
+    file: meta/kanban/cards/CARD-227.md
+    line: 199
+    what_is_true: >-
+      The System contract projection on this card (and on CARD-295) names
+      `check: TestBookCellSize_HoldsTheFloor` for the 4.75 mm cell floor. No such
+      class exists. tests/test_book_cell_size.py carries
+      _HoldsTheSevenAndAHalfMillimetreCap and _BelowFloorFlagFollowsTheSharedSize,
+      and tests/test_book_floor.py exists separately. A dead check ref reads as
+      mechanically checked and is not — the exact defect this card's own
+      Obligation 1 exists to repair for ADR-0037/R2.
+    evidence: |
+      $ grep -rn "class TestBookCellSize" tests/     # 8 classes, none _HoldsTheFloor
+      $ grep -rn "TestBookCellSize_HoldsTheFloor" meta/ | wc -l
+      2      # meta/kanban/cards/CARD-227.md:199 and meta/kanban/cards/CARD-295.md:132
+      # -> it is in the card projections only, not in requirements.yml
+    note: >-
+      PRE-EXISTING and NOT this card's: the ref is in the projection, the card
+      changes no cell geometry (G-3 verified), and the validator does not report
+      it because it is not in the model. Recorded because Step 8h cannot report
+      CON-018 as mechanically checked on the strength of a name that does not
+      resolve. Belongs to whoever next re-derives these projections.
+
+carried_from_cycle_1:
+  note: >-
+    Each cycle-1 finding re-derived against the delta rather than taken from the
+    fix round's report. Nine were fixed, two were judgement calls that stand.
+  F-001:
+    verdict: CLOSED — re-derived, three ways
+    evidence: |
+      (a) the guard is really at four call sites (grep above), and the two new
+          ones are LIVE: deleting png._draw_grid's call (M1) reds two named
+          cells; deleting png._draw_frame's (M2) reds one.
+      (b) the premise cycle 1 called false is now stated truly, and the figure
+          it is stated with REPRODUCES in my own domain:
+            $ probe: spy on png._draw_grid / png._draw_frame, four _blank_page shapes
+            _blank_page 20x20    -> +43 strokes
+            _blank_page 30x30d10 -> +63
+            _blank_page 15x22    -> +40
+            _blank_page 5x5      -> +13
+            TOTAL = 159          # the ADR's figure, and its own control (1 page = 43)
+            width_pt present on every one of the 159: True
+          The answer half (155) is the same arithmetic one line down — a tile has
+          (columns+1)+(rows+1) lines and no frame: 42+62+39+12 = 155, while each
+          blank page is that count plus its one frame (42+1, 62+1, 39+1, 12+1).
+          So 314 = 159 + 155 is derived, not transcribed.
+      (c) the sentence is gone from BOTH places cycle 1 named — the test class
+          docstring and ADR-0037/R2's check comment, whose "NOT RUN" clause is now
+          a "WAS an open bound, NOW RUN" clause naming the control.
+  F-002:
+    verdict: CLOSED — and the widening is real, not editorial
+    evidence: |
+      The predicate gained a REGION: `if width < RASTER_RULE_FLOOR_PX` on a
+      declared sheet (layout.py:704). Mutants: deleting it (M4) reds 4 cells;
+      relaxing it to `<=` (M3) reds exactly the new EDGE arm and nothing else;
+      deleting the point exclusion (M5) reds 4 cells; deleting the
+      `width_pt is None` exemption (M10) reds 13 cells ACROSS FILES
+      (test_book_grid_rules.py and test_export_image.py), which is the control on
+      the exemption the docstring claims ("would red on the whole suite").
+      rasterise_rule_px is no longer called a door: 0 call sites in src/ is now
+      what the docstrings and the ADR say, in all of the places cycle 1 named.
+  F-003:
+    verdict: NARROWED as asked, not closed — and the new text is accurate
+    evidence: |
+      Re-derived in my own domain, every sentence of the new "What it does NOT
+      refuse" paragraph:
+        ACCEPTED  cell PURE WHITE grey=1.0
+        ACCEPTED  whole grid near-white .99/.98/.97
+        ACCEPTED  fifth LIGHTER than border
+        ACCEPTED  widths 0.3/0.30001/0.30002  and  50/60/70 pt
+        refused   non-increasing widths / pure-black cell / cell not lighter
+      Closing the faint end is a new refusal with its own control and edge
+      mutant; deferring it and writing the bound down is the right call.
+  F-004:
+    verdict: CLOSED — the cycle-1 SURVIVOR is dead
+    evidence: >-
+      M6 (`if not self.cell.grey > heavier` -> `>=`) now reds, at exactly one
+      cell: TestBookGridRules_CellLinesAreLighterThanTheFifths::
+      test_a_grid_whose_cell_lines_are_not_lighter_cannot_be_built. In cycle 1
+      the same mutation passed the whole file.
+  F-005:
+    verdict: CLOSED — and the arithmetic re-derived independently
+    evidence: |
+      cell  [1.25,3.25] & [5,7]       -> ratio in [20/13, 28/5] = [1.538, 5.600]
+      fifth [3.333,5.333] & [13.333,15.333] -> [2.500, 4.600]
+      border[5.4167,7.4167] & [21.667,23.667] -> [2.9213, 4.3693]
+      All three match the new docstring to the digit. AC-6 unchanged, correctly.
+  F-006:
+    verdict: CLOSED — and re-measured across four shapes in my own domain
+    evidence: |
+      $ probe: regex over the raw stream, draw_ruled_grid then draw_frame
+        20x20 : function=6 ['0.3','1.3','0.8','1.3','0.8','1.3']  page=7
+        22x13 : function=6                                        page=7
+        30x30 : function=6                                        page=7
+        5x5   : function=2 ['0.3','1.3']                          page=3
+      Exactly the new docstring, including the interleave order it now spells out.
+  F-007:
+    verdict: PARTLY CLOSED — see F-013
+  F-008:
+    verdict: CLOSED — and the three mutants it was about are dead
+    evidence: >-
+      M7 (_slot_layout rules= -> None), M8 (_answer_tile), M9
+      (_packed_tile_layout) each red, and each reds the SAME single cell,
+      test_an_answer_tile_carries_the_declared_weights_through_the_same_door —
+      which is what a three-arm control is supposed to do.
+  F-009:
+    verdict: UNCHANGED, agreed — one discarded page build in one test.
+  F-010:
+    verdict: CLOSED — re-derived
+    evidence: |
+      $ grep -n "test_book_grid_rules" meta/profiling/rank_durations.py
+      127:    "tests/test_book_grid_rules.py",
+      The module docstring now says the file IS in the frozen set, on the cost
+      reason, and explains the grep's false positive instead of denying it. The
+      superseded ratio sentence is replaced by the band form that shipped. The
+      frozen-set guard is green (in standing_rule_gate above).
+  F-011:
+    verdict: CLOSED — and the replacement is checkable and checks out
+    evidence: |
+      $ grep -o "id: AC-[0-9]*" meta/architecture/requirements.yml | sort -t- -k2 -n | tail -1
+      id: AC-396                      # -> "AC-397 and up" is right
+      $ grep -c <each of the three class names> meta/architecture/requirements.yml
+      0 / 0 / 0                       # -> the substantive gap is real and now stated checkably
+
+mutation_re_fire:
+  policy: >-
+    meta/kanban/config.yml's refire policy: every gating finding's mutation plus
+    a sample. Both gating findings' mechanisms re-fired, plus the cycle-1
+    survivor, plus the three plumbing survivors the fix round found on itself,
+    plus the exemption. Ten mutants, one node each, line-count preserving,
+    restored by writing back the captured text (never git checkout) and verified
+    with git hash-object every time.
+  tree_after: "clean; git diff 884c9738..HEAD still 8 files, +604/-127"
+  mutants:
+    - {id: M1,  node: "png._draw_grid guard call deleted",           result: KILLED, cells: "test_the_other_raster_stroker_is_guarded_too...; test_an_answer_tile_carries_the_declared_weights..."}
+    - {id: M2,  node: "png._draw_frame guard call deleted",          result: KILLED, cells: "test_the_other_raster_stroker_is_guarded_too... (frame arm), alone"}
+    - {id: M3,  node: "floor `<` -> `<=` (EDGE)",                    result: KILLED, cells: "test_the_declared_sheets_floor_is_a_region_and_its_edge_is_admitted, ALONE"}
+    - {id: M4,  node: "floor region deleted",                        result: KILLED, cells: "4"}
+    - {id: M5,  node: "point exclusion deleted",                     result: KILLED, cells: "4"}
+    - {id: M6,  node: "GridRules tone `>` -> `>=` (cycle-1 survivor)", result: KILLED, cells: "test_a_grid_whose_cell_lines_are_not_lighter_cannot_be_built, ALONE"}
+    - {id: M7,  node: "_slot_layout rules= -> None",                 result: KILLED, cells: "test_an_answer_tile_carries_the_declared_weights..., alone"}
+    - {id: M8,  node: "_answer_tile rules= -> None",                 result: KILLED, cells: "same cell, alone"}
+    - {id: M9,  node: "_packed_tile_layout rules= -> None",          result: KILLED, cells: "same cell, alone"}
+    - {id: M10, node: "`width_pt is None` exemption removed",        result: KILLED, cells: "13, across tests/test_book_grid_rules.py AND tests/test_export_image.py"}
+  survivors: 0
+  one_correction: >-
+    The fix round's own report attributes M1 to "the new png control, alone". It
+    is killed by two cells, the second being the new answer-tile test. A kill is
+    a kill; the attribution is one cell short. Recorded, not filed.
+
+system_contract:
+  rules_checked: 12
+  holds: 8
+  unchecked: 3
+  violated: 0
+  note: >-
+    The 12 rules are the card's own `## System contract` section. Scope for
+    carrying: the fix delta touches export/layout.py, export/png.py,
+    admin/book_page_spec.py, admin/book_vector_draw.py, two test files, ADR-0037
+    and trace.yml.
+  verdicts:
+    - "ADR-0037/R2 ✓ holds — the declared weights are in the stream (AC-1, re-derived cycle 1) and the raster clause is now a live mechanism at four call sites; M1/M2/M3/M4/M5 all killed. Its check ref is live: TestBookGridRules_HasThreeWeights collects. See F-012 for the one sentence about it that is wider than the mechanism — a claim defect, not a violation."
+    - "ADR-0042/R1 ✓ holds — tests/test_book_pdf_vector_primitives.py::test_no_interior_page_carries_an_image_xobject green on this head (standing_rule_gate, 678 passed). NOTE: the card's projection names tests/test_book_pdf.py for it; the test lives in test_book_pdf_vector_primitives.py. The ref resolves by name, the file in the projection is stale."
+    - "ADR-0042/R3 ✓ holds — book_vector_draw.py's delta is docstring-only (git diff 884c9738..0fe2e570 -- src/nonogram/admin/book_vector_draw.py is 28 lines, all inside one docstring); no position is derived anywhere in the delta."
+    - "ADR-0042/R6 ✓ holds — every assertion the fix round added is against objects or against a raised ValueError; none reads a bitmap. The two declared render exemptions (AC-5, AC-6) are untouched."
+    - "ADR-0042/R7 ✓ holds — the weights are still stated only in ADR-0037/R2; the fix round's ADR edit is to 0037, and 0042 is not in the delta."
+    - "ADR-0036/R1 ✓ holds — tests/test_export_a4_golden.py and tests/test_layout_page_spec.py green on this head (63 + the 23-file gate). This is the rule most exposed by putting a guard inside png._draw_grid, which every CLI and web export goes through; it is checked, not argued."
+    - "ADR-0036/R2 ✓ holds — no geometry is computed in the delta. _rule_widths is unchanged (git diff shows no hunk at layout.py:3140-3166), and the guard reads widths rather than deriving them."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: nothing in this delta touches page titles."
+    - "CON-018 / INV-006 ⚠ unchecked — check_ref_missing: TestBookCellSize_HoldsTheFloor does not exist in tests/ (see F-015). Manual read of this delta found no violation: no cell geometry changed, and the 4.75 mm floor page is still exercised by AC-5's test."
+    - "CON-020 ⚠ unchecked — no_eligible_fact: no interior type size is touched by this delta."
+    - "CON-019 ✓ holds — tests/property/test_cli_exports_byte_identity.py::PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry green on this head, and the guard returns at its `width_pt is None` branch for every CLI/web sheet (DEFAULT_PAGE_SPEC.grid_rules is None, asserted in the new edge test). M10 — removing that exemption — reds tests/test_export_image.py, which is the control proving the exemption is load-bearing rather than decorative."
+    - "ADR-0039/R1 ✓ holds — ten mutants fired this cycle, zero survivors, each attributed to a named cell from a plain run; the two mutants cycle 1 could not kill (the tone EDGE) and the three the fix round found on itself are among them."
+
+validator:
+  instrument_split_stated_first: >-
+    TWO COPIES DISAGREE ON THE ERROR COUNT AND AGREE ON EVERYTHING ELSE, so the
+    error figure is a property of the instrument this cycle, not of the model.
+    /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py
+    (memory's "real path") reports 0 errors; the plugin cache copy
+    ~/.claude/plugins/cache/adverax/forge/2026.8.17/.../validate.py — the one
+    cycle 1 used — reports 1 error, the pre-existing ADR-0025 circular
+    supersession. Both report 113 warnings on the worktree.
+  worktree: "0 error(s), 113 warning(s)   [forge_1 copy]"
+  worktree_cache_copy: "1 error(s), 113 warning(s)   [2026.8.17 copy — cycle 1's instrument]"
+  main_control: "0 error(s), 116 warning(s)   [forge_1 copy, main at 0d433b3a]"
+  delta_accounted_line_by_line: |
+    $ diff <(validator on main | sort) <(validator on worktree | sort)
+    72,74d71
+    < [WARN] FR-033/AC-373 ... DEAD check ref (TestBookGridRules_CellLinesAreLighterThanTheFifths)
+    < [WARN] FR-033/AC-374 ... DEAD check ref (TestBookGridRules_WeightsSurviveTheFloor)
+    < [WARN] FR-033/AC-375 ... DEAD check ref (TestBookGridRules_PointsNotPixels)
+    126c123
+    < 0 error(s), 116 warning(s)   ->   0 error(s), 113 warning(s)
+    # three lines, all three this card's tests making a dead ref live. Nothing else moved.
+
+acceptance_criteria:
+  AC-1: {verdict: PASS, basis: "carried (cycle 1, delta-clean — the stream half is untouched by the delta)"}
+  AC-2: {verdict: PASS, basis: "re-derived", note: "F-004's EDGE control now exists and M6 kills; F-003's residue is written down as a declared bound."}
+  AC-3: {verdict: PASS, basis: "carried (cycle 1, delta-clean)"}
+  AC-4: {verdict: PASS, basis: "carried (cycle 1, delta-clean)"}
+  AC-5: {verdict: PASS, basis: "carried (cycle 1, with cycle 1's stated reason)"}
+  AC-6: {verdict: PASS, basis: "re-derived", note: "the comparative sentence is now correct; I recomputed all three ratio intervals in exact rationals and they match."}
+  AC-7:
+    verdict: PASS — the cycle-1 FAIL is cleared
+    basis: re-derived
+    note: >-
+      Both halves of the cycle-1 failure are gone. The stroker that rules the
+      dominant interior page kind is guarded and the control has three arms, two
+      of which can fail (M1, M2). The predicate is described as what it is — a
+      floor region plus one excluded point plus a declared exemption — and each
+      of those three has its own mutant. What remains is F-012: the word "every"
+      in the completeness sentence, which is a claim defect with no hole under it.
+
+guardrails:
+  G-1: {verdict: "PASS — F-008's gap is closed", basis: re-derived, note: "the three plumbings each have a control now; M7/M8/M9 kill."}
+  G-2: {verdict: PASS, basis: re-derived, note: "src/nonogram/admin/book_vector.py is not in the delta; the two added calls are a refusal check, not a drawing primitive."}
+  G-3: {verdict: PASS, basis: re-derived, note: "no position moved; _rule_widths unchanged; the A4 golden and the byte-identity property are green on this head."}
+  G-4: {verdict: PASS, basis: re-derived, note: "nothing in the delta touches clue boxes, the 5 % shading, cell size or the furniture floor."}
+  G-5: {verdict: PASS, basis: re-derived, note: "no fixture/baseline/golden path is in the delta (8 files, listed), and a refusal check cannot move ink — the 1369-test gate includes the book baseline comparisons."}
+  G-6: {verdict: "PASS — and the caveat cycle 1 attached to it is discharged", note: "ADR-0037/R2's check is a live test ref, and the comment's false NOT RUN clause is now a RUN clause carrying its measurement and its controls."}
+
+obligations:
+  obligation_1: {verdict: PASS, note: "unchanged by the delta; the comment it produced is now accurate."}
+  obligation_2: {verdict: PASS, note: "unchanged — min_thin_rule_mm stays 0.25, scoped to the raster path. Worth recording that the fix round's new floor branch is now SAFE BECAUSE of that decision: a book page's thin rule is >= 3 px under the 0.25 mm floor and >= 2 px even without it (NFR-008's 4.75 mm cell floor makes round(cell/30) >= 2), so the floor branch cannot fire on a page the code can build. Measured: stripping min_thin_rule_mm from the book spec still draws (answer tiles fall to 2 px, which is the admitted EDGE)."}
+
+touches:
+  verdict: "PASS on content, one duplicate — see F-014"
+  note: >-
+    png.py is the only file the fix round added to the change and it is forced by
+    F-001. It is on the Touches line. It is on it twice.
+
+could_not_establish:
+  - >-
+    The 260,523-inked-pixel figure in ADR-0037's comment (ARM 3, the shipped
+    unguarded path drawing the refused configuration). I did not rebuild the
+    pre-guard module to recount it. The arm's VERDICT is re-derivable without the
+    figure — M1 shows the guard is what refuses — but the number itself is the
+    fix round's.
+  - >-
+    The full suite under meta/kanban/.full-suite.lock. Deliberately not taken:
+    28 files and 2047 tests were run instead, across two gates, and the lock
+    belongs to the merge gate.
+  - >-
+    Whether the two unguarded strokes in _draw_solved_slot (F-012) could ever
+    receive a pair _stroke_drawing did not check. I could not construct one —
+    they read the same GridLine objects — but I did not prove it impossible for
+    every future caller of _draw_solved_slot.
+  - >-
+    Whether these weights read well on paper. Unchanged from cycle 1 and from the
+    card: unmeasurable here, accepted by the owner on renders, revisit trigger is
+    the first printed proof.
+  - >-
+    Why cycle 1 counted FOUR cleared dead check refs and this cycle counts
+    THREE. See the validator block: the three are AC-373/374/375 and they are
+    exactly this card's. AC-372 is flagged in NEITHER tree by the copy I ran, so
+    the fourth line cycle 1 saw came from a different validator copy against a
+    different main tip (7be93ffd, now 0d433b3a). I did not reconstruct it.
+
+score: 9.0
+score_basis: >-
+  Every one of cycle 1's eleven findings is addressed, and the two gating ones
+  are closed in substance rather than restated: the guard really is installed at
+  the stroker that rules the dominant interior page kind, and the predicate
+  really was widened — the fix round found and closed a hole cycle 1 had not
+  seen (a 1 px stroke beside a declared 0.8 pt fifth was admitted). I did not
+  take that on report: ten mutants, zero survivors, including the cycle-1
+  survivor and the three plumbing survivors, each attributed to a named cell;
+  the 159-stroke figure reproduced in my own domain with its own control; the
+  w-operator counts re-measured across four shapes; the GridRules admit/refuse
+  set re-derived case by case; the three ratio intervals recomputed in exact
+  rationals. The gate was widened to the real blast radius of a guard inside
+  png._draw_grid — 23 files, 1369 passed — plus the five files that carry the
+  system contract's own mechanical checks, 678 passed, which is where CON-019
+  and ADR-0036/R1 are actually verified rather than argued. Deducted: two claim
+  defects, both in the family cycle 1 named — "every raster grid stroke the book
+  can reach" when two more exist (harmless, but checkable and false), and a
+  coincidence described as not relied on while an assert relies on it.
+
+verdict: >-
+  CERTIFIED (score 9.0, threshold 8). Both gating findings are closed and were
+  re-derived rather than accepted; no new Critical or Important finding; the
+  deferred certification cycle 1 owed — the mutation check — ran this cycle and
+  returned ten kills and no survivors. The three Minor findings are sentences,
+  not mechanisms: none blocks merge, and F-012's is worth folding in wherever
+  ADR-0037 is next opened. Hand to the merge gate.
+
+what_the_merge_gate_still_owes:
+  - "The full suite under meta/kanban/.full-suite.lock. Not run in either cycle."
+  - >-
+    The three missing registry ACs for the card's AC-3, AC-4 and AC-7 — the next
+    free ids are AC-397 and up, not 376-378. The architect's, and AC-7's is now
+    worth writing against a closed bound.
+  - "FR-033's missing `tests:` key (pre-existing)."
+  - "The ADR-0025 circular-supersession validator error (pre-existing; see could_not_establish on the instrument split)."
+  - "CON-018/INV-006's dead check ref in the card projections (F-015)."
+  - >-
+    CARD-298, without which these weights are still on no shipped page — though
+    the png bound no longer waits for it.

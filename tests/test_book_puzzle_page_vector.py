@@ -90,6 +90,7 @@ from nonogram.export.layout import (
     compute_layout,
     header_band,
 )
+from nonogram.admin.book_page_spec import GRID_RULES
 from nonogram.export.png import INK
 from tests.helpers import page_ink, pdf_vector
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
@@ -213,9 +214,35 @@ class Expected:
                     self._y(line.position),
                 )
             marks.append(
-                Stroke("line", numbers, self._x(line.width), self.grey)
+                Stroke("line", numbers, self._declared(line), self._tone(line))
             )
         return marks
+
+    def _declared(self, line: GridLine) -> Decimal:
+        """The width a conforming writer sets ``line`` at, in points.
+
+        Two arms, and the oracle has to state both because the ``Layout``
+        does: a sheet that declares ADR-0037/R2's physical weights
+        (:attr:`~nonogram.export.layout.GridLine.width_pt`) demands **that**
+        number, in the points it is stated in and through no conversion at
+        all, and a sheet that declares none demands its device width
+        converted, which is every sheet but the book's. ``Decimal(str(...))``
+        rather than ``Decimal(float)`` so the figure the artifact states is
+        the figure compared, not its binary neighbour.
+        """
+        if line.width_pt is None:
+            return self._x(line.width)
+        return Decimal(str(line.width_pt))
+
+    def _tone(self, line: GridLine) -> Decimal:
+        """The tone a conforming writer sets ``line`` at.
+
+        The line's own where it has one — the cell lines' 0.35 grey, the first
+        tone this project has had (CARD-227) — and the caller's default
+        otherwise, which is the one ink every interior mark was drawn in
+        before.
+        """
+        return self.grey if line.grey is None else Decimal(str(line.grey))
 
     def frame(self) -> list[Mark]:
         frame = self.layout.frame
@@ -230,8 +257,10 @@ class Expected:
                     self._x(frame.right - frame.left),
                     self._x(frame.bottom - frame.top),
                 ),
-                self._x(frame.width),
-                self.grey,
+                self._x(frame.width)
+                if frame.width_pt is None
+                else Decimal(str(frame.width_pt)),
+                self.grey if frame.grey is None else Decimal(str(frame.grey)),
             )
         ]
 
@@ -970,7 +999,8 @@ class TestPropertyTest_PuzzlePage_WriterDerivesNoGeometry:
         flattened = _replace_layout(
             case.layout,
             vertical_lines=tuple(
-                _replace_line(line, width=0) for line in case.layout.vertical_lines
+                _replace_line(line, width=0, width_pt=0.0)
+                for line in case.layout.vertical_lines
             ),
         )
         widths = {
@@ -1001,18 +1031,37 @@ class TestPropertyTest_PuzzlePage_WriterDerivesNoGeometry:
         with pytest.raises(ValueError, match="PagePlacement"):
             book_puzzle_vector.slot_room(unplaced)
 
-    def test_the_tone_is_the_raster_renderers_own_ink(self, corpus: list[Case]) -> None:
-        """One ink across the two media, derived from one constant.
+    def test_every_tone_comes_from_the_layout_and_the_grid_carries_two(
+        self, corpus: list[Case]
+    ) -> None:
+        """ADR-0042/R3's tone half, which CARD-227 made satisfiable.
 
-        The ``Layout`` states no tone at all — every mark on an interior page
-        is ``png.INK`` today — so ADR-0042/R3's "every tone comes from the
-        Layout" cannot be satisfied literally. What is held instead is that
-        the vector page's tone is the *same constant* the raster page draws
-        with, converted. The card that gives tone a home is CARD-227.
+        **This used to be a declared gap.** Until CARD-227 the ``Layout``
+        stated no tone at all, so R3's "every tone comes from the ``Layout``"
+        could only be held as "the vector page's one tone is the *same
+        constant* the raster page draws with, converted" — the writer's
+        default, not the geometry's statement. ADR-0037/R2's cell lines are
+        the first tone this project has had, and now the stronger claim is
+        available: every tone on the page is one the ``Layout`` states, and
+        the page carries **two** of them.
+
+        Both arms are asserted, because either alone is weak. The *set*
+        equality alone would pass on a page that had collapsed to one tone if
+        the corpus happened to hold no fifth line; the *count* alone would
+        pass on two tones nobody chose. And the default is still held against
+        ``png.INK``, because the heavy rules are that same one ink and the two
+        media must not disagree about what ink is.
         """
         assert book_vector_draw.INK_GREY == INK[0] / 255
+        stated = {
+            Decimal(str(book_vector_draw.INK_GREY if line.grey is None else line.grey))
+            for case in corpus
+            for line in case.layout.grid_lines
+        }
         greys = {mark.grey for case in corpus for mark in case.found}
-        assert greys == {Decimal(str(book_vector_draw.INK_GREY))}
+
+        assert len(stated) == 2, stated
+        assert greys == stated, (greys, stated)
 
 
 def _replace_layout(layout: Layout, **changes) -> Layout:
@@ -1554,21 +1603,25 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         assert len(lines) == len(hero.layout.vertical_lines) + len(
             hero.layout.horizontal_lines
         )
-        widths = {mark.width / scale for mark in lines}
-        assert widths == {
-            Decimal(hero.layout.thin_rule),
-            Decimal(hero.layout.thick_rule),
-        }, widths
+        # The widths are compared in **points**, not device pixels, because
+        # since CARD-227 that is the unit the sheet states them in: a book
+        # page declares ADR-0037/R2's three physical weights and the stream
+        # sets them through no conversion, so dividing by ``scale`` here would
+        # be inventing a device reading of a number no device chose. The
+        # positions above are still device pixels, which is the half of this
+        # test that ``scale`` is for.
+        widths = {mark.width for mark in lines}
+        assert widths == {Decimal("0.3"), Decimal("0.8"), Decimal("1.3")}, widths
 
     def test_the_thin_rules_are_stroked_before_the_heavy_ones(
         self, hero: Case
     ) -> None:
         """The ordering claim, which is the one a set comparison cannot make."""
-        scale = Decimal(POINTS_PER_INCH) / Decimal(hero.layout.dpi)
-        thin = Decimal(hero.layout.thin_rule) * scale
+        thin = Decimal("0.3")
         order = [
             mark.width == thin for mark in hero.found if isinstance(mark, Stroke)
         ]
+        assert any(order) and not all(order), order
         assert order == sorted(order, reverse=True), order
 
     def test_the_ink_and_the_stream_rule_the_same_grid(self, twin: Twin) -> None:
@@ -1611,21 +1664,86 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         ]
         assert bool(boxes) is drawing.framed is (twin.case.layout.frame is not None)
 
-    def test_the_ink_measures_the_two_widths_the_stream_sets(self, twin: Twin) -> None:
-        """The weighted half: the claim arm's own cross-medium check, run.
+    def test_the_inked_widths_are_never_the_declared_figures(self, twin: Twin) -> None:
+        """The weighted half, **re-expressed by CARD-227 and now a stronger seam.**
 
-        ``[3, 6]`` device pixels off the page against ``[0.72, 1.44]`` points
-        off the stream — the same two rules, which is the comparison
-        ``card295_puzzle_page_price.py`` makes before it times either arm. The
-        widths are asserted to be two and ordered first, so the comparison
-        cannot pass by both sides collapsing to one weight.
+        Until CARD-227 this arm compared ``[3, 6]`` device pixels off the page
+        against ``[0.72, 1.44]`` points off the stream and asserted the two
+        were the same two rules. **That comparison is now false by design**,
+        and not because either medium drifted: ADR-0037/R2 as amended
+        2026-10-25 states the interior's weights as physical points — 0.3 /
+        0.8 / 1.3 — which hold *only* in a content stream, while the raster
+        twin keeps COMP-007's proportional ``cell / 30`` device rule. Two
+        media that state different widths is the card. A seam that kept
+        asserting they agreed would have had to be satisfied by undoing it.
+
+        So what is held here instead is the thing R2 actually makes falsifiable
+        on real ink, and it is the measured form of AC-7: **no width this page
+        was rasterised at is the device count of a declared figure.** At
+        300 DPI those counts are 1 / 3 / 5 px — the one-pixel grey cell grid
+        7 of 17 reviews of the 450-puzzle book complained about — and the
+        raster twin's own widths are 3 and 6 px.
+
+        Both hierarchies are asserted intact first, so the comparison cannot
+        pass by either side collapsing to one weight, and the positive arm —
+        the instrument's **reach** — is that the reading can see a width the
+        twin really does stroke, so its silence about 1 px is a measurement
+        rather than a blind spot.
+
+        **That reach arm is keyed on the layout's own ``thin_rule``, not on a
+        declared figure's count** (review cycle 1, F-007). It used to be
+        ``counts[1] in inked``, which was true only by a coincidence of this
+        book's fitted cell: ``counts[1]`` is ``round(0.8 pt at 300 DPI)`` = 3
+        and ``layout.thin_rule`` is also 3, so on a book whose thin rule
+        fitted to 4 px the arm would have reddened with nothing wrong. The
+        page is known to ink ``thin_rule`` for a reason that has nothing to do
+        with the declared weights — it is COMP-007's proportional
+        ``cell / 30`` under the 0.25 mm raster floor — so keying on it makes
+        the reach arm independent of the figures the negative arm is about.
+        The coincidence itself is recorded rather than relied on.
+
+        **Each figure stays in its own domain.** The stream's widths are read
+        in points, because points are the unit it states them in; the ink's
+        are read in device pixels, because that is what a bitmap has. The one
+        number that crosses is the declared figures' *device count*, which is
+        the quantity ADR-0037/R2 names and the only one the two sides can be
+        compared through at all.
         """
-        verticals, horizontals = _device_rules(twin.case)
-        stated = sorted({width for _position, width in verticals + horizontals})
+        stated = sorted(
+            {
+                mark.width
+                for mark in twin.case.found
+                if isinstance(mark, Stroke) and mark.kind == "line"
+            }
+        )
         inked = _inked_rule_widths(twin)
+        counts = sorted(
+            round(rule.width_pt * twin.case.layout.dpi / 72)
+            for rule in (GRID_RULES.cell, GRID_RULES.fifth, GRID_RULES.border)
+        )
 
-        assert len(stated) == 2 and stated[1] > stated[0], stated
-        assert [Decimal(width) for width in inked] == stated, (inked, stated)
+        # Both media still carry a hierarchy of their own.
+        assert stated == [Decimal("0.3"), Decimal("0.8"), Decimal("1.3")], stated
+        assert inked == sorted(
+            {twin.case.layout.thin_rule, twin.case.layout.thick_rule}
+        ), (inked, twin.case.layout.thin_rule, twin.case.layout.thick_rule)
+
+        # The refused configuration is not on the page: 1 px is absent.
+        assert counts == [1, 3, 5], counts
+        assert counts[0] not in inked, (inked, counts)
+        # ... and the reading can see a width the page is known to ink for a
+        # reason independent of the declared figures, so its silence about
+        # 1 px is a measurement rather than a blind spot.
+        assert twin.case.layout.thin_rule in inked, (
+            inked,
+            twin.case.layout.thin_rule,
+        )
+        # The coincidence F-007 named, declared rather than relied on: on this
+        # book thin_rule and counts[1] happen to be the same 3 px.
+        assert twin.case.layout.thin_rule == counts[1] == 3, (
+            twin.case.layout.thin_rule,
+            counts,
+        )
 
 
 class TestPuzzlePage_TheSharedPagesAreNotMutated:
@@ -1678,10 +1796,15 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
         that counts changes.
         """
         case = corpus[0]
+        # Stripes the **declared** width, which is what this sheet's writer
+        # sets: a book page states ADR-0037/R2's physical weights, so striping
+        # the device ``width`` alone would leave the stream unchanged and this
+        # control vacuous — the near-miss worth naming, because the test that
+        # would have gone on passing is this one.
         striped = _replace_layout(
             case.layout,
             vertical_lines=tuple(
-                _replace_line(line, width=1 if index % 2 else 5)
+                _replace_line(line, width=1 if index % 2 else 5, width_pt=0.24 if index % 2 else 1.2)
                 for index, line in enumerate(case.layout.vertical_lines)
             ),
         )
@@ -1692,7 +1815,12 @@ class TestPuzzlePage_TheSharedPagesAreNotMutated:
             striped, Decimal(str(book_vector_draw.INK_GREY)), interior_face_metrics()
         ).page(case.band, case.text, 10_000)
 
-        naive = 1 + len({line.width for line in striped.grid_lines})
+        naive = 1 + len(
+            {
+                line.width if line.width_pt is None else line.width_pt
+                for line in striped.grid_lines
+            }
+        )
         naive += 2 if striped.frame is not None else 0
         assert _state_operators(striped) > naive + 5, (
             _state_operators(striped),
@@ -1722,7 +1850,7 @@ def _state_operators(layout: Layout) -> int:
     stroke order**, and — where the drawing is framed — one ``G`` and one
     ``w`` for the frame.
 
-    The middle term used to be ``len({widths})``, which is the same number
+    The width term used to be ``len({widths})``, which is the same number
     only while equal widths are contiguous after the sort — true of every
     page the corpus holds (two widths, thin then major) and false in general.
     Cycle 1's F-009 built a ``Layout`` whose non-major verticals alternate
@@ -1732,9 +1860,26 @@ def _state_operators(layout: Layout) -> int:
     ``draw_grid_lines`` makes, over the one stroke order
     :func:`_in_stroke_order` states, so it moves with any page rather than
     with a two-width one.
+
+    **The tone term was a constant ``1`` until CARD-227 and is now counted
+    the same way**, for exactly the reason the width term is: a book page has
+    two tones (0.35 grey cell lines under pure-black fifths and border), the
+    writer sets the tone on change over the same stroke order, and a page
+    whose tones alternate emits one ``G`` per change rather than one per page.
+    A derivation that kept the ``1`` would have been right on every page the
+    corpus holds and wrong on the first page that interleaved its tones —
+    which is the shape of the defect F-009 already found once here.
     """
-    widths = [line.width for line, _vertical in _in_stroke_order(layout)]
-    changes = sum(
-        1 for before, after in zip([None, *widths], widths) if before != after
-    )
-    return 1 + changes + (2 if layout.frame is not None else 0)
+    lines = [line for line, _vertical in _in_stroke_order(layout)]
+    widths = [
+        line.width if line.width_pt is None else line.width_pt for line in lines
+    ]
+    tones = [
+        book_vector_draw.INK_GREY if line.grey is None else line.grey
+        for line in lines
+    ]
+
+    def changes(values: list[object]) -> int:
+        return sum(1 for before, after in zip([None, *values], values) if before != after)
+
+    return changes(widths) + changes(tones) + (2 if layout.frame is not None else 0)
