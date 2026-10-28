@@ -1476,3 +1476,85 @@ selection-dependent; main's gates are green at full-suite scope. **That control 
    has a domain* with both corollaries; *audit the defect class, not the sibling the brief names*;
    *enumerate a card's additions by AST, not by reading*; *reproducing a figure with its original method
    only confirms the method*.
+
+## Wave 62 — 2026-10-28
+
+_⚠ The journal skips waves 51–61 (no sections written). The "vs prev" deltas below
+are against **Wave 50**, twelve waves and eight days back — treat the direction as
+sound and the magnitude as not._
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-292 | The per-test ceiling — it was never unknown | 1d | — | — | 3/3 | 7.0 → 7.0 → **8.5** | more complex (cycles proxy) |
+| CARD-287 | The second call site | 0.5d | — | — | 3/3 | 7.5 → 8.0 → **8.5** | more complex (cycles proxy) |
+
+### Metrics
+
+- cards: 2, escalated: 0, split: 0, **actual_time: 0 — both proxy-only** (`Actual:` never filled)
+- total_estimate: 1.5d
+- avg_cycles: **3.0 / 3** — every cycle spent, on both cards
+- avg_final_score: **8.5** (↓ −0.5 vs wave 50's 9.0)
+- score_improvement: **+1.25** (initial 7.25 → final 8.5)
+- gating findings: **7** across 45 total, in 6 review reports
+- both cards **certified at 3/3 with zero gating** in the final cycle
+- test_cost: full suite **1670.57 s → 1222.22 s, −26.8 %** across the wave, on +11 tests
+  (gate-scope data not recorded per-run; no `wave-62 full-suite` line in `suite-timing.log`)
+
+### Calibration signals
+
+- python-pro (2 cards, avg_cycles 3.0, **proxy**) → **estimates too low (proxy)** → suggest effort scale ×1.4
+  — but see the caveat below: a measurement card's cost is its *certification*, not its edit.
+
+### Complexity breakdown
+
+- standard (2 cards): avg cycles 3.0, avg score 8.5, 0 escalated
+- architectural: 0 this wave → verdict **(insufficient data — accumulating)**
+
+### Finding families
+
+- **an instrument's reach and domain are part of every figure, and both must be
+  measured rather than asserted** — **6 of 7 gating** (CARD-292 c1 F-001, c2 F-201/F-202;
+  CARD-287 c1 F-287-01/-02/-03) → **ALREADY COVERED by ADR-0039/R1, which did not
+  bite.** R1 says it exactly: *"a claim whose control cannot fail is narrative, not
+  coverage."* Two reasons it missed: its `scope` is `{code: ["tests/**",
+  "src/nonogram/**"]}` and **4 of the 7 findings lived outside it** (2 ×
+  `meta/profiling/**`, 1 × `meta/kanban/**`, 1 unfiled); and its *subject* is a
+  guard's coverage claim over a set, not **a figure's instrument**. → **propose a
+  sibling rule, not a duplicate: scope + subject fix.**
+- watch: **a refuted figure must be retracted everywhere it was written** — 1 gating
+  (CARD-292 c1 F-002: four docstrings carried the 306 KB the same round had struck
+  out) plus a near-instance in CARD-287 (a "whole source" claim reinstated **300
+  lines from its own retraction** in one file). Below threshold as a family; the
+  second instance makes it the one to watch next wave.
+- fix-induced share: **2 of 2** gating findings after cycle 1 (F-201 introduced by
+  the orchestrator's own between-round correction, F-202 by fix round 1's F-005
+  correction) — **100 %, on a denominator of two.** Both cards then closed their
+  remaining cycles with zero gating.
+
+### Trend vs Wave 50 (12 waves back — journal gap)
+
+- Quality: 9.0 → **8.5** ↓
+- Cycles: 3.0 → **3.0** → flat, and the **third recorded wave running at max_cycles**
+- Suite: the wave's own headline — **−26.8 %**, the largest single-wave suite
+  improvement in this journal
+
+### Suggestions
+
+- **ADR-0039 needs a sibling rule for figures.** R1 covers guards; nothing covers an
+  instrument that produces a number. Proposed sentence: *a figure committed to code,
+  a card or an artefact names the instrument that produced it, and that instrument
+  must be executable on the host that recorded it and demonstrated to respond —
+  a positive control that it rises and a negative control that it does not rise on a
+  near-miss. A cell that cannot distinguish "the quantity is zero" from "the
+  instrument is blind" is not a measurement.* Scope must include `meta/profiling/**`
+  and `meta/kanban/**`, where most of this wave's figures lived.
+- **python-pro ×1.4 is NOT recommended despite the signal.** Both cards spent 3/3
+  cycles, but neither spent them on the edit: CARD-292's code landed in round 1 and
+  CARD-287's in round 1, and every subsequent cycle went to *how the card described
+  its own measurements*. Calibrating effort up would mis-price the next feature card.
+  The real lesson is the family above, not the estimate.
+- **Fill in `Actual:`.** Two waves running with proxy-only data means the effort
+  scale is being calibrated off cycle counts, which on measurement cards track
+  certification cost rather than work.
