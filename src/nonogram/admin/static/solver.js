@@ -1221,7 +1221,16 @@ function wireCrosshair(container) {
 
   function paintCrosshair([row, col], on) {
     const table = container.querySelector(".player-board");
-    if (table === null) return; // the payload was refused: there is no board
+    // No board to paint on. The branch is DEAD rather than untested, and that
+    // is measured and not assumed (CARD-271's precedent for exactly this):
+    // start() returns before wireCrosshair when readPayload refuses, so the
+    // listeners are never attached to a stage that holds an alert, and a
+    // redraw replaces the table inside one task, so no pointer event can land
+    // between the removal and the insertion. The mutant that deletes this
+    // line leaves all 15 tests of tests/test_puzzle_solver_crosshair.py green
+    // (measured). So its DIRECTION is all there is to get right, and it fails
+    // toward not painting — never toward a half-painted crosshair.
+    if (table === null) return;
     for (const part of crossedParts(table, row, col)) part.classList.toggle("is-crossed", on);
   }
 
