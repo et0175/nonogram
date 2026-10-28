@@ -98,7 +98,10 @@ from nonogram.export.layout import (
     GridRules,
     Layout,
     _device_rule_px,
+    compute_answer_page_layout,
     compute_layout,
+    compute_packed_solved_layout,
+    compute_pair_layout,
     rasterise_rule_px,
     refuse_rasterised_rule,
 )
@@ -1086,6 +1089,89 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
                 ImageDraw.Draw(canvas),
                 replace(frame, width=_device_rule_px(BORDER_PT, DPI)),
             )
+
+    def test_an_answer_tile_carries_the_declared_weights_through_the_same_door(
+        self,
+    ) -> None:
+        """The second page kind ``png._draw_grid`` rules, and G-1's control.
+
+        ``_answer_tile`` and ``_packed_tile_layout`` pass the sheet's
+        ``grid_rules`` into ``_axis_lines``, so the grid lines of a packed
+        answer tile carry the declared weights too — and a tile is ruled by
+        ``png._draw_grid``, the same
+        function the single-puzzle page goes through. Cycle 1's F-008 recorded
+        that nothing asserted the plumbing; this asserts it, and the arm above
+        it is what keeps the weights off the tile's bitmap.
+
+        The claim this test exists for is in the class docstring above — that
+        ``render_answer_page`` reaches the stroker as well — so it is held here
+        rather than left as a figure from a probe.
+
+        **All three tile builders, because they are three pieces of
+        plumbing.** ``_answer_tile``, ``_packed_tile_layout`` and
+        ``_slot_layout`` each pass ``rules=page_spec.grid_rules`` separately,
+        and before this test deleting *any* of them survived the whole derived
+        radius — the packed and two-up arms were measured as survivors in fix
+        round 1 and are why those arms exist. They are not three spellings of
+        one thing: an ``AnswerTile`` carries no clue gutter and is stroked by
+        ``png._draw_grid``, while a packed solved slot and a two-up slot are
+        complete placed :class:`~nonogram.export.layout.Layout`\\ s stroked by
+        ``_stroke_drawing``.
+        """
+        spec = BookPDFGenerator(corpus_book())._puzzle_page_spec(A_PUZZLE_PAGE, None)
+        assert spec.grid_rules == GRID_RULES
+        page = compute_answer_page_layout([(20, 20)] * 4, 4, spec)
+        tile = page.tiles[0]
+        lines = (*tile.vertical_lines, *tile.horizontal_lines)
+        assert lines
+        assert {line.width_pt for line in lines} == {CELL_PT, FIFTH_PT, BORDER_PT}
+        assert {line.grey for line in lines} == {CELL_GREY, HEAVY_GREY}
+        # ... and the real tile draws through the guarded stroker, while a tile
+        # that took a declared figure's device count does not.
+        canvas = Image.new("RGB", (page.width, page.height), "white")
+        png._draw_grid(ImageDraw.Draw(canvas), tile)
+        mutant = replace(
+            tile,
+            vertical_lines=tuple(
+                replace(line, width=_device_rule_px(CELL_PT, DPI))
+                if line.tier == "cell"
+                else line
+                for line in tile.vertical_lines
+            ),
+        )
+        with pytest.raises(ValueError, match="at least 2 device pixels"):
+            png._draw_grid(ImageDraw.Draw(canvas), mutant)
+
+        # The packed solved page's own tile builder, which is separate
+        # plumbing and reaches the other raster stroker.
+        # A 10x10 slot, so the tile really carries all three tiers: the
+        # fifth line at boundary 5 and the border at 0 and 10.
+        ten = ((1,),) * 10
+        packed = compute_packed_solved_layout([(ten, ten)] * 4, 4, spec)
+        assert packed is not None
+        slot = packed.slots[0]
+        slot_lines = (*slot.vertical_lines, *slot.horizontal_lines)
+        assert slot_lines
+        assert {line.width_pt for line in slot_lines} == {
+            CELL_PT,
+            FIFTH_PT,
+            BORDER_PT,
+        }
+        _stroke_drawing(
+            ImageDraw.Draw(Image.new("RGB", (slot.width, slot.height), "white")),
+            slot,
+        )
+
+        # And the two-up page's own slot builder, the third piece of plumbing.
+        pair = compute_pair_layout((ten, ten), (ten, ten), spec)
+        assert pair is not None
+        upper_lines = (*pair.upper.vertical_lines, *pair.upper.horizontal_lines)
+        assert upper_lines
+        assert {line.width_pt for line in upper_lines} == {
+            CELL_PT,
+            FIFTH_PT,
+            BORDER_PT,
+        }
 
     def test_the_frame_is_guarded_too_and_not_only_the_grids_lines(
         self, hero: Drawn
