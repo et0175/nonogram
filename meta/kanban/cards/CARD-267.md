@@ -15,7 +15,7 @@
 **Wave:** 63
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_crosshair.py, tests/test_admin_design_tokens.py, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_page.py, tests/test_browser_fixture_scope.py , tests/test_puzzle_editor_ui.py <!-- 9th entry added 2026-10-28 at fix round 1: a prose-only de-numbering of the stale ordinal at :759, which THIS CARD made stale by two when it added the fourteenth PAGE_ISOLATION row. No claim change; its 117 tests green at 1ef355c0.  corrected 2026-10-28 by the implementation round: tokens.css REMOVED (it is mirrored verbatim from meta/design/tokens.css and pinned by a test; a derived component value belongs in admin.css beside --player-thin). Four test files ADDED, and the breakdown stated so it is checkable (the earlier wording said "three are registries ... and the third", which miscounts and is self-inconsistent -- corrected 2026-10-28, cycle 1 F-008): TWO are registry joins a new family file is forced into -- tests/test_puzzle_solver_page.py (which holds PAGE_ISOLATION) and tests/test_browser_fixture_scope.py (the ALONE_RECORD sampling, which this card's file postdates); ONE adds a new claim test (tests/test_admin_design_tokens.py, AC-8/G-4); and ONE is the non-weakening accommodation G-6 now permits by name (tests/test_puzzle_solver_marking.py). The Touches LIST itself is correct: 8 declared, 8 in the diff. -->
-**Review score:** 7.0 cycle 1/3 → fix round 1 → awaiting cycle 2
+**Review score:** 7.0 → **9.5 cycle 2/3 CERTIFIED**, zero critical, zero important, one minor
 **Started:** 2026-10-28T07:23:17Z
 **Closed:** —
 **Actual:** —
@@ -513,7 +513,18 @@ are correctly polarised with their own in-test controls; one
 (`test_hovering_adds_no_aria_attribute…`) **had the same defect in the destructive
 direction** and F-006's single line closes both; and one — `assert problems == []`
 — is an empty-vs-empty with **no in-test instrument control**, left in place and
-**named as the one remaining gap of this shape** rather than passed over.
+named rather than passed over. ~~**the one remaining gap of this shape**~~
+**[CORRECTED 2026-10-28, cycle 2 F-001: there are TWO, and the second is inside
+the very test this round reports F-006 as having closed "both" defects of.]**
+`tests/test_puzzle_solver_crosshair.py:877` — `assert …#puzzle-player-announce…
+inner_text() == ""` — is a second bare empty-vs-empty. Cycle 2 proved the halves
+separately: a paint loop that **writes** to the announce region is killed, so the
+direction AC-8 forbids is covered, but a paint loop that **clears** it **survived
+at exit 0**, because the test drives from a board where the region is empty by
+design. The region is **not** vacuous — `solver.js:835-836` writes the solved
+banner and the hint text — so a hover arriving while an announcement is live is
+reachable and unvisited. **No shipped defect**: the crosshair slice contains no
+such write, and the mutant had to add one.
 
 ### F-003 closed by narrowing the claim *and* adding the arm
 
@@ -599,3 +610,82 @@ doors · the full suite, not run by the brief · **whether the four `::after`
 channels are exhaustive for future cell states** — a fifth state painted through an
 `outline` or `box-shadow` would be outside the arm, stated so the narrowed claim is
 not re-read as a wider one.
+
+
+## [CYCLE 2 — 2026-10-28] **9.5 CERTIFIED** — 19 mutants, and the differential was reproduced in both directions
+
+Report: `meta/review/20261028T175955Z-CARD-267-cycle2.yml`. Reviewed `1ef355c0` on
+base `b74e9083`. **19 mutants: 16 killed, 2 survived by design (the differential
+controls), 1 survived as the minor above.** System contract **5 checked, 5 ✓, 0 ✗**
+— every ref verified alive by a `def`/`class` grep rather than by the validator's
+verdict, and deliberately **not** with `git grep -w`. Validator **0 errors / 112
+warnings on both worktree and main, delta zero**, confirming this card's
+retirement of cycle 1's +4.
+
+### The round's strongest claim reproduced — and then strengthened
+
+Fix round 1's differential (MA-2 against the pre-fix test file **survives**, and
+kills against the fixed one) **reproduced exactly**: 15 collected, 15 passed, exit
+0, against the old side's own blob. **Cycle 2 then ran the differential in the
+other direction, which the fix round had not:** M13 against the pre-fix file *also*
+survives 15/15. So *"the fix is what makes it red, and the root cause is the state
+rather than the mutant class"* is now measured on **two independent mutants**
+rather than one.
+
+And the new premise is a genuine per-field control, not a tautology: neutering the
+drive state kills with all seven fields virgin, and an **edge** mutant dropping
+only the trailing Undo kills naming the single offending field (`assert ['redo'] ==
+[]`).
+
+### M7's "moved kill cell" — real, benign, and sharpened
+
+The line number genuinely moved +28 (`:270` → `:298`), but **the assertion is
+byte-identical**, and the pixel arm does *not* intercept M7 — arm 2 reads only the
+empty/maybe channels, which the filled override leaves alone — so the kill falls
+through to the same assertion it always did. Nothing was relocated. The card's
+sentence is true under the line-number reading and cycle 2 notes it would be
+stronger saying so.
+
+### Figures — a fourth door, and a chromatic one
+
+Cycle 2 re-derived rather than re-ran: its own sRGB arithmetic reproduces
+`--player-cross-ink` at mean `0.27095` with a luma gap of `0.64016` against the 0.4
+bar, and CIE L\* agrees **exactly** at 52.25 / 56.74 / 64.80. **New fourth door:
+CIEDE2000 ΔE = 44.55 / 50.89 / 57.92** — a *chromatic* metric none of the three
+earlier doors used, all ~19–25× the 2.3 JND, computed in pure Python so no shared
+code path.
+
+### The three dispositions, judged
+
+**F-007 sound and honestly declined** — body item 6 explicitly permits clearing, so
+declining is *within* the contract, and the mechanism was confirmed in code: the
+redraw fires only `if (isBig)`, and across AC-7's own transition the mirror query
+flips row gutters 2→1 *and* the cell pitch re-fits, so `[row, col]`→screen-point is
+broken by construction. (Cycle 2 **could not re-derive the exact (5,7)→(4,12)**
+without a browser probe it did not build, and says so — the conclusion does not
+rest on that figure.) **F-009 is a genuine premise strengthening, not a
+relabelling**, and it is measured: the leave test now reds **at its new premise**
+with "nothing to clear" instead of later at the leave equality, on the editor cell
+too. It still does not fix the flake, and the card says so. **The editor cells were
+placed on the merits**, confirmed on both halves — and cycle 2 asked the sharper
+question the round had not: *do they measure anything of the editor, or only that it
+loaded?* A mutant reds 10 of 17 cells **including both editor cells**, so they
+genuinely measure the row, the column and both clue axes there.
+
+### Measurement hygiene worth recording
+
+**Every mutant run was a recording pass**, so a short-circuited assert cannot read
+as a surviving mutant. **0 skips in every invocation** (crosshair 17, suite_profile
+410, design_tokens 12, editor_ui 117). One exit-4 from a wrong node id was caught
+and **no verdict claimed from it**. "Comment-only `src/`" was verified
+**mechanically** — both files code-identical to base after comment stripping —
+rather than by reading the diff.
+
+### What the merge gate still owes
+
+1. **The owner's eyeball on a real render.** The Design context asks for it by name
+   and none has been seen. Four doors of figures now agree, but an instrument
+   reading pixels is not an eyeball, and `--color-surface-hover` over
+   `--color-accent` is the one thing only an eyeball settles.
+2. **The full suite against a base re-merged from main.**
+3. Nothing else.
