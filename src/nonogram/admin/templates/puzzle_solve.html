@@ -140,6 +140,18 @@
   board. It is a view setting only: it changes no board state, is never
   saved, and solver.js resets it to 100% on every page load.
 
+  Crosshair (CARD-267, owner decision 2026-10-22): the row and the column of
+  the cell the pointer is on are tinted, and so are their clue boxes, so the
+  gaze can travel from a cell to its clues and back without sliding onto a
+  neighbouring line. Nothing of it is rendered here and nothing of it is a
+  control: no element, no toggle, no setting. It is Zoom's class of thing and
+  LESS than Zoom — it changes no board state, is never saved, is not even a
+  setting that could be, and a fresh load shows none of it until a pointer
+  arrives. solver.js puts one class, .is-crossed, on cells and clue boxes
+  that are already there (admin.css colours it); it adds no ARIA and no
+  announcement, because it only repeats where the pointer already is, so what
+  a screen reader reads per cell and per clue is exactly what it read before.
+
   Progress (CARD-187): "Progress: N%" (#puzzle-player-progress) is the
   element after the hint counter in the DOM. It is NOT a live region (no
   role, no aria-live, and neither wrapper has one): the percent changes on

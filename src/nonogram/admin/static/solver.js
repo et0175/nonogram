@@ -368,6 +368,62 @@
 //             already active, is ignored outright. Mouse pointers never
 //             reach any of this (rule f — only "touch"/"pen" pointerTypes
 //             are tracked in `touchPoints`/`touchStartCell` at all).
+//
+// CROSSHAIR (CARD-267, owner decision 2026-10-22, player-convenience session:
+// "highlight row/column for selected cell so that the gaze don't slide
+// away"). The row and the column of the cell the player's attention is on are
+// tinted, and their clue boxes with them, so the eye can travel from a cell
+// to its clues and back without sliding onto a neighbouring line.
+//
+// RENDERING ONLY, and less even than Zoom above — Zoom is at least a
+// setting, this is not. One class, `.is-crossed`, on elements that are
+// already on the page: no new element, no ARIA (it repeats where the pointer
+// already is, so a live announcement would be noise and a screen reader must
+// read each cell and clue exactly as before), no `data-state` touched,
+// nothing in a stroke, in the undo history or in the save, and no
+// solver_state.js involvement at all — `serializeState` cannot see it
+// (ADR-0038/R4; CARD-267 G-5). No request is made for it either: nothing
+// here fetches, and a pointer move is not an input (ADR-0038/R2).
+//
+// WHICH CELL carries it (wireCrosshair below):
+//   mouse/pen  the cell under the pointer, from `pointermove` (and from
+//              `pointerdown`, which the touch rule below needs and a mouse
+//              press harmlessly shares — it names the cell already named by
+//              the move that got the pointer there). It clears when
+//              the pointer LEAVES the stage, and only then: a pointer that is
+//              over the board but not over a cell — a clue box, the stage's
+//              own padding, the gutter corner — keeps the crosshair where it
+//              was, which is the point of the card. Looking from a cell to
+//              its own clue must not put the line out. (Nor does it move the
+//              line TO that clue's row: hovering a clue box lights nothing,
+//              which the card records as out of scope.)
+//   touch      the cell under the finger, from `pointerdown` and through
+//              every move of the gesture, and it STAYS there after
+//              `pointerup`. A phone has no hover, so a crosshair that left
+//              with the finger would never be seen between taps. This is the
+//              one place the pointer TYPE is read, and it is read in the
+//              leave handler rather than the move handler: a touch pointer's
+//              release fires `pointerleave` at once, so a leave that did not
+//              exempt touch would undo every touch crosshair the instant it
+//              was made.
+//   load       nothing is crossed until a pointer arrives.
+// Exactly one row and one column carry it at a time, by construction: the
+// old one is taken off before the new one goes on, and the position is held
+// as a single [row, col] or null.
+//
+// WHAT IT COSTS per move: one hit test (cellUnder, as marking already pays
+// per move of a gesture) and, only when that answers a DIFFERENT cell,
+// crossedParts twice — the old line pair off, the new line pair on. A move
+// inside one cell does nothing at all, and nothing here ever redraws the
+// board.
+//
+// A REDRAW (a mirror breakpoint, a resize, a zoom rung — see redraw() in
+// start()) replaces every cell and every clue box, so no painted class can
+// survive one. What would survive is this closure's MEMORY of where the
+// crosshair was, and a remembered position with nothing painted is exactly
+// the half-painted crosshair the card refuses: the next move onto that same
+// cell would take the "same cell, nothing to do" return and paint nothing.
+// So redraw() calls forget(), and the next pointer event paints afresh.
 
 import {
   EMPTY, FILLED, MAYBE, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
@@ -883,6 +939,13 @@ function start() {
     // collapses, mid-solve — and "Hints: N" survives a redraw, so the
     // highlight the reader paid for has to survive it too.
     showHint(hintedAt);
+    // CARD-267: and the crosshair is the other way round — the hinted CELL
+    // outlives the elements that showed it, the crosshair does not. Every
+    // cell and clue box it was painted on has just been replaced, so there
+    // is nothing stale on screen; what has to go is the REMEMBERED position,
+    // or the next pointer move onto that same cell would read "already
+    // there" and paint nothing (see CROSSHAIR at the top of this file).
+    crosshair.forget();
     showProgress(null);
     marking.refresh();
   }
@@ -924,6 +987,12 @@ function start() {
     // anchored scroll, and it records nothing (CON-021).
     zoomed: () => keepCluesInView(),
   });
+  // CARD-267: the crosshair's own pointer listeners, on the same stage and
+  // wired once for the same reason. Constructed before the first redraw()
+  // because redraw() calls forget() on it, exactly as it calls
+  // marking.getZoom(); it takes no `player` callback at all, because a
+  // crosshair reads no board (G-5).
+  const crosshair = wireCrosshair(stage);
   redraw();
   // CARD-193: the mirror follows the viewport, not a redraw of its own
   // accord. CARD-212: the gutter layout follows it too — the room for a
@@ -1113,6 +1182,87 @@ function cellUnder(container, x, y) {
 
 function isAt(position, [row, col]) {
   return position[0] === row && position[1] === col;
+}
+
+// The elements the crosshair for board cell (row, col) marks (CARD-267; see
+// CROSSHAIR above): that row's cells, that column's cells, and the clue
+// boxes of row `row` and of column `col`. The clue boxes are selected by
+// AXIS + data-line and never by DOM order, so on an axis a big board doubled
+// (CARD-212) BOTH twins come back — the same rule, for the same reason, that
+// clueNumbersOf follows for the circles: a selector keyed on data-line
+// cannot reach one twin and miss the other.
+//
+// The cell at (row, col) itself is in both cell sweeps. classList.toggle
+// with an explicit second argument is idempotent, so being listed twice
+// costs one no-op and no correctness.
+function crossedParts(table, row, col) {
+  return [
+    ...table.querySelectorAll(`td.player-cell[data-row="${row}"]`),
+    ...table.querySelectorAll(`td.player-cell[data-col="${col}"]`),
+    ...table.querySelectorAll(`th.player-clue.is-row[data-line="${row}"]`),
+    ...table.querySelectorAll(`th.player-clue.is-col[data-line="${col}"]`),
+  ];
+}
+
+// Attach the crosshair to `container` — the player's stage, for exactly
+// wireMarking's reason: a redraw replaces the table, so the listeners go on
+// the element that survives one and the live table is read fresh on every
+// event. Returns { forget }, which redraw() calls (see CROSSHAIR above).
+//
+// Marking is not touched by any of this (CARD-267 G-6). These are listeners
+// of their own on the same element: they call no `player` callback, they
+// read no board, they never preventDefault and never stop propagation, so
+// every handler wireMarking registered sees exactly the events it saw
+// before, in the same order, with the same `defaultPrevented`.
+function wireCrosshair(container) {
+  // Where the crosshair is, as [row, col], or null. A CELL and not an
+  // element, for showHint's reason: a redraw replaces every element.
+  let crossed = null;
+
+  function paintCrosshair([row, col], on) {
+    const table = container.querySelector(".player-board");
+    if (table === null) return; // the payload was refused: there is no board
+    for (const part of crossedParts(table, row, col)) part.classList.toggle("is-crossed", on);
+  }
+
+  // Move the crosshair to `position` ([row, col]). A move that lands on the
+  // cell it is already on does nothing — no DOM write at all, which is what
+  // makes a pointer wandering inside one cell free.
+  function moveTo(position) {
+    if (crossed !== null && isAt(position, crossed)) return;
+    if (crossed !== null) paintCrosshair(crossed, false);
+    crossed = position;
+    paintCrosshair(crossed, true);
+  }
+
+  function clear() {
+    if (crossed === null) return;
+    paintCrosshair(crossed, false);
+    crossed = null;
+  }
+
+  // `pointerdown` as well as `pointermove`, so a touch TAP — which can reach
+  // pointerup without a single move — leaves the crosshair on the cell it
+  // tapped, and so a gesture is crossed from the moment it starts.
+  const follow = (event) => {
+    const position = cellUnder(container, event.clientX, event.clientY);
+    if (position !== null) moveTo(position);
+  };
+  container.addEventListener("pointerdown", follow);
+  container.addEventListener("pointermove", follow);
+  container.addEventListener("pointerleave", (event) => {
+    // Touch is exempt, and that exemption is the whole of the touch rule
+    // (see CROSSHAIR above): a released touch pointer leaves the stage
+    // immediately, so without this the crosshair would be gone before the
+    // finger was off the glass.
+    if (event.pointerType === "touch") return;
+    clear();
+  });
+
+  // Called by redraw(), which has just replaced every element the crosshair
+  // was painted on; there is nothing to unpaint, only the position to
+  // forget. See CROSSHAIR above for why forgetting it is the requirement.
+  return { forget: () => { crossed = null; } };
 }
 
 // Attach pointer, tool, history and keyboard input to `container` (the

@@ -1263,6 +1263,127 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "hints, undo/redo aria, localStorage — is byte-identical across a "
         "zoom, five pans and a zoom back",
     ),
+    # CARD-267's crosshair: a new file of the family, declared here and in
+    # PAGE_ISOLATION like the thirteenth was (CARD-270).
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_RowColumnAndCluesLight::"
+    "test_the_hovered_rows_column_and_clues_carry_the_marker": (
+        "CARD-267",
+        "AC-1: hovering (r, c) marks row r, column c and their clue boxes — "
+        "asserted as an equality against the WHOLE board, so the 'and nothing "
+        "else' half cannot drift out of it",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_RowColumnAndCluesLight::"
+    "test_the_four_cell_states_stay_apart_under_the_tint": (
+        "CARD-267",
+        "Card item 5: all four data-state looks stay plainly apart under the "
+        "tint — three light states by their ::after mark, filled by its "
+        "ground, measured in computed pixels on one hovered row",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_RowColumnAndCluesLight::"
+    "test_the_tint_changes_the_ground_of_both_a_cell_and_a_clue_box": (
+        "CARD-267",
+        "AC-1's class has to be worth something: the computed ground of a "
+        "crossed cell and a crossed clue box changes and matches, while an "
+        "uncrossed pair read in the same breath does not move",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_FollowsThePointer::"
+    "test_a_move_clears_the_old_lines_and_marks_the_new": (
+        "CARD-267",
+        "AC-2: a move to another cell clears the old row/column/clues and "
+        "marks exactly the new ones, with both snapshots compared against "
+        "independently derived expectations",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_FollowsThePointer::"
+    "test_a_move_inside_one_cell_writes_nothing": (
+        "CARD-267",
+        "Card item 4: a move that stays inside one cell costs no DOM write at "
+        "all, counted by a MutationObserver that is then made to see a real "
+        "write, so zero is a reading and not a blindness",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_LightsBothTwinsOnADoubledBoard::"
+    "test_a_doubled_board_lights_two_row_boxes_and_two_column_boxes": (
+        "CARD-267",
+        "AC-3: on CARD-212's doubled gutters BOTH twins of the row clue and "
+        "BOTH twins of the column clue carry the marker, because the parts "
+        "are selected by axis plus data-line and never by DOM order",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_TouchKeepsTheLastCell::"
+    "test_a_touch_drag_crosses_the_finger_and_the_crosshair_stays[chromium]": (
+        "CARD-267",
+        "AC-4: a real CDP touch drag crosses the cell under the finger, still "
+        "marks exactly as today, and leaves the crosshair on the last touched "
+        "cell after touchEnd — a phone has no hover to bring it back",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_TouchKeepsTheLastCell::"
+    "test_a_single_tap_leaves_the_crosshair_on_the_tapped_cell[chromium]": (
+        "CARD-267",
+        "AC-4's other half: a tap can reach pointerup without one "
+        "pointermove, which is why the crosshair follows pointerdown too",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_ClearsWhenThePointerLeaves::"
+    "test_leaving_the_stage_clears_it_and_a_clue_box_does_not": (
+        "CARD-267",
+        "AC-5 and its boundary: leaving the stage clears the crosshair, while "
+        "a pointer over a clue box keeps it — the second is what makes the "
+        "first a boundary rather than a blanket",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_ClearsWhenThePointerLeaves::"
+    "test_entering_and_leaving_without_ever_touching_a_cell_is_quiet": (
+        "CARD-267",
+        "AC-5's reachable error path: a pointer crossing a clue gutter and "
+        "going out again leaves with nothing to clear, which is a TypeError "
+        "in a pointer handler unless the empty case is guarded",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_IsPureView::"
+    "test_a_long_hover_sequence_changes_no_state_no_history_and_no_save": (
+        "CARD-267",
+        "AC-6: forty hovers change no data-state, no undo/redo aria, no "
+        "counter, no clue circle and no localStorage entry — one snapshot "
+        "compared whole, so a single changed field reds it",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_IsPureView::"
+    "test_hovering_issues_no_request": (
+        "CARD-267",
+        "G-3 / ADR-0038/R2: no request per mark and none per hover either, "
+        "with the listener proved against the page's own loading requests "
+        "before zero over the hovers is believed",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_IsPureView::"
+    "test_the_state_module_knows_nothing_of_the_crosshair": (
+        "CARD-267",
+        "G-5 structural: solver_state.js mentions nothing of the crosshair "
+        "and the renderer's crosshair code imports nothing — a crosshair that "
+        "needed the state module would be designed wrong (ADR-0038/R4)",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_NoStaleMarkerAfterRedraw::"
+    "test_a_redraw_clears_the_marker_and_the_same_cell_crosses_again": (
+        "CARD-267",
+        "AC-7: a redraw leaves no marker, and re-hovering the SAME cell "
+        "crosses it again — the second half is the sharp one, since a "
+        "remembered position with nothing painted paints nothing",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_AddsNoAria::"
+    "test_hovering_adds_no_aria_attribute_and_announces_nothing": (
+        "CARD-267",
+        "AC-8's a11y half: hovering adds no ARIA attribute anywhere in the "
+        "player and writes nothing to the live region, read element by "
+        "element over the whole player in document order",
+    ),
 }
 
 

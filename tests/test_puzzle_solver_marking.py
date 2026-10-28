@@ -282,6 +282,16 @@ class TestSolverMarking_ClickCycles:
         seen = []
         for _ in range(3):
             cell.click()
+            # CARD-267: a click leaves the pointer ON the cell it clicked, and
+            # the crosshair tints the cell under the pointer — so read back
+            # here, this measured the CROSSED look of all three marks and not
+            # the marks themselves (measured: the filled ground came back as
+            # color(srgb 0.243 0.263 0.307), --player-cross-ink, instead of
+            # --grid-ink). The claim is unchanged — three clicks are drawn
+            # black, dot, blank — and is read where it is made, with the
+            # pointer off the board. Taking the crosshair into the expected
+            # values instead would have made this test assert the crosshair.
+            browser_page.mouse.move(1, 1)
             seen.append((_at(_states(browser_page), 4, 6), cell.evaluate(_LOOK)))
 
         assert [state for state, _ in seen] == [F, E, U]
@@ -1421,6 +1431,7 @@ _STRIPPED = """() => document.body.outerHTML
   .replace(/ data-state="[a-z]+"/g, '')
   .replace(/ aria-(pressed|disabled)="(true|false)"/g, '')
   .replace(/ is-circled(?=[" ])/g, '')
+  .replace(/ is-crossed(?=[" ])/g, '')
   .replace(/(data-player-progress="?"?>)\\d+%</, '$1<')"""
 
 
@@ -1434,7 +1445,17 @@ class TestSolverMarking_RevealsNoCorrectness:
     circles are a read-only view of the marks, not of correctness.
     Narrowed again by CARD-187: the progress % reveals progress by the owner's
     choice, like the error count (only the count inside
-    ``[data-player-progress]`` is stripped)."""
+    ``[data-player-progress]`` is stripped).
+
+    Narrowed again by CARD-267, exactly as CARD-188 narrowed it: a cell's and
+    a clue box's ``is-crossed`` class is stripped too. The crosshair says
+    where the POINTER is — it is a function of the pointer alone, never of the
+    board and never of the solution — and this test's ``before`` is taken
+    before any pointer has touched the board while its ``after`` is taken with
+    the pointer parked wherever the last drag ended, so without this the
+    snapshot would differ by the crosshair of that cell and by nothing else
+    (measured: the only differing bytes were ``is-crossed`` on one row, one
+    column and their clue boxes)."""
 
     def test_marking_all_but_the_last_solution_cell_changes_nothing_but_cell_states(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
