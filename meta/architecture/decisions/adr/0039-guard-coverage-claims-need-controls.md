@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-10-17
 **Deciders:** Puzzle Creator (project owner)
-**Revised:** —
+**Revised:** 2026-10-28 (R4 added — the family's fourth measurement, on figures rather than guards)
 **Migration:** on-touch
 **Pattern:** —
 **API-Posture:** —
@@ -141,6 +141,15 @@ amount of rewording gives a brief a failing test.
   and ten review cycles into three standing rules with executing checks. Supersedes, in substance,
   the 2026-10-05 promotion of the same family into the kanban implementation brief, which carried
   no check and whose wording was satisfiable while the defect persisted.
+- 2026-10-28: **R4 added** — promotes the same family's fourth measurement, this time on
+  **figures rather than guards**, from wave 62's retrospective. R1 already said the sentence
+  (*"a claim whose control cannot fail is narrative, not coverage"*) and **did not bite**: of
+  wave 62's 7 gating findings, 6 were this family and **4 lived outside R1–R3's scope** — two
+  in `meta/profiling/**`, one in `meta/kanban/**`, one unfiled — while the three inside
+  `tests/**` were prose claims about numbers, not a guard's coverage claim over a set. So the
+  cause was scope **and** subject, and the remedy is a sibling rule rather than a duplicate or
+  a third scope widening. Provenance: CARD-292 cycle 1 F-001/F-002, cycle 2 F-201/F-202;
+  CARD-287 cycle 1 F-287-01/-02/-03.
 
 ## Scope revision — 2026-10-19
 
@@ -158,6 +167,47 @@ scopes across the model on the same day. On a single-context project that key ma
 before the `code:` glob was ever consulted (`system_rules.py`: the contexts branch short-circuits the
 glob branch), so every precisely-scoped rule was behaving as package-wide. Removing it is what makes
 the authored globs load-bearing — including these two.
+
+## Promotion — 2026-10-28: the family's fourth measurement, on figures
+
+The 2026-10-19 revision above widened R1–R3 from `tests/**` because waves 46–47 measured that
+the costly instances were claims in **source docstrings**. Wave 62 is the same discovery one
+layer out: the costly instances were **figures in artefacts**, and they were costly in a
+specific way — they were not wrong about the code, they were wrong about *how they had been
+measured*.
+
+What it cost, measured rather than suspected. Two cards, six review cycles, **7 gating findings
+of which 6 are this family**:
+
+| finding | the claim | what it actually was |
+|---|---|---|
+| CARD-292 c1 F-001 | a host cell reported through `pgrep -fc` | **not a flag on this platform** — exit 2, and an *empty* cell inside `$(...)` |
+| CARD-292 c2 F-201 | its replacement, `pgrep -f 'bin/python -m pytest'` | **blind** — reads 0 whether or not pytest runs, because the venv's framework python re-execs through `Python.app`; and false-*positive* on a wrapper naming it. Wrong in both directions |
+| CARD-292 c2 F-202 | "the right counts" | right counts, **wrong domain** — all 108 analyses were over planted texts, none over the real module |
+| CARD-287 c1 F-287-01 | `get_source_segment` "re-splits the **whole** source" | a **bounded prefix**, mean 81.1 % — and the claim sat **300 lines from its own retraction in the same file** |
+| CARD-287 c1 F-287-02 | "predicted 15.04, measured 15.19 — **1.0 %**" | **two compensating errors**: an over-measuring instrument subtracted from a *superseded* baseline. Honest figure 6–8 % |
+| CARD-287 c1 F-287-03 | the capture is "the guard's **entire** observable answer" | **seven axes missing**, and "ten configurations" was 12 calls of which 4 were captured in full |
+
+Three further facts decided the rule's wording rather than being decoration:
+
+- **An instrument that cannot rise is indistinguishable from a quiet box.** `pgrep -fc`'s
+  successor reported `0` for an entire session and nobody could tell, because *every* reading was
+  0 and the box genuinely was quiet. What closed it was a **truth table with both controls** —
+  five cases including a `zsh -c` whose own argv merely *mentions* pytest — now carried in
+  `meta/kanban/config.yml`. Hence R4's positive **and** negative control.
+- **A ratio's halves can come from different instruments.** CARD-292's published 9.9× speed-up
+  divided a *profiled* numerator by an *unprofiled* denominator; through one door it is 8.0×.
+  CARD-287 then repeated the shape at smaller scale. Hence R4's domain clause.
+- **Three stations quoted three points for one quantity.** Cycle 2 said 22.0 %, fix round 2 said
+  21.2 %, cycle 3 measured 21.30 / 21.52 / 21.86 and established the honest answer is a **band**,
+  21.2–22.0 %, because the denominator carries 5.5 % run-to-run spread. A point estimate for a
+  quantity with that spread is the defect, not any one of the points.
+
+**The second family stays unpromoted and is recorded here as the one to watch**: *a refuted figure
+must be retracted everywhere it was written.* One gating instance (four docstrings carrying the
+306 KB that the same round had struck out) plus CARD-287's reinstatement. R4's last sentence states
+it, but it has not yet been paid for twice in two cards — if it recurs it earns its own rule rather
+than a clause.
 
 ## Rules
 
@@ -207,5 +257,27 @@ the authored globs load-bearing — including these two.
   # reason. CARD-239 cycle 2 is the counter-example this rule exists for: the fix for
   # a too-narrow predicate added an exemption that re-opened the same route one hoist
   # later, and its controls tested only what it exempted. Same stated reach as R1.
+  severity: mandatory
+- id: ADR-0039/R4
+  statement: >-
+    A figure is a claim, and the instrument that produced it is part of it. Every
+    figure committed to code, to a card or to an artefact names its instrument, and
+    that instrument must be executable on the host that recorded the figure and
+    demonstrated to respond to what it measures: a POSITIVE control that it rises,
+    and a NEGATIVE control that it does not rise on a near-miss. A reading that
+    cannot distinguish "the quantity is zero" from "the instrument is blind" is not
+    a measurement. A figure's DOMAIN — which population, which revision, which arm —
+    is part of the figure; a ratio whose halves come from different instruments,
+    different runs or different baselines is not a ratio. A figure recomputed and
+    refuted is retracted everywhere it was written.
+  scope: {code: ["tests/**", "src/nonogram/**", "meta/profiling/**", "meta/kanban/**"]}
+  check: {kind: review-lens}
+  # NO EXECUTING CHECK TODAY, stated rather than implied: nothing in the tree can
+  # decide whether a committed number names a live instrument, so a test ref here
+  # would read as mechanically checked while checking nothing. The lens carries it
+  # (decompose 6c4 writes it into a card's System contract; forge:review Step 8h
+  # holds the diff to it) and **CARD-304 owes the flip** to an executing check over
+  # the artefact directories. The scope is WIDER than R1–R3 on purpose: wave 62
+  # measured 4 of its 7 gating findings OUTSIDE `tests/**` + `src/nonogram/**`.
   severity: mandatory
 ```
