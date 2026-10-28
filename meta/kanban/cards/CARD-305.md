@@ -15,7 +15,7 @@
 **Wave:** 67
 **Depends on:** —
 **Touches:** migrations/versions/017_book_divider_pages.py, src/nonogram/db/models.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_divider_pages_option.py
-**Review score:** 7.5 cycle 1/3 → fix round 1 → awaiting cycle 2
+**Review score:** 7.5 → **8.5 cycle 2/3 CERTIFIED**, zero critical, zero important
 **Started:** 2026-10-28T12:30:00Z
 **Closed:** —
 **Actual:** —
@@ -131,10 +131,22 @@ their dividers.
   not in `create_spec` (which deliberately does **not** default this field the
   way it defaults the ink mode), not in the route.
 
-## What this card owes the architect, and does not do itself
+## What this card owed the architect — **LANDED in fix round 1, not owed**
 
-**AC-254 and AC-292 now state behaviour that is conditional**, and this card
-does not edit the registry:
+> **CLEARED 2026-10-28 (cycle 2 F-004).** Everything below was written when this
+> card did not touch the registry. **Fix round 1 edited it** — 122 lines: EC-029
+> quantified, FR-041 and FR-042 bodies made conditional, `given` clauses on
+> AC-253/254/292/293, and **AC-400..AC-405** added with all six refs resolving to
+> real definitions. The gap was also **wider than the two entries named here** —
+> cycle 1 found five further entries, EC-029 the heaviest, being a standing
+> engineering constraint whose property test always built on the default. The
+> section is kept rather than deleted because the owed→landed trail is what makes
+> the registry edit auditable; read it as history. It sits above the cycle
+> sections, so without this note a reader asking "what does this card owe the
+> architect" meets a landed item first.
+
+**AC-254 and AC-292 state behaviour that is conditional**, and at the time this
+was written the card did not edit the registry:
 
 - **AC-254** — "each divider page's only content is its level's name" is still
   exactly true *when the book prints them*; the criterion needs a clause
@@ -409,7 +421,7 @@ drawing on **different sides** (page 6 left with dividers, page 5 right without)
 without which the parity cell would pass for a generator that ignored the setting
 when numbering.
 
-**Killed by exactly one cell out of the file's 88** — the `[False]` parity cell,
+**Killed by exactly one cell out of the file's 89** — the `[False]` parity cell,
 and nothing else — for `first_answer_page`'s `(1 if self.divider_pages else 0)` →
 `1`. That is precisely the defect the finding said nothing would catch: answer
 pages keep their numbering while four pages are gone, so they are drawn on the
@@ -500,11 +512,25 @@ baseline-for-baseline rather than baseline-by-assertion. An intermediate reading
 AC-400 and AC-402, closed by **splitting** them into AC-400/404 and AC-402/405 —
 a better shape, not a suppression.
 
-**Declared and unexplained:** the *main* worktree's validator reads **112** where
-the branch reads **113** on a byte-identical `requirements.yml` (sha256 equal both
-sides). The differing warning is the pre-existing INV-013 `check_ref_missing` for
-`TestGuideSpread_SitsOnPagesTwoAndThree`, a symbol absent from **both** trees'
-`tests/`. Different worktree, different cwd; not chased.
+**RETRACTED AND EXPLAINED (cycle 2 F-001).** This paragraph claimed the 112-vs-113
+split sat on a **byte-identical** `requirements.yml` with "sha256 equal both
+sides". **That is false and was checkable**: main's copy hashes `0408c9f4…` and the
+branch's `9c761cf8…`, differing by 122 lines — this card's own registry delta.
+Main carries none of this card's commits, so the two files *cannot* be identical.
+The orchestrator re-measured both hashes before retracting this.
+
+The real cause is exact, reproduced on both sides, and **wider than this card**:
+the differing warning is the pre-existing INV-013 `check_ref_missing` for
+`TestGuideSpread_SitsOnPagesTwoAndThree`, and the validator decides ref existence
+with `git grep -w` excluding only `:(exclude)meta/architecture` and
+`:(exclude)*.md` — so **`meta/review/**.yml` is inside the search domain**. In
+main that symbol is found in `meta/review/20261028T142020Z-CARD-305-cycle1.yml`
+(exit 0); in the worktree there is no match (exit 1). **This card's own cycle-1
+report resurrects the dead ref**, which is why main reads one warning fewer. The
+branch's **113** is the honest number, and a cycle's report can flip the next
+cycle's count in either direction. Recorded in `meta/kanban/backlog.md` as its own
+item, since it quietly weakens `kind: test` — the mechanism the board repaired
+across ADR-0042's four checks on 2026-10-25.
 
 ### Still could not establish
 
@@ -514,3 +540,100 @@ domain and neither confirms nor refutes it. The card's **rival-pytest 0/0** figu
 — it names no instrument that can be located or re-run. **No render was captured
 and no page eyeballed by a human**; the parity cell reads real rendered ink, but
 that is an instrument reading pixels, not the owner's eye on a proof.
+
+
+## [CYCLE 2 — 2026-10-28] **8.5 CERTIFIED** — every cycle-1 finding closed by measurement, and the orchestrator's board call on three prose defects
+
+Report: `meta/review/20261028T171709Z-CARD-305-cycle2.yml`. Reviewed `a05956b2`.
+**10 mutants, 10 killed.** Zero critical, zero important. System contract: 56
+rules, 14 ✓, 41 ⚠, 1 ✗ (ADR-0039/R4, the prose defects below).
+
+**All four cycle-1 findings closed in substance, not presence:**
+
+- **F-001** — both deletion mutants red the new cell and **nothing else**, in both
+  storage modes, with the from-OFF cell passing under each. The fix round's
+  `:1005` cite was right and cycle 1's `:1003` was wrong.
+- **F-002** — EC-029's existing `kind: test` ref genuinely sweeps both states:
+  M3 and M4 each red the property test **through the off arm's own assertion**
+  (`tests/property/test_book_order.py:341`), not through the pre-existing on arm.
+  The `DIVIDERS_OFF` fixture's "two arms differ in one setting and nothing else"
+  was probed independently and holds. All six new refs resolve to real
+  `class`/`def` definitions, not docstring mentions.
+- **F-003** — the exactness claim is **true**: M5 reds **1 of 89** cells, the
+  `[False]` parity cell and nothing else, and the class has a real edge mutant
+  (M9 reds all three). `MEASURABLE_PAGES = 10` is asserted inside the cell, so a
+  loop that stopped finding pages would fail.
+- **F-004/F-005** — the two-door asymmetry is intended, controlled and asserted
+  as "the EDGE" across an 11-case parametrisation; three mutants pin it. An
+  unrecognised value really reaches the route's **existing** flash path, executed
+  outside `tests/`: one alert, HTML-escaped by Jinja (no injection), status 200,
+  stored choice unchanged. **F-006's latency is safe** — all four production
+  callers pass `toc_pages` (`book_pdf_generator.py:7093/7275/7289`,
+  `book_kdp.py:559`).
+
+**Two residuals the fix round declared unclosed are now closed**, and one of them
+did not matter: `page_is_right_hand → return True` is killed by **9 cells across
+4 files**, including INV-013's own property test — the fix round's three-file
+selection simply did not include them. And the `rank_durations.py` guard is green,
+with the "necessarily red at pre-fix HEAD" claim established **by construction**
+rather than by memory.
+
+### The orchestrator's board call on three prose defects
+
+Cycle 2 filed three refuted figures/cites as **Minor** while flagging that Step 8h
+prescribes Important as the minimum for a mandatory rule (ADR-0039/R4), and
+explicitly left the disposition to the board rather than deciding it. **Ruled:
+blocking before the merge gate, not blocking the certification.** The score is
+8.5 either way; the claims were false and checkable, which is ADR-0039/R1's own
+family and the largest single source of gating findings on this board. All three
+are fixed above and in `373ca08b`:
+
+1. the "byte-identical `requirements.yml` / sha256 equal both sides" claim —
+   **false**, re-measured by the orchestrator (`0408c9f4…` vs `9c761cf8…`, 122
+   differing lines), retracted and replaced with the measured cause;
+2. "the file's 88" — the file holds **89** (`--collect-only` says 89; 88 was the
+   *survivor* count in the M5 run);
+3. the new cell's docstring cited `app.py:3715` — its own commit moved the guard
+   to **:3724**.
+
+**These three edits ship uncertified**, and that is said plainly rather than
+glossed: they were applied on the final reviewer's own prescription, so "the
+reviewer told me to" is not "a reviewer saw the result". What the merge gate alone
+establishes about them is that the suite is green with them in; nothing mutates
+them, because they are prose and a line number.
+
+**Carried, not closed (cycle 2 F-005):** the route-refusal cell's *first*
+assertion is tautological on this page — `DIVIDER_PAGES_COLUMN in response` is
+satisfied by every render, because the template renders that string as `name=`
+and `id=`. The docstring positions it as a flash check. Its **second** assertion
+is load-bearing and genuinely strong (M7 and M8 both red the cell through it), so
+nothing is unguarded; the fix is to match `alert-danger`/`role="alert"` or the
+measured phrase "must be empty or a boolean", which no plain render produces.
+
+### Out of scope, and the second one is board-level
+
+- **AC-292's check ref is DEAD** — `TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey`
+  resolves nowhere in `tests/`. Strictly pre-existing (it is in main's 112-warning
+  baseline) and the fix round's "no dead refs" claim was correctly scoped to the
+  six refs it wrote — **but F-002's remediation amended that very entry's
+  `given`**, so FR-042's on-state SOLUTIONS criterion now reads as
+  narrowed-and-checked while nothing checks it. The off state (AC-403) does have a
+  live ref. AC-268/269 share the shape.
+- **`git grep -w` is a weaker check than it reads, and this board's own naming
+  convention defeats it.** EC-029's registry ref is
+  `PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence`; the real symbol is
+  `test_PropertyTest_BookOrder_…`, and `-w` cannot match it because `_` is a word
+  character — the only `-w` hit is a docstring. The test exists and was proven to
+  red (M3/M4), so nothing here is broken, but every "verified with `git grep -w`"
+  on a `PropertyTest_` name is softer than it sounds.
+
+### Could not establish, in cycle 2's own words
+
+The card's **1502 over 22 files** (still unenumerated, so its domain cannot be
+reconstructed) · the card's **rival-pytest 0/0** (names no locatable instrument) ·
+**fix round 1's 1982 over 25 files** (its two selections are named only by
+description, never by file list; 1147 over 14 is a different domain and neither
+confirms nor refutes it) · **migration 017 on Postgres this cycle** (fix round 1's
+probe stands as a single-domain measurement, un-re-derived) · **whether any page of
+an option-off book looks right to a human — no render captured and no page
+eyeballed in either cycle.**
