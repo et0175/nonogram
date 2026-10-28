@@ -15,7 +15,7 @@
 **Wave:** 67
 **Depends on:** —
 **Touches:** migrations/versions/017_book_divider_pages.py, src/nonogram/db/models.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_divider_pages_option.py
-**Review score:** **7.5 cycle 1/3, NOT CERTIFIED** (min 8) — 0 critical, 2 important, both about evidence rather than behaviour
+**Review score:** 7.5 cycle 1/3 → fix round 1 → awaiting cycle 2
 **Started:** 2026-10-28T12:30:00Z
 **Closed:** —
 **Actual:** —
@@ -344,3 +344,173 @@ no instrument that could be located or re-run. **Migration 017 on Postgres.**
 **No render was captured and no page eyeballed** (G-2 verified statically
 instead — `create_divider_page` is not in the diff). Seven admin route suites and
 the Playwright mobile file were not run.
+
+
+## [FIX ROUND 1 — 2026-10-28] `daaa2f2f` — the flagship control can fail, and the registry is honest
+
+7 files, +610/−40. F-001..F-006 closed; F-007 untouched as out of scope, but **its
+one open question was established by measurement** (below).
+
+**The card's diff figure, stated once and correctly: 17 files, +1951/−42** against
+merge-base `9a61b928`. The "22" was never the diff — it is a *gate selection* size,
+and it had propagated into the card, the dispatch brief and cycle 1's brief before
+anyone measured it.
+
+### F-001 closed — and the fix is a second cell, not a second leg
+
+The survival was reproduced first (both deletion mutants **pass** the shipped cell
+at HEAD), then the discriminating case was added as **its own cell** rather than a
+leg inside the existing one — because a test short-circuits at its first failing
+assert, so two cells give two verdicts.
+`test_a_submission_without_the_control_leaves_the_default_on_alone` drives from
+*nothing stored* — every production book's actual state — and reds for **both**
+mutants (`app.py:3715`'s marker guard → `if True:`, `book_manager.py:1005`'s
+`is not None` → `if True:`) in **both** storage modes. Verified by the
+orchestrator: the cell is defined at `tests/test_book_divider_pages_option.py:656`
+and collects 2 node ids.
+
+The inverted docstring reasoning is corrected in three places — the new cell, the
+from-OFF cell (which now **states that it cannot fail on the mechanism**, and why
+it is still worth keeping), and the module docstring, which repeated the same
+false claim. *A guard-cite correction with it: the guard is at `book_manager.py:1005`,
+not `:1003` as cycle 1 cited.*
+
+### F-002 closed — six new criteria, every ref resolving, and no phantom check
+
+**EC-029** is quantified: grouping, within-level order and the unbroken 1..n stay
+unconditional, and only the one-divider-per-level clause is conditional on the
+setting. **FR-041** and **FR-042** bodies made conditional. **AC-253/254/292/293**
+gained `given` clauses naming the setting, each with a comment giving the reason —
+including that AC-293's quoted "32 pages" is really 31.
+
+Six criteria added: **AC-400** (no divider page at all), **AC-401** (parity, both
+states), **AC-402** (unticked stores off), **AC-403** (FR-042's own SOLUTIONS page
+off), **AC-404** (the per-level-plus-one delta), **AC-405** (the absent-marker
+rule, pointing at the discriminating cell **by name**). **Orchestrator-verified:
+all six refs resolve in `tests/` via `git grep -w`** — zero dead refs, which is the
+rule this board repaired across ADR-0042's four checks on 2026-10-25.
+
+**And EC-029's existing `kind: test` ref really sweeps both states now**, because
+the off-state arm was written into `tests/property/test_book_order.py` **in the
+same commit** — so no `review-lens` was needed and no card owes a flip.
+`_expected_section`/`_planned_section` take a `dividers` parameter so one
+expectation covers two states and they cannot drift into two rules. Proof the old
+arm covered *nothing*: the file never sets the column and every book is built by
+`_parity_book`/`BookPDFGenerator(None)`, so it was on the default **by
+construction** — a proof, not a sample.
+
+### F-003 closed, and the attribution is exact
+
+`TestDividerPages_EveryPagesParityIsStillItsOwnPosition` reads parity off the
+**rendered ink** (`drawing_of`), on a book with unequal side margins, in both
+states — the same instrument and configuration as the board's precedent for the
+mirror change. A second cell asserts the two states put the first measurable
+drawing on **different sides** (page 6 left with dividers, page 5 right without),
+without which the parity cell would pass for a generator that ignored the setting
+when numbering.
+
+**Killed by exactly one cell out of the file's 88** — the `[False]` parity cell,
+and nothing else — for `first_answer_page`'s `(1 if self.divider_pages else 0)` →
+`1`. That is precisely the defect the finding said nothing would catch: answer
+pages keep their numbering while four pages are gone, so they are drawn on the
+wrong parity, and the walk/declared tripwire does not fire.
+
+**`tests/property/test_book_export_interior.py` is deliberately OUT of scope**, with
+reasons rather than silence: the off state is unreachable in it by construction
+(no occurrence of the column; every book comes from the routes or `_parity_book`),
+its divider model is **narrower rather than wrong**, and what it would add is
+corpus *breadth* while the missing thing was the invariant — now asserted directly
+against the real `interior_pages` walk in both states. Recorded as owed if the
+board wants the breadth too.
+
+### F-004/F-005 fixed, F-006 recorded and left latent on purpose
+
+**F-004**: the route's `bool()` read made `_DIVIDER_PAGES_FALSE` unreachable from
+the one inbound path, so the module's "one door" was prose. New
+`divider_pages_from_form` is the form's door onto the same vocabulary, where empty
+means **off** — the opposite of what the stored-column door makes of it, which is
+why it is a second function. An unrecognised value raises `ValueError`, which the
+route already turns into a flashed refusal storing nothing, so **no new error path
+was invented**. 10 cells red for the mutant; the edge mutant on the
+empty-means-off guard reds 9 including the shipped template's own path.
+
+**F-005** narrowed, not deleted: the driver half named no driver and was
+unreachable, so it is gone; the form half is now **true**, because F-004's fix
+makes the route go through it. **F-006** recorded with a paragraph stating plainly
+that `solutions_divider` does not reach the `toc_pages=None` default — not
+"fixed", because making the default follow the parameter would turn an upper bound
+over every book into one caller's figure, and every production caller passes
+`toc_pages`.
+
+### A pre-existing GATING failure in this card's own diff, found by the fix round
+
+`meta/profiling/rank_durations.py`'s frozen render set is a grep over
+`tests/**/*.py` asserted as an **equality** by `tests/test_suite_profile.py`. This
+card's new test file matches it (through `interior_stream`), so
+`test_the_frozen_render_set_still_matches_the_grep_that_defines_it` was **red at
+HEAD** — and **neither the card's own 22-file gate selection nor cycle 1's 21-file
+selection included that file**, so the guard fired exactly as designed and was
+simply never run. Closed at CARD-222's precedent (added, not dodged), with the
+restatement that the file is in **neither** durations artefact, so it contributes
+0 s and 0 tests and every recorded share stays the same number over the same
+artefact. `tests/test_suite_profile.py` now **410 passed**.
+
+*The round's own figure for that set was wrong first and corrected: it wrote 34,
+re-derived 36 through two doors (an `ast` parse of the tuple, and the comment's own
+defining `grep`), and found the entries' running prose total had already drifted.*
+
+### F-007's open question — ESTABLISHED, on a scratch database
+
+Cycle 1 recorded "the server default and backfill are unverified on Postgres,
+which is what production runs". Measured now against PostgreSQL 18.1 on a
+throwaway database the probe creates and drops (`nonogram_card305_probe`;
+production's `nonogram_poc` untouched), and **not** as a test, so F-007 stays
+exactly where it was: at revision 016 the column does not exist; a row written at
+016 reads `interior_divider_pages = t, is null = f` after `upgrade 017` — **the
+server default and the explicit backfill do fill an existing row**; the column
+declares `boolean | nullable YES | default true`; a new row omitting the column
+reads `t`; and `downgrade 016` drops the column while **both rows survive**.
+
+### The round's own measurement error, self-reported rather than hidden
+
+Its parity edge mutant was aimed at `page_is_right_hand` and **survived**. The
+reason is that this function governs the answer caption box and the guide's text
+side, **not** the sheet's mirrored margins the instrument reads — those come from
+`book_page_spec._parity`, whose mutant reds all three cells. So the class's edge
+*is* covered, and no false claim shipped, because `page_is_right_hand` is named in
+no shipped docstring. **Declared and not closed:** `page_is_right_hand → return
+True` survived the three files it was fired against, and whether anything else in
+the suite kills it was not established. Pre-existing; this card does not edit it.
+
+### Gate and validator
+
+**1982 passed / 0 failed / 0 skipped** over 25 files in two runs (A: 10 files,
+1030 passed, 138.60 s — backgrounded, because it exceeds the 120 s tool timeout;
+B: the whole `setup-print` route blast radius, 15 files, 952 passed, 61.77 s).
+Zero skips in either run, so there is none to attribute; cycle 1's single
+platform `setrlimit` skip is in a file this selection does not include. Both
+storage modes really ran — `memory` and `db` cells are named in the mutant logs.
+
+**Validator 0 errors / 113 warnings**, with both controls: an independent recount
+in a new domain (`grep -c` on the indented labels) agreeing at 113/0, and the
+baseline re-measured *in the same place* by writing HEAD's `requirements.yml` over
+the working copy, re-running, and restoring with a verified sha256 — so it is
+baseline-for-baseline rather than baseline-by-assertion. An intermediate reading of
+115 was two `'then' bundles several outcomes` warnings on the first draft of
+AC-400 and AC-402, closed by **splitting** them into AC-400/404 and AC-402/405 —
+a better shape, not a suppression.
+
+**Declared and unexplained:** the *main* worktree's validator reads **112** where
+the branch reads **113** on a byte-identical `requirements.yml` (sha256 equal both
+sides). The differing warning is the pre-existing INV-013 `check_ref_missing` for
+`TestGuideSpread_SitsOnPagesTwoAndThree`, a symbol absent from **both** trees'
+`tests/`. Different worktree, different cwd; not chased.
+
+### Still could not establish
+
+The card's **1502 passed over 22 files** — the card still does not enumerate those
+22 files, so its domain cannot be reconstructed; 1982 over 25 is a different
+domain and neither confirms nor refutes it. The card's **rival-pytest 0/0** figure
+— it names no instrument that can be located or re-run. **No render was captured
+and no page eyeballed by a human**; the parity cell reads real rendered ink, but
+that is an instrument reading pixels, not the owner's eye on a proof.
