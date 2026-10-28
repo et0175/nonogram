@@ -1772,7 +1772,7 @@ links:
   status: partial
 
 - req: FR-033
-  description: "In a book the picture title appears only on the answer-key page; the grid prints in three rule weights — 0.48 pt grey cell lines, 1.28 pt every fifth line, 2.08 pt outer border, each at least 2 device pixels"
+  description: "In a book the picture title appears only on the answer-key page; the grid prints in three rule weights — 0.3 pt grey cell lines, 0.8 pt every fifth line, 1.3 pt outer border, physical widths that hold only where the grid is drawn as content-stream operators"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-009, COMP-007]
@@ -1781,6 +1781,13 @@ links:
   - TestBookPdf_PuzzlePageCarriesNoPictureTitle
   - TestBookPdf_AnswerKeyCarriesPictureTitle
   - TestBookPdf_EveryFifthGridLineWider
+  - TestBookGridRules_HasThreeWeights
+  - TestBookGridRules_CellLinesAreLighterThanTheFifths
+  - TestBookGridRules_FifthLinesOnBothAxes
+  - TestBookGridRules_RaggedLastBand
+  - TestBookGridRules_WeightsSurviveTheFloor
+  - TestBookGridRules_PointsNotPixels
+  - TestBookGridRules_TheseWidthsNeverReachARasterGrid
   - TestBookProof_WrappedNoteKeepsUnitsWithNumbers
   - PropertyTest_ProofNoteWrap_NeverSplitsAUnitOrStartsWithTimes
   - TestBookProof_FallbackLeadingTightensOnlyWhenNeeded
@@ -1796,25 +1803,65 @@ links:
     AMENDED 2026-10-17 (b) (owner decision, CARD-227): the requirement's
     LONG-STANDING OPEN QUESTION is CLOSED. 'Dark grid lines' and 'clearly
     bolder' had carried no measurable threshold since 2026-09-22; they are now
-    0.48 pt grey cell lines, 1.28 pt every fifth line on both axes and 2.08 pt
-    outer border, each at least 2 device pixels at the render resolution, with
-    the cell lines LIGHTER in ink than the other two. AC-372..AC-375 written.
-    R2 above is SUPERSEDED: it is no longer 'thin >= 0.25 mm, heavy = 2x thin,
-    pure black' but three weights, grey cells, and a 2-device-pixel minimum
-    (0.169 mm at 300 DPI). The owner's artifact said 0.3 / 0.8 / 1.3 pt; the
-    ratios are kept exactly (1 : 2.667 : 4.333) and scaled by 1.6, because
-    0.3 pt is 0.1058 mm = ONE device pixel and thinner than the 0.17 mm
-    ADR-0037 had itself rejected as the cause of the faint-line complaint in
-    7 of 17 reviews. Under the book spec these absolute points supersede
-    COMP-007's proportional cell/30 rule.
-    OWED, deliberately not listed in `tests:` yet: the four measuring tests
-    (TestBookGridRules_HasThreeWeights, _CellLinesAreLighterThanTheFifths,
-    _WeightsSurviveTheFloor, _PointsNotPixels) do not exist until CARD-227
-    lands, and naming them here would be a dead test-ref — the exact defect a
-    premature meta/ carry produced in wave 44. CARD-227 adds them, and upgrades
-    ADR-0037/R2's own `check` from review-lens to the first of them, as part of
-    landing. Until then R2 is held only by a review-lens, which cannot fail a
-    build (ADR-0039/R1).
+    three weights on the owner's own ratios 1 : 2.667 : 4.333, with the cell
+    lines LIGHTER in ink than the other two. AC-372..AC-375 written. R2 above
+    is SUPERSEDED: it is no longer 'thin >= 0.25 mm, heavy = 2x thin, pure
+    black' but three weights and grey cells. The FIGURES that amendment
+    carried — 0.48 / 1.28 / 2.08 pt, the artifact's 0.3 / 0.8 / 1.3 scaled by
+    1.6 so the thinnest line was 2 device pixels at 300 DPI — were superseded
+    on 2026-10-25 and are history here, not a live threshold: ADR-0042/R7 made
+    the device floor inapplicable to a content-stream interior and the owner
+    chose their own figures on the CARD-293 proof. Under the book spec these
+    absolute points supersede COMP-007's proportional cell/30 rule, which
+    still governs the default spec.
+    AMENDED 2026-10-28 (c) (CARD-227 landed): this row's `description` carried
+    the retired 0.48 / 1.28 / 2.08 pt for three days after ADR-0037/R2 was
+    amended off them; it now carries the owner's own figures and the medium
+    they are bound to. The OWED note that stood here — that the measuring
+    tests did not exist, so naming them would be a dead test-ref — is
+    DISCHARGED: `tests/test_book_grid_rules.py` holds all seven of the card's
+    criteria, they are listed above, and ADR-0037/R2's own `check` is upgraded
+    from review-lens to `TestBookGridRules_HasThreeWeights`. That ADR's
+    History states which clauses of R2 the ref executes and which it does not
+    (the default-spec clause is ADR-0036/R1's check). The one clause that
+    stood as an OPEN BOUND when this row was written -- png._draw_grid, the
+    second raster grid stroker -- is now CLOSED, in fix round 1 of review
+    cycle 1: that stroker does receive the declared weights, on every book
+    single-puzzle page and every packed answer page, so the bound's stated
+    premise was false and the control it said could not be written is
+    TestBookGridRules_TheseWidthsNeverReachARasterGrid's
+    test_the_other_raster_stroker_is_guarded_too_and_it_is_the_one_that_rules_a_book_page.
+    TWO FIGURES THIS REQUIREMENT OWED ARE NOW MEASURED. AC-374's comment in
+    requirements.yml recorded that only the 0.3 pt cell line had ever been
+    measured through a renderer (CARD-293 AC-2: 2 px at grey 89 at 300 DPI,
+    5 px at 1200) and that the 0.8 pt and 1.3 pt vector spans were measured by
+    nobody. Measured now by poppler on a rendered vector book page, one
+    scanline, run lengths: the 0.8 pt fifth line inks 4 px at 300 DPI and
+    14 px at 1200, and the 1.3 pt border 6 px and 22 px, both at grey 0. The
+    three spans are disjoint and ordered at both resolutions and at NFR-008's
+    4.75 mm floor (2 / 4 / 6 px at 300 DPI).
+    THE THREE MISSING REGISTRY CRITERIA ARE WRITTEN, at this card's landing:
+    AC-397 (the every-fifth rule per axis), AC-398 (a side that is not a
+    multiple of five) and AC-399 (these widths never reach a raster grid),
+    covering the card's AC-3, AC-4 and AC-7 — the three live claims that were
+    traceable only through this row and the card. AC-397 and up were indeed
+    the next free ids: AC-376..AC-378 exist under FR-040 (added 2026-10-18 for
+    the two-up footer and pairing boundary) and the max id in the file was
+    AC-396. All three name test classes that exist in
+    tests/test_book_grid_rules.py, so they are resolvable refs rather than
+    planned ones — the defect this board repaired across ADR-0042's four
+    checks on 2026-10-25. AC-399 is the one that mattered: the card's single
+    genuinely new claim, and what keeps R2's medium argument from being a
+    comment. It is now asserted against a CLOSED bound rather than the open
+    one this row was written against. (Review cycle 1, F-011 had already
+    corrected this paragraph's earlier reason, "AC-376..AC-378 do not exist",
+    which was checkable and false.)
+    WHY THIS ROW IS STILL `partial` AND NOT `covered`, now that the criteria
+    are written: the reason is no longer traceability but AC-195 below, whose
+    figure cannot be measured until CARD-222 merges. That is the one open
+    item on this requirement; the validator's warning on a partial row reads
+    "requirement has no tests yet", which is not this row's condition — it
+    lists thirteen, and the message fires on the status alone.
     ALSO OWED: AC-195's `given` says 'printed at 4.97 mm', which predates
     CON-018's amended margins and is stale; the honest figure cannot be
     measured until CARD-222 merges, so it was annotated rather than guessed.

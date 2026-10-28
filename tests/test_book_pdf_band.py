@@ -119,8 +119,19 @@ BAND_MM = 12.0
 #: Device pixels per millimetre at the 300 DPI every book page is drawn at.
 PX_PER_MM = 300 / 25.4
 
-#: ADR-0037/R2's floor on a thin grid rule, and what it is in whole pixels at
-#: 300 DPI: 0.25 mm is 2.95 px, which rounds *up* to 3.
+#: The book's floor on a thin grid rule **on a raster surface**, and what it
+#: is in whole pixels at 300 DPI: 0.25 mm is 2.95 px, which rounds *up* to 3.
+#:
+#: **Not ADR-0037/R2's interior minimum, which no longer exists** (CARD-227,
+#: R2 amended 2026-10-25). R2 states the interior's weights as physical points
+#: — 0.3 / 0.8 / 1.3 — and gives them no millimetre floor, because a content
+#: stream declares a width and the renderer resolves it. What survived is the
+#: clause that still has a mechanism: a *rasteriser* chooses an integer pixel
+#: count per stroke, so a raster puzzle grid is held to at least
+#: ``layout.RASTER_RULE_FLOOR_PX`` device pixels. The pages this file reads are
+#: raster pages (the interior walk is raster until CARD-298 chooses a medium
+#: per page), and this is the floor that binds them — carried by the spec
+#: field ``min_thin_rule_mm``, which is now scoped to exactly that.
 MIN_THIN_RULE_MM = 0.25
 MIN_THIN_RULE_PX = 3
 
@@ -821,7 +832,10 @@ class TestBookPdf_EveryFifthGridLineWider:
             if index not in self.HEAVY_INDICES
         ]
         assert min(heavy) > max(thin)
-        assert min(thin) >= MIN_THIN_RULE_PX, "ADR-0037/R2's 0.25 mm floor"
+        # The RASTER path's floor, which is what this page is drawn on — not
+        # ADR-0037/R2's interior minimum, which since 2026-10-25 is not a
+        # millimetre figure at all (see MIN_THIN_RULE_MM above, CARD-227).
+        assert min(thin) >= MIN_THIN_RULE_PX, "the raster thin-rule floor"
         assert min(thin) / PX_PER_MM >= MIN_THIN_RULE_MM
         assert set(heavy) == {2 * width for width in set(thin)}, "heavy = 2 x thin"
 
