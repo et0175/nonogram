@@ -622,7 +622,11 @@ class TestSolverCrosshair_IsPureView:
         imports nothing (it is handed the stage and reads the live DOM).
         """
         state = (_STATIC / "solver_state.js").read_text(encoding="utf-8")
-        for word in ("crosshair", "crossed", "is-crossed", "Crosshair"):
+        # The crosshair's own names, and not a bare "crossed": that word turns
+        # up honestly in prose about crossing a breakpoint, and a tripwire
+        # that fires on a future card's comment is a tripwire somebody
+        # disables.
+        for word in ("crosshair", "Crosshair", "is-crossed", "crossedParts"):
             assert word not in state, word
 
         renderer = (_STATIC / "solver.js").read_text(encoding="utf-8")

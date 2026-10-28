@@ -195,6 +195,15 @@ ALONE_PROBES = (
     "tests/test_puzzle_solver_fifth_rule.py::"
     "TestSolverFifthRule_GeometryAndOtherMarksUnchanged::"
     "test_the_rules_against_paper_are_untouched",
+    # CARD-267's file postdates ALONE_RECORD too, so it is sampled here for
+    # the same reason. Of its tests this is the one whose verdict a
+    # predecessor could most easily fake: it installs a CONTEXT request
+    # listener — the one kind of listener that outlives a navigation — and its
+    # whole claim is a count of what arrived on it, so a leftover listener or
+    # a leftover request from a test before it is exactly the cross-talk
+    # PAGE_ISOLATION names. Run alone, the count can only be its own.
+    "tests/test_puzzle_solver_crosshair.py::"
+    "TestSolverCrosshair_IsPureView::test_hovering_issues_no_request",
 )
 
 #: Wall clock each child pytest below is allowed. The dearest of them is an
