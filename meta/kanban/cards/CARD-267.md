@@ -14,8 +14,8 @@
 **Idea:** —
 **Wave:** 63
 **Depends on:** —
-**Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_crosshair.py, tests/test_admin_design_tokens.py, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_page.py, tests/test_browser_fixture_scope.py <!-- corrected 2026-10-28 by the implementation round: tokens.css REMOVED (it is mirrored verbatim from meta/design/tokens.css and pinned by a test; a derived component value belongs in admin.css beside --player-thin). Four test files ADDED, and the breakdown stated so it is checkable (the earlier wording said "three are registries ... and the third", which miscounts and is self-inconsistent -- corrected 2026-10-28, cycle 1 F-008): TWO are registry joins a new family file is forced into -- tests/test_puzzle_solver_page.py (which holds PAGE_ISOLATION) and tests/test_browser_fixture_scope.py (the ALONE_RECORD sampling, which this card's file postdates); ONE adds a new claim test (tests/test_admin_design_tokens.py, AC-8/G-4); and ONE is the non-weakening accommodation G-6 now permits by name (tests/test_puzzle_solver_marking.py). The Touches LIST itself is correct: 8 declared, 8 in the diff. -->
-**Review score:** **7.0 cycle 1/3, NOT CERTIFIED** (min 8) — **0 critical, 0 code defects**, 3 important, all about evidence or the card itself
+**Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_crosshair.py, tests/test_admin_design_tokens.py, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_page.py, tests/test_browser_fixture_scope.py , tests/test_puzzle_editor_ui.py <!-- 9th entry added 2026-10-28 at fix round 1: a prose-only de-numbering of the stale ordinal at :759, which THIS CARD made stale by two when it added the fourteenth PAGE_ISOLATION row. No claim change; its 117 tests green at 1ef355c0.  corrected 2026-10-28 by the implementation round: tokens.css REMOVED (it is mirrored verbatim from meta/design/tokens.css and pinned by a test; a derived component value belongs in admin.css beside --player-thin). Four test files ADDED, and the breakdown stated so it is checkable (the earlier wording said "three are registries ... and the third", which miscounts and is self-inconsistent -- corrected 2026-10-28, cycle 1 F-008): TWO are registry joins a new family file is forced into -- tests/test_puzzle_solver_page.py (which holds PAGE_ISOLATION) and tests/test_browser_fixture_scope.py (the ALONE_RECORD sampling, which this card's file postdates); ONE adds a new claim test (tests/test_admin_design_tokens.py, AC-8/G-4); and ONE is the non-weakening accommodation G-6 now permits by name (tests/test_puzzle_solver_marking.py). The Touches LIST itself is correct: 8 declared, 8 in the diff. -->
+**Review score:** 7.0 cycle 1/3 → fix round 1 → awaiting cycle 2
 **Started:** 2026-10-28T07:23:17Z
 **Closed:** —
 **Actual:** —
@@ -304,9 +304,19 @@ redraw replaces the table inside one task — so only its *direction* matters, a
 it fails toward not painting. CARD-271's `keepCluesInView` precedent.
 
 **And it named what the instrument cannot certify, by category rather than
-glossing it.** A deletion only ever makes the crosshair do **less**, so no
+glossing it.** ~~A deletion only ever makes the crosshair do **less**, so no
 deletion mutant can red the negative claims (AC-6's whole-snapshot equality, no
-request, no ARIA, G-5's structural checks). Those rest on their own positive
+request, no ARIA, G-5's structural checks).~~ **[CORRECTED 2026-10-28, cycle 1
+F-002 — this was wrong about *why*, and the correction matters more than the
+sentence.]** No mutant could red the negative claims **while the test was driven
+from an empty board: the limit was the STATE, not the mutant class.** An
+*addition* mutant (`localStorage.clear()` in the paint loop, cycle 1's M13)
+reached the claim and **survived**, and so did a second one stripping every
+`is-circled` (MA-2) — so the blindness was never about deletions only making the
+crosshair do less. Both red now. Fix round 1 drives the snapshot from a board that
+**has** state and asserts all seven fields away from their virgin value first, and
+MA-2 fired against the pre-fix test file survives — which is what proves the fix
+is the thing that makes it red. Those rest on their own positive
 controls — and **three were measured firing** (MJ-1 reds the request test's "a
 crosshair was made", the ARIA test's, and pure-view's), so those readings are not
 instrument blindness. Two controls no mutant of its own can red are named as
@@ -475,3 +485,117 @@ it is *wanted* there is a scope call nobody has made. Also:
 `tests/test_puzzle_editor_ui.py:759` carries a stale ordinal ("the twelve";
 `PAGE_ISOLATION` now holds 14), reported and deliberately not touched. FR-044 is
 unamended and `raw-requirements.md` has 0 mentions — pre-declared by the card.
+
+
+## [FIX ROUND 1 — 2026-10-28] `1ef355c0` — 12 mutants, 12 killed, and the fix's own control fired against the pre-fix tree
+
+5 files, +235/−43. The `src/nonogram/admin/static/*` changes are **comment-only**;
+**no shipped behaviour moved this round.** HEAD changed under the round mid-flight
+(`ee6e284e` → the merge `b74e9083`) and **no verdict was taken against a stale
+assertion**: the harness resolved HEAD fresh per run rather than from a literal
+SHA, and no mutant had been fired yet. The merge touches none of this card's files.
+
+### F-002 closed — and proved by firing the fix's own control against the OLD tree
+
+AC-6's purity snapshot now drives from a board that **has state** (a closed run
+painted by real clicks, plus one stroke taken back so Redo is live), with the
+virgin reading **kept as the premise**: all seven fields must differ from their
+virgin value before a hover is made. `_purity_snapshot` is extracted so the three
+readings cannot drift apart.
+
+**The control that makes this more than an assertion:** MA-2 fired against the
+**pre-fix** test file — the virgin-board drive cycle 1 reviewed — **survived,
+15/15 green**. Against the fixed test it kills. So the fix is what makes it red,
+and the root cause is the **state**, not the mutant class.
+
+**The class was audited, not just the named instance.** Three other negative claims
+are correctly polarised with their own in-test controls; one
+(`test_hovering_adds_no_aria_attribute…`) **had the same defect in the destructive
+direction** and F-006's single line closes both; and one — `assert problems == []`
+— is an empty-vs-empty with **no in-test instrument control**, left in place and
+**named as the one remaining gap of this shape** rather than passed over.
+
+### F-003 closed by narrowing the claim *and* adding the arm
+
+Each mark with a paint of its own is read in computed pixels against the tinted
+ground **through the channel that paints it** (dot → `::after` background, "?" →
+`::after` colour). All three wide claims rewritten to say *three* measurements, not
+one. MB-3 (the inside re-fire of cycle 1's M7) **moved its kill cell** because the
+pixel arm now precedes it — stated, not glossed.
+
+Figures agree across **three** doors, the third new: token arithmetic, Chromium's
+own computed values inside MB-1/MB-2's failure output (`rgb(241, 235, 221)`, mean
+0.91111 — exact agreement, in a run the implementation never made), and **CIE L\***
+perceptual lightness (ΔL\* 52.25 / 56.74 / 64.80, all past the ~20 that reads as a
+visible step).
+
+### The owner's editor decision, kept and tested
+
+`TestSolverCrosshair_ReachesTheManualEditor`, two cells, in the **existing**
+crosshair file, importing CARD-246's `_open_editor` rather than copying it. Both
+assert **first** that they are on the editor page (`#puzzle-editor-save`, which
+exists nowhere else), and **MD-3 reds that premise** when the cells are pointed at
+the solve page — so neither can pass on the player page and claim the editor.
+Living in the existing file, the only registry obligation is two new
+`ADDED_SINCE_BEFORE` rows, **proved load-bearing by ME-1**. A new family file would
+have forced a `PAGE_ISOLATION` row, an `ALONE_PROBES` entry and an encounter with
+the frozen render set — avoided **rather than dodged by wording**.
+
+- **AC-9** (edge, second consumer): *Given* the manual editor's page, *when* a cell
+  is hovered, *then* that row, that column and their clue boxes carry the marker,
+  and leaving the stage clears it. (test: `TestSolverCrosshair_ReachesTheManualEditor`.)
+- **Design context → Screens** gains `/puzzle/<id>/editor` beside `/puzzles/<id>/solve`.
+- **Scope, owner decision 2026-10-28:** the crosshair applies on **both** pages that
+  load `solver.js`. That reach is **deliberate, not incidental.**
+
+### F-007 declined with a measurement rather than an argument
+
+Probed on AC-7's own scenario, instrument outside `tests/`: the screen point that
+is cell **(5, 7)** at 1280×720 is cell **(4, 12)** after the mirror-breakpoint
+redraw. Repainting the remembered `[row, col]` would put the crosshair on (5, 7)
+**while the pointer sits on (4, 12)** — trading "no crosshair after a redraw" for
+"a crosshair on the wrong cell", which is *nearer* to the stale marker AC-7 forbids
+than today's `forget()`. A correct repaint needs client coordinates and a re-hit-test
+— new state, new mechanism — and would invert AC-7's shipped assertion, which has a
+kill. **Stays declared, as body item 6 permits.**
+
+### F-009 not reproduced, and no sleep added
+
+**21 runs, 21 green** (the named cell 15× alone, the whole file 6×, `--tb=long`,
+no truncation). Slowest whole-file run 19.37 s against cycle 1's red at 22.52 s, so
+load variance alone did not reproduce it. **No settle was added, because the
+mechanism could not be explained** — an unexplained sleep is papering over. What was
+added is independently justified: the leave test's premise is now the *full*
+crosshair, so if cycle 1's plausible mechanism is real the next occurrence fails
+**at the premise** with a readable message instead of looking like a leave defect.
+
+### Gate — F-010 answered, with disjointness checked rather than assumed
+
+**1074 collected / 1074 passed / 0 skipped / 0 failed** over **18 files, pairwise
+disjoint by path**, in four invocations (47 + 260 + 422 + 345). That is the finding's
+point: the paths are listed, `sort | uniq -d` is empty, and one `--collect-only -q`
+over all 18 returns **1074** — a count of **distinct** tests, not a sum over an
+overlapping union. `tests/test_suite_profile.py` ran and is green.
+
+**One run abandoned with no verdict claimed:** a single 18-file invocation projected
+≈34 min and would have run `test_browser_fixture_scope.py`'s 90 s-bounded child
+pytests under its own load — the exact mechanism that turns contention into
+failures. Killed, log renamed `…-ABANDONED-no-verdict.txt`.
+
+### Card items retired by this round
+
+The **"964 collected"** figure is retired for the 1074 above, whose domain is named
+and whose disjointness is checked. The **validator note is retired**: worktree and
+main now read the same figure, delta zero — cycle 1's +4 was merge-base drift the
+merge absorbed. *Instrument note: this round read 1 error / 112 warnings; the
+orchestrator's `forge_1` copy reads 0 / 112. The two validator copies on this box
+disagree on the error count — a known split, not a tree change.*
+
+### Could not establish, in the round's own words
+
+F-009's red or its failing cell (21 runs, 21 green) · **the owner's eyeball on a
+real render**, still owed by the Design context, figures now agreeing across three
+doors · the full suite, not run by the brief · **whether the four `::after`
+channels are exhaustive for future cell states** — a fifth state painted through an
+`outline` or `box-shadow` would be outside the arm, stated so the narrowed claim is
+not re-read as a wider one.
