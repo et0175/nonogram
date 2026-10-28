@@ -106,7 +106,9 @@ from nonogram.export.layout import (
 
 __all__ = [
     "BOOK1_PROFILE",
+    "DEFAULT_DIVIDER_PAGES",
     "DEFAULT_INK_MODE",
+    "DIVIDER_PAGES_COLUMN",
     "FLOOR_MM",
     "INK_MODE_COLUMN",
     "InkMode",
@@ -118,8 +120,10 @@ __all__ = [
     "book_cell_mm",
     "book_cell_sizes",
     "book_cell_spec",
+    "book_divider_pages",
     "book_ink_mode",
     "book_page_spec",
+    "divider_pages_from_stored",
     "ink_mode_from_stored",
 ]
 
@@ -408,6 +412,133 @@ def book_ink_mode(book: object) -> InkMode:
             modes, naming :data:`INK_MODE_COLUMN`.
     """
     return ink_mode_from_stored(getattr(book, INK_MODE_COLUMN, None))
+
+
+#: The ``books`` column :func:`book_divider_pages` reads, named once so every
+#: refusal message and every writer spells it the same way.
+DIVIDER_PAGES_COLUMN = "interior_divider_pages"
+
+#: Whether a book with nothing stored in :data:`DIVIDER_PAGES_COLUMN` prints
+#: its divider pages. ``True``, because every book that existed before the
+#: column did printed them — they were unconditional from CARD-128 (the level
+#: dividers, AC-254) and CARD-198 (the SOLUTIONS divider, AC-292) until this
+#: setting existed. An empty column therefore means "the book as it has always
+#: been", not "undecided".
+DEFAULT_DIVIDER_PAGES = True
+
+#: What a divider-pages value may say for "yes" and for "no". A real boolean
+#: is the shape the *column* has on both backends — nothing the shipped schema
+#: stores here is a string. The string forms are the **form's** vocabulary,
+#: reached through :func:`divider_pages_from_form` (a checkbox posts ``"1"``,
+#: and a client that means "no" explicitly says one of the false spellings
+#: instead of relying on posting nothing), and they are also what a
+#: hand-edited or hand-migrated column may hold. One vocabulary for both
+#: doors, so neither has to know which layer it is being read from.
+#:
+#: CARD-305 review cycle 1, F-005: this comment used to claim the strings were
+#: also "what SQLite hands back for a boolean on some drivers". No driver this
+#: project uses does that and none was named, so that claim is gone; the form
+#: half is now true because the route really goes through it (F-004).
+_DIVIDER_PAGES_TRUE = frozenset({"1", "on", "true", "yes", "y", "t"})
+_DIVIDER_PAGES_FALSE = frozenset({"0", "off", "false", "no", "n", "f"})
+
+
+def divider_pages_from_stored(raw: object) -> bool:
+    """One stored divider-pages column as a plain bool.
+
+    ``None`` and an empty string are :data:`DEFAULT_DIVIDER_PAGES`: no choice
+    was ever stored, which is every book written before the column existed,
+    and those books printed their dividers.
+
+    Args:
+        raw: Whatever the column holds — ``None``, a bool, an int, or one of
+            the strings a form or a driver spells a boolean with.
+
+    Raises:
+        ValueError: the stored value is neither empty nor a recognisable
+            boolean; the message names :data:`DIVIDER_PAGES_COLUMN`, the same
+            posture :func:`ink_mode_from_stored` takes.
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return DEFAULT_DIVIDER_PAGES
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, int):
+        # 0/1 from a backend that stores a boolean as an integer. Anything
+        # else is a value nobody meant, and is refused rather than read as
+        # truthy — a 2 here is a bug upstream, not "on".
+        if raw in (0, 1):
+            return bool(raw)
+    if isinstance(raw, str):
+        value = raw.strip().lower()
+        if value in _DIVIDER_PAGES_TRUE:
+            return True
+        if value in _DIVIDER_PAGES_FALSE:
+            return False
+    raise ValueError(
+        f"book {DIVIDER_PAGES_COLUMN} must be empty or a boolean, not {raw!r}"
+    )
+
+
+def book_divider_pages(book: object) -> bool:
+    """Whether ``book``'s interior prints its divider pages (CARD-305).
+
+    The four pages this decides are the level dividers — one per non-empty
+    named level, "Easy" / "Medium" / "Hard" (AC-254) — and the "SOLUTIONS"
+    page that opens the answer key (AC-292). They are one setting because they
+    are one editorial decision and one page design
+    (:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.create_divider_page`
+    draws all four).
+
+    Args:
+        book: Anything carrying the ``books`` print columns as attributes — a
+            :class:`~nonogram.admin.book_manager.Book`, a ``books`` row, or
+            ``None``. A missing or empty attribute is
+            :data:`DEFAULT_DIVIDER_PAGES`.
+
+    Raises:
+        ValueError: the stored value is neither empty nor a recognisable
+            boolean, naming :data:`DIVIDER_PAGES_COLUMN`.
+    """
+    return divider_pages_from_stored(getattr(book, DIVIDER_PAGES_COLUMN, None))
+
+
+def divider_pages_from_form(raw: object) -> bool:
+    """What a Print-setup submission's divider-pages **field** means.
+
+    The second door onto :data:`_DIVIDER_PAGES_TRUE` /
+    :data:`_DIVIDER_PAGES_FALSE`, and it has to be a second door rather than
+    the same one: an HTML checkbox posts **nothing at all** when it is
+    unticked, so an absent or empty field here is ``False`` — the opposite of
+    what :func:`divider_pages_from_stored` makes of it, where empty means
+    "nothing was ever stored" and therefore :data:`DEFAULT_DIVIDER_PAGES`.
+
+    Whether the submission carries the control at all is a *different*
+    question, answered by the form's hidden companion marker before this
+    function is reached (see the Print-setup route). This answers only "the
+    control was there; what was it set to".
+
+    Anything else is read with :func:`divider_pages_from_stored`, so a client
+    that spells "no" explicitly — ``0``, ``off``, ``false``, ``no`` — is
+    believed instead of being swallowed by ``bool()``, which is CARD-305
+    review cycle 1's F-004: the route read this field with ``bool()`` and
+    stored ``True`` for every one of those.
+
+    Args:
+        raw: The field as the form hands it over — ``None`` when the box was
+            unticked (or the client sent no value beside the marker), else
+            whatever string it posted.
+
+    Raises:
+        ValueError: the field is neither empty nor a recognisable boolean,
+            naming :data:`DIVIDER_PAGES_COLUMN`. The route turns that into a
+            flashed refusal that stores nothing, which is the posture it
+            already takes for an unreadable trim — guessing at a value nobody
+            meant is how a book silently loses four pages.
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return False
+    return divider_pages_from_stored(raw)
 
 
 def _stored_mm(book: object, column: str, profile_cm: str, profile_mm: float) -> float:

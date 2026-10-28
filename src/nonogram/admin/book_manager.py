@@ -99,6 +99,13 @@ class Book:
     # ``book_ink_mode`` and not off this field, so the default is applied in
     # one place.
     interior_ink_mode: Optional[str] = None
+    # CARD-305 (migration 017): whether this book's interior prints its four
+    # divider pages — the level dividers (AC-254) and SOLUTIONS (AC-292).
+    # ``None`` is an empty column: book_page_spec's ``book_divider_pages``
+    # reads it as DEFAULT_DIVIDER_PAGES, True, which is every book that
+    # existed before the column did. Read it through ``book_divider_pages``
+    # and not off this field, so the default is applied in one place.
+    interior_divider_pages: Optional[bool] = None
     # CARD-121 (FR-031, INV-006): the ids this book admitted below the 4.75 mm
     # floor (TERM-025). Read it through :meth:`BookManager.floor_overrides`
     # rather than off the book, so both storage modes answer the same way.
@@ -717,6 +724,13 @@ class BookManager:
             # black-and-white — the same reading the column's own default
             # writes (AC-3).
             interior_ink_mode=book_row.interior_ink_mode,
+            # CARD-305: NULL is a row from before migration 017 (or one its
+            # backfill did not reach), and book_divider_pages reads it as
+            # True — the same reading the column's own default writes, and
+            # what every book printed before the setting existed.
+            interior_divider_pages=getattr(
+                book_row, "interior_divider_pages", None
+            ),
             # NULL is a row from before migration 012: no override was ever
             # given, which is the reading that keeps the floor closed.
             floor_overrides=list(book_row.floor_overrides or []),
@@ -976,13 +990,20 @@ class BookManager:
     def _apply_print_spec(book: Any, spec: PrintSpec, ink_mode: Optional[str]) -> None:
         """Write a checked ``spec`` onto ``book`` (a :class:`Book` or a ``books`` row).
 
-        The trim columns, the ink mode when one was named, and ``updated_at`` —
-        nothing else (see :meth:`set_print_spec`).
+        The trim columns, the ink mode when one was named, the divider-pages
+        choice when one was named, and ``updated_at`` — nothing else (see
+        :meth:`set_print_spec`).
         """
         book.trim_width_cm = spec.trim_width_cm
         book.trim_height_cm = spec.trim_height_cm
         if ink_mode is not None:
             book.interior_ink_mode = ink_mode
+        # CARD-305: ``None`` is "the caller named none", which leaves the
+        # stored choice alone — the same rule the ink mode above follows, so
+        # a caller written before this field cannot turn a book's dividers
+        # off by omission. Stored as a real bool, never as the form's string.
+        if spec.interior_divider_pages is not None:
+            book.interior_divider_pages = bool(spec.interior_divider_pages)
         book.updated_at = datetime.utcnow()
 
     def floor_overrides(self, book_id: str) -> List[str]:

@@ -39,6 +39,12 @@ class PrintSpec:
     #: caller named none", which :meth:`PrintSpecValidator.create_spec` fills
     #: with :data:`~nonogram.admin.book_page_spec.DEFAULT_INK_MODE`.
     interior_ink_mode: Optional[str] = None
+    #: Whether the interior prints its four divider pages (CARD-305), or
+    #: ``None`` for "the caller named none", which leaves the stored choice
+    #: unchanged — the same posture :attr:`interior_ink_mode` takes, and for
+    #: the same reason: a caller built before this field must not silently
+    #: turn a book's dividers off.
+    interior_divider_pages: Optional[bool] = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
@@ -49,6 +55,7 @@ class PrintSpec:
             "outside_margin_cm": self.outside_margin_cm,
             "outside_margin_bleed_cm": self.outside_margin_bleed_cm,
             "interior_ink_mode": self.interior_ink_mode,
+            "interior_divider_pages": self.interior_divider_pages,
         }
 
 
@@ -358,6 +365,7 @@ class PrintSpecValidator:
         interior_ink_mode: Optional[str] = None,
         *,
         entered_inches: Optional[Tuple[str, str]] = None,
+        interior_divider_pages: Optional[bool] = None,
     ) -> Tuple[Optional[PrintSpec], Optional[str]]:
         """Create a print spec with validation.
 
@@ -373,6 +381,13 @@ class PrintSpecValidator:
             entered_inches: The (width, height) the owner typed in inches, if
                 they did; passed to :meth:`validate_trim_size` so a bound
                 refusal is worded in inches (CARD-174). Defaults to cm wording.
+            interior_divider_pages: Whether the interior prints its four
+                divider pages (CARD-305), or ``None`` for "the caller named
+                none", which carries through to the spec and leaves the
+                stored choice unchanged. Unlike the ink mode this is **not**
+                defaulted here: a form that omits the field must not be read
+                as "turn them off", and the book's own stored value is the
+                only thing that may answer for it.
 
         Returns:
             Tuple of (PrintSpec or None, error_message or None)
@@ -414,6 +429,13 @@ class PrintSpecValidator:
             outside_margin_cm=outside_margin_cm,
             outside_margin_bleed_cm=outside_margin_bleed_cm,
             interior_ink_mode=ink_mode,
+            # CARD-305: carried through as given, including ``None``. There is
+            # deliberately no default: see the ``Args`` note above.
+            interior_divider_pages=(
+                None
+                if interior_divider_pages is None
+                else bool(interior_divider_pages)
+            ),
         )
 
         return spec, None

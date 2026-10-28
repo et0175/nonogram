@@ -2957,8 +2957,25 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
     #: shape below replaces line-count-preservingly in a copy of the module's
     #: text held in memory. It must occur exactly once, so an edit to it reds
     #: rather than quietly planting nothing.
+    #:
+    #: **Re-anchored by CARD-305, which is this guard working as designed.**
+    #: The trailing ``+ 1`` was the SOLUTIONS divider, unconditional until
+    #: that card made the four divider pages an option; it is now
+    #: ``+ (1 if self.divider_pages else 0)``. Editing the statement reddened
+    #: **44 cells in this file** — every planted shape at once, because the
+    #: anchor stopped occurring and ``_plant_refusals`` could plant nothing —
+    #: which is exactly the "an edit to it reds rather than quietly planting
+    #: nothing" the paragraph above promises. The anchor is updated to the
+    #: statement's new text and **nothing else moved**: still one occurrence,
+    #: still three lines, so every planted shape is still
+    #: line-count-preserving. Both new literals are already in
+    #: :data:`POSITION_LITERALS` (``0`` and ``1``), and the conditional is
+    #: kept inline rather than hoisted into a local precisely so this walk
+    #: can still see every term of the position — a name in front of one is
+    #: the laundering ``test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence``
+    #: is about.
     DERIVED_POSITION = """        first_answer_page = (
-            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
+            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + (1 if self.divider_pages else 0)
         )"""
 
     #: **A regression net over the shapes measured so far, never a
@@ -3372,6 +3389,25 @@ class Generator:
         this walk does not follow — which is the measurement the exemption
         rests on, and it is asserted rather than written down so that it
         cannot go stale while the docstring keeps claiming it.
+
+        **CARD-305 added two terms and no site, and the split is the point.**
+        Making the four divider pages optional put ``self.divider_pages``
+        into ``first_answer_page``, so that position now carries ``self`` and
+        ``.divider_pages`` — terms this walk reads for their literals and
+        declines to follow, because what they resolve to is a *stored column
+        on one book*, not anything in this module's text. No new **site**
+        appeared (still five): the terms landed on a position that was
+        already exempt, which is why the count below is unmoved while the
+        vocabulary grew. Those are two different figures and they are
+        asserted separately on purpose — a change that added a sixth site
+        would still red here even though the vocabulary assertion passed.
+
+        This is the exemption being **declared rather than widened**: the
+        walk still cannot follow those terms, and that is now true of a page
+        position whose value genuinely depends on per-book state. The
+        literals written beside them (``0`` and ``1``) are both in
+        :data:`POSITION_LITERALS` and are still read, so nothing about the
+        front-matter counts this walk exists to catch has been let through.
         """
         exempted = self._bare_literals(self._page_positions(follow_terms=True)[0])
         terms = sorted(
@@ -3386,7 +3422,17 @@ class Generator:
         )
 
         assert len(exempted) == 5, exempted
-        assert terms == ["index", "pages", "section", "toc_page_count"], terms
+        assert terms == [
+            # CARD-305, and read as a pair: the attribute and the name it
+            # hangs off, which is one term of one position — a book's stored
+            # divider-pages choice.
+            ".divider_pages",
+            "index",
+            "pages",
+            "section",
+            "self",
+            "toc_page_count",
+        ], terms
 
     # ----------------------------------------------------------------------
     # CARD-262 — the DOOR axis: a call whose callee's identity this walk
@@ -3546,9 +3592,29 @@ class Generator:
     #: and one unmoved is the shape a *call* added to an *imported* name
     #: produces, which is why the re-stamp is three figures read together and
     #: not one number raised until the test went green.
+    #:
+    #: **Re-stamped again 2026-10-28 (CARD-305): 772 -> 776 and 519 -> 522,
+    #: with 204 unmoved for the third time.** That card made the four divider
+    #: pages optional and added exactly **four** calls to this module, which
+    #: were enumerated before the figures were touched:
+    #:
+    #: * ``book_divider_pages(self.book)`` in ``__init__`` — 1;
+    #: * two ``TocEntry(...)`` in ``structural_toc_entries``' new
+    #:   no-level-rows branch — 2;
+    #: * one ``RuntimeError(...)`` in that branch's inverted tripwire — 1.
+    #:
+    #: Each step is then derivable rather than observed. The total takes all
+    #: four: **+4**. The ``("builtins",)`` step excludes builtins and
+    #: ``RuntimeError`` is one, so it takes the other three: **+3**. The
+    #: "definitions and imports" step absorbs all three non-builtins —
+    #: ``book_divider_pages`` is an *import* here and ``TocEntry`` a
+    #: module-level *definition* — so its remainder is **unmoved at 204**,
+    #: the same shape CARD-227 recorded above for the same reason. Three
+    #: figures, three independent derivations, one of which predicts *no*
+    #: movement: that is what distinguishes a re-measurement from a bump.
     CALLEE_EXEMPTION_COST = (
-        ((), 772),
-        (("builtins",), 519),
+        ((), 776),
+        (("builtins",), 522),
         (("builtins", "definitions and imports"), 204),
         (("builtins", "definitions and imports", "parameters"), 202),
         (

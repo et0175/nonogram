@@ -1,6 +1,18 @@
 """Database ORM models for nonogram platform."""
 
-from sqlalchemy import Column, String, Integer, DateTime, UUID, ForeignKey, Text, JSON, func
+from sqlalchemy import (
+    Boolean,
+    Column,
+    String,
+    Integer,
+    DateTime,
+    UUID,
+    ForeignKey,
+    Text,
+    JSON,
+    func,
+    text,
+)
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -199,6 +211,25 @@ class Book(Base):
     # the other.
     interior_ink_mode = Column(
         String, nullable=True, default='bw', server_default='bw'
+    )
+    # CARD-305 (migration 017): whether the interior prints its four divider
+    # pages — one per non-empty named level ("Easy", "Medium", "Hard";
+    # AC-254) and the "SOLUTIONS" page opening the answer key (AC-292). One
+    # column for all four: they are one editorial decision and one page
+    # design, drawn by one function.
+    #
+    # Nullable with a server default of true, and migration 017 backfills
+    # every existing row: every book written before the column printed all
+    # four, because they were unconditional until this setting existed, and
+    # book_page_spec.DEFAULT_DIVIDER_PAGES reads a NULL the same way. Like
+    # interior_ink_mode above and unlike floor_overrides, this NULL *is* the
+    # default rather than a second meaning a reader has to interpret.
+    #
+    # Unlike interior_ink_mode, this one does move the page COUNT: four fewer
+    # pages shifts every later page's parity (FR-043), the KDP page count and
+    # the spine. The sheet (ADR-0036/R1) is untouched.
+    interior_divider_pages = Column(
+        Boolean, nullable=True, default=True, server_default=text('true')
     )
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
