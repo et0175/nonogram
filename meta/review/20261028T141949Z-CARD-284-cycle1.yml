@@ -1,0 +1,574 @@
+version: 1
+generated_at: "2026-10-28T14:19:49Z"
+target: "CARD-284 cycle 1 — branch card/284-book-landing-and-library, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-284, HEAD 7c0c9f5a6e87c1f7c8bb06bf340c9ba26ffa3ab1, merge-base 7a62d704 (main), 8 files +2102/-38"
+overall_score: 6.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - player/assemble.py
+    - player/pages.js
+    - player/book.html
+    - player/library.html
+    - player/player.css
+    - player/vercel.json
+    - tests/test_public_player_pages.py
+    - tests/test_public_player.py (diff hunks + check_out_dir test + rewrites/_Host fixtures)
+    - meta/architecture/requirements.yml (FR-045 statement, AC-380..AC-392, EC-048..EC-050)
+    - meta/design/components.md (headings + PuzzleTile)
+    - meta/kanban/config.yml
+  not_reached:
+    - "src/nonogram/admin/player_bundle.py — the exporter whose BOOK_FILE_FIELDS/INDEX_ENTRY_FIELDS the tests assert against (read only through the assertions)"
+    - "meta/architecture/adr/ADR-0041 full text — rules read from the card's System contract section, not from the ADR file"
+    - "forge architect-validate run — not re-run; the diff touches 0 files under meta/, so the 0-errors/113-warnings baseline on main is unchanged by construction, not by measurement"
+    - "the card's own 953-node pre-gate selection — not reproduced"
+    - "iOS Safari; any real Vercel deploy; any eyeballed render"
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 2102, removed: 38 }
+  max_fan_in:
+    symbol: "player.assemble (module; imported by tests only)"
+    callers: 2
+  tests_cover_change: true
+  hotspots:
+    - player/assemble.py
+    - tests/test_public_player.py
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — player/ is outside the Python package (ADR-0041/R3) and nothing under src/ may import it; the only importers are tests/test_public_player.py and tests/test_public_player_pages.py, both in this diff. The count is true and says nothing about risk."
+    cochange_missing: "no_eligible_fact — every co-change peer of the touched files (tests/test_public_player.py x5, player/assemble.py x5, player/player.css x3, player/vercel.json x2 over the 12-month window) is present in this diff; the whole player/ tree is 3 commits old (CARD-282/283), so the window holds no peer outside it."
+    validator_delta: "not_applicable — 0 files under meta/ in the diff; the architecture validator's state cannot have changed, so no run was made."
+
+system_contract:
+  rules_checked: 36
+  holds: 11
+  unchecked: 23
+  violated: 2
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is not among the 8 changed files; tests/test_public_player_pages.py::test_the_two_pages_add_nothing_to_the_package_and_no_toolchain passed (no package.json/node_modules/package-lock.json/tsconfig.json in player/, and 'player/' absent from pyproject.toml); G-3's tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed collected and ran green inside the 208-node blast run."
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: 0 files under src/ in the diff; the admin panel's own client is untouched."
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: the diff adds no marking, undo, redo or error-count logic; /play/<key> is CARD-283's and unchanged."
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: the two listings deliberately carry no clues (SERVED_ENTRY_SCHEMA is SERVED_SCHEMA minus 'clues'); the player page's clue embedding is untouched."
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: pages.js holds no board state; solver_state.js is a byte-identical copy and is untouched."
+    - "ADR-0038/R5 ⚠ unchecked — no_eligible_fact: pyproject.toml not touched."
+    - "ADR-0038/R6 ✓ holds — no solution grid reaches the served listings: tests/test_public_player_pages.py::test_no_title_reaches_either_listing passed with its own positive control live (it asserts the BUNDLE's index.json and book/<slug>.json are each recoverable before asserting the site clean), and mutant M3b (_dump(..., book) -> _dump(..., payload)) reds that exact node, so the control can fail."
+    - "ADR-0038/R7 ✓ holds — `pytest -m browser tests/test_public_player_pages.py` selected 6 of 18 and all 6 passed against Chromium via pytest-playwright 0.9.0 (a 1.26 s browser launch shows in the setup durations); pyproject.toml untouched, so the dev-only extra is unchanged."
+    - "ADR-0038/R8 ✓ holds — the 6 browser nodes ran locally against the installed Chromium; the fixtures (browser_page, browser_type) are imported verbatim from tests/test_public_player.py rather than re-declared."
+    - "ADR-0039/R1 ✗ violated — three claims in this diff have no control that can fail: tests/test_public_player_pages.py:468 ('one per branch of isEntry plus the wrapper' — two surviving edge mutants, F-003), player/assemble.py:620 (served_index's determinism claim — surviving mutant, F-004), player/assemble.py:140 ('the tier is this script's one open edge, it is two bits wide' — contradicted by line 177 of the same file in the same commit, F-002)."
+    - "ADR-0039/R2 ✓ holds — SERVED_ENTRY_SCHEMA is derived from SERVED_SCHEMA; _site_entries() from PLAYER_FILES + COPIED_FROM_ADMIN; pages.js's TIERS is held to nonogram.difficulty.Tier and its SIZE_BANDS to limits.MIN_SIZE/MAX_SIZE by test_the_pages_tier_vocabulary_is_the_runtimes and test_the_size_bands_partition_the_supported_extent; the test host routes by the shipped vercel.json (rewrites()), and mutant R2 (killing the /library rule) reds test_the_two_doors_are_routed_by_the_shipped_config:958."
+    - "ADR-0039/R3 ✗ violated — the destructive check_out_dir's allow-set (_site_entries(), player/assemble.py:836-848) gained 'index.json', 'book', 'b', 'library' and 'pages.js' in this commit, and nothing controls what it must still deny: the only negative control (tests/test_public_player.py:882, a notes/important.txt tree) is drawn from the shape the guard was originally written from. F-005."
+    - "ADR-0041/R1 ✓ holds — listing_entry copies the served 'key' and never re-derives it; KEY_PATTERN is re-checked on the slug and on every puzzle_keys member (served_book); the fixtures mint keys and slugs with player_bundle._public_key/book_slug, and tests/test_player_bundle.py ran green in the 208-node blast run."
+    - "ADR-0041/R2 ✓ holds, for everything but the two pre-existing ADR exemptions and the declared residuals — test_no_title_reaches_either_listing sweeps the assembled site clean with the bundle proven dirty per listing file, and mutant M3b reds it. Caveats filed separately: the served book file's MEMBERSHIP residual is undeclared (F-008) and player/assemble.py:140's 'one open edge' conclusion is now stale (F-002)."
+    - "ADR-0041/R3 ✓ holds — the three new files are hand-written HTML/JS under player/, published through PLAYER_FILES; test_the_two_pages_add_nothing_to_the_package_and_no_toolchain passed (named npm artefacts absent, both pages load /pages.js as a module from the site root, no external http(s) reference beyond the vercel.json $schema)."
+    - "ADR-0041/R4 ✓ holds — pages.js contains no localStorage/sessionStorage/IndexedDB write at all; test_the_listing_pages_issue_one_get_and_write_nothing passed, asserting the METHOD and ORIGIN of every request and that the only interaction either page has (both filters plus Clear) issues none."
+    - "ADR-0041/R5 ⚠ unchecked — no_eligible_fact: src/nonogram/admin/player_bundle.py (the export path this rule governs) is untouched; tests/test_player_bundle.py green. The ASSEMBLY's determinism one layer out is a separate matter and is filed as F-004, not as this rule's verdict."
+    - "ADR-0041/R6 ⚠ unchecked — check_ref_missing: tests/test_public_player_pages.py::test_no_homegrown_tracking. This card creates that file and deliberately does not define that test (it is CARD-285's, and test_the_registrys_refs_for_this_file_resolve_or_are_card_285s holds the split in both directions). `git grep -lw` for the whole path::name string hits only meta/architecture/requirements.yml, meta/architecture/trace.yml and two 2026-10-24 CARD-218 review YAMLs — i.e. self-reference, no code. Manual read of this diff found no violation: no analytics tag in book.html or library.html, no identifier, no storage write, no request beyond each page's own assets and its one listing GET."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver or uniqueness code in the diff."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the public player ships no server. The 127.0.0.1 bind in the pages_host fixture is a test host, not the product's listening socket."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no admin HTTP handler in the diff."
+    - "CON-011 ✓ holds — pages.js's SIZE_BANDS bounds are held to limits.MIN_SIZE/MAX_SIZE by test_the_size_bands_partition_the_supported_extent (equal-band derivation, per-side completeness over the whole 10..30 range, plus a planted one-cell gap as the control), and isEntry refuses an extent outside them. Partial: the LOW end of isEntry's range has no case — mutant E-isEntry-low-bound survived 18/18 — so the browser-side half is asserted on one end only (F-003)."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-guard or image-sourcing code in the diff."
+    - "CON-021 ✓ holds — the two new pages are listings and links only: pages.js has no board, no marking and no solver, and both tiles link to /play/<key>. Play still exists in exactly the admin player and CARD-283's /play/<key>."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: the served listings carry no clues by construction, and compute_clues is untouched."
+    - "INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: every one of these is a book-plan, book-membership, book-order, pairing, answer-key or interior-PDF invariant over src/nonogram/**, and the diff touches 0 files under src/ (verified: `git diff --name-only 7a62d704..7c0c9f5a | grep -c '^src/\\|^meta/'` = 0)."
+
+root_causes:
+  - id: RC-1
+    title: "a claim stated wider than the control that holds it (ADR-0039/R1, this board's dominant family)"
+    finding_ids: [F-002, F-003, F-004, F-006, F-007, F-008, F-011]
+  - id: RC-2
+    title: "a destructive predicate widened in the same edit that added what it must now admit, with no denial control"
+    finding_ids: [F-005]
+  - id: RC-3
+    title: "the product decision the card routed in was answered with an option the card did not offer"
+    finding_ids: [F-001]
+  - id: RC-4
+    title: "the new pages' non-visual states are present in markup but unexercised"
+    finding_ids: [F-009, F-010, F-012]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: meta/kanban/cards/CARD-284.md
+    line: 31
+    title: "ESCALATION — the body's 'the book's title' is not implemented, and the decision taken is a fourth option the card did not offer"
+    description: |
+      ADJUDICATION OF THE CARD'S OWN DECLARED FINDING ("the title is NOT served"):
+
+      (a) TRUE. player/assemble.py:605 SERVED_BOOK_SCHEMA = ("puzzles", "slug");
+          SERVED_ENTRY_SCHEMA is SERVED_SCHEMA minus "clues" and SERVED_SCHEMA has
+          no "title". pages.js never reads a title field. Verified, not taken on
+          trust: mutant M3b (_dump(..., book) -> _dump(..., payload), one node,
+          line-count-preserving) reds tests/test_public_player_pages.py::
+          test_no_title_reaches_either_listing on its own assertion.
+
+      (c) CONSISTENT with the ACs and guardrails. AC-387/388/389
+          (meta/architecture/requirements.yml:5048-5066) name no title; and for the
+          PUZZLE title the drop is not a choice at all — EC-048 (requirements.yml:5086)
+          forbids "the picture name" on "every asset the public site serves", so
+          serving it would have been a violation. G-1..G-4 all hold.
+
+      (b) MIS-SCOPED, and this is the finding. Two different fields are argued as one.
+          The measurement the record leans on ("CARD-282 measured a published title
+          decoding back to all 144 cells of a 12x12 answer") is about a PUZZLE title —
+          the picture name, which EC-048 names. The BOOK's display title is a different
+          field with different provenance: owner-authored editorial text for a book,
+          which EC-048's enumeration does not name. Dropping it is defensible on the
+          residual argument (free text cannot be scanned), but it is a PRODUCT decision
+          about the page the card's own body calls "a book customer's first contact with
+          the product on a phone", and the card's routed-in section (lines 174-182)
+          enumerated exactly three options for it — publish one title / refuse such a
+          pair at export / disambiguate — flagging the third as "an ADR touch, not a
+          code change". "Serve no title at all" is a fourth option, and the round took it
+          in the worktree. That is precisely what CARD-282's round refused to do one
+          commit after being pulled up for it.
+
+      The card body (lines 31-35: "the book's title, its puzzles ... (each tile: title,
+      size, tier)") and the shipped code now contradict each other, and FR-045's own
+      statement for /b/<slug> is silent on the title, so nothing in the registry resolves
+      it either. On this board a card whose body and ACs diverge is an escalation.
+    suggestion: |
+      Escalate to the owner before merge; do not absorb it as a worktree note. Two
+      landing shapes, both cheap:
+        (i) ship titleless (today's code) AND amend the card body plus FR-045's
+            /b/<slug> clause so the registry stops asking for a title the site will
+            never serve; or
+        (ii) serve the BOOK's display title only, behind an explicit third ADR-0041
+             exemption with its own control (caught with the exemption removed, missed
+             with it in place — ADR-0039/R3), leaving the puzzle title dropped as
+             EC-048 requires.
+      Either way, separate the two titles in the argument: the EC-048 citation carries
+      the puzzle title and does not, on its own text, carry the book's.
+    confidence: high
+    source: model
+    violates: AC-387
+    root_cause: RC-3
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: player/assemble.py
+    line: 140
+    title: "The capacity docstring still concludes 'the tier is this script's one open edge, it is two bits wide' after this commit opened a second, wider one"
+    description: |
+      player/assemble.py:140 — "So the tier is this script's one open edge, it is two
+      bits wide, and the figure is derived by the deployed code rather than claimed."
+      player/assemble.py:177, added by this commit — the ORDER a book's puzzles are
+      listed in is a declared residual, which the card itself sizes at log2(24!) = 79.04
+      bits for a 24-puzzle book and log2(120!) = 660.48 for a 120-puzzle one.
+      Line 155's closing reading instruction ("except the two ADR exemptions and the two
+      declared bits") is stale for the same reason.
+
+      This is verifiable mechanically: no diff hunk covers lines 100-155 (hunk headers
+      are @@ -18, @@ -156, @@ -186, @@ -233, @@ -251, @@ -527, @@ -549, @@ -582, @@ -654,
+      @@ -677, @@ -697, @@ -748), so the conclusion paragraph was never revisited while
+      the residual it summarises grew. This file is where EC-048 is carried, so a stale
+      conclusion here is the most expensive place to leave one.
+    suggestion: |
+      Rewrite the line-140 sentence and the line-155 reading instruction to name both
+      residuals (the tier's two bits per puzzle, and the book file's order — and the
+      membership, see F-008), and keep the "derived by the deployed code" claim only for
+      the figure --capacity actually prints.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_public_player_pages.py
+    line: 468
+    title: "'Four shapes, one per branch of isEntry plus the wrapper' — two of isEntry's branches have no case, both proven dead by surviving edge mutants"
+    description: |
+      test_a_listing_the_page_cannot_trust_is_refused's docstring claims one case per
+      branch of pages.js's isEntry plus the readListing wrapper, and the implementation
+      record repeats it ("four malformed listings now exercise one branch each").
+      The four cases are not-a-listing / bad-key / bad-extent (MAX_SIZE+1, the HIGH end
+      only) / bad-tier. isEntry has six branches. Two have no case, and both survive
+      mutation (one node each, line-count-preserving, HEAD-verified before each):
+
+        E-isEntry-integer-branch  player/pages.js  `if (!Number.isInteger(extent))` ->
+                                  `if (false && !Number.isInteger(extent))`
+                                  => 18 passed, exit 0.  SURVIVED.
+        E-isEntry-low-bound       player/pages.js  `extent < SIZE_BANDS[0].min` ->
+                                  `extent < SIZE_BANDS[0].min - 1`
+                                  => 18 passed, exit 0.  SURVIVED.
+
+      The instrument is live, not blind: M-readListing-every-gone (`puzzles.every(isEntry)`
+      -> `puzzles.every(() => true)`) is KILLED at tests/test_public_player_pages.py:500
+      on the bad-key case. So the two arms above are genuinely unmeasured, not merely
+      unattributed.
+
+      The low-end hole is the same one this repo already named once: tests/
+      test_public_player.py's own puzzle-file table calls MIN_SIZE-1 "the one value that
+      reads it" after measuring that `MIN_SIZE - 1 <= value` survived a whole module.
+      The precedent is in the tree and was not carried across the wire.
+    suggestion: |
+      Add two cases to the `cases` dict, each one edit from valid and each asserted
+      against the branch it is named for: a non-integer extent (e.g. width: "10", the
+      string form the puzzle-file table already uses) and width: MIN_SIZE - 1. Re-fire
+      the two mutants above and check that the cell that reds is the new case, not
+      bad-key. Otherwise narrow the docstring and the implementation record to "four
+      shapes over four of isEntry's six branches".
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: gap
+    file: player/assemble.py
+    line: 620
+    title: "served_index's determinism claim has no control — reversing the served order survives the whole player suite"
+    description: |
+      served_index's docstring: "Sorted by key so the bytes are a function of the
+      published set and not of the order the bundle directory was walked — the same
+      determinism _dump exists for."
+
+        M-index-order  player/assemble.py
+                       `[entries[key] for key in sorted(entries)]` ->
+                       `[entries[key] for key in list(entries)[::-1]]`
+                       => 51 passed, exit 0, over tests/test_public_player.py +
+                          tests/test_public_player_pages.py.  SURVIVED.
+
+      Nothing asserts the served index is key-sorted, and nothing asserts the rendered
+      library order at all: every AC-389 assertion wraps _tiles(...) in sorted(...).
+      test_the_static_half_of_the_site_does_not_vary_with_the_puzzles cannot see it
+      either — this commit's own declared_data() helper excludes index.json from the
+      byte comparison by design.
+
+      Two consequences worth separating. (1) The claim is unheld, which is the finding.
+      (2) One layer out from EC-049 ("an export repeated over an unchanged store produces
+      byte-identical files, so a bundle diff at deploy time is meaningful"), there is now
+      no test that two assemble() runs over one bundle produce byte-identical site trees
+      — the property EC-049 exists to make deploy diffs readable, at the layer that is
+      actually deployed.
+    suggestion: |
+      Either assert the property — `[e["key"] for e in index["puzzles"]] == sorted(...)`,
+      plus one test that assembles the same bundle into two directories and compares every
+      file byte for byte (the shape test_export_is_readonly_and_deterministic already uses
+      one layer in) — or delete the sentence and the sorted() with it. Note separately
+      whether key order is the order the library SHOULD list in: hash order is effectively
+      random to a reader, and no AC states an order for /library.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: player/assemble.py
+    line: 843
+    title: "check_out_dir's destructive allow-set gained index.json/book/b/library/pages.js with no control for what it must still deny"
+    description: |
+      _site_entries() is the allow-set check_out_dir consults before assemble() calls
+      shutil.rmtree on --out. Its docstring records a measured data-loss incident as its
+      reason ("a directory holding precious/notes.txt came back holding only the site").
+      This commit widens it by five names: PLAYER_FILES adds library/index.html, b/index.html
+      and pages.js (contributing 'library', 'b', 'pages.js'), and _site_entries() unions
+      SITE_BOOK_DIR ('book') and SITE_INDEX_FILE ('index.json') explicitly.
+
+      The guard refuses when ANY top-level name is foreign, so the new exposure is a
+      directory consisting only of allowed names: a directory whose sole entry is
+      index.json — one of the most generic filenames on the web — or only book/, or only
+      library/, is now silently rmtree'd where before it was refused by name.
+
+      The widening has no denial control. The only negative control is
+      tests/test_public_player.py:882, a notes/important.txt tree, which is the shape the
+      guard was originally written from and reads none of the new names. Mutant
+      R3-outdir-index-allowed (dropping SITE_INDEX_FILE from the set) IS killed at
+      tests/test_public_player.py — but by the POSITIVE control (re-assembling into
+      `empty`, which now contains index.json). That is the half this board warns about:
+      the test pins that index.json must be ALLOWED and nothing pins what must still be
+      DENIED.
+    suggestion: |
+      Add the denial control from a shape the guard was not written from — e.g. a
+      directory holding only `index.json`, asserting whichever answer is intended, and
+      a directory holding `index.json` plus one foreign name, asserting refusal. If
+      "a lone index.json is deletable" is not the intended answer, change the recognition
+      test from a name-set to a marker the script itself writes (the site's own
+      vercel.json is already published on every run), which is a strictly stronger
+      predicate and does not widen with every new published path.
+    confidence: high
+    source: static
+    violates: ADR-0039/R3
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: player/assemble.py
+    line: 261
+    title: "Two docstring claims say vercel.json needs no /library rule; the same commit adds one, and it is load-bearing"
+    description: |
+      player/assemble.py:259-262 (PLAYER_FILES' comment): "library.html and book.html
+      travel the same way for the same reason (CARD-284): /library resolves without a
+      rewrite, and vercel.json only has to cover /b/<slug>."
+      player/assemble.py:27 (module docstring): "vercel.json   the host's rewrites for
+      /play/<key> and /b/<slug>."
+      player/vercel.json, same commit: TWO new rules, /b/:slug AND /library.
+
+      The /library rule is not decorative. Mutant R2-library-rewrite-dead (source
+      "/library" -> "/zzzzzz", one node, line-count-preserving) is KILLED at
+      tests/test_public_player_pages.py:958 with ('/library', []). So the comment is
+      false about a mechanism its own test depends on, and a reader acting on it would
+      delete a live rule.
+    suggestion: |
+      Say what the file does: two rewrites for /b/<slug> and /library, and why /library
+      still needs one (the loopback fixture's `^/library/?$`, and a host that does not
+      serve a directory index for an extensionless path).
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-284.md
+    line: 218
+    title: "The record's mutant M3 names the wrong cell — it reds the partition guard at fixture setup, not the title sweep"
+    description: |
+      The implementation record says "Mutant M3 is the live control: carrying the bundle's
+      fields through reds it", where "it" is the two-directional title sweep. Re-fired:
+
+        R1-title-carried  player/assemble.py
+                          SERVED_BOOK_SCHEMA = ("puzzles","slug") ->
+                                               ("puzzles","slug","title")
+                          => 4 failed, 4 passed, 11 ERRORS, exit 1.  KILLED.
+                          First cell: check_listing_capacity raising ValueError inside
+                          the pages_site fixture. test_no_title_reaches_either_listing
+                          is one of the 11 ERRORS — it never ran its own assertion.
+
+      So the mutant is killed, but not by the control the record credits. The sweep IS
+      live, and its control is a DIFFERENT mutant, which I fired:
+
+        M3b-book-served-raw  player/assemble.py
+                             `_dump(site / SITE_BOOK_DIR / f"{book['slug']}.json", book)`
+                             -> `... , payload)`
+                             => 8 failed, 11 passed, exit 1.  KILLED, and
+                             test_no_title_reaches_either_listing FAILS on its own
+                             assertion (plus test_the_index_and_book_files_are_rebuilt_
+                             and_never_copied, and test_a_listing_carries_only_values_
+                             already_on_a_puzzle_file).
+
+      Not a defect in the code — the book title is held by four independent mechanisms
+      (the explicit served dict, served_book's own assert, the partition guard, the sweep)
+      and no single-node mutant on the schema can reach past the third. It is a defect in
+      the record: the named mutant certifies the guard, not the sweep.
+    suggestion: "Replace M3 in the record with the _dump(..., payload) mutant, which is the one whose kill cell is the sweep."
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: player/assemble.py
+    line: 177
+    title: "The served book file's declared residual names the ORDER of puzzles but not the MEMBERSHIP"
+    description: |
+      LISTING_STRUCTURE_FIELDS' docstring: "The residual these two carry is the ORDER of
+      `puzzles` in a book file". The `puzzles` list also carries the SUBSET CHOICE — which
+      k of N published puzzles this book holds — and a hostile store choosing membership
+      as a function of an answer signals up to log2(C(N,k)) bits through it, independently
+      of the order. For the library's index.json there is no choice (it is every puzzle
+      served), so this is specific to the book file.
+
+      It is defensible on exactly the grounds the order is ("not serving it means not
+      having a landing page", and the printed book publishes its own membership on paper),
+      but a residual that is argued and not declared is the thing this file's own
+      capacity section exists to prevent.
+    suggestion: "Name the membership alongside the order in LISTING_STRUCTURE_FIELDS' docstring, with its own bound (log2(C(N,k))) and the same 'not serving it means not having the page' justification."
+    confidence: high
+    source: model
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: feature
+    type: gap
+    file: meta/design/components.md
+    line: 145
+    title: "The new public-player tile is not registered in components.md, which the card's Design context requires"
+    description: |
+      The card's Design context says: "UI components: puzzle tile (new — register in
+      components.md)". The diff touches 0 files under meta/. components.md's existing
+      `## PuzzleTile` (line 145) is the ADMIN panel's component (CARD-173/180 states, a
+      Status info-row), the file's own title scopes it to "Nonogram admin panel", and it
+      carries no public-player entries at all — CARD-283 set the same precedent for
+      SolverBoard-side equivalents.
+
+      Secondary, and a `Touches:` correction rather than a code finding: the card requires
+      an edit to meta/design/components.md and does not declare it, so the scope gate
+      could not have seen it either way.
+    suggestion: "Either register the public listing tile (states: with tier chip / without, numbered on /b/<slug> / unnumbered on /library, the empty list, the not-found panel) and add meta/design/components.md to Touches, or strike the obligation from the card's Design context and record the CARD-283 precedent as the reason."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: feature
+    type: gap
+    file: player/pages.js
+    line: 206
+    title: "No live region: filtering the library changes the tile list and the count silently for a screen reader"
+    description: |
+      render() replaces the whole tile list and rewrites [data-pages-count] on every filter
+      change, and show(empty, shown.length === 0) reveals "No puzzle matches these filters"
+      — none of it inside an aria-live region, and none of it moving focus. player.css
+      already ships CARD-283's `.player-announce` ("A live region has to be in the document
+      to be announced reliably") and pages.js does not use it. grep for aria-live /
+      player-announce / role= over pages.js, book.html and library.html returns nothing.
+      A keyboard-and-screen-reader user changing a filter gets no signal that anything
+      happened. axe impact: roughly moderate (not a rule violation axe would flag by
+      itself, which is why the static read matters here).
+    suggestion: "Reuse .player-announce: one visually-hidden aria-live=polite node per page, written with the count and the empty state on every render()."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_public_player_pages.py
+    line: 421
+    title: "test_the_listing_pages_issue_one_get_and_write_nothing's NAME claims one GET; the body never asserts a count"
+    description: |
+      The docstring is accurate ("Every request either page makes is a same-origin GET,
+      and filtering ... issues none at all ... never as a request count, which is the
+      distinction CARD-283's own EC-050 test rests on"). The test NAME says "issue one
+      get", which is the count the body deliberately does not assert. The property does
+      hold structurally — load() fetches its source once and nothing else does — but the
+      node id is the thing a gate log and a check ref quote.
+    suggestion: "Rename to test_the_listing_pages_only_get_and_write_nothing (or similar) so the node id states the measurement."
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-012
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_public_player_pages.py
+    line: 247
+    title: "_open_pages waits on Playwright's default 30 s timeout — a future regression costs 30 s per navigation instead of a fast red"
+    description: |
+      _open_pages calls page.wait_for_function with no timeout. Measured, not supposed:
+      mutant M-notfound-never-shown (show(notice, true) -> show(notice, false)) took
+      62.63 s for the file against a 2.9 s baseline, because two navigations each burned
+      the full 30 s before failing. Six browser nodes use this helper, so a page that
+      neither sets window.playerPages nor shows the panel can add minutes to a cycle,
+      and on this board a shell call over ~2 minutes returns a truncated log that is
+      indistinguishable from a suite failure.
+
+      Also in the empty-state family: book.html's [data-pages-empty] ("None of this book's
+      puzzles are on the site yet") is reached only through the Python-level
+      test_a_book_with_no_resolvable_puzzle_is_still_served_empty; no browser test loads
+      an empty book, so the state exists in markup and has never rendered.
+    suggestion: "Pass an explicit short timeout (2-3 s is ~10x the measured 0.1-0.24 s call times) to wait_for_function in _open_pages, and add one browser case that loads the all-unresolved book and asserts the empty paragraph is visible with no tiles and no not-found panel."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-013
+    severity: info
+    category: ops
+    type: question
+    file: meta/architecture/requirements.yml
+    line: 5079
+    title: "Out of scope — ADR-0041/R6's and AC-392's check ref is dead in code and now points at a file this card created"
+    description: |
+      `git grep -lw tests/test_public_player_pages.py::test_no_homegrown_tracking` hits
+      only meta/architecture/requirements.yml, meta/architecture/trace.yml and two
+      2026-10-24 CARD-218 review YAMLs — i.e. the registry referring to itself, no code.
+      The test is CARD-285's and this card deliberately does not write it; its own
+      test_the_registrys_refs_for_this_file_resolve_or_are_card_285s holds the split in
+      both directions, which is the right handling. Recorded here only so R6's verdict
+      line is readable: the rule is unchecked, not satisfied. Not this card's to fix.
+
+      Not established and worth stating: I did not read the validator's ref-resolution
+      exclusion list, so I cannot say whether requirements.yml/trace.yml self-hits make
+      this ref read as RESOLVED to the validator. If they do, that is a wider instrument
+      defect than one card.
+    suggestion: "CARD-285 writes the three AC-390..392 tests. If the validator counts registry self-hits as resolution, raise that as its own item — it would make every check ref unfalsifiable."
+    confidence: medium
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

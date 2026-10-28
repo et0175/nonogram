@@ -15,7 +15,7 @@
 **Wave:** 63
 **Depends on:** CARD-282, CARD-283
 **Touches:** player/**, tests/test_public_player_pages.py, tests/test_public_player.py <!-- the last added 2026-10-28: the card could not be implemented without it, see the implementation round's F-1. CARD-283 shipped three tests that directly contradict serving the listings. Neither sibling card in wave 63 names it, so the wave's measured empty path intersection holds. -->
-**Review score:** —
+**Review score:** **6.5 cycle 1/3, NOT CERTIFIED** (min 8) — 0 critical, 5 important, 1 of them an owner ESCALATION
 **Started:** 2026-10-28T07:23:17Z
 **Closed:** —
 **Actual:** —
@@ -216,6 +216,16 @@ directions in one test: the bundle's `index.json` and `book/<slug>.json` **must*
 be dirty (every fixture title is base-64 of its own grid) and the site **must** be
 clean — so a sweep that had stopped working could not report this as a pass.
 Mutant M3 is the live control: carrying the bundle's fields through reds it.
+**[CORRECTED 2026-10-28, cycle 1's F-007 — M3 named the wrong cell.]** Adding
+`"title"` to `SERVED_BOOK_SCHEMA` does not red this sweep's assertion: it reds
+`check_listing_capacity` at *fixture setup* (4 failed / 4 passed, **11 errors**)
+and the sweep never reaches its own assertion at all. Four independent
+mechanisms guard that field and **no single-node mutant reaches past the third**,
+which is why the attribution looked right. The sweep's real live control is
+`_dump(…, book)` → `_dump(…, payload)`, which reds
+`test_no_title_reaches_either_listing` **on its own assertion**. The code was
+never the defect here — the record was. A mutant that dies in a fixture
+certifies the fixture, not the claim under it.
 
 ### CARD-282's F-8 closed by construction rather than by a check
 
@@ -281,3 +291,99 @@ is not. And **it does not claim EC-048 is closed**: `assemble.py`'s own docstrin
 records that EC-048's literal text is unsatisfiable by any ADR-0041
 implementation, so every claim reads "except the two ADR exemptions and the
 declared residuals".
+
+
+## [CYCLE 1 — 2026-10-28] **6.5, NOT CERTIFIED** — 3 surviving mutants, and the title is an owner call taken in a worktree
+
+Report: `meta/review/20261028T141949Z-CARD-284-cycle1.yml` (13 findings, parses).
+Reviewed `7c0c9f5a` against merge-base `7a62d704`. **17 mutants fired, 14 killed,
+3 survived**, 5 of them edge mutants. System contract: 36 rules, 11 ✓, 23 ⚠
+unchecked, **2 ✗ violated** (ADR-0039/R1 and R3).
+
+### The card's own declared finding, adjudicated: TRUE but MIS-SCOPED
+
+*"The title is not served"* is **true** — `SERVED_BOOK_SCHEMA = ("puzzles",
+"slug")`, no `"title"` appears anywhere in `assemble.py`, and the sweep that
+enforces it is a live control (the `_dump(…, book)` → `payload` mutant reds
+`test_no_title_reaches_either_listing` on its own assertion). It is also
+**consistent** with AC-387/388/389 and G-1..G-4.
+
+**What it is not is a worktree note.** Two different fields are being argued as
+one:
+
+- the **puzzle** title is the picture name, which **EC-048 forbids** on every
+  asset the public site serves — not a choice at all, and serving it would have
+  been the violation;
+- the **book's display title** is owner-authored editorial text that EC-048's
+  enumeration does not name.
+
+This card's body (line 31) requires *"the book's title"* on `/b/<slug>`, the page
+it calls *"a book customer's first contact with the product on a phone"*. The
+card routed in **exactly three options** for the collision (publish one title,
+refuse the pair at export, disambiguate — the third flagged as an ADR touch).
+*"Serve no title at all"* is a **fourth option, taken in the worktree** — which
+is the same move CARD-282's round was pulled up for one commit earlier. Body and
+code now contradict each other and FR-045 resolves neither. **Escalated to the
+owner; it is not the fix round's to decide.**
+
+### The three surviving mutants — all verified independently by the orchestrator
+
+1. **`isEntry` has six branches and four cases** (F-003). `Number.isInteger`
+   appears at `pages.js:111` and **in no test**; the extent range plants only
+   `MAX_SIZE + 1` (`tests/test_public_player_pages.py:479`) and never
+   `MIN_SIZE - 1`. Both mutants survive. The docstring's *"four shapes, one per
+   branch"* is false, and **this repo had already named this exact hole once** —
+   "`MIN_SIZE-1` is the one value that reads it", in the puzzle-file table — and
+   did not carry it across.
+2. **`served_index`'s determinism has no control** (F-004). Reversing the served
+   order survives 51 nodes: nothing asserts the index is key-sorted, every
+   AC-389 assertion wraps `_tiles(...)` in `sorted(...)`, and `declared_data()`
+   excludes `index.json` from the byte comparison.
+3. **A destructive guard was widened with no denial control** (F-005).
+   `check_out_dir`'s allow-set gained `index.json`, `book`, `b`, `library`,
+   `pages.js`, so a directory whose only entry is `index.json` is now silently
+   `rmtree`d where it was refused. The one negative control is drawn from the
+   shape the guard was written from, and the mutant dropping `SITE_INDEX_FILE` is
+   killed **by the positive control** — the suite pins what must be *allowed* and
+   nothing pins what must still be *denied*. Textbook "widening a predicate and
+   adding an exemption are one edit".
+
+### Two false docstrings about live mechanisms
+
+- **F-002** `assemble.py:140` still concludes *"the tier is this script's one open
+  edge, it is two bits wide"* while **line 177 of the same file, same commit**
+  declares a second residual the card sizes at log2(24!) = 79.04 bits. No diff
+  hunk covers lines 100-155 — mechanically confirmed. This is the file carrying
+  EC-048.
+- **F-006** two docstrings say `/library` needs no rewrite and *"vercel.json only
+  has to cover /b/<slug>"*; the same commit adds a `/library` rule, and killing
+  it reds a test.
+
+### One record defect, not a code defect
+
+**F-007**: the implementation record's M3 names the wrong cell. Adding `"title"`
+to `SERVED_BOOK_SCHEMA` reds `check_listing_capacity` at *fixture setup*
+(4 failed / 4 passed / **11 errors**) and the sweep never reaches its assertion.
+Four independent mechanisms guard it and no single-node mutant reaches past the
+third, so the code is fine — the attribution was wrong.
+
+### Also found
+
+**F-009** `meta/design/components.md` is a required edit the card does not
+declare — a `Touches:` correction — and the new public tile is unregistered
+(the existing `## PuzzleTile` is the admin panel's). **F-010** filtering rewrites
+the tile list, count and empty note with no `aria-live` and no focus move, while
+`player.css` already ships CARD-283's unused `.player-announce`. **F-012**
+`_open_pages` has no explicit timeout: one mutant cost **62.63 s** against a 2.9 s
+baseline because two navigations each burned Playwright's 30 s.
+
+### What the review could not establish, in its own words
+
+**No render was eyeballed** — nobody has looked at `/b/<slug>` or `/library`;
+every layout claim is a computed-style or bounding-box assertion, and
+`review.visual: off`. **The owner's visual pass is owed.** Nothing was tested
+outside Chromium, where most QR scans land (iOS Safari). The card's 953-node
+pre-gate figure was not reproduced — a 208-node core subset was run instead, as
+a deliberately different door. The validator was not run (0 files under `meta/`
+makes the baseline unchanged by construction, not by measurement). Vercel itself
+is never exercised; only the loopback fixture reading the shipped `vercel.json`.
