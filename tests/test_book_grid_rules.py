@@ -1095,28 +1095,32 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
     ) -> None:
         """The second page kind ``png._draw_grid`` rules, and G-1's control.
 
-        ``_answer_tile`` and ``_packed_tile_layout`` pass the sheet's
-        ``grid_rules`` into ``_axis_lines``, so the grid lines of a packed
-        answer tile carry the declared weights too — and a tile is ruled by
-        ``png._draw_grid``, the same
-        function the single-puzzle page goes through. Cycle 1's F-008 recorded
-        that nothing asserted the plumbing; this asserts it, and the arm above
-        it is what keeps the weights off the tile's bitmap.
+        ``_answer_tile``, ``_packed_tile_layout`` and ``_slot_layout`` each
+        pass the sheet's ``grid_rules`` into ``_axis_lines`` separately, so an
+        answer tile's, a packed solved slot's and a two-up slot's grid lines
+        all carry the declared weights — and an answer tile is ruled by
+        ``png._draw_grid``, the same function the single-puzzle page goes
+        through. Cycle 1's F-008 recorded that nothing asserted the plumbing;
+        this asserts it, and the refusal arm beside it is what keeps the
+        weights off the tile's bitmap.
 
         The claim this test exists for is in the class docstring above — that
         ``render_answer_page`` reaches the stroker as well — so it is held here
-        rather than left as a figure from a probe.
+        rather than left as a figure from a fix-round probe.
 
-        **All three tile builders, because they are three pieces of
-        plumbing.** ``_answer_tile``, ``_packed_tile_layout`` and
-        ``_slot_layout`` each pass ``rules=page_spec.grid_rules`` separately,
-        and before this test deleting *any* of them survived the whole derived
-        radius — the packed and two-up arms were measured as survivors in fix
-        round 1 and are why those arms exist. They are not three spellings of
-        one thing: an ``AnswerTile`` carries no clue gutter and is stroked by
-        ``png._draw_grid``, while a packed solved slot and a two-up slot are
-        complete placed :class:`~nonogram.export.layout.Layout`\\ s stroked by
-        ``_stroke_drawing``.
+        **Three arms because they are three pieces of plumbing**, not three
+        spellings of one: an ``AnswerTile`` carries no clue gutter and is
+        stroked by ``png._draw_grid``, while a packed solved slot and a two-up
+        slot are complete placed
+        :class:`~nonogram.export.layout.Layout` objects stroked by
+        ``_stroke_drawing``. **What was measured, and its reach:** in fix
+        round 1 each of the three ``rules=`` arguments was replaced by ``None``
+        one at a time. ``_packed_tile_layout``'s survived
+        ``test_book_grid_rules`` + ``test_book_puzzle_frame`` +
+        ``test_book_page_spec`` (209 passed) and ``_slot_layout``'s survived
+        the six two-up and solved files (215 passed) — those are the files
+        measured, not the whole 64-file radius. Each is now killed by this
+        cell and by no other in this file.
         """
         spec = BookPDFGenerator(corpus_book())._puzzle_page_spec(A_PUZZLE_PAGE, None)
         assert spec.grid_rules == GRID_RULES
