@@ -1,6 +1,6 @@
 # CARD-227: The printed grid's rules get three weights — cell, every fifth, outer border, at the owner's own figures
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/227-grid-rule-weights
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-227
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — "The rules behind it": Grid lines ("0.3 pt cells in grey, 0.8 pt every fifth line, 1.3 pt outer border"). **Confirmed by the owner 2026-10-25** on CARD-293's proof, after ADR-0042 removed the device floor that had forced these figures to be scaled.
 **Idea:** —
 **Wave:** 63
 **Depends on:** CARD-222 (the frame these rules are measured inside), CARD-295 (the puzzle page must be drawn as operators before these widths are safe — see "Why this card waits")
-**Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf.py, tests/test_book_pdf_band.py, meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md
+**Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_vector_draw.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf_band.py, tests/test_book_grid_rules.py, tests/test_book_puzzle_page_vector.py, tests/test_book_page_spec.py, tests/test_book_export_interior_cover.py, meta/profiling/rank_durations.py, meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md, meta/architecture/trace.yml, meta/architecture/requirements.yml <!-- corrected 2026-10-28: the original list was written 2026-10-17, BEFORE CARD-294/295 existed, and was stale against this card's own G-2 ("the weights go through the stroke path CARD-295 uses"). Six files added, each forced: book_vector_draw.py IS that stroke path; four test files hold claims this card moves or frozen registries it must join; trace.yml is named by the card itself. Both siblings checked, empty intersection confirmed. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-28T07:23:17Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -317,3 +317,159 @@ raster interior at 300 DPI._
 - **[What changed on 2026-10-25]** ADR-0042 made the interior a content stream;
   ADR-0042/R7 made R2's device floor inapplicable to it; the owner read the proof
   and chose their own figures. The ×1.6 lost its premise, not an argument.
+
+## [IMPLEMENTATION — 2026-10-28] `884c9738` — the weights are declared, and NOT yet on a shipped page
+
+Two commits, 14 files. **G-5 verified from git: no fixture and no baseline
+touched** — the design puts the declared weights *beside* the device width rather
+than replacing it, so every raster renderer reads exactly the number it read
+before, by construction rather than by luck. **G-2 holds**: the pair strokes
+through the `w`/`G` primitives CARD-294 already had. **G-3 holds**: no position
+moved. Wave 63, run concurrently with CARD-284 and CARD-267.
+
+The three weights live **once**, at `book_page_spec.GRID_RULES`, as a validated
+`GridRules` value object that **refuses what R2 forbids** — non-increasing
+widths, a pure-black cell line, a cell line no lighter than the fifths. So the
+hierarchy is a sheet a caller *cannot express wrongly*. `_rule_tier` tests the two
+far edges **first with no fallthrough**, so a 20-wide grid — whose far boundary
+*is* a multiple of five — closes on 1.3 pt instead of losing its border.
+
+**G-6 discharged**: ADR-0037/R2's lens is now a real test ref, and the validator
+reads **1 error / 113 warnings** against main's **117** — four dead check refs
+cleared, verified by the orchestrator. The check's comment states what it
+executes **and what it does not**: not R2's "default PageSpec's strokes
+unchanged" clause (ADR-0036/R1's own), and not `png._draw_grid`'s raster floor,
+declared as an open bound CARD-298 closes.
+
+### ⚠ FINDING 1 — the owner cannot see these weights in a generated book yet
+
+**The live book interior is still entirely raster.** `_write_pdf`'s walk calls
+`_blank_page`, `_two_up_page`, `solved_puzzle_page` and `_packed_answer_page`;
+CARD-295's `vector_puzzle_page` / `vector_two_up_page` / `vector_puzzle_pages`
+exist but **are not wired into it**. CARD-298 is the card that flips it.
+
+**This is not the card's stop condition** — no weight was applied to a bitmap,
+the raster path keeps its proportional device rule, and the declared figures are
+**refused** a bitmap at both doors. But *"the grid now prints at 0.3/0.8/1.3"*
+must be read as **"the vector door now states them"**. A render review was
+therefore impossible and none is owed by this card.
+
+### AC-7's mechanism, which is the card's one genuinely new claim
+
+`layout.rasterise_rule_px` is the single door a raster generator may convert a
+declared width through, and it **defaults to DENY**: 0.3 pt is 1 px at 300 DPI →
+refused; the same figure at 1200 DPI is 5 px → admitted. **So the floor is on the
+device, not on the weights.** `layout.refuse_rasterised_rule` is called at **both**
+`_stroke_drawing` sites — lines *and* frame — and the frame call exists because a
+mutant deleting only it would otherwise have survived.
+
+### Kill instrument — 21 mutants, 0 survivors, and 11 of the kills needed re-attribution
+
+Via the board's own `tests/kill_matrix.py` recording pass: 74 `ast.Assert` nodes
+(not a collected-test count), 26 tests, shipped 0 FAIL of 74 reached. All four
+source files `git hash-object`-identical before and after, no leaked patch.
+
+**11 mutants are killed OUTSIDE the assert domain** — a `pytest.raises` *DID NOT
+RAISE* is not an `ast.Assert` node, so the matrix reads `exit 1, arms reached,
+0 FAIL`, **which is the same grid a survivor produces.** The round did not leave
+that ambiguous: it re-ran each of the eleven plain and attributed it by name.
+*That distinction is the whole reason this board measures per assertion.*
+
+**Four controls exist because the kill pass demanded them.** K01, K04, K05, K06
+and K21 had no control when the tests were first written, and rather than narrow
+the claims the round **added** the tests — including the frame guard's, a *second*
+call site.
+
+### The "together" requirement caught two defects, neither visible file-by-file
+
+1. **A frozen default-deny call-graph cost moved.** The two new
+   `refuse_rasterised_rule` calls took it **770 → 772** and **517 → 519**, with
+   the module's `ast.Call` count **832 → 834** — re-derived through that class's
+   own door at both ends. And the third step correctly **did not move** (204),
+   because `refuse_rasterised_rule` is an *import* here, so the "definitions and
+   imports" class absorbs both new refusals. *"Two numbers up by two and one
+   unmoved is the shape a call to an imported name produces — which is why the
+   re-stamp is three figures read together, not one number raised until green."*
+2. **The frozen render-heavy set.** The new test file joined it **because its own
+   docstring names `puzzle_pages`** while explaining that it calls the singular
+   `vector_puzzle_page` — by the grep's letter a mention, by its purpose a false
+   positive. It was added anyway on the stronger reason: **the file genuinely
+   renders** (two poppler renders, one at 1200 DPI = 134 Mpx, ~4 s of its 7 s).
+   *Rewording the sentence to slip the set was the tempting move and would have
+   left this phase's most expensive render outside the set that exists to see it.*
+
+### Three of the round's OWN assumptions were wrong, and it corrected them
+
+1. **The page emits seven `w` operators on a 20×20, not three.** Every renderer's
+   stroke order is keyed on the two-valued `GridLine.major` while there are now
+   three weights, so inside the heavy half border and fifths interleave in
+   COMP-007's order and the width re-sets on each. It costs operators and nothing
+   else (both heavy tiers share one black). **"Three `w` operators" had already
+   been written into a docstring before measuring** — corrected, and the real
+   count is now asserted so the prose has a control. Re-keying the sort on `tier`
+   would make it three and is a change to stroke order in four renderers, which
+   G-2 keeps out.
+2. **The inked-span ratio between 300 and 1200 DPI is 2.5 for the cell line, not
+   4.** A declared stroke's antialiased fringe is ~1 px at each end at *any*
+   resolution, so it is a far larger share of a 1.25 px rule than of a 5 px one.
+   A band loose enough to admit 2.5 would admit almost anything, so AC-6 holds
+   each span against **its own declared width at each resolution**
+   (`declared ≤ span ≤ declared+2`) — tighter at both ends than any ratio.
+3. **The cross-medium seam asserted the raster twin's widths ARE the stream's**,
+   which is **now false by design**. It was not satisfied by undoing the card: it
+   was re-expressed as the measured form of AC-7 — *no width this page was
+   rasterised at is the device count of a declared figure* — with both hierarchies
+   asserted intact first, **1 px shown absent and 3 px shown present**, so the
+   reading's silence about 1 px is a measurement and not a blind spot.
+
+### The two figures nobody had measured are now measured
+
+The 0.8 pt vector span inks **4 px @300 / 14 px @1200** and the 1.3 pt border
+**6 px / 22 px**, both at grey 0; the cell line reproduces CARD-293's **2 px /
+5 px at grey 89 exactly**. Door: **poppler `pdftoppm`**, one scanline through the
+middle of the first cell row, unbroken ink runs attributed to each line **by the
+position COMP-007 placed it at** — *not* grouped by width, which would assume the
+answer. Recorded in ADR-0037's History, FR-033's trace row and AC-374's comment,
+and **not cited to CARD-293**.
+
+### Pre-gate
+
+**Tier A, the changed files together: 419 collected, 419 passed, 0 skipped**,
+86.81 s. **Tier B, a derived blast radius of 53 files: 2925 collected, 2924
+passed, 1 skipped**, 395.44 s. The one skip named: `setrlimit(RLIMIT_AS)` refused
+by this kernel, pre-existing and platform-only. Hang dump 0 bytes;
+`NONOGRAM_TEST_HANG_SECONDS` never set; the board's lock never taken.
+
+Rival-pytest read **2 at both ends of both runs**, reported rather than assumed
+to be noise, with the right reasoning: the siblings share no path with anything
+this card changed, so they can only have added CPU contention — *which moves a
+wall-clock figure and cannot move a pass/fail cell.* **⚠ Caveat added by the
+orchestrator**: that instrument was found false-positive later the same day (see
+`config.yml`), so the "2" over-states contention. The reasoning stands; the
+number is not a measurement.
+
+### Findings 2–4, and what could not be established
+
+- **Three of the card's seven criteria have no registry AC.** AC-372..375 cover
+  its AC-1/2/5/6 (and this card's tests make those four previously-dead refs
+  live). The card's **AC-3, AC-4 and AC-7** are tested and in the trace row, but
+  **AC-376..378 do not exist**. AC-7 is the one that matters — it is the card's
+  single new claim and the thing keeping R2's medium argument from being a
+  comment. Recorded as owed; **the architect's to add.**
+- `requirements.yml`'s **FR-033 has no `tests:` key** — pre-existing, present in
+  the pre-edit validator run. The one validator **error** (ADR-0025 circular
+  supersession) is also pre-existing.
+- `Drawn.__init__` builds a page and **discards it** on the one `rules=`-overridden
+  path. One wasted build in one test, harmless and measured green, **left as
+  committed rather than shipping a post-gate edit.**
+- **Could not establish**: whether these weights read well on paper (dot gain at
+  0.1058 mm, and whether 35 % grey reads as guidance or as faded — the owner
+  accepted that by deciding on renders; revisit trigger is the first printed
+  book, route is an ADR-0037 amendment); whether `png._draw_grid` would refuse the
+  declared figures (**it cannot receive them today, so there is nothing to refuse
+  and no control that can fail** — declared as an open bound closing at CARD-298).
+- **Obligation 2 resolved by scoping, not retiring**: `min_thin_rule_mm` keeps
+  0.25 mm, now stated as the thin-rule floor *on a raster surface*. **Replacing
+  0.25 with 0.1058 was refused outright — a floor set at the figure it protects
+  asserts nothing.** Four inherited "retired" lines judged individually; the one
+  measuring frame overhang was left because it is unrelated.
