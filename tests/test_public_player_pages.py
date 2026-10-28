@@ -1793,6 +1793,51 @@ def test_the_public_tile_is_registered_in_the_design_inventory() -> None:
     assert not named("data-pages-loadingx")
 
 
+def test_both_waits_in_open_pages_carry_the_explicit_timeout() -> None:
+    """:data:`PAGES_SETTLE_MS` bounds BOTH waits, and that is checkable.
+
+    Cycle 2 of this card's review found the constant passed to
+    ``wait_for_function`` alone (its F-010): ``page.goto`` kept Playwright's
+    30 s default, so a genuinely hung fixture server — which is NOT what
+    cycle 1 measured, and the comment on the constant now says so — would
+    still have burned 30 s on every one of the six browser nodes that use
+    the helper.
+
+    It is a claim about the shape of the call, so it is held against the
+    shape: both calls in ``_open_pages`` must pass ``timeout`` and both must
+    pass this module's constant rather than a literal. The control is the
+    count — a call that lost its keyword leaves one, and the `== 2` says so.
+    """
+    source = Path(__file__).read_text(encoding="utf-8")
+    helper = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef) and node.name == "_open_pages"
+    )
+    bounded = [
+        call
+        for call in ast.walk(helper)
+        if isinstance(call, ast.Call)
+        for keyword in call.keywords
+        if keyword.arg == "timeout"
+        and isinstance(keyword.value, ast.Name)
+        and keyword.value.id == "PAGES_SETTLE_MS"
+    ]
+    waits = [
+        call.func.attr
+        for call in ast.walk(helper)
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+    ]
+    assert sorted(waits) == ["goto", "wait_for_function"], waits
+    assert len(bounded) == 2, (
+        "a wait in _open_pages is not bounded by PAGES_SETTLE_MS: "
+        f"{len(bounded)} of {len(waits)}"
+    )
+    # And the constant is a bound a hung call would actually hit, rather
+    # than something above Playwright's own default.
+    assert 0 < PAGES_SETTLE_MS < 30_000, PAGES_SETTLE_MS
+
+
 def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:
     """Every ``tests/test_public_player_pages.py::…`` ref, placed on purpose.
 
