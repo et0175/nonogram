@@ -1357,7 +1357,7 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
        refused, or the closure is a cap. The exemptions are
        :data:`CALLEE_EXEMPTIONS`, each removable through
        ``callee_exemptions``, each with its own step of the measured refusal
-       cost (770 → 0 on this module, every remaining step a strict drop) and
+       cost (772 → 0 on this module, every remaining step a strict drop) and
        each read twice on its own branch
        (:meth:`test_every_callee_exemption_is_read_twice_on_its_own_branch`).
        What this axis does **not** close is a door that reaches a callee
@@ -2067,8 +2067,8 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
         # it. The classes it cannot anchor on this module are the named
         # ADR-0039/R3 exemptions in :data:`CALLEE_EXEMPTIONS`, each removable
         # on its own (``callee_exemptions``) so that each one's cost is an
-        # equality and not a sentence -- the raw inversion costs 770
-        # refusals on this module's 832 calls, and the five classes take that
+        # equality and not a sentence -- the raw inversion costs 772
+        # refusals on this module's 834 calls, and the five classes take that
         # to 0.
         # ------------------------------------------------------------------
         if "callee identity" in arms:
@@ -3506,8 +3506,8 @@ class Generator:
     #: the shape was chosen (CARD-262 cycle 1's Critical asked for exactly this
     #: sequence, and the 51 -> 0 measurement is its precedent): the raw
     #: inversion, then the remainder after each exemption class is added, in
-    #: this order. **770** distinct refusals with no exemption at all, on a
-    #: module of 832 calls with no defect in it, and the five classes take
+    #: this order. **772** distinct refusals with no exemption at all, on a
+    #: module of 834 calls with no defect in it, and the five classes take
     #: that to **0** -- which is what says which classes are load-bearing
     #: rather than decorative. The figure counts distinct refusal entries,
     #: which is what the walk returns (identical `(line, shape, name, text)`
@@ -3518,7 +3518,7 @@ class Generator:
     #: **Re-measured end to end by CARD-276**, with CARD-262's fifth class
     #: deleted and the anchor resolved to a fixed point. The sequence is
     #: unchanged through its four inherited steps and the transitive step's
-    #: own number is **0**: not one of this module's 832 calls reaches a
+    #: own number is **0**: not one of this module's 834 calls reaches a
     #: callee key with an ``anchored`` binding occurrence at all -- the
     #: ``unreadable`` and ``opaque`` branches run first and catch every one of
     #: them -- so following the chain further cannot refuse what stopping did
@@ -3533,9 +3533,22 @@ class Generator:
     #: step is 0 is deletable unless it absorbs a declared blind-spot row,
     #: and this one absorbs R8. The alternative was to leave the resolved
     #: pass ungated, which is the accountability hole cycle 1 billed.
+    #: **Re-stamped 2026-10-28 (CARD-227): 770 -> 772 and 517 -> 519.** That
+    #: card added exactly two calls to this module — the two
+    #: ``refuse_rasterised_rule`` guards in ``_stroke_drawing``, one per grid
+    #: rule and one for the frame (ADR-0037/R2's AC-7) — and the module's
+    #: ``ast.Call`` count moved 832 -> 834 with them, re-derived through this
+    #: class's own door (an ``ast.Call`` walk of the module) rather than
+    #: inferred from the delta. Both moved steps moved by the same **2**, and
+    #: the third step did **not** move: ``refuse_rasterised_rule`` is an
+    #: import in this module, so the "definitions and imports" class absorbs
+    #: both new refusals and its remainder stays 204. Two numbers up by two
+    #: and one unmoved is the shape a *call* added to an *imported* name
+    #: produces, which is why the re-stamp is three figures read together and
+    #: not one number raised until the test went green.
     CALLEE_EXEMPTION_COST = (
-        ((), 770),
-        (("builtins",), 517),
+        ((), 772),
+        (("builtins",), 519),
         (("builtins", "definitions and imports"), 204),
         (("builtins", "definitions and imports", "parameters"), 202),
         (
@@ -4075,7 +4088,7 @@ class Generator:
         and says nothing about the plant. Attribution instead: the plant's own
         three lines (``_plant`` is line-count-preserving, so they are the
         three lines :data:`DERIVED_POSITION` occupied) plus every line of the
-        text the plant appends after the module's end. The module's own 832
+        text the plant appends after the module's end. The module's own 834
         calls are at neither, which is what makes a reading with a class
         removed the plant's.
         """
@@ -4228,7 +4241,7 @@ class Generator:
         claim was not. It is an :class:`ast.NodeVisitor` subclass now, which
         dispatches on node type through ``visit_Call`` and recurses through
         ``generic_visit`` instead of flattening the tree -- a different
-        mechanism reaching the same 832, which is what "independent" was
+        mechanism reaching the same 834, which is what "independent" was
         supposed to mean.
         """
         import ast
@@ -4260,7 +4273,7 @@ class Generator:
         # inside another call's arguments is counted at all -- left both
         # assertions below green, measured as a real SURVIVOR by this round's
         # own kill-instrument run and closed here (N15). Neither figure is
-        # pinned to 832 (CARD-262 cycle 1's F-404: an equality there reds on
+        # pinned to 834 (CARD-262 cycle 1's F-404: an equality there reds on
         # any call added anywhere in 7,000 lines of production code), so a
         # floor and a partition are all they are -- and a floor cannot notice
         # a traversal that stopped traversing. An agreement between two
@@ -4282,7 +4295,7 @@ class Generator:
         # would be satisfied by a module with no calls at all -- but that
         # degenerate case is already caught four other ways in this class (the
         # 24-site equality, the six-name vocabulary, the eight guide
-        # expressions and the module-axis census), while an equality on 832
+        # expressions and the module-axis census), while an equality on 834
         # reds on any call added anywhere in 7,000 lines of production code,
         # door call or not. The equality that belongs to this axis is
         # `inside == 17` in
@@ -4447,7 +4460,7 @@ class Generator:
         the bindings it had proved opaque, so a callee with no binding
         occurrence at all was anchored by default and eight shapes that reach
         the real geometry door were silent. Inverting the polarity is not free
-        and the cost is not a sentence: **770** of this module's 832 calls
+        and the cost is not a sentence: **772** of this module's 834 calls
         refuse with no exemption in place, on a module with no defect in it.
         What makes that affordable is five named exemption classes, and what
         makes each of them a claim rather than a hedge is this sequence --
@@ -4459,7 +4472,7 @@ class Generator:
 
         **CARD-276 re-measured the sequence end to end and deleted a class.**
         CARD-262's fifth class, the one-step anchor, had a step of **0**: not
-        one of this module's 832 calls reaches a callee key with an
+        one of this module's 834 calls reaches a callee key with an
         ``anchored`` binding occurrence at all, so the class its seven plants
         needed bought the shipped module nothing. By this class's own
         narrowed rule that made it deletable, and

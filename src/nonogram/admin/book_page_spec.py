@@ -35,7 +35,9 @@ book*, fitted to the deepest-clued member of that grid size, so:
   and ``gutter_margin_cm``/``outside_margin_cm``. An empty or missing value
   falls back to the profile (CON-018; AC-178's builder half). Top and bottom
   have no column and always come from the profile. The sheet is portrait-only,
-  has NFR-008's flat 7.5 mm cap and ADR-0037/R2's 0.25 mm thin-rule minimum,
+  has NFR-008's flat 7.5 mm cap, ADR-0037/R2's three physical grid-rule
+  weights (:data:`GRID_RULES`) and the 0.25 mm **raster** thin-rule minimum
+  that is all ``min_thin_rule_mm`` has meant since R2's 2026-10-25 amendment,
   and carries the page's parity (ADR-0036, "Mirrored margins").
 * :func:`book_cell_mm` converts ``compute_layout``'s result and does nothing
   else. **The admin panel fits no cell and places no grid line itself**
@@ -94,6 +96,8 @@ from enum import Enum
 
 from nonogram.export.layout import (
     CellCapPolicy,
+    GridRule,
+    GridRules,
     OrientationPolicy,
     PageParity,
     PageSpec,
@@ -167,6 +171,39 @@ FLOOR_MM = 4.75
 MIN_SIDE_MARGIN_MM = 6.35
 
 
+#: ADR-0037/R2's three rule weights for a book puzzle grid, **the owner's own
+#: figures** from the artifact "Puzzle page layout" (2026-10-14): 0.3 pt cell
+#: lines in grey, 0.8 pt every fifth line, 1.3 pt outer border. Stated once,
+#: here, and read by every book-side sheet through :data:`BOOK1_PROFILE`.
+#:
+#: **Confirmed by the owner on 2026-10-25** against the alternative that stood
+#: here for eight days — the same ratios (1 : 2.667 : 4.333) scaled by 1.6 to
+#: 0.48 / 1.28 / 2.08 pt. That scaling was never a design opinion: it was an
+#: arithmetic correction so the thinnest line would be 2 device pixels at
+#: 300 DPI instead of one, and ADR-0042 removed the floor by making the
+#: interior a content stream. The owner read both on
+#: ``card293-proof-vector.pdf`` and chose page 1.
+#:
+#: **These figures hold only in vector** (ADR-0037/R2, ADR-0042/R1). Through a
+#: rasteriser at 300 DPI they round to 1 / 3 / 5 px — the one-pixel grey cell
+#: grid that 7 of 17 reviews of the 450-puzzle book complained about — which is
+#: why :func:`~nonogram.export.layout.refuse_rasterised_rule` is called at
+#: every raster grid stroker that a sheet carrying them can reach. Raster
+#: pages ARE built from this profile's spec — the single-puzzle page, the
+#: two-up page, the solved page and the packed answer key all are — and they
+#: are drawn at COMP-007's proportional device widths, never at these.
+#:
+#: The cell line's ``0.35`` grey renders as grey 89 (``round(255 * 0.35)``),
+#: measured by poppler on the CARD-293 proof at both 300 and 1200 DPI. The
+#: fifth line and the border are the interior's one ink, pure black, so the
+#: cell lines read as light guidance under them.
+GRID_RULES = GridRules(
+    cell=GridRule(width_pt=0.3, grey=0.35),
+    fifth=GridRule(width_pt=0.8, grey=0.0),
+    border=GridRule(width_pt=1.3, grey=0.0),
+)
+
+
 @dataclass(frozen=True, slots=True)
 class PrintProfile:
     """A book print profile, stated in inches (CON-018 states it that way)."""
@@ -181,8 +218,28 @@ class PrintProfile:
     band_mm: float
     #: NFR-008's standard cell: the flat cap, in millimetres.
     cell_cap_mm: float
-    #: ADR-0037/R2's thinnest thin grid rule, in millimetres.
+    #: The thinnest a thin grid rule may be **on a raster surface**, in
+    #: millimetres. **Not ADR-0037/R2's interior minimum, which no longer
+    #: exists**: R2 as amended 2026-10-25 states the interior's weights as
+    #: physical points (:attr:`grid_rules`) and gives them no millimetre floor
+    #: at all, because the medium carries the dropout guarantee — a content
+    #: stream declares a width and the renderer resolves it.
+    #:
+    #: **Scoped rather than retired, and rather than re-numbered** (CARD-227's
+    #: Obligation 2). The honest alternatives were to scope this field to the
+    #: raster path or to drop it from the book profile; replacing 0.25 with
+    #: 0.1058 (0.3 pt in millimetres) was refused outright, because a floor
+    #: set *at* the figure it is meant to protect asserts nothing and reads as
+    #: licence. It is scoped and not dropped because the pages it governs are
+    #: still here: the live interior walk is raster until CARD-298 flips it,
+    #: and on that surface R2 keeps a 2-device-pixel floor and 0.25 mm is
+    #: 3 px at 300 DPI — above it, which is the point of keeping it.
     min_thin_rule_mm: float
+    #: ADR-0037/R2's three physical grid-rule weights, as a content stream
+    #: declares them. The interior's figures live here, on the print profile,
+    #: beside the band and the cap, because they are a property of how this
+    #: book is printed and not of the geometry engine.
+    grid_rules: GridRules
 
     @staticmethod
     def _mm(inches: Decimal) -> float:
@@ -255,6 +312,7 @@ BOOK1_PROFILE = PrintProfile(
     band_mm=12.0,
     cell_cap_mm=7.5,
     min_thin_rule_mm=0.25,
+    grid_rules=GRID_RULES,
 )
 
 
@@ -443,6 +501,7 @@ def book_page_spec(book: object, page_number: int = 1) -> PageSpec:
         orientation=OrientationPolicy.PORTRAIT_ONLY,
         cell_cap=profile.cell_cap_mm,
         min_thin_rule_mm=profile.min_thin_rule_mm,
+        grid_rules=profile.grid_rules,
         parity=parity,
     )
 

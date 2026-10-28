@@ -426,6 +426,7 @@ from nonogram.export.layout import (
     qr_caption,
     qr_group_insets,
     qr_slot,
+    refuse_rasterised_rule,
 )
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
 from nonogram.export.png import BACKGROUND, INK
@@ -1621,12 +1622,28 @@ def _stroke_drawing(draw: ImageDraw.ImageDraw, slot: Layout) -> None:
     and still draws through :func:`draw_example_line`, which calls this
     function unconditionally — so the guard below is live, taken every time
     the guide page's three cell-state icons are drawn, not dead code.
+
+    **It strokes device pixels, and it refuses to stroke anything else
+    (CARD-227, ADR-0037/R2 AC-7).** A book sheet declares three *physical*
+    rule weights — 0.3 / 0.8 / 1.3 pt — and they hold only where the grid is
+    drawn as content-stream operators, because a rasteriser rounds each
+    stroke to a whole pixel and at 300 DPI those figures round to 1 / 3 / 5
+    px: a one-pixel grey cell grid, which is the configuration R2's 2026-10-17
+    amendment refused on the evidence of 7 of 17 reviews. This function is a
+    rasteriser, so every width it is about to stroke goes through
+    :func:`~nonogram.export.layout.refuse_rasterised_rule` first. **Nothing in
+    a book page changes because of it**: a slot's ``width`` is still COMP-007's
+    proportional ``cell / 30`` device rule (3 px and 6 px on this book), which
+    is not the declared figures' device count and is therefore permitted —
+    what the guard refuses is a *declared* weight arriving here, which is the
+    one way these numbers could reach a bitmap.
     """
     oriented: List[Tuple[Any, bool]] = [
         *((line, True) for line in slot.vertical_lines),
         *((line, False) for line in slot.horizontal_lines),
     ]
     for line, vertical in sorted(oriented, key=lambda pair: pair[0].major):
+        refuse_rasterised_rule(line.width, line.width_pt, what=f"{line.tier} rule")
         if vertical:
             ends = [(line.position, line.start), (line.position, line.end)]
         else:
@@ -1636,6 +1653,7 @@ def _stroke_drawing(draw: ImageDraw.ImageDraw, slot: Layout) -> None:
     frame = slot.frame
     if frame is None:  # guide_icon_layout's bare cell icon (CARD-201) — live, not dead
         return
+    refuse_rasterised_rule(frame.width, frame.width_pt, what="frame")
     left, top, right, bottom = frame.left, frame.top, frame.right, frame.bottom
     for side in (
         ((left, top), (right, top)),

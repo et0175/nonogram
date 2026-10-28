@@ -51,6 +51,8 @@ from nonogram.export.layout import (
     DEFAULT_PAGE_SPEC,
     DPI,
     CellCapPolicy,
+    GridRule,
+    GridRules,
     OrientationPolicy,
     PageParity,
     PageSpec,
@@ -74,6 +76,18 @@ CON018_COLUMNS = {
     "outside_margin_cm": "1.27",
 }
 
+#: ADR-0037/R2's three grid-rule weights, as the owner's artifact states them
+#: and as :data:`CON018_ODD` carries them: 0.3 pt cell lines in grey, 0.8 pt
+#: every fifth, 1.3 pt border. Written out rather than imported from
+#: ``book_page_spec`` for the same reason every other figure in this file is —
+#: the sheet below is CON-018 restated, and a field that borrowed the module's
+#: own object would make the comparison below compare a value with itself.
+CON018_GRID_RULES = GridRules(
+    cell=GridRule(width_pt=0.3, grey=0.35),
+    fifth=GridRule(width_pt=0.8, grey=0.0),
+    border=GridRule(width_pt=1.3, grey=0.0),
+)
+
 #: CON-018 as a sheet, literal millimetres, for an odd (right-hand) page
 #: (amended 2026-10-17: outside 12.7, top 13.97, bottom 11.938 mm).
 CON018_ODD = PageSpec(
@@ -87,6 +101,7 @@ CON018_ODD = PageSpec(
     orientation=OrientationPolicy.PORTRAIT_ONLY,
     cell_cap=7.5,
     min_thin_rule_mm=0.25,
+    grid_rules=CON018_GRID_RULES,
     parity=PageParity.ODD,
 )
 
@@ -403,7 +418,11 @@ class TestBookPageSpec_FlatStandardCellCap:
         spec = book_page_spec(_book(**CON018_COLUMNS))
         assert spec.orientation is OrientationPolicy.PORTRAIT_ONLY
         assert spec.cell_cap == 7.5
+        # ``min_thin_rule_mm`` is the RASTER path's floor since ADR-0037/R2's
+        # 2026-10-25 amendment (CARD-227); the interior's own weights are
+        # physical points and have no millimetre floor at all.
         assert spec.min_thin_rule_mm == 0.25
+        assert spec.grid_rules == CON018_GRID_RULES
         assert (spec.top_mm, spec.bottom_mm, spec.band_mm) == (13.97, 11.938, 12.0)
 
     def test_small_grid_is_held_at_7_5_mm_not_the_comfort_curve(self) -> None:
