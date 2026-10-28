@@ -1239,3 +1239,45 @@ card_261_done:
     The owner's cap of 2 is restored by this merge; two cards remain active. The merge ran
     with no other full suite on the machine, and the DB-mode gate refuses to start if it
     finds one, so the cap's stated purpose is enforced by the script rather than remembered.
+
+# ── 2026-10-28, wave 63 RESUMED to close it ──────────────────────────────────
+# Owner's "run next wave". The dispatcher's active wave is still 63, not 64:
+# CARD-284 is its last open card. Computed before dispatch, and one edge the
+# card files had not:
+#   CARD-284 n CARD-301 = {meta/architecture/requirements.yml}
+#   overlap = 1 / min(5,3) = 0.333 >= max_overlap 0.3  -> SERIALIZE
+# CARD-301's own Wave: comment reasoned about that exact path and excluded
+# wave 66 for it (CARD-299), checking 297 and 298 -- but never checked
+# CARD-284, which is open in wave 63 and declares it too. Owner chose to close
+# 63 first, so the edge is respected by construction.
+# Wave 64 (CARD-297 P2 1d + CARD-301 P1 0.5d) intersect EMPTY and share no
+# hotspot -- they may run concurrently under the cap of 2 once 63 closes.
+wave: 63
+mode: interactive
+max_concurrent_override: 2
+# WAVE 63 CLOSED 2026-10-28. CARD-284 merged 8492b63c at 8.5 CERTIFIED on its last
+# cycle. No worktrees remain; active is empty. Next: wave 64 (CARD-301 P1 + CARD-297
+# P2) -- intersect EMPTY, no shared hotspot, so both may run concurrently under the
+# cap of 2. The 284 x 301 requirements.yml edge is now moot: 284 is merged.
+# Smoke test satisfied BY IDENTITY, not skipped: main's tree 5f37df22 is
+# byte-identical to the gated tree 836290b0, which already contained CARD-227,
+# CARD-267 and CARD-305.
+wave_63_complete:
+  cards: [CARD-227, CARD-267, CARD-284]
+  at: 2026-10-28
+  smoke: "satisfied by tree identity 5f37df22 == gated 836290b0; 9543/27/0 in 1135.40s"
+active: []
+closed_last:
+- id: CARD-284
+  phase: merged 8492b63c
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-284
+  rebased_onto: c2307064
+  note: >-
+    Worktree was 30 commits behind main and absorbed 38 files / +5707 clean, with
+    NO conflicts -- CARD-284's requirements.yml edits and main's sit in different
+    regions. Its own two files re-run green on the merged tree (59 passed) before
+    the reviewer was spawned, so cycle 3 reviews the tree that would merge.
+escalated: []
+queued:
+- CARD-301   # wave 64, P1, blocked on the 284 edge above
+- CARD-297   # wave 64, P2, free

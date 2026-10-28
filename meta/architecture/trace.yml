@@ -2353,6 +2353,10 @@ links:
   - tests/test_public_player_pages.py::test_assembled_site_is_self_contained
   - tests/test_public_player_pages.py::test_pages_work_with_analytics_blocked
   - tests/test_public_player_pages.py::test_no_homegrown_tracking
+  - test_book_landing_lists_and_links
+  - test_unknown_slug_lands_softly
+  - test_library_filters_the_index
+  - test_the_book_title_exemption_is_scoped_and_its_cost_is_measured
   notes: >-
     New 2026-10-23 (raw-requirements.md Delta 2026-10-23; owner decision,
     ONLINE_GAME_SPECIFICATION.md Technical Architecture, commit 8b0ca0e2;

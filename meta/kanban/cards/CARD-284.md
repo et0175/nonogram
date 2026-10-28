@@ -1,6 +1,6 @@
 # CARD-284: The QR landing and the library — /b/<slug> and /library around the player
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/284-book-landing-and-library
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-284
+**Worktree:** —
 **Source:** ONLINE_GAME_SPECIFICATION.md#technical-architecture (owner decision 2026-10-23, commit 8b0ca0e2) and §1.1 Puzzle Selection
 **Idea:** —
 **Wave:** 63
 **Depends on:** CARD-282, CARD-283
 **Touches:** player/**, tests/test_public_player_pages.py, tests/test_public_player.py, meta/design/components.md, meta/architecture/requirements.yml <!-- the last added 2026-10-28: the card could not be implemented without it, see the implementation round's F-1. CARD-283 shipped three tests that directly contradict serving the listings. Neither sibling card in wave 63 names it, so the wave's measured empty path intersection holds. --> <!-- corrected 2026-10-28 at fix round 1, two paths edited and undeclared: meta/design/components.md (F-009 -- the card's own Design context required the registration and the declaration never existed) and meta/architecture/requirements.yml (FR-045's /b/<slug> clause and AC-387, carrying the owner's book-title decision; 17 insertions / 5 deletions at two hunks, measured against merge-base 7a62d704 -- NOT the 23/63 a diff against a newer main reports, which counts CARD-227's absent additions as deletions). AC ids unchanged, so trace.yml needs nothing, and a trial merge into main produces 0 conflict markers. -->
-**Review score:** 6.5 → 7.5 cycle 2/3 → fix round 2 → awaiting cycle 3 (**its last**)
+**Review score:** 6.5 → 7.5 cycle 2/3 → fix round 2 → **8.5 cycle 3/3, CERTIFIED** (its last)
 **Started:** 2026-10-28T07:23:17Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-28T20:50:16Z
+**Actual:** 1.7d
+**Merge commit:** 8492b63c
 **Blocked by:** —
 
 ## What to implement
@@ -672,3 +672,183 @@ R1, R5 and R7 are reported from the model rather than from a run · **why the tw
 installs ship different `adr_integrity.py` under identical `validate.py` bytes** —
 established *that* they do, and that it is the whole disagreement; which install to
 standardise on is a decision, not a measurement.
+
+
+## [CYCLE 3 — 2026-10-28] **8.5, CERTIFIED** — both gating findings closed, re-derived rather than accepted, and one claim still fixed at only one of its two sites
+
+Report: `meta/review/20261028T202214Z-CARD-284-cycle3.yml` (3 findings, parses).
+Reviewed `836290b0` — the merge of main `c2307064` into the branch — against main.
+**12 mutants fired, 11 killed, 1 survivor and the card had already declared it.**
+System contract: 36 rules, 10 ✓, 26 ⚠ unchecked, **0 ✗ violated** (cycle 2's two
+violations, ADR-0038/R6 and ADR-0041/R2, closed in the model where they were
+open; ADR-0039/R1 closed in the tests).
+
+### F-001 — closed, and nothing was taken on the card's word
+
+**The model half** is not a comment this time: **ADR-0041/R2's own statement**
+carries the exemption, with the residual declared and not filtered ("an owner
+who writes the base-64 of a solution into a book's title publishes it", and no
+reachable cap is a bound). EC-048 says the same and FR-045 is narrowed on both
+halves. The false justification survives at **exactly four sites** —
+`assemble.py` twice, `pages.js`, the test module — and every one of them now
+says it was FALSE and why. And the model half **did not travel with this
+merge**: `4b4ca160` is an ancestor of `c2307064`, so R2's amendment is on main
+already.
+
+**The mechanical half**, per assertion:
+
+- **C2-M41 re-fired (C3-M12)**: the fixture default made leaky, and cycle 2's
+  split is **gone** — `test_served_tree_is_clean_of_answers` passes, the
+  exemption test passes, and the **one** node that reds is
+  `test_the_picture_name_is_dropped_and_the_books_title_is_not` on
+  `assert BOOK_TITLE == "A book"`: a test about the fixture, not about R2.
+- **C3-M01** deletes `served_puzzle`'s field-by-field rebuild *and* its schema
+  assert, so a puzzle title flows to the served file — and the guard reds on
+  **its own half-1 assertion**, `sweep_tree(clean.site_dir, GRIDS) == {}`, not
+  at fixture setup, which is cycle 1's F-007 failure mode and the reason the
+  mutant was worth firing.
+- **C3-M02** deletes `served_book`'s title pass-through — the guard reds on
+  **its own half-2 assertion**. So both halves are live, each on its own cell,
+  and neither rests on a fixture default.
+- **C3-M04** breaches the scope (`title` into `SERVED_ENTRY_SCHEMA`) and is
+  refused **by name** on all three nodes, in the scope refusal's `raise`. Which
+  is exactly what the round declared it could not claim a mutant for: *"and only
+  in the book file"* is mechanical and is **not** the cell that reds. The
+  declaration was accurate.
+
+### F-002 — closed, with cycle 2's two survivors re-fired unchanged
+
+**C3-M05** (= C2-M25, the boundary deleted) and **C3-M06** (= C2-M25b, deleted
+*plus* a typo on a hook the test does not spell out) **both kill now, on the
+same cell** — `assert not named("data-pages-count", "a tile has
+[data-pages-countx] on it")`, the cell the fix added, through the function, over
+an inventory written in the test. The control no longer depends on which hook
+gets spelled out, which was the whole defect.
+
+Two edges, and the honest reading of each: **C3-M08** (the boundary stops
+admitting `=`) kills — but on `assert missing == []`, **the real inventory**,
+and not on the dedicated `=` cell, which never runs. So the round's own
+could-not-establish sentence still holds. **C3-M07** (the hyphen deleted from
+`[a-z-]`) **SURVIVES** — the cycle's one survivor, and the round declared it in
+those words. No hyphen-extended hook pair exists in the two shipped documents,
+so the exposure is a future hook name.
+
+### The minors sampled, each chosen so the cell the fix named is the cell that reds
+
+**C3-M09** (`.is_file()` → `.exists()`, cycle 2's surviving C2-M17) reds the
+**sixth** denial case. **C3-M10** (the marker written past both copy loops) reds
+`assert calls[0] == half / SITE_MARKER_FILE` — and a marker written last would
+have passed the *old* paragraph, which is the discrimination F-006 asked for.
+**C3-M11** (`goto`'s bound deleted) reds the `ast` walk's `len(bounded) == 2`
+while the browser node **passes**, which is the round's own point: a timeout
+argument cannot red on behaviour without a hung server.
+
+### The check-ref disposition: SOUND, and its stated reason is overcounted
+
+All three `path::name` strings resolve on the branch, and the exemption's is now
+greppable **from the module that defines it** (`4b06b11d` worked — before it the
+only hits were prose in two other files). But *"two of the three resolve only on
+this branch"* is **one of three**: the bundle half and the served half both have
+defs on main; only the exemption's control does not, because its whole **file**
+is absent there. One branch-only ref is sufficient reason, so the conclusion
+stands and the count does not (**F-003**). Nothing is hidden — R2's `check:`
+names the bundle half, the comment names the rest and names this card as owing
+the flip. What is **not** mechanical is the flip itself: skip it and nothing
+reds. Carried, not prescribed.
+
+### The base moved, and the merged registry is coherent — measured four ways
+
+`yaml.safe_load` parses; **496 ids, 0 duplicates**; AC-387..389 *and* main's
+AC-400..405 all present, with `git diff` against main showing **only** this
+card's two hunks, so nothing of main's was dropped. FR-045 is the one place the
+two sides meet and they do not collide: main's `4b4ca160` narrowed the **bundle**
+sentence, this card narrowed the **served-site** sentence — different scopes,
+same authority, each the half the other does not make. **No new validator
+finding on the merged tree.**
+
+### The validator, re-derived — and the error reproduces this time
+
+**Branch 1 error / 108 warnings; main 1 error / 111.** `comm` over the two sets:
+only-on-main is **exactly** the three AC-387/388/389 dead-ref warnings,
+only-on-branch is **empty**. And the ADR-0025 error **did** reproduce here, on
+both sides — which is the opposite of cycle 2 and exactly what fix round 2
+root-caused: `_SUPERSEDES_PAT` matches `supersed(?:es?|ed\s+by)`, one pattern
+for both directions, over four phrases naming one real supersession. **The
+honest error count is 0.** Which install cycle 2 used could not be established
+— only one is on this host now.
+
+### Figures, every one re-derived through a door the earlier rounds did not use
+
+**2410.18 bits** confirmed twice: the character space counted by *encodability*
+(2048 code points raise on `.encode("utf-8")`) and again by `unicodedata`
+category `Cs`, with the bits taken as `Decimal.ln()` ratios at 50 digits rather
+than `math.log2`. **24.102×** and **2.678×** confirmed. **20 / 152** base-64
+chars confirmed *through* `b64encode`. **4.58 / 79.04 / 660.48 / 83.17**
+confirmed. **604 passed, 0 skipped** reproduced, with the **+1** re-derived in a
+second domain (`git diff` adds exactly one `def test_`). **59** verified by node
+id, not by a summary line. And a claim no round had checked: `BOOK_FILE_FIELDS`
+carried `title` in **58327b53**, the commit that created it — so R2's first
+amendment's *"and nowhere else"* really was false of the bundle on the day it
+was written.
+
+### The one new finding: F-007's narrowing reached the test and not the source
+
+`served_index`'s docstring at **`assemble.py:996`** still calls byte-identity
+*"the property at the layer that is actually deployed"* — the exact sentence
+cycle 2 measured as overstated by one quantifier — while the test's own
+docstring twenty lines away now says the opposite, correctly, naming C2-M28.
+Mechanically confirmed the fix round did not reach it: the last `assemble.py`
+hunk of `82d777c9..6aa4c5b9` ends at 889+24, short of 988. **RC-2 in its third
+consecutive round, down to one instance.** Low, and **not prescribed** — see
+below.
+
+### Last-mile: no edit is prescribed, and the score assumes none
+
+`max_cycles` is spent. All three findings are a sentence or a figure rather than
+a mechanism, and each is **scored as it stands**. So nothing ships uncertified
+in code — the card is certifiable as it is. What the **merge gate alone**
+establishes: that the 604- and 59-node doors generalise to the full suite, which
+no cycle measured. What it does **not** establish, and is therefore the carry:
+**the owner's visual pass**, **iOS Safari**, **a real exported bundle**,
+**Vercel**, and **whether R2's owed check-ref flip was applied**.
+
+### Could not establish, in this cycle's own words
+
+**No render eyeballed by the owner** · **Chromium only — nothing on iOS Safari,
+where most QR scans land** · never run against a real exported bundle · **Vercel
+never exercised** · **EC-048 not closed and not claimed closed** — three
+exemptions, four declared residuals, and the title exemption bounded in WHERE
+and **not** in WHAT · which forge install cycle 2 used · whether the owed flip
+will actually be applied at merge · the hyphen half of the drift guard's
+boundary, which no single-node mutant over the shipped documents can red · the
+full suite was not run and the lock was not taken.
+
+## [LANDED — 2026-10-28] `8492b63c` — certified on its last cycle, and the owed flip applied at the merge
+
+Merge gate **9543 passed / 27 skipped / 0 failed** in 1135.40 s, skip count the
+baseline exactly; load 3.97 → 3.47, rival-pytest 0 at both ends, hang dump 0 bytes.
+Collection **+26 reconciling exactly** to `tests/test_public_player_pages.py`, every
+other changed file holding its node count. AC/G gate **4 passed / 0 skipped / 0
+failed** by node id — all three ACs plus G-3's dependency-baseline test — with **G-1
+verified structurally at 0 edits under `src/nonogram/`**. Deferral scan 0.
+
+**ADR-0041/R2's check ref is FLIPPED, here, at the merge** — which is the moment the
+card reserved for it and the moment it became honest. All three refs now resolve as
+real node ids on `main` (verified by `--collect-only`, not by eye), and each carries
+its own `path::name` in `tests/` rather than only in prose. Validator **0 errors,
+111 → 108 warnings**, the three closed being exactly the AC-387/388/389 dead refs
+cycle 3 predicted the merge would close.
+
+**Not closed, and not claimed closed: EC-048.** R2 carries three exemptions and four
+declared residuals, and the title exemption is bounded in **where** it may appear,
+not in **what** it may carry. That is recorded on the ref itself so the next reader
+of R2 meets the bound rather than the ref alone.
+
+**The carry, closed by no gate:** the owner's visual pass; **iOS Safari, where most
+QR scans land**, against Chromium-only evidence; a real exported bundle; Vercel.
+
+**One fragility passed on, not this card's and now load-bearing:** R2's *existing*
+bundle-half ref resolves through one prose line plus two `meta/review/*.yml` files.
+That is the backlog's "a review YAML can revive a dead check ref", one artefact away
+from firing, on a rule marked mandatory. Cycle 3 deliberately did not quote it, so
+this card revives nothing.

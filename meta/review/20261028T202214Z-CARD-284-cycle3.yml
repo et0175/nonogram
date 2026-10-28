@@ -1,0 +1,570 @@
+version: 1
+generated_at: "2026-10-28T20:22:14Z"
+target: "CARD-284, branch card/284-book-landing-and-library, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-284, HEAD 836290b0 (merge of main c2307064 into the branch), measured against main at c2307064; confirmation mode, cycle 3 of 3 (its LAST under max_cycles) against cycle 1 (6.5), fix round 1, cycle 2 (7.5) and fix round 2"
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+certified: true
+certification_reason: >-
+  Both of cycle 2's gating findings are closed, and both closures were
+  re-derived here independently of the card's account of them, by deletion
+  mutants fired at the mechanisms the claims name and measured PER ASSERTION.
+  F-001's model half is carried in ADR-0041/R2 itself (the amendment landed on
+  main in 4b4ca160, which is an ancestor of this base), in EC-048's statement
+  and in FR-045's two halves; its mechanical half no longer splits - cycle 2's
+  C2-M41, re-fired, leaves both of the tests that disagreed GREEN and reds
+  exactly one node, the fixture pin, and each half of the served-tree guard
+  reds on its OWN assertion under a deletion mutant of the code mechanism it
+  names (C3-M01, C3-M02). F-002's C2-M25 and its 2-node counter-case C2-M25b,
+  both survivors in cycle 2, now KILL on the same cell - the control the fix
+  added, over a locally built inventory, through the function under test.
+  Twelve mutants fired, eleven killed, one survivor and it is the one the card
+  declared in its own words. Every committed figure re-derived through an
+  independent door; one figure corrected (see F-002 below, "two of the three"
+  is one of three). What remains is three low findings and a set of residuals
+  the card declares rather than hides. None of them prescribes an edit, which
+  is deliberate: this is the last cycle, and a fix shipped now would ship
+  unreviewed.
+
+coverage:
+  read:
+    - player/assemble.py
+    - player/pages.js
+    - tests/test_public_player.py
+    - tests/test_public_player_pages.py
+    - meta/architecture/requirements.yml (FR-045, AC-387..389, EC-048..050; and the merged result against main's own hunks)
+    - meta/architecture/decisions/adr/0041-public-player-static-bundle-and-hash-urls.md (the 2026-10-28 amendment log entry and R1/R2's rule blocks)
+    - meta/design/components.md
+    - src/nonogram/admin/player_bundle.py (BOOK_FILE_FIELDS, and its history)
+    - tests/test_player_bundle.py (RUN this cycle - cycle 2 could not)
+    - forge/architect-validate's validators/adr_integrity.py (the supersession pattern)
+    - meta/kanban/cards/CARD-284.md
+    - meta/review/20261028T141949Z-CARD-284-cycle1.yml
+    - meta/review/20261028T172533Z-CARD-284-cycle2.yml
+  not_reached:
+    - player/player.css (no layout claim re-derived; unchanged since cycle 2 read it the same way)
+    - player/book.html, player/library.html (read only for the data-pages-* hook enumeration the drift guard derives)
+    - player/vercel.json (unchanged since cycle 2)
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 3816, removed: 103 }
+  fix_delta: { files: 5, added: 373, removed: 93, under_src: 0, under_meta_kanban: 0, pyproject: 0 }
+  tests_cover_change: true
+  gate_run: "604 passed, 0 failed, 0 skipped, exit 0, 36.47 s over cycle 2's own four-file selection (tests/test_public_player.py, tests/test_public_player_pages.py, tests/test_suite_profile.py, tests/test_cli.py) with -o addopts='' -p no:randomly -rs. -rs printed no skip section, so there are 0 skips to attribute; the two lines in the warnings summary are pre-existing SyntaxWarnings, not skips."
+  second_door: "59 passed, 0 failed, 0 skipped, exit 0, reproduced twice (8.11 s / 8.32 s) over the card's own two files alone; 59 collected == 59 passed by --collect-only -q."
+  third_door: "98 passed, 0 failed, 0 skipped over tests/test_player_bundle.py - the door cycle 2 declared it had NOT opened, so ADR-0041/R1, R2's bundle half, R5 and R7 are reported this cycle from a run on this head rather than from the model."
+  pages_file_collection: "26 collected (25 at cycle 2); -m browser carries 9 of 26. The one added node is tests/test_public_player_pages.py::test_both_waits_in_open_pages_carry_the_explicit_timeout - confirmed by `git diff 82d777c9 6aa4c5b9 -- tests/` showing exactly one added `def test_`, so 603 -> 604 is exactly the one node and cycle 2's figure is a real control for this one."
+  mutants: { fired: 12, killed: 11, survived: 1 }
+  hotspots: ["player/assemble.py", "tests/test_public_player_pages.py"]
+  validator:
+    instrument: "/Users/omelnikova/.claude/plugins/cache/adverax/forge/2026.8.17/skills/architect-validate/scripts/validate.py --root meta/architecture, run with -I; counted from the validator's own summary line AND by an unanchored grep of the indented [WARN ]/[ERROR] lines, which agree"
+    branch: "1 error(s), 108 warning(s) - 109 finding lines"
+    main_control: "1 error(s), 111 warning(s) - 112 finding lines, same instrument, same flags, main repo at c2307064"
+    delta: >-
+      The branch has exactly THREE fewer findings than main and introduces
+      ZERO. `comm` over the two sorted finding sets returns an empty
+      "only on branch" side, and the "only on main" side is exactly the three
+      AC-387 / AC-388 / AC-389 DEAD-check-ref warnings, dead on main because
+      this card is what defines those three tests. No new dead ref, no new
+      warning of any kind.
+    the_one_error: >-
+      The ADR-0025 circular-supersession ERROR DID reproduce here, on both
+      sides identically - which is the opposite of what cycle 2 measured and
+      exactly what fix round 2 root-caused. Re-derived independently:
+      validators/adr_integrity.py's _SUPERSEDES_PAT is
+      `supersed(?:es?|ed\s+by)\s+(?:\[?adr[- ]0*(\d+)\]?)` and its own
+      adjacency comment reads "adr_id -> set of ids this ADR
+      supersedes/is-superseded-by", so BOTH directions of one supersession
+      become edges. Measured on the ADRs: 0031:11 "**Supersedes:** ADR-0025",
+      0031:133 "Supersedes ADR-0025", 0025:3 "Superseded by ADR-0031",
+      0025:171 "**Superseded by ADR-0031.**" - which is why the reported cycle
+      is the doubled "ADR-0025 -> ADR-0031 -> ADR-0025 -> ADR-0025". So the
+      honest error count is 0, as fix round 2 says, and the figure is a tool
+      bug of THIS install. I could not establish which install cycle 2 used:
+      only one forge install is present on this host now, so the two-install
+      split fix round 2 measured is not reproducible from here.
+  unmeasured:
+    cochange_missing: "not_applicable - confirmation mode over a named fix delta; the co-change gate was cycle 1's"
+    max_fan_in: "no_eligible_fact - player/ is a leaf static-site assembler with no in-repo importer outside tests/"
+    churn: "no_eligible_fact - every file in the fix delta is younger than three waves"
+    visual: "provider_unavailable - review.visual off; the six Chromium captures in ~/Documents/nonogram-reviews/CARD-284/ were neither re-rendered nor diffed here"
+
+base_moved:
+  question: "the worktree absorbed main (c2307064) in 836290b0; CARD-284 and main both edit meta/architecture/requirements.yml. Is the merged result coherent, not merely conflict-free?"
+  verdict: "COHERENT - measured four ways"
+  measurements:
+    - "yaml.safe_load parses the merged file; 496 `id:` values, ZERO duplicates."
+    - "Both sides' entries survive: AC-387/388/389 (this card) and AC-400..405 (main's CARD-305) are all present, and `git diff c2307064...HEAD -- meta/architecture/requirements.yml` shows ONLY this card's two hunks, so nothing of main's was dropped by the merge."
+    - >-
+      FR-045's description is the one place the two sides meet, and they do
+      not collide: main's 4b4ca160 narrowed the BUNDLE sentence (no bundle
+      file carries ... EXCEPT the book's own display title, R2's third
+      exemption) and this card narrowed the SERVED-SITE sentence (a book's
+      display title is the only free-text field the public site serves, on
+      /b/<slug> alone; the picture name is served nowhere). Different scopes,
+      same authority cited, no contradiction, and each is the half the other
+      does not make.
+    - >-
+      The architect items this card surfaced are IN THE BASE, not owed: 4b4ca160
+      (R2's third exemption reaching the bundle's own book/<slug>.json, EC-048's
+      statement and its paired test ref, FR-045's bundle sentence) is an
+      ancestor of c2307064, verified with `git merge-base --is-ancestor`. So
+      F-001's model half is on main already and does not travel with this merge.
+    - "No new validator finding on the merged tree (see metrics.validator.delta)."
+
+system_contract:
+  rules_checked: 36
+  holds: 10
+  unchecked: 26
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — 0 pyproject.toml lines in `git diff --name-only c2307064...HEAD`, and the named baseline test green by node id: 1 passed"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: scoped to the ADMIN player's client; 0 files under src/"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: admin-player marking/undo/redo untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: the admin player page's clue embedding untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: pages.js carries listing logic only; the pure state module is CARD-283's"
+    - "ADR-0038/R5 ⚠ unchecked — no_eligible_fact: pyproject.toml package-data untouched"
+    - "ADR-0038/R6 ✓ holds — cycle 2's violation is CLOSED and it was closed in the MODEL, which is where it was open. R6's public-surface restatement is ADR-0041/R2; R2 now carries the owner's third exemption in its own statement, so the served book title is inside the rule rather than against it. The exemption is scoped and the scope is mechanical: C3-M04 (title added to SERVED_ENTRY_SCHEMA) is refused by check_listing_capacity's scope arm on every one of three nodes"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: the browser extra is unchanged; 9 of 26 nodes carry -m browser and drive real Chromium"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no CI wiring in the diff"
+    - "ADR-0039/R1 ✓ holds — cycle 2's violation CLOSED, re-derived rather than accepted. The drift guard's boundary claim now has a control that CAN fail: C3-M05 (the boundary deleted) and C3-M06 (deleted plus a typo on a hook the test does not spell out) both red on `assert not named(\"data-pages-count\", \"a tile has [data-pages-countx] on it\")`, the cell the fix added. One edge remains uncontrolled and the card declares it (see F-001 of this report)"
+    - "ADR-0039/R2 ✓ holds — re-derived once more in a new domain: TITLE_CODE_POINTS == 0x110000 - 2048 == 1112064 counted twice here, once by `chr(cp).encode('utf-8')` raising (2048 code points) and once by unicodedata.category == 'Cs' (2048), so the exclusion is derived rather than written; the inventory hooks are derived from the two shipped documents by regex over the markup; SERVED_ENTRY_SCHEMA is derived from SERVED_SCHEMA"
+    - "ADR-0039/R3 ✓ holds — the exemption carries controls for what it must NOT absorb, and they are load-bearing: C3-M02 (the bundle pass-through deleted) reds the served-half guard on its own half-2 assertion, C3-M03 (the exemption declaration emptied) reds all three of its nodes, C3-M04 (the scope breached) is refused by name. The --force exemption's bounds are unchanged from cycle 2 and C3-M09 adds the edge cycle 2 found open"
+    - "ADR-0041/R1 ⚠ unchecked — no_eligible_fact for the recipe itself (src/, untouched); its named check ref was RUN this cycle inside the 98-node tests/test_player_bundle.py door"
+    - "ADR-0041/R2 ✓ holds — cycle 2's violation CLOSED, and closed where it was open. The rule's own statement now names the exemption, bounded in WHERE and explicitly NOT in WHAT ('an owner who writes the base-64 of a solution into a book's title publishes it, measured at 100 of 100 cells, and no reachable character cap is a bound'). Its served-half guard no longer passes on a fixture value: C3-M12 re-fires cycle 2's C2-M41 and BOTH tests that disagreed now pass, with one node redding - the fixture pin. See F-001's re-derivation below"
+    - "ADR-0041/R3 ✓ holds — all 10 changed paths are .py/.js/.css/.html/.json/.md/.yml; no npm, lockfile or build config; 0 pyproject lines"
+    - "ADR-0041/R4 ✓ holds — the named zero-write test green inside the 604-node door"
+    - "ADR-0041/R5 ⚠ unchecked — no_eligible_fact: the exporter is in src/nonogram/admin/, untouched. Its named check ref was RUN this cycle (test_player_bundle.py door, 98 passed)"
+    - "ADR-0041/R6 ⚠ unchecked — check_ref_missing, unchanged from cycle 2: the rule's named test node is not defined anywhere under tests/. Deliberately NOT quoted as a path::name string here, for the reason cycle 2 gave - review YAMLs are not excluded from the validator's git grep, so quoting a dead ref revives it. Manual read of this diff again found no tracking added"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the web UI's socket binding is untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: the web UI's cross-site refusal is untouched"
+    - "CON-011 ✓ holds — carried(cycle 2, delta-clean): pages.js's extent range is untouched by the fix delta and both edges had readers when cycle 2 measured them (its C2-M35/C2-M36)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the aspect guard is untouched"
+    - "CON-021 ✓ holds — review-lens: the two listing pages only list and link; pages.js still has no mark/undo/solved logic"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: compute_clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the export-readiness gate is untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: the retry counters are untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book distribution plans are untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: the cell-floor override is untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the book-ready plan gate is untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book membership confirmation is untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: the card CONSUMES a book's order from the bundle and never changes it"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing is untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: the answer key is untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: draft-status membership is untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: the interior PDF is untouched"
+
+task_contract:
+  source: "the card's ## Acceptance criteria and ## Guardrails, plus meta/architecture/requirements.yml FR-045 (AC-387..389) as it now stands in the MERGED file"
+  verdicts:
+    - "AC-387 ✓ holds — green by explicit node id (tests/test_public_player_pages.py::test_book_landing_lists_and_links, 1 of a 3-node selection, 3 passed). The registry's four-clause `then` and the card's own ## Acceptance criteria restatement now read the same (cycle 2's F-009 closed; only 'tapping a puzzle' vs 'tapping one' differs). The title clause is load-bearing: C3-M02 reds this node on `assert browser_page.locator(\"[data-pages-title]\").inner_text() == BOOK_TITLE_SERVED`"
+    - "AC-388 ✓ holds — green by explicit node id (test_unknown_slug_lands_softly)"
+    - "AC-389 ✓ holds — green by explicit node id (test_library_filters_the_index)"
+    - "G-1 ✓ holds — measured: 0 files under src/ and 0 under meta/kanban/ in `git diff --name-only c2307064...HEAD`; the 10 changed paths are enumerated and none is under either"
+    - "G-2 ✓ holds — the served book title comes from BOOK_FILE_FIELDS = ('puzzle_keys','slug','title') in src/nonogram/admin/player_bundle.py, untouched. And the ADR amendment's historical claim is re-derived here: `git log -S` shows that tuple introduced WITH `title` in 58327b53, the commit that created BOOK_FILE_FIELDS, and never changed since - so R2's first amendment's 'and nowhere else' really was false of the bundle on the day it was written"
+    - "G-3 ✓ holds — no pyproject.toml hunk; the named dependency-baseline test green by node id (1 passed)"
+    - "G-4 ✓ holds — no scores, daily puzzle or progress page in the diff"
+
+gating_findings_readjudicated:
+  - id: "cycle2 F-001"
+    was: "high / gating — ADR-0041/R2 (mandatory) read false for the assembled site, and its own named served-half guard passed only because the bundle fixture's book title was editorial, while a sibling test in the same suite asserted the opposite outcome"
+    verdict: CLOSED
+    independent_rederivation: |
+      I did not take the card's account. Both halves were re-derived from the
+      artefacts and from mutants.
+
+      THE MODEL HALF. ADR-0041/R2's own statement (not an FR, not a comment)
+      now carries the exemption, and its amendment log entry at the ADR's
+      :249-270 states what was false and why, including the measurement that
+      settles it. EC-048's statement carries the exemption clause and says the
+      channel is OPEN with a declared residual. FR-045 is narrowed on both
+      halves. The false justification - "EC-048's enumeration does not name
+      it" - survives at exactly four sites and every one of them now says it
+      was FALSE and why: player/assemble.py (two regions, :223-228 and
+      :789-792), player/pages.js (:40-43), tests/test_public_player_pages.py
+      (:38-41). Nowhere does it still read as a justification.
+      And the model half did NOT travel with this merge: 4b4ca160 is an
+      ancestor of main at c2307064, so R2's amendment, EC-048's clause and
+      FR-045's bundle sentence are already on main.
+
+      THE MECHANICAL HALF, measured per assertion:
+
+      * C3-M12 re-fires cycle 2's C2-M41 (the fixture default BOOK_TITLE made
+        leaky, as `_leaky_title(GRIDS["min"])`). Cycle 2's split is GONE:
+        tests/test_public_player.py::test_served_tree_is_clean_of_answers
+        PASSES and
+        tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured
+        PASSES - the two tests that asserted opposite outcomes for one
+        mandatory rule now agree. The one node that reds is
+        test_the_picture_name_is_dropped_and_the_books_title_is_not, on
+        `assert BOOK_TITLE == "A book"`: the fixture's title is now pinned in
+        exactly one place and that place is a test ABOUT the fixture, not a
+        test about R2. The card's claim is exactly right.
+      * C3-M01 (2-node, DELETION): served_puzzle's field-by-field rebuild and
+        its internal schema-equality assert both deleted, so the bundle's
+        PUZZLE title flows into the served puzzle file. test_served_tree_is_clean_of_answers
+        reds on its OWN half-1 assertion, `assert sweep_tree(clean.site_dir,
+        GRIDS) == {}` - not at fixture setup, which is cycle 1's F-007 failure
+        mode and the reason this mutant was worth firing. Three further nodes
+        red, each on its own assertion.
+      * C3-M02 (DELETION): served_book's title pass-through deleted
+        (`"title": _book_title(payload.get("title"))` -> `""`), which is the
+        one field that function passes through from the bundle. The same test
+        reds on its OWN half-2 assertion, `assert sorted(recovered) ==
+        ["book/0123456789.json [min]"]`. So BOTH halves of the served-half
+        guard are live, each on its own cell, and neither rests on a fixture
+        default - the test takes `(bundle, tmp_path)` and builds its own two
+        bundle roots with both titles passed in explicitly.
+      * C3-M03 (DELETION): EXEMPT_LISTING_FIELDS emptied. All three nodes red.
+        Declared honestly: they red in a `raise ValueError` from
+        check_listing_capacity's partition arm, not in an assertion.
+      * C3-M04 (edge): `title` added to SERVED_ENTRY_SCHEMA - the "and only in
+        the book file" direction. All three nodes red, and all three red in the
+        SCOPE refusal's `raise`, before any assertion about where the title
+        landed. This is precisely what the card declared it could not claim a
+        mutant for, and the declaration is accurate: the scope refusal is the
+        first reader, so "only in the book file" is enforced mechanically but
+        is not the cell that reds.
+    residual: >-
+      One. Nothing mechanical enforces R2's owed check-ref flip at merge; see
+      the check_ref_disposition block below.
+
+  - id: "cycle2 F-002"
+    was: "medium / gating — the design-inventory drift guard's word-boundary fix had no control that could fail; typo-absorption was still live for every hook but one hardcoded name (C2-M25 and the 2-node C2-M25b both survived)"
+    verdict: CLOSED
+    independent_rederivation: |
+      The fix is that `named()` takes the inventory text as a PARAMETER and
+      the boundary is asserted THROUGH the function over inventories written
+      in the test. I re-fired cycle 2's two survivors unchanged and added two
+      edges.
+
+      * C3-M05 = C2-M25, re-fired: the word boundary DELETED, `return
+        re.search(rf"{re.escape(hook)}(?![a-z-])", text) is not None` ->
+        `return hook in text`. Now KILLED, and killed on the cell the fix
+        named: `assert not named("data-pages-count", "a tile has
+        [data-pages-countx] on it")`. The cell the fix added is the cell that
+        reds.
+      * C3-M06 = C2-M25b, re-fired (2-node): the boundary deleted AND the
+        inventory's `data-pages-count` typo'd to `data-pages-countx` in
+        meta/design/components.md - the counter-case that closed cycle 2's
+        refutation. Now KILLED, on the SAME cell, which is the point: the
+        control no longer depends on which hook the inventory happens to
+        spell. Both file hashes verified at HEAD before and restored after.
+      * C3-M08 (edge): the boundary stops admitting `=`
+        (`(?![a-z-])` -> `(?![a-z-=])`). KILLED - but read the cell: it reds on
+        `assert missing == [], missing`, the real-inventory completeness sweep,
+        and NOT on the dedicated `named("data-pages-count", "written as
+        data-pages-count=\"3\" here")` assertion, which never runs. So cycle
+        2's sentence "the `=` half is held by the real inventory rather than by
+        its own cell" is STILL TRUE of the first reader, and fix round 2's
+        could-not-establish says exactly that. Honest.
+      * C3-M07 (edge): the hyphen DELETED from the boundary class
+        (`(?![a-z-])` -> `(?![a-z])`). SURVIVED. This is the one survivor of
+        the cycle and the card declares it in its own words - "the hyphen in
+        `[a-z-]` has no control at all". The declaration is accurate and the
+        exposure is small: it needs a hook that is a hyphen-extended prefix of
+        another hook, and no such pair exists in the two shipped documents
+        today (the live pair is `data-pages-filter` / `data-pages-filters`,
+        which the letter half of the class already covers).
+
+check_ref_disposition:
+  question: "the card says R2's check-ref flip is 'verified and owed AT MERGE, not before'. Sound, or does it hide an unflipped ref?"
+  verdict: "SOUND — and it hides nothing. But the figure in its justification is WRONG, and the obligation is carried by prose alone."
+  rederivation: |
+    Resolved each of the three path::name strings in the flip text the way the
+    validator does - `git grep -lw` over tracked non-Markdown files - and then
+    against main.
+
+    * all three resolve ON THE BRANCH. The third now resolves from
+      tests/test_public_player_pages.py, the module that DEFINES it, which is
+      what commit 4b06b11d was for and it worked: before it the only
+      non-excluded hits were prose sentences in two other files.
+    * against main, however: the first two resolve on main (their defs exist
+      there - the bundle half is CARD-282's and the served half is CARD-283's,
+      with the latter's signature changed but not its name), and only the
+      THIRD does not, because tests/test_public_player_pages.py does not exist
+      on main at all. So "two of the three resolve only on this branch" is
+      FALSE: exactly ONE does.
+    * That does not change the disposition. One branch-only ref is sufficient
+      reason not to apply the flip before the merge, and it is the reason the
+      board repaired across ADR-0042's four checks: a ref that names a test
+      absent from the tree reads as mechanically checked while nothing checks
+      it. R2's `check:` therefore still names the bundle half alone, the served
+      half and the exemption's own control are named in the COMMENT beside it,
+      and that comment names CARD-284 as owing the flip at its merge. Nothing
+      is hidden and nothing reads as checked that is not.
+    * What is NOT mechanical is the flip itself. It is owed by a sentence in an
+      ADR comment and a code block in the card's FIX ROUND 2 section. If the
+      merge lands and nobody applies it, R2's exemption keeps no named control
+      and the omission reds nothing. Recorded as a residual rather than as a
+      finding, because prescribing the flip here would be prescribing an edit
+      in the last cycle.
+    * One fragility re-confirmed and it is not this card's: R2's EXISTING
+      bundle-half ref resolves, outside the model's own excluded files, through
+      exactly one prose line in tests/test_public_player.py plus two
+      meta/review/*.yml files. That is the backlog's "a review YAML can revive
+      a dead check ref", one artefact away from firing - so this report
+      deliberately does not quote that path::name string in full either.
+
+root_causes:
+  - id: RC-1
+    title: "A claim fixed at one of the two sites that carry it — the same family cycle 2 called RC-2, now in its third consecutive round and down to one instance"
+    finding_ids: [F-002]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_public_player_pages.py
+    line: 1793
+    title: "The drift guard's boundary class has one uncontrolled character, and it is the hyphen — declared by the card, confirmed here"
+    description: |
+      `named()`'s boundary is `(?![a-z-])`. The letter half is controlled twice
+      over (C3-M05, C3-M06 both red on the countx cell). The HYPHEN half is
+      controlled by nothing: C3-M07 deletes it, leaving `(?![a-z])`, and the
+      test PASSES.
+
+      The card declares this in its own could-not-establish - "the hyphen in
+      `[a-z-]` has no control at all" - so this finding adds the measurement
+      rather than the news. What it would take to matter: a `data-pages-*` hook
+      that is a HYPHEN-extended prefix of another hook, e.g. a
+      `data-pages-count` beside a `data-pages-count-label`. No such pair exists
+      in book.html or library.html today; the live prefix pair is
+      `data-pages-filter` / `data-pages-filters`, which the letter half covers.
+      So the exposure is a future hook name, not current behaviour.
+
+      Not prescribed as an edit. This is the last review cycle and a one-line
+      control shipped now would ship unreviewed; the exposure does not justify
+      that trade.
+    suggestion: >-
+      When a hyphen-extended hook pair next appears, add the control the same
+      shape the letter half has: `assert not named("data-pages-count", "a tile
+      has [data-pages-count-label] on it")`, through the function, over a
+      locally built inventory. Until then the class is wider than its controls
+      and the card says so.
+    confidence: high
+    source: measured
+    violates: ADR-0039/R1
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: player/assemble.py
+    line: 996
+    title: "Cycle 2's F-007 is narrowed in the test and NOT in the source: assemble.py still calls byte-identity 'the property at the layer that is actually deployed'"
+    description: |
+      Cycle 2's F-007 said `test_two_assemble_runs_are_byte_identical` is
+      intra-process only, so calling it "EC-049's property at the layer that
+      actually deploys" overstates it by one quantifier - and it had the mutant
+      to prove it (C2-M28, cross-process nondeterminism, survives that test and
+      is killed only by `test_the_served_index_is_key_sorted`).
+
+      The test's own docstring now says this, at length and correctly, naming
+      C2-M28 and handing the cross-process half to the other test. The SOURCE
+      docstring does not. `served_index`'s docstring at player/assemble.py
+      :988-997 still reads: "It is held now, in two places and two shapes -
+      ...test_the_served_index_is_key_sorted on this function's own output, and
+      ...test_two_assemble_runs_are_byte_identical on the whole assembled tree,
+      which is the property at the layer that is actually deployed."
+
+      Mechanically confirmed that the fix round did not reach it: the hunk
+      headers of `git diff 82d777c9 6aa4c5b9 -- player/assemble.py` are
+      :43, :62, :169, :204, :664, :751, :849 and the last ends at 889+24, well
+      short of 988. So this is the one site of two that did not get the
+      narrowing, in the same commit range that narrowed the other.
+
+      This is RC-2 of cycle 2 recurring - a claim stated at two sites and
+      corrected at one - and it is the third consecutive round in which that
+      family produces a finding. It is low because the sentence is in a
+      docstring with no behavioural consequence and the correct statement is
+      twenty lines away in the test the sentence points at; it is worth a line
+      on the record because the next reader of assemble.py meets the wrong
+      half first.
+    suggestion: >-
+      One sentence, at the merge gate or on the next card that touches the
+      file: `served_index`'s docstring should say what the test's now says -
+      key-sortedness owns the cross-process half, byte-identity owns
+      within-process variation, and neither alone is "the layer that deploys".
+      Not prescribed as a fix round: this is the last cycle.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: info
+    category: ops
+    type: question
+    file: meta/kanban/cards/CARD-284.md
+    line: 609
+    title: "\"Two of the three resolve only on this branch\" is one of three — the disposition is right and its stated reason is overcounted"
+    description: >-
+      The card's FIX ROUND 2 section justifies not flipping R2's check ref with
+      "two of the three resolve only on this branch, and naming them on main
+      would read as mechanically checked while absent". Measured against main
+      at c2307064: the bundle half's def and the served half's def BOTH exist
+      on main (CARD-282's and CARD-283's respectively), and only the
+      exemption's own control does not - its whole FILE,
+      tests/test_public_player_pages.py, is absent from main. So exactly one of
+      three is branch-only. The conclusion is unaffected and correct; the count
+      is not. Filed at info because a figure is a claim on this board and no
+      mutant catches a stale number.
+    suggestion: >-
+      Say "one of the three — and its whole file — does not exist on main" when
+      the flip is applied at merge, so the sentence that survives in the ADR's
+      history is the measured one.
+    confidence: high
+    source: measured
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_table:
+  pass_kind: >-
+    RECORDING for attribution and PER ASSERTION. Each mutant's cell set is run
+    as ONE pytest invocation per node id (`-o addopts= -p no:randomly -x -q
+    <node>`), so a verdict is per node and the recorded `where` is the FIRST
+    failing assertion or raise pytest printed - a short-circuit after the first
+    assert therefore cannot be mistaken for a kill of a later arm. Every mutant
+    DELETES a mechanism a claim names (two breach a boundary instead, declared
+    as `edge`), and every mutant is line-count preserving. The harness lives in
+    scratchpad/card284/ and nowhere else - never the scratchpad root, which is
+    shared with concurrent agents and was re-executed mid-run on this very card.
+    Before each mutant every target file's `git hash-object` is asserted equal
+    to `git rev-parse HEAD:<path>`; after each, the restore is verified the same
+    way. All four touched files verified at HEAD after the last mutant, and the
+    two-file door re-run green (59 passed) afterwards.
+  survivors: 1
+  rows:
+    - "C3-M01 inside/2-node  served_puzzle's field-by-field rebuild + its schema assert DELETED   KILLED  test_served_tree_is_clean_of_answers on its OWN half-1 assert `sweep_tree(clean.site_dir, GRIDS) == {}`; also test_the_book_title_exemption_is_scoped_and_its_cost_is_measured, test_no_puzzle_title_reaches_either_listing, test_the_served_puzzle_files_are_rebuilt_not_copied, each on its own assert"
+    - "C3-M02 inside        served_book's title pass-through DELETED (-> \"\")                     KILLED  test_served_tree_is_clean_of_answers on its OWN half-2 assert `sorted(recovered) == [\"book/0123456789.json [min]\"]`; also the exemption test, test_the_picture_name_is_dropped_and_the_books_title_is_not, and AC-387's test_book_landing_lists_and_links"
+    - "C3-M03 inside        EXEMPT_LISTING_FIELDS emptied (the exemption declaration DELETED)     KILLED  all 3 nodes — declared: they red in check_listing_capacity's partition `raise`, not in an assertion"
+    - "C3-M04 edge          `title` added to SERVED_ENTRY_SCHEMA (the scope breached)             KILLED  all 3 nodes in the SCOPE refusal's `raise` — declared: the scope refusal is the first reader, so 'only in the book file' is mechanical but is not the cell that reds. This is exactly what the card declared"
+    - "C3-M05 inside        named()'s word boundary DELETED (cycle 2's SURVIVOR C2-M25)           KILLED  test_the_public_tile_is_registered_in_the_design_inventory on `assert not named(\"data-pages-count\", \"a tile has [data-pages-countx] on it\")` — the cell the fix added"
+    - "C3-M06 edge/2-node   the boundary DELETED + a typo on a hook the test does not spell out   KILLED  same test, SAME cell (cycle 2's SURVIVOR C2-M25b) — the control no longer depends on which hook is spelled out"
+    - "C3-M07 edge          the hyphen DELETED from the boundary class ((?![a-z-]) -> (?![a-z]))  SURVIVED  -> F-001. Declared by the card in its own words; no hyphen-extended hook pair exists in the shipped documents"
+    - "C3-M08 edge          the boundary stops admitting '=' ((?![a-z-]) -> (?![a-z-=]))          KILLED  same test, but on `assert missing == [], missing` — the REAL inventory, not the dedicated '=' cell, which never runs. Cycle 2's 'the = half is held by the real inventory' is still true of the first reader, and the card says so"
+    - "C3-M09 edge          the marker predicate's .is_file() DELETED (-> .exists())              KILLED  test_an_out_dir_that_is_not_a_previous_site_is_refused on the SIXTH denial case's `pytest.raises(..., match=\"no run of this script wrote it\")` — cycle 2's SURVIVOR C2-M17, and the cell F-005's fix added"
+    - "C3-M10 inside/2-node the marker's FIRST-ness DELETED (write moved past both copy loops)    KILLED  same test on `assert calls[0] == half / assembler.SITE_MARKER_FILE` — the ordering control F-006's fix added, and it discriminates: a marker written last reds here and would have passed the old paragraph"
+    - "C3-M11 inside        page.goto's `timeout=PAGES_SETTLE_MS` DELETED                         KILLED  test_both_waits_in_open_pages_carry_the_explicit_timeout on `assert len(bounded) == 2` (the ast walk) — the cell F-010's fix added. The browser node test_book_landing_lists_and_links PASSES under it, which is the card's own point: a timeout argument cannot red on behaviour without a hung server"
+    - "C3-M12 addition      the fixture default BOOK_TITLE made leaky (cycle 2's C2-M41 re-fired) KILLED  and the KILL is the closure: test_served_tree_is_clean_of_answers PASSES, test_the_book_title_exemption_is_scoped_and_its_cost_is_measured PASSES — cycle 2's split is gone — and the one node that reds is test_the_picture_name_is_dropped_and_the_books_title_is_not on `assert BOOK_TITLE == \"A book\"`, a test ABOUT the fixture rather than about R2"
+  not_mutated_and_why:
+    - "The scope direction of 'and only in the book file' (title into SERVED_INDEX_SCHEMA or SERVED_SCHEMA) was not fired separately: C3-M04 establishes the pattern - every single-node edit that puts the title outside the book file is intercepted by the scope refusal before any assertion about placement runs. Firing the other two would add rows and no information, which is cycle 1's F-007 lesson (a mutant that dies in an earlier mechanism certifies that mechanism, not the claim under it)."
+    - "player/player.css adds no mechanism any claim in the fix delta names, and the fix delta does not touch it. No mutants invented for it."
+    - "No mutant was fired at the model artefacts (ADR-0041, EC-048, FR-045): a mutant cannot red a sentence. They were re-derived by reading and by resolving their refs, which is the instrument that fits."
+
+figures:
+  - claim: "the book title costs 2410.18 bits"
+    instrument: "player/assemble.py::book_title_residual_bits (SERVED_TITLE_MAX_CHARS * math.log2(TITLE_CODE_POINTS))"
+    control_1: "mine, door 1: the character space counted by ENCODABILITY — exactly 2048 of the 0x110000 code points raise on chr(cp).encode('utf-8'), giving 1112064 — then the bits taken as Decimal(120) * (Decimal(space).ln()/Decimal(2).ln()) at 50 digits rather than math.log2. Result 2410.1770065365... -> 2410.18. CONFIRMED"
+    control_2: "mine, door 2: the same 2048 counted instead by unicodedata.category(chr(cp)) == 'Cs'. The two counts agree, so the exclusion is derived twice by different authorities and not written down once"
+  - claim: "24.1x the 100-bit ceiling and 2.68x the 900 cells of the largest publishable grid"
+    instrument: "the module docstring, R2's own statement, and the card"
+    control_1: "2410.1770 / 100 = 24.102 — CONFIRMED"
+    control_2: "2410.1770 / 900 = 2.678 — CONFIRMED"
+  - claim: "a MIN_SIZE grid's base-64 is 20 chars (inside the 120 cap) and a MAX_SIZE grid's is 152 (truncated)"
+    instrument: "the exemption test's cells measurement"
+    control_1: "mine: ceil(100/8)=13 bytes, base64 of 13 zero bytes is 20 chars; ceil(900/8)=113 bytes -> 152 chars. CONFIRMED, measured through base64.b64encode rather than by arithmetic alone"
+    control_2: "and the card's reading of it is the honest one: 152 > 120 only for the largest grid, so the cap truncates one case out of the supported extent and is an accident of base-64, not protection"
+  - claim: "a book file's order residual is log2(k!) = 4.58 / 79.04 / 660.48, and membership is log2(C(120,24)) = 83.17"
+    instrument: "LISTING_STRUCTURE_FIELDS' docstring"
+    control_1: "mine: math.log2(math.factorial(k)) for k = 4, 24, 120 gives 4.58, 79.04, 660.48; math.log2(math.comb(120,24)) gives 83.17. All four CONFIRMED"
+    control_2: "the two are different functions of different arguments, as the docstring claims, so neither is a restatement of the other"
+  - claim: "the card's door — 604 passed, 0 failed, 0 skipped, and 603 -> 604 is exactly the one node added"
+    instrument: "cycle 2's own four-file selection"
+    control_1: "mine, reproduced: 604 passed, 0 failed, 0 skipped, exit 0, 36.47 s, -rs printing no skip section. CONFIRMED"
+    control_2: "the increment re-derived in a different domain — `git diff 82d777c9 6aa4c5b9 -- tests/` adds exactly one `def test_` (test_both_waits_in_open_pages_carry_the_explicit_timeout) and renames two signatures without adding nodes. So the +1 is the one node and nothing silently stopped collecting"
+  - claim: "the card's own two files pass (59)"
+    instrument: "the brief"
+    control_1: "mine: --collect-only -q over the two files prints 59 node ids; the run prints 59 passed, 0 skipped, exit 0, reproduced twice. CONFIRMED — and the count is verified by node id rather than by the summary line, because pytest matches python_classes as prefixes and a count alone cannot see a class that never runs"
+    control_2: "the pages file alone: 26 collected, 9 carrying -m browser (grep -c of pytest.mark.browser agrees at 9)"
+  - claim: "the honest validator error count is 0 — the reported error is a tool bug"
+    instrument: "fix round 2's root cause"
+    control_1: "mine: the ERROR reproduces on BOTH branch and main identically (1 error each), and validators/adr_integrity.py's _SUPERSEDES_PAT matches `supersed(?:es?|ed\\s+by)` — one pattern for both directions — with its own adjacency comment admitting 'supersedes/is-superseded-by'. CONFIRMED as a tool bug"
+    control_2: "measured on the ADRs: 0031:11 and 0031:133 say Supersedes ADR-0025, 0025:3 and 0025:171 say Superseded by ADR-0031 — four phrases, one real supersession, which is why the cycle prints doubled (ADR-0025 -> ADR-0031 -> ADR-0025 -> ADR-0025)"
+  - claim: "the branch's 3-warning gap to main is exactly the three AC-387/388/389 dead-ref warnings"
+    instrument: "fix round 2"
+    control_1: "mine: `comm` over the two sorted sets of indented [WARN ]/[ERROR] lines. Only-on-main = exactly those three dead-check-ref warnings. Only-on-branch = EMPTY. CONFIRMED, and the direction is a reduction with nothing introduced"
+    control_2: "counted two ways that agree — the validator's summary line (108 vs 111 warnings) and an unanchored grep of the finding lines (109 vs 112, the extra being the one ERROR line)"
+  - claim: "BOOK_FILE_FIELDS has carried `title` since it was written, so R2's first amendment's 'and nowhere else' was false of the bundle on the day it was written"
+    instrument: "ADR-0041's 2026-10-28 amendment"
+    control_1: "mine, a door the previous rounds did not use: `git log -S` on the exact tuple literal returns one commit, 58327b53 (CARD-282's exporter), which is also the first commit to mention BOOK_FILE_FIELDS at all. CONFIRMED"
+    control_2: "and the value on disk today is still ('puzzle_keys', 'slug', 'title'), so nothing moved in between"
+  - claim: "two of the three flip refs resolve only on this branch"
+    instrument: "the card's FIX ROUND 2 section"
+    control_1: "mine: CORRECTED to ONE of three. git grep -lw per ref, on the branch and against main — the bundle half and the served half both have defs on main; only the exemption's control does not, and its whole file is absent from main"
+    control_2: "the disposition it justifies is unaffected and remains sound; see check_ref_disposition. Filed as F-003"
+
+could_not_establish:
+  - "No render has been eyeballed by the owner — in those words. Unchanged through three cycles. Six Chromium captures exist in ~/Documents/nonogram-reviews/CARD-284/; I re-rendered nothing, diffed nothing, and review.visual is off. Every layout claim in the suite is still a computed-style or bounding-box assertion, which is the kind that reads fine and looks wrong."
+  - "Chromium only — nothing on iOS Safari, where most QR scans land, and /b/<slug> is the first page a scan reaches. Unchanged since cycle 1."
+  - "Never run against a real exported bundle — fixtures only, on both sides of the wire."
+  - "Vercel itself is never exercised. The two rewrites are read from the shipped vercel.json by a loopback fixture, so the rules are exercised and the host is not."
+  - "EC-048 is not closed and this report does not claim it is. Three exemptions (clues, key, book title) and four declared residuals (the tier's two bits; a book file's order, membership and title). 'A book title cannot carry an answer' is FALSE and R2 now says so in its own statement, measured at 100 of 100 cells. The exemption is bounded in WHERE it applies and not in WHAT it can carry, and no reachable character cap is a bound."
+  - "Which forge install cycle 2 used — in those words. Only one is present on this host now (the plugin cache), and on it the ADR-0025 supersession ERROR reproduces on both sides. So I confirmed fix round 2's root cause for the error but could not reproduce the two-install split it measured, and cannot say which install the board should standardise on. That remains a decision, not a measurement."
+  - "Whether R2's owed check-ref flip will actually be applied at merge. It is owed by a sentence in an ADR comment and a code block in the card, and nothing mechanical reds if it is skipped. I verified the flip text resolves on the branch and that applying it before merge would create one dead ref; I could not establish that anything would notice it never being applied."
+  - "The full suite was not run and meta/kanban/.full-suite.lock was not taken. My doors are 59 nodes (the card's two files, twice), 604 nodes (cycle 2's four-file selection, so the figure has a control), 98 nodes (tests/test_player_bundle.py, which no previous cycle opened) and four single-node AC selections — all node-id-explicit, 0 skips anywhere, each count verified by collection rather than by a summary line."
+  - "The hyphen half of the drift guard's boundary class has no control, confirmed by a surviving mutant (F-001). I could not make it red with any single-node mutant over the shipped documents, because no hyphen-extended hook pair exists in them."
+
+open_owner_questions:
+  - question: "/library's listing order is key order, which reads as no order at all"
+    scoped_honestly: true
+    blocks_merge: false
+    note: >-
+      Unchanged from cycle 2 and still correctly scoped: no AC states an order,
+      served_index's docstring says determinism is the only claim and
+      explicitly not that it is an order anyone wants, and the determinism is
+      controlled. A reorder is a one-line change behind a live test.
+  - question: "SERVED_TITLE_MAX_CHARS = 120 is generous to the point of ugly"
+    scoped_honestly: true
+    blocks_merge: false
+    note: >-
+      A taste call. It is a LAYOUT bound only — R2's own statement now says no
+      reachable cap is a capacity bound — so lowering it later changes a
+      heading and nothing in the EC-048 argument.
+  - question: "ADR-0041/R2's catch-all versus the owner's book-title decision"
+    scoped_honestly: true
+    blocks_merge: false
+    note: >-
+      This was cycle 2's gating F-001 and it is CLOSED. The owner amended R2
+      rather than withdrawing the title; the amendment is on main already
+      (4b4ca160), R2 states the residual rather than filtering it, EC-048
+      points at R2's exemptions instead of reading false, and the served-half
+      guard now asserts both outcomes with both titles passed in explicitly.
+      No longer an open question.
+
+last_mile:
+  max_cycles_reached: true
+  statement: >-
+    This is cycle 3 of 3 and no edit is prescribed. All three findings are
+    low/info, each is a sentence or a figure rather than a mechanism, and each
+    is scored as it stands rather than as it would be after a fix - so nothing
+    in overall_score assumes work that has not happened. What ships
+    uncertified by a reviewer is therefore NOTHING in code: the card is
+    certifiable as it stands. What the MERGE GATE alone establishes, and what
+    it does not: the gate will re-run the full suite and so establishes that
+    the 604-node and 59-node doors generalise, which no cycle measured; it
+    will NOT establish the owner's visual pass, anything on iOS Safari,
+    anything against a real exported bundle, anything on Vercel, or that R2's
+    owed check-ref flip was applied. Those four plus the flip are the carry.
+
+OVERALL_SCORE: 8.5

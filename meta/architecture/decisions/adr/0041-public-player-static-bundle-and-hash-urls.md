@@ -321,7 +321,7 @@ write — the thing R4 exists to forbid.
     title — the picture name — stays forbidden outright and is not covered
     here.
   scope: {code: ["player/**", "src/nonogram/admin/**", "tests/**"]}
-  check: {kind: test, ref: "tests/test_player_bundle.py::test_bundle_is_clean_of_answers"}   # FR-045 AC-381/EC-048 (planned, CARD-282); the served tree's half is tests/test_public_player.py::test_served_tree_is_clean_of_answers (CARD-283). The 2026-10-28 exemption's OWN control is NOT named here on purpose: CARD-284 writes test_the_book_title_exemption_is_scoped_and_its_cost_is_measured and owes the flip at its merge. Naming it now would read as mechanically checked while it exists only on a branch.
+  check: {kind: test, ref: "tests/test_player_bundle.py::test_bundle_is_clean_of_answers, tests/test_public_player.py::test_served_tree_is_clean_of_answers, tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"}   # FR-045 AC-381/EC-048. FLIP APPLIED 2026-10-28 at CARD-284's merge (8492b63c), which is when it became honest: all three now resolve as real node ids on main, verified by --collect-only, and each carries its own path::name in tests/ rather than only in prose. Before the merge the third existed only on a branch and naming it would have read as mechanically checked while absent. NOT closed by this ref: EC-048 itself. R2 carries three exemptions and four declared residuals, and the title exemption is bounded in WHERE it may appear, not in WHAT it may carry.
   severity: mandatory
 - id: ADR-0041/R3
   statement: >-
