@@ -81,8 +81,8 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   the book can reach: two in `book_pdf_generator._stroke_drawing` (the two-up
   and solved slots' lines, and their frame) and two in `export/png`
   (`_draw_grid`'s lines and `_draw_frame`) — the pair that rules the
-  single-puzzle page and the packed answer page. It has three refusals, two of them regions and one a
-  point: a width that is not whole positive pixels (every sheet); a declared
+  single-puzzle page and the packed answer page. It has three refusals, two
+  of them regions and one a point: a width that is not whole positive pixels (every sheet); a declared
   sheet's rule below 2 device pixels; and a width that IS the declared
   figure's own device count, which is the mutant this card's AC-7 names. It
   therefore *admits* every integer at or above the floor that is not that one
@@ -315,8 +315,10 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   #        export/png's _draw_grid/_draw_frame -- plus the advance arithmetic
   #        layout.rasterise_rule_px, each with a negative control (the same
   #        figure at 1200 DPI is admitted; the book's real raster width is
-  #        admitted; the real book page draws through both strokers), so none
-  #        of it reads as a blanket refusal. layout.rasterise_rule_px has NO
+  #        admitted; the real book page draws through both strokers; and a
+  #        stroke at exactly the 2 px floor on a declared sheet IS admitted,
+  #        which is the floor region's own EDGE arm), so none of it reads as a
+  #        blanket refusal. layout.rasterise_rule_px has NO
   #        call site in src/ and is not claimed as a door (F-002);
   #   NOT RUN  "the default PageSpec's strokes unchanged". That clause is
   #        ADR-0036/R1's own check
@@ -337,8 +339,8 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   #        0.3 / 0.8 / 1.3 pt beside a device width of 3 or 6 px. Instrument
   #        controls (ADR-0039/R4): it rises (1 page 43, 4 pages 159), it reads
   #        0 when no page is drawn, and on a CLI sheet it reads 42 strokes of
-  #        which 0 declare anything. So the unguarded stroker was the one that ruled
-  #        the dominant interior page kind, and the control this comment said
+  #        which 0 declare anything. So the unguarded stroker was the one
+  #        that ruled the dominant interior page kind, and the control this comment said
   #        could not fail is
   #        test_the_other_raster_stroker_is_guarded_too_and_it_is_the_one_that_rules_a_book_page,
   #        which has three arms: the real book page draws, the mutant reds,
