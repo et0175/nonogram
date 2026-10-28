@@ -691,11 +691,45 @@ two mutants in `book_manager.py`, one per path it asserts (`:736`'s `or []` for 
 attribute, `:1019`'s fallback for the method), **both killed**, source restored
 byte-clean after.
 
-**Latent class, wider than this card and owed a card of its own:**
-`tests/test_book_page_spec.py` and `tests/test_book_plan_storage.py` also pin a
-literal revision AND use the ORM. Neither fails today. Both meet this wall on the
-next card that adds a `Book` column — and that card will find out at its merge
-gate, exactly as this one did.
+**[RETRACTED 2026-10-28, same day, by measurement.]** This section claimed a
+latent class: that `tests/test_book_page_spec.py` and
+`tests/test_book_plan_storage.py` "also pin a literal revision AND use the ORM"
+and "meet this wall on the next card that adds a `Book` column". **That is
+false, and the retraction is the useful part.**
+
+Two controls, run against this merged tree. **Control 1** — a probe column on
+the `Book` model with **no** migration — reds three tests. **Control 2** — the
+same column **with** its migration, which is the shape of every real card —
+**all seven pass**. The siblings are immune, and they have been since
+**CARD-121**: both call `command.upgrade(config, "head")` **between** the pin
+and the ORM read, and both say why in their own comments
+(`test_book_page_spec.py:663` — *"the ORM is the current model and selects
+every column it declares, so a database stopped at 011 is not a schema it can
+read"*).
+
+**How the false claim was produced**, because the mechanism matters more than
+the claim: a grep found "pins a literal revision" and "uses the ORM" in the
+same file and the orchestrator inferred **adjacency that is not there**. That
+is this board's own rule — *attribute by test, not by file; co-location is not
+ownership* — broken in the course of writing a note about rigour.
+
+**What is actually true is narrower and better:** `TestMigration012` was the
+**lone deviant**. Its two siblings had used the head-upgrade convention since
+CARD-121; it alone read at a pinned revision, behind a comment arguing
+explicitly against `head`. This card's gate caught the only instance there was.
+
+**And one correction to this card's own fix rationale.** The fix argued that
+"moving the pin forward expires on the next column" — true, but the real
+alternative was never "bump the pin", it was the **house convention the
+siblings already used**: upgrade to head before the ORM read, which also does
+not expire *and* keeps the ORM coverage. The core-SQL read that shipped is
+sound and green, and the split-out INV-006 test does use head — but the
+orchestrator invented a third way without checking for an established one.
+
+**Correspondingly, this card's claim that its new test is safe because "no
+future column can break it" is too wide.** Control 1 reds it. The honest
+statement: no future column **that ships with its migration** can break it —
+and reding on a model/migration mismatch is correct behaviour, not a defect.
 
 **Gates.** AC gate 46 passed / 0 skipped / 0 failed by node id, all 10 ACs resolved
 to real nodes — **zero skips matters here**, because this card touches `migrations/`
