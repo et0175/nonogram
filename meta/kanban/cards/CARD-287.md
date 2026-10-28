@@ -422,25 +422,61 @@ the *same* profiled run — CARD-292's headline defect avoided by construction. 
 unprofiled wall clock sits beside it and is **never** a denominator for a
 profiled numerator.
 
-| test | unprofiled wall | profiled Σtottime | stdlib `get_source_segment` cum | share | **the planting idiom** | share |
-|---|---|---|---|---|---|---|
-| `…each_door_axis_arm…` | 28.81 s | 68.35 s | **14.366 s** | **21.0 %** | **0.062 s** | **0.09 %** |
-| `…every_door_shape…` | 10.23 s | 26.32 s | 4.804 s | 18.3 % | 0.025 s | 0.09 % |
-| `…every_planted_position…` | 5.70 s | 14.59 s | 2.736 s | 18.8 % | 0.006 s | 0.04 % |
+| test | unprofiled wall | profiled Σtottime | **profiler factor** | stdlib `get_source_segment` cum | share *(of a profiled second)* | **the planting idiom** | share |
+|---|---|---|---|---|---|---|---|
+| `…each_door_axis_arm…` | 28.81 s | 68.35 s | **×2.37** | **14.366 s** | **21.0 %** | **0.062 s** | **0.09 %** |
+| `…every_door_shape…` | 10.23 s | 26.32 s | **×2.57** | 4.804 s | 18.3 % | 0.025 s | 0.09 % |
+| `…every_planted_position…` | 5.70 s | 14.59 s | **×2.56** | 2.736 s | 18.8 % | 0.006 s | 0.04 % |
+
+**A PROFILED second is not a wall-clock second, and no share in that table may
+be read as one** (review cycle 1, F-05). The factor column is the ratio of the
+table's own first two columns — the profiler inflates these tests by
+×2.37 / ×2.57 / ×2.56, because it instruments 23.2 M `ast.walk` calls into the
+denominator while the split is **one** instrumented call doing heavy
+*un*instrumented work inside. So 21.0 % understates the unprofiled share by
+about a factor of two: the saving AC-2 actually measured on that test is
+**45.5 %** of it, 2.17× the profiled share. The *unprofiled* domain is the one
+that carried the prediction, and it is labelled as such wherever it appears.
 
 **The plants are not the bill and never were** — 0.062 s of 68.35 s. `str.replace`
 alone is 0.013 s over 216 calls; the disk reads 0.001 s. So the route this card
-feared, and G-1 guards, was never the one worth taking.
+feared, and G-1 guards, was never the one worth taking. **That conclusion is
+robust in either domain**, which is why it is the one AC-1 draws: `str.replace`
+over the 389 k string is a single C call that no profiler inflates.
 
 **What the bill actually was.** `print_callers` named the door:
 **`_page_positions` itself calls stdlib `ast.get_source_segment` 2 556 times.**
-CARD-292 memoised the line split and routed **one** of this file's two analysis
-call sites through the memo — `_page_positions`' `segment()` closure — and **the
-other, the `found.append` at the function's tail, kept calling the stdlib**,
-which re-splits the whole 389 k source **once per segment**. 24 segments ×
-108 analyses = **2 556 splits, each re-scanning the entire module**. The split
-count was taken two ways that agree: cProfile's `ncalls` of `_splitlines_no_ff`,
-and `sum(len(sites))` over the 108 analyses — different domains, same number.
+CARD-292 memoised the line split and routed **one of this file's THREE**
+analysis call sites through the memo — `_page_positions`' `segment()` closure
+at `:1750` — and **the other two kept calling the stdlib**: that method's own
+`found.append` tail at `:2927` (the hot one) and `_counting_expressions` at
+`:1449` (the cold one). **Three, not two** (F-08), counted rather than read:
+a spy wrapped round the module-global `_source_segment` over one analysis
+reports `{1750: 718, 2927: 24, 1449: 8}` calls by caller line.
+
+**What each of those calls re-splits is a BOUNDED PREFIX, not the whole
+source** (F-287-01, gating). CPython 3.14 passes `maxlines=end_lineno+1` and
+`ast._splitlines_no_ff` breaks out of its `finditer` there, so a call re-scans
+the source *from its start up to its own node's end line*. **Re-derived at the
+fix station**, through the same spy door extended to record every
+`(caller line, node.end_lineno)` across all 108 analyses: over all **2 556**
+routed splits the prefix is **mean 81.1 %** of the 7 334-line planted module,
+**min 43.1 %, max 96.7 %**; over the 24 sites of a single analysis — cycle 1's
+own sample — **81.3 / 43.2 / 96.7 %**, which reproduces it. **The cost claim
+survives restated:** a prefix averaging four fifths of the module, 2 556 times,
+is still the bill — **4.730 ms** per bounded split against **5.999 ms**
+unbounded (`perf_counter`, unprofiled, five blocks with the two measured
+round-robin, medians). This file already carried the correction **300 lines
+above** the place the round re-broke it; the word is now gone from all four
+tracked places, and a grep for `whole`/`entire`/`389 k` over the file leaves
+exactly one occurrence — the retraction itself.
+
+**2 556 is right; `24 × 108` is not** (F-04). `len(sites)` is **23 for 36** of
+the 108 analyses and **24 for 72**, so the honest decomposition is
+**23 × 36 + 24 × 72 = 2 556**, and 24 × 108 is **2 592**. The split count now
+stands in three domains that agree: cProfile's `ncalls` of `_splitlines_no_ff`,
+`sum(len(sites))` over the 108 analyses, and the fix station's spy count at the
+hot call site — **2 556** in each.
 
 **So the remedy is a pure substitution** of a function the tree *already*
 asserts equal to the stdlib for every node (`TestSourceSegment_TheMemoIsTheStdlibAnswer`,
@@ -451,7 +487,10 @@ CARD-292's own control). Both call sites — the hot one and the cold one in
 
 **Written to `prediction.txt` before any arm ran**, from `perf_counter` over 50
 reps (a different domain from the cProfile that found the hotspot): dear test
-**15.04 s**, class **36 ± 4 s**, file **76 ± 6 s**.
+**15.04 s**, class **36 ± 4 s**, file **76 ± 6 s**. *That 15.04 s is what the
+file says and it is reported here as history: it was built with F-287-01's
+whole-source instrument and on the superseded 30.25 s baseline. The honest
+comparison is below.*
 
 Three runs of each arm, **interleaved A B A B A B**, host cells at both ends of
 every run; **rival-pytest 0 at both ends of all six**, `NONOGRAM_TEST_HANG_SECONDS`
@@ -467,8 +506,39 @@ unset throughout, the board's lock never created.
 | the class's other 20 tests | 14.08 s | 8.32 s | −40.9 % |
 | `TestDoorAxis_TheNextIndirection…` | 13.34 s | 7.70 s | −42.3 % |
 
-**Prediction against measurement: dear test 15.04 predicted, 15.19 measured —
-1.0 %.** Class and file both inside their stated bands.
+**Prediction against measurement — the honest comparison, with both domains
+named (F-287-02, gating).** The round's headline, *“15.04 predicted, 15.19
+measured — 1.0 %”*, was **two compensating errors**: the predicted saving was
+built with F-287-01's over-measuring whole-source instrument, **and** subtracted
+from the card's **superseded 30.25 s** baseline (2.37 s high — the host gap this
+card itself declares), while the 15.19 s it was set against came from the
+round's **own arm A of 27.88 s**. A numerator and a denominator from two
+different domains, which is CARD-292's headline defect in a new dress. The
+arithmetic, kept visible so a reader can check it:
+
+| instrument + baseline | arithmetic | agreement |
+|---|---|---|
+| as reported | 30.25 − 15.21 = **15.04** vs 15.19 | 1.0 % — **two errors cancelling** |
+| the round's own instrument, the round's **own arm A** | 27.88 − 15.21 = **12.67** vs 15.19 | **16.6 % OUT** |
+| **bounded** instrument, the round's **own arm A** | 27.88 − **11.48** = **16.40** vs 15.19 | **8.0 % out** |
+
+The bottom row is the one that stands, and **its saving is re-derived here, not
+taken from cycle 1**: 2 556 counted splits × **4.730 ms** bounded − 108 memo
+misses × **5.693 ms** = **11.48 s** (`perf_counter`, unprofiled, five blocks
+measured round-robin, medians). **A second domain for the same saving**, because
+reproducing a figure with its own method only confirms the method: a
+`cost(maxlines)` curve timed at 11 points across the real bound range and summed
+over **all 2 556 actual bounds** rather than over a mean gives **11.57 s** —
+0.8 % away. Cycle 1's own reading of that row was 11.80 s, i.e. 16.08 vs 15.19
+= 5.9 %. **So the method lands 6–8 % out, the spread being the host's reading of
+the two ms/call figures. Six to eight per cent is what it is worth. It is not
+1.0 %, and the 1.0 % was never an agreement.** The same method run with the
+whole-source instrument lands **13.3 %** out on this station's readings, which
+is the measure of how much the instrument's *domain* mattered — and the lesson
+the two gating findings share.
+
+Class and file both landed inside their stated bands, which were quoted as
+bands and are unaffected.
 
 **A bound found and CLOSED rather than declared:** the six A/B runs were taken on
 arm B's *first* blob, not the committed one. A fourth run on the **committed**
@@ -476,16 +546,61 @@ blob at `8b908a73` gives file **70.84 s**, class **32.70 s**, dear test
 **15.21 s**, 133 passed — inside **0.3 %** of the B median. *The figures belong
 to the commit.*
 
-### G-1 — verified as a byte-for-byte equality, twice
+### G-1 — a byte-for-byte equality, re-run at fix round 1 over **257 sections**
 
-A **1 752-line, 52-section canonical capture** of the guard's entire observable
-answer, taken before and recomputed after: **identical (`cmp -s`)**, once against
-arm B v1 and again against the committed blob. It holds, unsummarised: **AC-3's
-144 `(arm-config, plant, verdict, refusal-reason)` quadruples** (36 door shapes ×
-4 arm configurations) plus the position-axis plants and every `(lineno, text)` the
-`_counting_expressions` site feeds; **AC-5's** 36 labels and every upper-case
-table on the class; **AC-6's** `sites`/`vocabulary`/`refusals` in full under **ten**
-configurations.
+**What the capture covers, in the numbers rather than in a superlative**
+(F-287-03, gating — the round called it *“the guard's entire observable
+answer”*, and it was not). The round's **1 752-line, 52-section** capture was
+taken before and recomputed after, **identical (`cmp -s`)**, once against arm B
+v1 and again against the committed blob. **Re-run at the fix station on both
+arms after the fix edits: still identical**, sha256 `4acefd4c…`, and
+byte-identical to the round's own `before.txt` *and* `after2.txt` once this
+station's three loader banner lines are stripped. It holds, unsummarised:
+
+- **Complete, and derived rather than asserted:** `len(DOOR_SHAPES) == 36`, and
+  `DOOR_ARMS` has exactly **two** members, so AC-3's **4** arm configurations
+  are the **complete powerset** of that axis, not a sample — 144 `(arm-config,
+  plant, verdict, refusal-reason)` quadruples. **AC-5's** 36 labels, the 36-row
+  shape table and **20 of the class's 33** upper-case attributes, as full
+  equalities. Every `(lineno, text)` the `_counting_expressions` site feeds.
+- **Narrower than the round said:** *“ten configurations”* is **false as
+  written**. The capture makes **12** real-module `_page_positions` calls, of
+  which **4** get sites + vocabulary + refusals in full, **2** get refusals
+  only, and **6** get a single `len()`. Counted off the capture's own section
+  index, not off the script.
+- **What it omitted**, each axis named by AC-3/AC-5/AC-6's own words: the **20
+  `PLANTED_SHAPES`** position-axis plants' sites / refusals / outcomes — the
+  very inventory the third dear test runs; the **per-door leave-one-out**
+  configurations, which are a *genuinely different* answer (**24 sites without
+  `page_spec`, 23 without `book_page_spec`**, re-derived here); the six
+  callee-exemption **refusal sets** (kept as one integer each); `EXEMPTED_TERM`
+  under `follow_terms=True`; the position plants' **vocabularies**;
+  `_door_position_slots` / `_bare_literals` / `_binder_source`; and the
+  remaining **13 of 33** upper-case attributes.
+
+**The gap is CLOSED, not declared.** An **extended capture** — the round's 52
+sections plus all seven omitted axes — is **257 sections, 11 936 lines**, i.e.
+**10 184 further lines** of observable answer. Run at the fix station against
+**both arms** (file swapped to arm A's blob `8741bd33` with `git show`,
+restored, `git hash-object`-checked): **byte-identical, sha256 `eb754d30…`**.
+And the same sha256 came back from the run taken **before** these prose edits
+against the committed blob `a2b950ca`, so the fix round moved nothing either.
+`xcapture.py` and both arms' outputs are kept with the round's artefacts.
+
+**Why the equality means anything: the capture is SENSITIVE, established, not
+assumed.** One character appended to each non-`None` segment at each changed
+call site, then the capture recomputed and compared position by position: the
+**hot** site moves **793 of 11 936** lines of the extended capture (6.6 %) and
+**75 of 1 752** of the round's (4.3 %); the **cold** site moves **8** lines in
+both. Non-zero at **both** sites, so the capture really does read the output of
+both changed call sites and **is not self-confirming**. *(Cycle 1 reached the
+same conclusion with 1 535 / 8; its injected divergence was evidently a
+different one from this station's single appended character, and **I cannot
+establish** what exactly it injected. The conclusion is what reproduces, not
+the magnitude.)*
+
+**So G-1's conclusion stands on the extended set**, and the claim now states
+what the artefact does.
 
 **AC-6 re-derived off the module, not cited:** **832** `ast.Call` nodes, **770**
 refusals with nothing exempted, **0** under the shipped default, and the declared
@@ -493,16 +608,23 @@ refusals with nothing exempted, **0** under the shipped default, and the declare
 202 / 0 / 0**. The rewritten card's `770 of 832` is **correct as written**.
 
 **AC-4 is NOT ENGAGED, and saying so is the honest answer.** The change adds no
-cache; it routes two call sites into CARD-292's existing memo, already keyed on
-the analysed text and already carrying its own staleness control. AC-4's own
-precondition — *"if AC-1 selects caching"* — is unmet, so no cache-key test was
-written rather than one being invented for a cache that does not exist.
+cache; it routes two call sites — the two of this file's three that CARD-292
+left on the stdlib — into CARD-292's existing memo, **whose key *is* the
+analysed text** (`_SOURCE_LINE_CACHE.get(source)`), **which is why no new
+control is owed**: a changed source is a different key, so no stale answer is
+reachable, and the equivalence is already pinned by
+`TestSourceSegment_TheMemoIsTheStdlibAnswer`. *Saying the memo “carries its own
+staleness control” overstated it: there is no control, there is a key that makes
+one unnecessary — cycle 1's wording note on AC-4, which it otherwise judged
+honest.* AC-4's own precondition — *"if AC-1 selects caching"* — is unmet, so no
+cache-key test was written rather than one being invented for a cache that does
+not exist.
 
 **AC-7:** set difference over sorted node ids, **132 → 133**, nothing removed,
 merged, parametrised away, skipped or deleted. The one addition is named and
 costs 0.04 s.
 
-### The one mechanism added, and the eight mutants over it
+### The mechanisms added, and the ten mutants over them — **with a saved log**
 
 `test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter` makes the saving
 **durable** — the stdlib and the memo return the same string, so a regression
@@ -512,16 +634,35 @@ outermost enclosing scope of every `*.get_source_segment` **call** and
 `STDLIB_SEGMENT_SCOPES`, with **both** controls inline — it must rise on a call
 planted in a foreign scope and must **not** rise on a mention.
 
-| mutant | result |
-|---|---|
-| **S1** revert the **hot** call site | **killed** |
-| **S2** revert the cold call site | **killed** |
-| **S3** *edge* — a stdlib call in a third scope the comments never name | **killed** |
-| **S4** *edge, negative* — a bare *mention* in that scope | **survived, correctly** |
-| **M1** the `ast.Call` requirement → bare `Attribute` | **survived — declared** |
-| **M2** delete the attribute-name filter | **killed** (33 scopes named) |
-| **M3** empty the declared authority | **killed** |
-| **M4** delete the outermost-scope rule | **killed** |
+All ten rows below were **re-fired at fix round 1** — the eight original ones
+because the derivation changed underneath them (F-07), plus two over the fix
+round's own addition — and the run is now **logged**, which F-06 filed as
+missing: `mutant-census-fix1.log` carries every mutant, the assertion that
+fired *with its own message*, and the restore hash after each
+(`4d9a8977…`, checked eleven times, `git status --porcelain` clean apart from
+the fix edits themselves).
+
+| mutant | result | which assertion fired, and on what |
+|---|---|---|
+| **S1** revert the **hot** call site | **killed** | set equality — `[('TestBookPdfStructure_…', 2938)]` |
+| **S2** revert the **cold** call site | **killed** | set equality — `[('TestBookPdfStructure_…', 1460)]` |
+| **S3** *edge* — a stdlib call in a third scope the comments never name | **killed** | set equality — `[('_attribute_callee_laundering', 5487)]` |
+| **S4** *edge, negative* — a bare *mention* in that scope | **survived, correctly** | nothing fired |
+| **M1** the `ast.Call` requirement → bare `Attribute` | **survived — declared** | nothing fired |
+| **M2** delete the attribute-name filter | **killed** | set equality — 33 scopes named |
+| **M3** empty the declared authority | **killed** | set equality — the class's own four calls become offenders |
+| **M4** delete the outermost-scope rule | **killed** | set equality — **method** names in place of the class |
+| **N1** *fix round 1* — delete the `node.lineno` the derivation now carries | **killed** | the **positive control**, and only it: `[('Foo', 0)] != [('Foo', 4)]` |
+| **N2** *fix round 1* — delete the lineno half of the **failure message** | **survived — declared** | nothing fired; see below |
+
+**S1 and S2 now name different lines — 2938 against 1460 — which is F-07
+closed:** before the fix they produced the identical message. **N1 proves the
+line is load-bearing** and that the positive control is what pins it. **N2 is
+an honest declared negative:** a failure *message* is only rendered on failure,
+so while this file is green no assertion can observe its text; killing N2 would
+need a test that asserts on another test's message, which this tree does not
+do. Declared rather than papered over, and the evidence that the message is
+right is S1-vs-S2 above.
 
 **Three honest negatives, each recorded in the code rather than papered over:**
 
@@ -567,9 +708,17 @@ was added under `meta/profiling/`.
 
 ### Measured vs inferred, with the doors named
 
-**Measured:** the 2 556 splits (two independent instruments agreeing); 6.238 ms
-per stdlib split vs 6.779 ms per memo miss (`perf_counter`, unprofiled —
-deliberately not the cProfile domain that produced the 14.37 s); every timing row
+**Measured:** the 2 556 splits (**three** independent instruments agreeing —
+cProfile `ncalls`, `sum(len(sites))`, and the fix round's spy at the hot call
+site); the split cost, **with the instrument's own domain stated, because that
+is where both gating findings came from** — the round's 6.238 ms per stdlib
+split and 6.779 ms per memo miss were taken with `maxlines=None`, i.e. **over
+the whole source, which is not the call the code makes** (F-287-01); the
+bounded figures the code actually pays are **4.730 ms** per split against
+**5.693 ms** per memo miss (`perf_counter`, unprofiled, five round-robin
+blocks, medians), and the end-line prefix those bounds correspond to is
+**81.1 %** of the module on average. Both readings are unprofiled and
+deliberately not the cProfile domain that produced the 14.37 s. Every timing row
 (three interleaved runs per arm, plus a fourth on the committed blob, medians
 reported and all readings shown); 832 / 770 / 0 and the full cost sequence
 (recomputed, then cross-checked against the tree's own declared constants);
@@ -587,8 +736,13 @@ inference until the merge gate measures it.**
 worktree is byte-identical to `2fddaccc`, so the gap is host, not tree: arm A
 re-derives **100.19 / 57.70 / 27.88** against the card's **105.66 / 61.62 /
 30.25** — 5.2 % / 6.4 % / 7.8 % low, inside the ~19 % `tests/README.md` records
-between quiet runs. **Every delta above uses the round's own arm A as its
-denominator**, so no percentage is inflated by that gap.
+between quiet runs. **Every delta in the A/B table above uses the round's own
+arm A as its denominator**, so no percentage *there* is inflated by that gap.
+*The round's headline agreement figure did not, and this was the sentence a
+reader would have checked it against — true of the table and false of the
+figure the card led with, which is the more serious half of F-287-02.* The
+corrected headline above is now taken against arm A as well, so the sentence is
+true of every figure on the card and not only of the table.
 
 ### Could not establish, in those words
 
@@ -604,18 +758,40 @@ denominator**, so no percentage is inflated by that gap.
   distinct texts, so 108 misses occur where 36 would do; raising it saves a
   further ≈ 0.45 s. Not pursued — it changes CARD-292's declared mechanism and
   the control pinning it, for under 1 % of the class.
-- **Call-site granularity of the new guard.** S1 and S2 fire the same assertion,
-  because the authority is spelled as a scope and both sites live in one class.
-  The guard says *that* an analysis path regressed, not *which*. Tightening it to
-  a per-call multiset would pin the four legitimate stdlib calls in the control
-  class and red on unrelated edits there; judged a worse trade and declared.
+- ~~**Call-site granularity of the new guard.**~~ **CLOSED at fix round 1**
+  (F-07), and moved out of this list. The *authority* stays a **set of scopes**
+  — cycle 1 agreed, and a per-call multiset would pin this class's own four
+  legitimate stdlib calls and red on unrelated edits to them. But *“which path
+  regressed”* was never a property of the authority; it is a property of the
+  **message**. `_stdlib_segment_scopes` already visits every node, so it now
+  returns `(scope, lineno)` pairs, the message prints the offending ones, and
+  the comparison is **still** `set(scopes) == set(STDLIB_SEGMENT_SCOPES)`. It
+  **reds on nothing**: the old scope-only derivation and the new pair
+  derivation return the *same* scope list on both the committed blob and the
+  patched file, verified side by side. S1 and S2 are now distinguishable
+  failures (lines 2938 and 1460), and N1 is the mutant that proves the line is
+  carried rather than claimed.
 
 **Artefacts kept outside the worktree**, at
 `~/Documents/nonogram-reviews/CARD-287/`: three cProfile outputs, the callers
 dump, `prediction.txt` (written before the arms ran), all seven timing runs with
 host cells, the 150 kB pre-gate log, the before/after captures, both node-id
-lists, and every probe script. None tracked; none under `tests/` or
-`meta/profiling/`.
+lists, and every probe script. **Added at fix round 1:**
+`mutant-census-fix1.log` (F-06 — ten mutants, the assertion that fired, the
+restore hash after each); `xcapture.py` + `wload.py` and
+`extended-capture_armA.txt` / `extended-capture_armBfix.txt` (the 257-section,
+11 936-line extended capture under both arms);
+`fix1-capture-equality.log`; `fix1-sensitivity.txt`; and the four re-derivation
+logs `fix1-f01-reach.txt`, `fix1-f01-cost.txt`, `fix1-f02-prediction.txt`,
+`fix1-f07-equivalence.txt`. **Recommendation, stated explicitly: the extended
+capture SHOULD become part of this card's durable artefacts.** It is not in
+`tests/`, so it costs the suite nothing and no guard enumerates it; it is the
+only artefact that holds G-1's central evidence over **every axis AC-3, AC-5
+and AC-6 name in their own words** — not over “the whole observable answer”,
+which is the claim this round is correcting and which nothing can check —
+rather than over a seventh of the lines; and a successor who widens the walk
+will want the arm-A side of it to compare against. None tracked; none under
+`tests/` or `meta/profiling/`.
 
 ## [CYCLE 1 — 2026-10-28] **7.5, NOT CERTIFIED**, 3 gating — and all three are claims, not code
 
@@ -758,3 +934,74 @@ residual 32.7 s is reducible (**CARD-303's**).
 Full suite **not** run; `meta/kanban/.full-suite.lock` never taken and absent;
 every measurement under `-o addopts=''` with skips attributed by `-rs`; worktree
 restored and hash-checked to `a2b950ca` with `git status --porcelain` empty.
+
+## [FIX ROUND 1 — 2026-10-28] `eb2bbf81` — three claims corrected, one bound closed, nothing re-engineered
+
+Against `meta/review/20261028T032212Z-CARD-287-cycle1.yml` (7.5, 3 gating).
+**Cycle 1 said no code change was owed and it was right: nothing in this round
+changes behaviour.** One file, `tests/test_book_export_interior_cover.py`,
++95/−41, blob `4d9a8977`. `src/` and `pyproject.toml` untouched.
+
+**What changed, and in which register.** Prose and figures in four tracked
+places (F-287-01), the card's headline and glosses (F-287-02, F-04, F-05, F-08
+and cycle 1's AC-4 wording note), a saved census log (F-06), and **one
+functional edit** — F-07's, which changes a failure **message** and not what
+the assertion pins.
+
+| finding | closed by | the door the figure came through |
+|---|---|---|
+| **F-287-01** | the word *whole* replaced by the measured bound in all four tracked places; grep leaves one occurrence, the retraction | a recorder wrapped round module-global `_source_segment` logging `(caller line, node.end_lineno)` over all 108 analyses; `perf_counter`, unprofiled, five round-robin blocks, medians |
+| **F-287-02** | the headline replaced by the three-row comparison, arithmetic visible; the *“own arm A as denominator”* sentence corrected | the bounded saving **re-derived**, 11.48 s, and cross-checked in a second domain (a `cost(maxlines)` curve summed over all 2 556 actual bounds) at 11.57 s |
+| **F-287-03** | the claim restated in counts; the gap **closed** by a 257-section, 11 936-line extended capture run on both arms | file swapped to arm A blob `8741bd33` with `git show`, restored under `git hash-object`; **byte-identical**, sha256 `eb754d30` |
+| **F-04** | the gloss replaced by `23 × 36 + 24 × 72 = 2 556` | the same spy, counting `len(sites)` per analysis |
+| **F-05** | a profiler-factor column and a paragraph saying a profiled second is not a wall-clock one | arithmetic over AC-1's own two measured columns |
+| **F-06** | `mutant-census-fix1.log` — ten mutants, the assertion that fired, the restore hash after each | eleven `git hash-object` checks against `4d9a8977` |
+| **F-07** | **CLOSED** — `(scope, lineno)` pairs for the message, `set(scopes)` still the authority | the old and new derivations compared side by side on two blobs: same scope list |
+| **F-08** | **three** analysis call sites, not two, everywhere | the spy's by-caller-line census, `{1750: 718, 2927: 24, 1449: 8}` |
+
+**Nothing changed behaviour, and here is the check that proves it.** The
+scope-only derivation and the pair derivation return the **identical** scope
+list on both the committed blob `a2b950ca` and the fixed one, and the authority
+comparison `set(scopes) == set(STDLIB_SEGMENT_SCOPES)` is `True` under both on
+both. The guard class's six tests pass. And the **capture equality was re-run
+after the edits**: the round's own 52-section capture is identical across arms
+(sha256 `4acefd4c`) and byte-identical to the round's `before.txt` and
+`after2.txt`; the extended capture is identical across arms (sha256
+`eb754d30`) and identical to the pre-edit run against `a2b950ca`. **G-1 held
+through the fix round.**
+
+### Pre-gate, fix round 1 — one invocation over the same derived radius of ten files
+
+`pytest -o addopts='' -q -rs` over the ten files, with
+`tests/test_browser_fixture_scope.py` **explicit** (G-5), subject blob
+`4d9a8977` — which is exactly what `eb2bbf81` contains.
+
+- **collect-only: 1 051 collected**, exit 0.
+- **run: 1 051 passed, 0 skipped, 0 failed, 0 errors**, exit 0, **294.18 s**.
+- `-rs` printed **no skip lines at all** — zero `SKIPPED` lines and no short
+  test summary section, so **there is no skip to attribute**.
+- Host cells: **rival-pytest 0 at both ends** (`pgrep -f 'MacOS/Python.*pytest'
+  | wc -l`), load **7.16 → 5.52**, `$TMPDIR/nonogram-test-hang.txt` **0 bytes**
+  (no per-test kill), `NONOGRAM_TEST_HANG_SECONDS` **left unset in every run of
+  this round, everywhere** — including the mutant census and all six capture
+  runs. `meta/kanban/.full-suite.lock` **absent throughout and never taken**.
+  **The full suite was not run.**
+- The log's `HEAD:` cell reads `8b908a73` because the script started before the
+  commit landed; the subject it ran is the blob, and the blob is `eb2bbf81`'s.
+  Saved as `pregate-fix1.txt`.
+
+### Could not establish, in those words, at fix round 1
+
+- **What divergence cycle 1 injected** for its sensitivity figures (1 535 / 8).
+  This station's own probe — one character appended per non-`None` segment —
+  gives 793 / 11 936 and 8, and 75 / 1 752 and 8 on the round's capture. The
+  *conclusion* reproduces in both domains; the magnitude does not, and I cannot
+  establish why without the cycle's own script.
+- **The suite-wide figure.** AC-8 stays a labelled projection; the merge gate
+  owes it. The full suite was not run here and the lock was not taken.
+- **Whether N2 is killable.** Deleting the lineno half of the *failure message*
+  survives, and no assertion in this tree can observe another test's message
+  while that test is green. Declared, with S1-vs-S2 as the evidence the message
+  is right.
+- **When `prediction.txt` was written** — unchanged from cycle 1's finding; no
+  artefact readable here carries that ordering.
