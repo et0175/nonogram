@@ -14,8 +14,8 @@
 **Idea:** —
 **Wave:** 63
 **Depends on:** CARD-282, CARD-283
-**Touches:** player/**, tests/test_public_player_pages.py, tests/test_public_player.py <!-- the last added 2026-10-28: the card could not be implemented without it, see the implementation round's F-1. CARD-283 shipped three tests that directly contradict serving the listings. Neither sibling card in wave 63 names it, so the wave's measured empty path intersection holds. -->
-**Review score:** **6.5 cycle 1/3, NOT CERTIFIED** (min 8) — 0 critical, 5 important, 1 of them an owner ESCALATION
+**Touches:** player/**, tests/test_public_player_pages.py, tests/test_public_player.py <!-- the last added 2026-10-28: the card could not be implemented without it, see the implementation round's F-1. CARD-283 shipped three tests that directly contradict serving the listings. Neither sibling card in wave 63 names it, so the wave's measured empty path intersection holds. --> <!-- corrected 2026-10-28 at fix round 1, two paths edited and undeclared: meta/design/components.md (F-009 -- the card's own Design context required the registration and the declaration never existed) and meta/architecture/requirements.yml (FR-045's /b/<slug> clause and AC-387, carrying the owner's book-title decision; 17 insertions / 5 deletions at two hunks, measured against merge-base 7a62d704 -- NOT the 23/63 a diff against a newer main reports, which counts CARD-227's absent additions as deletions). AC ids unchanged, so trace.yml needs nothing, and a trial merge into main produces 0 conflict markers. -->
+**Review score:** 6.5 cycle 1/3 → fix round 1 → awaiting cycle 2
 **Started:** 2026-10-28T07:23:17Z
 **Closed:** —
 **Actual:** —
@@ -387,3 +387,152 @@ pre-gate figure was not reproduced — a 208-node core subset was run instead, a
 a deliberately different door. The validator was not run (0 files under `meta/`
 makes the baseline unchanged by construction, not by measurement). Vercel itself
 is never exercised; only the loopback fixture reading the shipped `vercel.json`.
+
+
+## [FIX ROUND 1 — 2026-10-28] `c3f1a795` — the book's title is served, and 30 of 30 mutants die
+
+Two commits (`d579f491`, `c3f1a795`), 9 files, +1512/−195. **0 files under `src/`**
+(G-1 holds, measured) and 0 under `meta/kanban/`. **30 mutants fired, 30 killed,
+11 of them edge mutants.**
+
+### F-001 — the owner's decision, implemented
+
+`/b/<slug>` serves and renders the **book's display title**, under an explicit
+scoped exemption (`EXEMPT_LISTING_FIELDS = ("title",)`) with three ordered
+refusals in `check_listing_capacity`: liveness, scope, partition. **The order is
+load-bearing and the round found that out the hard way** — its first draft put
+liveness and scope *after* the partition check, where both were unreachable dead
+code, because any edit that reaches them breaks the partition first. Found with
+the test, not by reading, and recorded in the docstring.
+
+The two fields are separated in every sentence this round wrote: a **puzzle's**
+title is the picture name EC-048 forbids, and `check_listing_capacity` now
+**refuses to assemble** if it reaches a puzzle file or the library index; the
+**book's** display title is editorial text that FR-045's own bundle clause already
+lists ("its slug, display title and ordered puzzle keys") *in the same sentence
+that forbids the picture name*. The decision also lands on one of the card's three
+routed-in options — "publish one title" — with CARD-282's deterministic reduction
+choosing which.
+
+**The sweep is narrowed and still live**: `test_no_title_reaches_either_listing` →
+`test_no_puzzle_title_reaches_either_listing`. The old control *could not* survive
+the change, because the fixture's book title had to become editorial and a bundle
+book file carries keys with no puzzle metadata, so it cannot be its own control.
+Two controls replace one: the bundle's `index.json` proved dirty (≥2 grids), and
+the leak **planted** into each served listing with the sweep required to report
+**both** files.
+
+### The capacity question, answered without pretending
+
+**The book title costs 2410.18 bits** — 120 chars × log2(1 112 064). Against what
+budget, stated rather than implied: **24.1× the 100-bit ceiling** and **2.68× the
+900 cells of the largest publishable grid**. **There is no pass to be had and the
+code does not pretend there is**: `book_title_residual_bits()` is deliberately not
+compared against the ceiling and does not gate assembly, because one base-64
+character already carries six bits against EC-048's one-bit threshold, so no
+reachable cap is a bound. The cap is a **layout** bound and a **declaration**
+bound, and the docstring says so.
+
+**Control in a new domain — cells, not bits:** a `MIN_SIZE` grid is 100 cells and
+its base-64 is 20 characters, well inside the cap, so the whole grid comes back.
+The test names a book after one of its puzzles' answers and asserts the sweep
+reports **exactly one file**, with `puzzle/` and `index.json` clean under the same
+plant; with an editorial title the same tree sweeps clean. An aside recorded so
+nobody misreads it: base-64 of a `MAX_SIZE` grid is 152 chars and the cap
+truncates it — **an accident of base-64, not protection.**
+
+### Both of this round's own survivors were in controls it had just written
+
+Caught here rather than in cycle 2, which is the board's measured rule working as
+intended:
+
+- **M8**: the title residual's figure was held only as `round(bits, 2) ==
+  2410.18`, and one code point in a million is four decimal places below that
+  rounding. Now recomputed in a different domain — the surrogate block excluded
+  *because those code points are not characters*, measured by
+  `chr(0xD800).encode("utf-8")` raising, with `chr(0xD7FF)`/`chr(0xE000)` as the
+  boundary control.
+- **M24**: the design-inventory drift guard matched with `in`, so
+  `data-pages-loading` was a substring of the typo `data-pages-loadingx` and **the
+  guard read the typo as the thing it sought**. Word-boundary match now, with a
+  second control for the genuine prefix pair (`data-pages-filter` really is a
+  prefix of `data-pages-filters` and both are live hooks).
+
+**And one cell attribution was corrected mid-round**: M14 (removing the tier guard
+text) reds `assert guards == 5` — the *source arithmetic* — before the browser
+loop runs, so it does **not** demonstrate `bad-tier`'s behavioural control. M30
+(`TIERS.includes(tier)` → `true`, leaving the counted text intact) is the
+behavioural one. Same correction for `bad-key` via M29.
+
+### F-003 closed with seven cases, F-004's collateral taken in scope
+
+`isEntry` now has **seven cases** over five refusal statements plus the wrapper and
+the range's second edge, held as an arithmetic against the source — and the two
+branches cycle 1 proved dead now have their **first readers ever** (`Number.isInteger`
+and the low end of the extent range). F-004 took the collateral deliberately:
+`test_the_served_index_is_key_sorted` **and** `test_two_assemble_runs_are_byte_identical`,
+which is EC-049's property at the layer that actually deploys.
+
+### F-005 — the marker file, which does not widen with the published set
+
+`check_out_dir` now recognises `SITE_MARKER_FILE = ".player-site"`, written the
+moment the directory exists, so it asks *"did this script write this tree?"*
+rather than *"does this tree look like output?"* — and it **does not grow when the
+published name set grows**, which was the whole defect (the set grew by five names
+in this card's own commit). **Five denial controls, each built only out of names an
+assembled site has**, so every one of them passed the old predicate: a lone
+`index.json`, a lone `book/`, a lone `pages.js`, `index.json` beside a stranger,
+and every site name but the marker. Each is then re-run **with** the marker and
+must be accepted, so the refusals are a statement about the marker rather than
+about the names. Asserted through `check_out_dir` directly, never through
+`assemble`, whose next statement is `shutil.rmtree`. **Stated cost:** a tree
+assembled before the marker existed needs `--force` once.
+
+### F-012's figure, re-measured in cycle 1's own domain
+
+The same mutant over the same whole file: cycle 1 **62.63 s** against a 2.9 s
+baseline (18 nodes); now **9.72 s wall** against a 4.93 s baseline (25 nodes) —
+**6.4× faster** and clear of the ~120 s truncation window. Per-mutant failures now
+read `Timeout 3000ms exceeded` instead of burning 30 s each. `PAGES_SETTLE_MS =
+3000` is ~10× the measured 0.1–0.24 s call times, with the measurement in its
+comment.
+
+### Gate
+
+**2313 collected = 2313 passed, 0 failed, 0 skipped**, exit 0, 109.52 s over 27
+files — the changed files plus a derived blast radius, a deliberately larger door
+than the card's own 953-node selection, which was not reproduced. `-rs` printed no
+skip section, so there is no skip to attribute. `tests/test_public_player_pages.py`
+goes 18 → **25 collected**, with `-m browser` selecting **9 of 25**.
+
+### Renders exist for the first time, and the owner's pass is still owed
+
+Six captures in **`~/Documents/nonogram-reviews/CARD-284/`**: book landing at
+phone 390 and desktop 1280, library at both, the unknown-slug not-found panel, and
+the capped-title case. The round read three of them and reports the landing reads
+as intended. **That is not the owner's pass** — it is Chromium at two synthetic
+widths on fixture data.
+
+### Two questions the round refused to answer for the owner, correctly
+
+1. **`/library`'s listing order.** Key order is not an order a reader wants: the
+   library shows 16×16, 23×23, 17×17, 30×30, 10×10, 24×24. No AC states an order,
+   so `served_index`'s docstring now says explicitly that determinism is the only
+   claim and **not** that it is an order anyone wants. A product decision.
+2. **`SERVED_TITLE_MAX_CHARS = 120`** is generous to the point of ugly, asserted
+   numerically *and* eyeballed not to break the layout. A taste call.
+
+### Could not establish, in the round's own words
+
+**No render eyeballed by the owner** · **Chromium only — nothing on iOS Safari,
+where most QR scans land**, and these are the pages a scan reaches first · never
+run against a real exported bundle, fixtures only · **Vercel itself never
+exercised** (the rules are read from the shipped `vercel.json` by a loopback
+fixture; the host is not) · **EC-048 is not claimed closed**, and the scope
+statement is now wider: three exemptions (clues, key, book title) and four
+declared residuals (the tier's two bits, and a book file's order, membership and
+title) · **the title exemption is bounded in scope, not in size** — "a puzzle title
+cannot get out" is mechanical and controlled; "a book title cannot carry an
+answer" is **false and stated as false**, measured at 100 of 100 cells · the first
+guard of `isEntry` is three disjuncts and only `null` has a case reading it alone
+· the full suite was not run and the lock was not taken.
