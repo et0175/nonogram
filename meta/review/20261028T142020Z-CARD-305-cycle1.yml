@@ -1,0 +1,435 @@
+version: 1
+generated_at: "2026-10-28T14:20:20Z"
+target: "CARD-305 cycle 1 — branch card/305-divider-pages-option @ 1e6087b3 (2 commits 997af1ed+1e6087b3), worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-305, diffed against merge-base 9a61b928"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "migrations/versions/017_book_divider_pages.py"
+    - "src/nonogram/admin/book_page_spec.py"
+    - "src/nonogram/admin/print_specs.py"
+    - "src/nonogram/admin/book_manager.py"
+    - "src/nonogram/admin/book_kdp.py"
+    - "src/nonogram/admin/book_pdf_generator.py (diff hunks + interior_stream/puzzle_section/interior_page_count/structural_toc_entries in full)"
+    - "src/nonogram/admin/app.py (setup-print route, _interior_divider_pages)"
+    - "src/nonogram/admin/templates/book_setup_print.html"
+    - "src/nonogram/db/models.py"
+    - "tests/test_book_divider_pages_option.py (all 439 lines)"
+    - "tests/test_book_export_interior_cover.py (DERIVED_POSITION, terms, CALLEE_EXEMPTION_COST and their call sites)"
+    - "tests/test_book_pdf.py (PagePlanGuardIsLive stub)"
+    - "tests/test_book_page_spec.py (CON018 equality)"
+    - "tests/property/test_book_order.py (EC-029)"
+    - "tests/property/test_book_export_interior.py (INV-013)"
+    - "meta/architecture/requirements.yml (FR-041, FR-042, EC-029, AC-253..AC-256, AC-290..AC-295)"
+  not_reached:
+    - "the card's own 22-file gate selection — the card does not enumerate it, so the 1502 figure was not reproduced in its own domain"
+    - "tests/helpers/book_corpus.py and the remaining admin route suites (test_book_proof_pages, test_book_ready_gate, test_admin_import_consistency, test_books_list_plan_stats, test_book_select_*, test_book_trim_persistence, test_book_detail_page)"
+    - "no rendered-grid eyeball; tests/test_book_setup_print_mobile.py (Playwright) not run"
+    - "Postgres behaviour of migration 017 (no test applies it; all measurement was SQLite)"
+  confidence: high
+
+metrics:
+  diff: { files: 14, added: 1241, removed: 21 }
+  max_fan_in: { symbol: "interior_page_count", callers: 4 }
+  tests_cover_change: true
+  ac_refs_all_live: "yes — all 24 node ids of tests/test_book_divider_pages_option.py collect (--collect-only -q), and every test named by AC-1..AC-10 in the card body resolves to one of them. No phantom test ref."
+  architecture_validator: "0 error(s), 113 warning(s) — exactly main's baseline; the diff touches no meta/architecture file."
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py — 84 commits/12mo, 114 fix-ish commits across the touched src set (273 commits total)"
+    - "src/nonogram/admin/app.py — 22 co-changes with the generator"
+  cochange_missing:
+    - "tests/property/test_book_export_interior.py (22 co-changes with book_pdf_generator.py; INV-013's parity property test — see F-003)"
+    - "tests/helpers/book_corpus.py (27 co-changes)"
+    - "tests/test_book_pdf_memory.py (26 co-changes)"
+    - "tests/property/test_book_pairing.py (17)"
+    - "tests/property/test_book_pdf_geometry.py (13)"
+  unmeasured:
+    gate_1502: "no_eligible_fact — the card reports 1502 passed over '22 files' but never enumerates them, so its domain cannot be reconstructed. My own measurement, in a domain I state: 21 files in two runs, 1189 passed / 1 skipped / 0 failed / exit 0. Run A (16 files incl. the 4 touched test files, tests/property/test_book_order.py and the route/answer-key/parity/manager blast radius): 1025 passed, 0 skipped, 220.58s. Run B (5 absent co-change peers: property/test_book_export_interior.py, test_book_pdf_memory.py, property/test_book_pdf_geometry.py, property/test_book_pairing.py, test_book_puzzle_frame.py): 164 passed, 1 skipped, 163.22s. Instrument: /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -rs, cwd in the worktree. The 1 skip is tests/test_book_pdf_memory.py:1296, the pre-existing platform setrlimit(RLIMIT_AS) skip. Different domain from the card's, so 1502 is neither confirmed nor refuted."
+    rival_pytest_0_0: "provider_unavailable — the card's 'rival-pytest 0/0' figure names no instrument I could locate or re-run."
+    visual_render: "not_applicable — this card adds a form control and removes whole pages; no page's ink changes (G-2 verified: create_divider_page is not in the diff), so no render was captured."
+    migration_017_execution: "no_eligible_fact — no test in the repo applies migration 017. tests/test_db_url_driver.py:1115's `command.upgrade(Config(...), 'head')` is intercepted by a fake engine factory raising Captured() before any SQL runs, so it exercises the driver name only."
+
+system_contract:
+  rules_checked: 56
+  holds: 14
+  unchecked: 41
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is not in `git diff --name-only 9a61b928..HEAD`; the only new imports are sqlalchemy Boolean/text and alembic op, both already present in the touched modules."
+    - "ADR-0033/R1 ✓ holds — _apply_print_spec (book_manager.py:996-1008) writes trim, ink mode, interior_divider_pages and updated_at only; migration 017 adds one books column; no puzzles field is written anywhere in the diff."
+    - "ADR-0036/R2 ✓ holds — no layout/geometry call added or changed; page_spec/page_frame/compute_layout untouched in the diff."
+    - "ADR-0036/R3 ✓ holds — test_the_books_own_pages_carry_no_undeclared_round_mark green in my 1025-test run."
+    - "ADR-0036/R4 ✓ holds — test_no_module_types_a_round_mark_as_a_character green in the same run."
+    - "ADR-0037/R1 ✓ holds — no band code in the diff; create_divider_page is unedited (G-2)."
+    - "ADR-0037/R2 ✓ holds — no rule weight or stroke in the diff; test_book_grid_rules not implicated (no geometry change)."
+    - "ADR-0039/R2 ✓ holds — no guard set was hand-written; the terms list and CALLEE_EXEMPTION_COST are measured-then-asserted equalities, and _page_positions (the deriving walk) is not changed by the diff."
+    - "ADR-0039/R3 ✓ holds — the exemption was re-declared, not widened: the 4 hunks in test_book_export_interior_cover.py are the anchor string, two docstrings, the terms equality and the cost figures; the predicate (_page_positions/follow_terms) is unchanged. `assert len(exempted) == 5` stays an independent equality, so a sixth site still reds."
+    - "ADR-0039/R4 ✓ holds for the guard figures — 776/522/204 re-derived with BOTH controls: positive (one added builtin call -> ((), 777), instrument rises) and negative near-miss ((('builtins',), 522) unmoved, because bool is excluded at that step); and 834 -> 838 (+4) independently reproduced by my own ast.Call walk, per-callee RuntimeError +1 / TocEntry +2 / book_divider_pages +1."
+    - "ADR-0042/R1 ✓ holds — the dividers are the declared raster exception and how they are drawn is unchanged; no export path gains an image XObject."
+    - "CON-020 ✓ holds — no type size, face or DPI conversion in the diff; create_divider_page unedited."
+    - "INV-009 ✓ holds — ordering code untouched; test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence green in my run. (INV-009's own statement carries no divider clause — that clause is EC-029's, which is the subject of F-002.)"
+    - "INV-011 ✓ holds — answer-key composition untouched; the card's own test asserts on.answer_page_count == off.answer_page_count, and tests/test_book_answer_key.py green in my 1025-test run."
+    - "ADR-0039/R1 ✗ violated — tests/test_book_divider_pages_option.py:403-422 + CARD-305.md's claim that it is 'the one test that would have caught the defect this card most risked'. The control cannot fail: driven from OFF, the broken naive read produces the same stored value the test asserts. Mutants M1 (app.py:3715) and M2 (book_manager.py:1003) both SURVIVE it. See F-001."
+    - "INV-013 ⚠ unchecked — check_ref_missing: TestGuideSpread_SitsOnPagesTwoAndThree (reported by system_rules.py --verify-refs as partial; six sibling refs do exist). Independently, the invariant's own property test tests/property/test_book_export_interior.py hardcodes one divider per named level (_divider_pages, line 449) and has no dividers-off arm, so parity in the new state is unverified rather than violated. Manual read of this diff found no violation: page_is_right_hand(page_number) = page_number % 2 == 1 and puzzle_section advances page_number inside the same branch that appends the divider, so parity follows the real position by construction. See F-003."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0027/R2, ADR-0031/R2, ADR-0032/R1, ADR-0032/R2, ADR-0032/R3, ADR-0035/R1, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0041/R1, ADR-0041/R2, ADR-0041/R5, ADR-0041/R7, ADR-0042/R2, ADR-0042/R3, ADR-0042/R4, ADR-0042/R5, ADR-0042/R7, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-010, INV-012 ⚠ unchecked — no_eligible_fact: this card adds one boolean books column, one Print-setup control and a page-count term. It touches no grid extent, no image fit, no density verdict, no tier/strategy, no storage-boundary solve, no plan gate, no player or bundle, no auth door, no cell-size floor and no answer-key capacity rule, so nothing in the diff bears on these rules."
+
+root_causes:
+  - id: RC-1
+    title: "The absent-marker test is driven from the state in which the defect is invisible"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "The registry staleness was scoped to the two criteria the author happened to look at, not derived from the registry's own divider vocabulary"
+    finding_ids: [F-002]
+  - id: RC-3
+    title: "The off state has page-count and TOC controls but no position/parity control"
+    finding_ids: [F-003]
+  - id: RC-4
+    title: "The inbound route path does not go through the module's declared reader"
+    finding_ids: [F-004, F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_book_divider_pages_option.py
+    line: 403
+    title: "AC-10's cell cannot fail on the defect it is nominated to catch (both mechanism mutants survive)"
+    description: |
+      The card nominates
+      `TestDividerPages_PrintSetupStoresTheChoice::test_a_submission_without_the_control_leaves_the_stored_choice_alone`
+      as "the one test that would have caught the defect this card most
+      risked", and its docstring reasons: "Driven from 'off', because a book
+      already at the default would pass this test whatever the code did."
+      That reasoning is inverted. Driving from OFF is precisely the state in
+      which the defect is invisible: if the marker mechanism is removed, the
+      naive read is `bool(request.form.get("interior_divider_pages"))` ->
+      `bool(None)` -> `False`, which is the value the test asserts. The
+      mechanism's failure and its success produce the same stored byte.
+
+      Measured, two mutants, one node each, line-count-preserving, target
+      asserted at HEAD before each:
+
+        M1  src/nonogram/admin/app.py:3715
+            `if request.form.get("interior_divider_pages_present"):` -> `if True:`
+            => AC-10's cell PASSES in both storage modes. SURVIVED.
+        M2  src/nonogram/admin/book_manager.py:1003
+            `if spec.interior_divider_pages is not None:` -> `if True:`
+            => AC-10's cell PASSES in both storage modes. SURVIVED.
+
+      Attribution control (the cell named must be the cell that reds): a
+      discriminating test driving the same no-marker POST from the DEFAULT
+      (ON) book reds on both mutants and passes at HEAD — M1: "2 failed, 2
+      passed", the 2 failed being the discriminator in both modes and the 2
+      passed being AC-10's own cell; M2 identical. So the production code is
+      correct and the test is the defect.
+
+      The card's second argument — "every other route test in the suite posts
+      without the marker, so they are all that case" — I confirmed
+      mechanically (`interior_divider_pages_present` appears in no test file
+      but the new one, while 18 other test files POST to
+      /book/<id>/setup-print). But every one of those books is at the default
+      ON, and none of them asserts the divider column afterwards, so they
+      exercise the path without discriminating on it either.
+    suggestion: |
+      Drive the no-marker POST from ON. Minimal edit inside the existing
+      cell: before the no-marker POST, assert the book reads True, then POST
+      without the marker, then assert it still reads True — i.e. keep the
+      existing from-OFF leg (it is a fine second case) and add the from-ON
+      leg, which is the one that can fail. Re-fire M1 and M2 afterwards and
+      confirm both now red.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: compliance
+    type: gap
+    file: meta/kanban/cards/CARD-305.md
+    line: 150
+    title: "The recorded architect gap is under-scoped: EC-029, FR-041's body, FR-042's body, AC-253 and AC-293 are stale too"
+    description: |
+      The card's "What this card owes the architect" section names AC-254 and
+      AC-292 and states the honest registry edit for them. Both calls are
+      correct (confirmed below). But the same staleness reaches five further
+      entries the card does not name, and one of them is heavier than either
+      criterion it does name.
+
+      Confirmed by reading meta/architecture/requirements.yml:
+
+        * EC-029 (requirements.yml:3786-3796) — "the book PDF holds exactly
+          one divider per non-empty level, immediately before that level's
+          first puzzle, with puzzle numbers 1..n unbroken — FOR EVERY
+          SEQUENCE, not only the measured examples." Now false for a book
+          with the option off. This is an engineering constraint, i.e. a
+          standing property, and its named property test
+          `test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence`
+          (tests/property/test_book_order.py:404) asserts
+          `names == levels` through `assert_prints_grouped_with_dividers`
+          (line 252-282) on every step of every trial, while creating every
+          book through `create_book` and therefore always on the default. It
+          passes, and it verifies nothing about the off state. That is the
+          exact coverage shape the card correctly identifies for AC-254/292,
+          one layer up, and it is the one the board treats as Important
+          (missing EC coverage).
+        * FR-041's requirement body (3691-3694) — "The book PDF prints a
+          divider page (TERM-031) before the first puzzle of each level that
+          holds at least one puzzle, carrying only the level's name" —
+          unconditional prose.
+        * FR-042's body (3814-3817) — "A 'SOLUTIONS' divider page precedes
+          the answer key: one page ..." — unconditional prose.
+        * AC-253 (3713-3717) — "the puzzle section's pages run divider
+          'Easy', E1, E2, divider 'Medium', ...". Its `given` is "a Book 1
+          profile book arranged ...", which an option-off book also
+          satisfies, so it is false by exactly the argument the card makes
+          for AC-292.
+        * AC-293 (4024-4029) — "the answer key is 31 answer pages ... after 1
+          SOLUTIONS divider page (32 pages ...)" — a concrete figure that is
+          wrong for an option-off book.
+
+      The card's AC-254 call is the subtler one and it is right: AC-254's
+      `when` is "its divider pages are read", which is vacuous over an empty
+      set, so AC-254 stays true and only needs the clause the card describes.
+      AC-292's `then` is a universally quantified claim over books matching
+      its `given`, so it genuinely goes false. AC-255/AC-256 stay true
+      (AC-256 vacuously: "holds no 'Hard' divider page").
+    suggestion: |
+      Extend the card's owed-to-architect record to the five entries above
+      before merge (the record itself, not the registry edit — that stays an
+      architect-station job). The registry edit, when it happens: add a
+      `given` clause naming the setting to AC-253, AC-254, AC-292 and AC-293;
+      make the divider sentence in FR-041's and FR-042's bodies conditional;
+      and amend EC-029's statement to quantify over books that print their
+      dividers, plus a new criterion (or a second arm on
+      `assert_prints_grouped_with_dividers`) for the off case.
+
+      Per the board's standing rule, do NOT write
+      `check: {kind: test, ref: <a test that does not exist>}` for the new
+      off-case criterion — a planned ref reads as mechanically checked to
+      both system_rules.py and this skill's Step 8h, which is strictly worse
+      than the visible gap. Either write the off-state arm in
+      tests/property/test_book_order.py in the same edit, or type the new
+      criterion's check as `kind: review-lens` with a named card owing the
+      flip.
+    confidence: high
+    source: model
+    violates: EC-029
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_divider_pages_option.py
+    line: 127
+    title: "No position/parity control for the off state, though a ±1-page precedent exists and the parity property test is an absent co-change peer"
+    description: |
+      The card names page numbering and parity (FR-043) as consequence #1 of
+      four and is right that it is the widest: removing up to four interior
+      pages moves every later page's number, and a page's gutter side comes
+      from its parity. The new test file controls the page COUNT (four / two /
+      zero delta), the TOC rows, the walk-vs-declared-count tripwire and the
+      KDP estimate. None of those would catch a page drawn on the frame of a
+      parity it no longer has.
+
+      Two independent signals that this is the missing control, not a
+      reviewer's preference:
+
+        * [history] `tests/property/test_book_export_interior.py` co-changed
+          with book_pdf_generator.py 22 times in 12 months and is absent from
+          this diff. It is INV-013's property test ("each page's parity is
+          its 1-based position in the interior"), and it hardcodes the
+          divider model it is now one case of: `_divider_pages(puzzles)` =
+          "one per named level" (line 457) and `page_number += 1  # the
+          level's divider` (line 449), with no dividers-off arm.
+        * [static] the board's own precedent for the mirror-image change —
+          one page ADDED — is
+          `tests/test_book_guide_page.py::TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity`,
+          which asserts both that every page from the first puzzle/divider
+          page onward carries the same content only shifted AND
+          `test_every_pages_parity_still_equals_its_own_position`. CARD-305
+          removes up to four pages and ships no equivalent.
+
+      This is a coverage gap, not a demonstrated bug: I read the mechanism
+      and it is structurally sound — `page_is_right_hand(page_number)` is
+      `page_number % 2 == 1` (book_pdf_generator.py:3139-3148), every frame
+      comes from `self.page_spec(page_number)` at draw time, and
+      `puzzle_section` advances `page_number` inside the same branch that
+      appends the divider, so there is no second place to tell. Severity is
+      medium for that reason; it is Important because the invariant's
+      coverage is what is missing.
+    suggestion: |
+      Add one cell: for the AC-253 book with dividers off, walk
+      interior_stream and assert each emitted page's parity equals its
+      1-based position (and, if cheap, that the pages after the first level
+      are the same content shifted). Either in the new test file or as a
+      second arm on tests/property/test_book_export_interior.py's
+      `_divider_pages`, which is where the divider model already lives.
+    confidence: medium
+    source: history
+    violates: INV-013
+    root_cause: RC-3
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3716
+    title: "The route reads the checkbox with bool() instead of the module's declared reader, so an explicit \"0\"/\"false\" posts as ON"
+    description: |
+      `divider_input = bool(request.form.get("interior_divider_pages"))` makes
+      every non-empty string True. A submission carrying the marker plus
+      `interior_divider_pages=0`, `=false` or `=off` therefore stores True —
+      the opposite of what it says. book_page_spec declares
+      `_DIVIDER_PAGES_FALSE = {"0","off","false","no","n","f"}` and
+      `divider_pages_from_stored` exactly for this vocabulary, and
+      `_interior_divider_pages`'s own docstring calls that function "the one
+      door onto the stored column", but the inbound path does not use it.
+
+      Harmless for the shipped template, which renders `value="1"` and posts
+      nothing when unticked — which is why no test catches it, and why this
+      is Minor rather than a bug. It is a real sharp edge for the next client
+      (a JSON-ish poster, a hand-built form, a future API) and it is
+      inconsistent with the card's own "one door" framing.
+    suggestion: |
+      Read the field through the module's reader rather than bool():
+      `divider_input = divider_pages_from_stored(request.form.get("interior_divider_pages") or False)`
+      (or an explicit presence/truth split that consults _DIVIDER_PAGES_FALSE).
+      Add one cell posting marker + "0" and asserting the column reads False.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_page_spec.py
+    line: 432
+    title: "The string-vocabulary comment claims a provenance no path in the system has"
+    description: |
+      The comment on `_DIVIDER_PAGES_TRUE`/`_DIVIDER_PAGES_FALSE` justifies
+      the string forms as "what an HTML form posts and what SQLite hands back
+      for a boolean on some drivers". Neither half is reachable: the column is
+      `Boolean` (models.py:231), `_apply_print_spec` stores
+      `bool(spec.interior_divider_pages)`, and the route converts to bool
+      before the spec is built — so no HTML form string ever reaches this
+      reader, and the "some drivers" half names no driver. The test
+      `test_the_stored_forms_each_read_as_themselves` parametrises the strings
+      and passes, but it is the only caller that supplies one.
+
+      Same family as F-002/F-001: a claim wider than its measurement. The
+      code is fine; the justification is narrative.
+    suggestion: |
+      Narrow the comment to what is true — the reader is deliberately
+      tolerant of a hand-edited or hand-migrated column and of a form that
+      posts a string, neither of which any shipped path produces — or name
+      the driver that returns a string for a Boolean.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 3638
+    title: "interior_page_count's toc_pages=None default still assumes level dividers while solutions_divider=False says there are none"
+    description: |
+      When `toc_pages` is None the function derives the TOC length from
+      `structural_toc_entry_count(min(len(TIERS), puzzle_count), puzzle_count)`
+      — unconditional on `solutions_divider`. So
+      `interior_page_count(n, solutions_divider=False)` with no `toc_pages`
+      budgets TOC rows for level dividers the book does not print. Latent
+      only: both production call sites (book_kdp.py:559 and
+      book_pdf_generator.py:7073/7255/7269) pass `toc_pages` explicitly, and
+      the existing comment states the default is deliberately an upper bound
+      over every book rather than one caller's book. The AC-5 cell
+      (`interior_page_count(0, ...)`) is the one caller that takes the
+      default, and at puzzle_count 0 the term is zero either way.
+    suggestion: |
+      One sentence on `solutions_divider`'s Args entry noting that the
+      `toc_pages=None` default does not follow it, so a future caller does
+      not read the two as consistent.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: ops
+    type: question
+    file: migrations/versions/017_book_divider_pages.py
+    line: 1
+    title: "Out-of-scope: migration 017 is executed by no test, as was 013 before it"
+    description: |
+      No test in the repo applies migration 017. The only `upgrade(...,
+      "head")` call, tests/test_db_url_driver.py:1115, is intercepted by a
+      fake `engine_from_config` raising `Captured()` before any SQL runs, so
+      it measures the driver name only. The board does have a precedent for
+      the opposite (tests/test_book_plan_storage.py upgrades to "009"/"010",
+      tests/test_batch_requested_tier.py to "014"), but migration 013 —
+      which this one explicitly follows "in shape and in reasoning" — has
+      none either, so 017 is at its precedent rather than below it.
+
+      Not gating, and the card is honest about it: G-1 says three things
+      assert the default and "only the third is load-bearing", which is
+      exactly right — `divider_pages_from_stored(None) is True` is tested
+      directly, so an unmigrated or unbackfilled row reads as dividers-ON
+      regardless of what the DDL did. The reviewed consequence of the
+      untested half is narrow: the `server_default=sa.true()` and the
+      explicit UPDATE are unverified on Postgres (all my measurement was
+      SQLite via tests/helpers/db.py's `create_all`, which builds the schema
+      from models.py and never runs the migration). Per the board's memory,
+      production runs Postgres.
+
+      Chain verified clean by reading: revision '017', down_revision '016',
+      016 was the previous head, no fork.
+    suggestion: |
+      Optional and cheap if wanted: one cell that upgrades a SQLite file to
+      "016", inserts a book row, upgrades to "017" and asserts the column
+      reads true — the shape tests/test_batch_requested_tier.py already uses
+      for 014.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
