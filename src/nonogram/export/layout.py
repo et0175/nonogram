@@ -413,8 +413,15 @@ type RuleTier = Literal["cell", "fifth", "border"]
 #: rasteriser chooses an integer pixel count per stroke, so a declared width
 #: either reaches two pixels there or drops out. A content stream chooses
 #: nothing — the renderer resolves the declared width at whatever resolution
-#: it runs — which is why :data:`GridRules`' widths carry no floor and why
-#: :func:`rasterise_rule_px` is the only door that enforces this one.
+#: it runs — which is why :data:`GridRules`' widths carry no floor.
+#:
+#: Two functions enforce it, and only one of them is reached by shipped code.
+#: :func:`refuse_rasterised_rule` holds it at **four call sites in three
+#: functions** — ``_stroke_drawing``'s line loop and its frame,
+#: ``png._draw_grid``'s line loop and ``png._draw_frame`` — which is where the
+#: clause binds today; :func:`rasterise_rule_px` holds it on a *conversion* of
+#: a declared width to a pixel count, and no shipped code performs one
+#: (CARD-298 is the card that would).
 RASTER_RULE_FLOOR_PX = 2
 
 
@@ -426,7 +433,9 @@ class GridRule:
     points for the width (a ``w`` operand) and a grey level for the tone (a
     ``G`` operand). Neither is a device measurement: what a 0.3 pt rule
     occupies in pixels is the renderer's answer at its own resolution, and
-    asking this object for one is what :func:`rasterise_rule_px` is for.
+    :func:`rasterise_rule_px` is the arithmetic that answers it under R2's
+    device floor — used by this project's tests and owed by any future raster
+    converter, not called on any shipped path (see that function).
 
     Attributes:
         width_pt: The stroke width in points.
@@ -459,9 +468,9 @@ class GridRule:
 class GridRules:
     """A puzzle grid's **three** rule weights, as physical widths (ADR-0037/R2).
 
-    Valid by construction, and the three constraints it refuses on are the
-    three the rule actually states — so a spec that carries one of these
-    cannot express a grid R2 forbids:
+    Valid by construction on **three** stated constraints, and no more than
+    three — a spec that carries one of these cannot express a grid that breaks
+    *those three*, which is narrower than "a grid R2 forbids":
 
     * **three weights, not two or one** — the widths are *strictly*
       increasing, so no two tiers can be declared at the same width. R2's
@@ -475,10 +484,24 @@ class GridRules:
       border, which is the half of the design that is tone rather than width.
 
     It states **no minimum width**, deliberately. R2's 2-device-pixel clause
-    binds a rasteriser and is held at :func:`rasterise_rule_px`; a declared
-    width has no device floor to meet, which is the whole reason the owner's
-    own figures became available (ADR-0042/R1, and this ADR's 2026-10-25
-    History entry).
+    binds a rasteriser, and is held at :func:`refuse_rasterised_rule` where a
+    raster stroker meets a declared sheet; a declared width has no device
+    floor to meet, which is the whole reason the owner's own figures became
+    available (ADR-0042/R1, and this ADR's 2026-10-25 History entry).
+
+    **What it does NOT refuse, stated rather than left to be discovered.**
+    The faint end of the tone axis is open: ``cell.grey = 1.0`` is pure white
+    and builds, as does a whole grid at 0.99 / 0.98 / 0.97, and so does a
+    fifth line *lighter* than the border — only the cell line's ordering
+    against the heavier pair is checked, and only at the black end. The width
+    axis is ordered but unbounded and unseparated: 0.3 / 0.30001 / 0.30002 pt
+    are three strictly increasing widths no device can tell apart, and
+    50 / 60 / 70 pt build too. No caller can express any of this today —
+    :data:`~nonogram.admin.book_page_spec.GRID_RULES` is the only instance and
+    :attr:`PageSpec.grid_rules` is set only from the print profile — so this
+    is a bound on the *type*, declared here, not a defect on a page. Closing
+    the faint end is a new refusal and needs its own control and its own edge
+    mutant; it is not this card's.
 
     Attributes:
         cell: The ordinary cell line.
@@ -537,15 +560,24 @@ class GridRules:
 def rasterise_rule_px(width_pt: float, dpi: int = DPI) -> int:
     """A declared rule width as the whole device pixels a rasteriser strokes.
 
-    **The one door a raster generator may take a puzzle-grid rule through, and
-    it defaults to DENY.** A width is admitted only when it resolves to at
-    least :data:`RASTER_RULE_FLOOR_PX` whole pixels at ``dpi``; every other
-    width — including every width this project has not seen — is refused.
-    There is no admitting branch for a rule that has not met the floor, which
-    is what makes "no puzzle grid is rasterised at these weights" a mechanism
-    rather than a comment: ADR-0037/R2's own figures reach this door and are
-    turned away at 300 DPI, where 0.3 / 0.8 / 1.3 pt round to 1 / 3 / 5 px and
-    the cell line is the one-pixel grid 7 of 17 reviews complained about.
+    **It defaults to DENY, and nothing in ``src`` calls it (CARD-227 review
+    cycle 1, F-002).** A width is admitted only when it resolves to at least
+    :data:`RASTER_RULE_FLOOR_PX` whole pixels at ``dpi``; every other width —
+    including every width this project has not seen — is refused, and there is
+    no admitting branch for a rule that has not met the floor. That much is a
+    mechanism. What it is *not* is a door the shipped code goes through: the
+    raster renderers never convert a declared width at all, they read
+    COMP-007's proportional device width (:func:`_rule_widths`), so there is
+    no conversion for this function to stand in front of and its only callers
+    are in ``tests/``.
+
+    So it is the **arithmetic plus R2's floor, named and tested in advance** —
+    what a raster converter must come through on the day one is written
+    (CARD-298), and what the tests measure R2's figures against: 0.3 / 0.8 /
+    1.3 pt round to 1 / 3 / 5 px at 300 DPI and the cell line is the one-pixel
+    grid 7 of 17 reviews complained about. The clause that binds a *shipped*
+    raster page is held elsewhere, per stroke, by
+    :func:`refuse_rasterised_rule`.
 
     Rounded, not floored or ceiled, because rounding is what a rasteriser
     does and the refusal has to be measured against the real thing: 0.3 pt at
@@ -601,33 +633,53 @@ def refuse_rasterised_rule(
     Called by a raster grid stroker with the pair a :class:`GridLine` (or a
     :class:`PuzzleFrame`) carries — the device width it is about to stroke and
     the physical width the sheet declared, if any. It returns on a stroke R2
-    permits and raises on the two it does not.
+    permits and raises on the three it does not.
 
-    **What defaults to DENY, stated rather than implied.** For a rule the
-    sheet declares a physical width for, the declared figure's own device
-    count is **denied**: there is no branch that lets a declared weight
-    through to a bitmap, and a stroker that has not been through
-    :func:`rasterise_rule_px` cannot acquire one by arithmetic either, because
-    the count that arithmetic produces is the count this refuses. For a rule
-    the sheet declares nothing for — every sheet but the book's — nothing is
-    denied, because R2 binds only the declared grid and the proportional
-    ``cell / 30`` widths are what it leaves alone.
-
-    The two refusals:
+    **What defaults to DENY, and what is therefore ADMITTED — both stated,
+    because "default-deny" is satisfiable by a default-ALLOW predicate
+    underneath (ADR-0039/R2).** There are three refusals and two of them are
+    *regions*; the third is a point, and saying so is the point:
 
     * **a width that is not whole positive pixels.** A rasteriser strokes
       whole pixels; a fractional width is a physical measurement that has not
       been resolved for the device, and Pillow would silently take its integer
-      part. This one holds on every sheet, declared or not.
-    * **a width that IS the declared figure's device count** — this card's AC-7
-      mutant in so many words, "let a raster page take the 0.3 pt figure". At
-      300 DPI that figure is 1 px, the one-pixel grey cell grid 7 of 17 reviews
-      of the 450-puzzle book complained about and the configuration R2's
-      2026-10-17 amendment refused. Note which pair this compares: the book's
-      own raster widths are the proportional 3 px and 6 px while its declared
-      figures rasterise to 1 / 3 / 5 px, so a book page drawn the way the
-      raster renderers really draw it passes here, and only a page that took
-      the declared number does not.
+      part. A **region**, and it holds on every sheet, declared or not.
+    * **a declared sheet's rule below** :data:`RASTER_RULE_FLOOR_PX`
+      **device pixels** — R2's own 2-pixel clause, as a region rather than as
+      arithmetic nobody calls. A 1 px stroke IS the dropout the 2026-10-17
+      amendment refused, whichever declared figure it sits beside, so it is
+      refused on a declared sheet even when it is not that figure's own count.
+    * **a width that IS the declared figure's device count** — this card's
+      AC-7 mutant in so many words, "let a raster page take the 0.3 pt
+      figure". A **point**: exactly one integer per declared width. At 300 DPI
+      the three figures' counts are 1 / 3 / 5 px, and 3 and 5 clear the floor
+      above, so this branch is what catches a fifth line or a border that took
+      its declared number.
+
+    **What is admitted, said plainly.** Every integer at or above the floor
+    that is not that one count: a ``ceil`` of the same figure where ``round``
+    went down (2 px for 0.3 pt at 300 DPI) is admitted, and so is any width
+    resolved at a resolution other than the ``dpi`` passed. This is not a
+    predicate that lets no declared weight reach a bitmap; it is a floor plus
+    one excluded count, and a stroker is trusted for the rest. For a rule the
+    sheet declares nothing for — every sheet but the book's,
+    ``DEFAULT_PAGE_SPEC.grid_rules is None`` (CON-019) — only the first
+    refusal applies, because R2 binds the declared grid and leaves COMP-007's
+    proportional ``cell / 30`` widths alone. That exemption is the reason the
+    floor cannot simply be applied to every stroke.
+
+    Which pair the point compares, and why no real page is caught: the book's
+    own raster widths are ``thin`` (held at 3 px or more by the 0.25 mm raster
+    floor) and ``thick`` (``2 * thin``, so even and 6 px or more), while
+    *these* declared figures' counts are 1, 3 and 5 — 1 is below ``thin``'s
+    floor, 3 is below ``thick``'s, and 5 is odd. That is an argument about the
+    bounds, so it holds for every cell size rather than for a sampled set; a
+    sweep over 40 001 cell sizes from 0 to 400 px is the control on it, not
+    the argument. **Its bound, declared:** it is a statement about these
+    figures. A profile declaring 0.75 pt for the cell line — 3 px at 300 DPI —
+    would collide with a 3 px ``thin``, and this guard would then refuse a
+    real page. Today :data:`~nonogram.admin.book_page_spec.GRID_RULES` is the
+    only instance in the tree.
 
     Args:
         width: The device width about to be stroked.
@@ -636,17 +688,26 @@ def refuse_rasterised_rule(
         what: What is being stroked, for the message.
 
     Raises:
-        ValueError: ``width`` is not whole positive pixels, or it is the
-            device count of ``width_pt``.
+        ValueError: ``width`` is not whole positive pixels, or the sheet
+            declares a physical width and ``width`` is below
+            :data:`RASTER_RULE_FLOOR_PX` or is the device count of
+            ``width_pt``.
     """
     if not (isinstance(width, int) and not isinstance(width, bool) and width > 0):
         raise ValueError(
             f"a raster {what} is stroked in whole device pixels, not {width!r}: "
-            "a physical width reaches a bitmap through rasterise_rule_px or "
-            "not at all (ADR-0037/R2)"
+            "a physical width is resolved for the device before it reaches a "
+            "bitmap, never stroked as itself (ADR-0037/R2)"
         )
     if width_pt is None:
         return
+    if width < RASTER_RULE_FLOOR_PX:
+        raise ValueError(
+            f"a raster {what} on a sheet that declares physical rule weights "
+            f"is held to at least {RASTER_RULE_FLOOR_PX} device pixels "
+            f"(ADR-0037/R2): {width} px is the dropout that rule's 2026-10-17 "
+            "amendment refused"
+        )
     if width == _device_rule_px(width_pt, dpi):
         raise ValueError(
             f"a raster {what} may not be stroked at a declared physical "
@@ -766,8 +827,12 @@ class PageSpec:
             tones, or ``None``. ``None`` on every spec but the book's, and
             ``None`` is what the raster renderers require: a spec that states
             these is a spec whose grid is drawn as content-stream operators
-            (ADR-0042/R1), and :func:`rasterise_rule_px` is the door that
-            refuses them a bitmap. Stating them does not change one device
+            (ADR-0042/R1). Raster pages *are* built from this spec — the
+            book's single-puzzle page, its two-up page, its solved page and
+            its packed answer page all are — and what keeps the declared
+            figures off those bitmaps is :func:`refuse_rasterised_rule`,
+            called per stroke at four call sites in three functions.
+            Stating them does not change one device
             pixel of :attr:`min_thin_rule_mm`'s arithmetic, so a raster page
             built from a spec with these stripped is byte-identical to one
             built before they existed (CON-019, G-3).
@@ -1214,9 +1279,10 @@ class GridLine:
         width: How heavy to stroke it **in device pixels** —
             :attr:`Layout.thin_rule` or :attr:`Layout.thick_rule`. This is the
             rasteriser's width and it keeps the ``cell / 30`` proportional
-            rule on every spec, book included: a point-weighted grid is not
-            rasterised at all (ADR-0037/R2, :func:`rasterise_rule_px`), so
-            there is no spec on which this field is the book's figures.
+            rule on every spec, book included: a declared weight is not what
+            a rasteriser strokes (ADR-0037/R2, and
+            :func:`refuse_rasterised_rule` refuses one that tries), so there
+            is no spec on which this field is the book's figures.
         major: Whether this is one of the every-5th (or outer-border) rules.
             Carried separately from :attr:`width` because it is the *reason*
             for the width, and a renderer may want to say so (a different ink,

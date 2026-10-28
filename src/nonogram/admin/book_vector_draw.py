@@ -147,18 +147,26 @@ def draw_grid_lines(
     nothing here assumes a state it did not set.
 
     **"A handful" and not "one per weight", because that was measured**
-    (CARD-227). A book page has three weights and two tones, and it emits
-    **seven** ``w`` operators on a 20x20 rather than three: the sort above is
+    (CARD-227; the attribution corrected in review cycle 1, F-006). A book
+    page has three weights and two tones, and **this function** emits
+    **six** ``w`` operators on a 20x20 rather than three: the sort above is
     keyed on :attr:`~nonogram.export.layout.GridLine.major`, which has two
     values, so inside the heavy half the border and the fifth lines interleave
-    in COMP-007's own order and the width changes on each. That costs
-    operators and nothing else — both heavy tiers are the same pure black, so
-    no crossing looks different whichever of the two is on top. Keying the
-    sort on :attr:`~nonogram.export.layout.GridLine.tier` would make it three,
-    and that is a change to **stroke order** in four renderers rather than to
-    a number, which CARD-227's G-2 keeps out of that card.
-    ``tests/test_book_grid_rules.py`` records the real count, so nobody reads
-    a smaller one off this paragraph.
+    in COMP-007's own order and the width changes on each — 0.3, then
+    1.3 / 0.8 / 1.3 / 0.8 / 1.3. That costs operators and nothing else — both
+    heavy tiers are the same pure black, so no crossing looks different
+    whichever of the two is on top. Keying the sort on
+    :attr:`~nonogram.export.layout.GridLine.tier` would make it three, and
+    that is a change to **stroke order** in four renderers rather than to a
+    number, which CARD-227's G-2 keeps out of that card.
+
+    The **page**'s count is **seven**: :func:`draw_frame`'s own unconditional
+    set is the seventh, re-stating 1.3 pt after the last border line already
+    set it. That seven is what ``tests/test_book_grid_rules.py`` records,
+    because it reads the finished page — so the number in that assertion is
+    the page's, not this function's, and neither is a frozen accident of one
+    shape: 22x13 and 30x30 derive to six here and seven there as well, while
+    a 5x5 with no fifth lines at all derives to two and three.
 
     **Where each width and each tone comes from (CARD-227, ADR-0037/R2).**
     A line that carries a *declared* weight

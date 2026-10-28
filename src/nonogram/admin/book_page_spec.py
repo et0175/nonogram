@@ -187,8 +187,11 @@ MIN_SIDE_MARGIN_MM = 6.35
 #: **These figures hold only in vector** (ADR-0037/R2, ADR-0042/R1). Through a
 #: rasteriser at 300 DPI they round to 1 / 3 / 5 px — the one-pixel grey cell
 #: grid that 7 of 17 reviews of the 450-puzzle book complained about — which is
-#: why :func:`~nonogram.export.layout.rasterise_rule_px` refuses them a bitmap
-#: and why no raster page is ever built from a spec that carries them.
+#: why :func:`~nonogram.export.layout.refuse_rasterised_rule` is called at
+#: every raster grid stroker that a sheet carrying them can reach. Raster
+#: pages ARE built from this profile's spec — the single-puzzle page, the
+#: two-up page, the solved page and the packed answer key all are — and they
+#: are drawn at COMP-007's proportional device widths, never at these.
 #:
 #: The cell line's ``0.35`` grey renders as grey 89 (``round(255 * 0.35)``),
 #: measured by poppler on the CARD-293 proof at both 300 and 1200 DPI. The

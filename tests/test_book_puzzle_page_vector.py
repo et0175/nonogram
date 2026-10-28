@@ -1685,10 +1685,22 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         raster twin's own widths are 3 and 6 px.
 
         Both hierarchies are asserted intact first, so the comparison cannot
-        pass by either side collapsing to one weight, and the positive arm is
-        that the **1 px** count is absent while 3 px, which the twin really
-        does stroke, is present: a reading that refused every number alike
-        would prove nothing, and this one has to tell them apart.
+        pass by either side collapsing to one weight, and the positive arm —
+        the instrument's **reach** — is that the reading can see a width the
+        twin really does stroke, so its silence about 1 px is a measurement
+        rather than a blind spot.
+
+        **That reach arm is keyed on the layout's own ``thin_rule``, not on a
+        declared figure's count** (review cycle 1, F-007). It used to be
+        ``counts[1] in inked``, which was true only by a coincidence of this
+        book's fitted cell: ``counts[1]`` is ``round(0.8 pt at 300 DPI)`` = 3
+        and ``layout.thin_rule`` is also 3, so on a book whose thin rule
+        fitted to 4 px the arm would have reddened with nothing wrong. The
+        page is known to ink ``thin_rule`` for a reason that has nothing to do
+        with the declared weights — it is COMP-007's proportional
+        ``cell / 30`` under the 0.25 mm raster floor — so keying on it makes
+        the reach arm independent of the figures the negative arm is about.
+        The coincidence itself is recorded rather than relied on.
 
         **Each figure stays in its own domain.** The stream's widths are read
         in points, because points are the unit it states them in; the ink's
@@ -1719,9 +1731,19 @@ class TestPuzzlePage_AgreesWithTheRasterTwin:
         # The refused configuration is not on the page: 1 px is absent.
         assert counts == [1, 3, 5], counts
         assert counts[0] not in inked, (inked, counts)
-        # ... and the reading can see a count that IS there, so its silence
-        # about 1 px is a measurement rather than a blind spot.
-        assert counts[1] in inked, (inked, counts)
+        # ... and the reading can see a width the page is known to ink for a
+        # reason independent of the declared figures, so its silence about
+        # 1 px is a measurement rather than a blind spot.
+        assert twin.case.layout.thin_rule in inked, (
+            inked,
+            twin.case.layout.thin_rule,
+        )
+        # The coincidence F-007 named, declared rather than relied on: on this
+        # book thin_rule and counts[1] happen to be the same 3 px.
+        assert twin.case.layout.thin_rule == counts[1] == 3, (
+            twin.case.layout.thin_rule,
+            counts,
+        )
 
 
 class TestPuzzlePage_TheSharedPagesAreNotMutated:

@@ -75,14 +75,29 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   no baseline moved, which is why the card was sequenced before CARD-298's
   single recording.
 
-  **The 2-device-pixel clause now has a mechanism, not just a sentence.**
-  `layout.rasterise_rule_px` is the one door a raster generator may convert a
-  declared width through, and it defaults to DENY: 0.3 pt is 1 px at 300 DPI
-  and is refused, while the same figure at 1200 DPI is 5 px and is admitted,
-  so the floor is a floor on the device rather than a ban on the weights.
-  `layout.refuse_rasterised_rule` is the guard the book's raster stroker calls
-  per rule, and it refuses exactly the mutant this card's AC-7 names — a
-  raster page stroking the declared figure's own device count.
+  **The 2-device-pixel clause now has a mechanism, not just a sentence**,
+  and the mechanism is `layout.refuse_rasterised_rule`, called per rule at
+  **four call sites in three functions**, which is every raster grid stroke
+  the book can reach: two in `book_pdf_generator._stroke_drawing` (the two-up
+  and solved slots' lines, and their frame) and two in `export/png`
+  (`_draw_grid`'s lines and `_draw_frame`) — the pair that rules the
+  single-puzzle page and the packed answer page. It has three refusals, two of them regions and one a
+  point: a width that is not whole positive pixels (every sheet); a declared
+  sheet's rule below 2 device pixels; and a width that IS the declared
+  figure's own device count, which is the mutant this card's AC-7 names. It
+  therefore *admits* every integer at or above the floor that is not that one
+  count, which is stated here because "default-deny" is satisfiable by a
+  default-ALLOW predicate underneath (ADR-0039/R2).
+
+  `layout.rasterise_rule_px` is the arithmetic plus the floor — 0.3 pt is
+  1 px at 300 DPI and is refused, while the same figure at 1200 DPI is 5 px
+  and is admitted, so the floor is a floor on the device rather than a ban on
+  the weights. It is **not** a door the shipped code goes through: it has zero
+  call sites in `src/`, because the raster renderers never convert a declared
+  width at all — they read COMP-007's proportional device width. It is what a
+  raster converter must come through on the day one is written (CARD-298), and
+  what the tests measure R2's figures against. (Corrected in CARD-227 review
+  cycle 1, F-002, which found it described as "the one door".)
 
   **Two figures this ADR had never had are now measured.** The 2026-10-25
   entry cited poppler on the *cell* line only (2 px at grey 89 at 300 DPI,
@@ -295,22 +310,42 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   #        structurally: GridRules refuses a sheet whose cell line is pure
   #        black or no lighter than its fifths;
   #   RUN  "a raster grid cannot use these figures"
-  #        (TestBookGridRules_TheseWidthsNeverReachARasterGrid) at the two
-  #        doors the book has -- layout.rasterise_rule_px and the generator's
-  #        own _stroke_drawing -- each with a negative control (the same
+  #        (TestBookGridRules_TheseWidthsNeverReachARasterGrid) at BOTH
+  #        raster grid strokers -- book_pdf_generator._stroke_drawing and
+  #        export/png's _draw_grid/_draw_frame -- plus the advance arithmetic
+  #        layout.rasterise_rule_px, each with a negative control (the same
   #        figure at 1200 DPI is admitted; the book's real raster width is
-  #        admitted), so neither reads as a blanket refusal;
+  #        admitted; the real book page draws through both strokers), so none
+  #        of it reads as a blanket refusal. layout.rasterise_rule_px has NO
+  #        call site in src/ and is not claimed as a door (F-002);
   #   NOT RUN  "the default PageSpec's strokes unchanged". That clause is
   #        ADR-0036/R1's own check
   #        (TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden) and is not
   #        re-executed here: this rule states it, that rule gates it.
-  #   NOT RUN  the 2-device-pixel floor on png._draw_grid, the OTHER raster
-  #        grid stroker. These figures cannot reach it today -- it reads a
-  #        line's device width and ignores the declared one -- so there is
-  #        nothing there to refuse, and nothing stops a later card making it
-  #        read them. CARD-298 is where the raster exceptions are declared and
-  #        guarded, and that is where this bound closes. Recorded as an open
-  #        bound rather than claimed sound.
+  #   WAS an open bound, NOW RUN (CARD-227 review cycle 1, F-001): the
+  #        floor on png._draw_grid, the other raster grid stroker. The
+  #        premise that bound was declared on was FALSE. These figures DO
+  #        reach that function -- _blank_page rules a book single-puzzle
+  #        page's grid through render_pages -> png._draw_grid, and
+  #        render_answer_page rules a packed answer tile through the same
+  #        function; neither goes through _stroke_drawing, which rules only
+  #        the two-up and solved slots. Measured by a spy on png._draw_grid
+  #        and png._draw_frame -- DOMAIN: four _blank_page calls on four grid
+  #        shapes (20x20, 30x30 at clue depth 10, 15x22, 5x5) = 159 strokes,
+  #        plus one render_answer_page holding those four answers = 155, so
+  #        314 in all -- and EVERY ONE of the 314 carried a width_pt of
+  #        0.3 / 0.8 / 1.3 pt beside a device width of 3 or 6 px. Instrument
+  #        controls (ADR-0039/R4): it rises (1 page 43, 4 pages 159), it reads
+  #        0 when no page is drawn, and on a CLI sheet it reads 42 strokes of
+  #        which 0 declare anything. So the unguarded stroker was the one that ruled
+  #        the dominant interior page kind, and the control this comment said
+  #        could not fail is
+  #        test_the_other_raster_stroker_is_guarded_too_and_it_is_the_one_that_rules_a_book_page,
+  #        which has three arms: the real book page draws, the mutant reds,
+  #        and the shipped unguarded path drew the refused configuration
+  #        silently (260,523 inked pixels, measured before the guard). No ink
+  #        moved: three real book raster pages are pixel-digest-identical
+  #        across the change (G-5).
   #
   # AMENDED AGAIN 2026-10-25 (owner decision on the CARD-293 proof) — the
   # figures are now the owner's own 0.3 / 0.8 / 1.3 pt, not the x1.6-scaled

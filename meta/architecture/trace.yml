@@ -1823,8 +1823,14 @@ links:
     criteria, they are listed above, and ADR-0037/R2's own `check` is upgraded
     from review-lens to `TestBookGridRules_HasThreeWeights`. That ADR's
     History states which clauses of R2 the ref executes and which it does not
-    (the default-spec clause is ADR-0036/R1's check; png._draw_grid's raster
-    floor is an open bound CARD-298 closes).
+    (the default-spec clause is ADR-0036/R1's check). The one clause that
+    stood as an OPEN BOUND when this row was written -- png._draw_grid, the
+    second raster grid stroker -- is now CLOSED, in fix round 1 of review
+    cycle 1: that stroker does receive the declared weights, on every book
+    single-puzzle page and every packed answer page, so the bound's stated
+    premise was false and the control it said could not be written is
+    TestBookGridRules_TheseWidthsNeverReachARasterGrid's
+    test_the_other_raster_stroker_is_guarded_too_and_it_is_the_one_that_rules_a_book_page.
     TWO FIGURES THIS REQUIREMENT OWED ARE NOW MEASURED. AC-374's comment in
     requirements.yml recorded that only the 0.3 pt cell line had ever been
     measured through a renderer (CARD-293 AC-2: 2 px at grey 89 at 300 DPI,
@@ -1834,15 +1840,25 @@ links:
     14 px at 1200, and the 1.3 pt border 6 px and 22 px, both at grey 0. The
     three spans are disjoint and ordered at both resolutions and at NFR-008's
     4.75 mm floor (2 / 4 / 6 px at 300 DPI).
-    STILL OWED, and not this card's: AC-376..AC-378 do not exist. The card's
-    AC-3 (the every-fifth rule on both axes), AC-4 (a side that is not a
-    multiple of five) and AC-7 (these widths never reach a raster grid) are
-    tested — TestBookGridRules_FifthLinesOnBothAxes, _RaggedLastBand and
-    _TheseWidthsNeverReachARasterGrid, all listed above — but no registry
-    criterion names them, so three of the seven live claims are traceable only
-    through this row and the card. AC-7 is the one that matters: it is the
-    card's single genuinely new claim and it is what keeps R2's medium
-    argument from being a comment.
+    STILL OWED, and not this card's: three of the card's seven criteria have
+    no registry criterion of their own. AC-3 (the every-fifth rule on both
+    axes), AC-4 (a side that is not a multiple of five) and AC-7 (these widths
+    never reach a raster grid) are tested —
+    TestBookGridRules_FifthLinesOnBothAxes, _RaggedLastBand and
+    _TheseWidthsNeverReachARasterGrid, all listed above — and none of those
+    three class names appears anywhere in requirements.yml (grepped, 0 hits
+    each), so three of the seven live claims are traceable only through this
+    row and the card. FR-033's own criteria run AC-372..AC-375, which cover
+    the card's AC-1, AC-2, AC-5 and AC-6 and stop there; the next three ids
+    are NOT free — AC-376, AC-377 and AC-378 exist under FR-040
+    (requirements.yml:3474, :3487, :3552), added 2026-10-18 for the two-up
+    footer and pairing boundary — so whoever writes these takes the next free
+    ids instead, which is AC-397 and up at the time of writing. (Review cycle
+    1, F-011: this paragraph previously gave "AC-376..AC-378 do not exist" as
+    the reason, which is a checkable statement and a false one. The gap it
+    reported is real and is restated here without it.) AC-7 is the one that
+    matters: it is the card's single genuinely new claim and it is what keeps
+    R2's medium argument from being a comment.
     ALSO OWED: AC-195's `given` says 'printed at 4.97 mm', which predates
     CON-018's amended margins and is stale; the honest figure cannot be
     measured until CARD-222 merges, so it was annotated rather than guessed.

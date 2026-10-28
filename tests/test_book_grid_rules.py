@@ -52,14 +52,27 @@ The inked span is wider than the declared width resolves to (0.3 pt is
 1.25 px at 300 DPI, inked 2) because poppler antialiases a stroke that does not
 land on a pixel boundary, and the same phase makes each span vary by one pixel
 along a page. Every assertion below is written against that: the spans are held
-**ordered and disjoint**, and the scaling is held as a ratio with a band, never
-as an exact ×4. The ×4 that *is* exact is the declared width's own resolution
-(1.25 px → 5 px), and that is asserted where it is exact.
+**ordered and disjoint**, and each span is held against **its own** declared
+width — ``declared <= span <= declared + 2`` — with a loose monotone arm beside
+it, never as a span-to-span ratio and never as an exact ×4. A ratio was the
+obvious reading and measuring it is what retired it: the cell line goes 2 px to
+5 px, a ratio of 2.5 against the resolution's 4, and a band loose enough to
+admit 2.5 would admit almost anything. The ×4 that *is* exact is the declared
+width's own resolution (1.25 px → 5 px), and that is asserted where it is
+exact. See
+:meth:`TestBookGridRules_PointsNotPixels.test_each_weights_span_scales_with_the_resolution`
+for what the chosen form does and does not buy.
 
-This module names none of the eight render idioms
-``meta/profiling/rank_durations.py`` greps for, so it does not join the frozen
-render-heavy set — ``vector_puzzle_page`` is singular where the idiom is
-``puzzle_pages``, and that is deliberate rather than lucky.
+This module **is** in the frozen render-heavy set
+(``meta/profiling/rank_durations.py``), at the cost reason rather than the grep
+reason. The grep does match it — the paragraph above names ``puzzle_pages``,
+one of the eight render idioms — but that match is a mention by the grep's
+letter and a false positive by its purpose, since this file's own render door
+is the singular ``vector_puzzle_page``. What puts it in the set is the cost:
+two poppler renders, one of them at 1200 DPI on an 8.5 × 11 in trim, which is
+134 megapixels and about three seconds. The membership is guarded by
+``tests/test_suite_profile.py``'s
+``test_the_frozen_render_set_still_matches_the_grep_that_defines_it``.
 """
 
 from __future__ import annotations
@@ -75,13 +88,16 @@ from nonogram.admin import book_vector_draw
 from nonogram.admin.book_page_spec import GRID_RULES
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, _stroke_drawing
 from nonogram.admin.book_vector import write_vector_pdf
+from nonogram.export import png
 from nonogram.export.layout import (
+    DEFAULT_PAGE_SPEC,
     DPI,
     MAJOR_RULE_EVERY,
     RASTER_RULE_FLOOR_PX,
     GridRule,
     GridRules,
     Layout,
+    _device_rule_px,
     compute_layout,
     rasterise_rule_px,
     refuse_rasterised_rule,
@@ -491,9 +507,20 @@ class TestBookGridRules_CellLinesAreLighterThanTheFifths:
 
         ``GridRules`` is valid by construction, so the ordering is not a thing
         a renderer remembers to honour — it is a thing a sheet cannot express
-        otherwise. Two near-misses, because one would not distinguish a guard
-        from a coincidence: a cell line in **pure black** (the retired wording)
-        and a cell line merely **no lighter** than the fifths.
+        otherwise. Three cases, because one would not distinguish a guard from
+        a coincidence and two inside the region would not distinguish a strict
+        refusal from a non-strict one:
+
+        * a cell line in **pure black** (the retired wording);
+        * a cell line **darker** than the fifths, 0.2 against 0.4 — inside the
+          refused region;
+        * the **EDGE**: a cell line at *exactly* the heavier rules' grey.
+          Review cycle 1, F-004: without this case, relaxing the refusal from
+          ``>`` to ``>=`` survives every test in this file, while the width
+          axis beside it dies to the same mutation shape
+          (:meth:`TestBookGridRules_HasThreeWeights.test_a_sheet_cannot_declare_two_weights_at_the_same_width`).
+          Equal greys are two weights wearing three tones, which is the tone
+          half of exactly that defect.
         """
         with pytest.raises(ValueError, match="grey, not pure black"):
             GridRules(
@@ -506,6 +533,12 @@ class TestBookGridRules_CellLinesAreLighterThanTheFifths:
                 cell=GridRule(width_pt=CELL_PT, grey=0.2),
                 fifth=GridRule(width_pt=FIFTH_PT, grey=0.4),
                 border=GridRule(width_pt=BORDER_PT, grey=0.4),
+            )
+        with pytest.raises(ValueError, match="lighter in ink"):
+            GridRules(
+                cell=GridRule(width_pt=CELL_PT, grey=CELL_GREY),
+                fifth=GridRule(width_pt=FIFTH_PT, grey=CELL_GREY),
+                border=GridRule(width_pt=BORDER_PT, grey=CELL_GREY),
             )
         # ... and the real figures pass it, so the guard is not refusing
         # everything alike.
@@ -722,11 +755,23 @@ class TestBookGridRules_PointsNotPixels:
 
         So each span is held against the width the renderer was actually
         asked for -- ``declared <= span <= declared + 2``, the fringe being at
-        most one pixel at each end -- which is tighter at **both**
-        resolutions than any ratio between them, and says the thing AC-6 is
-        for: the renderer resolved the declared width at the resolution it ran
-        at. The monotone arm is kept beside it, because a bracket that held at
-        two resolutions without the span moving would be a different page.
+        most one pixel at each end -- and says the thing AC-6 is for: the
+        renderer resolved the declared width at the resolution it ran at. The
+        monotone arm is kept beside it, because a bracket that held at two
+        resolutions without the span moving would be a different page.
+
+        **The two forms are incomparable, and this one is tighter on one axis
+        only** (review cycle 1, F-005). On the *absolute* axis the band pins
+        each measurement, which a ratio cannot: it excludes the 1 px dropout
+        at 300 DPI, which is the defect AC-6 exists for, and no ratio does.
+        On the *ratio* axis it is strictly weaker: the cell line's two bands,
+        [1.25, 3.25] px and [5, 7] px, together imply only
+        ``20/13 <= ratio <= 28/5``, i.e. **1.54 to 5.60** -- about twenty
+        times looser than a narrow ratio band around the measured 2.5 would
+        be. (Exact rational arithmetic; the fifth line implies [2.50, 4.60]
+        and the border [2.92, 4.37].) The monotone arm adds only
+        ``ratio > 2`` at the cell line, a margin of one pixel. So the right
+        claim is "tighter where it matters", not "tighter than any ratio".
         """
         for dpi in (300, 1200):
             spans = hero.inked_spans(dpi)
@@ -818,15 +863,53 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
     them onto a bitmap would quietly re-open the one complaint ADR-0037 exists
     to close.
 
-    **What this does and does not reach, declared rather than implied.** Two
-    doors are held: the one a raster generator must come through to turn a
-    declared width into pixels (:func:`rasterise_rule_px`), and the one raster
-    grid stroker in the book generator (``_stroke_drawing``). What is *not*
-    closed here is ``png._draw_grid``, the other raster stroker — it reads a
-    line's device width and ignores the declared one, so these figures cannot
-    reach it today, but nothing stops a later card making it read them.
-    CARD-298 is where the raster exceptions are declared and guarded, and that
-    is where this bound closes.
+    **What this reaches, declared rather than implied — and the bound review
+    cycle 1 found open is now CLOSED.** Cycle 1's F-001 showed that the
+    sentence this paragraph used to carry was false: ``png._draw_grid`` does
+    receive the declared figures, on **every book single-puzzle page** and on
+    every **packed answer page**, because ``_blank_page`` and
+    ``render_answer_page`` rule their grids through ``png._draw_grid`` and not
+    through ``_stroke_drawing``, which rules only the two-up and solved slots.
+    Measured with a spy on both png functions, and the figure's **domain** is
+    part of it: four ``_blank_page`` calls on four grid shapes (20x20, 30x30
+    at clue depth 10, 15x22, 5x5) hand it **159** strokes and one
+    ``render_answer_page`` over those same four answers hands it **155**, so
+    **314** in all — and every one of the 314 carries a ``width_pt``. So the
+    unguarded stroker was the one that ruled the dominant interior page kind,
+    and the control this class said could not be written is written below.
+
+    **Both raster strokers are now guarded**, at all four call sites —
+    ``_stroke_drawing``'s line loop and frame, and ``png._draw_grid``'s line
+    loop and ``png._draw_frame``. Each is a call to
+    :func:`refuse_rasterised_rule`, which is a guard and not a drawing
+    primitive (G-2), and no page's ink moved, because a refusal check either
+    returns or raises. That was **measured and not assumed** (G-5): sha256
+    digests of the raw pixels of three real ``_blank_page`` rasters — a 20x20,
+    the 30x30-at-clue-depth-10 floor page and a ragged 15x22 — read
+    ``89fc04b019f83fc76f39`` / ``05d6e6844217294e370b`` /
+    ``e4d2ebb989b2b7d55bf3`` both before and after the guard went in. That
+    instrument is a fix-round probe rather than a test in this file; what the
+    suite itself holds is the book baselines in ``tests/fixtures/`` and
+    ``TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden``, none of which
+    moved.
+
+    **What is NOT a door, said plainly (cycle 1's F-002).**
+    :func:`rasterise_rule_px` has **zero call sites in** ``src/`` — the raster
+    renderers never convert a declared width at all, they read COMP-007's
+    proportional device width — so it is not "the one door a raster generator
+    may convert a declared width through". It is the arithmetic plus R2's
+    device floor, named and tested in advance, owed by CARD-298's converter
+    and exercised here. The clause that binds a shipped raster page is held by
+    :func:`refuse_rasterised_rule`, per stroke.
+
+    **And that predicate is a floor plus one excluded count, not a blanket
+    deny.** Two of its three refusals are regions (a non-whole width, on every
+    sheet; a declared sheet's rule below
+    :data:`RASTER_RULE_FLOOR_PX`) and one is a point (the declared figure's own
+    device count). It therefore **admits** every integer at or above the floor
+    that is not that count — a ``ceil`` where ``round`` went down, 2 px for
+    0.3 pt at 300 DPI, is admitted. Each of those three refusals and the
+    ``width_pt is None`` exemption has its own control below.
     """
 
     def test_the_raster_door_refuses_the_cell_line_at_300_dpi(self) -> None:
@@ -857,17 +940,57 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
         declared line — COMP-007's proportional 3 px — is admitted, so a book
         page drawn the way the raster renderers really draw it is not caught.
         """
-        with pytest.raises(ValueError, match="declared physical"):
+        # 1 px for 0.3 pt is BOTH refusals at once, and the floor is the one
+        # that fires: at 300 DPI the figure's own count is 1, which is below
+        # RASTER_RULE_FLOOR_PX.
+        with pytest.raises(ValueError, match="at least 2 device pixels"):
             refuse_rasterised_rule(1, CELL_PT, dpi=300)
+        # The point exclusion on its own, at a count that CLEARS the floor:
+        # 0.8 pt is 3 px and 1.3 pt is 5 px at 300 DPI, both above 2.
+        with pytest.raises(ValueError, match="declared physical"):
+            refuse_rasterised_rule(3, FIFTH_PT, dpi=300)
+        with pytest.raises(ValueError, match="declared physical"):
+            refuse_rasterised_rule(5, BORDER_PT, dpi=300)
         refuse_rasterised_rule(hero.layout.thin_rule, CELL_PT, dpi=300)
         refuse_rasterised_rule(hero.layout.thick_rule, BORDER_PT, dpi=300)
         # A width that is not whole pixels at all — a physical measurement that
-        # never went through the door — is refused too, on every sheet.
+        # was never resolved for the device — is refused too, on every sheet.
         with pytest.raises(ValueError, match="whole device pixels"):
             refuse_rasterised_rule(1.25, None)
         # ... and a line the sheet declares nothing for is left alone, which is
         # every sheet but the book's (CON-019).
         refuse_rasterised_rule(3, None)
+
+    def test_the_declared_sheets_floor_is_a_region_and_its_edge_is_admitted(
+        self,
+    ) -> None:
+        """The floor branch, on both sides of its boundary, and its exemption.
+
+        Added in fix round 1 for cycle 1's F-002: before it the predicate was
+        a point exclusion, so a 1 px stroke beside a declared 0.8 pt fifth
+        line — the dropout R2's 2026-10-17 amendment refused, just not that
+        figure's own count — was **admitted**. It is now a region.
+
+        Three arms, because a region needs its edge and an exemption needs a
+        control that can fail:
+
+        * **inside** — 1 px beside a declared weight whose own count is 3,
+          so only the floor can catch it;
+        * **the EDGE** — exactly :data:`RASTER_RULE_FLOOR_PX` px beside a
+          declared weight whose count is not 2, which is **admitted**. Relax
+          the floor to ``<=`` and this arm reds, which is what makes the
+          boundary measured rather than assumed;
+        * **the exemption** — the same 1 px on a sheet that declares nothing
+          is admitted, because R2 binds the declared grid and every CLI and
+          web sheet has ``grid_rules is None`` (CON-019). Widening the floor
+          to every stroke would red here, and red on the whole suite.
+        """
+        with pytest.raises(ValueError, match="at least 2 device pixels"):
+            refuse_rasterised_rule(1, FIFTH_PT, dpi=300)
+        assert _device_rule_px(FIFTH_PT, 300) != RASTER_RULE_FLOOR_PX
+        refuse_rasterised_rule(RASTER_RULE_FLOOR_PX, FIFTH_PT, dpi=300)
+        refuse_rasterised_rule(1, None)
+        assert DEFAULT_PAGE_SPEC.grid_rules is None
 
     def test_the_book_raster_stroker_draws_the_book_page_and_refuses_the_mutant(
         self, hero: Drawn
@@ -891,8 +1014,78 @@ class TestBookGridRules_TheseWidthsNeverReachARasterGrid:
                 for line in hero.layout.vertical_lines
             ),
         )
-        with pytest.raises(ValueError, match="declared physical"):
+        with pytest.raises(ValueError, match="at least 2 device pixels"):
             _stroke_drawing(ImageDraw.Draw(canvas), mutant)
+        # The same mutant one tier up, where the floor cannot be the reason:
+        # a border stroked at the 1.3 pt figure's own 5 px.
+        heavy_mutant = replace(
+            hero.layout,
+            vertical_lines=tuple(
+                replace(line, width=_device_rule_px(BORDER_PT, DPI))
+                if line.tier == "border"
+                else line
+                for line in hero.layout.vertical_lines
+            ),
+        )
+        with pytest.raises(ValueError, match="declared physical"):
+            _stroke_drawing(ImageDraw.Draw(canvas), heavy_mutant)
+
+    def test_the_other_raster_stroker_is_guarded_too_and_it_is_the_one_that_rules_a_book_page(
+        self, hero: Drawn
+    ) -> None:
+        """``png._draw_grid`` — cycle 1's F-001, closed here.
+
+        ``_blank_page`` rules a book single-puzzle page's grid through
+        ``render_pages`` -> ``png._draw_grid``, and ``render_answer_page``
+        rules a packed answer tile through the same function; neither goes
+        through ``_stroke_drawing``. So this is the raster stroker that rules
+        the **dominant interior page kind**, and until this round it was the
+        unguarded one.
+
+        Three arms, which is what makes this a control rather than a comment:
+
+        * **the real book page draws** — no false positive. The reason is
+          arithmetic rather than luck: a book cell line is stroked at
+          ``thin``, which the 0.25 mm raster floor holds at 3 px or more
+          while the 0.3 pt figure's count is 1, and a fifth line or border is
+          stroked at ``thick`` = ``2 * thin``, even and 6 px or more, while
+          their counts are the odd 3 and 5;
+        * **the mutant AC-7 names reds** — every cell line taking the 0.3 pt
+          figure's own device count;
+        * **the frame door too**, since a frame continues the border and
+          carries the border's declared weight.
+
+        The grid this page really carries is proof the first arm is live: the
+        lines reaching the stroker do declare a ``width_pt``, so the guard is
+        taking its declared-sheet branch and not returning at ``None``.
+        """
+        canvas = Image.new("RGB", (hero.layout.width, hero.layout.height), "white")
+        assert all(
+            line.width_pt is not None
+            for line in (*hero.layout.vertical_lines, *hero.layout.horizontal_lines)
+        )
+        png._draw_grid(ImageDraw.Draw(canvas), hero.layout)
+
+        mutant = replace(
+            hero.layout,
+            vertical_lines=tuple(
+                replace(line, width=_device_rule_px(CELL_PT, DPI))
+                if line.tier == "cell"
+                else line
+                for line in hero.layout.vertical_lines
+            ),
+        )
+        with pytest.raises(ValueError, match="at least 2 device pixels"):
+            png._draw_grid(ImageDraw.Draw(canvas), mutant)
+
+        frame = hero.layout.frame
+        assert frame is not None
+        png._draw_frame(ImageDraw.Draw(canvas), frame)
+        with pytest.raises(ValueError, match="declared physical"):
+            png._draw_frame(
+                ImageDraw.Draw(canvas),
+                replace(frame, width=_device_rule_px(BORDER_PT, DPI)),
+            )
 
     def test_the_frame_is_guarded_too_and_not_only_the_grids_lines(
         self, hero: Drawn
