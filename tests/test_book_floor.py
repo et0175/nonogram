@@ -1298,6 +1298,73 @@ class TestMigration012:
         # to 012 mean, with nothing failing to say so.
         command.upgrade(config, "013")
 
+        # Read with CORE SQL, not through the ORM. CARD-305 is the SECOND
+        # card to break this test by widening the model: CARD-147's 013 added
+        # ``interior_ink_mode`` and the fix was to move the read 012 -> 013;
+        # CARD-305's 017 added ``interior_divider_pages`` and the same wall
+        # arrived one revision later. Moving the pin forward is a fix that
+        # expires on the next column, so it is not taken a third time.
+        #
+        # The ORM always describes HEAD: a SELECT built from today's model
+        # names every column the chain has ever added, so any test that reads
+        # a model at a pinned revision is broken by the next card that adds a
+        # column -- a latent trap this file shares with
+        # tests/test_book_page_spec.py and tests/test_book_plan_storage.py.
+        # Core SQL names only the columns it asks for, so the pin below is
+        # stable against every future revision.
+        assert overrides() == {"Legacy": None}, "and 013 did not backfill it either"
+
+        command.downgrade(config, "012")
+        assert "floor_overrides" in columns(), "back to the revision under test"
+        assert overrides() == {"Legacy": None}, "and still backfilled nothing"
+
+        command.downgrade(config, "011")
+        assert "floor_overrides" not in columns(), "012's downgrade left the column"
+        insert("After downgrade")
+
+        command.upgrade(config, "012")  # up -> down -> up
+        assert "floor_overrides" in columns()
+        assert overrides() == {"Legacy": None, "After downgrade": None}
+        engine.dispose()
+
+    def test_a_row_no_migration_backfilled_reads_as_no_override_given(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """INV-006's fail-closed reading: stored NULL -> ``[]``, not unset.
+
+        Split out of
+        :meth:`test_no_backfill_and_a_downgrade_that_drops_the_column` by
+        CARD-305's merge gate. That test reached this assertion through the
+        ORM at a PINNED revision, which the ORM cannot serve -- it always
+        describes head -- so the check was deleted from there rather than
+        kept limping. It was the suite's only cover for this reading, so
+        deleting it outright would have been a weakening, and it runs here
+        instead, at head, where the model and the schema agree by
+        construction and no future column can break it.
+        """
+        import sqlalchemy as sa
+
+        url = f"sqlite:///{tmp_path / 'readback.db'}"
+        command, config = _alembic(url, monkeypatch)
+        command.upgrade(config, "head")
+        engine = sa.create_engine(url)
+
+        book_id = uuid.uuid4().hex
+        with engine.begin() as conn:
+            conn.execute(
+                sa.text(
+                    "INSERT INTO books (id, title, puzzle_ids, puzzle_titles,"
+                    " book_metadata, status)"
+                    " VALUES (:id, 'Legacy', '[]', '{}', '{}', 'draft')"
+                ),
+                {"id": book_id},
+            )
+            stored, = conn.execute(
+                sa.text("SELECT floor_overrides FROM books WHERE id = :id"),
+                {"id": book_id},
+            ).one()
+        assert stored is None, "the premise: nothing backfilled this row"
+
         from contextlib import contextmanager
 
         from sqlalchemy.orm import sessionmaker
@@ -1317,16 +1384,4 @@ class TestMigration012:
         legacy, = books.get_all_books()
         assert legacy.floor_overrides == []
         assert books.floor_overrides(legacy.book_id) == []
-
-        command.downgrade(config, "012")
-        assert "floor_overrides" in columns(), "back to the revision under test"
-        assert overrides() == {"Legacy": None}, "and still backfilled nothing"
-
-        command.downgrade(config, "011")
-        assert "floor_overrides" not in columns(), "012's downgrade left the column"
-        insert("After downgrade")
-
-        command.upgrade(config, "012")  # up -> down -> up
-        assert "floor_overrides" in columns()
-        assert overrides() == {"Legacy": None, "After downgrade": None}
         engine.dispose()
