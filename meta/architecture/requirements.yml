@@ -5103,8 +5103,15 @@ functional:
       followed by the solution grid's cells row-major, '1' filled, '0'
       empty); and book/<slug>.json per finalized book, holding its slug,
       display title and ordered puzzle keys. No bundle file carries a
-      solution grid, data from which one cell of a solution is recoverable,
-      or the picture name. The export is read-only against the database and
+      solution grid, a filled-cells encoding, or the picture name, and none
+      carries data from which a solution cell is recoverable EXCEPT the
+      book's own display title named in the same sentence above —
+      ADR-0041/R2's third exemption, owner decision 2026-10-28. Amended that
+      day because the sentence as written was false of the bundle's own
+      book/<slug>.json, which has carried the title since
+      player_bundle.BOOK_FILE_FIELDS was written: the exemption is about
+      WHERE the field may appear, and it has never been bounded in what an
+      owner can type into it. The export is read-only against the database and
       deterministic: the same input produces byte-identical files. The
       public player — plain hand-written JavaScript and CSS in the top-level
       player/ directory, hosted as static files (Vercel, ADR-0041), reusing
@@ -5232,12 +5239,23 @@ functional:
           or the assembled output — no file carries a solution grid, a
           filled-cells encoding, the picture name, or data from which any
           solution cell is recoverable (ADR-0041/R2, restating ADR-0038/R6
-          for the public surface) — verified over a seeded corpus of
+          for the public surface) — EXCEPT the exemptions R2 itself names,
+          of which the third, a book's owner-authored display title, was
+          added by owner decision 2026-10-28 and is an OPEN channel with a
+          declared residual rather than a bounded one. Read R2 for what it
+          admits: without this clause the sentence above reads false for a
+          served book title, which is a field the model deliberately
+          publishes — verified over a seeded corpus of
           generated grids, not single examples, with the minimum corpus
           size asserted in the test.
         kind: consistency
         instances: [AC-381]
-        test: tests/test_player_bundle.py::test_bundle_is_clean_of_answers
+        # 2026-10-28: was the bundle half alone. EC-048 claims BOTH export
+        # paths ("every asset the public site serves"), and the served
+        # tree's half is a different test in a different file, so one ref
+        # left half the constraint unchecked. Both strings verified to
+        # resolve to real defs before writing.
+        test: tests/test_player_bundle.py::test_bundle_is_clean_of_answers, tests/test_public_player.py::test_served_tree_is_clean_of_answers
       - id: EC-049
         statement: >-
           For any store state, exporting the player bundle issues no
