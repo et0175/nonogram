@@ -246,6 +246,29 @@ write — the thing R4 exists to forbid.
   revised to R7 before it merges, so no code cites a rule this ADR does not
   contain.
 
+- 2026-10-28: **R2 gains its third exemption — a book's own display title —
+  by owner decision, and the amendment exists because an FR cannot narrow a
+  mandatory rule.** CARD-284 shipped the title on `/b/<slug>` with the
+  justification that "EC-048's enumeration does not name it". That is true of
+  EC-048's first three items (a solution grid, a filled-cells encoding, the
+  picture name) and **false of its fourth clause** — "or data from which any
+  solution cell is recoverable" — which is R2's own wording and is not an
+  enumeration anything can fail to be named in. The card's own measurement
+  settles it: a title can carry a `MIN_SIZE` grid's base-64 in 20 of its 120
+  characters, and the round measured **100 of 100 cells** coming back. So the
+  served title was outside R2 as written, while R2's check ref stayed live and
+  green — the defect being that the next card's system-rules run would read a
+  violated mandatory rule as mechanically checked. CARD-284's review cycle 2
+  found it (F-001) with an addition mutant: changing the bundle fixture's
+  hardcoded title to a leaky one makes R2's own served-half test fail, while
+  another test in the same suite asserts that exactly that leak succeeds —
+  two tests, opposite outcomes, one mandatory rule, discriminated only by a
+  fixture constant. The owner was asked and chose to amend R2 rather than
+  withdraw the title or derive a label from the slug. **What was NOT done:**
+  the residual is not narrowed, no cap is claimed as protection, and the
+  picture name is untouched. R2 is now weaker than it read on 2026-10-27 and
+  says so in its own statement.
+
 - 2026-10-23: Created. Resolves DEC-044 (grid content hash: first 10
   lowercase hex of SHA-256 over `"{width}x{height}:"` + row-major `'1'`/`'0'`
   cells), DEC-045 (Vercel static hosting; the admin Render service never
@@ -277,8 +300,22 @@ write — the thing R4 exists to forbid.
     which any solution cell is recoverable, for any puzzle, on any export
     path. This restates ADR-0038/R6's clause for the public surface; the
     solved state is detected from clue satisfaction alone.
+    EXEMPT, by owner decision 2026-10-28, and exempt by SCOPE rather than by
+    safety: a book's own owner-authored display title, served verbatim on
+    /b/<slug> and nowhere else. It is the third such exemption beside the
+    clues and the answer key, and like them it is a named channel with a
+    DECLARED residual rather than a bounded one — 120 code points at
+    log2(1112064) bits each, 2410.18 bits, 24.1x this surface's 100-bit
+    ceiling and 2.68x the 900 cells of the largest publishable grid. So the
+    honest statement of what this exemption admits is: an owner who writes
+    the base-64 of a solution into a book's title publishes it, measured at
+    100 of 100 cells recovered, and no reachable character cap is a bound
+    (one base-64 character already carries six bits). The exemption is
+    bounded in WHERE it applies, not in WHAT it can carry. A puzzle's own
+    title — the picture name — stays forbidden outright and is not covered
+    here.
   scope: {code: ["player/**", "src/nonogram/admin/**", "tests/**"]}
-  check: {kind: test, ref: "tests/test_player_bundle.py::test_bundle_is_clean_of_answers"}   # FR-045 AC-381/EC-048 (planned, CARD-282); the served tree's half is tests/test_public_player.py::test_served_tree_is_clean_of_answers (CARD-283)
+  check: {kind: test, ref: "tests/test_player_bundle.py::test_bundle_is_clean_of_answers"}   # FR-045 AC-381/EC-048 (planned, CARD-282); the served tree's half is tests/test_public_player.py::test_served_tree_is_clean_of_answers (CARD-283). The 2026-10-28 exemption's OWN control is NOT named here on purpose: CARD-284 writes test_the_book_title_exemption_is_scoped_and_its_cost_is_measured and owes the flip at its merge. Naming it now would read as mechanically checked while it exists only on a branch.
   severity: mandatory
 - id: ADR-0041/R3
   statement: >-
