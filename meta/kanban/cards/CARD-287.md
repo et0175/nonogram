@@ -616,3 +616,145 @@ dump, `prediction.txt` (written before the arms ran), all seven timing runs with
 host cells, the 150 kB pre-gate log, the before/after captures, both node-id
 lists, and every probe script. None tracked; none under `tests/` or
 `meta/profiling/`.
+
+## [CYCLE 1 — 2026-10-28] **7.5, NOT CERTIFIED**, 3 gating — and all three are claims, not code
+
+`meta/review/20261028T032212Z-CARD-287-cycle1.yml`, reviewed `8b908a73`.
+**The code change is correct, the saving is real and the reviewer reproduced it
+in its own domain, and G-1 HOLDS — on stronger evidence than the round
+produced.** No code change is owed. The distance is three prose/artefact fixes
+and one recomputed sentence.
+
+The reviewer's own figures, interleaved A B A B with class-isolation node-id runs
+(a different selection domain from the round's whole-file runs): class **58.50 →
+32.82 s, −43.9 %**; dear test **27.98 → 15.13 s, −45.9 %**. Rival-pytest **0 at
+both ends of all four runs**, ceiling env unset, hang dump 0 bytes, board lock
+absent. **Slightly better than the round claimed.**
+
+### F-287-01 (gating) — the round reinstated a claim its own file retracts 300 lines above
+
+The committed code says `ast.get_source_segment` *"re-splits the **whole**
+source per segment"* in tracked places — **`:1441`, `:6653`, `:6748`** (the main
+assertion's own failure message) — plus the card and the commit message.
+**That is the claim CARD-292 measured as FALSE**, and this same file corrects it
+at **`:1105-1112`**: *"it is **not** a whole-source split per call, which is what
+the first draft of this comment said"* (stdlib passes
+`maxlines=end_lineno+1`). Re-measured by the reviewer over the **24 sites this
+change actually routes**: mean **81.3 %** of the module, min 43.2 %, max 96.7 %,
+and a real per-call cost of **4.903 ms** against the **6.238 ms** whole-source
+figure the round's prediction instrument used. Verified independently by the
+orchestrator. **This is G-1's own family signature — a claim to a reach that was
+not measured — in tracked code, 300 lines from its own retraction.**
+
+### F-287-02 (gating) — the headline agreement is TWO COMPENSATING ERRORS
+
+AC-2 leads with *"15.04 predicted, 15.19 measured — **1.0 %**"*. It is not an
+agreement. The predicted saving (15.21 s) was built with F-287-01's
+**over-measuring** instrument **and** subtracted from the card's **superseded
+30.25 s** baseline, while the 15.19 s came from the round's own arm A of
+**27.88 s**. Re-derived:
+
+| | | |
+|---|---|---|
+| as reported | 30.25 − 15.21 = 15.04 vs 15.19 | **1.0 %** |
+| on the round's **own arm A** | 27.88 − 15.21 = 12.67 vs 15.19 | **16.6 % OUT** |
+| bounded instrument + own arm A | 27.88 − 11.80 = 16.08 vs 15.19 | **5.9 %** |
+
+**The method survives; the number does not.** And the card's sentence *"every
+delta above uses the round's own arm A as its denominator"* is **true of the A/B
+table and false of the figure the card leads with** — which is the more serious
+half, because it is the sentence a reader would check the claim against.
+
+### F-287-03 (gating) — the capture is not "the guard's entire observable answer"
+
+The reviewer did **not** just re-run `capture.py`. It reproduced the capture with
+its **own** loader (byte-identical, 1 752 lines / 52 sections), then
+**established its sensitivity** by injecting a one-character divergence into each
+changed call site: the hot site moves **1 535** of 1 752 lines, the cold site
+**8**. So the capture reads both changed sites and is **not self-confirming** —
+the strongest thing that could have been said for it, and it is now established
+rather than assumed.
+
+**What is complete:** `len(DOOR_SHAPES) == 36`, and `DOOR_ARMS` has exactly two
+members, so the 4 arm configurations are the **complete powerset**, not a sample.
+
+**What is not:** *"ten configurations"* is **false as written** — the capture
+makes 12 real-module `_page_positions` calls, of which **4** get
+sites+vocabulary+refusals in full, **2** get refusals only, and **6** get a
+single `len()`. Omitted axes that AC-3 and AC-6 name **in their own words**: the
+**20 `PLANTED_SHAPES`** position-axis plants' sites/refusals/outcomes (the very
+inventory the third dear test runs); the **per-door leave-one-out**
+configurations, which are a genuinely different answer (**24 vs 23 sites**); the
+six callee-exemption **refusal sets** (captured as one integer each);
+`EXEMPTED_TERM` under `follow_terms=True`; the position plants' vocabularies;
+`_door_position_slots` / `_bare_literals` / `_binder_source`; and **13 of the
+class's 33** uppercase attributes.
+
+**And the reviewer closed the gap rather than filing it**: **10 242 further lines**
+of observable answer recomputed under **both** arms (file swapped, restored,
+hash-checked) — **byte-identical**. *So the equality's conclusion stands and G-1
+holds; what fails is the claim.* The bound was closeable in under a minute, which
+is precisely when this board's rule says close it rather than declare it sound.
+
+### Five minors
+
+**F-04:** `24 × 108 = 2 556` is wrong twice over — `len(sites)` is **23** for 36
+of the 108 and 24 for 72, and 24 × 108 = **2 592**. The headline 2 556 is right
+(confirmed in the reviewer's own counting domain); the gloss is not.
+**F-05:** the profiled-vs-unprofiled factor of ~2.4 goes unremarked.
+**F-06:** no saved mutant-census log.
+**F-07:** the closeable half of the granularity bound (below).
+**F-08:** *"two analysis call sites"* — there are **three**.
+
+### What the review verified rather than took
+
+- **M1's declared survival is TRUE, not merely humble**, and verified a *second
+  way* rather than by re-running it: by AST, the Attribute-based derivation
+  returns a list **identical** to the Call-based one over this file, and the set
+  of `*.get_source_segment` Attribute nodes that are **not** a Call's `func` is
+  **empty**. The **corrected** docstring is also true.
+- **S4 is a real plant, not a phantom** — anchor occurs once, lands in
+  `_attribute_callee_laundering` (module scope, 5457–5494), a genuine third
+  scope — and survives correctly.
+- **The declared alias bound is true** (`f = ast.get_source_segment; f(...)` →
+  `[]`) and is stated **in the code**.
+- **The deleted assertion is gone** with its comment, and **nothing else in the
+  test shares its property**: the reviewer built two new mutants — a
+  self-confirming derivation (killed by the **positive** control only) and a
+  mention-matching derivation (killed by the **negative** control only) — so both
+  remaining controls are load-bearing.
+- **AC-4 "not engaged" is HONEST**, and the inherited staleness obligation is
+  discharged **by construction**, verified: the memo's key **is** the analysed
+  source text (`_SOURCE_LINE_CACHE.get(source)`), so a changed source is a
+  different key and no stale answer is reachable. The card should say *"keyed on
+  the analysed text, which is why no new control is owed"* rather than *"carries
+  its own staleness control"* — but the verdict is right.
+- **AC-6** 832 / 770 / 0 and 770 / 517 / 204 / 202 / 0 / 0 — **all re-derived off
+  the module**, correct, not stale. **AC-7** 132 → 133 re-derived by
+  collect-only + `comm`. **Baseline byte-identity** verified at three revisions,
+  so the 5–8 % gap really is host, not tree.
+- **G-1 through G-7 all HELD**, G-2/G-4 mechanically from git, **G-5 run
+  explicitly** (619 passed, 0 skipped, exit 0), and **G-7** confirmed: CARD-303
+  exists on main and the card points at it by name.
+
+### The granularity trade — sound as to the authority, half-closeable as to the diagnostic
+
+Keeping the authority a **scope set** is correct: a per-call multiset would pin
+the four legitimate stdlib calls in the control class and red on unrelated edits
+there. But *"the guard says that a path regressed, not which"* is a property of
+the **message**, not the authority — `_stdlib_segment_scopes` already visits each
+node, so returning `(scope, lineno)` for the message while still comparing
+`set(scopes)` distinguishes S1 from S2 and reds on nothing.
+
+### Could not establish, in those words
+
+**When** `prediction.txt` was written (its content matches the card exactly); the
+suite-wide figure (AC-8, the merge gate's); whether the three per-test cProfile
+readings reproduce (not retaken — not load-bearing for the remedy); whether the
+residual 32.7 s is reducible (**CARD-303's**).
+
+### Procedure
+
+Full suite **not** run; `meta/kanban/.full-suite.lock` never taken and absent;
+every measurement under `-o addopts=''` with skips attributed by `-rs`; worktree
+restored and hash-checked to `a2b950ca` with `git status --porcelain` empty.

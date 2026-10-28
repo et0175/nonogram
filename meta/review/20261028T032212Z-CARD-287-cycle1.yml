@@ -1,0 +1,626 @@
+card: CARD-287
+cycle: 1
+max_cycles: 3
+threshold: 8
+score: 7.5
+verdict: >-
+  NOT CERTIFIED (7.5 against a threshold of 8). The change is correct and the
+  saving is real and reproduced in a second domain; G-1 holds, and holds on
+  evidence this review extended rather than weakened. What fails is three
+  claims, not the code: (1) the committed code, its assertion message, the card
+  and the commit message all state a mechanism CARD-292 measured as false and
+  recorded as its own corrected first draft; (2) AC-2's headline "prediction
+  against measurement, 1.0 %" is produced by dividing a saving predicted with
+  that same false mechanism's instrument out of the card's SUPERSEDED baseline
+  while comparing it to a measurement taken against the round's own arm A;
+  (3) the 1 752-line capture is not "the guard's entire observable answer" --
+  this review re-derived 10 242 further lines of it, on axes AC-3 and AC-6 name
+  by their own words. No code change is owed. Three prose/artefact fixes and one
+  recomputed sentence close the distance; the equality's substantive conclusion
+  is already confirmed, because this review closed the gap itself and every
+  omitted answer is byte-identical across the arms.
+reviewed:
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-287
+  branch: card/287-the-door-axis-guard-costs-a-quarter-of-the-suite
+  head: 8b908a73
+  base: 4f160e62
+  main_at_review: 6cfac7f3
+  diff: tests/test_book_export_interior_cover.py, +141/-2
+  interpreter: /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python
+  full_suite_run: false
+  full_suite_lock_taken: false
+  hang_ceiling_env_set_by_reviewer: nowhere -- left unset in every run below
+  worktree_restored: true
+  worktree_restored_evidence: >-
+    git hash-object tests/test_book_export_interior_cover.py ->
+    a2b950ca6f066c5e3e11e1c740e51efe5707215e after every probe; git status
+    --porcelain empty.
+
+findings:
+
+  - id: F-287-01
+    severity: major
+    title: >-
+      The committed code, its assertion message, the card and the commit message
+      all say the stdlib splitter "re-splits the whole source per segment" -- the
+      exact claim CARD-292 measured as FALSE and recorded as its own corrected
+      first draft, 300 lines above in the same file
+    file: tests/test_book_export_interior_cover.py
+    line: 1441
+    gating: true
+    confidence: high
+    detail: >-
+      CPython 3.14 passes maxlines=end_lineno+1 and ast._splitlines_no_ff breaks
+      out of its finditer there, so each call re-splits a PREFIX. The same file's
+      _SOURCE_LINE_CACHE comment (lines 1100-1116) states this and names "whole"
+      as its own first draft's error; meta/profiling/card-292-per-test-ceiling.md
+      lines 138-142 say "The first draft said
+      'whole' here and at two places in ...". CARD-287 reintroduces it in four
+      tracked places -- the _counting_expressions comment (line 1441), the
+      STDLIB_SEGMENT_SCOPES comment (line 6655), the new test's docstring (line
+      6709) and the main assertion's own failure message (line 6748) -- plus the
+      card and the commit message. G-1's family signature is "claiming a reach it
+      has not measured"; this is that defect, in tracked code, against a
+      correction the tree already carries.
+    evidence: |
+      $ sed -n '349,368p' /Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/ast.py
+          lines = _splitlines_no_ff(source, maxlines=end_lineno+1)
+
+      $ grep -n "whole" tests/test_book_export_interior_cover.py | sed -n '1,8p'
+      1106:#: ``ast.get_source_segment`` this replaces re-splits its ``source`` with a
+      1116:#: size for a sweep whose call count grows with it, at half the constant a
+      1441:            # ``ast.get_source_segment``, which re-splits the whole 389 k
+      6655:            #: re-split of the whole source per segment, which is the 14.37 s
+      6709:        ``ast.get_source_segment`` re-splits its whole ``source`` on every
+      6748:            "ast.get_source_segment, which re-splits the whole source per "
+
+      $ grep -n "not.*whole-source split per call" tests/test_book_export_interior_cover.py
+      1107:#: regex from the start **up to the node's own end line** on every call
+      1108:#: (``maxlines=end_lineno+1``, and ``ast._splitlines_no_ff`` breaks out of
+      1109:#: its ``finditer`` there -- CPython 3.14.3; it is **not** a whole-source
+      1110:#: split per call, which is what the first draft of this comment said).
+
+      $ grep -n "first draft said" meta/profiling/card-292-per-test-ceiling.md
+      142:first draft said "whole" here and at two places in
+
+      Reviewer measurement, over the 24 sites this change actually routes
+      (venv python -I, unprofiled perf_counter, main checkout, module blob
+      5776e330 identical at 2fddaccc/4f160e62/8b908a73):
+      planted: 389186 chars, 7334 lines
+      mean end-line fraction over the 24 sites: 81.3%  min 43.2%  max 96.7%
+      stdlib split, BOUNDED at each site's end line : 4.903 ms/call
+      stdlib split, WHOLE source (maxlines=None)    : 5.936 ms/call
+      ratio bounded/whole = 0.826
+    remedy: >-
+      Replace "whole" with the measured bound in the four tracked places, the
+      card and the commit message. It is one word in each, and the tree already
+      holds the sentence to copy.
+
+  - id: F-287-02
+    severity: major
+    title: >-
+      AC-2's headline "dear test 15.04 predicted, 15.19 measured -- 1.0 %" is not
+      an agreement; it is two compensating errors. The prediction's saving was
+      built with the whole-source instrument of F-287-01 and subtracted from the
+      card's SUPERSEDED 30.25 s baseline, while the 15.19 s it is compared to was
+      measured against the round's own arm A of 27.88 s
+    file: meta/kanban/cards/CARD-287.md
+    line: 503
+    gating: true
+    confidence: high
+    detail: >-
+      prediction.txt computes saving = 2556 x 6.238 ms - 108 x 6.779 ms = 15.21 s
+      and then "predicted new cost 30.25 - 15.21 = 15.04". 30.25 s is the figure
+      the card's own REWRITTEN section records, not the figure the round measured:
+      arm A measured the dear test at 27.88 s. Against the round's own arm A the
+      prediction is 27.88 - 15.21 = 12.67 s versus 15.19 s measured -- 16.6 %
+      out, not 1.0 %. The saving was over-predicted by 2.52 s (whole-source
+      instrument) and the baseline over-stated by 2.37 s (host gap the card
+      itself declares), and the two cancel. The card's sentence "Every delta
+      above uses the round's own arm A as its denominator, so no percentage is
+      inflated by that gap" is true of the A/B table and false of the figure the
+      card leads with. This is CARD-292's headline defect in a new dress: a
+      numerator and a denominator from two different domains.
+    evidence: |
+      $ grep -n "predicted new cost  30.25" ~/Documents/nonogram-reviews/CARD-287/prediction.txt
+            predicted new cost  30.25 - 15.21 = 15.04 s   (-50.3 %)
+
+      Reviewer arithmetic over the round's own artefacts (sum of pytest
+      --durations per node id, run_A*/run_B*.txt):
+      run_A1: file_sum=104.58 class=58.29 dear=27.96
+      run_A2: file_sum=100.07 class=57.70 dear=27.88
+      run_A3: file_sum=100.19 class=57.42 dear=27.43
+      run_B1: file_sum=70.68  class=32.98 dear=15.19
+      -> arm A median dear = 27.88 s; predicted new cost on that baseline
+         = 27.88 - 15.21 = 12.67 s; measured 15.19 s; error 16.6 %.
+
+      With the honest bounded-split instrument of F-287-01 AND the round's own
+      arm A, the same method lands well:
+      predicted saving with BOUNDED cost: 11.80 s
+      predicted saving with WHOLE cost  : 14.44 s
+      MEASURED saving (27.88 - 15.19)   : 12.69 s
+      -> 27.88 - 11.80 = 16.08 s predicted vs 15.19 s measured = 5.9 %.
+    remedy: >-
+      Recompute the agreement against the round's own arm A, with the bounded
+      instrument, and state 5.9 % instead of 1.0 %. The method survives the
+      correction; only the number does not.
+
+  - id: F-287-03
+    severity: major
+    title: >-
+      The capture is not "the guard's entire observable answer". It omits axes
+      AC-3 and AC-6 name by their own words -- among them the 20 PLANTED_SHAPES
+      position-axis plants' verdicts, which are exactly the inventory the third
+      dear test runs, and the per-door leave-one-out configurations, which
+      demonstrably differ (23 sites against 24)
+    file: /Users/omelnikova/Documents/nonogram-reviews/CARD-287/capture.py
+    line: 1
+    gating: true
+    confidence: high
+    detail: >-
+      capture.py reads _page_positions under 12 real-module invocations (full
+      sites+vocabulary+refusals under 4; refusals only under 2; a single len()
+      under 6), the 36x4 door-shape quadruples, three single position-axis
+      sources, _counting_expressions, and every UPPERCASE class attribute whose
+      value happens to be a tuple. Not read, and each one an observable answer
+      a test in the class asserts on - (a) the 20 PLANTED_SHAPES plants' sites,
+      refusals and outcome tuples (class line 3266); (b) _page_positions(doors=
+      rest) per GEOMETRY_DOORS member (class line 3227), which returns 24 and 23
+      sites respectively, so it is a distinct answer and not a duplicate; (c) the
+      six callee_exemptions configurations' refusal SETS, captured as one integer
+      each; (d) EXEMPTED_TERM under follow_terms=True (class line 3327); (e) the
+      position plants' vocabularies (class lines 3299-3300, sites only in the
+      capture); (f) _door_position_slots, _bare_literals, _binder_source; (g) 13
+      of the class's 33 uppercase attributes (the int/str/dict ones, including
+      PLANTED_LITERAL, DERIVED_INSTEAD, EXEMPTED_TERM, SILENT_WITHOUT_ONE_ARM,
+      BINDERS_READ, BINDER_BINDINGS, POSITION_SITE_COUNT and both resolution
+      depths). The card's "AC-6's sites/vocabulary/refusals in full under ten
+      configurations" is additionally false as written - four configurations get
+      all three in full. THE CONCLUSION SURVIVES - this review recomputed all of
+      (a)-(g) under both arms and they are byte-identical, so G-1 holds. What
+      fails is the size of the claim, and the board's rule that a closeable bound
+      is closed rather than declared sound: the gap closed in under a minute of
+      compute.
+    evidence: |
+      $ grep -c '^### ' ~/Documents/nonogram-reviews/CARD-287/before.txt
+      52
+      $ grep -c "PLANTED_SHAPES full answers\|_door_position_slots\|_binder_source" ~/Documents/nonogram-reviews/CARD-287/after2.txt
+      0
+
+      Reviewer, doors axis (venv python -I, main checkout):
+      GEOMETRY_DOORS: ('page_spec', 'book_page_spec')
+        doors without 'page_spec': sites=24 vocab=6 refusals=0
+        doors without 'book_page_spec': sites=23 vocab=6 refusals=0
+
+      Reviewer, the omitted answers recomputed under BOTH arms (file swapped
+      between the committed blob a2b950ca and arm A 8741bd33, restored and
+      hash-checked):
+      == arm B (committed) ==  lines: 1325  sha256: a09e2b8ec70cdefec9edb26e
+      == arm A (8741bd33)  ==  lines: 1325  sha256: a09e2b8ec70cdefec9edb26e
+      UNCAPTURED ANSWERS IDENTICAL across arms
+      == arm B ==  lines: 8919 sha256: db836e8faee3af712d0bad2f
+      == arm A ==  lines: 8919 sha256: db836e8faee3af712d0bad2f
+      IDENTICAL across arms
+      total uncaptured lines I recomputed: 10242 vs the round's captured 1752
+    remedy: >-
+      Extend capture.py with (a)-(g) -- it is about twenty lines -- re-run it on
+      both arms, and replace "the guard's entire observable answer" and "in full
+      under ten configurations" with what the artefact does. The equality already
+      holds over the extended set; this review's two gap files are the evidence.
+
+  - id: F-287-04
+    severity: minor
+    title: >-
+      "24 segments x 108 analyses = 2 556 splits" does not multiply out
+      (24 x 108 = 2 592), and 24 is not constant: len(sites) is 23 for 36 of the
+      108 analyses and 24 for 72
+    file: meta/kanban/cards/CARD-287.md
+    line: 466
+    gating: false
+    confidence: high
+    detail: >-
+      The load-bearing figure, 2 556, is correct and this review confirmed it in
+      a second domain. Only the gloss is wrong. prediction.txt states it
+      correctly as sum(len(sites)) over the 108 analyses; the card turned that
+      into a product that is false in both factors' implication.
+    evidence: |
+      Reviewer (venv python -I, main checkout = arm A blob 8741bd33):
+      analyses: 108  sum(len(sites)) = 2556
+      len(sites) distribution: {23: 36, 24: 72}
+      24 * 108 = 2592
+
+  - id: F-287-05
+    severity: minor
+    title: >-
+      AC-1's 21.0 % profiled share and the 45.5 % saving it predicts are two
+      different numbers for the same thing, and the card never says so
+    file: meta/kanban/cards/CARD-287.md
+    line: 424
+    gating: false
+    confidence: high
+    detail: >-
+      cProfile instruments 23.2 M ast.walk calls into the denominator while the
+      split is one instrumented call with heavy uninstrumented interior work, so
+      the profiled share (21.0 %) understates the unprofiled share (the measured
+      saving is 45.5 % of the test) by about a factor of two. Both domains ARE
+      labelled, in the card and in the new test's docstring, and the unprofiled
+      domain is the one that carried the prediction -- so this is an observation,
+      not a defect. It is recorded because the conclusion AC-1 draws is the
+      interesting part and it is ROBUST in either domain: str.replace over the
+      389 k string is a single C call at 0.013 s over 216 calls, which no
+      profiler inflates, so "the plants are not the bill" stands whichever
+      instrument is used.
+    evidence: |
+      $ head -4 ~/Documents/nonogram-reviews/CARD-287/ac1_A.txt
+      UNPROFILED wall clock (1 reading): 28.81 s
+      PROFILED   wall clock (1 reading): 68.35 s   (profiler overhead x2.37)
+      PROFILED   sum(tottime) = 68.35 s
+      $ grep "ast.walk\|str.replace" ~/Documents/nonogram-reviews/CARD-287/ac1_A.txt | head -2
+        str.replace                                      216     0.013   0.02%      0.013
+        ast.walk                                    23155457     5.884   8.61%     34.800
+
+  - id: F-287-06
+    severity: minor
+    title: >-
+      The mutant census has no saved output; only mutate.py is kept, so the
+      card's eight-row table can be re-run but not checked against a log
+    file: /Users/omelnikova/Documents/nonogram-reviews/CARD-287/mutate.py
+    line: 1
+    gating: false
+    confidence: high
+    detail: >-
+      Every other load-bearing instrument in this round kept its output
+      (ac1_*.txt, run_*.txt, before/after, nodeids_*, pregate.txt). The kill
+      instrument did not. This review re-fired three of the eight rows plus two
+      of its own, so the census is established; the point is that the artefact
+      set is inconsistent with itself.
+    evidence: |
+      $ ls ~/Documents/nonogram-reviews/CARD-287/ | grep -i mut
+      mutate.py
+
+  - id: F-287-07
+    severity: minor
+    title: >-
+      The call-site-granularity bound is partly closeable at zero cost: the
+      failure message can carry each offending call's lineno without changing
+      what the assertion pins
+    file: tests/test_book_export_interior_cover.py
+    line: 6745
+    gating: false
+    confidence: high
+    detail: >-
+      The round's trade is SOUND as to the authority -- spelling it as a scope
+      set is what keeps the four legitimate stdlib calls in the control class off
+      the assertion, and a per-call multiset would indeed red on unrelated edits
+      there. But the declared consequence ("the guard says that an analysis path
+      regressed, not which") is a property of the DIAGNOSTIC, not of the
+      authority. _stdlib_segment_scopes already visits each node; returning
+      (scope, node.lineno) pairs for the message while still comparing
+      set(scopes) would turn S1 and S2 into distinguishable failures and reds on
+      nothing. The board's rule is that a closeable bound is closed.
+    evidence: |
+      Reviewer, S1 re-fired (hot call site reverted to the stdlib):
+      E  AssertionError: something outside this file's equality controls calls
+         ast.get_source_segment, which re-splits the whole source per segment:
+         ['TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage']
+      -- S2 (cold call site) produces the identical message, because both sites
+      live in that one class.
+
+  - id: F-287-08
+    severity: minor
+    title: >-
+      "CARD-292 ... routed one of this file's two analysis call sites" miscounts
+      the sites: there are three in the analysis paths
+    file: meta/kanban/cards/CARD-287.md
+    line: 462
+    gating: false
+    confidence: high
+    detail: >-
+      _source_segment is called from the segment() closure inside
+      _page_positions (line 1750, CARD-292's), from _page_positions' tail (line
+      2927, this card's hot site) and from _counting_expressions (line 1449,
+      this card's cold site). The card's narrative reads as two, then names
+      three things.
+    evidence: |
+      $ grep -n "_source_segment(source" tests/test_book_export_interior_cover.py
+      1449:            found.append((outermost.lineno, outermost, _source_segment(source, outermost)))
+      1750:            return "" if node is None else (_source_segment(source, node) or "")
+      2927:                    _source_segment(source, expr),
+
+acceptance_criteria:
+  AC-1:
+    verdict: MET, with F-287-05 recorded
+    rederived: partly
+    note: >-
+      Verified from ac1_profile.py's construction that numerator and denominator
+      come from one cProfile object -- CARD-292's defect is avoided by
+      construction, as claimed. ac1_callers.txt independently attributes 2 556
+      get_source_segment calls to _page_positions. The narrowed question is
+      answered NO on evidence robust in both domains (F-287-05). Carried
+      forward: the three per-test profiled runs themselves, which I did not
+      retake; the figures they feed are not load-bearing for the remedy.
+  AC-2:
+    verdict: NOT MET as stated -- F-287-02 gating
+    rederived: yes
+    note: >-
+      The A/B measurement itself is sound and I reproduced it in my own domain
+      (class-isolation node-id runs, interleaved A B A B, two reps per arm):
+      class 58.50 -> 32.82 s (-43.9 %), dear test 27.98 -> 15.13 s (-45.9 %),
+      against the card's 57.70 -> 32.98 (-42.8 %) and 27.88 -> 15.19 (-45.5 %).
+      prediction.txt exists and its content matches what the card reports; I
+      CANNOT ESTABLISH when it was written and say so. What fails is the
+      prediction-versus-measurement agreement figure, not the measurement.
+  AC-3:
+    verdict: MET on substance, NOT MET as claimed -- F-287-03 gating
+    rederived: yes
+    note: >-
+      The 144 quadruples are 36 DOOR_SHAPES x 4 door_arms configurations, and 4
+      IS the complete powerset of the two-element DOOR_ARMS, derived from the
+      module. But "every plant's outcome" excludes the 20 PLANTED_SHAPES
+      position-axis plants. I recomputed those under both arms: identical.
+  AC-4:
+    verdict: NOT ENGAGED -- honest
+    rederived: yes
+    note: >-
+      No cache was added; the change routes two call sites into CARD-292's
+      _SOURCE_LINE_CACHE. The staleness obligation routing inherits is
+      discharged BY CONSTRUCTION and I verified it: the memo's key IS the
+      analysed source text (_SOURCE_LINE_CACHE.get(source)), so a changed source
+      is a different key and no stale answer is reachable; and the equivalence
+      is pinned by TestSourceSegment_TheMemoIsTheStdlibAnswer over every node of
+      the real module and of a planted one. Writing an invented cache-key test
+      for a cache that does not exist would have been worse. The card should say
+      "keyed on the analysed text, which is why no new control is owed" rather
+      than "carrying its own staleness control", but the verdict is honest.
+  AC-5:
+    verdict: MET
+    rederived: yes
+    note: >-
+      36 DOOR_SHAPES and 36 DOOR_SHAPE_LABELS derived from the module; both
+      tables and 18 others are in the capture as full equalities. 13 of the 33
+      uppercase attributes are not (F-287-03), all of them source literals that
+      a two-expression change cannot move; I recomputed them under both arms
+      anyway and they are identical.
+  AC-6:
+    verdict: MET -- re-derived
+    rederived: yes
+    note: >-
+      Independently off the module in the main checkout (which carries arm A's
+      blob 8741bd33 and the identical module blob 5776e330): 832 ast.Call nodes,
+      770 refusals with callee_exemptions=(), 0 under the shipped default, and
+      the declared sequence 770 / 517 / 204 / 202 / 0 / 0 reproduced step for
+      step against CALLEE_EXEMPTION_COST. The rewritten card's "770 of 832" is
+      correct as written and is NOT stale. The capture's coverage of this AC is
+      narrower than the card says (F-287-03).
+  AC-7:
+    verdict: MET -- re-derived
+    rederived: yes
+    note: >-
+      My own collect-only on each arm, sorted, comm'd: 132 -> 133, nothing
+      removed, exactly one addition
+      (TestSourceSegment_TheMemoIsTheStdlibAnswer::test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter),
+      at 0.04-0.08 s.
+  AC-8:
+    verdict: MET as a labelled projection
+    rederived: no -- forbidden here
+    note: >-
+      1240.8 s / 5.7 % / 2.66 % appear in exactly two places on the card and
+      both are explicitly labelled PROJECTION / projection; no prose reads them
+      as measured. The merge gate owes the measured suite figure.
+
+guardrails:
+  G-1:
+    verdict: HELD -- on stronger evidence than the round produced
+    rederived: yes
+    note: >-
+      Nothing was bought by guarding less: no plant removed, no walk narrowed,
+      no depth shortened, no exemption widened (the whole diff is two expression
+      substitutions plus an added test). The capture is byte-identical (I
+      reproduced after2.txt byte-for-byte with my own loader) AND I established
+      independently that it is SENSITIVE to both changed call sites, so it is
+      not self-confirming. Its completeness claim is overstated (F-287-03) but
+      the gap closes to the same answer.
+  G-2:
+    verdict: HELD -- verified mechanically from git
+    rederived: yes
+    note: >-
+      git diff --stat 4f160e62..8b908a73 -- src/ pyproject.toml is empty, and
+      the analysed module's blob is 5776e330 at 2fddaccc, 4f160e62 AND 8b908a73.
+  G-3:
+    verdict: HELD
+    rederived: yes
+    note: >-
+      No marker, skipif or env gate added; pytest.mark occurrences 18 in both
+      arms; the class stayed in its file. The one added test runs in the default
+      selection.
+  G-4:
+    verdict: HELD -- verified mechanically from git
+    rederived: yes
+    note: >-
+      git diff --name-status 2fddaccc..8b908a73 -- meta/profiling tests shows
+      exactly one line, M on the changed test file: no file added or removed
+      under either path, so the frozen render set cannot have moved. All eight
+      RENDER_API_PATTERN idioms keep identical occurrence counts across the arms
+      (interior( 14/14, interior_stream 7/7, puzzle_pages 7/7, export_book 1/1,
+      create_guide_page 8/8, solved_puzzle_page 0/0, render_pages 0/0,
+      proof_pages 0/0). tests/test_suite_profile.py run explicitly, green.
+  G-5:
+    verdict: HELD -- run explicitly
+    rederived: yes
+    note: >-
+      tests/test_browser_fixture_scope.py run explicitly by this review together
+      with test_suite_profile.py, test_guard_integrity.py and
+      test_collected_names.py: 619 passed, 0 skipped, exit 0, 99.50 s,
+      rival-pytest 0 at both ends, hang dump 0 bytes, board lock absent.
+  G-6:
+    verdict: HELD
+    rederived: yes
+    note: pyproject.toml zero diff; only stdlib ast / pathlib used in the addition.
+  G-7:
+    verdict: HELD
+    rederived: yes
+    note: >-
+      The super-linear walk residue is handed to CARD-303, which exists on main
+      (meta/kanban/cards/CARD-303.md, created 2026-10-28) and which the card
+      points at by name. The alias family is left to the big class and declared
+      in the code. The 8-entry memo cap is declared and left alone with a
+      reason. Nothing out-of-scope was touched.
+
+mutation_census:
+  policy: >-
+    Cycle 1, so no previous fix round to re-fire. Per the owner-approved policy
+    the budget went to independently verifying the DECLARED rows, one node id at
+    a time, per assertion, restoring with a git hash-object check after each.
+  reviewer_runs:
+    - mutant: S1 (hot call site reverted to the stdlib)
+      expected: killed
+      observed: killed by the two-sided set equality, naming the guard class
+    - mutant: S4 (a bare MENTION planted in a third scope)
+      expected: survive
+      observed: >-
+        SURVIVED. It is a REAL planted mutant, not one that was never planted:
+        the anchor occurs exactly once in the base and the plant goes into
+        _attribute_callee_laundering (module-level function, lines 5457-5494),
+        a genuine third scope the comments never name. A real negative control.
+    - mutant: M1 (the ast.Call requirement -> a bare Attribute match)
+      expected: survive, declared
+      observed: >-
+        SURVIVED, and the DECLARATION IS TRUE rather than merely humble. Checked
+        independently by AST rather than by re-running the mutant: the
+        Attribute-based derivation returns a list IDENTICAL to the Call-based
+        one over this file, and the set of *.get_source_segment Attribute nodes
+        that are NOT the func of a Call is EMPTY. The corrected docstring text
+        is also true: what excludes a mention is the attribute-name match, since
+        the mention this file contains spells the name as a string Constant.
+    - mutant: R1 (reviewer's own) -- the derivation replaced by a SELF-CONFIRMING
+        one that returns STDLIB_SEGMENT_SCOPES verbatim
+      expected: must be killed by something
+      observed: >-
+        Killed by the POSITIVE CONTROL and by nothing else -- the main set
+        equality passes it. This is what proves the positive control is NOT
+        redundant the way the deleted non-empty assertion was.
+    - mutant: R2 (reviewer's own) -- the derivation widened to match a bare
+        mention (an exact-string Constant) as well as a call
+      expected: must be killed by something
+      observed: >-
+        Killed by the NEGATIVE CONTROL and by nothing else -- the main set
+        equality and the positive control both pass it. This is what proves the
+        negative control is load-bearing.
+  declared_negatives:
+    deleted_assertion: >-
+      VERIFIED GONE and replaced by a comment that states why ("CARD-287 wrote
+      one and its deletion mutant SURVIVED, because an empty derivation already
+      fails this equality and so does an authority row nothing calls from any
+      more"). Nothing else in the added test has the same property: R1 and R2
+      above exhibit, for each of the two remaining control assertions, a mutant
+      that ONLY that assertion catches.
+    declared_bound: >-
+      VERIFIED TRUE and VERIFIED STATED IN THE CODE (the **DECLARED BOUND**
+      paragraph of _stdlib_segment_scopes' docstring, not only on the card). An
+      alias form "f = ast.get_source_segment; f(source, node)" returns [] from
+      the derivation.
+    first_docstring_false_claim: >-
+      The corrected text is now TRUE. It says the exclusion of a mention is the
+      ast.Attribute match and not the ast.Call one, and that matching bare
+      Attribute nodes returns the same list because every *.get_source_segment
+      attribute here is also called -- both verified above.
+
+figures_rederived:
+  - figure: class 57.70 -> 32.98 s (-42.8 %)
+    domain: >-
+      Reviewer's own domain: pytest on the CLASS node id in isolation rather
+      than on the whole file, interleaved A B A B, two reps per arm, host cells
+      at both ends of all four.
+    result: >-
+      arm A 58.65 / 58.34 s, arm B 32.90 / 32.73 s -> 58.50 -> 32.82 s, -43.9 %.
+      Confirms the card to 1.4 % on arm A and 0.5 % on arm B.
+    host: >-
+      rival-pytest 0 at both ends of all four runs
+      (pgrep -f 'MacOS/Python.*pytest' | wc -l); load 5.97/4.95/4.24/4.76 start,
+      4.95/5.37/5.11/18.06 end; ceiling env left unset; hang dump 0 bytes;
+      board lock absent; 23 passed in each run, exit 0.
+  - figure: dear test 27.88 -> 15.19 s (-45.5 %)
+    domain: same class-isolation runs
+    result: arm A 27.89 / 28.07, arm B 15.03 / 15.22 -> 27.98 -> 15.13, -45.9 %
+  - figure: the other two dear tests
+    domain: same
+    result: >-
+      every_door_shape 10.15 -> 5.93 (card 10.17 -> 5.91);
+      every_planted_position 5.90 -> 3.29 (card 5.76 -> 3.24)
+  - figure: 2 556 splits
+    domain: >-
+      Reviewer's own sum(len(sites)) over the dear test's 108 analyses, computed
+      in the main checkout (arm A blob) -- the counting domain, independent of
+      the round's cProfile ncalls.
+    result: >-
+      2 556 confirmed. The card's gloss "24 segments x 108 analyses" does not
+      multiply out and 24 is not constant (F-287-04).
+  - figure: AC-6's 832 / 770 / 0 and 770 / 517 / 204 / 202 / 0 / 0
+    domain: >-
+      Reviewer's own ast walk of the module plus _page_positions under each
+      exemption configuration, in the main checkout.
+    result: all five reproduced exactly; not stale
+  - figure: AC-7's 132 -> 133
+    domain: Reviewer's own collect-only per arm, sorted, set difference by comm
+    result: reproduced; one addition, nothing removed
+  - figure: the baseline gap (5.2 / 6.4 / 7.8 % low)
+    domain: git hash-object
+    result: >-
+      Byte-identity VERIFIED: the test file is blob 8741bd33 at both 2fddaccc
+      and 4f160e62; the analysed module is 5776e330 at 2fddaccc, 4f160e62 and
+      8b908a73; tests/conftest.py and tests/hang_guard.py are identical at
+      2fddaccc and 8b908a73. So the gap really is host, not tree, and the three
+      percentages check out (5.18 / 6.36 / 7.83). The claim that every delta
+      uses the round's own arm A as denominator holds for the A/B table and
+      FAILS for the headline agreement figure -- F-287-02.
+  - figure: the committed blob's own run (70.84 / 32.70 / 15.21)
+    domain: >-
+      Reviewer recomputation of the round's run_Bcommitted.txt duration sums,
+      plus the blob hash.
+    result: >-
+      70.84 / 32.70 / 15.21 reproduced from the artefact; blob a2b950ca is the
+      committed one and is what the worktree holds. Carried forward rather than
+      retaken as a fourth whole-file run -- my own class-isolation arm B
+      (32.82) agrees with it to 0.4 %.
+  - figure: the capture's byte-for-byte equality
+    domain: >-
+      Reviewer re-ran the capture with its own loader against the committed
+      blob, and then injected a deliberate divergence into each changed call
+      site -- a second domain, because it tests the instrument's sensitivity
+      rather than its repeatability.
+    result: >-
+      My capture is byte-identical to the round's after2.txt (1 752 lines). The
+      injected divergence at the HOT site moves 1 535 of those lines and at the
+      COLD site 8, so the capture DOES read the output of both changed call
+      sites and is not self-confirming.
+  - figure: prediction.txt
+    domain: file read
+    result: >-
+      The file exists and its content matches what the card reports (dear test
+      15.04 s, class 36 +/- 4 s, file 76 +/- 6 s). I CANNOT VERIFY WHEN IT WAS
+      WRITTEN and say so.
+
+could_not_establish:
+  - >-
+    WHEN prediction.txt was written. Its content matches the card and its
+    instrument is a different domain from the cProfile that found the hotspot,
+    but "before the arms ran" is a claim about ordering that no artefact I can
+    read carries. I cannot establish it.
+  - >-
+    The suite-wide figure. AC-8 is a projection and the full suite is forbidden
+    to this station; the merge gate owes the measured number. I did not run it
+    and did not take the board's lock.
+  - >-
+    Whether the three per-test cProfile readings (28.81 / 10.23 / 5.70 s
+    unprofiled, 68.35 / 26.32 / 14.59 s profiled) are reproducible. I did not
+    retake them; they are not load-bearing for the remedy, whose selection is
+    carried by the counting instrument and the A/B measurement.
+  - >-
+    Whether the residual 32.7 s is reducible. Out of scope here and owned by
+    CARD-303.
+
+merge_gate_still_owes:
+  - The measured suite figure that closes AC-8 (projected ~1240.8 s).
+  - >-
+    Confirmation that the corrected mechanism sentence (F-287-01) did not get
+    re-copied into the commit message when the commit is amended or rewritten.
