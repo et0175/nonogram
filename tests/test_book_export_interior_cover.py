@@ -1435,7 +1435,29 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
             outermost = node
             while isinstance(parent.get(outermost), ast.expr):
                 outermost = parent[outermost]
-            found.append((outermost.lineno, outermost, ast.get_source_segment(source, outermost)))
+            # Through the memo, not the stdlib: CARD-292 memoised the line
+            # split but left this call site and the one at
+            # :meth:`_page_positions`' own tail reaching for
+            # ``ast.get_source_segment``, which re-splits a BOUNDED PREFIX
+            # of its ``source`` -- from the start up to the node's own end
+            # line (``maxlines=end_lineno+1``) -- once PER SEGMENT. Not the
+            # whole source: that is what this comment said for one commit
+            # (review cycle 1, F-287-01), and the _SOURCE_LINE_CACHE note
+            # 300 lines above already retracts it. What the prefix measures,
+            # over the 2,556 splits the tail site makes in
+            # test_each_door_axis_arm_catches_a_shape_the_other_misses:
+            # mean 81.1 % of the 7,334-line planted module, min 43.1 %,
+            # max 96.7 % (per-call end_lineno captured off that site, this
+            # worktree, CPython 3.14). A prefix averaging four fifths of the
+            # module, 2,556 times, is still the bill -- 4.730 ms bounded
+            # against 5.999 ms unbounded, perf_counter, unprofiled -- and
+            # CARD-287 measured it at 14.37 s of the 68.35 s cProfile
+            # reading of that test.
+            # The substitution is an equivalence claim, carried by
+            # TestSourceSegment_TheMemoIsTheStdlibAnswer, and held to the
+            # two call sites that remain by
+            # test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter.
+            found.append((outermost.lineno, outermost, _source_segment(source, outermost)))
         return found
 
     def test_every_guide_counting_expression_counts_the_title_page(self):
@@ -2910,7 +2932,10 @@ class TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage:
                     expr.lineno,
                     kind,
                     name,
-                    ast.get_source_segment(source, expr),
+                    # Through the memo, not the stdlib -- the dear call site.
+                    # See the note at _counting_expressions for the
+                    # measurement and for the control that pins it.
+                    _source_segment(source, expr),
                     sorted(literals, key=repr),
                 )
             )
@@ -6631,4 +6656,184 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
         assert asking == [], (
             "something in this file passes `padded=` to a callee that is "
             f"neither the stdlib nor _source_segment's own refusal: {asking}"
+        )
+
+    #: The one scope in this file allowed to call ``ast.get_source_segment``:
+    #: this class, whose whole job is to assert :func:`_source_segment` equal
+    #: to it. Default-deny (ADR-0039/R2) — a call anywhere else re-splits,
+    #: per segment, the source from its start up to that node's own end
+    #: line: a bounded prefix and not the whole text, but one that measured
+    #: **81.1 %** of the module on average over the 2,556 splits an analysis
+    #: sweep of this file makes, which is the 14.37 s CARD-287 measured and
+    #: removed, and which would come back silently because the stdlib and
+    #: the memo return the same string.
+    STDLIB_SEGMENT_SCOPES = ("TestSourceSegment_TheMemoIsTheStdlibAnswer",)
+
+    @classmethod
+    def _stdlib_segment_scopes(cls, source):
+        """Every ``*.get_source_segment`` **call** in ``source`` as a sorted
+        ``(outermost enclosing class/def, lineno)`` pair, one entry per call
+        — outermost, because :data:`STDLIB_SEGMENT_SCOPES` is spelled as a
+        class and a call in one of that class's methods is that class's. The
+        positive control below plants the call inside a method and asserts
+        the **class** comes back, which is how that choice is stated rather
+        than assumed.
+
+        The ``lineno`` half is for the **message** and not for the
+        authority: the test below still compares the *set of scopes* against
+        :data:`STDLIB_SEGMENT_SCOPES`, because a per-call authority would
+        pin the four legitimate stdlib calls in this class and red on
+        unrelated edits to them. Carrying the line anyway is what makes a
+        failure say *which* analysis path regressed rather than only that
+        one did — review cycle 1, F-287-07, a bound closed rather than
+        declared sound, and it reds on nothing because the comparison is
+        unchanged.
+
+        What excludes a **mention** is the ``ast.Attribute`` match, not the
+        ``ast.Call`` one: the idiom this file actually contains -- the
+        ``call.func.attr == "get_source_segment"`` comparison in
+        :meth:`test_no_caller_in_this_file_asks_for_padding` -- spells the
+        name as a string ``Constant``. That is the negative control in
+        :meth:`test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter`.
+        The ``ast.Call`` requirement is **structural** -- it is how
+        ``node.func`` is reached -- and CARD-287 measured that it is not
+        independently killable on this file: matching bare ``Attribute``
+        nodes instead returns the same list, because every
+        ``*.get_source_segment`` attribute here is also called. It is stated
+        rather than given an invented mutant.
+
+        **DECLARED BOUND**, not a claim of reach: a stdlib reference bound to
+        a name and called through it -- ``f = ast.get_source_segment`` then
+        ``f(...)`` -- is not a ``*.get_source_segment`` call node and this
+        derivation does not see it. That is the alias family
+        :class:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage`
+        spends two thousand lines on, and closing it here is not this card's.
+        """
+        import ast
+
+        tree = ast.parse(source)
+        enclosing = {}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                for inner in ast.walk(node):
+                    enclosing.setdefault(inner, node.name)
+        found = []
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "get_source_segment"
+            ):
+                found.append((enclosing.get(node, "<module>"), node.lineno))
+        return sorted(found)
+
+    def test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter(self):
+        """CARD-287: the saving is durable, or it is not a saving.
+
+        ``ast.get_source_segment`` re-splits its ``source`` from the start
+        up to the node's own end line on every call — a **bounded prefix**
+        (``maxlines=end_lineno+1``), not the whole text, which is what this
+        docstring said for one commit (review cycle 1, F-287-01). Measured
+        over the 2 556 splits the hot site makes in one run of
+        ``test_each_door_axis_arm_catches_a_shape_the_other_misses``: mean
+        **81.1 %** of the 7 334-line planted module, min 43.1 %, max 96.7 %.
+        CARD-292 memoised the split and routed ONE of this file's **three**
+        analysis call sites through it — the ``segment()`` closure inside
+        :meth:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage._page_positions`.
+        The other two — that method's own ``found.append`` tail and the one
+        in
+        :meth:`TestBookPdfStructure_NoPositionCountsTheGuideWithoutTheTitlePage._counting_expressions`
+        — kept calling the stdlib. From the tail site that is 2 556 splits in
+        that one test, **counted** rather than multiplied: ``len(sites)`` is
+        23 for 36 of its 108 analyses and 24 for the other 72, so
+        23 × 36 + 24 × 72 = 2 556, which is **not** 24 × 108.
+        Measured with ``cProfile`` over that test: 14.37 s of its 68.35 s
+        profiled cost, **21.0 % of a profiled second, which is not a
+        wall-clock second** — the same test is 28.81 s unprofiled, a ×2.37
+        profiler factor, and the saving actually measured is 45.5 % of the
+        unprofiled test. Measured unprofiled with ``perf_counter``:
+        4.730 ms per bounded split against 5.999 ms unbounded. All three
+        call sites now go through the memo, and the two readings return the
+        same string, so nothing but this control would notice the stdlib
+        coming back.
+
+        The derivation is default-deny over an enumerable authority: every
+        ``*.get_source_segment`` call's enclosing scope must be in
+        :data:`STDLIB_SEGMENT_SCOPES`. Both controls for the instrument are
+        here rather than described: it **rises** on a planted call in a
+        foreign scope, and it does **not** rise on a text that merely spells
+        the name as a string without calling it.
+
+        Mutants, per assertion (CARD-287, line-count-preserving deletions,
+        each restored and verified with ``git hash-object``; the census log
+        is kept with the round's artefacts, outside the tree): reverting
+        either of the two analysis call sites this card routed to the
+        stdlib, and planting a stdlib call in a third scope these comments
+        never name, each red on the set equality below; emptying
+        :data:`STDLIB_SEGMENT_SCOPES` reds on it too; deleting the
+        outermost-scope rule in :meth:`_stdlib_segment_scopes` reds on it
+        with method names in place of the class; deleting the
+        ``node.lineno`` that derivation carries for the message reds the
+        **positive control**, which is the assertion that pins the reported
+        line; and -- the **edge** of that same claim -- replacing it with
+        ``node.end_lineno`` reds the positive control too, because the call
+        that control plants spans two lines (review cycle 2, F-C2-04: while
+        the plant was one line the two were indistinguishable and the edge
+        mutant survived). A planted *mention* of the name does **not** red,
+        which is the negative control.
+        """
+        from pathlib import Path
+
+        source = Path(__file__).resolve().read_text(encoding="utf-8")
+        calls = self._stdlib_segment_scopes(source)
+        scopes = [scope for scope, _lineno in calls]
+        # Two-sided, which is why there is no separate non-empty assertion:
+        # CARD-287 wrote one and its deletion mutant SURVIVED, because an
+        # empty derivation already fails this equality and so does an
+        # authority row nothing calls from any more.
+        #
+        # A SET OF SCOPES is the authority, deliberately: a per-call
+        # multiset would pin this class's own four legitimate stdlib calls
+        # and red on unrelated edits to them. The offending LINES go into
+        # the message instead, so the failure names which analysis path
+        # regressed (review cycle 1, F-287-07).
+        assert set(scopes) == set(self.STDLIB_SEGMENT_SCOPES), (
+            "something outside this file's equality controls calls "
+            "ast.get_source_segment, which re-splits the source from its "
+            "start up to each node's own end line per segment -- 81 % of "
+            "this module on average, 2 556 times in one test. Offending "
+            "(scope, lineno): "
+            f"{sorted(c for c in calls if c[0] not in self.STDLIB_SEGMENT_SCOPES)}"
+        )
+
+        positive = (
+            "import ast\n"
+            "class Foo:\n"
+            "    def bar(self, source, node):\n"
+            "        return ast.get_source_segment(\n"
+            "            source, node)\n"
+        )
+        # The planted call SPANS TWO LINES on purpose -- lineno 4,
+        # end_lineno 5 -- so this equality pins the line the call OPENS on
+        # and not merely that some line comes back. With the single-line
+        # plant this control had for one commit, node.lineno and
+        # node.end_lineno are indistinguishable and the edge mutant that
+        # swaps them survived every assertion in this tree (review cycle 2,
+        # F-C2-04); it reds here now.
+        assert self._stdlib_segment_scopes(positive) == [("Foo", 4)], (
+            "the derivation does not rise on a call planted in a foreign "
+            "scope, or does not report the line that call OPENS on, so its "
+            "zero above says nothing (positive control)"
+        )
+        negative = (
+            "class Foo:\n"
+            "    def bar(self, call):\n"
+            '        name = "get_source_segment"\n'
+            "        return call.func.attr == name or call.func.attr == "
+            '"get_source_segment"\n'
+        )
+        assert self._stdlib_segment_scopes(negative) == [], (
+            "the derivation rises on a text that merely spells "
+            "get_source_segment without calling it, so it would red on this "
+            "file's own padding guard (negative control)"
         )
