@@ -81,10 +81,12 @@ from nonogram.admin.book_kdp import (
     unpaired_interior_page_count,
 )
 from nonogram.admin.book_page_spec import (
+    DEFAULT_DIVIDER_PAGES,
     FLOOR_MM,
     InkMode,
     book_cell_mm,
     book_cell_sizes,
+    book_divider_pages,
     book_ink_mode,
     book_page_spec,
 )
@@ -3694,6 +3696,29 @@ def create_app(debug=None):
                         stored_mode = _interior_ink_mode(book)
                         ink_input = stored_mode.value if stored_mode else None
 
+                    # CARD-305: the divider-pages choice, read the way a
+                    # checkbox has to be read — an unticked box posts
+                    # NOTHING, so "absent" cannot be told from "off" by the
+                    # field alone. The form therefore carries a hidden
+                    # companion field, and it is that marker, not the
+                    # checkbox, which says the form had the control at all:
+                    #
+                    #   marker present  -> the owner's choice, ticked or not
+                    #   marker absent   -> this submission does not carry the
+                    #                      control (a client built before it,
+                    #                      or another form posting here), so
+                    #                      the stored choice is left alone.
+                    #
+                    # Without the marker a book with dividers would lose them
+                    # the first time any such client saved Print setup, which
+                    # is the same failure mode the ink mode above guards.
+                    if request.form.get("interior_divider_pages_present"):
+                        divider_input = bool(
+                            request.form.get("interior_divider_pages")
+                        )
+                    else:
+                        divider_input = None
+
                     # Validate and create spec
                     # CARD-174: a bound refusal of an inches submission is
                     # worded in inches and quotes what the owner typed; the
@@ -3705,6 +3730,7 @@ def create_app(debug=None):
                         entered_inches=(
                             (width_input, height_input) if unit == "inches" else None
                         ),
+                        interior_divider_pages=divider_input,
                     )
 
                 if error:
@@ -3838,6 +3864,17 @@ def create_app(debug=None):
         if submitted is not None:
             interior_ink_mode = submitted.get("interior_ink_mode", interior_ink_mode)
 
+        # CARD-305: the divider-pages checkbox, with the same re-render rule
+        # the radios above follow — a refused submission shows the box the way
+        # the owner left it, not the way the book is stored. A checkbox posts
+        # nothing when unticked, so on a re-render the box's state is read
+        # from the marker field and not from its own absence.
+        interior_divider_pages = _interior_divider_pages(book)
+        if submitted is not None and submitted.get(
+            "interior_divider_pages_present"
+        ):
+            interior_divider_pages = bool(submitted.get("interior_divider_pages"))
+
         context = {
             "book": book,
             "default_width": default_width,
@@ -3846,6 +3883,7 @@ def create_app(debug=None):
             "plan_error": plan_error,
             "interior_ink_mode": interior_ink_mode,
             "interior_ink_modes": list(InkMode),
+            "interior_divider_pages": interior_divider_pages,
             # CARD-174: the Limits box prints the same figures the refusals state.
             "trim_limits": PrintSpecValidator.trim_limits(),
             **_plan_context(book_id, submitted, plan_error_fields),
@@ -4315,6 +4353,33 @@ def create_app(debug=None):
                 error,
             )
             return None
+
+    def _interior_divider_pages(book):
+        """Whether this book prints its four divider pages (CARD-305).
+
+        Read through ``book_divider_pages`` — the one door onto the stored
+        column — so Print setup, Finalise and the exported file all agree
+        about it.
+
+        **Unreadable falls back to the default rather than to ``None``**,
+        which is where this differs from ``_interior_ink_mode`` beside it, and
+        the difference is deliberate: an ink mode nobody can print is a thing
+        a screen can decline to name, while this one decides whether four
+        pages exist and the generator will answer it one way or the other
+        whatever the screen does. Showing the box ticked — the default, and
+        what every book printed before the column — keeps the screen agreeing
+        with the export instead of showing a third state the PDF cannot have.
+        """
+        try:
+            return book_divider_pages(book)
+        except ValueError as error:
+            app.logger.warning(
+                "Book %s has an unreadable interior divider-pages value (%s); "
+                "showing the default, which is what it will print.",
+                book.book_id,
+                error,
+            )
+            return DEFAULT_DIVIDER_PAGES
 
     def _misses_the_floor(cell_mm):
         """Does this cell miss NFR-008's floor? An unmeasurable one does.

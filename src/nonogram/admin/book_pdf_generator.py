@@ -392,6 +392,7 @@ from nonogram.admin.book_page_spec import (
     InkMode,
     book_cell_sizes,
     book_cell_spec,
+    book_divider_pages,
     book_ink_mode,
     book_page_spec,
 )
@@ -3390,6 +3391,8 @@ def structural_toc_entries(
     section: Sequence["SectionPage"],
     payloads: Sequence[ExportPayload],
     solutions_page: int,
+    *,
+    level_rows: bool = True,
 ) -> List["TocEntry"]:
     """The structural TOC's own rows, read off the page plan (CARD-205).
 
@@ -3467,6 +3470,24 @@ def structural_toc_entries(
         return []
     dividers = [entry for entry in section if isinstance(entry, DividerPagePlan)]
     runs = [run for run in _level_runs(payloads) if run[0] is not None]
+    if not level_rows:
+        # CARD-305: this book prints no divider pages, so there is no page for
+        # a level row to point at and the TOC carries the guide row and the
+        # solutions row alone. The tripwire does not go away, it **inverts**:
+        # a section that still holds a divider while the caller says the book
+        # has none is the same kind of plan/draw disagreement the matching
+        # check below catches, and it must fail just as loudly rather than
+        # print a TOC that silently omits pages the book really has.
+        if dividers:
+            raise RuntimeError(
+                "the page plan holds level dividers "
+                f"{[divider.level.value for divider in dividers]} for a book "
+                "whose interior prints none"
+            )
+        return [
+            TocEntry(GUIDE_TITLE, 1 + TITLE_PAGE_COUNT),
+            TocEntry(TOC_SOLUTIONS_LABEL, solutions_page, starts_group=True),
+        ]
     if [divider.level for divider in dividers] != [level for level, _, _ in runs]:
         raise RuntimeError(
             "the page plan's level dividers "
@@ -3502,6 +3523,7 @@ def interior_page_count(
     answer_pages: Optional[int] = None,
     level_dividers: Optional[int] = None,
     toc_pages: Optional[int] = None,
+    solutions_divider: bool = True,
 ) -> int:
     """The interior's page count for ``puzzle_count`` rendered puzzles.
 
@@ -3627,8 +3649,14 @@ def interior_page_count(
         + GUIDE_PAGE_COUNT
         + toc
         + dividers
+        # CARD-305: the `+ 1` here has always been the SOLUTIONS divider, and
+        # it is now the one term `level_dividers` could not express — that
+        # parameter counts the *level* dividers, which a book without
+        # dividers reports as 0 of its own accord, while this page is not a
+        # level's and had nowhere to be said. A book that prints no dividers
+        # passes `solutions_divider=False` and loses both.
         + pages
-        + (answers + 1 if puzzle_count else 0)
+        + (answers + (1 if solutions_divider else 0) if puzzle_count else 0)
     )
 
 
@@ -4024,6 +4052,14 @@ class BookPDFGenerator:
         # stored column. It decides the interior's colour space and nothing
         # else; the cover file is RGB whatever it says (AC-5, G-4).
         self.ink_mode = book_ink_mode(self.book)
+        # CARD-305: whether this book's interior prints its four divider
+        # pages — the level dividers (AC-254) and SOLUTIONS (AC-292) — read
+        # once from the stored column, beside the ink mode and for the same
+        # reason: one read, so no two page walks can disagree about it.
+        # Unlike the ink mode it moves the page COUNT, which is why every
+        # `interior_page_count` call in this module is passed it rather than
+        # left to a default.
+        self.divider_pages = book_divider_pages(self.book)
         # The trim, as the layout reports it for this book's sheet. Parity
         # never changes a page's size, so page 1's frame gives it for all.
         #
@@ -6437,7 +6473,13 @@ class BookPDFGenerator:
         section: List[SectionPage] = []
         page_number = first_page
         for level, start, end in _level_runs(payloads):
-            if level is not None:
+            # CARD-305: a level opens with a divider only when this book
+            # prints them. The page number is advanced inside the same branch
+            # that appends the page, so a book without dividers simply has a
+            # shorter section and every later page number follows from
+            # `len(section)` exactly as before — there is no second place
+            # that has to be told the dividers are gone.
+            if level is not None and self.divider_pages:
                 section.append(DividerPagePlan(page_number, level))
                 page_number += 1
             pages = self.puzzle_pages(
@@ -6563,8 +6605,20 @@ class BookPDFGenerator:
         # tripwire) rather than assumed equal. The measured split is kept
         # exactly as it was: this is the same arithmetic on a different count,
         # never a hardcoded "the TOC is one page".
+        #
+        # CARD-305: a book that prints no dividers has no level rows in its
+        # TOC either — the rows name the dividers' pages, so without them
+        # there is nothing for a level row to point at. The level term is
+        # therefore 0, leaving the guide row and the solutions row, and
+        # `structural_toc_entries` reaches the same shape from the other side
+        # (it reads `section`'s dividers, of which there are none). The TOC
+        # tripwire in `interior_stream` is what holds the two readings equal.
         toc_entry_count = structural_toc_entry_count(
-            len([run for run in _level_runs(payloads) if run[0] is not None]),
+            (
+                len([run for run in _level_runs(payloads) if run[0] is not None])
+                if self.divider_pages
+                else 0
+            ),
             len(payloads),
         )
         # Read once here and fed to the TOC measurement below, which saves
@@ -6850,8 +6904,17 @@ class BookPDFGenerator:
         # pass reads only the spec's usable size and never its position, and
         # it was still the literal this card's plan named as the bug it was
         # most likely to ship.
+        # CARD-305: the trailing term is the SOLUTIONS divider, which only a
+        # book that prints dividers has. `len(section)` already carries the
+        # level dividers or not, because `puzzle_section` is the one place
+        # that decides whether to append them.
         first_answer_page = (
-            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
+            1
+            + TITLE_PAGE_COUNT
+            + GUIDE_PAGE_COUNT
+            + toc_page_count
+            + len(section)
+            + (1 if self.divider_pages else 0)
         )
 
         # Review F-1 (CARD-202, fix cycle 1): `plan_small_answer_pages` above
@@ -6917,8 +6980,18 @@ class BookPDFGenerator:
         # divider, `first_answer_page - 1`: the page that opens the section is
         # what a reader turns to, and it is one page before the first answer
         # by construction (the same arithmetic `produce()` below yields it on).
+        #
+        # CARD-305: when the book prints no dividers there is no page one
+        # before the first answer, so the row points at the first answer page
+        # itself — still "the page a reader turns to for the solutions",
+        # which is what the row means. The level rows disappear on their own,
+        # because `structural_toc_entries` reads them off `section`'s
+        # dividers and there are none.
         toc_entries = structural_toc_entries(
-            section, decided.payloads, first_answer_page - 1
+            section,
+            decided.payloads,
+            first_answer_page - (1 if self.divider_pages else 0),
+            level_rows=self.divider_pages,
         )
         # The plan/draw tripwire for the TOC, in two halves — the ROWS first,
         # then the pages they take.
@@ -6991,7 +7064,15 @@ class BookPDFGenerator:
         # Book 1's profile and would silently disagree with a book stored on
         # a smaller trim.
         planned = interior_page_count(
-            count, len(plan), len(answer_plan), dividers, toc_pages=toc_page_count
+            count,
+            len(plan),
+            len(answer_plan),
+            dividers,
+            toc_pages=toc_page_count,
+            # CARD-305: `dividers` above is `len(section) - len(plan)`, so it
+            # is already 0 for a book that prints none; the SOLUTIONS page is
+            # the term that has to be said out loud.
+            solutions_divider=self.divider_pages,
         )
 
         # CARD-200: measured once here, off this book's own trim, and reused
@@ -7108,7 +7189,13 @@ class BookPDFGenerator:
             # the SOLUTIONS divider (immediately before the answer section)
             # moved with both — one page before `first_answer_page`, by
             # construction, which already accounts for both constants above.
-            yield self.create_divider_page(first_answer_page - 1)
+            #
+            # CARD-305: and only when this book prints dividers at all. The
+            # answer pages below are unaffected — their numbers come from
+            # `first_answer_page`, which has already accounted for this page
+            # being absent, so the answer key simply starts one page earlier.
+            if self.divider_pages:
+                yield self.create_divider_page(first_answer_page - 1)
             for index, entry in enumerate(answer_plan):
                 page_number = first_answer_page + index
                 try:
@@ -7159,7 +7246,11 @@ class BookPDFGenerator:
             # than left to the sheet-free default for the same reason
             # `planned` above does.
             unpaired_page_count=interior_page_count(
-                count, answer_pages=count, level_dividers=dividers, toc_pages=toc_page_count
+                count,
+                answer_pages=count,
+                level_dividers=dividers,
+                toc_pages=toc_page_count,
+                solutions_divider=self.divider_pages,
             ),
             # Pairing's own baseline (review F-2): the puzzle section at its
             # actual, paired length, but the answer section still at one full
@@ -7174,6 +7265,7 @@ class BookPDFGenerator:
                 answer_pages=count,
                 level_dividers=dividers,
                 toc_pages=toc_page_count,
+                solutions_divider=self.divider_pages,
             ),
             answer_page_count=len(answer_plan),
             pages=_as_planned(produce(), planned),

@@ -90,6 +90,42 @@
                         </small>
                     </div>
 
+                    {#- CARD-305: the divider pages. One control for all four,
+                        because they are one editorial decision: a page
+                        carrying "Easy", "Medium" or "Hard" before each level
+                        (AC-254) and one carrying "SOLUTIONS" before the
+                        answer key (AC-292).
+
+                        The hidden companion field is what makes an unticked
+                        box readable: a checkbox posts nothing when it is off,
+                        so without the marker the server cannot tell "the
+                        owner turned them off" from "this form never had the
+                        control", and a book would lose its dividers the first
+                        time an older client saved this page. The marker says
+                        the control was present; the checkbox says what it was
+                        set to. -#}
+                    <div class="mb-4">
+                        <span class="form-label d-block" id="divider-pages-label">Divider pages</span>
+                        <input type="hidden" name="interior_divider_pages_present" value="1">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input"
+                                   id="interior_divider_pages" name="interior_divider_pages"
+                                   value="1"
+                                   aria-describedby="divider-pages-help"
+                                   {% if interior_divider_pages %}checked{% endif %}>
+                            <label class="form-check-label" for="interior_divider_pages">
+                                Print the four divider pages
+                            </label>
+                        </div>
+                        <small class="d-block mt-2 text-muted" id="divider-pages-help">
+                            One page before each level — Easy, Medium, Hard — and one
+                            reading SOLUTIONS before the answer key. Turning them off
+                            removes up to four interior pages, which changes the page
+                            count, the table of contents and the spine width; Finalise
+                            shows the new count before you export.
+                        </small>
+                    </div>
+
                     <div class="alert alert-secondary mb-4">
                         <strong>Limits.</strong>
                         <ul class="mb-0 mt-1">
