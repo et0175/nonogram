@@ -1032,6 +1032,65 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   left: calc(-1 * var(--player-ring) / 2);
 }
 
+/* Crosshair (CARD-267, owner decision 2026-10-22): the row and the column of
+   the cell the pointer is on are tinted, and their clue boxes with them, so
+   the gaze does not slide onto a neighbouring line. On BOTH pages that load
+   solver.js — the player and the manual editor (owner decision 2026-10-28,
+   asserted by TestSolverCrosshair_ReachesTheManualEditor). solver.js puts
+   .is-crossed on every cell of the row, every cell of the column, and every
+   clue box of the two lines (both twins on a doubled axis); the four rules
+   below are all it means — two derived values and three selectors that spend
+   them.
+
+   A BACKGROUND and nothing else, which is what keeps it out of the way of
+   everything already drawn on a cell. The hint's accent outline
+   (.player-cell.is-hinted) and CARD-270's inset division on a filled cell are
+   both box-shadow/outline, the clue circles (CARD-188) are a border on the
+   numeral's ::before, and the white dot and the "?" are ::after — so a
+   crossed cell keeps every one of them, and a crossed clue number keeps its
+   ring. A tint cannot be read as a circle: they are different channels.
+
+   --color-surface-hover is the design system's OWN hover ground (tokens.css:
+   "row hover, quiet button hover"), which is what this is. Deliberately not
+   --color-accent: accent on this page already means the hinted cell's
+   outline, the "?" glyph, the pressed Region toggle and the focus ring, and a
+   whole tinted row in it would read as a verdict about those cells rather
+   than as "the pointer is here".
+
+   No token is added to tokens.css, and that is the one place this card
+   departs from its own brief. tokens.css is mirrored verbatim from
+   meta/design/tokens.css (test_the_served_tokens_are_the_design_systems_tokens),
+   its header says to edit it through forge:ui and never by hand, and a
+   crosshair tint is not a design-system colour: it is a value DERIVED from
+   two of them for one component. So it lives here, beside --player-thin,
+   which is derived the same way, from design tokens, for the same reason.
+
+   A filled cell needs a rule of its own: its ground is --grid-ink, so the
+   light tint would repaint it and lose the mark. It takes the tint MIXED
+   into the ink instead, which keeps it the darkest thing on the board while
+   still showing the line through it — all four data-state looks stay plainly
+   apart under the crosshair. THREE measurements and not one, stated as the
+   instrument actually reads (review cycle 1, F-003): the three light states
+   share this tint as their ground, so they are told apart by distinct
+   ::after content AND by each mark's own computed paint read against that
+   ground (the dot by its ::after background, the "?" by its ::after colour),
+   while filled is told apart by its ground's luma
+   (tests/test_puzzle_solver_crosshair.py
+   TestSolverCrosshair_RowColumnAndCluesLight). The selector is
+   .player-cell.is-crossed[data-state="filled"], one class more specific than
+   both of the rules it has to beat, so neither of them can win on file order
+   — and it is deliberately NOT spelled .player-cell[data-state="filled"],
+   which is the single rule
+   tests/test_admin_design_tokens.py::test_the_filled_cell_division_comes_from_tokens
+   pins by name and counts.
+
+   Every value here is a token or a token-only color-mix(), checked per rule
+   by test_the_crosshair_tint_comes_from_tokens (AC-8). */
+.player-stage { --player-cross: var(--color-surface-hover); --player-cross-ink: color-mix(in srgb, var(--color-surface-hover) 16%, var(--grid-ink)); }
+.player-cell.is-crossed { background: var(--player-cross); }
+.player-cell.is-crossed[data-state="filled"] { background: var(--player-cross-ink); }
+.player-clue.is-crossed { background: var(--player-cross); }
+
 /* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
    Save, the role="status" message and the Approve/Cancel pair, under the
    board. The message takes the free space so a long refusal wraps inside

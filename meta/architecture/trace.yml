@@ -2268,6 +2268,16 @@ links:
   - TestSolverClues_CirclingMovesNothing
   - TestSolverClues_EveryNumberKeepsAOneCellSlot
   - TestSolverClues_TheCircleIsVisible
+  - TestSolverCrosshair_RowColumnAndCluesLight
+  - TestSolverCrosshair_FollowsThePointer
+  - TestSolverCrosshair_LightsBothTwinsOnADoubledBoard
+  - TestSolverCrosshair_TouchKeepsTheLastCell
+  - TestSolverCrosshair_ClearsWhenThePointerLeaves
+  - TestSolverCrosshair_IsPureView
+  - TestSolverCrosshair_NoStaleMarkerAfterRedraw
+  - TestSolverCrosshair_AddsNoAria
+  - test_the_crosshair_tint_comes_from_tokens
+  - test_the_stylesheet_uses_tokens_not_literals
   notes: >-
     New 2026-10-03 (a). Story US-028; owner decision (not a DEC) for scope,
     click semantics and error count. COMP-009 only — a new route, template

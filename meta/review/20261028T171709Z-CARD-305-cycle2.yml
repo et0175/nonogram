@@ -1,0 +1,386 @@
+version: 1
+generated_at: "2026-10-28T17:17:09Z"
+target: "CARD-305 cycle 2 (CONFIRMATION MODE) — branch card/305-divider-pages-option @ a05956b2, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-305, fix delta daaa2f2f re-derived against merge-base 9a61b928"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (the setup-print route in full: the try/except ValueError boundary, the marker branch, create_spec call)"
+    - "src/nonogram/admin/book_page_spec.py (divider_pages_from_stored, book_divider_pages, divider_pages_from_form, _parity, book_page_spec)"
+    - "src/nonogram/admin/book_pdf_generator.py (interior_page_count + its new docstring, puzzle_section, first_answer_page, page_is_right_hand, all 4 interior_page_count call sites)"
+    - "src/nonogram/admin/book_kdp.py (unpaired_interior_page_count, the card's whole diff)"
+    - "src/nonogram/admin/book_manager.py (_apply_print_spec)"
+    - "src/nonogram/admin/print_specs.py (the card's whole diff)"
+    - "src/nonogram/admin/templates/book_setup_print.html (the divider control), templates/base.html (flash rendering)"
+    - "tests/test_book_divider_pages_option.py (all 89 cells; the new cell at :656 and the new parity class at :276 in full)"
+    - "tests/property/test_book_order.py (the whole fix delta: DIVIDERS_OFF, _expected_section, _planned_section, assert_prints_grouped_with_dividers)"
+    - "meta/profiling/rank_durations.py (the new entry and the defining grep comment)"
+    - "meta/architecture/requirements.yml (the whole 122-line delta: EC-029, FR-041, FR-042, AC-253/254/292/293, AC-400..AC-405)"
+    - "meta/kanban/cards/CARD-305.md (CYCLE 1 and FIX ROUND 1 sections, guardrails, owed-to-architect section)"
+    - "forge/skills/architect-validate/scripts/validators/requirements.py + utils.py (CodeSearch excludes — to explain the 112/113 split)"
+  not_reached:
+    - "no rendered page eyeballed by a human in either cycle; tests/test_book_setup_print_mobile.py (Playwright) not run"
+    - "the Postgres probe of migration 017 reported by fix round 1 was not re-run (no scratch database created by this cycle); it remains the fix round's own single-domain measurement"
+    - "the full suite under meta/kanban/.full-suite.lock (forbidden by this brief; owed to the merge gate)"
+    - "tests/helpers/book_corpus.py, test_book_pdf_memory.py, property/test_book_pdf_geometry.py, property/test_book_pairing.py (cycle 1's absent co-change peers; cycle 1 ran them green, this cycle did not)"
+  confidence: high
+
+metrics:
+  diff: { files: 17, added: 2121, removed: 42 }
+  diff_at_fix_commit: { files: 17, added: 1951, removed: 42, note: "exactly the card's stated figure, measured at daaa2f2f; HEAD differs only because the stamp commit a05956b2 added 170 lines to CARD-305.md" }
+  max_fan_in: { symbol: "interior_page_count", callers: 4 }
+  tests_cover_change: true
+  new_test_file_cells: 89
+  frozen_render_set: 36
+  gate_this_cycle: "1147 passed / 0 failed / 0 skipped over 14 distinct test files in three runs. Instrument: /Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -rfs -p no:randomly, cwd in the worktree. Run A (3 files: test_book_divider_pages_option, test_suite_profile, test_book_page_spec) 579 passed in 30.72s. Run B (6 files: property/test_book_order, test_book_export_interior_cover, test_book_pdf, test_book_answer_key, test_book_pdf_levels, test_book_plan_storage) 298 passed in 91.06s. Run C (6 files, one shared with A: test_book_solved_page, test_book_page_numbers, test_book_page_spec, test_book_solved_answer_key, property/test_book_export_interior, test_book_guide_page) 270 passed in 57.80s. Zero skips in all three, so there is none to attribute."
+  architecture_validator: "0 error(s), 113 warning(s) on the branch — the fix round's figure reproduced. Second domain: grep -c on the indented labels agrees at 113 WARN / 0 ERROR."
+  mutants_fired: 10
+  mutants_killed: 10
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (84 commits/12mo per cycle 1; the fix delta touches only its docstring)"
+    - "src/nonogram/admin/app.py (22 co-changes with the generator per cycle 1)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — confirmation mode: the fix delta's 7 files are all already in the diff, and cycle 1 already mined and ran the absent co-change peers. No new peer analysis was performed this cycle."
+    card_gate_1502: "no_eligible_fact — the card still does not enumerate the 22 files behind its 1502 figure, so its domain remains unreconstructable. Unchanged from cycle 1."
+    card_rival_pytest_0_0: "provider_unavailable — the card's 'rival-pytest 0/0' figure still names no instrument that can be located or re-run."
+    fix_round_gate_1982: "no_eligible_fact — fix round 1's 1982-over-25-files figure names its two selections only by description ('the card's own files and render neighbours', 'the setup-print route blast radius'), not by file list, so its domain cannot be reconstructed either. My 1147 over 14 is a different domain and neither confirms nor refutes it."
+    migration_017_postgres: "not_applicable — this cycle created no scratch database; fix round 1's Postgres probe stands as its own single measurement, un-re-derived."
+    visual_render: "not_applicable — the card changes whole-page presence, not any page's ink (G-2 re-verified: create_divider_page is absent from the full diff). The parity class reads real rendered ink, but that is an instrument, not an owner's eye."
+
+system_contract:
+  rules_checked: 56
+  holds: 14
+  unchecked: 41
+  violated: 1
+  verdicts:
+    - "ADR-0039/R1 ✓ holds — CYCLE 1's VIOLATION IS CLOSED, re-derived not accepted. The flagship control can now fail: M1 (app.py:3724 marker guard -> `if True:`) and M2 (book_manager.py:1005 `is not None` -> `if True:`) each red exactly `test_a_submission_without_the_control_leaves_the_default_on_alone` in BOTH storage modes (2 failed / 20 passed, identical attribution under each), while the from-OFF cell passes under both — which is what its corrected docstring now says it does. The narrative was narrowed in all three places the false claim lived (the new cell, the from-OFF cell, the module docstring)."
+    - "ADR-0039/R2 ✓ holds — no guard set hand-written in the fix delta; the frozen render set in meta/profiling/rank_durations.py stays derived from its own defining grep, re-derived here in two domains (ast parse of the tuple = 36; the comment's own grep re-run from a fresh shell = 36; set difference both ways empty)."
+    - "ADR-0039/R3 ✓ holds — no exemption added or widened; test_book_export_interior_cover.py is untouched by the fix delta and green (298-passed run B)."
+    - "ADR-0039/R4 ✗ violated — meta/kanban/cards/CARD-305.md:505 (the sha256 provenance claim), :437 (88 for 89) and tests/test_book_divider_pages_option.py:675 (app.py:3715 for :3724). Three figures/cites fix round 1 committed to the card and to a shipped docstring are refuted by recomputation here; the rule says a refuted figure is retracted everywhere it was written, and none has been. Filed as F-001/F-002/F-003 at MINOR, not at the `Important minimum for a mandatory rule` this skill's Step 8h prescribes — a deliberate, stated deviation, on this card's own cycle-1 precedent: cycle 1 refuted the card's diff figure (22 files for 14) and recorded it as a figure correction in its narrative rather than as a gating finding. Every substantive claim the three decorate was independently reproduced (M1/M2 attribution, 1-of-89 exactness, and the real cause of the 112/113 split, now established). If the board reads the rule strictly, these three become Important and the gate blocks on three one-line edits."
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from `git diff --name-only 9a61b928..HEAD`; the fix delta adds no import but `from types import SimpleNamespace` in a test."
+    - "ADR-0033/R1 ✓ holds — _apply_print_spec (book_manager.py:998-1007) still writes trim, ink mode, the divider choice and updated_at only; unchanged by the fix delta."
+    - "ADR-0036/R2 ✓ holds — no layout/geometry call added or changed; the fix delta's only book_page_spec.py addition is divider_pages_from_form, which touches no sheet. Probed: book_page_spec(None, n) == book_page_spec(SimpleNamespace(interior_divider_pages=False), n) for n in 1,2,5."
+    - "ADR-0036/R3 ✓ holds — test_the_books_own_pages_carry_no_undeclared_round_mark green in run B."
+    - "ADR-0036/R4 ✓ holds — test_no_module_types_a_round_mark_as_a_character green in run B."
+    - "ADR-0037/R1 ✓ holds — no band code in the fix delta; create_divider_page absent from the whole diff (G-2)."
+    - "ADR-0037/R2 ✓ holds — no rule weight or stroke in the fix delta."
+    - "ADR-0042/R1 ✓ holds — no export path gains an image XObject; the fix delta adds no drawing code."
+    - "CON-020 ✓ holds — no type size, face or DPI conversion in the fix delta."
+    - "INV-009 ✓ holds, and is now better checked — test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence green in run B, and its new off-state arm is live: M3 (book_pdf_generator.py:6502, `and self.divider_pages` deleted) and M4 (book_page_spec.py:503, book_divider_pages -> `return True`) each red it in both modes THROUGH the off arm's own assertion at tests/property/test_book_order.py:341 ('the dividers-off section is not the one this order prints')."
+    - "INV-011 ✓ holds — answer-key composition untouched; tests/test_book_answer_key.py green in run B."
+    - "INV-013 ⚠ unchecked — check_ref_missing: TestGuideSpread_SitsOnPagesTwoAndThree (pre-existing, partial — system_rules.py --verify-refs, check_refs_verified: true). BUT cycle 1's substantive gap is closed and measured: AC-401 binds TestDividerPages_EveryPagesParityIsStillItsOwnPosition to INV-013, and that class carries both an inside mutant and an edge mutant — M5 (book_pdf_generator.py:6944, the off-state term of first_answer_page deleted) reds exactly 1 of the file's 89 cells, the [False] parity cell and nothing else; M9 (book_page_spec.py:572, the parity instrument itself always ODD) reds all 3 cells of the class. The parity of the shorter book is now asserted off rendered ink, not off the plan."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0027/R2, ADR-0031/R2, ADR-0032/R1, ADR-0032/R2, ADR-0032/R3, ADR-0035/R1, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0041/R1, ADR-0041/R2, ADR-0041/R5, ADR-0041/R7, ADR-0042/R2, ADR-0042/R3, ADR-0042/R4, ADR-0042/R5, ADR-0042/R7, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-010, INV-012 ⚠ unchecked — no_eligible_fact: the fix delta is one new form-field reader, three docstring/comment corrections, one frozen-set entry, one registry delta and two test files. It touches no grid extent, no image fit, no density verdict, no tier/strategy, no storage-boundary solve, no plan gate, no player or bundle, no auth door, no cell-size floor and no answer-key capacity rule. Carried from cycle 1 (same 40 ids, same reason) and re-checked against the 7-file delta."
+
+root_causes:
+  - id: RC-1
+    title: "Figures and line cites in fix round 1's own prose were not recomputed after the commit they describe"
+    finding_ids: [F-001, F-002, F-003]
+  - id: RC-2
+    title: "The card's pre-fix sections were not reconciled with what fix round 1 actually did"
+    finding_ids: [F-004]
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: meta/kanban/cards/CARD-305.md
+    line: 505
+    title: "The 'byte-identical requirements.yml / sha256 equal both sides' claim is false, and the 112-vs-113 split has a cheap exact explanation"
+    description: |
+      Fix round 1 declares, as unexplained: "the *main* worktree's validator
+      reads 112 where the branch reads 113 on a byte-identical
+      `requirements.yml` (sha256 equal both sides)".
+
+      Measured, both sides, now:
+        sha256 main   0408c9f49830eba1543944fa028dc959ba7b713ad42d84e7f869f5ced02d23ad
+        sha256 branch 9c761cf86c3a3eab8818428a328ce7d4819a92dbb331cb0b453f1073d0b9bc35
+        diff          122 differing lines — exactly this card's own registry delta
+      The two files are not byte-identical and cannot be: main is at 81e683a2
+      and carries none of this card's commits. The premise of the mystery is
+      the error.
+
+      The split itself is fully explained, and it is not about requirements.yml
+      at all. Diffing the two validator runs' warning-id sets gives exactly one
+      difference: INV-013, present on the branch and absent on main. The
+      validator decides a check ref's existence with
+      `CodeSearch.exists` -> `git grep -w`, whose excludes are only
+      `:(exclude)meta/architecture` and `:(exclude)*.md`
+      (forge/skills/architect-validate/scripts/validators/utils.py, `code_search`).
+      `meta/review/**.yml` is NOT excluded. Reproduced:
+
+        cd main   && git grep -wn TestGuideSpread_SitsOnPagesTwoAndThree \
+                     -- ':(exclude)meta/architecture' ':(exclude)*.md'
+        -> meta/review/20261028T142020Z-CARD-305-cycle1.yml:77   (exit 0)
+        cd branch && same command
+        -> (no match, exit 1)
+
+      So **cycle 1's own review report resurrects the dead ref**: because that
+      report's prose names the missing test, the validator run in the main repo
+      believes it exists, INV-013's ref resolves fully, and the warning
+      disappears. The branch worktree has no meta/review/ copy of it, so it
+      warns. The branch's 113 is the honest number; main's 112 is contaminated
+      by the review artefact. (This cycle-2 report names the same symbol, so
+      main will keep reading 112 for the same reason.)
+    suggestion: |
+      Retract the sha256 claim on the card and replace the "declared and
+      unexplained" paragraph with the explanation above, naming the branch's
+      113 as the honest baseline. Separately worth a board-level note (see
+      Out-of-scope): a review report that names a missing test silently
+      satisfies the validator's existence search for it, which is a general
+      hole in every dead-check-ref verdict taken in the main repo.
+    confidence: high
+    source: static
+    violates: ADR-0039/R4
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: meta/kanban/cards/CARD-305.md
+    line: 437
+    title: "'Killed by exactly one cell out of the file's 88' — the file holds 89 cells; the commit message has it right and the card does not"
+    description: |
+      The FIX ROUND 1 section states F-003's attribution as "**Killed by
+      exactly one cell out of the file's 88**". The commit message for the
+      same measurement says 89.
+
+      Recomputed in two domains: `pytest -o addopts='' --collect-only -q
+      tests/test_book_divider_pages_option.py` prints "89 tests collected",
+      and a count of lines containing `::` in that output is 89. Re-firing the
+      mutant (M5, book_pdf_generator.py:6944, `(1 if self.divider_pages else
+      0)` -> `1`) gives "1 failed, 88 passed" — so 88 is the number of cells
+      that did NOT kill it, not the file's size.
+
+      The load-bearing half of the claim — exactly one cell kills it, and it
+      is the `[False]` parity cell — is CONFIRMED verbatim.
+    suggestion: |
+      One-word card edit: 89, matching the commit message, or reword as
+      "killed by 1 of the file's 89 cells, survived by the other 88".
+    confidence: high
+    source: static
+    violates: ADR-0039/R4
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_divider_pages_option.py
+    line: 675
+    title: "The new cell's shipped docstring cites app.py:3715 for the marker guard, which its own commit moved to app.py:3724"
+    description: |
+      The discriminating cell's docstring records its measurement as
+      "deleting the marker guard (``app.py:3715`` -> ``if True:``)". The same
+      commit (daaa2f2f) added one import line and eight comment lines above
+      that guard, so at HEAD the guard is at `app.py:3724`:
+
+        $ grep -n 'interior_divider_pages_present' src/nonogram/admin/app.py
+        3724:                    if request.form.get("interior_divider_pages_present"):
+
+      :3715 was the pre-fix line and is what cycle 1 cited. The sibling cite
+      in the same docstring, `book_manager.py:1005`, IS correct — the fix
+      round noticed and corrected cycle 1's `:1003` there while leaving the
+      app.py cite at its stale value.
+
+      The measurement the docstring records is true: M1 fired at :3724 reds
+      this cell in both storage modes and nothing else (2 failed / 20 passed).
+      Only the address is wrong, in a docstring whose whole purpose is to let
+      the next reader re-fire it.
+    suggestion: |
+      `:3715` -> `:3724` in the cell's docstring. Consider citing the guard by
+      its predicate rather than its line, as the module docstring does, so the
+      next comment addition cannot stale it again.
+    confidence: high
+    source: static
+    violates: ADR-0039/R4
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: feature
+    type: gap
+    file: meta/kanban/cards/CARD-305.md
+    line: 134
+    title: "The card body still says it does not edit the registry, which fix round 1 did — 122 lines of it"
+    description: |
+      `## What this card owes the architect, and does not do itself` opens
+      "**AC-254 and AC-292 now state behaviour that is conditional**, and this
+      card does not edit the registry" and closes "**Recorded here rather than
+      done, so it is a visible gap and not a phantom one.**"
+
+      Fix round 1 edited the registry: `meta/architecture/requirements.yml`
+      carries 122 changed lines in `git diff 9a61b928..HEAD`, amending EC-029,
+      FR-041's and FR-042's bodies and AC-253/254/292/293, and adding
+      AC-400..AC-405. The FIX ROUND 1 section records this correctly; the body
+      section it supersedes was left as written.
+
+      A reader going to the card for "what does this card owe the architect"
+      lands on the stale section first — it is above the cycle sections — and
+      reads an owed item that is already landed. Same shape as the drift
+      CLAUDE.md's CARD-261 note describes for duplicated component maps: two
+      copies, one of them not updated.
+    suggestion: |
+      Mark the section LANDED in place (the board's own idiom, cf. handoff.md's
+      "amendment owed ... cleared as LANDED") and point it at FIX ROUND 1, or
+      fold it into that section. Do not simply delete it: the owed-then-landed
+      trail is what makes the registry edit auditable.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_divider_pages_option.py
+    line: 730
+    title: "The route-refusal cell's first assertion is tautological on this page — the form itself renders the column name"
+    description: |
+      `test_a_field_in_no_vocabulary_is_refused_and_stores_nothing` asserts
+
+        assert DIVIDER_PAGES_COLUMN in response.get_data(as_text=True)
+        assert book_divider_pages(app.book_manager.get_book(book_id)) is True
+
+      The first assertion is satisfied by the page regardless of any refusal:
+      the Print-setup template renders `name="interior_divider_pages"` and
+      `id="interior_divider_pages"` on the checkbox
+      (templates/book_setup_print.html:112), so the string
+      `interior_divider_pages` is in the body of every render of this screen.
+      The cell's own sibling, `test_the_box_comes_back_unticked_once_it_is_stored_off`,
+      greps that very attribute out of the same page.
+
+      It is therefore not a check that the refusal was flashed, though it is
+      positioned as one ("Flashed, nothing stored, the page re-rendered"). The
+      docstring does say the second assertion is the load-bearing one, and it
+      genuinely is — M7 and M8 both red this cell through it (10 and 18 cells
+      respectively). So this is a weak assertion beside a strong one, not an
+      uncovered claim.
+
+      Probed, outside tests/, that the flash it means to assert does happen:
+      posting marker + `interior_divider_pages=maybe` renders exactly one alert
+      div reading `Error: book interior_divider_pages must be empty or a
+      boolean, not &#39;maybe&#39;` (HTML-escaped by Jinja — no injection
+      path), status 200, and the stored choice stays True.
+    suggestion: |
+      Assert the flash, not the string: match the alert markup
+      (`alert-danger` / `role="alert"`) or the message's distinctive phrase
+      ("must be empty or a boolean"), which no plain render of the page
+      produces. The measured text above is a ready-made anchor.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: compliance
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 4104
+    title: "Out-of-scope: AC-292's check ref is DEAD, and fix round 1 amended that entry without closing it"
+    description: |
+      The architecture validator reports, on the branch and in main's 112-line
+      baseline alike:
+
+        [WARN ] FR-042/AC-292 ... check names test
+        'TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey' but no definition
+        was found in the code ... DEAD check ref: the criterion is UNVERIFIED
+
+      Confirmed independently: `git grep -w
+      TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey -- tests/` exits 1,
+      and no `SolutionsDivider` symbol exists anywhere under tests/.
+
+      Strictly PRE-EXISTING — it is in main's baseline, this card did not
+      introduce it, and the fix round's "no `kind: test` ref names a test that
+      does not exist" claim was scoped to the six refs it wrote (all six of
+      which I confirmed resolve to real `class`/`def` definitions). But F-002's
+      remediation amended AC-292's `given` clause, so the card edited the very
+      entry whose check is dead: the on-state SOLUTIONS criterion now reads as
+      narrowed-and-checked while nothing mechanically checks it. The off state
+      (AC-403) does have a live ref. FR-042/AC-268 and AC-269 carry the same
+      shape.
+    suggestion: |
+      Not this card's to fix, and not a gate. Worth one line in the owed-to-
+      architect trail: AC-292/268/269's refs are dead and the cheapest moment
+      to write the test or re-type the check to `kind: review-lens` is while an
+      editor is already in that entry.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: ops
+    type: question
+    file: meta/review/20261028T142020Z-CARD-305-cycle1.yml
+    line: 77
+    title: "Out-of-scope, board-level: a review report that names a missing test satisfies the validator's existence search for it"
+    description: |
+      Mechanism established while explaining F-001. The validator's
+      `CodeSearch` builds its existence search as `git grep -w <name>` with
+      excludes `[':(exclude)meta/architecture', ':(exclude)*.md']` only
+      (validators/utils.py, `code_search`). `meta/review/**.yml` and
+      `meta/profiling/**` are inside the search domain. So any symbol a review
+      report, a profiling note or a non-Markdown artefact merely MENTIONS is
+      reported as existing in the code.
+
+      Demonstrated here on a real rule: INV-013's
+      `TestGuideSpread_SitsOnPagesTwoAndThree` reads as alive in the main repo
+      purely because cycle 1's YAML report quotes the name, and as dead in the
+      worktree, which has no copy of that report. A dead check ref — the exact
+      failure class the board repaired across ADR-0042's four checks on
+      2026-10-25 — can therefore be silently revived by writing about it.
+
+      This affects every `check_ref_missing` / `dead_check_ref` verdict taken
+      in the main repo rather than in a worktree, in both directions: a
+      genuinely missing test can read as present, and a cycle's own report can
+      flip the next cycle's count.
+    suggestion: |
+      Not this card's. Either exclude the review/profiling artefact trees from
+      `code_search`'s excludes list (`:(exclude)meta`), or restrict the search
+      to code paths positively (`-- '*.py' '*.ts'`), and re-run the dead-ref
+      census afterwards. Worth a kanban card; it quietly weakens a mandatory
+      mechanism.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+OVERALL_SCORE: 8.5

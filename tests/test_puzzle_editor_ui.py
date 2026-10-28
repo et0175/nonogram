@@ -756,7 +756,10 @@ class TestPuzzleEditor_Guardrails:
         outside, so the declaration is made here and checked here — in that
         card's own vocabulary, against that card's own reading of the fixture
         scopes, and with the reason grepped for the mechanisms it claims, as
-        ``PAGE_ISOLATION``'s three tests do for the twelve."""
+        ``PAGE_ISOLATION``'s three tests do for the files inside it. (The
+        ordinal that used to stand there — "the twelve" — was stale by two by
+        the time CARD-267 added the fourteenth, so it is gone rather than
+        re-counted: a number nothing checks is a number that goes wrong.)"""
         from tests.test_browser_fixture_scope import _fixture_scope
         from tests.test_puzzle_solver_page import PAGE_ISOLATION, PAGE_ISOLATION_CATEGORIES
 

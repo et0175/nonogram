@@ -1,6 +1,6 @@
 # CARD-267: Crosshair — the player highlights the hovered cell's row, column and their clues
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/267-player-crosshair
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-267
+**Worktree:** —
 **Source:** quick — owner decision 2026-10-22 (player-convenience session, option 1: "highlight row/column for selected cell so that the gaze don't slide away"); no handoff increment
 **Idea:** —
 **Wave:** 63
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_crosshair.py, tests/test_admin_design_tokens.py, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_page.py, tests/test_browser_fixture_scope.py , tests/test_puzzle_editor_ui.py <!-- 9th entry added 2026-10-28 at fix round 1: a prose-only de-numbering of the stale ordinal at :759, which THIS CARD made stale by two when it added the fourteenth PAGE_ISOLATION row. No claim change; its 117 tests green at 1ef355c0.  corrected 2026-10-28 by the implementation round: tokens.css REMOVED (it is mirrored verbatim from meta/design/tokens.css and pinned by a test; a derived component value belongs in admin.css beside --player-thin). Four test files ADDED, and the breakdown stated so it is checkable (the earlier wording said "three are registries ... and the third", which miscounts and is self-inconsistent -- corrected 2026-10-28, cycle 1 F-008): TWO are registry joins a new family file is forced into -- tests/test_puzzle_solver_page.py (which holds PAGE_ISOLATION) and tests/test_browser_fixture_scope.py (the ALONE_RECORD sampling, which this card's file postdates); ONE adds a new claim test (tests/test_admin_design_tokens.py, AC-8/G-4); and ONE is the non-weakening accommodation G-6 now permits by name (tests/test_puzzle_solver_marking.py). The Touches LIST itself is correct: 8 declared, 8 in the diff. -->
 **Review score:** 7.0 → **9.5 cycle 2/3 CERTIFIED**, zero critical, zero important, one minor
 **Started:** 2026-10-28T07:23:17Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-28T18:55:49Z
+**Actual:** 1.4d
+**Merge commit:** 4b4a26e7
 **Blocked by:** —
 
 ## What to implement

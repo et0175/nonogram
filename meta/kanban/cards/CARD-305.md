@@ -1,6 +1,6 @@
 # CARD-305: The four divider pages become an option on Print setup
 
-**Status:** in progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -185,6 +185,29 @@ phantom one.**
   1 hard):** 18 pages → **14**. Three level dividers and SOLUTIONS. The walk
   produced 18 and 14 respectively, which is the generator's own tripwire
   agreeing, not a second count of mine.
+
+### [SYNCED TO MAIN — 2026-10-28, orchestrator]
+
+This card file reached `main` only now. It was committed on
+`card/305-divider-pages-option` at `317d665c` and the CARD SYNC PROTOCOL's
+one-way copy into the main repo never ran, so for the whole of waves 63–67
+`meta/kanban/cards/CARD-305.md` did not exist here: the board could not count
+it, `/forge:kanban CARD-305` could not find it, and `main` ended up carrying
+this card's **cycle-2 review report** (`3b242f86`) while having no record of
+the card it reviews.
+
+One field is changed in the copy, and only one: **`Status: in progress` →
+`review`**. The branch copy's status contradicted its own `Review score:`
+field, which records a certified cycle 2 — a card with two completed review
+cycles is not in implementation. Per the protocol's own definition, `review`
+covers the review↔fix cycle, the AC/EC gate, and a card that has passed and
+awaits `done`. Nothing else was edited; the body is the branch copy verbatim.
+
+**Not yet done for this card, stated so it is not assumed:** no AC/EC/G gate
+line (the same board-wide gap CARD-267's merge exposed — `done` step 2a has
+been refusing nothing), and no merge gate against a base re-merged from
+current `main`. Its own recorded gate was green at 1502 on the branch, which
+is not the same claim.
 
 ## [GATE — 2026-10-28] green at 1502, and four guards had to be answered first
 
