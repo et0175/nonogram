@@ -1005,3 +1005,123 @@ through the fix round.**
   is right.
 - **When `prediction.txt` was written** — unchanged from cycle 1's finding; no
   artefact readable here carries that ordering.
+
+## [CYCLE 2 — 2026-10-28] **8.0, CERTIFIED**, zero gating
+
+`meta/review/20261028T042701Z-CARD-287-cycle2.yml`, reviewed `eb2bbf81`.
+**All eight of cycle 1's findings are closed**, each on evidence cycle 2
+re-derived, and **G-1 HELD after the functional edit on a stronger instrument
+than either round used.** Nine findings remain, **none gating** — one major and
+eight minor, each a prose correction or a four-character control.
+
+### PRIORITY ONE resolved: neither magnitude was wrong
+
+The 20× sensitivity disagreement between cycle 1 (1 535 of 1 752) and fix round 1
+(75 of 1 752) is **an artefact of the comparison, not of the instrument**: *a
+positional line-by-line equality over a `pprint` text is not invariant under a
+change in the text's line count.* Ten injections at three scopes:
+
+| injection | lines | pos-diff | % | sections |
+|---|---|---|---|---|
+| hot, append 1 char (**fix round 1's**) | 1752 | **75** | 4.3 | **6/52** |
+| hot, same-length swap | 1752 | 75 | 4.3 | 6/52 |
+| hot, **drop 1 char** (**cycle 1's family**) | 1744 | **1543** | **88.1** | **6/52** |
+| hot, append 10 chars | 1769 | 1606 | 91.7 | 6/52 |
+| cold | 1752 | **8** | 0.5 | 1/52 |
+| all three sites | 1758 | 631 | 36.0 | 8/52 |
+
+**Cycle 1's figure is reconstructed**: a one-character *shortening* gives 1 543
+against its 1 535 — same first-diff line, same sections. **Both of the
+orchestrator's hypotheses were refuted** (scope gives 559/631, not 1 535), and
+the hot site reaches **exactly the same 6 of 52 sections under every
+injection** — so **the invariant measure was already in the round's own data**:
+6/52 hot, 1/52 cold. The load-bearing conclusion — the capture reads both changed
+sites and is **not self-confirming** — reproduces and is strengthened. Could not
+establish: **the exact character cycle 1 injected**, which saved no script.
+
+### F-C2-01 (major) — a cross-run share, and cycle 1's own verdict was wrong
+
+AC-1's headline `14.366 / 68.35 = 21.0 %` takes **numerator and denominator from
+two different cProfile runs**, while the card claims *"same profiled run …
+avoided by construction"*. The same-run share is **22.0 %**. The proof is inside
+the kept artefacts and the orchestrator re-verified it: `ac1_A.txt` records
+`_splitlines_no_ff` cum **14.490**, `ac1_callers.txt` records
+`get_source_segment` cum **14.366** — and since the latter *calls* the former,
+14.366 < 14.490 is **impossible within one run**. The column header is also wrong
+for rows 2–3: those are `_splitlines_no_ff` cum, not `get_source_segment`.
+
+**Cycle 1 verified AC-1 and was wrong to**: it checked `ac1_profile.py`'s
+*construction*, which does not produce the cell the card leads with. Note the
+precise scope — CARD-292's profiled-over-unprofiled defect really **was** avoided;
+what was introduced is the smaller cross-run variant, worth 1 percentage point.
+
+### The other eight, all minor
+
+**F-C2-02** the class audit is offered as a grep that does not reproduce
+(`grep -c whole` → **29**; the grep returning 1 is `grep "whole source"`) — the
+substance holds, no occurrence asserts the false mechanism. **F-C2-03** F-08's
+`:1750/:2927/:1449` are the **superseded blob's** lines; the committed blob has
+**1761/2938/1460**, which the card's own mutant table names — internally
+inconsistent. **F-C2-04** the added mechanism has an inside mutant and **no edge
+mutant**: `node.lineno → node.end_lineno` **SURVIVES**. **F-C2-05** the
+sensitivity magnitude was closeable and was declared instead. **F-C2-06** two
+kept artefacts give **1 586** and **793** for the same measurement (the 1 586 is
+a two-sided `diff | grep -c '^[<>]'` double count). **F-C2-07** AC-3/4/5/6 each
+cite `(test: …)` for a test that **does not exist**, while the same file carries
+`test_no_docstring_names_a_test_that_does_not_exist`. **F-C2-08** AC-2's declared
+"second domain" shares timer, process, text and split function with instrument A
+— it controls the **aggregation**, not the instrument. **F-C2-09** AC-8's "File
+105.66 → 70.62 s is measured" mixes baselines, though the projection's arithmetic
+correctly uses the round's own 100.19.
+
+### What cycle 2 re-derived, and in which domain
+
+- **Reach 81.1 / 43.1 / 96.7 %** — *new domain*: at the **stdlib boundary**,
+  recording the `maxlines` CPython actually passes (the round recorded
+  `node.end_lineno` at the caller). **Reproduced exactly**, zero unbounded calls.
+- **The saving** — *new domain*: **in-situ wall clock**, no count×ms model, three
+  interleaved arms plus a third measuring the dispatcher's own overhead:
+  **12.20 s**. The bounded model (11.48 s) is **5.9 % low**; the **whole-source
+  model (14.72 s) is 20.7 % high** — *F-287-01's correction had real
+  consequence.* Its A 27.49 / B 15.07 reproduce the round's 27.88 / 15.19 to
+  1.4 % / 0.8 %.
+- **2 556** and `23×36 + 24×72` in two doors; `24×108 = 2 592` confirmed wrong.
+  **AC-6** 832 / 770 / 0 and the cumulative sequence, live, two domains.
+  **AC-7** 132 → 133 by its own `comm`. **G-1's capture equality** on its own
+  loader, both arms, sha256 equal to `before.txt` and `after2.txt`. **The
+  extended capture's seven axes audited section by section**
+  (100/8/18/24/21/34 = 205 new; 52 + 205 = 257; 11 936 − 1 752 = 10 184),
+  **nothing left as a bare `len()`**. The pre-gate's **blob identity** against
+  its stale `HEAD:` cell.
+- **G-5 run explicitly**: 606 passed, 0 skipped, exit 0, and
+  `606 = 29 + 410 + 167` by per-file collect-only, **so the browser file really
+  contributed** rather than being named and skipped.
+
+### N1 and N2
+
+**N1** is killed by the positive control **and only it**, and that is *correct
+and sufficient for what N1 claims* — the positive control is the only assertion
+that can see the lineno at all. But it is **insufficient for the mechanism**: the
+plant is single-line, so it pins *that a line is reported*, not *that the right
+line is*. **Unlike M1 this is not structurally unkillable** — a two-line plant
+closes it. **N2's reason is correct** (an assert's message operand is evaluated
+only on failure) and cycle 2 confirmed un-observability with a **second** message
+mutant of its own, so it is *a declaration with a control, not a claim wearing
+one*; S1-vs-S2 is adequate evidence the message is right. One slight
+overstatement: the un-killability is a property of the inline f-string **shape**,
+not of the tree. **M1** survived the F-07 re-fire as declared; **S1/S2** killed
+naming **2938** and **1460** separately — F-07 genuinely closed, verified here
+rather than read from the log.
+
+### The last mile — four characters
+
+**Span the positive control's planted call over two lines so
+`lineno != end_lineno`**, which kills cycle 2's **E1** and reds on nothing.
+*"Nothing else in this review asks for code."*
+
+### Could not establish, in those words
+
+The exact character cycle 1 injected; **when `prediction.txt` was written**; the
+suite-wide figure (AC-8, the merge gate's); whether the other two tests' cProfile
+readings reproduce (only the dear test's pair was retaken); whether the residual
+~32.7 s is reducible (**CARD-303's**).
