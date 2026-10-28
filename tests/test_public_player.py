@@ -652,7 +652,13 @@ def test_the_picture_name_is_dropped_and_the_books_title_is_not(site) -> None:
     book = json.loads(
         (report.site_dir / "book" / "0123456789.json").read_text(encoding="utf-8")
     )
-    assert book["title"] == "A book", book
+    assert book["title"] == BOOK_TITLE, book
+    # Read through the constant rather than off a second copy of the literal:
+    # cycle 2's C2-M41 changed the fixture's title and the suite's two
+    # statements about it disagreed. Now exactly one test says what the
+    # fixture's title IS (this one, through the name), and R2's served-half
+    # control states the rule with both titles passed in explicitly.
+    assert BOOK_TITLE == "A book"
 
 
 def test_the_index_and_book_files_are_rebuilt_and_never_copied(site) -> None:
