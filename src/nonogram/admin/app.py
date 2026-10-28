@@ -89,6 +89,7 @@ from nonogram.admin.book_page_spec import (
     book_divider_pages,
     book_ink_mode,
     book_page_spec,
+    divider_pages_from_form,
 )
 from nonogram.admin.book_plan import (
     BUCKETS as PLAN_BUCKETS,
@@ -3712,8 +3713,16 @@ def create_app(debug=None):
                     # Without the marker a book with dividers would lose them
                     # the first time any such client saved Print setup, which
                     # is the same failure mode the ink mode above guards.
+                    #
+                    # The field itself is read by `divider_pages_from_form`,
+                    # the module that owns the column's vocabulary — not by
+                    # `bool()`, which made every non-empty string true and so
+                    # stored True for a submission that said
+                    # `interior_divider_pages=0` (CARD-305 review cycle 1,
+                    # F-004). `_DIVIDER_PAGES_FALSE` was unreachable from the
+                    # one inbound path, which is not "one door".
                     if request.form.get("interior_divider_pages_present"):
-                        divider_input = bool(
+                        divider_input = divider_pages_from_form(
                             request.form.get("interior_divider_pages")
                         )
                     else:

@@ -23,15 +23,31 @@ five-member book is 2 easy, 2 medium, 1 hard, so it opens three named levels:
 three level dividers plus one SOLUTIONS page is **four** pages, and that is
 the number the page count must fall by. A book of one level falls by two.
 
-**The one test that would have caught the defect this card most risked** is
-``TestDividerPages_PrintSetupStoresTheChoice``'s
-``test_a_submission_without_the_control_leaves_the_stored_choice_alone``. A
-checkbox posts nothing when it is unticked, so "off" and "this form has no
+**The defect this card most risked, and the pair of cells that catches it.**
+A checkbox posts nothing when it is unticked, so "off" and "this form has no
 such field" arrive identically; read naively, the first save from any older
 client would strip four pages out of a book that wanted them. The hidden
-marker field is what tells them apart, and every other route test in this
-suite posts *without* it — so they are themselves that case, and they all
-still expect their dividers.
+marker field is what tells them apart. It takes **two** cells in
+``TestDividerPages_PrintSetupStoresTheChoice``, and only one of them can fail
+on the marker mechanism:
+
+* ``test_a_submission_without_the_control_leaves_the_default_on_alone`` —
+  driven from the **default**, which is the state every existing book is in
+  and the only state the defect is visible in. Deleting either half of the
+  mechanism reds it (measured; see its docstring).
+* ``test_a_submission_without_the_control_leaves_the_stored_choice_alone`` —
+  driven from "off", where the broken naive read produces ``bool(None)`` ->
+  ``False``, the very value it asserts. It therefore passes with the
+  mechanism deleted, and its job is the complement: ruling out a route that
+  writes the default back on every save.
+
+CARD-305 cycle 1's F-001 is exactly that the from-off cell shipped alone,
+with a docstring claiming it was the discriminating one.
+
+Every other route test in this suite posts *without* the marker, so they are
+themselves that case and they all still expect their dividers — but all of
+their books sit at the default and none asserts the column afterwards, so
+they exercise the path without discriminating on it.
 """
 
 from __future__ import annotations
@@ -46,6 +62,7 @@ from nonogram.admin.book_page_spec import (
     DEFAULT_DIVIDER_PAGES,
     DIVIDER_PAGES_COLUMN,
     book_divider_pages,
+    divider_pages_from_form,
     divider_pages_from_stored,
 )
 from nonogram.admin.book_pdf_generator import (
@@ -57,6 +74,7 @@ from nonogram.admin.book_pdf_generator import (
     structural_toc_entries,
 )
 from tests.helpers.db import sqlite_session_scope
+from tests.helpers.page_ink import drawing_of
 from tests.test_book_pdf_levels import AC253_MEMBERS, _book, _book_of
 from tests.test_book_plan_storage import (
     AC198_MATRIX,
@@ -147,6 +165,38 @@ class TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages:
 
         assert [p for p in pages if isinstance(p, DividerPagePlan)] == []
 
+    def test_no_divider_page_is_drawn_at_all_including_solutions(
+        self, monkeypatch
+    ) -> None:
+        """Both dividers, counted where they are actually drawn.
+
+        The cell above reads the **plan**, which holds the three level
+        dividers; the SOLUTIONS page is not in it — ``interior_stream`` yields
+        that one directly. Both go through ``create_divider_page`` (it is one
+        page design for all four), so counting its calls over the whole walk
+        is the one place that sees every divider the book draws, which is
+        what makes this the criterion for FR-041's *and* FR-042's off case
+        rather than two separate readings.
+
+        The ON leg is the control: without it "zero were drawn" would hold
+        for a generator that draws no dividers at all.
+        """
+        drawn: list[str] = []
+        original = BookPDFGenerator.create_divider_page
+
+        def record(self, page_number, text="SOLUTIONS"):
+            drawn.append(text)
+            return original(self, page_number, text)
+
+        monkeypatch.setattr(BookPDFGenerator, "create_divider_page", record)
+
+        list(_generator(True).interior_stream(list(_puzzles())).pages)
+        assert drawn == ["Easy", "Medium", "Hard", "SOLUTIONS"]
+
+        drawn.clear()
+        list(_generator(False).interior_stream(list(_puzzles())).pages)
+        assert drawn == []
+
     def test_the_walk_produces_exactly_the_count_it_declared(self) -> None:
         """The generator's own plan/draw tripwire, driven in both states.
 
@@ -199,6 +249,134 @@ class TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages:
         )
 
 
+#: A book storing **unequal** side margins, for the parity class below. On
+#: CON-018 as amended 2026-10-17 Book 1's gutter and outside margins are both
+#: 0.5 in, so a drawing centred in the usable area is centred on the trim too
+#: and a page's side of the spread leaves no trace in its own ink at all
+#: (measured: every page reads an offset of 0 px). A 20 mm gutter against a
+#: 10 mm outside margin is the only configuration in which mirroring is
+#: observable, and it is the one
+#: ``TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity`` already uses
+#: for the mirror-image change (one page *added*).
+MIRROR_GUTTER_MM = 20.0
+MIRROR_OUTSIDE_MM = 10.0
+
+#: The pages of this book that carry a measurable drawing: its 5 puzzle pages
+#: and its 5 answer pages (one per 20x20 puzzle — nothing here packs). The
+#: title page, the two guide pages, the TOC and any divider carry no ruled
+#: grid, so ``drawing_of`` declines them. Asserted, because a loop that
+#: quietly stopped finding any page to measure would pass.
+#:
+#: Measured in both states and in two domains: this file, and a standalone
+#: probe over the same book outside pytest. 18 pages with the dividers, 14
+#: without, 10 measurable in each.
+MEASURABLE_PAGES = 10
+
+
+class TestDividerPages_EveryPagesParityIsStillItsOwnPosition:
+    """FR-043/INV-013 for the off state: four pages fewer, parity still right.
+
+    This is the widest consequence of the setting and the one the rest of
+    this file does not reach (CARD-305 cycle 1, F-003). The other classes
+    control the page **count**, the TOC rows, the walk-vs-declared tripwire
+    and the KDP estimate — **none of them would catch a page drawn on the
+    frame of a parity it no longer has**, because a page's gutter side comes
+    from its number and every one of those numbers moved.
+
+    The board's precedent for the mirror-image change — one page *added* —
+    is ``tests/test_book_guide_page.py``'s
+    ``TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity::test_every_pages_parity_still_equals_its_own_position``.
+    This card removes up to four and shipped no equivalent; this is it, in
+    the same instrument (the ink on the page, read back) and on the same
+    unequal-margin book, so the two are comparable.
+
+    **Read off the page, not off the plan.** The claim is about where a page
+    was really drawn, so the measurement is ``drawing_of``'s: a right-hand
+    (odd) page's drawing sits right of the trim's middle, a left-hand (even)
+    one left of it, by half the margin difference. Asking the plan what page
+    number it thinks each page has would prove only that the plan agrees
+    with itself.
+
+    **Both states, and the ON state is the control**, not decoration: it is
+    what makes the OFF state's offsets *different numbers* rather than the
+    same ones. Measured on this book: with dividers the puzzle pages are
+    interior pages 6, 7, 9, 10, 12; without them they are 5, 6, 7, 8, 9 — so
+    the first puzzle page's drawing swaps sides between the two runs, and a
+    generator that kept the old numbering while emitting the shorter book
+    would read the wrong side on every page of it.
+    """
+
+    @staticmethod
+    def _mirrored(divider_pages):
+        return replace(
+            _book(),
+            gutter_margin_cm=f"{MIRROR_GUTTER_MM / 10:.2f}",
+            outside_margin_cm=f"{MIRROR_OUTSIDE_MM / 10:.2f}",
+            **{DIVIDER_PAGES_COLUMN: divider_pages},
+        )
+
+    @pytest.mark.parametrize("flag", [True, False])
+    def test_every_pages_parity_equals_its_own_1_based_position(self, flag) -> None:
+        pages = BookPDFGenerator(self._mirrored(flag)).interior_pages(
+            list(_puzzles())
+        )
+        px_per_mm = 300 / 25.4  # the DPI every book page is measured at
+        expected_offset = (
+            (MIRROR_GUTTER_MM - MIRROR_OUTSIDE_MM) / 2 * px_per_mm
+        )
+
+        checked = 0
+        for number, page in enumerate(pages, start=1):
+            try:
+                drawing = drawing_of(page)
+            except ValueError:
+                # The title page, the guide, the TOC and any divider page
+                # carry no measurable drawing. They are not the subject.
+                continue
+            offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
+            assert (offset > 0) == (number % 2 == 1), (
+                f"dividers={flag}: interior page {number} of {len(pages)} is "
+                f"centred {offset:.1f} px off the middle, the wrong side for "
+                f"{'an odd' if number % 2 else 'an even'} page"
+            )
+            # Centring makes the magnitude the margin difference's own half
+            # on every page, whatever its puzzle (EC-032).
+            assert abs(abs(offset) - expected_offset) <= 2, (flag, number, offset)
+            checked += 1
+
+        assert checked == MEASURABLE_PAGES, (
+            f"dividers={flag}: {checked} pages carried a measurable drawing, "
+            f"not {MEASURABLE_PAGES} — the walk is measuring a different book"
+        )
+
+    def test_the_two_states_really_put_the_drawings_on_different_sides(self) -> None:
+        """The control for the class: the parity claim above has teeth here.
+
+        If the two runs put every drawing on the same side, the test above
+        would pass for a generator that ignored the setting when numbering
+        pages. They do not: this asserts the first measurable page's side
+        **differs** between the states, which is only true because the
+        shorter book renumbered. Measured: page 6 (left) with the dividers,
+        page 5 (right) without.
+        """
+        sides = {}
+        for flag in (True, False):
+            pages = BookPDFGenerator(self._mirrored(flag)).interior_pages(
+                list(_puzzles())
+            )
+            for number, page in enumerate(pages, start=1):
+                try:
+                    drawing = drawing_of(page)
+                except ValueError:
+                    continue
+                offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
+                sides[flag] = (number, offset > 0)
+                break
+
+        assert sides[True] == (6, False), sides
+        assert sides[False] == (5, True), sides
+
+
 class TestDividerPages_TheReaderReadsEveryStoredFormAndRefusesTheRest:
     """The column's domain, and the values that must not read as a boolean."""
 
@@ -242,6 +420,49 @@ class TestDividerPages_TheReaderReadsEveryStoredFormAndRefusesTheRest:
         """A row from before the migration, and ``None`` itself."""
         assert book_divider_pages(object()) is True
         assert book_divider_pages(None) is True
+
+    @pytest.mark.parametrize(
+        "posted,expected",
+        [
+            # The EDGE, and the whole reason this is a second function: an
+            # unticked checkbox posts nothing, and nothing from a *form* is
+            # "off" — while nothing from the *column* is the default, which
+            # is True. The two doors disagree here on purpose.
+            (None, False),
+            ("", False),
+            ("   ", False),
+            # A ticked box posts "1"...
+            ("1", True),
+            ("on", True),
+            ("true", True),
+            # ...and a client that means "no" and says so is believed, which
+            # ``bool()`` could not do: every one of these stored True before
+            # CARD-305 cycle 1's F-004.
+            ("0", False),
+            ("off", False),
+            ("false", False),
+            ("no", False),
+            ("FALSE", False),
+        ],
+    )
+    def test_the_form_field_reads_as_itself_and_empty_means_off(
+        self, posted, expected
+    ) -> None:
+        assert divider_pages_from_form(posted) is expected
+
+    @pytest.mark.parametrize("posted", ["maybe", "2", "-1"])
+    def test_a_posted_field_in_no_vocabulary_is_refused_and_names_the_column(
+        self, posted
+    ) -> None:
+        """Refused rather than guessed at — a book losing four pages is worse.
+
+        The route turns this into a flashed refusal that stores nothing,
+        which is the posture it already takes for an unreadable trim; the
+        route-level cell for that is
+        ``test_a_field_in_no_vocabulary_is_refused_and_stores_nothing``.
+        """
+        with pytest.raises(ValueError, match=DIVIDER_PAGES_COLUMN):
+            divider_pages_from_form(posted)
 
 
 class TestDividerPages_TheTableOfContentsFollows:
@@ -398,14 +619,24 @@ class TestDividerPages_PrintSetupStoresTheChoice:
     def test_a_submission_without_the_control_leaves_the_stored_choice_alone(
         self, app
     ) -> None:
-        """The defect this card most risked, as a test.
+        """A markerless submission leaves a stored **off** alone.
 
         An unticked checkbox and an absent field are the same bytes on the
-        wire. A client built before this control — or any other form posting
-        to this route — must not strip four pages out of a book, so a
-        submission carrying no marker leaves the column where it was. Driven
-        from "off", because a book already at the default would pass this
-        test whatever the code did.
+        wire, so a client built before this control — or any other form
+        posting to this route — must leave the column where it was.
+
+        **This leg alone cannot fail on the marker mechanism**, and saying so
+        is the point of the pair (CARD-305 cycle 1, F-001). Driven from
+        "off", the broken naive read is
+        ``bool(request.form.get("interior_divider_pages"))`` ->
+        ``bool(None)`` -> ``False``, which is the value asserted here:
+        mechanism-working and mechanism-deleted write the same byte.
+        Measured — both deletion mutants (``app.py``'s marker guard and
+        ``book_manager._apply_print_spec``'s ``is not None`` guard, each to
+        ``if True:``) PASS this cell. Its job is the complement: it rules out
+        an implementation that simply writes the default back on every save,
+        which the from-ON leg below would accept. The discriminating leg is
+        ``test_a_submission_without_the_control_leaves_the_default_on_alone``.
         """
         client = app.test_client()
         book_id = _new_book(app.book_manager)
@@ -421,6 +652,86 @@ class TestDividerPages_PrintSetupStoresTheChoice:
         )
 
         assert book_divider_pages(app.book_manager.get_book(book_id)) is False
+
+    def test_a_submission_without_the_control_leaves_the_default_on_alone(
+        self, app
+    ) -> None:
+        """The defect this card most risked, as a test that can fail.
+
+        **This is the state the defect is visible in**, and it is the state
+        every book in production is in: nothing stored, so the book prints
+        its dividers. A markerless save must leave it printing them. Read
+        naively the marker's absence is indistinguishable from an unticked
+        box, so the first Print-setup save from any older client would strip
+        four pages out of a book that wanted them — and the owner would find
+        it at the proof.
+
+        A separate cell from the from-off leg above rather than a second leg
+        inside it, because a test short-circuits at its first failing assert:
+        two cells give two verdicts, so "the mechanism is gone" and "the
+        route writes the default back" are told apart by *which* name reds.
+        Measured (CARD-305 fix round 1): deleting the marker guard
+        (``app.py:3715`` -> ``if True:``) reds this cell in both storage
+        modes, and so does deleting ``_apply_print_spec``'s
+        ``spec.interior_divider_pages is not None`` guard
+        (``book_manager.py:1005`` -> ``if True:``), while the from-off leg
+        passes under each.
+        """
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        # The state of every book that existed before this card: nothing
+        # stored, which the reader answers with DEFAULT_DIVIDER_PAGES.
+        assert book_divider_pages(app.book_manager.get_book(book_id)) is True
+
+        client.post(
+            f"/book/{book_id}/setup-print",
+            data=_form(150, (40, 40, 20), AC198_MATRIX),
+        )
+
+        assert book_divider_pages(app.book_manager.get_book(book_id)) is True
+
+    @pytest.mark.parametrize("posted", ["0", "off", "false", "no"])
+    def test_a_submission_that_says_no_explicitly_stores_false(
+        self, app, posted
+    ) -> None:
+        """F-004, through the real route: the field's own vocabulary holds.
+
+        The shipped template never posts these — an unticked box posts
+        nothing — so this is the *next* client: a hand-built form, a JSON-ish
+        poster, a future API. Read with ``bool()`` every one of them stored
+        **True**, the opposite of what it said, and
+        ``_DIVIDER_PAGES_FALSE`` was unreachable from any inbound path.
+        """
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        form = _form(150, (40, 40, 20), AC198_MATRIX)
+        form["interior_divider_pages_present"] = "1"
+        form["interior_divider_pages"] = posted
+
+        client.post(f"/book/{book_id}/setup-print", data=form)
+
+        assert book_divider_pages(app.book_manager.get_book(book_id)) is False
+
+    def test_a_field_in_no_vocabulary_is_refused_and_stores_nothing(
+        self, app
+    ) -> None:
+        """A value nobody meant is the route's own ValueError posture.
+
+        Flashed, nothing stored, the page re-rendered — the same thing an
+        unreadable trim does. The load-bearing assertion is the second one:
+        the book's choice is where it was, so a garbage field cannot take
+        four pages off a book by being read as truthy.
+        """
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        form = _form(150, (40, 40, 20), AC198_MATRIX)
+        form["interior_divider_pages_present"] = "1"
+        form["interior_divider_pages"] = "maybe"
+
+        response = client.post(f"/book/{book_id}/setup-print", data=form)
+
+        assert DIVIDER_PAGES_COLUMN in response.get_data(as_text=True)
+        assert book_divider_pages(app.book_manager.get_book(book_id)) is True
 
     def test_the_box_comes_back_unticked_once_it_is_stored_off(self, app) -> None:
         """The round trip: the screen shows what the book will print."""

@@ -3612,6 +3612,26 @@ def interior_page_count(
     is Book 1 or larger" true of the TOC too; a caller that knows the book's
     *own*, possibly smaller, trim (:meth:`BookPDFGenerator.section_plan`)
     always passes its own measured ``toc_pages`` instead of relying on this.
+
+    ``solutions_divider`` (CARD-305) is whether the book prints the SOLUTIONS
+    page that opens its answer key — ``False`` for a book whose divider-pages
+    setting is off, which prints neither that page nor any level divider.
+
+    **It does not reach the ``toc_pages=None`` default**, and the two must not
+    be read as consistent: left out, ``toc_pages`` is derived from
+    ``structural_toc_entry_count(min(len(TIERS), puzzle_count), puzzle_count)``,
+    which still budgets TOC rows for level dividers under
+    ``solutions_divider=False``. That is deliberate — the default is an upper
+    bound over *every* book of that many puzzles and never one caller's book,
+    the same posture ``level_dividers`` takes — but it means
+    ``interior_page_count(n, solutions_divider=False)`` called without
+    ``toc_pages`` is an over-estimate for a book that prints no dividers
+    rather than its real length. Every production caller passes ``toc_pages``
+    explicitly (:func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`
+    and :meth:`BookPDFGenerator.interior_stream`), so nothing ships on the
+    default; said here because a future caller could (CARD-305 cycle 1,
+    F-006 — latent, and left latent on purpose: making the default follow
+    this parameter would turn it into one book's figure).
     """
     if puzzle_count < 0:
         raise ValueError(f"puzzle count cannot be negative, got {puzzle_count}")

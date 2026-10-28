@@ -15,6 +15,16 @@ immediately before that level's first puzzle page, with puzzle numbers 1..n
 unbroken across the levels**. The expected plan is built here, from this
 file's own rank table, and never by asking the code under test what it thinks.
 
+Since CARD-305 the same state is put through the plan **twice**: once for a
+book that prints its divider pages (the default, every book before that card)
+and once for a book whose Print-setup option is off, which must print the same
+puzzles in the same order with the same unbroken 1..n numbering and **no
+divider page at all**. Both arms run on every step of every trial. The off arm
+exists because every book this file builds comes from ``create_book`` and is
+therefore always on the default, so before it the sweep passed while saying
+nothing whatever about the second state EC-029 now has (CARD-305 cycle 1,
+F-002).
+
 Nothing is rendered inside the sweep — the plan is decided without a pixel,
 which is what makes it affordable per step — but the last book of each mode
 **is** exported, so the plan this property sweeps is tied to a file whose
@@ -53,6 +63,7 @@ levels with this file's own code and comparing them element by element.
 from __future__ import annotations
 
 import random
+from types import SimpleNamespace
 
 import pytest
 
@@ -198,7 +209,16 @@ def _rows(shelf, order) -> list:
     return [shelf.store.get_puzzle(puzzle_id) for puzzle_id in order]
 
 
-def _expected_section(shelf, order) -> list:
+#: A book that prints **no** divider pages (CARD-305's Print-setup option).
+#: One column, which is all ``book_divider_pages`` reads (through
+#: ``getattr``); every other print column falls back to CON-018's profile
+#: exactly as it does for the bare ``None`` book the on-state arm uses, so
+#: the two arms differ in this setting and in nothing else (probed: both lay
+#: out the same sheet).
+DIVIDERS_OFF = SimpleNamespace(interior_divider_pages=False)
+
+
+def _expected_section(shelf, order, *, dividers: bool = True) -> list:
     """The puzzle section this file says the interior must hold.
 
     ``[("divider", name) | ("puzzle", puzzle id, number), ...]`` in print
@@ -206,6 +226,12 @@ def _expected_section(shelf, order) -> list:
     before each run of a **named** level, and the numbers running 1..n over
     the puzzles alone. Nothing here calls the generator; it is the expectation
     the generator's plan is compared against.
+
+    With ``dividers=False`` (CARD-305) the divider entries are simply not
+    expected, and **nothing else about the order changes**: same grouping,
+    same within-level order, same unbroken 1..n numbering over the puzzles.
+    It is one parameter on the one expectation rather than a second
+    expectation, so the two states cannot drift into two different rules.
 
     None of this corpus's puzzles ever shares a page: they are 10x10s with
     single-run clues, which two-up pairing could pair — so the comparison
@@ -220,13 +246,13 @@ def _expected_section(shelf, order) -> list:
         rank = shelf.rank(puzzle_id)
         if rank != opened:
             opened = rank
-            if rank in LEVEL_NAME:
+            if dividers and rank in LEVEL_NAME:
                 section.append(("divider", LEVEL_NAME[rank]))
         section.append(("puzzle", puzzle_id, number))
     return section
 
 
-def _planned_section(shelf, order) -> list:
+def _planned_section(shelf, order, *, dividers: bool = True) -> list:
     """The same list, read off the export's own page plan.
 
     ``print_order`` and ``puzzle_section`` are the two decisions
@@ -235,12 +261,19 @@ def _planned_section(shelf, order) -> list:
     the plan the export would print. A two-up page contributes both of its
     puzzles, in print order, which is what lets a paired book be compared
     against the per-puzzle expectation above.
+
+    ``dividers`` is the book the plan is made for: the default ``None`` book,
+    which prints them (:data:`DEFAULT_DIVIDER_PAGES`), or
+    :data:`DIVIDERS_OFF`, which does not. The decision is read from the book
+    once by the generator itself, so this is the real seam the option acts
+    through and not a flag this file interprets.
     """
     rows = print_order(_rows(shelf, order))
     payloads = [BookPDFGenerator._payload(row) for row in rows]
     ids = [row["id"] for row in rows]
     section: list = []
-    for entry in BookPDFGenerator(None).puzzle_section(payloads, ids=ids):
+    generator = BookPDFGenerator(None if dividers else DIVIDERS_OFF)
+    for entry in generator.puzzle_section(payloads, ids=ids):
         if isinstance(entry, DividerPagePlan):
             section.append(("divider", entry.text))
             continue
@@ -257,6 +290,17 @@ def assert_prints_grouped_with_dividers(shelf, order, context) -> int:
     as a single comparison of the whole section, because each of those three
     claims is a claim about *where* something is and the section is where they
     all live.
+
+    **Both settings of CARD-305's Print-setup option**, because EC-029 is a
+    standing property and since that card there are two states a book can be
+    in. The on-state arm is the original claim. The off-state arm is the same
+    order with the divider entries gone and nothing else moved — the grouping
+    and the unbroken 1..n numbering are asserted there too, which is what
+    makes it a check of the *property* over the second state rather than a
+    check that four pages are missing. Before this arm the option's off state
+    was swept by nothing at all: every book this file builds comes from
+    ``create_book`` and is therefore always on the default, so the sweep
+    passed and said nothing about it (CARD-305 cycle 1, F-002).
 
     Returns how many levels this state prints, so the sweep can require that
     books of one, two and three levels all occurred rather than assuming a
@@ -290,6 +334,26 @@ def assert_prints_grouped_with_dividers(shelf, order, context) -> int:
         assert LEVEL_NAME[shelf.rank(follower[1])] == entry[1], (
             f"the {entry[1]} divider opens a {follower[1]} page after {context}"
         )
+
+    # ...and the same order printed by a book whose dividers are off: no
+    # divider page anywhere, and everything else exactly as above.
+    off = _planned_section(shelf, order, dividers=False)
+    assert off == _expected_section(shelf, order, dividers=False), (
+        f"the dividers-off section is not the one this order prints, after "
+        f"{context}"
+    )
+    assert [entry for entry in off if entry[0] == "divider"] == [], (
+        f"a book that prints no dividers planned one after {context}: {off}"
+    )
+    assert [entry[2] for entry in off if entry[0] == "puzzle"] == list(
+        range(1, len(order) + 1)
+    ), f"dividers-off puzzle numbers are not 1..{len(order)} after {context}"
+    # The two states hold the same puzzles in the same order — the option
+    # removes pages and renumbers nothing else (FR-041).
+    assert [entry for entry in off if entry[0] == "puzzle"] == [
+        entry for entry in planned if entry[0] == "puzzle"
+    ], f"the option changed the puzzle order after {context}"
+
     return len(names)
 
 
@@ -408,7 +472,9 @@ def test_PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence(mode, tmp_path
     order stays grouped easy/medium/hard, a level's internal order changes only
     through a move inside that level, and the book that order **prints** holds
     exactly one divider per non-empty level, immediately before that level's
-    first puzzle, with puzzle numbers 1..n unbroken (CARD-128).
+    first puzzle, with puzzle numbers 1..n unbroken (CARD-128) — and, for a
+    book whose divider pages are switched off (CARD-305), no divider page at
+    all and the same order and numbering otherwise.
     """
     shelf = Shelf(mode, tmp_path)
     rng = random.Random(SEED)
