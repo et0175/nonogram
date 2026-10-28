@@ -80,6 +80,21 @@ each ref across two lines in its own body (CARD-283's F-1):
 * AC-387 — ``tests/test_public_player_pages.py::test_book_landing_lists_and_links``
 * AC-388 — ``tests/test_public_player_pages.py::test_unknown_slug_lands_softly``
 * AC-389 — ``tests/test_public_player_pages.py::test_library_filters_the_index``
+* ADR-0041/R2's 2026-10-28 exemption —
+  ``tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+
+The last one is listed for a different reason than the first three, and the
+difference is the point. **No registry entry names it, and R2's own ``check:``
+deliberately does not either** — naming a test that exists only on a branch
+reads as mechanically checked, which is the defect this board repaired across
+ADR-0042's four checks on 2026-10-25. The comment beside R2's check names
+CARD-284 as owing the flip at merge. It is written out here in full so that
+the string is greppable from code the moment the flip happens: the validator
+resolves a ref by ``git grep -lw`` of the whole ``path::name`` over tracked
+non-Markdown files, and before this line the only such hits were prose
+mentions in ``player/assemble.py`` and ``tests/test_public_player.py`` — two
+files that could lose a sentence without anybody noticing the ref had died
+with it. The defining module is the one place that cannot.
 """
 
 from __future__ import annotations
