@@ -208,10 +208,20 @@ class TestBookCreate_StoresBook1PrintProfile:
         # ink mode is a separate fact with a default of its own. It is named
         # here rather than folded into CON018_COLUMNS so that the two cannot
         # be confused — a future profile change must not silently move it.
+        # ``interior_divider_pages`` is CARD-305's, is likewise not part of
+        # CON-018, and is ``None`` here **on purpose** rather than ``True``:
+        # unlike the ink mode beside it, ``create_spec`` deliberately does
+        # not default it. ``None`` is "the caller named none", which the
+        # storage boundary reads as "leave the book's stored choice alone" —
+        # the one reading that stops a form built before this control from
+        # stripping four pages out of a book. A ``True`` here would mean
+        # every caller that omits the field asserts the default, which is
+        # exactly what that guard refuses to let it do.
         assert spec.to_dict() == {
             **CON018_COLUMNS,
             "outside_margin_bleed_cm": None,
             "interior_ink_mode": "bw",
+            "interior_divider_pages": None,
         }
         assert PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM == BOOK1_PROFILE.trim_width_cm
 

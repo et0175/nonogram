@@ -173,3 +173,55 @@ phantom one.**
   1 hard):** 18 pages → **14**. Three level dividers and SOLUTIONS. The walk
   produced 18 and 14 respectively, which is the generator's own tripwire
   agreeing, not a second count of mine.
+
+## [GATE — 2026-10-28] green at 1502, and four guards had to be answered first
+
+**`1502 passed, 0 failed, exit 0`** over 22 files (the book export, page-spec,
+print-spec, plan-storage, workflow and CLI sets), rival-pytest **0 / 0**, on
+the branch rebased onto main at `9a61b928` (CARD-227 merged while this was
+being built).
+
+The first run was **44 failed**, all in `tests/test_book_export_interior_cover.py`.
+**Main was measured green on that file first (133 passed)** before any of it
+was attributed here — the board's own CARD-295 lesson. Four distinct guards
+had to be answered, and not one of them was a number raised until green:
+
+1. **The door-axis anchor (42 of the 44).** `DERIVED_POSITION` is a *verbatim
+   copy* of `interior_stream`'s `first_answer_page` statement, which the walk
+   replaces **line-count-preservingly** with each planted shape, asserting it
+   occurs exactly once. Its own docstring promises that "an edit to it reds
+   rather than quietly planting nothing" — so 42 reds is the guard working.
+   The statement was reflowed to eight lines by this card; it is now back to
+   **three**, with the conditional kept **inline**. Hoisting it into a local
+   would have put a term of a page position behind a name, which is the
+   laundering `test_no_door_shape_is_laundered_by_an_unrelated_resolving_occurrence`
+   exists to catch. The anchor is re-stamped to the new text, still one
+   occurrence, still three lines.
+2. **The exemption's term vocabulary.** `self.divider_pages` adds `self` and
+   `.divider_pages` to the terms the walk reads-but-declines-to-follow,
+   because what they resolve to is a stored column on one book. The **site**
+   count is unmoved at 5 — the terms landed on a position that was already
+   exempt — and the two figures are asserted separately, so a change that
+   added a sixth site would still red. Both new literals (`0`, `1`) are
+   already in `POSITION_LITERALS`.
+3. **`CALLEE_EXEMPTION_COST`, re-stamped the way CARD-227 re-stamped it:
+   772 → 776, 519 → 522, and 204 unmoved.** Derived before it was touched,
+   from the four calls this card adds — `book_divider_pages` ×1, `TocEntry`
+   ×2, `RuntimeError` ×1. Total takes all four (**+4**); the `("builtins",)`
+   step excludes `RuntimeError` and takes three (**+3**); the "definitions and
+   imports" step absorbs all three non-builtins — one *import*, two
+   module-level *definitions* — so its remainder is **unmoved**. Three
+   figures, three derivations, one of which predicts *no* movement.
+   **Cross-checked in a second domain:** my own `ast` walk of the module reads
+   **834 → 838**, exactly +4, independent of the test's instrument.
+4. **Two consequences of changed surfaces**, each a real declaration:
+   `PrintSpec.to_dict()` gained `interior_divider_pages`, which is `None`
+   after a bare `create_spec()` **on purpose** (no default — see G-4); and
+   `test_book_pdf.py`'s `interior_page_count` stub mirrors the real signature
+   rather than swallowing extras in `**kwargs`, so a forgotten parameter reds
+   instead of being dropped. It reds; it was.
+
+**Nothing in the feature changed to make a guard pass.** The only production
+edit in this round was reflowing one statement back to three lines — same
+arithmetic, same terms, same result — and the 22 assertions verified earlier
+by plain-Python probe were re-run afterwards and still hold.

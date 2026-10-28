@@ -6908,13 +6908,20 @@ class BookPDFGenerator:
         # book that prints dividers has. `len(section)` already carries the
         # level dividers or not, because `puzzle_section` is the one place
         # that decides whether to append them.
+        #
+        # **Three lines, and the conditional inline — both deliberate.** This
+        # statement is `tests/test_book_export_interior_cover.py`'s
+        # `DERIVED_POSITION` anchor: the door-axis walk replaces this exact
+        # block, *line-count-preservingly*, with each of its planted shapes,
+        # and asserts it occurs exactly once. Reflowing it over eight lines
+        # reds 44 of that file's cells — the guard working, not a flake — and
+        # hoisting the conditional into a local would put a term of a page
+        # position behind a name, which is the laundering that walk exists to
+        # catch. Hence the long middle line; that file's own anchor is
+        # updated in the same commit, which is the edit this guard is built
+        # to force.
         first_answer_page = (
-            1
-            + TITLE_PAGE_COUNT
-            + GUIDE_PAGE_COUNT
-            + toc_page_count
-            + len(section)
-            + (1 if self.divider_pages else 0)
+            1 + TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + toc_page_count + len(section) + (1 if self.divider_pages else 0)
         )
 
         # Review F-1 (CARD-202, fix cycle 1): `plan_small_answer_pages` above
