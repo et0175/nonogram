@@ -112,6 +112,8 @@ from nonogram.export.layout import (
     DEFAULT_PAGE_SPEC,
     DPI,
     CellCapPolicy,
+    GridRule,
+    GridRules,
     OrientationPolicy,
     PageParity,
     PageSpec,
@@ -173,10 +175,25 @@ BOTTOM_MM = 0.47 * 25.4
 SIX_BY_NINE_MM = (6 * 25.4, 9 * 25.4)
 
 #: The title band above each puzzle (TERM-028), NFR-008's standard cell and
-#: ADR-0037/R2's thinnest thin rule.
+#: the book's thinnest thin rule **on a raster surface** — which is all
+#: ``min_thin_rule_mm`` has meant since ADR-0037/R2's 2026-10-25 amendment
+#: moved the interior's weights to physical points with no millimetre floor.
 BAND_MM = 12.0
 STANDARD_CELL_MM = 7.5
 MIN_THIN_RULE_MM = 0.25
+
+#: ADR-0037/R2's three grid-rule weights and their tones, exactly as the
+#: owner's artifact "Puzzle page layout" states them — 0.3 pt cell lines in
+#: grey, 0.8 pt every fifth, 1.3 pt border — and **written out here rather
+#: than imported**, for the reason every other CON-018 figure in this file is
+#: written out: :func:`_spec` is the profile stated independently of the
+#: panel, so a spec that borrowed the panel's own ``GRID_RULES`` object would
+#: make ``test_the_profile_is_the_panels_sheet`` compare a value with itself.
+GRID_RULES = GridRules(
+    cell=GridRule(width_pt=0.3, grey=0.35),
+    fifth=GridRule(width_pt=0.8, grey=0.0),
+    border=GridRule(width_pt=1.3, grey=0.0),
+)
 
 #: Device pixels per millimetre at the 300 DPI every book page is drawn at.
 PX_PER_MM = DPI / 25.4
@@ -237,6 +254,7 @@ def _spec(
         orientation=OrientationPolicy.PORTRAIT_ONLY,
         cell_cap=STANDARD_CELL_MM,
         min_thin_rule_mm=MIN_THIN_RULE_MM,
+        grid_rules=GRID_RULES,
         parity=parity,
         **overrides,
     )

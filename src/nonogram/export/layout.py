@@ -246,6 +246,7 @@ __all__ = [
     "INTERIOR_HEADER_RULE_PT",
     "MAX_CELL_MM",
     "MM_PER_POINT",
+    "RASTER_RULE_FLOOR_PX",
     "MIN_CELL_MM",
     "MIN_DIFFICULTY_DOT_MM",
     "MAJOR_RULE_EVERY",
@@ -264,6 +265,8 @@ __all__ = [
     "ClueEntry",
     "DifficultyDots",
     "GridLine",
+    "GridRule",
+    "GridRules",
     "HeaderBand",
     "InteriorFrame",
     "Layout",
@@ -278,6 +281,7 @@ __all__ = [
     "PuzzleFrame",
     "QrCaption",
     "QrSlot",
+    "RuleTier",
     "VerticalBound",
     "caption_slot",
     "comfort_cap_mm",
@@ -291,6 +295,8 @@ __all__ = [
     "qr_caption",
     "qr_group_insets",
     "qr_slot",
+    "rasterise_rule_px",
+    "refuse_rasterised_rule",
 ]
 
 #: Output resolution in dots per inch. 300 is the conventional print target:
@@ -385,8 +391,269 @@ _CLUE_FONT_RATIO = 0.62
 #: Thin and heavy rule widths, as a fraction of the cell. The thin rule is
 #: pinned to the cell rather than fixed in pixels so that the drawing keeps
 #: its proportions at every size the clamp above can produce. A spec's
-#: ``min_thin_rule_mm`` can hold it up (ADR-0037/R2), and never pull it down.
+#: ``min_thin_rule_mm`` can hold it up (ADR-0037/R2's **raster** floor), and
+#: never pull it down. These are the **device-pixel** widths, which is what a
+#: rasteriser strokes; a spec's :attr:`PageSpec.grid_rules` states the
+#: **physical** widths a content stream declares instead.
 _THIN_RULE_RATIO = 1 / 30
+
+#: Which of a puzzle grid's three rule weights a boundary is stroked at
+#: (ADR-0037/R2): an ordinary cell line, an every-:data:`MAJOR_RULE_EVERY`-th
+#: line, or the grid's outer border. The tier is the *reason* for a line's
+#: width, which is why :class:`GridLine` carries it beside the width and the
+#: tone it resolves to — a renderer can say "this is the border" without
+#: re-deriving the modulo, and a test can assert the three weights by name.
+type RuleTier = Literal["cell", "fifth", "border"]
+
+#: The fewest whole device pixels a **raster** generator may stroke a
+#: puzzle-grid rule at, at its own render resolution (ADR-0037/R2).
+#:
+#: This is the one clause of R2 that survived the 2026-10-25 amendment with
+#: its mechanism intact, and it survived because it still has one: a
+#: rasteriser chooses an integer pixel count per stroke, so a declared width
+#: either reaches two pixels there or drops out. A content stream chooses
+#: nothing — the renderer resolves the declared width at whatever resolution
+#: it runs — which is why :data:`GridRules`' widths carry no floor and why
+#: :func:`rasterise_rule_px` is the only door that enforces this one.
+RASTER_RULE_FLOOR_PX = 2
+
+
+@dataclass(frozen=True, slots=True)
+class GridRule:
+    """One of a puzzle grid's three rule weights: a physical width and a tone.
+
+    A *declared* pair, in the units a PDF content stream declares them in —
+    points for the width (a ``w`` operand) and a grey level for the tone (a
+    ``G`` operand). Neither is a device measurement: what a 0.3 pt rule
+    occupies in pixels is the renderer's answer at its own resolution, and
+    asking this object for one is what :func:`rasterise_rule_px` is for.
+
+    Attributes:
+        width_pt: The stroke width in points.
+        grey: The tone, as a content stream's one-number grey level —
+            ``0.0`` black through ``1.0`` white, so a **larger** number is a
+            **lighter** rule. ADR-0037/R2's cell line is ``0.35``, which
+            renders as grey 89 (``round(255 * 0.35)``).
+
+    Raises:
+        ValueError: ``width_pt`` is not a finite positive number of points, or
+            ``grey`` is not a level in ``0.0..1.0``.
+    """
+
+    width_pt: float
+    grey: float
+
+    def __post_init__(self) -> None:
+        if not (_is_real(self.width_pt) and self.width_pt > 0):
+            raise ValueError(
+                f"GridRule.width_pt must be a finite positive number of points, "
+                f"not {self.width_pt!r}"
+            )
+        if not (_is_real(self.grey) and 0.0 <= self.grey <= 1.0):
+            raise ValueError(
+                f"GridRule.grey must be a grey level in 0.0..1.0, not {self.grey!r}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class GridRules:
+    """A puzzle grid's **three** rule weights, as physical widths (ADR-0037/R2).
+
+    Valid by construction, and the three constraints it refuses on are the
+    three the rule actually states — so a spec that carries one of these
+    cannot express a grid R2 forbids:
+
+    * **three weights, not two or one** — the widths are *strictly*
+      increasing, so no two tiers can be declared at the same width. R2's
+      wording is "exactly three rule weights", and a hierarchy whose fifth
+      line equals its cell line is two weights wearing three names;
+    * **the cell line is grey, not black** — ``grey > 0`` — which is the
+      literal word in the owner's artifact ("0.3 pt cells in grey"), and is
+      checked before the ordering below so that a pure-black cell line is
+      named as the retired wording rather than as a tie;
+    * **the cell line is lighter in ink** than both the fifth line and the
+      border, which is the half of the design that is tone rather than width.
+
+    It states **no minimum width**, deliberately. R2's 2-device-pixel clause
+    binds a rasteriser and is held at :func:`rasterise_rule_px`; a declared
+    width has no device floor to meet, which is the whole reason the owner's
+    own figures became available (ADR-0042/R1, and this ADR's 2026-10-25
+    History entry).
+
+    Attributes:
+        cell: The ordinary cell line.
+        fifth: Every :data:`MAJOR_RULE_EVERY`-th line, on both axes.
+        border: The grid's outer border, and the frame that continues it.
+
+    Raises:
+        ValueError: the three widths are not strictly increasing, the cell
+            line is not lighter in ink than both heavier rules, or the cell
+            line is pure black.
+    """
+
+    cell: GridRule
+    fifth: GridRule
+    border: GridRule
+
+    def __post_init__(self) -> None:
+        if not self.cell.width_pt < self.fifth.width_pt < self.border.width_pt:
+            raise ValueError(
+                "a puzzle grid has three distinct rule weights, strictly "
+                "increasing cell < fifth < border (ADR-0037/R2), not "
+                f"{self.cell.width_pt} / {self.fifth.width_pt} / "
+                f"{self.border.width_pt} pt"
+            )
+        if self.cell.grey <= 0.0:
+            raise ValueError(
+                "a puzzle grid's cell lines are grey, not pure black "
+                f"(ADR-0037/R2): cell grey {self.cell.grey} is black"
+            )
+        heavier = min(self.fifth.grey, self.border.grey)
+        if not self.cell.grey > heavier:
+            raise ValueError(
+                "a puzzle grid's cell lines are lighter in ink than its fifth "
+                f"lines and its border (ADR-0037/R2): cell grey {self.cell.grey} "
+                f"is not lighter than {heavier}"
+            )
+
+    def for_tier(self, tier: RuleTier) -> GridRule:
+        """The rule a :attr:`GridLine.tier` is stroked at.
+
+        Raises:
+            ValueError: ``tier`` is not one of the three. A grid has three
+                weights and no fourth, so an unknown tier is a programmer
+                error rather than a line to stroke at a guessed width.
+        """
+        match tier:
+            case "cell":
+                return self.cell
+            case "fifth":
+                return self.fifth
+            case "border":
+                return self.border
+        raise ValueError(f"not a puzzle-grid rule tier: {tier!r}")
+
+
+def rasterise_rule_px(width_pt: float, dpi: int = DPI) -> int:
+    """A declared rule width as the whole device pixels a rasteriser strokes.
+
+    **The one door a raster generator may take a puzzle-grid rule through, and
+    it defaults to DENY.** A width is admitted only when it resolves to at
+    least :data:`RASTER_RULE_FLOOR_PX` whole pixels at ``dpi``; every other
+    width — including every width this project has not seen — is refused.
+    There is no admitting branch for a rule that has not met the floor, which
+    is what makes "no puzzle grid is rasterised at these weights" a mechanism
+    rather than a comment: ADR-0037/R2's own figures reach this door and are
+    turned away at 300 DPI, where 0.3 / 0.8 / 1.3 pt round to 1 / 3 / 5 px and
+    the cell line is the one-pixel grid 7 of 17 reviews complained about.
+
+    Rounded, not floored or ceiled, because rounding is what a rasteriser
+    does and the refusal has to be measured against the real thing: 0.3 pt at
+    300 DPI is 1.25 px and rounds to **1**, which is the figure R2's
+    2026-10-25 amendment names.
+
+    The same figures at 1200 DPI resolve to 5 / 13 / 22 px and are admitted,
+    so this is a floor on the *device*, not a blanket refusal of the weights —
+    which is the near-miss a counting guard has to survive.
+
+    Args:
+        width_pt: The declared weight, in points.
+        dpi: The resolution the raster surface is drawn at.
+
+    Returns:
+        The whole pixels to stroke at.
+
+    Raises:
+        ValueError: the width resolves below :data:`RASTER_RULE_FLOOR_PX`
+            pixels at ``dpi``, or ``dpi`` is not a positive resolution.
+    """
+    if not (isinstance(dpi, int) and dpi > 0):
+        raise ValueError(f"a render resolution is a positive number of dots per inch, not {dpi!r}")
+    pixels = _device_rule_px(width_pt, dpi)
+    if pixels < RASTER_RULE_FLOOR_PX:
+        raise ValueError(
+            f"a raster puzzle grid holds every rule to at least "
+            f"{RASTER_RULE_FLOOR_PX} device pixels (ADR-0037/R2): "
+            f"{width_pt} pt is {pixels} px at {dpi} DPI, so this grid "
+            f"cannot be rasterised at these weights"
+        )
+    return pixels
+
+
+def _device_rule_px(width_pt: float, dpi: int) -> int:
+    """A declared width as the whole pixels a rasteriser would choose for it.
+
+    The arithmetic only — no floor, no refusal. Separate from
+    :func:`rasterise_rule_px` because the two are asked different questions:
+    that function asks *may* a raster surface stroke this width, and this one
+    asks *which* pixel count a rasteriser handed it would land on, which is
+    what :func:`refuse_rasterised_rule` has to recognise in a width that is
+    already being stroked.
+    """
+    return round(width_pt * dpi / 72)
+
+
+def refuse_rasterised_rule(
+    width: object, width_pt: float | None, *, dpi: int = DPI, what: str = "rule"
+) -> None:
+    """Guard a raster stroke of one puzzle-grid rule (ADR-0037/R2, AC-7).
+
+    Called by a raster grid stroker with the pair a :class:`GridLine` (or a
+    :class:`PuzzleFrame`) carries — the device width it is about to stroke and
+    the physical width the sheet declared, if any. It returns on a stroke R2
+    permits and raises on the two it does not.
+
+    **What defaults to DENY, stated rather than implied.** For a rule the
+    sheet declares a physical width for, the declared figure's own device
+    count is **denied**: there is no branch that lets a declared weight
+    through to a bitmap, and a stroker that has not been through
+    :func:`rasterise_rule_px` cannot acquire one by arithmetic either, because
+    the count that arithmetic produces is the count this refuses. For a rule
+    the sheet declares nothing for — every sheet but the book's — nothing is
+    denied, because R2 binds only the declared grid and the proportional
+    ``cell / 30`` widths are what it leaves alone.
+
+    The two refusals:
+
+    * **a width that is not whole positive pixels.** A rasteriser strokes
+      whole pixels; a fractional width is a physical measurement that has not
+      been resolved for the device, and Pillow would silently take its integer
+      part. This one holds on every sheet, declared or not.
+    * **a width that IS the declared figure's device count** — this card's AC-7
+      mutant in so many words, "let a raster page take the 0.3 pt figure". At
+      300 DPI that figure is 1 px, the one-pixel grey cell grid 7 of 17 reviews
+      of the 450-puzzle book complained about and the configuration R2's
+      2026-10-17 amendment refused. Note which pair this compares: the book's
+      own raster widths are the proportional 3 px and 6 px while its declared
+      figures rasterise to 1 / 3 / 5 px, so a book page drawn the way the
+      raster renderers really draw it passes here, and only a page that took
+      the declared number does not.
+
+    Args:
+        width: The device width about to be stroked.
+        width_pt: The declared physical width, or ``None``.
+        dpi: The raster surface's resolution.
+        what: What is being stroked, for the message.
+
+    Raises:
+        ValueError: ``width`` is not whole positive pixels, or it is the
+            device count of ``width_pt``.
+    """
+    if not (isinstance(width, int) and not isinstance(width, bool) and width > 0):
+        raise ValueError(
+            f"a raster {what} is stroked in whole device pixels, not {width!r}: "
+            "a physical width reaches a bitmap through rasterise_rule_px or "
+            "not at all (ADR-0037/R2)"
+        )
+    if width_pt is None:
+        return
+    if width == _device_rule_px(width_pt, dpi):
+        raise ValueError(
+            f"a raster {what} may not be stroked at a declared physical "
+            f"weight: {width_pt} pt is {width} px at {dpi} DPI, and a puzzle "
+            "grid drawn as content-stream operators is the only place these "
+            "weights hold (ADR-0037/R2, ADR-0042/R1)"
+        )
 
 #: A run-length clue for one line, and a full set of them — the same boundary
 #: types ``nonogram.clues`` produces and ``ExportPayload`` carries (ADR-0012).
@@ -486,10 +753,24 @@ class PageSpec:
             page it is the strip between the top margin and the drawing.
         orientation: :class:`OrientationPolicy`.
         cell_cap: :attr:`CellCapPolicy.COMFORT_CURVE`, or a flat cap in mm.
-        min_thin_rule_mm: The thinnest a thin grid rule may be (ADR-0037/R2:
-            0.25 mm on a book). ``None`` keeps the ``cell / 30`` rule unchanged.
-            The heavy rule is always twice the thin one, and every rule is
-            drawn in pure black by the renderers.
+        min_thin_rule_mm: The thinnest a thin grid rule may be **in device
+            pixels**, i.e. on a raster surface (0.25 mm on a book). ``None``
+            keeps the ``cell / 30`` rule unchanged. The heavy rule is always
+            twice the thin one. **This is the raster path's floor and no
+            longer ADR-0037/R2's interior minimum** — R2 as amended
+            2026-10-25 states the interior's weights as physical points
+            (:attr:`grid_rules`) and gives them no millimetre floor at all,
+            because a content stream has no device floor to meet. The field
+            kept its value because the raster pages it governs still exist.
+        grid_rules: ADR-0037/R2's three **physical** rule weights and their
+            tones, or ``None``. ``None`` on every spec but the book's, and
+            ``None`` is what the raster renderers require: a spec that states
+            these is a spec whose grid is drawn as content-stream operators
+            (ADR-0042/R1), and :func:`rasterise_rule_px` is the door that
+            refuses them a bitmap. Stating them does not change one device
+            pixel of :attr:`min_thin_rule_mm`'s arithmetic, so a raster page
+            built from a spec with these stripped is byte-identical to one
+            built before they existed (CON-019, G-3).
         parity: ``None`` means a drawing-sized image with one uniform border,
             the default spec's way. ``ODD``/``EVEN`` means a trim-sized placed
             page.
@@ -520,6 +801,7 @@ class PageSpec:
     orientation: OrientationPolicy
     cell_cap: CellCapPolicy | float
     min_thin_rule_mm: float | None = None
+    grid_rules: GridRules | None = None
     parity: PageParity | None = None
     frame: bool | None = None
 
@@ -568,6 +850,11 @@ class PageSpec:
             raise ValueError(
                 "PageSpec.cell_cap must be CellCapPolicy.COMFORT_CURVE or a finite "
                 f"positive number of mm, not {self.cell_cap!r}"
+            )
+        if self.grid_rules is not None and not isinstance(self.grid_rules, GridRules):
+            raise ValueError(
+                "PageSpec.grid_rules must be None or a GridRules, not "
+                f"{self.grid_rules!r}"
             )
         if self.min_thin_rule_mm is not None and not (
             _is_real(self.min_thin_rule_mm) and self.min_thin_rule_mm > 0
@@ -657,6 +944,7 @@ DEFAULT_PAGE_SPEC = PageSpec(
     orientation=OrientationPolicy.LARGER_CELL_WINS,
     cell_cap=CellCapPolicy.COMFORT_CURVE,
     min_thin_rule_mm=None,
+    grid_rules=None,
     parity=None,
     frame=None,
 )
@@ -795,9 +1083,16 @@ class PuzzleFrame:
         right: Its right side, on the grid's right edge
             (:attr:`Layout.grid_right`).
         bottom: Its bottom side, on the grid's bottom edge.
-        width: How heavy to stroke every side: :attr:`Layout.thick_rule`, the
-            heavy rule, exactly twice the thin one and no third weight
-            (ADR-0037/R2).
+        width: How heavy to stroke every side **in device pixels**:
+            :attr:`Layout.thick_rule`, the heavy rule, exactly twice the thin
+            one — the rasteriser's width, unchanged on every spec.
+        width_pt: The declared physical width, in points, on a spec that
+            states one — the **border** weight of
+            :attr:`PageSpec.grid_rules`, because the frame continues the
+            grid's outer border and a frame half a weight away from the border
+            it continues reads as a misprint (this class's own note on where
+            the stroke sits). ``None`` on a spec that states none.
+        grey: The declared tone of that border weight, or ``None``.
     """
 
     left: int
@@ -805,6 +1100,8 @@ class PuzzleFrame:
     right: int
     bottom: int
     width: int
+    width_pt: float | None = None
+    grey: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -914,12 +1211,34 @@ class GridLine:
             for a vertical line, ``y`` for a horizontal one.
         start: Where the line begins on the *other* axis, in device pixels.
         end: Where it ends.
-        width: How heavy to stroke it — :attr:`Layout.thin_rule` or
-            :attr:`Layout.thick_rule`.
+        width: How heavy to stroke it **in device pixels** —
+            :attr:`Layout.thin_rule` or :attr:`Layout.thick_rule`. This is the
+            rasteriser's width and it keeps the ``cell / 30`` proportional
+            rule on every spec, book included: a point-weighted grid is not
+            rasterised at all (ADR-0037/R2, :func:`rasterise_rule_px`), so
+            there is no spec on which this field is the book's figures.
         major: Whether this is one of the every-5th (or outer-border) rules.
             Carried separately from :attr:`width` because it is the *reason*
             for the width, and a renderer may want to say so (a different ink,
-            a different SVG class) without re-deriving the modulo.
+            a different SVG class) without re-deriving the modulo. It is
+            :attr:`tier` with its two heavy tiers merged, kept because every
+            renderer's stroke order is keyed on it.
+        tier: Which of ADR-0037/R2's three weights this line is — ``"cell"``,
+            ``"fifth"`` or ``"border"``. The three-way form of :attr:`major`:
+            the border is a weight of its own under the book spec, where
+            :attr:`major` can only say "heavy".
+        width_pt: The **declared physical** width, in points, on a spec that
+            states one (:attr:`PageSpec.grid_rules`) — ``None`` otherwise, and
+            ``None`` is every spec but the book's. A content stream declares
+            this number and the renderer resolves it at its own resolution,
+            which is the whole of why it is carried beside :attr:`width`
+            rather than instead of it: the two are different media's answers
+            to the same question and neither is derivable from the other
+            without choosing a resolution.
+        grey: The declared tone, as a content stream's grey level (``0.0``
+            black, ``1.0`` white) — ``None`` on a spec that states none. The
+            cell lines' ``0.35`` is the first tone this project has had; every
+            renderer before it drew every interior mark in one ink.
     """
 
     index: int
@@ -928,6 +1247,9 @@ class GridLine:
     end: int
     width: int
     major: bool
+    tier: RuleTier = "cell"
+    width_pt: float | None = None
+    grey: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -2244,10 +2566,18 @@ def _usable_box_px(page_spec: PageSpec) -> tuple[int, int, int, int]:
 def _mm_to_px_at_least(millimetres: float) -> int:
     """The fewest whole device pixels that measure *at least* ``millimetres``.
 
-    Rounding up rather than to nearest, for a minimum: ADR-0037/R2's 0.25 mm is
-    2.95 px, and rounding to nearest would still give 3 px, but only by luck.
-    The tolerance absorbs float noise on an exact pixel count (25.4 mm is
-    exactly 300 px and must not become 301).
+    Rounding up rather than to nearest, for a minimum: the book's raster
+    thin-rule floor of 0.25 mm (``PageSpec.min_thin_rule_mm``) is 2.95 px, and
+    rounding to nearest would still give 3 px, but only by luck. The tolerance
+    absorbs float noise on an exact pixel count (25.4 mm is exactly 300 px and
+    must not become 301).
+
+    **Attribution restated, not the arithmetic** (CARD-227): this used to name
+    ADR-0037/R2's 0.25 mm, and R2 as amended 2026-10-25 states no millimetre
+    floor at all — its weights are physical points and the floor that survived
+    binds a rasteriser, in whole pixels (:data:`RASTER_RULE_FLOOR_PX`). The
+    figure this function is called with is unchanged; what it is called *for*
+    is the raster path only.
     """
     return math.ceil(millimetres / 25.4 * DPI - 1e-9)
 
@@ -2749,11 +3079,19 @@ def _rule_widths(cell: float, page_spec: PageSpec = DEFAULT_PAGE_SPEC) -> tuple[
     enough to read as "heavier" across a page without the every-5th lines
     reading as a second, coarser grid.
 
-    A spec's ``min_thin_rule_mm`` (ADR-0037/R2, the book's 0.25 mm) raises the
-    thin rule to at least that many millimetres, rounded *up* to whole pixels
-    (3 px at 300 DPI), and never lowers it. The heavy rule stays exactly twice
-    the thin one. The default spec has no minimum, so its strokes are
-    unchanged. ``cell`` may be fractional on a placed page.
+    A spec's ``min_thin_rule_mm`` (the book's 0.25 mm) raises the thin rule to
+    at least that many millimetres, rounded *up* to whole pixels (3 px at
+    300 DPI), and never lowers it. The heavy rule stays exactly twice the thin
+    one. The default spec has no minimum, so its strokes are unchanged.
+    ``cell`` may be fractional on a placed page.
+
+    **These are device pixels, and since ADR-0037/R2's 2026-10-25 amendment
+    they are the RASTER path's widths only.** R2 states the book interior's
+    weights as physical points (:attr:`PageSpec.grid_rules`), which this
+    function does not read and must not: a declared width and a rasteriser's
+    pixel count are two media's answers, and folding one into the other is how
+    a grid would end up stroked at 1 px. Nothing here changed when the rules
+    arrived, which is what keeps a raster page byte-identical (CON-019, G-3).
     """
     thin = max(1, round(cell * _THIN_RULE_RATIO))
     if page_spec.min_thin_rule_mm is not None:
@@ -2761,14 +3099,34 @@ def _rule_widths(cell: float, page_spec: PageSpec = DEFAULT_PAGE_SPEC) -> tuple[
     return thin, thin * 2
 
 
+def _rule_tier(index: int, last: int) -> RuleTier:
+    """Which of the three weights boundary ``index`` is stroked at (ADR-0037/R2).
+
+    The **border** is the two far edges, ``0`` and ``last``, and it is tested
+    first — so a grid whose side *is* a multiple of five does not lose its
+    border to the every-fifth tier, and a grid whose side is not keeps a full
+    border on a short last band (a 22-wide grid rules 0 and 22 as border, 5,
+    10, 15 and 20 as fifths, and the 20→22 band is simply short). There is no
+    half-weight line at the edge in either case, because a boundary's tier is
+    decided by one ``match`` with no fallthrough.
+
+    A **fifth** is every :data:`MAJOR_RULE_EVERY`-th boundary counting from
+    the top/left, which is the same count on each axis independently — the
+    caller passes that axis's own ``last``.
+    """
+    if index == 0 or index == last:
+        return "border"
+    return "fifth" if index % MAJOR_RULE_EVERY == 0 else "cell"
+
+
 def _is_major(index: int, last: int) -> bool:
     """Is boundary ``index`` one of the heavy rules?
 
-    Every :data:`MAJOR_RULE_EVERY`-th boundary counting from the top/left, plus
-    the far edge — a 12-wide grid gets heavy rules at 0, 5, 10 and 12, so the
-    frame is closed even when the width is not a multiple of five.
+    :func:`_rule_tier` with its two heavy tiers merged — the two-weight
+    question every renderer's stroke order asks, kept so that "heavy" has one
+    definition and cannot drift from the three-weight one.
     """
-    return index % MAJOR_RULE_EVERY == 0 or index == last
+    return _rule_tier(index, last) != "cell"
 
 
 
@@ -2789,21 +3147,43 @@ def _boundaries(
 
 
 def _axis_lines(
-    positions: Sequence[int], *, start: int, end: int, thin: int, thick: int
+    positions: Sequence[int],
+    *,
+    start: int,
+    end: int,
+    thin: int,
+    thick: int,
+    rules: GridRules | None = None,
 ) -> tuple[GridLine, ...]:
-    """One ruled line per boundary in ``positions`` (``count + 1`` of them)."""
+    """One ruled line per boundary in ``positions`` (``count + 1`` of them).
+
+    ``rules`` is the spec's declared weights or ``None``. It adds the declared
+    width and tone to each line and changes **no** device pixel: ``thin`` and
+    ``thick`` are placed exactly as before, so the raster renderers see the
+    same drawing on a spec that states rules and on one that does not
+    (CON-019, G-3). Each line's tier picks its rule, so the every-fifth count
+    runs per axis — this function is called once per axis and ``last`` is that
+    axis's own.
+    """
     last = len(positions) - 1
-    return tuple(
-        GridLine(
-            index=index,
-            position=position,
-            start=start,
-            end=end,
-            width=thick if _is_major(index, last) else thin,
-            major=_is_major(index, last),
+    lines = []
+    for index, position in enumerate(positions):
+        tier = _rule_tier(index, last)
+        rule = None if rules is None else rules.for_tier(tier)
+        lines.append(
+            GridLine(
+                index=index,
+                position=position,
+                start=start,
+                end=end,
+                width=thin if tier == "cell" else thick,
+                major=tier != "cell",
+                tier=tier,
+                width_pt=None if rule is None else rule.width_pt,
+                grey=None if rule is None else rule.grey,
+            )
         )
-        for index, position in enumerate(positions)
-    )
+    return tuple(lines)
 
 
 def _puzzle_frame(
@@ -2827,8 +3207,15 @@ def _puzzle_frame(
     """
     if not page_spec.framed:
         return None
+    border = None if page_spec.grid_rules is None else page_spec.grid_rules.border
     return PuzzleFrame(
-        left=xs[0], top=ys[0], right=grid_right, bottom=grid_bottom, width=thick
+        left=xs[0],
+        top=ys[0],
+        right=grid_right,
+        bottom=grid_bottom,
+        width=thick,
+        width_pt=None if border is None else border.width_pt,
+        grey=None if border is None else border.grey,
     )
 
 
@@ -3095,10 +3482,20 @@ def compute_layout(
         # continues up through the column-clue gutter so its clue reads as
         # belonging to that column, and vice versa.
         vertical_lines=_axis_lines(
-            grid_xs, start=ys[0], end=grid_bottom, thin=thin, thick=thick
+            grid_xs,
+            start=ys[0],
+            end=grid_bottom,
+            thin=thin,
+            thick=thick,
+            rules=spec.grid_rules,
         ),
         horizontal_lines=_axis_lines(
-            grid_ys, start=xs[0], end=grid_right, thin=thin, thick=thick
+            grid_ys,
+            start=xs[0],
+            end=grid_right,
+            thin=thin,
+            thick=thick,
+            rules=spec.grid_rules,
         ),
         row_clues=_place_row_clues(row_clues, depth=row_gutter_cells, xs=xs, ys=grid_ys),
         column_clues=_place_column_clues(
@@ -3688,8 +4085,22 @@ def _slot_layout(
         thin_rule=thin,
         thick_rule=thick,
         clue_font_size=max(1, round(pitch * _CLUE_FONT_RATIO)),
-        vertical_lines=_axis_lines(grid_xs, start=ys[0], end=grid_bottom, thin=thin, thick=thick),
-        horizontal_lines=_axis_lines(grid_ys, start=xs[0], end=grid_right, thin=thin, thick=thick),
+        vertical_lines=_axis_lines(
+            grid_xs,
+            start=ys[0],
+            end=grid_bottom,
+            thin=thin,
+            thick=thick,
+            rules=page_spec.grid_rules,
+        ),
+        horizontal_lines=_axis_lines(
+            grid_ys,
+            start=xs[0],
+            end=grid_right,
+            thin=thin,
+            thick=thick,
+            rules=page_spec.grid_rules,
+        ),
         row_clues=_place_row_clues(row_clues, depth=row_gutter_cells, xs=xs, ys=grid_ys),
         column_clues=_place_column_clues(
             column_clues, depth=column_gutter_cells, xs=grid_xs, ys=ys
@@ -4355,8 +4766,12 @@ def _answer_tile(
         grid_bottom=ys[-1],
         thin_rule=thin,
         thick_rule=thick,
-        vertical_lines=_axis_lines(xs, start=ys[0], end=ys[-1], thin=thin, thick=thick),
-        horizontal_lines=_axis_lines(ys, start=xs[0], end=xs[-1], thin=thin, thick=thick),
+        vertical_lines=_axis_lines(
+            xs, start=ys[0], end=ys[-1], thin=thin, thick=thick, rules=page_spec.grid_rules
+        ),
+        horizontal_lines=_axis_lines(
+            ys, start=xs[0], end=xs[-1], thin=thin, thick=thick, rules=page_spec.grid_rules
+        ),
     )
 
 
@@ -4805,8 +5220,22 @@ def _packed_tile_layout(
         thin_rule=thin,
         thick_rule=thick,
         clue_font_size=max(1, round(pitch * _CLUE_FONT_RATIO)),
-        vertical_lines=_axis_lines(grid_xs, start=ys[0], end=grid_bottom, thin=thin, thick=thick),
-        horizontal_lines=_axis_lines(grid_ys, start=xs[0], end=grid_right, thin=thin, thick=thick),
+        vertical_lines=_axis_lines(
+            grid_xs,
+            start=ys[0],
+            end=grid_bottom,
+            thin=thin,
+            thick=thick,
+            rules=page_spec.grid_rules,
+        ),
+        horizontal_lines=_axis_lines(
+            grid_ys,
+            start=xs[0],
+            end=grid_right,
+            thin=thin,
+            thick=thick,
+            rules=page_spec.grid_rules,
+        ),
         row_clues=_place_row_clues(row_clues, depth=row_gutter_cells, xs=xs, ys=grid_ys),
         column_clues=_place_column_clues(
             column_clues, depth=column_gutter_cells, xs=grid_xs, ys=ys

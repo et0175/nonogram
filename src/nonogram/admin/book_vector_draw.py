@@ -140,22 +140,58 @@ def draw_grid_lines(
     so within each half the lines keep COMP-007's own order.
 
     **The graphics state is set when it changes, not per line.** A 30x30 page
-    has 62 lines and two distinct widths, so this emits two ``w`` operators
-    instead of 62 — the stream's state is the PDF's own and persists until it
-    is set again (``book_vector.ContentStream``'s own contract). The first
-    line always sets a width, whatever the stream was handed in: nothing here
-    assumes a state it did not set.
+    has 62 lines, so this emits a handful of ``w`` and ``G`` operators rather
+    than 62 of each — the stream's state is the PDF's own and persists until it
+    is set again (``book_vector.ContentStream``'s own contract). The first line
+    always sets both a width and a tone, whatever the stream was handed in:
+    nothing here assumes a state it did not set.
+
+    **"A handful" and not "one per weight", because that was measured**
+    (CARD-227). A book page has three weights and two tones, and it emits
+    **seven** ``w`` operators on a 20x20 rather than three: the sort above is
+    keyed on :attr:`~nonogram.export.layout.GridLine.major`, which has two
+    values, so inside the heavy half the border and the fifth lines interleave
+    in COMP-007's own order and the width changes on each. That costs
+    operators and nothing else — both heavy tiers are the same pure black, so
+    no crossing looks different whichever of the two is on top. Keying the
+    sort on :attr:`~nonogram.export.layout.GridLine.tier` would make it three,
+    and that is a change to **stroke order** in four renderers rather than to
+    a number, which CARD-227's G-2 keeps out of that card.
+    ``tests/test_book_grid_rules.py`` records the real count, so nobody reads
+    a smaller one off this paragraph.
+
+    **Where each width and each tone comes from (CARD-227, ADR-0037/R2).**
+    A line that carries a *declared* weight
+    (:attr:`~nonogram.export.layout.GridLine.width_pt`) is stroked at it, in
+    the points it is stated in, and at its own
+    :attr:`~nonogram.export.layout.GridLine.grey`. A line that carries none
+    keeps what every line did before: its device-pixel width through
+    :meth:`~nonogram.admin.book_vector.ContentStream.to_points`, and the
+    caller's ``grey``. **No arithmetic is added either way** — a declared
+    width is already in the stream's own unit, so this reads a number rather
+    than converting one, and ADR-0042/R3's "the writer derives nothing" is
+    stricter here than it was before. ``grey`` therefore stays the default for
+    a layout that declares no tone, which is every layout but a book's, and
+    the three weights reach the stream through the ``w``/``G`` primitives
+    CARD-294 already had — no new one (G-2).
     """
-    stream.stroke_grey(grey)
     oriented: list[tuple[GridLine, bool]] = [
         *((line, True) for line in verticals),
         *((line, False) for line in horizontals),
     ]
-    width: int | None = None
+    width: float | None = None
+    tone: float | None = None
     for line, vertical in sorted(oriented, key=lambda pair: pair[0].major):
-        if line.width != width:
-            stream.stroke_width(stream.to_points(line.width))
-            width = line.width
+        declared = (
+            stream.to_points(line.width) if line.width_pt is None else line.width_pt
+        )
+        wanted = grey if line.grey is None else line.grey
+        if wanted != tone:
+            stream.stroke_grey(wanted)
+            tone = wanted
+        if declared != width:
+            stream.stroke_width(declared)
+            width = declared
         if vertical:
             stream.line(line.position, line.start, line.position, line.end)
         else:
@@ -183,12 +219,20 @@ def draw_frame(
     stroked-rectangle-with-joins to ask for; PDF does, and it is also one
     operator instead of four.
 
-    The four boundaries and the width are the frame's own
-    (:attr:`~nonogram.export.layout.PuzzleFrame.width`, which is the
-    ``Layout``'s heavy rule — no new weight, ADR-0037/R2 and G-1).
+    The four boundaries and the width are the frame's own — and since
+    CARD-227 that width is the grid's **border** weight where the sheet
+    declares one (:attr:`~nonogram.export.layout.PuzzleFrame.width_pt`,
+    1.3 pt on a book), falling back to
+    :attr:`~nonogram.export.layout.PuzzleFrame.width`, the ``Layout``'s heavy
+    rule in device pixels, where it does not. Still no new weight
+    (ADR-0037/R2, G-1): the frame continues the grid's outer border and is
+    stroked at exactly the border's own figure, which is what keeps the two
+    from reading as a misprint where they coincide.
     """
-    stream.stroke_grey(grey)
-    stream.stroke_width(stream.to_points(frame.width))
+    stream.stroke_grey(grey if frame.grey is None else frame.grey)
+    stream.stroke_width(
+        stream.to_points(frame.width) if frame.width_pt is None else frame.width_pt
+    )
     stream.rectangle(frame.left, frame.top, frame.right, frame.bottom)
 
 
