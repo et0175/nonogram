@@ -1,6 +1,6 @@
 # CARD-227: The printed grid's rules get three weights — cell, every fifth, outer border, at the owner's own figures
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -15,11 +15,11 @@
 **Wave:** 63
 **Depends on:** CARD-222 (the frame these rules are measured inside), CARD-295 (the puzzle page must be drawn as operators before these widths are safe — see "Why this card waits")
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_vector_draw.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf_band.py, tests/test_book_grid_rules.py, tests/test_book_puzzle_page_vector.py, tests/test_book_page_spec.py, tests/test_book_export_interior_cover.py, src/nonogram/export/png.py, meta/profiling/rank_durations.py, meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md, meta/architecture/trace.yml, meta/architecture/requirements.yml <!-- corrected 2026-10-28: the original list was written 2026-10-17, BEFORE CARD-294/295 existed, and was stale against this card's own G-2 ("the weights go through the stroke path CARD-295 uses"). Six files added, each forced: book_vector_draw.py IS that stroke path; four test files hold claims this card moves or frozen registries it must join; trace.yml is named by the card itself. Both siblings checked, empty intersection confirmed. -->
-**Review score:** —
+**Review score:** 6.8 → **9.0 cycle 2/3 CERTIFIED**, zero gating, zero critical, zero important
 **Started:** 2026-10-28T07:23:17Z
-**Closed:** —
+**Closed:** 2026-10-28
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** `8579094a`
 **Blocked by:** —
 
 ## What to implement
@@ -745,3 +745,93 @@ that rather than claiming more. **Whether `_slot_layout`'s plumbing has a contro
 outside `test_book_grid_rules.py`** — M11 survived six files; *"nothing in the
 radius catches it"* is **not** established, only *"nothing in those six did"*.
 Plus the paper question, unchanged.
+
+
+## [LANDED — 2026-10-28] `8579094a` — merge gate green, and the registry gap closed on the way out
+
+**Merge gate: the full suite on the rebased tree, 9435 tests collected, exit 0,
+no FAILED or ERROR line**, 27 skips all named (26 `DATABASE_URL` unset, 1
+platform `setrlimit`), ~66 min, holding `meta/kanban/.full-suite.lock` for its
+duration. The rebase onto main was clean and
+`git diff 0fe2e570..5e72cc32 -- src tests meta/architecture meta/profiling` is
+**empty**, so the tree the gate ran is byte-identical to the one cycle 2
+certified at 9.0.
+
+**One measurement defect in the gate, found and explained rather than waved
+past.** The log carries **no pytest counts line**, which this board's own rule
+(`config.yml`, the "cost the most" comment) calls a measurement defect and never
+a tree verdict. The cause is not a cut run: the invocation passed `-q` on top of
+`pyproject.toml`'s own `addopts = "-q"`, and `-qq` suppresses both the counts
+line and `pytest_report_header`'s three guard lines. Proved with a control on
+one file — single `-q` prints `29 passed`, doubled `-q` prints no summary and
+still exits 0 — and a cut run cannot exit 0 in the first place (the rule exists
+for the non-zero-with-no-summary shape). The 9435 figure is `--collect-only` on
+the same tree, not a scrape of a line that was never printed.
+
+**A second, cheaper defect worth writing down:** `config.yml:40`'s
+`test_command` is `./.venv/bin/python -m pytest`, a **relative** interpreter, and
+**no worktree has a `.venv`** — they all share the main checkout's. Taken
+literally from a worktree that command is `exit 127`, which is how this gate's
+first launch died. Not fixed here (it is not this card's file); recorded for
+whoever owns the dispatcher.
+
+### The registry gap is closed, and it was the real one of the two "owed" items
+
+Three of this card's seven criteria had no registry criterion — AC-3, AC-4 and
+AC-7, verified by live tests this file did not name. Written now as **AC-397,
+AC-398 and AC-399** under FR-033, in AC-372..375's shape, each naming a class
+that exists in `tests/test_book_grid_rules.py` (`:560`, `:622`, `:855`), so they
+are resolvable refs and not the dead-check-ref defect this board repaired across
+ADR-0042's four checks on 2026-10-25. `AC-397` and up were confirmed free: the
+max id in the file was AC-396, and AC-376..378 are FR-040's.
+
+`trace.yml`'s FR-033 row has its owed paragraph **discharged** rather than
+deleted, and FR-033's `_meta.resolved_question` no longer says "decided but
+UNLANDED; CARD-227 has not merged".
+
+### The other "owed" item does not exist, and the misreading is worth recording
+
+Both review cycles listed **"FR-033's missing `tests:` key"** as owed at the
+merge gate. It is not a gap:
+
+- `trace.yml`'s FR-033 row **already lists thirteen tests**;
+- **no FR in `requirements.yml` carries a `tests:` key** — all 46 lack it, because
+  tests hang off `acceptance:` entries. Adding one to FR-033 alone would have
+  invented a convention.
+
+The warning both cycles were reading is `validators/trace.py:71-73`, which fires
+on **`status: partial` alone** and prints "requirement has no tests yet" whatever
+the row's `tests:` holds. **The row stays `partial`** — honestly, and for a
+reason that is now the only one: AC-195's stale 4.97 mm `given`, unmeasurable
+until CARD-222 merges. Validator after landing: **0 errors / 113 warnings**
+(forge_1 copy; cycle 2 recorded that the plugin-cache copy reads 1 error, the
+pre-existing ADR-0025 circular supersession — an instrument split, not a tree
+change).
+
+### What this card did NOT ship, stated plainly
+
+The weights are on **no page a reader will see**. `_write_pdf`'s interior walk is
+still raster; CARD-295's vector page functions exist and are not wired in, and
+**CARD-298** is the card that flips it. "The grid now prints at 0.3/0.8/1.3" is
+to be read as "the vector door now states them, and every raster stroker now
+refuses them". Whether they read well on paper is unmeasured and unmeasurable
+here; the revisit trigger is the first printed proof, and the route is an
+ADR-0037 amendment, not a bug on this card.
+
+### Cycle 2's three minors, carried not closed
+
+None is a mechanism, and none was treated as one:
+
+1. `book_pdf_generator.py:5743` — "four call sites … every raster grid stroke the
+   book can reach" is **wider than the mechanism**: `_draw_solved_slot` strokes
+   the grid again at `:5743`/`:5753` outside the guarded call. **No hole** (same
+   pair, checked four lines above), but the sentence is checkable and false, and
+   it now also sits in ADR-0037's History and `book_page_spec.py:190`. Same shape
+   as F-001 without its substance — worth folding in when ADR-0037 is next opened.
+2. `tests/test_book_puzzle_page_vector.py:1742` — F-007's coincidence is
+   **relocated, not removed**: the reach arm is independent, then the next line
+   asserts `thin_rule == counts[1] == 3`. "Recorded rather than relied on" is not
+   true of an assert.
+3. CON-018/INV-006's check ref `TestBookCellSize_HoldsTheFloor` **resolves
+   nowhere** in `tests/` — pre-existing, card projections only (CARD-227 and
+   CARD-295), not in `requirements.yml`. This card changes no cell geometry.
