@@ -302,7 +302,13 @@ write — the thing R4 exists to forbid.
     solved state is detected from clue satisfaction alone.
     EXEMPT, by owner decision 2026-10-28, and exempt by SCOPE rather than by
     safety: a book's own owner-authored display title, served verbatim on
-    /b/<slug> and nowhere else. It is the third such exemption beside the
+    /b/<slug>, and carried in the bundle's own book/<slug>.json that the
+    served file is built from — which it always has been, since
+    player_bundle.BOOK_FILE_FIELDS is ("puzzle_keys", "slug", "title").
+    AMENDED 2026-10-28 (b): the first wording said "and nowhere else", which
+    was false of the bundle on the day it was written. Naming only the served
+    file would have left FR-045's bundle sentence reading false for a field
+    that predates this decision entirely. It is the third such exemption beside the
     clues and the answer key, and like them it is a named channel with a
     DECLARED residual rather than a bounded one — 120 code points at
     log2(1112064) bits each, 2410.18 bits, 24.1x this surface's 100-bit
