@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** quick — owner decision 2026-10-22 (player-convenience session, option 1: "highlight row/column for selected cell so that the gaze don't slide away"); no handoff increment
 **Idea:** —
-**Wave:** —
+**Wave:** 63
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_crosshair.py
 **Review score:** —

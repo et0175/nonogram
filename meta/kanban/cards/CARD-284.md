@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** ONLINE_GAME_SPECIFICATION.md#technical-architecture (owner decision 2026-10-23, commit 8b0ca0e2) and §1.1 Puzzle Selection
 **Idea:** —
-**Wave:** —
+**Wave:** 63
 **Depends on:** CARD-282, CARD-283
 **Touches:** player/**, tests/test_public_player_pages.py
 **Review score:** —
