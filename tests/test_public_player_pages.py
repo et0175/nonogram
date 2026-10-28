@@ -82,6 +82,7 @@ from __future__ import annotations
 
 import ast
 import json
+import math
 import re
 import socketserver
 import threading
@@ -1080,10 +1081,30 @@ def test_the_book_title_exemption_is_scoped_and_its_cost_is_measured(tmp_path) -
     assert long_site.narrowed == ((long_slug, "title"),), long_site.narrowed
 
     # 4 — the cost, in the second domain. Arithmetic first.
+    #
+    # The character space is recomputed here in a DIFFERENT domain from the
+    # subtraction ``assemble.py`` does: the surrogate block is excluded
+    # because those code points are not characters, which is measured by
+    # trying to encode one rather than by trusting the number 2048. The fix
+    # round's own kill instrument is why this paragraph exists — the first
+    # version asserted only ``round(bits, 2) == 2410.18``, and a mutant that
+    # moved TITLE_CODE_POINTS by ONE code point SURVIVED it, because one code
+    # point out of a million is four decimal places below that rounding.
+    surrogates = [point for point in range(0x110000) if 0xD800 <= point <= 0xDFFF]
+    assert len(surrogates) == 2048
+    for point in (0xD800, 0xDFFF):
+        with pytest.raises(UnicodeEncodeError):
+            chr(point).encode("utf-8")
+    assert chr(0xD7FF).encode("utf-8") and chr(0xE000).encode("utf-8")
+    assert assembler.TITLE_CODE_POINTS == 0x110000 - len(surrogates) == 1112064
+
     bits = assembler.book_title_residual_bits()
     assert bits > assembler.CAPACITY_CEILING_BITS, bits
     assert bits > MAX_SIZE * MAX_SIZE, (bits, MAX_SIZE * MAX_SIZE)
     assert round(bits, 2) == 2410.18, bits
+    assert bits == assembler.SERVED_TITLE_MAX_CHARS * math.log2(
+        0x110000 - len(surrogates)
+    ), bits
     # Then cells. MIN_SIZE x MIN_SIZE is 100 cells; its base-64 is 20
     # characters, well inside the cap, so the whole grid comes back.
     leak = _leaky_title(PAGE_GRIDS["e10"])
@@ -1693,12 +1714,30 @@ def test_the_public_tile_is_registered_in_the_design_inventory() -> None:
         page = (PLAYER_DIR / name).read_text(encoding="utf-8")
         hooks |= set(re.findall(r"(data-pages-[a-z-]+)", page))
     assert len(hooks) >= 10, sorted(hooks)
-    missing = sorted(hook for hook in hooks if hook not in inventory)
+
+    def named(hook: str) -> bool:
+        """Whether the inventory names ``hook`` — at a word boundary.
+
+        A plain ``in`` is what the fix round's first version used and the
+        kill instrument SURVIVED it: renaming the inventory's
+        ``data-pages-loading`` to ``data-pages-loadingx`` left the real hook
+        a substring of the wrong one, so the drift guard read the typo as the
+        thing it was looking for. ``data-pages-filter`` really is a prefix of
+        ``data-pages-filters``, both are hooks, and both are named — so the
+        boundary has to admit ``=`` and ``]`` and refuse a further letter.
+        """
+        return re.search(rf"{re.escape(hook)}(?![a-z-])", inventory) is not None
+
+    missing = sorted(hook for hook in hooks if not named(hook))
     assert missing == [], missing
 
-    # The control: a hook the inventory does not name is reported.
-    planted = sorted(hook for hook in hooks | {"data-pages-nowhere"} if hook not in inventory)
-    assert planted == ["data-pages-nowhere"], planted
+    # Two controls, because the first version had only the first: a hook the
+    # inventory does not name at all, and a hook it names only as the PREFIX
+    # of a longer word — the shape a substring test cannot see.
+    assert not named("data-pages-nowhere")
+    assert "data-pages-loading" in hooks
+    assert re.search(r"data-pages-loading(?![a-z-])", inventory) is not None
+    assert re.search(r"data-pages-loadingx", inventory) is None
 
 
 def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:
