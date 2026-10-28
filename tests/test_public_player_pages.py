@@ -454,6 +454,112 @@ def test_the_listing_pages_issue_one_get_and_write_nothing(browser_page, pages_h
     )
 
 
+@pytest.mark.browser
+def test_a_listing_the_page_cannot_trust_is_refused(browser_page, pages_site) -> None:
+    """``readListing``/``isEntry`` are checks, so they need a listing to refuse.
+
+    The page validates its own input even though ``assemble.py`` wrote it —
+    deliberately twice, once on each side of the wire, for the reason play.js
+    gives: a page that trusts its input is a page whose input decides what it
+    does. That second check is only a mechanism if something exercises it, so
+    a malformed listing is written into the served tree here and the page has
+    to refuse it rather than draw a tile from it.
+
+    Four shapes, one per branch of ``isEntry`` plus the wrapper, each one
+    edit from valid; the unedited listing is the positive control in the
+    same test.
+    """
+    report, keys, slug = pages_site
+    index = report.site_dir / "index.json"
+    good = json.loads(index.read_text(encoding="utf-8"))
+    first = good["puzzles"][0]
+    cases = {
+        "not-a-listing": {"puzzles": {"a": 1}},
+        "bad-key": {"puzzles": [{**first, "key": "NOTAKEY"}]},
+        "bad-extent": {"puzzles": [{**first, "width": MAX_SIZE + 1}]},
+        "bad-tier": {"puzzles": [{**first, "tier": "tqlhkuhxpmgj"}]},
+    }
+
+    class Server(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    handler = type("Handler", (_Host,), {})
+    directory = str(report.site_dir)
+    server = Server(("127.0.0.1", 0), lambda *a: handler(*a, directory=directory))
+    server.rewrites = rewrites(report.site_dir)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True
+    )
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        for name, payload in cases.items():
+            index.write_text(json.dumps(payload), encoding="utf-8")
+            _open_pages(browser_page, url, "/library")
+            assert _tiles(browser_page) == [], name
+            assert browser_page.locator("[data-pages-notfound]").is_visible(), name
+            assert browser_page.evaluate("() => window.playerPages") is None, name
+        index.write_text(json.dumps(good), encoding="utf-8")
+        _open_pages(browser_page, url, "/library")
+        assert sorted(_tiles(browser_page)) == sorted(keys.values())
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+@pytest.mark.browser
+def test_a_tile_is_a_thumb_target_and_wears_its_tier(browser_page, pages_host) -> None:
+    """The one layout claim these pages make, measured at phone width.
+
+    Nearly every visit to ``/b/<slug>`` arrives by scanning a code off paper,
+    so a tile is the one thing a thumb has to hit. 44 px is the floor the
+    page's own buttons use (CARD-283's ``.btn``).
+
+    Both halves, because the first version of this test had only the second
+    and the floor was DEAD: deleting ``.tile``'s ``min-height`` left every
+    rendered tile over 44 px anyway, on this corpus, at this font size — the
+    content happened to be tall enough. So the DECLARED floor is read off the
+    computed style and held to 44 px, and the rendered box is held to the
+    declared floor. A tile that is tall by accident now passes the second
+    assertion and fails the first.
+
+    The tier chip is measured in both directions in the same place, because
+    "a chip is drawn" and "a chip is drawn only when there is a tier" are
+    different claims and the untiered fixture is what separates them.
+    """
+    url, report, keys, slug = pages_host
+    browser_page.set_viewport_size({"width": 390, "height": 780})
+    _open_pages(browser_page, url, "/library")
+
+    boxes = browser_page.evaluate(
+        "() => [...document.querySelectorAll('.tile')].map(t => {"
+        " const r = t.getBoundingClientRect();"
+        " const s = getComputedStyle(t);"
+        " return {key: t.dataset.key, w: r.width, h: r.height,"
+        "  floor: parseFloat(s.minHeight) || 0,"
+        "  tier: t.querySelector('.tile-tier')?.textContent ?? null}; })"
+    )
+    assert len(boxes) == len(PAGE_GRIDS)
+    for box in boxes:
+        assert box["floor"] >= 44, box  # the DECLARED floor, not the accident
+        assert box["h"] >= box["floor"], box
+        assert box["w"] >= 44, box
+    # No horizontal page scroll at 390 px: the grid reflows, it does not
+    # overflow (the stage's sideways scroll is the BOARD's trade-off, and a
+    # page of tiles has no reason to take it).
+    assert browser_page.evaluate(
+        "() => document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+    )
+
+    chips = {box["key"]: box["tier"] for box in boxes}
+    assert chips[keys["n30"]] is None, "an untiered puzzle was given a chip"
+    for name, tier in PAGE_TIERS.items():
+        if tier != "":
+            assert chips[keys[name]] == tier, name
+
+
 # ==========================================================================
 # EC-048's listing half: what the two listings may carry
 # ==========================================================================
