@@ -1,6 +1,6 @@
 # CARD-300: The door axis's seventh appearance, priced before it is attempted — R9's closure, the surface rule's two unequal halves, and whether this guard should survive the vector interior at all
 
-**Status:** ready
+**Status:** parked
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 1d
@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Created wave:** 58
-**Deferred waves:** 0
+**Deferred waves:** 5 <!-- corrected 2026-10-28: created at wave 58 and passed over for 59, 60, 61, 62 and 63 while this counter still read 0. A deferral counter that never increments is the silent-drift shape this board tracks, and it made the card look freshly queued rather than five times skipped. -->
 **Depends on:** —
 **Touches:** tests/test_book_export_interior_cover.py
 **Review score:** —
@@ -213,3 +213,70 @@ verified**, not the split. Correct the note or verify the split; do not restate
 ## Worktree notes
 
 —
+
+
+## [PRICED — 2026-10-28] **PARKED.** The mechanism half is declined; AC-5 is split out
+
+This card asked to be priced before it was attempted. It has been, and the answer
+is **don't give it a wave as written.**
+
+**What it buys is bounded by its own guardrail.** `G-1` mandates that
+`git diff --name-only main...HEAD -- src/` be **EMPTY**, so the entire card buys
+**zero production behaviour** by construction. It changes what a guard sees, never
+what the generator does.
+
+**The estimate is 1d; the family's observed spend is the real figure.** CARD-206
+(0.5d) → 8.5 at cycle 3/3, escalated, resolved by slice. CARD-262 (1d) → 9.3 at
+cycle 3/3. CARD-276 (1d) → **6.5, NOT CERTIFIED**, round budget spent 6 of 6,
+merged on a recorded gate decision with AC-1 unmet. **~2.5d of estimate against
+~12 review rounds, and the most recent did not certify.** This is the *seventh*
+appearance of the same mechanism in the same file, and the card says so itself:
+"six rounds bought a narrowing, not a closure."
+
+**Two cost multipliers specific to now.** The file is **6852 lines** and is the
+suite's dearest; AC-6 requires every count re-derived through a deployed
+enumerator, and that module's call figures have **moved twice since this card was
+written** — CARD-227 took them 770→772 and CARD-305 772→776 — so any round pays
+that re-measurement and **pays it again when CARD-298 lands**. And `G-7` forbids
+opening the file concurrently with CARD-299 (wave 66), so the earliest honest wave
+for the mechanism half is **67**, behind both.
+
+**Its framing facts were re-measured, and two still hold exactly while one changed
+in the card's favour.** The nine nested names are **still exactly nine** (an `ast`
+walk over current main — CARD-227 and CARD-305 both edited that module and added
+only calls and comments, no nested defs). The 4-refusal decorator figure is **still
+exactly four**, and they are now **named for the first time**:
+`interior_bitmap_mode`, `_grid_size`, `_payload`, `_puzzle_payload` — which makes
+the card's own "wrong shape as stated" judgement checkable at last. But **§3's
+"contended three ways" is now one way**: CARD-287 and CARD-292 are both `done`,
+leaving only CARD-299. And the card's own recommended *alternative* use of the
+round — "spend it on the file's cost instead" — is **already banked**: wave 62 took
+the suite −26.8 %, so the 344.29 s / 24.4 % figure §3 quotes is stale and the
+cheapening it proposed has happened. That alternative is no longer a reason to take
+the card.
+
+**AC-1's own question, answered: keep the declaration.** R9 is a guard's
+self-declared blind spot with a reproducible baseline and an attribution control
+proving the silence is the resolved pass. **That is the discipline working, not a
+hole** — and closing it buys a cleaner guard, not a safer product, which `G-1`
+guarantees. §2's asymmetry is explicitly "a design question, not a patch", and the
+shape as stated costs four refusals on a defect-free module, which the inherited
+cost rule already disqualifies. Fact 2's risk is also still live: CARD-298 makes
+`_write_pdf` choose a medium per page, and `produce` — one of the nine — lives in
+`interior_stream`, so closing R9 against today's nine means re-deriving the
+authority one wave later.
+
+**AC-5 is split out and belongs with the dead-check-ref sweep, not behind an
+architectural redesign.** It is the only part with real epistemic value and the
+cheapest (~0.25d): fire CARD-276's six unfired mutants (N8, N12b, N13, N14, N16,
+N18) against `ac479658` and CARD-276's HEAD, **or declare them unfired with a
+reason.** Its own evidence line says "the mutant table; no new test" — no mechanism
+change, no `src/` edit, no new test, no design question. It earns a slot on its own
+because CARD-276's cycle 2 called this "the largest single thing I did not
+measure", and what is unverified is **a correction of CARD-262's N8 from 2 FAIL to
+1 — a live figure standing on a merged card's behalf.** Queued in
+`meta/kanban/backlog.md`.
+
+**Revisit trigger for the mechanism half:** after **CARD-298** merges, and only if
+the nine nested names have actually moved. Declining with a recorded reason is an
+outcome this card explicitly licenses.

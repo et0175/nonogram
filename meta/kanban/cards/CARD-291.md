@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner session 2026-10-24 (the Christmas-ornament report); memory `guess-puzzles-in-book-c1`
 **Idea:** —
-**Wave:** —
+**Wave:** 65 <!-- assigned 2026-10-28. HARD contention: CARD-291 declares src/nonogram/admin/app.py, which meta/kanban/config.yml names as a conflict HOTSPOT (CARD-131/132/139/140/142) precisely so it serializes intentionally rather than by arithmetic accident -- and CARD-305 at wave 67 declares app.py too (measured intersection: exactly that path). They must not run concurrently; wave 65 satisfies that with room. CARD-298 (w65) intersects CARD-291 EMPTY. If only ONE of 291/301 can have a slot, this is the one to take: CARD-301 is a verification hole, while CARD-291 prevents a defect that ALREADY REACHED A BOOK -- seven guess-requiring puzzles were pulled from book c1 and production was regraded across 311 rows. Adjacent waves make the 64/65 ordering nearly free, so both are scheduled; reversing them is defensible if the owner weights that owner-facing risk above cost. -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, tests/test_approval_guess_gate.py, tests/test_puzzle_review.py, tests/test_bulk_operations.py
 **Review score:** —
