@@ -15,7 +15,7 @@
 **Wave:** 67
 **Depends on:** —
 **Touches:** migrations/versions/017_book_divider_pages.py, src/nonogram/db/models.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_divider_pages_option.py
-**Review score:** —
+**Review score:** **7.5 cycle 1/3, NOT CERTIFIED** (min 8) — 0 critical, 2 important, both about evidence rather than behaviour
 **Started:** 2026-10-28T12:30:00Z
 **Closed:** —
 **Actual:** —
@@ -225,3 +225,122 @@ had to be answered, and not one of them was a number raised until green:
 edit in this round was reflowing one statement back to three lines — same
 arithmetic, same terms, same result — and the 22 assertions verified earlier
 by plain-Python probe were re-run afterwards and still hold.
+
+
+## [CYCLE 1 — 2026-10-28] **7.5, NOT CERTIFIED** — the production code survives 8 deletion mutants; the flagship test cannot fail
+
+Report: `meta/review/20261028T142020Z-CARD-305-cycle1.yml` (7 findings, parses,
+written into the main repo). Reviewed `1e6087b3` against merge-base `9a61b928`.
+**10 mutants + 3 re-fires, 8 killed, 2 survived** — and **both survivors are test
+defects, not code defects**, proven by a discriminator that is green at HEAD and
+red on each mutant. Validator **0 errors / 113 warnings**, exactly main's
+baseline. Gate 1189 passed / 1 skipped / 0 failed, the one skip attributed by
+name (the pre-existing platform `setrlimit` one).
+
+**A figure correction that lands on this card and on the orchestrator's brief:
+the diff is 14 files (+1241/−21), not 22.** `git diff --name-only
+9a61b928..HEAD | wc -l` = 14, confirmed. The 22 is this card's *gate selection*
+size, not its diff, and both the card and the dispatch brief stated it as the
+diff.
+
+### F-001 (important) — the card's flagship defence is driven from the one state where its defect is invisible
+
+`tests/test_book_divider_pages_option.py:403` is nominated on the card as *"the
+one test that would have caught the defect this card most risked"*, and its
+docstring reasons: *"Driven from 'off', because a book already at the default
+would pass this test whatever the code did."* **That reasoning is inverted, and
+the orchestrator re-read the test to confirm it.** From OFF, the broken naive
+read yields `bool(None)` → `False` — precisely the value the test asserts.
+Mechanism-working and mechanism-deleted produce the same byte.
+
+Both mutants that delete the mechanism **survive it**: `app.py:3715`'s marker
+guard → `if True:`, and `book_manager.py:1003`'s `is not None` guard → `if True:`.
+AC-10's cell passes in both storage modes under each. The review's attribution
+control is the right shape — a cell driving the same no-marker POST from the
+**default (ON)** book, green at HEAD and red on both mutants. **The production
+code is correct; the test is the defect.** The fix is to keep the from-OFF leg
+and add the from-ON leg.
+
+Corroborating and confirmed: `interior_divider_pages_present` appears in no test
+file but the new one, while 18 other test files POST to that route — but all of
+those books sit at the default and none asserts the column afterwards, so they
+exercise the path without discriminating on it either.
+
+### F-002 (important) — the architect gap is real and **under-scoped by five entries**
+
+The card records that AC-292 goes false for an option-off book and AC-254 needs a
+clause. Both calls are right, and AC-254 is correctly judged the subtler one (its
+`when` is vacuous over an empty set, so it stays true). **But the same argument
+reaches five further entries the card does not name, one of them heavier than
+either:**
+
+- **EC-029** (`requirements.yml:3786`) — "the book PDF holds exactly one divider
+  per non-empty level … **for every sequence, not only the measured examples**".
+  Now false. It is an **engineering constraint** — a standing property — and its
+  property test asserts `names == levels` on every step of every trial while
+  creating every book through `create_book`, therefore always on the default. It
+  passes and verifies nothing about the off state. Exactly the shape the card
+  diagnoses for AC-254/292, one layer up.
+- **FR-041** and **FR-042** bodies carry unconditional divider prose.
+- **AC-253** and **AC-293** ("after 1 SOLUTIONS divider page (32 pages)") go false
+  for an option-off book.
+
+### F-003 (medium) — no parity control for the off state
+
+The card names FR-043 parity as the widest consequence and is right. The new file
+controls page **count**, TOC rows, the walk/declared tripwire and the KDP
+estimate — **none would catch a page drawn on the frame of a parity it no longer
+has.** Two independent signals: `tests/property/test_book_export_interior.py`
+co-changed with the generator **22× in 12 months** and is absent from this diff,
+and it hardcodes the divider model with no off arm; and the board's precedent for
+the mirror change (one page *added*) is
+`TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity`, with no equivalent
+here for four pages removed. Severity medium because the mechanism is
+structurally sound — one page-number source, `page_is_right_hand(n) = n % 2 == 1`,
+every frame from `self.page_spec(page_number)` at draw time.
+
+### The four guards: all genuinely answered, none bumped
+
+Independently re-derived, including the one that matters most: the
+`CALLEE_EXEMPTION_COST` triple (772→776, 519→522, 204 unmoved) was re-measured
+**in a new domain** — the reviewer's own `ast.Call` walk reads **834 → 838, +4**,
+per-callee `RuntimeError +1`, `TocEntry +2`, `book_divider_pages +1`, matching the
+card's enumeration — and then validated end to end with an instrument control
+that makes it rise (+1 at step 0) and a negative near-miss that correctly stays
+unmoved (`bool` is excluded at that step). The `DERIVED_POSITION` anchor is 3
+lines, occurs exactly once, and its edge mutant reds at the stated cell. No
+production edit was made to pass a guard beyond the documented 3-line reflow.
+
+**And the blast radius was swept for the defect the orchestrator found before
+dispatch** — other signature-pinning stubs and patched callables — with **none
+found** beyond the `interior_page_count` lambda already fixed.
+
+### Minors and out-of-scope
+
+**F-004** `app.py:3716` reads the checkbox with `bool(request.form.get(...))`,
+bypassing the module's own declared reader, so marker + `interior_divider_pages=0`
+stores **True**; harmless for the shipped template, but `_DIVIDER_PAGES_FALSE` is
+unreachable from the one inbound path, against the card's "one door" framing.
+**F-005** a string-vocabulary comment claims a reachability ("what SQLite hands
+back for a boolean on some drivers") that is not reachable and names no driver.
+**F-006** `interior_page_count`'s `toc_pages=None` default still budgets TOC rows
+for level dividers regardless of `solutions_divider` — latent only.
+
+**F-007 (out of scope)** migration 017 is executed by **no test**: the one
+`upgrade(..., "head")` call is intercepted by a fake engine factory before any
+SQL runs. At its precedent, not below it — migration 013 has none either. The
+chain was checked by reading (clean: `revision 017`, `down_revision 016`, no
+fork; `server_default=sa.true()` plus an explicit backfill; batch mode for
+SQLite; downgrade drops only the column). **The server default and backfill are
+unverified on Postgres**, which is what production runs; all measurement was
+SQLite via `create_all` from `models.py`, which never runs the migration.
+
+### Could not establish, in the review's own words
+
+The card's **1502 passed** figure — the card never enumerates its 22 files, so its
+domain cannot be reconstructed; the review's 1189 is a different domain and
+neither confirms nor refutes it. The card's **rival-pytest 0/0** figure — it names
+no instrument that could be located or re-run. **Migration 017 on Postgres.**
+**No render was captured and no page eyeballed** (G-2 verified statically
+instead — `create_divider_page` is not in the diff). Seven admin route suites and
+the Playwright mobile file were not run.
