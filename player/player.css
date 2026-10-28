@@ -64,6 +64,15 @@ body {
   font-family: var(--font-display);
   font-size: var(--text-xl);
   margin: 0;
+  /* /b/<slug>'s heading is the book's display title, up to pages.js's
+     TITLE_MAX_CHARS of it, and the page it heads is read on the phone a QR
+     scan lands on. A long title has to wrap inside the flex row rather than
+     push the count off the side: min-width: 0 lets the item shrink below its
+     content, overflow-wrap breaks a word with no space in it. The same two
+     rules the player's SolvedBanner needed for a long picture name
+     (CARD-186). */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .player-tier {
@@ -153,9 +162,11 @@ body {
  *
  * A tile is a LINK sized for a thumb, and the grid fits as many columns as
  * the screen holds rather than a fixed count, so one rule covers a phone and
- * a desktop. There is NO TITLE on a tile — book.html's comment has the
- * measurement that decided it — so a tile is the extent, the tier chip, and
- * on a book landing the puzzle's number in the book.
+ * a desktop. There is no PUZZLE TITLE on a tile — that is the picture's name
+ * and EC-048 forbids it; book.html's comment has the measurement — so a tile
+ * is the extent, the tier chip, and on a book landing the puzzle's number in
+ * the book. The BOOK's own title is a different field and is the landing
+ * page's h1, not a tile's.
  */
 
 .pages-filters {

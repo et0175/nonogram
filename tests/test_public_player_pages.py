@@ -17,15 +17,30 @@ What this module measures, and what it does not
 Two decisions CARD-283 deliberately left open were routed to this card, and
 both are settled here with a control that can fail:
 
-#. **the title.** ``index.json`` and ``book/<slug>.json`` each carry the
-   bundle's free-text ``title``, and CARD-283 served neither file rather than
-   decide for them. The decision taken is the same one it took for the puzzle
-   files, for the same measured reason — CARD-282 recovered all 144 cells of a
-   12x12 answer out of a published title, and there is no decision procedure
-   for "does this string carry a grid?" — so **no title reaches either
-   listing**. The listings are rebuilt from closed schemas like the puzzle
-   files, and the sweep that proves the bundle dirty and the site clean is run
-   over them here as well;
+#. **the title — and it is TWO fields, with opposite answers.**
+   ``index.json`` and ``book/<slug>.json`` each carry a bundle ``title``, and
+   CARD-283 served neither file rather than decide for them. Cycle 1 of this
+   card's review gated on the two being argued as one, so they are separated
+   everywhere below:
+
+   * a **puzzle's** title is the picture's name. EC-048 forbids it by name on
+     every asset the public site serves, CARD-282 recovered all 144 cells of
+     a 12x12 answer out of a published one, and there is no decision
+     procedure for "does this string carry a grid?". It is in no served
+     schema, the sweep that proves the bundle dirty and the site clean runs
+     over both listings here, and ``check_listing_capacity`` refuses to
+     assemble if the name is added to a puzzle file or to the library index
+     (``test_no_puzzle_title_reaches_either_listing``,
+     ``test_the_listing_capacity_is_partitioned_and_can_fail``);
+   * a **book's** display title is owner-authored editorial text that
+     EC-048's enumeration does not name, and that FR-045's own bundle clause
+     lists beside the slug and the ordered keys. The owner was asked directly
+     and decided on 2026-10-28 to serve it, so ``/b/<slug>`` renders it as
+     its heading. It is served under an explicit exemption whose SCOPE and
+     whose COST are both measured —
+     ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+     recovers a whole MIN_SIZE grid out of a served book title, which is what
+     a declared residual looks like when it is measured instead of argued;
 #. **CARD-282's F-8** — an export that fails part-way through leaves
    ``index.json`` naming puzzle files that were never written. It is closed by
    construction rather than by a check: every served listing entry *is* the
@@ -37,10 +52,13 @@ both are settled here with a control that can fail:
 
 What it does **not** measure is named rather than left to look covered: no
 render was eyeballed on a phone, and the capacity argument for the listings
-establishes "no listing field carries anything a puzzle file does not", not
-EC-048's one-cell threshold — the order a book's puzzles are listed in is a
-declared residual, for the reason ``assemble.py``'s
-``LISTING_STRUCTURE_FIELDS`` gives.
+establishes "no listing ENTRY field carries anything a puzzle file does not",
+not EC-048's one-cell threshold. Three residuals sit outside it and each is
+declared where it lives: a book's ORDER and its MEMBERSHIP
+(``assemble.py``'s ``LISTING_STRUCTURE_FIELDS``), and the book's display
+TITLE, which is an exemption rather than a bound and is 2410.18 bits wide at
+today's constants (``assemble.py``'s ``EXEMPT_LISTING_FIELDS``,
+``book_title_residual_bits``).
 
 AC-390, AC-391 and AC-392 name node ids in this module and belong to
 **CARD-285** (hosting and counting). They are not written here, and
@@ -137,17 +155,40 @@ PAGE_BANDS = {
 #: whole library would otherwise pass AC-387.
 BOOK_ORDER = ("h24", "e10", "n30", "m17")
 
+#: The fixture book's display title. Deliberately **editorial** — the exact
+#: opposite of every PUZZLE title in this module, which is base-64 of its own
+#: grid — because the two fields get opposite answers and a fixture that made
+#: them both leaky could not tell "the exemption is scoped" from "the sweep
+#: is broken".
+#:
+#: It carries a newline and a double space so that ``_book_title``'s
+#: whitespace collapsing is exercised by the default fixture rather than only
+#: by a case written for it, and a dash so the served value is not an ASCII
+#: identifier by accident.
+BOOK_TITLE = "Winter  Pictures\n— Volume Two"
+
+#: What ``assemble.py`` must serve for :data:`BOOK_TITLE`: one line, single
+#: spaces. Written out rather than derived with the function under test.
+BOOK_TITLE_SERVED = "Winter Pictures — Volume Two"
+
 
 def write_pages_bundle(
-    root: Path, names=None, *, order=None, leaky: bool = True
+    root: Path, names=None, *, order=None, leaky: bool = True, book_title=None
 ) -> tuple[dict[str, str], str]:
     """A bundle at ``root`` holding one book. Returns ``({name: key}, slug)``.
 
-    Every title is the base-64 of its own grid by default — CARD-282's
-    measured leak — because a fixture titled "Snowy owl" would make every
-    assertion below pass for the wrong reason. The book's title is a leaky
-    one too: this card serves a book file, so the book's own title is a
-    channel of exactly the same shape as a puzzle's.
+    Every **puzzle** title is the base-64 of its own grid by default —
+    CARD-282's measured leak — because a fixture titled "Snowy owl" would
+    make every assertion below pass for the wrong reason.
+
+    The **book's** title is :data:`BOOK_TITLE`, which is editorial text, and
+    the difference is the point: the book's title is served (the owner's
+    2026-10-28 decision) and a puzzle's is not, so a fixture whose book title
+    was also base-64 of a grid could not distinguish "the exemption is
+    scoped to the book file" from "the sweep stopped working". ``book_title``
+    overrides it, which is how
+    ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+    measures what the exemption costs.
 
     The slug is computed by the exporter's own :func:`player_bundle.book_slug`
     rather than invented, so these fixtures live in the namespace the product
@@ -178,7 +219,7 @@ def write_pages_bundle(
     slug = player_bundle.book_slug(ordered)
     book = {
         "slug": slug,
-        "title": _leaky_title(PAGE_GRIDS[order[0]]) if leaky else "A book of pictures",
+        "title": BOOK_TITLE if book_title is None else book_title,
         "puzzle_keys": ordered,
     }
     assert set(book) == set(player_bundle.BOOK_FILE_FIELDS), sorted(book)
@@ -241,11 +282,25 @@ def _tiles(page) -> list[str]:
     return page.evaluate("() => [...document.querySelectorAll('.tile')].map(t => t.dataset.key)")
 
 
+#: How long :func:`_open_pages` waits for a page to settle, in
+#: milliseconds. Explicit, and ~10x the 0.1-0.24 s these calls actually take.
+#:
+#: Playwright's default is 30 s, and cycle 1 of this card's review MEASURED
+#: what that costs: the mutant that stopped the not-found panel being shown
+#: took **62.63 s** for this file against a 2.9 s baseline, because two
+#: navigations each burned the full default before failing. Six browser nodes
+#: use this helper, and on this board a shell call over ~2 minutes returns a
+#: truncated log that is indistinguishable from a suite failure — so a
+#: regression here used to buy minutes of ambiguity instead of a fast red.
+PAGES_SETTLE_MS = 3000
+
+
 def _open_pages(page, url: str, path: str) -> None:
     page.goto(f"{url}{path}")
     page.wait_for_function(
         "() => window.playerPages !== undefined"
-        " || !document.querySelector('[data-pages-notfound]').hidden"
+        " || !document.querySelector('[data-pages-notfound]').hidden",
+        timeout=PAGES_SETTLE_MS,
     )
 
 
@@ -256,13 +311,23 @@ def _open_pages(page, url: str, path: str) -> None:
 
 @pytest.mark.browser
 def test_book_landing_lists_and_links(browser_page, pages_host) -> None:
-    """AC-387 — the QR landing lists the book's puzzles, in book order.
+    """AC-387 — the QR landing titles the book and lists its puzzles in order.
 
-    Three things, and the order is the one with teeth: ``BOOK_ORDER`` is
-    neither the sorted key order nor the whole library, so a page that sorted
-    its tiles, or listed everything served, fails here. The link is then
-    followed for real rather than read off the ``href``: tapping the second
-    tile has to land on CARD-283's board for that key.
+    Four things now the AC has four clauses, and the order is the one with
+    teeth: ``BOOK_ORDER`` is neither the sorted key order nor the whole
+    library, so a page that sorted its tiles, or listed everything served,
+    fails here. The link is then followed for real rather than read off the
+    ``href``: tapping the second tile has to land on CARD-283's board for
+    that key.
+
+    The title clauses are the owner's 2026-10-28 decision, and they are a
+    PAIR rather than one claim: the BOOK's display title heads the page, and
+    no PUZZLE's title appears anywhere on it. The second is what keeps the
+    first from being read as "titles are fine now" — the fixture's puzzle
+    titles are base-64 of their own grids, so a page that showed one would
+    publish an answer. The deeper reading of the heading (markup is text, a
+    capped title does not scroll the phone sideways) is
+    ``test_the_book_landing_shows_the_books_title``'s.
     """
     url, report, keys, slug = pages_host
     expected = [keys[name] for name in BOOK_ORDER]
@@ -272,6 +337,16 @@ def test_book_landing_lists_and_links(browser_page, pages_host) -> None:
     _open_pages(browser_page, url, f"/b/{slug}")
     assert _tiles(browser_page) == expected
     assert browser_page.evaluate("() => window.playerPages.slug") == slug
+
+    # The book's display title heads the page (AC-387's first clause).
+    assert browser_page.locator("[data-pages-title]").inner_text() == BOOK_TITLE_SERVED
+
+    # And no PUZZLE title is anywhere on it (AC-387's third clause). Every
+    # fixture puzzle title is base-64 of its own grid, so this is a real
+    # negative rather than a search for a word nobody wrote.
+    rendered = browser_page.evaluate("() => document.body.innerText")
+    for name in BOOK_ORDER:
+        assert _leaky_title(PAGE_GRIDS[name]) not in rendered, name
 
     # The book's numbering is its printed numbering: position, not a field.
     numbers = browser_page.evaluate(
@@ -418,13 +493,18 @@ def test_library_filters_the_index(browser_page, pages_host) -> None:
 
 
 @pytest.mark.browser
-def test_the_listing_pages_issue_one_get_and_write_nothing(browser_page, pages_host) -> None:
+def test_the_listing_pages_only_get_and_write_nothing(browser_page, pages_host) -> None:
     """EC-050's half of these two pages: nothing leaves them (ADR-0041/R4).
 
     Every request either page makes is a same-origin GET, and filtering —
     the only interaction they have — issues none at all. Asserted as the
     METHOD and the ORIGIN of every request, never as a request count, which
     is the distinction CARD-283's own EC-050 test rests on.
+
+    The name said ``issue_one_get`` until CARD-284's fix round, which is a
+    count this body deliberately does not assert — and a node id is the
+    string a gate log and a check ref quote, so it has to state the
+    measurement rather than a stronger nearby property (cycle 1, F-011).
     """
     url, report, keys, slug = pages_host
     seen: list[tuple[str, str]] = []
@@ -465,9 +545,51 @@ def test_a_listing_the_page_cannot_trust_is_refused(browser_page, pages_site) ->
     a malformed listing is written into the served tree here and the page has
     to refuse it rather than draw a tile from it.
 
-    Four shapes, one per branch of ``isEntry`` plus the wrapper, each one
-    edit from valid; the unedited listing is the positive control in the
-    same test.
+**Seven shapes over six mechanisms**: one per guard of ``isEntry`` — there
+    are five — plus ``readListing``'s own wrapper, plus the SECOND EDGE of the
+    one guard that is a range. Each is one edit from valid, and the unedited
+    listing is the positive control in the same test.
+
+    The count is written as an arithmetic against the source below rather
+    than as prose, because the prose is what went wrong: this docstring said
+    "four shapes, one per branch of ``isEntry`` plus the wrapper" over four
+    cases, and ``isEntry`` has five guards — so two of them had no case at
+    all, and the claim was not merely loose but counted a set it had not
+    counted. Cycle 1 of this card's review killed the wrapper's mutant and
+    then survived two EDGE mutants on the guards nothing read:
+
+    * ``Number.isInteger`` appeared in no test at all — the ``extent-not-int``
+      case below is its first reader. ``if (!Number.isInteger(extent))`` ->
+      ``if (false && ...)`` survived 18/18;
+    * the extent range was planted at ``MAX_SIZE + 1`` only, so
+      ``extent < SIZE_BANDS[0].min`` -> ``... - 1`` survived 18/18. This repo
+      had already named that exact hole once — ``tests/test_public_player.py``'s
+      puzzle-file table calls ``MIN_SIZE - 1`` "the one value that reads it" —
+      and did not carry it across the wire. The ``extent-below-min`` case is
+      the carry.
+
+    A third guard had no case either and no mutant was fired at it in cycle
+    1: ``value`` not being an object at all. ``entry-is-null`` is it, and it
+    is distinct from ``not-a-listing``, which reads the wrapper. ``null`` is
+    the value that reads it *uniquely*: a string or a number falls through
+    the destructuring and is refused by the key guard anyway, so it would
+    leave the first guard unmeasured, while ``null`` throws on destructuring
+    the moment that guard stops firing — so the page neither renders nor
+    shows its panel, and this test reds on a settle timeout instead of
+    passing for the wrong reason.
+
+    What is NOT claimed, because it is not true: the first guard is three
+    disjuncts (``null``, not an object, an array) and only the first of them
+    has a case that reads it alone. A JSON array cannot carry the four
+    properties the later guards read, so no case distinguishes the array
+    disjunct from the key guard. The arithmetic below counts REFUSAL
+    STATEMENTS, which is what it says.
+
+    The new cases are declared against the GUARD they read, not just against
+    "refused": the extents are built from ``MIN_SIZE`` and ``MAX_SIZE`` so a
+    limits change moves them, and ``str(MIN_SIZE)`` is a value that is IN
+    range as a number, so only the integer guard can refuse it — the
+    non-integer form that same puzzle-file table uses.
     """
     report, keys, slug = pages_site
     index = report.site_dir / "index.json"
@@ -475,10 +597,36 @@ def test_a_listing_the_page_cannot_trust_is_refused(browser_page, pages_site) ->
     first = good["puzzles"][0]
     cases = {
         "not-a-listing": {"puzzles": {"a": 1}},
+        "entry-is-null": {"puzzles": [first, None]},
         "bad-key": {"puzzles": [{**first, "key": "NOTAKEY"}]},
-        "bad-extent": {"puzzles": [{**first, "width": MAX_SIZE + 1}]},
+        "extent-above-max": {"puzzles": [{**first, "width": MAX_SIZE + 1}]},
+        "extent-below-min": {"puzzles": [{**first, "height": MIN_SIZE - 1}]},
+        "extent-not-int": {"puzzles": [{**first, "width": str(MIN_SIZE)}]},
         "bad-tier": {"puzzles": [{**first, "tier": "tqlhkuhxpmgj"}]},
     }
+    # The two extent edges are one cell outside the supported range on either
+    # side, and the non-integer is the string form of a value that IS in
+    # range — so the integer branch is the only thing that can refuse it.
+    assert cases["extent-above-max"]["puzzles"][0]["width"] == MAX_SIZE + 1
+    assert cases["extent-below-min"]["puzzles"][0]["height"] == MIN_SIZE - 1
+    assert cases["extent-not-int"]["puzzles"][0]["width"] == str(MIN_SIZE)
+    assert MIN_SIZE <= int(cases["extent-not-int"]["puzzles"][0]["width"]) <= MAX_SIZE
+    # "One per guard" is held to the CODE and not to the length of the
+    # table — the shape test_a_book_the_schema_cannot_accept_is_refused_and
+    # _named uses for served_book: a guard added to isEntry with no case reds
+    # here, which is exactly what did NOT happen in the implementation round.
+    # The arithmetic: one case per guard, plus readListing's wrapper, plus
+    # the second edge of the range guard.
+    source = (PLAYER_DIR / "pages.js").read_text(encoding="utf-8")
+    body = re.search(r"export function isEntry\(value\) \{(.+?)\n\}", source, re.S)
+    assert body is not None, "pages.js declares no isEntry"
+    guards = len(re.findall(r"\breturn false\b", body.group(1))) + len(
+        re.findall(r"\breturn tier ===", body.group(1))
+    )
+    assert guards == 5, guards
+    extra = {"not-a-listing", "extent-below-min"}  # the wrapper, and the second edge
+    assert extra <= set(cases)
+    assert len(cases) == guards + len(extra), (sorted(cases), guards)
 
     class Server(socketserver.ThreadingTCPServer):
         allow_reuse_address = True
@@ -560,38 +708,399 @@ def test_a_tile_is_a_thumb_target_and_wears_its_tier(browser_page, pages_host) -
             assert chips[keys[name]] == tier, name
 
 
+@pytest.mark.browser
+def test_the_book_landing_shows_the_books_title(browser_page, pages_host) -> None:
+    """The owner's 2026-10-28 decision, rendered (F-001).
+
+    ``/b/<slug>`` is a book customer's first contact with the product seconds
+    after scanning a code off paper, and the card's body always required the
+    book's title there. Four things, because "it is on the page" is the
+    weakest of them:
+
+    #. the heading IS the book's served title, and the served title is the
+       bundle's with whitespace collapsed;
+    #. ``/library`` keeps its own heading — the exemption is for a book file,
+       and the library has no book;
+    #. the string is TEXT. A title with markup in it renders as characters:
+       the heading gets no child element and no request leaves for the
+       ``<img>`` in it. ``textContent``, never ``innerHTML``, on a heading a
+       stranger reached by scanning a code off paper;
+    #. a title at the full cap does not push the page sideways on a 390 px
+       phone, which is the viewport nearly every visit arrives on.
+    """
+    url, report, keys, slug = pages_host
+    book_file = report.site_dir / "book" / f"{slug}.json"
+    served = json.loads(book_file.read_text(encoding="utf-8"))
+    assert served["title"] == BOOK_TITLE_SERVED
+
+    _open_pages(browser_page, url, f"/b/{slug}")
+    heading = browser_page.locator("[data-pages-title]")
+    assert heading.inner_text() == BOOK_TITLE_SERVED
+    assert browser_page.evaluate("() => window.playerPages.title") == BOOK_TITLE_SERVED
+    assert len(_tiles(browser_page)) == len(BOOK_ORDER)
+
+    # The library's heading is its own, and its playerPages carries no title.
+    _open_pages(browser_page, url, "/library")
+    assert browser_page.locator("[data-pages-title]").count() == 0
+    assert browser_page.locator(".player-head h1").inner_text() == "Library"
+    assert browser_page.evaluate("() => window.playerPages.title") == ""
+
+    # Markup in the title is text. The <img> would issue a request if the
+    # string were parsed, so the request log is the second instrument.
+    requested: list[str] = []
+    browser_page.on("request", lambda request: requested.append(request.url))
+    hostile = '<img src="/nope.png" onerror="window.pwned = 1"> & <b>bold</b>'
+    book_file.write_text(
+        json.dumps({**served, "title": hostile}, indent=2, sort_keys=True), encoding="utf-8"
+    )
+    _open_pages(browser_page, url, f"/b/{slug}")
+    assert browser_page.locator("[data-pages-title]").inner_text() == hostile
+    assert browser_page.evaluate("() => document.querySelector('[data-pages-title]').children.length") == 0
+    assert browser_page.evaluate("() => window.pwned") is None
+    assert [where for where in requested if "nope.png" in where] == [], requested
+
+    # A title at the cap, on the phone the QR code is scanned with: it wraps,
+    # it does not scroll. The control is in the same assertion pair — the
+    # tiles are still there, so this is a laid-out page and not a blank one.
+    browser_page.set_viewport_size({"width": 390, "height": 780})
+    longest = "Verylongunbrokenbooktitleword" * 10
+    capped = longest[: assembler.SERVED_TITLE_MAX_CHARS]
+    book_file.write_text(
+        json.dumps({**served, "title": capped}, indent=2, sort_keys=True), encoding="utf-8"
+    )
+    _open_pages(browser_page, url, f"/b/{slug}")
+    assert browser_page.locator("[data-pages-title]").inner_text() == capped
+    assert len(capped) == assembler.SERVED_TITLE_MAX_CHARS
+    assert browser_page.evaluate(
+        "() => document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+    ), "a capped title pushed the landing page sideways on a 390 px phone"
+    assert len(_tiles(browser_page)) == len(BOOK_ORDER)
+
+    # The PAGE's own cap, which is a separate mechanism from the assembler's
+    # and until now had no reader: assemble.py truncates, so a served file
+    # never tests it. A book file hand-edited after assembly does. pages.js's
+    # TITLE_MAX_CHARS is the second half of the same
+    # check-on-both-sides-of-the-wire rule isEntry lives under, and this is
+    # the only shape that can red it.
+    book_file.write_text(
+        json.dumps({**served, "title": "y" * 10000}, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    _open_pages(browser_page, url, f"/b/{slug}")
+    shown = browser_page.locator("[data-pages-title]").inner_text()
+    assert shown == "y" * assembler.SERVED_TITLE_MAX_CHARS, len(shown)
+    assert browser_page.evaluate("() => window.playerPages.title.length") == (
+        assembler.SERVED_TITLE_MAX_CHARS
+    )
+
+
+@pytest.mark.browser
+def test_an_empty_book_renders_its_empty_note(browser_page, pages_host) -> None:
+    """``book.html``'s empty paragraph, rendered in a browser for the first time.
+
+    ``test_a_book_with_no_resolvable_puzzle_is_still_served_empty`` holds the
+    assembler's half: a published slug keeps its page with an empty list. The
+    markup half had never rendered — cycle 1 of this card's review named it
+    (F-012) — so a page that threw while drawing an empty list, or that
+    showed the NOT-FOUND panel instead, would have looked tested.
+
+    The distinction is the whole point of AC-388: "this book's puzzles are
+    not on the site yet" and "we have never heard of this book" must not be
+    the same page. Both are asserted here, against each other.
+    """
+    url, report, keys, slug = pages_host
+    book_file = report.site_dir / "book" / f"{slug}.json"
+    served = json.loads(book_file.read_text(encoding="utf-8"))
+
+    thrown: list[str] = []
+    browser_page.on("pageerror", lambda error: thrown.append(str(error)))
+
+    book_file.write_text(
+        json.dumps({**served, "puzzles": []}, indent=2, sort_keys=True), encoding="utf-8"
+    )
+    _open_pages(browser_page, url, f"/b/{slug}")
+    assert _tiles(browser_page) == []
+    assert browser_page.locator("[data-pages-empty]").is_visible()
+    assert (
+        "None of this book's puzzles are on the site yet"
+        in browser_page.locator("[data-pages-empty]").inner_text()
+    )
+    # NOT the not-found panel: the slug is real and printed on paper.
+    assert not browser_page.locator("[data-pages-notfound]").is_visible()
+    # The title still names the book, which is what makes the page useful.
+    assert browser_page.locator("[data-pages-title]").inner_text() == BOOK_TITLE_SERVED
+    assert browser_page.locator("[data-pages-count]").inner_text() == "0 puzzles"
+
+    # The positive control, in the same test: the unedited file shows tiles
+    # and no empty note, so "the note is up" cannot pass for free.
+    book_file.write_text(json.dumps(served, indent=2, sort_keys=True), encoding="utf-8")
+    _open_pages(browser_page, url, f"/b/{slug}")
+    assert len(_tiles(browser_page)) == len(BOOK_ORDER)
+    assert not browser_page.locator("[data-pages-empty]").is_visible()
+    assert thrown == [], thrown
+
+
+@pytest.mark.browser
+def test_filtering_is_announced_in_a_live_region(browser_page, pages_host) -> None:
+    """Filtering rewrites the page silently for a screen reader — it did (F-010).
+
+    ``render()`` replaces the whole tile list, rewrites the count and reveals
+    the empty note, and the controls stay put, so there is no focus change to
+    notice and nothing is spoken. ``player.css`` already shipped CARD-283's
+    ``.player-announce`` and ``pages.js`` did not use it.
+
+    Held as the region's CONTENT after each interaction rather than as the
+    presence of an attribute, because an ``aria-live`` node that is never
+    written is the same silence with a tick beside it. The region's text is
+    the page's own wording — the count element's, or the empty note's — so a
+    third copy of the message cannot drift from what is on screen, and that
+    is what the assertions compare it against.
+    """
+    url, report, keys, slug = pages_host
+    _open_pages(browser_page, url, "/library")
+    region = browser_page.locator("[data-pages-announce]")
+
+    # It is in the document and it is a live region (CARD-283's note: a live
+    # region has to be in the document to be announced reliably).
+    assert region.count() == 1
+    assert region.get_attribute("aria-live") == "polite"
+    assert region.get_attribute("role") == "status"
+    assert "player-announce" in (region.get_attribute("class") or "")
+
+    def announced() -> str:
+        return browser_page.evaluate(
+            "() => document.querySelector('[data-pages-announce]').textContent"
+        )
+
+    def on_screen() -> str:
+        return browser_page.evaluate(
+            "() => document.querySelector('[data-pages-count]').textContent"
+        )
+
+    assert announced() == on_screen() == f"{len(PAGE_GRIDS)} puzzles"
+
+    browser_page.locator("select[data-pages-filter='tier']").select_option("easy")
+    assert announced() == on_screen() == "2 puzzles"
+    assert announced() != f"{len(PAGE_GRIDS)} puzzles", "the region did not change"
+
+    # The empty intersection announces the note the page shows, not a count.
+    browser_page.locator("select[data-pages-filter='size']").select_option("large")
+    assert _tiles(browser_page) == []
+    note = browser_page.locator("[data-pages-empty]").inner_text()
+    assert browser_page.locator("[data-pages-empty]").is_visible()
+    assert announced() == " ".join(note.split())
+    assert "No puzzle matches" in announced()
+
+    browser_page.locator("[data-pages-clear]").click()
+    assert announced() == on_screen() == f"{len(PAGE_GRIDS)} puzzles"
+
+    # Focus is NOT moved into the rewritten content, which is the decision
+    # this test records as well as the announcement: the reader is operating
+    # a select, and taking the keyboard away from it to point at a list that
+    # has just been redrawn would be worse than saying nothing. Asserted as
+    # "focus is still the control" with the control focused first, because
+    # select_option alone does not leave focus behind in every driver.
+    tier_select = browser_page.locator("select[data-pages-filter='tier']")
+    tier_select.focus()
+    assert browser_page.evaluate("() => document.activeElement.dataset.pagesFilter") == "tier"
+    tier_select.select_option("hard")
+    assert announced() == on_screen() == "2 puzzles"
+    assert browser_page.evaluate("() => document.activeElement.dataset.pagesFilter") == "tier"
+    # ...and neither the list nor the region ever takes it.
+    assert browser_page.evaluate(
+        "() => document.activeElement.closest('[data-pages-list]') === null"
+        " && !document.activeElement.hasAttribute('data-pages-announce')"
+    )
+
+    # And the book landing has one too, with the same wiring.
+    _open_pages(browser_page, url, f"/b/{slug}")
+    assert browser_page.locator("[data-pages-announce]").count() == 1
+    assert announced() == f"{len(BOOK_ORDER)} puzzles"
+
+
+
 # ==========================================================================
 # EC-048's listing half: what the two listings may carry
 # ==========================================================================
 
 
-def test_no_title_reaches_either_listing(pages_site, pages_bundle) -> None:
-    """The channel CARD-283 removed from the puzzle files, removed here too.
+def test_no_puzzle_title_reaches_either_listing(pages_site, pages_bundle, tmp_path) -> None:
+    """The PUZZLE title — the picture's name — removed from both listings.
 
-    One sweep, both directions, exactly as that card's own EC-048 test does
-    it: the **bundle's** two listings must be dirty (every title in this
-    fixture is base-64 of a grid, the book's included) and the **site's** must
-    be clean. A sweep that had quietly stopped working cannot report this as a
-    pass.
+    This test was ``test_no_title_reaches_either_listing`` until CARD-284's
+    fix round. The rename is the finding: the old name claimed something
+    wider than the code now does, because a book's own display title IS
+    served (the owner's 2026-10-28 decision) while a puzzle's is forbidden by
+    EC-048. The two fields are never argued as one here; the book's is
+    ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``'s.
+
+    One sweep, both directions, exactly as CARD-283's own EC-048 test does
+    it: the **bundle's** two listings must be dirty — every PUZZLE title in
+    this fixture is base-64 of its own grid, and both listings carry those
+    titles — and the **site's** must be clean. A sweep that had quietly
+    stopped working cannot report this as a pass.
+
+    The book's title is editorial here (:data:`BOOK_TITLE`), which is what
+    keeps the site side of the sweep a statement about picture names: with a
+    leaky book title the site would be dirty by design, and that case is
+    measured in its own test rather than hidden in this one.
+
+    The sweep therefore gets TWO controls rather than one, because the
+    bundle's own book file cannot serve as one: ``BOOK_FILE_FIELDS`` is
+    ``(puzzle_keys, slug, title)``, so a bundle book file holds keys and no
+    puzzle metadata at all, and a puzzle title can only reach the SERVED book
+    file through the entries this card inlines into it. So:
+
+    #. the bundle's ``index.json`` must be dirty — it carries every puzzle's
+       title, and that is the path CARD-282 measured;
+    #. the leak is PLANTED into each served listing, in the shape the entries
+       would have if the schema let a title through, and the sweep has to
+       report both files. Without that, "the site is clean" would be
+       indistinguishable from "the sweep does not read a listing".
     """
     report, keys, slug = pages_site
     bundle_root, _, _ = pages_bundle
+    listings = (assembler.SITE_INDEX_FILE, f"book/{slug}.json")
 
-    # The control, named per file: the leak is in the bundle's listings, not
-    # only somewhere in the bundle.
+    # Control 1 — the bundle's index really is dirty with puzzle titles.
     dirty = sweep_tree(bundle_root, PAGE_GRIDS)
-    for listing in ("index.json", f"book/{slug}.json"):
-        hits = [where for where in dirty if where.startswith(listing)]
-        assert hits, f"the control is dead: nothing recoverable in the bundle's {listing}"
+    hits = [where for where in dirty if where.startswith(assembler.SITE_INDEX_FILE)]
+    assert hits, "the control is dead: nothing recoverable in the bundle's index.json"
+    assert len(hits) >= 2, hits  # more than one grid, so not one lucky match
 
+    # Control 2 — the sweep reads BOTH served listings. The plant is one
+    # title per entry, which is exactly what a schema that admitted the field
+    # would have produced.
+    named = {key: name for name, key in keys.items()}
+    planted = tmp_path / "planted"
+    for where in listings:
+        payload = json.loads((report.site_dir / where).read_text(encoding="utf-8"))
+        for entry in payload["puzzles"]:
+            entry["title"] = _leaky_title(PAGE_GRIDS[named[entry["key"]]])
+        target = planted / where
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    found = sweep_tree(planted, PAGE_GRIDS)
+    assert {where.split(" [")[0] for where in found} == set(listings), found
+
+    # And the site itself, unplanted, is clean.
     assert sweep_tree(report.site_dir, PAGE_GRIDS) == {}
 
-    # And the title really is a declared field of both bundle files, so this
-    # is not a defence against a field nobody writes.
+    # And the puzzle title really is a declared field of both bundle files,
+    # so this is not a defence against a field nobody writes.
     assert "title" in player_bundle.INDEX_ENTRY_FIELDS
     assert "title" in player_bundle.BOOK_FILE_FIELDS
+    assert "title" not in assembler.SERVED_SCHEMA
     assert "title" not in assembler.SERVED_ENTRY_SCHEMA
-    assert "title" not in assembler.SERVED_BOOK_SCHEMA
+    # Every entry of every served listing, in BOTH files, carries exactly the
+    # entry schema — so no picture name travels inside a book file either,
+    # which is the one place a reader might expect the exemption to reach.
+    for where in (f"{assembler.SITE_INDEX_FILE}", f"book/{slug}.json"):
+        payload = json.loads((report.site_dir / where).read_text(encoding="utf-8"))
+        assert payload["puzzles"], where
+        for entry in payload["puzzles"]:
+            assert sorted(entry) == sorted(assembler.SERVED_ENTRY_SCHEMA), (where, entry)
+    # The library index carries no title at ALL, book or picture: there is no
+    # book for it to be the title of.
+    index = json.loads((report.site_dir / assembler.SITE_INDEX_FILE).read_text(encoding="utf-8"))
+    assert sorted(index) == sorted(assembler.SERVED_INDEX_SCHEMA)
+    assert "title" not in index
+
+
+def test_the_book_title_exemption_is_scoped_and_its_cost_is_measured(tmp_path) -> None:
+    """The owner's 2026-10-28 exemption: what it serves, and what it costs.
+
+    ADR-0039/R3 makes an exemption a claim that carries a control for what it
+    must NOT absorb. Four halves, and the last two are the ones an exemption
+    usually ships without:
+
+    #. **it serves.** The bundle's book title reaches the served file, with
+       whitespace collapsed, and the served value is written out here rather
+       than recomputed with ``_book_title``;
+    #. **it is bounded in scope.** A title moved to a puzzle file or to the
+       library index is REFUSED by ``check_listing_capacity`` — so the
+       picture name EC-048 forbids cannot ride in on the book's exemption,
+       mechanically rather than by everyone remembering the distinction. Both
+       directions: refused with the name in the wrong schema, accepted with
+       it back where the decision put it;
+    #. **it is bounded in length**, and that bound is NOT a capacity bound.
+       A 240-character title is truncated to ``SERVED_TITLE_MAX_CHARS`` and
+       the truncation is reported in ``narrowed``;
+    #. **it costs what it costs, measured in a second domain.** The
+       arithmetic is ``book_title_residual_bits()`` = 2410.18 bits. The
+       measurement is in CELLS: a book named after the base-64 of one of its
+       puzzles' answers publishes that answer, and the sweep recovers it off
+       the served tree. That is the residual, demonstrated rather than
+       argued, and the one thing the owner was told the decision buys.
+    """
+    # 1 — it serves, and the collapsing is the function's.
+    root = tmp_path / "bundle"
+    keys, slug = write_pages_bundle(root, order=BOOK_ORDER)
+    clean = assembler.assemble(root, tmp_path / "clean")
+    served = json.loads(
+        (clean.site_dir / "book" / f"{slug}.json").read_text(encoding="utf-8")
+    )
+    assert sorted(served) == sorted(assembler.SERVED_BOOK_SCHEMA)
+    assert served["title"] == BOOK_TITLE_SERVED
+    assert BOOK_TITLE != BOOK_TITLE_SERVED, "the fixture exercises no collapsing"
+    assert clean.narrowed == (), clean.narrowed
+    # The page's own cap is the assembler's, read off the shipped bytes.
+    assert _js_constant("TITLE_MAX_CHARS") == assembler.SERVED_TITLE_MAX_CHARS
+
+    # 2 — the scope, both directions. The exemption is for ONE schema.
+    assert assembler.EXEMPT_LISTING_FIELDS == ("title",)
+    assert assembler.check_listing_capacity() is None
+    for schema in ("SERVED_ENTRY_SCHEMA", "SERVED_INDEX_SCHEMA", "SERVED_SCHEMA"):
+        original = getattr(assembler, schema)
+        try:
+            setattr(assembler, schema, (*original, "title"))
+            # "scoped", not "scoped or not partitioned": none of these three
+            # edits changes what the listings CARRY (the entry schema is
+            # derived at import, and `title` is already carried by the book
+            # file), so the scope refusal is the only one that can fire and
+            # the match says so. A looser pattern would let the partition
+            # message pass for the scope control.
+            with pytest.raises(ValueError, match="is scoped"):
+                assembler.check_listing_capacity()
+        finally:
+            setattr(assembler, schema, original)
+        assert getattr(assembler, schema) == original, schema
+    assert assembler.check_listing_capacity() is None
+
+    # 3 — the length bound, and it is reported rather than silent.
+    long_root = tmp_path / "long"
+    _, long_slug = write_pages_bundle(
+        long_root, order=BOOK_ORDER, book_title="z" * (assembler.SERVED_TITLE_MAX_CHARS * 2)
+    )
+    long_site = assembler.assemble(long_root, tmp_path / "long-site")
+    long_served = json.loads(
+        (long_site.site_dir / "book" / f"{long_slug}.json").read_text(encoding="utf-8")
+    )
+    assert long_served["title"] == "z" * assembler.SERVED_TITLE_MAX_CHARS
+    assert long_site.narrowed == ((long_slug, "title"),), long_site.narrowed
+
+    # 4 — the cost, in the second domain. Arithmetic first.
+    bits = assembler.book_title_residual_bits()
+    assert bits > assembler.CAPACITY_CEILING_BITS, bits
+    assert bits > MAX_SIZE * MAX_SIZE, (bits, MAX_SIZE * MAX_SIZE)
+    assert round(bits, 2) == 2410.18, bits
+    # Then cells. MIN_SIZE x MIN_SIZE is 100 cells; its base-64 is 20
+    # characters, well inside the cap, so the whole grid comes back.
+    leak = _leaky_title(PAGE_GRIDS["e10"])
+    assert len(leak) <= assembler.SERVED_TITLE_MAX_CHARS, len(leak)
+    leaky_root = tmp_path / "leaky"
+    _, leaky_slug = write_pages_bundle(leaky_root, order=BOOK_ORDER, book_title=leak)
+    leaky_site = assembler.assemble(leaky_root, tmp_path / "leaky-site")
+    recovered = sweep_tree(leaky_site.site_dir, PAGE_GRIDS)
+    assert sorted(recovered) == [f"book/{leaky_slug}.json [e10]"], recovered
+    # The residual is the BOOK FILE's and only the book file's: the puzzle
+    # files and the library index stay clean under the same plant, which is
+    # what "bounded in scope" means in the tree rather than in the schema.
+    assert not [where for where in recovered if where.startswith("puzzle/")]
+    assert not [where for where in recovered if where.startswith("index.json")]
+    # And the control for the sweep itself: with the editorial title, the
+    # same tree is clean, so the hit above is the title and not the tree.
+    assert sweep_tree(clean.site_dir, PAGE_GRIDS) == {}
 
 
 def test_a_listing_carries_only_values_already_on_a_puzzle_file(pages_site) -> None:
@@ -635,10 +1144,17 @@ def test_the_listing_capacity_is_partitioned_and_can_fail(monkeypatch, tmp_path)
     """``check_listing_capacity``'s default-deny, and that it is consulted.
 
     Three halves, the shape ``test_the_capacity_bound_is_derived_and_can_fail``
-    established: the partition holds today, a served listing field in neither
+    established: the partition holds today, a served listing field in no
     bucket is refused, and ``assemble`` refuses outright rather than merely
     having the function available (without the third half the call site could
     be deleted and the first two would stay green).
+
+    CARD-284's fix round added a third bucket — the book title's exemption —
+    so the partition is over three sets now, and "in more than one" has to be
+    refused across all three rather than only between the first two: a set
+    union would not notice a name counted twice. The exemption's own two
+    refusals (scope, liveness) are
+    ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``'s.
     """
     assert assembler.check_listing_capacity() is None
     carried = (
@@ -646,12 +1162,15 @@ def test_the_listing_capacity_is_partitioned_and_can_fail(monkeypatch, tmp_path)
         | set(assembler.SERVED_BOOK_SCHEMA)
         | set(assembler.SERVED_ENTRY_SCHEMA)
     )
-    assert carried == set(assembler.MIRRORED_FROM_PUZZLE_FILE) | set(
-        assembler.LISTING_STRUCTURE_FIELDS
+    buckets = (
+        assembler.MIRRORED_FROM_PUZZLE_FILE,
+        assembler.LISTING_STRUCTURE_FIELDS,
+        assembler.EXEMPT_LISTING_FIELDS,
     )
-    assert not set(assembler.MIRRORED_FROM_PUZZLE_FILE) & set(
-        assembler.LISTING_STRUCTURE_FIELDS
-    )
+    assert carried == {name for bucket in buckets for name in bucket}
+    assert len(buckets) == 3
+    for name in carried:
+        assert sum(name in bucket for bucket in buckets) == 1, name
     # The entry schema is DERIVED from the one served schema, not written
     # again: a field added there arrives here and has to be bucketed.
     assert assembler.SERVED_ENTRY_SCHEMA == tuple(
@@ -668,13 +1187,117 @@ def test_the_listing_capacity_is_partitioned_and_can_fail(monkeypatch, tmp_path)
     assert not (tmp_path / "refused" / "library").exists()
     monkeypatch.undo()
 
-    # And a name in BOTH buckets is refused too — "accounted twice" is not
-    # accounted, and set union alone would not notice it.
-    monkeypatch.setattr(
-        assembler, "LISTING_STRUCTURE_FIELDS", (*assembler.LISTING_STRUCTURE_FIELDS, "tier")
-    )
-    with pytest.raises(ValueError, match="not partitioned"):
+    # And a name in TWO buckets is refused too — "accounted twice" is not
+    # accounted, and set union alone would not notice it. Fired for each
+    # unordered pair of the three buckets, so a check written for only the
+    # first two cannot pass this.
+    pairs = {
+        ("structural", "mirrored"): ("LISTING_STRUCTURE_FIELDS", "tier"),
+        ("exempt", "structural"): ("EXEMPT_LISTING_FIELDS", "slug"),
+        ("exempt", "mirrored"): ("MIRRORED_FROM_PUZZLE_FILE", "title"),
+    }
+    for where, (attribute, name) in pairs.items():
+        monkeypatch.setattr(
+            assembler, attribute, (*getattr(assembler, attribute), name)
+        )
+        with pytest.raises(ValueError, match="not partitioned"):
+            assembler.check_listing_capacity()
+        monkeypatch.undo()
+        assert assembler.check_listing_capacity() is None, where
+    assert len(pairs) == 3
+
+    # An exemption for a field nothing serves is refused as well: ADR-0039/R3
+    # holds an exemption to an equality against the sites that exist, and a
+    # dead exemption is a claim nothing can check.
+    monkeypatch.setattr(assembler, "SERVED_BOOK_SCHEMA", ("puzzles", "slug"))
+    with pytest.raises(ValueError, match="no served schema carries"):
         assembler.check_listing_capacity()
+    monkeypatch.undo()
+    assert assembler.check_listing_capacity() is None
+
+
+def test_the_served_index_is_key_sorted(pages_site) -> None:
+    """``served_index``'s determinism claim, which had no control in cycle 1.
+
+    Its docstring says the bytes are a function of the published SET and not
+    of the walk order. Cycle 1 of this card's review measured that unheld:
+    reversing the sort survived 51 nodes, because every AC-389 assertion
+    wraps the rendered keys in ``sorted`` and
+    ``test_the_static_half_of_the_site_does_not_vary_with_the_puzzles``
+    excludes ``index.json`` from its byte comparison by design.
+
+    Two shapes, so it is not one assertion's problem: the function's own
+    output over an input in deliberately NON-sorted order, and the served
+    file on disk. The book file is the control in the same test — its order
+    is the BOOK's and must NOT be sorted, so a change that sorted everything
+    reds here too.
+    """
+    report, keys, slug = pages_site
+    # The function, over an input whose iteration order is the reverse.
+    entries = {
+        key: {"key": key, "width": MIN_SIZE, "height": MIN_SIZE, "tier": "easy"}
+        for key in sorted(keys.values(), reverse=True)
+    }
+    assert list(entries) != sorted(entries), "the input is already sorted"
+    assert [entry["key"] for entry in assembler.served_index(entries)["puzzles"]] == sorted(
+        entries
+    )
+
+    # The file on disk.
+    index = json.loads((report.site_dir / assembler.SITE_INDEX_FILE).read_text(encoding="utf-8"))
+    listed = [entry["key"] for entry in index["puzzles"]]
+    assert listed == sorted(keys.values())
+    assert len(listed) == len(PAGE_GRIDS)
+
+    # The control, in the same test: the BOOK's order is the book's, so a
+    # rule that sorted every listing would be wrong rather than harmless.
+    book = json.loads(
+        (report.site_dir / "book" / f"{slug}.json").read_text(encoding="utf-8")
+    )
+    ordered = [entry["key"] for entry in book["puzzles"]]
+    assert ordered == [keys[name] for name in BOOK_ORDER]
+    assert ordered != sorted(ordered), "the fixture's book order is the sorted one"
+
+
+def test_two_assemble_runs_are_byte_identical(tmp_path) -> None:
+    """EC-049's property one layer out, at the layer that is deployed.
+
+    An export's bytes are a function of the store (EC-049) so that a bundle
+    diff is meaningful; nothing said the same of the assembled SITE, and
+    cycle 1 of this card's review filed that as the collateral of F-004. A
+    deploy diff is the thing an owner actually reads, so the property is held
+    here: the same bundle assembled into two directories gives two trees
+    equal file for file, name for name, byte for byte.
+
+    Deliberately NOT a re-run of the same method: the first tree's walk is
+    compared against the second's, and then a single byte is planted to show
+    the comparison can fail — the shape
+    ``test_the_static_half_of_the_site_does_not_vary_with_the_puzzles``
+    already uses for the static half.
+    """
+    root = tmp_path / "bundle"
+    write_pages_bundle(root, order=BOOK_ORDER)
+
+    def tree(site):
+        return {
+            path.relative_to(site).as_posix(): path.read_bytes()
+            for path in sorted(site.rglob("*"))
+            if path.is_file()
+        }
+
+    one = tree(assembler.assemble(root, tmp_path / "one").site_dir)
+    two = tree(assembler.assemble(root, tmp_path / "two").site_dir)
+    assert one == two
+    # Every data file the bundle feeds is in the comparison, which is what
+    # cycle 1's F-004 found excluded one layer in.
+    assert assembler.SITE_INDEX_FILE in one
+    assert len([name for name in one if name.startswith("puzzle/")]) == len(PAGE_GRIDS)
+    assert len([name for name in one if name.startswith("book/")]) == 1
+    assert len(one) >= len(assembler.PLAYER_FILES) + len(PAGE_GRIDS) + 2
+
+    planted = dict(one)
+    planted[assembler.SITE_INDEX_FILE] += b" "
+    assert planted != two, "the comparison would not notice a changed index"
 
 
 # ==========================================================================
@@ -826,7 +1449,9 @@ def test_a_book_with_no_resolvable_puzzle_is_still_served_empty(tmp_path) -> Non
     assert report.puzzle_count == 0
     assert report.book_count == 1
     book = json.loads((report.site_dir / "book" / f"{slug}.json").read_text(encoding="utf-8"))
-    assert book == {"slug": slug, "puzzles": []}
+    # Served with its title and an empty list: the slug is printed on paper,
+    # so the page exists and says whose book it is even with nothing in it.
+    assert book == {"slug": slug, "title": BOOK_TITLE_SERVED, "puzzles": []}
     assert sorted(key for _, key in report.unresolved) == sorted(
         [keys[name] for name in BOOK_ORDER] + sorted(keys.values())
     )
@@ -1036,6 +1661,44 @@ def test_the_two_pages_add_nothing_to_the_package_and_no_toolchain() -> None:
         assert "http://" not in page and "https://" not in page.replace(
             "https://openapi.vercel.sh", ""
         ), name
+
+
+def test_the_public_tile_is_registered_in_the_design_inventory() -> None:
+    """The card's Design context asks for it, so it is held rather than hoped.
+
+    ``meta/design/components.md`` is the panel's inventory and now carries
+    one public-player section as well; cycle 1 of this card's review found
+    the obligation undeclared and unmet (F-009), and the existing
+    ``## PuzzleTile`` there is the ADMIN panel's book-selection tile, not
+    this one. Both of those are asserted, because "a section exists" would
+    pass on the admin entry.
+
+    Completeness rather than presence, and derived from an authority the
+    runtime can enumerate (ADR-0039/R2): every ``data-pages-*`` hook the two
+    shipped documents actually use has to be named in the inventory, so a
+    part added to the markup and not written down reds here. The control
+    plants one hook the inventory cannot know about.
+    """
+    inventory = (REPO_ROOT / "meta/design/components.md").read_text(encoding="utf-8")
+    assert "## Public player listing tile — PagesTile (CARD-284)" in inventory
+    # Not the admin panel's tile: that section is still there and is a
+    # different component, which is the confusion the finding names.
+    assert "## PuzzleTile" in inventory
+    admin = inventory.split("## PuzzleTile", 1)[1].split("\n## ", 1)[0]
+    assert "book puzzle selection" in admin
+    assert "data-pages" not in admin
+
+    hooks = set()
+    for name in ("book.html", "library.html"):
+        page = (PLAYER_DIR / name).read_text(encoding="utf-8")
+        hooks |= set(re.findall(r"(data-pages-[a-z-]+)", page))
+    assert len(hooks) >= 10, sorted(hooks)
+    missing = sorted(hook for hook in hooks if hook not in inventory)
+    assert missing == [], missing
+
+    # The control: a hook the inventory does not name is reported.
+    planted = sorted(hook for hook in hooks | {"data-pages-nowhere"} if hook not in inventory)
+    assert planted == ["data-pages-nowhere"], planted
 
 
 def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:

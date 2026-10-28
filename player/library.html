@@ -9,11 +9,15 @@
   published and does not change when a book is.
 
   It carries no answer either, and nothing it shows could decode to one: a
-  tile is an extent, a tier chip and a link to /play/<key>. There is no title
-  on it. That is a measured decision rather than a layout choice — CARD-282
-  recovered all 144 cells of a 12x12 answer out of a published title, and a
-  title cannot be scanned for an encoded grid — and pages.js's header has the
-  whole argument.
+  tile is an extent, a tier chip and a link to /play/<key>. There is no
+  PUZZLE title on it — that is the picture's name, EC-048 forbids it, and
+  CARD-282 recovered all 144 cells of a 12x12 answer out of a published one;
+  a title cannot be scanned for an encoded grid, so the field is not in the
+  served entry schema at all. There is no BOOK title on this page either,
+  for a duller reason: index.json is every published puzzle and there is no
+  book here to be the title of. The book's own title is served, on
+  /b/<slug>, under the exemption book.html's comment and pages.js's header
+  set out.
 
   The filters are the spec's (1.1 Puzzle Selection: difficulty and size).
   Client-side, over the one index file: there is no search backend, and the
@@ -71,6 +75,8 @@
     Loading the library&hellip; If this message stays, the page script
     (pages.js) did not load.
   </p>
+
+  <p class="player-announce" data-pages-announce role="status" aria-live="polite"></p>
 
   <div class="pages-list" data-pages-list hidden></div>
 

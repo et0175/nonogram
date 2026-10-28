@@ -10,8 +10,9 @@
 //
 // WHAT A TILE SHOWS, AND WHAT IT DOES NOT
 // ---------------------------------------
-// The extent and the tier. Never a title — not the puzzle's and not the
-// book's — and the absence is a decision, measured rather than stylistic:
+// The extent and the tier. **Never the puzzle's title**, which is the
+// picture's name, and the absence is a decision, measured rather than
+// stylistic:
 //
 //   * CARD-282 measured a stored puzzle name that is the base-64 of its own
 //     grid travelling into the bundle's declared `title`, and a published
@@ -21,14 +22,35 @@
 //     encodings — so CARD-283 removed the channel from the puzzle files
 //     instead of filtering it, and routed the same question for these two
 //     listings here. Same answer: player/assemble.py rebuilds both from a
-//     closed schema and `title` is in neither;
+//     closed schema and the entry schema has no `title` at all;
 //   * the picture's name IS the answer, which is why CARD-163 took it out of
 //     the admin player's own header (FR-044 AC-322/AC-323). A library of
 //     named tiles would spoil every puzzle in it before a tap.
 //
-// So this file never reads a `title` field, and there is none to read. The
-// cost is named in the card: a book landing shows no book title. See
-// player/assemble.py's docstring for what reopening that would take.
+// So no tile on either page ever reads a `title` field, and no served entry
+// has one to read.
+//
+// THE BOOK'S OWN TITLE IS A DIFFERENT FIELD, AND IT IS SHOWN
+// ----------------------------------------------------------
+// /b/<slug> renders the BOOK's display title as its heading (`readTitle`,
+// written into [data-pages-title]). That is owner-authored editorial text
+// about a book, not a picture's name: EC-048 forbids "the picture name" and
+// its enumeration does not reach a book's title, and FR-045's own bundle
+// clause lists the book file as "holding its slug, display title and
+// ordered puzzle keys" in the same sentence that forbids the picture name.
+// The owner was asked directly and decided on 2026-10-28 to serve it,
+// because /b/<slug> is a book customer's first contact with the product
+// seconds after scanning a code off paper and a page with no name on it is
+// not that. player/assemble.py's EXEMPT_LISTING_FIELDS carries the
+// exemption, the cost in bits, and the refusal that keeps the two fields
+// apart; the two must never be argued as one, which is what cycle 1 of this
+// card's review gated on.
+//
+// It is written with textContent and never innerHTML: an editorial string
+// is still untrusted markup.
+//
+// /library shows no title of any kind — index.json carries none, and there
+// is no book for it to be the title of.
 //
 // NOTHING IS WRITTEN AND NOTHING IS COUNTED (ADR-0041/R4, R6, EC-050)
 // -------------------------------------------------------------------
@@ -45,6 +67,8 @@
 //   getShown()     the keys currently rendered, in rendered order
 //   getFilters()   {tier, size} as chosen
 //   slug           the book's slug, or null on the library
+//   title          the book's served display title, or "" (always "" on
+//                  the library, which has no book and no title field)
 
 // A public puzzle key or book slug: the first 10 lowercase hex characters of
 // a SHA-256 digest (ADR-0041/R1 for a key, R7 for a slug — the same
@@ -75,6 +99,15 @@ export const TIERS = ["easy", "medium", "hard"];
 // (every supported side in exactly one band, no gap, no overlap) — is held
 // from the test tree instead. That is the same arrangement play.js's KEY and
 // assemble.py's SERVED_TIERS live under.
+// How many characters of a book's display title the page will render,
+// equal to assemble.py's SERVED_TITLE_MAX_CHARS and held to it from the
+// test tree (the same arrangement TIERS and SIZE_BANDS live under). The
+// server truncates already; this is the second half of the same
+// check-on-both-sides-of-the-wire rule the rest of this file follows, and
+// it is the reason a hand-edited book file cannot push a 10,000-character
+// heading into the page.
+export const TITLE_MAX_CHARS = 120;
+
 export const SIZE_BANDS = [
   { id: "small", label: "Small", min: 10, max: 16 },
   { id: "medium", label: "Medium", min: 17, max: 23 },
@@ -123,6 +156,23 @@ export function readListing(data) {
   const { puzzles } = data;
   if (!Array.isArray(puzzles) || !puzzles.every(isEntry)) return null;
   return puzzles;
+}
+
+// The book's display title `data` carries, or "" when it has none this page
+// will render. Whitespace collapsed and truncated exactly as assemble.py's
+// `_book_title` does it, because this page may be serving a file that was
+// hand-edited after assembly — the same reason `isEntry` re-checks the
+// entries assemble.py wrote.
+//
+// This is NOT a defence against an encoded grid, and the symmetry with
+// `isEntry` stops here: a title is free text, there is no decision procedure
+// for "does this string carry a grid?", and the field is served under a
+// declared exemption rather than a bound. See the header.
+export function readTitle(data) {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return "";
+  const { title } = data;
+  if (typeof title !== "string") return "";
+  return title.split(/\s+/).filter((part) => part !== "").join(" ").slice(0, TITLE_MAX_CHARS);
 }
 
 // --------------------------------------------------------------------------
@@ -195,6 +245,7 @@ function render(page, entries, filters, numbered) {
   const list = page.querySelector("[data-pages-list]");
   const count = page.querySelector("[data-pages-count]");
   const empty = page.querySelector("[data-pages-empty]");
+  const announce = page.querySelector("[data-pages-announce]");
   const shown = [];
   list.replaceChildren();
   entries.forEach((entry, index) => {
@@ -207,6 +258,23 @@ function render(page, entries, filters, numbered) {
     count.textContent = shown.length === 1 ? "1 puzzle" : `${shown.length} puzzles`;
   }
   show(empty, shown.length === 0);
+  // A filter change replaces the whole tile list, the count and the empty
+  // note at once, and a reader who cannot see the page gets nothing from
+  // any of it: the controls stay put, so there is no focus change to
+  // notice. One polite live region carries the result instead — and it
+  // carries the page's OWN wording (the count element's text, or the empty
+  // note's) rather than a third copy of it, so the announcement cannot
+  // drift from what is on screen. Focus is deliberately NOT moved: it is in
+  // the select the reader just used, and moving it there would take the
+  // keyboard away from the control being operated.
+  if (announce !== null) {
+    announce.textContent =
+      shown.length === 0 && empty !== null
+        ? empty.textContent.replace(/\s+/g, " ").trim()
+        : count !== null
+          ? count.textContent
+          : "";
+  }
   return shown;
 }
 
@@ -248,6 +316,16 @@ async function load() {
   show(page.querySelector("[data-pages-notfound]"), false);
   show(page.querySelector("[data-pages-list]"), true);
 
+  // The book's display title, into the heading. textContent, never
+  // innerHTML: the string is owner-authored but it is still a value off the
+  // wire, and the heading of a page a stranger reached by scanning a code
+  // is the last place to interpret markup. A book with no served title
+  // keeps the document's own fallback heading rather than showing an empty
+  // one.
+  const heading = page.querySelector("[data-pages-title]");
+  const title = numbered ? readTitle(data) : "";
+  if (heading !== null && title !== "") heading.textContent = title;
+
   const filters = { tier: "", size: "" };
   const controls = [...page.querySelectorAll("[data-pages-filter]")];
   let shown = render(page, entries, filters, numbered);
@@ -275,6 +353,7 @@ async function load() {
     getShown: () => shown,
     getFilters: () => ({ ...filters }),
     slug,
+    title,
   };
 }
 
