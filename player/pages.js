@@ -34,17 +34,21 @@
 // ----------------------------------------------------------
 // /b/<slug> renders the BOOK's display title as its heading (`readTitle`,
 // written into [data-pages-title]). That is owner-authored editorial text
-// about a book, not a picture's name: EC-048 forbids "the picture name" and
-// its enumeration does not reach a book's title, and FR-045's own bundle
-// clause lists the book file as "holding its slug, display title and
-// ordered puzzle keys" in the same sentence that forbids the picture name.
-// The owner was asked directly and decided on 2026-10-28 to serve it,
-// because /b/<slug> is a book customer's first contact with the product
-// seconds after scanning a code off paper and a page with no name on it is
-// not that. player/assemble.py's EXEMPT_LISTING_FIELDS carries the
-// exemption, the cost in bits, and the refusal that keeps the two fields
-// apart; the two must never be argued as one, which is what cycle 1 of this
-// card's review gated on.
+// about a book, not a picture's name, and it is served under ADR-0041/R2's
+// THIRD EXEMPTION, granted by the owner on 2026-10-28. That exemption is
+// the authority. This comment argued for one round that "EC-048's
+// enumeration does not reach a book's title", and cycle 2 of this card's
+// review measured that false: EC-048's fourth clause is "or data from which
+// any solution cell is recoverable", which is R2's own wording and is not
+// an enumeration anything can fail to be named in. R2 was amended rather
+// than reinterpreted, and it exempts the title by SCOPE rather than by
+// safety -- served on /b/<slug> and nowhere else, with the residual
+// declared. Why the owner granted it: /b/<slug> is a book customer's first
+// contact with the product seconds after scanning a code off paper and a
+// page with no name on it is not that. player/assemble.py's
+// EXEMPT_LISTING_FIELDS carries the exemption, the cost in bits, and the
+// refusal that keeps the two fields apart; the two must never be argued as
+// one, which is what cycle 1 of this card's review gated on.
 //
 // It is written with textContent and never innerHTML: an editorial string
 // is still untrusted markup.

@@ -32,12 +32,16 @@ both are settled here with a control that can fail:
      assemble if the name is added to a puzzle file or to the library index
      (``test_no_puzzle_title_reaches_either_listing``,
      ``test_the_listing_capacity_is_partitioned_and_can_fail``);
-   * a **book's** display title is owner-authored editorial text that
-     EC-048's enumeration does not name, and that FR-045's own bundle clause
-     lists beside the slug and the ordered keys. The owner was asked directly
-     and decided on 2026-10-28 to serve it, so ``/b/<slug>`` renders it as
-     its heading. It is served under an explicit exemption whose SCOPE and
-     whose COST are both measured —
+   * a **book's** display title is owner-authored editorial text served
+     under **ADR-0041/R2's third exemption (owner decision, 2026-10-28)**,
+     which is the authority and the only justification these tests cite.
+     Fix round 1 wrote "EC-048's enumeration does not name it" here and
+     cycle 2 measured that false — EC-048's fourth clause is R2's own "or
+     data from which any solution cell is recoverable", which is not an
+     enumeration anything can fail to be named in, and an FR cannot narrow
+     a mandatory rule in any case. R2 was amended instead, exempting the
+     title by SCOPE rather than by safety. ``/b/<slug>`` renders it as its
+     heading, and the exemption's SCOPE and its COST are both measured —
      ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
      recovers a whole MIN_SIZE grid out of a served book title, which is what
      a declared residual looks like when it is measured instead of argued;
@@ -288,16 +292,24 @@ def _tiles(page) -> list[str]:
 #:
 #: Playwright's default is 30 s, and cycle 1 of this card's review MEASURED
 #: what that costs: the mutant that stopped the not-found panel being shown
-#: took **62.63 s** for this file against a 2.9 s baseline, because two
-#: navigations each burned the full default before failing. Six browser nodes
-#: use this helper, and on this board a shell call over ~2 minutes returns a
+#: took **62.63 s** for this file against a 2.9 s baseline. Fix round 1's
+#: comment attributed that to "two navigations each burned the full
+#: default", and cycle 2 corrected it (F-010): the pages LOAD fine, so
+#: ``goto`` returned promptly and the 30 s went on the SETTLE below, which
+#: is where the mutant made the condition unreachable. Six browser nodes use
+#: this helper, and on this board a shell call over ~2 minutes returns a
 #: truncated log that is indistinguishable from a suite failure — so a
 #: regression here used to buy minutes of ambiguity instead of a fast red.
+#:
+#: It bounds the navigation as well, which is the residual cycle 2 named:
+#: ``goto`` carried no explicit timeout and kept the 30 s default, so a
+#: genuinely hung fixture server — the one case that is NOT what cycle 1
+#: measured — would still have burned it per node.
 PAGES_SETTLE_MS = 3000
 
 
 def _open_pages(page, url: str, path: str) -> None:
-    page.goto(f"{url}{path}")
+    page.goto(f"{url}{path}", timeout=PAGES_SETTLE_MS)
     page.wait_for_function(
         "() => window.playerPages !== undefined"
         " || !document.querySelector('[data-pages-notfound]').hidden",
@@ -1173,9 +1185,19 @@ def test_the_listing_capacity_is_partitioned_and_can_fail(monkeypatch, tmp_path)
     CARD-284's fix round added a third bucket — the book title's exemption —
     so the partition is over three sets now, and "in more than one" has to be
     refused across all three rather than only between the first two: a set
-    union would not notice a name counted twice. The exemption's own two
-    refusals (scope, liveness) are
-    ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``'s.
+    union would not notice a name counted twice.
+
+    **Which test holds which of the exemption's two refusals, measured
+    rather than cross-referenced.** Fix round 1's version of this docstring
+    sent a reader to
+    ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+    for both, and cycle 2 ran each refusal's deletion as its own pytest
+    invocation (its C2-M01 and C2-M03): deleting the LIVENESS refusal reds
+    only this test, and deleting the SCOPE refusal reds only that one. So
+    scope is the exemption test's and **liveness is this test's own** — the
+    closing ``no served schema carries`` block below, twenty lines down.
+    Named here because "attribute by test, not by file" is a rule this board
+    pays for when a pointer lands on a test that does not red.
     """
     assert assembler.check_listing_capacity() is None
     carried = (
@@ -1281,20 +1303,30 @@ def test_the_served_index_is_key_sorted(pages_site) -> None:
 
 
 def test_two_assemble_runs_are_byte_identical(tmp_path) -> None:
-    """EC-049's property one layer out, at the layer that is deployed.
+    """EC-049's shape one layer out, WITHIN one interpreter.
 
     An export's bytes are a function of the store (EC-049) so that a bundle
     diff is meaningful; nothing said the same of the assembled SITE, and
-    cycle 1 of this card's review filed that as the collateral of F-004. A
-    deploy diff is the thing an owner actually reads, so the property is held
-    here: the same bundle assembled into two directories gives two trees
-    equal file for file, name for name, byte for byte.
+    cycle 1 of this card's review filed that as the collateral of F-004. So
+    the same bundle assembled into two directories gives two trees equal
+    file for file, name for name, byte for byte.
+
+    **What this does NOT claim, because fix round 1 claimed it and cycle 2
+    measured the gap:** this is not "EC-049's property at the layer that
+    actually deploys". Both assembles run in ONE process, and a deploy diff
+    is taken across two invocations. Cycle 2's C2-M28 is the case that tells
+    them apart — ``sorted(entries)`` replaced by an order that is stable
+    within a process and varies with ``PYTHONHASHSEED`` between them — and it
+    SURVIVES this test. It is killed by
+    ``test_the_served_index_is_key_sorted``, which therefore owns the
+    cross-process half, and the two tests are a pair rather than a
+    duplicate. What this test does hold, measured by C2-M27 (the marker text
+    made to vary per call), is within-process variation of any served byte.
 
     Deliberately NOT a re-run of the same method: the first tree's walk is
-    compared against the second's, and then a single byte is planted to show
-    the comparison can fail — the shape
-    ``test_the_static_half_of_the_site_does_not_vary_with_the_puzzles``
-    already uses for the static half.
+    compared against the second's, and then one byte is planted ON DISK and
+    the tree RE-WALKED, so the control exercises the same reader the claim
+    does rather than mutating a dict the line above already read.
     """
     root = tmp_path / "bundle"
     write_pages_bundle(root, order=BOOK_ORDER)
@@ -1316,9 +1348,13 @@ def test_two_assemble_runs_are_byte_identical(tmp_path) -> None:
     assert len([name for name in one if name.startswith("book/")]) == 1
     assert len(one) >= len(assembler.PLAYER_FILES) + len(PAGE_GRIDS) + 2
 
-    planted = dict(one)
-    planted[assembler.SITE_INDEX_FILE] += b" "
-    assert planted != two, "the comparison would not notice a changed index"
+    # The control, through the reader rather than beside it: one byte
+    # appended to the index ON DISK, the tree walked again by `tree`.
+    index = tmp_path / "two" / assembler.SITE_INDEX_FILE
+    index.write_bytes(index.read_bytes() + b" ")
+    assert tree(tmp_path / "two") != one, (
+        "the comparison would not notice a changed index"
+    )
 
 
 # ==========================================================================
@@ -1715,29 +1751,46 @@ def test_the_public_tile_is_registered_in_the_design_inventory() -> None:
         hooks |= set(re.findall(r"(data-pages-[a-z-]+)", page))
     assert len(hooks) >= 10, sorted(hooks)
 
-    def named(hook: str) -> bool:
-        """Whether the inventory names ``hook`` — at a word boundary.
+    def named(hook: str, text: str = inventory) -> bool:
+        """Whether ``text`` names ``hook`` — at a word boundary.
 
-        A plain ``in`` is what the fix round's first version used and the
-        kill instrument SURVIVED it: renaming the inventory's
+        A plain ``in`` is what fix round 1's first version used and that
+        round's own kill instrument SURVIVED it: renaming the inventory's
         ``data-pages-loading`` to ``data-pages-loadingx`` left the real hook
         a substring of the wrong one, so the drift guard read the typo as the
         thing it was looking for. ``data-pages-filter`` really is a prefix of
         ``data-pages-filters``, both are hooks, and both are named — so the
         boundary has to admit ``=`` and ``]`` and refuse a further letter.
+
+        ``text`` is a parameter, and that is cycle 2's finding rather than a
+        convenience. Fix round 1 wrote the sentence above with two controls
+        that re-derived the same regex INLINE and never called this function,
+        so reverting the boundary to ``hook in text`` left the test green
+        (cycle 2's C2-M25) — and so did reverting it together with a typo on
+        any hook the test does not spell out as a literal (C2-M25b). The
+        controls below go through this function, over an inventory built
+        here, which is the only shape a boundary claim can be held in.
         """
-        return re.search(rf"{re.escape(hook)}(?![a-z-])", inventory) is not None
+        return re.search(rf"{re.escape(hook)}(?![a-z-])", text) is not None
 
     missing = sorted(hook for hook in hooks if not named(hook))
     assert missing == [], missing
 
-    # Two controls, because the first version had only the first: a hook the
-    # inventory does not name at all, and a hook it names only as the PREFIX
-    # of a longer word — the shape a substring test cannot see.
+    # The boundary itself, THROUGH `named`, over inventories written here.
+    # `in` passes the first of these and fails the second and third, which is
+    # what makes them a control for the boundary rather than for the hook.
     assert not named("data-pages-nowhere")
+    assert not named("data-pages-count", "a tile has [data-pages-countx] on it")
+    assert named("data-pages-count", "a tile has [data-pages-count] on it")
+    assert named("data-pages-count", "written as data-pages-count=\"3\" here")
+    # And the genuine prefix pair the docstring cites, also through `named`:
+    # a boundary that refused `s` would be wrong, not merely strict.
+    assert {"data-pages-filter", "data-pages-filters"} <= hooks, sorted(hooks)
+    assert named("data-pages-filter") and named("data-pages-filters")
+    # The real document, in both directions, for the hook M24 was found on.
     assert "data-pages-loading" in hooks
-    assert re.search(r"data-pages-loading(?![a-z-])", inventory) is not None
-    assert re.search(r"data-pages-loadingx", inventory) is None
+    assert named("data-pages-loading")
+    assert not named("data-pages-loadingx")
 
 
 def test_the_registrys_refs_for_this_file_resolve_or_are_card_285s() -> None:

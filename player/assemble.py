@@ -204,15 +204,25 @@ What this script does not reach, named rather than left to look covered
     :data:`SERVED_ENTRY_SCHEMA`, so it reaches neither listing, and
     :func:`check_listing_capacity` refuses to assemble if anybody puts it
     there. Not a decision — serving it would be the violation;
-  - a **book's** display title is owner-authored editorial text that
-    EC-048's enumeration does not name, and FR-045's own bundle clause
-    already lists it ("holding its slug, display title and ordered puzzle
-    keys") in the same sentence that forbids the picture name. The owner was
-    asked and decided on 2026-10-28 to serve it: ``/b/<slug>`` is a book
-    customer's first contact with the product seconds after a scan, and the
-    card's body (line 31) always required the title there. It is served
-    under an explicit exemption with its residual derived and declared —
-    :data:`EXEMPT_LISTING_FIELDS`.
+  - a **book's** display title is owner-authored editorial text, and it is
+    served under **ADR-0041/R2's third exemption, granted by the owner on
+    2026-10-28** — the authority, written in the rule itself beside the
+    clues and the answer key. That is the whole justification and the only
+    one: this module argued for one round that "EC-048's enumeration does
+    not name it", and cycle 2 of this card's review measured that false.
+    It is true of EC-048's first three items (a solution grid, a
+    filled-cells encoding, the picture name) and FALSE of its fourth clause,
+    "or data from which any solution cell is recoverable" — which is R2's
+    own wording and is not an enumeration anything can fail to be named in.
+    An FR cannot narrow a mandatory ADR rule either, so citing FR-045's
+    bundle clause was not an argument for serving the field; it is only the
+    reason the exporter has the field at all. The rule was amended instead:
+    R2 now exempts the title **by scope rather than by safety**, served
+    verbatim on ``/b/<slug>`` and nowhere else, with the residual declared
+    and no reachable character cap claimed as a bound —
+    :data:`EXEMPT_LISTING_FIELDS`. Why the owner granted it: ``/b/<slug>``
+    is a book customer's first contact with the product seconds after a
+    scan, and the card's body (line 31) always required the title there.
 
   Serving the book's title also answers the product question ADR-0041/R7
   opened and the card routed in (two finalized books with identical
@@ -751,10 +761,18 @@ TITLE_CODE_POINTS = sys.maxunicode + 1 - 2048
 #:   neither :data:`SERVED_SCHEMA` nor :data:`SERVED_ENTRY_SCHEMA`, and
 #:   :func:`check_listing_capacity` raises if it is added to either;
 #: * the **book's** display title is owner-authored editorial text about a
-#:   book. EC-048's enumeration does not name it, and FR-045's own bundle
-#:   clause lists it ("holding its slug, display title and ordered puzzle
-#:   keys") in the same sentence that forbids the picture name. The owner
-#:   was asked directly and decided on 2026-10-28 to serve it.
+#:   book, served under **ADR-0041/R2's third exemption (owner decision,
+#:   2026-10-28)**. The exemption is the authority and the only one cited
+#:   here. The justification this field shipped with for one round —
+#:   "EC-048's enumeration does not name it" — is FALSE, and cycle 2 of
+#:   this card's review measured it so: EC-048's fourth clause is "or data
+#:   from which any solution cell is recoverable", which is R2's own wording
+#:   and is not an enumeration anything can fail to be named in. Nor could
+#:   FR-045's bundle clause have narrowed a mandatory rule — a lower
+#:   artefact cannot. R2 was amended rather than reinterpreted, and it
+#:   exempts the title BY SCOPE rather than by safety: served verbatim on
+#:   ``/b/<slug>`` and nowhere else, residual declared, no reachable
+#:   character cap claimed as a bound.
 #:
 #: What the exemption costs, derived rather than asserted:
 #: :func:`book_title_residual_bits` is ``SERVED_TITLE_MAX_CHARS *
@@ -849,9 +867,24 @@ def check_listing_capacity() -> None:
     The third bucket is an exemption, so ADR-0039/R3 makes it a claim that
     carries a control for what it must NOT absorb. Two refusals do that, and
     they are the half an exemption usually ships without. They run in this
-    order, and the order is what makes each of them REACHABLE — the first
-    draft put them after the partition check, where both were dead code
-    because any edit that reaches them breaks the partition first:
+    order, and **for the liveness refusal the order is load-bearing** — the
+    first draft put it after the partition check, where it was dead code,
+    because every single-node edit that reaches it also breaks the partition
+    (dropping an exempt name from :data:`SERVED_BOOK_SCHEMA` moves
+    ``carried`` and leaves ``accounted`` where it was).
+
+    **The scope refusal is a different case, and fix round 1 recorded the two
+    as one.** Cycle 2 of this card's review re-derived the partition
+    PREDICATE under each single-node schema edit the suite uses and measured
+    all three scope edits PASSING it: :data:`SERVED_ENTRY_SCHEMA` and
+    :data:`MIRRORED_FROM_PUZZLE_FILE` are both bound at import and ``title``
+    is already carried by the book file, so neither ``carried`` nor
+    ``accounted`` moves and the scope refusal would be reachable wherever it
+    sat. It is first for symmetry with liveness and for the message a reader
+    gets — "the two are not the same field" rather than "not partitioned" —
+    and ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+    knows this, which is why it matches on ``is scoped`` rather than on
+    something looser. The order:
 
     #. **liveness.** An exempt name no book schema carries is refused. An
        exemption granted for a field nothing serves is an exemption nobody

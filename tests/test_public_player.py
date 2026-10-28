@@ -266,13 +266,37 @@ TIERS = {
 }
 
 
-def write_bundle(root: Path, grids=None, *, leaky=True) -> dict[str, str]:
+#: The BOOK title the shared fixtures carry: editorial text, deliberately
+#: not an encoded grid.
+#:
+#: It is a named constant with a parameter beside it rather than a literal
+#: inside :func:`write_bundle` because of what cycle 2 of CARD-284's review
+#: did to the literal. Its C2-M41 changed it to a leaky value, and
+#: ``test_served_tree_is_clean_of_answers`` — the test ADR-0041/R2's own
+#: ``check:`` comment names as the served tree's half — FAILED, while
+#: ``tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+#: asserted that exactly that leak SUCCEEDS. Two tests, one mandatory rule,
+#: opposite outcomes, discriminated by a fixture constant. The served-half
+#: control now passes BOTH titles in explicitly and asserts both outcomes,
+#: so this default is a convenience for every other test and is load-bearing
+#: for none of them.
+BOOK_TITLE = "A book"
+
+
+def write_bundle(
+    root: Path, grids=None, *, leaky=True, book_title: str = BOOK_TITLE
+) -> dict[str, str]:
     """A player bundle at ``root``; returns ``{name: key}``.
 
     Every puzzle's title is the base-64 of its own grid when ``leaky`` (the
     default), because the question this card exists to answer is what happens
     to such a title — a fixture that only ever carries "Snowy owl" would make
     every assertion below pass for the wrong reason.
+
+    The BOOK's title is a different field with the opposite answer — it is
+    SERVED, under ADR-0041/R2's 2026-10-28 exemption — so it is
+    :data:`BOOK_TITLE` by default and overridable per call. Nothing may read
+    that default as a guarantee: see :data:`BOOK_TITLE`.
 
     ``index.json`` and one ``book/<slug>.json`` are written too: they are part
     of a real bundle, and this card's site must be measured *not* serving
@@ -299,7 +323,11 @@ def write_bundle(root: Path, grids=None, *, leaky=True) -> dict[str, str]:
     book.parent.mkdir(parents=True, exist_ok=True)
     book.write_text(
         json.dumps(
-            {"slug": "0123456789", "title": "A book", "puzzle_keys": sorted(keys.values())},
+            {
+                "slug": "0123456789",
+                "title": book_title,
+                "puzzle_keys": sorted(keys.values()),
+            },
             indent=2,
             sort_keys=True,
         )
@@ -470,16 +498,41 @@ def sweep_tree(root: Path, grids) -> dict[str, list[str]]:
 # ==========================================================================
 
 
-def test_served_tree_is_clean_of_answers(site, bundle) -> None:
+def test_served_tree_is_clean_of_answers(bundle, tmp_path) -> None:
     """EC-048 / AC-381's served half (ADR-0041/R2) — and its own control.
 
     The same sweep runs over both trees. The **bundle** must be dirty: its
-    titles are base-64 of their grids, which is the path CARD-282 measured and
-    routed here. The **site** must be clean. One scan, both directions, so a
-    sweep that had quietly stopped working could not report this as a pass —
-    the failure mode CARD-282's cycle 1 found in its own guard.
+    PUZZLE titles are base-64 of their grids, which is the path CARD-282
+    measured and routed here. One scan, both directions, so a sweep that had
+    quietly stopped working could not report this as a pass — the failure
+    mode CARD-282's cycle 1 found in its own guard.
+
+    **The served half is TWO statements since ADR-0041/R2's 2026-10-28
+    amendment, and this test makes both of them rather than one.** R2 now
+    carries a third exemption beside the clues and the answer key: a book's
+    own owner-authored display title, served verbatim on ``/b/<slug>`` and
+    nowhere else, exempt by SCOPE rather than by safety. So "the served tree
+    is clean" is false as a bare sentence, and the rule's own served-half
+    control has to say which half is which:
+
+    #. **a PUZZLE title cannot get out.** With an editorial book title, the
+       served tree is clean — ``== {}``, nothing exempted, nothing
+       subtracted — although every puzzle title in the bundle is the base-64
+       of its own grid;
+    #. **a BOOK title is admitted, and only in the book file.** With a leaky
+       book title the sweep reports EXACTLY ``book/<slug>.json``, by name,
+       and the puzzle files and the library index stay clean under the same
+       plant. That is the declared exemption, asserted here rather than
+       inferred from a fixture.
+
+    Why both titles are passed in explicitly instead of taken from
+    :data:`BOOK_TITLE`: cycle 2 of CARD-284's review changed that literal to
+    a leaky value (its C2-M41) and this test failed, while
+    ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+    asserted in the same suite that exactly that leak succeeds — two tests,
+    opposite outcomes for one mandatory rule, discriminated only by a fixture
+    constant. A control a fixture default can flip is not a control.
     """
-    report, keys = site
     bundle_root, _ = bundle
 
     # EC-048's own verification clause: a seeded corpus, "with the minimum
@@ -501,7 +554,36 @@ def test_served_tree_is_clean_of_answers(site, bundle) -> None:
         "the sweep cannot even read CARD-282 cycle 2's own measured leak"
     )
 
-    assert sweep_tree(report.site_dir, GRIDS) == {}
+    # Half 1 — a PUZZLE title cannot get out. Every puzzle title in this
+    # bundle is base-64 of its own grid and the book's is editorial, so the
+    # served tree has to be clean with nothing exempted.
+    editorial = "A book about owls"
+    assert not decoded_recoveries(editorial, GRIDS["min"]), (
+        "the editorial title is itself recoverable, so half 1 would be vacuous"
+    )
+    clean_root = tmp_path / "editorial-bundle"
+    clean_keys = write_bundle(clean_root, book_title=editorial)
+    clean = assembler.assemble(clean_root, tmp_path / "editorial-site")
+    assert clean.puzzle_count == len(clean_keys), clean
+    assert sweep_tree(clean.site_dir, GRIDS) == {}
+
+    # Half 2 — a BOOK title IS admitted, by R2's 2026-10-28 exemption, and
+    # only in the book file. The exemption is named in the assembler as well
+    # as asserted here, so this is the declared channel and not a surprise.
+    assert assembler.EXEMPT_LISTING_FIELDS == ("title",)
+    assert "title" in assembler.SERVED_BOOK_SCHEMA
+    assert "title" not in assembler.SERVED_ENTRY_SCHEMA
+    assert "title" not in assembler.SERVED_INDEX_SCHEMA
+    assert "title" not in assembler.SERVED_SCHEMA
+    leak = _leaky_title(GRIDS["min"])
+    assert len(leak) <= assembler.SERVED_TITLE_MAX_CHARS, len(leak)
+    leaky_root = tmp_path / "leaky-bundle"
+    write_bundle(leaky_root, book_title=leak)
+    leaky = assembler.assemble(leaky_root, tmp_path / "leaky-site")
+    recovered = sweep_tree(leaky.site_dir, GRIDS)
+    assert sorted(recovered) == ["book/0123456789.json [min]"], recovered
+    assert not [where for where in recovered if where.startswith("puzzle/")]
+    assert not [where for where in recovered if where.startswith("index.json")]
 
 
 def test_the_served_puzzle_files_are_rebuilt_not_copied(site) -> None:
@@ -884,7 +966,7 @@ def test_the_served_extents_are_recomputable_from_the_served_clues(site) -> None
     assert all(assembler.SERVED_VALUE_SPACE[field] == 1 for field in assembler.DETERMINED_BY_CLUES)
 
 
-def test_an_out_dir_that_is_not_a_previous_site_is_refused(tmp_path) -> None:
+def test_an_out_dir_that_is_not_a_previous_site_is_refused(monkeypatch, tmp_path) -> None:
     """``--out`` erases its target, so it refuses a target it did not write.
 
     Measured in cycle 1 of CARD-283's review: a directory holding
@@ -905,10 +987,24 @@ def test_an_out_dir_that_is_not_a_previous_site_is_refused(tmp_path) -> None:
     pinned what had to still be DENIED, so the mutant dropping
     ``SITE_INDEX_FILE`` from the set was killed by the wrong assertion.
     ``check_out_dir`` recognises :data:`assembler.SITE_MARKER_FILE` now, and
-    the four denial cases below are drawn from shapes the guard was NOT
-    written from: a lone ``index.json``, a lone ``book/``, a lone
-    ``pages.js``, and ``index.json`` beside a foreign name. Every one of them
-    would have passed the old predicate on at least its generic half.
+    there are **six** denial cases below — fix round 1's docstring said four
+    beside a table of five that asserted five, which is cycle 2's F-008.
+    Four are drawn from shapes the guard was NOT written from: a lone
+    ``index.json``, a lone ``book/``, a lone ``pages.js``, and ``index.json``
+    beside a foreign name. Every one of them would have passed the old
+    predicate on at least its generic half. The fifth,
+    ``every-name-but-the-marker``, is the one case drawn FROM the shape the
+    old predicate was written from, and it is the interesting half: the tree
+    the old name-set predicate was designed to accept is now refused. The
+    sixth is the predicate's EDGE rather than its core and is built
+    separately after the table — see there for why it cannot be a row in it.
+
+    The marker's ORDERING is held here too, and separately, because cycle 2
+    found nothing in the suite discriminating it (F-006): ``_write`` is made
+    to raise on its second call, so ``assemble`` dies after the marker and
+    before the tree is finished, and the half-written target must still be
+    one the next run may replace. A marker written LAST would pass the
+    delete-everything-but-the-marker paragraph identically.
 
     ``--force`` is an exemption, so it carries its own two controls
     (ADR-0039/R3, and CARD-283 cycle 2's N-5): what it lifts, and what it
@@ -960,6 +1056,33 @@ def test_an_out_dir_that_is_not_a_previous_site_is_refused(tmp_path) -> None:
         assert assembler.check_out_dir(target) == target, name
     assert len(denied) == 5
 
+    # The SIXTH denial case, and it is the predicate's EDGE rather than its
+    # core: `check_out_dir` asks whether the marker is a FILE, and cycle 2 of
+    # this card's review measured `.is_file()` -> `.exists()` SURVIVING every
+    # row above (its C2-M17), because none of their trees holds a
+    # `.player-site` entry at all and the positive controls all write a real
+    # file. A DIRECTORY by that name is the one tree that tells the two
+    # predicates apart, and what sits behind the difference is
+    # `shutil.rmtree`. It cannot be a row in the table above because that
+    # loop asserts the marker absent and then writes it as a file, and
+    # neither step is true of this shape.
+    masquerade = tmp_path / "denied-marker-is-a-directory"
+    (masquerade / assembler.SITE_MARKER_FILE / "inner").mkdir(parents=True)
+    assert (masquerade / assembler.SITE_MARKER_FILE).exists()
+    assert not (masquerade / assembler.SITE_MARKER_FILE).is_file()
+    with pytest.raises(ValueError, match="no run of this script wrote it"):
+        assembler.check_out_dir(masquerade)
+    assert (masquerade / assembler.SITE_MARKER_FILE / "inner").is_dir(), (
+        "check_out_dir deleted something on the way to the refusal"
+    )
+    # ...and the same tree with the marker as a FILE is accepted, so this is
+    # a statement about the predicate and not about the name.
+    shutil.rmtree(masquerade / assembler.SITE_MARKER_FILE)
+    (masquerade / assembler.SITE_MARKER_FILE).write_text(
+        assembler.SITE_MARKER_TEXT, encoding="utf-8"
+    )
+    assert assembler.check_out_dir(masquerade) == masquerade
+
     # The repository root, through `check_out_dir` ALONE — never through
     # `assemble`. Cycle 2 of this card's review (N-6) found this assertion
     # written against the destructive entry point on the real checkout: the
@@ -1010,6 +1133,37 @@ def test_an_out_dir_that_is_not_a_previous_site_is_refused(tmp_path) -> None:
         if path.name != assembler.SITE_MARKER_FILE:
             shutil.rmtree(path) if path.is_dir() else path.unlink()
     assert assembler.check_out_dir(again.site_dir) == again.site_dir
+
+    # And the ORDERING itself, which the paragraph above does NOT
+    # discriminate: a marker written LAST would pass it identically, and
+    # cycle 2 of this card's review found no test in the repo that makes
+    # `assemble` fail part way (its F-006). So one is made here. `_write`
+    # raises on its second call, so the run dies after the marker and before
+    # the tree is finished, and the half-written target must still be one the
+    # next run may replace. This is the assertion `assemble`'s comment is
+    # making, and it is the difference between "a retry works" and "a retry
+    # needs --force".
+    real_write = assembler._write
+    calls = []
+
+    def dying_write(path, payload):
+        calls.append(path)
+        if len(calls) >= 2:
+            raise OSError("disk full, part way through")
+        return real_write(path, payload)
+
+    half = tmp_path / "half-written"
+    monkeypatch.setattr(assembler, "_write", dying_write)
+    with pytest.raises(OSError, match="disk full"):
+        assembler.assemble(None, half)
+    monkeypatch.undo()
+    assert calls[0] == half / assembler.SITE_MARKER_FILE, calls[:1]
+    assert len(calls) == 2, calls
+    assert (half / assembler.SITE_MARKER_FILE).is_file()
+    assert sorted(path.name for path in half.iterdir()) == [
+        assembler.SITE_MARKER_FILE
+    ], sorted(path.name for path in half.iterdir())
+    assert assembler.check_out_dir(half) == half
 
     # And --force is the way past it, which is what makes the refusal a
     # decision rather than a wall.
