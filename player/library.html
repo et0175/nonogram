@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  The public player's /library page (COMP-011, FR-045, ADR-0041; CARD-284).
+
+  Static files only, no framework and no build step beyond copying
+  (ADR-0041/R3). This document carries NO puzzle and no listing: pages.js
+  fetches index.json — the one rebuilt library index player/assemble.py writes
+  — and draws the tiles, so the deployed HTML is independent of what was
+  published and does not change when a book is.
+
+  It carries no answer either, and nothing it shows could decode to one: a
+  tile is an extent, a tier chip and a link to /play/<key>. There is no title
+  on it. That is a measured decision rather than a layout choice — CARD-282
+  recovered all 144 cells of a 12x12 answer out of a published title, and a
+  title cannot be scanned for an encoded grid — and pages.js's header has the
+  whole argument.
+
+  The filters are the spec's (1.1 Puzzle Selection: difficulty and size).
+  Client-side, over the one index file: there is no search backend, and the
+  index is fetched once. The size bands are pages.js's SIZE_BANDS and the
+  tier options are its TIERS, which are the runtime's own vocabulary — the
+  option values below have to equal them, and
+  tests/test_public_player_pages.py reds if they drift.
+
+  There is no analytics script tag here, for the reason play.html gives at
+  length: ADR-0041/R6 puts one on the player pages and AC-385's control
+  forbids a request beyond this page's own assets. Both halves land on
+  CARD-285, which owns the test R6's check ref names.
+
+  The markup below is the empty frame. A page whose script never ran keeps the
+  loading paragraph and shows no dead controls, the same shape play.html uses.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nonogram library</title>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/player.css">
+</head>
+<body>
+<main class="player-page" data-pages-page="library">
+  <div class="page-head player-head">
+    <h1>Library</h1>
+    <span class="pages-count" data-pages-count></span>
+  </div>
+
+  <div class="pages-filters" data-pages-filters hidden>
+    <label class="pages-filter">
+      Difficulty
+      <select data-pages-filter="tier">
+        <option value="">All</option>
+        <option value="easy">easy</option>
+        <option value="medium">medium</option>
+        <option value="hard">hard</option>
+      </select>
+    </label>
+    <label class="pages-filter">
+      Size
+      <select data-pages-filter="size">
+        <option value="">All</option>
+        <option value="small">Small</option>
+        <option value="medium">Medium</option>
+        <option value="large">Large</option>
+      </select>
+    </label>
+    <button type="button" class="btn" data-pages-clear>Clear filters</button>
+  </div>
+
+  <p class="player-fallback" data-pages-loading>
+    Loading the library&hellip; If this message stays, the page script
+    (pages.js) did not load.
+  </p>
+
+  <div class="pages-list" data-pages-list hidden></div>
+
+  <p class="player-hint" data-pages-empty hidden>
+    No puzzle matches these filters. Clear them to see the whole library.
+  </p>
+
+  <div class="pages-notfound" data-pages-notfound hidden>
+    <p data-pages-notfound-text>
+      The library could not be loaded. It may not have been published yet.
+    </p>
+  </div>
+</main>
+<script type="module" src="/pages.js"></script>
+</body>
+</html>

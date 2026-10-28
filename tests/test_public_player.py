@@ -540,25 +540,57 @@ def test_the_title_is_dropped_on_every_puzzle_and_named_in_the_report(site) -> N
     declare the field (so this is not a defence against a field nobody
     writes), and the assembler names every drop in its report (so the owner
     can see that the public page shows no picture name, rather than wondering).
+
+    CARD-284 widened it to the BOOK file, which the exporter declares a
+    ``title`` on too and which that card serves. The drop is asserted on
+    both, from the exporter's own two field tuples, so serving either title
+    later would have to red here first.
     """
     report, keys = site
     assert "title" in player_bundle.PUZZLE_FILE_FIELDS
+    assert "title" in player_bundle.BOOK_FILE_FIELDS
     assert "title" not in assembler.SERVED_SCHEMA
-    assert sorted(report.dropped) == sorted((key, "title") for key in keys.values())
+    assert "title" not in assembler.SERVED_BOOK_SCHEMA
+    assert "title" not in assembler.SERVED_ENTRY_SCHEMA
+    assert sorted(report.dropped) == sorted(
+        [(key, "title") for key in keys.values()] + [("0123456789", "title")]
+    )
 
 
-def test_the_index_and_book_files_are_not_served_by_this_page(site) -> None:
-    """This card serves ``/play/<key>`` and nothing else, and says which.
+def test_the_index_and_book_files_are_rebuilt_and_never_copied(site) -> None:
+    """The two listings are served, and not one byte of them is a copy.
 
-    ``index.json`` and ``book/<slug>.json`` both carry a free-text ``title``
-    too. Dropping it there is the library page's and the book page's question
-    (CARD-284, CARD-285) and theirs to answer; this card leaves both files out
-    and names them in the report instead of copying them untouched.
+    This test was ``..._are_not_served_by_this_page`` until CARD-284, which
+    is the card CARD-283 routed the decision to. It is served now, and the
+    decision taken is the SAME one the puzzle files got: both bundle files
+    carry a free-text ``title``, a scan cannot decide whether free text
+    encodes a grid, so the channel is removed rather than filtered. The
+    rename is the point — the old name would now be a false claim.
+
+    Three halves, because "rebuilt" is only worth something if none of the
+    bundle's own bytes survive: the served files exist, they hold exactly the
+    served schemas, and neither file is byte-equal to the bundle's.
     """
-    report, _ = site
-    assert report.ignored == ("book/0123456789.json", "index.json")
-    assert not (report.site_dir / "index.json").exists()
-    assert not (report.site_dir / "book").exists()
+    report, keys = site
+    bundle_index = (report.site_dir.parent / "bundle" / "index.json").read_bytes()
+    served_index = (report.site_dir / "index.json").read_bytes()
+    assert served_index != bundle_index
+    assert sorted(json.loads(served_index)) == sorted(assembler.SERVED_INDEX_SCHEMA)
+    for entry in json.loads(served_index)["puzzles"]:
+        assert sorted(entry) == sorted(assembler.SERVED_ENTRY_SCHEMA), entry
+
+    book = report.site_dir / "book" / "0123456789.json"
+    assert book.read_bytes() != (
+        report.site_dir.parent / "bundle" / "book" / "0123456789.json"
+    ).read_bytes()
+    assert sorted(json.loads(book.read_text(encoding="utf-8"))) == sorted(
+        assembler.SERVED_BOOK_SCHEMA
+    )
+    # Nothing else of the bundle is served: ``ignored`` is now only what no
+    # page reads, and the two listings have left it.
+    assert report.ignored == ()
+    assert report.book_count == 1
+    assert len(json.loads(served_index)["puzzles"]) == len(keys)
 
 
 def test_the_capacity_bound_is_derived_and_can_fail(monkeypatch, tmp_path) -> None:
@@ -888,8 +920,11 @@ def test_an_out_dir_that_is_not_a_previous_site_is_refused(tmp_path) -> None:
     empty.mkdir()
     assert assembler.assemble(None, empty).site_dir == empty
     again = assembler.assemble(None, empty)
+    # The two directories a bundle fills are absent with no bundle; the
+    # library index is written anyway, because the site always has a library.
     assert sorted(path.name for path in again.site_dir.iterdir()) == sorted(
-        assembler._site_entries() - {assembler.SITE_PUZZLE_DIR}
+        assembler._site_entries()
+        - {assembler.SITE_PUZZLE_DIR, assembler.SITE_BOOK_DIR}
     )
 
     # And --force is the way past it, which is what makes the refusal a
@@ -1101,6 +1136,16 @@ def test_the_static_half_of_the_site_does_not_vary_with_the_puzzles(tmp_path) ->
     changed with the corpus would be carrying something about it. Assembled
     twice from two disjoint corpora and compared byte for byte, with a planted
     difference to show the comparison can fail.
+
+    CARD-284 added two data files that DO vary with the corpus (``index.json``
+    and ``book/<slug>.json``), so "the static half" stopped being "not under
+    ``puzzle/``" and is now the published paths of the two copy tables —
+    :data:`PLAYER_FILES` and :data:`COPIED_FROM_ADMIN`, which is the
+    enumerable authority for what the site serves that is NOT a function of
+    the bundle (ADR-0039/R2). The change defaults to deny rather than to
+    "static": every file in the tree is either one of those published paths
+    or one of the three declared data shapes, and a file that is neither
+    fails this test instead of quietly dropping out of the comparison.
     """
     first = write_bundle(tmp_path / "b1", {"a": GRIDS["min"]})
     second = write_bundle(tmp_path / "b2", {"b": GRIDS["oblong"], "c": GRIDS["max"]})
@@ -1108,15 +1153,35 @@ def test_the_static_half_of_the_site_does_not_vary_with_the_puzzles(tmp_path) ->
     one = assembler.assemble(tmp_path / "b1", tmp_path / "s1").site_dir
     two = assembler.assemble(tmp_path / "b2", tmp_path / "s2").site_dir
 
+    published = {*assembler.PLAYER_FILES.values(), *assembler.COPIED_FROM_ADMIN.values()}
+
+    def declared_data(relative: str) -> bool:
+        """Whether ``relative`` is one of the three bundle-derived shapes."""
+        return (
+            relative == assembler.SITE_INDEX_FILE
+            or relative.startswith(f"{assembler.SITE_PUZZLE_DIR}/")
+            or relative.startswith(f"{assembler.SITE_BOOK_DIR}/")
+        )
+
     def statics(root):
-        return {
-            path.relative_to(root).as_posix(): path.read_bytes()
-            for path in sorted(root.rglob("*"))
-            if path.is_file() and path.parent.name != "puzzle"
-        }
+        found = {}
+        for path in sorted(root.rglob("*")):
+            if not path.is_file():
+                continue
+            relative = path.relative_to(root).as_posix()
+            if relative in published:
+                found[relative] = path.read_bytes()
+                continue
+            assert declared_data(relative), (
+                f"{relative} is neither a published static asset nor one of the "
+                "declared bundle-derived shapes, so no rule here covers it"
+            )
+        return found
 
     assert statics(one) == statics(two)
-    assert len(statics(one)) == len(assembler.PLAYER_FILES) + len(assembler.COPIED_FROM_ADMIN)
+    assert len(statics(one)) == len(published) == len(assembler.PLAYER_FILES) + len(
+        assembler.COPIED_FROM_ADMIN
+    )
     planted = dict(statics(one))
     planted["play.js"] += b"//"
     assert planted != statics(two), "the comparison would not notice a changed asset"
@@ -2444,8 +2509,15 @@ def test_the_player_tree_is_static_and_adds_nothing_to_the_package() -> None:
     part of the package: nothing under ``src/`` may import it, and no
     ``package-data`` glob may ship it. Both are checked, not assumed.
     """
+    #
+    # The expected set is DERIVED from the copy table plus the assembler
+    # itself, not written out: CARD-284 added three files to ``player/``, and
+    # a hand-written list would have had to be edited to admit them, which is
+    # the same edit a stray file would need. A source file nobody publishes,
+    # or a published source that is not on disk, fails here.
     files = sorted(path.name for path in PLAYER_DIR.iterdir() if path.is_file())
-    assert files == ["assemble.py", "play.html", "play.js", "player.css", "vercel.json"]
+    assert files == sorted({*assembler.PLAYER_FILES, "assemble.py"})
+    assert len(files) >= 8, files
     for forbidden in ("package.json", "node_modules", "package-lock.json"):
         assert not (PLAYER_DIR / forbidden).exists(), forbidden
     sources = (REPO_ROOT / "src").rglob("*.py")

@@ -18,11 +18,16 @@ What it produces
 
     play/index.html     the /play/<key> page            (from player/play.html)
     play.js             its glue                        (from player/play.js)
+    library/index.html  the /library page               (from player/library.html)
+    b/index.html        the /b/<slug> landing           (from player/book.html)
+    pages.js            the two listing pages' glue     (from player/pages.js)
     player.css          its styling                     (from player/player.css)
     solver_state.js     the admin player's pure module  (byte-identical copy)
     tokens.css          the design tokens               (byte-identical copy)
-    vercel.json         the host's rewrite for /play/<key>
+    vercel.json         the host's rewrites for /play/<key> and /b/<slug>
     puzzle/<key>.json   one REBUILT file per bundle puzzle (see below)
+    index.json          the REBUILT library index        (see "The two listings")
+    book/<slug>.json    one REBUILT file per bundle book (see "The two listings")
 
 The two copies are copies and not forks: ADR-0041/R3 requires the board-state
 module to be reused from ``src/nonogram/admin/static/solver_state.js`` by
@@ -156,13 +161,21 @@ value space; none of it is transcribed. Ask for it with
 
 What this script does not reach, named rather than left to look covered
 -----------------------------------------------------------------------
-* ``index.json`` and ``book/<slug>.json`` are **not** copied. They are read by
-  the library and book pages, which are CARD-284's and CARD-285's, and both
-  carry a free-text ``title`` that this card's answer (drop the channel) would
-  also have to be taken for — a book's title on its own cover page is a very
-  different editorial question from a puzzle's name, and deciding it here
-  would be deciding their cards. :func:`assemble` names the bundle files it
-  ignored in its report so the omission is visible rather than silent.
+* ``index.json`` and ``book/<slug>.json`` are **not** copied — and as of
+  CARD-284 they are served, REBUILT, exactly as the puzzle files are. CARD-283
+  served neither and routed the decision here because both carry the bundle's
+  free-text ``title``; the decision taken is the same one, for the same
+  measured reason, and it means **no title reaches the public site at all**,
+  a book's own included. What a tile shows is the extent and the tier. That
+  the card's body asks for titles and its acceptance criteria do not is
+  reported as a finding rather than resolved here, and it is also the answer
+  to the product question ADR-0041/R7 opened (two finalized books with
+  identical membership are one slug with two candidate titles): with no title
+  served, the ambiguity has no public surface. Serving one would need a third
+  ADR-0041 exemption for a field nothing can scan.
+* The **order** a book's puzzles are listed in, and the two bits of tier
+  label, are the whole residual of the served listings — see
+  :data:`LISTING_STRUCTURE_FIELDS`.
 * A grid recovered from the **clues** is not a leak but the game. Stated
   because a reader of EC-048 has to accept it, and measured (not merely
   asserted) by the test tree against the real solver.
@@ -186,16 +199,27 @@ __all__ = [
     "DETERMINED_BY_CLUES",
     "EXEMPT_SERVED_FIELDS",
     "KEY_PATTERN",
+    "LISTING_STRUCTURE_FIELDS",
+    "MIRRORED_FROM_PUZZLE_FILE",
     "PLAYER_FILES",
+    "SERVED_BOOK_SCHEMA",
+    "SERVED_ENTRY_SCHEMA",
+    "SERVED_INDEX_SCHEMA",
     "SERVED_SCHEMA",
     "SERVED_TIERS",
     "SERVED_VALUE_SPACE",
+    "SITE_BOOK_DIR",
+    "SITE_INDEX_FILE",
     "SITE_PUZZLE_DIR",
     "AssembleReport",
     "assemble",
     "check_capacity",
+    "check_listing_capacity",
     "check_out_dir",
     "free_capacity_bits",
+    "listing_entry",
+    "served_book",
+    "served_index",
     "served_puzzle",
 ]
 
@@ -233,9 +257,16 @@ MIN_SIZE, MAX_SIZE = _limits()
 #: ``player/`` source -> published path. The page is published as
 #: ``play/index.html`` so that a plain static host serves ``/play/`` without a
 #: rewrite and ``vercel.json``'s rewrite only has to cover ``/play/<key>``.
+#:
+#: ``library.html`` and ``book.html`` travel the same way for the same reason
+#: (CARD-284): ``/library`` resolves without a rewrite, and ``vercel.json``
+#: only has to cover ``/b/<slug>``.
 PLAYER_FILES: dict[str, str] = {
     "play.html": "play/index.html",
     "play.js": "play.js",
+    "library.html": "library/index.html",
+    "book.html": "b/index.html",
+    "pages.js": "pages.js",
     "player.css": "player.css",
     "vercel.json": "vercel.json",
 }
@@ -251,9 +282,16 @@ COPIED_FROM_ADMIN: dict[str, str] = {
     "src/nonogram/admin/static/tokens.css": "tokens.css",
 }
 
-#: Where the rebuilt puzzle files go, and the only directory of the bundle
-#: this card's site serves.
+#: Where the rebuilt puzzle files go.
 SITE_PUZZLE_DIR = "puzzle"
+
+#: Where the rebuilt book files go, and the name the rebuilt library index is
+#: served under. Both are CARD-284's: CARD-283 served neither and said so.
+#: The names are the bundle's own, because the pages' URLs are what the
+#: printed QR codes and AC-389 name ("the library page over ``index.json``"),
+#: not because the files are copies — they are rebuilds, like the puzzles.
+SITE_BOOK_DIR = "book"
+SITE_INDEX_FILE = "index.json"
 
 #: A public puzzle key, as ADR-0041/R1 pins it: the first 10 lowercase
 #: hexadecimal characters of a SHA-256 digest. Re-checked here rather than
@@ -528,6 +566,204 @@ def served_puzzle(payload: object, stem: str) -> tuple[dict[str, object], list[s
 
 
 # --------------------------------------------------------------------------
+# The two listings — index.json and book/<slug>.json (CARD-284)
+# --------------------------------------------------------------------------
+#
+# CARD-283 served neither file and routed both decisions here, because both
+# carry the bundle's free-text ``title`` and the answer taken for the puzzle
+# page (drop the channel) had to be taken for them too or not at all. It is
+# taken: no title is served, on either listing, for the reason F-2 of that
+# card gives for the puzzle page — free text cannot be scanned for an encoded
+# grid, so the public surface carries none. What the pages show instead is the
+# extent and the tier, which are the same two values the ``/play/<key>``
+# header already shows.
+#
+# The second decision routed here is CARD-282's F-8: an export that fails
+# part-way through leaves ``index.json`` naming puzzle files that were never
+# written, and ``book/<slug>.json`` naming keys with no file. A listing that
+# names an absent file is a tile that 404s on tap, which is the one thing a
+# reader seconds after scanning a QR code cannot diagnose.
+#
+# **It is closed by construction rather than by a check.** Every entry of
+# every served listing IS the served payload of that key's own
+# ``puzzle/<key>.json``, minus the clues (:func:`listing_entry`), so the
+# listing's membership is the set of files this run actually wrote and an
+# entry naming an absent file is not possible rather than merely detected.
+# The bundle's own ``index.json`` is read as a SECOND, independent instrument
+# — what the export *declared* — and every disagreement between the two is
+# named in the report: :attr:`AssembleReport.unresolved` for a key a listing
+# declared and the site does not serve, :attr:`AssembleReport.unlisted` for a
+# served key the bundle's index named nowhere. A bundle with no ``index.json``
+# at all therefore reports every served key as unlisted, which is the loudest
+# shape available: the instrument cannot read as "nothing wrong" when it has
+# nothing to read.
+
+#: One entry of a served listing: :data:`SERVED_SCHEMA` without the clues.
+#: Derived from the one schema rather than written again, so a field added
+#: there arrives here — and has to be bucketed by
+#: :func:`check_listing_capacity` before anything assembles.
+#:
+#: The clues are left out because a listing is a listing: twenty puzzles'
+#: clue sets are the whole game downloaded to draw a page of tiles, and
+#: ``/play/<key>`` fetches them one at a time already.
+SERVED_ENTRY_SCHEMA: tuple[str, ...] = tuple(
+    name for name in SERVED_SCHEMA if name != "clues"
+)
+
+#: Top-level fields of the served ``index.json``.
+SERVED_INDEX_SCHEMA: tuple[str, ...] = ("puzzles",)
+
+#: Top-level fields of a served ``book/<slug>.json``. ``title`` is absent, as
+#: on the puzzle files; ``puzzle_keys`` is absent too, replaced by the
+#: resolved entries themselves so the landing page renders from this one file
+#: with nothing else to load first (CARD-284 G-2: no second index is derived
+#: at page-load time).
+SERVED_BOOK_SCHEMA: tuple[str, ...] = ("puzzles", "slug")
+
+#: Listing fields whose served value is, by construction, a value already
+#: served on that key's ``puzzle/<key>.json``. They are therefore worth zero
+#: NEW capacity: a reader of the listing learns nothing a reader of the puzzle
+#: files does not already have. :func:`listing_entry` is the construction, and
+#: it copies from the served payload rather than from the bundle, which is
+#: what makes the claim structural instead of a comparison somebody has to
+#: remember to make.
+MIRRORED_FROM_PUZZLE_FILE: tuple[str, ...] = SERVED_ENTRY_SCHEMA
+
+#: Listing fields that are structure rather than a puzzle's value: the list
+#: itself and the book's own slug, which is the file's name and is re-checked
+#: against :data:`KEY_PATTERN` (ADR-0041/R7 truncates the slug digest to the
+#: same length as R1's key, so the shapes are the same ten hex characters).
+#:
+#: The residual these two carry is the ORDER of ``puzzles`` in a book file,
+#: and it is declared rather than closed: AC-387 asks for the book's own
+#: order, a printed book publishes that order on its pages anyway, and a
+#: hostile store that chose the order by the answer would signal up to
+#: ``log2(n!)`` bits through it. Not serving the order means not having a
+#: landing page, so closing it is ADR-0041's decision and not a worktree one —
+#: the same shape, and the same reason, as the two bits of tier label.
+LISTING_STRUCTURE_FIELDS: tuple[str, ...] = ("puzzles", "slug")
+
+
+def check_listing_capacity() -> None:
+    """Refuse to assemble unless every served LISTING field is accounted for.
+
+    The sibling of :func:`check_capacity`, and the same default-deny shape:
+    every name any served listing carries has to be either mirrored from a
+    puzzle file (:data:`MIRRORED_FROM_PUZZLE_FILE` — zero new capacity) or
+    structure (:data:`LISTING_STRUCTURE_FIELDS` — the list and the slug, whose
+    one residual is named there). A name in both, or in neither, is a served
+    value nobody accounted for, which is exactly how the ``tier`` channel got
+    to be 56 bits wide in cycle 1 of CARD-283's review.
+
+    Raises:
+        ValueError: when the partition does not hold. That is the moment to go
+            back to ADR-0041, not to this function.
+    """
+    carried = set(SERVED_INDEX_SCHEMA) | set(SERVED_BOOK_SCHEMA) | set(SERVED_ENTRY_SCHEMA)
+    accounted = set(MIRRORED_FROM_PUZZLE_FILE) | set(LISTING_STRUCTURE_FIELDS)
+    overlap = set(MIRRORED_FROM_PUZZLE_FILE) & set(LISTING_STRUCTURE_FIELDS)
+    if carried != accounted or overlap:
+        raise ValueError(
+            "the served listings are not partitioned into mirrored and "
+            f"structural fields: carried {sorted(carried)}, mirrored "
+            f"{sorted(MIRRORED_FROM_PUZZLE_FILE)}, structural "
+            f"{sorted(LISTING_STRUCTURE_FIELDS)}, in both {sorted(overlap)} "
+            "— an unaccounted listing field is outside EC-048's argument"
+        )
+
+
+def listing_entry(served: dict[str, object]) -> dict[str, object]:
+    """One listing tile, built from a SERVED puzzle payload.
+
+    ``served`` is :func:`served_puzzle`'s own output — never a bundle payload
+    — so every value here has already passed that function's domains, and the
+    "a listing carries nothing the puzzle files do not" claim is a property of
+    this one expression rather than of a comparison elsewhere.
+    """
+    return {name: served[name] for name in SERVED_ENTRY_SCHEMA}
+
+
+def served_index(entries: dict[str, dict[str, object]]) -> dict[str, object]:
+    """The served ``index.json``: every puzzle this run wrote, by key.
+
+    ``entries`` maps key -> :func:`listing_entry`. Sorted by key so the bytes
+    are a function of the published set and not of the order the bundle
+    directory was walked — the same determinism ``_dump`` exists for.
+    """
+    served = {"puzzles": [entries[key] for key in sorted(entries)]}
+    assert sorted(served) == sorted(SERVED_INDEX_SCHEMA)
+    return served
+
+
+def served_book(
+    payload: object, stem: str, entries: dict[str, dict[str, object]]
+) -> tuple[dict[str, object], list[str], list[str]]:
+    """``(served payload, dropped field names, unresolved keys)`` for one book.
+
+    ``stem`` is the file's name without ``.json``, which ADR-0041/R7 makes the
+    slug, and the payload's own ``slug`` must equal it. The book's
+    ``puzzle_keys`` are kept in **book order** (AC-387) and resolved against
+    ``entries``: a key with no served puzzle file is left out of the listing
+    and returned as unresolved, so a half-written bundle costs the reader the
+    tile rather than a 404 on tap.
+
+    A book all of whose keys are unresolved is still served, with an empty
+    list. The slug is real — it is printed in a QR code — so the landing page
+    saying "none of this book's puzzles are on the site yet" is the honest
+    answer, and the not-found page is reserved for a slug the bundle does not
+    have at all (AC-388).
+
+    Raises:
+        ValueError: with a reason, for a payload this function cannot read.
+            The caller turns that into a named refusal rather than a failed
+            assembly, as it does for a puzzle file.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("the file is not a JSON object")
+    slug = _key(payload.get("slug"), "slug")
+    if slug != stem:
+        raise ValueError(f"the file is named {stem}.json but carries the slug {slug}")
+    declared = payload.get("puzzle_keys")
+    if not isinstance(declared, list):
+        raise ValueError("puzzle_keys is not a list")
+    order = [_key(value, f"puzzle_keys[{i}]") for i, value in enumerate(declared)]
+    unresolved = [key for key in order if key not in entries]
+    served: dict[str, object] = {
+        "slug": slug,
+        "puzzles": [entries[key] for key in order if key in entries],
+    }
+    assert sorted(served) == sorted(SERVED_BOOK_SCHEMA)
+    dropped = sorted(name for name in payload if name not in (*SERVED_BOOK_SCHEMA, "puzzle_keys"))
+    return served, dropped, unresolved
+
+
+def _declared_keys(path: Path) -> tuple[list[str], str | None]:
+    """``(keys the bundle's index.json declares, why it could not be read)``.
+
+    The second instrument behind :attr:`AssembleReport.unlisted`, and read
+    permissively on purpose: it is a cross-check against what the export
+    *said* it wrote, never the authority for what is served. An absent or
+    unreadable index therefore does not refuse the assembly — it returns no
+    declared keys, which makes every served key unlisted and the silence
+    impossible.
+    """
+    if not path.is_file():
+        return [], f"{SITE_INDEX_FILE} is not in the bundle"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError) as unreadable:
+        return [], f"{SITE_INDEX_FILE} could not be read: {unreadable}"
+    if not isinstance(payload, dict) or not isinstance(payload.get("puzzles"), list):
+        return [], f"{SITE_INDEX_FILE} carries no puzzles list"
+    keys = [
+        entry["key"]
+        for entry in payload["puzzles"]
+        if isinstance(entry, dict) and isinstance(entry.get("key"), str)
+    ]
+    return keys, None
+
+
+# --------------------------------------------------------------------------
 # Assembling
 # --------------------------------------------------------------------------
 
@@ -549,16 +785,34 @@ class AssembleReport:
     (:func:`tier_narrowed`). It is deliberately separate from ``dropped``: a
     dropped field is one the site does not serve at all, a narrowed one is
     served with less in it than the bundle had.
+
+    ``unresolved`` and ``unlisted`` are CARD-284's two, and they are the F-8
+    instrument rather than the F-8 fix (the fix is structural — see "The two
+    listings" above). ``unresolved`` is ``(listing path, key)`` for a key a
+    bundle listing declared and this run does not serve: a half-written
+    export. ``unlisted`` is the other direction — a key whose puzzle file was
+    served and whose entry the bundle's ``index.json`` named nowhere — and
+    ``index_unread`` says why that index could not be consulted at all, in
+    which case every served key is unlisted.
+
+    ``book_count`` is how many book files were served, which is not the same
+    number as the bundle's books: two finalized books with identical
+    membership are one public slug (ADR-0041/R7), and a book file the schema
+    refuses is in ``refused`` instead.
     """
 
     site_dir: Path
     puzzle_count: int
     capacity_bits: float
+    book_count: int = 0
     dropped: tuple[tuple[str, str], ...] = ()
     narrowed: tuple[tuple[str, str], ...] = ()
     refused: tuple[tuple[str, str], ...] = ()
     ignored: tuple[str, ...] = ()
     copied: tuple[str, ...] = ()
+    unresolved: tuple[tuple[str, str], ...] = ()
+    unlisted: tuple[str, ...] = ()
+    index_unread: str | None = None
 
 
 def _write(path: Path, text: str) -> None:
@@ -582,12 +836,16 @@ def _site_entries() -> set[str]:
     """The top-level names an assembled site holds, derived from the tables.
 
     ``play/index.html`` contributes ``play``, so the set is the first segment
-    of every published path plus the puzzle directory. Derived rather than
-    listed: a new published file widens this set by being added to
-    :data:`PLAYER_FILES`, not by somebody remembering this function.
+    of every published path plus the three the bundle's own data goes to.
+    Derived rather than listed: a new published file widens this set by being
+    added to :data:`PLAYER_FILES`, not by somebody remembering this function.
     """
     published = [*PLAYER_FILES.values(), *COPIED_FROM_ADMIN.values()]
-    return {path.split("/", 1)[0] for path in published} | {SITE_PUZZLE_DIR}
+    return {path.split("/", 1)[0] for path in published} | {
+        SITE_PUZZLE_DIR,
+        SITE_BOOK_DIR,
+        SITE_INDEX_FILE,
+    }
 
 
 def check_out_dir(out_dir: Path | str, *, force: bool = False) -> Path:
@@ -654,6 +912,7 @@ def assemble(
     previous run wrote (or ``force`` says to go ahead anyway).
     """
     capacity = check_capacity()
+    check_listing_capacity()
     site = check_out_dir(out_dir, force=force)
     if site.exists():
         shutil.rmtree(site)
@@ -677,14 +936,29 @@ def assemble(
     narrowed: list[tuple[str, str]] = []
     refused: list[tuple[str, str]] = []
     ignored: list[str] = []
+    unresolved: list[tuple[str, str]] = []
+    entries: dict[str, dict[str, object]] = {}
+    index_unread: str | None = None
+    books = 0
     count = 0
     if bundle_dir is not None:
         bundle = Path(bundle_dir)
-        for path in sorted(bundle.rglob("*")):
-            if not path.is_file():
-                continue
+        files = [path for path in sorted(bundle.rglob("*")) if path.is_file()]
+        book_files: list[Path] = []
+        for path in files:
             relative = path.relative_to(bundle).as_posix()
-            if not relative.startswith(f"{SITE_PUZZLE_DIR}/") or path.suffix != ".json":
+            if path.suffix != ".json":
+                ignored.append(relative)
+                continue
+            if relative.startswith(f"{SITE_BOOK_DIR}/"):
+                # Second pass: a book's tiles are the served puzzle entries,
+                # so every puzzle file has to have been read first.
+                book_files.append(path)
+                continue
+            if relative == SITE_INDEX_FILE:
+                # Read as the F-8 cross-check, never as the served listing.
+                continue
+            if not relative.startswith(f"{SITE_PUZZLE_DIR}/"):
                 ignored.append(relative)
                 continue
             try:
@@ -697,17 +971,48 @@ def assemble(
             if tier_narrowed(payload.get("tier")):
                 narrowed.append((path.stem, "tier"))
             _dump(site / SITE_PUZZLE_DIR / f"{served['key']}.json", served)
+            entries[served["key"]] = listing_entry(served)
             count += 1
+
+        for path in book_files:
+            relative = path.relative_to(bundle).as_posix()
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                book, names, missing = served_book(payload, path.stem, entries)
+            except (ValueError, UnicodeDecodeError) as unservable:
+                refused.append((path.stem, str(unservable)))
+                continue
+            dropped.extend((path.stem, name) for name in names)
+            unresolved.extend((relative, key) for key in missing)
+            _dump(site / SITE_BOOK_DIR / f"{book['slug']}.json", book)
+            books += 1
+
+        declared, index_unread = _declared_keys(bundle / SITE_INDEX_FILE)
+        unresolved.extend(
+            (SITE_INDEX_FILE, key) for key in declared if key not in entries
+        )
+        unlisted = sorted(key for key in entries if key not in set(declared))
+    else:
+        unlisted = []
+
+    # Always written, even with no bundle: the site has a library page, so it
+    # has a library index, and an empty one is a true statement about an
+    # empty bundle rather than a missing file the page has to guess about.
+    _dump(site / SITE_INDEX_FILE, served_index(entries))
 
     return AssembleReport(
         site_dir=site,
         puzzle_count=count,
         capacity_bits=capacity,
+        book_count=books,
         dropped=tuple(sorted(dropped)),
         narrowed=tuple(sorted(narrowed)),
         refused=tuple(sorted(refused)),
         ignored=tuple(sorted(ignored)),
         copied=tuple(sorted(copied)),
+        unresolved=tuple(sorted(unresolved)),
+        unlisted=tuple(unlisted),
+        index_unread=index_unread,
     )
 
 
@@ -748,6 +1053,13 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--out is required unless --capacity is given")
     report = assemble(args.bundle, args.out, force=args.force)
     print(f"{report.puzzle_count} puzzles into {report.site_dir}")
+    print(f"  {report.book_count} book landings")
+    for listing, key in report.unresolved:
+        print(f"  unresolved {key}: {listing} names it and no puzzle file was served")
+    if report.unlisted:
+        print(f"  not in the bundle's index: {', '.join(report.unlisted)}")
+    if report.index_unread is not None:
+        print(f"  the bundle's index was not consulted: {report.index_unread}")
     if report.dropped:
         fields = sorted({name for _, name in report.dropped})
         print(f"  dropped (not in the served schema): {', '.join(fields)}")
