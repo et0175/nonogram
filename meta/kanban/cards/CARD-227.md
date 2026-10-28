@@ -473,3 +473,150 @@ number is not a measurement.
   0.25 with 0.1058 was refused outright — a floor set at the figure it protects
   asserts nothing.** Four inherited "retired" lines judged individually; the one
   measuring frame overhang was left because it is unrelated.
+
+## [CYCLE 1 — 2026-10-28] **6.8, NOT CERTIFIED**, 2 gating — both are claims wider than their measurement
+
+`meta/review/20261028T085257Z-CARD-227-cycle1.yml`, reviewed `884c9738`.
+**Neither gating finding moves any ink today**, which is why this is 6.8 and not
+lower, and both are a few lines from closed.
+
+### F-001 (gating) — the declared bound rests on a FALSE PREMISE, and it is closeable
+
+`tests/test_book_grid_rules.py:825` and ADR-0037/R2's check comment both say the
+declared figures *"cannot reach `png._draw_grid` today … so there is nothing
+there to refuse and no control that can fail."* **They reach it on every book
+single-puzzle page.** The reviewer spied on `png._draw_grid` during `_blank_page`
+and it receives `width_pt=['0.3','0.8','1.3']`, `grey=['0.0','0.35']` — because
+`_blank_page` rules its grid through `render_pages → png._draw_grid`, **not**
+through the guarded `_stroke_drawing`, which rules only two-up and solved slots.
+**So the unguarded stroker is the one that rules the dominant interior page
+kind.**
+
+It then went further than finding it: installed the same guard there and got
+**three arms** — the real book page **passes** (no false positive), the mutant
+AC-7 names **reds**, and the shipped unguarded path **draws the refused
+configuration silently**. *The control this card says cannot fail is writable,
+discriminating, and one line.*
+
+### F-002 (gating) — "default-DENY" claimed for a default-ALLOW predicate
+
+`refuse_rasterised_rule` returns on `width_pt is None` and on every width that
+isn't exactly `round(width_pt*dpi/72)` — **a point exclusion, not "no branch lets
+a declared weight through"**: a `ceil` of the same figure, 2 px, is admitted. And
+`rasterise_rule_px`, credited as *"the one door a raster generator may convert a
+declared width through"*, has **zero call sites in `src/`** — verified
+independently by the orchestrator: every hit is its own definition, its `__all__`
+entry, or a docstring cross-reference. **It is reachable only from tests.**
+Exactly ADR-0039/R2's warning.
+
+### The cross-medium seam — DIFFERENTLY SCOPED, and strictly STRONGER
+
+The orchestrator flagged this as the card's most dangerous edit. **It holds**, and
+the reviewer established it in four steps rather than taking the round's word:
+
+1. **Measured that the old claim really is false now** — stream widths converted
+   back to device pixels are `[1.25, 3.333…, 5.4166…]`, three values against
+   ink's `[3, 6]`, so both old arms fail. **False by design, not by drift.**
+2. **Planted the defect the old seam existed to catch** (the thin rule collapsing
+   to 1 px). The new form **reds at exactly the 1 px arm** while the arm above it
+   **stays green** — so that arm catches a defect nothing else in the new form
+   sees.
+3. **Planted the undo** (`draw_grid_lines` ignoring `width_pt`). The new seam
+   reds. **It cannot be satisfied by reverting the card.**
+4. Found the **3 px arm is coincidental** (F-007, minor): `3` is both
+   `round(0.8pt@300)` and this book's fitted `thin_rule`, so on a book with a
+   4 px thin rule it would red with nothing wrong.
+
+### The call-graph re-stamp — honest, and 204 correctly did NOT move
+
+Verified **at both ends** rather than assumed: HEAD `[772, 519, 204, 202, 0, 0]`,
+parent `[770, 517, 204, 202, 0, 0]`, with an independent `ast.walk` giving
+832 → 834 and a per-callee delta of exactly `{'refuse_rasterised_rule': 2}`,
+cross-checked in a **VCS domain** (the textual diff adds exactly two call lines).
+The mechanism checks arithmetically: the "definitions and imports" class absorbs
+519−204 = **315** at HEAD against 517−204 = **313** at the parent — a difference
+of exactly the two new calls to an imported name. And both figures are pinned as
+**equalities, not floors**: `772→773` reds and `204→206` reds. **Not a number
+raised until green.**
+
+### A survivor the round did not have: F-004 (major, non-gating)
+
+`GridRules`' tone-ordering refusal `not cell.grey > heavier` → `>=` **survives
+all 26** tests. The control's two "near-misses" are pure-black and
+cell-darker-at-0.2-vs-0.4 — **both well inside the region; the boundary has no
+mutant.** The *width* axis has its edge control and dies to the same mutation
+shape. **So "two mutants, one at the EDGE" is unmet on one axis.**
+
+### F-003 (major) — there IS a wrong sheet `GridRules` accepts
+
+It accepts `cell.grey = 1.0` (**pure white — no visible cell grid at all**), a
+whole grid at 0.99/0.98/0.97, a fifth lighter than the border, and widths
+0.3/0.30001/0.30002 as "three distinct weights". **It guards the pure-BLACK end,
+which no review complained about, and leaves the FAINT end open — which is the
+direction the 7-of-17 complaint ADR-0037 exists to close runs in.** No caller can
+express it today, so it is a claim defect rather than behaviour: *"a sheet a
+caller cannot express wrongly"* is wider than the three refusals behind it.
+
+### F-010 (major) — the corrections went into the card, not into the file
+
+`tests/test_book_grid_rules.py:59-62`'s module docstring says the file **does not
+join** the frozen render-heavy set and "names none of the eight render idioms".
+**It is in the set** (`rank_durations.py:127`) and **it does name
+`puzzle_pages`.** A second sentence at `:55-57` still describes the superseded
+ratio form. *Both are exactly where the round corrected its own assumptions — and
+the corrections landed in the card rather than in the file the next reader
+opens.*
+
+### F-011 (minor) — and it corrects the round's own finding 2
+
+`trace.yml:1837`'s *"AC-376..AC-378 do not exist"* is **false** — all three exist
+under FR-040, verified by the orchestrator (`requirements.yml:3474/3487/3552`).
+The **substantive** gap is real and stands: no registry AC names the card's
+AC-3/AC-4/AC-7, and AC-7 is the one that matters. *The orchestrator repeated the
+false half to the owner and has corrected it.*
+
+### Re-derived, and the instrument correction that preceded it
+
+Poppler in a **second domain** (own `pdftoppm`, own run-length scan, attribution
+by the **stream's** x in points rather than device pixels): 0.3 pt → **2 px @300
+grey 89 / 5 px @1200**; 0.8 pt → **4 / 14 px** at grey 0; 1.3 pt → **6 / 22 px**.
+Confirmed, and attribution-by-position is what the code does. **Seven `w`
+operators confirmed in a second domain** and robust to grid size (22×13 also
+derives 7) — *but* `draw_grid_lines` emits **six**; the seventh is `draw_frame`'s,
+and the docstring claiming seven is `draw_grid_lines`' own (F-006, minor).
+**AC-6's band holds**, but *"tighter at both ends than any ratio between them"* is
+**arithmetically overstated** (F-005): the band implies only `1.54 ≤ ratio ≤
+5.60`. The chosen form is still the better one.
+
+**G-2/G-3/G-5 in a second domain**: `book_vector.py` not in the diff; `_is_major`
+**exactly equivalent** to its pre-card definition over every `(index,last)` with
+`last` 1..60; and three real book raster pages **pixel-digest-identical** across
+the card. *That is stronger than a git listing — a design that merely happened not
+to move a baseline would differ here.*
+
+**Host cells used the corrected instrument only**; the retired
+`pgrep -f 'MacOS/Python.*pytest'` form was not used anywhere. rival-pytest **0 at
+both ends**. Targeted gate reproduced Tier A: **419 collected, 419 passed**.
+
+### The finding family, recorded per `family_regression: warn`
+
+**Seven of eleven findings share one root cause: a claim stated wider than the
+measurement behind it.** The reviewer's own summary is worth keeping: *"This round
+measured unusually well and corrected three of its own assumptions; what it
+didn't do is narrow the sentences around those measurements."* One editorial pass
+fixes all seven, and **the next card is better checked against the rule than
+against seven findings** — which is ADR-0039/R4, one day old, meeting its first
+card.
+
+### Could not establish, in those words
+
+Whether these weights read well **on paper** (agreed with the round: accepted on
+renders, revisit trigger the first printed proof). Whether the round's **other
+fifteen mutants** were killed at the cells it names — thirteen of the reviewer's
+own choosing were fired and six `pytest.raises` attributions confirmed, a sample;
+**the card does not list its mutants by node id**, so the matrix was not
+reconstructed. Whether an **independent second implementation** of the
+exemption-cost walk would also read 772/519/204 — the test's own walk was driven
+over both revisions, a cross-revision control on one instrument rather than a
+second domain (the `ast.Call` 834 *is* confirmed in two). AC-5's render half at
+the 4.75 mm floor, carried forward for low marginal information.
