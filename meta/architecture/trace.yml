@@ -2087,6 +2087,10 @@ links:
   - TestGuidePage_TitledHowToSolveNonograms
   - TestGuidePage_CarriesAWorkedExampleOnOnePage
   - TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged
+  - TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages
+  - TestDividerPages_EveryPagesParityIsStillItsOwnPosition
+  - TestDividerPages_PrintSetupStoresTheChoice
+  - test_a_submission_without_the_control_leaves_the_default_on_alone
   notes: >-
     Story US-024, INV-009, CMD-022 -> EVT-023, EC-029. Owner answers 2026-09-22:
     an added puzzle lands at the END of its level; the answer key carries small
@@ -2127,6 +2131,7 @@ links:
   - TestFinaliseCounts_PlanTripwireIsNotAnEstimate
   - TestFinaliseCounts_ShowsWhyTheCountIsApproximate
   - TestFinalise_UncountableBookStaysInDraft
+  - TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages
   notes: >-
     Amended 2026-09-22 (d) (owner, BK-8 details): a SOLUTIONS divider page
     precedes the answer key; each level starts a new answer page under a small

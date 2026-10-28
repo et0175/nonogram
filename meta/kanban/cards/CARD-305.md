@@ -1,6 +1,6 @@
 # CARD-305: The four divider pages become an option on Print setup
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Complexity:** standard
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/305-divider-pages-option
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-305
+**Worktree:** —
 **Source:** owner request, 2026-10-28 — "please add an option on admin panel to add 4 pages (easy-medium-hard-solutions dividers)".
 **Idea:** —
 **Wave:** 67
@@ -17,9 +17,9 @@
 **Touches:** migrations/versions/017_book_divider_pages.py, src/nonogram/db/models.py, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/print_specs.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_divider_pages_option.py
 **Review score:** 7.5 → **8.5 cycle 2/3 CERTIFIED**, zero critical, zero important
 **Started:** 2026-10-28T12:30:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-28T19:54:16Z
+**Actual:** 0.9d
+**Merge commit:** 48457877
 **Blocked by:** —
 
 ## The request, and what was already true
@@ -660,3 +660,50 @@ confirms nor refutes it) · **migration 017 on Postgres this cycle** (fix round 
 probe stands as a single-domain measurement, un-re-derived) · **whether any page of
 an option-off book looks right to a human — no render captured and no page
 eyeballed in either cycle.**
+
+## [LANDED — 2026-10-28] `48457877` — the merge gate was RED first, and the fix is the durable part
+
+The card's own recorded gate was **green at 1502** — a NARROWED selection, which
+never ran `tests/test_book_floor.py`. The merge gate against a base re-merged from
+current `main` was **red on one test**:
+`TestMigration012::test_no_backfill_and_a_downgrade_that_drops_the_column`,
+`no such column: books.interior_divider_pages`. **Both arms measured before
+attributing** — main alone GREEN, this branch RED — so it was this card's, not the
+host's and not main's. That is the CARD-295 lesson arriving a third time: a
+certified cycle with zero gating findings does not mean "merges clean" when the
+review ran a targeted selection.
+
+**The mechanism, and why the obvious fix was refused.** The test pins the chain to
+literal revision `"013"` and then read books through `BookManager`. The ORM always
+describes HEAD, so that SELECT names every column the chain has ever added,
+including 017's. **This was the second occurrence** — the comment at that line
+records CARD-147's 013 adding `interior_ink_mode` and the fix then being to move
+the read 012 → 013. Moving the pin forward expires on the next column, so it was
+not taken a third time. The read is **core SQL** now, which names only the columns
+it asks for, and the pin and its documented rationale are untouched.
+
+**A weakening was avoided rather than shipped.** The deleted ORM block was not
+redundant: `assert legacy.floor_overrides == []` is INV-006's fail-closed reading
+(stored NULL → `[]`, not an unset attribute), and it appeared **exactly once in the
+whole suite** — on the line the fix removes. It moved to its own test against a
+head-state database instead of being dropped, and it is **proved able to fail**:
+two mutants in `book_manager.py`, one per path it asserts (`:736`'s `or []` for the
+attribute, `:1019`'s fallback for the method), **both killed**, source restored
+byte-clean after.
+
+**Latent class, wider than this card and owed a card of its own:**
+`tests/test_book_page_spec.py` and `tests/test_book_plan_storage.py` also pin a
+literal revision AND use the ORM. Neither fails today. Both meet this wall on the
+next card that adds a `Book` column — and that card will find out at its merge
+gate, exactly as this one did.
+
+**Gates.** AC gate 46 passed / 0 skipped / 0 failed by node id, all 10 ACs resolved
+to real nodes — **zero skips matters here**, because this card touches `migrations/`
+and `db/models.py` and DB-mode tests skip GREEN on this box. G-2/G-3/G-4 checked
+structurally. Merge gate **9517 / 27 / 0** in 1238.41 s, skip count the baseline
+exactly, load 5.59 → 5.16, rival-pytest 0 at both ends, hang dump 0 bytes,
+collection **+89** reconciling exactly to the new file, the four existing test files
+it edits changing no node count. Deferral scan 1 hit, incidental.
+
+**Still owed by the owner:** that a switch defaulting ON is what was wanted. The
+dividers were already unconditional; this card did not add them.
