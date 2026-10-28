@@ -1,6 +1,6 @@
 # CARD-284: The QR landing and the library — /b/<slug> and /library around the player
 
-**Status:** ready
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/284-book-landing-and-library
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-284
 **Source:** ONLINE_GAME_SPECIFICATION.md#technical-architecture (owner decision 2026-10-23, commit 8b0ca0e2) and §1.1 Puzzle Selection
 **Idea:** —
 **Wave:** 63
 **Depends on:** CARD-282, CARD-283
-**Touches:** player/**, tests/test_public_player_pages.py
+**Touches:** player/**, tests/test_public_player_pages.py, tests/test_public_player.py <!-- the last added 2026-10-28: the card could not be implemented without it, see the implementation round's F-1. CARD-283 shipped three tests that directly contradict serving the listings. Neither sibling card in wave 63 names it, so the wave's measured empty path intersection holds. -->
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-28T07:23:17Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -186,3 +186,98 @@ edition with the same puzzles and a changed title — in which case one public
 book with one title is arguably **correct**, since the slug names content and
 the QR code resolves to the right puzzles. Only the displayed title is
 ambiguous.
+
+## [IMPLEMENTATION — 2026-10-28] `ab297c9c` + `7c0c9f5a` — and the title is NOT served
+
+Two commits, 8 files, +2102/−38. **G-1 verified mechanically from git: 0 files
+under `src/`, 0 under `meta/`.** Working tree clean, every file hash-checked
+against HEAD. Wave 63, run concurrently with CARD-227 and CARD-267.
+
+`/b/<slug>` renders from **one** fetch of `book/<slug>.json`, whose tiles the
+assembler inlines at assembly time — so no second index is derived at page load
+(G-2) and nothing else loads first. Puzzles in book order, numbered as the
+printed book numbers them (position, not a field). `/library` reads the rebuilt
+`index.json` and filters client-side by tier and size band.
+
+### The decision this card had to take: the title is not served, on either listing
+
+`index.json` and `book/<slug>.json` are now **rebuilt from closed schemas**
+exactly as the puzzle files are — `SERVED_ENTRY_SCHEMA = ('height','key','tier',
+'width')` (derived as `SERVED_SCHEMA` minus `clues`), `SERVED_INDEX_SCHEMA =
+('puzzles',)`, `SERVED_BOOK_SCHEMA = ('puzzles','slug')`. **`title` is in none of
+them.** This is the inherited answer rather than a new one: CARD-282 measured a
+published title decoding back to **all 144 cells** of a 12×12 answer, a scan
+cannot decide *"does this string carry a grid?"*, and CARD-283 removed the
+channel rather than filtering it. Taking the opposite decision here would reopen
+EC-048 **on the one page every book customer sees**.
+
+**Established by removal, not by scan**, and with the sweep running in both
+directions in one test: the bundle's `index.json` and `book/<slug>.json` **must**
+be dirty (every fixture title is base-64 of its own grid) and the site **must** be
+clean — so a sweep that had stopped working could not report this as a pass.
+Mutant M3 is the live control: carrying the bundle's fields through reds it.
+
+### CARD-282's F-8 closed by construction rather than by a check
+
+Every served listing entry **is** the served payload of that key's own
+`puzzle/<key>.json` (`listing_entry` reads the served dict, never the bundle), so
+a listing naming an absent file is **not possible** rather than merely detected.
+The bundle's own `index.json` is then read as a **second, independent
+instrument** — what the export *declared* — and every disagreement is named:
+`unresolved`, `unlisted`, `index_unread`. **A bundle with no `index.json` reports
+every served key as unlisted**: the instrument cannot read as "nothing wrong"
+when it has nothing to read. Measured both ways: one puzzle file deleted →
+`unresolved` names it and **0** keys are listed with no served file; `index.json`
+deleted → `index_unread` is set and `unlisted` is 5 of 5.
+
+### Kill instrument — 27 mutants, 27 killed, per assertion
+
+Each deletes the mechanism a claim names, line-count-preserving, runs only that
+claim's controls, restores and verifies `git hash-object`. Four are **edge**
+mutants (M2, M8, M16, M24b, M26). **Two were DEAD on the first pass and the
+CONTROLS were fixed rather than the notes** (`7c0c9f5a`): `.tile`'s touch floor
+was measuring an accident — deleting `min-height: 72px` left every tile over
+44 px anyway on this corpus — so the **declared** floor is now read off the
+computed style and held to 44, with the one-pixel edge (43 px) redding; and
+`readListing`/`isEntry` **had no control at all**, so four malformed listings now
+exercise one branch each with the unedited listing as the positive control in the
+same test. The CSS otherwise adds no mechanism any claim names, and the round
+says so rather than inventing mutants for it.
+
+### Pre-gate
+
+**953 collected = 953 passed, 0 failed, 0 skipped**, exit 0, 87.22 s, over the
+changed files plus the derived blast radius (every suite reading `player/**`,
+`pyproject.toml`, the admin static files, or walking the test tree). `-rs`
+printed **no skip section — there are no skips to attribute**. This card's own
+file: 18 passed, of which `-m browser` selects 6.
+
+Host cells at both ends: load **7.44 → 10.79**, **rival-pytest 3 → 3** — *and the
+round correctly refused to treat that as noise*: the siblings were live and one of
+their processes interfered with its tree (see F-5). The full suite was **not** run
+and the board's lock was **not** taken.
+
+### Figures, with their doors named (ADR-0039/R4, its first use on a live card)
+
+Served puzzle file **2.00 bits** free against a 100-bit ceiling — unchanged by
+this card, CARD-283's bound, same domain. Served listings **0.00 new free bits**:
+`MIRRORED_FROM_PUZZLE_FILE` equals `SERVED_ENTRY_SCHEMA` and every value is built
+*from* the served puzzle payload, so a listing reader learns nothing a puzzle-file
+reader has. `check_listing_capacity()` returns `None` today and **raises when the
+partition breaks in either direction** (M2, M7, M8). Declared residual: **the
+order** a book's puzzles are listed in — `log2(4!) = 4.58` bits for the fixture,
+`log2(24!) = 79.04`, `log2(120!) = 660.48`. Not a ratio, not mixed instruments.
+
+### Could not establish, in those words
+
+**No render was eyeballed** — nobody has looked at `/b/<slug>` or `/library` on a
+real phone, and every layout claim is a computed-style or bounding-box assertion,
+which is exactly the kind that reads fine and looks wrong. **The owner's visual
+pass is owed.** Chromium only (ADR-0038/R7) — **no iOS Safari, where most QR scans
+land.** Never run against a real exported bundle (fixtures only; CARD-283 owed the
+same). Vercel itself not exercised — the two new rewrites are applied by the test
+server reading the shipped `vercel.json`, so the rules are exercised and the host
+is not. And **it does not claim EC-048 is closed**: `assemble.py`'s own docstring
+records that EC-048's literal text is unsatisfiable by any ADR-0041
+implementation, so every claim reads "except the two ADR exemptions and the
+declared residuals".
