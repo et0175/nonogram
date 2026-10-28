@@ -43,13 +43,15 @@ Why this script exists at all, rather than ``cp -r``
 **Because this is where EC-048 is carried, and it could not be carried
 downstream of here.** Carried, not closed — the word "closed" is reserved
 for the paragraph below that begins "But 'one open edge' is true only AFTER
-the two exemptions are granted", which is the only place this file states the
+the three exemptions are granted", which is the only place this file states the
 scope, and which concludes that EC-048's literal text is not satisfiable by
 any implementation of ADR-0041 at all.
 
 ADR-0041/R2 forbids any public asset from carrying "a solution grid or data
 from which any solution cell is recoverable, for any puzzle, on any export
-path". CARD-282 shipped the exporter and then *measured
+path" — subject, since the 2026-10-28 amendment, to the owner's third
+exemption: a book's own display title on ``/b/<slug>`` and nowhere else,
+exempt by SCOPE rather than by safety (:data:`EXEMPT_LISTING_FIELDS`). CARD-282 shipped the exporter and then *measured
 a path straight through it*: the owner renames a puzzle to the base-64 of its
 own packed grid, the exporter writes that string into the bundle's declared
 ``title`` field, every one of CARD-282's guards passes (the value's provenance
@@ -62,11 +64,19 @@ It is routed here because it cannot be answered by a scan. A scan has to
 decide whether a *string* carries a grid, and there is no such decision
 procedure: the set of encodings of a grid is not enumerable, and CARD-282
 measured its denylist missing 7 of 7 planted encodings. So this script does
-not filter free text. **It removes the channel**: every file it serves under
-``puzzle/`` is REBUILT from :data:`SERVED_SCHEMA` rather than copied, and the
-bundle's ``title`` — the only free-text field in the bundle — is not in that
-schema and does not reach the site. A field the schema does not name is
-dropped, named in the report, and never written.
+not filter free text. **It removes the channel the measured path ran
+through**: every file it serves under ``puzzle/`` is REBUILT from
+:data:`SERVED_SCHEMA` rather than copied, and a PUZZLE's ``title`` — the
+picture name, the field CARD-282 decoded 144 cells out of — is in no served
+schema, so it reaches neither the puzzle files nor either listing. A field
+the schema does not name is dropped, named in the report, and never written.
+
+The BOOK file's ``title`` is a different field and is NOT removed: the owner
+granted it R2's third exemption on 2026-10-28, so that channel is open, by
+decision, with its residual declared rather than filtered
+(:data:`EXEMPT_LISTING_FIELDS`). "This script removes the free-text channel"
+is therefore false as a sentence about the whole site, and is written nowhere
+in this file.
 
 What is left is then held to EC-048 by two statements, and it matters a great
 deal which of them does the work:
@@ -169,8 +179,10 @@ The tier figure and the ceiling below are the puzzle files'. The three above
 are the listings', they are declared rather than closed, and the only one of
 the three that is a choice at all is the title.
 
-**But "one open edge" is true only AFTER the two exemptions are granted, and
-it is worth saying in one place rather than two paragraphs apart.** Given
+**But "one open edge" is true only AFTER the three exemptions are granted,
+and it is worth saying in one place rather than three paragraphs apart.**
+Two of them are ADR-0041's own — the clues and the answer key — and the
+third is the book's display title, which R2 gained on 2026-10-28. Given
 ADR-0041/R5 the clues are a deterministic function of the stored grid, so
 they carry zero FREE bits — and they leak every cell *by solving*, which is
 the game (ADR-0041's Context: the solved check IS clue satisfaction) and not
@@ -674,13 +686,23 @@ def served_puzzle(payload: object, stem: str) -> tuple[dict[str, object], list[s
 # --------------------------------------------------------------------------
 #
 # CARD-283 served neither file and routed both decisions here, because both
-# carry the bundle's free-text ``title`` and the answer taken for the puzzle
-# page (drop the channel) had to be taken for them too or not at all. It is
-# taken: no title is served, on either listing, for the reason F-2 of that
-# card gives for the puzzle page — free text cannot be scanned for an encoded
-# grid, so the public surface carries none. What the pages show instead is the
-# extent and the tier, which are the same two values the ``/play/<key>``
-# header already shows.
+# carry a free-text ``title`` and the answer taken for the puzzle page (drop
+# the channel) had to be taken for them too or not at all. **It was taken for
+# the PUZZLE title and not for the BOOK's, and this comment said otherwise
+# for one round.** The two decisions, which are not the same decision:
+#
+# * a **puzzle's** title — the picture name — is served on neither listing,
+#   for the reason CARD-283's F-2 gives for the puzzle page: free text cannot
+#   be scanned for an encoded grid, so the channel is removed rather than
+#   filtered. What a tile shows instead is the extent and the tier, the same
+#   two values the ``/play/<key>`` header already shows;
+# * a **book's** display title IS served, on ``/b/<slug>`` and nowhere else,
+#   under ADR-0041/R2's third exemption (owner decision, 2026-10-28). See
+#   :data:`EXEMPT_LISTING_FIELDS` for the exemption, its scope and its cost.
+#
+# So "no title is served, on either listing" — what this comment used to say
+# — is false, and the sentence that replaced it names which field each half
+# is about.
 #
 # The second decision routed here is CARD-282's F-8: an export that fails
 # part-way through leaves ``index.json`` naming puzzle files that were never
