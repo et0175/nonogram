@@ -1,6 +1,6 @@
 # CARD-287: One class is a quarter of the suite and two thirds of its growth — and it is not rendering anything
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/287-the-door-axis-guard-costs-a-quarter-of-the-suite
-**Worktree:** —
+**Worktree:** — (removed at merge)
 **Source:** the 2026-10-23 solo duration profile (`meta/profiling/suite-durations-20261023.txt`, commit `ae164099`), read against the 2026-10-15 one; CARD-218's implementation round, which measured this file read-only and reported that its own mechanism would not touch it; the orchestrator's 2026-10-24 breakdown, recorded below
 **Idea:** —
 **Wave:** 62
@@ -17,11 +17,11 @@
 **Deferred waves:** 0
 **Depends on:** CARD-276 <!-- NOT scheduling. CARD-276 rewrites the walker that costs the time (alias resolution as a fixed point), so optimising it first would both waste the work and FREEZE its current shape in cost-pinning tests. See "Why this waits on CARD-276", and the measurement CARD-276 is asked to take. -->
 **Touches:** tests/test_book_export_interior_cover.py
-**Review score:** —
+**Review score:** 7.5 → 8.0 → **8.5 cycle 3/3 CERTIFIED**, zero gating
 **Started:** —
-**Closed:** —
+**Closed:** 2026-10-28
 **Actual:** —
-**Merge commit:** —
+**Merge commit:** `90c01386`
 **Blocked by:** —
 
 ## What to implement
@@ -1576,3 +1576,64 @@ same-run share** — bounded at 21.2–22.0 %, mean 21.59 %, with **no reading
 privileged**; whether the 257-section capture re-runs identical from cycle 3's
 own script (the kept pair was verified instead); whether the residual ~32.7 s is
 reducible (**CARD-303's**).
+
+## [MERGED — 2026-10-28] `90c01386` — AC-8 closed on the total, and stated with its limits
+
+**Merge gate: 9379 passed, 27 skipped, 0 failed, 0 errors, 1222.22 s (20:22).**
+Load **4.13 → 7.58**, rival-pytest **0 → 0**, hang dump **0 bytes**, both skips
+attributed by name, **27 the baseline exactly**. **9379 is +1 on CARD-292's gate,
+reconciling to AC-7's audited single addition.** The switch-name scan on the
+merged tree is clean.
+
+### AC-8, and the part that is not a win
+
+| | |
+|---|---|
+| projected total | **1240.77 s** |
+| measured total | **1222.22 s** |
+| → the projection is | **1.5 % high** — *AC-8 closes on the figure it asked for* |
+
+**But the apparent saving is 48.12 s against a projected 29.57 s — 1.63× — and
+that excess is NOT attributable to this change.** The two gates were taken at
+different host states (load-start **7.59** against **4.13**), a merge gate cannot
+interleave arms, and *this card's own subject is that a wall-clock delta between
+two runs at different host states is not a measurement*. **The attributable
+figure remains the round's interleaved one** (class −42.8 %, file −29.5 %,
+re-derived by cycle 2 at −43.9 % / in-situ 12.20 s).
+
+Likewise the file share: `70.62 / 1222.22 = 5.78 %` against a projected 5.69 %
+**mixes an isolated file measurement with a suite total** — exactly cycle 2's
+**F-C2-09** defect — so it is recorded as **arithmetic, not as a measured
+share**. A profiled suite run would be needed to close that half, and none was
+taken.
+
+### Why three cycles, in one sentence
+
+**Every major finding in all three was the same rule: an instrument's reach
+claimed rather than measured.** Cycle 1: a *"whole source"* claim reinstated in
+tracked code 300 lines from its own retraction, and a 1.0 % "agreement" that was
+two compensating errors. Cycle 2: a share mixing two cProfile runs, and a 20×
+sensitivity disagreement resolved as an **accounting artefact** — a positional
+diff over a `pprint` text is not invariant under a change in line count. Cycle 3:
+only the **section set** is invariant, and the share is a **band** (21.2–22.0 %,
+mean 21.59, denominator spread 5.5 %) because cycle 2 and fix round 2 had each
+anchored on their own single run.
+
+**What was never in doubt after cycle 1**: the code is correct, the saving is
+real, and **G-1 held** — the same 108 analyses over the same planted texts under
+the same arms, with a **byte-identical** verdict set across a 1 752-line capture
+and a 257-section, 11 936-line extension of it, re-run on both arms by three
+different stations.
+
+### Open at merge, stated
+
+- **F-C3-01 and F-C3-02 shipped UNCERTIFIED** — `max_cycles` spent, no reviewer
+  saw them; prose on the card changing no code or derivation.
+- **F-C3-03 left DECLARED**: the lineno mapping is pinned at **one** point, so a
+  `node.lineno → 4` constant mutant survives, as does the equivalent-mutant class
+  M1 declares. Remedy named — a second planted call at a different line, four
+  lines, killing it and redding on nothing.
+- **AC-8's file-share half** is arithmetic, not a measurement (above).
+- **CARD-303** owns the super-linear walk this round declined: 19.4 M inner
+  `called()` invocations for a module of 832 call nodes, where **the walk is the
+  guard** and G-1 will bite as it did not here.
