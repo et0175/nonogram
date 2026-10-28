@@ -30,6 +30,10 @@ from pathlib import Path
 
 import pytest
 
+# The editor page is the crosshair's second consumer (owner decision, review
+# cycle 1): CARD-246's own opener is imported rather than copied, the same
+# call CARD-271 F-008 made when the editor needed the clue-gutter helpers.
+from tests.test_puzzle_editor_ui import _open_editor
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _open,
     _unique_grid,
@@ -223,11 +227,24 @@ class TestSolverCrosshair_RowColumnAndCluesLight:
         narrowed to what the shipped CSS actually does: the tint is ONE
         background, so three of the four states share a ground and are told
         apart by their ``::after`` mark (nothing, the white dot, the "?"),
-        while ``filled`` is told apart by its ground. So the claim is two
-        measurements, not one — three distinct marks on the light states, and
-        a filled ground darker than all three of them by much more than a
-        rounding error. A tint that flattened the dot or the "?" away, or that
-        lightened the filled cell toward the paper, fails one of them.
+        while ``filled`` is told apart by its ground. So the claim is THREE
+        measurements, and the third was missing (review cycle 1, F-003):
+
+        1. the three light states carry three distinct ``::after`` *content*
+           strings — which says the mark is THERE, and nothing about whether
+           it can be seen;
+        2. each mark that has a paint of its own is read in computed pixels
+           against the tinted ground it sits on, and must differ from it by a
+           margin: the dot by its ``::after`` background, the "?" by its
+           ``::after`` colour. Without this arm a mutant that painted the dot
+           in the tint itself — invisible, gone in pixels — left all sixteen
+           tests of this file green, and the claim that the four looks are
+           "asserted in pixels" was wider than the instrument;
+        3. ``filled`` is told apart by its ground, darker than all three light
+           grounds by much more than a rounding error.
+
+        A tint that flattened the dot or the "?" away, or that lightened the
+        filled cell toward the paper, fails one of them.
 
         Not confusable with a circle is structural rather than perceptual:
         a circle is a border on the numeral's ``::before`` and the crosshair
@@ -253,19 +270,30 @@ class TestSolverCrosshair_RowColumnAndCluesLight:
               const cell = document.querySelector(
                 `td.player-cell[data-row="${row}"][data-col="${col}"]`);
               const style = getComputedStyle(cell);
+              const after = getComputedStyle(cell, '::after');
               return [state, { crossed: cell.classList.contains('is-crossed'),
                                background: style.backgroundColor,
-                               mark: getComputedStyle(cell, '::after').content }];
+                               mark: after.content,
+                               markGround: after.backgroundColor,
+                               markInk: after.color }];
             }))""",
             [row, painted],
         )
 
         assert all(seen["crossed"] for seen in look.values()), look
-        # The three light states: told apart by their mark, under the tint.
+        # 1. The three light states: told apart by their mark, under the tint.
         marks = {state: look[state]["mark"] for state in (U, E, M)}
         assert len(set(marks.values())) == 3, marks
-        # And `filled` by its ground, by a margin and not a rounding error.
+        # 2. And each of those marks is told apart from the tint IN PIXELS,
+        #    through the channel that paints it — the dot is a background, the
+        #    "?" is a glyph colour. `unknown` has no mark and so no arm here;
+        #    it is the state whose `content` the equality above reads as the
+        #    absence of one.
         luma = {state: _luma(look[state]["background"]) for state in look}
+        paint = {E: look[E]["markGround"], M: look[M]["markInk"]}
+        for state, colour in paint.items():
+            assert abs(_luma(colour) - luma[state]) > 0.2, (state, colour, luma[state])
+        # 3. And `filled` by its ground, by a margin and not a rounding error.
         assert max(luma.values()) == max(luma[s] for s in (U, E, M)), luma
         assert min(luma[s] for s in (U, E, M)) - luma[F] > 0.4, luma
 
@@ -501,7 +529,13 @@ class TestSolverCrosshair_ClearsWhenThePointerLeaves:
     def test_leaving_the_stage_clears_it_and_a_clue_box_does_not(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
         _hover(browser_page, 8, 8)
-        assert _crossed(_board(browser_page))[0], "nothing to clear"
+        # The full crosshair and not merely "something is crossed" (review
+        # cycle 1, F-009): if a redraw settled between the geometry read and
+        # the move, the pointer landed on a cell this test did not choose, and
+        # that has to fail HERE, where the premise is, rather than later at an
+        # equality against (8, 8) that reads as a leave defect.
+        landed = _board(browser_page)
+        assert _crossed(landed) == _expected(landed, 8, 8), "nothing to clear"
 
         clue = browser_page.locator('th.player-clue.is-row[data-line="8"]').bounding_box()
         browser_page.mouse.move(clue["x"] + clue["width"] / 2, clue["y"] + clue["height"] / 2)
@@ -542,6 +576,66 @@ class TestSolverCrosshair_ClearsWhenThePointerLeaves:
         assert problems == []
 
 
+# --------------------------------------------------------------------------
+# AC-6's snapshot, and the state it has to be driven from
+# --------------------------------------------------------------------------
+
+
+def _purity_snapshot(page) -> dict:
+    """Everything a hover must not touch: the board, the history's two
+    buttons, the counters, the clue circles, the browser save and what
+    ``serializeState`` would write."""
+    return {
+        "states": _states(page),
+        "undo": _button(page, "Undo").get_attribute("aria-disabled"),
+        "redo": _button(page, "Redo").get_attribute("aria-disabled"),
+        "counters": page.locator("#puzzle-player-controls").inner_text(),
+        "circled": page.evaluate(
+            "[...document.querySelectorAll('.player-clue-num')]"
+            ".map((n) => n.classList.contains('is-circled'))"),
+        "save": page.evaluate("Object.entries(localStorage)"),
+        "serialized": page.evaluate("window.puzzlePlayer.getBoard()"),
+    }
+
+
+#: The row of :data:`GRID` the drive state below paints, and the length of its
+#: leftmost run. ``GRID[9]`` is ``#####.#########``, so its clue is ``[5, 9]``:
+#: painting cells 0..4 Black and closing them with White on cell 5 makes one
+#: CLOSED run of 5, and 5 occurs exactly once in that clue, which is CARD-188's
+#: rule C — so that clue number is circled. Asserted, not trusted: the premise
+#: block of the purity test requires every snapshot field to have moved.
+STATEFUL_ROW, STATEFUL_RUN = 9, 5
+
+
+def _give_the_board_state(page) -> None:
+    """Paint the board so the purity snapshot can be *destroyed* as well as
+    added to (review cycle 1, F-002).
+
+    A whole-snapshot equality only discriminates in the fields that are away
+    from their initial value: on a virgin board ``save`` compares ``[]`` to
+    ``[]``, ``circled`` is all False and both history buttons are already
+    disabled, so four of the seven fields catch an ADDITIVE side effect only.
+    A mutant that added ``localStorage.clear()`` to the crosshair's paint loop
+    — a crosshair that wipes every saved puzzle in the browser on every hover
+    — passed all fifteen tests of this file for exactly that reason.
+
+    So: one closed run painted by real clicks (which writes the save, moves
+    the counters, enables Undo and circles a clue number), then one stroke in
+    ANOTHER row taken back, which enables Redo while leaving the painted run —
+    and therefore the circle — alone. The same remedy
+    ``TestSolverMarking_RevealsNoCorrectness`` already uses: compare from a
+    board that has something to lose.
+    """
+    _tool(page, "Black")
+    for col in range(STATEFUL_RUN):
+        _cell(page, STATEFUL_ROW, col).click()
+    _tool(page, "White")
+    _cell(page, STATEFUL_ROW, STATEFUL_RUN).click()
+    _tool(page, "Black")
+    _cell(page, 0, 7).click()
+    _button(page, "Undo").click()
+
+
 # ==========================================================================
 # AC-6 — a view and nothing else
 # ==========================================================================
@@ -555,19 +649,28 @@ class TestSolverCrosshair_IsPureView:
     def test_a_long_hover_sequence_changes_no_state_no_history_and_no_save(
         self, browser_page, live
     ) -> None:
-        puzzle = live.store(GRID)
-        _open(browser_page, live, puzzle)
-        before = {
-            "states": _states(browser_page),
-            "undo": _button(browser_page, "Undo").get_attribute("aria-disabled"),
-            "redo": _button(browser_page, "Redo").get_attribute("aria-disabled"),
-            "counters": browser_page.locator("#puzzle-player-controls").inner_text(),
-            "circled": browser_page.evaluate(
-                "[...document.querySelectorAll('.player-clue-num')]"
-                ".map((n) => n.classList.contains('is-circled'))"),
-            "save": browser_page.evaluate("Object.entries(localStorage)"),
-            "serialized": browser_page.evaluate("window.puzzlePlayer.getBoard()"),
-        }
+        """Forty hovers over a board that ALREADY HAS STATE change nothing.
+
+        The drive state is the whole of this test's discrimination and is
+        asserted rather than assumed: every one of the seven snapshot fields
+        is required to differ from the same field on the virgin board before a
+        single hover is made (review cycle 1, F-002 — the virgin-board version
+        of this test was green under a mutant that cleared ``localStorage`` on
+        every hover, because its ``save`` field compared ``[]`` to ``[]``).
+        The virgin reading is kept as that premise rather than thrown away, so
+        "this field can show a loss" is a measurement in the test and not a
+        claim about it.
+        """
+        _open(browser_page, live, live.store(GRID))
+        virgin = _purity_snapshot(browser_page)
+
+        _give_the_board_state(browser_page)
+        before = _purity_snapshot(browser_page)
+        # The premise, field by field: a field still at its initial value
+        # could not show a hover DESTROYING it, only one writing to it.
+        assert [name for name in before if before[name] == virgin[name]] == [], (
+            virgin, before)
+        assert virgin["states"] == [U] * 225
 
         for row in range(0, 15, 2):
             for col in range(0, 15, 3):
@@ -575,18 +678,7 @@ class TestSolverCrosshair_IsPureView:
         crossed = _crossed(_board(browser_page))
 
         assert crossed != ([], []), "no crosshair was made, so nothing was proved"
-        assert before["states"] == [U] * 225
-        assert {
-            "states": _states(browser_page),
-            "undo": _button(browser_page, "Undo").get_attribute("aria-disabled"),
-            "redo": _button(browser_page, "Redo").get_attribute("aria-disabled"),
-            "counters": browser_page.locator("#puzzle-player-controls").inner_text(),
-            "circled": browser_page.evaluate(
-                "[...document.querySelectorAll('.player-clue-num')]"
-                ".map((n) => n.classList.contains('is-circled'))"),
-            "save": browser_page.evaluate("Object.entries(localStorage)"),
-            "serialized": browser_page.evaluate("window.puzzlePlayer.getBoard()"),
-        } == before
+        assert _purity_snapshot(browser_page) == before
 
     def test_hovering_issues_no_request(self, browser_page, live) -> None:
         """G-3 / ADR-0038/R2 — none per mark, and none per hover either.
@@ -683,6 +775,64 @@ class TestSolverCrosshair_NoStaleMarkerAfterRedraw:
 
 
 # ==========================================================================
+# The second consumer: the manual editor's board (owner decision, 2026-10-28)
+# ==========================================================================
+
+
+#: Both cells below assert this before they measure anything. The page they
+#: are about is the EDITOR, and a board is a board: pointed at the player page
+#: by mistake, each of them would pass on the wrong page and claim the
+#: editor's reach while measuring nothing of it. ``#puzzle-editor-save`` is on
+#: the editor page and on no other.
+_EDITOR_PREMISE = "this is not the manual editor's page"
+
+
+@pytest.mark.browser
+class TestSolverCrosshair_ReachesTheManualEditor:
+    """The crosshair is on the manual editor's board too, on purpose.
+
+    ``templates/puzzle_edit.html`` loads the same ``static/solver.js`` into a
+    ``.player-stage`` (CARD-246's second consumer), so ``wireCrosshair`` is
+    wired there by the same ``start()`` the player page runs. Review cycle 1
+    measured that reach, found it harmless (117/117 editor tests green) and
+    recorded that nobody had decided it belonged there; the owner decided to
+    KEEP it. These two cells are what makes it intentional rather than
+    incidental: without them the editor's crosshair is a side effect no test
+    would notice losing, and the card's Screens would still name one page.
+
+    Two cells and not a copy of the file: the mechanism is shared, so what
+    needs pinning on the *editor* page is only that it is wired at all and
+    that its one stateful rule — the leave — holds there. Everything the
+    crosshair does once wired (the sweeps, the twins, the move, the touch
+    exemption, the purity) is the same code and is measured above.
+    """
+
+    def test_hovering_the_editors_board_crosses_the_row_the_column_and_the_clues(
+        self, browser_page, live
+    ) -> None:
+        _open_editor(browser_page, live, live.store(GRID))
+        assert browser_page.locator("#puzzle-editor-save").count() == 1, _EDITOR_PREMISE
+        assert _crossed(_board(browser_page)) == ([], []), "a fresh editor shows a crosshair"
+
+        _hover(browser_page, 6, 2)
+
+        board = _board(browser_page)
+        assert _crossed(board) == _expected(board, 6, 2)
+
+    def test_leaving_the_editors_stage_clears_it(self, browser_page, live) -> None:
+        _open_editor(browser_page, live, live.store(GRID))
+        assert browser_page.locator("#puzzle-editor-save").count() == 1, _EDITOR_PREMISE
+        _hover(browser_page, 6, 2)
+        landed = _board(browser_page)
+        assert _crossed(landed) == _expected(landed, 6, 2), "nothing to clear"
+
+        stage = browser_page.locator(".player-stage").bounding_box()
+        browser_page.mouse.move(stage["x"] + stage["width"] / 2, max(stage["y"] - 20, 1))
+
+        assert _crossed(_board(browser_page)) == ([], [])
+
+
+# ==========================================================================
 # AC-8 — no ARIA, anywhere
 # ==========================================================================
 
@@ -713,6 +863,11 @@ class TestSolverCrosshair_AddsNoAria:
         _open(browser_page, live, live.store(GRID))
         before = browser_page.evaluate(_ARIA)
         assert before, "the ARIA probe found no elements at all"
+        # And that it can READ an ARIA attribute, not merely find elements
+        # (review cycle 1, F-006): a probe that collected every element and
+        # returned an empty attribute list for each would satisfy the equality
+        # below trivially, and the player's own buttons carry aria-disabled.
+        assert any(attributes for _tag, _id, attributes in before), before
 
         for row, col in ((0, 0), (7, 7), (14, 14), (3, 12)):
             _hover(browser_page, row, col)

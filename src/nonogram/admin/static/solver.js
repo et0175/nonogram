@@ -407,6 +407,11 @@
 //              exempt touch would undo every touch crosshair the instant it
 //              was made.
 //   load       nothing is crossed until a pointer arrives.
+// WHERE: both pages that load this file — the player and CARD-246's manual
+// editor, whose board is a .player-stage too. The editor's reach is a
+// decision and not a side effect (owner, 2026-10-28), and it is asserted on
+// that page by tests/test_puzzle_solver_crosshair.py
+// TestSolverCrosshair_ReachesTheManualEditor.
 // Exactly one row and one column carry it at a time, by construction: the
 // old one is taken off before the new one goes on, and the position is held
 // as a single [row, col] or null.

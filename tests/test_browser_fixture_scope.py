@@ -1287,8 +1287,9 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     "test_the_four_cell_states_stay_apart_under_the_tint": (
         "CARD-267",
         "Card item 5: all four data-state looks stay plainly apart under the "
-        "tint — three light states by their ::after mark, filled by its "
-        "ground, measured in computed pixels on one hovered row",
+        "tint on one hovered row — the three light states by distinct ::after "
+        "content AND by each mark's own computed paint read against the "
+        "tinted ground, the filled state by its ground's luma",
     ),
     f"{FAMILY_PREFIX}_crosshair.py::"
     "TestSolverCrosshair_RowColumnAndCluesLight::"
@@ -1357,9 +1358,11 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
     "TestSolverCrosshair_IsPureView::"
     "test_a_long_hover_sequence_changes_no_state_no_history_and_no_save": (
         "CARD-267",
-        "AC-6: forty hovers change no data-state, no undo/redo aria, no "
-        "counter, no clue circle and no localStorage entry — one snapshot "
-        "compared whole, so a single changed field reds it",
+        "AC-6: forty hovers over a board that ALREADY HAS STATE change no "
+        "data-state, no undo/redo aria, no counter, no clue circle and no "
+        "localStorage entry — one snapshot compared whole, with every field "
+        "asserted away from its virgin value first, so the equality reds on a "
+        "field DESTROYED as well as on one written",
     ),
     f"{FAMILY_PREFIX}_crosshair.py::"
     "TestSolverCrosshair_IsPureView::"
@@ -1384,6 +1387,25 @@ ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
         "AC-7: a redraw leaves no marker, and re-hovering the SAME cell "
         "crosses it again — the second half is the sharp one, since a "
         "remembered position with nothing painted paints nothing",
+    ),
+    # The editor page keeps the crosshair, on purpose (owner decision
+    # 2026-10-28, review cycle 1's out-of-scope question).
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_ReachesTheManualEditor::"
+    "test_hovering_the_editors_board_crosses_the_row_the_column_and_the_clues": (
+        "CARD-267",
+        "The manual editor loads the same solver.js into a .player-stage, so "
+        "hovering ITS board crosses the row, the column and both clue axes "
+        "too — the reach is a decision somebody made, not a side effect no "
+        "test would notice losing",
+    ),
+    f"{FAMILY_PREFIX}_crosshair.py::"
+    "TestSolverCrosshair_ReachesTheManualEditor::"
+    "test_leaving_the_editors_stage_clears_it": (
+        "CARD-267",
+        "The crosshair's one stateful rule holds on the editor page as well: "
+        "a pointer leaving that page's stage clears it, so the editor cannot "
+        "keep a crosshair nothing is pointing at",
     ),
     f"{FAMILY_PREFIX}_crosshair.py::"
     "TestSolverCrosshair_AddsNoAria::"

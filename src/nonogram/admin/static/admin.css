@@ -1034,7 +1034,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 
 /* Crosshair (CARD-267, owner decision 2026-10-22): the row and the column of
    the cell the pointer is on are tinted, and their clue boxes with them, so
-   the gaze does not slide onto a neighbouring line. solver.js puts
+   the gaze does not slide onto a neighbouring line. On BOTH pages that load
+   solver.js — the player and the manual editor (owner decision 2026-10-28,
+   asserted by TestSolverCrosshair_ReachesTheManualEditor). solver.js puts
    .is-crossed on every cell of the row, every cell of the column, and every
    clue box of the two lines (both twins on a doubled axis); the four rules
    below are all it means — two derived values and three selectors that spend
@@ -1067,8 +1069,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    light tint would repaint it and lose the mark. It takes the tint MIXED
    into the ink instead, which keeps it the darkest thing on the board while
    still showing the line through it — all four data-state looks stay plainly
-   apart under the crosshair (asserted in pixels,
-   tests/test_puzzle_solver_crosshair.py
+   apart under the crosshair. THREE measurements and not one, stated as the
+   instrument actually reads (review cycle 1, F-003): the three light states
+   share this tint as their ground, so they are told apart by distinct
+   ::after content AND by each mark's own computed paint read against that
+   ground (the dot by its ::after background, the "?" by its ::after colour),
+   while filled is told apart by its ground's luma
+   (tests/test_puzzle_solver_crosshair.py
    TestSolverCrosshair_RowColumnAndCluesLight). The selector is
    .player-cell.is-crossed[data-state="filled"], one class more specific than
    both of the rules it has to beat, so neither of them can win on file order
