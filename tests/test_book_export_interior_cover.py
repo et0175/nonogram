@@ -6772,11 +6772,15 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
         never name, each red on the set equality below; emptying
         :data:`STDLIB_SEGMENT_SCOPES` reds on it too; deleting the
         outermost-scope rule in :meth:`_stdlib_segment_scopes` reds on it
-        with method names in place of the class; and deleting the
+        with method names in place of the class; deleting the
         ``node.lineno`` that derivation carries for the message reds the
         **positive control**, which is the assertion that pins the reported
-        line. A planted *mention* of the name does **not** red, which is the
-        negative control.
+        line; and -- the **edge** of that same claim -- replacing it with
+        ``node.end_lineno`` reds the positive control too, because the call
+        that control plants spans two lines (review cycle 2, F-C2-04: while
+        the plant was one line the two were indistinguishable and the edge
+        mutant survived). A planted *mention* of the name does **not** red,
+        which is the negative control.
         """
         from pathlib import Path
 
@@ -6806,12 +6810,20 @@ class TestSourceSegment_TheMemoIsTheStdlibAnswer:
             "import ast\n"
             "class Foo:\n"
             "    def bar(self, source, node):\n"
-            "        return ast.get_source_segment(source, node)\n"
+            "        return ast.get_source_segment(\n"
+            "            source, node)\n"
         )
+        # The planted call SPANS TWO LINES on purpose -- lineno 4,
+        # end_lineno 5 -- so this equality pins the line the call OPENS on
+        # and not merely that some line comes back. With the single-line
+        # plant this control had for one commit, node.lineno and
+        # node.end_lineno are indistinguishable and the edge mutant that
+        # swaps them survived every assertion in this tree (review cycle 2,
+        # F-C2-04); it reds here now.
         assert self._stdlib_segment_scopes(positive) == [("Foo", 4)], (
             "the derivation does not rise on a call planted in a foreign "
-            "scope, or does not report its line, so its zero above says "
-            "nothing (positive control)"
+            "scope, or does not report the line that call OPENS on, so its "
+            "zero above says nothing (positive control)"
         )
         negative = (
             "class Foo:\n"
