@@ -64,6 +64,15 @@ body {
   font-family: var(--font-display);
   font-size: var(--text-xl);
   margin: 0;
+  /* /b/<slug>'s heading is the book's display title, up to pages.js's
+     TITLE_MAX_CHARS of it, and the page it heads is read on the phone a QR
+     scan lands on. A long title has to wrap inside the flex row rather than
+     push the count off the side: min-width: 0 lets the item shrink below its
+     content, overflow-wrap breaks a word with no space in it. The same two
+     rules the player's SolvedBanner needed for a long picture name
+     (CARD-186). */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .player-tier {
@@ -144,6 +153,151 @@ body {
   font-weight: 600;
   color: var(--color-success);
 }
+
+/* -------------------------------------------------- the listing pages
+ *
+ * /library and /b/<slug> (CARD-284). One set of rules for both, because they
+ * are the same tile from two sources, and mobile first for the same reason
+ * the board is: a book landing is reached by scanning a code off paper.
+ *
+ * A tile is a LINK sized for a thumb, and the grid fits as many columns as
+ * the screen holds rather than a fixed count, so one rule covers a phone and
+ * a desktop. There is no PUZZLE TITLE on a tile — that is the picture's name
+ * and EC-048 forbids it; book.html's comment has the measurement — so a tile
+ * is the extent, the tier chip, and on a book landing the puzzle's number in
+ * the book. The BOOK's own title is a different field and is the landing
+ * page's h1, not a tile's.
+ */
+
+.pages-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.pages-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.pages-filter select {
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--player-rule) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+}
+
+.pages-filter select:focus-visible {
+  outline: var(--player-rule-major) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.pages-count {
+  font-family: var(--font-num);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.pages-list {
+  --player-tile-min: 8.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--player-tile-min), 1fr));
+  gap: var(--space-3);
+}
+
+.tile {
+  /* The buttons' 44 px is the touch floor; a tile is a larger target still,
+     because it is the one thing a reader taps on these pages. */
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  box-sizing: border-box;
+  color: var(--color-text);
+  text-decoration: none;
+  background: var(--color-surface);
+  border: var(--player-rule) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+}
+
+.tile:hover { background: var(--color-surface-hover); }
+
+.tile:focus-visible {
+  outline: var(--player-rule-major) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.tile-number {
+  font-family: var(--font-num);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.tile-size {
+  font-family: var(--font-num);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+/* The tier chip wears the tier's own hue, the way admin.css's `.badge.tier`
+   does: the hue is a token picked by the data attribute, and the ink is one
+   expression, so there is no tier-to-colour map in JavaScript. */
+.tile[data-tier="easy"] {
+  --player-tier-hue: var(--color-tier-easy);
+}
+
+.tile[data-tier="medium"] {
+  --player-tier-hue: var(--color-tier-medium);
+}
+
+.tile[data-tier="hard"] {
+  --player-tier-hue: var(--color-tier-hard);
+}
+
+/* The fallback is the panel's own "no tier" grey, so a tile whose tier the
+   served vocabulary narrowed away still draws a chip-shaped nothing rather
+   than an unresolved var(). Both names are declared on their own lines above
+   and here, which is what the token check in tests/test_public_player.py
+   reads: a var() with a fallback is invisible to that rule's `used` pattern,
+   and tests/test_public_player_pages.py closes that hole for these files. */
+.tile-tier {
+  --player-tier-ink: var(--player-tier-hue, var(--color-tier-none));
+  color: color-mix(in srgb, var(--player-tier-ink) 50%, var(--color-text));
+  background: color-mix(in srgb, var(--player-tier-ink) 14%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--player-tier-ink) 45%, var(--color-surface));
+  border-radius: var(--radius-badge);
+}
+
+.pages-notfound {
+  max-width: 48rem;
+  padding: var(--space-4);
+  background: var(--color-surface-sunken);
+  border: var(--player-rule) solid var(--color-border);
+  border-radius: var(--radius-container);
+}
+
+.pages-notfound h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-2);
+}
+
+.pages-notfound p { margin: 0 0 var(--space-3); }
+.pages-notfound p:last-child { margin-bottom: 0; }
+
+.pages-library-link { text-decoration: none; }
 
 /* A live region has to be in the document to be announced reliably, so it is
    always present and visually hidden rather than shown and hidden. */

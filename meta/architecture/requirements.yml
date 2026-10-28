@@ -5120,9 +5120,14 @@ functional:
       and redo matching the admin player's state transitions, and detecting
       the solved state as every row and column clue satisfied; /b/<slug>,
       the QR landing, listing the book's puzzles in book order with links to
-      /play/<key>, and landing an unknown slug on a friendly static
-      not-found page; and /library, listing all published puzzles from
-      index.json with client-side filtering by tier and size. Play state is
+      /play/<key>, showing the book's display title as the page's heading,
+      and landing an unknown slug on a friendly static not-found page; and
+      /library, listing all published puzzles from index.json with
+      client-side filtering by tier and size. A book's display title is the
+      only free-text field the public site serves, and it is served on
+      /b/<slug> alone; the picture name is served nowhere, on any page or in
+      any listing entry (EC-048, ADR-0041/R2) — the two are different fields
+      and the public surface treats them so. Play state is
       kept in the visitor's browser localStorage only, restoring on reload;
       the pages issue zero write requests, require no account, and remain
       fully playable on a 390 px phone viewport at the largest supported
@@ -5195,9 +5200,16 @@ functional:
         test: tests/test_public_player.py::test_phone_viewport_is_playable
       # --- the QR landing and the library (CARD-284) ---
       - id: AC-387
-        given: a bundle with a finalized book
+        # The title clause is the owner's 2026-10-28 decision (CARD-284
+        # review cycle 1, F-001): the card body always required the book's
+        # title on this page, the implementation round served none, and the
+        # owner was asked and chose to serve it. The BOOK's display title
+        # only — a puzzle's title is the picture name and EC-048 forbids it
+        # on every asset the public site serves, which is why the two are
+        # named separately in the statement above.
+        given: a bundle with a finalized book that has a display title
         when: /b/<slug> loads
-        then: its puzzles are listed in book order and tapping one opens /play/<key> for that puzzle
+        then: the book's display title heads the page, its puzzles are listed in book order, no puzzle's title appears anywhere on it, and tapping a puzzle opens /play/<key> for that puzzle
         kind: happy
         test: tests/test_public_player_pages.py::test_book_landing_lists_and_links
       - id: AC-388

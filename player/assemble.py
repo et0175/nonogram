@@ -18,11 +18,17 @@ What it produces
 
     play/index.html     the /play/<key> page            (from player/play.html)
     play.js             its glue                        (from player/play.js)
+    library/index.html  the /library page               (from player/library.html)
+    b/index.html        the /b/<slug> landing           (from player/book.html)
+    pages.js            the two listing pages' glue     (from player/pages.js)
     player.css          its styling                     (from player/player.css)
     solver_state.js     the admin player's pure module  (byte-identical copy)
     tokens.css          the design tokens               (byte-identical copy)
-    vercel.json         the host's rewrite for /play/<key>
+    vercel.json         the host's rewrites for the three doors
+    .player-site        the marker check_out_dir recognises this tree by
     puzzle/<key>.json   one REBUILT file per bundle puzzle (see below)
+    index.json          the REBUILT library index        (see "The two listings")
+    book/<slug>.json    one REBUILT file per bundle book (see "The two listings")
 
 The two copies are copies and not forks: ADR-0041/R3 requires the board-state
 module to be reused from ``src/nonogram/admin/static/solver_state.js`` by
@@ -37,13 +43,15 @@ Why this script exists at all, rather than ``cp -r``
 **Because this is where EC-048 is carried, and it could not be carried
 downstream of here.** Carried, not closed — the word "closed" is reserved
 for the paragraph below that begins "But 'one open edge' is true only AFTER
-the two exemptions are granted", which is the only place this file states the
+the three exemptions are granted", which is the only place this file states the
 scope, and which concludes that EC-048's literal text is not satisfiable by
 any implementation of ADR-0041 at all.
 
 ADR-0041/R2 forbids any public asset from carrying "a solution grid or data
 from which any solution cell is recoverable, for any puzzle, on any export
-path". CARD-282 shipped the exporter and then *measured
+path" — subject, since the 2026-10-28 amendment, to the owner's third
+exemption: a book's own display title on ``/b/<slug>`` and nowhere else,
+exempt by SCOPE rather than by safety (:data:`EXEMPT_LISTING_FIELDS`). CARD-282 shipped the exporter and then *measured
 a path straight through it*: the owner renames a puzzle to the base-64 of its
 own packed grid, the exporter writes that string into the bundle's declared
 ``title`` field, every one of CARD-282's guards passes (the value's provenance
@@ -56,11 +64,19 @@ It is routed here because it cannot be answered by a scan. A scan has to
 decide whether a *string* carries a grid, and there is no such decision
 procedure: the set of encodings of a grid is not enumerable, and CARD-282
 measured its denylist missing 7 of 7 planted encodings. So this script does
-not filter free text. **It removes the channel**: every file it serves under
-``puzzle/`` is REBUILT from :data:`SERVED_SCHEMA` rather than copied, and the
-bundle's ``title`` — the only free-text field in the bundle — is not in that
-schema and does not reach the site. A field the schema does not name is
-dropped, named in the report, and never written.
+not filter free text. **It removes the channel the measured path ran
+through**: every file it serves under ``puzzle/`` is REBUILT from
+:data:`SERVED_SCHEMA` rather than copied, and a PUZZLE's ``title`` — the
+picture name, the field CARD-282 decoded 144 cells out of — is in no served
+schema, so it reaches neither the puzzle files nor either listing. A field
+the schema does not name is dropped, named in the report, and never written.
+
+The BOOK file's ``title`` is a different field and is NOT removed: the owner
+granted it R2's third exemption on 2026-10-28, so that channel is open, by
+decision, with its residual declared rather than filtered
+(:data:`EXEMPT_LISTING_FIELDS`). "This script removes the free-text channel"
+is therefore false as a sentence about the whole site, and is written nowhere
+in this file.
 
 What is left is then held to EC-048 by two statements, and it matters a great
 deal which of them does the work:
@@ -132,12 +148,41 @@ So the domains carry it, and the residual is named rather than implied:
   ``picture_name``, in ``difficulty_tier``, in a nested object AND in one of
   its field NAMES assembles to served bytes byte-identical to the clean
   payload's, and ``_dump``'s canonical form leaves no writer artefact to
-  carry a bit either. So the tier is this script's one open edge, it is two
-  bits wide, and the figure is derived by the deployed code rather than
-  claimed.
+  carry a bit either.
 
-**But "one open edge" is true only AFTER the two exemptions are granted, and
-it is worth saying in one place rather than two paragraphs apart.** Given
+So the ``puzzle/<key>.json`` files have one open edge, the tier, and it is
+two bits wide. **That sentence used to end this paragraph as a statement
+about the whole script, and cycle 1 of this card's review measured it false
+in the same commit that broke it**: the served listings CARD-284 added carry
+three residuals of their own, every one of them wider than the tier's two
+bits, and none of them countable by :func:`free_capacity_bits` (which counts
+the puzzle files' fields and nothing else). Named here, sized where they are
+declared:
+
+* the **order** a book's puzzles are listed in — ``log2(k!)`` bits for a
+  book of ``k`` puzzles: 4.58 for this card's four-puzzle fixture, 79.04 for
+  a 24-puzzle book, 660.48 for a 120-puzzle one
+  (:data:`LISTING_STRUCTURE_FIELDS`);
+* the **membership** of that list — which ``k`` of ``N`` published puzzles a
+  book holds, ``log2(C(N, k))`` bits, independent of the order: 83.17 bits
+  for 24 of 120 (:data:`LISTING_STRUCTURE_FIELDS`, cycle-1 F-8);
+* the book's **display title**, served since the owner's 2026-10-28 decision
+  under an explicit exemption rather than a bound:
+  :func:`book_title_residual_bits` derives it as
+  ``SERVED_TITLE_MAX_CHARS * log2`` of the Unicode scalar space — 2410.18
+  bits at today's constants, which is 24x the ceiling below and more than
+  the 900 cells of the largest publishable grid. It is an EXEMPTION and this
+  script says so: see :data:`EXEMPT_LISTING_FIELDS` for the decision, the
+  scope that keeps the *puzzle* title forbidden, and what is measured.
+
+The tier figure and the ceiling below are the puzzle files'. The three above
+are the listings', they are declared rather than closed, and the only one of
+the three that is a choice at all is the title.
+
+**But "one open edge" is true only AFTER the three exemptions are granted,
+and it is worth saying in one place rather than three paragraphs apart.**
+Two of them are ADR-0041's own — the clues and the answer key — and the
+third is the book's display title, which R2 gained on 2026-10-28. Given
 ADR-0041/R5 the clues are a deterministic function of the stored grid, so
 they carry zero FREE bits — and they leak every cell *by solving*, which is
 the game (ADR-0041's Context: the solved check IS clue satisfaction) and not
@@ -147,8 +192,10 @@ which any solution cell is recoverable" — is not satisfiable by any
 implementation of ADR-0041**, so the registry's own wording is the blocker
 for the word "closed" (cycle-1 F-12, ``meta/architecture/requirements.yml``,
 outside this card's Touches and not edited). Read every "carries EC-048"
-above as "carries it for everything except the two ADR exemptions and the two
-declared bits".
+above as "carries it for everything except the three exemptions ADR-0041 and
+the owner grant — the clues, the key and a book's display title — and the
+four declared residuals: the tier's two bits per puzzle, and a book file's
+order, membership and title".
 
 Every number above that this script owns is computed here, from the declared
 value space; none of it is transcribed. Ask for it with
@@ -156,13 +203,49 @@ value space; none of it is transcribed. Ask for it with
 
 What this script does not reach, named rather than left to look covered
 -----------------------------------------------------------------------
-* ``index.json`` and ``book/<slug>.json`` are **not** copied. They are read by
-  the library and book pages, which are CARD-284's and CARD-285's, and both
-  carry a free-text ``title`` that this card's answer (drop the channel) would
-  also have to be taken for — a book's title on its own cover page is a very
-  different editorial question from a puzzle's name, and deciding it here
-  would be deciding their cards. :func:`assemble` names the bundle files it
-  ignored in its report so the omission is visible rather than silent.
+* ``index.json`` and ``book/<slug>.json`` are **not** copied — and as of
+  CARD-284 they are served, REBUILT, exactly as the puzzle files are. Two
+  different ``title`` fields travel in those two files and **they get
+  opposite answers**, which is the distinction cycle 1 of this card's review
+  gated on arguing as one:
+
+  - a **puzzle's** title is the picture name. EC-048 forbids it by name on
+    every asset the public site serves, CARD-163 took it out of the admin
+    player's own header for the same reason, and the picture name IS the
+    answer to the puzzle. It is in neither :data:`SERVED_SCHEMA` nor
+    :data:`SERVED_ENTRY_SCHEMA`, so it reaches neither listing, and
+    :func:`check_listing_capacity` refuses to assemble if anybody puts it
+    there. Not a decision — serving it would be the violation;
+  - a **book's** display title is owner-authored editorial text, and it is
+    served under **ADR-0041/R2's third exemption, granted by the owner on
+    2026-10-28** — the authority, written in the rule itself beside the
+    clues and the answer key. That is the whole justification and the only
+    one: this module argued for one round that "EC-048's enumeration does
+    not name it", and cycle 2 of this card's review measured that false.
+    It is true of EC-048's first three items (a solution grid, a
+    filled-cells encoding, the picture name) and FALSE of its fourth clause,
+    "or data from which any solution cell is recoverable" — which is R2's
+    own wording and is not an enumeration anything can fail to be named in.
+    An FR cannot narrow a mandatory ADR rule either, so citing FR-045's
+    bundle clause was not an argument for serving the field; it is only the
+    reason the exporter has the field at all. The rule was amended instead:
+    R2 now exempts the title **by scope rather than by safety**, served
+    verbatim on ``/b/<slug>`` and nowhere else, with the residual declared
+    and no reachable character cap claimed as a bound —
+    :data:`EXEMPT_LISTING_FIELDS`. Why the owner granted it: ``/b/<slug>``
+    is a book customer's first contact with the product seconds after a
+    scan, and the card's body (line 31) always required the title there.
+
+  Serving the book's title also answers the product question ADR-0041/R7
+  opened and the card routed in (two finalized books with identical
+  membership in identical order are one slug with two candidate titles): the
+  decision is the card's **first** routed option, *publish one title*, and
+  which one is CARD-282's deterministic reduction, held by
+  ``tests/test_player_bundle.py::test_two_books_with_the_same_puzzles_are_one_public_book``.
+* The **order** a book's puzzles are listed in, their **membership**, the
+  book's **title** and the two bits of tier label are the whole residual of
+  the served listings — see :data:`LISTING_STRUCTURE_FIELDS` and
+  :data:`EXEMPT_LISTING_FIELDS`.
 * A grid recovered from the **clues** is not a leak but the game. Stated
   because a reader of EC-048 has to accept it, and measured (not merely
   asserted) by the test tree against the real solver.
@@ -184,19 +267,38 @@ __all__ = [
     "COPIED_FROM_ADMIN",
     "CAPACITY_CEILING_BITS",
     "DETERMINED_BY_CLUES",
+    "EXEMPT_LISTING_FIELDS",
     "EXEMPT_SERVED_FIELDS",
     "KEY_PATTERN",
+    "LISTING_STRUCTURE_FIELDS",
+    "MIRRORED_FROM_PUZZLE_FILE",
     "PLAYER_FILES",
+    "SERVED_BOOK_SCHEMA",
+    "SERVED_ENTRY_SCHEMA",
+    "SERVED_INDEX_SCHEMA",
     "SERVED_SCHEMA",
     "SERVED_TIERS",
+    "SERVED_TITLE_MAX_CHARS",
     "SERVED_VALUE_SPACE",
+    "SITE_BOOK_DIR",
+    "SITE_INDEX_FILE",
+    "SITE_MARKER_FILE",
+    "SITE_MARKER_TEXT",
     "SITE_PUZZLE_DIR",
+    "TITLE_CODE_POINTS",
     "AssembleReport",
     "assemble",
+    "book_title_residual_bits",
     "check_capacity",
+    "check_listing_capacity",
     "check_out_dir",
     "free_capacity_bits",
+    "listing_entry",
+    "served_book",
+    "served_index",
     "served_puzzle",
+    "tier_narrowed",
+    "title_narrowed",
 ]
 
 #: This file's directory (``player/``) and the repository root above it. Used
@@ -233,9 +335,24 @@ MIN_SIZE, MAX_SIZE = _limits()
 #: ``player/`` source -> published path. The page is published as
 #: ``play/index.html`` so that a plain static host serves ``/play/`` without a
 #: rewrite and ``vercel.json``'s rewrite only has to cover ``/play/<key>``.
+#:
+#: ``library.html`` and ``book.html`` travel the same way for the same
+#: reason (CARD-284) — but ``vercel.json`` carries a rule for **both** of
+#: them, not only for ``/b/<slug>``. An earlier revision of this comment
+#: said ``/library`` resolved without one; cycle 1 of this card's review
+#: measured that false in the same commit that added the rule, by killing it
+#: (``"/library"`` -> ``"/zzzzzz"``) and redding
+#: ``tests/test_public_player_pages.py::test_the_two_doors_are_routed_by_the_shipped_config``.
+#: ``/library/index.html`` is what a host with a directory index would serve
+#: for ``/library/``; the extensionless ``/library`` needs the rewrite, and
+#: the loopback fixture's ``^/library/?$`` is the same rule read from the
+#: same file.
 PLAYER_FILES: dict[str, str] = {
     "play.html": "play/index.html",
     "play.js": "play.js",
+    "library.html": "library/index.html",
+    "book.html": "b/index.html",
+    "pages.js": "pages.js",
     "player.css": "player.css",
     "vercel.json": "vercel.json",
 }
@@ -251,9 +368,46 @@ COPIED_FROM_ADMIN: dict[str, str] = {
     "src/nonogram/admin/static/tokens.css": "tokens.css",
 }
 
-#: Where the rebuilt puzzle files go, and the only directory of the bundle
-#: this card's site serves.
+#: Where the rebuilt puzzle files go.
 SITE_PUZZLE_DIR = "puzzle"
+
+#: Where the rebuilt book files go, and the name the rebuilt library index is
+#: served under. Both are CARD-284's: CARD-283 served neither and said so.
+#: The names are the bundle's own, because the pages' URLs are what the
+#: printed QR codes and AC-389 name ("the library page over ``index.json``"),
+#: not because the files are copies — they are rebuilds, like the puzzles.
+SITE_BOOK_DIR = "book"
+SITE_INDEX_FILE = "index.json"
+
+#: The marker :func:`assemble` writes into every tree it builds, and the ONE
+#: thing :func:`check_out_dir` recognises a previous run's tree by.
+#:
+#: Until CARD-284's fix round that guard compared the target's top-level
+#: names against :func:`_site_entries`, which is a predicate that WIDENS
+#: every time a published path is added: this card's own commit added
+#: ``index.json``, ``book``, ``b``, ``library`` and ``pages.js`` to it, so a
+#: directory whose only entry was ``index.json`` — one of the most generic
+#: filenames on the web — became silently deletable where it had been
+#: refused by name. Cycle 1 of this card's review found the widening shipped
+#: with no control for what the guard must still DENY, only one for what it
+#: must now allow.
+#:
+#: A marker this script writes itself is the strictly stronger predicate and
+#: is the one chosen: it does not widen with the published set, it says
+#: "this run's own output" rather than "a shape that resembles output", and
+#: a target that merely looks like a site is refused. The cost is stated
+#: rather than hidden: a tree assembled before this file existed has no
+#: marker and needs ``--force`` once.
+SITE_MARKER_FILE = ".player-site"
+
+#: What the marker holds. Constant — it carries nothing about the bundle, so
+#: it belongs to the static half of the site
+#: (``tests/test_public_player.py::test_the_static_half_of_the_site_does_not
+#: _vary_with_the_puzzles``) and a reader who finds it knows what erases it.
+SITE_MARKER_TEXT = (
+    "This directory was written by player/assemble.py (COMP-011).\n"
+    "Assembling into it again DELETES everything here first.\n"
+)
 
 #: A public puzzle key, as ADR-0041/R1 pins it: the first 10 lowercase
 #: hexadecimal characters of a SHA-256 digest. Re-checked here rather than
@@ -528,6 +682,457 @@ def served_puzzle(payload: object, stem: str) -> tuple[dict[str, object], list[s
 
 
 # --------------------------------------------------------------------------
+# The two listings — index.json and book/<slug>.json (CARD-284)
+# --------------------------------------------------------------------------
+#
+# CARD-283 served neither file and routed both decisions here, because both
+# carry a free-text ``title`` and the answer taken for the puzzle page (drop
+# the channel) had to be taken for them too or not at all. **It was taken for
+# the PUZZLE title and not for the BOOK's, and this comment said otherwise
+# for one round.** The two decisions, which are not the same decision:
+#
+# * a **puzzle's** title — the picture name — is served on neither listing,
+#   for the reason CARD-283's F-2 gives for the puzzle page: free text cannot
+#   be scanned for an encoded grid, so the channel is removed rather than
+#   filtered. What a tile shows instead is the extent and the tier, the same
+#   two values the ``/play/<key>`` header already shows;
+# * a **book's** display title IS served, on ``/b/<slug>`` and nowhere else,
+#   under ADR-0041/R2's third exemption (owner decision, 2026-10-28). See
+#   :data:`EXEMPT_LISTING_FIELDS` for the exemption, its scope and its cost.
+#
+# So "no title is served, on either listing" — what this comment used to say
+# — is false, and the sentence that replaced it names which field each half
+# is about.
+#
+# The second decision routed here is CARD-282's F-8: an export that fails
+# part-way through leaves ``index.json`` naming puzzle files that were never
+# written, and ``book/<slug>.json`` naming keys with no file. A listing that
+# names an absent file is a tile that 404s on tap, which is the one thing a
+# reader seconds after scanning a QR code cannot diagnose.
+#
+# **It is closed by construction rather than by a check.** Every entry of
+# every served listing IS the served payload of that key's own
+# ``puzzle/<key>.json``, minus the clues (:func:`listing_entry`), so the
+# listing's membership is the set of files this run actually wrote and an
+# entry naming an absent file is not possible rather than merely detected.
+# The bundle's own ``index.json`` is read as a SECOND, independent instrument
+# — what the export *declared* — and every disagreement between the two is
+# named in the report: :attr:`AssembleReport.unresolved` for a key a listing
+# declared and the site does not serve, :attr:`AssembleReport.unlisted` for a
+# served key the bundle's index named nowhere. A bundle with no ``index.json``
+# at all therefore reports every served key as unlisted, which is the loudest
+# shape available: the instrument cannot read as "nothing wrong" when it has
+# nothing to read.
+
+#: One entry of a served listing: :data:`SERVED_SCHEMA` without the clues.
+#: Derived from the one schema rather than written again, so a field added
+#: there arrives here — and has to be bucketed by
+#: :func:`check_listing_capacity` before anything assembles.
+#:
+#: The clues are left out because a listing is a listing: twenty puzzles'
+#: clue sets are the whole game downloaded to draw a page of tiles, and
+#: ``/play/<key>`` fetches them one at a time already.
+SERVED_ENTRY_SCHEMA: tuple[str, ...] = tuple(
+    name for name in SERVED_SCHEMA if name != "clues"
+)
+
+#: Top-level fields of the served ``index.json``.
+SERVED_INDEX_SCHEMA: tuple[str, ...] = ("puzzles",)
+
+#: Top-level fields of a served ``book/<slug>.json``. ``puzzle_keys`` is
+#: absent, replaced by the resolved entries themselves so the landing page
+#: renders from this one file with nothing else to load first (CARD-284 G-2:
+#: no second index is derived at page-load time).
+#:
+#: ``title`` is the book's DISPLAY title and is present since the owner's
+#: 2026-10-28 decision — see :data:`EXEMPT_LISTING_FIELDS`. It is the only
+#: schema in this module that carries a title, and
+#: :func:`check_listing_capacity` refuses to assemble if the name appears in
+#: any of the others.
+SERVED_BOOK_SCHEMA: tuple[str, ...] = ("puzzles", "slug", "title")
+
+#: How many characters of a book's display title are served.
+#:
+#: Not a capacity bound — no reachable cap is one, which is the whole reason
+#: the field is an exemption and not a counted field: EC-048's threshold is
+#: ONE bit, and one character of base-64 carries six. It is a LAYOUT bound
+#: and a declaration bound. A heading longer than this cannot be read on the
+#: 390 px phone a QR scan lands on, and a cap is what turns the residual
+#: from "unbounded" into the number :func:`book_title_residual_bits` prints.
+SERVED_TITLE_MAX_CHARS = 120
+
+#: The Unicode scalar values a served character may be: every code point
+#: except the 2048 surrogates. Derived from ``sys.maxunicode`` rather than
+#: written, so the figure below is the interpreter's own answer.
+TITLE_CODE_POINTS = sys.maxunicode + 1 - 2048
+
+#: The one served listing field that is EXEMPT rather than counted or
+#: mirrored: a book's display title.
+#:
+#: **Two different fields are at stake here and they get opposite answers.**
+#: Cycle 1 of this card's review gated on them being argued as one, so the
+#: distinction is written out once, here, and every sentence this module
+#: writes about a title names which one it means:
+#:
+#: * the **puzzle** title is the picture name. EC-048 forbids it by name
+#:   ("the picture name") on every asset the public site serves; CARD-282
+#:   measured a stored puzzle name that was the base-64 of its own grid
+#:   decoding back to all 144 cells of a 12x12 answer; CARD-163 took the
+#:   picture name out of the admin player's own header for the same reason.
+#:   It stays forbidden, and the forbidding is mechanical: ``title`` is in
+#:   neither :data:`SERVED_SCHEMA` nor :data:`SERVED_ENTRY_SCHEMA`, and
+#:   :func:`check_listing_capacity` raises if it is added to either;
+#: * the **book's** display title is owner-authored editorial text about a
+#:   book, served under **ADR-0041/R2's third exemption (owner decision,
+#:   2026-10-28)**. The exemption is the authority and the only one cited
+#:   here. The justification this field shipped with for one round —
+#:   "EC-048's enumeration does not name it" — is FALSE, and cycle 2 of
+#:   this card's review measured it so: EC-048's fourth clause is "or data
+#:   from which any solution cell is recoverable", which is R2's own wording
+#:   and is not an enumeration anything can fail to be named in. Nor could
+#:   FR-045's bundle clause have narrowed a mandatory rule — a lower
+#:   artefact cannot. R2 was amended rather than reinterpreted, and it
+#:   exempts the title BY SCOPE rather than by safety: served verbatim on
+#:   ``/b/<slug>`` and nowhere else, residual declared, no reachable
+#:   character cap claimed as a bound.
+#:
+#: What the exemption costs, derived rather than asserted:
+#: :func:`book_title_residual_bits` is ``SERVED_TITLE_MAX_CHARS *
+#: log2(TITLE_CODE_POINTS)`` = 2410.18 bits at today's constants. That is
+#: 24x :data:`CAPACITY_CEILING_BITS` and more than the 900 cells of the
+#: largest publishable grid (``MAX_SIZE * MAX_SIZE``), so **this is an open
+#: channel, not a narrow one**, and no honest cap closes it. A hostile store
+#: that names a book after the base-64 of one of its puzzles' answers
+#: publishes that answer, exactly as CARD-282 measured. Measured in cells
+#: rather than bits, which is the second instrument:
+#: ``tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+#: recovers every cell of a MIN_SIZE grid out of a served book title.
+#:
+#: It is granted anyway, by the owner, because the alternative is a landing
+#: page with no name on it — the same "not serving it means not having the
+#: page" trade the order and the membership are declared under. What makes
+#: it an exemption rather than a leak is that it is bounded in SCOPE: a
+#: book file, and nothing else.
+EXEMPT_LISTING_FIELDS: tuple[str, ...] = ("title",)
+
+#: Listing fields whose served value is, by construction, a value already
+#: served on that key's ``puzzle/<key>.json``. They are therefore worth zero
+#: NEW capacity: a reader of the listing learns nothing a reader of the puzzle
+#: files does not already have. :func:`listing_entry` is the construction, and
+#: it copies from the served payload rather than from the bundle, which is
+#: what makes the claim structural instead of a comparison somebody has to
+#: remember to make.
+MIRRORED_FROM_PUZZLE_FILE: tuple[str, ...] = SERVED_ENTRY_SCHEMA
+
+#: Listing fields that are structure rather than a puzzle's value: the list
+#: itself and the book's own slug, which is the file's name and is re-checked
+#: against :data:`KEY_PATTERN` (ADR-0041/R7 truncates the slug digest to the
+#: same length as R1's key, so the shapes are the same ten hex characters).
+#:
+#: These two carry TWO residuals, not one, and the second was argued in
+#: cycle 1 and not declared (its F-8). Both are declared rather than closed,
+#: both for the same reason — not serving them means not having a landing
+#: page — and closing either is ADR-0041's decision, not a worktree one:
+#:
+#: * the **ORDER** of ``puzzles`` in a book file. AC-387 asks for the book's
+#:   own order, a printed book publishes that order on its pages anyway, and
+#:   a hostile store that chose the order by the answer signals up to
+#:   ``log2(k!)`` bits through it: 4.58 bits for a 4-puzzle book, 79.04 for
+#:   24, 660.48 for 120;
+#: * the **MEMBERSHIP** of that list — which ``k`` of the ``N`` published
+#:   puzzles this book holds. It is a different channel from the order and
+#:   independent of it: ``log2(C(N, k))`` bits, 83.17 for 24 of 120, and a
+#:   store that chose membership by an answer signals through it even if the
+#:   order were fixed. The library's ``index.json`` has no such residual —
+#:   it is every puzzle served, so there is no choice to encode in — which
+#:   is why this is specific to the book file.
+#:
+#: Both are the same shape, and the same reason, as the two bits of tier
+#: label. The book's title is a third residual and a wider one, and it is
+#: declared separately because it is an EXEMPTION rather than structure —
+#: :data:`EXEMPT_LISTING_FIELDS`.
+LISTING_STRUCTURE_FIELDS: tuple[str, ...] = ("puzzles", "slug")
+
+
+def book_title_residual_bits() -> float:
+    """What the exempt book title could carry, in bits.
+
+    ``SERVED_TITLE_MAX_CHARS`` characters drawn from
+    :data:`TITLE_CODE_POINTS` scalar values. Derived by deployed code for the
+    reason :func:`free_capacity_bits` is: a residual written into a comment
+    goes stale the first time a constant moves, which is precisely what cycle
+    1 of this card's review found at the top of this file.
+
+    This is NOT compared against :data:`CAPACITY_CEILING_BITS` and does not
+    gate the assembly. It cannot be: the figure is 24x that ceiling and
+    larger than the biggest publishable grid, so there is no pass to be had.
+    It is the size of a declared exemption, printed by ``--capacity`` so the
+    owner can see what was granted.
+    """
+    return SERVED_TITLE_MAX_CHARS * math.log2(TITLE_CODE_POINTS)
+
+
+def check_listing_capacity() -> None:
+    """Refuse to assemble unless every served LISTING field is accounted for.
+
+    The sibling of :func:`check_capacity`, and the same default-deny shape:
+    every name any served listing carries has to be in exactly one of three
+    buckets — mirrored from a puzzle file
+    (:data:`MIRRORED_FROM_PUZZLE_FILE` — zero new capacity), structure
+    (:data:`LISTING_STRUCTURE_FIELDS` — the list and the slug, whose two
+    residuals are named there), or exempt
+    (:data:`EXEMPT_LISTING_FIELDS` — the book's display title, whose cost is
+    :func:`book_title_residual_bits`). A name in two buckets, or in none, is
+    a served value nobody accounted for, which is exactly how the ``tier``
+    channel got to be 56 bits wide in cycle 1 of CARD-283's review.
+
+    The third bucket is an exemption, so ADR-0039/R3 makes it a claim that
+    carries a control for what it must NOT absorb. Two refusals do that, and
+    they are the half an exemption usually ships without. They run in this
+    order, and **for the liveness refusal the order is load-bearing** — the
+    first draft put it after the partition check, where it was dead code,
+    because every single-node edit that reaches it also breaks the partition
+    (dropping an exempt name from :data:`SERVED_BOOK_SCHEMA` moves
+    ``carried`` and leaves ``accounted`` where it was).
+
+    **The scope refusal is a different case, and fix round 1 recorded the two
+    as one.** Cycle 2 of this card's review re-derived the partition
+    PREDICATE under each single-node schema edit the suite uses and measured
+    all three scope edits PASSING it: :data:`SERVED_ENTRY_SCHEMA` and
+    :data:`MIRRORED_FROM_PUZZLE_FILE` are both bound at import and ``title``
+    is already carried by the book file, so neither ``carried`` nor
+    ``accounted`` moves and the scope refusal would be reachable wherever it
+    sat. It is first for symmetry with liveness and for the message a reader
+    gets — "the two are not the same field" rather than "not partitioned" —
+    and ``test_the_book_title_exemption_is_scoped_and_its_cost_is_measured``
+    knows this, which is why it matches on ``is scoped`` rather than on
+    something looser. The order:
+
+    #. **liveness.** An exempt name no book schema carries is refused. An
+       exemption granted for a field nothing serves is an exemption nobody
+       can see go wrong, and the equality against the sites that exist is
+       what ADR-0039/R3 asks for;
+    #. **scope.** An exempt name may appear in :data:`SERVED_BOOK_SCHEMA` and
+       nowhere else. Added to :data:`SERVED_ENTRY_SCHEMA`,
+       :data:`SERVED_INDEX_SCHEMA` or :data:`SERVED_SCHEMA` it is refused —
+       which is what keeps the PUZZLE title forbidden while the BOOK's is
+       served, mechanically rather than by everyone remembering the
+       distinction;
+    #. the **partition** itself, over all three buckets.
+
+    Raises:
+        ValueError: when the liveness, the scope or the partition does not
+            hold. That is the moment to go back to ADR-0041, not to this
+            function.
+    """
+    unused = set(EXEMPT_LISTING_FIELDS) - set(SERVED_BOOK_SCHEMA)
+    if unused:
+        raise ValueError(
+            f"the listing exemption names {sorted(unused)}, which no served "
+            "schema carries: an exemption for a field nothing serves is a "
+            "claim nothing can check (ADR-0039/R3)"
+        )
+    outside = set(EXEMPT_LISTING_FIELDS) & (
+        set(SERVED_INDEX_SCHEMA) | set(SERVED_ENTRY_SCHEMA) | set(SERVED_SCHEMA)
+    )
+    if outside:
+        raise ValueError(
+            f"the listing exemption {sorted(EXEMPT_LISTING_FIELDS)} is scoped "
+            "to a book file, and "
+            f"{sorted(outside)} reached a puzzle file or the library index: "
+            "a book's display title is exempt by the owner's 2026-10-28 "
+            "decision, the PICTURE NAME is forbidden by EC-048, and they are "
+            "not the same field"
+        )
+    carried = set(SERVED_INDEX_SCHEMA) | set(SERVED_BOOK_SCHEMA) | set(SERVED_ENTRY_SCHEMA)
+    buckets = (MIRRORED_FROM_PUZZLE_FILE, LISTING_STRUCTURE_FIELDS, EXEMPT_LISTING_FIELDS)
+    accounted = {name for bucket in buckets for name in bucket}
+    twice = {
+        name
+        for name in accounted
+        if sum(name in bucket for bucket in buckets) > 1
+    }
+    if carried != accounted or twice:
+        raise ValueError(
+            "the served listings are not partitioned into mirrored, "
+            f"structural and exempt fields: carried {sorted(carried)}, "
+            f"mirrored {sorted(MIRRORED_FROM_PUZZLE_FILE)}, structural "
+            f"{sorted(LISTING_STRUCTURE_FIELDS)}, exempt "
+            f"{sorted(EXEMPT_LISTING_FIELDS)}, in more than one "
+            f"{sorted(twice)} — an unaccounted listing field is outside "
+            "EC-048's argument"
+        )
+
+
+def listing_entry(served: dict[str, object]) -> dict[str, object]:
+    """One listing tile, built from a SERVED puzzle payload.
+
+    ``served`` is :func:`served_puzzle`'s own output — never a bundle payload
+    — so every value here has already passed that function's domains, and the
+    "a listing carries nothing the puzzle files do not" claim is a property of
+    this one expression rather than of a comparison elsewhere.
+    """
+    return {name: served[name] for name in SERVED_ENTRY_SCHEMA}
+
+
+def served_index(entries: dict[str, dict[str, object]]) -> dict[str, object]:
+    """The served ``index.json``: every puzzle this run wrote, by key.
+
+    ``entries`` maps key -> :func:`listing_entry`. Sorted by key so the bytes
+    are a function of the published set and not of the order the bundle
+    directory was walked — the same determinism ``_dump`` exists for, one
+    layer out: EC-049 makes an export's bytes a function of the store, and
+    this is what makes a deploy diff of the SITE readable too.
+
+    That sentence had no control until this card's fix round, and cycle 1 of
+    its review measured the gap: reversing this sort survived 51 nodes,
+    because every library assertion wrapped the rendered keys in ``sorted``
+    and ``test_the_static_half_of_the_site_does_not_vary_with_the_puzzles``
+    excludes ``index.json`` from its byte comparison by design. It is held
+    now, in two places and two shapes —
+    ``tests/test_public_player_pages.py::test_the_served_index_is_key_sorted``
+    on this function's own output, and
+    ``tests/test_public_player_pages.py::test_two_assemble_runs_are_byte_identical``
+    on the whole assembled tree, which is the property at the layer that is
+    actually deployed.
+
+    The key order is NOT claimed to be an order a reader wants: a key is ten
+    hex characters of a digest, so to a reader /library is in no order at
+    all, and no AC states one. What is claimed is only that it is the same
+    order twice.
+    """
+    served = {"puzzles": [entries[key] for key in sorted(entries)]}
+    assert sorted(served) == sorted(SERVED_INDEX_SCHEMA)
+    return served
+
+
+def _book_title(value: object) -> str:
+    """A book's served display title, or ``""`` when the bundle has none.
+
+    The whole of what this module does to the field, written out because it
+    is an EXEMPT field and the temptation is to read the processing as a
+    narrowing (:data:`EXEMPT_LISTING_FIELDS` — it is not one; no reachable
+    cap is):
+
+    * a non-string is dropped to ``""``. A served title is a heading, and a
+      number or an object in that field is a bundle this module does not
+      understand rather than a title;
+    * whitespace is collapsed to single spaces, so a stored title with a
+      newline in it is one line of heading rather than a layout accident;
+    * it is truncated to :data:`SERVED_TITLE_MAX_CHARS`.
+
+    None of that is a defence against an encoded grid. It cannot be: cycle 1
+    of CARD-282 established there is no decision procedure for "does this
+    string carry a grid?", its denylist missed 7 of 7 planted encodings, and
+    one character of base-64 already carries six bits against EC-048's
+    threshold of one. The field is served because the owner decided on
+    2026-10-28 that ``/b/<slug>`` has to carry the book's name, and the cost
+    is declared rather than filtered.
+
+    The PUZZLE title is a different field and is not served at all — see
+    :data:`EXEMPT_LISTING_FIELDS` for why the two get opposite answers, and
+    :func:`check_listing_capacity` for the refusal that keeps them apart.
+    """
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.split())[:SERVED_TITLE_MAX_CHARS]
+
+
+def title_narrowed(value: object) -> bool:
+    """Whether :func:`_book_title` served LESS than the bundle's title.
+
+    The ``narrowed`` report's second member, and the same distinction
+    :func:`tier_narrowed` draws: a book that carried no title and a book
+    whose title was truncated both end up with a shorter served string, and
+    only the second is something to tell the owner about. Truncation is the
+    case that matters operationally — a 130-character title loses its last
+    ten characters on the page a QR code lands on, and without this nothing
+    would say so.
+    """
+    if not isinstance(value, str):
+        return value is not None
+    collapsed = " ".join(value.split())
+    return collapsed != "" and _book_title(value) != collapsed
+
+
+def served_book(
+    payload: object, stem: str, entries: dict[str, dict[str, object]]
+) -> tuple[dict[str, object], list[str], list[str]]:
+    """``(served payload, dropped field names, unresolved keys)`` for one book.
+
+    ``stem`` is the file's name without ``.json``, which ADR-0041/R7 makes the
+    slug, and the payload's own ``slug`` must equal it. The book's
+    ``puzzle_keys`` are kept in **book order** (AC-387) and resolved against
+    ``entries``: a key with no served puzzle file is left out of the listing
+    and returned as unresolved, so a half-written bundle costs the reader the
+    tile rather than a 404 on tap.
+
+    The book's ``title`` is served (:func:`_book_title`), which is the one
+    field this function passes through from the bundle rather than deriving,
+    and the one place in this module a title is served at all. The puzzle
+    titles inside ``entries`` are already gone — those entries are
+    :func:`listing_entry` outputs over :data:`SERVED_ENTRY_SCHEMA`, which has
+    no ``title`` — so a book file carries one editorial string and no picture
+    name, which is the distinction :data:`EXEMPT_LISTING_FIELDS` draws.
+
+    A book all of whose keys are unresolved is still served, with an empty
+    list. The slug is real — it is printed in a QR code — so the landing page
+    saying "none of this book's puzzles are on the site yet" is the honest
+    answer, and the not-found page is reserved for a slug the bundle does not
+    have at all (AC-388).
+
+    Raises:
+        ValueError: with a reason, for a payload this function cannot read.
+            The caller turns that into a named refusal rather than a failed
+            assembly, as it does for a puzzle file.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("the file is not a JSON object")
+    slug = _key(payload.get("slug"), "slug")
+    if slug != stem:
+        raise ValueError(f"the file is named {stem}.json but carries the slug {slug}")
+    declared = payload.get("puzzle_keys")
+    if not isinstance(declared, list):
+        raise ValueError("puzzle_keys is not a list")
+    order = [_key(value, f"puzzle_keys[{i}]") for i, value in enumerate(declared)]
+    unresolved = [key for key in order if key not in entries]
+    served: dict[str, object] = {
+        "slug": slug,
+        "title": _book_title(payload.get("title")),
+        "puzzles": [entries[key] for key in order if key in entries],
+    }
+    assert sorted(served) == sorted(SERVED_BOOK_SCHEMA)
+    dropped = sorted(name for name in payload if name not in (*SERVED_BOOK_SCHEMA, "puzzle_keys"))
+    return served, dropped, unresolved
+
+
+def _declared_keys(path: Path) -> tuple[list[str], str | None]:
+    """``(keys the bundle's index.json declares, why it could not be read)``.
+
+    The second instrument behind :attr:`AssembleReport.unlisted`, and read
+    permissively on purpose: it is a cross-check against what the export
+    *said* it wrote, never the authority for what is served. An absent or
+    unreadable index therefore does not refuse the assembly — it returns no
+    declared keys, which makes every served key unlisted and the silence
+    impossible.
+    """
+    if not path.is_file():
+        return [], f"{SITE_INDEX_FILE} is not in the bundle"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError) as unreadable:
+        return [], f"{SITE_INDEX_FILE} could not be read: {unreadable}"
+    if not isinstance(payload, dict) or not isinstance(payload.get("puzzles"), list):
+        return [], f"{SITE_INDEX_FILE} carries no puzzles list"
+    keys = [
+        entry["key"]
+        for entry in payload["puzzles"]
+        if isinstance(entry, dict) and isinstance(entry.get("key"), str)
+    ]
+    return keys, None
+
+
+# --------------------------------------------------------------------------
 # Assembling
 # --------------------------------------------------------------------------
 
@@ -549,16 +1154,34 @@ class AssembleReport:
     (:func:`tier_narrowed`). It is deliberately separate from ``dropped``: a
     dropped field is one the site does not serve at all, a narrowed one is
     served with less in it than the bundle had.
+
+    ``unresolved`` and ``unlisted`` are CARD-284's two, and they are the F-8
+    instrument rather than the F-8 fix (the fix is structural — see "The two
+    listings" above). ``unresolved`` is ``(listing path, key)`` for a key a
+    bundle listing declared and this run does not serve: a half-written
+    export. ``unlisted`` is the other direction — a key whose puzzle file was
+    served and whose entry the bundle's ``index.json`` named nowhere — and
+    ``index_unread`` says why that index could not be consulted at all, in
+    which case every served key is unlisted.
+
+    ``book_count`` is how many book files were served, which is not the same
+    number as the bundle's books: two finalized books with identical
+    membership are one public slug (ADR-0041/R7), and a book file the schema
+    refuses is in ``refused`` instead.
     """
 
     site_dir: Path
     puzzle_count: int
     capacity_bits: float
+    book_count: int = 0
     dropped: tuple[tuple[str, str], ...] = ()
     narrowed: tuple[tuple[str, str], ...] = ()
     refused: tuple[tuple[str, str], ...] = ()
     ignored: tuple[str, ...] = ()
     copied: tuple[str, ...] = ()
+    unresolved: tuple[tuple[str, str], ...] = ()
+    unlisted: tuple[str, ...] = ()
+    index_unread: str | None = None
 
 
 def _write(path: Path, text: str) -> None:
@@ -582,32 +1205,58 @@ def _site_entries() -> set[str]:
     """The top-level names an assembled site holds, derived from the tables.
 
     ``play/index.html`` contributes ``play``, so the set is the first segment
-    of every published path plus the puzzle directory. Derived rather than
-    listed: a new published file widens this set by being added to
-    :data:`PLAYER_FILES`, not by somebody remembering this function.
+    of every published path plus the marker and the three the bundle's own
+    data goes to. Derived rather than listed: a new published file widens
+    this set by being added to :data:`PLAYER_FILES`, not by somebody
+    remembering this function.
+
+    **This is a description of the tree, and is no longer what
+    :func:`check_out_dir` consults.** It was, until CARD-284's fix round, and
+    that is the defect cycle 1 of this card's review found: a predicate that
+    widens with the published set admits more every time a page is added, and
+    this card's own commit widened it by five names — so a directory whose
+    only entry was ``index.json`` became deletable. The guard recognises
+    :data:`SITE_MARKER_FILE` instead, which does not widen. What this
+    function is still for is the one place that wants to state the tree's
+    top-level shape: ``tests/test_public_player.py::test_an_out_dir_that_is
+    _not_a_previous_site_is_refused``'s positive control.
     """
     published = [*PLAYER_FILES.values(), *COPIED_FROM_ADMIN.values()]
-    return {path.split("/", 1)[0] for path in published} | {SITE_PUZZLE_DIR}
+    return {path.split("/", 1)[0] for path in published} | {
+        SITE_PUZZLE_DIR,
+        SITE_BOOK_DIR,
+        SITE_INDEX_FILE,
+        SITE_MARKER_FILE,
+    }
 
 
 def check_out_dir(out_dir: Path | str, *, force: bool = False) -> Path:
     """The ``--out`` directory, or :class:`ValueError` if it is not ours to erase.
 
     :func:`assemble` deletes its output directory, which is right for a deploy
-    target and catastrophic for a typo: measured in cycle 1 of this card's
+    target and catastrophic for a typo: measured in cycle 1 of CARD-283's
     review, a directory holding ``precious/notes.txt`` came back holding only
-    the site. So a target that exists and is non-empty is refused unless every
-    top-level name in it is one an assembled site has (:func:`_site_entries`)
-    — a previous run's tree, which this run replaces. A checkout, a home
-    directory or ``.`` from the repository root fails that test on its first
-    foreign name: the whole list of top-level names is built and the target is
-    refused if ANY of them is foreign, so the refusal does not depend on the
-    order ``iterdir`` returns (an earlier revision of this docstring claimed
-    it did, and claimed the repository root would otherwise pass — the
-    allowed set holds ``play``, not ``player``, so the checkout fails the name
-    test on its own ``player/`` directory as well as on everything else;
-    cycle 2 of this card's review measured both halves of that sentence
-    false).
+    the site. So a target that exists and is non-empty is refused unless it
+    holds :data:`SITE_MARKER_FILE` — the file :func:`assemble` writes into
+    every tree it builds, before it writes anything else.
+
+    **The predicate changed in CARD-284's fix round, and the reason is worth
+    the paragraph.** Until then it was a name test: the target was accepted
+    if every top-level name in it was one an assembled site has
+    (:func:`_site_entries`). That predicate widens every time a published
+    path is added, and this card's own commit widened it by five names —
+    ``index.json``, ``book``, ``b``, ``library``, ``pages.js`` — so a
+    directory whose only entry was ``index.json``, one of the most generic
+    filenames on the web, went from refused-by-name to silently deleted.
+    Cycle 1 of this card's review found the widening shipped with a control
+    for what the guard must now ALLOW and none for what it must still DENY.
+
+    A marker is the strictly stronger predicate: it asks "did this script
+    write this tree?" instead of "does this tree look like output?", and it
+    does not widen with the published set. Two consequences, both stated
+    rather than discovered later: a tree assembled before the marker existed
+    needs ``--force`` once, and a directory that happens to hold a site's
+    filenames but not the marker is refused — which is the point.
 
     The repository root is nevertheless refused **by name, unconditionally,
     and before ``force`` is read**. That is the one bound ``--force`` has.
@@ -630,11 +1279,11 @@ def check_out_dir(out_dir: Path | str, *, force: bool = False) -> Path:
         )
     if force or not site.is_dir():
         return site
-    allowed = _site_entries()
-    foreign = sorted(entry.name for entry in site.iterdir() if entry.name not in allowed)
-    if foreign:
+    present = sorted(entry.name for entry in site.iterdir())
+    if present and not (site / SITE_MARKER_FILE).is_file():
         raise ValueError(
-            f"--out {site} holds {', '.join(foreign)}, which no assembled site has: "
+            f"--out {site} holds {', '.join(present)} and no "
+            f"{SITE_MARKER_FILE} marker, so no run of this script wrote it: "
             "refusing to delete a directory this script did not write. Pass "
             "--force if it really is the deploy target."
         )
@@ -654,10 +1303,17 @@ def assemble(
     previous run wrote (or ``force`` says to go ahead anyway).
     """
     capacity = check_capacity()
+    check_listing_capacity()
     site = check_out_dir(out_dir, force=force)
     if site.exists():
         shutil.rmtree(site)
     site.mkdir(parents=True)
+    # Written FIRST, and before any failure can happen: the marker is what
+    # check_out_dir recognises this tree by, so a run that dies half way
+    # through still leaves a target the next run may replace. Written the
+    # moment the directory exists rather than at the end, which is the
+    # difference between "a retry works" and "a retry needs --force".
+    _write(site / SITE_MARKER_FILE, SITE_MARKER_TEXT)
 
     copied: list[str] = []
     for source, published in PLAYER_FILES.items():
@@ -677,14 +1333,29 @@ def assemble(
     narrowed: list[tuple[str, str]] = []
     refused: list[tuple[str, str]] = []
     ignored: list[str] = []
+    unresolved: list[tuple[str, str]] = []
+    entries: dict[str, dict[str, object]] = {}
+    index_unread: str | None = None
+    books = 0
     count = 0
     if bundle_dir is not None:
         bundle = Path(bundle_dir)
-        for path in sorted(bundle.rglob("*")):
-            if not path.is_file():
-                continue
+        files = [path for path in sorted(bundle.rglob("*")) if path.is_file()]
+        book_files: list[Path] = []
+        for path in files:
             relative = path.relative_to(bundle).as_posix()
-            if not relative.startswith(f"{SITE_PUZZLE_DIR}/") or path.suffix != ".json":
+            if path.suffix != ".json":
+                ignored.append(relative)
+                continue
+            if relative.startswith(f"{SITE_BOOK_DIR}/"):
+                # Second pass: a book's tiles are the served puzzle entries,
+                # so every puzzle file has to have been read first.
+                book_files.append(path)
+                continue
+            if relative == SITE_INDEX_FILE:
+                # Read as the F-8 cross-check, never as the served listing.
+                continue
+            if not relative.startswith(f"{SITE_PUZZLE_DIR}/"):
                 ignored.append(relative)
                 continue
             try:
@@ -697,17 +1368,50 @@ def assemble(
             if tier_narrowed(payload.get("tier")):
                 narrowed.append((path.stem, "tier"))
             _dump(site / SITE_PUZZLE_DIR / f"{served['key']}.json", served)
+            entries[served["key"]] = listing_entry(served)
             count += 1
+
+        for path in book_files:
+            relative = path.relative_to(bundle).as_posix()
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                book, names, missing = served_book(payload, path.stem, entries)
+            except (ValueError, UnicodeDecodeError) as unservable:
+                refused.append((path.stem, str(unservable)))
+                continue
+            dropped.extend((path.stem, name) for name in names)
+            if title_narrowed(payload.get("title")):
+                narrowed.append((path.stem, "title"))
+            unresolved.extend((relative, key) for key in missing)
+            _dump(site / SITE_BOOK_DIR / f"{book['slug']}.json", book)
+            books += 1
+
+        declared, index_unread = _declared_keys(bundle / SITE_INDEX_FILE)
+        unresolved.extend(
+            (SITE_INDEX_FILE, key) for key in declared if key not in entries
+        )
+        unlisted = sorted(key for key in entries if key not in set(declared))
+    else:
+        unlisted = []
+
+    # Always written, even with no bundle: the site has a library page, so it
+    # has a library index, and an empty one is a true statement about an
+    # empty bundle rather than a missing file the page has to guess about.
+    _dump(site / SITE_INDEX_FILE, served_index(entries))
 
     return AssembleReport(
         site_dir=site,
         puzzle_count=count,
         capacity_bits=capacity,
+        book_count=books,
         dropped=tuple(sorted(dropped)),
         narrowed=tuple(sorted(narrowed)),
         refused=tuple(sorted(refused)),
         ignored=tuple(sorted(ignored)),
         copied=tuple(sorted(copied)),
+        unresolved=tuple(sorted(unresolved)),
+        unlisted=tuple(unlisted),
+        index_unread=index_unread,
     )
 
 
@@ -743,11 +1447,44 @@ def main(argv: list[str] | None = None) -> int:
             "to carry a grid. EC-048's threshold is one cell; see the module "
             "docstring for what carries it and for the residual."
         )
+        print(
+            "The two served LISTINGS are counted separately and are NOT under "
+            "that ceiling: every entry field is mirrored from a puzzle file "
+            f"({', '.join(sorted(MIRRORED_FROM_PUZZLE_FILE))}) and so adds 0 "
+            "free bits, and the rest is declared residual:"
+        )
+        print(
+            f"  exempt, by the owner's 2026-10-28 decision: "
+            f"{', '.join(sorted(EXEMPT_LISTING_FIELDS))} on "
+            f"{SITE_BOOK_DIR}/<slug>.json only, "
+            f"{book_title_residual_bits():.2f} bits "
+            f"({SERVED_TITLE_MAX_CHARS} chars x {TITLE_CODE_POINTS} code "
+            f"points) — above this ceiling and above {MAX_SIZE}x{MAX_SIZE} "
+            f"= {MAX_SIZE * MAX_SIZE} cells, so an exemption and not a bound"
+        )
+        print(
+            f"  declared residual, structural: "
+            f"{', '.join(sorted(LISTING_STRUCTURE_FIELDS))} — a book's ORDER "
+            "log2(k!) bits and its MEMBERSHIP log2(C(N,k)) bits, for k "
+            "puzzles of N published"
+        )
+        print(
+            "  the PICTURE NAME is in none of it and is refused by name "
+            "(EC-048): a book's display title and a puzzle's title are "
+            "different fields."
+        )
         return 0
     if args.out is None:
         parser.error("--out is required unless --capacity is given")
     report = assemble(args.bundle, args.out, force=args.force)
     print(f"{report.puzzle_count} puzzles into {report.site_dir}")
+    print(f"  {report.book_count} book landings")
+    for listing, key in report.unresolved:
+        print(f"  unresolved {key}: {listing} names it and no puzzle file was served")
+    if report.unlisted:
+        print(f"  not in the bundle's index: {', '.join(report.unlisted)}")
+    if report.index_unread is not None:
+        print(f"  the bundle's index was not consulted: {report.index_unread}")
     if report.dropped:
         fields = sorted({name for _, name in report.dropped})
         print(f"  dropped (not in the served schema): {', '.join(fields)}")

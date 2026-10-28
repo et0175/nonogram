@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  The public player's /b/<slug> landing (COMP-011, FR-045, ADR-0041; CARD-284).
+
+  This is the page a QR code printed in a book resolves to, which is what
+  shapes every decision in it:
+
+    * it renders from ONE static file and nothing else. pages.js fetches
+      book/<slug>.json, whose tiles player/assemble.py inlines at assembly
+      time; there is no second index to join against at page load (G-2) and
+      nothing else to wait for. A scan is seconds old and on a phone;
+    * the slug is the visible, bookmarkable path. No fragment routing, no
+      query string: ADR-0041/R7 makes the slug a hash of the book's puzzle
+      keys alone, excluding its title, precisely so an editorial title edit
+      cannot break a code already on paper;
+    * an unknown slug gets the friendly panel below rather than a bare 404.
+      A misprinted or stale code is exactly when a reader is most confused,
+      so the page says what happened and offers the library (AC-388);
+    * a book file whose puzzles are not all on the site yet lists the ones
+      that are. assemble.py resolves a book's keys against the puzzle files it
+      actually wrote and names the rest in its report, so a tile on this page
+      never 404s on tap (CARD-282's F-8, routed to CARD-284).
+
+  THE BOOK'S TITLE IS THE HEADING, AND THE PUZZLES' TITLES ARE NOWHERE.
+  Two different fields, opposite answers, and arguing them as one is what
+  cycle 1 of this card's review gated on:
+
+    * a PUZZLE's title is the picture's name. EC-048 forbids it by name on
+      every asset the public site serves, CARD-282 measured a published
+      puzzle title decoding back to all 144 cells of a 12x12 answer, and
+      CARD-163 took the name out of the admin player's own header for the
+      same reason. No tile here carries one, and no served entry has the
+      field at all — player/assemble.py's SERVED_ENTRY_SCHEMA has no
+      `title`, and its check_listing_capacity refuses to assemble if anybody
+      puts it there;
+    * the BOOK's display title is owner-authored editorial text about a
+      book. The owner was asked directly and decided on 2026-10-28 to serve
+      it: this is a book customer's first contact with the product seconds
+      after scanning a code off paper, the card's body always required the
+      title here, and FR-045's own bundle clause lists it ("its slug,
+      display title and ordered puzzle keys") in the same sentence that
+      forbids the picture name.
+
+  It is served under an explicit exemption whose cost is derived and
+  declared — player/assemble.py's EXEMPT_LISTING_FIELDS — not under a bound,
+  because no reachable bound exists for free text. The h1 below is the
+  fallback a book with no served title keeps; pages.js overwrites it with
+  textContent, never innerHTML.
+
+  No analytics tag — see play.html; ADR-0041/R6's half is CARD-285's.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your nonogram book</title>
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/player.css">
+</head>
+<body>
+<main class="player-page" data-pages-page="book">
+  <div class="page-head player-head">
+    <h1 data-pages-title>Your book</h1>
+    <span class="pages-count" data-pages-count></span>
+  </div>
+
+  <p class="player-hint">
+    Every puzzle in this book, in the order it is printed. Tap one to play it
+    here; your marks stay on this device.
+  </p>
+
+  <p class="player-fallback" data-pages-loading>
+    Loading this book&hellip; If this message stays, the page script
+    (pages.js) did not load.
+  </p>
+
+  <p class="player-announce" data-pages-announce role="status" aria-live="polite"></p>
+
+  <div class="pages-list" data-pages-list hidden></div>
+
+  <p class="player-hint" data-pages-empty hidden>
+    None of this book's puzzles are on the site yet. They are added when the
+    book is published online.
+  </p>
+
+  <div class="pages-notfound" data-pages-notfound hidden>
+    <h2>We could not find this book</h2>
+    <p data-pages-notfound-text>
+      This link does not match a book on the site. The code may have been
+      mistyped, or the book may not be published online yet.
+    </p>
+    <p>
+      <a class="btn pages-library-link" href="/library">Browse the library</a>
+    </p>
+  </div>
+</main>
+<script type="module" src="/pages.js"></script>
+</body>
+</html>

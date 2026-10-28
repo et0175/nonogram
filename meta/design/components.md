@@ -311,3 +311,31 @@ Used by: /batches (BatchTable column after Source) and /batch/<id> (kv row after
 
 Used by: /book/<id>/arrange. (CARD-191) "Sort by size" header action on the Arrangement "Puzzles in book" card — `btn btn-sm btn-outline-secondary` POST form in the header (`d-flex justify-content-between align-items-center flex-wrap gap-2`); shown only when the book has puzzles; native confirm naming no undo.
 (CARD-192) Arrangement plan band (owner chose bands ≤15, 16–20, 21–25, 26–30): band-link strip; band plan line (`p.stat-line#bandPlan`, `.stat-cell[data-over]`) reading "Easy 18 / 20 (2 left) · Medium 22 / 20 (2 over)"; reorder-off note (`p#reorder-off`: "Show all sizes to move puzzles or sort them."); "(N shown of M)" level heading; "No puzzles of this size in this level." note; plan-less Print setup sentence. Moves, position box and Sort hidden while a band is shown.
+
+## Public player listing tile — PagesTile (CARD-284)
+
+Used by: the PUBLIC player's two listing pages, `/b/<slug>` and `/library` (COMP-011, FR-045, ADR-0041) — **not** the admin panel. This is the first entry in this file outside the panel, so the scope is stated rather than assumed: the markup is `player/book.html` / `player/library.html`, the script is `player/pages.js`, the CSS is `player/player.css`, and the tokens come from `player/tokens.css`, which is a byte-identical build-time copy of the panel's own `tokens.css` (ADR-0041/R3). It is a different component from `## PuzzleTile` above, which is the panel's book-selection tile (CARD-173/180 states, a Status info-row, a thumbnail): this one has no thumbnail, no checkbox and no status.
+
+Element: an `<a class="tile">` to `/play/<key>`, carrying `data-key`, `data-tier` and `data-band`. A link and not a button, so it opens in a new tab, can be copied, and works from the keyboard with no script.
+
+Parts, in order: `.tile-number` (the puzzle's printed number in the book — its POSITION in the served order, not a field) · `.tile-size` (the extent, written with the multiplication sign as the panel's lists write it) · `.tile-tier` (`.player-tier` chip).
+
+States: numbered (on `/b/<slug>`) · unnumbered (on `/library`) · with tier chip · **without** a tier chip (a puzzle whose stored tier is outside the runtime vocabulary is served blank, and then the chip is absent rather than empty) · hover (`--color-surface-hover`) · focus-visible (`--color-focus` outline, `--player-rule-major`).
+
+There is **no puzzle title on a tile, in any state.** That is the picture's name, EC-048 forbids it on every asset the public site serves, and CARD-282 recovered all 144 cells of a 12x12 answer out of a published one. The BOOK's own display title is a different field and is the landing page's `h1` (`[data-pages-title]`), served under the exemption the owner granted on 2026-10-28; it wraps rather than scrolling the page sideways (`min-width: 0`, `overflow-wrap: anywhere`, the pair CARD-186 needed for a long picture name).
+
+Layout: `.pages-list` is `grid-template-columns: repeat(auto-fill, minmax(var(--player-tile-min), 1fr))`, so the column count is what the screen holds — one rule covers a phone and a desktop. Touch floor `min-height: 72px`, above the 44 px `.btn` floor, because a tile is the one thing a reader taps on these pages.
+
+Tokens: --color-surface, --color-surface-hover, --color-border-strong, --color-focus, --color-text, --color-text-secondary, --font-num, --font-display, --player-rule, --player-rule-major, --player-tier-hue, --radius-control, --space-1, --space-3, --text-sm, --text-xs, --text-xl. No colour literal: `tests/test_public_player_pages.py::test_the_listing_pages_carry_no_colour_literal_and_only_defined_tokens` holds every `var(` in these files to a defined name.
+
+Adjacent, same pages, same scope. Every `data-pages-*` hook the two shipped documents use is named here, and `tests/test_public_player_pages.py::test_the_public_tile_is_registered_in_the_design_inventory` holds that as an equality against the markup — a part added to a page and not written down reds the suite:
+
+- **PagesPage** — `[data-pages-page]` on the `<main>`, valued `book` or `library`. The one switch: `pages.js` is one file for both doors, and this is what tells it which source to fetch and whether tiles are numbered.
+- **PagesTitle** — `[data-pages-title]`, the `h1` on `/b/<slug>` only. The document ships "Your book" as the fallback and the script overwrites it with the book's served display title, as text. Absent from `/library`, which has no book.
+- **PagesFilters** / **PagesFilter** / **PagesClear** — `[data-pages-filters]` (the row, hidden until the script runs so no dead control is shown), `[data-pages-filter="tier"|"size"]` (two `<select>`s whose option values are the runtime's tier vocabulary and `pages.js`'s `SIZE_BANDS` ids), `[data-pages-clear]` (the Clear button). `/library` only; 44 px select and button floor.
+- **PagesCount** — `[data-pages-count]`, "N puzzles" / "1 puzzle", in the page head beside the heading.
+- **PagesList** — `[data-pages-list]`, the `.pages-list` grid of tiles. Hidden until the listing loads.
+- **PagesAnnounce** — `[data-pages-announce]`, `.player-announce[role=status][aria-live=polite]`, visually hidden, written on every render with the count element's own text or the empty note's. Filtering replaces the whole list silently otherwise; focus is deliberately not moved off the control being operated.
+- **PagesLoading** — `[data-pages-loading]`, the `.player-fallback` paragraph a page whose script never ran keeps ("If this message stays, the page script did not load"). Same shape as `play.html`'s.
+- **PagesEmpty** — `[data-pages-empty]`: "No puzzle matches these filters" on `/library`, "None of this book's puzzles are on the site yet" on `/b/<slug>`. Different sentences, because an empty filter and an unpublished book are different situations.
+- **PagesNotFound** / **PagesNotFoundText** — `[data-pages-notfound]` and `[data-pages-notfound-text]`: the friendly panel an unknown slug gets instead of a bare 404, with a `.pages-library-link` to `/library`. The text node is rewritten for a malformed address ("A book link looks like /b/ followed by ten letters and digits"). Reserved for a slug the site does not have, never for a book whose puzzles are not up yet — AC-388.
