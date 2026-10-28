@@ -185,8 +185,10 @@ ceiling argument when its dearest test was 81.03 s; it is not any more.
   character string, 108 times). **Report `cProfile` figures with both arms
   profiled** — CARD-292's headline defect was a profiled numerator over an
   unprofiled denominator, so state the instrument beside every ratio. No
-  optimisation may be committed before this table is on the card. (recorded,
-  verified by review)
+  optimisation may be committed before this table is on the card.
+  (**recorded** — the table in the implementation section; no test asserts it.
+  Re-derived by review cycles 1 and 2, and at fix round 2 from **one cProfile
+  object per test** after cycle 2's F-C2-01.)
 - **AC-2** (happy, the saving): *Given* the remedy AC-1's table selects, *then*
   the class's wall-clock falls by a figure the card **states in advance** and
   measures after, over three runs of each arm **interleaved** (not two blocked
@@ -198,25 +200,47 @@ ceiling argument when its dearest test was 81.03 s; it is not any more.
   or both). **If the honest answer is that no remedy survives G-1, that is a
   result and the card may land on it** — this card's prize is 61.62 s, not
   327.94 s, and a refused optimisation recorded with its measurement is worth
-  more than a weakened guard. (test: `TestSuiteProfile_*` records the artefact;
-  the delta is recorded)
+  more than a weakened guard. (**recorded** — the interleaved A/B table
+  below; **no test asserts the delta**. `TestSuiteProfile_*` is real — three
+  classes in `tests/test_suite_profile.py` — but it guards the *profiling
+  artefact's* shape, which is **G-4's** gate and not this AC's: cycle 2's
+  F-C2-07 as a class, audited over every test ref on this card.)
 - **AC-3** (guard, the verdict set is unchanged — the one that matters):
   *Given* the class before and after, *when* each of its planted shapes is run,
   *then* **every plant's outcome is identical**, asserted as an equality over
   the full set of (plant, verdict, refusal-reason) triples captured before the
-  change and compared after — not as "the tests still pass". (test:
-  `TestBookPdfStructure_*::test_every_plants_verdict_is_what_it_was_before_card_287`)
+  change and compared after — not as "the tests still pass".
+  (**recorded, not asserted by a named test** — a before/after **byte
+  equality** over the capture artefacts `before.txt` / `after2.txt` and the
+  257-section extended pair, which is the right instrument for a one-off
+  *"unchanged by this change"* property and is a reviewer-run capture rather
+  than a standing test. The test this AC used to name **never existed**
+  (cycle 2, F-C2-07). What stands in CI over the same plants:
+  `TestBookPdfStructure_*::test_every_door_shape_is_read_or_refused_and_never_silent`,
+  `::test_every_planted_position_shape_is_caught_or_refused`,
+  `::test_no_planted_shape_is_declared_silent`.)
 - **AC-4** (guard, the cache cannot go stale): *Given* a memoised analysis (if
   AC-1 selects caching), *when* the analysed source changes, *then* the cached
   answer is not reused — proved by a control that **plants a change and fails
   if the stale answer is returned**. A cache keyed on anything other than the
-  analysed text is a wrong answer waiting for a plant. (test:
-  `TestBookPdfStructure_*::test_the_analysis_cache_is_keyed_on_the_source_it_read`)
+  analysed text is a wrong answer waiting for a plant. (**NOT ENGAGED** — the
+  precondition *"if AC-1 selects caching"* is unmet, and the test this AC used
+  to name **never existed** (cycle 2, F-C2-07). What does stand, over
+  CARD-292's existing memo:
+  `TestSourceSegment_TheMemoIsTheStdlibAnswer::test_the_split_is_computed_once_per_distinct_text`
+  (one split per **distinct text**, which is the key property) and
+  `::test_a_seeded_corpus_of_the_real_module_segments_identically` (the
+  stdlib equivalence).)
 - **AC-5** (edge, no plant was dropped): *Given* the planted-shape inventory,
   *then* its **count and its node ids are asserted as an equality** against the
   pre-change set, so a saving cannot come from planting fewer shapes. A floor is
-  not enough; it must be an equality in both directions. (test:
-  `TestBookPdfStructure_*::test_the_planted_shape_inventory_is_the_declared_one`)
+  not enough; it must be an equality in both directions. (**recorded** — the
+  capture's full inventory equality; the test this AC used to name **never
+  existed** (cycle 2, F-C2-07). The standing equality over the same inventory
+  is `TestBookPdfStructure_*::test_every_door_shape_is_read_or_refused_and_never_silent`,
+  which asserts the refusing labels **tuple** against `DOOR_SHAPE_LABELS` and
+  `len(refusing) == len(DOOR_SHAPES)` — attributed by resolving the enclosing
+  test of each assertion, not by the file it sits in.)
 - **AC-6** (guard, the walker's reach): *Given* the production module the
   walker reads, *then* the set of call sites it classifies, and each one's
   classification, is identical before and after — **re-derived and compared, not
@@ -226,7 +250,11 @@ ceiling argument when its dearest test was 81.03 s; it is not any more.
   **Read the current figures off the module, not off this card** — that
   substitution is the whole point of the AC, and the card naming a superseded
   pair is itself an instance of the defect it guards against.
-  (test: `TestBookPdfStructure_*::test_the_classified_call_sites_are_the_ones_card_262_measured`)
+  (**recorded** — AC-6's re-derivation in the implementation section plus the
+  capture; the test this AC used to name **never existed** (cycle 2, F-C2-07).
+  The standing equality is
+  `TestBookPdfStructure_*::test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`,
+  which re-measures the cumulative sequence against `CALLEE_EXEMPTION_COST`.)
 - **AC-7** (happy, collected count): *Given* the file, *then* its collected
   count is unchanged except for controls this card adds, each named on the card,
   and **no test is merged, parametrised away, skipped or deleted** — verified by
@@ -246,8 +274,11 @@ ceiling argument when its dearest test was 81.03 s; it is not any more.
   CARD-262, and its family's signature is *claiming a reach it has not
   measured*. Fewer plants, a narrower walk, a shallower receiver resolution, a
   shorter depth bound or a widened exemption are **regressions dressed as
-  optimisations**, and AC-3/AC-5/AC-6's three equalities exist to make each of
-  them red. If the only available saving requires weakening the guard, the
+  optimisations**, and AC-3/AC-5/AC-6's three equalities **were taken as a
+  before/after capture** to make each of them red. *Past tense deliberately
+  (cycle 2, F-C2-07): those three equalities are a reviewer-run capture over
+  kept artefacts, not standing tests. The standing tests that hold the same
+  axes in CI are named beside each AC above.* If the only available saving requires weakening the guard, the
   correct outcome of this card is to **say so and close** — a slow guard that
   holds beats a fast one that does not.
 - **G-2:** do not edit `src/**`. The analysed module is the subject of the
@@ -417,25 +448,59 @@ fear was that the only saving left required guarding less. It did not.
 
 ### AC-1 — the attribution table, taken BEFORE any edit, and it answers the narrowed question NO
 
-`cProfile`, **both arms profiled**, every share's numerator and denominator from
-the *same* profiled run — CARD-292's headline defect avoided by construction. The
-unprofiled wall clock sits beside it and is **never** a denominator for a
-profiled numerator.
+`cProfile`, **both arms profiled**. **Every cell below comes from ONE cProfile
+object per test** — and that is now true of the headline cell, which it was
+not: the `14.366 / 68.35 = 21.0 %` this table used to lead with took its
+numerator from a `print_callers` dump and its denominator from a **different
+run**, while the card claimed the opposite *"by construction"* (cycle 2,
+F-C2-01, **major**). *The arithmetic that proves it needs no re-measurement:
+within one run `get_source_segment`'s cumtime cannot be LESS than that of
+`ast._splitlines_no_ff`, its only callee — yet 14.366 is less than
+`ac1_A.txt`'s 14.490.* Re-derived at fix round 2 on arm A's blob `8741bd33`,
+one `cProfile` object per test, numerator and denominator off that one object,
+with the caller ≥ callee inequality **asserted inside the probe** (it holds in
+all three runs):
 
-| test | unprofiled wall | profiled Σtottime | **profiler factor** | stdlib `get_source_segment` cum | share *(of a profiled second)* | **the planting idiom** | share |
+| test | unprofiled wall | profiled Σtottime | **profiler factor** | **the stdlib split: `get_source_segment` cum** *(its callee `_splitlines_no_ff` cum)* | share *(of that same profiled Σ)* | **the planting idiom** | share |
 |---|---|---|---|---|---|---|---|
-| `…each_door_axis_arm…` | 28.81 s | 68.35 s | **×2.37** | **14.366 s** | **21.0 %** | **0.062 s** | **0.09 %** |
-| `…every_door_shape…` | 10.23 s | 26.32 s | **×2.57** | 4.804 s | 18.3 % | 0.025 s | 0.09 % |
-| `…every_planted_position…` | 5.70 s | 14.59 s | **×2.56** | 2.736 s | 18.8 % | 0.006 s | 0.04 % |
+| `…each_door_axis_arm…` | 28.47 s | 68.39 s | **×2.402** | **14.523 s** *(14.511 s)* | **21.2 %** | **0.065 s** | **0.09 %** |
+| `…every_door_shape…` | 10.25 s | 26.35 s | **×2.570** | 4.800 s *(4.796 s)* | 18.2 % | 0.025 s | 0.09 % |
+| `…every_planted_position…` | 5.76 s | 14.71 s | **×2.556** | 2.779 s *(2.776 s)* | 18.9 % | 0.006 s † | 0.04 % |
+
+**The column header was also wrong and is relabelled** (cycle 2, F-C2-01):
+rows 2–3 were read off `_splitlines_no_ff`, not off `get_source_segment`, so no
+row said what the header claimed. Within one run the two are **the same number
+to 0.01 s**, as they must be — one is the other's only caller — and both now
+stand in the cell, which is what makes the relabel checkable rather than a
+promise. *† the third test never calls `_plant`; its planting cell is
+`Path.read_text` + `str.replace` (0.006 s on the round's run; `str.replace`
+alone is 0.002 s on this one), and `_plant` is simply absent from that
+profile.*
+
+**The headline share, with its domain attached.** **21.2 %** on this host at
+fix round 2 — 14.523 / 68.39, one object — against the card's cross-run
+**21.0 %** and cycle 2's own same-run **22.0 %** (14.383 / 65.32). *The three
+disagree in the DENOMINATOR and not in the numerator: the stdlib split reads
+14.37 / 14.38 / 14.52 s across the three runs while the profiled total reads
+68.35 / 65.32 / 68.39. Which is the card's own lesson arriving on the card's own
+first figure — a profiled total is a property of the run, so a share assembled
+from two runs is not a share.* **The scope, stated precisely so it is not
+overstated**: CARD-292's headline defect — a profiled numerator over an
+**unprofiled** denominator — really **was** avoided here, which is what AC-1
+demanded; what this one cell had was the smaller **cross-run** variant, and it
+moves the figure by **0.2 percentage points** against this station's
+re-derivation. The conclusion the table draws is untouched in every reading.
 
 **A PROFILED second is not a wall-clock second, and no share in that table may
 be read as one** (review cycle 1, F-05). The factor column is the ratio of the
 table's own first two columns — the profiler inflates these tests by
-×2.37 / ×2.57 / ×2.56, because it instruments 23.2 M `ast.walk` calls into the
+**×2.40 / ×2.57 / ×2.56** on this station's own three runs (×2.37 / ×2.57 /
+×2.56 on the round's), because it instruments 23.2 M `ast.walk` calls into the
 denominator while the split is **one** instrumented call doing heavy
-*un*instrumented work inside. So 21.0 % understates the unprofiled share by
+*un*instrumented work inside. So ~21 % understates the unprofiled share by
 about a factor of two: the saving AC-2 actually measured on that test is
-**45.5 %** of it, 2.17× the profiled share. The *unprofiled* domain is the one
+**45.5 %** of it, **2.15×** the re-derived profiled share (45.5 / 21.2) and
+2.17× the cross-run one. The *unprofiled* domain is the one
 that carried the prediction, and it is labelled as such wherever it appears.
 
 **The plants are not the bill and never were** — 0.062 s of 68.35 s. `str.replace`
@@ -448,11 +513,24 @@ over the 389 k string is a single C call that no profiler inflates.
 **`_page_positions` itself calls stdlib `ast.get_source_segment` 2 556 times.**
 CARD-292 memoised the line split and routed **one of this file's THREE**
 analysis call sites through the memo — `_page_positions`' `segment()` closure
-at `:1750` — and **the other two kept calling the stdlib**: that method's own
-`found.append` tail at `:2927` (the hot one) and `_counting_expressions` at
-`:1449` (the cold one). **Three, not two** (F-08), counted rather than read:
-a spy wrapped round the module-global `_source_segment` over one analysis
-reports `{1750: 718, 2927: 24, 1449: 8}` calls by caller line.
+at **`:1761`** — and **the other two kept calling the stdlib**: that method's
+own `found.append` tail at **`:2938`** (the hot one) and
+`_counting_expressions` at **`:1460`** (the cold one). **Three, not two**
+(F-08), counted rather than read: a spy wrapped round the module-global
+`_source_segment` reports **`{1761: 718, 2938: 24, 1460: 8}`** calls by caller
+line. *Line numbers re-keyed at fix round 2 (cycle 2, F-C2-03): the
+`:1750/:2927/:1449` this paragraph used to carry were the **superseded blob
+`a2b950ca`'s**, and contradicted the mutant table's own 2938/1460 two screens
+below. Re-derived through two doors on the committed blob — a static `ast`
+pass (`_source_segment` call sites `[1460, 1761, 2938, 6501, 6546, 6590,
+6627]`) and the spy — and unchanged by this round's own edit, which is 6 800
+lines further down; S1 and S2 still red naming 2938 and 1460.* **And the 718
+has a domain, which was missing:** it is **one PLANTED analysis** — the
+7 334-line planted text the dear test runs, `DOOR_SHAPES[0]` — measured
+through one spy over both texts in one process; the **real module's** analysis
+makes **716** calls at that same site, with 24 and 8 unchanged. The figure the
+rest of this card multiplies is the planted one, which is the right one, and
+it now says so.
 
 **What each of those calls re-splits is a BOUNDED PREFIX, not the whole
 source** (F-287-01, gating). CPython 3.14 passes `maxlines=end_lineno+1` and
@@ -467,9 +545,20 @@ survives restated:** a prefix averaging four fifths of the module, 2 556 times,
 is still the bill — **4.730 ms** per bounded split against **5.999 ms**
 unbounded (`perf_counter`, unprofiled, five blocks with the two measured
 round-robin, medians). This file already carried the correction **300 lines
-above** the place the round re-broke it; the word is now gone from all four
-tracked places, and a grep for `whole`/`entire`/`389 k` over the file leaves
-exactly one occurrence — the retraction itself.
+above** the place the round re-broke it, and the word is now gone from all four
+tracked places. **The grep that actually reproduces** (cycle 2, F-C2-02 — the
+one this paragraph used to offer does not, and the audit is the class rather
+than the instance): `grep -c "whole source"` → **1**, line 1444, the retraction
+itself. `grep -c whole` → **29**, of which **five** are in a source-splitting
+context — 1106 and 6665 and 6735 **negate** the mechanism (*"it is **not** a
+whole-source split"*, *"not the whole text"*), 1444 **retracts** it, and 1116 is
+CARD-292's legitimate comparative (*"at half the constant a whole-source split
+would carry"*) — while the other **24** are the ordinary English intensifier
+(*"the whole point"*, *"a whole card"*, *"whole subject"*), 25 of the 29
+predating this card at `4f160e62`. `grep -niE "entire|389 ?k"` → **1**, the
+unrelated word *"entirely"* at line 788. **No occurrence asserts the
+whole-source mechanism**, which is the substantive property, and that is now
+the claim rather than a count that does not reproduce.
 
 **2 556 is right; `24 × 108` is not** (F-04). `len(sites)` is **23 for 36** of
 the 108 analyses and **24 for 72**, so the honest decomposition is
@@ -525,11 +614,22 @@ arithmetic, kept visible so a reader can check it:
 The bottom row is the one that stands, and **its saving is re-derived here, not
 taken from cycle 1**: 2 556 counted splits × **4.730 ms** bounded − 108 memo
 misses × **5.693 ms** = **11.48 s** (`perf_counter`, unprofiled, five blocks
-measured round-robin, medians). **A second domain for the same saving**, because
-reproducing a figure with its own method only confirms the method: a
-`cost(maxlines)` curve timed at 11 points across the real bound range and summed
-over **all 2 556 actual bounds** rather than over a mean gives **11.57 s** —
-0.8 % away. Cycle 1's own reading of that row was 11.80 s, i.e. 16.08 vs 15.19
+measured round-robin, medians). **That `cost(maxlines)` curve is NOT a second domain, and calling it one was
+wrong** (cycle 2, F-C2-08). Timed at 11 points across the real bound range and
+summed over **all 2 556 actual bounds** rather than over a mean it gives
+**11.57 s**, 0.8 % away — but it shares the **timer, the process, the planted
+text and the split function** with the instrument above, so what it controls is
+the **aggregation** (whether a mean is a fair summary of a non-linear cost), not
+the instrument. Agreeing to 0.8 % is the tell. **A genuine second domain
+exists, and it is cycle 2's rather than this card's**: an in-situ wall clock
+with no count × ms model in it at all — three interleaved arms over the same
+108 analyses in one process, the two routed call sites sent back to
+`ast.get_source_segment` **by caller line**, and a third arm measuring the
+dispatcher's own overhead instead of assuming it. It measures the saving at
+**12.20 s**, against which the bounded model (11.48 s) is **5.9 % LOW** and the
+whole-source model (14.72 s) **20.7 % HIGH** — so F-287-01's correction had
+real consequence. *Measured by review cycle 2, cited here as theirs; this
+station did not retake it.* Cycle 1's own reading of that row was 11.80 s, i.e. 16.08 vs 15.19
 = 5.9 %. **So the method lands 6–8 % out, the spread being the host's reading of
 the two ms/call figures. Six to eight per cent is what it is worth. It is not
 1.0 %, and the 1.0 % was never an agreement.** The same method run with the
@@ -587,17 +687,53 @@ And the same sha256 came back from the run taken **before** these prose edits
 against the committed blob `a2b950ca`, so the fix round moved nothing either.
 `xcapture.py` and both arms' outputs are kept with the round's artefacts.
 
-**Why the equality means anything: the capture is SENSITIVE, established, not
-assumed.** One character appended to each non-`None` segment at each changed
-call site, then the capture recomputed and compared position by position: the
-**hot** site moves **793 of 11 936** lines of the extended capture (6.6 %) and
-**75 of 1 752** of the round's (4.3 %); the **cold** site moves **8** lines in
-both. Non-zero at **both** sites, so the capture really does read the output of
-both changed call sites and **is not self-confirming**. *(Cycle 1 reached the
-same conclusion with 1 535 / 8; its injected divergence was evidently a
-different one from this station's single appended character, and **I cannot
-establish** what exactly it injected. The conclusion is what reproduces, not
-the magnitude.)*
+**Why the equality means anything: the capture is SENSITIVE, and the measure of
+that is SECTIONS, not lines** (cycle 2, F-C2-05 and F-C2-06 — a bound that was
+closeable and is now closed). A divergence injected at each changed call site,
+the capture recomputed, and the two texts compared **three ways**: index by
+index, by `diff`'s own edit script, and **section by section** over the
+capture's named sections. Re-derived at fix round 2 on the committed blob, three
+injections of this station's own:
+
+| injection at the changed site | capture lines | positional one-sided | `diff` one-sided | **sections whose content differs** |
+|---|---|---|---|---|
+| **hot**, one character *appended* | 1 752 | **75** (4.3 %) | 75 | **6 of 52** |
+| **hot**, one character *dropped* | **1 744** | **1 543** (88.1 %) | 75 | **6 of 52** — *the same six* |
+| **cold**, one character *appended* | 1 752 | **8** (0.5 %) | 8 | **1 of 52** |
+
+Non-zero at **both** sites, so the capture really does read the output of both
+changed call sites and **is not self-confirming** — and the six sections are
+named rather than counted: `AC6 real/shipped sites`,
+`AC6 real/no-door-arms sites`, `AC6 real/follow-terms sites`, and the
+`PLANTED_LITERAL` / `DERIVED_INSTEAD` / `EXEMPTED_TERM` outcomes; the cold
+site's one is `AC3 counting expressions (lineno, text)`.
+
+**And this is how cycle 1's 1 535 and fix round 1's 75 are the SAME FACT.** A
+positional line-by-line comparison of a `pprint`-formatted text **is not
+invariant under a change in the text's line count**: a divergence that
+*lengthens* each segment leaves the capture at 1 752 lines and moves only the
+75 lines whose content changed, while one that *shortens* it re-wraps `pprint`
+to 1 744 lines, after which almost every later line differs **positionally**
+although the same six sections carry the change. Cycle 1's figure is
+**reconstructed to within 8 lines** by a one-character drop — **1 543 of
+1 752** against its 1 535, with the first changed line at index 2 exactly as
+the append has it and the same six sections behind both — so
+neither round measured wrongly and neither magnitude was a property of the
+capture. *What the two rounds were missing was an instrument whose domain is
+the answer rather than the formatting*, and two of them are invariant across
+every injection above: the **section set** and `diff`'s own **edit script**
+(75 either way, because `diff` matches lines rather than indexes). The card now
+leads with the sections.
+
+On the **extended** capture the same hot injection reaches **69 of its 257
+sections** and **793 of 11 936** lines (6.6 %), the cold one **1 of 257** and
+**8** lines — re-derived here from the round's own saved outputs with this
+station's own comparator. **Which settles the two figures the artefacts
+disagreed on** (cycle 2, F-C2-06): `fix1-capture-equality.log`'s **1 586** and
+**16** are `diff | grep -c '^[<>]'`, a **two-sided** count that reads **both**
+sides of every changed line — exactly **2 × 793** and **2 × 8**. The card's
+**793 / 8** is the right count; the log's pair is superseded and a note saying
+so now sits beside it in the artefact directory.
 
 **So G-1's conclusion stands on the extended set**, and the claim now states
 what the artefact does.
@@ -624,7 +760,7 @@ not exist.
 merged, parametrised away, skipped or deleted. The one addition is named and
 costs 0.04 s.
 
-### The mechanisms added, and the ten mutants over them — **with a saved log**
+### The mechanisms added, and the eleven mutants over them — **with a saved log**
 
 `test_no_analysis_in_this_file_reaches_for_the_stdlib_splitter` makes the saving
 **durable** — the stdlib and the memo return the same string, so a regression
@@ -634,13 +770,17 @@ outermost enclosing scope of every `*.get_source_segment` **call** and
 `STDLIB_SEGMENT_SCOPES`, with **both** controls inline — it must rise on a call
 planted in a foreign scope and must **not** rise on a mention.
 
-All ten rows below were **re-fired at fix round 1** — the eight original ones
+All ten rows were **re-fired at fix round 1** — the eight original ones
 because the derivation changed underneath them (F-07), plus two over the fix
 round's own addition — and the run is now **logged**, which F-06 filed as
 missing: `mutant-census-fix1.log` carries every mutant, the assertion that
 fired *with its own message*, and the restore hash after each
 (`4d9a8977…`, checked eleven times, `git status --porcelain` clean apart from
-the fix edits themselves).
+the fix edits themselves). **All eleven rows were re-fired again at fix round
+2**, because that round changed the **plant** the last two rows run against:
+`mutant-census-fix2.log`, same shape, restore hash `b34512e8…` checked twelve
+times (the unmutated control first), and the eleventh row is **E1**, the edge
+mutant cycle 2 fired and found surviving.
 
 | mutant | result | which assertion fired, and on what |
 |---|---|---|
@@ -654,11 +794,21 @@ the fix edits themselves).
 | **M4** delete the outermost-scope rule | **killed** | set equality — **method** names in place of the class |
 | **N1** *fix round 1* — delete the `node.lineno` the derivation now carries | **killed** | the **positive control**, and only it: `[('Foo', 0)] != [('Foo', 4)]` |
 | **N2** *fix round 1* — delete the lineno half of the **failure message** | **survived — declared** | nothing fired; see below |
+| **E1** *fix round 2* — **the EDGE of N1's own claim**: `node.lineno` → `node.end_lineno` | **killed** | the **positive control**: `assert [('Foo', 5)] == [('Foo', 4)]` |
 
 **S1 and S2 now name different lines — 2938 against 1460 — which is F-07
 closed:** before the fix they produced the identical message. **N1 proves the
-line is load-bearing** and that the positive control is what pins it. **N2 is
-an honest declared negative:** a failure *message* is only rendered on failure,
+line is load-bearing** and that the positive control is what pins it.
+**E1 closes the matching EDGE, and it was a real gap**: with the single-line
+plant fix round 1 wrote, `node.lineno` and `node.end_lineno` are the same
+number, so swapping them was invisible to **every** assertion in the tree —
+cycle 2 fired it and it **SURVIVED** (F-C2-04). The plant now spans two lines
+(`lineno` 4, `end_lineno` 5) and the same equality asserts `[("Foo", 4)]`, so
+it pins the line the call **opens** on; E1 reds it with
+`[('Foo', 5)] == [('Foo', 4)]`. *A closeable bound CLOSED rather than
+declared, and the inside/edge pair the board asks of a comment that says what
+a test catches is now two runs rather than one.* **N2 is an honest declared
+negative:** a failure *message* is only rendered on failure,
 so while this file is green no assertion can observe its text; killing N2 would
 need a test that asserts on another test's message, which this tree does not
 do. Declared rather than papered over, and the evidence that the message is
@@ -726,11 +876,22 @@ AC-3/5/6 (recomputation, twice, as a byte comparison); every mutant row is a run
 and every kill names its assertion.
 
 **Inferred and labelled as such — AC-8 is a PROJECTION, not a measurement.** A
-full-suite run is forbidden to the implementation station. File **105.66 → 70.62 s**
-is measured; projected suite **≈ 1240.8 s**, file share **≈ 5.7 %** (was 8.3 %),
-class **≈ 2.66 %** (was 4.85 %). CARD-292's file-level prediction agreed with its
-suite gate to 1.7 %, which is the precedent for the method — but **it stays an
-inference until the merge gate measures it.**
+full-suite run is forbidden to the implementation station. **Both baselines,
+stated separately, because the arrow mixed them** (cycle 2, F-C2-09): what is
+**measured** is this round's **arm B, 70.62 s**; AC-8 **mandates** reporting it
+against the card's own pre-round figure of **105.66 s**; and the round's own
+**arm A on this host is 100.19 s**, ~5 % lower for the host reason this card
+declares two paragraphs down. *"105.66 → 70.62 s is measured" was an arrow
+whose two ends came from different host states.* The projection subtracts the
+round's **own** delta, which is the honest construction and the arithmetic
+actually used: **100.19 − 70.62 = 29.57 s** off 1270.34 s → **≈ 1240.8 s**,
+file share **≈ 5.69 %** (was 8.32 %), class **≈ 2.66 %** (was 4.85 %).
+*Re-derived at fix round 2 from the two figures themselves: the mandated
+105.66 s baseline would instead give 1235.3 s, which is **not** the number on
+this card, so the card's own arithmetic already used arm A.* CARD-292's
+file-level prediction agreed with its suite gate to 1.7 %, which is the
+precedent for the method — but **it stays a PROJECTION until the merge gate
+measures it.**
 
 **A baseline difference declared rather than hidden.** The test file in the
 worktree is byte-identical to `2fddaccc`, so the gap is host, not tree: arm A
@@ -957,7 +1118,7 @@ the assertion pins.
 | **F-05** | a profiler-factor column and a paragraph saying a profiled second is not a wall-clock one | arithmetic over AC-1's own two measured columns |
 | **F-06** | `mutant-census-fix1.log` — ten mutants, the assertion that fired, the restore hash after each | eleven `git hash-object` checks against `4d9a8977` |
 | **F-07** | **CLOSED** — `(scope, lineno)` pairs for the message, `set(scopes)` still the authority | the old and new derivations compared side by side on two blobs: same scope list |
-| **F-08** | **three** analysis call sites, not two, everywhere | the spy's by-caller-line census, `{1750: 718, 2927: 24, 1449: 8}` |
+| **F-08** | **three** analysis call sites, not two, everywhere | the spy's by-caller-line census, `{718, 24, 8}` — *keyed in this round's log to the superseded blob's lines `1750/2927/1449`; the committed blob's are **1761/2938/1460** and the 718 is a **planted** analysis's (cycle 2, F-C2-03, re-derived at fix round 2)* |
 
 **Nothing changed behaviour, and here is the check that proves it.** The
 scope-only derivation and the pair derivation return the **identical** scope
@@ -1063,7 +1224,9 @@ substance holds, no occurrence asserts the false mechanism. **F-C2-03** F-08's
 `:1750/:2927/:1449` are the **superseded blob's** lines; the committed blob has
 **1761/2938/1460**, which the card's own mutant table names — internally
 inconsistent. **F-C2-04** the added mechanism has an inside mutant and **no edge
-mutant**: `node.lineno → node.end_lineno` **SURVIVES**. **F-C2-05** the
+mutant**: `node.lineno → node.end_lineno` **SURVIVES** — **CLOSED at fix
+round 2** (`83b7dcd2`), killed by the positive control over a two-line plant.
+**F-C2-05** the
 sensitivity magnitude was closeable and was declared instead. **F-C2-06** two
 kept artefacts give **1 586** and **793** for the same measurement (the 1 586 is
 a two-sided `diff | grep -c '^[<>]'` double count). **F-C2-07** AC-3/4/5/6 each
@@ -1104,7 +1267,8 @@ and sufficient for what N1 claims* — the positive control is the only assertio
 that can see the lineno at all. But it is **insufficient for the mechanism**: the
 plant is single-line, so it pins *that a line is reported*, not *that the right
 line is*. **Unlike M1 this is not structurally unkillable** — a two-line plant
-closes it. **N2's reason is correct** (an assert's message operand is evaluated
+closes it, **and fix round 2 closed it**: E1 now reds the positive control
+with `[('Foo', 5)] == [('Foo', 4)]`. **N2's reason is correct** (an assert's message operand is evaluated
 only on failure) and cycle 2 confirmed un-observability with a **second** message
 mutant of its own, so it is *a declaration with a control, not a claim wearing
 one*; S1-vs-S2 is adequate evidence the message is right. One slight
@@ -1113,11 +1277,13 @@ not of the tree. **M1** survived the F-07 re-fire as declared; **S1/S2** killed
 naming **2938** and **1460** separately — F-07 genuinely closed, verified here
 rather than read from the log.
 
-### The last mile — four characters
+### The last mile — four characters — **TAKEN at fix round 2**
 
 **Span the positive control's planted call over two lines so
 `lineno != end_lineno`**, which kills cycle 2's **E1** and reds on nothing.
-*"Nothing else in this review asks for code."*
+*"Nothing else in this review asks for code."* → done in `83b7dcd2`: E1
+**killed** by the positive control, the guard class green, and both capture
+equalities re-run. See the fix round 2 section below.
 
 ### Could not establish, in those words
 
@@ -1125,3 +1291,163 @@ The exact character cycle 1 injected; **when `prediction.txt` was written**; the
 suite-wide figure (AC-8, the merge gate's); whether the other two tests' cProfile
 readings reproduce (only the dear test's pair was retaken); whether the residual
 ~32.7 s is reducible (**CARD-303's**).
+
+## [FIX ROUND 2 — 2026-10-28] `83b7dcd2` — the lineno claim gets its EDGE mutant, and eight prose corrections
+
+Against `meta/review/20261028T042701Z-CARD-287-cycle2.yml` (**8.0, CERTIFIED,
+zero gating**). **Cycle 2 asked for one thing in code and it was four
+characters; everything else here is a figure or a label.** One file,
+`tests/test_book_export_interior_cover.py`, **+18/−6**, blob `b34512e8`.
+`src/` and `pyproject.toml` **zero diff** (G-2). Nothing changed behaviour
+beyond the plant: no derivation, no authority, no assertion operand.
+
+### F-C2-04 — the EDGE mutant, CLOSED rather than declared
+
+Fix round 1's one mechanism had an **inside** mutant (N1, the lineno deleted)
+and no **edge** one, and cycle 2 fired the edge: `node.lineno` →
+`node.end_lineno` in `_stdlib_segment_scopes` **SURVIVED** the whole file,
+because the positive control planted a **single-line** call, so
+`lineno == end_lineno == 4`. All four of this file's own
+`*.get_source_segment` calls are single-line too — `(6501, 6501)`,
+`(6547, 6547)`, `(6623, 6623)`, `(6624, 6624)`, re-derived here as
+`(lineno, end_lineno)` pairs — so the main set equality could not see it
+either.
+
+The plant now spans two lines — `ast.get_source_segment(\n            source,
+node)`, `lineno` **4**, `end_lineno` **5** — and the equality still asserts
+`[("Foo", 4)]`, so it pins the line the call **OPENS** on. **E1 is killed**,
+by the positive control, with its own message:
+
+> `AssertionError: the derivation does not rise on a call planted in a foreign
+> scope, or does not report the line that call OPENS on, so its zero above says
+> nothing (positive control)` — `assert [('Foo', 5)] == [('Foo', 4)]`
+
+The docstring's mutant paragraph now names that edge row beside N1, so the
+board's two-mutant rule for a comment that says what a test catches is met by
+**runs** rather than by argument. *Unlike M1 — which is structurally
+unkillable on this file — this bound was closeable, and a closeable bound is
+closed.*
+
+**The census, re-fired over the changed plant** (`mutant-census-fix2.log`):
+**eleven mutants** plus the unmutated control, one node id at a time, **per
+assertion**, line-count-preserving, each restored and checked with
+`git hash-object` against `b34512e8` — **the committed blob**, twelve checks
+all OK and `git status --porcelain` **empty** after the last restore. *The
+census was fired once on an intermediate blob and then **re-fired whole** on
+`b34512e8`, because a restore hash that names a blob the run did not use is
+not a control; both runs give the same eleven verdicts.* S1 **killed**
+naming **2938**, S2 **killed** naming **1460**, S3 killed, S4 survived (the
+negative control), M1 survived **as declared**, M2/M3/M4 killed, N1 killed by
+the positive control (`[('Foo', 0)]`), **E1 killed** (`[('Foo', 5)]`) where it
+survived before, N2 survived **as declared**.
+
+### G-1 — both capture equalities re-run after the edit, both arms
+
+**Both arms, both captures, byte-identical — and the arms are the file's own
+blobs, not a description of them.** Arm A is `4f160e62`'s blob `8741bd33`,
+swapped in with `git show` and restored under `git hash-object` after every one
+of the **six** swaps the capture/profile driver made — two arms, three
+injections, and arm A once more for the profiles — each verified back to
+`b34512e8` inside the driver, which exits non-zero on a mismatch; plus the
+**eleven** in the census, checked the same way. `git status --porcelain`
+clean at the end of both.
+
+| capture | arm A (`8741bd33`) | fix round 2 (`b34512e8`) | result |
+|---|---|---|---|
+| the round's **52-section** capture | 1 752 lines, 52 sections | 1 752 lines, 52 sections | **`cmp` IDENTICAL**, sha256 `223019c2…` |
+| the **257-section** extended capture | 11 936 lines, 257 sections | 11 936 lines, 257 sections | **`cmp` IDENTICAL**, sha256 `eb754d30…` |
+
+Both sha256s also equal the round's own kept artefacts — `223019c2…` matches
+`before.txt` **and** `after2.txt`, `eb754d30…` matches
+`extended-capture_armA.txt` **and** `extended-capture_armBfix.txt` — so this
+station's runs agree with fix round 1's and with cycle 2's. A second accounting
+beside `cmp`, written for this round: **0 of 52** and **0 of 257** sections
+differ in content, and the positional diff is **0** in both. **G-1 holds
+through fix round 2.**
+
+### The eight card and artefact corrections
+
+| finding | what was wrong | what it says now, and the door |
+|---|---|---|
+| **F-C2-01** (major) | AC-1's headline `14.366 / 68.35 = 21.0 %` mixed **two cProfile runs** while the card claimed *"same profiled run … avoided by construction"* | the share **re-derived from one `cProfile` object per test**, the column **relabelled** (rows 2–3 were `_splitlines_no_ff` cum, not `get_source_segment`), and the scope stated: CARD-292's profiled-over-unprofiled defect **was** avoided; this was the smaller **cross-run** variant |
+| **F-C2-02** | the class audit was offered as a grep that returns **29**, not 1 | the grep that reproduces is `grep -c "whole source"` → **1**; the 29 are counted and classified, 24 of them the ordinary English intensifier |
+| **F-C2-03** | `:1750/:2927/:1449` were the **superseded blob's** lines | re-keyed to **1761/2938/1460** through two doors on the committed blob, and the `{718, 24, 8}` census given the **domain it was missing**: 718 is one **planted** analysis, 716 the real module |
+| **F-C2-04** | an inside mutant and no edge mutant | **the one code item**, above |
+| **F-C2-05** | the sensitivity magnitude was closeable and was declared | **resolved** — the disagreement is an artefact of the comparison, and the invariant measure is **sections**, re-derived here in three injections |
+| **F-C2-06** | two kept artefacts give **1 586** and **793** for the same measurement | reconciled in the artefact directory: the 1 586 is a **two-sided** `diff \| grep -c '^[<>]'` double count; **793 / 8** is right |
+| **F-C2-07** | AC-3/4/5/6 cited `(test: …)` for tests that **do not exist** | every `(test: …)` and `(recorded…)` ref on the card audited as a **class**; each AC now says what really verifies it |
+| **F-C2-08** | AC-2's "second domain" controlled the **aggregation**, not the instrument | restated as such, and cycle 2's genuine second domain (in-situ wall clock, **12.20 s**) cited **as cycle 2's** |
+| **F-C2-09** | AC-8's arrow mixed baselines | **both baselines stated**, the projection's own arithmetic re-derived, and AC-8 kept labelled a **PROJECTION** |
+
+**The class behind F-C2-07, audited rather than the instance.** Every `test_*`
+token on this card was resolved against the tree, not just the four cycle 2
+named. **As cycle 2 left it**: 16 distinct tokens, of which five are file
+stems (`test_book_export_interior_cover`, `test_browser_fixture_scope`,
+`test_guard_integrity`, `test_kill_matrix`, `test_suite_profile`) and one a
+config key (`review.test_scope`); of the **ten** real test references,
+**four** named a test that exists nowhere — exactly AC-3's, AC-4's, AC-5's and
+AC-6's — and six existed. AC-2's `TestSuiteProfile_*` is real (three classes)
+but guards the *profiling artefact* rather than this card's delta, so it is
+relabelled too. **Re-audited after the corrections**: the card again carries 16
+tokens, the four dead names are gone, four live ones took their place
+(`test_the_split_is_computed_once_per_distinct_text`,
+`test_a_seeded_corpus_of_the_real_module_segments_identically`,
+`test_no_planted_shape_is_declared_silent`,
+`test_the_callee_arm_defaults_to_deny_and_every_exemption_pays_its_cost`), and
+**all ten real references now resolve to a `def` in the tree** — nine in this
+card's own file, one (`test_ac7_the_four_arm_grid_of_card_257_reproduces`)
+elsewhere. *Attributed by resolving each assertion's **enclosing test**, not by
+the file it sits in; no test was invented to satisfy a reference.*
+
+### Pre-gate, fix round 2 — one invocation over the same derived radius of ten files
+
+`pytest -o addopts='' -q -rs` over the same derived radius of ten files, with
+`tests/test_browser_fixture_scope.py` **explicit** (G-5), subject blob
+`b34512e8` — which is what `83b7dcd2` contains, and the log's `HEAD:` cell says
+`83b7dcd2` this time rather than the previous commit.
+
+- **collect-only: 1 051 collected**, exit 0 — and **every one of the ten files
+  contributed**, counted off the collect output rather than assumed:
+  410 + 167 + **133** + 126 + 76 + 41 + 34 + **29** + 22 + 13 = 1 051. The
+  **29** is `test_browser_fixture_scope.py` (**G-5** — named *and* collected,
+  not named and silent) and the **133** is this card's own file, AC-7's count
+  unchanged by this round.
+- **run: 1 051 passed, 0 failed, 0 errors, 0 skipped**, exit 0, **279.96 s**.
+- `-rs` printed **zero `SKIPPED` lines and no short-test-summary section**, so
+  **there is no skip to attribute**; no `s` appears in the progress line either.
+- Host cells: **rival-pytest 0 at both ends** (`pgrep -f
+  'MacOS/Python.*pytest' | wc -l`), load **4.35 → 4.85**,
+  `$TMPDIR/nonogram-test-hang.txt` **0 bytes** — no per-test kill, against the
+  120 s ceiling. **`NONOGRAM_TEST_HANG_SECONDS` was left unset in every run of
+  this round** — the census, the seven capture runs, the three profiles, the
+  two probes and this gate; it is set **nowhere**.
+  `meta/kanban/.full-suite.lock` **absent at the start and the end of every
+  run and never taken**; **the full suite was not run.**
+- G-4 holds: no file added or removed under `tests/` or `meta/profiling/`, so
+  the frozen render set cannot have moved, and `tests/test_suite_profile.py`
+  ran explicitly inside this gate (410 of the 1 051).
+
+### Could not establish, in those words, at fix round 2
+
+- **The suite-wide figure.** AC-8 stays a labelled projection; the full suite
+  was **not** run here, and `meta/kanban/.full-suite.lock` was **absent at both
+  ends of every run and never taken**.
+- **The exact character cycle 1 injected.** Unchanged: cycle 1 saved no
+  injection script. What *is* now established is the **family** — a
+  one-character shortening — and the **invariant** measure, which is sections.
+- **When `prediction.txt` was written.** Unchanged from cycle 1, cycle 2 and
+  fix round 1: no artefact readable here carries that ordering.
+- **Whether N2 is killable** in its chosen shape. Unchanged, and cycle 2
+  confirmed the reason with a second message mutant of its own.
+- **Whether cycle 2's 12.20 s in-situ saving reproduces.** Not retaken at this
+  station; it is cited as cycle 2's measurement, in cycle 2's domain.
+- **Whether the residual ~32.7 s is reducible** — **CARD-303's**.
+
+**Artefacts added at fix round 2**, at `~/Documents/nonogram-reviews/CARD-287/`:
+`mutant-census-fix2.log` + `mutate3.py` (the re-fired census);
+`fix2-capture-equality-and-ac1.log` + `driver-fix2.sh` + `compare-fix2.py`
+(both capture equalities, the three injections, and the same-run profiles, with
+every swap restored under `git hash-object`); `ac1_same_run-fix2.py`;
+`f03_sites-fix2.py` + `fix2-f03-sites.txt` + `fix2-f03-determinism.txt`;
+`fix2-F-C2-06-reconciliation.txt`; `pregate-fix2.txt`; `commit-fix2.msg`. None
+tracked; none under `tests/` or `meta/profiling/`.
