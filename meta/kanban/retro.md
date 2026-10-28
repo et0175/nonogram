@@ -1550,11 +1550,15 @@ sound and the magnitude as not._
   near-miss. A cell that cannot distinguish "the quantity is zero" from "the
   instrument is blind" is not a measurement.* Scope must include `meta/profiling/**`
   and `meta/kanban/**`, where most of this wave's figures lived.
-- **python-pro ×1.4 is NOT recommended despite the signal.** Both cards spent 3/3
-  cycles, but neither spent them on the edit: CARD-292's code landed in round 1 and
-  CARD-287's in round 1, and every subsequent cycle went to *how the card described
-  its own measurements*. Calibrating effort up would mis-price the next feature card.
-  The real lesson is the family above, not the estimate.
+- **python-pro ×1.4 — DECLINED by the owner, 2026-10-28. Do not re-offer.** Both
+  cards spent 3/3 cycles, but neither spent them on the edit: CARD-292's code landed
+  in round 1 and CARD-287's in round 1, and every subsequent cycle went to *how the
+  card described its own measurements*. Calibrating effort up would mis-price the
+  next feature card. The real lesson is the family above, not the estimate. Nothing
+  was written to `backlog-scored.yml`. The signal is preserved as a note on
+  `effort_calibration/python-pro/tech-debt` in `~/.forge/retro-signals.yml` and was
+  **not merged into that entry's mean** — it is a cycles proxy and the entry is
+  built from wall-clock, which ADR-0039/R4 forbids averaging together.
 - **Fill in `Actual:`.** Two waves running with proxy-only data means the effort
   scale is being calibrated off cycle counts, which on measurement cards track
   certification cost rather than work.
