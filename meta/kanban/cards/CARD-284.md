@@ -15,7 +15,7 @@
 **Wave:** 63
 **Depends on:** CARD-282, CARD-283
 **Touches:** player/**, tests/test_public_player_pages.py, tests/test_public_player.py, meta/design/components.md, meta/architecture/requirements.yml <!-- the last added 2026-10-28: the card could not be implemented without it, see the implementation round's F-1. CARD-283 shipped three tests that directly contradict serving the listings. Neither sibling card in wave 63 names it, so the wave's measured empty path intersection holds. --> <!-- corrected 2026-10-28 at fix round 1, two paths edited and undeclared: meta/design/components.md (F-009 -- the card's own Design context required the registration and the declaration never existed) and meta/architecture/requirements.yml (FR-045's /b/<slug> clause and AC-387, carrying the owner's book-title decision; 17 insertions / 5 deletions at two hunks, measured against merge-base 7a62d704 -- NOT the 23/63 a diff against a newer main reports, which counts CARD-227's absent additions as deletions). AC ids unchanged, so trace.yml needs nothing, and a trial merge into main produces 0 conflict markers. -->
-**Review score:** 6.5 cycle 1/3 → fix round 1 → awaiting cycle 2
+**Review score:** 6.5 → 7.5 cycle 2/3 → fix round 2 → awaiting cycle 3 (**its last**)
 **Started:** 2026-10-28T07:23:17Z
 **Closed:** —
 **Actual:** —
@@ -49,9 +49,12 @@ path (no fragment routing, no query-string indirection).
 
 FR-045 (registry entries minted by the 2026-10-23 architect delta, ADR-0041).
 
-- AC-387: Given a bundle with a finalized book, when `/b/<slug>` loads, then its
-  puzzles are listed in book order and tapping one opens `/play/<key>` for that
-  puzzle (test: tests/test_public_player_pages.py::test_book_landing_lists_and_links).
+- AC-387 **[restated 2026-10-28, cycle 2 F-009 — this line was the pre-decision
+  two-clause text while the registry it updated had four clauses]**: Given a bundle
+  with a finalized book **that has a display title**, when `/b/<slug>` loads, then
+  **the book's display title heads the page**, its puzzles are listed in book order,
+  **no puzzle's title appears anywhere on it**, and tapping one opens `/play/<key>`
+  for that puzzle (test: tests/test_public_player_pages.py::test_book_landing_lists_and_links).
 - AC-388: Given a slug not in the bundle, when `/b/<slug>` loads, then the
   not-found page renders with a way to the library, and no script error is
   thrown (test: tests/test_public_player_pages.py::test_unknown_slug_lands_softly).
@@ -187,7 +190,15 @@ book with one title is arguably **correct**, since the slug names content and
 the QR code resolves to the right puzzles. Only the displayed title is
 ambiguous.
 
-## [IMPLEMENTATION — 2026-10-28] `ab297c9c` + `7c0c9f5a` — and the title is NOT served
+## [IMPLEMENTATION — 2026-10-28] `ab297c9c` + `7c0c9f5a` — ~~and the title is NOT served~~
+
+> **OVERTAKEN TWICE — read this heading as history.** The title **is** served, by
+> owner decision 2026-10-28, under **ADR-0041/R2's third exemption** (amended the
+> same day, because an FR cannot narrow a mandatory rule). Fix round 1 implemented
+> it; fix round 2 closed the fixture half and removed the false "EC-048's
+> enumeration does not name it" justification from all four sites that carried it.
+> Everything below is the state before that, kept because the owed→landed trail is
+> what makes the decision auditable.
 
 Two commits, 8 files, +2102/−38. **G-1 verified mechanically from git: 0 files
 under `src/`, 0 under `meta/`.** Working tree clean, every file hash-checked
@@ -536,3 +547,128 @@ cannot get out" is mechanical and controlled; "a book title cannot carry an
 answer" is **false and stated as false**, measured at 100 of 100 cells · the first
 guard of `isEntry` is three disjuncts and only `null` has a case reading it alone
 · the full suite was not run and the lock was not taken.
+
+
+## [FIX ROUND 2 — 2026-10-28] `6aa4c5b9` — both halves of F-001 closed, and three stale R2 claims nobody had reported
+
+Five commits on a merge of main (`10e25e28`, 0 conflicts — `7c0c9f5a` untouched, so
+the implementation record still cites a live commit). Door: **604 passed, 0 failed,
+0 skipped**, reproduced twice, over cycle 2's own four-file selection. 603 → 604 is
+**exactly the one node added**, so cycle 2's figure is the control for this one.
+0 files under `src/`, `meta/kanban/**` or `meta/architecture/**`. **17 mutants, 16
+killed, 1 survivor by design, 0 undeclared survivors.**
+
+### F-001's model half — the false justification is gone from all four sites
+
+Every place that justified the served title by *"EC-048's enumeration does not name
+it"* now cites **R2's 2026-10-28 exemption** and states the old argument as
+**false**, with the reason. `grep -rn "enumeration"` over the diff returns only the
+four sentences saying it was false.
+
+**And three further stale R2 claims in `assemble.py` that cycle 2 did not report**,
+each one a sentence cycle 3 would have gated on: `:66` claimed the bundle's `title`
+*"is not in that schema and does not reach the site"* — flatly false since fix round
+1; `:691`, **the listings' own section header where a reader starts**, said *"no
+title is served, on either listing"*; and `:46`/`:172` said *"the two exemptions"*
+when R2 has three. The R2 quotation at `:49` now carries the amendment's clause, so
+the file no longer quotes a rule in a form the rule does not have.
+
+### F-001's mechanical half — the two tests no longer disagree
+
+`test_served_tree_is_clean_of_answers` now **passes both titles in explicitly and
+asserts both outcomes**: a **puzzle** title cannot get out (served tree `== {}`
+although every puzzle title in the bundle is base-64 of its own grid, with the
+editorial book title asserted non-recoverable *first* so the half is not vacuous),
+and a **book** title is admitted as the declared exemption **and only in the book
+file** (the sweep reports exactly one path by name, with `puzzle/` and `index.json`
+asserted clean under the same plant). It no longer takes `site`, **so no claim of
+R2's rests on a fixture default.**
+
+**C2-M41 re-fired at the final HEAD no longer splits them** — all three tests pass,
+and the one node it reds is the test whose subject *is* the two fields getting
+opposite answers.
+
+### F-002 — the fix now has a control
+
+`named()` takes the inventory text as a **parameter** and the boundary is asserted
+**through the function**. The two inline regex re-derivations are gone. Both of
+cycle 2's mutants now kill — including the 2-node counter-case (`in` plus a typo on
+a *different* hook), **on the same cell**, because the control no longer depends on
+which hook the test spells out.
+
+### R2's check ref — the flip is verified and owed AT MERGE, not before
+
+All three `path::name` strings resolve **on the branch** under the validator's own
+exclusions. The flip text is recorded for the merge gate:
+
+```
+check: {kind: test, ref: "tests/test_player_bundle.py::test_bundle_is_clean_of_answers, tests/test_public_player.py::test_served_tree_is_clean_of_answers, tests/test_public_player_pages.py::test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"}
+```
+
+**It must not be applied before this card merges** — two of the three resolve only
+on this branch, and naming them on main would read as mechanically checked while
+absent. The round also made the exemption's node id greppable **from the module
+that defines it**, because beforehand the only hits were prose sentences in two
+*other* files, either of which could lose a line and take the ref with it.
+
+**One fragility passed on, not this card's:** R2's *existing* bundle-half ref
+resolves only through one prose line plus two `meta/review/*.yml` files —
+`tests/test_player_bundle.py` does not carry its own `path::name` string. That is
+the backlog's "a review YAML can revive a dead check ref", **one artefact away from
+firing.**
+
+### The architect items this round surfaced are DONE (`4b4ca160`)
+
+R2's exemption now reaches **the bundle's own `book/<slug>.json`**, because
+`player_bundle.BOOK_FILE_FIELDS` has carried `title` since it was written — so the
+first amendment's "and nowhere else" was false of the bundle on the day it was
+written. **EC-048's statement** points at R2's exemptions instead of reading false,
+and **its `test:` is now the pair**, since it claims both export paths while naming
+only the bundle half. **FR-045's bundle sentence** narrowed the same way.
+
+### And the validator split is root-caused, which retires a standing "known error"
+
+Three rounds reported three figures. `validate.py` is **byte-identical** across the
+two installs; `adr_integrity.py` is the **only** differing source. The plugin-cache
+copy counts *"supersedes"* **and** *"superseded by"* as two edges, so a properly
+two-sided supersession reads as a cycle; `forge_1`'s copy matches only the forward
+phrase and says why. Measured on the ADRs: `0031:11` *"Supersedes: ADR-0025"* and
+`0025:3` *"Superseded by ADR-0031"* — **one edge from both ends.** So **the honest
+error count is 0**, and every report citing "the pre-existing ADR-0025 circular
+supersession" was quoting a tool bug. The 3-warning gap to main is this card's own
+doing: exactly the three AC-387/388/389 dead-ref warnings, dead on main and
+resolved here because this card defines those tests.
+
+### Minors — narrowed where the claim was wrong, fixed where it needed a mechanism
+
+**Narrowed:** F-003 (the scope refusal is *not* dead code — all three scope edits
+pass the partition predicate, and only liveness is order-dependent), F-004
+(attribution swapped, with the measurement in the sentence), F-007 (byte-identity
+is **intra-process**, naming the cross-process case it cannot see and the test that
+owns that half), F-008 (six denial cases, not four, and which one is drawn from the
+shape the old predicate was written from), F-010's causal sentence. **Fixed in
+code:** a **sixth** denial case (a target whose only entry is a *directory* named
+`.player-site`), F-006's ordering control (`_write` raising on its second call, so
+the half-written target holds only the marker — and the old paragraph **passes**
+under the same mutant, which is the discrimination), F-007's plant now appending a
+byte **on disk** and re-walking with the same reader, and `page.goto`'s bound —
+**with its own control**, an `ast` walk asserting both calls carry
+`timeout=PAGES_SETTLE_MS` by name. *"I would not have claimed the bound without
+this — a timeout argument cannot red on behaviour without a hung server."*
+
+### Could not establish, in the round's own words
+
+Half 2's *"and only in the book file"* assertions **are never the first reader** —
+every single-node mutant that puts the book title elsewhere is intercepted earlier
+by the scope refusal or by `served_index`'s own schema equality, which is cycle 1's
+F-007 lesson repeating (four mechanisms, no single node reaches past the third), so
+no mutant is claimed for them · the `=` half of F-002's boundary is held by the
+real inventory rather than by its own cell, **and the hyphen in `[a-z-]` has no
+control at all** · R2-M04 dies in a `raise`, not in an assertion · **no render
+eyeballed by the owner** · **Chromium only, nothing on iOS Safari** · never run
+against a real exported bundle · **Vercel never exercised** · EC-048 not closed and
+not claimed closed · `tests/test_player_bundle.py` not re-run, so R2's bundle half,
+R1, R5 and R7 are reported from the model rather than from a run · **why the two
+installs ship different `adr_integrity.py` under identical `validate.py` bytes** —
+established *that* they do, and that it is the whole disagreement; which install to
+standardise on is a decision, not a measurement.
