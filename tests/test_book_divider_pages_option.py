@@ -671,7 +671,7 @@ class TestDividerPages_PrintSetupStoresTheChoice:
         two cells give two verdicts, so "the mechanism is gone" and "the
         route writes the default back" are told apart by *which* name reds.
         Measured (CARD-305 fix round 1): deleting the marker guard
-        (``app.py:3715`` -> ``if True:``) reds this cell in both storage
+        (``app.py:3724`` -> ``if True:``) reds this cell in both storage
         modes, and so does deleting ``_apply_print_spec``'s
         ``spec.interior_divider_pages is not None`` guard
         (``book_manager.py:1005`` -> ``if True:``), while the from-off leg
