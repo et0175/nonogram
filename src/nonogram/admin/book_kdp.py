@@ -97,7 +97,11 @@ from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP
 from types import SimpleNamespace
 from typing import Any, Optional, Sequence, Tuple
 
-from nonogram.admin.book_page_spec import BOOK1_PROFILE, book_page_spec
+from nonogram.admin.book_page_spec import (
+    BOOK1_PROFILE,
+    book_divider_pages,
+    book_page_spec,
+)
 from nonogram.admin.book_pdf_generator import (
     DPI,
     PageFrame,
@@ -520,7 +524,15 @@ def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> in
     ]
     for index, row in enumerate(ordered):
         _grid_extent(row, index + 1)
-    dividers = len({level for level in levels if level is not None})
+    # CARD-305: a book that prints no divider pages has no level dividers to
+    # count and no SOLUTIONS page either, and this estimate has to agree with
+    # the generator or it reports a gutter margin for a book of a different
+    # length than the one actually written — the defect the comment below
+    # describes, which now has a second way to be reached.
+    divider_pages = book_divider_pages(book)
+    dividers = (
+        len({level for level in levels if level is not None}) if divider_pages else 0
+    )
     # CARD-205: the TOC lists **sections, not puzzles**, so the entry count
     # fed to `measured_toc_page_count` is the structural list's
     # (`structural_toc_entry_count`: one guide row, a heading + a
@@ -550,6 +562,7 @@ def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> in
         answer_pages=len(ordered),
         level_dividers=dividers,
         toc_pages=toc_pages,
+        solutions_divider=divider_pages,
     )
 
 

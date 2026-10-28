@@ -1,0 +1,269 @@
+version: 1
+generated_at: "2026-10-28T17:59:55Z"
+target: "CARD-267 cycle 2 (confirmation mode) — branch card/267-player-crosshair, HEAD 1ef355c0, base b74e9083 (the merge). Worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-267. EVERY figure in this report is against base b74e9083 / HEAD 1ef355c0; main has since moved to 32b40e7f and was NOT merged by this cycle."
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+cycle:
+  number: 2
+  of: 3
+  mode: confirmation
+  previous_score: 7.0
+  previous_report: "meta/review/20261028T144500Z-CARD-267-cycle1.yml"
+  fix_round_reviewed: "1ef355c0 — 5 files, +235/-43 (verified: stat matches the card's claim exactly)"
+  certified: true
+  min_score: 8
+
+coverage:
+  read:
+    - "tests/test_puzzle_solver_crosshair.py (whole file, 877 lines)"
+    - "tests/test_browser_fixture_scope.py (ADDED_SINCE_BEFORE + the registry guard at 1637-1700)"
+    - "tests/test_puzzle_editor_ui.py (the de-numbered docstring at ~756)"
+    - "src/nonogram/admin/static/solver.js (CROSSHAIR comment block, crossedParts, wireCrosshair, the announce writers at 835-836)"
+    - "src/nonogram/admin/static/admin.css (the crosshair block, the dot rule at 648, the '?' rule at 655)"
+    - "src/nonogram/admin/static/tokens.css (the four tokens the figures are derived from)"
+    - "meta/kanban/cards/CARD-267.md (CYCLE 1 and FIX ROUND 1 sections in full)"
+  not_reached:
+    - "the full suite (the merge gate's, not this cycle's — the brief forbids it and the lock)"
+    - "a rendered screen seen by the owner (Design context owes it; no render was eyeballed)"
+    - "the 18-file disjoint gate of fix round 1 (not re-run; four of its files re-run here instead)"
+  confidence: high
+
+metrics:
+  diff: { files: 5, added: 235, removed: 43 }
+  tests_cover_change: true
+  mutants_fired: 19
+  mutants_killed: 16
+  mutants_survived_by_design: 2
+  mutants_survived_as_finding: 1
+  measurement_mode: "recording (-rA) on every mutant run, so a short-circuited assert cannot read as a surviving mutant; -o addopts='' on every invocation so the -q stacking trap cannot eat the count line"
+  skips: 0
+  skips_note: "0 skips in every invocation this cycle (crosshair 17, suite_profile 410, design_tokens 12, editor_ui 117). Cycle 1 and fix round 1 both measured 0, so there is nothing new to attribute."
+  gates_run_this_cycle:
+    - "tests/test_puzzle_solver_crosshair.py — 17 collected, 17 passed, 0 skipped, 11.31s"
+    - "tests/test_suite_profile.py — 410 passed, 0 skipped, 42.63s"
+    - "tests/test_admin_design_tokens.py — 12 passed, 0 skipped, 0.13s"
+    - "tests/test_puzzle_editor_ui.py — 117 passed, 0 skipped, 53.01s"
+  validator:
+    binary: "/Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py (the orchestrator's forge_1 copy — the ONLY copy present on this box at review time; the second copy the brief names was not found)"
+    worktree: "0 error(s), 112 warning(s)"
+    main: "0 error(s), 112 warning(s)"
+    delta: "zero — fix round 1's retirement of cycle 1's +4 is confirmed. This cycle read 0 errors, matching the forge_1 figure the brief predicts and NOT the round's '1 error'; the card touches zero meta/architecture files, so the split is the known binary disagreement and not attributable here."
+  unmeasured:
+    max_fan_in: "not_applicable — the delta adds no exported symbol; src/ changes are comment-only (verified mechanically, see below) and the test-side additions are module-private helpers (_purity_snapshot, _give_the_board_state, _EDITOR_PREMISE) used only in their own file."
+    cochange_missing: "no_eligible_fact — fix round 1's own 18-file disjoint gate already enumerated the co-change radius and ran it green at this HEAD; this cycle re-ran four of those files rather than re-deriving the set."
+    hotspots: "no_eligible_fact — a confirmation cycle over a 5-file comment-and-test delta; churn ranking would not reorder a findings list of one Minor."
+
+system_contract:
+  rules_checked: 5
+  holds: 5
+  unchecked: 0
+  violated: 0
+  check_ref_note: "Every check ref named below was verified ALIVE by grepping for its `def`/`class` definition, never by the validator's verdict, and never with `git grep -w` (underscore is a word character, so -w cannot see this board's test names). All five resolve to a real definition, so naming them here cannot revive a dead ref."
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — hand-written JS/CSS, no framework or build step. The fix delta's two src/ files are code-identical to their base after comment stripping (verified mechanically: scratchpad/card267c2/c267c2_commentonly.py returns True for both admin.css and solver.js against b74e9083), so no dependency, bundler or build step could have entered this round."
+    - "ADR-0038/R2 ✓ holds — no request per hover. TestSolverCrosshair_IsPureView::test_hovering_issues_no_request green at 1ef355c0 in the recording baseline, carrying its own instrument control (`assert loading > 0, \"the request listener saw not even the page it loaded\"`). The rule's named check resolves to class TestSolverMarking_NoRequestPerMark at tests/test_puzzle_solver_marking.py:1387."
+    - "ADR-0038/R3 ✓ holds — clues stay the embedded compute_clues JSON; the delta touches no clue derivation (the only clue-side change is a selector-free registry description). The rule's named check resolves to class TestSolverPage_ShowsTheClues at tests/test_puzzle_solver_page.py:206."
+    - "ADR-0038/R4 ✓ holds — state logic stays a pure module, separate from rendering. solver_state.js is absent from the changed set at both b74e9083..1ef355c0 and across the card; TestSolverCrosshair_IsPureView::test_the_state_module_knows_nothing_of_the_crosshair green, and it bounds its slice to the crosshair's own two functions and refuses import/solver_state/serializeState/record(/fetch inside it."
+    - "CON-021 ✓ holds — interactive play stays in the admin panel's player, nothing persisted server-side. The delta adds no route, handler or request; the crosshair is a class toggle on existing elements. Client-side storage is now genuinely discriminated rather than assumed: mutant C2-A1 (localStorage.clear() in the paint loop) is KILLED at tests/test_puzzle_solver_crosshair.py:681, where before this round it survived."
+
+confirmation:
+  f002:
+    finding: "AC-6's purity test could not fail on a destructive side effect"
+    claimed: closed
+    verdict: "CLOSED — confirmed, and the round's strongest claim reproduces"
+    evidence:
+      - "C2-A1 — cycle 1's M13 (localStorage.clear() added to the paint loop) re-fired against the FIXED test file: KILLED, 1 failed / 16 passed, at tests/test_puzzle_solver_crosshair.py:681 (the whole-snapshot equality, i.e. the claim's own cell)."
+      - "C2-A2 — the round's own MA-2 (the paint loop strips every is-circled, a different field): KILLED, 1 failed / 16 passed, same cell :681."
+      - "C2-A3 — THE DIFFERENTIAL CONTROL, VERIFIED RATHER THAN ACCEPTED. The identical MA-2 mutant fired against `git show ee6e284e:tests/test_puzzle_solver_crosshair.py` (blob 21dd2c9c, which is exactly the old side of the diff's `index 21dd2c9c..c0f6dbeb`): 15 collected, 15 passed, exit 0, SURVIVED. The round's figure reproduces exactly."
+      - "C2-A4 — the same differential run for cycle 1's ORIGINAL mutant: M13 against the pre-fix file also SURVIVED 15/15. So the differential holds in both directions, not just the one the round chose to report."
+    conclusion: "The fix is demonstrably the thing that makes these mutants red, and the root cause is the STATE and not the mutant class. That inference is now measured on two independent mutants rather than argued."
+    premise_controls:
+      - "C2-C1 (inside) — `_give_the_board_state` neutered to a bare `return`, line-count preserved: KILLED at the premise, tests/test_puzzle_solver_crosshair.py:671, reporting all seven fields still at their virgin value. The premise is a live control, not a tautology."
+      - "C2-C2 (edge) — only the trailing `_button(page, \"Undo\").click()` dropped, so exactly ONE of the seven fields stays virgin: KILLED at :671 with `assert ['redo'] == []`. The premise is per-field and names the offending field, which is the sharpest result this control could give."
+  f003:
+    finding: "the instrument claim overstated what was measured"
+    claimed: closed
+    verdict: "CLOSED — confirmed on both channels of the new arm"
+    evidence:
+      - "C2-B1 — cycle 1's M11 (the dot made pixel-identical to the tint: admin.css:648 `::after` background -> var(--player-cross)): KILLED at tests/test_puzzle_solver_crosshair.py:295, the NEW pixel arm, with Chromium's own reading in the failure output: ('empty', 'rgb(241, 235, 221)', 0.9111111111111111). Before this round the same mutant left the file green."
+      - "C2-B3 (edge) — the arm's OTHER channel, which M11 never touches: the '?' glyph colour made identical to the tint (admin.css:655 `::after` color -> var(--player-cross)): KILLED at :295, ('maybe', 'rgb(241, 235, 221)', 0.9111111111111111). Both arms are load-bearing; the arm is not a one-channel instrument presented as two."
+      - "C2-E1 — the arm's sibling control on the ARIA probe, below."
+    m7_kill_cell_move:
+      claim: "the round reports MB-3's kill cell MOVED because the pixel arm now precedes it"
+      verdict: "REAL and BENIGN — confirmed, with one sharpening"
+      measurement: "C2-B2 (filled override deleted, line-count preserved) kills at tests/test_puzzle_solver_crosshair.py:298. C2-B2b fires the SAME mutant against the pre-fix test file: kills at :270. So the line number genuinely moved, by +28."
+      sharpening: "The ASSERTION is byte-identical on both sides — `assert min(luma[s] for s in (U, E, M)) - luma[F] > 0.4, luma`. The new pixel arm does NOT intercept this mutant (arm 2 reads only the empty and maybe channels, which the filled override leaves alone), so the kill falls through to the same assertion it always did. The move is a line-number shift from the inserted arm, not a relocation of discrimination: nothing was lost and nothing changed hands. The round's sentence is true under the line-number reading and would be stronger if it said so."
+    figures:
+      doors_claimed_by_the_round: 3
+      doors_now: 4
+      recomputation: "Re-derived independently in a FOURTH domain (scratchpad/card267c2/c267c2_figures.py, run with -I), not merely re-run."
+      door_a_my_own_srgb_arithmetic:
+        - "--color-surface-hover = #f1ebdd = rgb(241, 235, 221), mean 0.91111 — and this is the value Chromium itself printed inside C2-B1's and C2-B3's failure output, in runs neither the implementation nor fix round 1 made."
+        - "--player-cross-ink = color-mix(in srgb, #f1ebdd 16%, #1c2333) = rgb(62.08, 67.00, 78.20), mean 0.27095 — exact agreement with the implementation's and cycle 1's figure."
+        - "luma gap light vs crossed-filled = 0.64016 against the test's 0.4 bar."
+      door_b_cie_lstar: "dL* tint vs dot 52.25, vs '?' 56.74, vs crossed-filled 64.80 — EXACT agreement with fix round 1's claimed 52.25 / 56.74 / 64.80."
+      door_c_ciede2000_new_this_cycle: "dE00 tint vs dot 44.55, vs '?' 50.89, vs crossed-filled 57.92. A chromatic perceptual metric the round never used, so it is an independent door and not a re-run of theirs. All three are ~19-25x the ~2.3 just-noticeable-difference and far past the >10 that reads as plainly different colours."
+      instrument: "Pure-Python sRGB -> XYZ (D65) -> CIE Lab -> CIEDE2000, written for this cycle; no third-party colour library, so it shares no code path with Chromium or with the round's arithmetic."
+  f006:
+    claimed: "closed by one line, in the destructive direction too"
+    verdict: "CLOSED — confirmed, inside and edge"
+    evidence:
+      - "C2-E1 (inside) — the `_ARIA` probe's attribute filter neutered to `false`, so the probe still finds every element but reports an empty attribute list for each: KILLED at exactly the new line, tests/test_puzzle_solver_crosshair.py:870. The new control fires when its instrument is blinded, which is what makes it a control."
+      - "C2-E2 (edge, destructive direction) — the paint loop strips every aria-disabled attribute on every hover: KILLED TWICE, at :876 (the ARIA equality, which is F-006's own direction) and at :681 (the purity snapshot). The destructive direction cycle 1 named as open is now caught by two independent cells."
+  f007:
+    disposition_claimed: "declined with a measurement; stays declared"
+    verdict: "SOUND, and 'stays declared' is the honest disposition"
+    reasoning_check: "The card's own body item 6 explicitly permits clearing — 'cleared or recomputed, either is fine, a half-painted crosshair is not' — so declining is within the contract rather than against it. The mechanism is confirmed in the code: solver.js:1035-1038 redraws only `if (isBig)`, and AC-7's board (REDRAW_GRID, 20x12) is big on width, so the redraw fires. Across AC-7's own 1280x720 -> 880x700 transition the mirror query flips, so the row-clue gutters go 2 -> 1 (solver.js:784 `payload.width > BIG_SIDE && mirrorQuery.matches`) AND the cell size re-fits to a narrower viewport. Both the board's origin and its cell pitch change, so the identity [row, col] -> screen point is broken by construction. Repainting a remembered [row, col] therefore tints a cell the pointer is NOT on, which is a crosshair actively lying about where the pointer is — fairly described as nearer to the stale marker AC-7 forbids than today's forget(). The conclusion does not depend on the exact figure."
+    limit: "I could not re-derive the specific (5, 7) -> (4, 12) without a browser probe outside the test tree, and I did not build one. Stated as a bound; the argument above does not rest on it."
+  f009:
+    disposition_claimed: "not reproduced in 21 runs, no sleep added, premise strengthened instead"
+    verdict: "A GENUINE PREMISE STRENGTHENING, not a relabelling — and it is measured, not argued"
+    evidence: "C2-F2 (the row-clue sweep deleted from crossedParts) reds the leave test AT ITS NEW PREMISE — tests/test_puzzle_solver_crosshair.py:538, `assert _crossed(landed) == _expected(landed, 8, 8)`, with the message 'nothing to clear' — rather than later at the leave equality where it would read as a leave defect. The same happens on the editor leave cell at :827. So the round's stated purpose for the new premise is demonstrably achieved: a crosshair-shaped defect now fails diagnosably at the premise."
+    caveat: "This does NOT fix the flake, and the round says so plainly — the mechanism was never explained and no settle was added. What it buys is that a recurrence will be readable. That is the correct trade and it is correctly described."
+  editor_cells_placement:
+    claimed: "avoidance on the merits, not dodging by wording"
+    verdict: "CONFIRMED on both halves"
+    evidence:
+      - "The cells really are where they belong: two cells in the EXISTING crosshair file, importing CARD-246's `_open_editor` rather than copying it. Living there, the only registry obligation is two ADDED_SINCE_BEFORE rows — no PAGE_ISOLATION row, no ALONE_PROBES entry, no encounter with the frozen render set. That is a real consequence of the placement, not a wording choice."
+      - "tests/test_suite_profile.py — 410 passed, 0 skipped, 42.63s. Green, as the round claimed."
+      - "C2-F1a / C2-F1b (MD-3 re-fired per cell) — each cell retargeted at the solve page: KILLED at :814 and :824 respectively, both with the message 'this is not the manual editor's page'. Neither cell can pass on the player page and claim the editor."
+      - "C2-F2 (edge) — asks the sharper question the round did not: do the cells MEASURE anything of the editor, or only that it loaded? Deleting the row-clue sweep from crossedParts reds 10 of 17 cells INCLUDING BOTH editor cells (:820 the hover equality, :827 the leave premise). The editor cells genuinely measure the row, the column and both clue axes on that page."
+  registry_rows:
+    claimed: "two new ADDED_SINCE_BEFORE rows, proved load-bearing by ME-1"
+    verdict: "CONFIRMED — real controls, not tautologies"
+    evidence:
+      - "C2-G1 (inside, ME-1 re-fire) — one new row commented out, line count preserved: KILLED, reporting `tests added: ['tests/test_puzzle_solver_crosshair.py::TestSolverCrosshair_ReachesTheManualEditor::test_hovering_the_editors_board_crosses_the_row_the_column_and_the_clues']`."
+      - "C2-G2 (edge, the node-id boundary) — the other new row's key with one character dropped: KILLED, reporting the real node id as added. The registry compares node ids character-exact against a live collection, so a row cannot drift off its test and stay green."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-267.md
+    line: 516
+    title: "The F-002 audit names 'the one remaining gap of this shape'; there are two"
+    description: |
+      Fix round 1 audited the negative-claim CLASS rather than only the named
+      instance, which is the right move and is most of why this round is
+      strong. Its closing sentence, though, states more than it measured:
+
+        "and one — `assert problems == []` — is an empty-vs-empty with no
+         in-test instrument control, left in place and NAMED AS THE ONE
+         REMAINING GAP OF THIS SHAPE rather than passed over."
+
+      Enumerating every negative claim in the file gives six sites, and a
+      SECOND one has the same shape — and it sits inside the very test the
+      round reports F-006's line as having closed "both" defects of:
+
+        tests/test_puzzle_solver_crosshair.py:877
+          assert browser_page.locator("#puzzle-player-announce").inner_text() == ""
+
+      The ARIA-ATTRIBUTE half of that test is genuinely closed (C2-E1 and
+      C2-E2 both kill). The ANNOUNCE half is a bare empty-vs-empty with no
+      in-test control that the live region can ever hold text, and it is
+      driven from a board where the region is empty by design.
+
+      Measured both directions rather than asserted:
+        - C2-H1 (additive) — the paint loop writes "crossed" into
+          #puzzle-player-announce on every hover: KILLED. The direction AC-8
+          actually forbids ("no live announcements") IS discriminated.
+        - C2-H2 (destructive) — the paint loop CLEARS
+          #puzzle-player-announce on every hover: SURVIVED, exit 0. A
+          crosshair that wipes the player's live region on every mouse move
+          passes this cell, because the cell never gives the region anything
+          to lose.
+
+      The region is not vacuous: solver.js:835-836 writes the solved banner
+      and the hint text into it, so a hover arriving while an announcement is
+      live is a reachable state the test never visits. This is exactly the
+      F-002 shape — a claim cell driven from the one state in which its own
+      defect class is invisible — one layer in from where the round stopped.
+
+      NOT a shipped defect, and that is checked rather than assumed: the
+      crosshair's own code slice contains no write to the region (the G-5
+      structural cell refuses import/solver_state/serializeState/record(/fetch
+      inside it, and grep finds the only announce writers at solver.js:835-836,
+      inside the solved/hint logic). C2-H2 had to ADD the call. So AC-8's
+      substance holds; what is wrong is the card's claim about how complete
+      the audit is.
+
+      Weighted as low: zero correctness consequence, AC-8 verified in the
+      direction it forbids, and the repair is one line. Graded the same as
+      cycle 1's F-006, which was the same shape with the same "established
+      elsewhere" mitigation.
+    suggestion: |
+      Either (preferred, one line) correct the card's sentence to name TWO
+      remaining gaps of this shape — `assert problems == []` and the announce
+      half of test_hovering_adds_no_aria_attribute_and_announces_nothing —
+      so the audit's own figure matches what it audited; or close the second
+      one by giving the test a premise that makes the region non-empty before
+      the hovers (show a hint, or reach the solved banner) and asserting it,
+      exactly as _give_the_board_state now does for the purity snapshot. The
+      first is honest and cheap; the second is the same remedy this round
+      already applied one test over.
+    confidence: high
+    source: static
+    violates: "ADR-0039/R1"
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope:
+  - "The crosshair file's AC-2, AC-3, AC-4, AC-7 and G-5 cells are byte-unchanged by the fix delta but live in a file the delta touched, so the mechanical carry rule fails closed and they were NOT carried. They are reported as FRESH holds instead, on stronger evidence than a carry: all five are green in this cycle's recording baseline, and C2-F2 reds four of them, so their discrimination was measured this cycle rather than remembered from cycle 1."
+  - "meta/kanban/cards/CARD-267.md:224 — the drafting table pins TestSolverMarking_NoRequestPerMark at tests/test_puzzle_solver_marking.py:1377; it is now :1387, shifted by the card's own ClickCycles accommodation. The table is explicitly a 2026-10-22 drafting snapshot so this is not a live claim, but it is the same 'a number nothing checks is a number that goes wrong' pattern this round invoked when it deleted 'the twelve' from test_puzzle_editor_ui.py. Worth the same treatment if anyone touches that table."
+  - "Main has moved from the merge in this branch (b74e9083) to 32b40e7f. This cycle did NOT merge it, as instructed. Every figure above is against b74e9083/1ef355c0. The base matters only in that the merge gate's suite run should happen against a re-merged base — nothing in main's four new commits touches this card's files (they are kanban/ADR bookkeeping plus CARD-267's own fix-round stamp), so no figure here is expected to move."
+  - "The two validator copies: only the forge_1 copy exists on this box at review time, and it reads 0 errors / 112 warnings on BOTH the worktree and main. The round's '1 error' came from the other copy. Delta zero either way, and the card touches zero meta/architecture files."
+  - "No render has been eyeballed by the owner. The Design context owes it and the brief declares it known-owed; four doors of figures now agree, but an instrument reading pixels is not an eyeball. Carried to the merge gate, not deducted here."
+
+could_not_establish:
+  - "The exact (5, 7) -> (4, 12) figure behind F-007's declination, in those words: COULD NOT ESTABLISH. Re-deriving it needs a browser probe outside the test tree and this cycle did not build one. The mechanism IS confirmed in the code (solver.js:1035-1038 and :784 — both the board origin and the cell pitch change across that transition), and F-007's conclusion does not depend on the precise cell, so the declination stands on reasoning I could check even though the figure is one I could not."
+  - "Whether the four `::after` channels are exhaustive for FUTURE cell states, in those words: COULD NOT ESTABLISH — carried forward unchanged from fix round 1, which named it. A fifth state painted through an outline or box-shadow would fall outside the new pixel arm. Nothing in this cycle narrows it, and the narrowed claim should not be re-read as a wider one."
+  - "F-009's red or its failing cell, in those words: COULD NOT ESTABLISH. 21 green runs in fix round 1 and 17 more green cells here add no reproduction. What IS established is that the new premise fires readably when a crosshair defect is present (C2-F2 at :538), which is all the round claimed for it."
+  - "The destructive direction of the announce claim against a LIVE announcement, in those words: COULD NOT ESTABLISH whether it would be caught, because no test in this file ever puts text in the region. C2-H2 shows it is not caught from the empty state; whether a premise-strengthened version would catch it was not built. This is finding F-001, stated as a bound rather than as a defect in the shipped code."
+  - "The full suite, in those words: NOT RUN and COULD NOT ESTABLISH from this cycle — the brief forbids it and forbids the lock (a sibling fix round is live). Four delta-touched files were run green instead; the suite is the merge gate's."
+  - "Whether running CARD-284's concurrent fix round 2 perturbed any reading here: not directly measured, but every mutant asserted HEAD 1ef355c0 before firing and every file was restored to a verified pristine blob hash afterwards, so a perturbation would have surfaced as a hash mismatch rather than as a silent wrong verdict. No mismatch occurred."
+
+mutation_table:
+  discipline: "One node per mutant, line-count preserving (the harness refuses a replacement whose newline count differs). HEAD asserted equal to 1ef355c0 before every apply. Every target restored from a byte-exact sidecar and verified by `git hash-object` after. All harness files under scratchpad/card267c2/ with card-scoped names (c267c2_mutate.py, c267c2_G1.py, c267c2_figures.py, c267c2_commentonly.py) — never a generic mutate.py at the shared scratchpad root, which is what corrupted a sibling's reading. Lock NOT taken."
+  pristine_blobs:
+    "src/nonogram/admin/static/solver.js": "78a62d3b333a83dbc69eebf8455da18d348811d0"
+    "src/nonogram/admin/static/admin.css": "adcb6926e2c5e33c65099d7fed7f208b1b63a45a"
+    "tests/test_puzzle_solver_crosshair.py": "c0f6dbeb0ca65fde5ac95ffa074dd7231d8b02a5"
+    "tests/test_browser_fixture_scope.py": "eb506ed488706134e7d4c28e1a3e76ba4ee779ec"
+  post_restore_verified: "all four re-hashed to the pristine values above; git status shows only the untracked scratchpad/; HEAD still 1ef355c0"
+  rows:
+    - { id: C2-A1, target: "solver.js paintCrosshair loop", mutant: "localStorage.clear() added (cycle 1 M13)", kind: "addition / inside", result: KILLED, cell: "crosshair.py:681 whole-snapshot equality", attributed_to: "AC-6 / TestSolverCrosshair_IsPureView" }
+    - { id: C2-A2, target: "solver.js paintCrosshair loop", mutant: "strips every is-circled (round's MA-2)", kind: "addition / inside", result: KILLED, cell: "crosshair.py:681", attributed_to: "AC-6 / TestSolverCrosshair_IsPureView" }
+    - { id: C2-A3, target: "same MA-2 + pre-fix test blob 21dd2c9c", mutant: "differential control", kind: "addition", result: "SURVIVED (intended)", cell: "15 collected, 15 passed, exit 0", attributed_to: "F-002 closure proof" }
+    - { id: C2-A4, target: "same M13 + pre-fix test blob 21dd2c9c", mutant: "differential control, other direction", kind: "addition", result: "SURVIVED (intended)", cell: "15 collected, 15 passed, exit 0", attributed_to: "F-002 closure proof" }
+    - { id: C2-B1, target: "admin.css:648 dot ::after background", mutant: "-> var(--player-cross) (cycle 1 M11)", kind: "value / inside", result: KILLED, cell: "crosshair.py:295 pixel arm, ('empty', 'rgb(241, 235, 221)', 0.9111111111111111)", attributed_to: "AC-1 / RowColumnAndCluesLight" }
+    - { id: C2-B3, target: "admin.css:655 '?' ::after color", mutant: "-> var(--player-cross)", kind: "value / EDGE (2nd arm channel)", result: KILLED, cell: "crosshair.py:295, ('maybe', ...)", attributed_to: "AC-1 / RowColumnAndCluesLight" }
+    - { id: C2-B2, target: "admin.css filled override rule", mutant: "deleted (cycle 1 M7)", kind: "deletion / inside", result: KILLED, cell: "crosshair.py:298 min(luma)-luma[F] > 0.4", attributed_to: "AC-1 / RowColumnAndCluesLight" }
+    - { id: C2-B2b, target: "same + pre-fix test blob", mutant: "control for the 'kill cell moved' claim", kind: deletion, result: KILLED, cell: "crosshair.py:270 — the IDENTICAL assertion", attributed_to: "F-003 disposition check" }
+    - { id: C2-C1, target: "crosshair.py _give_the_board_state", mutant: "neutered to bare return", kind: "deletion / inside", result: KILLED, cell: "crosshair.py:671 premise, all 7 fields virgin", attributed_to: "the fix's own control" }
+    - { id: C2-C2, target: "crosshair.py _give_the_board_state", mutant: "trailing Undo click dropped", kind: "deletion / EDGE (one field)", result: KILLED, cell: "crosshair.py:671, assert ['redo'] == []", attributed_to: "the fix's own control" }
+    - { id: C2-E1, target: "crosshair.py _ARIA probe filter", mutant: "attribute filter -> false", kind: "deletion / inside", result: KILLED, cell: "crosshair.py:870 the new any(attributes) line", attributed_to: "F-006's new control" }
+    - { id: C2-E2, target: "solver.js paintCrosshair loop", mutant: "strips every aria-disabled", kind: "addition / EDGE (destructive)", result: "KILLED x2", cell: "crosshair.py:876 ARIA equality AND :681 purity", attributed_to: "AC-8 a11y half + AC-6" }
+    - { id: C2-F1a, target: "crosshair.py editor cell 1", mutant: "_open_editor -> _open (MD-3)", kind: "retarget / inside", result: KILLED, cell: "crosshair.py:814 _EDITOR_PREMISE", attributed_to: "AC-9 / ReachesTheManualEditor" }
+    - { id: C2-F1b, target: "crosshair.py editor cell 2", mutant: "_open_editor -> _open", kind: "retarget / EDGE (2nd cell)", result: KILLED, cell: "crosshair.py:824 _EDITOR_PREMISE", attributed_to: "AC-9 / ReachesTheManualEditor" }
+    - { id: C2-F2, target: "solver.js crossedParts row-clue sweep", mutant: "line deleted", kind: "deletion / EDGE (do editor cells measure?)", result: "KILLED x10", cell: "crosshair.py:820 + :827 (both editor cells), :538 leave premise, :214, :333, :376, :434, :474, :507, :774", attributed_to: "AC-1, AC-2, AC-3, AC-4, AC-5, AC-7, AC-9" }
+    - { id: C2-G1, target: "test_browser_fixture_scope.py new row 1", mutant: "row commented out, line count preserved", kind: "deletion / inside (ME-1)", result: KILLED, cell: "'tests added: [editor hover node id]'", attributed_to: "the registry guard / TestBrowserFixtures_NoTestAddedOrRemoved" }
+    - { id: C2-G2, target: "test_browser_fixture_scope.py new row 2 key", mutant: "node-id key, one char dropped", kind: "value / EDGE (node-id boundary)", result: KILLED, cell: "'tests added: [editor leave node id]'", attributed_to: "the registry guard" }
+    - { id: C2-H1, target: "solver.js paintCrosshair loop", mutant: "writes text into #puzzle-player-announce", kind: "addition / inside", result: KILLED, cell: "crosshair.py:877 announce equality", attributed_to: "AC-8 a11y half" }
+    - { id: C2-H2, target: "solver.js paintCrosshair loop", mutant: "CLEARS #puzzle-player-announce", kind: "addition / EDGE (destructive)", result: "SURVIVED -> finding F-001", cell: "none — exit 0", attributed_to: "AC-8 a11y half" }
+
+merge_gate_still_owes:
+  - "The owner's eyeball on a real render. The Design context asks for it by name and no render has been seen. Figures now agree across four doors (token arithmetic, Chromium's own computed values inside this cycle's mutant failures, CIE L*, CIEDE2000), so the check is cheap, but the choice of --color-surface-hover over --color-accent is still the one thing only an eyeball settles."
+  - "The full suite, against a base re-merged from main (now 32b40e7f). This cycle ran four delta-touched files green and did not take meta/kanban/.full-suite.lock, as instructed."
+  - "Nothing else. Both cycle-1 importants are closed with verified controls, the system contract is 5/5 holds, and the single open finding is a Minor one-line claim correction on the card text that blocks nothing."
+
+OVERALL_SCORE: 9.5

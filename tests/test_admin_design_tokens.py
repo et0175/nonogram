@@ -457,3 +457,83 @@ def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
                 continue
             assert re.fullmatch(r"var\(--[a-z-]+\)(?: solid var\(--[a-z-]+\))?", value), (
                 f"{selector.strip()}: {value!r} is not a design token")
+
+
+def test_the_crosshair_tint_comes_from_tokens() -> None:
+    """CARD-267 AC-8 / G-4 — the rules that card adds to the board.
+
+    Four of them: the two custom properties the tint is derived from and the
+    three rules that spend them (a crossed cell, a crossed FILLED cell, a
+    crossed clue box). Pinned the way
+    :func:`test_the_region_toggles_pressed_look_comes_from_tokens` pins the
+    Region toggle's and :func:`test_the_filled_cell_division_comes_from_tokens`
+    pins the filled cell's: collected by what they ARE rather than by the names
+    this test expects, so a rule renamed, reformatted across lines or deleted
+    drops out of the collection and reds the equality below instead of
+    silently shrinking the sweep.
+
+    The whole-file hex sweep above would catch ``#f1ebdd`` here; it would not
+    catch ``rgb()``, a named colour, or a bare length — and a crosshair tint is
+    exactly the kind of value a card reaches for a literal to write, because
+    "a bit lighter than the paper" has no token of its own. So every value
+    these rules declare has to be a design token or a token-only
+    ``calc()``/``color-mix()`` over design tokens.
+
+    The filled rule is asserted to EXIST, not merely to be clean. A filled
+    cell's ground is ``--grid-ink``; the plain tint has the same specificity as
+    the rule that sets it, so without the one-class-more-specific filled
+    variant a crossed filled cell would be repainted paper and lose its mark
+    whichever of the two happened to come later in the file.
+
+    The predicate is a branch nothing executes while these rules are clean
+    (ADR-0039/R1), so the control at the end drives it over the rules broken
+    on purpose — one break per way a literal can get into THESE rules.
+    """
+    css = (_STATIC / "admin.css").read_text()
+    rules_only = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    rules = [
+        line.strip()
+        for line in rules_only.splitlines()
+        if "{" in line and line.strip().endswith("}")
+        and ("is-crossed" in line.split("{")[0] or "--player-cross" in line)
+    ]
+    assert [rule.split("{")[0].strip() for rule in rules] == [
+        ".player-stage",
+        ".player-cell.is-crossed",
+        '.player-cell.is-crossed[data-state="filled"]',
+        ".player-clue.is-crossed",
+    ], rules
+    assert any(
+        rule.startswith('.player-cell.is-crossed[data-state="filled"]') for rule in rules
+    ), "a crossed FILLED cell has no rule of its own, so the tint repaints it as paper"
+    for rule in rules:
+        values = _declared_values(rule)
+        assert values, rule
+        offenders = _untokenised(values)
+        assert offenders == [], (
+            f"{rule.split('{')[0].strip()}: {offenders} are not design tokens "
+            f"(or token-only calc()/color-mix()); a colour or a length here "
+            f"belongs in tokens.css"
+        )
+
+    # The control. Each is a literal reaching into one of the four rules
+    # above, in a form the whole-file hex sweep would NOT catch; the predicate
+    # has to report every one of them, or it is pinning nothing.
+    broken = {
+        "a colour function": ".player-cell.is-crossed { background: rgb(241, 235, 221); }",
+        "a named colour": ".player-clue.is-crossed { background: wheat; }",
+        "a hex literal": ".player-stage { --player-cross: #f1ebdd; }",
+        "a bare length": ".player-cell.is-crossed { outline-width: 2px; }",
+        "a literal inside the mix": ".player-stage { --player-cross-ink: "
+                                    "color-mix(in srgb, #f1ebdd 16%, var(--grid-ink)); }",
+        "a bare length inside the calc": '.player-cell.is-crossed[data-state="filled"] '
+                                         "{ outline-width: calc(1px + var(--border-width)); }",
+        "an inch length, whose unit is also a keyword":
+            '.player-cell.is-crossed[data-state="filled"] '
+            "{ outline-width: calc(1in + var(--border-width)); }",
+    }
+    for label, rule in broken.items():
+        assert _untokenised(_declared_values(rule)) != [], (
+            f"{label}: {rule} passed the token predicate, so the rule it is "
+            f"supposed to enforce is narrative"
+        )

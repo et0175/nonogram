@@ -1,0 +1,748 @@
+version: 1
+generated_at: "2026-10-28T17:25:33Z"
+target: "CARD-284, branch card/284-book-landing-and-library, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-284, HEAD 82d777c9 (merge of main into the branch), measured against merge-base 42d389ba; confirmation mode, cycle 2 of 3 against cycle 1 (6.5) and fix round 1 (d579f491 + c3f1a795)"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+certified: false
+certification_reason: >-
+  Two gating findings. F-001: ADR-0041/R2 (severity mandatory) now reads false
+  for the assembled site, and its own named served-half guard passes only
+  because the bundle fixture's book title is editorial - measured, and a
+  sibling test in the same suite asserts the opposite outcome. F-002: the
+  design-inventory drift guard's word-boundary fix (the round's own M24
+  closure) has no control that can fail; the typo-absorption it was written to
+  stop is still live for every hook but one hardcoded name.
+
+coverage:
+  read:
+    - player/assemble.py
+    - player/pages.js
+    - player/book.html
+    - player/library.html
+    - player/vercel.json
+    - tests/test_public_player_pages.py
+    - tests/test_public_player.py
+    - meta/architecture/requirements.yml (FR-045, AC-387..389, EC-048..050)
+    - meta/architecture/decisions/adr/0041-public-player-static-bundle-and-hash-urls.md
+    - meta/design/components.md
+    - meta/kanban/cards/CARD-284.md
+  not_reached:
+    - player/player.css (read only where a claim named it; no layout claim re-derived)
+    - src/nonogram/admin/player_bundle.py (read only for BOOK_FILE_FIELDS)
+    - tests/test_player_bundle.py (ADR-0041/R1/R2/R5/R7 check refs not re-run)
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 3461, removed: 80 }
+  fix_delta: { files: 9, added: 1512, removed: 195, under_src: 0 }
+  tests_cover_change: true
+  gate_run: "603 passed, 0 failed, 0 skipped, 42.34s over tests/test_public_player_pages.py, tests/test_public_player.py, tests/test_suite_profile.py, tests/test_cli.py - reproduced twice at HEAD; -rs printed no skip section, so there are 0 skips to attribute"
+  pages_file_collection: "25 collected; -m browser selects 9 of 25; -m 'not browser' selects 16 of 25"
+  mutants: { fired: 44, killed: 41, survived: 3 }
+  hotspots: ["player/assemble.py", "tests/test_public_player_pages.py"]
+  validator:
+    branch: "0 error(s), 109 warning(s) - full --phase all, counted from the validator's own summary line"
+    main_control: "0 error(s), 112 warning(s) - same instrument, same flags, main repo"
+    note: >-
+      The brief's figure (1 error / 114 warnings, the error being a
+      pre-existing ADR-0025 circular supersession) did NOT reproduce with this
+      instrument on either side; no ADR-0025 / circular / supersession string
+      appears in the log. The branch has three FEWER warnings than main.
+  unmeasured:
+    cochange_missing: "not_applicable - confirmation mode over a named fix delta; the co-change gate was cycle 1's"
+    max_fan_in: "no_eligible_fact - player/ is a leaf static-site assembler with no in-repo importer outside tests/"
+    churn: "no_eligible_fact - player/assemble.py, pages.js, book.html and library.html are all younger than three waves"
+    visual: "provider_unavailable - review.visual off; six Chromium captures exist in ~/Documents/nonogram-reviews/CARD-284/ and were not re-rendered or diffed here"
+
+system_contract:
+  rules_checked: 36
+  holds: 7
+  unchecked: 26
+  violated: 3
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — 0 pyproject.toml lines in the diff (git diff --name-only over merge-base 42d389ba) and the named baseline test green: 1 passed"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: scoped to the ADMIN player's client; 0 files under src/ in this diff"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: admin-player marking/undo/redo untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: the admin player page's clue embedding untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: pages.js carries listing logic only, no board state; the pure state module is CARD-283's"
+    - "ADR-0038/R5 ⚠ unchecked — no_eligible_fact: pyproject.toml package-data untouched"
+    - "ADR-0038/R6 ✗ violated — player/assemble.py:1046 + :776; the public surface now serves a free-text field from which a solution grid is recoverable. R6's public-surface restatement is ADR-0041/R2, so the finding is filed once, there (F-001)"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: the browser extra is unchanged; 9 of 25 nodes carry -m browser and run real Chromium"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no CI wiring in the diff"
+    - "ADR-0039/R1 ✗ violated — tests/test_public_player_pages.py:1724-1740; the drift guard's stated boundary claim has no control that can fail (mutant C2-M25 survives, and the 2-node counter-case passes). See F-002; the overstated-claim cluster RC-2 is the same rule at four further sites"
+    - "ADR-0039/R2 ✓ holds — the sets a guard consults are derived, re-derived here: SERVED_ENTRY_SCHEMA from SERVED_SCHEMA (asserted in the partition test), TITLE_CODE_POINTS from sys.maxunicode (independently counted as 2048 category-Cs code points via unicodedata), the design-inventory hooks from the two shipped documents, _site_entries from PLAYER_FILES"
+    - "ADR-0039/R3 ✓ holds — cycle 1's violation CLOSED. The title exemption's liveness and scope refusals are each reachable and red on their own (C2-M01..C2-M05 all die, attributed by test name), and the --force exemption carries both its bounds (C2-M21 repo-root-before-force, C2-M22 what force lifts)"
+    - "ADR-0041/R1 ⚠ unchecked — no_eligible_fact: the key recipe lives in src/, untouched; player/assemble.py's KEY_PATTERN is unchanged by this diff"
+    - "ADR-0041/R2 ✗ violated — player/assemble.py:1046 (the served book file's title) against the rule's own text 'nothing the assembled site serves carries ... data from which any solution cell is recoverable'. Measured: C2-M41 - a leaky book title in the bundle fixture reds the rule's own named served-half test. See F-001"
+    - "ADR-0041/R3 ✓ holds — static files only; the no-toolchain test green, and all 10 diff paths are .py/.js/.css/.html/.json/.md/.yml with no npm, lockfile or build config"
+    - "ADR-0041/R4 ✓ holds — the named zero-write test green inside the 603-node run, and a grep of player/pages.js finds exactly one fetch (a GET with cache: no-store) and no POST/PUT/DELETE/PATCH/sendBeacon/XMLHttpRequest"
+    - "ADR-0041/R5 ⚠ unchecked — no_eligible_fact: the exporter is in src/nonogram/admin/, untouched"
+    - "ADR-0041/R6 ⚠ unchecked — check_ref_missing: the rule's named test node is not defined anywhere under tests/ (pytest: 'ERROR: not found'); the only tracked hit under tests/ is a string literal inside this card's registry-refs test, which deliberately declares it as CARD-285's. Manual read of this diff found no tracking: one GET fetch, no analytics tag added, no per-visitor identifier stored. NOTE: the full path::name string is deliberately NOT quoted in this report - three meta/review/*.yml files already carry it and meta/review is not excluded from the validator's git grep, so quoting it revives a dead ref"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the solver is untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the web UI's socket binding is untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: the web UI's cross-site refusal is untouched"
+    - "CON-011 ✓ holds — pages.js's extent range is MIN_SIZE..MAX_SIZE, held to the runtime by the size-bands partition test, and BOTH edges now have readers: C2-M35 (low edge -1) and C2-M36 (high edge +1) both die in test_a_listing_the_page_cannot_trust_is_refused"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: the aspect guard is untouched"
+    - "CON-021 ✓ holds — review-lens: the diff adds two listing pages that only list and link; no third form of interactive play appears (pages.js has no mark/undo/solved logic)"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: compute_clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: the export-readiness gate is untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: the retry counters are untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book distribution plans are untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: the cell-floor override is untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the book-ready plan gate is untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book membership confirmation is untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: the card CONSUMES a book's order from the bundle and never changes it"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing is untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: the answer key is untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: draft-status membership is untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: the interior PDF is untouched"
+
+task_contract:
+  source: "the card's ## Acceptance criteria and ## Guardrails, plus meta/architecture/requirements.yml FR-045 (AC-387..389) as amended by the fix round"
+  verdicts:
+    - "AC-387 ✓ holds — re-verified at full depth because the fix round rewrote it. The registry's `then` now has four clauses and the named test exercises all four in its own body: the served title heads the page, the fixture's book order is neither sorted nor the whole library, the tile numbering is positional, and the second tile is actually clicked through to /play/<key>. Clause 3 (no puzzle title anywhere) is asserted against document.body.innerText with the fixture's base-64 titles, so it is a real negative"
+    - "AC-388 ✓ holds — carried(cycle 1, delta-clean) is NOT claimed: the not-found path is inside the fix delta (pages.js, book.html). Re-verified: test_unknown_slug_lands_softly green, and the F-012 mutant that stops the panel being revealed reds it on its own node"
+    - "AC-389 ✓ holds — test_library_filters_the_index green; the filter path is now also held by the live-region test, whose region content is compared against the page's own count/empty wording rather than a third copy"
+    - "G-1 ✓ holds — measured: 0 files under src/ and 0 under meta/kanban/ in git diff --name-only over merge-base 42d389ba"
+    - "G-2 ✓ holds — the served book title comes from BOOK_FILE_FIELDS = ('puzzle_keys','slug','title') in src/nonogram/admin/player_bundle.py, which this card does not touch; no new exporter field is required, and the book file's tiles are inlined at assembly time rather than derived at page load"
+    - "G-3 ✓ holds — no pyproject.toml hunk; the named dependency-baseline test green (1 passed)"
+    - "G-4 ✓ holds — no scores, daily puzzle or progress page in the diff, and exactly one fetch in pages.js (a GET); no write verb anywhere"
+
+root_causes:
+  - id: RC-1
+    title: "The owner's book-title decision was implemented in code but not carried into the model: ADR-0041/R2's catch-all clause was never revised, and the fixture discipline the round applies to puzzle titles was not applied to the book title"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "Claims written by fix round 1 that state more than their own controls demonstrate - the board's measured rule that the fix station, not the implementation station, is where the next defect lives"
+    finding_ids: [F-002, F-003, F-004, F-006, F-007, F-008]
+
+findings:
+  - id: F-001
+    severity: high
+    category: compliance
+    type: risk
+    file: player/assemble.py
+    line: 1046
+    title: "ADR-0041/R2 (mandatory) now reads false for the assembled site, and its own served-half guard passes only on a fixture choice"
+    description: |
+      The owner's decision to serve the book's display title is implemented
+      well: I fired fourteen mutants at the exemption and its figure and all
+      fourteen died, attributed by test name, and every number re-derived in
+      an independent domain. The defect is not the decision, and not the code.
+      It is that the decision was not carried into the model it contradicts.
+
+      ADR-0041/R2 is `severity: mandatory`, its scope includes `player/**`, and
+      its text has no enumeration to escape through: "No public asset -
+      nothing in player/, nothing in the exported bundle, nothing the
+      assembled site serves - carries a solution grid or data from which any
+      solution cell is recoverable, for any puzzle, on any export path."
+      EC-048 carries the identical catch-all as its fourth clause ("a solution
+      grid, a filled-cells encoding, the picture name, or data from which any
+      solution cell is recoverable"), quantified "for every puzzle on every
+      export path and every asset the public site serves".
+
+      The round's load-bearing justification is that "EC-048's enumeration
+      does not name" the book's display title (player/assemble.py:206-215 and
+      the module docstring at :199-215). That is true of EC-048's first three
+      items and FALSE of EC-048 as a whole - the fourth clause names exactly
+      the measured case, and the card concedes the substance in its own words:
+      "a book title cannot carry an answer is false and stated as false,
+      measured at 100 of 100 cells".
+
+      MEASURED, in the one place it is checkable (mutant C2-M41): the bundle
+      fixture in tests/test_public_player.py:299 hardcodes the book title as
+      "A book". Change it to a leaky title and
+      `tests/test_public_player.py::test_served_tree_is_clean_of_answers` -
+      the test ADR-0041/R2's own `check:` comment names as "the served tree's
+      half" - FAILS. So R2's served-half guard is green because of a fixture
+      value, not because of the code. Meanwhile
+      `test_the_book_title_exemption_is_scoped_and_its_cost_is_measured`
+      asserts in the same suite that exactly that leak SUCCEEDS
+      (`sorted(recovered) == [f"book/{leaky_slug}.json [e10]"]`). Two tests in
+      one suite now assert opposite outcomes for the same mandatory rule,
+      discriminated only by which book title the fixture picked.
+
+      This is sharper than a process nit because of what it does next: R2's
+      check ref is live and passing, so the next card's system-rules run will
+      report R2 as mechanically checked and green. That is the board's own
+      stale-green failure mode, one notch worse than a dead check ref - the
+      check runs, and it is wrong for a reason nobody can see from the verdict.
+
+      Note what is NOT claimed here. The clues make every cell recoverable BY
+      SOLVING, which is the game and which the module docstring already argues
+      is outside any implementation of ADR-0041. The book title is a different
+      kind of channel - directly decodable with no solving - and R2's text does
+      not distinguish them. Drawing that distinction is exactly the ADR edit
+      that is missing.
+    suggestion: |
+      Two things, and the first is not the fix round's to write:
+
+      1. ADR-0041 needs a revision from the architect: either a scoped
+         exemption clause in R2 naming the book's display title with its
+         declared residual (the shape R2 already uses for the clues and the
+         key), or an explicit distinction between "recoverable by solving" and
+         "directly decodable". The card's own routed-in option list already
+         held the right instinct - it flagged the third option as "an ADR
+         touch, not a code change". Serving a title is the same kind of touch.
+         Editing FR-045's description to cite ADR-0041/R2 as the authority for
+         the picture-name prohibition (which the fix round did, at
+         requirements.yml:5027-5031) does not narrow a mandatory ADR rule; the
+         FR is the lower artefact.
+      2. Stop `test_served_tree_is_clean_of_answers` passing by accident. Its
+         own `write_bundle` docstring states the discipline it did not extend
+         to this field - "a fixture that only ever carries 'Snowy owl' would
+         make every assertion below pass for the wrong reason". Give the
+         bundle fixture a leaky BOOK title too and assert the one expected
+         hit by name, so the served tree's cleanliness is a statement about
+         the code and the one declared exception is visible in the assertion
+         rather than hidden in a fixture constant.
+    confidence: high
+    source: model
+    violates: ADR-0041/R2
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_public_player_pages.py
+    line: 1724
+    title: "The design-inventory drift guard's word-boundary fix has no control that can fail - M24's defect is still live for every hook but one hardcoded name"
+    description: |
+      Fix round 1 found its own survivor M24 - the drift guard matched with
+      `in`, so `data-pages-loading` was a substring of the typo
+      `data-pages-loadingx` and the guard read the typo as the thing it
+      sought - and replaced it with a word-boundary match. The `named()`
+      docstring at :1724-1740 states the claim explicitly: "the boundary has
+      to admit `=` and `]` and refuse a further letter."
+
+      That claim has no control. MEASURED twice:
+
+      * C2-M25 (one node): revert `named` to `return hook in inventory`.
+        The test PASSES. `assert not named("data-pages-nowhere")` passes under
+        `in` too (the string is absent either way), and `missing == []` is
+        strictly looser under `in`.
+      * the 2-node counter-case, which closes the obvious refutation: the
+        test does carry two bare regex assertions that catch the literal
+        `data-pages-loadingx`, so one might argue the boundary is pinned.
+        It is pinned for that ONE name only. Revert `named` to `in` AND typo
+        the inventory's `data-pages-count` to `data-pages-countx` and the
+        guard PASSES - re-run, with both file hashes verified identical
+        before and after. The exact defect M24 named is still live for every
+        hook except the one spelled out as a literal.
+
+      The two controls the test does have do not go through the function under
+      test: they re-derive the same regex inline. That is the pattern the
+      board's own rule warns about - a comment saying what a test catches
+      needs a mutant inside the claimed region and one at the edge, and here
+      the inside mutant survives.
+
+      The inventory-drift direction IS live and I confirmed it: C2-M26
+      (typo the inventory under the real word-boundary code) reds the test.
+      So the guard works today; what is missing is anything that would notice
+      if the boundary were lost.
+    suggestion: |
+      Make the prefix control go through `named`, with the inventory in a
+      state only a boundary match can read correctly. The cheapest honest
+      shape: assert `named()` directly on a hook the inventory names only as
+      the prefix of a longer word, using a locally constructed inventory
+      string rather than the shipped file - e.g. assert that `named` returns
+      False against an inventory that contains `data-pages-countx` and not
+      `data-pages-count`, and True against one containing `data-pages-count]`.
+      The genuine `data-pages-filter` / `data-pages-filters` pair the
+      docstring already cites is the positive half and should be asserted
+      through `named` as well, not alongside it.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: player/assemble.py
+    line: 856
+    title: "\"Both were dead code\" is false for the scope refusal: the order is load-bearing for liveness only"
+    description: |
+      `check_listing_capacity`'s docstring presents the refusal order as a
+      discovery: "the first draft put them after the partition check, where
+      both were dead code because any edit that reaches them breaks the
+      partition first." The card's FIX ROUND 1 section repeats it, and the
+      brief asked me to re-derive it.
+
+      It is half true. Re-derived without reordering the source, by evaluating
+      the partition PREDICATE under each single-node schema edit the suite
+      actually uses (scratchpad probe, independent of the function):
+
+        edit                                      actual refusal    partition would pre-empt?
+        title OUT of SERVED_BOOK_SCHEMA           liveness          True
+        title INTO SERVED_ENTRY_SCHEMA  (M26)     scope             False
+        title INTO SERVED_INDEX_SCHEMA  (M27)     scope             False
+        title INTO SERVED_SCHEMA                  scope             False
+        'note' INTO SERVED_BOOK_SCHEMA            partition         True
+
+      All three scope edits pass the partition predicate, because
+      SERVED_ENTRY_SCHEMA and MIRRORED_FROM_PUZZLE_FILE are both bound at
+      import and `title` is already carried by the book file - so neither
+      `carried` nor `accounted` moves. The scope refusal would therefore be
+      reachable regardless of where it sits. Only liveness is order-dependent.
+
+      The test knows this: the exemption test's own comment at :1054-1059
+      says "none of these three edits changes what the listings CARRY ... so
+      the scope refusal is the only one that can fire", and it asserts
+      `match="is scoped"` rather than a looser pattern. So the source
+      docstring contradicts the test that holds it.
+
+      No behavioural consequence - the order as written is correct and both
+      refusals are controlled. This is the claim, not the code.
+    suggestion: >-
+      Narrow the sentence to what was measured: the liveness refusal is
+      order-dependent (any single-node edit that fires it also breaks the
+      partition), the scope refusal is not, and it is placed first for
+      symmetry and for the message a reader gets. The exemption test's comment
+      already has the right wording to borrow.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_public_player_pages.py
+    line: 1176
+    title: "The partition test misattributes the liveness control to a test that does not hold it"
+    description: |
+      `test_the_listing_capacity_is_partitioned_and_can_fail`'s docstring
+      says: "The exemption's own two refusals (scope, liveness) are
+      `test_the_book_title_exemption_is_scoped_and_its_cost_is_measured`'s."
+
+      Measured (C2-M01, recording pass, each node run as its own pytest
+      invocation): deleting the liveness refusal kills ONLY
+      `test_the_listing_capacity_is_partitioned_and_can_fail` - the exemption
+      test passes with liveness gone. The liveness control is in fact the
+      monkeypatch at the end of the partition test itself (:1229-1235), which
+      the same docstring then performs twenty lines later.
+
+      The scope half of the attribution is correct: C2-M03 kills only the
+      exemption test.
+
+      This is the board's own "attribute by test, not by file" rule failing on
+      a cross-reference the fix round wrote: a reader following the pointer
+      lands on a test that does not red.
+    suggestion: >-
+      Swap the attribution: scope is the exemption test's, liveness is this
+      test's, and this test already holds it - so the sentence can just name
+      its own closing block.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: player/assemble.py
+    line: 1228
+    title: "The destructive marker predicate's is_file() edge is uncontrolled"
+    description: |
+      `check_out_dir` refuses a non-empty target that does not hold
+      `SITE_MARKER_FILE` as a FILE. Mutant C2-M17 - `.is_file()` ->
+      `.exists()` - SURVIVES: all five denial controls still refuse (none of
+      their trees contains a `.player-site` entry at all), and the positive
+      controls write a real file. So a target containing a DIRECTORY named
+      `.player-site` would be accepted and `shutil.rmtree`d, with nothing to
+      notice the weakening.
+
+      Low probability - it needs a dotted directory with that exact name in
+      the deploy target - but it is an uncontrolled edge on the one predicate
+      standing between `--out` and `shutil.rmtree`, and the edges of this
+      guard are precisely what cycle 1's F-005 gated on.
+
+      The core of F-005 IS closed, and I confirmed it separately: C2-M16
+      (predicate reads SITE_INDEX_FILE instead of the marker) and C2-M18 (the
+      `present` term dropped) both die, so the refusals are a statement about
+      the marker rather than about the names - which was the original defect.
+      All five denial controls assert through `check_out_dir` directly and
+      never through `assemble`, verified by reading; the repo-root case does
+      too.
+
+      Also measured as fine: the stated cost. A tree assembled before the
+      marker existed is refused and `--force` lifts it (C2-M22 dies), and the
+      repo root is refused before `force` is read (C2-M21 dies).
+    suggestion: >-
+      Add a sixth denial case: a target whose only entry is a DIRECTORY named
+      `.player-site`, refused. One line in the existing `denied` table, which
+      already bumps its own `assert len(denied) == 5`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: player/assemble.py
+    line: 1256
+    title: "\"Written the moment the directory exists\" is true and has no control that discriminates it"
+    description: |
+      The comment above the marker write claims the ordering is "the
+      difference between 'a retry works' and 'a retry needs --force'". The
+      control is in test_an_out_dir_that_is_not_a_previous_site_is_refused at
+      :1007-1012: after a SUCCESSFUL assemble, everything but the marker is
+      deleted and `check_out_dir` is asserted to accept. A marker written
+      LAST would pass that identically.
+
+      I verified the claim is true, in a domain the suite does not use: with
+      `_write` monkeypatched to raise on its third call, `assemble` dies after
+      the marker and one page, the half-written tree holds `.player-site`, and
+      `check_out_dir` accepts it. No test in the repo makes `assemble` fail
+      part way (grepped), so a future edit moving the write to the end would
+      ship green.
+
+      Consequence of a regression is bounded - one `--force` - which is why
+      this is Minor rather than gating. But the claim as written is a claim
+      about ordering and nothing reds on the ordering.
+    suggestion: >-
+      One test: monkeypatch `_write` (or `PLAYER_FILES`) so `assemble` raises
+      part way, then assert the marker is present and `check_out_dir` accepts
+      the half-written tree. That is the assertion the comment is making.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_public_player_pages.py
+    line: 1283
+    title: "The byte-identity test is intra-process only, so \"EC-049's property at the layer that actually deploys\" is narrower than stated"
+    description: |
+      `test_two_assemble_runs_are_byte_identical` assembles twice inside one
+      interpreter. Measured:
+
+      * C2-M27 (the marker text made to vary per call, via id(site)) - KILLED
+        by this test, so it does discriminate within-process variation. Good.
+      * C2-M28 (`sorted(entries)` -> `sorted(entries, key=hash)`, i.e. an
+        order that is stable within a process and varies with PYTHONHASHSEED
+        between processes) - SURVIVES this test. It is killed by
+        test_the_served_index_is_key_sorted, which is the control that
+        actually catches it.
+
+      EC-049's own wording is about an export repeated over an unchanged store
+      producing byte-identical files so a deploy DIFF is meaningful - and a
+      deploy diff is taken across two process invocations, which is the case
+      this test cannot see. The card's claim that this is "EC-049's property
+      at the layer that actually deploys" therefore overstates it by one
+      quantifier.
+
+      Also noted while measuring: the test's own plant control
+      (`planted[SITE_INDEX_FILE] += b" "; assert planted != two`) is close to
+      tautological - it compares two Python dicts, one of which was just
+      mutated, and the line above already asserts the index is in the walk.
+    suggestion: >-
+      Either assemble the second tree in a subprocess (one
+      `subprocess.run([sys.executable, "player/assemble.py", ...])` with a
+      different PYTHONHASHSEED) and compare, or soften the claim to
+      "deterministic within one run" and let test_the_served_index_is_key_sorted
+      keep ownership of the ordering half.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_public_player.py
+    line: 908
+    title: "The denial-control docstring says four cases; the table has five and asserts five"
+    description: >-
+      test_an_out_dir_that_is_not_a_previous_site_is_refused's docstring says
+      "the four denial cases below", enumerates four, and the code holds five
+      with `assert len(denied) == 5`. The card and the fix-round record both
+      say five. The fifth ("every-name-but-the-marker") is arguably the one
+      case drawn FROM the shape the old predicate was written from, which may
+      be what the sentence meant - but as written the count is wrong, and a
+      count in a docstring beside an asserted count is the kind of drift this
+      board keeps paying for.
+    suggestion: >-
+      Say five and say which one is the "built from the written-from shape"
+      case, since that distinction is the interesting half.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-284.md
+    line: 46
+    title: "The card's own AC-387 restatement is stale against the registry it updated"
+    description: >-
+      Fix round 1 rewrote AC-387 in meta/architecture/requirements.yml so its
+      `then` carries four clauses (the title heads the page, book order, no
+      puzzle title anywhere, the link opens /play/<key>). The card's
+      `## Acceptance criteria` section still carries the pre-decision
+      two-clause text. The registry and the card body (line 31) now agree -
+      which is the substance of cycle 1's F-001 being closed - but the card's
+      own restatement does not. Not written here: this report may not touch
+      meta/kanban/**.
+    suggestion: >-
+      Update the card's AC-387 line to the registry's text at the merge gate,
+      so the card's three sources of AC truth (body, AC section, registry)
+      read the same.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_public_player_pages.py
+    line: 299
+    title: "PAGES_SETTLE_MS bounds the settle, not the navigation, and the docstring attributes the 62.63 s to the navigations"
+    description: |
+      F-012 is CLOSED and I re-measured it in a third domain (my own host,
+      neither cycle 1's nor the fix round's): the same mutant over the same
+      whole file costs 10.59 s against a 12.46 s baseline - i.e. the mutant is
+      now FASTER than the clean run, because the two failures short-circuit,
+      and per-failure cost is the 3 s settle rather than 30 s. Nowhere near
+      cycle 1's 62.63 s and clear of the ~120 s truncation window.
+
+      The residual nit: `_open_pages` passes PAGES_SETTLE_MS to
+      `wait_for_function` only. `page.goto` on the line above carries no
+      explicit timeout and keeps Playwright's 30 s default. The docstring
+      attributes cycle 1's cost to "two navigations each burned the full
+      default", which is not where it was spent - the page loads fine; it was
+      the settle that hung. So the fix is in the right place and the causal
+      sentence is wrong, and a genuinely hung fixture server would still burn
+      30 s per node.
+    suggestion: >-
+      Pass the same constant to `page.goto`, and reword the comment to say the
+      settle rather than the navigation.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: info
+    category: ops
+    type: question
+    file: meta/architecture/requirements.yml
+    line: null
+    title: "The brief's validator figure did not reproduce; the branch is 3 warnings BELOW main"
+    description: >-
+      Measured with forge/skills/architect-validate/scripts/validate.py
+      --root meta/architecture (no --phase flag exists for a "quality" stage;
+      --phase all is the default), counting from the validator's own summary
+      line: the branch reads 0 error(s), 109 warning(s); the main repo on main
+      with the identical instrument reads 0 error(s), 112 warning(s). No
+      ADR-0025 / circular / supersession string appears in either log. The
+      brief's "1 error / 114 warnings, the error being a pre-existing ADR-0025
+      circular supersession" therefore does not reproduce here. Recorded so
+      the figure is not carried forward as fact by a third cycle; the branch
+      direction is a reduction, so there is no regression either way.
+    suggestion: >-
+      Re-derive the baseline figure once with the instrument and flags the
+      board intends to standardise on, and write the invocation down beside
+      the number.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_table:
+  pass_kind: >-
+    RECORDING for attribution (each mutant's cell set run as one pytest
+    invocation per node id, so a kill is attributed to a named test rather than
+    to the first assert that happened to fail), with -x inside each node so the
+    verdict is per node. Every mutant one node and line-count preserving;
+    HEAD asserted via git rev-parse before each, and the restore verified by
+    git hash-object after each. Two exceptions, both declared: the 2-node
+    counter-case under F-002, and the F-012 timing re-measure (a cost
+    measurement, not a kill).
+  survivors: 3
+  rows:
+    - "C2-M01 inside  liveness refusal deleted                                 KILLED  test_the_listing_capacity_is_partitioned_and_can_fail  [NOT the exemption test - see F-004]"
+    - "C2-M02 edge    liveness direction reversed                              KILLED  test_the_listing_capacity_is_partitioned_and_can_fail + test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M03 inside  scope refusal deleted                                    KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M04 edge    scope union loses SERVED_SCHEMA (M26's direction)        KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M05 edge    scope union loses SERVED_INDEX_SCHEMA (M27's direction)  KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M06 inside  partition refusal deleted                               KILLED  test_the_listing_capacity_is_partitioned_and_can_fail"
+    - "C2-M07 edge    the 'in more than one bucket' arm, >1 -> >2              KILLED  test_the_listing_capacity_is_partitioned_and_can_fail"
+    - "C2-M08 edge    the partition's equality arm alone                       KILLED  test_the_listing_capacity_is_partitioned_and_can_fail"
+    - "C2-M09 inside  assemble's call to check_listing_capacity deleted        KILLED  test_the_listing_capacity_is_partitioned_and_can_fail"
+    - "C2-M10 edge    TITLE_CODE_POINTS off by ONE code point (cycle-1 M8)     KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M11 edge    SERVED_TITLE_MAX_CHARS 120 -> 121                        KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M12 inside  book_title_residual_bits drops the cap multiplier        KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M13 edge    _book_title truncation removed                           KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M14 inside  the served book file stops carrying the title            KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured + test_the_book_landing_shows_the_books_title"
+    - "C2-M15 inside  marker predicate deleted                                KILLED  test_an_out_dir_that_is_not_a_previous_site_is_refused"
+    - "C2-M16 inside  predicate reads SITE_INDEX_FILE, not the marker          KILLED  test_an_out_dir_that_is_not_a_previous_site_is_refused  [this is what proves F-005's core closed]"
+    - "C2-M17 edge    marker .is_file() -> .exists()                           SURVIVED  -> F-005"
+    - "C2-M18 edge    the 'present' term dropped                               KILLED  test_an_out_dir_that_is_not_a_previous_site_is_refused"
+    - "C2-M19 inside  assemble's marker write deleted                          KILLED  test_an_out_dir_that_is_not_a_previous_site_is_refused (survived the byte-identity test, correctly - a constant file)"
+    - "C2-M20 edge    the marker's literal name changed                        SURVIVED  no defect: the name is used symbolically at both the write and the guard, and no claim is made about the literal"
+    - "C2-M21 edge    repo-root refusal weakened (resolve() dropped)           KILLED  test_an_out_dir_that_is_not_a_previous_site_is_refused"
+    - "C2-M22 inside  force no longer lifts the foreign-name refusal           KILLED  test_an_out_dir_that_is_not_a_previous_site_is_refused"
+    - "C2-M23 inside  served_index unsorted                                    KILLED  test_the_served_index_is_key_sorted (survived byte-identity -> F-007)"
+    - "C2-M24 edge    served_index reverse-sorted                              KILLED  test_the_served_index_is_key_sorted (survived byte-identity -> F-007)"
+    - "C2-M25 inside  drift guard's word boundary -> plain `in`                SURVIVED  -> F-002"
+    - "C2-M25b 2-node `in` + a typo on a DIFFERENT hook (data-pages-count)     SURVIVED  -> F-002, and it closes the refutation"
+    - "C2-M26 edge    the inventory names a hook only as a longer prefix       KILLED  test_the_public_tile_is_registered_in_the_design_inventory"
+    - "C2-M27 inside  the tree made to vary per run (id(site))                 KILLED  test_two_assemble_runs_are_byte_identical"
+    - "C2-M28 edge    cross-PROCESS nondeterminism (sorted by hash)            KILLED  test_the_served_index_is_key_sorted only; survived byte-identity -> F-007"
+    - "C2-M29 inside  title_narrowed inverted                                  KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured"
+    - "C2-M30 edge    _book_title's non-string domain                          KILLED  test_the_book_title_exemption_is_scoped_and_its_cost_is_measured + test_a_book_with_no_resolvable_puzzle_is_still_served_empty"
+    - "C2-M32 inside  isEntry case entry-is-null (the object guard)            KILLED  test_a_listing_the_page_cannot_trust_is_refused"
+    - "C2-M33 inside  isEntry case bad-key (M29 behavioural)                   KILLED  test_a_listing_the_page_cannot_trust_is_refused"
+    - "C2-M34 inside  isEntry case extent-not-int (Number.isInteger)           KILLED  test_a_listing_the_page_cannot_trust_is_refused  [cycle-1 survivor, now dead]"
+    - "C2-M35 edge    isEntry case extent-below-min (the range's low edge)     KILLED  test_a_listing_the_page_cannot_trust_is_refused  [cycle-1 survivor, now dead]"
+    - "C2-M36 edge    isEntry case extent-above-max (the range's high edge)    KILLED  test_a_listing_the_page_cannot_trust_is_refused"
+    - "C2-M37 inside  isEntry case bad-tier (M30 behavioural)                  KILLED  test_a_listing_the_page_cannot_trust_is_refused"
+    - "C2-M38 inside  isEntry case not-a-listing (readListing's wrapper)       KILLED  test_a_listing_the_page_cannot_trust_is_refused"
+    - "C2-M39 inside  the live region is never written                         KILLED  test_filtering_is_announced_in_a_live_region"
+    - "C2-M40 edge    aria-live value invalidated                             KILLED  test_filtering_is_announced_in_a_live_region"
+    - "C2-M41 addition  a LEAKY book title in the bundle fixture              KILLED  test_served_tree_is_clean_of_answers  -> F-001 (the kill IS the finding)"
+    - "C2-M43 inside  the bundle's book payload served verbatim               KILLED  test_no_puzzle_title_reaches_either_listing, on its own assertion"
+    - "C2-M44 edge    listing_entry(payload) instead of listing_entry(served)  SURVIVED a 2-node selection; KILLED as C2-M44b by tests/test_public_player.py::test_a_tier_outside_the_vocabulary_carries_no_cell_to_the_site - a cell-set artefact of my narrow selection, not a defect"
+    - "C2-M45 inside  the entry schema narrowed by one field                   KILLED  test_a_listing_carries_only_values_already_on_a_puzzle_file + test_no_puzzle_title_reaches_either_listing"
+  isEntry_per_case_verdict: >-
+    All seven cases confirmed BEHAVIOURAL and attributed by name. None redded
+    on the source arithmetic (`assert guards == 5`): every mutant above
+    preserves the `return false` / `return tier ===` text the arithmetic
+    counts, so each kill is the browser loop's. The M14 shape the fix round
+    corrected (an arithmetic red masquerading as a behavioural control) has no
+    other instance - checked by construction, since only a mutant that deletes
+    a whole refusal STATEMENT can move the count.
+
+figures:
+  - claim: "the book title costs 2410.18 bits"
+    instrument: "player/assemble.py::book_title_residual_bits (SERVED_TITLE_MAX_CHARS * math.log2(TITLE_CODE_POINTS))"
+    control_1: "the suite's own: surrogates counted by list comprehension, chr(0xD800)/chr(0xDFFF) shown unencodable, chr(0xD7FF)/chr(0xE000) as the boundary control, and TITLE_CODE_POINTS asserted == 0x110000 - 2048 == 1112064. The boundary control is real: C2-M10 moves the space by ONE code point and dies, so cycle-1's M8 rounding survivor is closed"
+    control_2: "mine, new domain: character space counted by walking Unicode and testing unicodedata.category(chr(cp)) == 'Cs' (2048 - the exclusion is derived from the category, not from the literal), and the bits taken as Decimal(space).ln()/Decimal(2).ln() at 40 digits rather than math.log2. Result 2410.1770 -> 2410.18"
+  - claim: "24.1x the 100-bit ceiling and 2.68x the 900 cells of the largest publishable grid"
+    instrument: "the card and the module docstring"
+    control_1: "2410.1770 / 100 = 24.102"
+    control_2: "2410.1770 / 900 = 2.678"
+  - claim: "a book file's order residual is log2(k!) - 4.58 / 79.04 / 660.48"
+    instrument: "LISTING_STRUCTURE_FIELDS' docstring"
+    control_1: "sum(log2(i) for i in 1..k) recomputed: 4.58, 79.04, 660.48"
+    control_2: "declared at the site a reader reaches from the module docstring's residual list - confirmed present at both"
+  - claim: "membership is log2(C(N,k)) = 83.17 for 24 of 120"
+    instrument: "LISTING_STRUCTURE_FIELDS' docstring"
+    control_1: "math.log2(math.comb(120,24)) = 83.17"
+    control_2: "independent of the order figure (79.04), as the docstring claims - the two are different functions of different arguments"
+  - claim: "a MIN_SIZE grid's base-64 is 20 chars (inside the cap) and a MAX_SIZE grid's is 152 (truncated)"
+    instrument: "the exemption test's cells measurement, which recovers 100 of 100 cells off the served tree"
+    control_1: "ceil(100/8) = 13 bytes -> 20 base-64 chars; ceil(900/8) = 113 bytes -> 152 chars. Both confirmed"
+    control_2: "the truncation is an accident of base-64 and not protection, as the card says - 152 > 120 only for the largest grid, and every grid at or below ~480 cells fits"
+  - claim: "F-012: PAGES_SETTLE_MS = 3000 removed the 62.63 s cost"
+    instrument: "cycle 1's whole-file timing with the not-found mutant"
+    control_1: "fix round: 9.72 s against a 4.93 s baseline over 25 nodes"
+    control_2: "mine, third host: 10.59 s with the mutant against a 12.46 s clean baseline - the mutant is now FASTER than the clean run. Closed"
+  - claim: "the four declared residuals are each declared where a reader will find them"
+    instrument: "reading"
+    control_1: "module docstring :129-166 names all four and sites three of them (:data: cross-references to LISTING_STRUCTURE_FIELDS and EXEMPT_LISTING_FIELDS); the tier's two bits are sized in place at :122-141"
+    control_2: "cycle 1's F-002 - the stale 'one open edge, two bits wide' sentence - is CLOSED: the paragraph now says so explicitly and names what it used to omit"
+
+could_not_establish:
+  - "No render has been eyeballed by the owner - in those words. Six Chromium captures exist in ~/Documents/nonogram-reviews/CARD-284/ (landing at 390 and 1280, library at both, the not-found panel, the capped title); I re-rendered nothing and diffed nothing, and review.visual is off. Every layout claim in the suite remains a computed-style or bounding-box assertion."
+  - "Chromium only - nothing on iOS Safari, where most QR scans land, and these are the two pages a scan reaches first. Unchanged since cycle 1."
+  - "Never run against a real exported bundle - fixtures only, on both sides of the wire."
+  - "Vercel itself is never exercised. The two rewrites are read from the shipped vercel.json by a loopback fixture, so the rules are exercised and the host is not."
+  - "EC-048 is not closed and this report does not claim it is. Three exemptions (clues, key, book title) and four declared residuals. 'A book title cannot carry an answer' is false and stated as false - measured at 100 of 100 cells - and F-001 is about the model not saying so, not about the measurement being wrong."
+  - "I did not re-run tests/test_player_bundle.py, so ADR-0041/R1, R2's bundle half, R5 and R7's check refs are reported from the model and from the diff's scope, not from a run on this head."
+  - "The full suite was not run and meta/kanban/.full-suite.lock was not taken. My door is 603 nodes over 4 files (the two changed test files plus test_suite_profile.py and test_cli.py), reproduced twice, 0 skips."
+  - "I could not establish why the brief's validator figure (1 error / 114 warnings) differs from mine (0 / 109 on the branch, 0 / 112 on main) - in those words. No ADR-0025 string appears in either log and the script exposes no 'quality' stage flag."
+  - "Whether the two owner questions should block rather than follow: I judge them follow-not-block and say so in the verdict, but that is a judgement about product risk and not a measurement."
+
+open_owner_questions:
+  - question: "/library's listing order is key order, which reads as no order at all (16x16, 23x23, 17x17, 30x30, 10x10, 24x24)"
+    scoped_honestly: true
+    blocks_merge: false
+    note: >-
+      Correctly refused by the fix round and correctly scoped. No AC states an
+      order, served_index's docstring now says determinism is the only claim
+      and explicitly NOT that it is an order anyone wants, and the claim is
+      controlled (C2-M23/M24 both die). A reorder is a one-line change behind
+      a live test, so it follows the merge at no cost.
+  - question: "SERVED_TITLE_MAX_CHARS = 120 is generous to the point of ugly"
+    scoped_honestly: true
+    blocks_merge: false
+    note: >-
+      A taste call, asserted numerically and eyeballed at the capped-title
+      capture. It is a layout bound only - the docstring is explicit that no
+      reachable cap is a capacity bound - so lowering it later changes a
+      heading and nothing in the EC-048 argument. Follows the merge.
+  - question: "ADR-0041/R2's catch-all clause versus the owner's book-title decision"
+    scoped_honestly: false
+    blocks_merge: true
+    note: >-
+      This one is NOT an open question the round scoped - it is F-001. The
+      product decision was taken and implemented; the model consequence was
+      not. It blocks because merging leaves a mandatory rule whose live check
+      passes for the wrong reason, which the next card will read as green.
+
+OVERALL_SCORE: 7.5

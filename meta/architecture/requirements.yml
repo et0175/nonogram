@@ -3688,12 +3688,21 @@ functional:
       arrangement. Arrangement moves a puzzle only within its level — a
       move that would carry it across a level boundary is refused and the
       order is unchanged — and a puzzle added to the book is placed inside
-      its tier's level. The book PDF prints a divider page (TERM-031)
-      before the first puzzle of each level that holds at least one
-      puzzle, carrying only the level's name ("Easy", "Medium", "Hard");
-      a level with no puzzles has no divider. Divider pages carry no
-      puzzle number: puzzle numbers run 1..n in the book order across the
-      levels. A book whose stored arrangement predates this rule prints
+      its tier's level. A book carries a divider-pages setting, chosen on
+      Print setup and stored on the book; it is **on** unless the owner
+      turns it off, and an empty column is on (every book written before
+      the setting existed printed its dividers). When it is on, the book
+      PDF prints a divider page (TERM-031) before the first puzzle of each
+      level that holds at least one puzzle, carrying only the level's name
+      ("Easy", "Medium", "Hard"); a level with no puzzles has no divider.
+      When it is off the book prints no level divider page at all, and no
+      SOLUTIONS divider either (FR-042) — the interior is shorter by one
+      page per non-empty named level plus one, every later page's number
+      and parity follow its new position (FR-043), and the table of
+      contents loses the row that named each divider. A submission that
+      does not carry the control leaves the stored setting unchanged.
+      Divider pages carry no puzzle number: puzzle numbers run 1..n in the
+      book order across the levels. A book whose stored arrangement predates this rule prints
       in the rule's order, keeping its stored order within each level.
       The answer key has no level divider pages: its levels are marked by
       a small heading at the top of each level's first answer page
@@ -3710,15 +3719,24 @@ functional:
       evidence: ["src/nonogram/admin/book_manager.py:373-520", "src/nonogram/admin/app.py:2093-2130", "src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3"]
       amended: "2026-10-04 (a) — AC-324..AC-326 added: the guide page is titled \"How to Solve Nonograms\" (was \"How to Use This Book\") and carries a worked example (one line solved step by step from its clue) on the same single page; interior page count and parity unchanged. Placed here because no FR owned the guide page's content; FR-043 (position/parity) and CON-020 (10 pt floor) are referenced, not duplicated. The full 1-2 page tutorial is deferred to its own requirement. Source: owner decision 2026-10-04, roadmap wave 1, IDEA-071 (raw-requirements.md Delta 2026-10-04 (a))."
     acceptance:
+      # AMENDED 2026-10-28 (CARD-305): `given` names the divider-pages
+      # setting. An option-off book also satisfied the old `given`, and this
+      # `then` is universally quantified over the books that match it, so it
+      # went false the moment the setting existed. AC-400 is the off case.
       - id: AC-253
-        given: a Book 1 profile book arranged easy E1, easy E2, medium M1, medium M2, hard H1, all 20x20 (no pairs)
+        given: a Book 1 profile book that prints its divider pages (the default) arranged easy E1, easy E2, medium M1, medium M2, hard H1, all 20x20 (no pairs)
         when: the book PDF is generated
         then: the puzzle section's pages run divider "Easy", E1, E2, divider "Medium", M1, M2, divider "Hard", H1
         kind: happy
         invariant: INV-009
         test: TestBookPdf_DifficultyOrderWithDividerPerLevel
+      # AMENDED 2026-10-28 (CARD-305): the clause naming the setting. This
+      # criterion's `when` ("its divider pages are read") is vacuous over an
+      # empty set, so it stayed TRUE for an option-off book and is narrowed
+      # rather than corrected — the honest reading is that it says nothing
+      # about a book that prints none, which is what AC-400 is for.
       - id: AC-254
-        given: the book of AC-253
+        given: the book of AC-253, which prints its divider pages
         when: its divider pages are read
         then: each divider page's only content is its level's name
         kind: happy
@@ -3763,6 +3781,51 @@ functional:
         kind: boundary
         invariant: INV-009
         test: TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel
+      # --- the divider-pages setting (2026-10-28, CARD-305; owner request
+      # "add an option on admin panel to add 4 pages") ---
+      # These three are the OFF state, which had no criterion of its own:
+      # AC-253/AC-254 above were amended to name the setting, and a narrowed
+      # criterion leaves the other state unstated rather than covered. AC-400
+      # is EC-029's off-state instance.
+      - id: AC-400
+        given: the book of AC-253 with its divider-pages setting turned off
+        when: the book PDF is generated
+        then: no divider page is drawn anywhere in the interior, neither a level divider nor the SOLUTIONS page of FR-042
+        kind: happy
+        invariant: INV-009
+        test: TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages
+      - id: AC-404
+        given: the book of AC-253 with its divider-pages setting turned off
+        when: its interior page count is compared with the same book printing its dividers
+        then: the interior is shorter by exactly one page per non-empty named level plus one - four pages for this five-puzzle three-level book, and two for a book of one named level
+        kind: boundary
+        test: TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages
+      - id: AC-401
+        given: the book of AC-253 generated twice, once printing its divider pages and once with the setting off, on a book storing unequal side margins so that mirroring is observable
+        when: each interior page's drawing is measured against the middle of its trim
+        then: every page's gutter side is the side its own 1-based position calls for in both books (FR-043, INV-013) - so the pages that moved are drawn on the parity of their new position, not of their old one
+        kind: boundary
+        invariant: INV-013
+        test: TestDividerPages_EveryPagesParityIsStillItsOwnPosition
+      - id: AC-402
+        given: a book on Print setup
+        when: the divider-pages control is submitted unticked
+        then: the setting is stored off, and the box is shown unticked when Print setup is reopened
+        kind: happy
+        test: TestDividerPages_PrintSetupStoresTheChoice
+      # The one that matters, and it gets its own id for that reason: an
+      # unticked checkbox and an absent field are the same bytes on the wire,
+      # so the form carries a hidden marker and it is the marker - not the
+      # checkbox - that says the submission carried the control. Driven from
+      # the DEFAULT, which is the only state the defect is visible in: from
+      # "off" the broken naive read produces the value the test asserts
+      # (CARD-305 cycle 1, F-001). The ref names the discriminating cell.
+      - id: AC-405
+        given: a book whose divider-pages setting is at the default (nothing stored, so it prints its dividers)
+        when: Print setup is submitted by a client that does not carry the divider-pages control at all
+        then: the stored setting is left exactly as it was and the book still prints its dividers
+        kind: negative
+        test: test_a_submission_without_the_control_leaves_the_default_on_alone
       # --- guide page content (2026-10-04 (a), IDEA-071) ---
       - id: AC-324
         given: a Book 1 profile book with 3 easy 20x20 puzzles
@@ -3783,18 +3846,28 @@ functional:
         kind: boundary
         test: TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged
     engineering_constraints:
+      # AMENDED 2026-10-28 (CARD-305): the divider clause is now conditional
+      # on the book's Print-setup divider-pages option (AC-400), and the
+      # off state is a second arm of the same property rather than a second
+      # property. Puzzle numbering and grouping are unconditional and are
+      # asserted in both states. The check's name is unchanged and its
+      # property test now sweeps both arms on every step of every trial.
       - id: EC-029
         statement: >-
           For any book and any sequence of adds, removes and moves, the
           book order stays grouped by tier (easy, then medium, then hard);
           the relative order of two puzzles of one level changes only
-          through an explicit move within that level; and the book PDF
-          holds exactly one divider per non-empty level, immediately before
-          that level's first puzzle, with puzzle numbers 1..n unbroken —
-          for every sequence, not only the measured examples.
+          through an explicit move within that level; and puzzle numbers run
+          1..n unbroken across the levels. For a book that prints its
+          divider pages (FR-041, the Print-setup option — the default and
+          every book written before it) the book PDF holds exactly one
+          divider per non-empty level, immediately before that level's first
+          puzzle; for a book whose option is off it holds no divider page at
+          all, and the order and the numbering are otherwise the same. For
+          every sequence and in both states, not only the measured examples.
         kind: consistency
         invariant: INV-009
-        instances: [AC-253, AC-256, AC-258, AC-259]
+        instances: [AC-253, AC-256, AC-258, AC-259, AC-400]
         test: PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
 
   - id: FR-042
@@ -3899,7 +3972,11 @@ functional:
       PageSpec (ADR-0036/R2). The answer key's pages count toward the
       book's page count, including the count finalise checks against KDP's
       gutter minimum (FR-030, AC-179). A "SOLUTIONS" divider page, carrying
-      only that word, precedes the first answer page. Each level (Easy,
+      only that word, precedes the first answer page when the book prints
+      its divider pages (FR-041's setting — the default and every book
+      written before it); when the setting is off there is no such page and
+      the answer key simply begins one page earlier, keeping its own page
+      count. Each level (Easy,
       Medium, Hard) that holds a puzzle starts a new answer page, even when
       the previous page has room, and that page carries the level's name
       as a small heading on a 6 mm line (plus a 2 mm gap) at the top of its
@@ -4016,19 +4093,32 @@ functional:
         then: the first answer page carries the heading "Easy" above its tiles, the second answer page (answers 7-8) carries no heading, and the third carries the heading "Medium"
         kind: boundary
         test: TestBookAnswerKey_HeadingOnlyOnLevelFirstPage
+      # AMENDED 2026-10-28 (CARD-305): `given` names the divider-pages
+      # setting on both. AC-292's `then` is universally quantified over the
+      # books matching its `given`, and an option-off book matched it, so it
+      # went false; AC-293 quotes a concrete 32-page figure that is 31 for an
+      # option-off book. AC-403 below is the off case.
       - id: AC-292
-        given: a Book 1 profile book of 3 easy 15x15 puzzles
+        given: a Book 1 profile book of 3 easy 15x15 puzzles that prints its divider pages (the default)
         when: the book PDF is generated
         then: the page immediately after the last puzzle page and immediately before the first answer page carries only the word "SOLUTIONS"
         kind: happy
         test: TestBookAnswerKey_SolutionsDividerPrecedesAnswerKey
       - id: AC-293
-        given: a Book 1 profile book on the default plan — 150 puzzles at 40/40/20 with the AC-198 prefill, i.e. easy 50 answers at most 20 on the longest side then 10 longer, medium 34 then 26, hard 6 then 24, in that order inside each level
+        given: a Book 1 profile book that prints its divider pages (the default) on the default plan — 150 puzzles at 40/40/20 with the AC-198 prefill, i.e. easy 50 answers at most 20 on the longest side then 10 longer, medium 34 then 26, hard 6 then 24, in that order inside each level
         when: the book PDF is generated
         then: the answer key is 31 answer pages — easy 11, medium 13, hard 7 — after 1 SOLUTIONS divider page (32 pages; 30 before level-first pages)
         kind: boundary
         invariant: INV-011
         test: TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages
+      # New 2026-10-28 (CARD-305) — the off case for this FR's own divider.
+      - id: AC-403
+        given: the book of AC-253 with its divider-pages setting turned off
+        when: the book PDF is generated
+        then: no "SOLUTIONS" page is drawn, the answer key begins one page earlier, and its own answer-page count is unchanged from the same book printing its dividers
+        kind: boundary
+        invariant: INV-011
+        test: TestDividerPages_TurningThemOffRemovesExactlyThoseFourPages
       - id: AC-294
         given: a Book 1 profile book whose answer key holds a 10x10 answer on a 6-up page
         when: the answer's grid is measured
@@ -5013,8 +5103,15 @@ functional:
       followed by the solution grid's cells row-major, '1' filled, '0'
       empty); and book/<slug>.json per finalized book, holding its slug,
       display title and ordered puzzle keys. No bundle file carries a
-      solution grid, data from which one cell of a solution is recoverable,
-      or the picture name. The export is read-only against the database and
+      solution grid, a filled-cells encoding, or the picture name, and none
+      carries data from which a solution cell is recoverable EXCEPT the
+      book's own display title named in the same sentence above —
+      ADR-0041/R2's third exemption, owner decision 2026-10-28. Amended that
+      day because the sentence as written was false of the bundle's own
+      book/<slug>.json, which has carried the title since
+      player_bundle.BOOK_FILE_FIELDS was written: the exemption is about
+      WHERE the field may appear, and it has never been bounded in what an
+      owner can type into it. The export is read-only against the database and
       deterministic: the same input produces byte-identical files. The
       public player — plain hand-written JavaScript and CSS in the top-level
       player/ directory, hosted as static files (Vercel, ADR-0041), reusing
@@ -5154,12 +5251,23 @@ functional:
           or the assembled output — no file carries a solution grid, a
           filled-cells encoding, the picture name, or data from which any
           solution cell is recoverable (ADR-0041/R2, restating ADR-0038/R6
-          for the public surface) — verified over a seeded corpus of
+          for the public surface) — EXCEPT the exemptions R2 itself names,
+          of which the third, a book's owner-authored display title, was
+          added by owner decision 2026-10-28 and is an OPEN channel with a
+          declared residual rather than a bounded one. Read R2 for what it
+          admits: without this clause the sentence above reads false for a
+          served book title, which is a field the model deliberately
+          publishes — verified over a seeded corpus of
           generated grids, not single examples, with the minimum corpus
           size asserted in the test.
         kind: consistency
         instances: [AC-381]
-        test: tests/test_player_bundle.py::test_bundle_is_clean_of_answers
+        # 2026-10-28: was the bundle half alone. EC-048 claims BOTH export
+        # paths ("every asset the public site serves"), and the served
+        # tree's half is a different test in a different file, so one ref
+        # left half the constraint unchecked. Both strings verified to
+        # resolve to real defs before writing.
+        test: tests/test_player_bundle.py::test_bundle_is_clean_of_answers, tests/test_public_player.py::test_served_tree_is_clean_of_answers
       - id: EC-049
         statement: >-
           For any store state, exporting the player bundle issues no

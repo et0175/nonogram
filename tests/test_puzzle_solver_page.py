@@ -557,7 +557,7 @@ def browser_type(playwright, browser_name):
     return browser
 
 
-#: CARD-235, AC-4. Which page-isolation category each of the twelve
+#: CARD-235, AC-4. Which page-isolation category each of the
 #: ``tests/test_puzzle_solver_*.py`` files is in, and why — stated here, beside
 #: the fixture that implements it, so that a file's isolation is a declaration
 #: somebody has to change on purpose rather than a side effect of whichever
@@ -595,6 +595,12 @@ PAGE_ISOLATION: dict[str, tuple[str, str]] = {
         "own-page",
         "sets the viewport 29 times across its cases; a viewport left behind "
         "silently changes which layout the next test's board chooses",
+    ),
+    "test_puzzle_solver_crosshair.py": (
+        "own-page",
+        "sets the viewport for its doubled-gutter and redraw boards, installs "
+        "a context request listener to prove no hover asks for anything, and "
+        "reads localStorage to prove no hover saves anything",
     ),
     "test_puzzle_solver_fifth_rule.py": (
         "own-page",

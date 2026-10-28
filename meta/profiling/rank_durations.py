@@ -101,6 +101,34 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     # entry, this one genuinely draws, so the share it contributes is a real
     # render cost rather than an over-statement.
     "tests/test_book_cell_size.py",
+    # RESTATED DELIBERATELY 2026-10-28 (CARD-305 fix round 1), which is what
+    # this freeze exists to force. The card's own new test file walks the real
+    # interior through ``interior_stream`` in both settings of the divider-
+    # pages option — the page count, the TOC, the KDP estimate and (fix round
+    # 1) the off state's page parity, read off the rendered ink with
+    # ``drawing_of``. It is a genuine render cost and it is added rather than
+    # spelled through a sibling API the grep does not match, which is the
+    # silent divergence CARD-223's entry warns about.
+    #
+    # **The recorded shares and counts below are unchanged**, and this is
+    # CARD-222's case exactly: the file was created by CARD-305, so it appears
+    # in neither durations artefact (checked: no mention of it anywhere under
+    # ``meta/profiling/``). It contributes 0 s and 0 tests to the 2026-10-15
+    # recording, so the render-heavy set's 21.23 % of attributed time and the
+    # render row's test count are the same numbers over the same artefact,
+    # still cited by the same sha256. A later recording will attribute its own
+    # time to it.
+    #
+    # This went red at the card's own gate selection and at review cycle 1 —
+    # both of which omitted ``tests/test_suite_profile.py`` — so the guard
+    # fired exactly as designed and was simply not run.
+    #
+    # **36 paths now.** Counted in two domains, because the running total in
+    # the notes above had drifted (CARD-227's entry says 33 and this would
+    # have read 34): an ``ast`` parse of this tuple's own elements says 36,
+    # and the defining grep re-run from the shell says 36. The prose totals
+    # on the earlier entries are left as each card wrote them.
+    "tests/test_book_divider_pages_option.py",
     "tests/test_book_export_interior_cover.py",
     "tests/test_book_finalise_gutter.py",
     # RESTATED DELIBERATELY 2026-10-28 (CARD-227), which is what this freeze

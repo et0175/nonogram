@@ -1135,10 +1135,24 @@ class TestBookPdf_PagePlanGuardIsLive:
             # answers actually take — two-up pairing (CARD-127) can make the
             # first fewer than the count, and FR-042's packed key (CARD-134)
             # the second — and, since CARD-200, the table of contents' own
-            # length. All three are passed straight through, so what this
-            # monkeypatch changes is the total and nothing else.
-            lambda count, puzzle_pages=None, answer_pages=None, level_dividers=0, toc_pages=None: (
-                planned(count, puzzle_pages, answer_pages, level_dividers, toc_pages=toc_pages) + 1
+            # length, and since CARD-305 whether the SOLUTIONS divider is a
+            # page at all. All four are passed straight through, so what this
+            # monkeypatch changes is the total and nothing else — and this
+            # stub mirrors the real signature rather than swallowing the rest
+            # in ``**kwargs`` on purpose: a parameter added to the function
+            # and forgotten here would then be dropped silently, and this
+            # guard would start asserting against a plan computed without it.
+            # CARD-305 found it the loud way, which is the right way.
+            lambda count, puzzle_pages=None, answer_pages=None, level_dividers=0, toc_pages=None, solutions_divider=True: (
+                planned(
+                    count,
+                    puzzle_pages,
+                    answer_pages,
+                    level_dividers,
+                    toc_pages=toc_pages,
+                    solutions_divider=solutions_divider,
+                )
+                + 1
             ),
         )
 
