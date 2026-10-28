@@ -463,7 +463,7 @@ all three runs):
 
 | test | unprofiled wall | profiled Σtottime | **profiler factor** | **the stdlib split: `get_source_segment` cum** *(its callee `_splitlines_no_ff` cum)* | share *(of that same profiled Σ)* | **the planting idiom** | share |
 |---|---|---|---|---|---|---|---|
-| `…each_door_axis_arm…` | 28.47 s | 68.39 s | **×2.402** | **14.523 s** *(14.511 s)* | **21.2 %** | **0.065 s** | **0.09 %** |
+| `…each_door_axis_arm…` | 28.47 s | 68.39 s | **×2.402** | **14.523 s** *(14.511 s)* | **21.2 %** *(one run; band **21.2–22.0 %**, mean 21.59 — see below)* | **0.065 s** | **0.09 %** |
 | `…every_door_shape…` | 10.25 s | 26.35 s | **×2.570** | 4.800 s *(4.796 s)* | 18.2 % | 0.025 s | 0.09 % |
 | `…every_planted_position…` | 5.76 s | 14.71 s | **×2.556** | 2.779 s *(2.776 s)* | 18.9 % | 0.006 s † | 0.04 % |
 
@@ -477,7 +477,22 @@ promise. *† the third test never calls `_plant`; its planting cell is
 alone is 0.002 s on this one), and `_plant` is simply absent from that
 profile.*
 
-**The headline share, with its domain attached.** **21.2 %** on this host at
+**The headline share is a BAND, not a point — cycle 3's F-C3-01.** Five
+same-run readings across three stations span **21.2–22.0 %**, mean **21.59 %**:
+the numerator is stable (14.175–14.523 s, 2.5 %) and **the denominator is not**
+(64.835–68.39 s, **5.5 %**), so the share has genuine run-to-run spread and no
+reading on this host is privileged. **The cell should be read as ~21.5 %
+(21.2–22.0 % on this host).** Two stations each anchored on their own single
+run: cycle 2 called the card's cross-run figure **1.0 pp** out and fix round 2
+called it **0.2 pp** out, and *both distances are to that station's own
+reading* — against the mean it is **0.57 pp**. Fix round 2's *"could not
+establish cycle 2's 22.0 %"* is also too strong: cycle 3's third rep reads
+**21.86 %**, so 22.0 is reachable. So the cross-run error was real but its
+magnitude is **0.2–1.0 pp depending on the run**. *On a card whose subject is
+instruments, three stations each quoting a point for a quantity with 5.5 %
+spread in its denominator is the finding, not any one of the points.*
+
+The original reading, for the record: **21.2 %** on this host at
 fix round 2 — 14.523 / 68.39, one object — against the card's cross-run
 **21.0 %** and cycle 2's own same-run **22.0 %** (14.383 / 65.32). *The three
 disagree in the DENOMINATOR and not in the numerator: the stdlib split reads
@@ -721,8 +736,17 @@ the append has it and the same six sections behind both — so
 neither round measured wrongly and neither magnitude was a property of the
 capture. *What the two rounds were missing was an instrument whose domain is
 the answer rather than the formatting*, and two of them are invariant across
-every injection above: the **section set** and `diff`'s own **edit script**
-(75 either way, because `diff` matches lines rather than indexes). The card now
+every injection above: **the section set — and only the section set** (cycle
+3's F-C3-02). The `diff` claim was half right and is corrected here: the `>`
+side **is** 75 either way, so the table's `diff` one-sided column is right,
+but **the edit script as a whole is not invariant** — a one-character *drop*
+really removes 8 lines and `diff` accounts for them (`<` = **83** against 75,
+two-sided **158** against 150), and the per-line content count inside those
+sections moves too (75 vs 103). Verified by cycle 3 with system `diff` **and**
+`difflib` as an independent second implementation, agreeing exactly. *Fix
+round 2's own log carries the disproof of its own sentence — `two-sided … =
+158` — and reported it without noticing.* The paragraph's conclusion is
+unaffected. The card now
 leads with the sections.
 
 On the **extended** capture the same hot injection reaches **69 of its 257
@@ -1451,3 +1475,104 @@ every swap restored under `git hash-object`); `ac1_same_run-fix2.py`;
 `f03_sites-fix2.py` + `fix2-f03-sites.txt` + `fix2-f03-determinism.txt`;
 `fix2-F-C2-06-reconciliation.txt`; `pregate-fix2.txt`; `commit-fix2.msg`. None
 tracked; none under `tests/` or `meta/profiling/`.
+
+## [CYCLE 3 — 2026-10-28] **CERTIFIED at 8.5**, zero gating — the last cycle
+
+`meta/review/20261028T061828Z-CARD-287-cycle3.yml`, reviewed `83b7dcd2`. Score
+**up from 8.0**. `max_cycles` is spent; cycle 3's own words: *"No cycle 4 exists
+without a fresh owner decision, and none is needed."*
+
+### E1 confirmed killed — and verified the way a fix should be
+
+Fired on the committed blob: killed by the **positive control**,
+`assert [('Foo', 5)] == [('Foo', 4)]`, the main set equality running first and
+not firing. **Then it fired the same mutant on the superseded blob `eb2bbf81`
+and it SURVIVED** — so fix round 2's premise is **a run here, not a citation**.
+Neighbours as declared: S3 killed naming `_attribute_callee_laundering`, S4
+surviving as the negative control, M1 surviving, N1 killed, N2 surviving.
+
+**The choice of pinning the opening line is right and was checked rather than
+assumed**: it is the convention **both doors of the card's own census already
+use**, and all seven `_source_segment` sites are single-line. The two-line plant
+still exercises a **foreign** scope and returns the **class**, not the method.
+
+### Both adjudications went against both previous stations
+
+**The share is a BAND.** See AC-1 above: five same-run readings span
+**21.2–22.0 %**, mean **21.59 %**, the denominator carrying **5.5 %** spread.
+Cycle 2's "1.0 pp" and fix round 2's "0.2 pp" are each the distance to that
+station's **own single run**; against the mean it is 0.57 pp. *Three stations
+quoting a point for a quantity with that much spread is the finding.*
+
+**The diff invariant is half right.** Only the **section set** is fully
+invariant; the `>` side is 75 either way but the edit script as a whole is not,
+and **fix round 2's own log carried the disproof and reported it without
+noticing**.
+
+### 716 vs 718 — confirmed, strengthened, and it moves nothing
+
+Real module **716** at site 1761, planted `DOOR_SHAPES[0]` **718**, 24 and 8
+unchanged — deterministic over **six** processes, three with hash randomisation
+and three with fixed `PYTHONHASHSEED`, **nine readings of each**. And the
+downstream check was made rather than argued: the 716/718 lives at the
+already-memoised site, while `sum(len(sites))` over the dear test's 108 analyses
+is **2 556** with distribution exactly `{24: 72, 23: 36}`, and the spy's count at
+the **hot** site agrees — two doors, one run. **Bonus**: "7 334-line planted
+module" looks like an off-by-one and is not — `len(ast._splitlines_no_ff(src))`
+is 7 334 where `splitlines` gives 7 333, and **the splitter's count is the right
+denominator** for the 81.1 % reach.
+
+### Everything else re-derived or sampled
+
+**G-1 held, re-run on both arms with cycle 3's own capture re-implementation** —
+both 1 752 lines / 52 sections, `cmp` identical, sha256 `223019c2…`, equal to
+`before.txt` **and** `after2.txt`, 0 of 52 sections differing. **All ten card
+refs resolve to a real `def`** at `83b7dcd2`, attributed **by enclosing test**
+via an AST pass, with the asserting line named for each. F-C2-02's grep
+enumeration reproduces exactly, including that **25 of 29** predate the card by
+`comm`. **AC-7** 133 by three doors. **G-5 run explicitly** (29 collected, 29
+passed) and **G-4** too (410 passed). **G-7**: CARD-303 named at five places.
+
+Two pieces of scepticism worth keeping: it noticed the **three pre-gate logs are
+all exactly 150 584 bytes**, checked rather than assumed, and established they
+are **three distinct runs** by sha256; and it confirmed the census log names the
+**mutated** blob throughout, with twelve OK restore lines and no intermediate
+hash.
+
+### The four minors, and what was done with them
+
+**F-C3-01** (the share needs a band) and **F-C3-02** (only the section set is
+invariant) are **corrected above by the orchestrator** — one clause each.
+**SHIPPED UNCERTIFIED**: `max_cycles` is spent, so no reviewer has seen these two
+edits; they are prose on the card, they change no code, assertion or figure's
+*derivation*, and the merge gate is what stands behind them. **F-C3-04** (two
+kept probe scripts imported an `fload` that was not in the artefact directory, so
+they could not be re-run as kept) is **closed** — `fload.py` copied in.
+
+**F-C3-03 is left DECLARED, on cycle 3's own judgement that it is not wanted
+before merge**: the lineno mapping is pinned at **one** point, so a
+`node.lineno → 4` constant mutant survives, as does `node.lineno →
+node.func.value.lineno` (a true equivalent mutant, M1's declared class). The
+remedy named is a second planted call at a different line, four lines, killing
+it and redding on nothing. **Available as a last mile; not required for the
+certification.**
+
+### What the merge gate owes
+
+1. **The measured suite figure closing AC-8** (projected ≈ 1 240.8 s, file
+   ≈ 5.69 %, class ≈ 2.66 %) — *the only item of substance; everything else on
+   this card is measured.*
+2. **The merge commit must not restate what two branch commit messages cannot
+   unsay**: `8b908a73`'s whole-source reach, "two call sites", the 6.238/6.779 ms
+   pair and "ten configurations"; and `eb2bbf81`'s grep claim and its
+   `1750/2927/1449`. Standing from cycles 1 and 2, open by nature until merge.
+
+### Could not establish, in those words
+
+The exact character cycle 1 injected; **when `prediction.txt` was written**; the
+suite-wide figure; whether cycle 2's 12.20 s in-situ saving reproduces (not
+retaken, and **no claim rests on its exact value**); **which single run is "the"
+same-run share** — bounded at 21.2–22.0 %, mean 21.59 %, with **no reading
+privileged**; whether the 257-section capture re-runs identical from cycle 3's
+own script (the kept pair was verified instead); whether the residual ~32.7 s is
+reducible (**CARD-303's**).
