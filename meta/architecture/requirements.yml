@@ -4722,7 +4722,23 @@ functional:
       - id: AC-333
         given: the player page at desktop width and at 390 px
         when: the History controls and the counters are read
-        then: 'Hint is the last control of the History group, after Reset, and "Hints: N" is the element right after "Errors: N", on the same row'
+        then: 'Check is the last control of the History group, following Hint, which follows Reset, and "Hints: N" is the element right after "Errors: N", on the same row'
+        # AMENDED 2026-10-30 on owner decision (CARD-269). The retired clause read
+        # "Hint is the last control of the History group, after Reset". CARD-269 adds
+        # Check after Hint -- the placement this card's own Design context specifies --
+        # so the clause was FALSE under a strict reading the moment Check shipped. The
+        # round surfaced the conflict instead of picking, and the owner chose to let the
+        # requirement follow the design decision rather than relocate the button.
+        # The counter half is UNCHANGED and deliberately so: Check's arrival moves the
+        # 1280 px wrap threshold for the Progress group (owner-accepted; measured as 268
+        # px needed against 186 px left, short by exactly Check's own 82 px), but
+        # "Hints: N" still follows "Errors: N" on one row, so that half was not touched.
+        # The `test:` ref is NOT dead: it names the CLASS
+        # TestSolverHint_PlacesTheButtonAndTheCounter, which survives at
+        # tests/test_puzzle_solver_hint.py:777 -- only its internal method names changed
+        # (hintIsLastChild -> checkIsLastChild + checkFollowsHint). Checked rather than
+        # assumed, because a renamed ref that still reads alive is the defect class
+        # CARD-308 and CARD-319 exist for.
         kind: happy
         test: TestSolverHint_PlacesTheButtonAndTheCounter
       - id: AC-334
