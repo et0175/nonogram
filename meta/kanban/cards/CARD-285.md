@@ -772,3 +772,58 @@ killed, all in throwaway worktrees with blobs asserted back.
 **Its own reservations, which are the right ones:** the **full suite has not been run by any
 cycle of this card**, and the branch carries **16 node ids from `main` that no cycle has
 exercised**. The merge gate is the right place for both.
+
+---
+
+## Merge gate — GREEN at `e59ee80b`
+
+**9743 passed, 27 skipped, 1 xfailed, 0 failed, 0 errors** in 1922.71 s (32:02).
+Zero `FAILED`/`ERROR` lines in the whole log. **This is the first full-suite run any
+cycle of this card has had**, and it also exercises the **16 node ids inherited from
+`main`** that no review cycle of this card ever ran.
+
+**The reconciliation closes exactly:** `9743 + 27 + 1 = 9771` collected, against
+`main`'s `9720 + 27 + 1 = 9748` — a difference of **+23**, precisely the delta fix
+round 3 reported (**7** the card's own, **16** arriving from `main` through the
+pre-round merge). Skips are **27**, the baseline exactly.
+
+### The gate script exited 127 and that was the orchestrator's doing, not the suite's
+
+The wrapper reported `exit: 127`, and the cause is recorded because it is the same
+defect class this board keeps paying for. **The orchestrator edited the running gate
+script, twice, while bash was executing it** — to repair a process probe. Bash reads a
+script incrementally by byte offset, so changing its length mid-run shifted the offsets
+and bash resumed on a mangled line (`line 27: est: command not found`). That failure set
+`$?`, and the script's `RC=$?` captured **127 instead of pytest's exit code**.
+
+**Pytest's own summary line is the authoritative verdict**, and it is green. The
+epilogue still ran: the lock was written with an absolute `worktree:`, the trap fired,
+and the lock was verified gone. Nothing about the measurement is in doubt — but the
+*wrapper's* exit code is worthless for this run, and a gate that reported only an exit
+code would have read as RED on a green suite.
+
+**The lesson, which generalises past this card:** editing a file another process is
+reading is exactly the plant-window hazard CARD-315 is about, and the orchestrator had
+been briefing three rounds on it the same day. A gate script is a file under execution,
+not a config.
+
+### A correction to a warning the orchestrator issued mid-run
+
+It saw live Postgres connections to a per-worktree test database and warned that
+DB-mode tests were newly running, that the skip count would fall below 27, and that the
+arithmetic therefore would not close. **All three were wrong**: skips are 27, and the
+arithmetic closes exactly. The processes were tests that connect in both modes, not
+newly-unskipped ones. The warning was an inference from process names, not a measurement
+— the same shape as every other figure of the orchestrator's that a round corrected today.
+
+### The process-probe finding this gate produced
+
+The `rival pytest` cell in this board's gate scripts has been **measuring nothing**.
+`ps -Ao comm=` prints `Python` (the framework binary), so `grep 'pytest'` cannot match a
+running suite — every "0 rival pytest" this board has recorded through that probe,
+**CARD-299's merge-gate record included**, is unverified rather than necessarily false.
+Five one-liner variants were then measured at the same instant and gave **0, 3, 2, 0, 2**,
+because this host runs shells and search tools whose own command lines carry the pattern.
+**No one-liner gets it right**, so the gate scripts now **record the python PID list** for
+a human to read instead of a count. Measured for this gate: one real pytest for most of
+the run, with a sibling card's out-of-tree mutant processes alongside it for part of it.
