@@ -880,12 +880,15 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    CARD-194 (four tool buttons, wider than today's one trigger) this also
    held at 1280 px only down to the buttons' own row — narrower than that,
    the pair dropped to the buttons' row while Progress wrapped below it.
-   CARD-194's one trigger leaves enough room that 1280 px now fits
-   everything on the buttons' row too, same as 1440 px (confirmed in
-   tests/test_puzzle_solver_percent.py, TestSolverPercent_SitsNextToTheCounters);
-   the narrower-still case (the pair alone on the buttons' row, Progress
-   wrapped below it) still holds at some width between there and 390 px,
-   just not at exactly 1280 any more. The toolbar's items align to the top
+   CARD-194's one trigger left enough room that 1280 px fitted everything on
+   the buttons' row too, same as 1440 px — and CARD-269's Check button spends
+   that room again, so 1280 px is back in the narrower-still case (the pair
+   alone on the buttons' row, Progress wrapped below it). Measured: at 1280 px
+   the counters need 268 px on one line and Check leaves them 186, short by
+   its own 82 px, so the threshold between the two cases moved above 1280
+   rather than the layout breaking. 1440 px still fits all three. Both cases
+   are asserted in tests/test_puzzle_solver_percent.py,
+   TestSolverPercent_SitsNextToTheCounters. The toolbar's items align to the top
    of their row, so the buttons stay at the toolbar's top; the pair is as
    tall as a toolbar button (.btn: 0.4rem padding above and below, two
    borders, a 1.5 line at 1rem), so its counters are centred on the
@@ -1090,6 +1093,73 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell.is-crossed { background: var(--player-cross); }
 .player-cell.is-crossed[data-state="filled"] { background: var(--player-cross-ink); }
 .player-clue.is-crossed { background: var(--player-cross); }
+
+/* The hint ladder's line (CARD-269): rung 1 and rung 2 highlight the line
+   the next deduction lives on, and Check highlights the row of the first
+   wrong mark. solver.js puts .is-hint-line on every cell of that line and on
+   its clue box(es) — both twins on a CARD-212 doubled axis — and takes it off
+   again on the next recorded change. Four rules and one keyframe; nothing
+   else is added to the board, and no element.
+
+   A BACKGROUND, for the crosshair's reason (see above): the hinted cell's
+   accent outline, CARD-270's inset division, the clue circles' border and
+   the dot/"?" ::after content are all other channels, so a highlighted line
+   keeps every mark and every circle on it.
+
+   VISUALLY APART from the three things it can share a cell with, which is
+   what the card asks for:
+     - .is-hinted (CARD-183) is an accent OUTLINE plus a paper ring. Two
+       channels apart from a ground tint, and the one cell wearing it sits
+       inside the very line this highlights.
+     - .is-crossed (CARD-267) is also a ground tint, so these two are told
+       apart by HUE and not by channel: the crosshair takes the design
+       system's own hover ground (--color-surface-hover, warm paper) and this
+       takes --color-accent-tint (the accent's own pale green, the token for
+       exactly this job — an accent-coloured ground). Both are deliberate:
+       "the pointer is here" is the quieter of the two and keeps the quieter
+       token. The depth was A/B'd on rendered 15 x 15 boards against a
+       deliberately deeper mix (18 % accent into paper) and the token held;
+       both sets are in ~/Documents/nonogram-reviews/CARD-269. Worth one
+       sentence because the first reading of them was WRONG: the captures
+       were taken the instant after the press, which is mid-fade, and the
+       tint read as barely there. The fade is the positive control AC-10's
+       reduced-motion zero needs (above), so any future eyeball of this
+       colour has to wait for getAnimations() to settle first. Where a
+       crossed line and a highlighted line meet,
+       the HIGHLIGHT wins — it is the answer the player pressed a button for,
+       the crosshair only repeats where their pointer already is. That is
+       what the file order below buys: each rule here has the specificity of
+       its .is-crossed twin, so coming later is what settles it, and the
+       filled variant is spelled with the same [data-state="filled"] so it
+       can beat the crossed filled rule rather than losing to it.
+     - CARD-188's circles are a ring on the numeral's ::before, so a
+       highlighted clue box still shows every circle in it.
+
+   A filled cell needs its own rule for the crosshair's reason too: its
+   ground is --grid-ink, so the pale tint would repaint it and lose the mark.
+   It takes the tint MIXED into the ink instead — a different mix, of a
+   different token, from the crossed filled cell's, so a line that is both
+   highlighted and crossed still reads as one line and not as two.
+
+   The tint fades in (AC-335 extends CARD-183's no-animation rule to it): the
+   keyframe drives background-color from transparent, and the
+   prefers-reduced-motion block above already covers .player-stage * with
+   `animation: none !important`, so under reduced motion the same highlight
+   simply appears. The animation is the positive control that the reduced
+   zero is real.
+
+   No token is added to tokens.css, for the crosshair's reason, stated once
+   there: tokens.css is mirrored verbatim from meta/design/tokens.css and a
+   highlight tint is a value DERIVED from design tokens for one component,
+   not a design-system colour. Every value here is a token or a token-only
+   calc()/color-mix(), checked per rule by
+   test_the_hint_line_tint_comes_from_tokens (AC-10). */
+.player-stage { --player-hint-line: var(--color-accent-tint); --player-hint-line-ink: color-mix(in srgb, var(--color-accent-tint) 24%, var(--grid-ink)); }
+.player-cell.is-hint-line { background: var(--player-hint-line); }
+.player-cell.is-hint-line[data-state="filled"] { background: var(--player-hint-line-ink); }
+.player-clue.is-hint-line { background: var(--player-hint-line); }
+.player-cell.is-hint-line, .player-clue.is-hint-line { animation: player-hint-line-in calc(2 * var(--duration-base)) var(--ease); }
+@keyframes player-hint-line-in { from { background-color: transparent; } }
 
 /* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
    Save, the role="status" message and the Approve/Cancel pair, under the

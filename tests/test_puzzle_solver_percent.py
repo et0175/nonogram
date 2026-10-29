@@ -439,21 +439,40 @@ class TestSolverPercent_SitsNextToTheCounters:
         assert abs((pb - pt) - (bb - bt)) <= 1
 
     def test_shares_the_buttons_row_at_1280(self, browser, live) -> None:
-        """CARD-194: before it, four tool buttons left too little room at
-        1280 px and Progress wrapped below the errors / hints pair there
-        (the admin.css comment on .player-counters records the old
-        measurement). One trigger is narrower, so 1280 px now fits
-        everything — the buttons, the pair and Progress — on one row,
-        same as 1440 px (see test_same_row_left_of_errors_at_1440)."""
+        """The narrower-still case, which 1280 px is in again since CARD-269:
+        the errors / hints pair keeps the buttons' row and Progress wraps
+        below the pair.
+
+        CARD-194 had taken 1280 px OUT of this case: four tool buttons left
+        too little room there and Progress wrapped, and one trigger instead of
+        four freed enough for the buttons, the pair and Progress to share one
+        row, same as 1440 px. CARD-269's Check button spends that room again —
+        exactly, and measurably: at 1280 px the counters need 268 px on one
+        line and Check leaves them 186, short by its own 82 px width, so there
+        is no slack to reclaim without shrinking a value another card pins.
+        1440 px still fits all three (test_same_row_left_of_errors_at_1440),
+        so what moved is the THRESHOLD between the two cases, not the cases.
+
+        Asserted as the layout now is, with the claims that did not change
+        kept: the buttons keep the row's top, the pair is still centred on
+        their row, Progress is still drawn above the board and left-aligned
+        under the pair rather than beside it. The board does not move
+        horizontally; the toolbar is one row taller (223 px against 187).
+        """
         got = _layout(browser, live, 1280, 720)
         pl, pt, pr, pb = got["progress"]
         el, et, er, eb = got["errors"]
-        assert pt < eb and et < pb  # same row band as "Errors: N"
-        assert pr <= el  # drawn left of "Errors: N"
+        assert pt >= eb  # Progress has wrapped BELOW the pair
         tops = {round(b[1]) for b in got["buttons"]}
         assert tops == {round(got["toolbar"][1])}  # the buttons keep the row's top
         bt, bb = got["buttons"][0][1], got["buttons"][0][3]
         assert round((et + eb) / 2) == round((bt + bb) / 2)  # pair centred on the buttons' row
+        # The control that 1440 px is still the other case, so this is a
+        # threshold moving and not the layout breaking everywhere.
+        wide = _layout(browser, live, 1440)
+        wpt, wpb = wide["progress"][1], wide["progress"][3]
+        wet, web = wide["errors"][1], wide["errors"][3]
+        assert wpt < web and wet < wpb
 
     def test_no_horizontal_scroll_at_390(self, browser, live) -> None:
         got = _layout(browser, live, 390, 844)

@@ -666,6 +666,222 @@ export function hintCount(history) {
 }
 
 // ---------------------------------------------------------------------------
+// The hint ladder (CARD-269, FR-044; supersedes the one-press reveal of
+// AC-327, AC-329 and AC-334)
+//
+// CARD-183's Hint was an answer machine: one press revealed a cell. The
+// gentlest useful hint — "look at row 7" — did not exist, so a player who
+// needed a nudge paid the full answer; and the row-major fallback reveal
+// (AC-329) taught a FALSEHOOD, because "no cell follows from a single line
+// yet" arrived together with a revealed cell, and the player concluded they
+// had missed a line deduction when in fact none existed.
+//
+// So one button now answers the same situation three ways, cheapest first:
+//   rung 1  where to look   — the line, nothing else (nextRung, hintLine)
+//   rung 2  what to see     — the same line plus a CHECKED reason (hintReason)
+//   rung 3  the reveal      — exactly CARD-183's hint, unchanged (hintCell)
+// and any recorded change — a mark, a drag, undo, redo, a reset, Check, and
+// rung 3's own stroke — puts the ladder back on rung 1 (nextRung's "change").
+// That reset is what makes one ladder describe ONE situation: the line of
+// rungs 1-2 always contains the cell rung 3 reveals.
+//
+// The rung is player state of Region's kind: the transition rules are here,
+// the value lives in solver.js (ADR-0038/R4), and it is never a cell state,
+// never a stroke, never in the history and never saved — so every load
+// starts on rung 1.
+//
+// G-4: nothing here changes hintCell, lineForced or hintStroke. The ladder
+// WRAPS them: hintLine re-asks lineForced about the cell hintCell already
+// picked, and hintReason reads the same CORRECT-marks-only line (knownLine),
+// so AC-328's "wrong marks are ignored" holds at every rung by construction.
+
+export const RUNG_POINT = 1;
+export const RUNG_EXPLAIN = 2;
+export const RUNG_REVEAL = 3;
+
+//: Every rung, in order. The enumerable authority on what a rung can be:
+//: solver.js's announce table and the test suite both derive their coverage
+//: from this and from HINT_REASONS below, never from a hand-written list.
+export const HINT_RUNGS = Object.freeze([RUNG_POINT, RUNG_EXPLAIN, RUNG_REVEAL]);
+
+//: The event names nextRung understands — the two things that can move the
+//: ladder, and nothing else can. A press climbs; ANY recorded change (and a
+//: Check press, which changes what the player will look at) drops to rung 1.
+export const RUNG_EVENTS = Object.freeze(["press", "change"]);
+
+//: Where one press goes from each rung. Rung 3 wraps to rung 1 because its
+//: own stroke is a recorded change: a press on rung 3 reveals and the ladder
+//: is immediately back at its cheapest rung.
+const RUNG_AFTER_PRESS = Object.freeze({
+  [RUNG_POINT]: RUNG_EXPLAIN,
+  [RUNG_EXPLAIN]: RUNG_REVEAL,
+  [RUNG_REVEAL]: RUNG_POINT,
+});
+
+// Which rung the ladder stands on after `event`, given it stood on `rung`:
+//   "press"   the Hint control was pressed — one rung up, wrapping 3 -> 1.
+//   "change"  anything was recorded, or Check was pressed — rung 1.
+// An unknown event or an unknown rung is a RangeError, like nextRegion's and
+// stepZoom's: a typo must not silently read as "leave it as it was", which
+// is the one answer that would let the ladder stick on a rung for ever.
+export function nextRung(rung, event) {
+  if (!RUNG_EVENTS.includes(event)) {
+    throw new RangeError(`"${event}" is not a rung event (${RUNG_EVENTS.join(", ")})`);
+  }
+  if (event === "change") return RUNG_POINT;
+  const next = RUNG_AFTER_PRESS[rung];
+  if (next === undefined) {
+    throw new RangeError(`${rung} is not a rung (${HINT_RUNGS.join(", ")})`);
+  }
+  return next;
+}
+
+//: The two axes a line can lie on. "column" and not "col": this is the word
+//: the live region says out loud.
+export const HINT_AXES = Object.freeze(["row", "column"]);
+
+// One line of the board as the player's CORRECT marks alone describe it:
+// every cell that agrees with the solution kept, every wrong mark read as
+// UNKNOWN, every "?" read as UNKNOWN (it never agrees with FILLED/EMPTY).
+// Exactly the knowns hintCell deduces from — written here so rungs 1 and 2
+// cannot drift from the cell rung 3 reveals (G-4, AC-328).
+export function knownLine(board, solution, axis, index) {
+  if (!HINT_AXES.includes(axis)) {
+    throw new RangeError(`"${axis}" is not an axis (${HINT_AXES.join(", ")})`);
+  }
+  const { width, height } = board;
+  const known = (row, col) => {
+    const state = board.cells[row * width + col];
+    return state === (solution[row][col] ? FILLED : EMPTY) ? state : UNKNOWN;
+  };
+  return axis === "row"
+    ? Array.from({ length: width }, (_, col) => known(index, col))
+    : Array.from({ length: height }, (_, row) => known(row, index));
+}
+
+// The line rungs 1 and 2 point at for the hintCell result `hint`, as a frozen
+//   { axis: "row" | "column", index, clue, cells, at }
+// where `cells` is that line's knownLine and `at` the forced cell's index
+// along it — everything hintReason needs, so the knowns are computed once.
+// NULL in exactly one case: `hint` is not a deduced cell (it is null, or it
+// is the fallback, `deduced: false`). That null is the exhausted state, and
+// it is the whole point of this card: there is no line to look at, so rungs
+// 1 and 2 must point at NOTHING and say so, instead of handing over a cell
+// while claiming a line deduction was missed.
+// The axis is the one whose lineForced pass forces that cell, ROW FIRST when
+// both do (the card's rule 2) — the same lineForced, over the same knowns, as
+// the pass hintCell used to pick the cell, so an axis is claimed only where
+// the deduction really is.
+export function hintLine(board, rows, columns, solution, hint) {
+  if (hint === null || hint.deduced !== true) return null;
+  const line = (axis, index, clue, at) => {
+    const cells = knownLine(board, solution, axis, index);
+    const forced = lineForced(clue, cells);
+    if (forced === null || forced[at] === UNKNOWN) return null;
+    return Object.freeze({ axis, index, clue, cells: Object.freeze(cells), at });
+  };
+  return line("row", hint.row, rows[hint.row], hint.col)
+    ?? line("column", hint.col, columns[hint.col], hint.row);
+}
+
+//: Every reason rung 2 can give, as the names hintReason returns. The
+//: enumerable authority: solver.js maps each to one sentence and the suite
+//: asserts the map's keys ARE this set, so a reason added here without a
+//: sentence (or a sentence with no reason) is a failure and never a silent
+//: pass (ADR-0039/R2).
+export const HINT_REASONS = Object.freeze(["runs-complete", "overlap", "generic"]);
+
+// The run of `clue` whose OVERLAP covers index `at` in a line of `length`
+// cells with nothing known, or null when none does. Run j can start no
+// earlier than `start` (every earlier run plus one gap each) and no later
+// than `start + slack`, so it certainly covers `start + slack .. start +
+// run - 1`; that window is non-empty exactly when the run is longer than the
+// slack. Arithmetic over the clue alone — which is why it may only be
+// claimed for a line with no known marks (hintReason checks that).
+function overlappingRun(clue, length, at) {
+  const runs = clue.filter((n) => n > 0);
+  if (runs.length === 0) return null;
+  const total = runs.reduce((sum, run) => sum + run, 0);
+  const slack = length - (total + runs.length - 1);
+  if (slack < 0) return null;
+  let start = 0;
+  for (const run of runs) {
+    if (run > slack && at >= start + slack && at < start + run) return run;
+    start += run + 1;
+  }
+  return null;
+}
+
+// WHY the cell at index `at` of the line (`clue`, `cells` — a knownLine)
+// follows, as a frozen { reason, run }: one of HINT_REASONS, with `run` the
+// run length the "overlap" reason names and null otherwise.
+//
+// This function is the card's centre of gravity, so read the rule twice: a
+// named reason is returned ONLY where its own precondition has just been
+// verified on this very line, and everything else gets "generic", whose
+// sentence ("every placement of this line's clues agrees on at least one
+// cell") is true of every forced cell by lineForced's definition. A reason
+// that can lie is worse than no reason — it sends the player to look for
+// something that is not there, which is the defect this whole card exists to
+// remove.
+//
+//   runs-complete  the correct filled marks already total the clue AND every
+//                  cell of the line is either one of those marks or forced
+//                  EMPTY. The first half is what does the work; the second is
+//                  the sentence's own second clause ("the rest is white")
+//                  CHECKED rather than inferred, and it is honest to say it
+//                  cannot fail on its own: once a placement exists and the
+//                  marks total the clue, every placement fills exactly the
+//                  marked cells, so every other cell is forced EMPTY. It
+//                  therefore only ever differs where lineForced already
+//                  answered null, which the line above has returned on. Kept
+//                  because the sentence says it, and a sentence this card
+//                  ships must be checked by the code that says it.
+//   overlap        the line holds NO known mark at all (so the deduction is
+//                  the clue's own arithmetic and nothing the player did) and
+//                  `at` is forced FILLED and sits in some run's overlap
+//                  window. The run named is the one that actually covers it.
+//   generic        everything else, including a line lineForced finds no
+//                  placement for and a cell it leaves undecided — the two
+//                  cases where no claim about `at` would be safe at all.
+export function hintReason(clue, cells, at) {
+  const plain = (reason) => Object.freeze({ reason, run: null });
+  const forced = lineForced(clue, cells);
+  if (forced === null || forced[at] === UNKNOWN) return plain("generic");
+  const total = clue.reduce((sum, run) => sum + run, 0);
+  const marked = cells.filter((state) => state === FILLED).length;
+  if (marked === total && cells.every((state, i) => state === FILLED || forced[i] === EMPTY)) {
+    return plain("runs-complete");
+  }
+  if (cells.every((state) => state !== FILLED && state !== EMPTY) && forced[at] === FILLED) {
+    const run = overlappingRun(clue, cells.length, at);
+    if (run !== null) return Object.freeze({ reason: "overlap", run });
+  }
+  return plain("generic");
+}
+
+// The row of the first WRONG mark on `board`, row-major, or null when no
+// mark is wrong (CARD-269 rule 7 — Check). A wrong mark is a FILLED or EMPTY
+// cell the solution disagrees with; UNKNOWN is no mark at all and "?" is an
+// assumption, never an error (CARD-186), so neither can ever be wrong.
+//
+// The ROW and never the cell, deliberately: Check answers "is one of my
+// marks wrong?" with the cheapest true answer, leaving the player to find it
+// — the same ladder discipline as rung 1. errorCount above says HOW MANY;
+// this says WHERE to start looking.
+export function firstWrongRow(board, solution) {
+  const { width, height } = board;
+  for (let row = 0; row < height; row += 1) {
+    for (let col = 0; col < width; col += 1) {
+      const state = board.cells[row * width + col];
+      if (state !== FILLED && state !== EMPTY) continue;
+      if (state !== (solution[row][col] ? FILLED : EMPTY)) return row;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Zoom (CARD-195, FR-044). A view setting only: it changes no board state, is
 // never recorded, serialized or saved (see SAVE in solver.js), and solver.js
 // resets it to ZOOM_MIN on every page load. The percent (100..300) is the

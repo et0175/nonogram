@@ -747,7 +747,15 @@ class TestSolverMaybe_ResetClearsMaybe:
 @pytest.mark.browser
 class TestSolverMaybe_HintMayOverwriteMaybe:
     """AC-12 — every cell correct but some "?": Hint reveals one "?" cell and
-    Undo brings it back."""
+    Undo brings it back.
+
+    CARD-269 made the reveal the THIRD press of the hint ladder (rung 1 points
+    at a line, rung 2 explains it, rung 3 reveals), so the reveal below costs
+    three clicks where it cost one. Nothing else about this AC changed: the
+    cell, the counter and the one undo step are CARD-183's. This edit is one
+    the CARD-269 card did not foresee — its G-5 said only the hint and
+    design-token test files would change — and it is reported as such.
+    """
 
     def test_hint(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -762,7 +770,8 @@ class TestSolverMaybe_HintMayOverwriteMaybe:
         hints = browser_page.locator("[data-player-hints]")
         assert hints.text_content() == "0"
 
-        _button(browser_page, "Hint").click()
+        for _ in range(3):  # CARD-269: rung 1 points, rung 2 explains, rung 3 reveals
+            _button(browser_page, "Hint").click()
 
         after = _states(browser_page)
         changed = {(i // SIDE, i % SIDE): s for i, (b, s) in enumerate(zip(cells, after)) if b != s}
