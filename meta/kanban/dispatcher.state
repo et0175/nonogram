@@ -1782,6 +1782,10 @@ cards_cut_later_same_day:
   wave: 68
   commit: 59f84f16
   why: "CARD-298's cycle 1 found the hole by asking who discharges five expires_with entries, and the answer was NOBODY. ADR-0042/R1 says the four interior kinds ARE operators; four cards built the writers and every one still has zero real call sites in src/. CARD-298 was the wiring card until narrowed; CARD-299 is test-side only. So the phase had a medium decision point, five writers, readers about to convert, a declaration registry -- and nobody who turns a page into operators. Nothing shipped to a reader across the whole phase. CARD-309 owns R1's flip (with the LAST conversion, not before), the 21 baselines, and the decision on CARD-297's declared clip divergence. Incremental only because CARD-298's representation refusal is default-DENY, which its G-6 protects."
+scheduling_fact_measured_2026_10_29:
+  what: "The full-suite lock is SCOPE-BLIND. tests/full_suite_lock.verdict refuses EVERY pytest invocation from a foreign worktree while a lock is held, whatever the selection -- a single node id was refused in a probe."
+  my_error: "I briefed two agents that impact-scoped runs do not take the lock 'so scope your runs and they can proceed'. The first half is true, the second is false. CARD-298's fix round hit the refusal, waited 910s rather than override, and said so."
+  consequence: "A merge gate blocks every other card's test runs for its whole duration (~20 min), not just other full suites. Two concurrent cards cannot both be moving while one is gating. Sequence a card's review/fix runs BEFORE starting another card's merge gate."
 board_regenerated:
   at: 2026-10-29
   from: all 307 card files
