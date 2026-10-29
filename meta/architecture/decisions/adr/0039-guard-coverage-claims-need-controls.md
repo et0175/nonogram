@@ -237,7 +237,7 @@ not anybody's mistake:
 |---|---|---|
 | `meta/review/**` | the CARD SYNC PROTOCOL copies each cycle's report into the main repo one-way, because `/commit` excludes `meta/` from card branches and `forge:fix`/`forge:commit`/`forge:retrospective` read them | twice: a warning retired on the sync commit alone, test still absent |
 | `meta/kanban/dispatcher.state` | the orchestrator's state log. **No `.md` extension, so unlike `board.md` it is inside the domain** | it became one of two load-bearing resolvers for a dead ref while recording this defect |
-| `meta/kanban/backlog-scored.yml`, `waves.yml` | scoring and wave bookkeeping | resolvers for several refs |
+| `meta/kanban/backlog-scored.yml`, `waves.yml` | scoring and wave bookkeeping | `backlog-scored.yml` alone resolves **6** model refs, **4** of which have no definition anywhere — a broader kanban-side resolver than the state log |
 | `meta/profiling/*.txt` | duration logs, which name every node id that ran | sole resolver for one ref |
 | prose inside `tests/` itself | comments and docstrings naming the test a module is about | ADR-0006/R1's ref: **zero definitions anywhere**, resolved by over a hundred files, two of them a comment and a docstring under `tests/` |
 
@@ -278,10 +278,46 @@ copy reports a spurious `[ERROR] ADR-0025 circular supersession` because its
 byte-identical between the copies. On this board, 2026-10-29: **forge_1 — 0 errors, 102
 warnings; plugin cache — 1 error, 102 warnings.** The honest error count is 0.
 
-**Interaction with CARD-307.** CARD-307 repairs the `path::nodeid` refs so they resolve.
-This section and its detector stop the *resolution* from being eroded afterwards. Neither
-closes the hole alone: a repaired ref can still be silenced by the next sync, and an
-un-eroded detector still reports refs nobody has repaired.
+**Interaction with CARD-307, with the figure CARD-307 needs corrected.** CARD-307 repairs
+the `path::nodeid` refs so they resolve; this section and its detector stop the resolution
+from being eroded afterwards. Neither closes the hole alone: a repaired ref can still be
+silenced by the next sync, and an un-eroded detector still reports refs nobody has
+repaired.
+
+CARD-307's headline — "30 of them read as mechanically checked, and the validator cannot
+resolve any of them" — **is stale on `main`**, and the correction matters because it is the
+card's scope. Derived 2026-10-29 over the 23 distinct `path::nodeid` check refs the model
+carries (`requirements.yml` `test:` keys and block-form `check:`, `trace.yml` `tests:`
+lists, ADR inline `check:`), forge_1 validator agreeing:
+
+| | count |
+|---|---|
+| loose-alive **and** defined in the named module | 20 |
+| loose-alive, **no** definition anywhere (falsely alive) | 1 — FR-045/AC-392's |
+| loose-dead and absent (the honest state, and the only two the validator flags) | 2 |
+
+The docstring node-id tables that CARD-284, CARD-291 and CARD-294 landed are why 20 of 23
+now resolve. So the validator reports exactly **2** dead node-id refs, not 30.
+
+**A third shape this turned up, and it is the one CARD-307 should actually be scoped on.**
+Four node-id refs are defined in the module they name while that module does **not** spell
+the `path::name` string — so the loose resolution rests entirely on files that are about a
+card rather than about the code. Three of them are `tests/test_player_bundle.py`'s, and
+they are resolved by **exactly two CARD-218 review YAMLs and nothing else**: the tests
+exist and pass, and pruning two files under `meta/review/` would turn all three refs DEAD
+without a line of code changing. The fourth, ADR-0042/R4's
+`tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`, has **57**
+resolvers — 51 `meta/review`, 4 `meta/profiling`, 1 `meta/kanban/backlog-scored.yml`, and
+one `tests/` file that is *not* the module holding its `def`
+(`tests/test_admin_serving.py`). Its definition is real
+(`tests/test_export_pdf.py:1249`); none of the 57 is that definition.
+
+The repair is the existing precedent: a docstring node-id table in
+`tests/test_player_bundle.py`, held to the registry in both directions, as
+`tests/test_public_player.py` and `tests/test_approval_guess_gate.py` already do. That is a
+**shim with a control**, which is why the detector does not flag those 16 refs and does
+pin them: a shim whose table can silently drift is a resolver, a shim whose table is
+asserted against the registry is a declaration.
 
 ## Rules
 

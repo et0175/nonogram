@@ -109,6 +109,21 @@ writers listed above. The wider disagreement set is not dropped; it is pinned
 whole by :func:`test_the_two_directions_of_disagreement_are_exactly_the_measured_ones`,
 so a ref moving between any two classes reds the suite and has to be read.
 
+What a report here does NOT claim
+=================================
+
+"This ref does not resolve to a definition" is **not** "this behaviour is
+untested". A ref may be a superseded name for a test that still exists under a
+different one — measured: the model carries
+``TestBookPdf_TwoUpUpperSlot…FixedTopEdge`` while ``tests/`` defines
+``class TestBookPdf_TwoUpUpperSlotDoesNotShare…TopRow``, which is
+a *different claim*, not a rename of the same one. Both the flag and the
+distinction are correct: what is broken is the model's pointer, and deciding
+whether the behaviour is covered is the repair's job (CARD-307), not the
+detector's. Reading a report here as a coverage gap overstates it in one
+direction; reading a green run as "the refs are honest" overstates it in the
+other, and only the second is dangerous.
+
 G-2: this file does not revive what it detects
 ==============================================
 
@@ -606,6 +621,24 @@ FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 #: reads correctly today.
 HONEST_DEAD = (30, "cc5207403de4ae67")
 
+#: Node-id refs whose test REALLY EXISTS and whose loose resolution comes from
+#: nowhere near it -- the module holding the ``def`` does not spell the
+#: ``path::name`` string, so the only reason the validator reads the ref as
+#: checked is that some review report, duration log or scored-backlog row
+#: happens to quote it. Measured on this board: 4, of which 3 are
+#: ``tests/test_player_bundle.py``'s, resolved by **exactly two CARD-218 review
+#: YAMLs and nothing else**.
+#:
+#: This is the *third* shape of the same defect and the one CARD-307 repairs:
+#: the refs read as checked today, nothing is wrong with the tests, and pruning
+#: two files in ``meta/review/`` would turn all three DEAD without a line of
+#: code changing. A docstring node-id table in that module -- the
+#: ``tests/test_public_player.py`` / ``tests/test_approval_guess_gate.py``
+#: precedent -- moves them into :data:`SAME_FILE_PROSE` and makes them
+#: self-resolving. Pinned here so the class cannot grow unnoticed, and so that
+#: when CARD-307 shrinks it the shrink has to be read.
+RESOLVED_FROM_AFAR = (4, "358bfdc4de982d83")
+
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
 #: deliberate docstring node-id table paired with a two-direction guard holding
@@ -652,7 +685,25 @@ def test_no_verifying_ref_is_resolved_only_by_pipeline_bookkeeping() -> None:
     Pinned as a count and a digest, both derived; the message names every member
     and what resolved it, which is what AC-2 asks for.
     """
-    _assert_class("bookkeeping-only", BOOKKEEPING_ONLY, _class_of(lambda v: v.bookkeeping_only))
+    members = _class_of(lambda v: v.bookkeeping_only)
+    # The predicate is "no CODE root mentions it"; the class is NAMED for
+    # pipeline bookkeeping. Those coincide today and nothing guarantees it:
+    # `silhouette/`, `pictures/`, `docs/` and `.claude/` are tracked, in domain
+    # and under no code root, so a ref resolved only from one of them would be a
+    # true positive carrying a false label. Asserted rather than assumed, so the
+    # name cannot quietly stop describing the members.
+    strays = {
+        hit
+        for verdict in members
+        for hit in verdict.loose
+        if not hit.startswith("meta/")
+    }
+    assert not strays, (
+        f"the bookkeeping-only class has members resolved from outside meta/: "
+        f"{sorted(strays)}. They are still refs with no definition, but the "
+        f"class name no longer describes them -- rename it or split it."
+    )
+    _assert_class("bookkeeping-only", BOOKKEEPING_ONLY, members)
 
 
 def test_the_two_directions_of_disagreement_are_exactly_the_measured_ones() -> None:
@@ -670,6 +721,37 @@ def test_the_two_directions_of_disagreement_are_exactly_the_measured_ones() -> N
         "honest-dead",
         HONEST_DEAD,
         _class_of(lambda v: not v.loose and not v.strict),
+    )
+
+
+def test_a_node_id_ref_resolved_only_from_outside_its_own_module_is_pinned() -> None:
+    """CARD-307's class: the test exists, and bookkeeping is why it reads alive.
+
+    Not a disagreement between the two resolvers -- both say alive -- so it is
+    outside the EC's two directions and would otherwise go unrecorded. It is
+    still the erosion: the loose resolution rests entirely on files that are
+    about the card rather than about the code, and the board has no control
+    stopping them being pruned.
+    """
+    members = tuple(
+        verdict
+        for verdict in _verdicts()
+        if verdict.declared.form == FORM_NODE_ID
+        and verdict.strict
+        and verdict.ref.partition("::")[0] not in verdict.loose
+    )
+    _assert_class("resolved-from-afar", RESOLVED_FROM_AFAR, members)
+    # The sharp half: for at least one of them NOTHING but review YAMLs
+    # resolves the ref. That is the case a reader will not believe without it
+    # being asserted, and it is the one CARD-307 exists for.
+    review_only = [
+        verdict.ref
+        for verdict in members
+        if verdict.loose and all(hit.startswith("meta/review/") for hit in verdict.loose)
+    ]
+    assert len(review_only) >= 3, (
+        f"expected at least three node-id refs resolved by review reports alone; "
+        f"found {review_only}"
     )
 
 
