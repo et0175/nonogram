@@ -570,3 +570,22 @@ A comment delimiter opened from an unguarded character still blanks a region for
 internal reference — never a lost `foreign`.** Not closable without re-admitting the
 two measured false positives, which refusal 2 measures. Declared in the stripper's
 docstring and in `docs/deploy/player.md`.
+
+### OWNER DECISION 2026-10-29: the flag inversion is KEPT
+
+`--analytics` (opt-in, counting **off** by default) stands, and the publish command
+in `docs/deploy/player.md` carries the flag. The reason it was taken is the reason it
+is kept: the card claimed *"default-off… every local run, no tag is written"* and that
+claim was **false** while the flag was opt-out, so the inversion makes the claim true
+structurally rather than by remembering a flag.
+
+**The cost is accepted and named**: a real publish can now go out **uncounted** if the
+flag is forgotten, where before it could go out **counted by accident**. The owner
+chose the direction that fails toward not-counting, which is the direction that cannot
+put a visitor in a log nobody intended. The hold added by fix round 2 — the deploy
+page's backticked flags derived from the helper's own `--help` and asserted to be
+options argparse accepts — is what stops the documented command and the helper from
+drifting apart again, and it is mutation-driven (M12).
+
+Review cycle 3 dispatched on this decision, so the reviewer judges the tree the owner
+chose rather than one it might replace.
