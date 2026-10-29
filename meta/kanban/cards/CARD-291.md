@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 65 <!-- assigned 2026-10-28. HARD contention: CARD-291 declares src/nonogram/admin/app.py, which meta/kanban/config.yml names as a conflict HOTSPOT (CARD-131/132/139/140/142) precisely so it serializes intentionally rather than by arithmetic accident -- and CARD-305 at wave 67 declares app.py too (measured intersection: exactly that path). They must not run concurrently; wave 65 satisfies that with room. CARD-298 (w65) intersects CARD-291 EMPTY. If only ONE of 291/301 can have a slot, this is the one to take: CARD-301 is a verification hole, while CARD-291 prevents a defect that ALREADY REACHED A BOOK -- seven guess-requiring puzzles were pulled from book c1 and production was regraded across 311 rows. Adjacent waves make the 64/65 ordering nearly free, so both are scheduled; reversing them is defensible if the owner weights that owner-facing risk above cost. -->
 **Depends on:** —
-**Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, tests/test_approval_guess_gate.py, tests/test_puzzle_review.py, tests/test_bulk_operations.py
+**Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, tests/test_approval_guess_gate.py, tests/test_puzzle_review.py, tests/test_bulk_operations.py <!-- AMENDED 2026-10-29 after review cycle 1 (F-003). Growth is FULLY JUSTIFIED and measured, but as written the line would mis-scope the next reviewer and the next concurrency check -- and `app.py` is a declared HOTSPOT. ADDED, both forced: `src/nonogram/admin/static/puzzle_edit.js` (+3) and `tests/test_puzzle_editor_ui.py` (+16), because the edit route's refusal vocabulary is a default-deny seam held as an EQUALITY on both sides -- `TestPuzzleEditor_Guardrails::test_the_refusal_vocabulary_is_load_bearing_on_both_sides` reds the moment the route emits a `reason` absent from `app.py`'s `EDIT_REFUSAL_REASONS` or the client's `REFUSALS_THAT_NEVER_WRITE`. Measured both ways by the reviewer: changing the token on EITHER side reds it (:985 app side, :989 client side). So CARD ITEM 5 CANNOT BE IMPLEMENTED INSIDE THE DECLARED TOUCHES. Also added `meta/architecture/decisions/adr/0032-admin-storage-guarantees.md` (the R3 flip the card owes). KEPT, and recorded rather than silently dropped: `tests/test_puzzle_review.py` and `tests/test_bulk_operations.py` were declared but needed NO EDIT -- their fixtures approve 2x2 and 10x10 solid grids, which pass the gate, and `BulkOutcome`'s new fields are appended. G-4 holds with ZERO fixture edits, verified: `git diff -- tests/` removes not one line. -->
 **Review score:** —
 **Started:** 2026-10-29
 **Closed:** —
@@ -271,3 +271,116 @@ FR-046 (to be minted by the delta above).
 ## Worktree notes
 
 —
+
+## [Review cycle 1 — 9.0 CERTIFIED, 2026-10-29]
+
+`min_score: 8`, cycle 1 of 3. **No gating findings**; 4 minor, 3 informational.
+Report synced to `meta/review/20261029T000000Z-CARD-291-cycle1.yml`.
+
+Impact gate, derived in two passes (13 card symbols grepped over `tests/` → 27
+modules, plus 4 added by hand for structural guards this change can break without
+naming their symbols — `test_collected_names.py`, `test_cli.py`,
+`test_admin_import_consistency.py`, `test_admin_regrade.py`): **32 files, 1377
+passed, 0 failed, 4 skipped, 79.6 s.** All four skips are
+`tests/conftest.py:207` (`db_required`, no `DATABASE_URL`) in
+`test_puzzle_edit_routes.py::TestPuzzleEditRoutes_OverTheRealDatabase`, **and the
+same four skip on `main`** — no skip count moved, and **0 skips in this card's own
+file**.
+
+### F-001 was TAKEN as a fix round, not deferred — commit `2eb93c2a`
+
+**A ref that resolves to a SKIPPED function is not a checked one.** Measured: with
+`@pytest.mark.skip` above any of the five criteria, the file reported *"36 passed,
+1 skipped"* and `test_the_registrys_check_refs_for_this_card_all_resolve` stayed
+**green**. Resolving a ref to a module-level callable proves the function *exists*;
+it does not prove the criterion *runs* — the same defect as a dead ref, one level
+in, in the one card written to stop that defect reproducing.
+
+Fixed by `_silenced`, kept out of the resolve test precisely so its control can
+drive it over a **synthetic namespace**: at HEAD no function here carries a skip
+mark, so asserting over the real tree would pass whatever the helper did, `return
+[]` included. Both directions proved to bite by the orchestrator:
+`@pytest.mark.skip` on a criterion reds the resolve test at **:2066**; `_silenced`
+short-circuited to `return []` reds the control at **:2128**. The control also pins
+that `skipif` counts, that a live function is **not** claimed, and that a ref
+naming nothing stays the resolve test's `missing` case so the two assertions cannot
+stand in for each other. File 37 → **38 passed, 0 skipped**; node ids **+38 / −0**,
+all in this file.
+
+The general form is **CARD-307's**: it writes one resolve-guard per module, and
+each must carry this skip-mark requirement or it will certify refs that never run.
+
+### F-002, recorded as a declared residual — the approve route pays the verdict twice
+
+Counted on `puzzle_review.solve` through a real `test_client()`: believed list →
+**0** solves (200); **unbelieved list → 2** (200); refusal → 1 (409); service path
+→ 1. The route asks `approvability_of` and then `approve_puzzle` re-asks
+`_approvability`. **The card's cost note is correct for the normal population** —
+generation and the edit flow both write a believable list, so the common case is 0
+solves — and the doubling reaches only legacy or invented-name rows. Bulk is
+unaffected (1 per row). What is true and worth saying: `test_the_happy_path_does_not_enter_the_solver`
+drives only the **service**, so the *route's* cost is unmeasured. Not fixed here;
+it is a cost, not a defect, and the fix is a route-level memo whose own control
+would be new work.
+
+### Two corrections about WHICH test does the work — neither a weakness
+
+Both reproduced by the orchestrator:
+
+1. **`test_no_real_door_could_be_excused_by_listing_it` never reads
+   `APPROVES_NOTHING`** — the name appears only inside its failure-message string.
+   It asserts a standing property of the five doors (`_cannot_approve` non-empty).
+   Moving a real door onto the exemption list is caught by
+   **`test_every_exemption_is_still_unable_to_approve`** plus the size pin. The
+   protection is real and bites; the test whose name claims it is not the one doing
+   it. Worth renaming or re-documenting, since a reader will reach for the wrong
+   one.
+2. **Parametrizing a criterion would NOT kill its ref.** pytest matches node-id
+   *prefixes*, so a parametrized `test_unknown_verdict_fails_closed` still collects
+   under its bare node id (measured: `[1]`, `[2]`, 2 collected). The orchestrator's
+   dispatch brief worried about this; the real hole was the skip mark.
+
+### The `status: partial` warning is NOT this card's to clear, now measured
+
+The round said so and the review measured it: `[WARN] FR-046 requirement has no
+tests yet (status: partial)` fires on `trace.yml`'s `status: partial` **alone** —
+`forge_1`'s `validators/trace.py:71-73` never reads the entry's `tests:` list,
+which for FR-046 already holds all five node ids. `requirements.yml` has **0**
+occurrences of `status: partial` and FR-046 has no `status` key there at all.
+Board-wide: **43 of 75** trace rows are `partial`, 40 with no tests; the three that
+list tests are NFR-001 (1), **FR-045 (15)** and FR-046 (5). **FR-045 is the
+precedent this card cites and its row is still `partial` with 15 live tests.** So
+flipping FR-046 alone would be a one-card board-wide convention change. **The
+card's claim is satisfied for 5 of the 6 FR-046 warnings**; the convention flip is
+filed separately, not smuggled in here.
+
+### Predicate name — justified, and amended so nobody "restores" it (F-004)
+
+Card item 2 asks for `needs_guessing(puzzle_id)`; it shipped as
+`approvability_of(puzzle_id) -> Approvability | None`. **Justified, not drift**, on
+three grounds, two of them measured: AC-395 needs a third outcome carrying its own
+message, which a bool cannot; one enum read is **one** `strategies_for` call where
+two booleans would be **two** budgeted re-solves (`_approvability` measured at
+exactly 1 solve, and F-002 shows what one extra call already costs); and
+`GridNotApprovable.verdict` is the same member, so the edit refusal and the
+approval refusal cannot drift. The card's prose is left as the request it was, with
+this note as the answer.
+
+### AC/EC/G verification gate (`done` step 2a) — run by node id
+
+**AC-393, AC-394, AC-395, AC-396, EC-051: 5 passed, 0 skipped, 0 failed.**
+- **G-1** holds: the only `strategies_used` occurrence in the added `src/` lines is
+  a subscript **read** passed as an argument; no assignment to grade, score, tier
+  or `strategies_used`; no write of `PuzzleStatus.DRAFT`/`REJECTED`, so nothing
+  demotes. The reviewer additionally measured it as a **byte-for-byte row no-op** —
+  deep-copied the row, drove a refused approval down both verdict paths, diffed
+  every key: delta **NONE** on both.
+- **G-2** holds: `difficulty.py`, `orchestrator.py`, `solver/**` untouched; 0
+  occurrences of `score_difficulty`/`classify` in the `src/` diff.
+- **G-3** holds by substance: **no import statement is added to `src/` at all**,
+  `pyproject.toml` untouched. **Not** credited to
+  `TestDependencyBaseline_IsExactlyPillowAndNumpy`, which has zero definitions in
+  this repo and reads alive only because ~223 tracked files spell the token.
+- **G-4** holds with **zero** fixture edits: both named files unedited and green
+  (37 passed), and `git diff -- tests/` removes not one line.
+- **G-5** holds: node ids **+38 / −0**, no deleted `def`/`class` in `tests/`.

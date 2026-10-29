@@ -164,3 +164,41 @@ is given makes `kind: test` weaker than it reads — the same class of defect as
   warning: it fires on `status: partial` in `trace.yml` **alone**, has nothing to do
   with check refs, and does not clear when tests land. Two review cycles have
   already misread it as a missing `tests:` key. Do not try to clear it here.
+
+## [Amended 2026-10-29 after CARD-291's review cycle 1 — the resolve-guard has a second hole]
+
+CARD-291's cycle 1 found it (F-001) and the orchestrator reproduced it: **a check
+ref that resolves to a SKIPPED function reads as mechanically checked while the
+criterion never runs.** Measured on CARD-291's branch — with
+`@pytest.mark.skip` above one of its five criteria the whole file reported *"36
+passed, 1 skipped"* and the module's own resolve-guard stayed **green**, because
+the guard asserts that a module-level callable of that name *exists*, not that it
+executes.
+
+**So item 3's per-module guard is under-specified as written.** Every resolve-guard
+this card writes must assert **three** things, not two:
+
+1. every registry ref for the module resolves to a module-level definition in it;
+2. every such ref appears in the module's docstring table (the half the validator's
+   `git grep` reads);
+3. **no resolved function carries a `skip` or `skipif` mark** — `skipif` included,
+   because a condition that is true today is a skip today whatever it reads like.
+
+CARD-291 shipped the reference implementation in commit `2eb93c2a`: a module-level
+`_silenced(refs, namespace)` helper, kept **out** of the resolve test so its control
+can drive it over a **synthetic namespace**. That separation is load-bearing and not
+stylistic: at HEAD no function carries a skip mark, so a control asserting over the
+real tree would pass whatever the helper did — `return []` included. Its control
+also pins that a **live** function is not claimed (which is what stops a
+deny-everything helper from passing the two positive assertions) and that a ref
+naming nothing stays the `missing` case, so the two assertions cannot stand in for
+each other.
+
+Both directions were proved to bite before CARD-291 merged: a skip mark on a
+criterion reds the resolve test; `_silenced` short-circuited to `return []` reds the
+control.
+
+**Add to AC-3:** the two mutants it requires become **three** — rename a named test
+(reds `missing`), delete a docstring table line (reds `unnamed`), and **skip-mark a
+named test** (reds `silenced`). A module whose guard passes all three is honestly
+checked; one that passes the first two is where this card started.
