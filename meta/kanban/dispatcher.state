@@ -2539,3 +2539,57 @@ main_warning_count_is_depressed:
   measured: "main 100, honest 102"
   cause: "a synced review report is the sole resolver for two of FR-045's dead refs -- REINSTATED after a wrong withdrawal, re-measured with the resolver's own query"
   binds: "no gate may credit a branch-vs-main warning comparison until CARD-285 merges"
+
+# --- CARD-285 cycle 2 verdict, 2026-10-29 night ---
+# 7.5, DOES NOT CERTIFY. One gating finding, and cycle 3 is the LAST.
+#   F-101: the comment-stripping scan has FOUR silent passes, not the one cycle 1
+#   found. The round fixed the single-line form with a lookbehind; the two
+#   DOTALL block forms have no lookbehind at all and cross lines, so a planted
+#   block comment with its delimiters inside string literals swallows a
+#   protocol-relative script src, a CSS url(), an HTML attribute src, and a fetch
+#   after a regex literal -- each a SILENT PASS against a clean baseline. These
+#   are shapes inside the scanner's own pattern set, so they break the
+#   default-deny clause the round had just promoted into the AC. The round also
+#   DELETED the sentence that admitted the hazard.
+#   The honest direction, at least: the AC is ahead of the test, not weakened to
+#   match it. Clauses 1 and 2 are enforced and mutation-resistant.
+#
+# THE RESOLVER QUESTION IS SETTLED, THREE WAYS, AND MY WITHDRAWAL WAS THE ERROR.
+#   This round isolated it properly -- inside ONE worktree at the cut, with the
+#   validator of record: with the synced report absent, two DEAD-check-ref
+#   warnings; the same worktree with only that file added, both gone. The report
+#   IS the sole resolver and main IS exactly two warnings quieter than honest.
+#   That is now independent confirmation from two reviewers plus my own
+#   re-measurement with the resolver's own query. The claim as first written on
+#   b440b490 was right; bcf861f6's withdrawal was wrong; e861b261 reinstated it.
+#
+# AND THE HAZARD GOT ITS CLEAREST INSTANCE YET, recorded as CARD-319's route 8.
+#   A module docstring's ref table spells seven whole path::name strings as
+#   tracked code. Six are held to the requirements registry by that module's own
+#   guard. The seventh is held by NOTHING -- its authority is an ADR rule, and the
+#   guard reads only the registry. Mutant survived: rename the def, 33 passed, no
+#   definition anywhere in the repo, and the ref still resolves from four tracked
+#   files. A MANDATORY ADR RULE READS AS MECHANICALLY CHECKED WITH NOTHING BEHIND
+#   IT. It is the proof that the two validator defects COMPOUND: invisible to the
+#   ADR gate because it is an ADR rule, falsely resolved by the text search
+#   because four files mention it. Fixing either alone leaves it green.
+#   It is also self-inflicted: the per-module docstring tables were introduced to
+#   give a text search something to find, which is what makes a rename invisible.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: review cycle 2 CERTIFIED 8.5 on f0304cb9, no gating findings, ready for merge gate
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: review cycle 2 scored 7.5 on 3f3012a4, one gating finding, fix round 2 owed (cycle 2 of 3)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 2 scored 7.5 on 79ecafcb, one gating finding, fix round 2 owed (cycle 3 is the LAST)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []

@@ -32,9 +32,9 @@ board does not edit**. The card exists so the defect is *recorded with its evide
 rather than rediscovered a ninth time, and so the owner can decide where the fix
 belongs: upstream in `forge_1`, as a project-local override, or not at all.
 
-**Six cards have already paid for this defect one route at a time.** That is the
-signal: six measured routes and a seventh latent one are not seven problems — they
-are one predicate with seven doors.
+**Six cards have already paid for this defect one route at a time**, and a seventh
+route was measured the day this card was written. That is the signal: seven measured
+routes and one latent are not eight problems — they are one predicate with eight doors.
 
 ## Defect 1 — a text search standing in for a definition check
 
@@ -69,6 +69,27 @@ different card, by excluding or rewording one resolver:
    migration**, not against it. It is recorded because the shape is real and nothing
    prevents the next instance: a legitimate tracked test file, doing a legitimate
    thing, that no exclusion list would catch.
+
+**The next instance did not wait. Measured 2026-10-29 by CARD-285's cycle-2 review:**
+
+8. A **module docstring's ref table**. `tests/test_public_player_pages.py` spells
+   seven whole `path::name` strings in its own docstring, as tracked code outside
+   `meta/architecture` and outside `*.md`. Six are held to `requirements.yml` by that
+   module's registry guard. **The seventh is held by nothing** — ADR-0041/R2's own
+   check ref, flipped live at `8492b63c` — because the guard reads `requirements.yml`
+   and R2's ref lives in an **ADR**.
+   The mutant survived: rename that `def`, and the module is **33 passed / 0 skipped**,
+   no `def` exists anywhere in the repo, and the whole `path::name` still resolves from
+   **four** tracked non-`.md` files — the docstring itself, `player/assemble.py`,
+   `tests/test_public_player.py`, and a CARD-284 review YAML. **A mandatory ADR rule
+   would read as mechanically checked with zero definitions behind it.**
+
+Route 8 is the one that should settle it, and it is the clearest evidence that the two
+defects **compound rather than stack**: the ref is invisible to defect 2's gate because
+it is an ADR rule, and it resolves falsely under defect 1 because four files mention
+it. Fixing either alone leaves it green. It is also the shape the per-module docstring
+tables **create** — they were introduced to give a text search something to find, which
+is precisely what makes a renamed test invisible.
 
 **The repair is small and local:** resolve a ref by parsing for a `def`/`class` of that
 name, and keep the text search only as a fallback for refs that are not Python
@@ -132,7 +153,11 @@ below assume the repair lands somewhere this board can verify.)*
 - **AC-4** (the honest number is recorded): *Given* before and after, *then* both
   counts are reported with the **sets** diffed line by line, and the rise is explained
   ref by ref rather than summarised.
-- **AC-5** (the twelve notes are resolved): *Given* the fix, *then* the hand-written
+- **AC-5** (the docstring tables are resolved): *Given* the fix, *then* every
+  per-module docstring ref table is either held to its authority **including ADR
+  rules**, or removed as the shim it was. Route 8 exists because a table was added
+  without a holder for the one entry whose authority is an ADR.
+- **AC-6** (the twelve notes are resolved): *Given* the fix, *then* the hand-written
   `**DEAD REF**` notes on the twelve cards are either true or removed, and no card
   carries a note describing a check the gate now performs.
 
