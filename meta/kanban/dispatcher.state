@@ -2794,3 +2794,62 @@ active:
   phase: review cycle 3 running (the LAST) on 6caccb65
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 queued: []
+
+# --- CARD-285 review cycle 3 (the LAST) = 7.5, DOES NOT CERTIFY ---
+# max_cycles: 3 is SPENT. 7.0 -> 7.5 -> 7.5 against min_score 8, and
+# min_improvement 0.5 was not met on the last step either. ESCALATION POINT.
+#
+# THE GATING FINDING IS A MEASURED SILENT PASS OF AN EGRESS REFERENCE, by a
+#   route no cycle had looked at. The design's load-bearing claim -- that the two
+#   patterns still reading comment-stripped text are the only two whose misses
+#   cannot be egress -- is FALSE: one of them matches a quoted value whose first
+#   character is a slash INCLUDING the doubled form, and the classifier routes
+#   that form down the absolute branch. Its raw counterpart demands a dotted
+#   letter-TLD authority, so for a single-label host, a bracketed IPv6 literal or
+#   a bare address, the only reader is the stripped one. Four references pass
+#   silently, each planted alone with the baseline asserted empty in the same
+#   run, and controls in that run isolate the cause to BOTH ingredients.
+#   THE FIX IS ONE LINE AND THE REVIEWER MEASURED IT: relax the raw reader's
+#   authority shape, still raw. Real site clean in all three buckets, all four
+#   passes become findings, both modules 66 passed, and the claim becomes true as
+#   written.
+#
+# AND THE OWNER'S ACCEPTED COST HAS A SURVIVING MUTANT. The decision to keep the
+#   flag inversion was conditioned on the new hold stopping the documented
+#   command and the helper from drifting apart. It only half does: the hold binds
+#   the page's BACKTICKED PROSE to argparse's option set, but the publish command
+#   sits in an indented block so its flags never enter the set, and the flag is
+#   satisfied by two prose mentions. Deleting the flag from the documented
+#   publish command SURVIVES. That is precisely the drift the decision assumed
+#   away. ~3 lines.
+#
+# WHAT THE CYCLE DID VERIFY, so the escalation is not read as a weak card: both
+#   of the fix round's refutations of cycle 2 reproduce, and the stripper
+#   genuinely cannot be removed -- removing it brings back both measured false
+#   positives. All five new plants are genuine one-line controls. The docstring
+#   ref-table guard catches the phantom-addition direction too.
+#
+# THREE DOCUMENTATION CORRECTIONS, one mine: the "four ways" per plant is
+#   THREE, because one assertion is subsumed by another and, for two plants, is
+#   satisfied by their own decoy with the controlled read removed; an AC comment
+#   describes a mechanism the code lacks, which is the FOURTH such document on
+#   this card; and my brief cited stale line numbers again, carried rather than
+#   measured.
+#
+# SHIPS UNREVIEWED and worth the owner knowing: the full suite, never run in
+#   three cycles. The merge gate will be this card's only full reading, and 16
+#   node ids that arrived from main were never run by it.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: review cycle 3 running (the LAST) on 3fab6828
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: ESCALATED - cycle 3 of 3 scored 7.5, one gating finding with a measured one-line fix, awaiting owner decision
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []

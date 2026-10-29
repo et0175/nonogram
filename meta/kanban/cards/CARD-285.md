@@ -589,3 +589,94 @@ drifting apart again, and it is mutation-driven (M12).
 
 Review cycle 3 dispatched on this decision, so the reviewer judges the tree the owner
 chose rather than one it might replace.
+
+---
+
+## Review cycle 3 — the LAST — 7.5, DOES NOT CERTIFY
+
+Cycle 1 → 7.0, cycle 2 → 7.5, cycle 3 → **7.5** against `min_score: 8`.
+`max_cycles: 3` is spent. **One gating finding, and it is a measured silent pass of
+an egress reference.**
+
+### F-201 (GATING) — the load-bearing claim is false in the under-claim direction
+
+Fix round 2's whole design rests on *"the two patterns reading stripped text are the
+only two whose misses cannot be egress — a lost `unclassifiable`, never a lost
+`foreign`."* **Measured false**, by a route no cycle had looked at:
+
+- **`_ROOTED_LITERAL` is not an internal-only reader.** It matches any quoted value
+  whose first character is `/`, **including one beginning `//`**, and `classify()`
+  routes every target beginning `//` down the **absolute branch → `foreign`**.
+- **`_HOST_LITERAL`, the raw reader of that form, requires the authority's last label
+  to be 2+ ASCII letters.** So for an authority that is **not** a dotted letter-TLD
+  name, the only reader outside a markup/CSS/sink/call position is the **stripped** one.
+
+Combine that with the round's own declared residual — an opener after an unguarded
+character still blanks a region — and **four `foreign` references pass silently**, each
+planted alone with the baseline asserted empty in the same run: an `import` of a
+`//`-prefixed **IPv4** host behind `const open = "x/*"`; a bare CSS `@import` of one
+behind `a{content:"x/*"}`; a **single-label** host (`//intranet/…`); and a **bracketed
+IPv6** host. Controls in the same run isolate the cause to *both* ingredients — the same
+references with **no comment** are caught; the same residual with a **dotted letter-TLD**
+host is caught; the IPv4 host in a `src=` behind the same residual is caught.
+
+**The fix is ONE LINE and the reviewer measured it**: relax `_HOST_LITERAL` to
+`(["'`])(//[^/"'`\n][^"'`\n]*)\1`, still reading raw. The real counted site stays clean
+in all three buckets, all four passes become `foreign`, both player modules **66 passed**
+— and it makes the claim true as written.
+
+**So the residual's cost statement is understated in two places** — the stripper's
+docstring and `docs/deploy/player.md`, whose *"every quoted `//host` … is read from the
+file as written"* is true only for dotted letter-TLD authorities. **A declared residual
+with an understated cost is worse than an undeclared one.**
+
+### F-202 (medium) — the owner's accepted cost has a SURVIVING mutant
+
+The owner kept the flag inversion with one condition in mind: the new hold stops the
+documented command and the helper from drifting apart. **It only half does.** The hold
+holds the page's **backticked prose** to argparse's option set — renaming the option
+**kills** it — but the publish command sits in an **indented block**, so its flags never
+enter `page_flags`, and `--analytics` is satisfied by two *prose* mentions.
+**Deleting ` --analytics` from the documented publish command leaves both player modules
+at 66 passed — SURVIVED.** That is exactly the drift the decision was conditioned on.
+~3 lines.
+
+### Everything the cycle verified
+
+Both of fix round 2's refutations of cycle 2 **reproduce**, and refutation 2 is the
+strongest argument on the card: recompiling the scan with the rooted read on raw text
+**fails on the clean counted site** on a documented panel path inside a comment, and
+dropping the stripper entirely brings the second measured false positive back. **The
+stripper genuinely cannot be removed.** Refutation 1 confirmed: cycle 2's recommended
+assertion is True by construction, and the replacement can fail.
+
+**All five new plants are genuine one-line controls** — each disabled raw read loses
+exactly one plant and only its own. **F-102's guard catches the docstring-only
+direction**: a phantom whole `path::name` inserted into the table, defined nowhere, is
+killed, and the "arm is reached" control is non-vacuous. F-105, F-106, F-107 all confirmed.
+
+### Three corrections, one of them the orchestrator's
+
+- **"Nine plants, each asserted four ways" is three** (F-204): assertion (a) is
+  **subsumed** by (d), because the shipped stripper blanks a subset so shipped findings
+  ⊇ pre-fix findings. Worse, (a) matches on **filename**, and three plants open with a
+  decoy that `_ROOTED_LITERAL` itself reports as `unclassifiable` in that same file — so
+  for the two plants whose declared bucket *is* `unclassifiable`, (a) is satisfied by
+  their own decoy with the controlled read entirely removed. **The controls survive; the
+  count was one high.**
+- **AC-391's own comment describes a mechanism the code lacks** (F-205) — with the two
+  endpoints collapsed, *both* assertions pass, and the case is harmless anyway because
+  the route pattern is host-keyed so one pattern aborts both. **The fourth document on
+  this card to describe behaviour that is not there.**
+- **The orchestrator's brief cited stale line numbers for F-107's two arms** — they are
+  cycle 2's numbers at `79ecafcb`, not this HEAD's. Carried, not measured, again.
+
+### What ships UNREVIEWED, stated because the cycles are spent
+
+**The full suite — never run in three cycles.** The merge gate is the only full reading
+this card will get, and **16 node ids that arrived from `main` were never run by it**.
+Also: everything the pre-round merge brought; the rest of `docs/deploy/player.md`;
+`player/play.html` (+24) and `scripts/README.md` (+31) read but not driven; authority
+shapes beyond the four planted (percent/unicode-encoded, userinfo, port-only — the
+measured one-line fix covers them by construction but they are unmeasured); and AC-390's
+counted-tree request-**set** closure.
