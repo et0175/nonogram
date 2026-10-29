@@ -3874,6 +3874,54 @@ class TestAnswerPages_CaptionHoldsTheFloorInTheStream:
         for text in pdf_vector.content_streams(_written(streams)):
             assert not (set(_strings(text)) & wanted), _strings(text)
 
+    def test_the_two_media_omit_at_the_same_slack_for_every_integer(self) -> None:
+        """The threshold agreement review cycle 1 found claimed but unasserted.
+
+        F-297-08 item 4: the round reported that the vector writer's omission
+        threshold and the raster page's "agree for every integer slack", and
+        no assertion of it was committed anywhere — ``grep`` over the whole
+        diff for ``72.9``, "threshold" and "every integer slack" returned
+        nothing. Here it is, driven rather than reasoned.
+
+        Each threshold is recomputed from its **own** medium's own face
+        measurement — the vector's from the embedded face's ``/Ascent`` and
+        ``/Descent``, the raster's from ``FreeTypeFont.getmetrics`` — and the
+        two verdicts (print or omit) are compared at every integer slack from
+        zero to past both. The agreement is not a coincidence of two numbers:
+        a slack is a difference of two integer page coordinates, so what
+        matters is that **no integer falls between the two thresholds**, and
+        that is asserted as such. A face change that moved them apart across
+        an integer reds here instead of silently changing which pages print a
+        caption.
+        """
+        raster_gap = round(ANSWER_TILE_GAP_MM / 25.4 * 300)
+        caption_pt = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+        ascent, descent = _band_font(type_px(caption_pt, 300)).getmetrics()
+        raster_threshold = raster_gap + ascent + descent
+
+        spec = book_answer_vector.answer_type(300)
+        face = interior_face_metrics()
+        vector_threshold = spec.gap_px + book_vector_draw.line_height_px(
+            spec.caption_size_px, face
+        )
+
+        # The two really are different numbers, so the agreement below is a
+        # measurement and not an identity.
+        assert vector_threshold != raster_threshold
+        low, high = sorted((float(vector_threshold), float(raster_threshold)))
+        assert high - low < 1.0, (low, high)
+        assert not [n for n in range(0, int(high) + 2) if low <= n < high], (low, high)
+
+        cases = 0
+        for slack in range(0, int(high) * 2 + 2):
+            assert (slack >= vector_threshold) == (slack >= raster_threshold), (
+                slack,
+                vector_threshold,
+                raster_threshold,
+            )
+            cases += 1
+        assert cases >= 140, cases
+
     def test_the_floor_is_the_one_the_constant_states(self) -> None:
         """The figure is re-derived, not quoted: 10 pt is where it comes from."""
         assert ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4 == pytest.approx(_FLOOR_PT)
