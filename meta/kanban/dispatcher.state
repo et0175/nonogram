@@ -2406,3 +2406,58 @@ main_warning_count_is_depressed:
   measured: "main 100, honest 102"
   cause: "a review YAML the orchestrator synced is the sole resolver for two dead refs"
   binds: "no gate may credit a branch-vs-main warning comparison until CARD-285 merges"
+
+# --- review cycle 2 dispatched for all three, 2026-10-29 ---
+# One agent per card, briefed with the measurement rules the fix rounds
+# established. Each brief carries its card's own judgement targets and the
+# standing traps (scope-blind lock, NOT-REACHED instruments, pytestmark by
+# assignment, no load figure, no carried file:line or count).
+#
+# CORRECTION TO MY OWN RECORD, measured while writing the third brief.
+#   The key below claimed a synced review YAML was the SOLE resolver for two
+#   dead refs and that main therefore reads two warnings quieter than honest.
+#   Both halves are wrong, and the wrong version also reached main's commit
+#   message b440b490 and two cycle-2 briefs (both agents have been corrected
+#   in flight).
+#   What is actually true: each of those refs resolves on main through TWO
+#   tracked non-excluded files. Besides the YAML, the player test module
+#   itself spells the names as STRING LITERALS inside a set whose assertion
+#   exists to record that those tests are not yet defined -- so deleting the
+#   YAML would not raise main's count, and the cause of the 2-warning gap is
+#   now UNEXPLAINED rather than attributed.
+#   (Ref names are deliberately not spelled here: this file has no .md
+#   extension, so it is inside the validator's own search domain.)
+#
+#   WHY IT MATTERS BEYOND THE FIGURE: that string-literal set is a seventh
+#   instance of CARD-308's hazard by a route nobody had listed -- not a
+#   report, not dispatcher.state, but a test written to TRACK not-yet-written
+#   tests, which thereby silences the very warnings it tracks. CARD-285's
+#   branch inverts that guard and removes this instance; the shape is general
+#   and CARD-308's reviewer has been asked whether its census covers it.
+#
+#   The instruction the bad claim was attached to survives unchanged and for a
+#   better reason: a branch-vs-main warning comparison is unsound in either
+#   direction, because the two trees differ in WHAT RESOLVES, not merely in
+#   which report is present. Hold the meta files equal inside one worktree.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-299
+  wave: 66
+  phase: review cycle 2 running on f0304cb9
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-299
+- id: CARD-308
+  wave: 66
+  phase: review cycle 2 running on 3f3012a4
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 2 running on 79ecafcb
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: [CARD-307]
+main_warning_count_is_depressed:
+  measured: "main 100; honest count NOT established"
+  cause: "WITHDRAWN -- the sole-resolver attribution was wrong, see the note above"
+  binds: "no gate may credit a branch-vs-main warning comparison, because the two trees differ in what resolves"
