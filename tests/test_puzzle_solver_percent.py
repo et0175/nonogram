@@ -457,7 +457,23 @@ class TestSolverPercent_SitsNextToTheCounters:
         kept: the buttons keep the row's top, the pair is still centred on
         their row, Progress is still drawn above the board and left-aligned
         under the pair rather than beside it. The board does not move
-        horizontally; the toolbar is one row taller (223 px against 187).
+        horizontally; the toolbar is one row taller — #puzzle-player-controls
+        is 75 px HIGH at 1280 px with Check against 39 px without it, a
+        difference of exactly 36 px, one wrapped counter line.
+
+        CARD-269 review F-5: this sentence used to read "223 px against 187",
+        which are not heights at all but the BOTTOM-EDGE coordinates of a
+        viewport-relative rect — the toolbar's top is y=148, so 148+75=223 and
+        148+39=187. A bottom edge depends on everything drawn above the
+        toolbar and is not a property of the toolbar, so it would not
+        reproduce for whoever checks it next. Re-measured for this correction
+        with getAnimations() settled and #puzzle-player-announce in its
+        shipped 1x1 clipped state: 74.797 px with Check and 38.797 px without
+        (and 38.797 px at 1440 px either way, which is the negative control
+        that the instrument is not merely reporting "a button was added").
+        The element screenshots in ~/Documents/nonogram-reviews/CARD-269/
+        agree by a second instrument: the toolbar crop is 980 x 75 at 1280 px
+        and 1140 x 39 at 1440 px.
         """
         got = _layout(browser, live, 1280, 720)
         pl, pt, pr, pb = got["progress"]

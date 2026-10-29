@@ -643,6 +643,19 @@ def _reason(clue, cells, at):
 #: they actually DROVE equals that export, so a reason added to the module
 #: without a case here is a failure rather than an untested branch
 #: (ADR-0039/R2).
+#:
+#: A DELIBERATE SECOND LIST, declared as one (ADR-0039/R2; CARD-269 review
+#: F-6). These sentences are hand-written here rather than read out of
+#: ``solver.js``'s ``LADDER_REASON``, because a test that imported the
+#: shipped map could only ever confirm that the page says what the page says:
+#: the wording a player hears is exactly what this file is for, so it is
+#: written twice on purpose and the two copies are compared by driving the
+#: real control. CLAUDE.md's test-style rule, and the same choice ``_reason``
+#: above makes against ``hintReason``. What is NOT left to parallel
+#: maintenance is the KEY SET: ``LADDER_REASON`` is exported since F-6, and
+#: ``TestSolverHintLadder_ThePureModule`` asserts its keys are
+#: ``HINT_REASONS``, so an extra or missing sentence in the source is a
+#: failure there rather than a dead branch nothing reaches.
 _REASON_SENTENCE = {
     "runs-complete": lambda axis, run: f"every run in this {axis} is placed; the rest is white.",
     "overlap": lambda axis, run: f"the {run}-run must overlap in the middle whatever its position.",
@@ -777,9 +790,10 @@ _BOXES = """() => {
 class TestSolverHint_PlacesTheButtonAndTheCounter:
     """CARD-269 extends this with Check's placement. CHECK now closes the
     History group, right after Hint (which is where the card's Design
-    context puts it, and the clause of AC-333 that called Hint the group's
-    last control is part of what the ladder supersedes — surfaced in the
-    report, not decided quietly here). "Hints: N" is the element right after
+    context puts it). The clause of AC-333 that called Hint the group's last
+    control was surfaced rather than decided quietly, and the owner amended
+    AC-333 to name Check as the group's last control — so this class asserts
+    the amended AC, not a superseded one. "Hints: N" is the element right after
     "Errors: N" and sits to its right in the same row, at the right end of
     the toolbar, at desktop width and at 390 px. Hint and Check share Reset's
     row at desktop width and wrap onto a row of their own at 390 px, Check to
@@ -1058,17 +1072,31 @@ class TestSolverHint_DisabledWithNothingToReveal:
         assert not _is_disabled(browser_page, "Hint")
 
     def test_disabled_during_a_drag(self, browser_page, live) -> None:
+        """CARD-269 review F-10: CHECK is asserted here too, because it read
+        aria-disabled="false" mid-drag while its handler returned early on the
+        same gesture — an enabled control that does nothing, which is the one
+        failure mode aria-disabled exists to prevent. Hint in the same test is
+        the positive control that the instrument reads a real "true", and the
+        two lines after mouse.up are the control that neither control is left
+        disabled.
+        """
         _open(browser_page, live, live.store(GRID))
         assert not _is_disabled(browser_page, "Hint")
+        assert not _is_disabled(browser_page, "Check")
         browser_page.mouse.move(*_centre(browser_page, 3, 0))
         browser_page.mouse.down()
         browser_page.mouse.move(*_centre(browser_page, 3, 4), steps=4)
         assert _is_disabled(browser_page, "Hint")
+        assert _is_disabled(browser_page, "Check")
         browser_page.evaluate("document.querySelector('[data-player-action=\"hint\"]').click()")
+        browser_page.evaluate("document.querySelector('[data-player-action=\"check\"]').click()")
+        assert _announced(browser_page) == ""  # Check said nothing mid-drag
+        assert _lined(browser_page) == _NO_LINE
         browser_page.mouse.up()
         assert _marked(_states(browser_page)) == {(3, c): F for c in range(5)}
         assert _hints_shown(browser_page) == 0
         assert not _is_disabled(browser_page, "Hint")
+        assert not _is_disabled(browser_page, "Check")
 
     def test_enabled_again_after_a_cancelled_drag(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -1244,6 +1272,14 @@ class TestSolverHint_ReducedMotion:
 #: both of each named case's near misses, and Check's scan.
 _LADDER = """async () => {
   const S = await import('/static/solver_state.js');
+  // The RENDERER's two announce tables, read from the shipped module itself.
+  // CARD-269 review F-6: LADDER_REASON was module-private, so the comment
+  // claiming "the suite asserts these keys ARE HINT_REASONS" asserted
+  // something no test could perform; LADDER_SAY did not exist and the rung
+  // dispatch was an underived ternary. A second `import` of a module the page
+  // has already loaded is the same module instance from the browser's module
+  // map, so nothing is re-run and nothing is stubbed.
+  const R = await import('/static/solver.js');
   const codes = { u: S.UNKNOWN, f: S.FILLED, e: S.EMPTY, m: S.MAYBE };
   const back = { [S.UNKNOWN]: 'u', [S.FILLED]: 'f', [S.EMPTY]: 'e', [S.MAYBE]: 'm' };
   const board = (width, height, text) => Object.freeze({ width, height,
@@ -1278,6 +1314,29 @@ _LADDER = """async () => {
       rung: refused(() => S.nextRung(4, 'press')),
       zero: refused(() => S.nextRung(0, 'press')),
       axis: refused(() => S.knownLine(board(1, 1, 'u'), [[true]], 'col', 0)),
+      // hintLine's THIRD structural path (review F-7): a cell claiming
+      // deduced: true that NEITHER axis forces. Unreachable from hintCell,
+      // which projects through the same knownLine and uses the same
+      // lineForced, so it is asserted impossible rather than returned as a
+      // null a player could not tell from the exhausted state. The row clue
+      // [3] in a 2-cell row and the column clue [3] in a 1-cell column have
+      // no placement at all, so no axis forces anything here.
+      drifted: refused(() => S.hintLine(board(2, 1, 'uu'), [[3]], [[3], [3]], [[true, true]],
+        { row: 0, col: 0, state: S.FILLED, deduced: true })),
+      // THE CONTROL for that one: the SAME board with the hint hintCell
+      // really answers is the exhausted state (b), which is a null and not a
+      // throw. Without this line the assertion above would also pass if
+      // hintLine had started throwing on every exhausted board.
+      exhaustedIsStillNull: refused(() => S.hintLine(board(2, 1, 'uu'), [[3]], [[3], [3]],
+        [[true, true]], S.hintCell(board(2, 1, 'uu'), [[3]], [[3], [3]], [[true, true]]))),
+    },
+    // The renderer's announce tables against the pure module's authorities.
+    tables: {
+      reasons: Object.keys(R.LADDER_REASON).sort(),
+      authority: [...S.HINT_REASONS].sort(),
+      rungsThatAnnounce: Object.keys(R.LADDER_SAY).map(Number).sort(),
+      rungsExceptReveal: S.HINT_RUNGS.filter((rung) => rung !== S.RUNG_REVEAL).sort(),
+      frozen: [R.LADDER_REASON, R.LADDER_SAY].every(Object.isFrozen),
     },
     // A wrong mark and a "?" read as undecided; a correct mark is kept.
     // Board 3 x 1 'fme', solution [true, true, true]: (0,0) correct,
@@ -1360,7 +1419,22 @@ class TestSolverHintLadder_ThePureModule:
         assert got["refused"] == {
             "event": "RangeError", "rung": "RangeError",
             "zero": "RangeError", "axis": "RangeError",
+            # Review F-7: a deduced cell no axis forces is IMPOSSIBLE, said
+            # loudly, not a third null a player could not tell from the
+            # exhausted one — with the exhausted null itself as the control
+            # that the throw is not simply unconditional.
+            "drifted": "RangeError", "exhaustedIsStillNull": None,
         }
+
+        # Review F-6 — the renderer's two announce tables ARE the pure
+        # module's authorities, asserted and not merely claimed in a comment.
+        # The reason map used to be module-private (a missing sentence was
+        # caught by a driven press; an EXTRA key was dead and undetected) and
+        # the rung dispatch used to be a ternary derived from nothing.
+        tables = got["tables"]
+        assert tables["reasons"] == tables["authority"] == ["generic", "overlap", "runs-complete"]
+        assert tables["rungsThatAnnounce"] == tables["rungsExceptReveal"] == [1, 2]
+        assert tables["frozen"]
 
         # Correct mark kept, "?" and wrong mark read as undecided — the same
         # knowns hintCell deduces from, on both axes.

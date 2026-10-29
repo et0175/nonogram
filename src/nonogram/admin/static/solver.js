@@ -465,7 +465,8 @@ import { gesturePaints, nextRegion } from "./solver_state.js";
 // scan are all pure (ADR-0038/R4); the three announcements, the line
 // highlight and the two buttons are this file's.
 import {
-  HINT_REASONS, RUNG_POINT, RUNG_REVEAL, firstWrongRow, hintLine, hintReason, nextRung,
+  HINT_REASONS, RUNG_EXPLAIN, RUNG_POINT, RUNG_REVEAL, firstWrongRow, hintLine, hintReason,
+  nextRung,
 } from "./solver_state.js";
 // Edit mode (CARD-246): see EDIT MODE above. Both are pure board arithmetic
 // (ADR-0038/R4); answerOfBoard is imported by static/puzzle_edit.js, not by
@@ -1219,9 +1220,16 @@ function hintText({ row, col, state, deduced }) {
 // Every sentence is written through `say` below, straight into
 // #puzzle-player-announce, the one live region this page has (the solved
 // banner and rung 3's hintText write it too; whichever wrote last wins).
-// Assigning the SAME string is a no-op in the DOM, so a press that repeats
-// its own answer is silent by the platform's rule rather than by a guard
-// here; there is no state to keep in step, so nothing is skipped.
+// A press that repeats its own answer REASSIGNS that sentence. CARD-269
+// review F-9 measured this with a MutationObserver on the shipped page: the
+// textContent setter runs the DOM's "string replace all", which removes the
+// existing text node and inserts a new one, so an identical assignment still
+// produces a mutation record. This file's earlier claim that it is "a no-op
+// in the DOM" was simply false. Whether assistive technology re-reads the
+// repeated sentence is therefore the AT's choice, not a platform rule, and
+// nothing here suppresses the write: the live region always holds the answer
+// to the last press, which is what a player returning to it needs. Nothing
+// is skipped and there is no state to keep in step.
 
 //: Rung 1: where to look, and nothing more. `axis` is a hintLine axis, so it
 //: is already the word to say out loud ("row" / "column").
@@ -1235,9 +1243,15 @@ function ladderPointText(axis, index) {
 //: hintReason verified their precondition and returns the name only then.
 //: Keyed by the pure module's names so a reason and its sentence cannot
 //: drift apart: a name with no sentence here is a RangeError at the press,
-//: never an announcement reading "undefined", and the suite asserts these
-//: keys ARE HINT_REASONS (ADR-0039/R2).
-const LADDER_REASON = Object.freeze({
+//: never an announcement reading "undefined".
+//:
+//: EXPORTED so that claim is a test and not a comment (ADR-0039/R2; CARD-269
+//: review F-6, which measured that it was module-private and therefore that
+//: no test could read these keys at all — a missing sentence was caught by
+//: the RangeError at a driven press, but an EXTRA key was dead and
+//: undetected). TestSolverHintLadder_ThePureModule now asserts
+//: Object.keys(LADDER_REASON) IS HINT_REASONS, both directions.
+export const LADDER_REASON = Object.freeze({
   "runs-complete": (axis) => `every run in this ${axis} is placed; the rest is white.`,
   overlap: (axis, run) => `the ${run}-run must overlap in the middle whatever its position.`,
   generic: (axis) => `every placement of this ${axis}'s clues agrees on at least one cell.`,
@@ -1263,6 +1277,23 @@ function ladderExplainText(line) {
 //: expensive answer is still available; it is no longer the only one, and
 //: the two cheap rungs no longer teach a falsehood to get to it.
 const LADDER_EXHAUSTED = "Hint: no single row or column decides a cell right now.";
+
+//: Which sentence a press on each rung says about a line it DID find, keyed
+//: by the rung the press was made ON. EXPORTED and keyed by HINT_RUNGS'
+//: values, so the suite asserts these keys ARE the rungs that announce a
+//: line — every rung in HINT_RUNGS except RUNG_REVEAL, which reveals instead
+//: of announcing and is handled before the handler ever gets here.
+//:
+//: CARD-269 review F-6: the dispatch used to be a two-way ternary over a
+//: three-valued rung, derived from no authority at all, so a fourth rung
+//: added to HINT_RUNGS would have silently rendered rung 2's explain text.
+//: A rung with no entry here is now a RangeError at the press, exactly as an
+//: unknown event already is in nextRung and an unknown reason is in
+//: ladderExplainText.
+export const LADDER_SAY = Object.freeze({
+  [RUNG_POINT]: (line) => ladderPointText(line.axis, line.index),
+  [RUNG_EXPLAIN]: (line) => ladderExplainText(line),
+});
 
 //: Check (card rule 7): the ROW of the first wrong mark, never the cell —
 //: Hint's rung 1 for a mistake. "no wrong marks" is the honest answer to the
@@ -1662,7 +1693,15 @@ function wireMarking(container, player) {
     // cell left, "is one of my marks wrong?" is exactly the question left to
     // ask. `?.` for Hint's reason: the manual editor's page ships neither
     // control (CARD-246 — there the solution IS what is being rewritten).
-    actions.check?.setAttribute("aria-disabled", String(locked));
+    // CARD-269 review F-10: the gesture is in the ATTRIBUTE and not only in
+    // the handler. Check's handler has always returned early mid-drag (a
+    // drag is one input; a Check in the middle of it would answer about a
+    // board the player is still painting), but the attribute said
+    // aria-disabled="false" while it did, which is the exact failure mode
+    // aria-disabled exists to prevent and is reachable with a second pointer
+    // on a touch device. Hint already includes `gesture !== null` above;
+    // Check now matches it, and the card's rule 9 reads as the floor it is.
+    actions.check?.setAttribute("aria-disabled", String(locked || gesture !== null));
     // The redraw that just replaced every element also took the line
     // highlight off the DOM while `ladderLine` still names it; redraw()
     // calls this function last, so painting it back here is what keeps a
@@ -1922,9 +1961,15 @@ function wireMarking(container, player) {
     // highlighted and the sentence says exactly that (see LADDER_EXHAUSTED).
     const line = player.hintLine(hint);
     setLadderLine(line);
-    say(line === null ? LADDER_EXHAUSTED
-      : showing === RUNG_POINT ? ladderPointText(line.axis, line.index)
-        : ladderExplainText(line));
+    if (line === null) {
+      say(LADDER_EXHAUSTED);
+      return;
+    }
+    const sentence = LADDER_SAY[showing];
+    if (sentence === undefined) {
+      throw new RangeError(`rung ${showing} announces no line (${Object.keys(LADDER_SAY).join(", ")})`);
+    }
+    say(sentence(line));
   });
 
   // Check (CARD-269 rule 7): the row of the first wrong mark, or that there

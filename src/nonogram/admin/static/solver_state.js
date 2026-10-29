@@ -630,17 +630,23 @@ function isUndecided(state) {
 // with deduced: true; when there is none, the first UNKNOWN or MAYBE cell
 // with deduced: false. `state` is always the
 // solution's. A line lineForced finds no placement for deduces nothing.
+//
+// The projection to knowns is knownLine's (hoisted, defined in the ladder
+// block below). CARD-269 review F-7: it used to be a five-line copy of it
+// here, so hintLine's "the cell is forced on this axis" and this function's
+// were PARALLEL-MAINTAINED duplicates, and a drift between them would have
+// made rungs 1-2 announce the exhausted sentence on a board that is not
+// exhausted. One helper makes "rungs 1-2 cannot drift from the cell rung 3
+// reveals" (G-4, AC-328) structural instead of conventional, and gives the
+// claim a control: breaking knownLine now breaks the cell hintCell picks,
+// which the page-level AC-328 class sees.
 export function hintCell(board, rows, columns, solution) {
-  const { width, height } = board;
   const truth = (row, col) => (solution[row][col] ? FILLED : EMPTY);
-  const known = (row, col) => {
-    const state = board.cells[row * width + col];
-    return state === truth(row, col) ? state : UNKNOWN;
-  };
   const rowForced = rows.map((clue, row) =>
-    lineForced(clue, Array.from({ length: width }, (_, col) => known(row, col))));
+    lineForced(clue, knownLine(board, solution, "row", row)));
   const colForced = columns.map((clue, col) =>
-    lineForced(clue, Array.from({ length: height }, (_, row) => known(row, col))));
+    lineForced(clue, knownLine(board, solution, "column", col)));
+  const { width, height } = board;
   let fallback = null;
   for (let row = 0; row < height; row += 1) {
     for (let col = 0; col < width; col += 1) {
@@ -709,14 +715,22 @@ export const HINT_RUNGS = Object.freeze([RUNG_POINT, RUNG_EXPLAIN, RUNG_REVEAL])
 //: Check press, which changes what the player will look at) drops to rung 1.
 export const RUNG_EVENTS = Object.freeze(["press", "change"]);
 
-//: Where one press goes from each rung. Rung 3 wraps to rung 1 because its
-//: own stroke is a recorded change: a press on rung 3 reveals and the ladder
-//: is immediately back at its cheapest rung.
-const RUNG_AFTER_PRESS = Object.freeze({
-  [RUNG_POINT]: RUNG_EXPLAIN,
-  [RUNG_EXPLAIN]: RUNG_REVEAL,
-  [RUNG_REVEAL]: RUNG_POINT,
-});
+//: Where one press goes from each rung: the next rung in HINT_RUNGS, wrapping
+//: at the end. DERIVED from HINT_RUNGS and not written out (ADR-0039/R2): a
+//: rung added to the authority above gets a row here for free, where a
+//: hand-written table would have left it with none and nextRung would have
+//: refused a rung the authority declares.
+//:
+//: The wrap exists so nextRung is TOTAL, not because production climbs off
+//: rung 3. It does not: solver.js's Hint handler branches to commit() while
+//: `rung === RUNG_REVEAL` and never reaches nextRung on that press, and the
+//: real 3 -> 1 step is commit()'s own nextRung(rung, "change") — rung 3's
+//: stroke IS a recorded change, so it drops the ladder like any other.
+//: `nextRung(RUNG_REVEAL, "press")` is therefore unreachable from the UI;
+//: it is reached only by the derived-table test, which drives every (rung,
+//: event) pair rather than the five production uses.
+const RUNG_AFTER_PRESS = Object.freeze(Object.fromEntries(
+  HINT_RUNGS.map((rung, i) => [rung, HINT_RUNGS[(i + 1) % HINT_RUNGS.length]])));
 
 // Which rung the ladder stands on after `event`, given it stood on `rung`:
 //   "press"   the Hint control was pressed — one rung up, wrapping 3 -> 1.
@@ -743,8 +757,9 @@ export const HINT_AXES = Object.freeze(["row", "column"]);
 // One line of the board as the player's CORRECT marks alone describe it:
 // every cell that agrees with the solution kept, every wrong mark read as
 // UNKNOWN, every "?" read as UNKNOWN (it never agrees with FILLED/EMPTY).
-// Exactly the knowns hintCell deduces from — written here so rungs 1 and 2
-// cannot drift from the cell rung 3 reveals (G-4, AC-328).
+// Exactly the knowns hintCell deduces from — hintCell CALLS this, so rungs 1
+// and 2 cannot drift from the cell rung 3 reveals (G-4, AC-328) by
+// construction rather than by parallel maintenance (CARD-269 review F-7).
 export function knownLine(board, solution, axis, index) {
   if (!HINT_AXES.includes(axis)) {
     throw new RangeError(`"${axis}" is not an axis (${HINT_AXES.join(", ")})`);
@@ -763,32 +778,69 @@ export function knownLine(board, solution, axis, index) {
 //   { axis: "row" | "column", index, clue, cells, at }
 // where `cells` is that line's knownLine and `at` the forced cell's index
 // along it — everything hintReason needs, so the knowns are computed once.
-// NULL in exactly one case: `hint` is not a deduced cell (it is null, or it
-// is the fallback, `deduced: false`). That null is the exhausted state, and
-// it is the whole point of this card: there is no line to look at, so rungs
-// 1 and 2 must point at NOTHING and say so, instead of handing over a cell
-// while claiming a line deduction was missed.
 // The axis is the one whose lineForced pass forces that cell, ROW FIRST when
-// both do (the card's rule 2) — the same lineForced, over the same knowns, as
-// the pass hintCell used to pick the cell, so an axis is claimed only where
-// the deduction really is.
+// both do (the card's rule 2) — the same lineForced, over the same knowns
+// (knownLine, which hintCell itself projects through), as the pass hintCell
+// used to pick the cell, so an axis is claimed only where the deduction
+// really is.
+//
+// THE NULL, WRITTEN OUT (CARD-269 review F-7). Behaviourally rungs 1 and 2
+// treat one null one way, and the card's whole promise is that the null they
+// meet means "the clues decide nothing more by themselves". Structurally
+// there are three ways out of here, and they are NOT the same thing, so they
+// are spelled apart below rather than collapsed into one `||`:
+//
+//   (a) `hint === null` — no undecided cell exists at all, so there is
+//       nothing to hint. Unreachable from the UI: the Hint handler returns
+//       on a null hint before calling this, and refresh() has already put
+//       aria-disabled="true" on the button. Reached only by the pure-module
+//       test's `noCell` case.
+//   (b) `hint.deduced !== true` — hintCell fell back, so undecided cells
+//       remain and no single line decides one. THIS is the exhausted state,
+//       the null this card exists for: there is no line to look at, so rungs
+//       1 and 2 point at NOTHING and say so, instead of handing over a cell
+//       while claiming a line deduction was missed.
+//   (c) a deduced cell that NEITHER axis forces — "I could not tell". It
+//       would be indistinguishable from (b) to a player, which is the one
+//       confusion this card must not ship, so it is not returned as a null
+//       at all: it CANNOT OCCUR, and the code says so loudly instead of
+//       quietly producing (b)'s sentence.
+//
+// (c) cannot occur because hintCell sets deduced: true only when
+// lineForced(rows[row], knownLine(board, solution, "row", row)) or the
+// column's equivalent leaves the cell decided — the same function over the
+// same projection as `line` below, since CARD-269's F-7 fix made hintCell
+// project through knownLine instead of through a copy of it. The RangeError
+// is this module's standing answer to an impossible input (nextRung's, and
+// knownLine's own axis check): a typo must not read as a quiet "exhausted".
 export function hintLine(board, rows, columns, solution, hint) {
-  if (hint === null || hint.deduced !== true) return null;
+  if (hint === null) return null; // (a)
+  if (hint.deduced !== true) return null; // (b) — the exhausted state
   const line = (axis, index, clue, at) => {
     const cells = knownLine(board, solution, axis, index);
     const forced = lineForced(clue, cells);
     if (forced === null || forced[at] === UNKNOWN) return null;
     return Object.freeze({ axis, index, clue, cells: Object.freeze(cells), at });
   };
-  return line("row", hint.row, rows[hint.row], hint.col)
+  const found = line("row", hint.row, rows[hint.row], hint.col)
     ?? line("column", hint.col, columns[hint.col], hint.row);
+  if (found === null) { // (c)
+    throw new RangeError(
+      `no axis forces the deduced cell (${hint.row}, ${hint.col}): `
+      + "hintCell and hintLine have drifted");
+  }
+  return found;
 }
 
 //: Every reason rung 2 can give, as the names hintReason returns. The
-//: enumerable authority: solver.js maps each to one sentence and the suite
-//: asserts the map's keys ARE this set, so a reason added here without a
-//: sentence (or a sentence with no reason) is a failure and never a silent
-//: pass (ADR-0039/R2).
+//: enumerable authority — the one that does the real work in the announce
+//: path (HINT_RUNGS keys nothing there; see solver.js's LADDER_SAY for the
+//: rung dispatch). solver.js maps each name to one sentence in LADDER_REASON
+//: and EXPORTS that map, and TestSolverHintLadder_ThePureModule asserts its
+//: keys ARE this set — so a reason added here without a sentence, or a
+//: sentence with no reason, is a failure and never a silent pass
+//: (ADR-0039/R2). CARD-269 review F-6: LADDER_REASON used to be
+//: module-private, which made this sentence a claim no test could perform.
 export const HINT_REASONS = Object.freeze(["runs-complete", "overlap", "generic"]);
 
 // The run of `clue` whose OVERLAP covers index `at` in a line of `length`

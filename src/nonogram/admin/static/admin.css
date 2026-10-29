@@ -886,7 +886,12 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    alone on the buttons' row, Progress wrapped below it). Measured: at 1280 px
    the counters need 268 px on one line and Check leaves them 186, short by
    its own 82 px, so the threshold between the two cases moved above 1280
-   rather than the layout breaking. 1440 px still fits all three. Both cases
+   rather than the layout breaking. 1440 px still fits all three. The cost in
+   HEIGHT, and it is a height and not an offset (CARD-269 review F-5, which
+   found the two numbers written as heights elsewhere were bottom-edge
+   coordinates): #puzzle-player-controls is 75 px high at 1280 px with Check
+   against 39 px without it, exactly 36 px more, one wrapped counter line;
+   at 1440 px it is 39 px either way. Both cases
    are asserted in tests/test_puzzle_solver_percent.py,
    TestSolverPercent_SitsNextToTheCounters. The toolbar's items align to the top
    of their row, so the buttons stay at the toolbar's top; the pair is as
