@@ -35,32 +35,53 @@ Measured on CARD-301's branch (Mac15,6 / Apple M3 Pro, Python 3.14.3, pytest
 9.1.1), with ``-o addopts=''`` throughout so the stacked ``-q`` could not
 swallow a count:
 
-* the gate costs **13.85 s** of call time (``--durations=0`` on its own node
-  id), and driven directly with no pytest in the picture the same loop costs
-  **13.97 s** and settles after 6 of 20 samples;
-* the other two names cost **0.00 s** and **0.02 s**;
-* so collecting all three adds **13.87 s** to every full-suite run — against
-  a suite of 1433.47 s on the board's last committed profile
-  (``meta/profiling/suite-durations-20261023.txt``), **0.97 %**, and inside
-  the run-to-run spread CARD-218 measured as "tens of seconds". Fourteen
-  tests in that profile are individually slower than this gate, the slowest
-  at 81.03 s;
-* the full corpus with the early exit disabled costs **40.79 s**, which is
-  what this gate will cost on the day the margin narrows enough to stop the
-  early exit. The ceiling is ``tests/hang_guard.py``'s 120 s per test
-  (CARD-292), and the gate cannot reach it: every request is capped at
+* the gate costs **13.98 s** of call time (``--durations=0`` on this module
+  at HEAD). Four readings, because a timing is a claim and its control is
+  recomputation: 13.85 s measured through pytest before the move, 13.97 s
+  driven directly with no pytest in the picture, 13.98 s through pytest here,
+  14.22 s as the standalone ``-m`` door including interpreter start. The
+  spread is the solver's own noise;
+* every other name in this module costs **0.02 s** or **0.00 s**, so the nine
+  collected tests add **14.00 s** (setup + call + teardown, summed from the
+  rows) to every full-suite run — against a suite of 1433.47 s on the board's
+  last committed profile (``meta/profiling/suite-durations-20261023.txt``),
+  **0.98 %**, and inside the run-to-run spread CARD-218 measured as "tens of
+  seconds". Fourteen tests in that profile are individually slower than this
+  gate, the slowest at 81.03 s;
+* the gate settles after 6 of 20 samples. The same corpus with the early exit
+  disabled costs **40.79 s** and puts 6 of 20 over the cap at p95 = 5.001 s,
+  which is what this gate will cost on the day the margin narrows enough to
+  stop the early exit. The ceiling is ``tests/hang_guard.py``'s 120 s per
+  test (CARD-292), and the gate cannot reach it: every request is capped at
   ``P95_CAP_SECONDS``, 20 of them bound the test at ~100 s — measured
-  overshoot on a capped request was ≤ 2 ms.
+  overshoot on a capped request was ≤ 2 ms;
+* **the uncensored sweep must stay out of the suite**, and that is measured
+  rather than asserted: ``python -m tests.bench_generate --full`` — the same
+  corpus under the production-shaped 30 s budget — took **122.04 s** and read
+  p95 = **24.881 s** (6 of 20 over the 5 s cap, one of them still censored at
+  30 s). 122.04 s is *past* the 120 s hang-guard ceiling, which ``_exit()``s
+  the whole session rather than failing one test. That is why ``measure()``
+  and ``report()`` stay standalone and only the capped, early-exiting
+  :func:`tests.bench_generate.gate_verdict` is collected — and it is also the
+  honest answer to "how far off is AC-037?", which the censored gate can only
+  bound at >= 5.001 s.
 
 What renaming the file would have cost *on top* of the same seconds is the
-reason it was declined: **seven committed references** name
-``tests/bench_generate.py`` as where the benchmark lives — ADR-0001 (twice,
-one of them a node id), ADR-0029, ``meta/architecture/handoff.md`` and four
-pages under ``docs/how-it-works/`` — three of them in artefacts this card is
-not to rewrite. Moving the gate's pytest wrapper here keeps every one of those
-statements true: the corpus, the cap, the statistic and the timing all stay in
-``tests/bench_generate.py``, which is now an honest standalone with a
-``__main__`` door and no name beginning ``test``.
+reason it was declined: **seven committed references** name the path
+``tests/bench_generate.py`` as where the benchmark lives — one each in
+ADR-0001 (as a node id, ``::test_20x20_p95_is_under_5s``), ADR-0029 and
+``meta/architecture/handoff.md``, and four pages under
+``docs/how-it-works/``; counted by ``git grep`` over ``docs`` and ``meta``
+with ``meta/kanban`` and the ``meta/review`` snapshots excluded. Three of the
+seven are in artefacts this card is not to rewrite. Moving the gate's pytest
+wrapper here keeps six of the seven true as they stand — the corpus, the cap,
+the statistic and the timing all stay in ``tests/bench_generate.py``, which is
+now an honest standalone with a ``__main__`` door and no name beginning
+``test``. The seventh, ADR-0001's node id, is the one reference this card
+necessarily invalidates: the gate function cannot both leave that file and
+stay in it, and it has to leave for the pin over "files pytest never opens" to
+shrink. It is reported as owed rather than edited here, since
+``decisions/adr/`` is outside this card's declared ``Touches``.
 """
 
 from __future__ import annotations
