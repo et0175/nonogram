@@ -419,3 +419,113 @@ card's.
   was repaired (`def` at `test_approval_guess_gate.py:649`) — but **both** pins are
   *permanent* cases, so one sentence is owed saying a transient instance cannot be
   pinned stably by construction and is covered generically by the gate's class.
+
+## [Fix round 1 — F-001 closed, and the one count that moved was the one nobody had pinned, 2026-10-29]
+
+`19bc968b` → **`3f3012a4`**, one commit, 2 files. **0 files** under `meta/kanban/` or
+`meta/review/`; nothing under `forge_1/`. Module run **19 passed in 9.05 s**.
+
+**The fix replaces a mute stop signal with a classification.** `_declared_refs()` now
+delegates to `_tests_block()` (`:374`), which judges every line: a `- item` is
+collected; **a `#` comment or a blank line survives** (YAML ends a block sequence at
+neither); a mapping key at or outside the key's indentation ends the list (`_MAPPING_KEY`,
+`:269`); and **anything else raises `RefShapeNotClassifiable`** (`:274`, raising at
+`:312` and `:342`) — ADR-0039/R2 satisfied where it had been violated.
+
+**All six pinned class baselines are unchanged**, as cycle 1 predicted. **But one count
+moved, and it was the one nobody had pinned**: refs resolving to a definition, **382 →
+385** — exactly the three refs the silent drop had been removing, all real `class` lines
+in `tests/test_book_puzzle_frame.py`. It is now pinned as `DEFINED = (385, …)` alongside
+`CENSUS = (579, …)` and `TRACE_TESTS = (510, …)`, and it was **reported as a finding
+rather than pasted over as a digest** — which is the behaviour the card's own
+repair-vs-signal-loss rule asks for, demonstrated on itself.
+
+**And the round would not let the mitigation be called design.** *"The fix removes the
+silence, not the luck."* The six classes' non-movement stays a fact about today's data,
+said so in `_tests_block`'s docstring; what became design is the layer under it — a line
+the scan cannot classify now raises, and the census and `trace.yml`'s contribution are
+pinned *and* cross-read, so a count that moves for any reason reds.
+
+### The new witness is genuinely independent, and the round proved its own survivor
+
+`test_the_trace_tests_lists_agree_with_an_independent_reading` (`:1338`) reads
+`trace.yml`'s refs a second time by `_trace_tests_refs_by_backward_scan` (`:442`), which
+**walks backwards** from every `- item` to the nearest enclosing key — so *"no line
+between two items can terminate anything"*, precisely the forward scan's blind spot.
+Verified by the orchestrator: a real second algorithm, not a restatement.
+
+**M2 is a declared survivor with a real insight.** Deleting the second implementation
+(`independent = set(primary)`) leaves **19 passed** — because *"an instrument that agrees
+with itself looks exactly like one that agrees with something else."* So **the
+independence, not the assertion, is what carries the claim**, and that is now in the
+docstring. M1 (replaying F-001) reds **3 cells, 16 passed** — the new witness naming all
+16 dropped refs, the new control, and the `DEFINED` pin — while the six class baselines
+stay green, which **is** the measurement behind "it was luck". M1+M2 together still red.
+
+### Repair-vs-signal-loss: declined as enforceable, with the reason where a reader meets it
+
+The sharpest thing in the round. Enforcement needs the **departed** refs; a stored ref
+list is exactly what G-2 forbids, because it would revive them; and a digest cannot say
+who left. **"The property that makes the guard safe is the property that makes the
+response unenforceable."** So the message is a prompt rather than a gate, and the message
+itself now says so and points at the docstring. That is the right call: the alternative
+was a guard that becomes the thing it detects.
+
+### ADR-0006/R1, recorded in both places
+
+The ADR now states it outright: the ref has zero definitions and **109** resolvers so the
+pointer is genuinely dead, **but the rule is tested** at `tests/test_export_pdf.py:1249`,
+whose own docstring says ADR-0006's revision is what makes it the rule's check — and the
+ADR names that test only in a `#` comment inside the excluded `meta/architecture/**`. The
+round calls the overstatement **the more dangerous of the two errors**, which is right,
+and the module's *"What a report here does NOT claim"* section carries the same
+distinction. The one-line pointer repair stays CARD-307's.
+
+### Census 579, with the derivation and all three wrong figures named
+
+510 from `trace.yml` + `requirements.yml`'s `test:` keys and block-form `check:` + **43
+distinct from 45 ADR occurrences** (two re-declarations), unioned. The ADR names why each
+earlier figure was wrong: **576** = F-001, **580** = occurrences counted as refs, **510** =
+right but one authority. Forms: bare 555 / nodeid 23 / path 1.
+
+### Four corrections to the orchestrator's brief, and one of them matters beyond this card
+
+1. **PyYAML is absent from `pyproject.toml` entirely — not even a dev extra.** Verified:
+   no test imports it, and it is present only as a transitive install (6.0.3). So the
+   brief's *"it must be test-side only, which it already is"* **understates the
+   problem**: a test-side import would be a **collection error on a bare checkout**,
+   which `CLAUDE.md` guarantees must work. The round used a second implementation instead
+   and proved it against `yaml.safe_load` **out of tree**, both returning exactly 510
+   with an empty symmetric difference.
+2. **The `382` figure was pre-fix** — see above.
+3. **`_module_scope_silences`/`_check_log_invocations`: the locations in the brief are
+   right, but the module never claimed otherwise** — it cites `_conditional_silences`,
+   correctly placed at `tests/test_suite_profile.py:2743`. **So the correction did not
+   belong in this brief at all.** Fourth data point on the orchestrator's
+   mis-propagation: a correction carried into a brief where nothing needed it.
+4. Its own draft docstring said *"replaying the bug gives 1 failed"*, written from the
+   brief's framing; measured **3 failed, 16 passed**, and the docstring now carries the
+   measured figure.
+
+### G-2 re-verified exhaustively, and cycle 1's cost figure corrected
+
+The module's trie over all **579** refs against its own bytes → `[]`; and **real
+`git grep -lw`, all 579 refs, restricted to this file → 0 hits in 10.7 s.** Exhaustive,
+not a sample — the per-ref cost falls to ~18 ms with a single pathspec, so cycle 1's
+"not affordable" (101 ms/ref whole-tree) **does not apply to the self-check**.
+
+**Node ids 9723 → 9742, +19/−0** (cycle 1 added 17; this round adds 2). **Skips: 11, every
+one named**, all `conftest.py:207` `DATABASE_URL is not set` — 9 in `test_admin_binding.py`
+and 2 in `test_db_engine_lifecycle.py`, confirmed by re-running just those two modules —
+**none a gate for this card.** Validator at HEAD: **0 errors, 102 warnings**, identical to
+main, adding and silencing nothing.
+
+### CARD-315's subject, reproduced live from the other side
+
+While the 36-module run was in flight, `git status` **repeatedly showed
+`tests/test_db_engine_lifecycle.py` as modified with the diff vanishing seconds later** —
+the plant window, observed by accident. *"With three cards in flight an `/commit` landing
+in that window would capture another module's mutation."* **It committed with explicit
+pathspecs** (the standing rule) and verified `git show HEAD --name-only` lists exactly its
+two files — so this commit provably did not capture it. **That is CARD-315 confirmed from
+a second direction, and the standing pathspec rule earning its keep.**
