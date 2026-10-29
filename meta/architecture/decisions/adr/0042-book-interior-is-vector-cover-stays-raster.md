@@ -280,6 +280,57 @@ one remaining lever (width) for distinguishing furniture from grid ink.
 
 ## History
 
+- 2026-10-29: **The interior sheet's furniture exists in operators, drawn once,
+  and the QR block's medium is decided: drawn rectangles.** CARD-306. Until this
+  card the vector puzzle page carried the grid, the clue digits and the band and
+  **no furniture at all** — no folio, no frame rules, no grid-size label, no QR
+  block. `book_puzzle_vector`'s own docstring raised the gap and named CARD-298
+  for it; CARD-295 made the same attribution; CARD-298 was narrowed to the
+  mechanism and could not close it. So the gap was correctly identified twice
+  and assigned twice to a card that did not own it.
+
+  Three things are recorded here rather than left in a module.
+
+  **(1) One definition, in a module of its own.** Every interior page kind
+  carries the same furniture off the same `interior_frame`, so it is drawn by
+  `nonogram.admin.book_sheet_vector` and composed by the generator, not by the
+  puzzle page's own card — which would have been the first of four copies. That
+  module imports no page kind and no generator, so `book_pdf_generator` can
+  import it as it already imports `book_puzzle_vector`, and the other three
+  interior kinds can reuse it when their conversion card arrives. Every position
+  it draws comes from `InteriorFrame`/`QrSlot`/`QrCaption`; **no coordinate is
+  written in it**, held by a default-DENY walk over its own AST with both a
+  value arm and a call-argument arm (ADR-0039/R2).
+
+  **(2) The QR block is operators, and the alternative is now refused rather
+  than merely absent** (ADR-0042/R1's own point). CARD-204's placeholder is a
+  bordered chequer, not a photograph, so there is nothing in it a bitmap would
+  carry and a path would not; declaring it raster would mean an
+  `_RASTER_DECLARATIONS` entry with a reason, an `expires_with` and an image
+  object per page, to ship a 5x5 chequer. Leaving `/XObject` out of a vector
+  page's resources — which `write_vector_page` already did — makes such an image
+  unreachable to a *viewer*; it does not stop the operator being written, and a
+  page whose stream paints something the file cannot resolve shows less than it
+  says. `write_vector_page` therefore **refuses** a stream carrying `Do`.
+
+  **(3) R1 is NOT flipped here, for the third time.** This card converts one
+  piece of one of four interior kinds. R1 is true only when all four are
+  operators, and all seven page kinds are still declared raster in
+  `_RASTER_DECLARATIONS`; CARD-309 is the card that converts the puzzle page and
+  is still `ready`. CARD-298 and CARD-299 each refused the same flip for the same
+  reason.
+
+  **One correction to the furniture's own stroke authority, measured.**
+  CARD-306's brief and its EC attribute the frame rules' weight floor to
+  ADR-0037/R2. **R2 does not bind furniture and never has** — this is settled in
+  ADR-0037's History (2026-10-17), which corrected CARD-222's reading of it and
+  measured the exemption that card wrote as *vacuous*. The floor the interior
+  frame's two rules meet is the 2-device-pixel dropout floor CARD-222/CARD-225/
+  CARD-248 cite directly, applied inside `interior_frame` by `_pt_to_px_at_least`
+  and measured here at 3 px (header) and 2 px (hairline) on the book's 300 DPI.
+  The EC is held against that floor, named as its own, and claims no exemption
+  from a rule that does not reach it.
+
 - 2026-10-25: **Created.** Resolves DEC-048 (the book interior is drawn as PDF
   operators; the cover stays raster; the whole interior rather than a carve-out;
   the whole embedded font rather than a subset; assertions read the written
