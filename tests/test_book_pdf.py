@@ -1956,8 +1956,32 @@ def test_a_declaration_whose_reason_expired_is_a_defect(monkeypatch) -> None:
 #: spelling reds rather than drifting. A **sixth** spelling is an unanalysable shape, which
 #: ADR-0039/R2 makes a failure here rather than a card quietly read as
 #: not-done — the direction that cannot ship a false green.
-_BOARD_STATUSES = frozenset({"done", "ready", "in progress", "blocked", "parked"})
+_BOARD_STATUSES = frozenset(
+    {"done", "ready", "in progress", "blocked", "parked", "skipped"}
+)
 _DONE = "done"
+
+#: The statuses a card never leaves, so a declaration naming only such cards
+#: has nobody left to remove it. ``done`` is the obvious one; ``skipped`` is
+#: here because forge:kanban's own ``skip`` command defines it as unblocking
+#: dependents **"as if the dependency were done"** — a skipped card is a card
+#: that will not be built, and a declaration waiting on one waits forever.
+#:
+#: Added 2026-10-29, when ``skipped`` first appeared on this board (CARD-307,
+#: cut after a fourth premise re-measurement) and this file's tripwire reded on
+#: the sixth spelling exactly as its docstring promised. The tripwire is why
+#: the status was extended **deliberately** rather than discovered later: a
+#: parser that silently read ``skipped`` as "not done" would have kept every
+#: declaration naming it alive forever, which is the false-green direction this
+#: guard exists to refuse. Widening ``_BOARD_STATUSES`` alone would have opened
+#: exactly that hole, so the two changes are one change.
+#:
+#: No declaration names a skipped card at HEAD, so this set's effect is
+#: unobservable over the real board and is proved only by
+#: :func:`test_a_declaration_outliving_its_done_card_is_a_defect` over its
+#: synthetic one — which is the division of labour the live cell's docstring
+#: already describes.
+_TERMINAL_STATUSES = frozenset({"done", "skipped"})
 
 #: ``**Status:** <value>`` on a line of its own, which is how every card on
 #: this board writes it (asserted, not counted — see above). Parsed with a regex and not a YAML library because
@@ -2086,10 +2110,12 @@ def _landing_findings(declarations, cards: pathlib.Path) -> list[str]:
                 "declaration"
             )
             continue
-        if all(status == _DONE for status in statuses.values()):
+        if all(status in _TERMINAL_STATUSES for status in statuses.values()):
+            reached = sorted({str(status) for status in statuses.values()})
             findings.append(
                 f"{kind.value}: a declaration outliving its own expiry — "
-                f"{sorted(named)} are all done and the entry is still here"
+                f"{sorted(named)} have all reached a terminal status "
+                f"({reached}) and the entry is still here"
             )
     return findings
 
@@ -2189,6 +2215,7 @@ def test_a_declaration_outliving_its_done_card_is_a_defect(tmp_path) -> None:
     status_card("CARD-90008", "done")
     status_card("CARD-90002", "ready")
     status_card("CARD-90003", "in progress")
+    status_card("CARD-90009", "skipped")  # terminal, but not "done"
     status_card("CARD-90004", "shipped")  # a status word the board does not use
     card("CARD-90005", "# CARD-90005: a probe\n\nno status line at all\n")
     card("CARD-90006", "# p\n\n**Status:** done\n**Status:** ready\n")
@@ -2212,6 +2239,35 @@ def test_a_declaration_outliving_its_done_card_is_a_defect(tmp_path) -> None:
     both_done = _landing_findings(declared("CARD-90001", "CARD-90008"), tmp_path)
     assert len(both_done) == 1, both_done
     assert "CARD-90001" in both_done[0] and "CARD-90008" in both_done[0], both_done
+
+    # ---- SKIPPED is terminal too, and this is the only control for that ----
+    # Added 2026-10-29 with ``_TERMINAL_STATUSES``. A skipped card will never be
+    # built, so a declaration waiting on one waits forever — forge:kanban's own
+    # ``skip`` defines the status as unblocking dependents "as if the dependency
+    # were done". No declaration names a skipped card at HEAD, so the real board
+    # cannot witness this and would pass whether ``skipped`` were terminal or
+    # not; without these four lines the membership would be a claim with no
+    # control, which ADR-0039/R1 forbids.
+    skipped_only = _landing_findings(declared("CARD-90009"), tmp_path)
+    assert len(skipped_only) == 1, skipped_only
+    assert skipped_only[0].startswith(
+        "puzzle: a declaration outliving its own expiry"
+    ), skipped_only
+    assert "CARD-90009" in skipped_only[0], skipped_only
+    assert "skipped" in skipped_only[0], skipped_only
+
+    # done + skipped is still terminal, and the message names both statuses
+    mixed_terminal = _landing_findings(
+        declared("CARD-90001", "CARD-90009"), tmp_path
+    )
+    assert len(mixed_terminal) == 1, mixed_terminal
+    assert "done" in mixed_terminal[0] and "skipped" in mixed_terminal[0], (
+        mixed_terminal
+    )
+
+    # ---- but a skipped card alongside an OPEN one is not yet expired ----
+    # The direction that stops ``skipped`` from being read as "expire now".
+    assert _landing_findings(declared("CARD-90009", "CARD-90002"), tmp_path) == []
 
     # ---- a permanent exception has no expiry to outlive ----
     assert (
