@@ -1975,6 +1975,34 @@ def bless(row):
     )
 
 
+def _silenced(refs, namespace) -> list:
+    """Refs whose function exists but carries a skip mark, so it never runs.
+
+    Review cycle 1's F-001. Resolving a ref to a module-level callable proves
+    the function *exists*; it does not prove the criterion is checked. A
+    ``@pytest.mark.skip`` above any of the five left
+    :func:`test_the_registrys_check_refs_for_this_card_all_resolve` green and
+    the whole file reporting "36 passed, 1 skipped" — the model would read the
+    criterion as mechanically verified while the gate it names never executed.
+    That is the same defect as a dead ref, one level in.
+
+    Separate from the resolve test so that
+    :func:`test_a_skipped_criterion_is_not_a_resolved_one` can drive it over a
+    synthetic namespace and prove it discriminates, rather than asserting a
+    property of a tree where no skip mark exists.
+    """
+    out = []
+    for ref in refs:
+        name = ref.split("::", 1)[1]
+        function = namespace.get(name)
+        if function is None:
+            continue
+        marks = getattr(function, "pytestmark", ())
+        if any(getattr(mark, "name", "") in ("skip", "skipif") for mark in marks):
+            out.append(ref)
+    return out
+
+
 def test_the_registrys_check_refs_for_this_card_all_resolve() -> None:
     """Every ``tests/test_approval_guess_gate.py::…`` the model names is here.
 
@@ -2032,6 +2060,13 @@ def test_the_registrys_check_refs_for_this_card_all_resolve() -> None:
     missing = [ref for ref in refs if ref.split("::", 1)[1] not in defined]
     assert missing == [], missing
 
+    # Existing is not running — see :func:`_silenced`.
+    silenced = _silenced(refs, globals())
+    assert silenced == [], (
+        "these refs resolve to a function that is skipped, so the criterion "
+        f"they name is NOT checked however green the suite is: {silenced}"
+    )
+
     docstring = __doc__ or ""
     unnamed = [ref for ref in refs if ref not in docstring]
     assert unnamed == [], (
@@ -2054,3 +2089,50 @@ def test_the_registrys_check_refs_for_this_card_all_resolve() -> None:
     assert unnamed_rule == [], (
         f"ADR-0032/R3 names node ids this module's docstring does not: {unnamed_rule}"
     )
+
+
+def test_a_skipped_criterion_is_not_a_resolved_one() -> None:
+    """:func:`_silenced` discriminates, and is not simply returning nothing.
+
+    The control this card's own bar demands: a guard added because a hole was
+    found must be shown to close it, and shown not to be vacuous. At HEAD no
+    function in this module carries a skip mark, so asserting over the real
+    tree would pass whatever ``_silenced`` did — including ``return []``.
+    So the two skip spellings and a live function are driven over a synthetic
+    namespace instead, and the live five are checked separately.
+    """
+    module = pathlib.Path(__file__).resolve()
+    module = module.relative_to(module.parent.parent).as_posix()
+
+    @pytest.mark.skip("probe")
+    def probe_skipped() -> None:
+        pass
+
+    @pytest.mark.skipif(True, reason="probe")
+    def probe_skipif() -> None:
+        pass
+
+    def probe_live() -> None:
+        pass
+
+    namespace = {
+        "probe_skipped": probe_skipped,
+        "probe_skipif": probe_skipif,
+        "probe_live": probe_live,
+    }
+    refs = [f"{module}::{name}" for name in namespace]
+
+    # Both spellings are caught -- `skipif` because a condition that is True
+    # today is a skip today, whatever it reads like.
+    assert _silenced([refs[0]], namespace) == [refs[0]]
+    assert _silenced([refs[1]], namespace) == [refs[1]]
+    # And the live one is NOT caught, which is what stops a deny-everything
+    # version of this helper from passing the two assertions above.
+    assert _silenced([refs[2]], namespace) == []
+    # All three at once, so the helper is not order-dependent.
+    assert _silenced(refs, namespace) == [refs[0], refs[1]]
+
+    # A ref naming nothing is the resolve test's `missing` case, not this
+    # one's: `_silenced` must not claim it, or the two assertions would
+    # overlap and either could stand in for the other.
+    assert _silenced([f"{module}::probe_absent"], namespace) == []
