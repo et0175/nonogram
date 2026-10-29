@@ -13,6 +13,37 @@
 implementation_skill: python-pro
 
 tdd: false            # not the project's practice; cards opt in via `TDD: true`
+# THE VALIDATOR OF RECORD. There are two copies of the architecture validator on
+# this box and they disagree, so a figure without a binary attached is not a
+# figure. Measured 2026-10-29, identical on main and on a card worktree:
+#
+#   forge_1       0 error(s), 102 warning(s), 0 info
+#   plugin cache  1 error(s), 102 warning(s), 0 info
+#
+# The plugin cache's single error is a REGEX ARTEFACT, not a finding:
+#   [ERROR] ADR-0025 circular supersession: ADR-0025 -> ADR-0031 -> ADR-0025
+# Its adr_integrity.py counts "supersedes" and "superseded by" as two edges.
+# Verified by the orchestrator: `validate.py` is BYTE-IDENTICAL between the
+# copies (`diff -q` clean) and `validators/adr_integrity.py` is the ONLY
+# differing SOURCE file (`diff -rq` over the two script trees names it plus
+# __pycache__ entries, nothing else). The honest error count here is 0.
+#
+# Why this key exists at all: BOTH wave-65 implementation rounds reported the
+# cache's phantom error as pre-existing fact, and the orchestrator once
+# announced it had "been running the wrong validator all session" and had to
+# retract it. The cost was paid three times before anything was written down.
+# Added by CARD-308, whose AC-1 could not close on its own branch because
+# /commit excludes meta/ from card branches.
+architecture_validator:
+  path: /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py
+  command: "--root meta/architecture --phase all"
+  reason: >-
+    forge_1 is the validator of record. The forge plugin cache copy reports a
+    spurious ADR-0025 circular-supersession ERROR because its adr_integrity.py
+    counts "supersedes" and "superseded by" as two edges; validate.py itself is
+    byte-identical between the copies and validators/adr_integrity.py is the
+    only differing source file. The honest error count on this board is 0, and
+    no reported figure is meaningful without the binary named beside it.
 
 review:
   enabled: true

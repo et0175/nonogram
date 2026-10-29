@@ -415,3 +415,86 @@ this card's enumeration should report it that way rather than as repaired. It is
 the clearest available example of why the repair is forge-side: a correctly-spelled
 bare-name ref, a real test, and a resolution that still does not look at the
 definition.
+
+## [PREMISE RE-MEASURED A THIRD TIME — 2026-10-29, after CARD-308's round. The headline is WRONG and the card is MUCH SMALLER.]
+
+CARD-308's round contradicted this card's figures; the orchestrator re-derived
+them from all four authorities and **the round is right**. This card's title and
+its "30 refs" framing no longer describe the board.
+
+**What the earlier censuses missed.** The 469-ref figure omitted **`trace.yml`'s
+`tests:` lists — 510 refs, the single largest authority** — and
+`requirements.yml`'s block-form `check:` entries. Counting all four:
+
+```
+adr inline check: {kind: test}       44
+requirements.yml  test:              401
+requirements.yml  block-form check:   10
+trace.yml         tests:             510      <- omitted entirely before
+DISTINCT TOTAL                       580      (was reported as 469)
+  node-id form                        23      (was reported as 33)
+  bare-name form                     557
+```
+
+**And the node-id partition is nothing like the headline: 20 of the 23 resolve.**
+
+```
+defined in its own module   20     <- the docstring tables CARD-284/291/294 landed
+no definition anywhere       3
+reported dead, test exists   0
+```
+
+So *"30 of them read as mechanically checked, and the validator cannot resolve any
+of them"* is **stale and was never right in that form**. A round briefed on it
+would hunt thirty refs and find three.
+
+### The actual live scope, enumerated
+
+**Three refs with no definition, all in `tests/test_public_player_pages.py`:**
+
+| ref (tail) | resolvers | class |
+|---|---|---|
+| `test_assembled_site_is_self_contained` | **0** | honestly dead — the validator reports it correctly |
+| `test_pages_work_with_analytics_blocked` | **0** | honestly dead — reported correctly |
+| `test_no_homegrown_tracking` | 3 review YAMLs | **the only true FALSE ALIVE on the board** |
+
+**Four refs defined but RESOLVED FROM AFAR — a third shape neither this card nor
+its briefs named, and the round's real find.** Their own module never spells the
+`path::name`, so something else resolves them:
+
+- `tests/test_player_bundle.py` spells **ZERO** of its own **three** node ids.
+  Two of them (`…match_the_encoder`, `…readonly_and_deterministic`) are resolved
+  by **exactly two CARD-218 review YAMLs and nothing else** — prune two files
+  under `meta/review/` and both go dead with no code change. The third
+  (`…clean_of_answers`) survives only because **another module's** table
+  (`tests/test_public_player.py`) happens to carry it.
+- `tests/test_export_pdf.py` spells **zero** of its one — ADR-0042/R4, with **57**
+  resolvers of which exactly one (`tests/test_admin_serving.py`) is code.
+
+**So the repair is four docstring-table entries across two files, plus three refs
+to resolve — not thirty.** `tests/test_player_bundle.py` is the priority: it is the
+only module on the board carrying node-id refs with **no** in-module resolver and
+**no** second code resolver.
+
+### What this does to the card
+
+- **AC-1's enumeration stands and gets cheaper**, but its partition must include
+  **RESOLVED_FROM_AFAR** — defined, alive, and resolved only by bookkeeping — which
+  neither of this card's two earlier partitions had. That class is invisible to
+  "dead or alive" *and* to "has a definition", which is why it survived two censuses.
+- **The bare-name respelling repair is mostly already done**, by three cards that
+  did it incidentally. Report that rather than re-doing it.
+- **Estimate drops.** 1d was priced against thirty refs. Four table entries and
+  three decisions is closer to **0.5d**, and the remaining judgement — whether 20
+  shim-resolved refs are an acceptable end state — is a question for the owner, not
+  work.
+- **The two honestly-dead refs are the correct state** and may be the right place
+  to stop: per ADR-0039 an honest gap is fixable and a phantom one is not, so
+  demoting them to `review-lens` with a recorded reason is a **success**, and
+  writing tests merely to retire warnings is not.
+
+**Method note, because this card's premise has now been wrong three times.** The
+first census used a regex that over-counted; the second omitted the largest
+authority; both were corrected only when something else measured the same thing.
+**Derive from all four authorities, and cross-check the count against a second
+implementation before writing a figure onto a card.**
