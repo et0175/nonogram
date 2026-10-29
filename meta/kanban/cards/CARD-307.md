@@ -1,4 +1,6 @@
-# CARD-307: A `path::nodeid` check ref is structurally dead on this board — 30 of them read as mechanically checked, and the validator cannot resolve any of them
+# CARD-307: Node-id check refs read as alive without resolving to a definition — the false alives named, the honest gaps demoted, and the ones held up only by bookkeeping given a table
+
+<!-- RETITLED 2026-10-29 on owner decision. The retired title was "A `path::nodeid` check ref is structurally dead on this board — 30 of them read as mechanically checked, and the validator cannot resolve any of them", and it was wrong in both halves: the count was 30 against a measured 23, and 20 of those 23 DO resolve. It is retired rather than adjusted because the lesson is that **a title carrying a figure goes stale** — this one did within a day, while three cards landed docstring tables that fixed most of its subject incidentally. The new title names the MECHANISM and the three outcomes, which do not drift: a ref can read alive without resolving to a definition; the repair is to name the false alives, demote the honest gaps, and give a table to the refs held up only by bookkeeping. No number appears in it on purpose. -->
 
 **Status:** ready
 **Priority:** P1
@@ -351,10 +353,14 @@ of the 33 node-id refs:
    0   reported dead while a test exists
 ```
 
-**So the defect is almost never a dead ref — it is a FALSE ALIVE.** 31 of 33 read as
-mechanically checked, and only 2 are reported dead at all. The card's framing had it
-backwards, and the inverted framing matters: a round told to "repair 30 dead refs"
-would look for warnings and find two.
+**So the defect is almost never a dead ref — it is a FALSE ALIVE**, and *that*
+conclusion survived every re-measurement even as the figures did not. The card's
+framing had it backwards, and the inverted framing matters: a round told to "repair
+thirty dead refs" would look for warnings and find a handful.
+<!-- The figures that stood here (31 of 33) are SUPERSEDED by the third census
+below, which read all four authorities: 23 node-id refs, 20 of them resolving. Kept
+as the shape of the finding rather than deleted, because the direction -- false
+alive, not dead ref -- is what two wrong counts both pointed at. -->
 
 **The two with nothing behind them** are `test_no_homegrown_tracking` (ADR-0041/R6
 and its `requirements.yml` twin — 4 prose resolvers, no definition anywhere) and,
@@ -444,9 +450,10 @@ no definition anywhere       3
 reported dead, test exists   0
 ```
 
-So *"30 of them read as mechanically checked, and the validator cannot resolve any
-of them"* is **stale and was never right in that form**. A round briefed on it
-would hunt thirty refs and find three.
+So this card's **retired title** — *"30 of them read as mechanically checked, and
+the validator cannot resolve any of them"* — was **stale and never right in that
+form**. A round briefed on it would hunt thirty refs and find three. The title was
+replaced on 2026-10-29 with one that carries no figure, for exactly this reason.
 
 ### The actual live scope, enumerated
 

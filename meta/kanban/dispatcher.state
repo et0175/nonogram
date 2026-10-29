@@ -1950,3 +1950,35 @@ done_in_wave_65:
 - id: CARD-298
   merge_commit: 1fd39bb1
   score: "8.5 cycle 2/3"
+
+# ---- CORRECTION to the wave-66 opening block above (2026-10-29) ----
+# That block recorded CARD-307's premise as "469 verifying refs, 33 in node-id
+# form". BOTH figures are wrong and the correction came from CARD-308's own round,
+# not from the orchestrator. The census had omitted `trace.yml`'s `tests:` lists --
+# 510 refs, the LARGEST of the four authorities -- and over-counted node-id forms
+# with a loose regex. Re-derived from all four authorities:
+#     580 distinct refs; 23 in node-id form; 557 bare.
+#     Of the 23: 20 resolve in their own module, 3 have no definition, and 0 are
+#     reported dead while a definition exists.
+# So CARD-307's live scope is SEVEN refs, not thirty -- 3 undefined (2 of them
+# honestly dead with no resolver at all, which is the CORRECT state) plus 4 that
+# are defined and resolved only from outside their own module. Twenty resolve
+# because three earlier cards landed docstring tables incidentally.
+# ESTIMATE re-scoped 1d -> 0.5d on the owner's instruction, and the card RETITLED
+# on the owner's instruction: the retired title carried a figure and went stale
+# within a day, so the replacement names the mechanism and no number.
+# NOTE ON THIS FILE: no ref or test name is written in this block, deliberately.
+# CARD-308's round measured that `dispatcher.state` has no .md extension and so
+# sits INSIDE the validator's search domain -- naming a ref here makes it read as
+# alive. Two names written here earlier are the reason that rule now exists.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+card_307_rescope:
+  at: 2026-10-29
+  estimate: "1d -> 0.5d"
+  retitled: true
+  by: owner decision
+  live_scope_refs: 7
+  census: "580 distinct refs over four authorities; 23 node-id form; 20 of those resolve"
+  superseded_figures: "469 refs / 33 node-id form -- both wrong; trace.yml's tests: lists were omitted entirely"

@@ -98,9 +98,11 @@ validator at all.
    argument for a definition-based resolver, so the next person does not propose
    the pathspec narrowing again.
 4. **State the interaction with CARD-307 and do not duplicate it.** CARD-307
-   repairs the 30 `path::nodeid` refs. This card stops the *detector* from being
-   eroded. Either without the other leaves a hole: repaired refs can still be
-   silenced later, and an un-eroded detector still reports 30 refs it cannot
+   repairs the node-id refs that do not resolve to a definition — **re-measured
+   2026-10-29 to seven, not thirty**, after this card's own round found the earlier
+   census had omitted `trace.yml`'s `tests:` lists. This card stops the *detector*
+   from being eroded. Either without the other leaves a hole: repaired refs can
+   still be silenced later, and an un-eroded detector still reports refs it cannot
    resolve.
 
 ## Acceptance criteria
