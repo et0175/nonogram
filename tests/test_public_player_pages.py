@@ -2035,28 +2035,58 @@ ALLOW_RUNTIME, ALLOW_STATIC = driver.allow_list(REPO_ROOT)
 #:
 #: * RAW text — :data:`_ABSOLUTE_TARGET` (as always), :data:`_HOST_LITERAL`,
 #:   and every FETCHING position: :data:`_ATTR_TARGET`, :data:`_CSS_TARGET`,
-#:   :data:`_PROPERTY_SINK`, the :data:`URL_CALLS` loop and
-#:   :data:`IDENTIFIER_SHAPES`. An external host, and anything in a position
-#:   that fetches, is a finding wherever it is written — inside a comment
-#:   included. A comment read as code can only PRODUCE a finding, never hide
-#:   one, which is the direction this guard has to fail in;
+#:   :data:`_PROPERTY_SINK` and the :data:`URL_CALLS` loop. An external host,
+#:   and anything in a position that fetches, is a finding wherever it is
+#:   written — inside a comment included. A comment read as code can only
+#:   PRODUCE a finding, never hide one, which is the direction this guard has
+#:   to fail in. :data:`IDENTIFIER_SHAPES` reads raw too, for a DIFFERENT
+#:   reason and not for symmetry: its miss cannot be egress at all — it
+#:   serves AC-392's identifier clause, not its reference clause — and it
+#:   reads raw so that a comment is not a hiding place for an identifier
+#:   read either (cycle 3's F-203, which is why this list no longer calls it
+#:   a pattern that can hide egress);
 #: * STRIPPED text — :data:`_IMPORT_TARGET` and :data:`_ROOTED_LITERAL`, and
 #:   only these two. They are the two patterns both MEASURED false positives
-#:   came from (see :data:`_COMMENTS`), and the only two whose misses cannot
-#:   be egress: what a bad strip costs there is a module specifier or a
-#:   rooted path that resolves to nothing — an ``unclassifiable`` lost, never
-#:   a ``foreign`` one.
+#:   came from (see :data:`_COMMENTS`).
+#:
+#: **What a bad strip costs, and the authority shape the whole claim hangs
+#: on.** Fix round 2 said the two stripped readers were "the only two whose
+#: misses cannot be egress: an ``unclassifiable`` lost, never a ``foreign``
+#: one". Cycle 3 measured that FALSE and the reason is
+#: :data:`_ROOTED_LITERAL`: it matches any quoted value whose first character
+#: is ``/``, so it also reads a quoted ``//authority`` — and :func:`classify`
+#: sends every target beginning ``//`` down the absolute branch, where it
+#: becomes ``foreign``. So the stripped reader is NOT internal-only, and the
+#: cost sentence is true only while :data:`_HOST_LITERAL` reads that same
+#: form RAW for EVERY authority shape. It did not. Shaped
+#: ``//[A-Za-z0-9.-]+\.[A-Za-z]{2,}``, it could not read an authority whose
+#: last label is not two or more ASCII letters, so behind a comment delimiter
+#: opened from an unguarded character — the residual
+#: :func:`_without_comments` declares — an IPv4 literal, a bracketed IPv6
+#: literal or a single-label host in an ``import`` or a bare CSS ``@import``
+#: had the stripped pattern as its ONLY reader and passed SILENTLY. Four such
+#: ``foreign`` references were measured, each with its no-comment control
+#: caught in the same run.
+#:
+#: The pattern above is therefore ``//`` followed by any NON-SLASH character:
+#: one raw reader for every authority shape there is — IP literals,
+#: single-label hosts, percent- or unicode-encoded authorities, userinfo and
+#: port forms — all seven planted alone in ``test_no_homegrown_tracking``.
+#: The non-slash is deliberate rather than incidental: ``"///host/x"`` has an
+#: empty authority and resolves to the serving origin's own ``/host/x``, so it
+#: is not egress and :data:`_ROOTED_LITERAL` is its right reader. What stays
+#: unread is what the paragraph at the top of this block refuses on purpose:
+#: an UNQUOTED ``//authority``, because a bare ``//`` is a comment far more
+#: often than a reference.
 #:
 #: :data:`_URL_LITERAL` was one pattern doing both jobs and is split for
-#: exactly this reason: the quoted ``//host`` half is egress and reads raw,
-#: the quoted rooted half is internal and reads stripped.
+#: exactly this reason: the quoted ``//authority`` half is egress and reads
+#: raw, the quoted rooted half is internal and reads stripped.
 _ATTR_TARGET = re.compile(r"""(?:src|href)\s*=\s*(["'`])([^"'`\n]*)\1""")
 _IMPORT_TARGET = re.compile(r"""\bfrom\s+(["'])([^"'\n]*)\1""")
 _CSS_TARGET = re.compile(r"""url\(\s*(["']?)([^"')\n]*)\1\s*\)""")
 _ABSOLUTE_TARGET = re.compile(r"""\bhttps?://[^\s"'`)<>\\]+""")
-_HOST_LITERAL = re.compile(
-    r"""(["'`])(//[A-Za-z0-9.-]+\.[A-Za-z]{2,}[^"'`\n]*)\1"""
-)
+_HOST_LITERAL = re.compile(r"""(["'`])(//[^/"'`\n][^"'`\n]*)\1""")
 _ROOTED_LITERAL = re.compile(r"""(["'`])(/[^"'`\n]*)\1""")
 
 #: Comment forms, blanked before the quoted shapes are read. Declared with
@@ -2128,14 +2158,29 @@ def _without_comments(text: str) -> str:
     which is the narrower and more comfortable half; cycle 2 then measured
     four shapes of this residual as SILENT PASSES. They are not silent any
     more, and **the reason is not this function**: the patterns that can hide
-    egress — every fetching position, :data:`_ABSOLUTE_TARGET`,
-    :data:`_HOST_LITERAL` and :data:`IDENTIFIER_SHAPES` — read the RAW text.
-    So what a bad strip can still cost is one reading of
-    :data:`_IMPORT_TARGET` or :data:`_ROOTED_LITERAL`: a module specifier, or
-    a rooted path that resolves to nothing. An ``unclassifiable`` lost, never
-    a ``foreign`` one. That residual is real and it is not nothing — a
+    egress — every fetching position, :data:`_ABSOLUTE_TARGET` and
+    :data:`_HOST_LITERAL` — read the RAW text. (:data:`IDENTIFIER_SHAPES`
+    reads raw as well, but its miss could never have been egress, so it is
+    not on that list — cycle 3's F-203.)
+
+    **The cost of this residual, stated as cycle 3 measured it and not as
+    fix round 2 hoped.** That round wrote "an ``unclassifiable`` lost, never
+    a ``foreign`` one", and it was FALSE: :data:`_ROOTED_LITERAL` reads a
+    quoted ``//authority`` too and :func:`classify` makes that ``foreign``,
+    while :data:`_HOST_LITERAL` then demanded a dotted letter-TLD authority
+    and so could not read an IPv4 literal, a bracketed IPv6 literal or a
+    single-label host. Four ``foreign`` references behind this residual were
+    measured passing SILENTLY. The sentence is true now, and it is true
+    BECAUSE :data:`_HOST_LITERAL` reads the quoted ``//`` form raw for every
+    authority shape: what a bad strip can still cost is one reading of
+    :data:`_IMPORT_TARGET`, or of :data:`_ROOTED_LITERAL` on a value that is
+    genuinely rooted at the site — a module specifier, or a rooted path that
+    resolves to nothing. That residual is real and it is not nothing — a
     dangling internal reference is a defect this scan would stop reporting —
-    it is simply not a channel anything can leave by.
+    it is simply not a channel anything can leave by. The seven authority
+    shapes are planted alone in ``test_no_homegrown_tracking``, each asserted
+    to be a SILENT PASS under the narrower pattern and ``foreign`` under this
+    one, which is what keeps the claim measured instead of argued.
 
     The other residual is the safe direction and is unchanged: a comment
     whose ``//`` directly follows a quote — ``const s = "a"// note`` — is not
@@ -2286,13 +2331,20 @@ def scan_site(
 
     **Comments are not a hiding place, and which text each pattern reads is
     the reason.** Everything that can hide egress reads the file as written:
-    the absolute and quoted-``//host`` forms, every fetching position, and
-    the identifier vocabulary. Only :data:`_IMPORT_TARGET` and
-    :data:`_ROOTED_LITERAL` read :func:`_without_comments`' output, because
-    they are the two patterns whose measured false positives put the stripper
-    here in the first place, and the two whose misses are internal. Cycle 2
-    measured four comment-delimiter swallows as silent passes when every
-    pattern read the stripped text; all four are controls below.
+    the absolute form, the quoted ``//authority`` form for EVERY authority
+    shape (cycle 3's F-201 — the narrower letter-TLD pattern left four
+    ``foreign`` references behind a comment delimiter to the stripped reader
+    alone), and every fetching position; the identifier vocabulary reads raw
+    too, though its miss could not be egress. Only :data:`_IMPORT_TARGET`
+    and :data:`_ROOTED_LITERAL` read :func:`_without_comments`' output,
+    because they are the two patterns whose measured false positives put the
+    stripper here in the first place. :data:`_ROOTED_LITERAL` also reads a
+    quoted ``//authority``, so what bounds a mis-strip to an internal loss is
+    not that pattern's own shape but :data:`_HOST_LITERAL` reading the same
+    form raw. Cycle 2 measured four comment-delimiter swallows as silent
+    passes when every pattern read the stripped text, and cycle 3 measured
+    four more from the authority shape; those nine plants and the seven
+    authority shapes are all controls below.
 
     **The bound, stated here because this is where a reader meets the
     claim.** This is a lexical, single-file, one-hop scan over a known set of
@@ -2740,11 +2792,17 @@ def test_pages_work_with_analytics_blocked(browser_page, counted_host, pages_sit
 
     hosts = sorted({value.split("/")[2] for value in ALLOW_RUNTIME.values()})
     # Derived, not a floor (cycle 2's F-104). `REQUIRED_RUNTIME` is the closed
-    # set of endpoints the deploy page must name, so what this interceptor has
-    # to cover is an equality: `>= 1` passed a run in which the two endpoints
-    # had collapsed onto one host and half of what should be blocked was not.
-    # It reds if the runtime block grows a host too, which is the right
-    # direction — widening what a counted page may fetch is a decision.
+    # set of endpoints the deploy page must name, and what these two lines buy
+    # is an equality between the interceptor's host set and theirs: a runtime
+    # block that grows an endpoint on a NEW host reds here, so a counted page
+    # cannot be permitted a host this interceptor does not abort — widening
+    # what a counted page may fetch is a decision, not a refactor. What they
+    # do NOT buy is what the earlier comment here claimed, "`>= 1` passed a
+    # run in which the two endpoints had collapsed onto one host and half of
+    # what should be blocked was not": cycle 3 evaluated that case and both
+    # assertions still pass, and it is harmless anyway, because the route
+    # pattern below is keyed on HOSTS and one host pattern aborts both
+    # endpoints. F-205.
     required = [ALLOW_RUNTIME[name] for name in driver.REQUIRED_RUNTIME]
     assert len(set(required)) == len(driver.REQUIRED_RUNTIME), required
     assert sorted({url.split("/")[2] for url in required}) == hosts, (required, hosts)
@@ -2935,8 +2993,10 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     # cross lines — and carries whatever is in that region away with it. Two
     # more are here because every `raw` read in `scan_site` should have one:
     # a quoted `//host` in no fetching position at all, and an
-    # `IDENTIFIER_SHAPES` hit. Each plant is asserted three ways below, which
-    # is what makes it a control over the FIX and not over the patterns.
+    # `IDENTIFIER_SHAPES` hit. Each plant carries FOUR assertions below and
+    # three of them are independent; the record said "four ways" and cycle 3
+    # measured the real number. See the verdict block for which one is
+    # subsumed and why (F-204).
     (probed / "probe-block-swallow.js").write_text(
         'const open = "/*";\n'
         'const s = document.createElement("script");\n'
@@ -3109,7 +3169,24 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     #      guess about the character in front of a delimiter, and the next
     #      shape nobody thought of walks straight past it — that is how this
     #      defect arrived twice. What closes it is that nothing which could
-    #      hide egress reads the stripped text at all.
+    #      hide egress reads the stripped text at all;
+    #  (d) the shipped scan reports it, asserted first in the loop below.
+    #
+    # (a) and (b) are text-level checks on the plant; (c) and (d) are the two
+    # scan assertions, and (d) is SUBSUMED by (c): the shipped stripper blanks
+    # a subset of what the pre-fix stripper blanks, so the shipped scan's
+    # findings are a superset of the pre-fix scan's and (c) implies (d).
+    # Cycle 3 drove it — with the CSS read or the sink read disabled under the
+    # SHIPPED stripper no plant loses its bucket, and only the pre-fix pass
+    # reds — so the control weight is entirely on (c). (d) is KEPT for the one
+    # thing it adds, which is that the plant is reported on the tree that
+    # SHIPS rather than only under a patched stripper; and it is now matched
+    # by the NEEDLE and not by filename alone, because three of these plants
+    # open with a `"/*"` decoy that `_ROOTED_LITERAL` itself reports as
+    # `unclassifiable` in the same file — for the two plants whose declared
+    # bucket IS `unclassifiable`, a filename-only (d) was satisfied by that
+    # decoy with the read the plant exists to control entirely removed
+    # (F-204). (c) is matched by needle for the same reason.
     swallows = (
         ("probe-block-swallow.js", "evil.example", "foreign"),
         ("probe-block-swallow.css", "evil.example", "foreign"),
@@ -3133,7 +3210,9 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
         return body
 
     for name, needle, bucket in swallows:
-        assert [hit for hit in planted[bucket] if name in hit], (name, planted)
+        assert [
+            hit for hit in planted[bucket] if name in hit and needle in hit
+        ], (name, needle, planted)
         body = (probed / name).read_text(encoding="utf-8")
         assert needle in body, name
         assert needle not in strip_with(destructive, body), (
@@ -3147,12 +3226,141 @@ def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(sys.modules[__name__], "_COMMENTS", destructive)
     swallowed = scan_site(probed, ALLOW_RUNTIME, ALLOW_STATIC)
     monkeypatch.undo()
-    for name, _, bucket in swallows:
-        assert [hit for hit in swallowed[bucket] if name in hit], (name, swallowed)
+    for name, needle, bucket in swallows:
+        assert [
+            hit for hit in swallowed[bucket] if name in hit and needle in hit
+        ], (name, needle, swallowed)
     # 10 — a full URL in a comment is reported.
     assert [
         hit for hit in planted["foreign"] if "probe-url-in-comment.js" in hit
     ], planted
+
+    # 11 (F-201) — the AUTHORITY SHAPE, the second ingredient, and the one
+    # nothing looked at for three cycles. `_ROOTED_LITERAL` matches any quoted
+    # value whose first character is `/`, so it reads a quoted `//authority`
+    # too, and `classify` sends every target beginning `//` down the absolute
+    # branch -> `foreign`. So the stripped reader is NOT internal-only, and the
+    # only thing that kept a mis-strip from costing a `foreign` was
+    # `_HOST_LITERAL` reading the same form RAW — which the narrower,
+    # dotted-letter-TLD pattern below could not do for an authority whose last
+    # label is not two or more ASCII letters. Behind the residual
+    # `_without_comments` declares, cycle 3 measured four such references
+    # passing SILENTLY.
+    #
+    # Each shape is planted ALONE into a copy of the clean site whose baseline
+    # is asserted empty in the same run, and asserted three ways: the SHIPPED
+    # stripper really does blank the region (so the plant is the residual and
+    # not a reference with a comment near it), the shipped scan reports it
+    # `foreign`, and the narrower pattern patched back in makes it a SILENT
+    # PASS in every bucket. That last one is what makes each plant a control
+    # over the ONE line and not decoration.
+    narrow_host = re.compile(r"""(["'`])(//[A-Za-z0-9.-]+\.[A-Za-z]{2,}[^"'`\n]*)\1""")
+    hidden = 'const open = "x/*";\n{line}\nconst close = "*/";\n'
+    # (name, body, needle, the shipped stripper blanks it, the narrow pattern
+    # still catches it). The last three authorities are the shapes cycle 3
+    # could only claim "by construction": an encoded authority, a userinfo
+    # form and a port form. They are measured here.
+    shapes = [
+        (
+            f"shape-{slug}.js",
+            hidden.format(line=f'import t from "{target}";'),
+            needle,
+            True,
+            False,
+        )
+        for slug, target, needle in (
+            ("ipv4", "//203.0.113.9/t.js", "203.0.113.9"),
+            ("single-label", "//intranet/t.js", "//intranet/t.js"),
+            ("ipv6", "//[2001:db8::1]/t.js", "2001:db8"),
+            ("encoded", "//%32%30%33%2E%30%2E%31%31%33%2E%39/t.js", "%32%30%33"),
+            ("userinfo", "//user@203.0.113.9/t.js", "user@203.0.113.9"),
+            ("port", "//intranet:8080/t.js", "intranet:8080"),
+        )
+    ]
+    shapes += [
+        # A bare CSS `@import` needs no trick at all: it is a real stylesheet
+        # fetch, it carries no `url()` wrapper so `_CSS_TARGET` never sees it,
+        # and with an IP-literal authority the narrow pattern missed it too.
+        (
+            "shape-css-import.css",
+            'a{content:"x/*"}\n@import "//203.0.113.9/x.css";\nb{content:"*/"}\n',
+            "203.0.113.9/x.css",
+            True,
+            False,
+        ),
+        # The three controls that isolate the cause to BOTH ingredients rather
+        # than to either alone: the same reference with NO comment, the same
+        # residual with a dotted letter-TLD authority, and the same IPv4
+        # authority in a `src=` position behind the same residual. Each is
+        # caught under the NARROW pattern as well, which is what shows that
+        # neither the residual nor the authority shape loses a reference by
+        # itself.
+        (
+            "control-no-comment.js",
+            'import t from "//203.0.113.9/t.js";\n',
+            "203.0.113.9",
+            False,
+            True,
+        ),
+        (
+            "control-letter-tld.js",
+            hidden.format(line='import t from "//evil.example/t.js";'),
+            "evil.example",
+            True,
+            True,
+        ),
+        (
+            "control-src-position.html",
+            "<!doctype html><html><head><title>p</title></head><body>"
+            '<p data-x="x<!--"></p>'
+            '<script src="//203.0.113.9/t.js"></script>'
+            '<p data-y="-->"></p>'
+            "</body></html>\n",
+            "203.0.113.9",
+            True,
+            True,
+        ),
+    ]
+    alone = tmp_path / "alone"
+    shutil.copytree(site, alone)
+    assert scan_site(alone, ALLOW_RUNTIME, ALLOW_STATIC) == {
+        "foreign": [],
+        "identifiers": [],
+        "unclassifiable": [],
+    }, "the baseline of the one-at-a-time copy is not clean"
+    for name, body, needle, blanked, narrow_catches in shapes:
+        plant = alone / name
+        plant.write_text(body, encoding="utf-8")
+        try:
+            assert needle in body, name
+            assert (needle not in strip_with(_COMMENTS, body)) is blanked, (
+                f"{name} is not the shape it claims: the SHIPPED stripper "
+                f"{'leaves' if blanked else 'blanks'} {needle!r}"
+            )
+            got = scan_site(alone, ALLOW_RUNTIME, ALLOW_STATIC)
+            assert [
+                hit for hit in got["foreign"] if name in hit and needle in hit
+            ], (name, got)
+            assert got["identifiers"] == [] and got["unclassifiable"] == [], (name, got)
+            monkeypatch.setattr(sys.modules[__name__], "_HOST_LITERAL", narrow_host)
+            narrowed = scan_site(alone, ALLOW_RUNTIME, ALLOW_STATIC)
+            monkeypatch.undo()
+            seen = [
+                hit for bucket in narrowed.values() for hit in bucket if name in hit
+            ]
+            if narrow_catches:
+                assert [
+                    hit
+                    for hit in narrowed["foreign"]
+                    if name in hit and needle in hit
+                ], (name, narrowed)
+            else:
+                assert seen == [], (
+                    f"{name} is reported with the narrow pattern in place, so it "
+                    f"is not a control over the authority shape: {seen}"
+                )
+        finally:
+            plant.unlink()
 
     # And the vocabulary is compound rather than bare, which is a measured
     # requirement and not a style: the tree's own grid fingerprints would
@@ -3317,6 +3525,31 @@ def test_the_assembly_helper_drives_the_assembler_and_writes_nothing_itself() ->
     # safe tree is what a bare run produces (drift step 4).
     assert "--no-analytics" not in page_flags | options, sorted(options)
     assert "--analytics" in options, sorted(options)
+    # And the documented publish COMMAND carries the flag, which the subset
+    # check above does not reach: the command sits in a fenced block, so its
+    # flags are not backticked and never enter `page_flags`, and
+    # `{"--analytics", "--print-only"} <= page_flags` was satisfied by PROSE
+    # mentions elsewhere in the page. Cycle 3 deleted ` --analytics` from the
+    # command and both player modules stayed at 66 passed — a surviving mutant
+    # on the exact drift the owner's accepted cost was conditioned against
+    # (F-202). The command is read by gluing its backslash continuations, and
+    # its flags are held to argparse's options too, so a rename reds here as
+    # well as on the prose.
+    lines = page.splitlines()
+    documented = []
+    for index, line in enumerate(lines):
+        if "assemble_player_site.py" not in line:
+            continue
+        command, cursor = line.rstrip(), index
+        while command.endswith("\\"):
+            cursor += 1
+            command = f"{command[:-1]} {lines[cursor].strip()}"
+        documented.append(command)
+    assert documented, "the deploy page documents no invocation of the helper"
+    for command in documented:
+        command_flags = set(re.findall(r"--[a-z][a-z-]*", command))
+        assert command_flags <= options, sorted(command_flags - options)
+        assert "--analytics" in command_flags, command
 
 
 def test_the_deploy_page_is_the_only_place_that_holds_an_endpoint() -> None:

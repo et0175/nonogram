@@ -156,11 +156,39 @@ string literal, a CSS value, an attribute value or a regex literal can still mak
 blank a region. Cycle 2 of CARD-285's review measured four such shapes swallowing a live
 external reference and scanning **clean**. They do not any more, and the reason is not a
 better guess about delimiters: everything that could hide egress — every absolute URL,
-every quoted `//host`, every fetching position (`src=`, `href=`, a CSS `url()`, a network
-call, a `.src =` assignment) and the identifier vocabulary — is read from the file **as
-written**, comments included. What a bad strip can still cost is one reading of the two
-patterns that do read the stripped text, an `import … from` specifier and a quoted rooted
-path: a dangling *internal* reference going unreported. That is a defect worth knowing
+every quoted `//authority`, and every fetching position (`src=`, `href=`, a CSS `url()`,
+a network call, a `.src =` assignment) — is read from the file **as written**, comments
+included. (The identifier vocabulary is read raw as well, so a comment is not a hiding
+place for an identifier read either; its miss could never have been egress, which is why
+it is named separately here.)
+
+**This paragraph understated its own cost until cycle 3 measured it, and the correction
+is the point.** The sentence used to say that what a bad strip can cost is "a dangling
+*internal* reference" and that every quoted `//host` is read as written. The second half
+was true only for a **dotted letter-TLD** authority: the raw pattern required the
+authority's last label to be two or more ASCII letters, while the stripped pattern that
+reads quoted *rooted* paths also matches a quoted `//authority` and the scan classifies
+anything beginning `//` as external. So for an IPv4 literal, a bracketed IPv6 literal or
+a single-label host, the stripped pattern was the only reader, and four such live
+references — an `import` of one, a bare CSS `@import` of one, a single-label host and an
+IPv6 literal — were measured passing with **no finding at all**. Each one's no-comment
+twin was caught in the same run, so the cause was the two ingredients together.
+
+The raw pattern now reads any quoted `//` followed by a non-slash character, so the claim
+above is true as written: an IP literal, a single-label host, a percent- or
+unicode-encoded authority, a userinfo form and a port form are all read from the file as
+written, and all seven shapes are planted as controls in `test_no_homegrown_tracking`,
+each asserted to be a silent pass under the old pattern and a finding under this one.
+**What remains unread is one shape, named here rather than discovered later:** an
+**unquoted** `//authority`. That is refused on purpose — a bare `//` is a comment far
+more often than a reference, and a pattern loose enough to read one also reads `//
+assemble.py's` out of a comment — and it is why a protocol-relative target is read only
+where a quote says the value is one. A `///path` is not in that gap: it has an empty
+authority and resolves to this site's own `/path`.
+
+So what a bad strip can still cost is one reading of the two patterns that do read the
+stripped text — an `import … from` specifier, or a quoted path genuinely rooted at the
+site: a dangling *internal* reference going unreported. That is a defect worth knowing
 about and it is not a channel anything can leave by.
 
 The scan's vocabulary for "this names a visitor" is also declared rather than derived, and is a trip-wire for new
