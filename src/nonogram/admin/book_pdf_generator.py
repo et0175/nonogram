@@ -676,16 +676,16 @@ _RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {
     ),
     PageKind.PUZZLE: RasterDeclaration(
         reason=(
-            "book_puzzle_vector draws no sheet furniture at all — no folio, no "
-            "frame rules, no grid-size label, no QR block — which that "
-            "module's own docstring raises as a gap, so a vector puzzle page "
-            "would print with no page number on it; and ADR-0042/R6's reader "
-            "conversion has not landed either"
+            "the furniture gap is CLOSED (CARD-306: vector_puzzle_page and "
+            "vector_two_up_page now carry the folio, both frame rules, the "
+            "grid-size label and the QR block, drawn by book_sheet_vector), "
+            "so what is left is ADR-0042/R6's reader conversion, which has "
+            "not landed"
         ),
         authority=(
-            "CARD-295's raised gap, whose furniture and whose page conversion "
-            "are both CARD-309's; the reader conversion is ADR-0042/R6's, "
-            "CARD-299's"
+            "ADR-0042/R1, whose page conversion is CARD-309's; the furniture "
+            "this entry used to wait on was CARD-306's and is done; the "
+            "reader conversion is ADR-0042/R6's, CARD-299's"
         ),
         expires_with=("CARD-299", "CARD-309"),
     ),
