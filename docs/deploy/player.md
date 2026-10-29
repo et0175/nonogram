@@ -136,13 +136,36 @@ Nothing we ship reads, stores or transmits a visitor's IP or any per-visitor ide
 (ADR-0041/R6, G-3). The player's only storage is one `localStorage` entry per puzzle key
 (ADR-0041/R4).
 
+**What holds that claim, and what it does not reach.** Two things hold it together, and
+neither alone: the assembled site's external references are a closed set, held to the
+allow-list below, so there is no egress a visitor identifier could leave by; and every
+request the pages actually issue is observed in a browser and held to method, origin and
+path (`tests/test_public_player.py::test_no_write_request_for_any_interaction` and the
+three controls beside it). The static scan is the first half and it has a stated bound:
+it is lexical, single-file and one-hop, it is default-deny **within** the reference
+shapes it knows — a shape it finds and cannot place is a failure, never a silent pass —
+and it is silent about a sink shape that is not in its set at all, such as a fetch
+reached through an alias or markup assembled by `document.write`. Its vocabulary for
+"this names a visitor" is also declared rather than derived, and is a trip-wire for new
+code rather than a proof: the set of spellings for an IP is not enumerable (CARD-282
+measured a denylist of that shape missing 7 of 7 planted encodings). So the scan's job
+is to make a new egress impossible to add quietly; the browser tests are what observe
+the egress that exists. Widening either half is a decision, not a refactor.
+
 ### The analytics allow-list
 
 **This block is the allow-list.** The assembly helper reads the endpoints from it, and
 `tests/test_public_player_pages.py::test_no_homegrown_tracking` scans the assembled site
-and fails on any external reference that is not here — and on any reference whose target
-it cannot classify at all. Adding an endpoint to the site therefore means adding it
-here, on purpose, in this file.
+and fails on every external reference it finds that is not here — and on any reference
+whose target it cannot classify at all. Adding an endpoint to the site therefore means
+adding it here, on purpose, in this file. "Every reference it finds" is the honest
+wording: the bound on what the scan looks for is stated above, beside the claim it
+carries.
+
+**The two blocks below are not one list.** A runtime endpoint may be fetched; a
+non-runtime reference may not. The scan holds that split rather than documenting it: the
+same URL that is clean inside `vercel.json` is a finding in a `src=`, an `href=`, a CSS
+`url()`, an import specifier or a network call.
 
 Runtime: the visitor's browser fetches these.
 
@@ -167,7 +190,10 @@ vercel_schema = https://openapi.vercel.sh/vercel.json
 <!-- END non-runtime-allow-list -->
 
 `vercel.json`'s `$schema` is an editor hint. It is served because `vercel.json` is served
-(the host reads it), and no page references it.
+(the host reads it), and no page references it — which is an assertion and not a
+reassurance: a page that fetched this URL would red `test_no_homegrown_tracking` even
+though the URL is named right here, and removing this line reds the scan on
+`vercel.json` itself.
 
 ## Drift check
 
@@ -184,4 +210,12 @@ setting.
    printed with. Changing the base means the old QR codes need a redirect, which is a
    decision and not a deploy step.
 4. **Do not count locally.** The helper's `--no-analytics` is what a local run uses, so
-   development traffic is not in the owner's numbers.
+   development traffic is not in the owner's numbers. **This rule binds the test suite
+   too.** The two browser tests that drive the *counted* tree
+   (`test_assembled_site_is_self_contained`, `test_pages_work_with_analytics_blocked`)
+   both abort the hosts in the runtime block at the network layer, with the pattern
+   derived from that block. A journey without the interceptor was measured sending three
+   live requests to the script host per run — counted development traffic, a suite that
+   depends on a vendor being reachable, and the cross-origin request shape CARD-283/284's
+   same-origin controls forbid, re-introduced from the test side. Any new browser test
+   over a counted tree carries the same two lines.

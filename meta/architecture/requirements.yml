@@ -5240,7 +5240,13 @@ functional:
       - id: AC-392
         given: the assembled site
         when: its files are scanned
-        then: no code in it reads, stores or transmits a visitor IP, and the only analytics endpoint referenced is the one named in docs/deploy/player.md
+        then: >-
+          no reference in it names a visitor IP or a per-visitor identifier,
+          every external reference it carries is one docs/deploy/player.md
+          declares — in that page's runtime allow-list for the endpoints a
+          visitor's browser fetches, or in its non-runtime allow-list for
+          references nothing fetches at page load — and a reference shape the
+          scan cannot classify is a failure
         kind: negative
         test: tests/test_public_player_pages.py::test_no_homegrown_tracking
     engineering_constraints:

