@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-294, CARD-295, CARD-227
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_answer_key.py, tests/test_book_toc.py, tests/test_book_answer_key.py, tests/test_book_qr_slot.py, tests/test_layout_answer_tiles.py
-**Review score:** 7.0 cycle 1/3 (not certified; 6 important, fix round 1 running)
+**Review score:** 7.0 cycle 1/3 → fix round 1 closed all five; cycle 2/3 running
 **Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
@@ -357,6 +357,109 @@ state is deliberate and pre-existing (CARD-228's three review cycles, CARD-241's
 G-4, CARD-296's pre-gate). **Three separate cards have now independently
 re-measured this same zero and each paid a round for it**, which is a candidate
 for a standing rule rather than a fourth re-measurement.
+
+## [Fix round 1 — 2026-10-29, all five closed, and it went one layer deeper than the finding named]
+
+Two commits: **`193329ed`** (the claims layer) and **`f9681797`** (the one
+assertion cycle 1 found claimed but never shipped). Four commits off merge-base
+`6b0dfa30`; **5 files, +4427 / −0**, and every deletion inside the fix round's own
+commits is a line this card itself added — so the branch still modifies **no
+pre-existing line anywhere**. `book_pdf_generator.py` is blob `7a515eea`,
+byte-identical to the merge-base *and* to current main.
+
+**Verified by the orchestrator at this HEAD:** collection **9674** (merge-base
+9570, +104; the fix round's own share +33 / −0, and `comm -23` empty so **no node
+id disappeared** — G-6 needs no rename term). Cycle 1's three-line artefact is now
+a control at `tests/test_book_solved_answer_key.py:3192`
+(`test_review_cycle_1s_own_artefact_is_now_a_violation`), and its class runs 25
+cells green.
+
+### AC-3's set is now a measurement, and the door count settles at 8 of 16
+
+`_content_stream_doors()` constructs a fresh stream per public member of
+`ContentStream`, calls it, tokenises `"\n".join(stream.operators)` with the
+project's own `pdf_vector.operator_tokens`, and classifies a member a door iff
+its tokens intersect `{m,l,re,c,h,S,f,B}`. **That reproduces the orchestrator's
+independent 8-of-16 exactly** — `begin_path`, `close_path`, `curve`, `line`,
+`line_to`, `paint`, `rectangle`, `round_mark`. Cycle 1's "six" omitted `paint`
+(which emits `S` alone) and `round_mark` (`m c c c c h f`). The eight non-doors
+carry one `_NOT_A_DOOR_BECAUSE` entry each, **machine-checked in both
+directions**: the member must emit no path operator, and every operator it *does*
+emit must be named in its own reason. A member with no probe entry is **watched
+anyway**. `_strokers_of` reads the same eight, so both halves moved in one commit.
+
+**It went wider than the finding named, and the reason is the finding's own
+class.** It also dropped the `paint="fill"` exception — a second **hand-made**
+discrimination underneath a set that reads as derived — after measuring that the
+exception admitted **a grid walked as a row of thin filled rectangles on every
+path**. Closing only what cycle 1 named would have left that route open, which is
+wave 48/49's pattern (the fix for one finding creating the next). That shape is
+now a parametrized control, and the exemption set is down to
+`{"draw_answer_cells", "draw_solved_joins"}` — both exempt for the one reason the
+exemption encodes.
+
+### The clip divergence is real, in a shipped book — and it is declared, not fixed
+
+Cycle 1 called this hypothetical ("the vector clip can land one character off").
+It already does. On the 10×10 cm trim the raster page sets
+`Puzzle 2 — Owl in a P…` and the vector page `Puzzle 2 — Owl in a …`. Both clip
+against the **same** 492 px measure (COMP-007's `caption_slot`, not either
+renderer's); Pillow's `getlength` measures the longer string at **491.98** and
+keeps it, while the `/Widths` sum measures it at **492.87** and runs one more
+step. **0.89 px across a 492 px string, landing on an integer boundary.**
+
+The argument for declaring rather than fixing is that **neither medium is
+wrong**: `/Widths` is what a PDF viewer sums, so each page clips by the measure
+its own reader will use, and exact agreement is unreachable without one medium
+measuring through the other's engine. It is declared in
+`_DECLARED_CLIP_DIVERGENCE` with the reason machine-checked, readings compared
+element-for-element per caption, anything outside the declaration red, and the
+declared pair asserted against what min-trim really sets so a stale entry reds.
+**Review cycle 2 has this as its hardest judgment** — a declared divergence in
+what two media print is either exactly right or a defect being documented.
+
+### Cycle 1's six survivors are all killed, and so is the answer-side clip edge
+
+X2→S3, MX1→S4, X3→S5, X5→S6, MX3→S7, X7→S8, plus S1 for the answer-side clip
+edge that cycle 1 watched survive with 596 cells passing. `draw_folio`'s four
+decisions each have a control now (`x = left`, which made every right-hand folio
+print at the gutter, reds), as do the three anchors' horizontal halves and the
+four face measurements. **M8b is no longer a survivor**; of the pair only M8
+remains declared, now on a bound that is **true** — unreachable over the real
+domain rather than exactly linear.
+
+### Two methodological gaps it declared rather than hid
+
+- **It ran no recording pass.** All 26 mutants are plain-pass only, so it claims
+  no per-assert attribution anywhere and reports cell counts rather than assert
+  line sets. On this board a surviving mutant and a never-reached assert look
+  identical, so cell counts cannot distinguish a subsumed arm from a controlled
+  one. Cycle 2 owes the judgment on whether that suffices.
+- **Its 26 are not all deletions** — nine disablements, seven neutralising
+  substitutions, six data substitutions, three value replacements, one
+  `clear = True` — stated rather than inheriting cycle 1's "all deletion"
+  phrasing, which was itself one of cycle 1's non-reproducing figures.
+
+### A correction that lands on cycle 1 and on the orchestrator's own report
+
+**Cycle 1's impact gate "0 skipped" does not reproduce.** Verified on **main**:
+`tests/test_book_pdf_memory.py:1296` skips because this kernel refuses
+`setrlimit(RLIMIT_AS)` — pre-existing, platform-bound, in a file this card does
+not touch. Cycle 1's report **names that skip in its `skips:` section and records
+zero in its `metrics` block**: the two halves of the same report disagree, and the
+orchestrator relayed the zero. It matters here more than it would elsewhere,
+because *green-with-skips looks identical to fully verified, and only `passed`
+separates them* is one of this board's own standing rules.
+
+### On the EC ref the orchestrator corrected
+
+The test tree no longer writes the dead spelling (`git grep -lw` in `tests/`
+returns nothing). Repo-wide the token now resolves in exactly one file — **this
+card**, whose amendment above writes it out. Measured: through the **validator's**
+pathspec it does **not** resolve, because `code_search()` excludes `*.md`, so the
+card can never revive a ref for the validator; a plain `git grep -w` by a human
+or an agent will still land here, which is the audit trail doing its job, the
+same way CARD-301 deliberately keeps its retired spelling in a live docstring.
 
 ## Worktree notes
 

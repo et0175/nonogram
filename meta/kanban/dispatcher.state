@@ -1411,7 +1411,7 @@ active:
     check, strictly stronger than git grep -lw -- and the rename mutant kills it.
     Verified directly at tests/test_nfr001_generation_time.py:412-420.
 - id: CARD-297
-  phase: fix round 1 (after review cycle 1 = 7.0, not certified)
+  phase: review cycle 2 of 3 (fix round 1 closed all five, and widened one)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
   branch_head: 85414ac7
   implementation: "5 files +3210/-0; hotspot untouched; G-6 exact; ZERO pixel sites converted"
@@ -1431,6 +1431,39 @@ active:
     AC-5 mechanism accepted / bookkeeping rejected; AC-2 substitution necessary but blind
     on clipping; downstream restructure right AND forced (inside 17 -> 21 reproduces);
     scope growth accepted, more disciplined than the CARD-295 precedent it cites.
+  fix_round_1: >-
+    193329ed + f9681797. All five closed. 5 files, +4427/-0 vs merge-base, and every
+    deletion in its own commits is a line this card added -- no pre-existing line
+    modified anywhere; hotspot blob still 7a515eea. Collection 9674 (base 9570, +104;
+    its own share +33/-0, comm -23 EMPTY so no node id disappeared). AC-3's set is now a
+    MEASUREMENT: _content_stream_doors() drives every public member and tokenises its
+    output, giving 8 drawing doors of 16 members -- reproducing the orchestrator's
+    independent count exactly, and showing cycle 1's "six" omitted paint and round_mark.
+    It went WIDER than the finding: it also dropped the paint="fill" exception, a second
+    hand-made discrimination under a derived set, which admitted a grid walked as thin
+    filled rectangles. Cycle 1's six survivors all killed, plus the answer-side clip
+    edge; M8b no longer a survivor.
+  clip_divergence_is_real: >-
+    Cycle 1 called it hypothetical; it is already shipping. On the 10x10 trim the raster
+    page sets "Puzzle 2 - Owl in a P..." and the vector page "Puzzle 2 - Owl in a ...".
+    Both clip against the SAME 492px measure; Pillow's getlength reads the longer string
+    at 491.98 and keeps it, the /Widths sum reads 492.87 and runs one more step. 0.89px
+    across 492px, on an integer boundary. Declared rather than fixed, on the argument
+    that neither medium is wrong (/Widths is what a PDF viewer sums). Cycle 2's hardest
+    judgment.
+  declared_gaps: >-
+    It ran NO recording pass -- all 26 mutants plain-pass only, so no per-assert
+    attribution, cell counts instead of assert line sets. And its 26 are not all
+    deletions (9 disablements, 7 neutralising substitutions, 6 data substitutions, 3
+    value replacements, 1 clear=True). Both stated rather than hidden; cycle 2 owes the
+    judgment.
+  correction_to_cycle_1_and_to_the_orchestrator: >-
+    Cycle 1's impact gate "0 skipped" DOES NOT REPRODUCE. Verified on main:
+    tests/test_book_pdf_memory.py:1296 skips (this kernel refuses setrlimit(RLIMIT_AS)) --
+    pre-existing, platform-bound, file untouched by this card. Cycle 1's report NAMES
+    that skip in its skips: section and records zero in its metrics block, and the
+    orchestrator relayed the zero. Sharp here because "green-with-skips looks identical
+    to fully verified, and only passed separates them" is this board's own rule.
   card_amended_by_orchestrator: >-
     Cycle 1's F-297-05 and F-297-06 are the orchestrator's, not the fix round's, and are
     applied: the EC test: ref corrected to the prefixed spelling that exists; "and the
