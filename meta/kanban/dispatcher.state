@@ -2853,3 +2853,68 @@ active:
   phase: ESCALATED - cycle 3 of 3 scored 7.5, one gating finding with a measured one-line fix, awaiting owner decision
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 queued: []
+
+# --- CARD-308 review cycle 3 (the LAST) = 8.0, CERTIFIES AT THRESHOLD ---
+# 7.5 -> 7.5 -> 8.0 against min_score 8. The gating finding is closed, and
+#   better than it was asked to be: one region helper feeds both collection and
+#   refusal across all four authorities, so the halves cannot drift. Verified by
+#   mutant -- a derivation that raises on ANYTHING passes the clean baseline and
+#   all 26 negatives and is caught only by the four legal shapes, so the
+#   non-vacuity floor bites.
+#
+# THE REVIEWER LEFT A LEVER RATHER THAN DECIDING IT SILENTLY, and that is the
+#   right call. Under my brief's own letter -- a region misclassification that
+#   invents a ref is gating, one that drops a real one is gating, one that reds
+#   on prose is gating -- the residual it found IS gating and the verdict would
+#   be 7.5. It declined to apply the letter because my rule was written about
+#   LIVE shapes, and all four of its shapes are measured latent with the live
+#   count stated as zero for each. Both outcomes are in the report. OWNER CHOICE.
+#
+# THE RESIDUAL: the region notion is not total. Four shapes, all latent, and TWO
+#   OF THEM FAIL SILENTLY, which is this card's entire subject.
+#   (a) a block-scalar opener with a trailing comment is legal YAML and is not
+#       recognised, so its body is not prose and a body line in declaration
+#       shape is COLLECTED AS A REF -- the invent-a-ref failure fix round 2
+#       reports closed, reproduced one notch out. The default-deny is
+#       STRUCTURALLY blind to it: it fires where no narrow pattern claims, and
+#       invention happens exactly where one does.
+#   (b) the alternate fence spelling loses the refusal, not a ref.
+#   (c) an unclosed fence reds on English; every ADR's fence count is even.
+#   (d) a quoted declaration key is invisible to collection AND refusal.
+#   ~10 lines plus four matrix rows closes all four.
+#
+# THE PARTITION ARITHMETIC IS A TAUTOLOGY -- 2000 random populations, 0
+#   violations, holds by construction -- so the round's argument for it is
+#   wrong. The DECISION it defended is right for a different measured reason: a
+#   count-preserving swap moves a class's digest, so detection is closed for all
+#   four classes by the digests and only naming is not. Scope the digests to 2 of
+#   6: correct. The argument: replace.
+#
+# TWO MORE OF MY FIGURES WERE WRONG, both carried rather than measured: the
+#   runtime band I stated (a cold reading came in above it -- a band is a
+#   measurement too and goes stale), and an impact base that yields zero modules
+#   because it IS head. That is the fourth and fifth figure of mine corrected by
+#   a round today, and every one was carried.
+#
+# THE HAZARD CAUGHT THE THIRD REVIEWER TOO, BY MECHANISM: the impact scope's one
+#   xfail has a full node id that IS a model-declared ref, so reporting it the
+#   way pytest prints it would have made the report a tracked resolver for it.
+#   Its self-check caught that, not its care. This card's thesis, demonstrated on
+#   each of its three reviewers in turn.
+#
+# The stash residue from fix round 2 is NONE, checked three ways including a
+#   stash list whose newest entry predates today by five weeks.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: review cycle 3 CERTIFIED 8.0 at threshold on 3fab6828, awaiting owner decision on the latent-region residual before the merge gate
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: fix round 3 running on 6caccb65 under owner decision, then straight to the merge gate
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []

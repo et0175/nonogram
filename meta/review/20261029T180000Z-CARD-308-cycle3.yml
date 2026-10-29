@@ -1,0 +1,778 @@
+version: 1
+generated_at: "2026-10-29T18:00:00Z"
+target: >-
+  card/308-the-sync-erodes-dead-ref-detection @ 3fab6828 (cycle 3/3, LAST;
+  fix round 2 = 65dd11b4..3fab6828, 3 files: the module and two ADRs)
+card: CARD-308
+cycle: 3
+mode: "gating, final — max_cycles reached"
+overall_score: 8.0
+min_score: 8
+verdict: >-
+  CERTIFIES AT THRESHOLD. Cycle 2's single gating finding (F-001c2) is closed
+  across all four authorities with a stronger repair than was asked for, and I
+  verified the closure with mutants rather than accepting it: muting the key
+  refusal reds the control, and a derivation that raises on anything planted is
+  caught ONLY by the four legal shapes, so the non-vacuity floor bites. Every
+  figure the brief listed re-derives EXACT at 3fab6828 (20+ checked), the
+  digest replay reproduces and names both departed refs, the retraction's
+  honest reading is confirmed, and the stash window left no residue.
+  Held AT 8.0 and not above by one high-severity residual I measured and the
+  round did not: the region notion the whole repair now rests on is NOT total.
+  Four shapes, each measured LATENT today, one of which reproduces the
+  invent-a-ref failure the round says it closed. See the three_way_split and
+  the note_on_the_briefs_gating_rule — the brief's letter would make F-001c3
+  gating and I state exactly what changes if the owner applies it.
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+# =====================================================================
+# G-2 COMPLIANCE OF THIS REPORT ITSELF
+# The card's hazard applies to its reviewer. This file is synced into main
+# by the CARD SYNC PROTOCOL and meta/review/** is NOT excluded from
+# symbol_exists(), so any whole ref token spelled here becomes a tracked
+# resolver for it.
+# =====================================================================
+g2_device:
+  rule: >-
+    symbol_exists() is `git grep -lw <ref> -- . ':(exclude)meta/architecture'
+    ':(exclude)*.md'`. meta/review/** is in domain.
+  device_used: >-
+    AVOIDANCE FIRST, truncation second. This report names NO model-declared ref
+    in full. Where a ref had to be identified it is identified by its
+    requirement coordinate (FR-045/AC-390, ADR-0006/R1) rather than by its
+    string, which is strictly safer than truncation because it exposes no
+    prefix at all. The two instruments that make the departed-ref replay
+    legible (the single resolver's filename, and `defined at (nowhere)`) are
+    quoted; neither is a ref.
+  why_truncation_is_not_the_safety_property: >-
+    Re-confirmed as settled by cycles 1 and 2 rather than re-measured: `…`
+    TERMINATES a token under `git grep -lw`, so it exposes every prefix. The
+    safety property is the self-check below.
+  verification_after_writing:
+    the_modules_own_trie_over_all_580: "see self_check.trie_over_the_full_580"
+    prefix_check: >-
+      Not applicable by construction: this file contains no `…`-truncated
+      model ref, so there is no prefix to collide. The elided node ids under
+      skips are checked separately — see self_check.node_id_prefixes.
+  names_spelled_in_full_deliberately: >-
+    This module's own helpers and baselines (_declaration_key_lines,
+    _refuse_unread_declaration_keys, _refuse_unexplained_departures,
+    _BLOCK_SCALAR, _FENCE, _DECLARATION_KEY, _TEST_KEY, _TESTS_INLINE,
+    _TESTS_BLOCK, _tests_block, _trace_tests_refs_by_backward_scan, _digest_of,
+    _member_digests, _fingerprint, _trie_pattern, _strict_resolution,
+    _loose_resolution, RefShapeNotClassifiable, CENSUS, DEFINED, HONEST_DEAD,
+    FALSELY_ALIVE, FALSELY_DEAD, TRACE_TESTS, RESOLVED_FROM_AFAR,
+    SAME_FILE_PROSE, BOOKKEEPING_ONLY, BOOKKEEPING_ONLY_MEMBERS,
+    HONEST_DEAD_MEMBERS) and all 22 of its node names. MEASURED, not assumed:
+    set intersection of each list against the derived 580 is EMPTY, so
+    spelling them resolves nothing. Also the synthetic names my own probes
+    used (SyntheticAuthority_*, LooksLikeARefName_ButIsProse) — likewise not
+    declared refs.
+
+self_check:
+  run_after_writing_this_file: true
+  trie_over_the_full_580: >-
+    [] — CLEAN. _trie_pattern built over the FULL derived set of 580 refs at
+    3fab6828 (not a subset: cycle 1's F-001 and cycle 2's F-001c2 were both
+    about a derivation short of the census making this check blind to exactly
+    the refs it drops), applied to this file's own bytes.
+  node_id_prefixes: >-
+    NOT APPLICABLE, and the earlier draft of this line said otherwise — it
+    predicted elided node ids before the skip section was written, and the
+    section ended up needing none. Measured on the finished file: the only `…`
+    characters in it are three bare ones in prose with no token attached, so
+    there is no truncated token and no prefix to collide. The one node id that
+    WOULD have been a hazard is the xfail's, and it is handled by writing the
+    bare name instead of the `path::name` form — see skips.xfail. A prediction
+    corrected against the file rather than left standing, because this card is
+    the card about that.
+  yaml_parses: true
+  no_tracked_file_was_modified: >-
+    `git status --porcelain` lists only untracked meta/review/*.yml. Verified
+    at the start and at the end of this cycle.
+
+# =====================================================================
+# HOW EVERYTHING BELOW WAS MEASURED
+# =====================================================================
+instruments:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest"
+  pytest_flags: "-o addopts='' -p no:randomly; PYTHONDONTWRITEBYTECODE=1; __pycache__ swept before each run"
+  validator_of_record: >-
+    /Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py
+    --root meta/architecture --phase all, run with cwd = the worktree (so the
+    staleness and drift checks ran against a real .git). G-4: EVERY validator
+    figure in this report is from THIS binary and from THIS tree, and says so.
+    The path is the one meta/kanban/config.yml:38 names.
+  full_suite_lock: >-
+    meta/kanban/.full-suite.lock ABSENT at every check (start, before each
+    pytest invocation, end). No run was refused, so no result here is lock
+    collateral. NONOGRAM_IGNORE_FULL_SUITE_LOCK was never set.
+  worktree_state: >-
+    HEAD 3fab6828 throughout. NO tracked file was modified at any point. Every
+    mutant was driven OUT OF TREE: a separate `python -I` process that imports
+    the module and rebinds ADR_DIR / REQUIREMENTS / TRACE at the module object
+    to a synthetic authority set in the scratchpad, or monkeypatches a module
+    global. Nothing was written inside the repository, so CARD-315's plant
+    window was never opened by this review.
+  no_production_database: "no DATABASE_URL was set and no connection was attempted"
+
+instrument_proof_on_an_unmutated_tree:
+  required_by: "the brief — prove every instrument on an unmutated tree first and state the proof"
+  module_run: >-
+    tests/test_check_ref_resolution.py at blob
+    384900802ec28b4eb30e6dfd4b8069de38d2a2ff (= `git rev-parse
+    HEAD:tests/test_check_ref_resolution.py`, and also =
+    `git hash-object` of the working copy) -> 22 passed, exit 0, 0 skipped.
+  the_synthetic_authority_set: >-
+    Every region and matrix probe was run against the module's own clean
+    synthetic set FIRST (the one its control builds): four refs derived, one
+    per authority, with the two prose lines and the comment-in-list correctly
+    ignored and nothing raised. A probe harness that raised on the clean set
+    would have "found" every hole below spuriously, so this is stated.
+  the_validator: >-
+    `grep -c '\[WARN'` over the validator's output returned 100 — the trap the
+    brief warns about did NOT fire for me, and I cross-checked against the
+    binary's own summary line, which reads "0 error(s), 100 warning(s), 0
+    info". Both agree, so the count is not a grep artefact.
+  the_partition_probe: >-
+    Before concluding the arithmetic cannot fail, the same code was run on the
+    REAL population and reproduced the module's own numbers exactly.
+
+runtime_band:
+  readings_this_cycle: "five readings of the module: 18.47 / 11.57 / 10.80 / 11.21 / 11.01 s"
+  range: "10.80 – 18.47 s"
+  no_point_estimate: "deliberately none; see findings F-005c3 item 1"
+  the_declared_band_is_exceeded: >-
+    The round declared 7.9–16.4 s over seven readings. My FIRST reading — the
+    cold one, taken immediately after sweeping __pycache__ — is 18.47 s, which
+    is OUTSIDE it. The four subsequent readings (10.8–11.6 s) sit inside. So
+    the band is honest for the warm case and understates the cold one. Recorded
+    rather than averaged away, because this card is the card about figures that
+    read as checked.
+
+# =====================================================================
+# THE THREE-WAY SPLIT THE LAST CYCLE REQUIRES
+# =====================================================================
+three_way_split:
+
+  VERIFIED:
+    - "F-001c2 CLOSED. The default-deny is on the declaration KEY across all four authorities, and collection and refusal derive the lines they read from one _declaration_key_lines, so they cannot drift. Verified by two mutants, not accepted."
+    - "The 26-shape matrix controls the RIGHT LINES. I instrumented every shape and compared the line number the refusal names against the line the planted key actually sits on: 20 of 26 are refused by the key frame and ALL 20 name the correct line. The other 6 (requirements.yml's `test:` shapes) are refused one frame later and name NO line — see F-002c3."
+    - "The 4 legal shapes are a genuine non-vacuity floor. Mutant: _refuse_unread_declaration_keys raises whenever the planted name appears anywhere in the file. The clean baseline passes, all 26 illegal shapes raise (so the negative half passes), and the cell is caught ONLY by the legal block. Proved, not argued."
+    - "Muting the refusal reds the control. Mutant: _refuse_unread_declaration_keys -> no-op. All 20 key-route shapes become NO RAISE and the cell reds on the first one, naming it."
+    - "Every region figure in the docstring re-derives EXACT at HEAD, by my own scan: 68 anchored inline `check:` lines in the ADR set, 68 of them INSIDE a fence and 0 outside; exactly ONE declaration-key-shaped line outside a fence and it is prose, at 0042-book-interior-is-vector-cover-stays-raster.md:153, the wrapped sentence beginning `tests: its 0.48/1.28/2.08 pt are the owner's figures`; 152 block scalars in requirements.yml and 69 in trace.yml, 2309 body lines between them, and 0 of those body lines declaration-key-shaped."
+    - "The region notion IS load-bearing in both directions, exactly as the round claims. Measured: without the fence region the suite reds on that one English line; and the collection half, now scoped to the same region, no longer invents a ref out of a block scalar's prose."
+    - "THE DIGEST REPLAY REPRODUCES. Reconstructing the cut's 30-member honest-dead digest set (today's 28 plus the two departed) and feeding it to _refuse_unexplained_departures against today's 28-member class: it RAISES, names BOTH departed refs, says SIGNAL LOSS, prints each one's single resolver, and prints `defined at (nowhere)` twice. Verbatim reproduction of the round's strongest evidence."
+    - "The two departed refs are SIGNAL LOSS, re-derived against a def/class and not against a text search. Each has exactly ONE loose resolver and it is meta/review/20261029T130000Z-CARD-285-cycle1.yml, a synced cycle-1 review report. `git grep -lw <ref> f64112f2 -- . :(exclude)meta/architecture :(exclude)*.md` exits 1 for both — zero resolvers at the cut. `git grep -nE '^[[:space:]]*(def|class)[[:space:]]+<name>[[:space:]]*\\('` finds nothing for either at HEAD. Nothing written, nothing repaired."
+    - "CENSUS 579->580 and DEFINED 385->386 are HONEST, and the event is exactly one ref. I derived the cut's census from the cut's own three authorities (git archive of meta/architecture at f64112f2, out of tree) and diffed: 579 vs 580, ONE ref added, NONE removed. That ref is bare-form and its definition exists — `grep -nE '^[[:space:]]*(def|class)' tests/test_book_pdf.py` puts exactly one def at line 1797, and it is that ref's name. The brief's file:line is exact."
+    - "All NINE pins exact at HEAD: BOOKKEEPING_ONLY (15, 50e897ff86ef7c3d), FALSELY_ALIVE (166, 34194ced6ad4c11e), FALSELY_DEAD (13, 2943a2e06c8d35ff), HONEST_DEAD (28, 87d4c53c6c34b01b), CENSUS (580, 18c0c85ab5ae4317), TRACE_TESTS (510, 0ad7bd1af729a4bf), DEFINED (386, af36d65a4d2020be), RESOLVED_FROM_AFAR (4, 358bfdc4de982d83), SAME_FILE_PROSE (16, 5539b351de2562fb) — count AND digest, re-derived independently."
+    - "The census decomposition sums, every term re-derived at HEAD: trace.yml 510 (from 64 block-form + 11 inline `tests:` keys = 75); requirements.yml 404 distinct = 401 (of 421 `test:` keys) UNION 10 (of 11 block-form `check:` blocks, the 11th not of kind test) with a 7-ref OVERLAP, so 411 mentions and 404 distinct; ADR inline 44 distinct from 45 occurrences and 47 ref-mentions, with one ref declared 3x and one 2x. Union 580."
+    - "Forms: bare 556 / nodeid 23 / path 1 = 580 — exact, matching the brief."
+    - "The per-member digests are collision-free as claimed, over the WHOLE population: 580 refs -> 580 distinct 12-hex digests. The stored sets are exact: 15 for the gate's class, 28 for honest-dead, both equal to _member_digests of the derived class."
+    - "G-2 holds for the digests: a 12-hex digest is not a declared ref (set intersection against the 580 is empty), and `git grep -lw <digest>` for four of them resolves to exactly ONE file — the module itself — which is a hit on the digest and not on any ref. The module's own trie over all 580 refs against its own bytes returns [], and the suite asserts it (cell passes)."
+    - "The digest-replay control's fourth case is GREEN as claimed: a digest matching no currently-declared ref does not raise. (It is not REPORTED, though — see F-004c3.)"
+    - "The departure helper's two-part question is implemented exactly as documented, in BOTH edge directions, and I drove each rather than reading the predicate. A gate member that leaves because it lost ALL loose resolvers -> GREEN, which is right: the validator warns about it honestly again. A gate member that leaves because it gained a tests/-prose mention while still carrying no def -> RED as SIGNAL LOSS, which is the fail-closed direction and the correct one for this card."
+    - "The partition arithmetic balances at HEAD: both-agree 373 + falsely-alive 166 + falsely-dead 13 + honest-dead 28 = 580, and 386 = 13 + 373. (It balances because it CANNOT do otherwise — see F-003c3.)"
+    - "The detection claim the arithmetic is offered as a reason for is nevertheless TRUE, and I verified it the other way: a count-preserving swap between falsely-alive and both-agree leaves FALSELY_ALIVE's count at 166 and moves its digest (34194ced6ad4c11e -> 44eabaa219488b9d). The (count, SHA-256) pin is what closes the four un-digested classes."
+    - "The RETRACTION is honest and its reading is confirmed. Validator of record in this worktree at 3fab6828: 0 errors, 100 warnings, 23 of them `no definition was found`. Exactly the brief's figure. I draw NO cross-tree comparison of my own, per the brief."
+    - "AC-1's substance: meta/kanban/config.yml:37-45 names the path, the command and the reason, and the reason states the plugin cache's ADR-0025 error is a regex artefact of adr_integrity.py counting supersedes and superseded-by as two edges. MET off-branch, not reported unmet."
+    - "ADR-0006/R1: 110 loose resolvers and ZERO strict — re-derived at HEAD. ADR-0042/R4's node-id ref: 58 resolvers — re-derived. Both the ADR's climbing-figure framing and the brief's numbers are exact."
+    - "The node-id table's second column: falsely-alive 1->3 and honest-dead 2->0, re-derived over all 23 node-id refs at HEAD (20 defined in the named module, 3 loose-alive with no definition anywhere, 0 loose-dead-and-absent, 0 falsely-dead). The ADR's own mechanism firing inside the ADR's own table, confirmed."
+    - "The removed truncation count: REMOVING it was right, and the replacement is a real derivation. The property (no truncation in the module has a declared ref as its prefix) is established on every run by _trie_pattern over the whole declared set against the file's own bytes — the same instrument, so it cannot drift from the claim. A count would have had to be re-stated inside a sentence containing ellipses, which is self-falsifying; the round's reasoning is correct and I could not construct a stable statement of the count either."
+    - "G-1 PASS: nothing under /Users/omelnikova/MyProjects/forge_1/ was modified. `find /Users/omelnikova/MyProjects/forge_1 -newermt '2026-10-29 00:00' -type f` is EMPTY, so nothing there was written today at all. validate.py was only executed."
+    - "G-3 PASS: no CARD-308 commit touches meta/review/. Checked per commit across all six (3fab6828, 3f3012a4, 19bc968b, 788a8314, 740cb5d5, 66191023): 0 files under meta/review in each. The ADR and the module both still state the sync is load-bearing for forge:fix / forge:commit / forge:retrospective and must stay."
+    - "G-5 PASS, derived: 9786 node ids collected on the branch; 22 in the module alone; 9786 - 22 = 9764 = 9783 - 19. So no existing node id moved, +3/-0 is exact, and `git diff --name-status 65dd11b4..3fab6828` shows the module is the ONLY tests/ file fix round 2 touched (the other two files are ADRs), which is the structural reason no existing id can have moved."
+    - "NO STASH RESIDUE. Three independent checks: the working copy's blob equals HEAD's blob byte for byte (384900802ec28b4eb30e6dfd4b8069de38d2a2ff from both `git rev-parse HEAD:<path>` and `git hash-object` of the file on disk); `git status --porcelain` shows no tracked modification, and none under tests/ even with --untracked-files=all; and `git stash list --date=iso` holds 4 entries whose NEWEST is 2026-09-23, so the round's stash was fully popped and nothing from 2026-10-29 remains. The reported figures therefore come from a clean tree."
+    - "The module's 'No skips, by construction' claim is held by a LIVE instrument, and I proved the instrument rather than quoting its output. tests/test_suite_profile.py:2743's _conditional_silences returns [] for this module — and with a `pytest.mark.skipif(True)` cell appended to a string copy of the source it returns exactly that cell. So the [] is a measurement and not the dead-helper reading the brief warns about."
+    - "Each authority uses exactly ONE declaration form, so every cross-shape default-deny is latent-but-correct — measured, not assumed: 0 bare block-form `check:` lines in the ADR set, 0 inline `check: {` in requirements.yml, 0 `tests:` keys in requirements.yml, and 0 `test:`/`check:` keys in trace.yml. This is why the matrix's 26 negatives are driven against a SYNTHETIC set rather than the real one, and the module says so."
+    - "F-005c2 was taken and the AST cell is a REAL control, not decoration. Out of tree, on a string copy of the source: on the clean tree the cross-reading cell's FunctionDef yields _trace_tests_refs_by_backward_scan among its ast.Name ids; after the M2 rewrite (independent = set(primary)) it does not. The cell reds under exactly the mutant the round had declared a survivor."
+
+  SHIPS_DECLARED:
+    - id: F-001c3
+      what: >-
+        The region notion is NOT total. Four shapes measured, all LATENT on
+        today's authorities, one of which reproduces the invent-a-ref failure
+        the round reports as closed.
+      measurement: >-
+        (a) INVENTION. A block-scalar opener with a trailing YAML comment —
+        `rationale: >- # a note`, legal YAML — is not matched by _BLOCK_SCALAR
+        (which demands end-of-line after the indicator), so its body is NOT
+        treated as prose. A body line beginning `test: ` whose text happens to
+        be a valid identifier is then collected by the narrow _TEST_KEY as a
+        declared ref: measured on a synthetic set, census 4 -> 5, nothing
+        raised, the invented name present in the derived set. The default-deny
+        is STRUCTURALLY blind to this direction — it fires only on lines no
+        narrow pattern claims, and invention happens exactly when a narrow
+        pattern DOES claim a prose line. Mitigation, measured: CENSUS is pinned
+        exact, so an invented ref reds it; but the message sends a reader to
+        look for a new DECLARATION, not for prose. LATENT: 0 such openers in
+        requirements.yml or trace.yml today.
+        (b) TILDE FENCES. _FENCE knows only backticks, so inside a `~~~` fence
+        the ADR refusal is silently skipped: a block-form `check:`, a bare
+        `check:` or a `tests:` key there contributes nothing and raises
+        nothing, where the same shape inside a backtick fence raises. No ref is
+        DROPPED, because the ADR scan collects inline checks document-wide
+        (verified: an inline check inside a `~~~` fence is still collected) —
+        so this loses the refusal, not a ref. LATENT: 0 `~~~` fences in the
+        ADR set.
+        (c) REDS ON ENGLISH. An unclosed fence makes the whole remainder of an
+        ADR "inside a fence", so a wrapped prose line beginning `tests:` — the
+        live 0042:153 shape — becomes a candidate and RAISES. Measured on a
+        synthetic ADR. LATENT: every ADR's backtick-fence count is even today.
+        (d) QUOTED KEY. A quoted declaration key (`"tests": [X]`) matches
+        neither _DECLARATION_KEY nor any narrow pattern, so it is invisible to
+        collection AND to refusal. That is F-001c2's asymmetry un-closed for
+        the quoted spelling: CONVERTING a list reds CENSUS, ADDING one in that
+        shape is silently absent and CENSUS does not move. LATENT: 0 quoted
+        declaration keys in any authority.
+      shapes_i_drove_that_are_CORRECTLY_handled: >-
+        Stated because a hole list without the passes is not a measurement. An
+        INDENTED backtick fence -> raises correctly (the fence pattern allows
+        leading whitespace). A fence marker inside a YAML block scalar inside a
+        fence -> parity is PRESERVED, because the block-scalar body skip
+        consumes the marker before the fence toggle can see it; the inline check
+        after it is still collected and the trailing prose does not raise. This
+        is good design and I expected it to break. A declaration key inside an
+        HTML comment, inside or outside a fence -> correctly declares nothing
+        and correctly does not raise. Nested block scalars -> prose inside the
+        nest declares nothing, AND a real `test:` key at the outer indentation
+        after the nest is still collected (both directions checked). All eight
+        block-scalar indicators `>-`, `>`, `|`, `|-`, `|+`, `>+`, `|2`, `|2-`
+        -> body correctly suppressed, nothing invented. A tab-indented
+        `tests: [X]` -> collected.
+      repair_and_cost: >-
+        (a) widen _BLOCK_SCALAR's tail to `[ \t]*(#.*)?$`, ~1 character class;
+        (b) teach _FENCE `~~~` and require the closing marker to match the
+        opener's character, ~2 lines; (c) once (b) names the opener character,
+        an unclosed fence can be refused by name at end of file rather than
+        silently flipping the region, ~3 lines; (d) allow an optional quote
+        around the key in _DECLARATION_KEY and in each narrow pattern, ~4
+        lines. Each wants a row in the matrix, which is the cheap part — the
+        matrix is already the right shape to hold them.
+      why_it_is_declared_and_not_gating: >-
+        All four are latent and I measured each authority rather than reasoning
+        about it; (a) and (d) are caught or half-caught by an exact pin; (b)
+        loses only a refusal. Cycle 2's F-001c2 was gating because it was a
+        false green on a LIVE shape class with the self-check reporting CLEAN.
+        None of these four is that today. But see note_on_the_briefs_gating_rule
+        — under the brief's letter this is gating, and the owner has the lever.
+    - id: F-002c3
+      what: >-
+        requirements.yml's `test:` frame names no line. DECLARED DEFECT, not
+        acceptable as-is — and smaller than the brief frames it.
+      measurement: >-
+        Instrumented all 26 shapes: the 20 key-route refusals each name the
+        CORRECT line number (compared against where the planted key actually
+        sits), and all 6 form-route refusals name NO line at all. So the gap is
+        real and exactly as the round reported. What the brief does not say,
+        and I measured: the form refusal is not "a shape no pattern claims,
+        somewhere in requirements.yml". It quotes the offending TEXT verbatim
+        plus the declaring authority — e.g. `'# a note instead of a ref'
+        (declared by requirements.yml (test:)) is neither a bare name, a pytest
+        node id, nor a tracked script path`. For 5 of the 6 shapes that text is
+        a unique grep handle, so a human has a one-command path to the line:
+        `'[<ref>'`, `'[<ref>] # a note'`, `'# a note instead of a ref'`,
+        `'&anchor <ref>'`, `'[<ref>]'`. The signal is weaker than a file:line
+        and much stronger than the brief's framing — EXCEPT for one shape,
+        which I checked rather than generalising.
+      the_one_shape_where_the_brief_is_right: >-
+        `test: >-` (a block scalar). Its refusal quotes `'>-'` and nothing
+        else. On a registry with 152 block scalars that is not a handle at all,
+        and the message is then exactly the brief's "a shape no pattern claims,
+        somewhere in requirements.yml". So the gap is real and 1 of 6, not 6 of
+        6 and not 0 of 6.
+      verdict: >-
+        A declared defect of message quality, low severity. Declared.sources
+        already carries a per-authority label; making it carry
+        `requirements.yml:4711` instead of `requirements.yml (test:)` is ~2
+        lines and would close all six at once. I do NOT hold the card below
+        threshold for it: five of the six are actionable as they stand, and the
+        sixth fails closed and loudly.
+    - id: F-003c3
+      what: >-
+        The partition arithmetic is NOT a closure. It is an algebraic identity
+        over four mutually exclusive predicates and can never red.
+      measurement: >-
+        Over 2000 randomly generated synthetic verdict populations of random
+        size, `both-agree + falsely-alive + falsely-dead + honest-dead ==
+        population` and `defined == both-agree + falsely-dead` were violated 0
+        times — they hold BY CONSTRUCTION, because the four predicates
+        partition on (bool(loose), bool(strict)) and `defined` is the union of
+        two of the cells. So `386 = 13 + 373` and `373 + 166 + 13 + 28 = 580`
+        are restatements that happen to balance, and nothing about them could
+        have been otherwise. The brief's test — "construct a move that keeps
+        the sum and changes a class" — has an answer: a count-preserving swap.
+        Measured: moving one ref out of falsely-alive and one in leaves the
+        count at 166 and moves the digest.
+      what_survives: >-
+        The CONCLUSION the arithmetic was offered as a reason for is true, and
+        the digests are what make it true: with every class pinned as (count,
+        SHA-256), no membership change of any kind is silent, swaps included. So
+        detection for FALSELY_ALIVE / CENSUS / DEFINED / TRACE_TESTS is closed.
+        What is NOT closed for them is NAMING the departed member, which the
+        round concedes in the same breath and which is the only thing the
+        per-member sets buy. The honest sentence is "their closure is the exact
+        (count, digest) pin; the per-member sets are declined because no single
+        mechanical question exists for them", and the arithmetic sentence should
+        go — it reads as a measurement and is a tautology, in a module whose
+        subject is figures that read as checked. ~2 lines of docstring.
+    - id: F-004c3
+      what: >-
+        _refuse_unexplained_departures' docstring claims the withdrawal
+        residual "is reported here as a count so the two cases are never
+        confused". Measured false when withdrawal is the ONLY departure.
+      measurement: >-
+        The `withdrawn` count is interpolated into the assertion MESSAGE, and
+        the assertion only fires when `losses` is non-empty. Driven directly:
+        with the stored set augmented by one digest matching no declared ref and
+        no other departure, the helper returns SILENTLY — green, and nothing
+        reported at all. The module's own case-4 control asserts only that it
+        does not raise, so the claim has no control that could fail in the
+        direction it is about, which is ADR-0039/R1's own subject. The residual
+        IS still distinguishable (it moves CENSUS, pinned exact), so the safety
+        argument holds; only the "reported" half is wrong. Fix: narrow the
+        sentence, or emit the count unconditionally.
+    - id: F-005c3
+      what: "Figures in the brief I measured to be wrong."
+      items:
+        - claim: "the runtime band 7.9–16.4 s"
+          measured: >-
+            Five readings at HEAD: 18.47 / 11.57 / 10.80 / 11.21 / 11.01 s. The
+            first — cold, taken right after sweeping __pycache__ — is OUTSIDE
+            the declared band. The band is honest warm and understates cold. My
+            report quotes a RANGE, 10.80–18.47 s, and no point estimate.
+        - claim: "the round used `--base 3fab6828`'s own diff (31)"
+          measured: >-
+            `scripts/impact_set.py --base 3fab6828` yields ZERO modules —
+            3fab6828 is HEAD, so its diff against itself is empty. The 31 comes
+            from `--base 65dd11b4`, fix round 2's own base, which I reproduced
+            exactly. `--base f64112f2` yields 123, which the brief states
+            correctly. A base that cannot produce the figure attributed to it is
+            the same shape of error this card is about, so it is recorded.
+        - claim: "the brief's framing of the requirements.yml frame as naming 'not the line'"
+          measured: "correct about the line and incomplete about the message — see F-002c3."
+      items_i_re_derived_and_found_CORRECT_so_they_are_not_measured_a_fourth_time: >-
+        45 ADR occurrences / 44 distinct / 47 ref-mentions; 404 = 401 ∪ 10 with
+        a 7-ref overlap; census 580; forms bare 556 / nodeid 23 / path 1;
+        ADR-0006/R1's 110; ADR-0042/R4's 58; the node-id table's 1->3 and 2->0;
+        9783 -> 9786, +3/-0 with 9783-19 = 9786-22; the def at
+        tests/test_book_pdf.py:1797; the module blob
+        384900802ec28b4eb30e6dfd4b8069de38d2a2ff; 0 errors / 100 warnings / 23
+        no-definition.
+
+  SHIPS_UNREVIEWED:
+    - "The full suite. Instructed not to run it; 36 impact modules were run instead. The merge gate is the backstop, and this card's own subject makes a cross-tree warning-count comparison unsound, so the merge gate must re-derive, not compare."
+    - "The forge-side repair in forge_1's validators/utils.py — G-1, out of scope by the card's own design. This card ships a DETECTOR. Nothing in it changes what the validator reports, and that is stated in the module's first paragraph and in ADR-0039."
+    - "CARD-307's and CARD-315's branches. CARD-307 owns the one-line pointer repair for ADR-0006/R1 and the node-id refs; CARD-315 owns kill_matrix.py's plant window. Neither was opened here."
+    - "Whether the four latent region shapes of F-001c3 stay latent. Nothing on the board asserts that no authority grows a `~~~` fence, an unclosed fence, a quoted declaration key or a commented block-scalar opener. A row per shape in the existing matrix would close it; without one, the next ADR or registry edit that introduces any of the four is unguarded, and two of the four fail in the silent direction."
+    - "The `path`-form ref population. Exactly ONE ref on the board is path-form, so `assert all(count for count in forms.values())` in test_every_declared_check_is_classified is carried by a single member. Not a defect today; a class of size 1 is one edit from being a class of size 0, and that cell would then red for a reason unrelated to this card."
+    - "Everything cycle 2 marked owed and this round did not take: cycle 2's `pin the both-agree class as a seventh baseline` (2 lines, readability only — and F-003c3 is the sharper version of the same point), and the one sentence owed in ADR-0006 itself. The ADR-0006 sentence WAS taken (I read the diff: the comment block above R1's `check:` now states the pointer is dead while the rule is tested, names the real test, and warns against the overstatement) — so of cycle 2's owed items only the both-agree pin is unreviewed, and it buys no detection."
+
+note_on_the_briefs_gating_rule:
+  the_rule_as_the_brief_states_it: >-
+    "Per ADR-0039/R2, each must be classified or raise — never silently
+    collected and never silently skipped. A region misclassification that
+    INVENTS a ref is gating; one that DROPS a real one is gating; one that REDS
+    ON PROSE is gating."
+  applied_literally: >-
+    F-001c3(a) silently collects (invents), (b) and (d) silently skip, (c) reds
+    on prose. Under the brief's letter, all four are gating and the verdict is
+    BELOW THRESHOLD.
+  why_i_did_not_apply_it_literally: >-
+    The brief's rule is written about LIVE shapes, because that is what cycle
+    2's gating finding was: a shape class present in the authority set, with the
+    derivation missing it and the self-check reporting CLEAN. I measured each
+    of my four against the real authorities and all four are latent — 0 `~~~`
+    fences, 0 odd fence parities, 0 quoted declaration keys, 0 commented
+    block-scalar openers. Two of the four additionally red an exact pin. A
+    latent generalisation of a closed rule is a hardening note, not the same
+    defect, and treating it as gating on the third and final cycle would ship
+    the card UNREVIEWED rather than DECLARED, which is strictly worse for the
+    board.
+  the_lever_for_the_owner: >-
+    If the owner applies the letter, the verdict is 7.5 / DOES NOT CERTIFY and
+    F-001c3 ships unreviewed with max_cycles already reached. If the owner
+    accepts the measurement, the verdict is 8.0 / CERTIFIES and F-001c3 ships
+    DECLARED with its four shapes, its four measurements of latency, and a
+    ~10-line repair. I recommend the second and have stated the first so the
+    choice is not mine alone to make silently.
+
+# =====================================================================
+# THE FIVE THINGS THE BRIEF ASKED TO BE CALLED OUT
+# =====================================================================
+called_out:
+
+  1_is_the_region_notion_total:
+    short_answer: "NO. Four shapes, all latent. See F-001c3 for each, with the shapes that are correctly handled stated beside them."
+    how_i_drove_it: >-
+      A harness in the scratchpad that imports the module and rebinds ADR_DIR,
+      REQUIREMENTS and TRACE at the module object to a synthetic authority set,
+      then writes one shape at a time and asks: was the planted ref COLLECTED,
+      was something INVENTED, was it SILENTLY SKIPPED, or did it RAISE. The
+      clean synthetic set was derived first and its four refs asserted, so a
+      harness that raised on everything could not have produced the table.
+      Thirteen region shapes plus eight block-scalar indicator variants; then
+      each hole's liveness checked against the real authorities by grep.
+    the_direction_that_matters_most: >-
+      INVENTION, and it is the one the round names as "worse for a census"
+      while reporting it closed. The repair that closed it — collection scoped
+      to the same _declaration_key_lines as the refusal — is correct and I
+      verified it works for a recognised block scalar. It inherits the region's
+      own boundary, so it fails exactly where _BLOCK_SCALAR fails to recognise
+      an opener, and `key: >- # a note` is such an opener.
+
+  2_does_the_26_shape_matrix_control_the_right_lines:
+    answer: "YES for 20 of 26, verified line by line; NO line at all for the other 6, verified."
+    method: >-
+      For each shape, the line index the planted declaration key actually
+      occupies in the written file was computed independently, and compared
+      against the line number parsed out of the refusal message. 20/20 key-route
+      matches. 6/6 form-route name no line.
+    is_the_missing_line_acceptable_or_a_declared_defect: >-
+      A DECLARED DEFECT, low severity, with the measurement that splits it:
+      the form refusal quotes the offending text verbatim and names the
+      declaring authority, and for FIVE of the six shapes that text is a unique
+      grep handle. For the sixth — `test: >-` — it quotes `'>-'` and nothing
+      else, which on a registry with 152 block scalars is no handle at all, and
+      there the brief's framing is exactly right. ~2 lines to close all six by
+      carrying the line in Declared.sources. See F-002c3.
+    and_the_four_legal_shapes: >-
+      A genuine non-vacuity floor, proved with a mutant rather than accepted:
+      a derivation that raises on any planted file passes the clean baseline and
+      all 26 negatives and is caught ONLY by the legal block. The matrix is not
+      a set of negatives in search of a positive.
+    one_weakness_worth_a_line: >-
+      The key-route assertion in the module's own loop checks only that the
+      refusal mentions the authority's FILENAME. It does not check the line
+      number, which is the half this card's whole subject is about. My
+      instrumentation checked it and it is correct for all 20 — but the control
+      does not, so a regression that lost the line number would keep the cell
+      green. One `assert str(want_line) in str(refusal)` would close it.
+
+  3_is_the_partition_arithmetic_a_real_closure:
+    answer: "NO — a balancing restatement. See F-003c3, with the 2000-population identity test and the count-preserving swap."
+    but: >-
+      The conclusion it is offered as a reason for is TRUE, and the digests are
+      what make it true. Detection is closed for all four classes. Naming is
+      not, and the round says so. So the DECISION to scope per-member digests to
+      two of six classes is RIGHT; the ARGUMENT given for it is partly vacuous
+      and should be replaced by the one sentence that is not.
+
+  4_does_the_digest_replay_reproduce_and_name_both:
+    answer: "YES, exactly. Reproduced verbatim, not accepted."
+    what_came_out: >-
+      It raises, says the class lost 2 members and that 2 of them left WITHOUT
+      gaining a def/class while still reading as alive to the validator, calls
+      it SIGNAL LOSS, names BOTH refs, prints each one's single resolver
+      (meta/review/20261029T130000Z-CARD-285-cycle1.yml, the same file for
+      both) and prints `defined at (nowhere)` for each. It also states that the
+      refs were named by re-deriving the 580-ref population and that no ref is
+      stored in the module.
+    and_the_fourth_case: >-
+      GREEN as claimed, and NOT reported — F-004c3. The honest residual is
+      distinguishable (it moves the exact CENSUS pin) so the safety argument
+      holds; the docstring's "reported here as a count" is false when
+      withdrawal is the only departure.
+
+  5_every_figure_re_derived_at_3fab6828:
+    see: "three_way_split.VERIFIED, and F-005c3 for the two I found wrong"
+    summary: >-
+      20+ figures re-derived; two wrong, both in the brief (the runtime band's
+      cold case, and the impact-set base). None wrong on the card or in the
+      module at HEAD.
+
+  6_did_the_stash_window_leave_residue:
+    answer: "NO, and I checked three ways rather than one."
+    evidence: >-
+      The working copy's blob equals HEAD's blob
+      (384900802ec28b4eb30e6dfd4b8069de38d2a2ff from both `git rev-parse
+      HEAD:<path>` and `git hash-object <path>`); `git status --porcelain` lists
+      no tracked modification, and none under tests/ even with
+      --untracked-files=all; and `git stash list --date=iso` holds four entries
+      whose NEWEST is dated 2026-09-23, so nothing from 2026-10-29 survives in
+      the stash. The round's remediation is complete and its figures come from
+      the clean tree. Reporting the error honestly and leaving no residue are
+      different claims and both now hold.
+
+  7_what_i_measured_to_be_WRONG:
+    in_the_brief: >-
+      Two figures — the runtime band's cold case (18.47 s outside 7.9–16.4) and
+      the impact-set base (`--base 3fab6828` yields 0, not 31). Plus one framing
+      softened: the requirements.yml frame names no line but does name a unique
+      quoted string.
+    in_the_card: >-
+      Nothing measured wrong at HEAD. The retraction is sound and its honest
+      reading reproduces exactly. Every figure fix round 2 corrected was right.
+    in_cycle_2s_report: >-
+      Two of its figures are now STALE rather than wrong, and both were correct
+      for its tree (3f3012a4): the 44-occurrence / 43-distinct ADR reading (45
+      / 44 at HEAD) and the eight baselines at the cut. Its 404 arithmetic was
+      right in the parts and missing the 7-ref overlap that reconciles them,
+      which fix round 2 supplied. Its F-002c2 and F-005c2 were both built and
+      both are now in the module and working, which I verified.
+    in_the_round_itself: >-
+      One claim: the partition arithmetic as a closure (F-003c3). One docstring
+      sentence: the withdrawal residual "is reported" (F-004c3). One scope
+      claim: the region notion's totality (F-001c3). Nothing it reports as
+      measured came out wrong.
+
+# =====================================================================
+# GUARDRAILS
+# =====================================================================
+guardrails:
+  G1_forge_untouched:
+    verdict: PASS
+    evidence: >-
+      `find /Users/omelnikova/MyProjects/forge_1 -newermt '2026-10-29 00:00'
+      -type f` is EMPTY — nothing under that tree was written today by anyone.
+      validate.py there was only executed, once, from this worktree.
+  G2_guard_does_not_revive:
+    verdict: PASS
+    evidence: >-
+      The module's trie over all 580 derived refs against its own bytes -> [],
+      asserted by its own cell on every run and reproduced by me. The two
+      AC-4 refs are still spelled in pieces joined at run time and the control
+      for that still asserts it. The per-member digests add 43 twelve-hex
+      strings to the file and NONE of them is a declared ref (set intersection
+      against the 580 is empty); `git grep -lw <digest>` resolves to the module
+      alone, which is a hit on a digest and not on a ref. The 580 digests are
+      collision-free. No ref list anywhere in the module.
+    residual: >-
+      F-001c3(a) and (d): a ref the derivation never sees cannot be in the trie,
+      so the self-check's claim to cover "every ref in the model" remains
+      conditional on the derivation being total, and it is not for two latent
+      shapes. Same conditionality cycle 2 recorded, one notch narrower.
+  G3_sync_not_retired:
+    verdict: PASS
+    evidence: >-
+      0 files under meta/review/ in each of the six CARD-308 commits. Both the
+      ADR section and the module docstring state the sync is load-bearing for
+      forge:fix / forge:commit / forge:retrospective and must stay, and the
+      round's own strongest evidence is the sync doing its damage — it is
+      detected, not retired.
+  G4_no_warning_count_without_a_binary:
+    verdict: PASS
+    evidence: >-
+      Every validator figure here names forge_1's validate.py AND the tree it
+      was run on, per the ADR's own new rule that a count without both is not a
+      figure. The card's ADR section does the same.
+  G5_no_test_deleted_renamed_skipped_merged:
+    verdict: PASS
+    method: >-
+      Derived. `git diff --name-status 65dd11b4..3fab6828` is exactly two ADRs
+      plus `M tests/test_check_ref_resolution.py`, so the module is the only
+      tests/ file touched and no other node id can have moved. --collect-only on
+      the branch: 9786. --collect-only on the module: 22. 9786 - 22 = 9764 =
+      9783 - 19.
+    figure: "9783 -> 9786, +3 / -0 — confirms the brief exactly"
+    no_conditionals_in_the_module: >-
+      22 collected, 22 passed, 0 skipped. No pytestmark, no skipif, no xfail, no
+      pytest.skip, no early return out of a test body.
+
+# =====================================================================
+# ACCEPTANCE CRITERIA
+# =====================================================================
+acceptance_criteria:
+  AC-1:
+    verdict: "MET (off-branch, verified — NOT reported as unmet, per the brief)"
+    where: "meta/kanban/config.yml:37-45, applied in main commit 7c68a7b1"
+    substance: >-
+      Names the path, the command and the reason; the reason states the plugin
+      cache's ADR-0025 error is a regex artefact of adr_integrity.py counting
+      "supersedes" and "superseded by" as two edges, that validate.py is
+      byte-identical between the copies, and that the honest error count is 0 —
+      which I re-confirmed: forge_1 reports 0 errors on this tree.
+  AC-2:
+    verdict: MET
+    node: "tests/test_check_ref_resolution.py::test_no_verifying_ref_is_resolved_only_by_pipeline_bookkeeping"
+    evidence: >-
+      Pinned (15, 50e897ff86ef7c3d), re-derived exact, the `strays` assertion
+      still load-bearing, and the class now carries a per-member digest set so a
+      departure is named rather than described. The gate moved from 13 to 15
+      between the fix rounds because the mechanism fired on live data, and the
+      two arrivals are the two refs of the replay — the AC met by the detector
+      detecting the real event.
+  AC-3:
+    verdict: MET (both halves)
+    nodes:
+      - "tests/test_check_ref_resolution.py::test_a_ref_with_a_real_definition_is_not_reported"
+      - "tests/test_check_ref_resolution.py::test_a_ref_whose_only_prose_hit_shares_its_definitions_file_stays_green"
+    evidence: >-
+      DEFINED pinned exact at (386, af36d65a4d2020be) — the floor cycle 1
+      flagged is gone — and SAME_FILE_PROSE pinned at (16, 5539b351de2562fb) so
+      the edge cannot be satisfied by an empty intersection. The sharper half is
+      asserted: a same-file-prose ref must be green BECAUSE a definition exists
+      in the module it names, not because its own prose resolved it.
+  AC-4:
+    verdict: MET
+    evidence: >-
+      Both pins stand and both refs are still spelled in pieces (the control for
+      that passes). The sentence cycle 1 said was owed is present: a transient
+      instance cannot be pinned stably by construction, the generic half covers
+      it in both directions, and the named pins are for the permanent case.
+  AC-5:
+    verdict: MET
+    evidence: >-
+      All five in-domain resolver families are named in ADR-0039's table with a
+      measured figure beside each, every one of which I re-derived; the
+      tests/-prose limit case is stated as the reason a pathspec narrowing
+      cannot work; the work is labelled a DETECTOR not a repair in both the ADR
+      and the module's first paragraph; and cycle 2's owed sentence for
+      ADR-0006 itself is now in ADR-0006 — the comment block above R1's `check:`
+      states the pointer is dead while the rule is tested, names the real test,
+      warns against the overstatement, and records that the module holding the
+      real assertion is itself one of the ~110 resolvers and that the line is
+      not removable.
+  EC:
+    verdict: MET
+    node: "tests/test_check_ref_resolution.py::test_the_two_directions_of_disagreement_are_exactly_the_measured_ones"
+    evidence: >-
+      Both directions pinned separately (166 / 13) plus honest-dead (28), all
+      re-derived exact; neither folded into the other, neither dropped; derived
+      from the four authorities at run time with a default-deny on any
+      declaration key no pattern claims.
+
+# =====================================================================
+# SCOPE AND SKIPS
+# =====================================================================
+impact_scope:
+  base_used: >-
+    `scripts/impact_set.py --base 65dd11b4` -> 31 modules. SAID EXPLICITLY per
+    the brief: 65dd11b4 is fix round 2's own base, so these 31 are the modules
+    this round's diff can reach. `--base f64112f2` (the cut) yields 123 because
+    main's merge is in that range, and `--base 3fab6828` yields 0 because it is
+    HEAD — see F-005c3.
+  plus: >-
+    the same 5 cycles 1 and 2 added for comparability (test_browser_fixture_scope,
+    test_nfr001_generation_time, test_kill_matrix, test_export_pdf, test_naming).
+    Union = 36, the same scope cycle 2 ran.
+  modules_run: 36
+  result: "3459 passed, 11 skipped, 1 xfailed, 0 failed, 980 warnings in 597.36s"
+  the_arithmetic_reconciles: >-
+    Cycle 2 measured 3456 on the same 36 modules. 3459 is 3456 + exactly the 3
+    cells fix round 2 added, which is what the +3/-0 node-id figure predicts.
+    The run is accounted for rather than quoted.
+
+skips:
+  total: 11
+  all_one_cause: >-
+    tests/conftest.py:207 -- `pytest.skip("Database not reachable: DATABASE_URL
+    is not set")` behind the db_required marker. I read the site to confirm the
+    line number. This is the standing `db-tests-skip-silently` condition, not a
+    new one, and no DATABASE_URL was set and no connection attempted.
+  attributed_by_name:
+    tests/test_admin_binding.py:
+      count: 9
+      all_in_class: "TestUndefinedTableReport_NamesWhatTheFailingConnectionWasTalkingTo"
+      nodes:
+        - test_the_report_carries_the_four_groups
+        - test_the_report_names_the_database_the_failing_connection_was_on
+        - test_the_report_names_the_engine_its_pool_and_the_reset_count
+        - test_the_report_names_the_process_the_thread_and_the_werkzeug_question
+        - test_the_capture_answers_while_the_failing_connection_cannot
+        - test_the_original_traceback_is_intact_and_the_control_can_fail
+        - test_a_connection_on_the_wrong_database_is_a_one_line_proof
+        - test_the_verdict_does_not_call_a_correctly_bound_connection_a_mismatch
+        - test_the_report_survives_the_suites_own_quiet_option
+    tests/test_db_engine_lifecycle.py:
+      count: 2
+      nodes:
+        - "TestEngineLifecycle_TheRebuildLeavesNoEngineOlderThanTheSchema::test_no_engine_pool_or_backend_predating_the_rebuild_survives_it"
+        - "TestEngineLifecycle_WhyTheHazardCannotBeForced::test_no_server_side_prepared_statement_is_ever_created"
+    confirmed_by: >-
+      Re-running just those two modules: 64 passed / 9 skipped and 18 passed / 2
+      skipped, 82 passed / 11 skipped together. So all 11 of the 36-module run's
+      skips are accounted for in these two files and none is anywhere else.
+  g2_note_on_spelling_them: >-
+    Checked before writing them out: none of the 11 node names, and no class
+    name above, is a model-declared ref (set intersection against the derived
+    580), so naming them resolves nothing. Confirmed again by this file's own
+    trie self-check.
+  is_any_of_them_a_gate_for_this_card: >-
+    NO -- derived, not assumed. All 11 are Postgres-binding / engine-lifecycle
+    cells. None reads requirements.yml, trace.yml, the ADR set or the tests
+    tree, so none can witness anything about ref resolution. Every one of this
+    card's ACs is carried by tests/test_check_ref_resolution.py, which has zero
+    conditional constructs and skipped nothing: 22 collected, 22 passed, 0
+    skipped.
+  xfail:
+    count: 1
+    node: "tests/test_nfr001_generation_time.py :: test_20x20_p95_is_under_5s (bare name only -- see below)"
+    status: >-
+      Strict xfail, pre-existing (AC-037 unmet), unchanged by this branch and
+      outside this card's ACs. Its reason string is a long measured record of
+      the density sweep and explicitly says not to remove the marker on partial
+      data.
+    and_this_is_the_hazard_catching_me: >-
+      Worth recording as cycles 1 and 2 recorded theirs. The FULL node id of
+      this xfail -- `path::name` -- IS a model-declared ref: I checked it
+      against the derived 580 before writing it and the trie matched it in
+      isolation. So spelling the xfail's node id the way pytest prints it would
+      have made this report a tracked resolver for a model ref, through
+      ordinary reporting of an unrelated pre-existing xfail. The bare name
+      alone is NOT a declared ref (the model declares the node-id form), so
+      that is what is written above. Caught by the mechanism, not by care --
+      which is the card's thesis arriving on its third reviewer in a row.
+
+# =====================================================================
+# COVERAGE
+# =====================================================================
+coverage:
+  read:
+    - "tests/test_check_ref_resolution.py in full (2149 lines)"
+    - "the fix-round-2 diff 65dd11b4..3fab6828 over all three files"
+    - "meta/kanban/cards/CARD-308.md in full, including the retraction"
+    - "meta/review/20261029T163000Z-CARD-308-cycle2.yml in full"
+    - "meta/kanban/config.yml:30-50"
+    - "meta/architecture/decisions/adr/0042-...md:150-156 (the live prose shape)"
+    - "meta/architecture/requirements.yml and trace.yml, scanned programmatically for every declaration-key and block-scalar shape"
+    - "meta/architecture/trace.yml and requirements.yml at the CUT, via git archive, out of tree, to derive the cut's census independently"
+  not_reached:
+    - "the full suite (instructed); 36 impact modules were run"
+    - "the forge-side repair in validators/utils.py — G-1"
+    - "CARD-307's and CARD-315's branches"
+  confidence: high
+
+score_rationale: >-
+  8.0. Cycle 2's single gating finding is closed, and closed better than it was
+  asked to be: one shared notion of where a declaration lives feeds both the
+  collection and the refusal, so the two halves cannot drift, across all four
+  authorities rather than the one that was caught. I verified that with mutants
+  instead of accepting it — muting the refusal reds the control on the first
+  shape, and a derivation that raises on anything planted is caught only by the
+  four legal shapes, so the floor is real. The matrix controls the right lines
+  for 20 of 26 and I checked each line number against where the key actually
+  sits. The digest replay is the strongest evidence on the card and it
+  reproduces verbatim: both departed refs named from a digest alone, SIGNAL
+  LOSS, `defined at (nowhere)` twice. Every figure the brief listed re-derives
+  exact at HEAD, including the ones that moved under main's merge; the two
+  departed refs are re-derived against a def/class and against the cut's own
+  tree; CENSUS 579->580 is proved to be exactly one ref by diffing the cut's
+  authorities out of tree; the retraction's honest reading (0 errors, 100
+  warnings, 23 no-definition) is confirmed on the named binary; and the stash
+  window left no residue by three independent checks. Two of the round's own
+  conclusions I had to correct are small and both are statements, not
+  mechanisms.
+  It is held AT 8.0 rather than higher by F-001c3: the region notion that the
+  whole repair now rests on is not total, and one of its four shapes reproduces
+  the invent-a-ref failure the round reports as closed — a legal YAML block
+  scalar whose opener carries a trailing comment is not recognised as an opener,
+  so a prose line in its body beginning `test: ` is collected as a declared ref
+  with nothing raised. That direction is structurally outside the default-deny's
+  reach, because the default-deny fires only where no narrow pattern claims and
+  invention happens exactly where one does. It is not gating here because all
+  four shapes are measured latent on the real authorities and two of the four
+  red an exact pin — but by the brief's own letter it would be, and I have
+  written the lever out rather than deciding it quietly.
+  The rest is three statements to narrow (the arithmetic is a tautology, the
+  withdrawal residual is not reported, the key-route control checks the file and
+  not the line) and two brief figures to correct. That is a round that earned
+  the threshold; it did not clear it by a margin.
+
+next_cycle_focus:
+  - "NONE — max_cycles reached. This is the last cycle."
+  - "At the merge gate, re-derive rather than compare: this card's own subject makes a branch-vs-main warning-count comparison unsound, and the retraction exists because that comparison was drawn once already."
+  - "If F-001c3 is taken as a follow-up card, the four shapes want four rows in the existing matrix, which is already the right shape to hold them, plus ~10 lines across _BLOCK_SCALAR, _FENCE and _DECLARATION_KEY."
