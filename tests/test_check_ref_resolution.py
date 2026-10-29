@@ -606,6 +606,18 @@ FALSELY_DEAD = (13, "2943a2e06c8d35ff")
 #: reads correctly today.
 HONEST_DEAD = (30, "cc5207403de4ae67")
 
+#: Node-id refs that are defined in the module they name AND also mentioned in
+#: that module's prose -- AC-3's edge, and the board's one honest shim: a
+#: deliberate docstring node-id table paired with a two-direction guard holding
+#: the table to the registry (``tests/test_approval_guess_gate.py``,
+#: ``tests/test_public_player.py``, ``tests/test_public_player_pages.py``,
+#: ``tests/test_nfr001_generation_time.py``). Pinned because without it the
+#: edge test below is satisfied by an EMPTY intersection: measured, the mutant
+#: that deletes one of these ``def`` lines made that ref drop out of the set and
+#: the test went green on the remaining members. A class whose membership is not
+#: pinned cannot witness a member leaving it.
+SAME_FILE_PROSE = (16, "5539b351de2562fb")
+
 
 def _class_of(predicate) -> tuple[Verdict, ...]:
     return tuple(verdict for verdict in _verdicts() if predicate(verdict))
@@ -782,6 +794,7 @@ def test_a_ref_whose_only_prose_hit_shares_its_definitions_file_stays_green() ->
         "no node-id ref has a prose mention in the same module as its "
         "definition -- AC-3's edge is unexercised and this test proves nothing"
     )
+    _assert_class("same-file-prose", SAME_FILE_PROSE, tuple(same_file))
     for verdict in same_file:
         assert not verdict.falsely_alive and not verdict.bookkeeping_only, (
             f"{verdict.ref} was reported despite being defined at {verdict.strict}"
