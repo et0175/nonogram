@@ -59,17 +59,30 @@ to keep. See their own docstrings for what they are and are not evidence of.
 
 from __future__ import annotations
 
+import ast
+import pathlib
+import re
 from importlib import resources
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from nonogram import clues
 from nonogram.admin import book_vector
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
+    _RASTER_DECLARATIONS,
+    GUIDE_PAGE_COUNT,
+    TITLE_PAGE_COUNT,
     BookPDFGenerator,
+    DividerPagePlan,
+    PageKind,
+    PageMedium,
+    PuzzlePagePlan,
+    RasterDeclaration,
     page_frame,
+    page_medium,
     puzzle_page_plan,
 )
 from nonogram.export import pdf as export_pdf
@@ -1491,3 +1504,1063 @@ def test_the_face_check_above_can_fail() -> None:
     # And the reader is not simply returning nothing: the real file has one.
     real = book_vector.write_vector_pdf([sheet], 1).getvalue()
     assert pdf_vector.embedded_faces(real) == [other]
+
+
+# ==========================================================================
+# CARD-298 — the medium is chosen per page, and every bitmap page is declared
+# ==========================================================================
+#
+# ADR-0042/R1 (no interior page references an image XObject) and R2 (a raster
+# page is declared with a reason; an expired declaration is a defect). Both
+# were shipped as ``review-lens`` on 2026-10-25 because their tests did not
+# exist; the two node ids below are the tests their comments name.
+#
+# **Everything here classifies a page off the WRITTEN FILE**, never off the
+# plan that asked for it: the plan is what the guard is checking, so a guard
+# that read the plan would be comparing the plan with itself. The one thing
+# taken from the plan is the list of page *kinds* — which is the question
+# "what medium should this page have been?" and has no other source.
+
+
+#: How one page of a written PDF was drawn, as classified from its own
+#: ``/Resources``. :data:`_UNCLASSIFIABLE` is the third value and it is the
+#: whole of ADR-0039/R2 in this file: a page that is neither is a **failure**,
+#: not a page quietly counted as whichever the walk reached first.
+_RASTER = "raster"
+_VECTOR = "vector"
+_UNCLASSIFIABLE = "unclassifiable"
+
+
+def _page_media(data: bytes) -> list[str]:
+    """Each page of ``data``, classified by medium — default-DENY.
+
+    A page is :data:`_RASTER` iff its resources name an ``/XObject`` and no
+    ``/Font``, and :data:`_VECTOR` iff they name a ``/Font`` and no
+    ``/XObject``. **Both, or neither, is :data:`_UNCLASSIFIABLE`** — there is
+    no third medium in this project and no fallback: a page shaped like
+    nothing this writer emits is a page nobody has classified, which
+    ADR-0039/R2 makes a failure rather than a pass.
+
+    The two keys are read through
+    :func:`tests.helpers.pdf_vector.page_resource_keys`, which decodes
+    ``PdfName`` keys to strings for the reason its own docstring gives: a
+    ``bytes``-keyed membership test on a ``PdfName``-iterating dictionary
+    reads ``False`` silently, which is exactly how "this page carries no image
+    XObject" would pass without being true.
+
+    A **vector page with no ink at all still names the face** — every page
+    :func:`~nonogram.admin.book_vector.write_vector_page` writes does — so the
+    blank title page's vector twin classifies as :data:`_VECTOR` and not as
+    unclassifiable. That is measured by
+    ``test_a_vector_page_with_no_operators_is_still_classified_vector``, not
+    assumed.
+    """
+    media = []
+    for keys in pdf_vector.page_resource_keys(data):
+        has_image = "XObject" in keys
+        has_face = "Font" in keys
+        if has_image and not has_face:
+            media.append(_RASTER)
+        elif has_face and not has_image:
+            media.append(_VECTOR)
+        else:
+            media.append(_UNCLASSIFIABLE)
+    return media
+
+
+def _declaration_findings(media_by_kind) -> list[str]:
+    """Every way the media a file actually used disagree with the declarations.
+
+    The **one** implementation of ADR-0042/R2's rule, driven by AC-2 over a
+    file with no defect in it and by AC-2's two mutants and AC-3 over files
+    that do have one — so the live assertion and its controls cannot be
+    checking two different rules.
+
+    ``media_by_kind`` maps each :class:`~nonogram.admin.book_pdf_generator.PageKind`
+    **the file actually held a page of** to the set of media its pages were
+    written in. A kind the file held no page of is not judged: the file is the
+    authority here, and a kind off this page plan has nothing to say about
+    this file. (That is why the expiry clause below is a statement about a
+    kind that *is* present — see AC-3.)
+
+    The four findings, and each is a direction something can be wrong in:
+
+    1. **an unclassifiable page** — :func:`_page_media` could not tell which
+       medium it is, so nothing below can be true of it;
+    2. **a raster page with no declaration** — ADR-0042/R1's violation, the
+       one the rule exists for;
+    3. **a declaration whose reason has expired** — the kind is declared a
+       bitmap and the file wrote it as operators, which is the day CARD-231
+       lands and the divider's entry is left behind (R2's own clause);
+    4. **a declaration that states no reason, no authority, or an expiry that
+       is not a card id** — a declaration is only a declaration if it says
+       why, on whose authority, and who removes it.
+    """
+    findings: list[str] = []
+    for kind in sorted(media_by_kind, key=lambda k: k.value):
+        media = set(media_by_kind[kind])
+        declaration = _RASTER_DECLARATIONS.get(kind)
+        if _UNCLASSIFIABLE in media:
+            findings.append(f"{kind.value}: a page whose medium cannot be determined")
+        if _RASTER in media and declaration is None:
+            findings.append(f"{kind.value}: a raster page with no declaration")
+        if declaration is not None and _RASTER not in media:
+            findings.append(
+                f"{kind.value}: a declaration whose reason has expired — the "
+                f"page is written {sorted(media)} and the declaration says "
+                f"raster ({declaration.expires_with or 'permanent'})"
+            )
+        if declaration is not None:
+            if not declaration.reason.strip():
+                findings.append(f"{kind.value}: a declaration with no reason")
+            if not declaration.authority.strip():
+                findings.append(f"{kind.value}: a declaration with no authority")
+            for card in declaration.expires_with:
+                if re.fullmatch(r"CARD-\d+", card) is None:
+                    findings.append(
+                        f"{kind.value}: {card!r} is not a card id, so nobody "
+                        "owns removing this declaration"
+                    )
+    return findings
+
+
+def _interior_with_every_page_kind():
+    """A book whose interior holds a page of every kind the plan can produce.
+
+    Three easy puzzles on Book 1's trim: the blank title page, the two guide
+    pages, one TOC page, the "Easy" divider, the puzzle pages, the SOLUTIONS
+    divider and the answer pages. Returned as ``(generator, puzzles)`` so each
+    caller walks the plan itself — ``interior_stream`` is single-use.
+    """
+    book = _book()
+    puzzles = [_puzzle(10, 10, 3, name=f"P{index}") for index in range(3)]
+    return BookPDFGenerator(book), puzzles
+
+
+def _media_by_kind(generator, puzzles) -> tuple[dict, tuple, list[str]]:
+    """``(media_by_kind, page_kinds, media)`` for one book's written interior.
+
+    The pages are enumerated from the **page plan**
+    (:attr:`~nonogram.admin.book_pdf_generator.InteriorStream.page_kinds`) and
+    the media from the **file**, and the two are zipped ``strict=True`` so a
+    plan that does not describe the file is a failure rather than a short walk.
+    """
+    kinds = generator.interior_stream(puzzles).page_kinds
+    data = generator.export_interior(puzzles).getvalue()
+    media = _page_media(data)
+    by_kind: dict = {}
+    for kind, medium in zip(kinds, media, strict=True):
+        by_kind.setdefault(kind, set()).add(medium)
+    return by_kind, kinds, media
+
+
+def test_no_interior_page_carries_an_image_xobject() -> None:
+    """AC-1 (ADR-0042/R1) — no page of a vector kind references an image.
+
+    **Derived over the page plan, not over a written list.** The kinds come
+    from ``interior_stream``'s own plan, the media from the file, and the two
+    are compared page by page; the assertion is an **equivalence** in both
+    directions, so a page written as operators under a raster declaration reds
+    here exactly as a bitmap under a vector one does.
+
+    Default-DENY twice over: a page :func:`_page_media` cannot classify fails,
+    and a kind :func:`~nonogram.admin.book_pdf_generator.page_medium` refuses
+    fails (it raises on anything that is not a
+    :class:`~nonogram.admin.book_pdf_generator.PageKind`).
+
+    **What this measures today, stated plainly.** Every interior kind is
+    declared raster at this commit — see :data:`_RASTER_DECLARATIONS`, whose
+    five temporary entries name their blockers — so the *vector* arm of the
+    equivalence is not exercised by production's own default. It is exercised,
+    through production's own writer, by
+    :func:`test_no_interior_page_carries_an_image_xobject_in_a_mixed_file`
+    below, which lifts one declaration and watches a real mixed-media interior
+    come out. Without that companion this test would be a true sentence about
+    a file with no vector page in it.
+    """
+    generator, puzzles = _interior_with_every_page_kind()
+    by_kind, kinds, media = _media_by_kind(generator, puzzles)
+
+    assert _UNCLASSIFIABLE not in media, [
+        (index + 1, kinds[index].value)
+        for index, medium in enumerate(media)
+        if medium == _UNCLASSIFIABLE
+    ]
+    # The plan really does cover every kind an interior can hold, so the
+    # equivalence below is swept over all of them rather than over whichever
+    # this book happened to produce.
+    assert set(by_kind) == {
+        PageKind.TITLE,
+        PageKind.GUIDE,
+        PageKind.TOC,
+        PageKind.DIVIDER,
+        PageKind.PUZZLE,
+        PageKind.ANSWER,
+    }, sorted(kind.value for kind in by_kind)
+
+    for index, (kind, medium) in enumerate(zip(kinds, media, strict=True), start=1):
+        expected = (
+            _RASTER if page_medium(kind) is PageMedium.RASTER else _VECTOR
+        )
+        assert medium == expected, (
+            f"interior page {index} is a {kind.value} page: its kind declares "
+            f"{expected} and the file holds {medium}"
+        )
+
+
+def test_no_interior_page_carries_an_image_xobject_in_a_mixed_file(
+    monkeypatch,
+) -> None:
+    """AC-1's vector arm, driven through production's own writer.
+
+    The declaration registry is the **only** lever that decides a medium, so
+    lifting one entry is how a kind goes vector — this is what the day
+    CARD-299 lands looks like for the first kind it unblocks. The blank title
+    page is chosen because its two media draw the same page by construction
+    (white bitmap, empty stream), so nothing a reader sees changes and the
+    only difference is the file.
+
+    Both directions are asserted on the same file: page 1 carries the face and
+    **no** XObject, and every page after it still carries an XObject. A mixed
+    file is the point — ADR-0042/R2's "per-page mixing is a sanctioned end
+    state" — so a writer that silently converted the whole file, or none of
+    it, reds here.
+    """
+    import nonogram.admin.book_pdf_generator as generator_module
+
+    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
+    assert page_medium(PageKind.TITLE) is PageMedium.VECTOR
+
+    generator, puzzles = _interior_with_every_page_kind()
+    kinds = generator.interior_stream(puzzles).page_kinds
+    data = generator.export_interior(puzzles).getvalue()
+    keys = pdf_vector.page_resource_keys(data)
+    media = _page_media(data)
+
+    assert kinds[0] is PageKind.TITLE
+    assert "XObject" not in keys[0], keys[0]
+    assert "Font" in keys[0], keys[0]
+    assert media[0] == _VECTOR
+    assert set(media[1:]) == {_RASTER}, media
+    # The face is embedded once for the file however many pages are vector
+    # (ADR-0042/R5), and a raster-only file embeds none — the two halves of
+    # the same claim, on two files written by the same call.
+    assert len(pdf_vector.embedded_faces(data)) == 1
+    # And the other half of ADR-0042/R5's "once per file": with the
+    # declaration back, the same call writes a file with **no** face in it at
+    # all, so the three font objects are not three unused objects on a
+    # raster-only interior.
+    monkeypatch.setitem(
+        generator_module._RASTER_DECLARATIONS,
+        PageKind.TITLE,
+        RasterDeclaration(
+            reason="restored by this test",
+            authority="this test",
+            expires_with=("CARD-299",),
+        ),
+    )
+    raster_only = generator.export_interior(
+        [_puzzle(10, 10, 3, name=f"R{index}") for index in range(3)]
+    ).getvalue()
+    assert pdf_vector.embedded_faces(raster_only) == []
+    assert set(_page_media(raster_only)) == {_RASTER}
+
+
+def test_a_vector_page_with_no_operators_is_still_classified_vector(
+    monkeypatch,
+) -> None:
+    """:func:`_page_media`'s own control: an empty stream is not nothing.
+
+    The blank title page's vector twin emits no operator at all, so "a page
+    with no ink" is the shape most likely to fall through a classifier. It
+    does not: ``write_vector_page`` names the face on every page it writes, so
+    the page is :data:`_VECTOR` by the same key every other vector page is.
+    Measured here rather than asserted in :func:`_page_media`'s docstring.
+    """
+    import nonogram.admin.book_pdf_generator as generator_module
+
+    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
+    generator = BookPDFGenerator(_book())
+    blank = generator.vector_title_page(1)
+    assert blank.operators == (), blank.operators
+    data = generator._write_pdf(
+        iter([blank]), 1, mode="L", kinds=(PageKind.TITLE,)
+    ).getvalue()
+    assert _page_media(data) == [_VECTOR]
+
+
+def test_every_raster_page_is_declared_with_its_reason() -> None:
+    """AC-2 (ADR-0042/R2) — every bitmap page matches a live declaration.
+
+    The live assertion is that :func:`_declaration_findings` is **empty** over
+    a written interior and a written cover, with the kinds taken from the page
+    plan and the media from the files. Three directions red, and each has its
+    own control below rather than being argued here:
+
+    * an **undeclared** raster page —
+      :func:`test_an_undeclared_raster_page_is_a_defect` (inside the claimed
+      region: a puzzle page, the dominant kind);
+    * a raster page whose declaration is **removed while it is still a
+      bitmap** — :func:`test_a_raster_page_whose_declaration_is_removed_is_a_defect`
+      (the claim's **edge**: the divider, exactly the page ADR-0042/R2 names);
+    * a page whose medium **cannot be determined** —
+      :func:`test_a_page_whose_medium_cannot_be_determined_is_a_defect`.
+
+    The cover is included because it is the one declaration with no expiry,
+    and it is written by a different call on a different colour space: a guard
+    that only read the interior would never check the one permanent entry.
+    """
+    generator, puzzles = _interior_with_every_page_kind()
+    by_kind, _, _ = _media_by_kind(generator, puzzles)
+
+    cover = generator.export_cover("Winter Pictures").getvalue()
+    cover_media = _page_media(cover)
+    assert cover_media == [_RASTER], cover_media
+    by_kind.setdefault(PageKind.COVER, set()).update(cover_media)
+
+    findings = _declaration_findings(by_kind)
+    assert findings == [], findings
+
+    # And the registry is not empty for a reason unrelated to the file: every
+    # entry it holds is one of this project's page kinds, so a key that is not
+    # a kind at all cannot sit in it unnoticed (`page_medium` would still
+    # return VECTOR for the kind it was meant to cover).
+    assert set(_RASTER_DECLARATIONS) <= set(PageKind), sorted(
+        str(key) for key in _RASTER_DECLARATIONS if key not in set(PageKind)
+    )
+
+
+def test_an_undeclared_raster_page_is_a_defect(monkeypatch) -> None:
+    """AC-2's first mutant, **inside** the claimed region: the puzzle page.
+
+    The file is written first, with the puzzle page's declaration in place, so
+    what changes is the declaration and not the page — the shape ADR-0042/R1
+    is actually about is a bitmap nobody claimed, not a bitmap nobody wrote.
+    """
+    import nonogram.admin.book_pdf_generator as generator_module
+
+    generator, puzzles = _interior_with_every_page_kind()
+    by_kind, _, _ = _media_by_kind(generator, puzzles)
+    assert _declaration_findings(by_kind) == []
+
+    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.PUZZLE)
+    findings = _declaration_findings(by_kind)
+    assert findings == ["puzzle: a raster page with no declaration"], findings
+
+
+def test_a_raster_page_whose_declaration_is_removed_is_a_defect(
+    monkeypatch,
+) -> None:
+    """AC-2's second mutant, at the claim's **edge**: the section divider.
+
+    ADR-0042/R2's own second instance, and the one whose declaration is
+    *meant* to go away — so the mutant is the mistake that is actually
+    plausible: CARD-231's author deletes the entry and leaves the page a
+    bitmap. The guard reds on the page, not on the entry, which is the
+    direction that catches it.
+    """
+    import nonogram.admin.book_pdf_generator as generator_module
+
+    generator, puzzles = _interior_with_every_page_kind()
+    by_kind, _, _ = _media_by_kind(generator, puzzles)
+
+    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.DIVIDER)
+    findings = _declaration_findings(by_kind)
+    assert findings == ["divider: a raster page with no declaration"], findings
+
+
+def test_a_declaration_whose_reason_expired_is_a_defect(monkeypatch) -> None:
+    """AC-3 (ADR-0042/R2's expiry clause) — a stale declaration reds.
+
+    *"Once CARD-231 lands, the divider's exception goes with it."* **Nothing
+    else in the tree will notice the day it does not**, which is why this is
+    its own criterion: the page is then operators, the declaration still says
+    bitmap, and every other assertion in this file is happy.
+
+    Simulated exactly as that day will look, through production's own writer:
+    the divider's declaration is lifted so the medium rule makes the page
+    vector, a divider page is written as a content stream, and the declaration
+    is then put back — which is the commit that forgets to delete it. The
+    guard reds on the **direction nobody tests for**: declared raster, written
+    vector.
+    """
+    import nonogram.admin.book_pdf_generator as generator_module
+
+    generator = BookPDFGenerator(_book())
+
+    # CARD-231 has landed: the divider's exception is gone and its page is
+    # born vector, which `page_medium` now says and `_write_pdf` now demands.
+    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.DIVIDER)
+    assert page_medium(PageKind.DIVIDER) is PageMedium.VECTOR
+    frame = page_frame(generator.page_spec(5))
+    divider = book_vector.ContentStream(
+        width_px=frame.width, height_px=frame.height, dpi=generator.dpi
+    )
+    divider.text("Easy", 100.0, 200.0, 24.0)
+    data = generator._write_pdf(
+        iter([divider]), 1, mode="L", kinds=(PageKind.DIVIDER,)
+    ).getvalue()
+    media = _page_media(data)
+    assert media == [_VECTOR], media
+    # With the exception correctly deleted, nothing is wrong.
+    assert _declaration_findings({PageKind.DIVIDER: set(media)}) == []
+
+    # And now the defect: the same page, with the declaration left behind.
+    monkeypatch.setitem(
+        generator_module._RASTER_DECLARATIONS,
+        PageKind.DIVIDER,
+        RasterDeclaration(
+            reason=(
+                "CARD-231 replaces the divider page outright, so the new "
+                "design can be born vector instead"
+            ),
+            authority="owner decision 2026-10-25, recorded in ADR-0042/R2",
+            expires_with=("CARD-231",),
+        ),
+    )
+    findings = _declaration_findings({PageKind.DIVIDER: set(media)})
+    assert len(findings) == 1, findings
+    assert findings[0].startswith(
+        "divider: a declaration whose reason has expired"
+    ), findings
+
+
+def test_a_page_whose_medium_cannot_be_determined_is_a_defect() -> None:
+    """AC-2's third clause, on two shapes the guard was **not** written from.
+
+    Neither of these is a page any writer in this project emits, which is the
+    point: ADR-0039/R2's default-DENY is a claim about the pages nobody has
+    thought of, so the control has to be one of them. Both are built by
+    driving ``PIL.PdfParser`` directly — the same parser both writers drive —
+    rather than by editing bytes, so each really is a readable PDF page.
+
+    * **Both** an ``/XObject`` and a ``/Font``: a page that looks raster to a
+      reader that tests for one key and vector to a reader that tests for the
+      other. A classifier with an ``if``/``else`` instead of three branches
+      calls it whichever it tested first.
+    * **Neither**: a page with an empty resource dictionary. A classifier that
+      read "no XObject" as "vector" would call this an ADR-0042/R1 page.
+    """
+    from io import BytesIO
+
+    from PIL import PdfParser
+
+    def one_page(resources) -> bytes:
+        written = BytesIO()
+        pdf = PdfParser.PdfParser(f=written, filename="", mode="w+b")
+        image_ref = pdf.next_object_id(0)
+        font_ref = pdf.next_object_id(0)
+        page_ref = pdf.next_object_id(0)
+        contents_ref = pdf.next_object_id(0)
+        pdf.pages.append(page_ref)
+        pdf.start_writing()
+        pdf.write_header()
+        pdf.write_catalog()
+        pdf.write_obj(image_ref, Type=PdfParser.PdfName("XObject"))
+        pdf.write_obj(font_ref, Type=PdfParser.PdfName("Font"))
+        pdf.write_page(
+            page_ref,
+            Resources=resources(image_ref, font_ref),
+            MediaBox=[0, 0, 100, 100],
+            Contents=contents_ref,
+        )
+        pdf.write_obj(contents_ref, stream=b"")
+        pdf.write_xref_and_trailer()
+        pdf.close()
+        return written.getvalue()
+
+    both = one_page(
+        lambda image_ref, font_ref: PdfParser.PdfDict(
+            XObject=PdfParser.PdfDict(image=image_ref),
+            Font=PdfParser.PdfDict(F1=font_ref),
+        )
+    )
+    neither = one_page(lambda image_ref, font_ref: PdfParser.PdfDict())
+
+    assert _page_media(both) == [_UNCLASSIFIABLE], _page_media(both)
+    assert _page_media(neither) == [_UNCLASSIFIABLE], _page_media(neither)
+    for data in (both, neither):
+        findings = _declaration_findings({PageKind.PUZZLE: set(_page_media(data))})
+        assert any("cannot be determined" in finding for finding in findings), findings
+
+
+class TestWritePdf_TheMediumIsChosenInOnePlace:
+    """AC-4 — the choice of medium is made at exactly one place, by AST.
+
+    ADR-0039/R2. The guard is **derived from the module's own syntax tree**,
+    not from a list of functions that are allowed to decide: the question it
+    answers is "how many places in this module turn a page kind into a
+    medium?", and the answer has to be one, because a second one is a file
+    whose cover is raster for one reason and whose divider is raster for
+    another.
+
+    **Two node shapes carry the decision, and both are watched.**
+
+    * a read of :data:`~nonogram.admin.book_pdf_generator._RASTER_DECLARATIONS`
+      — the registry *is* the decision, so reading it anywhere but inside
+      :data:`DECIDER` is a second decision wherever it is;
+    * a ``PageMedium.<member>`` attribute — producing a medium value.
+
+    **Default-DENY.** A ``PageMedium`` attribute is allowed in exactly two
+    shapes: inside :data:`DECIDER` (the decision itself), or as an operand of
+    a comparison (reading a medium somebody else decided). **Every other
+    shape is a finding**, including shapes nobody has thought of — a medium
+    assigned to a name, returned, put in a container, passed as an argument or
+    used in a conditional expression outside the decider. That is the half
+    this class is controlled on: :data:`PLANTS` holds four shapes, three of
+    which are not the one the first version of this guard would have caught.
+    """
+
+    #: Resolved from this file rather than from the working directory, so the
+    #: guard reads the same module whatever pytest was invoked from.
+    MODULE = (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "src"
+        / "nonogram"
+        / "admin"
+        / "book_pdf_generator.py"
+    )
+
+    #: The one function allowed to turn a kind into a medium.
+    DECIDER = "page_medium"
+
+    #: The name whose every read is a decision.
+    REGISTRY = "_RASTER_DECLARATIONS"
+
+    #: The enumeration whose members are medium values.
+    MEDIUM = "PageMedium"
+
+    @staticmethod
+    def _owners(tree):
+        """``{id(node): enclosing FunctionDef or None}``, by descent.
+
+        By descent and not :func:`ast.walk`, for the reason
+        ``tests/test_book_solved_answer_key.py``'s own door walk gives: a
+        function defined *inside* another would otherwise be attributed to
+        whichever one :func:`ast.walk` reached first, and the decider is the
+        shape most likely to acquire a nested helper.
+        """
+        owner: dict = {}
+        parent: dict = {}
+
+        def descend(node, current):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                current = node
+            for child in ast.iter_child_nodes(node):
+                owner[id(child)] = current
+                parent[id(child)] = node
+                descend(child, current)
+
+        owner[id(tree)] = None
+        descend(tree, None)
+        return owner, parent
+
+    @classmethod
+    def findings(cls, source: str) -> list[str]:
+        """Every place in ``source`` that decides a medium outside the decider.
+
+        A pure function of source text, so :data:`PLANTS` can be strings
+        rather than files written into the tree.
+        """
+        tree = ast.parse(source)
+        owner, parent = cls._owners(tree)
+        found: list[str] = []
+
+        for node in ast.walk(tree):
+            # -- the registry: every read is a decision ---------------------
+            if isinstance(node, ast.Name) and node.id == cls.REGISTRY:
+                above = parent.get(id(node))
+                if isinstance(node.ctx, ast.Store) or isinstance(
+                    above, (ast.AnnAssign, ast.Assign)
+                ):
+                    continue  # the declaration itself, at module level
+                enclosing = owner.get(id(node))
+                if enclosing is None or enclosing.name != cls.DECIDER:
+                    where = "module level" if enclosing is None else enclosing.name
+                    found.append(f"{cls.REGISTRY} read in {where} (line {node.lineno})")
+                continue
+            # -- a medium value --------------------------------------------
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == cls.MEDIUM
+            ):
+                enclosing = owner.get(id(node))
+                if enclosing is not None and enclosing.name == cls.DECIDER:
+                    continue
+                above = parent.get(id(node))
+                if isinstance(above, ast.Compare):
+                    continue
+                shape = type(above).__name__ if above is not None else "module"
+                where = "module level" if enclosing is None else enclosing.name
+                found.append(
+                    f"{cls.MEDIUM}.{node.attr} in {where} as a {shape} "
+                    f"(line {node.lineno})"
+                )
+        return sorted(found)
+
+    def test_the_shipped_module_decides_in_one_place(self) -> None:
+        """The live assertion: no finding, on the module that ships."""
+        source = self.MODULE.read_text(encoding="utf-8")
+        assert self.findings(source) == [], self.findings(source)
+
+    def test_the_decider_is_the_only_function_that_reads_the_registry(self) -> None:
+        """And the decider really does read it — the guard is not vacuous.
+
+        A guard over "nobody outside ``page_medium`` reads the registry" is
+        trivially true of a module where nobody reads it at all, which is the
+        state this would be in if the medium came from somewhere else
+        entirely. Measured: exactly one read, inside the decider.
+        """
+        source = self.MODULE.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        owner, parent = self._owners(tree)
+        reads = [
+            owner[id(node)].name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Name)
+            and node.id == self.REGISTRY
+            and isinstance(node.ctx, ast.Load)
+            and not isinstance(parent.get(id(node)), (ast.AnnAssign, ast.Assign))
+            and owner[id(node)] is not None
+        ]
+        assert reads == [self.DECIDER], reads
+
+    def test_the_writer_asks_the_decider_once_per_page(self) -> None:
+        """``_write_pdf`` reads the medium through the decider, nowhere else.
+
+        The call count is the measurement: one ``page_medium(...)`` call in
+        the writer (over ``kinds``, so once per page) and no second source of
+        a medium. Enumerated by AST rather than asserted in prose, because
+        "the writer decides nothing" is exactly the claim a later edit breaks.
+        """
+        source = self.MODULE.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        callers: dict = {}
+        owner, _ = self._owners(tree)
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == self.DECIDER
+            ):
+                enclosing = owner[id(node)]
+                name = "module level" if enclosing is None else enclosing.name
+                callers[name] = callers.get(name, 0) + 1
+        assert callers == {"_write_pdf": 1, "produce": 1}, callers
+
+    #: Four plants, each a shape that decides a medium outside the decider.
+    #: **Three of the four are not the shape the obvious guard catches** — a
+    #: second ``if``/``else`` is the one anybody would plant, and a medium put
+    #: in a dictionary, returned from a helper, or read out of the registry
+    #: are the ones that would have walked past a guard written only against
+    #: it (ADR-0039/R1's "a control the guard was not written from").
+    PLANTS = (
+        (
+            "a second if/else in the page loop",
+            """
+def _write_pdf(self, pages, page_count, *, mode, kinds):
+    for kind in kinds:
+        if kind is PageKind.PUZZLE:
+            medium = PageMedium.RASTER
+        else:
+            medium = PageMedium.VECTOR
+""",
+        ),
+        (
+            "a medium in a container",
+            """
+def interior_stream(self, puzzles):
+    overrides = {PageKind.TITLE: PageMedium.VECTOR}
+    return overrides
+""",
+        ),
+        (
+            "a helper that returns a medium",
+            """
+def _medium_for(kind):
+    return PageMedium.VECTOR
+""",
+        ),
+        (
+            "the registry read somewhere else",
+            """
+def interior_stream(self, puzzles):
+    if PageKind.TITLE in _RASTER_DECLARATIONS:
+        pass
+""",
+        ),
+    )
+
+    def test_each_plant_is_found(self) -> None:
+        """Every plant reds, and the clean module is clean — both directions.
+
+        The clean half is the shipped module's own two shapes (the decider's
+        returns and the comparisons that read them), parsed as a string here
+        so that "the guard passes what it should pass" is measured on the same
+        pure function the plants are.
+        """
+        clean = """
+_RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {}
+
+
+def page_medium(kind):
+    if not isinstance(kind, PageKind):
+        raise TypeError(kind)
+    return PageMedium.RASTER if kind in _RASTER_DECLARATIONS else PageMedium.VECTOR
+
+
+def _write_pdf(self, pages, page_count, *, mode, kinds):
+    media = [page_medium(kind) for kind in kinds]
+    any_vector = PageMedium.VECTOR in media
+    for index, _ in enumerate(media):
+        if media[index] is PageMedium.RASTER:
+            pass
+    return any_vector
+"""
+        assert self.findings(clean) == [], self.findings(clean)
+        for label, plant in self.PLANTS:
+            assert self.findings(clean + plant) != [], label
+
+
+# --------------------------------------------------------------------------
+# EC(ADR-0042/R1) and EC(ADR-0042/R2) — the two media over a seeded corpus
+# --------------------------------------------------------------------------
+
+#: The corpus both properties sweep: trims, puzzle counts and tier mixes,
+#: built with stdlib ``random.Random`` on a fixed seed (no ``hypothesis`` —
+#: it is not in the dependency baseline, CLAUDE.md). The trims are the three
+#: this project measures on (Book 1, 6x9 in, and the 10 cm square CARD-297
+#: measured its clip divergence on), crossed with puzzle counts that put the
+#: plan in different shapes: 1 puzzle (no pairing, one answer page), 3
+#: (pairing possible), and 7 (packing possible).
+_CORPUS_TRIMS = (
+    (BOOK1_WIDTH_MM, BOOK1_HEIGHT_MM),
+    SIX_BY_NINE_MM,
+    (100.0, 100.0),
+)
+_CORPUS_COUNTS = (1, 3, 7)
+
+
+def _corpus_books():
+    """``(label, generator, puzzles)`` per corpus case, in a stable order."""
+    import random
+
+    rng = random.Random(298)
+    tiers = ("easy", "medium", "hard")
+    cases = []
+    for width_mm, height_mm in _CORPUS_TRIMS:
+        for count in _CORPUS_COUNTS:
+            puzzles = []
+            for index in range(count):
+                columns = rng.choice((10, 15, 20))
+                puzzle = _puzzle(columns, columns, 3, name=f"C{index}")
+                puzzle["difficulty_tier"] = tiers[index % len(tiers)]
+                puzzles.append(puzzle)
+            label = f"{width_mm:.0f}x{height_mm:.0f}mm, {count} puzzle(s)"
+            cases.append(
+                (label, BookPDFGenerator(_book(width_mm, height_mm)), puzzles)
+            )
+    return cases
+
+
+def test_PropertyTest_Interior_NoVectorPageCarriesABitmap(monkeypatch) -> None:
+    """EC(ADR-0042/R1) — swept over a seeded corpus of books.
+
+    Nine books over three trims and three puzzle counts, each exported
+    **twice**: once with the declarations as they ship (every interior kind a
+    bitmap) and once with the title page's declaration lifted, which is the
+    only kind that can go vector at this commit and so the only way this
+    property can be swept over a page that is actually operators.
+
+    The minimum case count is asserted inside the test, as this tree's
+    property tests do, so the corpus cannot silently shrink — and it is
+    asserted **per arm**, because a corpus that lost its vector arm would
+    otherwise still clear a total.
+    """
+    import nonogram.admin.book_pdf_generator as generator_module
+
+    vector_pages = 0
+    raster_pages = 0
+    books = 0
+    for label, generator, puzzles in _corpus_books():
+        books += 1
+        by_kind, kinds, media = _media_by_kind(generator, puzzles)
+        for index, (kind, medium) in enumerate(
+            zip(kinds, media, strict=True), start=1
+        ):
+            assert medium != _UNCLASSIFIABLE, (label, index, kind.value)
+            if page_medium(kind) is PageMedium.VECTOR:
+                vector_pages += 1
+                assert medium == _VECTOR, (label, index, kind.value)
+            else:
+                raster_pages += 1
+                assert medium == _RASTER, (label, index, kind.value)
+
+    assert books == 9, books
+    assert raster_pages >= 90, raster_pages
+    # As it ships, no interior page is of a vector kind — which is why the
+    # arm below exists rather than this figure being left to read as a sweep.
+    assert vector_pages == 0, vector_pages
+
+    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
+    mixed_vector = 0
+    mixed_raster = 0
+    for label, generator, puzzles in _corpus_books():
+        by_kind, kinds, media = _media_by_kind(generator, puzzles)
+        for index, (kind, medium) in enumerate(
+            zip(kinds, media, strict=True), start=1
+        ):
+            assert medium != _UNCLASSIFIABLE, (label, index, kind.value)
+            if page_medium(kind) is PageMedium.VECTOR:
+                mixed_vector += 1
+                assert medium == _VECTOR, (label, index, kind.value)
+            else:
+                mixed_raster += 1
+                assert medium == _RASTER, (label, index, kind.value)
+
+    # One title page per book, so the vector arm is nine pages — the floor is
+    # the corpus size, not a number chosen to be clearable.
+    assert mixed_vector >= 9, mixed_vector
+    assert mixed_raster >= 90, mixed_raster
+
+
+def test_PropertyTest_Interior_RasterPagesEqualDeclaredRasterPages(
+    monkeypatch,
+) -> None:
+    """EC(ADR-0042/R2) — the two sets are equal, **neither direction slack**.
+
+    Over the same corpus: the set of page kinds the file wrote as bitmaps is
+    exactly the set of kinds this plan held *and* the registry declares. Both
+    inclusions are asserted separately so the message says which way it broke
+    — a bitmap nobody declared, or a declaration whose page is no longer one.
+
+    The second arm lifts the title page's declaration so that the equality is
+    swept over a plan where the two sets genuinely differ from the set of all
+    kinds, rather than over nine books in which every kind is declared and
+    the equality holds for the least interesting reason.
+    """
+    import nonogram.admin.book_pdf_generator as generator_module
+
+    def arm() -> int:
+        swept = 0
+        for label, generator, puzzles in _corpus_books():
+            by_kind, kinds, _ = _media_by_kind(generator, puzzles)
+            written_raster = {
+                kind for kind, media in by_kind.items() if _RASTER in media
+            }
+            declared_here = {kind for kind in by_kind if kind in _RASTER_DECLARATIONS}
+            assert written_raster - declared_here == set(), (
+                label,
+                "a bitmap page kind with no declaration",
+                sorted(k.value for k in written_raster - declared_here),
+            )
+            assert declared_here - written_raster == set(), (
+                label,
+                "a declared kind this plan wrote as operators",
+                sorted(k.value for k in declared_here - written_raster),
+            )
+            assert _declaration_findings(by_kind) == [], label
+            swept += 1
+        return swept
+
+    assert arm() == 9
+
+    monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
+    assert arm() == 9
+
+
+def test_the_proof_sheet_is_the_one_pdf_outside_the_medium_decision() -> None:
+    """A gap AC-1 names and this card does **not** close, measured not argued.
+
+    AC-1 says "any interior PDF on any export path — the interior, the proof
+    sheet, any future one". The interior and the cover both go through
+    ``_write_pdf`` and are therefore inside :func:`page_medium`'s reach. **The
+    proof sheet does not**: :func:`nonogram.admin.book_proof.render_proof_pdf`
+    writes its pages through ``Image.save(format="PDF", save_all=True)`` — a
+    second writer, the one ``_write_pdf`` replaced for the book in CARD-145 —
+    so its pages have no :class:`~nonogram.admin.book_pdf_generator.PageKind`,
+    no declaration and no medium decision behind them.
+
+    That is recorded here rather than closed because closing it means calling
+    a private method of a module that ``book_proof``'s own docstring says is
+    out of its reach ("its writer is private and G-3 puts the module out of
+    this card's reach"), and because a proof sheet is a press check over a
+    real puzzle page rather than a book interior. **Both halves are asserted**
+    — the pages really are bitmaps, and the writer really is the other one —
+    so the day someone brings the proof sheet through ``_write_pdf`` this cell
+    reds and the note goes with it instead of standing as a stale sentence.
+    """
+    from nonogram.admin import book_proof
+
+    data = book_proof.render_proof_pdf(_book()).getvalue()
+    media = _page_media(data)
+    assert media and set(media) == {_RASTER}, media
+
+    # And the writer really is the other one, by AST over its own module:
+    # ``render_proof_pdf`` reaches ``Image.save(..., save_all=True)`` and never
+    # ``_write_pdf``, so no page of it passes a page kind to anything. Derived
+    # rather than read off the bytes — both writers drive ``PIL.PdfParser`` and
+    # stamp the same ``% created by Pillow PDF driver`` comment, measured, so
+    # the file cannot tell them apart.
+    from nonogram.admin import book_proof as proof_module
+
+    tree = ast.parse(
+        pathlib.Path(proof_module.__file__).read_text(encoding="utf-8")
+    )
+    writer = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "render_proof_pdf"
+    )
+    reached = {
+        node.func.attr
+        for node in ast.walk(writer)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert "save" in reached, sorted(reached)
+    assert "_write_pdf" not in reached, sorted(reached)
+    assert any(
+        keyword.arg == "save_all"
+        for node in ast.walk(writer)
+        if isinstance(node, ast.Call)
+        for keyword in node.keywords
+    )
+
+
+class TestWritePdf_RefusesWhatItCannotWrite:
+    """The writer's own refusals, each driven — the runtime half of default-DENY.
+
+    ``_write_pdf`` lays its object table out from the page kinds before a page
+    exists, so everything that can be wrong about them has to be wrong *before
+    the buffer exists*: a kind list that is not one per page, and a page that
+    arrives in the other medium's representation from the one its kind
+    declares. Neither is a shape production reaches today, which is exactly why
+    each has a cell: they are the refusals that make a half-converted interior
+    impossible to ship rather than merely unlikely.
+    """
+
+    def _generator(self):
+        return BookPDFGenerator(_book())
+
+    def test_a_kind_list_that_is_not_one_per_page_is_refused(self) -> None:
+        generator = self._generator()
+        page = Image.new("RGB", (60, 80), "white")
+        with pytest.raises(ValueError) as raised:
+            generator._write_pdf(
+                iter([page, page]), 2, mode="RGB", kinds=(PageKind.PUZZLE,)
+            )
+        assert "2 page kind(s)" in str(raised.value), str(raised.value)
+
+    def test_a_bitmap_under_a_vector_declaration_is_refused(
+        self, monkeypatch
+    ) -> None:
+        """The day a declaration is lifted and a page writer is not converted.
+
+        This is the failure mode the medium decision exists to make loud: the
+        registry says the title page is operators now, and the walk still hands
+        over a bitmap. It raises rather than writing a DCTDecode page under a
+        vector declaration.
+        """
+        import nonogram.admin.book_pdf_generator as generator_module
+
+        monkeypatch.delitem(generator_module._RASTER_DECLARATIONS, PageKind.TITLE)
+        generator = self._generator()
+        with pytest.raises(TypeError) as raised:
+            generator._write_pdf(
+                iter([generator.create_title_page(1)]),
+                1,
+                mode="L",
+                kinds=(PageKind.TITLE,),
+            )
+        assert "vector title page" in str(raised.value), str(raised.value)
+
+    def test_a_stream_under_a_raster_declaration_is_refused(self) -> None:
+        """And the other direction, which no plan reaches either."""
+        generator = self._generator()
+        frame = page_frame(generator.page_spec(5))
+        stream = book_vector.ContentStream(
+            width_px=frame.width, height_px=frame.height, dpi=generator.dpi
+        )
+        with pytest.raises(TypeError) as raised:
+            generator._write_pdf(
+                iter([stream]), 1, mode="L", kinds=(PageKind.DIVIDER,)
+            )
+        assert "declared divider bitmap" in str(raised.value), str(raised.value)
+
+    def test_the_decider_refuses_something_that_is_not_a_page_kind(self) -> None:
+        """``page_medium``'s own default-DENY: a medium is per kind, or nothing.
+
+        The string ``"puzzle"`` is the plausible mistake — the kinds carry
+        string values, so a caller that passed one would otherwise get
+        ``VECTOR`` (it is not a key of the registry) and ship a bitmap under a
+        vector declaration.
+        """
+        for wrong in ("puzzle", None, 0, PageKind):
+            with pytest.raises(TypeError):
+                page_medium(wrong)
+
+
+def test_the_page_kinds_are_the_positions_the_plan_itself_states() -> None:
+    """The kind list, re-derived through a **different door** (CARD-298).
+
+    ``interior_stream`` builds :attr:`InteriorStream.page_kinds` by walking its
+    own five sections in order, so nothing in AC-1 or AC-2 can tell a
+    mislabelled page from a correctly labelled one while every kind shares one
+    medium: a mutant that gave the section dividers ``PageKind.PUZZLE``
+    **survived** the whole of this card's own guard set, measured, because
+    both kinds are declared bitmaps and both pages come out bitmaps.
+
+    So the kinds are read a second time, off a different authority: the
+    **page numbers the plan objects carry**.
+    :attr:`DividerPagePlan.page_number` and
+    :attr:`PuzzlePagePlan.page_number` come out of the public
+    :meth:`BookPDFGenerator.section_plan` door — the one the Arrangement
+    screen asks where a puzzle prints — and the kind list is reconstructed
+    from those positions rather than from enumeration order. The two readings
+    share the walk that decided the pages; they share nothing about which
+    *kind* sits at which position, which is the fact being checked.
+
+    The front matter and the answer tail are reconstructed from the two page
+    constants and the answer page count, which is the same arithmetic stated
+    in a different place — named here as the weaker half rather than left to
+    look as independent as the dividers' own numbers are.
+    """
+    generator, puzzles = _interior_with_every_page_kind()
+    decided = generator.section_plan(puzzles)
+    stream = generator.interior_stream(puzzles)
+
+    front = TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + decided.toc_page_count
+    expected = [PageKind.TITLE] * TITLE_PAGE_COUNT
+    expected += [PageKind.GUIDE] * GUIDE_PAGE_COUNT
+    expected += [PageKind.TOC] * decided.toc_page_count
+
+    # The section's own pages, placed by the number each plan object carries
+    # rather than by the order they were appended in.
+    section: dict = {}
+    for entry in decided.pages:
+        if isinstance(entry, DividerPagePlan):
+            section[entry.page_number] = PageKind.DIVIDER
+        elif isinstance(entry, PuzzlePagePlan):
+            section[entry.page_number] = PageKind.PUZZLE
+        else:  # default-DENY: an entry kind this reading does not know
+            raise AssertionError(f"unclassified section entry: {entry!r}")
+    assert sorted(section) == list(range(front + 1, front + 1 + len(decided.pages))), (
+        sorted(section),
+        front,
+    )
+    expected += [section[position] for position in sorted(section)]
+
+    if generator.divider_pages:
+        expected += [PageKind.DIVIDER]
+    expected += [PageKind.ANSWER] * stream.answer_page_count
+
+    assert list(stream.page_kinds) == expected, (
+        [kind.value for kind in stream.page_kinds],
+        [kind.value for kind in expected],
+    )
+    # And the dividers really are where a reader turns: the level divider and
+    # the SOLUTIONS page, four and one on this book, so the comparison above
+    # is over a list that actually holds both divider roles.
+    assert expected.count(PageKind.DIVIDER) >= 2, expected
+    assert expected.count(PageKind.PUZZLE) >= 1, expected

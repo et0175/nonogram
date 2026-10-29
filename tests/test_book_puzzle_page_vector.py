@@ -70,6 +70,7 @@ from nonogram.admin.book_pdf_generator import (
     _BAND_WIDTH_RATIO,
     _MIN_BAND_FONT_RATIO,
     BookPDFGenerator,
+    PageKind,
     band_identity,
     example_line_layout,
     guide_icon_layout,
@@ -854,7 +855,9 @@ class TestPuzzlePage_CarriesNoImageXObject:
         ``_write_pdf``. If this page's resources did *not* name an XObject,
         every assertion in this class would be measuring nothing.
         """
-        raster = twin.generator._write_pdf(iter([twin.page]), 1, mode="L").getvalue()
+        raster = twin.generator._write_pdf(
+            iter([twin.page]), 1, mode="L", kinds=(PageKind.PUZZLE,)
+        ).getvalue()
 
         keys = pdf_vector.page_resource_keys(raster)
         assert len(keys) == 1

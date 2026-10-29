@@ -913,7 +913,14 @@ def capped_export_report(shape: str) -> Dict[str, Any]:
         # two shapes under the cap write the same file and differ only in when
         # they release a page.
         written = generator._write_pdf(
-            iter(pages), len(pages), mode=generator.interior_bitmap_mode
+            iter(pages),
+            len(pages),
+            mode=generator.interior_bitmap_mode,
+            # CARD-298: the list shape has no `InteriorStream` to read the
+            # kinds off, so it asks the generator for the same plan the
+            # streaming shape above writes from — the two shapes must write
+            # the same file, which is this helper's whole point.
+            kinds=generator.interior_stream(puzzles).page_kinds,
         ).getvalue()
         del pages
     else:

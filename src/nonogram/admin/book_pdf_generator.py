@@ -367,6 +367,7 @@ the producer yields against the count the plan declared and raises
 — so a structurally corrupt PDF is unreachable by construction.
 """
 
+import enum
 import logging
 import math
 import time
@@ -398,7 +399,14 @@ from nonogram.admin.book_page_spec import (
 )
 from nonogram.admin.book_plan import TIERS, book_level_order
 from nonogram.admin.book_puzzle_vector import puzzle_page_stream, two_up_page_stream
-from nonogram.admin.book_vector import ContentStream
+from nonogram.admin.book_vector import (
+    ContentStream,
+    FontMetrics,
+    interior_face_bytes,
+    interior_face_metrics,
+    write_face_objects,
+    write_vector_page,
+)
 from nonogram.difficulty import Tier, tier_of_record
 from nonogram.errors import UnletterableTitle
 from nonogram.export import ExportPayload
@@ -457,6 +465,198 @@ _PDF_COLOUR_SPACE = {
     "L": ("DeviceGray", "ImageB"),
     "RGB": ("DeviceRGB", "ImageC"),
 }
+
+
+class PageKind(enum.Enum):
+    """Every kind of page this module writes, as the medium decision sees it.
+
+    ADR-0042/R2 (CARD-298). A *kind* is not a page count and not a method
+    name: it is the one axis the choice of medium is made on, so the members
+    below are exactly the distinctions ADR-0042 draws and no finer. The ADR
+    names four interior kinds — "puzzle pages, answer pages, the table of
+    contents and the guide" — plus the cover, and the owner's 2026-10-25
+    decision names the section divider; :data:`TITLE_PAGE_COUNT`'s blank
+    title/copyright page is the sixth, which the ADR does not mention because
+    it carries no ink of any kind (:meth:`BookPDFGenerator.create_title_page`).
+
+    An enumeration rather than strings, so :func:`page_medium` can be
+    default-DENY on something that is not a kind at all instead of returning
+    a medium for a typo.
+    """
+
+    COVER = "cover"
+    TITLE = "title"
+    GUIDE = "guide"
+    TOC = "toc"
+    DIVIDER = "divider"
+    PUZZLE = "puzzle"
+    ANSWER = "answer"
+
+
+class PageMedium(enum.Enum):
+    """How one page is written: as operators, or as a bitmap.
+
+    ``VECTOR`` is ADR-0042/R1's page — two PDF objects, a page and a
+    FlateDecoded content stream, no image XObject. ``RASTER`` is the page
+    Pillow's own plugin writes — three objects, the extra one a DCTDecode
+    image — and is reached only through a live :class:`RasterDeclaration`
+    (ADR-0042/R2).
+    """
+
+    RASTER = "raster"
+    VECTOR = "vector"
+
+
+@dataclass(frozen=True)
+class RasterDeclaration:
+    """One page kind's declared exception to ADR-0042/R1, with its reason.
+
+    ADR-0042/R2's "declared, with its reason", as data rather than as prose:
+    the registry below is what :func:`page_medium` reads, and it is also what
+    ``tests/test_book_pdf.py``'s R2 guard reads, so the declaration a reader
+    sees and the declaration the writer obeys cannot be two different things.
+
+    Attributes:
+        reason: Why this kind is a bitmap. One sentence, and a *reason* —
+            "it is a photograph", not "it has not been converted".
+        authority: The decision that permits it, by name: an ADR rule, or an
+            owner decision with its date. A declaration with no authority is
+            somebody's preference.
+        expires_with: The card ids that between them remove this exception, or
+            ``()`` for an exception with no end — the cover's. **A declaration
+            that names a card is a temporary one**, and
+            ``test_a_declaration_whose_reason_expired_is_a_defect`` is what
+            notices the day the last of them lands and this entry does not go
+            with it (ADR-0042/R2's own clause). It is a tuple because a kind
+            can be held raster by more than one unlanded piece of work, and a
+            declaration that named only the first of them would read as
+            nearly clear when it is not.
+    """
+
+    reason: str
+    authority: str
+    expires_with: Tuple[str, ...] = ()
+
+
+#: The **whole** of ADR-0042/R2's declared set, keyed by page kind.
+#:
+#: **Two of these are the ADR's own, and five are CARD-298's findings.** The
+#: cover is permanent — "a cover is a photograph and raster is the right
+#: representation for it" — and the section divider is scheduling rather than
+#: technique: CARD-231 redesigns the page outright and "the new design can be
+#: born vector instead", so converting today's one-word page is throwaway work.
+#: Those two are the pair ADR-0042/R2 names.
+#:
+#: The other five are the interior kinds the ADR means to be vector and which
+#: measurably cannot be yet. **Read their reasons rather than their count**:
+#: they are not "not converted yet", they are three named blockers, and the
+#: count of this mapping is the one honest reading of how far ADR-0042/R1 has
+#: actually got. Each entry names the card that removes it, and
+#: ``test_a_declaration_whose_reason_expired_is_a_defect`` is what reds the day
+#: a kind goes vector and its entry stays.
+#:
+#: **Nothing else may be a bitmap.** :func:`page_medium` returns ``VECTOR``
+#: for every kind absent from this mapping, so a new page kind is vector by
+#: default and a kind that wants to be a bitmap has to say why here — which is
+#: the direction ADR-0042/R2 asks for and the opposite of a vector allow-list.
+_RASTER_DECLARATIONS: Dict[PageKind, RasterDeclaration] = {
+    PageKind.COVER: RasterDeclaration(
+        reason=(
+            "a cover is a photograph the owner uploaded, and raster is the "
+            "right representation for a photograph"
+        ),
+        authority="ADR-0042/R2",
+        expires_with=(),
+    ),
+    PageKind.DIVIDER: RasterDeclaration(
+        reason=(
+            "CARD-231 replaces the divider page outright, so the new design "
+            "can be born vector instead of this one being converted twice"
+        ),
+        authority="owner decision 2026-10-25, recorded in ADR-0042/R2",
+        expires_with=("CARD-231",),
+    ),
+    PageKind.TITLE: RasterDeclaration(
+        reason=(
+            "every reader of a book PDF in the test tree requires a DCTDecode "
+            "image on every page (tests/helpers/pdf_pages.py: \"a book page is "
+            "exactly one image\"), so no interior page can change medium "
+            "before ADR-0042/R6's conversion lands; measured on this, the one "
+            "kind whose two media are ink-identical by construction, at 112 "
+            "red cells across 14 modules"
+        ),
+        authority="ADR-0042/R6, whose conversion CARD-299 owns",
+        expires_with=("CARD-299",),
+    ),
+    PageKind.GUIDE: RasterDeclaration(
+        reason=(
+            "its vector writer exists (book_guide_vector.guide_page) but is "
+            "downstream of this module and cannot be called from the "
+            "interior's own walk, and ADR-0042/R6's reader conversion has not "
+            "landed either"
+        ),
+        authority="ADR-0042/R6, whose conversion CARD-299 owns",
+        expires_with=("CARD-299",),
+    ),
+    PageKind.TOC: RasterDeclaration(
+        reason=(
+            "its vector writer exists (book_toc_vector.toc_page_stream) but is "
+            "downstream of this module and cannot be called from the "
+            "interior's own walk, and ADR-0042/R6's reader conversion has not "
+            "landed either"
+        ),
+        authority="ADR-0042/R6, whose conversion CARD-299 owns",
+        expires_with=("CARD-299",),
+    ),
+    PageKind.ANSWER: RasterDeclaration(
+        reason=(
+            "its vector writers exist (book_answer_vector.answer_page and "
+            "packed_answer_page) but are downstream of this module and cannot "
+            "be called from the interior's own walk, and ADR-0042/R6's reader "
+            "conversion has not landed either"
+        ),
+        authority="ADR-0042/R6, whose conversion CARD-299 owns",
+        expires_with=("CARD-299",),
+    ),
+    PageKind.PUZZLE: RasterDeclaration(
+        reason=(
+            "book_puzzle_vector draws no sheet furniture at all — no folio, no "
+            "frame rules, no grid-size label, no QR block — which that "
+            "module's own docstring raises as a gap, so a vector puzzle page "
+            "would print with no page number on it; and ADR-0042/R6's reader "
+            "conversion has not landed either"
+        ),
+        authority="CARD-295's raised gap; ADR-0042/R6, whose conversion CARD-299 owns",
+        expires_with=("CARD-299",),
+    ),
+}
+
+
+def page_medium(kind: PageKind) -> PageMedium:
+    """How a page of ``kind`` is written — **the one place this is decided**.
+
+    AC-4. Every medium in every book file this module writes comes from this
+    call: :meth:`BookPDFGenerator._write_pdf` is handed page *kinds* and asks
+    here, so neither the interior's page loop nor the cover's chooses a medium
+    of its own. ``TestWritePdf_TheMediumIsChosenInOnePlace`` derives that from
+    the module's AST and fails on a second site — and on a site whose shape it
+    cannot classify, which is ADR-0039/R2.
+
+    **Default-DENY, in both directions.** A ``kind`` that is not a
+    :class:`PageKind` raises rather than falling through to a medium; and a
+    kind that *is* one is vector unless :data:`_RASTER_DECLARATIONS` says
+    otherwise, so forgetting to declare a new bitmap page kind makes the
+    writer refuse the page object it is handed rather than quietly ship a
+    DCTDecode interior.
+
+    Raises:
+        TypeError: ``kind`` is not a :class:`PageKind`.
+    """
+    if not isinstance(kind, PageKind):
+        raise TypeError(
+            f"a page medium is chosen per page kind, not for {kind!r}"
+        )
+    return PageMedium.RASTER if kind in _RASTER_DECLARATIONS else PageMedium.VECTOR
 
 #: What stands between a puzzle's number and its tier in the band: a middle dot
 #: (U+00B7) with a space either side, exactly as ADR-0037 writes it
@@ -2813,13 +3013,21 @@ class InteriorStream:
             pages, and it holds none of them — a page is built when it is
             asked for and released when the next one is. Its length is checked
             against :attr:`page_count` as it goes (:func:`_as_planned`).
+        page_kinds: One :class:`PageKind` per planned page, in print order
+            (CARD-298) — the same length as :attr:`page_count` and decided by
+            the same walk that decided the count, before a page exists. It is
+            what :meth:`BookPDFGenerator._write_pdf` lays its object table out
+            from, because the medium of a page follows from its kind
+            (:func:`page_medium`) and a mixed file's object table has to be
+            allocated before the catalog is written.
     """
 
     page_count: int
     unpaired_page_count: int
     answer_page_count: int
-    pages: Iterator[Image.Image]
+    pages: Iterator[Union[Image.Image, ContentStream]]
     paired_only_page_count: int = 0
+    page_kinds: Tuple[PageKind, ...] = ()
 
     @property
     def pages_saved(self) -> int:
@@ -4787,6 +4995,36 @@ class BookPDFGenerator:
         frame = page_frame(self.page_spec(page_number))
         return Image.new("RGB", (frame.width, frame.height), "white")
 
+    def vector_title_page(self, page_number: int = 1) -> ContentStream:
+        """:meth:`create_title_page`'s vector twin: the trim, and no operator.
+
+        CARD-298, ADR-0042/R1. The one page kind whose two media are the same
+        page by construction rather than by measurement: the raster twin is
+        ``Image.new("RGB", ..., "white")`` and prints no ink at all, so the
+        operator stream that reproduces it exactly is the **empty** one. There
+        is nothing here to get wrong, which is why this is the one interior
+        kind this card can convert without a page writer behind it.
+
+        Its sheet is taken from its own position for the reason the raster
+        twin's is (:meth:`page_spec`, FR-043) — the page has no ink for a
+        parity to mirror, but it is the book's trim and it decides whether the
+        page after it is a verso.
+        """
+        frame = page_frame(self.page_spec(page_number))
+        # Bound to ``stream`` rather than returned straight out of the call:
+        # ``tests/test_book_difficulty_dots.py``'s
+        # ``test_every_content_stream_in_the_package_is_spelled_stream`` holds
+        # every ``ContentStream`` in the package to that one name, and allows
+        # exactly one unbound ``return ContentStream(...)`` —
+        # ``book_vector_draw.page_stream``, the factory. A second would be
+        # "a failure to look at rather than a pattern to absorb" in that
+        # guard's own words, and it is right: this is a page's stream, not a
+        # second factory for one.
+        stream = ContentStream(
+            width_px=frame.width, height_px=frame.height, dpi=self.dpi
+        )
+        return stream
+
     def create_divider_page(self, page_number: int, text: str = "SOLUTIONS") -> Image.Image:
         """A divider page: one word on the book's trim, one page (TERM-031).
 
@@ -5074,7 +5312,10 @@ class BookPDFGenerator:
         """
         stream = self.interior_stream(puzzles)
         interior = self._write_pdf(
-            stream.pages, stream.page_count, mode=self.interior_bitmap_mode
+            stream.pages,
+            stream.page_count,
+            mode=self.interior_bitmap_mode,
+            kinds=stream.page_kinds,
         )
         cover = self.export_cover(book_title, cover_image)
         return BookExport(
@@ -5095,7 +5336,10 @@ class BookPDFGenerator:
         """
         stream = self.interior_stream(puzzles)
         return self._write_pdf(
-            stream.pages, stream.page_count, mode=self.interior_bitmap_mode
+            stream.pages,
+            stream.page_count,
+            mode=self.interior_bitmap_mode,
+            kinds=stream.page_kinds,
         )
 
     def export_cover(
@@ -5121,7 +5365,10 @@ class BookPDFGenerator:
         # may be anything, so a black-and-white **interior** leaves a colour
         # cover in colour (CARD-147 AC-5, G-4).
         return self._write_pdf(
-            self._cover_page(book_title, cover_image), 1, mode="RGB"
+            self._cover_page(book_title, cover_image),
+            1,
+            mode="RGB",
+            kinds=(PageKind.COVER,),
         )
 
     def _cover_page(
@@ -7109,6 +7356,50 @@ class BookPDFGenerator:
         # TOC breaks across pages.
         toc_entries_per_page = _toc_entries_per_page(page_frame(self.page_spec(1)), self.dpi)
 
+        # CARD-298: the interior's page *kinds*, in print order, decided here
+        # beside the page count and off the same walk — never read back off
+        # the pages, which do not exist yet. `_write_pdf` lays its object
+        # table out from these, because a page's medium follows from its kind
+        # (`page_medium`) and a mixed file's table has to be allocated before
+        # the catalog is written.
+        #
+        # This list and `produce()` below walk the same five sections in the
+        # same order, and `_write_pdf` is what holds them together: it refuses
+        # a `kinds` whose length is not the page count, so a kind list that
+        # drifted from the walk is a refused export rather than a page whose
+        # medium nobody decided. The check is **there** and not here on
+        # purpose — `_as_planned` is this method's own liveness guard for the
+        # plan/draw disagreement (`TestBookPdf_PagePlanGuardIsLive`), and a
+        # second count check here would fire first and retire it.
+        # The two front-matter ranges are `produce()`'s own, spelled the same
+        # way here — `range(1, TITLE_PAGE_COUNT + 1)` and
+        # `range(1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1)`
+        # — rather than as bare repeat counts, so the two walks read as one
+        # walk and every expression that counts the guide counts the title
+        # page with it (`tests/test_book_export_interior_cover.py`'s
+        # `test_every_guide_counting_expression_counts_the_title_page`).
+        page_kinds: List[PageKind] = []
+        page_kinds.extend(
+            PageKind.TITLE for _ in range(1, TITLE_PAGE_COUNT + 1)
+        )
+        page_kinds.extend(
+            PageKind.GUIDE
+            for _ in range(
+                1 + TITLE_PAGE_COUNT, TITLE_PAGE_COUNT + GUIDE_PAGE_COUNT + 1
+            )
+        )
+        page_kinds.extend(PageKind.TOC for _ in range(toc_page_count))
+        page_kinds.extend(
+            PageKind.DIVIDER if isinstance(entry, DividerPagePlan) else PageKind.PUZZLE
+            for entry in section
+        )
+        # `produce()` returns before the answer section on a book with no
+        # drawable member, so the kinds stop where the pages do.
+        if payloads:
+            if self.divider_pages:
+                page_kinds.append(PageKind.DIVIDER)
+            page_kinds.extend(PageKind.ANSWER for _ in answer_plan)
+
         def produce() -> Iterator[Image.Image]:
             """The interior's pages in print order, one per :func:`next`.
 
@@ -7132,8 +7423,16 @@ class BookPDFGenerator:
             # (TITLE_PAGE_COUNT, AC-283). Yielded as an expression, so this
             # frame never holds it while the next page is built — the same
             # rule every page kind below keeps.
+            # CARD-298: in the medium `page_medium` declares for its kind.
+            # The two twins draw the same page — the raster one is a white
+            # bitmap and the vector one an empty stream — so this is the one
+            # branch in the walk where the medium cannot change what a reader
+            # sees, only what the file costs.
             for title_page_number in range(1, TITLE_PAGE_COUNT + 1):
-                yield self.create_title_page(title_page_number)
+                if page_medium(PageKind.TITLE) is PageMedium.VECTOR:
+                    yield self.vector_title_page(title_page_number)
+                else:
+                    yield self.create_title_page(title_page_number)
 
             # CARD-201: the guide is GUIDE_PAGE_COUNT pages, not one — two
             # calls to the same method (page_number selects which half, see
@@ -7296,21 +7595,47 @@ class BookPDFGenerator:
             ),
             answer_page_count=len(answer_plan),
             pages=_as_planned(produce(), planned),
+            page_kinds=tuple(page_kinds),
         )
 
     def _write_pdf(
-        self, pages: Iterable[Image.Image], page_count: int, *, mode: str
+        self,
+        pages: Iterable[Union[Image.Image, ContentStream]],
+        page_count: int,
+        *,
+        mode: str,
+        kinds: Sequence[PageKind],
     ) -> BytesIO:
-        """Write ``pages`` as one PDF, one image per page, rewound to 0.
+        """Write ``pages`` as one PDF, **a medium per page**, rewound to 0.
 
         ``page_count`` is how many pages ``pages`` will produce, known from
         the page plan before any of them exists. It is not a hint: the PDF's
-        object table is laid out from it — one image, one page and one
-        contents object id per page, all allocated before the catalog is
-        written — which is what lets the pages themselves arrive one at a time
-        rather than as a list (CARD-145). ``pages`` is consumed exactly once
-        and no page is held after it is written; a caller that wants the pages
-        afterwards must keep them itself.
+        object table is laid out from it — one page and one contents object id
+        per page, plus an image object for each page that is a bitmap and the
+        face's three for the file if any page is not, all allocated before the
+        catalog is written — which is what lets the pages themselves arrive one
+        at a time rather than as a list (CARD-145). ``pages`` is consumed
+        exactly once and no page is held after it is written; a caller that
+        wants the pages afterwards must keep them itself.
+
+        ``kinds`` is one :class:`PageKind` per planned page, in page order,
+        and it is how this writer learns each page's medium — it asks
+        :func:`page_medium`, the module's one decision point, and decides
+        nothing itself (CARD-298, AC-4). It is a required keyword for the same
+        reason ``mode`` is: a default would be a medium chosen in a signature.
+        Each PDF page is its own content stream, so a file may mix the two
+        media freely; **that is a sanctioned end state and not a migration
+        artefact** (ADR-0042/R2's own words), because the cover is a
+        photograph and the section divider is a page CARD-231 replaces.
+
+        **The medium and the page object must agree, and disagreement is a
+        refusal.** A page kind whose medium is ``VECTOR`` must arrive as a
+        :class:`~nonogram.admin.book_vector.ContentStream` and a ``RASTER``
+        one as an :class:`~PIL.Image.Image`; anything else raises before it is
+        written. That is the runtime half of default-DENY: a page kind added
+        to the plan and forgotten in :data:`_RASTER_DECLARATIONS` cannot
+        quietly ship a DCTDecode page under a vector declaration, and a
+        bitmap handed in where operators were declared cannot pass for one.
 
         ``mode`` is the Pillow image mode this **file**'s pages are written
         in — one of :data:`_PDF_COLOUR_SPACE`'s keys — and it is a required
@@ -7347,14 +7672,27 @@ class BookPDFGenerator:
                 over whatever iterable this method was actually given, because
                 it is this method's object table that a miscount corrupts.
             Exception: whatever a page raised while being drawn, unchanged.
-            ValueError: ``mode`` is not a colour space this writer knows —
-                raised before the buffer exists, so no partial file is built.
+            ValueError: ``mode`` is not a colour space this writer knows, or
+                ``kinds`` is not one kind per planned page — both raised
+                before the buffer exists, so no partial file is built.
+            TypeError: a page arrived in the other medium's representation
+                from the one its kind declares.
         """
         if mode not in _PDF_COLOUR_SPACE:
             known = ", ".join(sorted(_PDF_COLOUR_SPACE))
             raise ValueError(
                 f"a book PDF is written in one of {known}, not {mode!r}"
             )
+        if len(kinds) != page_count:
+            raise ValueError(
+                f"a {page_count}-page PDF needs {page_count} page kind(s), "
+                f"not {len(kinds)}"
+            )
+        # The media, decided once, before a page exists — through the module's
+        # one decision point, so this loop reads a medium and never picks one.
+        media = [page_medium(kind) for kind in kinds]
+        any_vector = PageMedium.VECTOR in media
+
         written = BytesIO()
         pdf = PdfParser.PdfParser(f=written, filename="", mode="w+b")
         # The two dates Pillow's own writer stamps a new file with, so the
@@ -7362,15 +7700,30 @@ class BookPDFGenerator:
         pdf.info["CreationDate"] = time.gmtime()
         pdf.info["ModDate"] = time.gmtime()
 
-        # One image, page and contents object per planned page, allocated
-        # before anything is drawn. This is the whole reason the page count
-        # has to be known in advance — and the reason a producer that yields
-        # the wrong number of pages is a corrupt file rather than a short one.
-        image_refs: List[Any] = []
+        # The face's three objects, **first and only when some page is
+        # vector** (ADR-0042/R5: once per file, however many pages set text).
+        # A raster-only file allocates none of them, which is what keeps the
+        # cover file — and any all-raster interior — the object table it has
+        # always had rather than one with three unused objects in it.
+        font_ref = descriptor_ref = file_ref = None
+        if any_vector:
+            font_ref = pdf.next_object_id(0)
+            descriptor_ref = pdf.next_object_id(0)
+            file_ref = pdf.next_object_id(0)
+
+        # A page and a contents object per planned page, plus an image object
+        # for each page that is a bitmap, allocated before anything is drawn.
+        # This is the whole reason the page count has to be known in advance —
+        # and the reason a producer that yields the wrong number of pages is a
+        # corrupt file rather than a short one. The image ids are keyed by
+        # page index rather than counted, so a mixed file's object table has
+        # no hole in it and no page borrows another's id.
+        image_refs: Dict[int, Any] = {}
         page_refs: List[Any] = []
         contents_refs: List[Any] = []
-        for _ in range(page_count):
-            image_refs.append(pdf.next_object_id(0))
+        for index in range(page_count):
+            if media[index] is PageMedium.RASTER:
+                image_refs[index] = pdf.next_object_id(0)
             page_refs.append(pdf.next_object_id(0))
             contents_refs.append(pdf.next_object_id(0))
             pdf.pages.append(page_refs[-1])
@@ -7380,10 +7733,35 @@ class BookPDFGenerator:
         pdf.write_comment("created by Pillow PDF driver")
         pdf.write_catalog()
 
+        if any_vector:
+            write_face_objects(
+                pdf,
+                interior_face_bytes(),
+                interior_face_metrics(),
+                font_ref,
+                descriptor_ref,
+                file_ref,
+            )
+
         index = 0
         for page in _as_planned(pages, page_count):
-            self._write_page(pdf, page, image_refs[index], page_refs[index],
-                             contents_refs[index], mode)
+            if media[index] is PageMedium.RASTER:
+                if not isinstance(page, Image.Image):
+                    raise TypeError(
+                        f"page {index + 1} is a declared {kinds[index].value} "
+                        f"bitmap, but arrived as {type(page).__name__}"
+                    )
+                self._write_page(pdf, page, image_refs[index], page_refs[index],
+                                 contents_refs[index], mode)
+            else:
+                if not isinstance(page, ContentStream):
+                    raise TypeError(
+                        f"page {index + 1} is a vector {kinds[index].value} "
+                        f"page, but arrived as {type(page).__name__}"
+                    )
+                write_vector_page(
+                    pdf, page, page_refs[index], contents_refs[index], font_ref
+                )
             index += 1
             # Nothing in this frame may outlive the page it wrote: the next
             # one is built by the `next()` at the top of this loop, and this
