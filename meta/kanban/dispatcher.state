@@ -1378,15 +1378,41 @@ active:
     check, strictly stronger than git grep -lw -- and the rename mutant kills it.
     Verified directly at tests/test_nfr001_generation_time.py:412-420.
 - id: CARD-297
-  phase: review cycle 1 of 3
+  phase: fix round 1 (after review cycle 1 = 7.0, not certified)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-297
   branch_head: 85414ac7
   implementation: "5 files +3210/-0; hotspot untouched; G-6 exact; ZERO pixel sites converted"
+  cycle_1: >-
+    7.0, 8 findings (6 important, 2 minor). NO product-correctness defect -- the port is
+    faithful, the reuse real, the restructure provably forced, and all 13 of the round's
+    mutants re-fired 13/13 with zero misattributions. Every finding is in the CLAIMS layer.
+    The two that matter: F-297-01 + F-297-04, AC-3's guard reads as derived and is
+    hand-listed at two layers (_STROKERS is a literal pair, _strokers_of shares it so the
+    pin is blind, and the operator allow-list admits c/h/B) -- a complete three-line grid
+    walk passes with ZERO violations; and F-297-02, M8/M8b's declared bound is
+    self-refuting (summing-then-dividing is not multiplying) though the loops ARE dead by
+    reachability over the real domain. Orchestrator verified the first with a larger
+    denominator than cycle 1 used: ContentStream has 16 public methods, 8 of them drawing
+    doors, and the guard watches 2.
+    Verdicts: zero-conversion sequencing CORRECT (deduction lands on the card);
+    AC-5 mechanism accepted / bookkeeping rejected; AC-2 substitution necessary but blind
+    on clipping; downstream restructure right AND forced (inside 17 -> 21 reproduces);
+    scope growth accepted, more disciplined than the CARD-295 precedent it cites.
+  card_amended_by_orchestrator: >-
+    Cycle 1's F-297-05 and F-297-06 are the orchestrator's, not the fix round's, and are
+    applied: the EC test: ref corrected to the prefixed spelling that exists; "and the
+    SOLUTIONS divider's text" struck from item 2 (it contradicted this card's own G-2);
+    AC-5's false "CARD-296 first used / three users" clause replaced (CARD-296 measured
+    the same claim false and DECLINED it); header -> caption in AC-2 and header -> band
+    in AC-5; AC-2's "each" softened to "wherever the trim leaves room", because the
+    literal was false of the shipping book (10x10 trim: 1 prints, 1 clipped, 2 omitted).
 queued: []
 owed_at_merge:
   CARD-301:
   - "meta/architecture/decisions/adr/0001-...md:23 cites the old path as a node id. Cycle 1: declining this was RIGHT -- decisions/adr/ is outside Touches, it is prose in a dated decision record with no check: key, nothing reads it mechanically. Owe it to a named card."
   - "src/nonogram/orchestrator.py:338 names the path tests/bench_generate.py (present identically on main). G-1 forbids this card to touch src/, so route 2 leaves it true; recorded because the round's seven-reference count could not see it (F-5)."
   - "AC-4's figures are now transcribed onto the card -- that gate reads 'the measurement on the card' and had nothing to read, because the dispatch brief wrongly told the round not to commit under meta/."
+  CARD-297:
+  - "_draw_difficulty_dots is genuinely dead in src/ -- zero references of any kind, deliberate and pre-existing (CARD-228 x3 cycles, CARD-241 G-4, CARD-296 pre-gate). THREE separate cards have now independently re-measured this zero and each paid a round for it. Candidate for a standing rule rather than a fourth re-measurement; NOT CARD-297's to fix."
   resolved_into_the_card:
   - "trace.yml:539 -- moved from owed_at_merge into fix round 1 as cycle 1's F-3, and trace.yml added to this card's Touches."

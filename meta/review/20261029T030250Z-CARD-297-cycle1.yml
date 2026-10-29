@@ -1,0 +1,1041 @@
+version: 1
+generated_at: "2026-10-29T03:02:50Z"
+target: CARD-297
+cycle: 1
+max_cycles: 3
+min_score: 8
+overall_score: 7.0
+risk_level: medium
+review_lane: impact
+reviewer: claude-opus-5
+reviewer_version: cycle1
+verdict: >-
+  Does not certify this cycle. No product-correctness defect was found, and the
+  engineering discipline is unusually good: 3210 insertions, 0 deletions, not one
+  existing line modified anywhere, G-6 exact to the node id, and every one of the
+  three bitmap figures the round self-reported reproduces to the digit in an
+  independent instrument. Every finding below sits in the CLAIMS layer — a guard
+  that is default-DENY over two of six doors, a declared survivor standing on a
+  bound that is false at the shipped DPI, a substitution that is blind on the one
+  axis the two media are known to differ on, an allow-list with slack exactly
+  where its sibling cell needs it tight, and an EC ref whose only resolver is a
+  sentence the round wrote. All five are cheap to close in cycle 2.
+
+coverage:
+  read:
+    - meta/kanban/cards/CARD-297.md (full, incl. the Reuse-claim-VERIFIED and Dependencies-MET sections)
+    - meta/kanban/cards/CARD-228.md, CARD-296.md, CARD-295.md (the cards the round quotes)
+    - meta/review/20261016T18*/19*-CARD-228-cycle{1,2,3}.yml (the _draw_difficulty_dots caller history)
+    - src/nonogram/admin/book_toc_vector.py (all 334)
+    - src/nonogram/admin/book_answer_vector.py (all 657)
+    - src/nonogram/admin/book_vector_draw.py (the +214 hunk, and set_centred/_middle_em above it)
+    - src/nonogram/admin/book_vector.py (ContentStream's full method surface, 716-946)
+    - tests/test_book_solved_answer_key.py (2030-3700: the whole appended block, incl. the AC-3 guard helpers 2581-2723)
+    - tests/test_book_toc.py (2526-2836: the whole appended block)
+    - tests/test_book_pdf_memory.py:1285-1305 (the reported skip's own reason)
+    - meta/profiling/adr-0042-migration-census.md (the 47-site figure G-5 rests on)
+  measured_in_worktrees:
+    - /private/tmp/.../card297review/base (detached 6b0dfa30, control)
+    - /private/tmp/.../card297review/head and .../mine (detached 85414ac7, mutation hosts)
+    - note: >-
+        A sibling reviewer is live on PythonProject4-card-297. Every mutation and
+        every pytest run in this review was done in a private detached worktree, so
+        no measurement here was taken on a tree another agent was writing to, and
+        nothing was written to the shared root. All private worktrees left clean.
+  not_run:
+    - the full suite (review.test_scope=impact; a sibling card is live and the suite is serialized on meta/kanban/.full-suite.lock, run once at the merge gate)
+
+metrics:
+  diff:
+    files: 5
+    added: 3210
+    removed: 0
+    existing_lines_modified: 0
+  test_gate:
+    scope: impact
+    files: 17
+    result: "1447 passed, 0 failed, 0 skipped, 131.47s"
+    command: "pytest -o addopts='' -p no:randomly -rsx <17 files>"
+    note: "-rsx requested; the summary block is empty, so the zero-skip figure is from the report itself, not from the absence of a line."
+  collection_gate_G6:
+    main_6b0dfa30: 9570
+    head_85414ac7: 9641
+    added: 71
+    removed: 0
+    arithmetic: "9570 + 71 - 0 = 9641"
+    split: {tests/test_book_solved_answer_key.py: 60, tests/test_book_toc.py: 11}
+    method: "--collect-only -q with -o addopts='' in both worktrees; node-id sets sorted and comm -23 / comm -13"
+    verdict: "G-6 holds exactly. Re-derived, not inherited."
+  bitmap_census:
+    instrument: >-
+      My own, outside tests/ per G-8. Broader domain than the round's: hooks
+      PIL.Image.new AND Image.open AND Image.frombytes (the round hooked new
+      only), and counts ImageDraw at ImageDraw.ImageDraw.__init__ rather than at
+      the Draw() factory, so a direct construction is also caught. A page bitmap
+      is >=1000 px on both axes.
+    test_book_solved_answer_key_py:
+      page_bitmaps: {base: 1133, head: 1203, delta: 70}
+      imagedraw: {base: 1586, head: 1769, delta: 183}
+      megapixels: {base: 5728.53, head: 6026.57, delta: 298.04}
+      wall_clock: {base: "4.40s", head: "5.79s", delta: "+1.39s"}
+    the_60_new_cells_alone: {page_bitmaps: 70, imagedraw: 183, megapixels: 298.04, wall_clock: "0.81s"}
+    attribution_measured_per_class:
+      TestAnswerAndTocPages_CarryNoImageXObject: 70
+      TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted: 68
+      TestAnswerTileHeader_DifficultyDotsAreRound: 68
+      TestAnswerPages_CaptionHoldsTheFloorInTheStream: 68
+      TestAnswerTiles_ReuseTheGridRoutine: 0
+      TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry: 0
+      TestAnswerPages_TheRestatedConstantsAreTheRasterPagesOwn: 0
+      TestAnswerPages_TheCaptionLandsWhereThePlacementPutsIt: 0
+      TestAnswerPages_TheGreyJoinsAreExactlyTheAdjacentBoundaries: 0
+    verdict: >-
+      Every figure the round self-reported reproduces in my independent domain:
+      +70 / +183 / +298 Mpx, and the attribution is exact. The shared _Recorded
+      walk (module-scoped, one per profile) costs 68 and is paid ONCE across four
+      classes; AC-1's positive control costs the remaining 2. The delta is
+      entirely inside the 60 new cells — nothing leaked into the pre-existing
+      ones. The round's absolute figures (1104 -> 1174) differ from mine by a
+      constant 29/29, fully explained by the Image.open calls its instrument did
+      not see. Honest self-report.
+  max_fan_in:
+    symbol: nonogram.admin.book_vector_draw.draw_folio
+    callers: 3
+    note: "book_toc_vector, book_answer_vector (x2 page kinds). New symbol this card; no existing caller's contract changed."
+  hotspots:
+    - path: src/nonogram/admin/book_pdf_generator.py
+      declared_as_hotspot: true
+      touched: false
+      evidence: "blob 7a515eea on BOTH 6b0dfa30 and 85414ac7 (git rev-parse <rev>:<path>). The declared conflict.hotspot was never opened."
+  cochange_missing: []
+
+system_contract:
+  rules_checked: 10
+  holds: 8
+  violated: 0
+  weakened: 2
+  verdicts:
+    - "ADR-0042/R1 (interior pages are operators; no image XObject) OK holds — AC-1's four cells read /Resources off the written file on both profiles, with a raster positive control that really does name an XObject. The vector answer and TOC pages carry none."
+    - "ADR-0042/R2 (a raster page needs a declaration) OK not engaged — no page changed medium this card; _write_pdf still chooses per book, not per page (CARD-298's)."
+    - "ADR-0042/R3 (the writer consumes positions and derives none) OK holds — the EC class collects (6 passed by node id) over 3 trims x both parities x the full page x each SOLVED_TILE_CAPACITIES, with the case count asserted inside."
+    - "ADR-0036/R2 (the answer tiles are laid out by COMP-007 with the book's PageSpec) OK holds — compute_layout / compute_packed_solved_layout / caption_slot / header_band are the only sources of a coordinate in book_answer_vector.py; I read every expression in the 657 lines."
+    - "ADR-0037/R1 (the answer key is the only place the title prints) WEAKENED — holds for 'prints' and 'nowhere else', measured over the whole raster interior and over three vector page kinds. But all four cells that read a title filter by exact membership in the set of UNCLIPPED captions, so a clipped title is counted as 'not printed' on both sides and no cell anywhere reads one. See F-297-03; the 10x10 trim prints 'Puzzle 2 — Owl in a …' today."
+    - "CON-020 (no interior text below 10 pt) OK holds — AC-6 reads Tf sizes off the stream, conditional on profile exactly as tests/test_book_interior_type_floor.py:369 is, and test_the_floor_is_the_one_the_constant_states pins the constant. The divider face is still recorded on BOTH profiles (the :355 sibling G-2 protects): required = {guide, divider, band} <= kinds asserted unconditionally, 4 node ids green."
+    - "INV-013 OK not engaged — no interior/cover boundary or parity rule changed; page_is_right_hand is imported, not restated."
+    - "ADR-0039/R1 (a claim needs a control that CAN fail) OK holds broadly — AC-1, AC-3, AC-4 and AC-5 each ship a named failing control and I confirmed three of them red. Two exceptions are recorded as findings: the leader-run claim's control cannot fire (F-297-02) and the clipping claim has none (F-297-03)."
+    - "ADR-0039/R2 (a guard's set is derived and default-DENY) WEAKENED — AC-3's EXEMPTION set is genuinely derived and I could not satisfy it with an unrelated parameter. But the guard's STROKER set is hand-listed at two names, and ContentStream exposes six operator-emitting doors. A complete grid walk through begin_path/line_to/paint is admitted silently. See F-297-01."
+    - "ADR-0006/R1 (dependency baseline) OK holds — no import added anywhere in the diff (measured: 0 added import lines in the book_vector_draw hunk), no pyproject change, no hypothesis."
+
+root_causes:
+  - id: RC-1
+    title: "A claim is stated at the width of the mechanism rather than at the width of the reading that checks it"
+    findings: [F-297-01, F-297-02, F-297-04, F-297-07]
+    note: >-
+      Four findings are the same mistake in four places: the guard's prose says
+      'everything that can put a ruled line on a page' where the code names two
+      methods; the leader-run docstring says 'exactly to 150' where the code
+      samples five counts; the alphabet cell says 'default-DENY over the
+      operators' where the allow-list carries three operators nothing emits; and
+      the threshold-agreement claim has no committed assertion at all. Each is a
+      docstring or a set, not an algorithm — all four close in cycle 2 without
+      touching src/.
+  - id: RC-2
+    title: "The card's own text is wrong in four places, and two of them were already found wrong one card ago"
+    findings: [F-297-05, F-297-06]
+    note: >-
+      This is a drafting-pass defect, not a round defect. The round resolved
+      three of the four correctly and said so; the bookkeeping was never applied
+      back to the card.
+
+findings:
+  - id: F-297-01
+    severity: important
+    confidence: high
+    source: measured
+    category: test-quality
+    type: gap
+    file: tests/test_book_solved_answer_key.py
+    line: 2581
+    title: >-
+      AC-3's guard is default-DENY over two of ContentStream's six
+      operator-emitting doors; a complete grid walk through
+      begin_path/line_to/paint passes it, and the stroker-set pin cannot see
+      that shape either
+    description: >-
+      _STROKERS = ("line", "rectangle") is a HAND-LISTED set of two names, while
+      ContentStream (src/nonogram/admin/book_vector.py:716-946) exposes six doors
+      that put marks on a page: line, rectangle, curve, and the path-construction
+      trio begin_path / line_to / close_path finished by paint(). The guard's own
+      docstring claims 'Everything that can put a ruled line on a page is
+      collected first'. It is not.
+
+      Measured, not reasoned. I called stroke_violations() on four planted
+      sources and it returned [] for three of them: a loop over
+      tile.vertical_lines drawn with begin_path/line_to and finished with
+      paint('stroke'); the same via curve(); and the same via round_mark(). Only
+      the .line/.rectangle spellings are caught. I then confirmed the first shape
+      is not theoretical — a real ContentStream fed that exact code emits
+      ('0 G', '1 w', '24 228 m', '24 12 l', '48 228 m', '48 12 l', '72 228 m',
+      '72 12 l', 'S'): three ruled lines on a page, a complete grid walk, zero
+      violations reported.
+
+      _strokers_of() (line 2898) reuses the same _STROKERS tuple, so
+      test_the_only_exempt_stroker_is_the_solution_dependent_one's equality on
+      {"draw_solved_joins"} is blind to the same shape. Both halves of AC-3's
+      structural claim share one hand-listed vocabulary.
+
+      What I could NOT break, and should be credited: the EXEMPTION half is
+      sound. "grid" in _parameters() is an exact name match over
+      posonly/args/kwonly/vararg/kwarg, so `grid_lines` is correctly DENIED
+      (measured). An unused `grid=None` parameter does launder a .line call past
+      stroke_violations — but test_the_only_exempt_stroker_is_the_solution_dependent_one
+      then reds on the stroker set, so that route is closed. The six controls
+      genuinely are shapes the detector was not written from (module level,
+      nesting, name binding, two paint spellings, class method) rather than six
+      branches: I traced each to the code path it exercises and they collapse
+      onto three distinct mechanisms with three independent readings over them.
+    failure_scenario: >-
+      CARD-233 (queued, gated) gives a solution tile one header. A round
+      implementing it writes the tile's rules as a polyline —
+      begin_path/line_to over the line sequence, one paint — because that is one
+      stroke instead of eleven and is the obvious optimisation. AC-3's guard
+      stays green, the stroker-set equality stays green, and the third grid walk
+      AC-3 exists to prevent lands with the whole suite passing. The drive half
+      (test_the_routine_draws_a_real_answer_tile_that_is_not_a_layout) would not
+      notice either: it asserts `expected <= drawn` over the lines emitted, and a
+      polyline emits the same m/l pairs.
+    mutation: >-
+      Not a src mutation — the hole is in the guard, so the demonstration is a
+      planted source. Reproduce with:
+      python -c "import sys; sys.path[:0]=['.','src']; import tests.test_book_solved_answer_key as T;
+      print(T.stroke_violations('def draw(stream, tile):\n    for line in tile.vertical_lines:\n        stream.begin_path(line.position, line.start)\n        stream.line_to(line.position, line.end)\n    stream.paint(\"stroke\")\n'))"
+      -> []  (expected: one violation, since `draw` takes no `grid`).
+    remediation: >-
+      Derive _STROKERS instead of listing it: take ContentStream's public
+      methods and subtract the ones that provably emit no path operator (the
+      state setters g/G/w, to_points, media_box, text, operators, render). That
+      makes the set default-DENY by construction and self-maintaining, which is
+      what ADR-0039/R2 asks. Minimum acceptable fix: add curve, begin_path,
+      line_to, close_path, paint and round_mark to the tuple, and add a seventh
+      control planting the begin_path/line_to/paint shape so the gap cannot
+      reopen.
+
+  - id: F-297-02
+    severity: important
+    confidence: high
+    source: measured
+    category: test-quality
+    type: false-claim
+    file: tests/test_book_toc.py
+    line: 2779
+    title: >-
+      M8/M8b's conclusion is right but its declared bound is FALSE — "exactly to
+      150" fails at 12 counts inside the very 120-153 production range the
+      docstring cites, and the control passes by sample selection
+    description: >-
+      This board's standing bar is that a declared survivor is legitimate only if
+      the docstring states the bound AND the bound is true. The bound is stated
+      ("sums per-glyph /Widths and divides once, so n dots measure EXACTLY n times
+      one dot — tested to 150") and it is false.
+
+      test_the_measure_is_linear_in_a_repeated_dot asserts exact float equality at
+      five sampled counts (1, 2, 3, 17, 150) at size = type_px(TOC_ENTRY_PT, DPI),
+      and its docstring reports that as linearity "exactly to 150". Re-measured
+      twice independently, at the production DPI (BookPDFGenerator.dpi = DPI =
+      300, book_pdf_generator.py:4070, size 42 px, dot 13.356 px):
+      advance_px("."*n) != n*advance_px(".") for 56 of n in 1..200, first
+      counter-example n = 9, then 13, 15, 18, 19, 25, 26, 29, 30, 35.
+
+      The sharpest part: it fails at TWELVE counts inside the range the docstring
+      itself names as the production range ("measured on Book 1: 120 to 153") —
+      n = 120, 123, 127, 130, 134, 137, 140, 141, 144, 147, 148, 152. The five
+      sampled counts all happen to fall in the ~72% that hold, so the control
+      passes by sample selection rather than because the property is true. Other
+      DPIs break earlier still: first break n = 3 at 1200 DPI, n = 15 at 600 DPI.
+
+      The stated MECHANISM is self-refuting on its own terms. Summing then
+      dividing once computes (318*n)/1000, which is precisely NOT n*(318/1000) in
+      binary floating point. "Divides once" is the reason the two differ, not the
+      reason they agree. The irony is that the raster measure it contrasts itself
+      against IS exactly linear — getlength(".") returns the integer 13.0, so
+      n*13.0 is exact for every n tried, including all of 120..153.
+
+      THE CONCLUSION NONETHELESS SURVIVES, and this correction matters enough to
+      state plainly. I had a first measurement suggesting the grow loop was
+      behaviourally live, from feeding it run = advance_px("."*n) — the exact true
+      sums. A wider sweep in the right domain overturns that: across 500,000
+      fractional runs spanning 0-2550 px (the widest stocked trim's full usable
+      width at DPI 300), the trim loop fires 0 times and the grow loop fires 0
+      times, worst relative error 3.4e-16 — orders of magnitude too small to move
+      int(run // dot) across an integer boundary. A real run is dot_right -
+      dot_left, a difference of two page coordinates, so the n-indexed true sums
+      are a synthetic input a page cannot produce. Only well outside any reachable
+      page (13,197 px at 600 DPI) does the grow loop fire at all — which confirms
+      it is the EXACTNESS argument that fails, not the smallness one.
+
+      So M8/M8b are legitimately DEAD and not legitimately DECLARED: right answer,
+      wrong reason, and a control that cannot distinguish the two. The same shape
+      as the AC-5 call chain and the QR enumeration — this round's recurring
+      pattern is a sound conclusion resting on an argument that does not hold.
+
+      The RASTER half of the same class is sound and is a real finding, properly
+      recorded: test_the_raster_measure_is_linear_at_this_size_too is exactly
+      linear for every n in 1..600 at every integer size 8..120 px (0
+      counterexamples, re-measured in PIL — an independent engine from the /Widths
+      sum). So item 11's §6.6 claim — that create_toc_page's own two loops are
+      inert too, asserted rather than pruned per G-1 — HOLDS and is credited.
+    failure_scenario: >-
+      No product risk today; the risk is to the next reader. The declaration tells
+      the next reviewer that two surviving mutants are fully accounted for, and
+      the account given is false. A later card that changes TOC_ENTRY_PT, the
+      interior DPI or the packaged face will re-read "n dots measure exactly n
+      times one dot" as a structural property of summing /Widths, conclude the
+      loops cannot fire at the new size, and delete them — at which point the
+      smallness argument that actually protects them is gone along with the
+      record that it was ever the real reason.
+    mutation: >-
+      M8 and M8b both re-fired (line-count-preserving, each correction loop
+      replaced by `if False: pass`, blob asserted == HEAD:<path> first): both
+      survive, 65 passed / 192 passed. Confirmed as declared. The CLAIM's edge
+      mutated separately and independently twice: exact-equality sweep over
+      n in 1..200 at the cell's own size (56 failures, first at n = 9, twelve
+      inside 120..153), then the reachable-run sweep (500k runs, 0 firings) that
+      rescues the conclusion.
+    remediation: >-
+      No src change; the code is right and the loops should stay (G-1). Replace
+      the false exactness argument with the true smallness one: "the two spellings
+      differ by at most 4e-16 relative, orders below one dot's width, so
+      int(run // dot) is never off by one for any run a stocked trim can hold".
+      Then widen the control from five hand-picked counts to either a sweep with
+      that error bound, or — better, because it tests the property that actually
+      matters — a sweep over reachable RUN values rather than over dot counts.
+      That makes the cell prove the thing the survival rests on.
+
+  - id: F-297-03
+    severity: important
+    confidence: high
+    source: measured
+    category: test-quality
+    type: gap
+    file: src/nonogram/admin/book_answer_vector.py
+    line: 357
+    title: >-
+      AC-2's cross-medium substitution is blind to CLIPPING — the one axis the two
+      media are known to measure differently — and the 10x10 trim clips a title
+      today; the edge mutant on _clipped_to_measure survives 596 cells
+    description: >-
+      All four cells that read a title filter by exact membership in the set of
+      UNCLIPPED strings: test_every_answer_page_prints_its_pictures_name uses
+      `title in page` for the full title; test_the_two_media_omit_the_same_captions
+      and test_the_minimum_trim_omits_its_captions_rather_than_shrinking_them use
+      `text in wanted` where wanted = {answer_caption(number, title)}; and the EC
+      corpus uses `if picked[index] in shown`. A clipped caption is in none of
+      those sets, so it lands in the "omitted" bucket on BOTH sides and the
+      cross-medium equality passes.
+
+      That matters because clipping is live today. Measured, min-trim profile
+      (10x10 cm, _kdp_min_book), the strings the vector answer pages actually set:
+      the packed page prints 'Puzzle 1 — Snowflake' in full and
+      'Puzzle 2 — Owl in a …' CLIPPED; the two full answer pages print no caption
+      and no folio at all. On Book 1 all four print in full. So of four solution
+      slots on the minimum trim, two carry no name, one carries a truncated name,
+      and one is intact.
+
+      And it is the one axis a port is most likely to break. This card's own
+      book_toc_vector header admits it: the raster page measures with
+      FreeTypeFont.getlength and this one with the embedded face's /Widths, and
+      "the two agree to within a fraction of a dot's advance". A clip boundary is
+      exactly where a fraction of an advance decides an outcome — and that is the
+      comparison the substitution cannot make.
+
+      Mutation, line-count-preserving, in src/nonogram/admin/book_answer_vector.py's
+      _clipped_to_measure: clipped[:-2] -> clipped[:-3] (the vector caption clips
+      one character more than the raster path). 596 passed across 10 test files.
+      The same edge on book_toc_vector.clipped_to: 596 passed. Removing clipping
+      ENTIRELY from the ANSWER writer is caught (2 cells red, both min-trim), so
+      that mechanism is covered at present/absent but not at its edge — which is
+      the two-mutant rule this board applies to any comment claiming what a test
+      catches.
+
+      The TOC writer's byte-identical copy is weaker still: deleting
+      book_toc_vector.clipped_to's ellipsis loop ENTIRELY also survives. That is
+      an undeclared survivor on a path the module docstring itself calls inert
+      ("It cannot fire for any row the structural list builds on any trim CON-018
+      stocks ... a future section's name is not this card's to bound") — a stated
+      bound with no cell proving it, the same family as F-297-02. The asymmetry is
+      itself informative and defensible: the answer writer's copy is live and
+      covered, the TOC's is dead and unguarded, which is exactly why the round's
+      decision not to share the routine between the two writers was right. But the
+      TOC copy needs the one-line bound its docstring promises, or a declaration.
+    failure_scenario: >-
+      CARD-233 or CARD-298 changes the caption's measure, its size, or the face.
+      The vector answer page's clip lands one character from the raster page's, so
+      the printed book's answer key reads 'Puzzle 2 — Owl in …' where the
+      raster-mode build reads 'Puzzle 2 — Owl in a …'. Every cell in this card
+      stays green, because both media's clipped strings are absent from the
+      unclipped set and the sets still agree. The owner finds it by eye on a
+      render, which is the loop this card's cross-medium cells exist to replace.
+    mutation: "see description — both edges fired, both survive 596 cells; the whole-mechanism mutant reds 2 cells."
+    remediation: >-
+      Assert the caption STRING, not its membership in the unclipped set: collect
+      the caption each medium actually set per slot and assert the two lists are
+      equal element for element. That single change makes both edge mutants red,
+      turns the blind 'omitted' bucket into three distinguishable outcomes
+      (printed / clipped-to-X / omitted), and records the clipping that the
+      minimum trim does today — which is a product fact no cell currently states.
+
+  - id: F-297-04
+    severity: important
+    confidence: high
+    source: measured
+    category: test-quality
+    type: gap
+    file: tests/test_book_solved_answer_key.py
+    line: 2339
+    title: >-
+      The operator allow-list advertised as default-DENY admits c, h and B —
+      exactly round_mark's vocabulary, which nothing on these pages emits — so the
+      cell cannot be the round-shape tripwire its sibling needs, and that sibling
+      uses the reading CARD-296's F-1 already measured as insufficient
+    description: >-
+      test_the_operator_alphabet_is_closed_at_what_these_pages_draw documents
+      itself as "Default-DENY over the operators, not a search for Do", then
+      allows 16 operators. Measured: the TOC and answer streams of both profiles
+      emit 13 — BT ET G S Td Tf Tj f g l m re w. The three surplus members are
+      B, c and h, which are precisely the moveto/four-curves/close/paint shape
+      CARD-296 pinned as a round mark
+      (test_a_round_mark_is_one_moveto_four_curves_a_close_and_a_paint).
+
+      So the subset test has slack exactly where the card's own limit cell needs
+      it tight, and the two cells in this file disagree about whether `c` is
+      allowed: test_no_answer_page_draws_a_round_mark_today asserts
+      `" c\n" not in text` while its sibling permits c unconditionally.
+
+      Worse, that limit cell's reading is one this board already measured as
+      insufficient — one card ago. CARD-296's F-1 is titled "'no c is exactly no
+      round shape' was false": a round shape can be approximated by a polyline
+      (m/l only, both already allowed) or set as a round dingbat glyph, and
+      CARD-296's fix round 1 had to close the route with a vertex bound before
+      review cycle 2 accepted it. CARD-297 reaches for the superseded reading plus
+      a textual `"round_mark" not in source` check, which a polyline approximation
+      also passes.
+    failure_scenario: >-
+      CARD-233 wires the difficulty dots onto a solution tile header and, as
+      CARD-296's own card predicted ("if it uses round_mark ... and nothing in the
+      tree if it approximates one"), approximates the disc with a short polyline.
+      test_no_answer_page_draws_a_round_mark_today stays green (no c, no literal
+      'round_mark'), the alphabet cell stays green (m and l are allowed), AC-5's
+      stated limit silently stops being true, and CARD-233 never gets the signal
+      this cell was written to give it.
+    mutation: >-
+      Demonstrated by measurement rather than mutation, which is stronger here:
+      the emitted set is {BT,ET,G,S,Td,Tf,Tj,f,g,l,m,re,w} and allowed \ emitted =
+      {B, c, h}. A subset assertion with three never-emitted members cannot fail
+      on any of the three.
+    remediation: >-
+      Two one-line changes. (1) Drop c, h and B from `allowed` — nothing emits
+      them, so the cell tightens for free, becomes non-vacuous, and the Bezier
+      route closes properly. Better still, assert equality with the emitted set,
+      which is CARD-296's route (b): "ADR-0042/R1's derived per-page-kind check ...
+      is where a round-shape rule belongs". (2) For the polyline route, adopt
+      CARD-296's settled fix — the vertex bound — rather than re-deriving a reading
+      its review already rejected.
+
+  - id: F-297-05
+    severity: important
+    confidence: high
+    source: measured
+    category: traceability
+    type: dead-ref
+    file: meta/kanban/cards/CARD-297.md
+    line: 91
+    title: >-
+      The EC's test: ref names a class that does not exist, and the only thing
+      making the project's symbol resolver accept it is a docstring sentence this
+      round wrote
+    description: >-
+      The card's EC(ADR-0042/R3) names the Test-less spelling of the property
+      class. pyproject.toml sets no python_classes, so pytest's default `Test`
+      prefix applies and a class under that name would hold tests pytest silently
+      never collects. The round renamed it with the prefix, stated the reason in
+      the class docstring, and the reasoning is correct — the shipped class
+      collects (6 passed by node id) and the rename is the right call.
+
+      The problem is what makes the old name still resolve. The validator's ref
+      check (validators/utils.symbol_exists) is `git grep -lw`, a TEXT search.
+      `git grep -lw` on the card's spelling exits 0 and lists two files: the card
+      itself, and tests/test_book_solved_answer_key.py — where the ONLY match is
+      line 3281, a prose sentence inside the class docstring reading "The card
+      names this property <the Test-less spelling>". The word boundary means the
+      real class name does not match. So a name with no definition reads as alive,
+      and the single thing keeping it alive is a sentence written in the same round
+      that renamed it. The ref is not under meta/architecture/, so the validator
+      does not read it today — but meta/review/ IS in scope, and a future review
+      YAML quoting the name would revive it there.
+    failure_scenario: >-
+      A later card's AC/EC gate resolves the card's EC ref, finds it 'exists',
+      and reports the property as mechanically checked. Or the docstring sentence
+      is tidied in a routine edit and the ref goes dead with no warning, because
+      nothing connects the two.
+    remediation: >-
+      Correct the card's EC test: to the shipped class name (the prefixed
+      spelling). Then reword line 3281 so it is not a resolver — e.g. "the card
+      names this property with the prefix dropped; it is spelled with the prefix
+      here so pytest collects it" — stating the rule without restating the dead
+      token. Note that this review YAML deliberately does not write the token
+      either, for the same reason.
+
+  - id: F-297-06
+    severity: important
+    confidence: high
+    source: read
+    category: requirements
+    type: card-defect
+    file: meta/kanban/cards/CARD-297.md
+    line: 0
+    title: >-
+      The card contradicts itself or its own guardrails in four places; the round
+      resolved three correctly and the bookkeeping was never applied back
+    description: >-
+      Four separate drafting defects, each confirmed against the code rather than
+      taken from the round's account:
+
+      (1) Item 2 lists "the SOLUTIONS divider's text" among what to port, while
+      G-2 forbids touching that path because CON-020's :355 sibling needs it to
+      keep being recorded. Verified: src/ diff is exactly the three new/grown
+      vector modules, book_pdf_generator.py untouched, and
+      tests/test_book_interior_type_floor.py still asserts
+      required = {guide, divider, band} <= kinds UNCONDITIONALLY on both profiles
+      (4 node ids green). Porting the divider's text would have un-tagged it and
+      red both profiles. The round followed G-2. The card is wrong.
+
+      (2) AC-5's parenthetical — "the same primitive CARD-294 priced and CARD-296
+      first used" — is false, and was ALREADY FOUND false on CARD-296. CARD-296's
+      own card text declines its equivalent AC as unsatisfiable ("The legend has
+      had no dots since CARD-221 fix 1"), and CARD-296's implementation pre-gate
+      CONFIRMED it: "_draw_difficulty_legend's body draws text, no round shape"
+      and "_draw_difficulty_dots ... has no production caller anywhere". So this
+      is the second card carrying the same false clause.
+
+      (3) AC-2 says "each solution tile's HEADER carries the picture's name". The
+      header band carries band_identity (number + tier); the name is in the
+      CAPTION under the slot. AC-5 makes the mirror-image error, placing dots in
+      the header that prints a word. The card's model of a tile header is wrong in
+      both ACs.
+
+      (4) AC-2's "each" is contradicted by AC-6's own note in the same card ("the
+      caption is omitted on the 10x10 cm minimum trim"), and measured: 2 of 4
+      solution slots on the minimum trim carry no name. AC-2's literal is
+      unsatisfiable by the card's own text.
+
+      Separately, G-5's instruction "Convert the answer/TOC ones" is premature
+      rather than contradictory — see verified_claims.scope_judgments.
+    failure_scenario: >-
+      The AC/EC gate reads AC-2 and AC-5 literally and reports two criteria as
+      unmet on a card that is correct; or a later card copies AC-5's false
+      parenthetical a third time and spends a round rediscovering that
+      _draw_difficulty_dots has no caller — which CARD-228, CARD-296 and now
+      CARD-297 have each measured independently.
+    remediation: >-
+      Amend the card: strike "the SOLUTIONS divider's text" from item 2 (or strike
+      G-2 — but G-2 is the correct one); replace AC-5's parenthetical with
+      CARD-296's settled account and name CARD-233 as the inheritor; change
+      "header" to "caption" in AC-2 and "header" to "band" in AC-5; and change
+      AC-2's "each" to "each solution tile with the slack to print one, and the
+      omission is CARD-197's AC-6".
+
+  - id: F-297-07
+    severity: minor
+    confidence: high
+    source: measured
+    category: test-quality
+    type: gap
+    file: src/nonogram/admin/book_vector_draw.py
+    line: 470
+    title: >-
+      Four single-expression deletions in the undeclared +214 hunk change the page
+      and nothing reds — draw_folio's outer-corner choice, its right-hand clear
+      predicate, and set_right_from_top's right alignment
+    description: >-
+      Mutants of my own on this card's least-pinned new code, each
+      line-count-preserving, each run against 596 cells across 10 test files
+      (tests/test_book_solved_answer_key.py, test_book_toc.py,
+      test_book_guide_page_vector.py, test_book_puzzle_page_vector.py,
+      test_book_pdf_vector_primitives.py, test_book_difficulty_dots.py,
+      test_book_grid_rules.py, test_book_interior_type_floor.py,
+      test_book_page_numbers.py, test_book_answer_key.py):
+
+      SURVIVED (596 passed each):
+      X3  draw_folio: `x = right - advance_px(...) if right_hand else left`
+          -> `x = left`. The folio prints at the INNER edge on every right-hand
+          page. FR-043 says bottom-OUTER corner.
+      X5  draw_folio: the right-hand clear predicate reads content_left instead
+          of content_right.
+      X7  set_right_from_top: the right alignment dropped — a TOC row's page
+          number is set left-aligned AT the measure's far edge, i.e. running off
+          into the margin.
+      X2  book_toc_vector.clipped_to: [:-2] -> [:-3] (see F-297-03).
+      MX3 draw_folio: the LEFT-hand clearance arm replaced by an unconditional
+          pass (`clear = True`). Independently found; see below.
+
+      CAUGHT, and credited:
+      X4  draw_folio's omit-rather-than-collide rule made dead -> reds
+          test_a_page_given_twice_its_rows_prints_no_folio.
+      X6  set_right_middle's middle-em dropped -> reds
+          test_the_caption_is_right_aligned_on_the_slot_comp_007_reports.
+      X8  ascent_px -> 0 -> reds test_a_page_given_twice_its_rows_prints_no_folio.
+
+      The pattern is clean and worth naming: the three new anchors' VERTICAL
+      halves are pinned (X6, X8 red) and the HORIZONTAL halves are not (X3, X7
+      survive). AC-4 reads every TOC row's number, name and folio as VALUES
+      against the page plan, which is what it asks for; no cell reads any of them
+      as a POSITION. That is why the card's own item 1 — "each row's page number
+      right aligned on the measure's far edge" — has no control.
+
+      MX3 is the same gap by parity rather than by axis, and it is the cleanest
+      single statement of this finding. draw_folio's docstring sells the
+      omit-rather-than-collide rule and reads content_right / content_left
+      symmetrically, but only the RIGHT-hand arm has a control (the round's own
+      M5). The left-hand arm can be replaced with an unconditional pass and the
+      whole 596-cell set stays green. So of draw_folio's four decisions — omit or
+      not, which corner, right-hand clearance, left-hand clearance — exactly ONE
+      (omit or not) has a control.
+    failure_scenario: >-
+      CARD-298 wires the vector writers into _write_pdf. Every right-hand page of
+      the table of contents and the answer key prints its folio at the gutter
+      instead of the fore-edge, and every TOC page number starts at the measure's
+      right edge and runs into the trim margin. 9641 tests pass. The owner finds
+      it on the first render.
+    mutation: "X3, X5, X7 above; each restored with git show HEAD:<path> > <path> then git checkout -- <path>; both private worktrees left clean."
+    remediation: >-
+      One cell per anchor, reading the Td operand rather than the string: assert
+      the folio's x equals right - advance_px(text, ...) on a right-hand page and
+      left on a left-hand one, and assert a TOC row's number ends at frame.right.
+      The file already has _pt/_flip for the conversion and _shows() for the
+      operands, so this is a short addition, not a new instrument.
+
+  - id: F-297-08
+    severity: minor
+    confidence: high
+    source: measured
+    category: documentation
+    type: non-reproducing-figure
+    file: meta/kanban/cards/CARD-297.md
+    line: 0
+    title: "Eight figures or enumerations in the round's account do not reproduce"
+    description: >-
+      Recorded as findings in their own right per this board's rule. Two were
+      already known off before this review (the QR caller list and the AC-5 call
+      chain); three are new.
+
+      (1) QR enumeration. The round said the QR functions are "reached only from
+      _blank_page and _draw_two_up_qr_groups". My ast census over src/: qr_slot
+      has 6 call sites — book_pdf_generator._draw_two_up_qr_groups (x2),
+      book_proof._fallback_spots, export/layout.qr_caption,
+      export/layout.qr_group_insets, export/png.render_image; _draw_qr_placeholder
+      has 2 (_draw_two_up_qr_groups, png.render_image); _draw_qr_caption has 2
+      (_blank_page, _draw_two_up_qr_groups). The CONCLUSION survives intact — see
+      verified_claims.qr.
+
+      (2) AC-5 call chain. The round reported
+      difficulty_dots <- _draw_difficulty_dots <- _draw_difficulty_legend <-
+      create_guide_page. Measured: difficulty_dots has 1 call site (correct),
+      round_mark has 0 in src/ (correct), but _draw_difficulty_dots has ZERO
+      references of any kind in src/, and _draw_difficulty_legend's body contains
+      no reference to it (its only _draw* calls are _draw_difficulty_legend,
+      _draw_folio, _draw_pipeline_diagram, from create_guide_page). The chain is
+      broken at that link. See verified_claims.dead_code for the settlement.
+
+      (3) "On the 10x10 cm trim the title prints nowhere in the interior." Does
+      not reproduce. Measured on the min-trim profile: 1 of 4 titles prints in
+      full ('Snowflake'), 1 prints clipped ('Owl in a …'), 2 are omitted. The
+      COMMITTED test is correct and scoped honestly — its docstring says "Asserted
+      on the full answer pages ... A packed page's tiles are shorter than the page
+      and may still have room" — so this is a narrative overstatement of a correct
+      cell, not a bad cell.
+
+      (4) "The two media's omission thresholds (72.9 px vector vs 73 px raster)
+      agree for every integer slack." NO SUCH ASSERTION IS IN THE DIFF. grep over
+      the whole diff for 72.9, 'threshold' and 'every integer slack' returns
+      nothing; grep for 'slack' returns seven hits, all prose. The claim has no
+      committed control.
+
+      (5) "CALLEE_EXEMPTION_COST's first step 776 became 808." Direction confirmed,
+      number not reproducible. I planted three BookPDFGenerator methods carrying
+      exactly four self.page_spec(...) calls (the test file itself never edited)
+      and the cell red, but the first step moved 776 -> 782, not 808: that step
+      counts refusals over ALL ast.Call nodes in the generator (838 on both sides)
+      and my plant added 10. 808 implies the rejected code added ~32 countable
+      calls, which is plausible but was never committed and so cannot be checked.
+      The companion figure DOES reproduce exactly: inside 17 -> 21.
+
+      (6) "13 mutants, ALL DELETION." Inaccurate. 11 of 13 are disablements
+      (`False and ...`); M10 is a SUBSTITUTION ("grid" -> "grid_never") and M11 is
+      an ADDITION (name=None -> name=payload.name) in
+      src/nonogram/admin/book_pdf_generator.py — a file the diff does not touch at
+      all. M11 is good practice as a raster-side control and the harness restored
+      the file correctly; it is simply not a deletion, and the deletion-only claim
+      is what lets a reader assume every mutant is line-count-preserving by
+      construction. (It happens to be true: I verified all 13 pairs preserve line
+      count and that each `old` string occurs exactly once at HEAD.)
+
+      (7) "225 asserts instrumented in the answer-key file, 163 in the TOC file."
+      These are the PRE-FIX (1a42e8d7) figures. At HEAD they are 233 and 169 — the
+      fix commit added asserts. Reproduces as a pre-fix figure, not as the HEAD
+      figure the claim presents.
+
+      (8) The harness's own path. The card's prose cites
+      `scratchpad/card297/card297_mutate.py`, which exists in neither the worktree
+      nor main. It is in the session scratchpad. A later reviewer following that
+      path finds nothing.
+    failure_scenario: >-
+      A later card inherits (1) and reasons that making the QR slot vector only
+      touches two functions, when png.render_image and two layout functions also
+      reach it. Or inherits (4) as a measured agreement that was never asserted.
+      Or inherits (7) and reports the assertion census as unchanged by the fix
+      commit when the fix commit is precisely what moved it.
+    remediation: >-
+      Correct the eight figures in the hand-back/worktree notes. For (4), either
+      ship the integer-slack sweep (it is ~10 lines and would be a genuinely
+      strong cross-medium cell) or drop the claim. For (8), record the harness's
+      real location or commit it under meta/profiling/ as CARD-295 did with its
+      own price harness.
+
+verified_claims:
+  zero_conversion_and_the_70_bitmaps:
+    round_claim: "Converts ZERO pixel-reading sites; net +70 page bitmaps, +183 ImageDraw, +298 Mpx; 68 to the two _Recorded walks, 2 to AC-1's positive control; test_book_toc.py 0 -> 0 on 11 new cells."
+    verdict: CORRECT SEQUENCING, NOT A DIFFERENT CARD
+    reasoning: >-
+      Judged, not recited. Three things decide it.
+
+      First, the figures are honest and the attribution is exact — reproduced in
+      an independent instrument (see metrics.bitmap_census), including the per-class
+      68/68/68/70 pattern that proves the walk is paid once, and the TOC file's
+      delta of exactly 0 across +11 cells (1414 page bitmaps on both sides).
+
+      Second, the cost is small where it matters. +70 is +6.2% on a file that
+      already held 1133, and the real price is +1.39 s wall on that file (4.40 ->
+      5.79 s); all 60 new cells together run in 0.81 s. A card that spent 298 Mpx
+      to buy AC-2's only available reading has not blown a budget.
+
+      Third, and decisively: there is no cheaper door for the AC as written. AC-2's
+      second half must be read "over the whole interior, not over the answer
+      section", and the interior is still mostly raster. A raster page's text is
+      pixels, so the only ways to know what one printed are to render and OCR it,
+      or to spy on ImageDraw.text during a render. Both require the render. The
+      round took the cheaper of the two and cached it module-scoped at one walk per
+      profile.
+
+      So the zero conversions are right for the reason the round gives:
+      _write_pdf still chooses medium per BOOK, not per page, until CARD-298, so
+      the raster answer pages are what ships, and converting their assertions
+      would trade a control on what ships for a control on what does not. I
+      verified the premise — book_pdf_generator.py is byte-identical to main on
+      both sides (blob 7a515eea), so no page changed medium.
+
+      One deduction, and it lands on the card: G-5 says "Convert the answer/TOC
+      ones". Every pixel-reading site in the file is pre-existing and every one of
+      them IS an answer-page site (all 20 numpy reads sit below line 2000, in the
+      CARD-197/198/202 classes). So G-5 asks for a conversion that CARD-298 must
+      precede. That is a card defect of the same family as F-297-06, not a round
+      failure — but it should be recorded on the card so the next round does not
+      re-litigate it.
+  ac5_redefinition:
+    round_claim: "AC-5's premise is false in two parts; met 'in the only form today's design admits' — the real narrowest packed-tile band, COMP-007's ladder, drawn through round_mark, read by poppler, with a failing control and a cross-medium cell, wired onto no page, plus a test-shaped limit."
+    verdict: THE MECHANISM IS ACCEPTED; THE BOOKKEEPING IS REJECTED
+    reasoning: >-
+      The premise is false, and more deeply than the round argued. Not only does
+      the header print a word (band_identity -> "Puzzle 12 · Hard"): no page in
+      the book prints difficulty dots at all. Measured, ast census over src/:
+      _draw_difficulty_dots has ZERO references of any kind, difficulty_dots has
+      exactly one call site (from inside _draw_difficulty_dots), round_mark has
+      zero. The whole glyph is unreachable from production. AC-5's subject does
+      not exist.
+
+      I checked CARD-228's and CARD-296's own text rather than the round's
+      quotation of them, and both quotations hold. CARD-228's AC-5 is "the
+      smallest box any caller gives it" and CARD-228 explicitly defers "what each
+      caller actually puts there" to CARD-207/229/231/233; its three review cycles
+      each verified the zero-caller state as intended ("0 callers in src/ by
+      design, G-5"). CARD-296's card declines its own round-shape AC as
+      unsatisfiable, and its implementation pre-gate confirms both halves.
+
+      So is this card's AC-5 satisfied or redefined? Redefined — but LOUDLY, which
+      is the distinction that matters here. The class docstring states "Nothing is
+      wired into a page", names CARD-233 as the owner of the design, and
+      test_no_answer_page_draws_a_round_mark_today states the limit as a test
+      rather than as prose. The claim is therefore exactly as wide as its control,
+      which is the opposite of the claim-wider-than-its-control family. And the
+      construction buys something real that a bare decline would not:
+      test_the_vector_ladder_is_the_geometry_the_raster_ladder_draws asserts
+      raster.dots == vector.dots and raster.diameter == vector.diameter, so
+      whoever wires CARD-233 inherits a pinned cross-medium geometry instead of
+      two independent derivations.
+
+      What I reject is the bookkeeping, on two counts. (a) Two cards now face the
+      identical situation and resolve it two different ways — CARD-296 declined its
+      AC and named the inheritor; CARD-297 kept its AC and satisfied it against a
+      synthetic box. The board should not carry both precedents. (b) The limit cell
+      reaches for a reading CARD-296's F-1 already measured as insufficient — see
+      F-297-04. Fix F-297-04 and amend AC-5 per F-297-06, and the mechanism stands
+      as shipped.
+  ac2_cross_medium_substitution:
+    round_claim: "AC-2's first half cannot hold on every profile, so it is asserted as cross-medium agreement plus two non-vacuity controls; the EC corpus asserts 18 print / 6 omit with both floors inside the test."
+    verdict: THE SUBSTITUTION IS NECESSARY, BUT IT IS BLIND ON THE AXIS THAT MATTERS
+    reasoning: >-
+      The literal was unsatisfiable, not merely inconvenient, and the card itself
+      proves it: AC-2 says "each solution tile's header carries the picture's name"
+      while AC-6's own note in the same card records that the caption is omitted on
+      the 10x10 cm minimum trim. Measured, min-trim: 2 of 4 solution slots carry no
+      name. So AC-2's "each" cannot be met, and the AC needs amending (F-297-06)
+      rather than the round needing to meet it.
+
+      Given that, cross-medium agreement is the right shape, and the non-vacuity
+      controls are better than the round claimed for them. `assert vector` fires on
+      BOTH profiles, and on Book 1 the set is pinned to all four titles, so the
+      agreement is never between two empty sets. The EC corpus's two floors
+      (printed >= 18, omitted >= 6) are in effect an EQUALITY, because the corpus
+      has exactly 24 answer pages — 18 + 6 with both floors leaves no slack. That
+      is a well-built corpus and I credit it.
+
+      But the substitution is blind precisely where the port is most likely to
+      break. Every title reading in the card filters by exact membership in the set
+      of UNCLIPPED strings, so a clipped caption falls into the 'omitted' bucket on
+      both sides and the equality survives. Clipping is live today ('Puzzle 2 — Owl
+      in a …' on the minimum trim), and the two media measure width with different
+      engines — which this card's own TOC header admits agree only "to within a
+      fraction of a dot's advance". Demonstrated: the vector clip can land one
+      character from the raster clip and 596 cells pass. See F-297-03; the fix is
+      to compare the caption strings element for element rather than their presence
+      in a set of unclipped ones.
+  downstream_module_restructure:
+    round_claim: "Implemented the three page writers as BookPDFGenerator methods first; that added four self.page_spec(...) calls and red two measured figures in tests/test_book_export_interior_cover.py (inside 17 -> 21, CALLEE_EXEMPTION_COST 776 -> 808), a file G-5 forbids touching; so both writers moved downstream, adding no geometry-door call."
+    verdict: THE SHAPE IS RIGHT, AND IT WAS FORCED RATHER THAN CHOSEN
+    reasoning: >-
+      Re-derived both figures without touching that file's content.
+
+      As they stand: both cells pass on HEAD and on base, and an independent ast
+      walk (counting ast.Call nodes whose callee names page_spec/book_page_spec)
+      gives inside=17, outside=6 on BOTH sides — the asserted values. So the round
+      really did not move them.
+
+      Counterfactual: three BookPDFGenerator methods carrying exactly four
+      self.page_spec(...) calls planted into book_pdf_generator.py, test file
+      untouched. inside 17 -> 21 exactly, and the cell reds with assert 21 == 17.
+      The round's primary figure reproduces to the digit. The companion figure
+      moves and reds but lands on 782 under my plant, not 808 — recorded in
+      F-297-08 as direction-confirmed, number-unverifiable, since the rejected code
+      was never committed.
+
+      One consequence the round did not report, which strengthens its case: the
+      plant also moves that walk's LAST step from 0 to 3, breaking the shipped
+      arm's zero-refusal property outright.
+
+      So this is not page-kind logic hidden in the wrong layer to dodge a test. It
+      is a module boundary the project's own door-axis invariant selects: the walk
+      exists to keep a page POSITION from being computed in a second place, and a
+      generator method computes one while a function taking the sheet does not.
+      The chosen shape is also the majority precedent — CARD-296's guide_pages has
+      exactly this signature, down to spec_for arriving as a callable.
+
+      Worth flagging forward, not against this card: CARD-295's vector_puzzle_pages
+      IS a generator method, so after this card the tree holds two shapes for one
+      concern (1 method, 3 module functions). CARD-298 should reconcile them.
+  scope_growth:
+    round_claim: "Three undeclared paths — two new src/ modules and book_vector_draw.py +214 — citing CARD-295's precedent for creating modules under an unchanged Touches, and no import added."
+    verdict: ACCEPTED — THE GROWTH IS SMALLER AND BETTER-BEHAVED THAN ITS OWN CITED PRECEDENT
+    reasoning: >-
+      Measured against Touches. Of six declared paths, 2 were touched
+      (test_book_solved_answer_key.py, test_book_toc.py) and 4 were not — and the
+      four untouched are byte-identical to base, verified by blob:
+      book_pdf_generator.py 7a515eea, test_book_answer_key.py b7797dbf,
+      test_book_qr_slot.py 7af0034c, test_layout_answer_tiles.py b684413e. Three
+      undeclared paths added. Scope gate is on, so that is a real finding on paper.
+
+      It does not survive contact with the precedent the round cites. CARD-295
+      declared 4 paths and shipped 11, created book_puzzle_vector.py AND
+      book_vector_draw.py as new modules under an unchanged Touches, added +117 to
+      book_pdf_generator.py, and reached 50 lines into
+      tests/test_book_export_interior_cover.py — the very file CARD-297's G-5 now
+      forbids. Against that, CARD-297 ships 5 files, 3 undeclared, 0 deletions, not
+      one existing line modified anywhere in the tree, and stays out of the
+      forbidden file entirely. It is strictly more disciplined than the card it
+      cites.
+
+      The one undeclared path that deserves a second look is the +214 in
+      book_vector_draw.py, because it is a declared hotspot's neighbour and
+      because it is where my own surviving mutants landed (F-297-07). Not a scope
+      objection — a coverage one.
+
+      The no-import claim holds: 0 added import lines in that hunk (measured over
+      the diff), so test_the_routine_imports_nothing_that_knows_a_page_kind's
+      exact-set assertion at tests/test_book_puzzle_page_vector.py:1473 is
+      undisturbed, and that file passes in the impact set.
+  dead_code_settlement:
+    question: "Is _draw_difficulty_dots genuinely unreachable, or reached by a path an ast call-census cannot see?"
+    verdict: GENUINELY DEAD IN src/, AND NOT THIS CARD'S FINDING
+    reasoning: >-
+      Settled three ways. (1) ast census over all of src/: zero references of any
+      kind — not a call, not a bare Name, not an attribute. (2) Its only two
+      mentions in src/ are its own `def` at book_pdf_generator.py:1739 and a
+      docstring cross-reference at book_guide_vector.py:901. (3) The one path a
+      call-census could miss is dynamic dispatch, and I checked it: nothing in
+      src/ does getattr on the generator module by a computed name for this
+      symbol, and the only getattr-style rebinding of it anywhere is in
+      tests/test_book_difficulty_dots.py (a spy that restores the original and
+      asserts the restoration at :4218 and :4481). So it is unreachable from
+      production.
+
+      It is NOT a finding against CARD-297, and calling it one would be wrong.
+      The zero-caller state is deliberate, pre-existing, and recorded three times:
+      CARD-228's review cycles 1, 2 and 3 each verified it as the card's intent
+      ("0 callers in src/ by design, G-5"), CARD-241's G-4 freezes the glyph and
+      its geometry, and CARD-296's pre-gate confirmed it again. It is an unwired
+      primitive awaiting CARD-207/229/231/233, exercised directly by a ~4500-line
+      test file, outside this card's diff.
+
+      What IS worth passing up, as a standing observation rather than a finding:
+      the glyph CARD-294 priced and CARD-228 built has now been independently
+      re-measured as callerless by three separate cards, and each time the
+      measurement cost a round some work. ADR-0042's phase would be cheaper if the
+      zero-caller fact lived in one checkable place instead of being rediscovered.
+      It is also the real reason AC-5's premise is false — a stronger reason than
+      the round's, whose stated call chain was broken at a different link.
+  qr:
+    round_claim: "Card item 3 has nothing to port on these page kinds; G-4 honoured trivially."
+    verdict: HOLDS — conclusion correct, enumeration behind it wrong (F-297-08)
+    reasoning: >-
+      Re-derived with my own ast extraction of the four page functions' bodies:
+      create_toc_page (:4832), _draw_solved_slot (:5694), solved_puzzle_page
+      (:5886) and _packed_answer_page (:6017) each reference NONE of qr_slot,
+      _draw_qr_placeholder, _draw_qr_caption, qr_caption or qr_group_insets — zero
+      hits across all four, as Names, attributes or calls. So no answer or TOC page
+      reserves a QR slot today, card item 3 has nothing to port, and G-4 is
+      honoured without the round having to decide anything.
+  card_219_fence:
+    verdict: INTACT AND DEMONSTRABLY LIVE
+    reasoning: >-
+      All four parts verified. test_the_drawn_tie_is_still_carried_here passes
+      selected by node id (1 passed). DRAWN_TIE_CARRIERS (:225), DRAWN_PAGE_IDIOMS
+      (:234) and the fence function (:237) are byte-identical to base — the file's
+      diff is 308 insertions / 0 deletions in exactly two hunks, one import and one
+      pure append, and every diff line naming a fence symbol is a new reference in
+      the appended block. The file's page-bitmap count is identical to base on all
+      four counters (page_bitmaps 1414, draw_init 2181, mpx_pages 7861.82, new
+      1503) across 54 -> 65 tests, so the round's "0 -> 0" is right as a delta.
+      AC-4's rows come from _planned_rows, which calls only section_plan and
+      structural_toc_entries — no page drawn. And
+      test_no_page_bitmap_was_built_to_make_any_of_this CAN fail: a drawn-page
+      idiom planted into that class reds it at tests/test_book_toc.py:2720.
+      Caveat to pass on, conservative in both directions rather than a hole: it is
+      a NAME check over inspect.getsource of the whole class, so it also fires on
+      the word in a docstring, and it reads the class by its global name rather
+      than type(self).
+  g2_divider:
+    verdict: THE ROUND FOLLOWED G-2; THE CARD BODY IS DEFECTIVE (F-297-06 item 1)
+    reasoning: >-
+      src/ diff is exactly three files and 1205 insertions / 0 deletions, so
+      create_divider_page and the divider text path are untouched. The divider kind
+      is still recorded on BOTH profiles:
+      tests/test_book_interior_type_floor.py's BOOKS fixture parametrises book1 and
+      min-trim, and test_the_recording_covers_every_kind_of_interior_lettering
+      asserts required = {"guide", "divider", "band"} <= kinds UNCONDITIONALLY at
+      :363 (the footer-label and answer-caption additions are the only min-trim
+      conditionals — that is CON-020's :355 sibling). test_the_dividers_are_drawn
+      asserts len(dividers) == 8 on both. All four node ids: 4 passed.
+  g66_leader_loops:
+    round_claim: "create_toc_page's own two correction loops are also inert (CARD-221 removed their stated reason); asserted rather than pruned per G-1."
+    verdict: HOLDS, AND IT IS A REAL CONTROL
+    reasoning: >-
+      The assertion exists —
+      TestToc_TheLeaderRunNeedsNoCorrectionOnThisFace::test_the_raster_measure_is_linear_at_this_size_too
+      — passes by node id, and it is not a tautology: it reads PIL's
+      FreeTypeFont.getlength, an independent engine from the /Widths sum the vector
+      side uses, so it genuinely could disagree. Re-measured far wider than the
+      cell samples: exactly linear for every n in 1..600 at every integer size
+      8..120 px, 0 counterexamples. Nothing is pruned in the raster page, which is
+      G-1 respected. The companion claim about THIS card's own loops is the one
+      that fails — see F-297-02.
+  guardrails:
+    G-1: "OK — nothing redesigned. Every expression in both writers traces to create_toc_page's or _draw_solved_slot's own, in the same order; the inert correction loops are kept and asserted rather than pruned."
+    G-2: "OK honoured (the card body contradicts it — F-297-06)."
+    G-3: "OK — no cover path touched; src/ diff is three files, none of them cover."
+    G-4: "OK honoured trivially — no answer or TOC page references a QR name (verified_claims.qr)."
+    G-5: "SPLIT. The file boundary half is honoured: tests/test_book_export_interior_cover.py is byte-identical to base and was never opened. The 'convert the answer/TOC ones' half was not executed, correctly — CARD-298 must precede it. Recorded as a card defect in verified_claims.zero_conversion_and_the_70_bitmaps."
+    G-6: "OK holds exactly — 71 added, 0 removed, re-derived by node-id set difference in both worktrees (metrics.collection_gate_G6)."
+    G-7: "OK — no corpus minimum lowered (all three are new floors, and the pair is an equality at 24 pages); tests/fixtures/** untouched in the diff."
+    G-8: "OK — no probe in tests/. My own instruments live outside it. tests/test_book_toc.py is in rank_durations' frozen snapshot and tests/test_suite_profile.py passes in the impact set."
+  acceptance_criteria:
+    AC-1: "MET — four cells plus a raster positive control, both profiles. One weakness in the companion alphabet cell (F-297-04)."
+    AC-2: "MET AS SUBSTITUTED, with a gap. The literal is unsatisfiable by the card's own AC-6. The substitution is sound in shape, blind to clipping (F-297-03)."
+    AC-3: "MET FUNCTIONALLY, WEAK STRUCTURALLY. The drive is real — a true AnswerTile, asserted not a Layout, 11+11 GridLines, 22 stroked lines matched against independently converted positions, with a one-pixel-move control. No third grid walk exists: draw_solved_grid calls draw_grid_lines(stream, tile.vertical_lines, tile.horizontal_lines, grey=grey), CARD-295's sequence door, not draw_ruled_grid; I read all 657 lines and the only stroking site is draw_solved_joins. The guard has a demonstrated hole (F-297-01)."
+    AC-4: "MET — rows read off the written content stream against the plan, with a one-page-drift control, and no page drawn (verified_claims.card_219_fence). Values only; positions are unpinned (F-297-07)."
+    AC-5: "REDEFINED, AND THE REDEFINITION IS STATED. See verified_claims.ac5_redefinition."
+    AC-6: "MET — Tf sizes read off the stream, conditional on profile as the card instructs, with the constant pinned and the omission branch exercised rather than assumed."
+    EC_ADR_0042_R3: "MET — 6 cells collect and pass by node id over 3 trims x both parities x the full page x each packed capacity. The card's ref names a class that does not exist (F-297-05)."
+    EC_ADR_0037_R1: "MET AS SUBSTITUTED — corpus of 24 answer pages plus 24 puzzle pages, cases >= 40, printed >= 18 and omitted >= 6 (an equality at 24). Blind to clipping (F-297-03)."
+  skips:
+    - name: "tests/test_book_pdf_memory.py:1296 — setrlimit(RLIMIT_AS) refused by this kernel"
+      pre_existing: true
+      evidence: >-
+        The file is untouched by this card (empty diff). Its own docstring records
+        the platform fact (macOS 26.6.2 / Darwin 25.6.0 arm64: RLIMIT_AS and
+        RLIMIT_RSS are the same constant and the kernel returns EPERM for every
+        soft limit below 1 TiB), and the skip message names the sentry twin that
+        carries AC-2's executed half. Confirmed pre-existing and not this branch's.
+    - note: "The 17-file impact set reported 0 skips with -rsx; every one of 1447 collected cells passed."
+
+mutation_check:
+  step_8f: "deferred(cost) — this cycle has important findings, so no full campaign was run. The round's own 13 were re-fired to check its record, which is in scope either way, plus 13 of my own."
+  round_mutants_refired: 13
+  round_record_reproduces: "13 of 13"
+  misattributions: 0
+  detail: >-
+    Every one of M1, M2, M3, M4, M4b, M5, M6, M7, M9, M10, M11 was re-fired and
+    the cell the round named IS the cell that reds — 11 killed, 29 named cells red
+    across them, no case where the named cell stayed green and a different one
+    went red. M8 and M8b survive exactly as declared. Blob == HEAD:<path> verified
+    for every target before every mutant; all 13 pairs confirmed
+    line-count-preserving and each `old` string confirmed to occur exactly once;
+    collected counts non-zero in every run (62-192), so no run was a -k that
+    selected nothing.
+  m4_closure: >-
+    CONFIRMED. 85414ac7 does close the first round's surviving join mutant, and it
+    is per-axis as claimed: deleting EITHER the vertical or the horizontal
+    adjacency test reds that axis's own cell (len(expected) == 1), with a
+    solid-picture cell at 2*11*12 == 264 and a non-touching negative control.
+    One caveat worth passing on: the "independent boundary-set re-derivation" is a
+    TRANSCRIPTION of the same two nested loops with the same adjacency conditions,
+    so the genuine independence comes from the hand-written counts (1 and 264),
+    not from the walk. A mutation applied identically to both sides would be
+    missed; a src-only deletion — which is what a mutant is — is caught.
+  m9_m10: "Both halves of AC-3's guard confirmed load-bearing: M9 reds 5 of the 6 planted-shape params, M10 (the exemption derivation) reds test_neither_writer_rules_a_line_outside_the_exemption. Neither probes the stroker VOCABULARY, which is the gap F-297-01 demonstrates."
+  own_mutants_fired: 13
+  own_survivors: 6
+  own_survivors_detail: "X2 and MX1 (TOC clipped_to, edge and whole loop), X3, X5, MX3 (draw_folio: corner, right-hand clearance, left-hand clearance), X7 (set_right_from_top). See F-297-03 and F-297-07."
+  own_caught: "X1/MX2 (answer-writer clipping removed entirely), X4 (folio omit rule), X6 (middle-em), X8 (ascent_px), MX4 (draw_answer_caption's over-measure clip branch)."
+  harness_soundness: >-
+    Sound where it matters. Unique-match and line-count assertions, a
+    blob == HEAD:<path> assertion for every target before every mutant, restore
+    via `git show HEAD:<path> > <path>` inside a finally (never
+    `git checkout <rev> -- <path>`, which would stage), `-o addopts=` with exactly
+    one -q so the count line prints, scoped to its own scratchpad. Four record
+    inaccuracies, none of them unsound: the "all deletion" and "225/163" claims
+    (F-297-08 items 6 and 7); the recording pass loses MORE attribution than
+    declared, because rewritten asserts do not re-raise so execution continues
+    into non-AssertionError exceptions that abort the test (visible in M9, which
+    records `assert len(found)==1` then raises IndexError on found[0], and in M3),
+    so M9's and M3's recorded line sets are lower bounds rather than sets; and the
+    harness selects whole FILES, not node ids — attribution still comes from the
+    FAILED <node id> lines, which is adequate, but it is not node-id selection.
+
+recommendation:
+  decision: "revise and re-review (cycle 2)"
+  blocking_for_certification: [F-297-01, F-297-02, F-297-03, F-297-04, F-297-05]
+  card_amendments_owed: [F-297-06, F-297-08]
+  note: >-
+    Nothing here needs a redesign and nothing needs src/ to change except
+    optionally the one-line stroker set. Four of the five blocking findings are
+    closed by editing a docstring, tightening a set, or adding one cell. If cycle 2
+    lands them the card should certify comfortably — the underlying port is
+    faithful, the reuse is real, and the restructure is provably forced.

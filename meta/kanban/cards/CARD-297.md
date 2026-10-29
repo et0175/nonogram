@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-294, CARD-295, CARD-227
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_answer_key.py, tests/test_book_toc.py, tests/test_book_answer_key.py, tests/test_book_qr_slot.py, tests/test_layout_answer_tiles.py
-**Review score:** —
+**Review score:** 7.0 cycle 1/3 (not certified; 6 important, fix round 1 running)
 **Started:** 2026-10-29
 **Closed:** —
 **Actual:** —
@@ -31,9 +31,15 @@ The two remaining vector page kinds ADR-0042/R1 names, now that the puzzle page
 
 1. **The table of contents** — its rows, the puzzle numbers, names and folios,
    and its leader dots.
-2. **The answer pages** — the solution tiles with their grids, each tile's header
-   (number, picture name, difficulty dots), the level headings and the SOLUTIONS
-   divider's text. **The answer key is the only place the book prints a picture's
+2. **The answer pages** — the solution tiles with their grids, each tile's band
+   (number, picture name, difficulty), and the level headings.
+   <!-- AMENDED 2026-10-29, review cycle 1 F-297-06: "and the SOLUTIONS divider's
+   text" struck, because it contradicted this card's own G-2, which says to leave
+   that path drawing as it does (CON-020's :355 sibling requires the face to keep
+   being recorded). The implementation round followed G-2 and was right to. Also
+   "header" -> "band", and "difficulty dots" -> "difficulty": measured, a tile's
+   band prints the difficulty as a WORD -- band_identity composes "Puzzle 12 ·
+   Hard" -- and no page in src/ prints dots at all. --> **The answer key is the only place the book prints a picture's
    title** (ADR-0037/R1, FR-033/AC-194) — that stays exactly true.
 3. **The QR slot**, where the page reserves one. The QR *glyph* is a grid of
    black squares, so it is rectangles, not an image — but see G-4: making the QR
@@ -53,11 +59,22 @@ one.
   references an image XObject. (test:
   `TestAnswerAndTocPages_CarryNoImageXObject`.)
 - **AC-2** (the answer key still prints the title, and it is still the only place
-  that does): *Given* a book, *then* each solution tile's header carries the
-  picture's name, and no puzzle page anywhere in the interior does. (test:
+  that does): *Given* a book, *then* a solution's **caption** carries the
+  picture's name **wherever the trim leaves room for one**, and no puzzle page
+  anywhere in the interior does. (test:
   `TestAnswerKey_IsTheOnlyPlaceTheTitleIsPrinted` — the second half is the half
   that can fail, and it must be asserted over the whole interior, not over the
-  answer section.)
+  answer section. **The agreement must be asserted over the CLIPPED strings too,
+  not only the unclipped set** — that is the one axis on which the two media can
+  diverge, and cycle 1's F-297-03 measured the hole.)
+  <!-- AMENDED 2026-10-29, cycle 1 F-297-06/F-297-03: "each solution tile's
+  header" -> "a solution's caption wherever the trim leaves room", because the
+  title is carried by the CAPTION, not the tile band, and because "each" is
+  unsatisfiable against this card's own AC-6: CARD-197's AC-6 omits the caption
+  rather than overlap the drawing, and a square trim leaves a full-page answer
+  no slack at all (measured 0 px on the 10.0, 12.7 and 15.24 cm square trims).
+  Measured on the 10x10 trim: of four titles, 1 prints, 1 is clipped, 2 are
+  omitted -- so the original literal was false of the shipping book. -->
 - **AC-3** (the tiles are the grid routine, not a third copy): *Given* the
   answer tiles, *then* they are drawn through CARD-295's grid routine, derived
   from the module's AST and default-DENY per ADR-0039/R2. (test:
@@ -70,11 +87,26 @@ one.
   plan** — seven positional tests converted, `solved_puzzle_page` renders
   **1225 → 175 (−85.7 %)**, the file's AC-1 group down to **0.78 s**. Build on
   that; do not reintroduce a render to check a number the plan states.
-- **AC-5** (the difficulty dots on a tile header are the priced primitive):
-  *Given* a tile header's dots, *then* they render as round shapes at the stated
-  diameter, read back by poppler. (test:
-  `TestAnswerTileHeader_DifficultyDotsAreRound` — the same primitive CARD-294
-  priced and CARD-296 first used; three users, one implementation.)
+- **AC-5** (the round primitive CARD-294 priced is exercised where a tile band
+  would use it): *Given* the narrowest band a packed solution tile reserves,
+  *then* the ladder COMP-007 measures for it renders as round shapes at the
+  stated diameter, read back by poppler. (test:
+  `TestAnswerTileHeader_DifficultyDotsAreRound` — the primitive CARD-294 priced.
+  **It has no second user yet**, and nothing is wired onto a page: a tile band
+  prints the difficulty as a word, so this criterion exercises the primitive
+  rather than a shipping page, and `test_no_answer_page_draws_a_round_mark_today`
+  is the test-shaped limit that makes CARD-233 red here instead of discovering
+  it.)
+  <!-- AMENDED 2026-10-29, cycle 1 F-297-06: the clause "the same primitive
+  CARD-294 priced and CARD-296 first used; three users, one implementation" was
+  FALSE in two parts, both measured. (a) `book_guide_vector.draw_legend` draws no
+  round shape and says so in its own docstring -- CARD-296 measured this same
+  claim false and DECLINED it, so there was no first user and there are not three
+  users. (b) A tile band prints the difficulty as a word: `difficulty_dots` has
+  one call site, from `_draw_difficulty_dots`, which has ZERO callers in src/ --
+  dead code, pre-existing, recorded across CARD-228's three cycles, CARD-241's
+  G-4 and CARD-296's pre-gate, and NOT this card's to fix. "header" -> "band"
+  throughout. -->
 - **AC-6** (the answer caption's face still holds the floor): *Given* the vector
   answer pages, *then* the answer caption holds CON-020's 10 pt floor, asserted
   against the stream's `Tf` sizes. (test:
@@ -88,7 +120,15 @@ one.
 
 - **EC(ADR-0042/R3):** neither writer derives geometry, across every book profile
   and every tile count per page. test:
-  `PropertyTest_AnswerAndToc_WriterDerivesNoGeometry`.
+  `TestPropertyTest_AnswerAndToc_WriterDerivesNoGeometry`.
+  <!-- CORRECTED 2026-10-29, cycle 1 F-297-05: the ref named the unprefixed
+  spelling, which is not a class that exists and which pytest could not collect
+  if it did -- `pyproject.toml` sets no `python_classes`, so the default `Test`
+  prefix applies and a bare `PropertyTest_...` class holds tests pytest silently
+  never runs. The round's rename was correct and was declared rather than hidden.
+  Worth keeping: `git grep -lw` for the OLD spelling exits 0, and the only thing
+  making it do so is a docstring sentence the round itself wrote -- the same
+  prose-revives-a-dead-ref mechanism measured on CARD-301 the same day. -->
 - **EC(ADR-0037/R1):** across a seeded corpus of books, the picture's title
   appears on answer pages and nowhere else in the interior. test: AC-2's test
   extended over the corpus, with a minimum case count asserted inside it.
@@ -224,6 +264,99 @@ shape was measured to red two figures in `tests/test_book_export_interior_cover.
 — a file G-5 forbids this card to touch. M4 survived its first round and the
 hole was real (a tone reading could not see *which* boundaries were drawn);
 M8/M8b are declared survivors with an argued unreachability proof.
+
+## [Review cycle 1 — 7.0, not certified. No product-correctness defect; every finding is in the claims layer]
+
+Report: `meta/review/20261029T030250Z-CARD-297-cycle1.yml` (8 findings — 6
+important, 2 minor — `yaml.safe_load` clean). Cycle 1 ran its mutation work in
+**three private detached worktrees under its own scratchpad**, never in the card
+worktree, and removed all three clean.
+
+**What reproduced exactly.** G-6 re-derived in two worktrees: 9570 → 9641, **71
+added / 0 removed**, 60 + 11. The bitmap figures through a *broader* instrument
+(hooking `Image.new`, `open` and `frombytes`, counting `ImageDraw.__init__`):
+**+70 page bitmaps, +183 ImageDraw, +298.04 Mpx** — all three to the digit, with
+the attribution exact (68 from the module-scoped `_Recorded` walk paid **once**
+across four classes, 2 from AC-1's positive control) and the real cost **+1.39 s**
+on that file. **All 13 of the round's mutants re-fired: 13/13 reproduce, 29 named
+cells red across the 11 kills, zero misattributions**, blob-at-HEAD and
+line-count-preservation verified for every pair. `book_pdf_generator.py`
+byte-identical to main. Impact gate **1447 passed / 0 failed / 0 skipped** over
+17 files.
+
+**The five verdicts, one way each.** Zero-conversion / +70 bitmaps → **correct
+sequencing**, and the deduction lands on *this card*: G-5 asks for a conversion
+CARD-298 must precede, and all 20 pixel sites in the file are pre-existing
+answer-page sites. AC-5 → mechanism **accepted**, bookkeeping **rejected** (see
+the amendment above). AC-2's cross-medium substitution → **necessary** (the
+literal is unsatisfiable by this card's own AC-6) **but blind on clipping**.
+Downstream restructure → **right, and forced**: a planted four-call generator
+method moves the door-axis walk's `inside` 17 → 21 and the cell reds, and it
+also breaks the walk's last step 0 → 3, which the round missed. Scope growth →
+**accepted**, and strictly more disciplined than the CARD-295 precedent it cites
+(295: 4 declared / 11 shipped, +117 to the generator, 50 lines into the
+now-forbidden file; 297: 5 files, 0 deletions, not one existing line modified).
+
+### The two findings that matter
+
+- **F-297-01 + F-297-04 — AC-3's guard reads as derived and is hand-listed, at
+  two layers.** `_STROKERS = ("line", "rectangle")` is a literal tuple, and
+  `_strokers_of` shares it so the stroker-set pin is blind too; the operator
+  allow-list below it admits `c`, `h` and `B`. Cycle 1 built the real artefact
+  and it passes with **zero violations** — `('0 G','1 w','24 228 m','24 12 l',
+  '48 228 m','48 12 l','72 228 m','72 12 l','S')`, three ruled lines, a complete
+  grid walk, through doors the guard does not watch. **Verified by the
+  orchestrator, with a larger denominator than cycle 1 stated**: `ContentStream`
+  has **16** public methods, of which **eight** can put a stroked line on a page
+  (`line`, `rectangle`, `curve`, `begin_path`, `line_to`, `close_path`, `paint`,
+  `round_mark`) — the guard watches **two**. This is verbatim the board's
+  standing rule: *"default-deny is still satisfiable with a positive catalogue of
+  write shapes underneath; the durable form is that the exemption set is derived,
+  every entry machine-checked, and the controls are the shapes the guard was NOT
+  written from."* The **exemption** half is sound and cycle 1 credits it.
+- **F-297-02 — M8/M8b: right answer, wrong reason.** The declared bound's stated
+  mechanism is **self-refuting**: summing `/Widths` and dividing once computes
+  `(W·n)/1000`, which is precisely *not* `n·(W/1000)` in floating point. Cycle 1
+  measured the identity failing at 56 of the first 200 counts, first at n=9, and
+  at twelve counts inside the very 120–153 production range the docstring cites.
+  (The orchestrator re-derived the pure arithmetic through a different door — the
+  illustrative `318/1000` from the docstring's own prose rather than the real
+  metric — and got 16 failures in 200, first at n=15, 3 inside 120–153: a
+  different domain, so it confirms the *mechanism* without reproducing the
+  *counts*.) **The loops are still legitimately dead**, by the argument cycle 1
+  reached after correcting its own first reading: a 500k-run sweep over the
+  reachable domain (0–2550 px, the widest stocked trim) fires them **0 times**.
+  So the conclusion holds and the declared reason has to be replaced.
+
+### Also owed to the fix round
+
+Six of cycle 1's own thirteen mutants survive, clustered in the undeclared
+`book_vector_draw.py` +214: of `draw_folio`'s four decisions, exactly **one**
+has a control, and `x = left` makes **every right-hand folio print at the
+gutter** while 596 cells pass. Eight figures in the round's account do not
+reproduce, four of them new: "the title prints nowhere on the 10×10 trim" (it is
+1 prints / 1 clipped / 2 omitted, though the committed cell is scoped honestly);
+the "72.9 vs 73 px thresholds agree for every integer slack" claim has **no
+committed assertion at all**; "13 mutants, all deletion" (M10 substitutes, M11
+adds); and "225/163 asserts instrumented" are **pre-fix** figures (HEAD:
+233/169).
+
+### Credited in full
+
+CARD-219's fence, all four parts, including that the structural cell really reds
+when a drawn-page idiom is planted. G-2 (the divider recorded on both profiles,
+4 node ids green). §6.6's raster leader-loop finding (exactly linear for n in
+1..600 at every size 8..120 px). The QR conclusion. No third grid walk. The
+no-new-import claim (0 added import lines).
+
+### A standing observation, not this card's to fix
+
+`_draw_difficulty_dots` is **genuinely dead in `src/`** — zero references of any
+kind, the only dynamic-dispatch route being a test spy that restores itself. The
+state is deliberate and pre-existing (CARD-228's three review cycles, CARD-241's
+G-4, CARD-296's pre-gate). **Three separate cards have now independently
+re-measured this same zero and each paid a round for it**, which is a candidate
+for a standing rule rather than a fourth re-measurement.
 
 ## Worktree notes
 
