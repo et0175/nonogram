@@ -1,6 +1,6 @@
 # CARD-269: Hint ladder — point at the line, explain the deduction, and only then reveal; plus a Check for wrong marks
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,10 +9,10 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/269-hint-ladder
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-269
 **Source:** quick — owner decision 2026-10-22 (player-convenience session: "propose more sophisticated hint" → ladder proposal approved); no handoff increment
 **Idea:** —
-**Wave:** —
+**Wave:** 67 <!-- STAMPED 2026-10-30 on owner decision: paired with CARD-306 after CARD-308's merge closed wave 66. Chosen over CARD-268 (they overlap 0.86 on solver_state.js/solver.js/admin.css/tokens.css, so only one can run) and over CARD-216 (its core is a stored column plus a migration, and all 27 of this suite's skips are DATABASE_URL-gated, so its own verification would land skipping green on this box). -->
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/static/tokens.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py, tests/test_admin_design_tokens.py
 **Review score:** —

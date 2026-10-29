@@ -1,6 +1,6 @@
 # CARD-306: The vector puzzle page grows its sheet furniture — folio, frame rules, grid-size label and QR block — because a page with no number cannot ship
 
-**Status:** ready
+**Status:** in progress
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 1d
@@ -8,8 +8,8 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/306-vector-puzzle-page-furniture
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-card-306
 **Source:** `src/nonogram/admin/book_puzzle_vector.py`'s own module docstring, which raises the gap and names CARD-298 for it; CARD-295's handoff; confirmed by CARD-298's implementation round, 2026-10-29. Cut by the orchestrator on owner decision after CARD-298 hit the scope gate.
 **Idea:** —
 **Wave:** 67
