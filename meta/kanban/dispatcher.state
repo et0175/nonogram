@@ -2593,3 +2593,71 @@ active:
   phase: review cycle 2 scored 7.5 on 79ecafcb, one gating finding, fix round 2 owed (cycle 3 is the LAST)
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
 queued: []
+
+# --- CARD-299 MERGED 7e434c72, 2026-10-29 late night ---
+# Gate 2 GREEN: 9736 passed, 27 skipped, 1 xfailed, 0 failed, 0 errors, 22:53.
+#   Reconciles exactly as main's 9720 + this card's 16 additions. Lock written
+#   with an absolute worktree line, trap armed with it and disarmed in the same
+#   breath, file verified gone, 0 rival pytest at both ends by executable name.
+#   AC/EC/G gate run BY NODE ID (7 passed, 0 skipped, each named in -rA).
+#
+# GATE 1 WAS RED AND NEITHER FAILURE WAS THE CARD'S. Both arms measured first.
+#   (1) THE ORCHESTRATOR'S OWN BREAK. Cutting a card to `skipped` put a SIXTH
+#       status spelling on the board, and a guard reads every card's status and
+#       reds on a spelling it cannot parse -- by design, as its own docstring
+#       promises. It reproduced identically on main alone AND on the card's
+#       certified tip, because that guard deliberately reads the MAIN working
+#       tree's board rather than the checkout's, so it would have reded in any
+#       card's gate. Fixed on main before re-gating.
+#       THE FIX THAT WOULD HAVE BEEN WRONG: widening the status set alone. The
+#       kanban skill defines `skip` as unblocking dependents "as if the
+#       dependency were done", so a parser reading the new status as merely
+#       not-done keeps every declaration naming it alive forever -- the false
+#       green that guard exists to refuse. The terminal-status set landed with
+#       it, and because no declaration names such a card today the real board
+#       cannot witness the claim, so it got four synthetic-board arms and a
+#       killed mutant rather than shipping as a claim with no control.
+#   (2) A FLAKE, measured, routed to a new card: ONE RED AGAINST TWO GREENS on
+#       the same code path, surviving four narrowing attempts including a
+#       1018-test prefix through its own file, which clears everything
+#       collecting before it. It also cannot have been caused by failure (1),
+#       which collects AFTER it.
+#       NOT CLAIMED: that the flake is understood. One red and two greens
+#       establish non-determinism and nothing else, so the new card's first
+#       criterion is to decide determinism from two unchanged full runs rather
+#       than to treat this card's single green as the answer.
+#
+# MAIN NOW HAS A FULL-SUITE BASELINE IT HAD BEEN MISSING: 9720 passed, 27
+#   skipped, 1 xfailed, 0 failed, 21:15 -- the same 9720 as the previous wave's
+#   green gate, with only one non-meta file changed between them.
+#
+# WHAT THE MERGE ALSO CORRECTED, all of it the orchestrator's own: a census that
+#   counted MENTIONS as imports (14 where the measured figure is 12, with a
+#   third number again from a looser grep, measuring a third thing); a paragraph
+#   written one-kind where the derived set is two; and a pair of line-count
+#   figures found STALE at the gate, because they were measured by review cycle
+#   1 and the fix round aged them out. The deletion counts were the only two
+#   that survived unchanged, which is exactly why a spot check would have
+#   passed them.
+#   AND one of the card's own gate clauses was wrong: it demanded a diff showing
+#   a check ref had MOVED, when not moving it is what kept an ERROR-level trace
+#   hazard from ever being armed.
+#
+# A NEW CARD was cut for the flake, and a board status new to this file now has
+#   its own rendered section. Board re-derived as SETS from all 319 card files
+#   and the check PASSES: 267 done, 45 ready, 2 in progress, 1 parked, 3
+#   blocked, 1 skipped.
+wave: 66
+mode: interactive
+max_concurrent_override: 2
+cap_exceeded_by_owner_decision: 3
+active:
+- id: CARD-308
+  wave: 66
+  phase: review cycle 2 scored 7.5, fix round 2 dispatched (cycle 2 of 3)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-308
+- id: CARD-285
+  wave: unscheduled
+  phase: review cycle 2 scored 7.5, fix round 2 dispatched (cycle 3 is the LAST)
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-285
+queued: []

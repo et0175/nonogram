@@ -1,0 +1,919 @@
+version: 1
+generated_at: "2026-10-29T16:00:00Z"
+target: "card/299-interior-claims-read-the-stream @ f0304cb9 (cycle 2/3; two commits on the cut 4ce84c30, 6 files +1281/-27 cumulative, fix commit 4 files +558/-54)"
+card: CARD-299
+cycle: 2
+mode: fix_verification
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+certifies: true
+
+verdict: >-
+  Both of cycle 1's gating findings are genuinely closed, and the first one is
+  closed the hard way rather than the cheap way. `assert kind.value != "puzzle"`
+  has not been widened to a two-element literal: it has been replaced by a set
+  DERIVED from `src/` by an `ast` walk, and I proved the derivation really reads
+  `src/` by deleting one call line in `src/nonogram/admin/book_answer_vector.py`
+  and watching two independent cells red. The round's stated reason for AST over
+  a text search is the load-bearing claim of the whole mechanism, and it
+  reproduces exactly: a text search over the same two authorities exempts the
+  GUIDE page, whose worked example is precisely the lettering CON-020 does not
+  exempt. F-003's "not derived, pinned instead" is honest — I looked for an
+  authority and there is none — and its partition control is real, reddening on
+  a dropped kind where the round-1 tree passed silently. F-004's rewrite now
+  calls the module (verified by AST over the cell, not by reading the prose) and
+  F-006's cover arm passes with a sentinel cover AND reds under both its own
+  mutant and a deletion of the arm. Nothing regressed: R6 is still a lens, node
+  ids 172 -> 188 with 0 removals and all four parametrised floor ids
+  byte-identical, `src/` and `tests/fixtures/` 0 files across both commits, the
+  registry is semantically identical to the cut, G-1's cover `same_page` is
+  byte-identical, and the validator's warning set is unchanged by this card's
+  own meta delta. No gating finding this cycle. Four non-gating findings remain,
+  all forward-looking, and a short list of card amendments is still owed.
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-299.md on main in full (702 lines) -- the narrowing, cycle 1's record and the fix round's record"
+    - "meta/review/20261029T000000Z-CARD-299-cycle1.yml on main in full (665 lines)"
+    - "the whole diff 4ce84c30..f0304cb9 by numstat and name-status; the fix commit eed831ea..f0304cb9 separately"
+    - "tests/test_book_interior_type_floor.py at HEAD: LETTERING_KINDS/NON_LETTERING_KINDS (:389-:414), CLUE_DIGIT_DRAWERS (:420), vector_writer_sources (:428), called_names (:453), draws_clue_digits (:473), CLUE_DIGIT_KINDS (:502), StreamFace (:508), stream_faces (:537), below_floor_in_its_medium (:601), kinds_covered_in_their_medium (:615), and all of TestInteriorType_TheStreamArmIsReached and TestInteriorType_TheNonVacuityFloorCanFail"
+    - "tests/property/test_book_export_interior.py at HEAD: the R6 block comment (:403-:458), _no_interior_page_is_the_cover (:563-:601), TestInteriorReadings_TheStreamArmIsReached (:1368-:1509)"
+    - "tests/helpers/pdf_vector.py page_media (:101-:133); tests/helpers/pdf_pages.py; tests/helpers/book_corpus.py:889"
+    - "src/nonogram/admin/book_pdf_generator.py _RASTER_DECLARATIONS (:594-:700); book_answer_vector.py:403; book_puzzle_vector.py:211; book_vector_draw.py:74,:513; book_guide_vector.py:230-:263"
+    - "meta/architecture/requirements.yml CON-020 (check block :6571-:6650); the ADR's R6 block (:568-:699)"
+    - "meta/kanban/cards/CARD-231.md (the divider owner) and CARD-314.md (the clue-digit follow-on)"
+  not_reached:
+    - "the full suite -- the orchestrator's merge gate, deliberately not run"
+    - "AC-1's first mutant (one face at 9 pt) -- carried from the round and from cycle 1, deferred(cost); the second mutant is the one AC-1 calls load-bearing and it was reproduced in cycle 1 (M-1) and is unchanged by this diff"
+    - "cycle 1's M-1 (footer-label draw.text deleted) and M-2 (band) -- not re-run: _draw_page_frame and _set_band are untouched by the fix commit (0 src files), so the verdicts carry"
+    - "the 12 modules that import tests/helpers/pdf_pages.py's one-image reader beyond the two this card converted -- pdf_pages.py is byte-unchanged, so they are outside the derived impact scope"
+  confidence: high
+
+impact_scope_derivation: >-
+  Derived. `git diff --name-status 4ce84c30..f0304cb9` is six M entries and
+  nothing else: 0 files under `src/`, 0 under `tests/fixtures/`, 0 added, 0
+  deleted, `pyproject.toml` absent. The fix commit itself touches four files and
+  only two of them are code (`tests/test_book_interior_type_floor.py`,
+  `tests/property/test_book_export_interior.py`); `tests/helpers/pdf_vector.py`
+  changed in the first commit only and is purely additive there (45/0), and
+  `tests/helpers/pdf_pages.py` is byte-unchanged. Scope therefore = the two
+  changed code modules, every module importing `pdf_vector` (11, by grep), the
+  six meta-guards, the G-4 tripwire module plus COMP-007's two surface modules,
+  `tests/test_book_pdf_memory.py`, and the two refused probe modules.
+
+runs:
+  interpreter: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts='' -p no:randomly, PYTHONDONTWRITEBYTECODE=1"
+  lock_state: "meta/kanban/.full-suite.lock absent for the whole cycle; no run was refused; the full suite was not run"
+  results:
+    - "the two changed modules (tests/test_book_interior_type_floor.py tests/property/test_book_export_interior.py) -> 42 passed, 0 skipped (23.24s) -- the fix round's figure reproduced"
+    - "tests/test_book_interior_type_floor.py alone -> 34 passed (28 at eed831ea, 23 at the cut: both reproduced)"
+    - "the 8 other pdf_vector consumers (test_book_pdf, test_book_difficulty_dots, test_book_grid_rules, test_book_guide_page_vector, test_book_pdf_vector_primitives, test_book_puzzle_page_vector, test_book_solved_answer_key, test_book_toc) -> 640 passed, 0 skipped (75.80s)"
+    - "the G-4 tripwire module + COMP-007's surface + the memory module + the two refused probe modules (tests/property/test_cli_exports_byte_identity.py, tests/test_book_pdf_memory.py, tests/test_layout_page_spec.py, tests/test_export_image.py, tests/property/test_book_layout.py, tests/property/test_book_two_up.py) -> 249 passed, 1 skipped (53.16s)"
+    - "the six meta-guards (test_collected_names, test_suite_profile, test_cli, test_guard_integrity, test_kill_matrix, test_impact_set) -> SEE meta_guard_run below"
+  skips_attributed:
+    - >-
+      EXACTLY ONE skip across every run in this cycle, by name and with its
+      commit: tests/test_book_pdf_memory.py:1297 at f0304cb9 --
+      `setrlimit(RLIMIT_AS, 807840000)` raised ValueError "current limit exceeds
+      maximum limit", the kernel refusing the bound. Quoted with the commit
+      because the line number is commit-dependent (cycle 1 measured 1296 at
+      f64112f2 and 1297 from 1fd39bb1 onward); at THIS commit `grep -n
+      "pytest.skip("` puts it at 1297, and `-rs` reports 1297.
+    - "0 other skips, 0 xfails, 0 errors in any selection this cycle."
+  conditional_silence_check: >-
+    `_conditional_silences(<source>) == []` for all four files the fix commit or
+    the first commit changed under tests/. Measured by IMPORTING the function
+    and resolving it with `inspect`, not by grep: it is defined at
+    tests/test_suite_profile.py:2743 (inspect.getsourcelines -> 2743), which
+    confirms the fix round's correction to the orchestrator for the sixth time.
+    tests/test_guard_integrity.py:1518 mentions the name in prose only; the two
+    sibling functions really do live there -- `_check_log_invocations` at
+    tests/test_guard_integrity.py:577 and `_module_scope_silences` at :1511.
+
+node_ids:
+  method: >-
+    `--collect-only -q` over the six Touches modules at 4ce84c30 and at
+    f0304cb9, each in its own `git archive` copy under the scratchpad, each
+    PROVEN to import its own src before collecting (`nonogram.admin.
+    book_pdf_generator.__file__` asserted to start with the copy's path, printed
+    for both). Paths passed as explicit arguments, never through an unquoted
+    shell variable -- cycle 1's zero-id selection was zsh not word-splitting one,
+    and a zero-id collection is indistinguishable from a clean set. Sorted,
+    `comm -23` / `comm -13`.
+  base: 172
+  head: 188
+  removed: 0
+  added: 16
+  parametrised_ids: >-
+    FOUR, not two, and all four byte-identical in both sets (removals 0 proves
+    it set-wise, and I printed them):
+    TestInteriorType_EveryFaceHoldsTheFloor::test_every_face_outside_the_exemption_is_at_least_ten_points[book1]
+    and [min-trim], and ::test_the_recording_covers_every_kind_of_interior_lettering[book1]
+    and [min-trim]. The brief and the card say "two node ids", meaning the two
+    test FUNCTIONS; the collected ids are four because of the `book` fixture.
+  added_ids:
+    - "tests/property/test_book_export_interior.py::TestInteriorReadings_TheStreamArmIsReached::test_a_vector_page_that_paints_is_caught_by_the_stream_arm"
+    - "tests/property/test_book_export_interior.py::TestInteriorReadings_TheStreamArmIsReached::test_an_unclassifiable_page_is_a_failure_and_not_a_pass"
+    - "tests/property/test_book_export_interior.py::TestInteriorReadings_TheStreamArmIsReached::test_no_interior_page_is_the_cover_reads_the_covers_permanent_declaration"
+    - "tests/property/test_book_export_interior.py::TestInteriorReadings_TheStreamArmIsReached::test_the_guide_pages_vector_arm_fails_by_name_and_names_its_card"
+    - "tests/property/test_book_export_interior.py::TestInteriorReadings_TheStreamArmIsReached::test_the_title_pages_blankness_is_read_from_the_stream"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheNonVacuityFloorCanFail::test_dropping_a_page_kind_reds_the_medium_independent_assertion"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheNonVacuityFloorCanFail::test_dropping_a_semantic_kind_reds_the_coverage_assertion"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheNonVacuityFloorCanFail::test_the_lettering_kinds_partition_the_page_kinds"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_a_page_kind_with_no_vector_writer_is_a_failure_not_a_pass"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_a_vector_answer_page_refuses_too"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_a_vector_puzzle_page_refuses_rather_than_reading_its_clue_digits"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_lifting_a_declaration_makes_the_stream_arm_read_that_page"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_the_floor_catches_a_real_vector_pages_sub_floor_type"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_the_refusal_does_not_absorb_the_guide_or_the_toc"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_the_refused_kinds_are_derived_and_agree_with_the_spy"
+    - "tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_the_stream_arm_of_the_floor_judges_a_face_it_is_handed"
+  trace_consequence: >-
+    `meta/architecture/trace.yml` is not in the diff, no test was renamed, and
+    CON-020's `check:` ref is still `TestInteriorType_EveryFaceHoldsTheFloor`,
+    which resolves to a real `class` at tests/test_book_interior_type_floor.py:659.
+    All four of CON-020's listed tests that live in this file resolve
+    (TestInteriorType_EveryFaceHoldsTheFloor :659,
+    TestInteriorType_FloorHoldsWithoutArial :733,
+    TestInteriorType_OnlyPuzzleClueDigitsAreExempt :786,
+    TestDividerPage_PointSizeIsIndependentOfDpi :827). The ERROR-level
+    `validators/trace.py::_check_covered_tests` gate-3 hazard was never armed,
+    in either commit.
+
+metrics:
+  diff_cumulative: {files: 6, added: 1281, removed: 27}
+  diff_fix_commit: {files: 4, added: 558, removed: 54}
+  src_files_in_delta: 0
+  fixtures_files_in_delta: 0
+  pyproject_in_delta: false
+  files_added_or_deleted: 0
+  per_file_cumulative:
+    - "meta/architecture/decisions/adr/0042-...md: 96/0"
+    - "meta/architecture/requirements.yml: 71/0"
+    - "tests/helpers/pdf_vector.py: 45/0"
+    - "tests/property/test_book_export_interior.py: 362/11"
+    - "tests/test_book_interior_type_floor.py: 689/2"
+    - "tests/test_book_pdf.py: 18/14"
+
+validator:
+  binary: "/Users/omelnikova/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py --root meta/architecture --phase all (the forge_1 copy named in meta/kanban/config.yml, NOT the plugin cache)"
+  worktree_at_head: "0 errors / 102 warnings"
+  isolation_method: >-
+    NO comparison to main is made, in either direction. The review YAMLs and
+    other non-excluded files differ between the two trees, so a cross-tree
+    warning-count comparison is unsound whatever the cause; and a `git archive`
+    copy is not a valid subject (no `.git`, so the staleness and drift checks
+    fall silent). The delta was isolated ENTIRELY INSIDE THIS WORKTREE: the two
+    meta files this card touches were swapped back to their 4ce84c30 contents in
+    place, the validator re-run, and the files restored (`git diff --quiet`
+    asserted clean for both afterwards).
+  isolated_result: >-
+    102 warnings with this card's meta delta, 102 without it, and the sorted
+    warning sets are byte-identical -- `comm -3` over them returns 0 lines. This
+    card's registry and ADR change has ZERO validator effect. 0 errors in both.
+  instrument_trap_hit_and_corrected: >-
+    My first extraction selected ZERO warning lines and would have reported a
+    clean set that I had never actually read. Cause: the validator prints
+    `  [WARN ] ...` INDENTED, and my filter was anchored `^\[WARN`. Caught by the
+    0/0/0 count against a summary line that says 102, re-extracted with an
+    unanchored match from the same saved outputs. Stated because an
+    empty-selecting instrument is indistinguishable from a clean result.
+  stray_file_controlled: >-
+    The worktree is NOT clean as the brief states: it carries one untracked file,
+    `meta/review/CARD-299-cycle1.yml`, byte-identical (`cmp -s`) to main's
+    `meta/review/20261029T000000Z-CARD-299-cycle1.yml`. Because `meta/review/**`
+    is not excluded from the ref resolver I measured its effect: with the file
+    moved aside the validator still reads 0 errors / 102 warnings and the warning
+    set is byte-identical. It resolves nothing -- cycle 1's hygiene held, and the
+    file spells none of the three dead names as a whole token. See F-205.
+
+guardrails:
+  G-1: >-
+    HOLDS, re-derived. `assert same_page(cover_page, expected_cover), label` is
+    at 4ce84c30:652 and at f0304cb9:857, and the line plus its three-line
+    context are character-for-character identical (compared programmatically,
+    not by eye). Not converted.
+  G-2: >-
+    HOLDS, and this round made it sharper rather than weaker: `divider` is still
+    read by the spy arm, is still one of LETTERING_KINDS, and a vector divider is
+    now a loud FAILURE rather than a page read on a guess. See answer 3.
+  G-3/G-3b: >-
+    HOLDS. No oracle converted; no device-fact test touched.
+    TestBookGridRules_WeightsSurviveTheFloor (tests/test_book_grid_rules.py:676)
+    and TestBookGridRules_PointsNotPixels (:730) are both out of the diff and
+    both green inside the 640-passed run. The device-fact discriminator is still
+    only a declared exemption in the ADR, because the guard that would have to
+    encode it is CARD-312's -- AC-3 and AC-4 are both re-homed.
+  G-4: >-
+    HOLDS, verified the way the brief demands -- by RUNNING the module, because
+    the tripwire's name has no definition. tests/property/test_cli_exports_byte_identity.py
+    is out of the diff and green inside the 249-passed run, as are
+    tests/test_layout_page_spec.py and tests/test_export_image.py. The name is
+    spelled SPLIT in this report; see dead_ref_hygiene.
+  G-5: "HOLDS. 0 files under src/ in either commit (name-status: six M entries, none under src/)."
+  G-6: >-
+    HOLDS, and stronger than stated. `yaml.safe_load` of
+    meta/architecture/requirements.yml is `==` across 4ce84c30 and f0304cb9, and
+    stripping `^\s*#` from both gives a zero-line diff -- the registry is
+    semantically identical, so no statement, id, check ref or scope moved. For
+    the ADR (a markdown file, so `#` is a heading there) I stripped `<!-- ... -->`
+    blocks as well as `^\s*#` YAML comment lines: the remaining 355 non-blank
+    lines are identical on both sides. Every ADR change is commentary.
+  G-7: "HOLDS. tests/fixtures/** has 0 entries in either commit; the 21 book baselines are unmoved; no corpus minimum lowered."
+  G-8: >-
+    HOLDS. 0 A entries anywhere in the diff, so no new file under tests/ can have
+    added a RENDER_HEAVY_SNAPSHOT idiom. tests/test_suite_profile.py's verdict is
+    in meta_guard_run.
+  G-9 (INVERTED -- the lens MUST survive): >-
+    HOLDS. ADR-0042/R6 still carries `check: {kind: review-lens}` (ADR line 588,
+    under `- id: ADR-0042/R6` at line 568), and the ADR's non-comment content is
+    byte-identical to the cut's, so the flip cannot have happened by any route.
+    R6's flip stays CARD-312's. The refusal and its four measurements are
+    recorded in the ADR itself.
+  ADR-0006/R1: >-
+    HOLDS, verified by SUBSTANCE and not by the forbidden name. pyproject.toml is
+    out of the diff entirely and the only imports either commit adds are
+    first-party (`nonogram.admin.book_pdf_generator`,
+    `nonogram.admin.book_vector_draw`, `tests.helpers.pdf_vector`,
+    `tests.helpers.book_corpus`) plus stdlib (`ast`, `inspect`, `textwrap`,
+    `dataclasses`, `pathlib`, `sys`). See corrections_to_the_record for the
+    sharpened phantom-pointer reading.
+
+acceptance_criteria:
+  AC-1: >-
+    MET. All four parametrised node ids byte-identical. The floor is
+    `below_floor_in_its_medium(book) == []`, a UNION of the spy arm and the
+    stream arm, so neither arm going quiet can take a face out of the judgment,
+    and the non-vacuity sibling now asserts in BOTH vocabularies (the semantic
+    set, conditional on `book != "min-trim"`, plus `planned <=
+    kinds_covered_in_their_medium(book)` with `planned` asserted non-empty).
+    Mutant 2, the one AC-1 calls load-bearing, was reproduced in cycle 1 (M-1,
+    footer label) and `_draw_page_frame` is untouched here, so the verdict
+    carries. Mutant 1 (a face at 9 pt) not re-run -- deferred(cost).
+  AC-2: >-
+    MET in substance, as cycle 1 found. The check ref did not need to move
+    because the re-expression happened inside the named class; the statement is
+    byte-identical (whole-YAML equality above). requirements.yml now explains at
+    length WHY no flip happened, which is the right place for it. The card's own
+    AC-2 text still reads as though a flip is the gate -- see amendments.
+  AC-3: "NOT OWED -- re-homed to CARD-312 by the narrowing. Not assessed."
+  AC-4: "NOT OWED -- re-homed to CARD-312 2026-10-29 with AC-3 (card line 124). Cycle 1's F-005 is CLOSED by the orchestrator, verified on the card."
+  AC-5: >-
+    MET as narrowed. "Smaller" is struck on the card. The figures are recorded
+    and now LABELLED by reading, in the ADR: `--numstat` reads 261/11 and 359/2
+    for the fix-round-1 commit's two code files, and `--stat` reads 272 and 361,
+    which are added PLUS deleted (261+11 and 359+2) rather than insertions. I
+    re-derived both: arithmetic checks, and the cumulative cut..HEAD numstat is
+    362/11 and 689/2. The labelling lives in the ADR but not on the card -- see
+    amendments.
+  AC-6: "MET. 172 -> 188, removals 0, all 16 additions named, no parametrize id reworded."
+
+mutants:
+  protocol: >-
+    Deletion only, line-count-preserving (every mutated file's `wc -l` printed
+    before and after and equal), source blob sha256 asserted BEFORE, AFTER and
+    on RESTORE with the before/after equality printed, `__pycache__` swept before
+    every run, PYTHONDONTWRITEBYTECODE=1. Run in `git archive` copies of
+    f0304cb9 and eed831ea under the scratchpad, never in the worktree -- `git
+    status --porcelain` in the worktree shows only the pre-existing untracked
+    review YAML at the end of the cycle. **PYTHONPATH=<copy>/src set on every
+    run**, because without it `import nonogram` resolves to the main repo through
+    the venv's editable install; `nonogram.admin.book_pdf_generator.__file__` and
+    `nonogram.admin.book_answer_vector.__file__` were asserted to lie under the
+    copy. Instrument proven on each unmutated copy first: 34 passed at f0304cb9,
+    28 passed at eed831ea, for tests/test_book_interior_type_floor.py.
+  results:
+    - id: M4
+      name: "src/nonogram/admin/book_answer_vector.py:403 -- `draw_clue_digits(stream, slot, face, grey=grey)` deleted (657 lines -> 657)"
+      claim: "the fix round: reds TWO cells, proving the derivation reads src/ rather than a copy of it"
+      outcome: >-
+        CONFIRMED EXACTLY. 2 failed, 32 passed. The two cells are
+        TestInteriorType_TheStreamArmIsReached::test_the_refused_kinds_are_derived_and_agree_with_the_spy
+        (AssertionError `(['puzzle'], ['answer', 'puzzle'])` at
+        tests/test_book_interior_type_floor.py:1134 -- the AST reading lost
+        `answer` while the spy reading kept it) and
+        ::test_a_vector_answer_page_refuses_too (the refusal no longer fires).
+        **This is the measurement that settles question 1: a deletion in `src/`
+        changes a derived set in the test tree and reds both the derivation
+        control and the consequence.** The set is derived, not listed.
+    - id: M2
+      name: "`\"toc\"` removed from LETTERING_KINDS, tests/test_book_interior_type_floor.py:399 (1275 lines -> 1275)"
+      claim: "the fix round: 2 failed on the fix tree, 28 passed (silent) on the round-1 tree"
+      outcome: >-
+        CONFIRMED, both halves. Fix tree f0304cb9: 2 failed, 32 passed --
+        TestInteriorType_TheNonVacuityFloorCanFail::test_the_lettering_kinds_partition_the_page_kinds
+        (the partition control) and
+        TestInteriorType_TheStreamArmIsReached::test_the_refusal_does_not_absorb_the_guide_or_the_toc.
+        Round-1 tree eed831ea with the equivalent mutant: **28 passed, 0 failed
+        -- a silent pass.** F-003's partition control is real and cycle 1's
+        finding was right.
+    - id: M3
+      name: "the page predicate in kinds_covered_in_their_medium deleted -- the `if any(call.page in pages ...) or any(face.kind == page_kind ...)` lines commented out, tests/test_book_interior_type_floor.py:628-631 (1275 -> 1275)"
+      claim: "the fix round: 1 failed on the fix tree, 28 passed on the round-1 tree"
+      outcome: >-
+        CONFIRMED, both halves. Fix tree: 1 failed, 33 passed --
+        TestInteriorType_TheNonVacuityFloorCanFail::test_dropping_a_page_kind_reds_the_medium_independent_assertion.
+        Round-1 tree with the same mutant at its own line numbers (:486-:489):
+        **28 passed -- a silent pass.** So the coverage function can no longer
+        ignore its reading, and cycle 1's F-004 was right that the old cell
+        passed on every possible implementation.
+    - id: M5
+      name: "MY OWN, not the round's -- _no_interior_page_is_the_cover's vector-arm assertion deleted, tests/property/test_book_export_interior.py:594-600 (1509 -> 1509)"
+      claim: "none; I needed proof that F-006's cell DRIVES the arm rather than merely containing a pytest.raises"
+      outcome: >-
+        1 failed, 7 passed --
+        TestInteriorReadings_TheStreamArmIsReached::test_no_interior_page_is_the_cover_reads_the_covers_permanent_declaration.
+        So the cell is non-vacuous: with the arm gone its `pytest.raises` finds
+        no exception and it reds. Combined with the two halves inside the cell
+        itself, F-006's cover arm is fully proven. See answer 5.
+  ast_instrument: >-
+    For F-004 I did not take the prose on trust. I walked each of the four new
+    cells with `ast` and listed the calls each makes into the module under test:
+    test_dropping_a_page_kind_reds_the_medium_independent_assertion (:1200) calls
+    `kinds_covered_in_their_medium`, `recording` and `_pages_by_kind` -- it DOES
+    drive the module; test_dropping_a_semantic_kind_reds_the_coverage_assertion
+    (:1188) calls `recording` and nothing else (see F-203);
+    test_the_lettering_kinds_partition_the_page_kinds (:1250) calls nothing in
+    the module, which is correct for a control over two module-level constants;
+    test_the_refused_kinds_are_derived_and_agree_with_the_spy (:1097) calls
+    `recording` and `_pages_by_kind`.
+
+answers_to_the_brief:
+  1_is_the_refusal_set_genuinely_derived: >-
+    YES, genuinely derived -- and M4 is the proof, not the prose. Deleting ONE
+    call line in `src/nonogram/admin/book_answer_vector.py` moves
+    `CLUE_DIGIT_KINDS` from `{answer, puzzle}` to `{puzzle}` and reds two cells.
+    A list with a derivation bolted on cannot do that.
+
+    THE AST-OVER-TEXT JUSTIFICATION REPRODUCES EXACTLY, and it is the load-
+    bearing claim. I ran both readings side by side over all seven page kinds.
+    For `guide`: the AST reading of `book_guide_vector.py` finds NO clue-digit
+    drawer, while a text search over the same file finds `_draw_clues` AND
+    `_write_clues` -- at :236, :241 and :676, all three inside `#:` comment
+    blocks and one docstring, never a call. So a text-derived
+    `CLUE_DIGIT_KINDS` would have contained `guide`, and `stream_faces` would
+    have REFUSED the guide page -- the one page whose worked example the file's
+    own `book_guide_vector.py:234-248` says is *"NOT exempt from CON-020's
+    floor"* (CARD-296 AC-5). The mechanism's justification is real.
+
+    THE TWO AUTHORITIES ARE COMPLETE TODAY, and I checked rather than assumed.
+    `vector_writer_sources` reads `src/nonogram/admin/book_<kind>_vector.py` and
+    `BookPDFGenerator.vector_<kind>_page`. Measured against `PageKind`'s seven
+    members: cover {} , title {vector_title_page}, guide {book_guide_vector.py},
+    toc {book_toc_vector.py}, divider {}, puzzle {book_puzzle_vector.py,
+    vector_puzzle_page}, answer {book_answer_vector.py}. The vector-writing
+    modules on disk are exactly `book_answer_vector`, `book_guide_vector`,
+    `book_puzzle_vector`, `book_toc_vector` (plus `book_vector.py`, the generic
+    page writer, and `book_vector_draw.py`, the primitives -- neither a per-kind
+    writer), and the only `vector_*` methods on the generator are
+    `vector_title_page` :5053, `vector_puzzle_page` :5601, `vector_two_up_page`
+    :5647 and `vector_puzzle_pages` :5675. The last two are NOT matched by the
+    `vector_<kind>_page` convention, but neither costs a kind its coverage
+    (`puzzle` is already covered twice). **No vector writer lives anywhere the
+    pair cannot see, and I found none.** And the direction of any miss is safe:
+    a kind the pair cannot find is a FAILURE, not a silent pass.
+
+    `CLUE_DIGIT_DRAWERS` IS HAND-WRITTEN IN ITS LOAD-BEARING HALF, and it has a
+    control. It is `{_draw_clues, _write_clues}` (from CON-020's own
+    EXEMPT_CALLERS) plus the literal `"draw_clue_digits"`. Measured: the
+    EXEMPT_CALLERS half contributes NOTHING to the AST reading -- I recomputed
+    the derivation with `{"draw_clue_digits"}` as the sole seed and got the
+    identical per-kind result for all seven kinds. So the whole derivation rests
+    on one hand-written string. Its control is
+    `assert hasattr(book_vector_draw, "draw_clue_digits")` inside
+    test_the_refused_kinds_are_derived_and_agree_with_the_spy, which reds on a
+    rename rather than letting the reading empty silently -- exactly what
+    ADR-0039/R2 asks of a seed. Adequate, and improvable: see F-204.
+  2_is_the_spy_control_genuinely_independent: >-
+    YES in the half that matters, and the measurement is the reason. The two
+    readings share the `EXEMPT_CALLERS` constant as a seed, which looks like
+    shared code -- but I measured that the shared seed is INERT on the AST side
+    (identical result with `draw_clue_digits` alone). So in practice the AST
+    reading is driven entirely by the VECTOR drawer name `draw_clue_digits`
+    found in `src/` by `ast`, and the spy reading entirely by the RASTER callers
+    `_write_clues` / `_draw_clues` observed on live `ImageDraw.text` calls joined
+    to each page's `PageKind`. Different medium, different function names,
+    different mechanism, and they agree on `{answer, puzzle}`. That agreement is
+    non-trivial.
+
+    M4 REPRODUCED: 2 cells red, named above, line count preserved 657 -> 657,
+    blob asserted before/after/restored, `__pycache__` swept, PYTHONPATH asserted
+    to the copy. The round's claim that "a renamed drawer empties the AST reading
+    and reds there rather than quietly refusing nothing" is correct for the
+    deletion case (M4) and for the rename case (the `hasattr` guard).
+
+    THE ONE LIMIT OF THE CONTROL'S INDEPENDENCE, measured and raised as F-201:
+    the spy reads the RASTER medium only, so it cannot see a VECTOR-side
+    indirection. If a future vector writer reached its clue digits through a
+    wrapper in another module, the AST reading would say "no" and the spy reading
+    would still say `{answer, puzzle}` -- the two would AGREE and both be wrong.
+    No live instance: `draw_clue_digits` has exactly two call sites in `src/`
+    (book_answer_vector.py:403, book_puzzle_vector.py:211), both direct, and
+    nothing inside `book_vector_draw.py` calls it.
+  3_the_divider_consequence: >-
+    RIGHT OUTCOME, RIGHT OWNER, AND IT REDS THE DAY CARD-231 FINISHES RATHER
+    THAN THE DAY IT STARTS -- which is the question the brief asked, and the
+    answer turns on `page_media`.
+
+    Timing, measured from tests/helpers/pdf_vector.py:101-133: a page is VECTOR
+    iff its resources name a `/Font` and no `/XObject`. So the no-writer assert
+    in `stream_faces` can only fire once a divider page is actually EMITTED as
+    operators with a face -- i.e. once CARD-231's writer exists and runs. Merely
+    starting CARD-231, or removing the divider's raster declaration while the
+    generator still paints a bitmap, leaves `page_media` at RASTER and the assert
+    silent. So this card does not red on CARD-231's first commit.
+
+    Right owner: `_RASTER_DECLARATIONS[PageKind.DIVIDER]` carries
+    `expires_with=("CARD-231",)` and `authority="owner decision 2026-10-25,
+    recorded in ADR-0042/R2"` (book_pdf_generator.py, within :594-:700), and
+    CARD-231's own 2026-10-25 revision already says it is "born vector", that
+    landing it "EXPIRES ADR-0042/R2's divider exception", that it must "remove
+    the divider from the declared raster set", and -- at CARD-231 lines 165-168
+    -- that `divider` is one of CON-020's required lettering kinds and
+    "CARD-299 left it on the raster path precisely because this card had not
+    run". The handoff is already written on the receiving card.
+
+    Right outcome: a failure is correct. The alternative is to read a divider
+    page whose exemption status nothing in `src/` can state, which is the silent
+    pass ADR-0039/R2 forbids. And the message is actionable: it names the page
+    number and kind, both conventional locations (`book_divider_vector.py`,
+    `BookPDFGenerator.vector_divider_page`), the rule, and -- importantly --
+    says "the card that wrote that page owes this file its writer's name",
+    which invites registering a differently-named writer rather than demanding
+    one of two filenames. One residual: the authority pair is a NAMING
+    CONVENTION, so a CARD-231 that puts its writer in `book_vector.py` or names
+    it `vector_divider_opener` reds on correct work until it edits this file.
+    Loud, cheap, and signposted -- F-202, low.
+  4_is_F_003_honest_and_the_partition_real: >-
+    HONEST, AND THE PARTITION IS REAL.
+
+    Honest: the round says plainly, in the `#:` block at
+    tests/test_book_interior_type_floor.py:389-398, that `LETTERING_KINDS` is
+    hand-written and that "there is no authority in the tree to derive 'letters
+    something' from". I went looking for one rather than taking it. (a)
+    `PageKind` gives the kinds but not whether they letter -- it is the authority
+    for the COMPLEMENT check, and that is exactly what the round used. (b)
+    Deriving "letters" from the recording would be circular: the set exists to
+    stop the recording going empty, so deriving it from the recording makes the
+    assertion tautological -- the vacuity trap this whole card is about. (c)
+    `meta/architecture` holds no page-kind-level lettering enumeration; the files
+    naming divider/guide/toc are trace.yml, handoff.md, requirements.yml, the ADR
+    and raw-requirements.md, none of which states which kinds letter. (d) The
+    nearest thing to an authority is a per-writer face vocabulary --
+    `book_guide_vector.py` declares `FACE_KINDS` (:256) and `EXEMPT_KINDS`
+    (:263) -- but it is CARD-296-local: `book_toc_vector`, `book_answer_vector`
+    and `book_puzzle_vector` declare neither, and it describes faces within a
+    page rather than whether a page kind letters. **So "no authority exists" is
+    true as measured.** (The `FACE_KINDS` convention is a plausible future
+    authority if it generalises; noted for CARD-309/312, not a finding here.)
+
+    Real: M2 reproduced. Dropping `"toc"` reds TWO cells on the fix tree
+    (test_the_lettering_kinds_partition_the_page_kinds, because `LETTERING_KINDS
+    | NON_LETTERING_KINDS != {k.value for k in PageKind}`, and
+    test_the_refusal_does_not_absorb_the_guide_or_the_toc) and passes SILENTLY on
+    the round-1 tree (28 passed). The control also pins the two halves disjoint
+    and requires every NON_LETTERING_KINDS entry to carry a non-empty reason.
+    Both reasons are substantively right: `cover` is not an interior page
+    (ADR-0042/R2, `expires_with=()`), and `title` is blank by AC-283.
+  5_do_F_004_and_F_006_drive_the_module: >-
+    F-004: YES. Verified two ways. By `ast` over the cell: it calls
+    `kinds_covered_in_their_medium`, `recording` and `_pages_by_kind`, where the
+    round-1 version's loop called nothing. By mutation: M3 deletes the page
+    predicate inside `kinds_covered_in_their_medium` and the cell reds on the fix
+    tree (1 failed) while the round-1 tree passes silently (28 passed). The drop
+    really goes into the READING -- the kind's pages are removed from the spy
+    recording and `stream_recording` is emptied, both through
+    `pytest.MonkeyPatch.context()` on the module's own attributes -- and the
+    first assertion in the loop (`dropped not in covered`) is the one that could
+    not be written as set algebra.
+
+    F-006's cover arm: BOTH HALVES, as the brief required.
+    (a) It passes with `object()` as the cover, on a REAL vector page produced by
+    production's own writer (the TITLE declaration lifted via
+    `monkeypatch.delitem`, then `assert pdf_vector.page_media(data)[0] ==
+    pdf_vector.VECTOR` before the call). A sentinel cover is the proof the arm
+    never touches it.
+    (b) It REDS under its own mutant: `dataclasses.replace(permanent,
+    expires_with=("CARD-999",))` set into `_RASTER_DECLARATIONS[PageKind.COVER]`,
+    and `pytest.raises(AssertionError, match="raster PERMANENTLY")`. The arm now
+    reads the premise it argues from -- ADR-0042/R2's permanence -- rather than
+    restating its own branch condition.
+    (c) And I added a third half the round did not claim: M5 deletes the arm's
+    assertion entirely and the cell reds, so the `pytest.raises` is not sitting
+    over a different assertion. Round 1's version passed with `object()`; this
+    one passes with `object()` AND fails when the premise moves. That is a whole
+    fix, not half a fix.
+    F-006's other two parts also landed: the two previously-undriven vector arms
+    now have cells
+    (test_the_guide_pages_vector_arm_fails_by_name_and_names_its_card, which
+    asserts the failure NAMES CARD-309, and the cover cell above), and the
+    floor's stream arm is exercised with a NON-EMPTY list in
+    test_the_stream_arm_of_the_floor_judges_a_face_it_is_handed -- a 9.0 pt face
+    must come out in the verdict and a face exactly at FLOOR_PT must not.
+  6_r6_node_ids_and_amendments: >-
+    R6 is still `check: {kind: review-lens}` (ADR line 588; the ADR's non-comment
+    content is byte-identical to the cut's). Node ids 172 -> 188, removals 0, all
+    four parametrised floor ids byte-identical, trace.yml out of the diff, no
+    rename, the ERROR-level gate-3 hazard never armed. Amendments still owed: see
+    card_amendments_owed -- five, all cheap, none gating, and two of them are
+    cycle 1's that the fix round answered in the code and the ADR but not on the
+    card.
+  7_what_i_measured_to_be_wrong: "see corrections_to_the_record"
+
+system_contract:
+  rules_checked: 9
+  holds: 7
+  unchecked: 2
+  violated: 0
+  verdicts:
+    - "ADR-0042/R6 (review-lens) -- HOLDS as narrowed: the lens survives, the refusal and its measurements are recorded in the ADR, and the three real sites read the medium their page was written in."
+    - "ADR-0042/R1 (test) -- unchecked / no_eligible_fact: no page changes medium in this diff; tests/test_book_pdf.py's R1 test is green in the 640-passed run."
+    - "ADR-0042/R2 (test) -- HOLDS: _RASTER_DECLARATIONS untouched (0 src files); test_every_raster_page_is_declared_with_its_reason (tests/test_book_pdf.py:1797) green in the 640-passed run. The cover's `expires_with=()` is now READ by a test, which is new force rather than new risk."
+    - "ADR-0039/R1 (review-lens) -- HOLDS, and cycle 1's one exception is closed. Every new claim has a control that can fail, and I drove four of them by mutation (M4, M2, M3, M5). The cell cycle 1 found could not fail for any implementation now reds (M3)."
+    - "ADR-0039/R2 (review-lens) -- HOLDS, where cycle 1 found it narrowly VIOLATED. The clue-digit set is derived from an enumerable authority in src/ (proved by M4); a page kind with no vector writer is a FAILURE; an unclassifiable medium is a FAILURE; and the one set that stays hand-written is held to PARTITION the enum, so an unlisted kind is a failure too (proved by M2). Residual weakness F-201 is a shallow-reading limit with no live instance, not a silent pass today."
+    - "ADR-0039/R3 (review-lens) -- HOLDS. The exemption (the clue-digit refusal) is declared in the test, in requirements.yml and in the ADR, and it now carries an explicit non-absorption control: test_the_refusal_does_not_absorb_the_guide_or_the_toc asserts guide and toc are in LETTERING_KINDS, are NOT in CLUE_DIGIT_KINDS, and are read rather than refused when forced vector."
+    - "CON-020 (test) -- HOLDS: its verifying test is green, re-expressed in place, check ref and statement unchanged, floor non-vacuous in two vocabularies, both vocabularies mutant-proven."
+    - "CON-019 (review-lens) -- HOLDS: COMP-007's CLI/web surface is untouched; the byte-identity module and both surface modules are green and out of the diff."
+    - "ADR-0036/R2 (review-lens) -- unchecked / no_eligible_fact: no geometry computation in the diff."
+
+root_causes:
+  - id: RC-1
+    title: >-
+      Cycle 1's RC-1 ("a set that LOOKS complete because today's tree makes
+      every member of it inert") is CLOSED at both scales: the clue-digit set is
+      now derived from src/ and the lettering set is now partitioned against the
+      enum. What remains of the family is one level deeper -- the derivation
+      reads each authority only at its own surface (F-201).
+    finding_ids: [F-201]
+  - id: RC-2
+    title: >-
+      Cycle 1's RC-2 ("medium-gated in the helpers but not at the boundary that
+      reads the file") is CLOSED as prose: the claim is replaced by the measured
+      version, the owing card is named, and the reader count is corrected to 12.
+      The code debt itself is CARD-309's by design.
+    finding_ids: []
+
+findings:
+  - id: F-201
+    severity: medium
+    category: tech-debt
+    type: issue
+    gating: false
+    file: tests/test_book_interior_type_floor.py
+    line: 453
+    title: "`called_names` reads each authority only at its own surface, and the spy control cannot detect a vector-side indirection"
+    description: |
+      `called_names(source)` walks one source with `ast` and collects the names
+      of its `Call` nodes. For a per-kind MODULE authority that reads the whole
+      file, so intra-module indirection is covered. It does NOT follow calls
+      into other modules, and for the `BookPDFGenerator.vector_<kind>_page`
+      authority it reads only `inspect.getsource(writer)` -- one method body.
+
+      So a future vector writer that reached its clue digits through a wrapper
+      in another module (say `book_vector_draw.draw_grid_with_clues`, or a
+      shared `book_vector.py` helper) would make `draws_clue_digits` return
+      False, `CLUE_DIGIT_KINDS` lose that kind, and `stream_faces` READ the page
+      -- which is exactly cycle 1's F-001 failure mode, one level down.
+
+      The reason this is worth stating rather than filing as theory is that the
+      independent control CANNOT catch it. The spy reading is taken on the
+      RASTER medium (live `ImageDraw.text` calls joined to each page's
+      `PageKind`), so a vector-side indirection leaves it saying
+      `{answer, puzzle}` while the AST side also says `{answer, puzzle}` for the
+      wrong reason. The two readings would AGREE and both be wrong. M4 reds
+      because a deletion removes the kind from ONE side only.
+
+      MEASURED, no live instance: `grep -rn draw_clue_digits src/` gives exactly
+      four lines -- the definition at book_vector_draw.py:513, its `__all__`
+      entry at :74, and two DIRECT call sites, book_answer_vector.py:403 and
+      book_puzzle_vector.py:211. Nothing inside `book_vector_draw.py` calls it,
+      so there is no indirection path today and the derivation is complete as
+      it stands.
+    reproduction: >-
+      `ast` probe over all seven PageKind values printing
+      `called_names(source) & CLUE_DIGIT_DRAWERS` per authority source
+      (run with `python -I` against the worktree); plus
+      `grep -rn "draw_clue_digits" src/`.
+    recommendation: >-
+      Either resolve one level of indirection (walk the called helpers' sources
+      when they live in the same package), or -- cheaper and in this file's
+      spirit -- add a control that reds when a clue-digit drawer gains a caller
+      the derivation cannot see: assert that every `src/` line calling a
+      CLUE_DIGIT_DRAWERS name lies in a file `vector_writer_sources` returns for
+      some kind. That turns an invisible indirection into a failure, which is
+      what ADR-0039/R2 asks. CARD-314 is the natural owner, since it is already
+      changing how a vector page marks its clue digits.
+    confidence: high
+    source: measured
+
+  - id: F-202
+    severity: low
+    category: tech-debt
+    type: issue
+    gating: false
+    file: tests/test_book_interior_type_floor.py
+    line: 428
+    title: "The two authorities are a naming convention, so CARD-231 can write a correct vector divider that still reds"
+    description: |
+      `vector_writer_sources(kind)` looks for exactly
+      `src/nonogram/admin/book_<kind>_vector.py` and
+      `BookPDFGenerator.vector_<kind>_page`. That is a convention the four
+      existing writers happen to follow, not an enumeration of a registry.
+
+      CARD-231 makes the divider born vector. If it writes that page from
+      `book_vector.py`, or as `BookPDFGenerator.vector_divider_opener`, or by
+      rewriting `create_divider_page` to emit a ContentStream, the page
+      classifies VECTOR, `vector_writer_sources("divider")` is still `{}`, and
+      `stream_faces` fails with "no vector writer for that kind" on correct
+      work.
+
+      This is NOT a wrong outcome -- the failure is loud, it fires only once the
+      page really is operators (`page_media` requires a `/Font` and no
+      `/XObject`, tests/helpers/pdf_vector.py:104-105, so it cannot fire before
+      the writer exists), and the message already says "the card that wrote that
+      page owes this file its writer's name", which invites registering a new
+      name rather than demanding a filename. It is a handoff cost, recorded so
+      CARD-231's round reads it as expected rather than as a regression.
+    reproduction: >-
+      `tests/test_book_interior_type_floor.py::TestInteriorType_TheStreamArmIsReached::test_a_page_kind_with_no_vector_writer_is_a_failure_not_a_pass`
+      is the cell that pins the behaviour; `assert vector_writer_sources("divider") == {}`
+      at :1092 is its premise, re-derived by listing
+      `src/nonogram/admin/*vector*.py` (no book_divider_vector.py) and
+      `grep "def vector_" src/nonogram/admin/book_pdf_generator.py`
+      (vector_title_page, vector_puzzle_page, vector_two_up_page,
+      vector_puzzle_pages -- no vector_divider_page).
+    recommendation: >-
+      Add one line to CARD-231's revision section: this file's
+      `vector_writer_sources` must learn the divider's writer by name, or the
+      divider must be added to a declared-exempt set, in the same commit that
+      makes the page vector. One sentence on the receiving card costs less than
+      a round.
+    confidence: high
+    source: measured
+
+  - id: F-203
+    severity: low
+    category: test-quality
+    type: issue
+    gating: false
+    file: tests/test_book_interior_type_floor.py
+    line: 1188
+    title: "The SEMANTIC half of the non-vacuity mutant pair is still the tautology cycle 1 noted in passing -- F-004's named cell was fixed, its sibling was not"
+    description: |
+      `test_dropping_a_semantic_kind_reds_the_coverage_assertion` filters
+      `call.kind != "band"` out of the recording, builds `kinds` from what is
+      left, then asserts `"band" not in kinds` and
+      `not {"guide","divider","band"} <= kinds`. Both are true by construction
+      of the filter, for any recording whatsoever. MEASURED by `ast` over the
+      cell: its only call into the module under test is `recording`, and the
+      conclusion uses nothing the module computes.
+
+      Cycle 1 flagged this cell as "weaker than it reads for the same reason" as
+      F-004 while naming the page-kind cell as F-004's subject. The fix round
+      rewrote the named cell (M3 proves it) and left this one unchanged -- the
+      diff for :1188-:1198 is the round-1 text.
+
+      AC-1's second mutant is NOT lost: the real control is cycle 1's M-1
+      (deleting `_draw_page_frame`'s size-label `draw.text` reds
+      TestInteriorType_EveryFaceHoldsTheFloor::test_the_recording_covers_every_kind_of_interior_lettering[book1]
+      while the floor assertion stays green), and `_draw_page_frame` is
+      untouched here. So the claim stands on a real mutant; one of its two
+      advertised demonstrations is still decorative.
+    reproduction: >-
+      `ast` walk of the cell listing its Call nodes (calls into the module:
+      `['recording']` only); and the cell passes under M3, which guts
+      `kinds_covered_in_their_medium`.
+    recommendation: >-
+      Give it the same shape its sibling now has: drop the band's pages from the
+      reading through `MonkeyPatch.context()` and ask
+      `kinds_covered_in_their_medium` (or the real semantic `required <= kinds`
+      assertion) again -- or delete the cell and let M-1's style carry the
+      semantic arm, which it already does. Either is a few lines.
+    confidence: high
+    source: measured
+
+  - id: F-204
+    severity: low
+    category: test-quality
+    type: issue
+    gating: false
+    file: tests/test_book_interior_type_floor.py
+    line: 420
+    title: "The whole derivation rests on one hand-written string, and `book_vector_draw.__all__` is an authority sitting beside it"
+    description: |
+      `CLUE_DIGIT_DRAWERS` is `{name for _module, name in EXEMPT_CALLERS} |
+      {"draw_clue_digits"}`. MEASURED: the EXEMPT_CALLERS half contributes
+      nothing -- recomputing `draws_clue_digits` for all seven kinds with
+      `{"draw_clue_digits"}` as the only seed gives the identical per-kind
+      result. So `CLUE_DIGIT_KINDS`, the set this card's whole F-001 fix turns
+      on, is derived through exactly one hand-written literal.
+
+      Its control is `assert hasattr(book_vector_draw, "draw_clue_digits")`
+      inside test_the_refused_kinds_are_derived_and_agree_with_the_spy, which is
+      the right shape (a vanished seed is a failure, not an empty reading) and
+      it does catch a rename. What it does not catch is the seed gaining a
+      SIBLING -- a second vector clue-digit drawer under another name would be
+      invisible, with the same consequence as F-201.
+
+      `src/nonogram/admin/book_vector_draw.py` declares `__all__` and lists
+      `"draw_clue_digits"` at :74, which is an enumerable authority for "the
+      drawers this module exports".
+    reproduction: >-
+      Side-by-side recomputation of `draws_clue_digits` with the full seed and
+      with `{"draw_clue_digits"}` alone, over `PageKind`'s seven values;
+      `grep -n "draw_clue_digits" src/nonogram/admin/book_vector_draw.py`.
+    recommendation: >-
+      Seed from the authority instead of a literal: take the exported names in
+      `book_vector_draw.__all__` whose name says clue (and assert the result is
+      non-empty, so an empty match is a failure). Then a renamed OR an added
+      drawer both move the derivation.
+    confidence: high
+    source: measured
+
+  - id: F-205
+    severity: info
+    category: process
+    type: issue
+    gating: false
+    file: meta/review/CARD-299-cycle1.yml
+    line: 1
+    title: "The worktree is not clean -- an untracked duplicate of cycle 1's review YAML sits under a second filename"
+    description: |
+      The brief states the tree is clean. `git status --porcelain` in
+      /Users/omelnikova/PycharmProjects/PythonProject4-card-299 reports one
+      untracked entry: `meta/review/CARD-299-cycle1.yml`, 43803 bytes, 665
+      lines, byte-identical (`cmp -s`) to main's
+      `meta/review/20261029T000000Z-CARD-299-cycle1.yml`.
+
+      Because `meta/review/**` is not excluded from the validator's ref
+      resolver, I measured its effect rather than assuming: with the file moved
+      aside the validator still reads 0 errors / 102 warnings and the sorted
+      warning set is byte-identical. It resolves nothing, and `grep` confirms it
+      spells none of the three dead names as a whole token -- cycle 1's hygiene
+      held.
+
+      So this is benign today. It is recorded because a duplicate review YAML
+      under a non-canonical name, if it were ever committed, would silently
+      become a SECOND resolver for every `path::name` cycle 1 spelled, and a
+      later round measuring a warning delta would have two files to hold equal
+      instead of one.
+    reproduction: >-
+      `git status --porcelain`; `cmp -s` against main's copy; validator run with
+      the file present and moved aside, warning sets compared with `comm -3`.
+    recommendation: "Delete it, or rename it to the canonical timestamped name and commit it as the review artefact. Either way, say so, so the next round's `git status` matches its brief."
+    confidence: high
+    source: measured
+
+corrections_to_the_record:
+  - target: "the orchestrator's brief"
+    claim: "'Worktree ... Tree clean.'"
+    measured: "NOT clean. One untracked file, meta/review/CARD-299-cycle1.yml. See F-205. Measured to have zero validator effect."
+  - target: "the orchestrator's brief"
+    claim: "'main reads 100 warnings, this branch 102, and main is the dishonest one -- the SOLE resolver for FR-045/AC-390 and AC-391 is meta/review/20261029T130000Z-CARD-285-cycle1.yml'"
+    measured: >-
+      The orchestrator retracted this mid-cycle, having measured that those refs
+      also resolve through tracked `tests/test_public_player_pages.py`, so the
+      synced YAML is not the sole resolver and the 2-warning gap has no measured
+      cause. I made NO cross-tree comparison and report no figure for main. What
+      I did instead is the method the brief described and the orchestrator kept:
+      isolate the delta inside one worktree by holding the meta files equal.
+      Result: 102 with this card's meta delta, 102 without, warning sets
+      byte-identical. 0 errors throughout.
+  - target: "the orchestrator's brief"
+    claim: "'TestInteriorType_EveryFaceHoldsTheFloor's TWO parametrised ids byte-identical'"
+    measured: >-
+      FOUR, not two: two test functions x the `book` fixture's two params
+      ([book1], [min-trim]). All four are byte-identical in both collection sets.
+      The card's AC-1 wording ("both node ids preserved") means the two
+      functions, so nothing is wrong on the card; the brief's count of
+      PARAMETRISED ids is off by two.
+  - target: "the fix round's report, correction 2"
+    claim: "'test_book_pdf_geometry.py imports it ZERO times -- it matched because three of its node ids end in `_pdf_pages`'"
+    measured: >-
+      SUBSTANTIVELY RIGHT, path wrong. The file is
+      `tests/property/test_book_pdf_geometry.py`, not `tests/test_book_pdf_geometry.py`.
+      Its content reproduces exactly: zero imports from tests/helpers/pdf_pages,
+      and exactly THREE node ids ending `_pdf_pages`, at :365, :441 and :549.
+  - target: "the fix round's report, correction 2"
+    claim: "'18 files MENTION the string, 14 import something, only 12 import the one-image reader'"
+    measured: >-
+      The load-bearing figure reproduces EXACTLY: `12` files under tests/ import
+      the one-image reader `pdf_pages`, and I can name them. The two framing
+      figures do not reproduce as stated: `grep -rl pdf_pages tests/` gives
+      **39** files, not 18, and files importing anything whose path matches the
+      helper gives 35 (21 of those are `tests/fixtures/*.json` baselines that
+      merely contain the string). The round's POINT -- "a mention count is not a
+      reader count" -- is exactly right and the correction it drove is right; the
+      18 is itself a mention count taken over some narrower selection the report
+      does not state.
+  - target: "the fix round's report / cycle 1 / the ADR's new R6 comment"
+    claim: "'the 14 modules plus 3 helpers that went through tests/helpers/pdf_pages.py's one-image assertion' (quoted from CARD-309's AC-3)"
+    measured: >-
+      ONE helper, not three. `tests/helpers/book_corpus.py:889` is the only
+      helper that imports anything from pdf_pages, and it imports only
+      `pdf_page_count`. `tests/helpers/page_ink.py:75` and
+      `tests/helpers/pdf_vector.py:8,:16,:47` mention the module in COMMENTS
+      only. The ADR is quoting CARD-309's AC-3 faithfully, so the error is in
+      CARD-309's AC, not in this card's prose -- but the quotation carries it
+      forward, and CARD-309's AC-3 has already been corrected once today for the
+      18-vs-12 figure. Worth correcting the helper count in the same place.
+  - target: "the fix round's report, correction 3"
+    claim: "'the clue-digit finding was never in the ADR, so the round ADDED it in corrected two-kind form'"
+    measured: >-
+      CONFIRMED in outcome. The ADR's R6 block and requirements.yml's CON-020
+      check block both now carry the two-kind form with the 258/204 figures,
+      `book_answer_vector.py:403`, the derivation described, and CARD-314 named
+      as owing both kinds. CARD-314 itself is corrected on main (its scope
+      section carries the same table and says "covers the PUZZLE page and the
+      ANSWER page").
+  - target: "the fix round's report, correction 1"
+    claim: "'_conditional_silences is in tests/test_suite_profile.py:2743'"
+    measured: >-
+      CONFIRMED by `inspect.getsourcelines`, not by grep: 2743.
+      tests/test_guard_integrity.py:1518 mentions it in prose only. The sibling
+      locations the brief gives are also right: `_check_log_invocations` at
+      tests/test_guard_integrity.py:577, `_module_scope_silences` at :1511.
+  - target: "the card's AC-5 comment and the ADR's AC-5 correction"
+    claim: "'+272 and +361 are added PLUS deleted, not insertions; --numstat reads 261/11 and 359/2'"
+    measured: >-
+      CONFIRMED arithmetically (261+11=272, 359+2=361) and the labelling now
+      lives in the ADR. Two readings of the same diff, correctly distinguished.
+      For completeness the cumulative cut..HEAD numstat is 362/11 for
+      tests/property/test_book_export_interior.py and 689/2 for
+      tests/test_book_interior_type_floor.py.
+  - target: "the brief's ADR-0006/R1 instruction"
+    claim: "'the defect is a phantom pointer, not an unverified rule'"
+    measured: >-
+      CONFIRMED, and worth one added measurement: the class name ADR-0006/R1's
+      `check:` names (ADR 0006 line 170) has NO def or class anywhere in
+      tests/ or src/, but it IS present as text in
+      `tests/test_puzzle_editor_ui.py` and `tests/test_export_pdf.py` (a
+      docstring), so the validator's TEXT search resolves it and it raises no
+      warning at all -- the pointer is phantom AND silent. The rule's CONTENT is
+      genuinely tested at `tests/test_export_pdf.py:1249`,
+      `def test_the_dependency_baseline_is_still_closed`, which reads
+      `manifest["project"]["dependencies"]` and asserts
+      `packages == {"pillow", "numpy"}` -- the whole runtime list, not a
+      denylist. I report ADR-0006/R1 as held by substance and name only the live
+      test.
+
+card_amendments_owed:
+  - "The FINDING-3 paragraph (card lines 292-312) still reads 'RESOLVED ... there is nothing to re-point and no card is missing'. Cycle 1 measured that there IS, and the fix round agreed and recorded the honest version in tests/property/test_book_export_interior.py:444-450 and in the ADR's R6 comment -- but not on the card. The five declarations at book_pdf_generator.py (within :594-:700) still name CARD-299 for a reader conversion that is 2 of 12 modules done. Record on the card that CARD-299 discharges only part of what they wait on, or re-point them (a src/ change, so not this card's)."
+  - "Touches (card line 19) still lists tests/property/test_book_layout.py, tests/property/test_book_two_up.py and tests/test_book_pdf_memory.py, all three untouched by both commits (confirmed: `git diff --name-only 4ce84c30..f0304cb9 --` over the three returns nothing). Narrow it, or annotate each as refused-with-measurement, so a later impact pass does not read them as changed."
+  - "AC-2 should state that it is satisfied WITHOUT a check-ref change. requirements.yml now explains this at length in CON-020's check block; the AC itself still reads as though a flip is the gate, which is the condition that makes a later round 'restore' work that correctly did not happen."
+  - "AC-5's comment should say which reading its '+272 and +361' are (`--stat`, i.e. added plus deleted). The ADR now says it; the card does not."
+  - "The round-1 'SHARPEST FINDING' section (card lines 390-404) still describes the clue-digit problem as one kind, '205 Tf operators on a vector puzzle page'. The fix-round section below it carries the corrected two-kind form, so a careful reader gets there -- but the understatement is still the first version on the page. Add the 258/204 figures to that paragraph or mark it superseded."
+  - "Outside this card: CARD-314's Touches lists src/nonogram/admin/book_puzzle_vector.py and book_vector.py but NOT book_answer_vector.py, although its scope now covers the answer page and book_answer_vector.py:403 is the call that makes it so. And CARD-314's body at its line 74 still says CARD-299's stream_faces 'refuses a vector puzzle page by name', which this round superseded."
+  - "Standard fields: Review score, Actual, Closed, Merge commit."
+
+dead_ref_hygiene: >-
+  This report will be synced into main, where the validator's check-ref search
+  is a TEXT search over non-excluded files, `meta/review/**` included. So every
+  `path::name` and every bare test name spelled whole in this file was checked
+  against a real `def`/`class` line before being written -- not only the ones
+  this card is about. I ran one regex (`^\s*(class|def)\s+<name>\b`) over
+  `tests/` and `src/` for ALL 29 names this report spells whole, and every one
+  resolved, with its file and line. The live ones include
+  TestInteriorType_EveryFaceHoldsTheFloor (tests/test_book_interior_type_floor.py:659),
+  its three CON-020 siblings in the same file (:733, :786, :827), the sixteen
+  added node ids (all collected by pytest this cycle),
+  test_every_raster_page_is_declared_with_its_reason (tests/test_book_pdf.py:1797),
+  test_the_dependency_baseline_is_still_closed (tests/test_export_pdf.py:1249),
+  TestBookGridRules_WeightsSurviveTheFloor (tests/test_book_grid_rules.py:676),
+  TestBookGridRules_PointsNotPixels (:730),
+  TestGuidePage_EveryFaceHoldsTheFloorInTheStream (tests/test_book_guide_page_vector.py:300)
+  and _conditional_silences (tests/test_suite_profile.py:2743).
+
+  FOUR names with no definition are therefore spelled SPLIT and never as a bare
+  whole token, so this file cannot become their resolver:
+  (a) ADR-0006/R1's class ref -- "TestDependencyBaseline_" + "IsExactlyPillowAndNumpy"
+  (0 defs; already text-resolved from two tracked test files, so it is silent
+  rather than warned);
+  (b) ADR-0042/R6's planned guard, AC-3's and CARD-312's --
+  "test_no_interior_claim_is_made_by_" + "measuring_ink" (0 defs AND 0 text
+  mentions under tests/ or src/; it IS spelled whole in the ADR's own R6
+  comment, which is pre-existing at the cut 4ce84c30 and not introduced by this
+  card);
+  (c) AC-4's exemption control, now CARD-312's -- "TestInkGuard_NoExemptionAbsorbsAn"
+  + "InteriorClaim" (0 defs, 0 mentions);
+  (d) CON-019's byte-identity tripwire, G-4's -- "PropertyTest_CliExports_ByteIdentical"
+  + "WhateverTheBookGeometry" (0 defs; docstring mentions only), which I
+  verified by RUNNING tests/property/test_cli_exports_byte_identity.py rather
+  than by resolving the name.
+  All four are dead as of f0304cb9.
+
+deferred:
+  - "AC-1's first mutant (one face at 9 pt) -- carried from cycle 1 and the round, not re-run; deferred(cost)."
+  - "cycle 1's M-1 and M-2 -- not re-run: their subjects (_draw_page_frame's label draw.text, _set_band's draw.text) are in src/ and the fix commit touches 0 src files, so both verdicts carry unchanged."
+  - "the full suite -- the orchestrator's merge gate, deliberately not run; no lock was held and none was taken."
+  - "timings and any load figure -- deliberately absent. Two sibling cards were running validators on this box during my cycle (observed by pgrep), so any load or wall-clock figure would describe a different machine by the time it is read."
+
+meta_guard_run: >-
+  the six meta-guards (tests/test_collected_names.py, tests/test_suite_profile.py,
+  tests/test_cli.py, tests/test_guard_integrity.py, tests/test_kill_matrix.py,
+  tests/test_impact_set.py) -> 835 passed, 0 skipped, 0 failed (162.48s). Same
+  count as cycle 1, so the 16 added node ids cost the collected-names and
+  suite-profile guards nothing, and G-8's RENDER_HEAVY_SNAPSHOT is unmoved.
