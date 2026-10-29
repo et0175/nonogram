@@ -2104,16 +2104,32 @@ def test_a_skipped_criterion_is_not_a_resolved_one() -> None:
     module = pathlib.Path(__file__).resolve()
     module = module.relative_to(module.parent.parent).as_posix()
 
-    @pytest.mark.skip("probe")
+    # The marks are attached by ASSIGNING ``pytestmark``, the way pytest
+    # itself stores a decorator's result, and NOT by writing
+    # ``@pytest.mark.skipif(...)`` here. CARD-238's detector
+    # (``tests/test_suite_profile.py::_conditional_silences``) AST-walks every
+    # guarded source for a ``skipif`` decorator and reports it **whatever it
+    # is keyed on** — deliberately wider than host state — so a decorator in
+    # this control registers as a new host-state silence anywhere in the tree
+    # and reds
+    # ``test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones``.
+    # That guard is right and stricter than this test: the fix is to stop
+    # writing the decorator, NOT to add this probe to its measured baseline.
+    # (The CARD-291 merge gate caught exactly that, with the decorator form
+    # here, after review cycle 1 — a round the reviewer's impact scope never
+    # reached.) The marks below are still real ``Mark`` objects, so this
+    # control would still fail if :func:`_silenced` read the wrong attribute.
     def probe_skipped() -> None:
         pass
 
-    @pytest.mark.skipif(True, reason="probe")
     def probe_skipif() -> None:
         pass
 
     def probe_live() -> None:
         pass
+
+    probe_skipped.pytestmark = [pytest.mark.skip("probe").mark]
+    probe_skipif.pytestmark = [pytest.mark.skipif(True, reason="probe").mark]
 
     namespace = {
         "probe_skipped": probe_skipped,
