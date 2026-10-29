@@ -573,8 +573,16 @@ and CARD-309 will read it as a promise.** Scale, re-derived by the orchestrator:
 - **My brief's "34 files / 321 sites at HEAD" is mislabelled** — 321 is the figure at
   the cut and on `main`; the branch's own HEAD is **34 / 326**. The round's ADR
   comment was right to say "on main at `4ce84c30`".
-- **The `setrlimit` skip is `:1297`.** My brief has now had this wrong **three
-  times**.
+- **~~The `setrlimit` skip is `:1297`; my brief has had this wrong three times.~~
+  WITHDRAWN 2026-10-29 — I was over-correcting and nobody was wrong.** Measured
+  across commits: the `pytest.skip(` call is at **1296** at `f64112f2` and at
+  **1297** from `1fd39bb1` onward, because CARD-298's merge changed that file by
+  **+7/−2**. So every figure was right at its own commit — my `:1296` for a
+  pre-merge tree, the rounds' `:1297` for a post-merge one, and CARD-308's reviewer's
+  `:1296` for its own branch, which is cut from `f64112f2`. **I accepted two
+  corrections without checking whether both could be true, and then recorded a tally
+  of my own errors that was itself an error.** A line number is only a fact with a
+  commit attached.
 - **My unconditional quote of the sibling set was wrong** — at HEAD `:566-572`
   requires `{guide,divider,band}` and adds the other two only when
   `book != "min-trim"`.

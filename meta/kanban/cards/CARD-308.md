@@ -70,7 +70,11 @@ reports **0 errors**. `validate.py` itself is byte-identical between them;
 Cost already paid: CARD-284's fix round 2 chased the phantom error; the
 orchestrator once announced *"I have been running the wrong validator all
 session"* and had to retract it; and **both** of wave 65's implementation rounds
-reported the phantom error as pre-existing fact. `meta/kanban/config.yml` names no
+reported the phantom error as pre-existing fact. <!-- STALE as of 2026-10-29, review
+cycle 1's F-009: AC-1 landed OFF-BRANCH in main commit `7c68a7b1`, at
+`meta/kanban/config.yml:37-45`, because /commit excludes meta/kanban from card
+branches. The sentence below describes the board before that. -->
+`meta/kanban/config.yml` named no
 validator at all.
 
 ## What to implement
@@ -285,3 +289,133 @@ resolvers it has to survive — `meta/review/**`, `meta/profiling/**`,
 `meta/kanban/dispatcher.state`, `meta/kanban/backlog-scored.yml`, and prose inside
 `tests/` itself — and state that only the last cannot be excluded, which is why a
 pathspec narrowing is insufficient.
+
+## [Review cycle 1 — 7.5, DOES NOT CERTIFY, 2026-10-29]
+
+`min_score: 8`, cycle 1 of 3. **One gating finding, and it is a measured false green
+in this card's own central claim.** Report synced.
+
+**The review's own report revives nothing, verified rather than asserted** — `…`
+truncation on every model ref plus a prefix check on each, confirmed two ways after
+writing (the module's own trie over the full ref set returns `[]`, and real
+`git grep -lw` for three dead refs returns 0 hits in the file). Its own check caught
+its first draft spelling one ref in full, which it recorded as a **sixth** instance
+of the hazard, *caught by mechanism rather than by care*. That is the card's thesis
+demonstrated on its own reviewer.
+
+### F-001, GATING — the derived set silently drops 16 `trace.yml` refs, and the self-check is blind to exactly those
+
+`_declared_refs()`'s `tests:` block scan **`break`s on the first line that is not a
+`- item`** — and three `tests:` blocks in `trace.yml` carry `#` comment lines
+**inside** the list. Verified by the orchestrator at `:313`, `:1734` and `:2045`, and
+every one of the three is a comment *about a retired test*:
+
+```
+yaml.safe_load          510 refs      <- the orchestrator's independent figure, exactly
+break-on-non-item scan  494 refs
+dropped, silently        16
+```
+
+**The consequence was reproduced, not reasoned about**: planting a dropped ref as a
+whole token in the module gives **17 passed**, while real `git grep -lw` confirms the
+module has become one of its resolvers. So
+`test_this_module_resolves_no_verifying_ref_at_all`'s claim to cover *"every ref in
+the model"* is false — **576 of 579** — and that claim is the entire answer to the
+CARD-291 lesson this card was cut from. The silent drop also violates **ADR-0039/R2**,
+the module's own cited rule: an unanalysable shape must be a FAILURE, not a `break`.
+
+**Honestly mitigated, and the reviewer said so:** all 3 union-dropped refs are loose-
+*and* strict-alive (real `class` lines in `tests/test_book_puzzle_frame.py`), so **all
+six pinned counts are unaffected** — each re-derived exact. **Luck, not design.** Fix
+is ~5 lines: raise instead of `break`, then re-derive six baselines that should not
+move.
+
+### The census is 579, and BOTH the round and the orchestrator were wrong
+
+- round **576** — 3 low, via F-001.
+- orchestrator **580** — 1 high: my ADR-inline figure of 44 is an **occurrence**
+  count, and 45 occurrences resolve to 43 distinct refs.
+- my `trace.yml` figure of **510 is right**, and it is what exposed F-001.
+
+### The `…` device's reasoning is wrong while its safety holds
+
+Verified by the orchestrator in a throwaway repo: **`git grep -lw ZZPrefix` matches
+`ZZPrefix…Tail`.** So `…` *terminates* the token and exposes every prefix — the
+opposite of the stated reason. What actually makes it safe is the **self-check**: the
+reviewer planted `TestExport_RejectsUnverified…ForPDF`, whose prefix is a live ref,
+and got **1 failed**. Today 0 of 5 truncations has a declared-ref prefix. **Safe by
+mechanism, wrong argument** — and the docstring owes the right one. My brief repeated
+the wrong reasoning too.
+
+### What survived
+
+- **Count+digest is a real measurement with an enforced detector and an unenforced
+  response.** Detection proved **on the real mechanism**: appending a dead ref to a
+  `meta/review/*.yml` — exactly what the sync does — reds **2 cells**, 13→14 and
+  164→165. The digest is sorted and order-insensitive. **Repair-vs-signal-loss is only
+  documented**, in `_assert_class`'s message, which also hands over the paste-ready
+  line — so the lazy fix is one copy away.
+- **The prefix bug is controlled.** Rebuilt out-of-tree, the `body + "?"` bug makes
+  all 3 prefix refs lose **every** hit (1→0, 17→0, 14→0), and all three are in the
+  cross-checked set, so the control bites. **The 29 refs are not a sample but
+  exhaustive** over all 13 bookkeeping-only, all 13 falsely-dead and all 3 prefix
+  refs — and a fuller cross-check is **not affordable**: 101 ms/ref → 58 s for 576,
+  with one multi-pattern `git grep` killed by the OS.
+- **M2 reproduced exactly: 2 failed**, 644→644 lines, blob verified both sides. All 17
+  cells audited for the same vacuity shape; 14 are closed by a pin or an exact
+  equality, and the one left is `assert len(defined) > 300` against a measured 382 —
+  82 refs of headroom (F-005, low).
+- `backlog-scored.yml` **6 refs / 4 undefined** confirmed. ADR-0042/R4 **57** resolvers
+  confirmed — **57 stands, 79 is wrong.** The node-id table 20/1/2 = 23 confirmed.
+- **New, and it extends the card's own list:** `meta/kanban/waves.yml` resolves **3**
+  model refs, 1 undefined — a **fifth** kanban-side resolver, which the ADR lists
+  without a measurement.
+
+### The correction that matters most to the board's standing story
+
+**ADR-0006/R1's rule content IS tested.** `tests/test_export_pdf.py:1249` asserts
+`packages == {"pillow","numpy"}`, and its own docstring says *"ADR-0006's revision is
+what makes this the **rule's** check and not just one card's guardrail."* So the
+defect is a **phantom pointer, not an untested rule** — the ADR names the real test
+only in a `#` comment inside the excluded `meta/architecture/**`. One-line repair,
+**CARD-307's**. Every earlier framing on this board, including the orchestrator's
+memory, implied the dependency baseline itself was unverified. It is not.
+
+### Finding 7 — the `LeakedPatch` one-off is sufficient, and it is `kill_matrix.py`'s
+
+Proven from source rather than by racing: `kill_matrix.py:1345`'s `_apply` does
+`path.write_text()` on the **real tracked path** with restore in a `finally`, so the
+window provably exists and a concurrent `git status`/`git diff` gives exactly the
+observed pair. `:1255` is the fail-closed *"reached no assertion node"* branch, not a
+corrupt tree. **The residual is worth a card**: the module *reads* the full-suite lock
+but states at `:96` that it "never writes a lock anywhere", so **nothing serialises
+its plant window against a concurrent `git add`/`commit`** — live right now with
+three cards in flight, and the orchestrator's own commits are what surfaced it.
+
+### Figures the reviewer corrected in the round
+
+Runtime ~8.4 s → a **band of 7.9–16.4 s** over 7 runs. M3 reds **5** cells, not 4. The
+docstring's "163 bare refs have no containing definition" is **191** — 163 is the
+*falsely-alive* bare count, two domains in one sentence.
+`_module_scope_silences`/`_check_log_invocations` live in **`test_guard_integrity.py`**
+(`:1511`, `:577`), not `test_suite_profile.py` — all three still return `[]`.
+
+### Skips — the round's "ZERO" is wrong for the canonical set
+
+Deriving scope with the repo's **own** `scripts/impact_set.py --base f64112f2` (31) + 5
+= **36 modules**: **3454 passed, 11 skipped, 1 xfailed, 0 failed, 468 s**. All 11 are
+`conftest.py:207` `DATABASE_URL is not set`, named individually (9 in
+`test_admin_binding.py`, 2 in `test_db_engine_lifecycle.py`), **none a gate for this
+card**. The round's set was narrower than the selector on exactly the three
+`db_required` modules — so its "zero skips" was true of its own scope and not of the
+card's.
+
+### Amendments owed
+
+- **F-009**: the card said *"`config.yml` names neither"* — **stale**; AC-1 landed
+  off-branch in `7c68a7b1` at `config.yml:37-45`. Corrected above. Its `Touches:` also
+  predicts an untouched `meta/kanban/README.md`.
+- **F-008**: AC-4's substitution is **honest and documented** — the original ref really
+  was repaired (`def` at `test_approval_guess_gate.py:649`) — but **both** pins are
+  *permanent* cases, so one sentence is owed saying a transient instance cannot be
+  pinned stably by construction and is covered generically by the gate's class.
