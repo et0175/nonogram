@@ -166,3 +166,28 @@ rather than converting the old page and then redesigning it.
   (`tests/test_book_interior_type_floor.py:355`). When the divider goes vector,
   that kind's reading must move to the stream with it — CARD-299 left it on the
   raster path precisely because this card had not run.
+
+## [Cross-reference added 2026-10-29 — CARD-311 is the sibling feature]
+
+The owner asked whether the panel could **upload** a divider page; it cannot, and
+**CARD-311** was cut for it the same day. The two cards touch the same page from
+opposite directions and neither depends on the other:
+
+- **this card** makes the *generated* opener richer — large type, dots, range, a
+  line of what to expect;
+- **CARD-311** lets the owner supply an image that replaces it, with the drawn page
+  as the fallback when a slot is empty.
+
+So they are complementary: whatever this card designs becomes CARD-311's fallback.
+But **whichever lands second inherits a question neither card can answer alone** —
+whether an uploaded image should be able to replace a designed page at all, and
+what that means for CON-020's 10 pt type floor, which an image bypasses because the
+floor is verified by watching text draws. Worth the owner's view before the second
+one starts, rather than discovered by the second round.
+
+One ordering fact, measured: **ADR-0042/R2 keeps `PageKind.DIVIDER` declared raster
+specifically for this card** — its reason is that the new design should be *"born
+vector rather than the old one converted"*, and the declaration's `expires_with`
+names CARD-231. CARD-311 would make that page raster for a different and permanent
+reason, so if CARD-311 lands first, this card's vector ambition needs restating
+rather than assuming.
