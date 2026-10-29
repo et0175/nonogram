@@ -1733,7 +1733,7 @@ wave_65_opened:
 #   AWAITING OWNER: the slice decision. Options recorded in the user-facing report.
 active:
 - id: CARD-291
-  phase: merge gate (full suite, holds the lock)
+  phase: DONE -- merged 70f8e07e at 9.0 CERTIFIED, worktree removed
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-291
   implementation_head: 02a24694
   cycle_1: "9.0 CERTIFIED, no gating findings, 4 minor + 3 informational"
@@ -1742,7 +1742,10 @@ active:
   rebased_onto: 6761c899
   gate_head: 34e62d5d
 - id: CARD-298
-  phase: fix round 1 (after cycle 1 scored 7.0)
+  phase: review cycle 2 (fix round 1 landed 211e2cb7)
+  fix_round_1: "Commit 211e2cb7. 2 commits total, 10 files +2315/-80, meta/ and tests/fixtures 0 files. F-001 closed by a DEVIATION from the orchestrator brief that was CORRECT: the brief dictated the node-id ref spelling, which measures as a DEAD check ref (107 -> 108, a fresh ADR-0042/R2 warning); the shipped BARE NAME resolves to the real def at tests/test_book_pdf.py:1793 and leaves the warning sets byte-identical. ADR-0042/R5 own comment already said every live kind:test ref in this model is a bare name for that reason. R1 still review-lens at :345, so G-6 survival half holds. The five expiries now read CARD-299 + CARD-309 -- naming BOTH against a brief that said CARD-309 alone, and accepted: the field own docstring says a kind can be held raster by more than one unlanded piece of work and the expiry is the day the LAST lands."
+  fix_round_1_landing_guard: "Built with its control entirely over synthetic cards in tmp_path, because at HEAD no declaration is stale and a control over the real board would pass whatever the derivation did. Orchestrator independently reproduced its M1: deleting _card_status status-vocabulary clause reds the control."
+  fix_round_1_obstacle: "A card worktree meta/ is a snapshot of the cut, so the worktree holds 304 card files against the main tree 308 -- and CARD-309.md, the card the declarations now name, is one of the four missing. A naive pathlib read would have reported CARD-309 as a card the board never heard of, the typo case that must red, and shipped the live cell RED. Resolved via tests/full_suite_lock.main_repo_root. This is a real new tests-to-board coupling and cycle 2 is asked to judge whether reaching out of the worktree is right."
   worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-298
   implementation_head: 283164a9
   cycle_1: "7.0, DOES NOT CERTIFY against min_score 8. Two blocking findings, both verified independently before the fix round was dispatched."
