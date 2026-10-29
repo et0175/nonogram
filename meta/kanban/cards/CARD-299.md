@@ -208,7 +208,7 @@ round trip greys a rule's edges.
 - **NFR:** NFR-008
 - **ADR:** **ADR-0042/R6** (this card is its delivery), ADR-0039/R1-R2-R3, ADR-0036/R2
 - **Components:** none in `src/` — the test tree and the registry
-- **Trace:** meta/architecture/trace.yml — CON-020's check ref moves here, so its trace row is re-stamped in this card.
+- **Trace:** meta/architecture/trace.yml — CON-020's check ref moves here, so its trace row is re-stamped in this card. <!-- VERIFIED 2026-10-29 at the wave-66 slot decision: this line is ACTIONABLE, unlike the one CARD-298 inherited, and the obligation is stronger than it reads. CON-020 is a real row at `status: covered` with SEVEN tests listed, and `validators/trace.py::_check_covered_tests` gates all three of its checks on `status == "covered"` -- so this row's `tests:` list is one of the few the validator actually reads. Gate 3, a listed test with no definition, is **Severity.ERROR**, not a warning. FOUR of the seven live in `tests/test_book_interior_type_floor.py`, which is this card's FIRST declared Touches file: TestInteriorType_EveryFaceHoldsTheFloor (the one item 1 re-expresses), TestInteriorType_FloorHoldsWithoutArial, TestInteriorType_OnlyPuzzleClueDigitsAreExempt and TestDividerPage_PointSizeIsIndependentOfDpi. All seven resolve to real definitions today. **So renaming the re-expressed test without re-stamping this row turns the validator RED at error level, not warning level** -- the strongest gate on this board, and the one place a dead ref breaks the build. Re-stamp it in the same commit as the rename, and verify the new name by its `def`/`class` line rather than by `git grep` exiting 0, because gate 3 uses the same text search and so carries the same false-alive hole. -->
 
 ## Worktree notes
 

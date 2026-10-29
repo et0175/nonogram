@@ -223,12 +223,20 @@ drives is noise on 42 rows. (This also corrects CARD-291 cycle 1's figures, whic
 reported "40 partial rows with no tests and three that list tests" — that does not
 reproduce. The conclusion was right; the numbers were not.)
 
-**2. Nine rows say `covered` and list nothing.** That is the mirror of this card's
-defect: a row whose status asserts it is checked, with an empty `tests:` list — and
-unlike the partial rows, **these are the ones `validators/trace.py` actually
-reads**, because all three of its checks are gated on `status == "covered"`. So
-whatever those nine assert is asserted against nothing, by the one code path that
-was supposed to be the mechanical half.
+**2. ~~Nine rows say `covered` and list nothing.~~ WITHDRAWN 2026-10-29 — this was
+the orchestrator's error, and the code says so.** The nine are
+`CON-001..008` and `CON-013`, **all CON ids**, and `_check_covered_tests`'s gate 1
+errors **only for `FR` ids**: *"NFR/CON are often covered structurally (benchmarks,
+ADRs, deploy config) — don't force tests on them."* So an empty `tests:` list on a
+covered CON row is **sanctioned behaviour, not a hole**, and calling it "the mirror
+of this card's defect" was wrong. Measured: of the 9, **zero** are FR ids.
+
+What survives from that paragraph is the **gate-severity fact**, which is useful to
+this card for a different reason: on a `covered` row, gate 3 — a listed test with no
+definition — is **`Severity.ERROR`**, not a warning. So a covered row is the one
+place on this board where a dead test ref **breaks the build** rather than adding a
+line. It still resolves through the same `git grep -w` text search, so it carries the
+same false-alive hole; it just fails louder when it fails.
 
 **Add to this card's scope**, since it is the same question in the same file and a
 separate card would have to re-derive the same census:
@@ -245,9 +253,12 @@ separate card would have to re-derive the same census:
   board-wide convention change from inside one card, and that restraint is the
   reason this is here.
 
-**AC-1 is widened** accordingly: the derived enumeration covers both shapes — a
-`check:`/`tests:` ref with nothing behind it, **and** a row whose status claims more
-than its content supports.
+**AC-1 is widened** accordingly, but narrower than first written: the derived
+enumeration covers a `check:`/`tests:` ref with nothing behind it, **and** must
+partition `covered` rows by id kind, because an empty `tests:` list is a defect on an
+`FR` row and deliberately permitted on an `NFR`/`CON` one. A guard that flags all of
+them re-reports nine sanctioned rows as findings — which is the same failure as a
+guard that flags none.
 
 ## [Amended 2026-10-29 by CARD-298's fix round — the cheap repair this card was about to miss]
 
