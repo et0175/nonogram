@@ -1092,18 +1092,71 @@ def _report(verdicts: tuple[Verdict, ...]) -> str:
 # evidence of repair, and may be evidence of signal loss", so a class SHRINKING
 # has to be read and re-derived against a def/class exactly as a class growing
 # does. Either direction reds and prints the current class in full.
+#
+# Four of them were re-measured at d7eec7e7 on 2026-10-29 -- BOOKKEEPING_ONLY,
+# FALSELY_ALIVE, DEFINED and SAME_FILE_PROSE -- and each carries the reading
+# that moved it. One event, one cause (CARD-285's merge f13e8d85 defining three
+# FR-045 cells), judged the repair direction against a def/class per ref. The
+# other five did not move and were measured not to: FALSELY_DEAD, HONEST_DEAD,
+# RESOLVED_FROM_AFAR, CENSUS and TRACE_TESTS, each with an EMPTY symmetric
+# difference against bb7da562 rather than merely an unchanged count.
 
 #: Refs kept alive solely by pipeline bookkeeping -- the gate's class.
 #: 13 at the cut (f64112f2); **15** once ``main`` was merged in, and the two that
 #: arrived are this card's own mechanism firing on live data between its fix
 #: rounds -- see :data:`HONEST_DEAD`.
-BOOKKEEPING_ONLY = (15, "50e897ff86ef7c3d")
+#:
+#: **2026-10-29, 15 -> 12. A REPAIR -- the first this module has seen -- and
+#: recorded as such because this file's standing rule is that a departure is
+#: judged repair-or-signal-loss and written down, not pasted over.** ``main``'s
+#: CARD-285 merge (f13e8d85) gave real ``def``s to the three FR-045 node-id refs
+#: that until then were declared by the model and defined nowhere: AC-390,
+#: AC-391 and AC-392, i.e. ``tests/test_public_player_pages.py``'s
+#: ``test_assembled_site_is_self_contained``,
+#: ``test_pages_work_with_analytics_blocked`` and ``test_no_homegrown_tracking``
+#: cells (named here as the bare test names they are; their ``path::name`` form
+#: is a ref and G-2 keeps refs out of this file).
+#:
+#: Verified **against a ``def``/``class`` line, per ref, not with a text
+#: search**: ``git grep -nE '^[[:space:]]*(def|class)[[:space:]]+<name>'`` --
+#: POSIX ERE with character classes only, no ``\b``, which is undefined there
+#: and silently matches nothing (:func:`_definitions`). Measured: **zero**
+#: def/class lines anywhere at bb7da562 for all three, **exactly one** each at
+#: d7eec7e7, each in the module its own node id names, and all three collected
+#: by pytest. The merge is pinned too -- f13e8d85^1 (``main``) had none,
+#: f13e8d85^2 (CARD-285's branch) had all three -- and CARD-285 added the
+#: node-id rows to that module's own docstring table in the same merge, which
+#: is why the same three refs entered :data:`SAME_FILE_PROSE`.
+#:
+#: The three were not *inferred* from a class moving by three. Membership was
+#: diffed at both commits and the symmetric difference is **exactly those three
+#: refs and nothing else**, on this class, on :data:`FALSELY_ALIVE`,
+#: :data:`DEFINED`, :data:`SAME_FILE_PROSE` and the unpinned both-agree class,
+#: and **empty** on :data:`FALSELY_DEAD`, :data:`HONEST_DEAD`,
+#: :data:`RESOLVED_FROM_AFAR`, :data:`CENSUS` and :data:`TRACE_TESTS` -- which is
+#: what separates a repair from a repair plus a silent regression. The departure
+#: was then put to :func:`_refuse_unexplained_departures`, which recovered all
+#: three by name from :data:`BOOKKEEPING_ONLY_MEMBERS`'s digests alone and judged
+#: each one a repair.
+BOOKKEEPING_ONLY = (12, "16acfad2b066a66d")
 
 #: Refs the validator reports checked while nothing defines them. A superset of
 #: the above: the rest are mentioned by a comment or docstring under ``tests/``,
 #: which is the limit case no pathspec can exclude.
 #: 164 at the cut; **166** after the merge, the same two refs.
-FALSELY_ALIVE = (166, "34194ced6ad4c11e")
+#:
+#: **2026-10-29, 166 -> 163: the same repair and the same three refs** --
+#: CARD-285's merge f13e8d85 defining AC-390/AC-391/AC-392's cells, each
+#: re-derived against a ``def``/``class`` line rather than a text search, the
+#: symmetric difference on this class measured to be exactly those three
+#: leaving. See :data:`BOOKKEEPING_ONLY` for the per-ref verification. One
+#: consistency check falls out of it and is worth keeping: all 163 remaining
+#: falsely-alive refs are now ``bare``-form, because those three node ids were
+#: the only non-bare members. The module docstring's pair of figures -- 191 bare
+#: refs with no definition, 163 of them additionally loose-alive -- was
+#: re-derived at d7eec7e7 and is unchanged by the repair, so the coincidence
+#: that 163 is now *also* this whole class's size is just that.
+FALSELY_ALIVE = (163, "755f56056ce50a09")
 
 #: Refs the validator reports DEAD while a definition exists -- the other
 #: direction, not folded into the first (EC).
@@ -1188,7 +1241,17 @@ TRACE_TESTS = (510, "0ad7bd1af729a4bf")
 #: 385 -> 386, when ``main`` was merged in: one new ref declared there, defined
 #: at ``tests/test_book_pdf.py:1797``. Re-derived against that ``def``, so the
 #: move is recorded as the honest event it is rather than as a digest update.
-DEFINED = (386, "af36d65a4d2020be")
+#:
+#: **2026-10-29, 386 -> 389**: the same three refs arriving from the other side.
+#: CARD-285's merge (f13e8d85) defined AC-390/AC-391/AC-392's cells in
+#: ``tests/test_public_player_pages.py`` at lines 2587, 2768 and 2884, each
+#: confirmed by a ``def`` line read off that commit -- not by a text search, and
+#: not by trusting that a class moving by three moved by *these* three: the
+#: symmetric difference against bb7da562 is exactly those three entering and
+#: nothing leaving. They are the same three that left :data:`BOOKKEEPING_ONLY`
+#: and :data:`FALSELY_ALIVE`, so this is the repair direction of one event and
+#: not three independent moves.
+DEFINED = (389, "44af24f9281c7a97")
 
 #: Node-id refs that are defined in the module they name AND also mentioned in
 #: that module's prose -- AC-3's edge, and the board's one honest shim: a
@@ -1200,7 +1263,17 @@ DEFINED = (386, "af36d65a4d2020be")
 #: that deletes one of these ``def`` lines made that ref drop out of the set and
 #: the test went green on the remaining members. A class whose membership is not
 #: pinned cannot witness a member leaving it.
-SAME_FILE_PROSE = (16, "5539b351de2562fb")
+#:
+#: **2026-10-29, 16 -> 19: the same event, fourth class.** CARD-285's merge
+#: (f13e8d85) added AC-390/AC-391/AC-392 to ``tests/test_public_player_pages.py``'s
+#: own docstring node-id table *and* the three ``def``s in the same merge, so
+#: the three refs acquired both halves of this class's predicate at once --
+#: definition and same-file prose mention. Verified against the ``def`` lines
+#: (zero at bb7da562, one each at d7eec7e7, in the named module) rather than by
+#: a text search, and the symmetric difference on this class is exactly those
+#: three entering. That the shim module was already one of the four listed above
+#: is why nothing else here had to change.
+SAME_FILE_PROSE = (19, "e899a08818a9c4be")
 
 #: **Per-member digests of the two classes whose shrink is answerable
 #: mechanically** -- the enforceable half of repair-vs-signal-loss, and the
@@ -1214,13 +1287,13 @@ SAME_FILE_PROSE = (16, "5539b351de2562fb")
 #: :data:`BOOKKEEPING_ONLY` it is the gate's own class losing a member, so in
 #: both cases a "no" to that question is signal loss by this card's definition.
 #: For :data:`FALSELY_ALIVE`, :data:`CENSUS`, :data:`DEFINED` and
-#: :data:`TRACE_TESTS` there is no single such question -- and they are 166, 580,
-#: 386 and 510 members, so a per-member set for them would put thousands of hex
+#: :data:`TRACE_TESTS` there is no single such question -- and they are 163, 580,
+#: 389 and 510 members, so a per-member set for them would put thousands of hex
 #: characters in this file to answer a question nobody can state.
 #:
 #: **What closes them -- and what does not.** An earlier version of this comment
 #: said their closure is *the partition arithmetic*: that
-#: ``373 + 166 + 13 + 28 = 580`` and ``386 = 13 + 373`` leave no room for a ref
+#: ``376 + 163 + 13 + 28 = 580`` and ``389 = 13 + 376`` leave no room for a ref
 #: to move unnoticed. **That argument is withdrawn: it is a tautology.** The four
 #: predicates partition on ``(bool(loose), bool(strict))`` and ``defined`` is the
 #: union of two of those four cells, so both identities hold BY CONSTRUCTION --
@@ -1234,8 +1307,12 @@ SAME_FILE_PROSE = (16, "5539b351de2562fb")
 #: four classes is pinned as an exact ``(count, SHA-256 over its sorted members)``
 #: pair, so **no** membership change is silent -- a COUNT-PRESERVING swap
 #: included. Measured rather than argued: moving one ref out of
-#: :data:`FALSELY_ALIVE` and another in leaves the count at **166** and MOVES the
-#: digest. So *detection* is closed for all four of these classes by the pins
+#: :data:`FALSELY_ALIVE` and another in leaves the count unmoved (**166** when
+#: that swap was measured, **163** today) and MOVES the digest. The identities
+#: above were re-derived at d7eec7e7 after CARD-285's merge: they moved to
+#: ``376 + 163 + 13 + 28`` and ``389 = 13 + 376`` and, being tautologies, held
+#: without being checked -- which is exactly why they are not the argument.
+#: So *detection* is closed for all four of these classes by the pins
 #: alone; what is not closed is *naming* the departed member, which is the only
 #: thing a per-member set buys and which needs the single mechanical question
 #: these four do not have. The two sums above stay true and are worth reading as
@@ -1245,12 +1322,25 @@ SAME_FILE_PROSE = (16, "5539b351de2562fb")
 #: G-2: a 12-hex digest is not a ref and resolves nothing -- asserted, not
 #: argued, by :func:`test_this_module_resolves_no_verifying_ref_at_all` running
 #: the whole declared set's trie over this file's bytes.
+#: **2026-10-29, 15 -> 12 digests.** Three members left on CARD-285's merge and
+#: :func:`_refuse_unexplained_departures` met its first real **repair**: given
+#: the stored 15 and the derived 12 it recovered ``67727cff20af``,
+#: ``cc7262aedc8f`` and ``efad4f46f347`` by re-hashing the whole 580-ref
+#: population, named all three, found a ``def`` for each
+#: (``tests/test_public_player_pages.py`` lines 2884, 2768 and 2587), judged
+#: each a repair, returned without raising and issued **no** withdrawal warning
+#: -- the correct output, and the first evidence that the helper's green
+#: direction is reachable rather than only its red one. Both directions were
+#: proved on this same unmutated tree before the set was touched: dropping one
+#: surviving member instead reds with ``left WITHOUT gaining a def/class ...
+#: That is SIGNAL LOSS``, naming the ref, and a digest matching no declared ref
+#: still warns about a withdrawal. The 12 below are the stored 15 minus those
+#: three, checked as a set identity and not retyped.
 BOOKKEEPING_ONLY_MEMBERS = frozenset(
     {
         "080555bfe5ee", "1eb591d49a25", "29e08f59dc97", "5dffd6a19d09",
-        "65011680c167", "67727cff20af", "6971a52601f1", "70e3102a3463",
-        "80168d60bd5b", "be5117c9525f", "c19c9922ca0a", "cae6c630eb4b",
-        "cc7262aedc8f", "efad4f46f347", "fd377ad19c33",
+        "65011680c167", "6971a52601f1", "70e3102a3463", "80168d60bd5b",
+        "be5117c9525f", "c19c9922ca0a", "cae6c630eb4b", "fd377ad19c33",
     }
 )
 
@@ -1558,13 +1648,44 @@ def test_every_declared_ref_lands_in_exactly_one_class() -> None:
 #: resolvers.
 _AC038_REF = "TestGenerate_50x50_" + "RespectsTimeoutBound"
 
-#: A node-id instance of the same class. AC-4 as drafted named
+#: A node-id instance of the same class -- **and now the board's record of one
+#: that has been repaired.** AC-4 as drafted named
 #: ``tests/test_approval_guess_gate.py::test_unknown_verdict_…closed``
-#: (CARD-291's), and that ref has since been **repaired**: CARD-291 merged, the
-#: ``def`` is in the named module, and it now resolves both ways. Rather than
-#: weaken the assertion, this pins a ref still in the class -- FR-045/AC-392's,
-#: resolved by three CARD-218/CARD-284 review reports and nothing else.
+#: (CARD-291's); that ref was repaired, so the cell was re-pointed at
+#: FR-045/AC-392's, which was then resolved by three CARD-218/CARD-284 review
+#: reports and nothing else. **CARD-285's merge (f13e8d85) repaired that one
+#: too**, which is how this pin came to red on 2026-10-29: the cell was pinning
+#: a live defect, so it died with its own subject -- the second repair in a row
+#: to kill it. Re-pointing at a surviving member would re-arm the same trap
+#: against the next repair, and makes a detector's fixture out of the board's
+#: current defect list, which is the wrong incentive: the cell would then reward
+#: the board for staying broken.
+#:
+#: So the detection half no longer rests on this ref at all. It is built
+#: synthetically in
+#: :func:`test_the_node_id_eroded_instance_is_detected`, and this ref stays
+#: pinned only in the direction that **cannot** destroy itself: a repair staying
+#: repaired. Re-erosion -- the ``def`` deleted or renamed while the model goes on
+#: declaring the node id -- reds that cell, and a repair never un-repairs itself
+#: by a review YAML being synced in, which is the asymmetry the old design
+#: lacked.
 _AC392_REF = "tests/test_public_player_pages.py" + "::" + "test_no_homegrown_tracking"
+
+#: The synthetic eroded ref: a node id in a module that does not exist, declared
+#: by a synthetic authority set and resolved by a synthetic review YAML. It is
+#: deliberately not any ref the model declares -- see
+#: :func:`test_the_node_id_eroded_instance_is_detected` for why the detector's
+#: fixture must not be a live defect.
+_SYNTHETIC_ERODED = (
+    "tests/test_synthetic_card308_authority.py" + "::" + "test_synthetic_eroded_node_id"
+)
+
+#: Its control: the same shape with a definition in the module it names, which
+#: the detector must NOT report. Without it the cell passes on a detector that
+#: reports every node-id ref it is shown.
+_SYNTHETIC_DEFINED = (
+    "tests/test_synthetic_card308_authority.py" + "::" + "test_synthetic_defined_node_id"
+)
 
 
 def test_the_permanently_eroded_instance_is_detected() -> None:
@@ -1584,24 +1705,182 @@ def test_the_permanently_eroded_instance_is_detected() -> None:
     )
 
 
-def test_the_node_id_eroded_instance_is_detected() -> None:
+def test_the_node_id_eroded_instance_is_detected(tmp_path, monkeypatch) -> None:
     """AC-4, second half: the same class reached through a node-id ref.
 
     A detector that only catches the bare-name case would read as working while
     the node-id case erodes every wave, and the node-id form is the one the
     board is migrating to (CARD-294, CARD-291, CARD-307).
+
+    **Why this is synthetic, and the measurement that forced it.** This cell
+    used to pin a *live* member of the gate's class by name, and it has now been
+    killed twice by the thing it is supposed to encourage: CARD-291's merge
+    repaired the ref AC-4 was drafted against, and CARD-285's merge (f13e8d85)
+    repaired its replacement, :data:`_AC392_REF`, taking this cell red with it
+    at d7eec7e7. A detector test whose fixture is the board's current defect
+    list cannot survive the defects being fixed. Worse, it inverts the
+    incentive: the cheap way to green is for the board to keep an eroded ref
+    around, and the third re-pointing would simply re-arm the trap for the next
+    repair.
+
+    So the eroded shape is **constructed** here, against a synthetic authority
+    set in ``tmp_path`` and a synthetic resolution over files that exist only in
+    memory -- the same technique as
+    :func:`test_an_unreadable_declaration_key_shape_is_a_failure_and_not_a_skip`'s
+    26-shape matrix, and no tracked file is written at any point. What the cell
+    proves is therefore about the detector and not about the board: a node-id
+    ref that the loose search resolves only from ``meta/review/``, with no
+    ``def`` in the module it names, **is** reported by
+    :attr:`Verdict.bookkeeping_only`, and the same shape with a real definition
+    is **not**.
+
+    What is faked and what is not, stated so the cell is not read as more than
+    it is. Real: the authority derivation (:func:`_declared_refs` over the
+    synthetic YAML), :attr:`Declared.form`, :func:`_trie_pattern` (so the loose
+    hits are found with ``git grep -lw``'s own word boundaries rather than by
+    ``in``), :func:`_strict_resolution`, every :class:`Verdict` predicate and
+    :func:`_class_of`. Faked: the two file searches' *domain* -- which files
+    exist and what they contain. Their fidelity to the validator is a separate
+    claim with its own controls
+    (:func:`test_the_loose_resolver_agrees_with_git_grep_itself` and
+    :func:`test_the_definition_search_finds_a_definition_known_to_exist`), and
+    the live board's membership is pinned by :data:`BOOKKEEPING_ONLY`, so
+    nothing is left uncovered by moving this cell off a live instance.
+
+    The edge mutant for this cell is anything that stops the detector
+    detecting: ``bookkeeping_only`` returning ``False``, ``falsely_alive``
+    dropping its ``not self.strict`` term, or ``meta/review/`` being added to
+    :data:`CODE_ROOTS`. Measured out of tree on a copy of this module: each
+    reds this cell by name.
     """
-    eroded = {verdict.ref: verdict for verdict in _class_of(lambda v: v.bookkeeping_only)}
-    assert _AC392_REF in eroded, (
-        f"{_AC392_REF} is no longer detected as bookkeeping-only -- re-derive it "
-        f"before updating this test"
+    adr_dir = tmp_path / "adr"
+    adr_dir.mkdir()
+    requirements = tmp_path / "requirements.yml"
+    trace = tmp_path / "trace.yml"
+    (adr_dir / "0001-synthetic.md").write_text(
+        "# Synthetic ADR\n\n```yaml\n- id: SYN/R1\n"
+        f"  check: {{kind: test, ref: {_SYNTHETIC_ERODED}}}\n```\n",
+        encoding="utf-8",
     )
-    verdict = eroded[_AC392_REF]
-    assert not verdict.strict, f"expected no definition, found {verdict.strict}"
-    assert all(hit.startswith("meta/review/") for hit in verdict.loose), (
-        f"expected the review-YAML sync to be its only resolver; resolved by "
-        f"{verdict.loose}"
+    requirements.write_text(
+        f"requirements:\n  - id: SYN-001\n    test: {_SYNTHETIC_DEFINED}\n",
+        encoding="utf-8",
     )
+    trace.write_text(
+        f"covered:\n  - id: SYN-001\n    tests:\n      - {_SYNTHETIC_ERODED}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("tests.test_check_ref_resolution.ADR_DIR", adr_dir)
+    monkeypatch.setattr("tests.test_check_ref_resolution.REQUIREMENTS", requirements)
+    monkeypatch.setattr("tests.test_check_ref_resolution.TRACE", trace)
+
+    # The synthetic search domain. The eroded ref is quoted by a synced review
+    # report and by nothing else; the control ref is quoted by its own module's
+    # docstring node-id table AND defined there, which is the shape the board's
+    # four shim modules have.
+    module = _SYNTHETIC_ERODED.partition("::")[0]
+    review = "meta/review/19700101T000000Z-SYNTHETIC-cycle1.yml"
+    files = {
+        review: f"findings:\n  - the cell {_SYNTHETIC_ERODED} is cited here\n",
+        module: (
+            f'"""A synthetic module.\n\n* AC-SYN -- ``{_SYNTHETIC_DEFINED}``\n"""\n\n'
+            "def test_synthetic_defined_node_id() -> None:\n    pass\n"
+        ),
+    }
+
+    def synthetic_loose() -> dict[str, tuple[str, ...]]:
+        """The real trie over a synthetic domain -- `_loose_resolution`'s body."""
+        refs = tuple(declared.ref for declared in _declared_refs())
+        pattern = _trie_pattern(refs)
+        found: dict[str, set[str]] = {ref: set() for ref in refs}
+        for name, text in files.items():
+            for match in pattern.finditer(text):
+                found[match.group(0)].add(name)
+        return {ref: tuple(sorted(hits)) for ref, hits in found.items()}
+
+    def synthetic_definitions() -> dict[str, tuple[str, ...]]:
+        return {"test_synthetic_defined_node_id": (f"{module}:6",)}
+
+    monkeypatch.setattr(
+        "tests.test_check_ref_resolution._loose_resolution", synthetic_loose
+    )
+    monkeypatch.setattr(
+        "tests.test_check_ref_resolution._definitions", synthetic_definitions
+    )
+    # `_verdicts` is memoised on the real board, so it is cleared on the way in
+    # and on the way out: leaving a synthetic population cached would make every
+    # later cell in this module assert against it.
+    _verdicts.cache_clear()
+    try:
+        # The instrument, proved on the unmutated synthetic input first: both
+        # refs derived, both classified as node ids, and each resolved the way
+        # the fixture intends. A fixture that silently derived nothing would
+        # satisfy every negative assertion below.
+        derived = {verdict.ref: verdict for verdict in _verdicts()}
+        assert set(derived) == {_SYNTHETIC_ERODED, _SYNTHETIC_DEFINED}, sorted(derived)
+        for ref, verdict in derived.items():
+            assert verdict.declared.form == FORM_NODE_ID, (ref, verdict.declared.form)
+        assert derived[_SYNTHETIC_ERODED].loose == (review,), derived[_SYNTHETIC_ERODED]
+        assert not derived[_SYNTHETIC_ERODED].strict, derived[_SYNTHETIC_ERODED]
+        assert derived[_SYNTHETIC_DEFINED].strict == (f"{module}:6",), (
+            derived[_SYNTHETIC_DEFINED]
+        )
+
+        eroded = {
+            verdict.ref: verdict
+            for verdict in _class_of(lambda v: v.bookkeeping_only)
+        }
+        assert _SYNTHETIC_ERODED in eroded, (
+            f"the detector did not report a node-id ref that is declared by the "
+            f"model, resolved only by {review} and defined nowhere -- which is "
+            f"the erosion AC-4 is about. Reported instead: {sorted(eroded)}"
+        )
+        verdict = eroded[_SYNTHETIC_ERODED]
+        assert not verdict.strict, f"expected no definition, found {verdict.strict}"
+        assert all(hit.startswith("meta/review/") for hit in verdict.loose), (
+            f"expected the review-YAML sync to be its only resolver; resolved by "
+            f"{verdict.loose}"
+        )
+        # The control: the same form, same declaring authority, one `def`
+        # apart. A detector that reports this one reports everything.
+        assert _SYNTHETIC_DEFINED not in eroded, (
+            f"a node-id ref with a real definition in the module it names was "
+            f"reported as eroded: {derived[_SYNTHETIC_DEFINED]}"
+        )
+        assert not derived[_SYNTHETIC_DEFINED].falsely_alive
+    finally:
+        _verdicts.cache_clear()
+
+
+def test_the_repaired_node_id_instance_stays_repaired() -> None:
+    """The live half of AC-4's node-id case, in the direction that is monotone.
+
+    :data:`_AC392_REF` was a member of the gate's class until CARD-285's merge
+    defined it. Pinning that **repair** is safe where pinning the defect was
+    not: a ``def`` does not disappear because a review report was synced in, so
+    this cell cannot be killed by the board improving -- only by the board
+    regressing, which is the whole point. If it ever reds, either the ``def``
+    was deleted or renamed while the model goes on declaring the node id (the
+    erosion, returning to the same ref), or the model stopped declaring it, and
+    the two are distinguished here rather than left to a reader.
+    """
+    declared = {verdict.ref: verdict for verdict in _verdicts()}
+    assert _AC392_REF in declared, (
+        f"{_AC392_REF} is no longer declared by the model at all -- that moves "
+        f"CENSUS, and it is not this cell's subject; re-derive the census"
+    )
+    verdict = declared[_AC392_REF]
+    module = _AC392_REF.partition("::")[0]
+    assert verdict.strict, (
+        f"{_AC392_REF} has lost its definition: it was repaired by CARD-285's "
+        f"merge and is eroded again. The model still declares it, so the "
+        f"validator still reads it as checked."
+    )
+    assert any(site.rsplit(":", 1)[0] == module for site in verdict.strict), (
+        f"{_AC392_REF} is defined, but not in the module its node id names: "
+        f"{verdict.strict}"
+    )
+    assert not verdict.bookkeeping_only and not verdict.falsely_alive, verdict
 
 
 # --- AC-3 / the guard does not absorb honest refs ---------------------------
